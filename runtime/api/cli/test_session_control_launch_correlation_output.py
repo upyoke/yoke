@@ -19,6 +19,8 @@ def _launch(**overrides):
         "selected_surface": "codex-desktop",
         "native_session_id": "session-1",
         "registered_session_id": "session-1",
+        "identity_correlation": "matched",
+        "instruction_delivery": "delivered",
         "result_evidence": {
             "adapter_revision": "adapter-v2",
             "native_instruction_sha256": "sha256:safe-digest",
@@ -55,6 +57,7 @@ def test_launch_detail_shows_identity_chain_and_only_sanitized_evidence() -> Non
     assert "Native session" in rendered and "session-1" in rendered
     assert "Registered session" in rendered
     assert "Identity correlation" in rendered and "matched" in rendered
+    assert "Instruction delivery" in rendered and "delivered" in rendered
     assert "Result evidence" in rendered
     assert "adapter revision=adapter-v2" in rendered
     assert "native instruction sha256=sha256:safe-digest" in rendered
@@ -88,13 +91,17 @@ def test_launch_list_distinguishes_mismatch_and_awaiting_registration() -> None:
         {
             "launches": [
                 _launch(
-                    native_session_id="native-a", registered_session_id="registered-b"
+                    native_session_id="native-a",
+                    registered_session_id="registered-b",
+                    identity_correlation="mismatch",
                 ),
                 _launch(
                     launch_id="launch-2",
                     state="awaiting_registration",
                     native_session_id="native-c",
                     registered_session_id=None,
+                    identity_correlation="awaiting_registration",
+                    instruction_delivery="pending",
                 ),
             ]
         },
@@ -107,6 +114,36 @@ def test_launch_list_distinguishes_mismatch_and_awaiting_registration() -> None:
     assert "CORRELATION" in rendered
     assert "mismatch" in rendered
     assert "awaiting registration" in rendered
+
+
+def test_failed_correlation_says_instruction_was_not_delivered_and_teaches_recovery() -> (
+    None
+):
+    output = io.StringIO()
+
+    write_launch_result(
+        {
+            "launch": _launch(
+                launch_id="launch-failed",
+                state="outcome_unknown",
+                result_code="identity_parse_failed",
+                native_session_id=None,
+                registered_session_id=None,
+                identity_correlation="correlation_failed",
+                instruction_delivery="not_delivered",
+            )
+        },
+        output,
+    )
+
+    rendered = output.getvalue()
+    assert "failed (identity parse failed)" in rendered
+    assert "Instruction delivery" in rendered and "not delivered" in rendered
+    assert "Find the native session ID" in rendered
+    assert (
+        "yoke session-control launch reconcile launch-failed --observed-native-id ID"
+        in rendered
+    )
 
 
 def test_raw_evidence_string_is_never_echoed() -> None:

@@ -8,6 +8,7 @@ from typing import Any
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_types import LaunchRecord
+from yoke_core.domain.session_launch_visibility import launch_visibility
 
 
 _PUBLIC_FIELDS = (
@@ -51,6 +52,14 @@ def _safe_result_evidence(value: Any) -> dict[str, str | int]:
 def public_launch_record(launch: LaunchRecord) -> dict[str, Any]:
     """Project one launch without request identity, secrets, or native payloads."""
     result = {field: getattr(launch, field) for field in _PUBLIC_FIELDS}
+    result.update(
+        launch_visibility(
+            state=launch.state,
+            result_code=launch.result_code,
+            native_session_id=launch.native_session_id,
+            registered_session_id=launch.registered_session_id,
+        )
+    )
     result["result_evidence"] = _safe_result_evidence(launch.result_evidence)
     return result
 

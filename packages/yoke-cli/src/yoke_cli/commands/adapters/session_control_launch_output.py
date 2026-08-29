@@ -26,15 +26,46 @@ def _launch_status(launch: Mapping[str, Any]) -> str:
 
 
 def _launch_identity(launch: Mapping[str, Any]) -> str:
+    state = str(launch.get("identity_correlation") or "unknown")
+    labels = {
+        "matched": "matched",
+        "mismatch": "mismatch",
+        "awaiting_registration": "awaiting registration",
+        "registration_failed": "registration failed",
+        "native_unreported": "native identity not reported",
+        "correlation_failed": (f"failed ({humanize(launch.get('result_code'))})"),
+        "unavailable": "unavailable",
+        "pending": "waiting for native session",
+        "unknown": "status unavailable",
+    }
+    return labels.get(state, humanize(state))
+
+
+def _instruction_delivery(launch: Mapping[str, Any]) -> str:
+    state = str(launch.get("instruction_delivery") or "unknown")
+    return {
+        "delivered": "delivered",
+        "not_delivered": "not delivered",
+        "pending": "pending",
+        "unknown": "status unavailable",
+    }.get(state, humanize(state))
+
+
+def _launch_recovery(launch: Mapping[str, Any]) -> str | None:
+    if (
+        launch.get("instruction_delivery") != "not_delivered"
+        or launch.get("state") != "outcome_unknown"
+    ):
+        return None
+    launch_id = str(launch.get("launch_id") or "LAUNCH-ID")
     native = str(launch.get("native_session_id") or "").strip()
-    registered = str(launch.get("registered_session_id") or "").strip()
-    if native and registered:
-        return "matched" if native == registered else "mismatch"
+    command = f"yoke session-control launch reconcile {launch_id}"
     if native:
-        return "awaiting registration"
-    if registered:
-        return "native identity not reported"
-    return "waiting for native session"
+        return f"Reconcile before retry: {command} --observed-native-id {native}"
+    return (
+        "Find the native session ID, then reconcile before retry: "
+        f"{command} --observed-native-id ID"
+    )
 
 
 def _result_evidence(launch: Mapping[str, Any]) -> str | None:
@@ -81,12 +112,14 @@ def _write_launch_detail(
         ("Native session", launch.get("native_session_id")),
         ("Registered session", launch.get("registered_session_id")),
         ("Identity correlation", _launch_identity(launch)),
+        ("Instruction delivery", _instruction_delivery(launch)),
+        ("Recovery", _launch_recovery(launch)),
+        *_diagnostic_fields(launch),
         ("Result evidence", _result_evidence(launch)),
         ("Created (UTC)", utc_time(launch.get("created_at"))),
         ("Deadline (UTC)", utc_time(launch.get("deadline_at"))),
         ("Completed (UTC)", utc_time(launch.get("completed_at"))),
     ]
-    fields[13:13] = _diagnostic_fields(launch)
     if deduplicated is not None:
         fields.insert(2, ("Deduplicated", bool(deduplicated)))
     write_summary("LAUNCH", fields, stdout)
@@ -157,6 +190,7 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("NATIVE", lambda row: row.get("native_session_id"), 24),
             ("REGISTERED", lambda row: row.get("registered_session_id"), 24),
             ("CORRELATION", _launch_identity, 24),
+            ("DELIVERY", _instruction_delivery, 16),
             (
                 "MACHINE",
                 lambda row: (

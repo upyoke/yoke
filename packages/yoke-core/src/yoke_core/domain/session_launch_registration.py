@@ -5,14 +5,10 @@ from __future__ import annotations
 import hmac
 from typing import Any
 
-from yoke_core.domain.session_launch_binding_evidence import (
-    bound_registration_evidence,
-    late_registration_evidence,
-)
+from yoke_core.domain.session_launch_binding_evidence import late_registration_evidence
 from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
-    canonical_json,
     get_launch,
     instruction_message,
     marker,
@@ -26,94 +22,10 @@ from yoke_core.domain.session_launch_types import (
     LaunchRegistrationInjection,
     SessionLaunchError,
 )
-from .session_launch_registration_grace import hold_launch_registration_grace
-
-
-def _session_facts(conn: Any, session_id: str) -> dict[str, Any]:
-    p = marker(conn)
-    row = conn.execute(
-        "SELECT project_id, executor_surface, executor_version, machine_id, model "
-        f"FROM harness_sessions WHERE session_id = {p}",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        raise SessionLaunchError(
-            "session_not_registered",
-            "launch binding requires a registered session",
-        )
-    return {
-        "project_id": int(value(row, "project_id", 0)),
-        "surface": value(row, "executor_surface", 1),
-        "version": value(row, "executor_version", 2),
-        "machine_id": value(row, "machine_id", 3),
-        "model": value(row, "model", 4),
-    }
-
-
-def _require_exact_binding(
-    launch: LaunchRecord, session_id: str, facts: dict[str, Any]
-) -> None:
-    if launch.native_session_id != session_id:
-        raise SessionLaunchError(
-            "native_session_mismatch",
-            "registered session does not equal the native binding id",
-        )
-    if facts["project_id"] != launch.project_id:
-        raise SessionLaunchError("project_mismatch", "registered project differs")
-    if facts["surface"] != launch.selected_surface:
-        raise SessionLaunchError("surface_mismatch", "registered surface differs")
-    if launch.assigned_machine_id and facts["machine_id"] != launch.assigned_machine_id:
-        raise SessionLaunchError("machine_mismatch", "registered machine differs")
-
-
-def _insert_pending_recipient(
-    conn: Any,
-    *,
-    launch: LaunchRecord,
-    session_id: str,
-    facts: dict[str, Any],
-    now: str,
-) -> None:
-    p = marker(conn)
-    resolution = canonical_json({"anchor": "launch", "launch_id": launch.launch_id})
-    routing = canonical_json(
-        {
-            "relay_id": launch.assigned_relay_id,
-            "machine_id": launch.assigned_machine_id,
-            "surface": launch.selected_surface,
-        }
-    )
-    values = (
-        launch.message_id,
-        session_id,
-        launch.project_id,
-        resolution,
-        routing,
-        facts["surface"],
-        facts["version"],
-        facts["machine_id"],
-        "pending",
-        now,
-        launch.deadline_at,
-    )
-    conn.execute(
-        "INSERT INTO session_message_recipients "
-        "(message_id, session_id, project_id, resolution_evidence, routing_snapshot, "
-        "executor_surface, executor_version, machine_id, state, created_at, wake_after) "
-        f"VALUES ({', '.join(p for _ in values)}) "
-        "ON CONFLICT(message_id, session_id) DO UPDATE SET "
-        "project_id=excluded.project_id, resolution_evidence=excluded.resolution_evidence, "
-        "routing_snapshot=excluded.routing_snapshot, "
-        "executor_surface=excluded.executor_surface, "
-        "executor_version=excluded.executor_version, machine_id=excluded.machine_id, "
-        "state='pending', created_at=excluded.created_at, wake_after=excluded.wake_after, "
-        "injection_lease_id=NULL, injection_leased_at=NULL, "
-        "injection_lease_expires_at=NULL, injection_count=0, last_injected_at=NULL, "
-        "acknowledged_at=NULL, expired_at=NULL, cancelled_at=NULL, "
-        "wake_attempt_count=0, last_wake_at=NULL "
-        "WHERE session_message_recipients.state='cancelled'",
-        values,
-    )
+from .session_launch_registered_session_binding import (
+    bind_launch_to_session,
+    require_registered_session_facts,
+)
 
 
 def prepare_launch_registration(
@@ -166,23 +78,14 @@ def prepare_launch_registration(
             raise SessionLaunchError(
                 "attestation_invalid", "launch attestation is invalid"
             )
-        facts = _session_facts(conn, session_id)
-        _require_exact_binding(launch, session_id, facts)
-        hold_launch_registration_grace(conn, session_id, now=current)
-        _insert_pending_recipient(
+        facts = require_registered_session_facts(conn, session_id)
+        bind_launch_to_session(
             conn,
             launch=launch,
             session_id=session_id,
             facts=facts,
             now=current,
-        )
-        update_launch(
-            conn,
-            launch_id,
-            registered_session_id=session_id,
-            attestation_consumed_at=current,
-            result_code="registration_bound",
-            result_evidence=bound_registration_evidence(launch, facts["model"]),
+            wake_after=launch.deadline_at,
         )
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()

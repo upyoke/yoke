@@ -2,7 +2,7 @@
 
 Each detector answers a question a steering seat used to answer by
 remembering to go and look: did a message reach the worker it was sent to,
-did a launch ever produce a session, and did merged work ever close out. A
+did a launch bind its native session and route the instruction, and did merged work ever close out. A
 habit is not a guarantee, so they are queries. The fourth silence -- an idle
 worker waiting on an answer that cannot arrive -- is a judgment rather than a
 lookup and lives in :mod:`steering_fleet_report_dead_waits`.
@@ -27,6 +27,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
+from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 
 
 #: How long an envelope may sit uninjected before the delivery plane has
@@ -63,13 +64,16 @@ class StarvedDelivery:
 
 @dataclass(frozen=True)
 class UnregisteredLaunch:
-    """One launch past its deadline that never produced a session."""
+    """One launch whose missing session binding blocks instruction delivery."""
 
     launch_id: str
     surface: str
     machine_id: str
     state: str
     overdue_seconds: int
+    result_code: str = ""
+    native_session_id: str | None = None
+    observed_session_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -145,32 +149,48 @@ def unregistered_launches(
     project_id: int,
     now: str,
 ) -> tuple[UnregisteredLaunch, ...]:
-    """Launches past ``deadline_at`` that never bound a session.
+    """Launches whose instruction is stranded by missing session binding.
 
-    Only launches still in flight are reported. One the deadline sweep has
-    already closed needs no reconcile, and including closed launches would
-    grow this section with the project's whole launch history.
+    Correlation failures and exact registered-but-unbound sessions are visible
+    immediately. Other in-flight launches appear only after their deadline.
+    Closed unrelated history remains excluded.
     """
     p = marker(conn)
     states = sorted(IN_FLIGHT_LAUNCH_STATES)
-    holes = ", ".join(p for _ in states)
+    state_holes = ", ".join(p for _ in states)
+    failures = sorted(CORRELATION_FAILURE_CODES)
+    failure_holes = ", ".join(p for _ in failures)
     rows = conn.execute(
-        f"""SELECT launch_id, selected_surface, requested_surface,
-                   assigned_machine_id, requested_machine_id, state, deadline_at
-              FROM session_launches
-             WHERE registered_session_id IS NULL
-               AND project_id = {p}
-               AND state IN ({holes})
-             ORDER BY deadline_at ASC, launch_id ASC""",
-        (int(project_id), *states),
+        f"""SELECT l.launch_id, l.selected_surface, l.requested_surface,
+                   l.assigned_machine_id, l.requested_machine_id, l.state,
+                   l.deadline_at, l.result_code, l.native_session_id,
+                   s.session_id AS observed_session_id
+              FROM session_launches l
+              LEFT JOIN harness_sessions s
+                ON s.session_id = l.native_session_id
+               AND s.project_id = l.project_id
+               AND s.executor_surface = l.selected_surface
+               AND (l.assigned_machine_id IS NULL
+                    OR s.machine_id = l.assigned_machine_id)
+               AND s.ended_at IS NULL
+               AND s.terminated_at IS NULL
+             WHERE l.registered_session_id IS NULL
+               AND l.project_id = {p}
+               AND (l.state IN ({state_holes})
+                    OR l.result_code IN ({failure_holes})
+                    OR s.session_id IS NOT NULL)
+             ORDER BY l.deadline_at ASC, l.launch_id ASC""",
+        (int(project_id), *states, *failures),
     ).fetchall()
-    overdue = []
+    gaps = []
     for row in rows:
         record = dict(row)
-        elapsed = age_seconds(str(record.get("deadline_at") or ""), now)
-        if not elapsed:
+        elapsed = age_seconds(str(record.get("deadline_at") or ""), now) or 0
+        result_code = str(record.get("result_code") or "")
+        observed_session_id = str(record.get("observed_session_id") or "") or None
+        if not elapsed and result_code not in failures and not observed_session_id:
             continue
-        overdue.append(
+        gaps.append(
             UnregisteredLaunch(
                 launch_id=str(record["launch_id"]),
                 surface=str(
@@ -185,9 +205,21 @@ def unregistered_launches(
                 ),
                 state=str(record.get("state") or ""),
                 overdue_seconds=elapsed,
+                result_code=result_code,
+                native_session_id=(str(record.get("native_session_id") or "") or None),
+                observed_session_id=observed_session_id,
             )
         )
-    return tuple(overdue)
+    return tuple(
+        sorted(
+            gaps,
+            key=lambda entry: (
+                0 if entry.result_code in failures or entry.observed_session_id else 1,
+                -entry.overdue_seconds,
+                entry.launch_id,
+            ),
+        )
+    )
 
 
 def landed_without_closeout(
@@ -235,7 +267,9 @@ def landed_without_closeout(
                 landed_seconds=age_seconds(landed_at, now) or 0,
             )
         )
-    return tuple(sorted(landed, key=lambda entry: (-entry.landed_seconds, entry.item_id)))
+    return tuple(
+        sorted(landed, key=lambda entry: (-entry.landed_seconds, entry.item_id))
+    )
 
 
 __all__ = [

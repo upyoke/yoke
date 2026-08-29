@@ -80,7 +80,7 @@ The report already answers, from live control-plane state, every check that
 used to be a hand query here — available work with a per-row never-started
 / owner-released marker and an overdue flag, idle claim holders keyed on
 `last_tool_call_at` rather than any liveness label, starved outbound
-delivery, unregistered launches past their deadline, items whose branch
+delivery, launches with failed or overdue instruction binding, items whose branch
 landed while the item stayed open, and whether an idle holder's last
 question can still be answered. Do not re-run those queries by hand: a
 steering seat that did burned a pass rediscovering what the report on

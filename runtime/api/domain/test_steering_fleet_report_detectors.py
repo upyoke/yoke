@@ -44,7 +44,15 @@ def _send(conn, message_id: str, *, sender: str, to: str, at: str, state="pendin
     )
 
 
-def _launch(conn, launch_id: str, *, deadline: str, state="awaiting_registration"):
+def _launch(
+    conn,
+    launch_id: str,
+    *,
+    deadline: str,
+    state="awaiting_registration",
+    result_code=None,
+    native_session_id=None,
+):
     conn.execute(
         "INSERT INTO session_messages "
         "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
@@ -56,10 +64,21 @@ def _launch(conn, launch_id: str, *, deadline: str, state="awaiting_registration
         "INSERT INTO session_launches "
         "(launch_id, requester_actor_id, project_id, requested_surface, "
         "selected_surface, allow_surface_fallback, message_id, state, "
-        "deadline_at, created_at, origin, assigned_machine_id) "
+        "deadline_at, created_at, origin, assigned_machine_id, result_code, "
+        "native_session_id) "
         "VALUES (%s, %s, %s, 'codex-cli', 'codex-cli', 0, %s, %s, %s, %s, "
-        "'operator', 'machine-1')",
-        (launch_id, ACTOR_ID, PROJECT_ID, f"msg-{launch_id}", state, deadline, LONG_AGO),
+        "'operator', 'machine-1', %s, %s)",
+        (
+            launch_id,
+            ACTOR_ID,
+            PROJECT_ID,
+            f"msg-{launch_id}",
+            state,
+            deadline,
+            LONG_AGO,
+            result_code,
+            native_session_id,
+        ),
     )
 
 
@@ -139,6 +158,41 @@ def test_a_launch_past_its_deadline_with_no_session_is_reported(fleet):
     assert [entry.launch_id for entry in overdue] == ["launch-1"]
     assert overdue[0].surface == "codex-cli"
     assert overdue[0].overdue_seconds == 3 * 3600
+
+
+def test_identity_parse_failure_is_reported_before_the_deadline(fleet):
+    _launch(
+        fleet,
+        "launch-parse-failed",
+        deadline="2026-08-26T12:10:00Z",
+        state="outcome_unknown",
+        result_code="identity_parse_failed",
+    )
+    fleet.commit()
+
+    gaps = unregistered_launches(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert [entry.launch_id for entry in gaps] == ["launch-parse-failed"]
+    assert gaps[0].overdue_seconds == 0
+    assert gaps[0].result_code == "identity_parse_failed"
+
+
+def test_exact_registered_session_with_missing_launch_binding_is_named(fleet):
+    _launch(
+        fleet,
+        "launch-existing-session",
+        deadline="2026-08-26T12:10:00Z",
+        state="outcome_unknown",
+        result_code="late_native_requires_reconciliation",
+        native_session_id=ANSWERER,
+    )
+    fleet.commit()
+
+    gaps = unregistered_launches(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert [entry.launch_id for entry in gaps] == ["launch-existing-session"]
+    assert gaps[0].observed_session_id == ANSWERER
+    assert gaps[0].overdue_seconds == 0
 
 
 def test_a_launch_that_registered_a_session_is_not_reported(fleet):
