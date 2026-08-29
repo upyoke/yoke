@@ -263,7 +263,8 @@ class TestExecuteCreate:
         assert "[DRY-RUN]" in out.getvalue()
         patched["_rebuild_board"].assert_not_called()
 
-    def test_create_sets_session_current_item(self, tmp_db):  # noqa: F811
+    def test_create_records_recent_item_without_taking_focus(self, tmp_db):  # noqa: F811
+        """Filing an item is not claiming it, so the focus slot stays empty."""
         _seed_session(tmp_db)
         out = io.StringIO()
         with _patch_externals(), \
@@ -279,8 +280,8 @@ class TestExecuteCreate:
             )
         assert result["success"] is True
         attribution = _session_attribution(tmp_db)
-        assert attribution["current_item_id"] == str(result["item_id"])
-        assert attribution["recent_item_id"] is None
+        assert attribution["current_item_id"] is None
+        assert attribution["recent_item_id"] == str(result["item_id"])
 
     def test_create_while_claimed_records_recent_and_keeps_focus(self, tmp_db):  # noqa: F811
         """Filing an item never displaces the work a claim holds."""

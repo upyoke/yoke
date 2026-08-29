@@ -32,7 +32,7 @@ from yoke_core.domain.backlog_item_db_writes import (  # noqa: F401
 )
 from yoke_core.domain.backlog_session_attribution import (  # noqa: F401
     _current_session_id,
-    _maybe_set_session_current_item,
+    record_touched_item,
 )
 from yoke_core.domain.backlog_status_claim_verification import (  # noqa: F401
     _verify_status_claim,
@@ -86,7 +86,7 @@ __all__ = [
     "_update_item_field",
     "_update_item_multi",
     "_current_session_id",
-    "_maybe_set_session_current_item",
+    "record_touched_item",
     "_verify_status_claim",
     "_cascade_epic_tasks",
     "_run_authoritative_status_gate",

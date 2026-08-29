@@ -26,7 +26,7 @@ def _format_session_age(iso_ts: str) -> str:
         ts = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
-        secs = int((datetime.now(timezone.utc) - ts).total_seconds())
+        secs = max(0, int((datetime.now(timezone.utc) - ts).total_seconds()))
         if secs < 60:
             return f"{secs}s"
         if secs < 3600:

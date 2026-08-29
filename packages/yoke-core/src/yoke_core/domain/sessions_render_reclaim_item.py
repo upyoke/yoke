@@ -18,7 +18,7 @@ plus the item-scoped recheck would exceed the cap).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, List
 
 from . import db_backend
 from . import sessions_analytics as _sa
@@ -31,6 +31,7 @@ from .sessions_analytics import (
     EVENT_RECLAIM_ABORTED,
     EVENT_WORK_RECLAIMED,
 )
+from .sessions_item_focus_release import release_item_focus_for_sessions
 from .sessions_queries import _now_iso, normalize_claim_item_id
 from .time_sql import now_sql
 from .workflow_item_binding_lock import (
@@ -81,6 +82,7 @@ def reclaim_stale_item_claims(
     ).fetchall()
 
     released = 0
+    reclaimed_holders: List[str] = []
     for claim_row in candidate_rows:
         holder_session_id = claim_row["session_id"]
         recheck = classify_reclaimable(
@@ -122,6 +124,7 @@ def reclaim_stale_item_claims(
             (now, claim_row["id"]),
         )
         released += 1
+        reclaimed_holders.append(holder_session_id)
 
         _sa._emit_session_event(
             EVENT_WORK_RECLAIMED,
@@ -138,6 +141,9 @@ def reclaim_stale_item_claims(
         )
 
     conn.commit()
+    # The holder no longer has this item; a focus row still naming it
+    # would render a session as working claimed-away work.
+    release_item_focus_for_sessions(conn, item_id_int, reclaimed_holders)
     return released
 
 

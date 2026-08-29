@@ -8,7 +8,7 @@ from unittest.mock import Mock
 from yoke_core.domain import (
     item_status_transitions,
     path_claims_dependency_propagation,
-    sessions_terminal_focus_cleanup,
+    sessions_item_focus_release,
 )
 from yoke_core.domain.backlog_update_effects import (
     UpdateEffectReceipt,
@@ -29,8 +29,8 @@ def _terminal_receipt() -> UpdateEffectReceipt:
 def test_telemetry_failure_cannot_skip_terminal_cleanup(monkeypatch) -> None:
     calls: list[tuple[str, object]] = []
     monkeypatch.setattr(
-        sessions_terminal_focus_cleanup,
-        "clear_terminal_item_focuses",
+        sessions_item_focus_release,
+        "release_item_focus_for_sessions",
         lambda _conn, item_id, session_ids: calls.append(
             ("focus", (item_id, session_ids))
         ),
@@ -75,8 +75,8 @@ def test_focus_failure_cannot_skip_path_repair_or_telemetry(
         raise RuntimeError("focus unavailable")
 
     monkeypatch.setattr(
-        sessions_terminal_focus_cleanup,
-        "clear_terminal_item_focuses",
+        sessions_item_focus_release,
+        "release_item_focus_for_sessions",
         fail_focus,
     )
     monkeypatch.setattr(

@@ -297,6 +297,19 @@ test("test-machine method plan subtitles show counts and bounded case names", as
     "4 cases · cold-start-hosted @fresh-host @shell-preconfigured · " +
       "hosted-connect · path-repair · …",
   );
+  const oneCase = {
+    ...plans[4],
+    case_keys: [plans[4].case_keys[0]],
+    case_summaries: [plans[4].case_summaries[0]],
+  };
+  context.client.call = async () => ok({
+    method: { ...machineMethod, plans: [oneCase] },
+  });
+  await renderQaMethodDetail(context, host, ["1"], "terminal-check");
+  assert.equal(
+    visibleText(byClass(host, "qa-plan-case-summary")[0]),
+    "1 case · cold-start-hosted @fresh-host @shell-preconfigured",
+  );
   assert.deepEqual(
     byClass(host, "qa-key-values")[0].children
       .filter((_, index) => index % 2 === 0)

@@ -49,7 +49,12 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     last_tool_call_at TEXT,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
     episode_started_at TEXT,
-    pending_resume_notice TEXT
+    pending_resume_notice TEXT,
+    current_item_id TEXT,
+    current_item_set_at TEXT,
+    recent_item_id TEXT,
+    recent_item_status TEXT,
+    recent_item_recorded_at TEXT
 );
 """
 
@@ -196,6 +201,47 @@ class TestAutoReacquireWithinWindow(_PgReacquireTestCase):
             ("sess-A",),
         ).fetchone()[0]
         self.assertEqual(active_count, 1)
+
+    def test_reacquired_item_claim_restores_focus(self) -> None:
+        """A resumed episode points at the work its claim came back to."""
+        conn = self.conn
+        _insert_session(conn, "sess-focus")
+        _insert_released_claim(conn, "sess-focus", 101, released_age_s=10)
+        # Session end archived the focus slot; the claim outlived it.
+        conn.execute(
+            "UPDATE harness_sessions SET current_item_id = NULL, "
+            "recent_item_id = '101' WHERE session_id = %s",
+            ("sess-focus",),
+        )
+        conn.commit()
+        reacquired, _ = auto_reacquire_session_ended_claims(
+            conn,
+            "sess-focus",
+            reacquire_window_s=300,
+        )
+        self.assertEqual(len(reacquired), 1)
+        focus = conn.execute(
+            "SELECT current_item_id FROM harness_sessions WHERE session_id = %s",
+            ("sess-focus",),
+        ).fetchone()[0]
+        self.assertEqual(str(focus), "101")
+
+    def test_unreacquired_claim_leaves_focus_empty(self) -> None:
+        """Focus is claim-derived: no reacquire, no focus."""
+        conn = self.conn
+        _insert_session(conn, "sess-no-focus")
+        _insert_released_claim(conn, "sess-no-focus", 202, released_age_s=600)
+        reacquired, _ = auto_reacquire_session_ended_claims(
+            conn,
+            "sess-no-focus",
+            reacquire_window_s=300,
+        )
+        self.assertEqual(reacquired, [])
+        focus = conn.execute(
+            "SELECT current_item_id FROM harness_sessions WHERE session_id = %s",
+            ("sess-no-focus",),
+        ).fetchone()[0]
+        self.assertIsNone(focus)
 
     def test_outside_window_does_not_reacquire(self) -> None:
         conn = self.conn

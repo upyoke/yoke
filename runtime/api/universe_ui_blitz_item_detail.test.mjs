@@ -118,6 +118,36 @@ test("Blitz detail route renders the full execution-document composition", async
   assert.equal(byClass(facts, "row-link").length, 0);
 });
 
+test("Blitz parallelism states actual singular and absent lanes", async () => {
+  const renderParallelism = async (worktrees) => {
+    const documentNode = new FakeDocument();
+    const root = documentNode.createElement("div");
+    const blitz = detailItem("blitz");
+    blitz.worktrees = worktrees;
+    renderItemDetailView(itemContext(documentNode, async (request) => {
+      if (request.function === "items.detail.get") {
+        return {
+          status: 200,
+          envelope: { success: true, result: { item: blitz } },
+        };
+      }
+      return {
+        status: 200,
+        envelope: {
+          success: true,
+          result: { execution: { execution_document: null } },
+        },
+      };
+    }), root, "7", "ACM-22");
+    await settle();
+    return itemText(root);
+  };
+
+  const oneLane = detailItem("blitz").worktrees;
+  assert.match(await renderParallelism(oneLane), /Parallelism 1 lane/);
+  assert.match(await renderParallelism([]), /Parallelism no worker lanes/);
+});
+
 test("Blitz detail exposes an execution-document read failure", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");

@@ -13,6 +13,10 @@ from __future__ import annotations
 import json
 
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.sessions_render_attribution import (
+    release_current_item_focus,
+    release_item_focus_if_current,
+)
 from yoke_core.domain.work_claim_targets import (
     WorkClaimTarget,
     from_row as target_from_row,
@@ -75,6 +79,8 @@ def cmd_release(conn, claim_id: int, reason: str = "released") -> str:
         raise PermissionError(f"claim '{claim_id}' has already been released")
     target = _target(row["target_kind"], row["scope"])
 
+    if target.item_id is not None and row["sid"]:
+        release_item_focus_if_current(conn, row["sid"], target.item_id)
     conn.execute(
         "UPDATE work_claims SET released_at=%s, release_reason=%s "
         "WHERE id=%s AND released_at IS NULL",
@@ -132,13 +138,13 @@ def cmd_release_all(conn, session_id: str, reason: str = "released") -> str:
         released_at=now,
         intent=reason,
     )
-    # Match the canonical per-claim release path: after releasing every
-    # claim a session holds, any item focus the session retained is
-    # structurally stale. Clearing it here keeps the legacy
-    # `release-all-claims` CLI in parity with the typed release siblings
-    # so the path-claim pre-edit guard does not read a dangling focus
-    # link after a release.
-    _clear_current_item(conn, session_id)
+    # Match the canonical per-claim release path: focus the session kept
+    # on a just-released claim is structurally stale, so it archives here
+    # and falls back to whatever claim the liveness bound left active.
+    # This keeps the legacy `release-all-claims` CLI in parity with the
+    # typed release siblings so the path-claim pre-edit guard does not
+    # read a dangling focus link after a release.
+    release_current_item_focus(conn, session_id, commit=False)
     # Deliberate claim release is real item activity (R1 board-activity
     # semantics); process-target releases are not item-scoped.
     from yoke_core.domain.item_activity import touch_item_activity

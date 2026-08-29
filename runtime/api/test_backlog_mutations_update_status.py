@@ -63,7 +63,7 @@ class TestExecuteUpdate:
         assert _item_field(tmp_db, 10, "status") == "refining-idea"
         patched["_rebuild_board"].assert_called_once_with(out)
 
-    def test_status_update_sets_session_current_item(self, tmp_db):
+    def test_status_update_records_recent_item_without_taking_focus(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")
         _seed_item(tmp_db, id=8, status="planned")
         _seed_session(tmp_db)
@@ -89,8 +89,9 @@ class TestExecuteUpdate:
             )
         assert result["success"] is True
         attribution = _session_attribution(tmp_db)
-        assert attribution["current_item_id"] == "10"
-        assert attribution["recent_item_id"] == "8"
+        # Focus belongs to the claim lifecycle; a status write never moves it.
+        assert attribution["current_item_id"] == "8"
+        assert attribution["recent_item_id"] == "10"
 
     def test_status_update_denied_without_session_id(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")

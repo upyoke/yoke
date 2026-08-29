@@ -133,7 +133,7 @@ function planCaseSummaryNode(documentNode, plan, method) {
       documentNode,
       "span",
       "qa-plan-case-count",
-      `${summaries.length} cases · `,
+      `${summaries.length} case${summaries.length === 1 ? "" : "s"} · `,
     ));
   }
   const visible = machineCases ? summaries.slice(0, 3) : summaries;

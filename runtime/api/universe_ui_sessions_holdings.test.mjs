@@ -228,7 +228,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
     ),
     [
-      ["1", "sessions shown"],
+      ["1", "session shown"],
       ["2", "items claimed"],
       ["0", "Remote Control attached"],
       ["1", "actor"],
@@ -294,8 +294,8 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
     ),
     [
-      ["1", "sessions shown"],
-      ["1", "items claimed"],
+      ["1", "session shown"],
+      ["1", "item claimed"],
       ["0", "Remote Control attached"],
       ["1", "actor"],
     ],

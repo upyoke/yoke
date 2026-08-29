@@ -16,6 +16,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.opaque_contract_payload import opaque_contract_payload
 
 
 class HolderGetRequest(BaseModel):
@@ -276,7 +277,8 @@ def _holder_row_to_dict(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any
     return {
         "claim_id": int(row.get("id") if "id" in row else row.get("claim_id")),
         "session_id": str(row.get("session_id") or ""),
-        **target.descriptor(),
+        "target_kind": target.kind,
+        "scope": opaque_contract_payload(target.scope),
         "claimed_at": row.get("claimed_at"),
         "last_heartbeat": row.get("last_heartbeat"),
     }

@@ -215,7 +215,8 @@ def test_file_budget_line_counts_and_near_cap_flags(core_db, tmp_path) -> None:
     assert fb["over_cap_count"] == 1
     assert fb["near_cap_count"] == 2  # big.py is near AND over the cap
     assert fb["missing_count"] == 1
-    assert any("over the" in w for w in proj["warnings"])
+    assert "1 File Budget path over the 350-line cap" in proj["warnings"]
+    assert "file budget: 4 paths" in render_text(proj)
 
 
 def test_file_budget_prefers_existing_worktree(core_db, tmp_path) -> None:
@@ -240,6 +241,7 @@ def test_file_budget_prefers_existing_worktree(core_db, tmp_path) -> None:
     assert proj["worktree"]["state"] == "set"
     assert proj["worktree"]["exists"] is True
     assert proj["file_budget"]["paths"][0]["line_count"] == 12
+    assert "file budget: 1 path" in render_text(proj)
 
 
 _WRITABLE = (
