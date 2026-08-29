@@ -185,6 +185,12 @@ class LiveTreeTests(unittest.TestCase):
         self.assertEqual(
             findings, (), rhc.format_uncited_summary(findings),
         )
+        from yoke_core.tools import harness_continuation_coherence as hcc
+
+        continuations = hcc.continuation_contract_contradictions(root)
+        self.assertEqual(
+            continuations, (), hcc.format_continuation_summary(continuations),
+        )
 
     def test_manifests_carry_the_contract_answers(self) -> None:
         import json
