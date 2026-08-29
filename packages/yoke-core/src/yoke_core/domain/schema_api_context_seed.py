@@ -198,10 +198,5 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # recipe: waiting on a commit's CI runs is a long command agents otherwise
 # poll by hand, and a hand-authored filter fails silently, so the recipe has
 # to reach every role that waits on CI rather than living in help text alone.
-# The aggregate reads 2633 because the corpus grew past 2630 without this
-# constant following it, so the gate has been failing against content that
-# already shipped. Every per-role cap still holds, and the aggregate is what
-# `yoke packets budget get` reports the seven roles render today — which is
-# what this constant is for. Trim the seed before raising it again.
 PACKET_LINE_BUDGET_PER_ROLE: int = 425
-PACKET_LINE_BUDGET_AGGREGATE: int = 2633
+PACKET_LINE_BUDGET_AGGREGATE: int = 2630

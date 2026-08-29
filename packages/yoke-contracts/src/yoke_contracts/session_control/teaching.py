@@ -7,13 +7,10 @@ from uuid import UUID
 
 FLEET_MESSAGE_RECIPE = """yoke say --preview --item PREFIX-N
 printf '%s\\n' 'MESSAGE' | yoke say --item PREFIX-N --stdin
+# No claim addresses them? `yoke sessions list --liveness active`, then --session
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID
-yoke messages acknowledge MESSAGE-ID
-
-# Only for a recipient no claim addresses — a steering seat, an idle worker:
-yoke sessions list --liveness active
-printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin"""
+yoke messages acknowledge MESSAGE-ID"""
 FLEET_UNDELIVERED_CANCEL_RECIPE = (
     "# Top-level sender recovery for an undelivered message:\n"
     "yoke messages cancel MESSAGE-ID"
