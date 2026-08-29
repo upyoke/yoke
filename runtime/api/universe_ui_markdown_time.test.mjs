@@ -74,3 +74,18 @@ test("relative timestamps expose absolute context and toggle in place", () => {
   time.dispatchEvent(key);
   assert.equal(time.textContent, time.title);
 });
+
+test("relative timestamps preserve custom instant wording across toggles", () => {
+  const documentNode = new FakeDocument();
+  const now = Date.now();
+  const value = new Date(now + 60_000).toISOString();
+  const time = relativeTime(documentNode, value, now, {
+    instantText: "just now",
+  });
+
+  assert.equal(time.textContent, "just now");
+  time.dispatchEvent(new Event("click"));
+  assert.equal(time.textContent, time.title);
+  time.dispatchEvent(new Event("click"));
+  assert.equal(time.textContent, "just now");
+});

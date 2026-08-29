@@ -149,6 +149,7 @@ test("a lease-waiting case explains contention without offering actions", async 
   await renderQaPlanDetail(uiContext, host, ["1"], "13");
 
   assert.equal(byClass(host, "qa-case-actions")[0].textContent, "—");
+  assert.match(text(host), /success policy: all 1 case passes/);
   assert.match(
     byClass(host, "pill").find((node) => node.textContent === "in use").title,
     /YOK-2001.*this case queues.*nothing about the plan is blocked/,

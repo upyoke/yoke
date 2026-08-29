@@ -56,7 +56,7 @@ class TestRecordCollector:
         report = rec.format_report()
         assert report.startswith("# Ouroboros Health Report")
         assert "## Summary" in report
-        assert "1 checks run: 1 passed, 0 warnings, 0 failures" in report
+        assert "1 check run: 1 passed, 0 warnings, 0 failures" in report
 
     def test_format_report_sections(self):
         rec = RecordCollector()
@@ -64,6 +64,7 @@ class TestRecordCollector:
         rec.record("HC-w", "Warn Check", "WARN", "concern")
         rec.record("HC-p", "Pass Check", "PASS", "")
         report = rec.format_report()
+        assert "3 checks run: 1 passed, 1 warning, 1 failure" in report
         # Sections appear in FAIL, WARN, PASS order
         fail_pos = report.index("## Failures")
         warn_pos = report.index("## Warnings")

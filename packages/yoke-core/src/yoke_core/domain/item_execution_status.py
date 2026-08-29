@@ -69,6 +69,10 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _counted_noun(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
 def _collect_warnings(
     *,
     path_claims: Dict[str, Any],
@@ -86,12 +90,12 @@ def _collect_warnings(
         out.append("Progress Log latest entry is stale")
     if file_budget["over_cap_count"]:
         out.append(
-            f"{file_budget['over_cap_count']} File Budget path(s) over "
+            f"{_counted_noun(file_budget['over_cap_count'], 'File Budget path')} over "
             f"the {LINE_LIMIT}-line cap"
         )
     elif file_budget["near_cap_count"]:
         out.append(
-            f"{file_budget['near_cap_count']} File Budget path(s) near "
+            f"{_counted_noun(file_budget['near_cap_count'], 'File Budget path')} near "
             f"the {NEAR_CAP_THRESHOLD}-line design target"
         )
     return out
@@ -234,7 +238,7 @@ def render_text(projection: Dict[str, Any]) -> str:
     else:
         lines.append("  progress log: missing")
     lines.append(
-        f"  file budget: {fb['total']} path(s)  "
+        f"  file budget: {_counted_noun(fb['total'], 'path')}  "
         f"near_cap={fb['near_cap_count']}  over_cap={fb['over_cap_count']}  "
         f"missing={fb['missing_count']}"
     )

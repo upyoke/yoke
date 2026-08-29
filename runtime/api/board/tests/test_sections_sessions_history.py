@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from yoke_contracts.board import sections_sessions
 
 
@@ -59,5 +61,44 @@ def test_active_and_closed_rows_render_the_same_holdings_shape(monkeypatch) -> N
     rendered = sections_sessions.render_sessions_section(object())
 
     assert rendered.count("Claims") == 2
+    assert "1h ago" in rendered
     for target in ("YOK-8", "YOK-7", "YOK-6", "and 3 more", "and 9 more"):
         assert target in rendered
+
+
+def test_recent_future_ended_age_clamps_at_zero(monkeypatch) -> None:
+    now = datetime.now(timezone.utc)
+    closed = (
+        "closed-1",
+        "codex",
+        "codex-cli",
+        "model",
+        "dash",
+        "ALTMAN",
+        (now - timedelta(minutes=1)).isoformat(),
+        now.isoformat(),
+        "/tmp",
+        1,
+        (now + timedelta(seconds=30)).isoformat(),
+    )
+    monkeypatch.setattr(
+        sections_sessions,
+        "session_rows",
+        lambda _db, *, scope, active_only: [] if active_only else [closed],
+    )
+    monkeypatch.setattr(
+        sections_sessions, "session_holding_labels", lambda *_args: []
+    )
+    monkeypatch.setattr(
+        sections_sessions,
+        "session_common_cells",
+        lambda *_args: ["session", "project", "executor", "model"],
+    )
+    monkeypatch.setattr(
+        sections_sessions, "session_lane_presentation", lambda *_args: None
+    )
+
+    rendered = sections_sessions.render_sessions_section(object())
+
+    assert "0s ago" in rendered
+    assert "-0s ago" not in rendered

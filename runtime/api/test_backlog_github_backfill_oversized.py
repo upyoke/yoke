@@ -82,7 +82,7 @@ class TestIdentifiesOversizedItems:
         assert "Backfilled: EXT-61" in out
         assert "compact mirror" in out
         # The summary names the repair count.
-        assert "Total: 1 items repaired" in out
+        assert "Total: 1 item repaired" in out
         # No mention of the tiny or unlinked items.
         assert "EXT-60" not in out
         assert "EXT-62" not in out
@@ -118,7 +118,7 @@ class TestIdempotent:
         ):
             rc1 = cli.backfill_oversized_bodies(conn=db, stdout=stdout1)
         assert rc1 == 0
-        assert "Total: 1 items repaired" in stdout1.getvalue()
+        assert "Total: 1 item repaired" in stdout1.getvalue()
 
         # Simulate the post-repair state: the rendered body now fits.
         # The backfill scans + measures the body before calling sync_body, so
@@ -193,7 +193,7 @@ class TestSkipsOnAuthFailure:
         # The summary names the auth failure count.
         out = stdout.getvalue()
         assert "auth failures 1" in out
-        assert "Total: 1 items repaired" in out
+        assert "Total: 1 item repaired" in out
         db.close()
 
     def test_sync_failure_counted_and_returns_nonzero(self):

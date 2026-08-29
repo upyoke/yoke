@@ -243,7 +243,9 @@ function blitzPosturePanel(documentNode, item) {
   grid.appendChild(postureCell(
     documentNode,
     "Parallelism",
-    lanes.length ? `${lanes.length} lanes` : "ready for worker lanes",
+    lanes.length
+      ? `${lanes.length} lane${lanes.length === 1 ? "" : "s"}`
+      : "no worker lanes",
   ));
   grid.appendChild(postureCell(
     documentNode,
