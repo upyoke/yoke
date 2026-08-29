@@ -14,6 +14,10 @@ goes stale, so neither can sit unnoticed:
   written outside a generated block without naming the owning manifest fact,
   is the exact shape that drifted into stating the opposite of the measured
   answer. It FAILs with the file, line, and the citation to add.
+* **Continuation contract** — invokes
+  :func:`~yoke_core.tools.harness_continuation_coherence.continuation_contract_contradictions`.
+  Teaching that an explicit-continuation harness (Codex ``write_stdin``)
+  streams long commands automatically contradicts the measured contract.
 
 The HC self-skips cleanly when the renderer is missing, which is every
 non-source install: a project repo carries no harness teaching surfaces to
@@ -47,6 +51,7 @@ def hc_harness_capability_coherence(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
     try:
+        from yoke_core.tools import harness_continuation_coherence as hcc
         from yoke_core.tools import render_harness_capability_inline as rhc
     except ImportError as exc:
         rec.record(
@@ -73,8 +78,11 @@ def hc_harness_capability_coherence(
         )
 
     findings = rhc.uncited_capability_claims(repo_root)
+    continuations = hcc.continuation_contract_contradictions(repo_root)
     if findings:
         failures.append(rhc.format_uncited_summary(findings).rstrip("\n"))
+    if continuations:
+        failures.append(hcc.format_continuation_summary(continuations).rstrip("\n"))
 
     if failures:
         rec.record(HC_NAME, HC_DESC, "FAIL", "\n".join(failures))

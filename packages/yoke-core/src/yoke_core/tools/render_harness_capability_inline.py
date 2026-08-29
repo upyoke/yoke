@@ -287,7 +287,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if uncited:
         sys.stderr.write(uncited)
 
-    if not result.ok or findings:
+    from yoke_core.tools import harness_continuation_coherence as hcc
+
+    continuations = hcc.continuation_contract_contradictions(target_root)
+    continuation = hcc.format_continuation_summary(continuations)
+    if continuation:
+        sys.stderr.write(continuation)
+
+    if not result.ok or findings or continuations:
         return 1
     if args.check and result.changed:
         return 1

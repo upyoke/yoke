@@ -204,8 +204,10 @@ test("Overview shows a parked badge and nothing for any other mode", async (t) =
 
   const table = byClass(root, "overview-sessions-table")[0];
   assert.deepEqual(
-    byClass(table, "session-parked-badge").filter((n) => !n.hidden).map((n) => n.textContent),
-    ["parked · waiting on YOK-2546"],
+    byClass(table, "session-parked-badge").filter((n) => !n.hidden).map(
+      (n) => [n.textContent, n.title, n.attributes.get("aria-label")],
+    ),
+    [["parked", "waiting on YOK-2546", "parked: waiting on YOK-2546"]],
   );
   mounted.unmount();
 });

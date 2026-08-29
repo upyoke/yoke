@@ -100,14 +100,24 @@ export function statePill(documentNode, value, label = value) {
 // already show as work and last-active; a parked badge is the wait.
 export function parkedBadge(documentNode, mode, reason) {
   const parked = String(mode || "").toLowerCase() === "parked";
-  const text = parked && reason ? `parked · ${reason}` : "parked";
+  const parkedReason = parked ? String(reason ?? "").trim() : "";
   const badge = el(
     documentNode,
     "span",
     parked ? "session-parked-badge" : "session-parked-badge session-parked-badge-empty",
-    parked ? text : "",
+    parked ? "parked" : "",
   );
-  if (!parked) badge.hidden = true;
+  if (!parked) {
+    badge.hidden = true;
+    return badge;
+  }
+  if (parkedReason) {
+    badge.title = parkedReason;
+    badge.tabIndex = 0;
+    badge.setAttribute("role", "note");
+    badge.setAttribute("aria-label", `parked: ${parkedReason}`);
+    badge.setAttribute("data-reason", parkedReason);
+  }
   return badge;
 }
 

@@ -209,6 +209,7 @@ def _run_harness_capability_render_or_block() -> int:
     refuses a wake claim written past the contract, which is what went stale.
     """
     try:
+        from yoke_core.tools import harness_continuation_coherence as hcc
         from yoke_core.tools import render_harness_capability_inline as rhc
     except ImportError:
         sys.stderr.write(
@@ -225,12 +226,14 @@ def _run_harness_capability_render_or_block() -> int:
     root = pathlib.Path(repo_root)
     result = rhc.render(root, check=True)
     findings = rhc.uncited_capability_claims(root)
-    if result.ok and not result.changed and not findings:
+    continuations = hcc.continuation_contract_contradictions(root)
+    if result.ok and not result.changed and not findings and not continuations:
         return 0
 
     # Both formatters return "" when they have nothing to report.
     sys.stderr.write(rhc.format_render_drift(result, check=True))
     sys.stderr.write(rhc.format_uncited_summary(findings))
+    sys.stderr.write(hcc.format_continuation_summary(continuations))
     return 1
 
 

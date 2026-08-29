@@ -81,9 +81,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.project_settings import get_project_int_for_id
     from yoke_core.domain.steering_fleet_report import compose_report
-    from yoke_core.domain.steering_fleet_report_delivery import (
-        steered_project_id,
-    )
+    from yoke_core.domain.steering_claims import list_claims
     from yoke_core.domain.steering_fleet_report_render import (
         report_body,
         report_dict,
@@ -92,7 +90,13 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
-        if steered_project_id(conn, session_id) != project_id:
+        claims = list_claims(
+            conn,
+            project_id=project_id,
+            session_id=session_id,
+            active_only=True,
+        )
+        if not claims:
             return _error(
                 "steering_claim_required",
                 "the fleet report reads from the live steering claim holder; "
