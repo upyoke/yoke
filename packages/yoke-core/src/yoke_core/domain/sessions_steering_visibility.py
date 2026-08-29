@@ -1,26 +1,23 @@
-"""Read-time steering scope, launch provenance, and report custody facts."""
+"""Read-time steering scope for the fleet session roster.
+
+The seat's own scope is the only steering fact the roster still projects.
+Launch-parent and coverage used to fill other cards from a staffing origin
+that is no longer written; those fields are gone rather than left as a dead
+branch over a historical enum value.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping
 
-from yoke_contracts.session_control.launch_origin import (
-    LAUNCH_ORIGIN_STEERING_BACKSTOP,
-)
-from yoke_contracts.turn_end_evidence import STEERING_REPORT_IDEMPOTENCY_PREFIX
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
-_OUTPUT_FIELDS = (
-    "steering_scope",
-    "steering_parent",
-    "steering_coverage",
-    "steering_report",
-)
+_OUTPUT_FIELDS = ("steering_scope",)
 
 
 def _marker(conn: Any) -> str:
@@ -110,94 +107,16 @@ def _attach_strategy_docs(
             scope["strategy_docs"].append(str(row["strategy_doc_slug"]))
 
 
-def _launches(
-    conn: Any,
-    session_ids: tuple[str, ...],
-) -> tuple[set[str], dict[str, dict[str, Any]]]:
-    required = ("session_launch_attempts", "session_launches", "projects")
-    if not session_ids or not all(_table_exists(conn, name) for name in required):
-        return set(), {}
-    marker = _marker(conn)
-    rows = conn.execute(
-        "SELECT attempt.native_session_id,launch.launch_id,"
-        "launch.requester_session_id,launch.project_id,project.slug AS project,"
-        "launch.origin,attempt.started_at,attempt.attempt_number "
-        "FROM session_launch_attempts attempt "
-        "JOIN session_launches launch ON launch.launch_id=attempt.launch_id "
-        "JOIN projects project ON project.id=launch.project_id "
-        "WHERE attempt.native_session_id IN ("
-        + ",".join(marker for _ in session_ids)
-        + ") ORDER BY attempt.started_at DESC,attempt.attempt_number DESC",
-        session_ids,
-    ).fetchall()
-    launched: set[str] = set()
-    steering: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        session_id = str(row["native_session_id"])
-        if session_id in launched:
-            continue
-        launched.add(session_id)
-        if row["origin"] == LAUNCH_ORIGIN_STEERING_BACKSTOP:
-            steering[session_id] = {
-                "session_id": str(row["requester_session_id"] or ""),
-                "project_id": int(row["project_id"]),
-                "project": row["project"],
-                "launch_id": row["launch_id"],
-            }
-    return launched, steering
-
-
-def _latest_reports(
-    conn: Any,
-    session_ids: tuple[str, ...],
-) -> dict[str, dict[str, Any]]:
-    required = (
-        "session_messages",
-        "session_message_recipients",
-    )
-    if not session_ids or not all(_table_exists(conn, name) for name in required):
-        return {}
-    marker = _marker(conn)
-    rows = conn.execute(
-        "SELECT message.sender_session_id,message.message_id,"
-        "recipient.session_id AS recipient_session_id,recipient.state,"
-        "message.created_at,recipient.acknowledged_at "
-        "FROM session_messages message JOIN session_message_recipients recipient "
-        "ON recipient.message_id=message.message_id "
-        "WHERE message.sender_session_id IN ("
-        + ",".join(marker for _ in session_ids)
-        + f") AND message.idempotency_key LIKE {marker} "
-        "ORDER BY message.created_at DESC,message.message_id DESC",
-        (*session_ids, f"{STEERING_REPORT_IDEMPOTENCY_PREFIX}%"),
-    ).fetchall()
-    reports: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        session_id = str(row["sender_session_id"])
-        reports.setdefault(
-            session_id,
-            {
-                "message_id": row["message_id"],
-                "recipient_session_id": str(row["recipient_session_id"]),
-                "recipient_state": row["state"],
-                "created_at": row["created_at"],
-                "acknowledged_at": row["acknowledged_at"],
-            },
-        )
-    return reports
-
-
 def steering_visibility(
     conn: Any,
     rows: list[dict[str, Any]],
     *,
     now: datetime | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Project steering facts without introducing a second state store."""
+    """Project the holding session's steering scope and nothing else."""
     session_ids = _session_ids(rows)
     current = now or datetime.now(timezone.utc)
     scopes = _scope_rows(conn, _project_ids(rows), now=current)
-    launched, steering_launches = _launches(conn, session_ids)
-    reports = _latest_reports(conn, session_ids)
     projected = {
         session_id: {field: None for field in _OUTPUT_FIELDS}
         for session_id in session_ids
@@ -208,10 +127,6 @@ def steering_visibility(
         scope = scopes.get(int(project_id)) if project_id is not None else None
         if scope and scope["holder_session_id"] == session_id:
             projected[session_id]["steering_scope"] = scope
-        elif scope and session_id not in launched:
-            projected[session_id]["steering_coverage"] = scope
-        projected[session_id]["steering_parent"] = steering_launches.get(session_id)
-        projected[session_id]["steering_report"] = reports.get(session_id)
     return projected
 
 
