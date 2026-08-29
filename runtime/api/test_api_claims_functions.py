@@ -140,8 +140,7 @@ class TestClaimsWork(_ClaimsHandlerSuite):
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["claim_id"], 1234)
         self.assertEqual(resp.result["session_id"], "s-1")
-        self.assertEqual(resp.result["scope"]["item_id"], 42)
-        self.assertTrue(resp.result["scope"].get("item_ref"))
+        self.assertEqual(resp.result["scope"], {"item_id": 42})
 
     def test_release_requires_self_only(self):
         """Release rejects when caller isn't the holder."""
@@ -197,8 +196,7 @@ class TestClaimsWork(_ClaimsHandlerSuite):
             ))
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["holder"]["claim_id"], 1)
-        self.assertEqual(resp.result["holder"]["scope"]["item_id"], 42)
-        self.assertTrue(resp.result["holder"]["scope"].get("item_ref"))
+        self.assertEqual(resp.result["holder"]["scope"], {"item_id": 42})
 
 
 # ---------------------------------------------------------------------------
