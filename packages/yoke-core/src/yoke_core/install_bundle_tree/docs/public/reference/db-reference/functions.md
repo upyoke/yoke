@@ -20,7 +20,7 @@ Every function call accepts and returns the same envelope shape, defined in `yok
   },
   "target": {                                         // typed target ref; shape depends on function
     "kind": "item | epic_task | section | claim | process | none",
-    "public_ref": "YOK-N",                            // client-supplied PREFIX-N (or bare sequence)
+    "public_ref": "PREFIX-N",                          // client-supplied PREFIX-N (or bare sequence)
     "item_id": 1234,                                  // resolved internal items.id (machine)
     "epic_id": 833,
     "task_num": 5,
