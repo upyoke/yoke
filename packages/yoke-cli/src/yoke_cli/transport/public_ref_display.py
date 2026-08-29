@@ -87,7 +87,10 @@ def lookup_public_refs(item_ids: list[int]) -> dict[int, str]:
         item_id = coerce_internal_item_id(key)
         if item_id is None or not value:
             continue
-        out[item_id] = str(value)
+        text = str(value).strip()
+        if not text or text == str(item_id) or text.isdigit():
+            continue
+        out[item_id] = text
     return out
 
 

@@ -7,8 +7,6 @@ covers the whole id set via :func:`render_item_refs`.
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
@@ -58,11 +56,11 @@ def handle_items_public_ref_lookup(request: FunctionCallRequest) -> HandlerOutco
             ),
         )
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.item_ref_render import render_item_ref_lookup
+    from yoke_core.domain.item_ref_render import render_item_refs
 
     try:
         with db_helpers.connect() as conn:
-            lookup = render_item_ref_lookup(conn, ids)
+            resolved = render_item_refs(conn, ids)
     except Exception as exc:
         return HandlerOutcome(
             primary_success=False,
@@ -75,7 +73,9 @@ def handle_items_public_ref_lookup(request: FunctionCallRequest) -> HandlerOutco
                 ),
             ),
         )
-    refs: dict[str, str] = {str(item_id): lookup(item_id) for item_id in ids}
+    refs: dict[str, str] = {
+        str(item_id): ref for item_id, ref in resolved.items() if ref
+    }
     return HandlerOutcome(result_payload={"refs": refs}, primary_success=True)
 
 
