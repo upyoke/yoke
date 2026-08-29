@@ -152,7 +152,14 @@ def query_precomputed_epic_task_rows(
     project_filter: str,
     params: Optional[Tuple[Any, ...]] = None,
 ) -> List[Tuple[Any, ...]]:
-    """Read batched task glyphs with an exact legacy-query fallback."""
+    """Read batched task glyphs, falling back to the pre-metadata query shape.
+
+    That fallback is replay coverage, not live column tolerance. Only a payload
+    replay defines ``has_query_quiet``, so a live database always takes the
+    enriched read, while a payload recorded before the metadata join still
+    renders. Removing the branch makes this read unguarded, which the frozen
+    board-query baseline rejects.
+    """
     enriched_sql = _precomputed_epic_tasks_sql(
         project_filter,
         definition_metadata=True,

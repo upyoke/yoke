@@ -38,6 +38,8 @@ from yoke_contracts.session_control.liveness import (
     LIVENESS_ENDED,
     LIVENESS_STALE,
     LIVENESS_STATES,
+    ended_session_sql,
+    live_session_sql,
 )
 from yoke_core.domain import db_helpers
 from yoke_core.domain.actors import (
@@ -181,9 +183,9 @@ def list_sessions(
             clauses.append("s.session_id = %s")
             where_params.append(normalized_session_id)
         if liveness == LIVENESS_ENDED or ended_cause is not None:
-            clauses.append("(s.ended_at IS NOT NULL OR s.terminated_at IS NOT NULL)")
+            clauses.append(ended_session_sql("s"))
         elif liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):
-            clauses.append("s.ended_at IS NULL AND s.terminated_at IS NULL")
+            clauses.append(live_session_sql("s"))
         if ended_cause == ENDED_CAUSE_KILLED:
             clauses.append("s.terminated_at IS NOT NULL")
         elif ended_cause == ENDED_CAUSE_WOUND_DOWN:

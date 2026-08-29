@@ -85,16 +85,24 @@ class BoardDB:
     def query_quiet(
         self, sql: str, params: Optional[Sequence[Any]] = None
     ) -> List[Tuple]:
-        """Like :meth:`query` but returns ``[]`` on missing-relation errors.
+        """Like :meth:`query` but returns ``[]`` on a missing table.
 
         Useful for optional tables (e.g. ``deployment_runs``) that may not
         exist in every database. Postgres aborts the whole transaction on a
         failed statement, so the connection is rolled back before returning
         ``[]`` to keep later reads on the same connection alive.
+
+        A missing *column* is not the same risk and is not swallowed. An
+        absent optional table is a supported shape; a column the running
+        build reads and the database does not have means the two disagree,
+        which is a defect every time. Returning ``[]`` for it renders the
+        disagreement as "no rows" — a board section silently goes empty
+        instead of saying the query could not run — so the error is rolled
+        back and raised like any other, naming the column it wanted.
         """
         try:
             return self.query(sql, params)
-        except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedColumn):
+        except psycopg.errors.UndefinedTable:
             self._conn.rollback()
             rows: List[Tuple] = []
             key = self._cache_key(sql, params)

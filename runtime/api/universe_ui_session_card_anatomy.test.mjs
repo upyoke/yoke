@@ -214,18 +214,18 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
-    "🧭 Integration", "claude-opus-4-8", "claim held", "idle", "ben",
+    "🧭 Integration", "claude-opus-4-8", "claim held", "active", "ben",
     "Relay:", "test-mac",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);
   }
   for (const expected of [
     "codex", "DARIUS", "gpt-5.6-sol", "worktree attached",
-    "idle", "machine", "no relay connected",
+    "stale", "machine", "no relay connected",
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }
-  for (const gone of ["a7b4pl", "v8c2qa", "resume", "wait"]) {
+  for (const gone of ["a7b4pl", "v8c2qa", "resume", "wait", "idle"]) {
     assert.ok(!cardText.join(" ").includes(gone), gone);
   }
   // Messaging offers a button only where it would actually arrive; the stale
@@ -239,9 +239,14 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(cards[1], "session-messaging-blocked")[0].textContent,
     "Messaging unavailable: no relay is connected on this session's machine.",
   );
+  // Each card ends on the word the server sent for it, not on one derived here.
   assert.deepEqual(
     byClass(cards[0], "session-age-prefix").map((node) => node.textContent),
-    ["claim held ", "idle "],
+    ["claim held ", "active "],
+  );
+  assert.deepEqual(
+    byClass(cards[1], "session-age-prefix").map((node) => node.textContent),
+    ["worktree attached ", "stale "],
   );
 
   const reclaim = byClass(root, "item-button").find(

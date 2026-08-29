@@ -17,6 +17,11 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_TARGET_KINDS,
 )
+from yoke_contracts.session_control.liveness import (
+    ended_at_sql,
+    ended_session_sql,
+    live_session_sql,
+)
 
 _COORDINATION_KINDS_SQL = ", ".join(
     f"'{kind}'" for kind in COORDINATION_TARGET_KINDS
@@ -29,12 +34,24 @@ def session_rows(
     scope: str,
     active_only: bool,
 ) -> List[Tuple]:
-    """Return active or closed harness-session rows for a board scope."""
-    ended_filter = "hs.ended_at IS NULL" if active_only else "hs.ended_at IS NOT NULL"
-    order_col = "hs.offered_at" if active_only else "hs.ended_at"
+    """Return live or ended harness-session rows for a board scope.
+
+    Which side of that split a session falls on is the control plane's answer,
+    not the board's: both halves come from the shared roster predicate rather
+    than a locally spelled one. The live half holds every session the server
+    classifies active or stale, folded together — the board shows one live
+    table and does not present the two tiers separately.
+
+    The ``executor_surface`` pair below is replay coverage, not live column
+    tolerance. Only a payload replay defines ``has_query_quiet``, so a live
+    database always takes the enriched read, while a payload recorded before
+    that column joined the plan still renders.
+    """
+    ended_filter = live_session_sql("hs") if active_only else ended_session_sql("hs")
+    order_col = "hs.offered_at" if active_only else ended_at_sql("hs")
     limit = "" if active_only else "LIMIT 3"
     scope_sql, params = _scope_filter(db, scope, active_only=active_only)
-    ended_col = "" if active_only else ", hs.ended_at"
+    ended_col = "" if active_only else f", {ended_at_sql('hs')}"
     enriched_sql = _session_rows_sql(
         ended_filter=ended_filter,
         order_col=order_col,

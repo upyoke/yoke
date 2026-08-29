@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 
+import psycopg
 import pytest
 
 from yoke_contracts.board.config import BoardConfig, parse_config
@@ -69,12 +70,13 @@ class TestBoardDB:
             rows = db.query_quiet("SELECT * FROM nonexistent_table")
             assert rows == []
 
-    def test_query_quiet_returns_empty_on_missing_column(self, board_db_path):
+    def test_query_quiet_raises_on_missing_column(self, board_db_path):
+        """A column gap is a build/schema disagreement, never "no rows"."""
         db_path = board_db_path
         with BoardDB(db_path) as db:
             db._conn.execute("CREATE TABLE t (id INTEGER)")
-            rows = db.query_quiet("SELECT nonexistent FROM t")
-            assert rows == []
+            with pytest.raises(psycopg.errors.UndefinedColumn):
+                db.query_quiet("SELECT nonexistent FROM t")
 
     def test_close_is_idempotent(self, board_db_path):
         db_path = board_db_path

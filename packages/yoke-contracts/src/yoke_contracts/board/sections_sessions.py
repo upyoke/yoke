@@ -38,7 +38,12 @@ def _parked_cell(mode: str | None) -> str:
 def render_sessions_section(
     db: BoardDBLike, *, show_recent: bool = True, scope: str = "all"
 ) -> str:
-    """Render active sessions + 3 most recently closed sessions with their claims.
+    """Render live sessions + the 3 most recently ended, with their claims.
+
+    Liveness comes from the control plane's own classification. The live table
+    holds the sessions it calls active and the ones it calls stale, folded into
+    one; the ended table holds the sessions it calls ended, with a kill and an
+    ordinary wind-down collapsed into that single state.
 
     Args:
         db: Open database handle.

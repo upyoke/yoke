@@ -35,7 +35,10 @@ function renderedActivityAge(documentNode, activityAt, extras = {}) {
 }
 
 
-test("session activity copy changes at the relative-time minute floor", (t) => {
+// The server owns the executor-aware TTL. A session it calls active stays
+// active on the card however old its activity stamp is, and one it calls stale
+// stays stale however fresh — the elapsed time beside the word never votes.
+test("session liveness copy is the server's classification, not the elapsed time", (t) => {
   const now = Date.parse("2026-08-27T12:00:00Z");
   const originalNow = Date.now;
   Date.now = () => now;
@@ -48,7 +51,25 @@ test("session activity copy changes at the relative-time minute floor", (t) => {
   );
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 60_000).toISOString()),
-    "idle 1m",
+    "active 1m",
+  );
+  // The live defect this replaces: 1440m of quiet under a 1440m TTL is still
+  // active, and the card used to call it idle after 60 seconds.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 1440 * 60_000).toISOString()),
+    "active 24h",
+  );
+  assert.equal(
+    renderedActivityAge(
+      documentNode, new Date(now - 1_000).toISOString(), { liveness: "stale" },
+    ),
+    "stale now",
+  );
+  assert.equal(
+    renderedActivityAge(
+      documentNode, new Date(now - 1_000).toISOString(), { liveness: undefined },
+    ),
+    "unknown now",
   );
 });
 
@@ -80,5 +101,15 @@ test("session status line leads with total age from offered_at", (t) => {
   assert.equal(
     renderedActivityAge(documentNode, activityNow, { offered_at: "not-a-time" }),
     "active now",
+  );
+  // Attribution names the relationship; the liveness word beside it is the
+  // server's, so an attributed stale session never reads as active.
+  assert.equal(
+    renderedActivityAge(documentNode, activityNow, {
+      liveness: "stale",
+      current_item: "YOK-1",
+      work_role: "worker",
+    }),
+    "worktree attached now · stale now",
   );
 });

@@ -3,7 +3,7 @@
 Covers:
 - query / scalar / query_quiet methods
 - Context manager lifecycle
-- Missing-table graceful degradation
+- Missing-table graceful degradation, and the missing-column refusal
 """
 
 from __future__ import annotations
@@ -42,22 +42,35 @@ class TestBoardDBQuery:
 
 
 class TestBoardDBQueryQuiet:
-    """query_quiet graceful degradation for missing tables."""
+    """query_quiet tolerates a missing table and refuses a missing column."""
 
     def test_missing_table_returns_empty(self, test_db):
         rows = test_db.query_quiet("SELECT * FROM nonexistent_table")
         assert rows == []
 
-    def test_missing_column_returns_empty(self, test_db):
-        rows = test_db.query_quiet("SELECT nonexistent_col FROM projects")
-        assert rows == []
+    def test_missing_column_raises_rather_than_rendering_empty(self, test_db):
+        """A column gap means the build and the schema disagree.
+
+        Swallowing it returned ``[]``, which a section renders as "nothing to
+        show" — indistinguishable from a database that genuinely holds no
+        rows, and the reason a whole board section could go silently empty.
+        """
+        with pytest.raises(psycopg.errors.UndefinedColumn) as caught:
+            test_db.query_quiet("SELECT nonexistent_col FROM projects")
+        assert "nonexistent_col" in str(caught.value)
+
+    def test_connection_survives_the_missing_column_refusal(self, test_db):
+        """Postgres aborts the transaction, so the raise still rolls back."""
+        with pytest.raises(psycopg.errors.UndefinedColumn):
+            test_db.query_quiet("SELECT nonexistent_col FROM projects")
+        assert test_db.query_quiet("SELECT id FROM projects")
 
     def test_normal_query_works(self, test_db):
         rows = test_db.query_quiet("SELECT id FROM projects")
         assert len(rows) >= 1
 
     def test_real_error_propagates(self, test_db):
-        """Errors other than missing table/column should raise."""
+        """Errors other than a missing table should raise."""
         with pytest.raises(psycopg.Error):
             test_db.query_quiet("THIS IS NOT SQL")
 

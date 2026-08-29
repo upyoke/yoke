@@ -34,7 +34,9 @@ _RENDER_SCHEMA = """
         project_id INTEGER NOT NULL REFERENCES projects(id),
         offered_at TEXT NOT NULL,
         last_heartbeat TEXT,
-        ended_at TEXT
+        last_tool_call_at TEXT,
+        ended_at TEXT,
+        terminated_at TEXT
     );
     CREATE TABLE items (
         id INTEGER PRIMARY KEY,
@@ -99,8 +101,8 @@ def _insert_render_session(db, **kwargs) -> None:
             """INSERT INTO harness_sessions
                (session_id, executor, executor_surface, provider, model,
                 execution_lane, mode, workspace, project_id, offered_at, last_heartbeat,
-                ended_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                ended_at, terminated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (
                 kwargs["session_id"],
                 kwargs["executor"],
@@ -114,6 +116,7 @@ def _insert_render_session(db, **kwargs) -> None:
                 kwargs.get("offered_at", "2026-05-19T20:00:00Z"),
                 kwargs.get("last_heartbeat", "2026-05-19T20:01:00Z"),
                 kwargs.get("ended_at"),
+                kwargs.get("terminated_at"),
             ),
         )
         raw.commit()
@@ -267,3 +270,32 @@ class TestExecutorDisplayRendering:
             _insert_render_session(db, session_id="externalwebapp-path-yoke-project", executor="codex", workspace="/tmp/externalwebapp", project_id=1)
             section = render(db, scope="externalwebapp")
         assert "externalwebapp-path-yoke-project" not in section
+
+    def test_a_killed_session_is_ended_even_without_an_ordinary_end_stamp(
+        self, tmp_path: Path
+    ) -> None:
+        """The two end stamps are independent; either one means gone.
+
+        A session terminated without an ordinary wind-down carries only
+        ``terminated_at``. Splitting the board on ``ended_at`` alone left it
+        under the live table indefinitely, while the control plane had already
+        classified it ended.
+        """
+        with _make_render_db(tmp_path) as (db, render):
+            _insert_render_session(
+                db,
+                session_id="killedsess",
+                executor="codex",
+                workspace="/tmp/yoke",
+                project_id=1,
+                terminated_at="2026-05-19T20:30:00Z",
+            )
+            section = render(db, scope="yoke")
+        live, _, ended = section.partition("Recent Harness Sessions")
+        assert "killedsess" in ended
+        assert "killedsess" not in live
+        # The kill stamp also dates the row: an undated end renders "?" and
+        # leaves the duration uncomputable, so both cells prove the fallback.
+        row = ended.split("killedsess", 1)[1].split("\n", 1)[0]
+        assert "? ago" not in row
+        assert "30m" in row
