@@ -52,9 +52,9 @@ Every agent-facing result that includes a bare internal `item_id` (the
 `{projects.public_item_prefix}-{items.project_sequence}` handle. The
 dispatcher applies this at the envelope layer via
 `yoke_core.domain.result_item_ref_enrichment.enrich_result_item_refs`
-(one shared helper; handlers must not assemble refs themselves). Nested
-session objects that carry `current_item_id` / `recent_item_id` gain
-matching `current_item_ref` / `recent_item_ref` siblings. DB rows, events,
+(one shared helper; handlers must not assemble refs themselves). Mapped
+id keys gain sibling refs at every object and array depth, including
+nested `scope` (`item_id` / `epic_id`). DB rows, events,
 telemetry, and test assertions keep bare integer `item_id` unchanged —
 only the result envelope is enriched. `items.create` established the
 dual-field shape; acquire, lifecycle, structured writes, and sessions

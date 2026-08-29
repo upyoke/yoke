@@ -13,15 +13,24 @@ DB rows, events, telemetry, and test assertions keep bare integer
 
 from __future__ import annotations
 
-from typing import Any, Mapping, MutableMapping, Optional
+from typing import Any, Callable, Mapping, MutableMapping, Optional
 
-# Top-level result keys whose integer (or numeric-string) value is an
-# internal items.id that should gain a sibling public-ref field.
+# Mapped result keys whose integer (or numeric-string) value is an
+# internal items.id and should gain a sibling public-ref field wherever
+# they appear. ``epic_id`` is the same identifier (the epic's items.id);
+# process/steering scopes carry no item id and are left alone.
 _ID_TO_REF_KEYS: tuple[tuple[str, str], ...] = (
     ("item_id", "item_ref"),
     ("current_item_id", "current_item_ref"),
     ("recent_item_id", "recent_item_ref"),
+    ("epic_id", "epic_ref"),
 )
+
+# Result envelopes are JSON-like; this caps descent so a self-referential
+# or hostile payload cannot run unbounded.
+_MAX_NESTING_DEPTH = 32
+
+RefLookup = Callable[[int], str]
 
 
 def _coerce_internal_item_id(raw: Any) -> Optional[int]:
@@ -42,25 +51,80 @@ def _coerce_internal_item_id(raw: Any) -> Optional[int]:
     return None
 
 
-def _render_ref(conn: Any, item_id: int) -> Optional[str]:
-    from yoke_core.domain.project_identity import render_item_ref
+def _collect_ids(
+    node: Any,
+    collected: list[int],
+    seen_values: set[int],
+    seen_nodes: set[int],
+    depth: int,
+) -> None:
+    if depth > _MAX_NESTING_DEPTH:
+        return
+    if isinstance(node, dict):
+        node_id = id(node)
+        if node_id in seen_nodes:
+            return
+        seen_nodes.add(node_id)
+        for id_key, ref_key in _ID_TO_REF_KEYS:
+            if ref_key in node and node.get(ref_key):
+                continue
+            item_id = _coerce_internal_item_id(node.get(id_key))
+            if item_id is None or item_id in seen_values:
+                continue
+            seen_values.add(item_id)
+            collected.append(item_id)
+        for value in node.values():
+            _collect_ids(value, collected, seen_values, seen_nodes, depth + 1)
+        seen_nodes.discard(node_id)
+        return
+    if isinstance(node, list):
+        node_id = id(node)
+        if node_id in seen_nodes:
+            return
+        seen_nodes.add(node_id)
+        for item in node:
+            _collect_ids(item, collected, seen_values, seen_nodes, depth + 1)
+        seen_nodes.discard(node_id)
 
-    try:
-        return render_item_ref(conn, item_id, required=False)
-    except Exception:
-        return None
 
-
-def _enrich_mapping(payload: MutableMapping[str, Any], conn: Any) -> None:
+def _enrich_mapping(payload: MutableMapping[str, Any], lookup: RefLookup) -> None:
     for id_key, ref_key in _ID_TO_REF_KEYS:
         if ref_key in payload and payload.get(ref_key):
             continue
         item_id = _coerce_internal_item_id(payload.get(id_key))
         if item_id is None:
             continue
-        rendered = _render_ref(conn, item_id)
+        rendered = lookup(item_id)
         if rendered:
             payload[ref_key] = rendered
+
+
+def _apply(
+    node: Any,
+    lookup: RefLookup | None,
+    seen_nodes: set[int],
+    depth: int,
+) -> Any:
+    if isinstance(node, dict):
+        if depth > _MAX_NESTING_DEPTH or id(node) in seen_nodes:
+            return dict(node)
+        seen_nodes.add(id(node))
+        out = {
+            key: _apply(value, lookup, seen_nodes, depth + 1)
+            for key, value in node.items()
+        }
+        if lookup is not None:
+            _enrich_mapping(out, lookup)
+        seen_nodes.discard(id(node))
+        return out
+    if isinstance(node, list):
+        if depth > _MAX_NESTING_DEPTH or id(node) in seen_nodes:
+            return list(node)
+        seen_nodes.add(id(node))
+        out = [_apply(item, lookup, seen_nodes, depth + 1) for item in node]
+        seen_nodes.discard(id(node))
+        return out
+    return node
 
 
 def enrich_result_item_refs(
@@ -68,12 +132,13 @@ def enrich_result_item_refs(
     *,
     conn: Any = None,
 ) -> dict[str, Any]:
-    """Return a shallow copy of ``result`` with public refs beside bare ids.
+    """Return a copy of ``result`` with public refs beside bare ids.
 
-    Enriches the top-level mapping and one nested level (e.g. a ``session``
-    object that carries ``current_item_id``). Opens a short-lived control-plane
-    connection when ``conn`` is omitted. On connection or lookup failure the
-    original fields are preserved unchanged — never invent a wrong ref.
+    Walks nested objects and arrays so a mapped key gains its sibling ref
+    wherever it appears. Distinct ids are resolved in one statement.
+    Opens a short-lived control-plane connection when ``conn`` is omitted.
+    On connection or lookup failure the original fields are preserved
+    unchanged — never invent a wrong ref.
     """
     if not result:
         return {}
@@ -96,16 +161,20 @@ def enrich_result_item_refs(
         except Exception:
             return out
     try:
-        _enrich_mapping(out, active)
-        for key, value in list(out.items()):
-            if key != "scope" and isinstance(value, dict):
-                nested = dict(value)
-                _enrich_mapping(nested, active)
-                out[key] = nested
+        collected: list[int] = []
+        _collect_ids(result, collected, set(), set(), 0)
+        lookup: RefLookup | None = None
+        if collected:
+            from yoke_core.domain.item_ref_render import render_item_ref_lookup
+
+            lookup = render_item_ref_lookup(active, collected)
+        walked = _apply(result, lookup, set(), 0)
+        return walked if isinstance(walked, dict) else out
+    except Exception:
+        return out
     finally:
         if owns_conn and active is not None:
             try:
                 active.close()
             except Exception:
                 pass
-    return out
