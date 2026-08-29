@@ -72,7 +72,7 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
       null,
       "· 2 runnable · 1 blocked",
       "· 1 live",
-      "· 1 runs",
+      "· 1 run",
       "· 1",
       "· 2 warnings",
     ],

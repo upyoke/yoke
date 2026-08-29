@@ -96,9 +96,13 @@ class RecordCollector:
         lines.append(f"Generated: {timestamp}")
         lines.append("")
         lines.append("## Summary")
+        check_label = "check" if ran_count == 1 else "checks"
+        warning_label = "warning" if self.warn_count == 1 else "warnings"
+        failure_label = "failure" if self.fail_count == 1 else "failures"
         summary = (
-            f"{ran_count} checks run: {self.pass_count} passed, "
-            f"{self.warn_count} warnings, {self.fail_count} failures"
+            f"{ran_count} {check_label} run: {self.pass_count} passed, "
+            f"{self.warn_count} {warning_label}, "
+            f"{self.fail_count} {failure_label}"
         )
         if self.na_count:
             summary += f"; {self.na_count} not applicable"

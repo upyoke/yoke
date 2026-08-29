@@ -2,36 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  sessionCard,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
+  appendSessionAge,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_age.js";
 import {
   FakeDocument,
   byClass,
 } from "./universe_ui_dom_test_support.mjs";
 
-
-const WHO = { label: "member", value: () => "Ben" };
-
-
 function renderedActivityAge(documentNode, activityAt, extras = {}) {
-  const card = sessionCard(
-    documentNode,
-    {
-      session_id: "session-1",
-      liveness: "active",
-      mode: "wait",
-      executor: "codex",
-      claims: [],
-      coordination_leases: [],
-      activity_at: activityAt,
-      messageability: { messageable: false },
-      ...extras,
-    },
-    WHO,
-    "hosted",
-    () => {},
-  );
-  return byClass(card, "session-age")[0].textContent;
+  const body = documentNode.createElement("div");
+  appendSessionAge(documentNode, body, {
+    session_id: "session-1",
+    liveness: "active",
+    mode: "wait",
+    executor: "codex",
+    claims: [],
+    coordination_leases: [],
+    activity_at: activityAt,
+    messageability: { messageable: false },
+    ...extras,
+  });
+  return byClass(body, "session-age")[0].textContent;
 }
 
 
@@ -63,7 +54,7 @@ test("session liveness copy is the server's classification, not the elapsed time
     renderedActivityAge(
       documentNode, new Date(now - 1_000).toISOString(), { liveness: "stale" },
     ),
-    "stale now",
+    "stale · activity just now",
   );
   assert.equal(
     renderedActivityAge(
@@ -81,6 +72,30 @@ test("session status line leads with total age from offered_at", (t) => {
 
   const documentNode = new FakeDocument();
   const activityNow = new Date(now - 1_000).toISOString();
+  for (const [elapsed, expected] of [
+    [60_000, "1m old"],
+    [4 * 3_600_000, "4h old"],
+    [3 * 24 * 3_600_000, "3d old"],
+  ]) {
+    assert.equal(
+      renderedActivityAge(documentNode, activityNow, {
+        offered_at: new Date(now - elapsed).toISOString(),
+      }),
+      `${expected} · active now`,
+    );
+  }
+  assert.equal(
+    renderedActivityAge(documentNode, activityNow, {
+      offered_at: new Date(now - 1_000).toISOString(),
+    }),
+    "created just now · active now",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, activityNow, {
+      offered_at: new Date(now + 60_000).toISOString(),
+    }),
+    "created just now · active now",
+  );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       offered_at: new Date(now - 3 * 60_000).toISOString(),
@@ -110,6 +125,6 @@ test("session status line leads with total age from offered_at", (t) => {
       current_item: "YOK-1",
       work_role: "worker",
     }),
-    "worktree attached now · stale now",
+    "worktree attached now · stale · activity just now",
   );
 });

@@ -139,7 +139,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     ),
     [
       ["2", "sessions shown"],
-      ["1", "items claimed"],
+      ["1", "item claimed"],
       ["0", "Remote Control attached"],
       ["2", "actors"],
     ],

@@ -150,7 +150,7 @@ class TestNotApplicableReporting(unittest.TestCase):
 
         self.assertEqual(rec.pass_count, 1)
         self.assertEqual(rec.na_count, 1)
-        self.assertIn("1 checks run: 1 passed", report)
+        self.assertIn("1 check run: 1 passed", report)
         self.assertIn("1 not applicable", report)
         self.assertIn("## Not Applicable", report)
         self.assertIn("no checkout", report)

@@ -285,8 +285,9 @@ def backfill_oversized_bodies(
                     file=stdout,
                 )
 
+        item_label = "item" if repaired == 1 else "items"
         print(
-            f"Total: {repaired} items repaired, {restored} restored "
+            f"Total: {repaired} {item_label} repaired, {restored} restored "
             f"(scanned {scanned}, flag-derived {len(flag_derived)}, "
             f"oversized-current {len(oversized)}, "
             f"auth failures {auth_failures}, "

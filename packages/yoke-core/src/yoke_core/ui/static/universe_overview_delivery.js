@@ -42,7 +42,7 @@ export function loadDelivery(context, panel, getScope, activationFacts) {
       if (!rows.length) {
         ghostWhenInactive(context, activationFacts, "delivery", panel);
       }
-      panel.setCount(`${rows.length} runs`);
+      panel.setCount(`${rows.length} run${rows.length === 1 ? "" : "s"}`);
       const table = overviewTable(
         documentNode,
         "overview-delivery-table",

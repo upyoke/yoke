@@ -3,7 +3,7 @@ import {
   presentSessionControlFailure,
   renderSessionControlFailure,
 } from "./universe_session_control_data.js";
-import { appendHoldings, focusAttribution, ownsFocusedItem } from "./universe_sessions_holdings.js";
+import { appendHoldings } from "./universe_sessions_holdings.js";
 import {
   callFunction,
   el,
@@ -14,8 +14,8 @@ import {
   settledScopedCalls,
   whoColumn,
 } from "./universe_view_support.js";
-import { relativeTime } from "./universe_time.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
+import { appendSessionAge } from "./universe_session_age.js";
 import { appendSessionPresentation, remotePresentationCount } from "./universe_session_presentation.js";
 import { appendSteeringContext, appendSteeringGroups, appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
@@ -91,34 +91,6 @@ function appendModel(documentNode, body, row) {
   ));
 }
 
-function appendAge(documentNode, body, row) {
-  const age = el(documentNode, "div", "session-age");
-  const add = (prefix, timestamp, now = Date.now()) => {
-    if (prefix) {
-      age.appendChild(el(documentNode, "span", "session-age-prefix", prefix));
-    }
-    age.appendChild(relativeTime(documentNode, timestamp, now));
-  };
-  const startedAt = row.offered_at;
-  if (startedAt && !Number.isNaN(new Date(startedAt).getTime())) {
-    add("", startedAt);
-    age.appendChild(el(documentNode, "span", "session-age-prefix", " old"));
-    age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
-  }
-  const attributed = focusAttribution(row);
-  if (row.current_item && ownsFocusedItem(row)) {
-    add("claim held ", row.claim_started_at || row.activity_at);
-    age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
-  } else if (attributed) {
-    add(attributed === "lane" ? "worktree attached " : "filed ", row.activity_at);
-    age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
-  }
-  // The server classified this session against an executor-aware TTL; the card
-  // says which state that was and never decides it again from elapsed time.
-  add(`${row.liveness || "unknown"} `, row.activity_at);
-  body.appendChild(age);
-}
-
 // Identity, work, health — in that order and nothing else. The harness and its
 // lane name the session, the model says what is running it, the holdings say
 // what it is doing, and the diagnostics say whether that is going anywhere.
@@ -151,7 +123,7 @@ export function sessionCard(
   appendSteeringHoldings(documentNode, body, row, projects);
   appendSessionPresentation(documentNode, body, row);
   appendHoldings(documentNode, body, row, projects);
-  if (row.liveness !== "ended") appendAge(documentNode, body, row);
+  if (row.liveness !== "ended") appendSessionAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
   appendSteeringContext(documentNode, body, row);
   appendSessionMessaging(documentNode, body, row, onMessage);
@@ -170,8 +142,8 @@ function metricFacts(rows) {
   ).filter((value) => value !== null && value !== undefined && value !== ""));
   const actorCount = actors.size;
   return [
-    [rows.length, "sessions shown"],
-    [claimedItems.size, "items claimed"],
+    [rows.length, `session${rows.length === 1 ? "" : "s"} shown`],
+    [claimedItems.size, `item${claimedItems.size === 1 ? "" : "s"} claimed`],
     [remotePresentationCount(rows), "Remote Control attached"],
     [actorCount, `actor${actorCount === 1 ? "" : "s"}`],
   ];

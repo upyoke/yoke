@@ -11,6 +11,10 @@ export function relativeAge(value, now = Date.now()) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+export function isInstantRelativeTime(value, now = Date.now()) {
+  return relativeAge(value, now) === "now";
+}
+
 function absoluteTime(value) {
   const timestamp = new Date(value);
   if (Number.isNaN(timestamp.getTime())) return String(value || "");
@@ -20,10 +24,16 @@ function absoluteTime(value) {
   });
 }
 
-export function relativeTime(documentNode, value, now = Date.now()) {
+export function relativeTime(
+  documentNode, value, now = Date.now(), { instantText = "now" } = {},
+) {
   const time = documentNode.createElement("time");
   const timestamp = new Date(value).getTime();
-  const relative = relativeAge(value, now);
+  const relativeText = (referenceTime = Date.now()) => {
+    const age = relativeAge(value, referenceTime);
+    return age === "now" ? instantText : age;
+  };
+  const relative = relativeText(now);
   const absolute = absoluteTime(value);
   time.className = "ago";
   time.textContent = relative;
@@ -38,7 +48,7 @@ export function relativeTime(documentNode, value, now = Date.now()) {
   }
   const toggle = () => {
     const showingAbsolute = time.textContent === absolute;
-    time.textContent = showingAbsolute ? relativeAge(value) : absolute;
+    time.textContent = showingAbsolute ? relativeText() : absolute;
     time.setAttribute("aria-pressed", String(!showingAbsolute));
     time.setAttribute(
       "aria-label",
