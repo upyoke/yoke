@@ -161,6 +161,15 @@ def test_public_routes_keep_surface_strict_while_accepting_version_floors() -> N
     assert not surface_operation_supported("cursor-cli", "2026.08.11", "delete")
 
 
+def test_desktop_create_stays_closed() -> None:
+    for surface in ("claude-desktop", "codex-desktop", "cursor-desktop"):
+        capability = SESSION_SURFACE_CAPABILITIES[surface]
+        assert capability.create == "none"
+        assert not surface_operation_supported(
+            surface, capability.minimum_version, "create"
+        )
+
+
 def test_documented_cli_resume_and_idle_routes_use_version_floors() -> None:
     assert surface_operation_supported("claude-cli", "2.1.238", "message_stopped")
     assert surface_operation_supported("claude-cli", "2.1.241", "message_stopped")

@@ -113,7 +113,7 @@ def preview_launch(
         machine_id=machine_id,
         auto_select_machine=auto_select_machine,
     )
-    if surface == "codex-desktop" and exact_preview.outcome == "unsupported_surface":
+    if surface.endswith("-desktop") and exact_preview.outcome == "unsupported_surface":
         return exact_preview
     if not allow_surface_fallback:
         return exact_preview
