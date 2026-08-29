@@ -1,8 +1,8 @@
 """Dispatch-path and claim-contract tests for the item flag verbs.
 
-Covers ``yoke items freeze|thaw|block|unblock``: route resolution,
-envelope shape, the required ``--reason`` on block, the usage map, and
-the dispatcher-side claim contract. The flag verbs carry no dispatcher
+Covers ``yoke items freeze|thaw|block|unblock`` and ``yoke items cancel``:
+route resolution, envelope shape, the required ``--reason`` on block and
+cancel, the usage map, and the dispatcher-side claim contract. The flag verbs carry no dispatcher
 claim gate on purpose — it would refuse before the handler could acquire
 on the caller's behalf — so the boundary lives in the handler instead
 (covered in ``runtime/api/domain/test_items_flag_commands.py``).
@@ -115,6 +115,23 @@ class TestFlagRoutes:
             assert function_id in ADAPTER_USAGE
             assert ADAPTER_USAGE[function_id].startswith("yoke items ")
 
+    def test_cancel_carries_reason_and_optional_ref(self) -> None:
+        assert _run(
+            "items", "cancel", "42", "--reason", "superseded", "--ref", "7"
+        ) == 0
+        request = _CAPTURED_REQUESTS[-1]
+        assert request.function == "items.cancel.run"
+        assert request.target.item_ref == "42"
+        assert request.payload == {"reason": "superseded", "ref": "7"}
+
+    def test_cancel_without_a_reason_is_a_usage_error(self) -> None:
+        assert _run("items", "cancel", "42") == 2
+        assert _CAPTURED_REQUESTS == []
+
+    def test_cancel_usage_line_is_registered(self) -> None:
+        assert "items.cancel.run" in ADAPTER_USAGE
+        assert ADAPTER_USAGE["items.cancel.run"].startswith("yoke items cancel")
+
 
 class TestFlagClaimContract:
     """The flag verbs are claim-free; every other scalar write is not."""
@@ -130,8 +147,8 @@ class TestFlagClaimContract:
     def test_flag_verbs_require_no_claim(self, function_id: str) -> None:
         assert self._entry(function_id).claim_required_kind is None
 
-    def test_scalar_update_still_requires_the_item_claim(self) -> None:
-        assert self._entry("items.scalar.update").claim_required_kind == "item"
+    def test_cancel_requires_no_dispatcher_claim_gate(self) -> None:
+        assert self._entry("items.cancel.run").claim_required_kind is None
 
     @staticmethod
     def _request(function_id: str) -> FunctionCallRequest:

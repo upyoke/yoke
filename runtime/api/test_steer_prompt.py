@@ -184,6 +184,7 @@ class TestSteerSkillContract:
         assert "Set the hold flag on work you are holding on purpose" in loop
         assert "rather than guessing intent" in loop
         assert "yoke items freeze PREFIX-N" in loop
+        assert "yoke items cancel PREFIX-N --reason TEXT" in loop
 
     def test_dashboard_card_is_named_as_the_faster_read(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))

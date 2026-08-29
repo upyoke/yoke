@@ -38,17 +38,14 @@ def execute_close(
     resolution_comment: Optional[str] = None,
     rebuild_board: bool = True,
     out: TextIO = sys.stdout,
+    session_id: Optional[str] = None,
 ) -> dict:
     """Close an item through the structured cancellation path."""
-    allowed_reasons = {"duplicate", "wontfix", "obsolete", "out-of-scope"}
-    if reason not in allowed_reasons:
-        return {
-            "success": False,
-            "error": (
-                " --reason must be one of: duplicate, wontfix, obsolete, "
-                f"out-of-scope (got '{reason}')"
-            ).lstrip(),
-        }
+    from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
+
+    reason, reason_error = normalize_cancellation_reason(reason)
+    if reason_error:
+        return {"success": False, "error": reason_error}
 
     db_path = _resolve_write_db_path()
     _assert_write_db_ready(db_path)
@@ -226,7 +223,7 @@ def execute_close(
             field="status",
             value="cancelled",
             old_status=old_status,
-            session_id=None,
+            session_id=session_id,
             out=out,
             status_source="execute-close",
         )

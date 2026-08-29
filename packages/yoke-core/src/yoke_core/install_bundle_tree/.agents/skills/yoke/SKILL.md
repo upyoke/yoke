@@ -64,7 +64,8 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 | `yoke dev setup [CHECKOUT]` | Explicit Yoke source-dev/admin setup |
 | `yoke board art variant create --ascii\|--mixed\|--image PATH` | Generate, preview, and optionally apply `.yoke/board-art` variants |
 | `yoke project snapshot sync [CHECKOUT]` | Scan committed git tree state and sync authoritative path snapshots |
-| `yoke items freeze PREFIX-N` / `yoke items thaw PREFIX-N` | Park an item off the active board, or return it (keeps its lifecycle status) |
+| `yoke items freeze PREFIX-N` / `yoke items thaw PREFIX-N` | Park an item off the active board, or return it (keeps its lifecycle status). Work that will never resume is `yoke items cancel`. |
+| `yoke items cancel PREFIX-N --reason TEXT [--ref PREFIX-M]` | Cancel an item that will never resume (takes the claim; frozen items cancel in one step) |
 | `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N` | Set or clear the blocked flag and reason (keeps its lifecycle status) |
 | `yoke git pre-commit` | Run the installed pre-commit gate entrypoint. |
 | `yoke git post-commit` | Run the installed post-commit path snapshot sync entrypoint. |

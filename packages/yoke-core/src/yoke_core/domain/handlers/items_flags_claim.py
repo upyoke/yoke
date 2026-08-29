@@ -20,7 +20,13 @@ class _ClaimRefused(Exception):
         self.holder = holder
 
 
-def _acquire_for_caller(item_id: int, item_ref: str, session_id: str) -> Optional[int]:
+def _acquire_for_caller(
+    item_id: int,
+    item_ref: str,
+    session_id: str,
+    *,
+    reason: str = "item flag verb",
+) -> Optional[int]:
     """Ensure the caller owns the item claim; return one it acquired.
 
     Returns the new claim id when this call established the claim (the
@@ -54,7 +60,7 @@ def _acquire_for_caller(item_id: int, item_ref: str, session_id: str) -> Optiona
                 conn,
                 session_id=session_id,
                 target=make_item_target(item_id),
-                reason="item flag verb",
+                reason=reason,
             )
         except SessionError as exc:
             if exc.code != "ALREADY_CLAIMED":
@@ -68,7 +74,9 @@ def _acquire_for_caller(item_id: int, item_ref: str, session_id: str) -> Optiona
     raise _ClaimRefused(item_ref, winner or "an unidentified session")
 
 
-def _release_acquired(claim_id: Optional[int]) -> None:
+def _release_acquired(
+    claim_id: Optional[int], *, reason: str = "item flag verb complete"
+) -> None:
     """Release only a claim this call acquired; never the caller's own."""
     if claim_id is None:
         return
@@ -77,7 +85,7 @@ def _release_acquired(claim_id: Optional[int]) -> None:
 
     try:
         with connect() as conn:
-            release_claim(conn, int(claim_id), reason="item flag verb complete")
+            release_claim(conn, int(claim_id), reason=reason)
     except SessionError:
         # The write already landed; a failed release is not a write failure.
         pass

@@ -317,10 +317,10 @@ yoke workflow-item epic-dispatch-chain get --epic <epic-id> --worktree <branch>
 yoke workflow-item epic-dispatch-chain refresh-activation --epic <epic-id> --worktree <branch> --task-num <task_num>`
   - Dispatches workflow_item.epic_dispatch_chain.*. Reads need no claim; update / refresh-activation require the epic work claim.
 - _Cancel / stop / fail a work item (terminal-exceptional)_
-  - `yoke claims work acquire --item PREFIX-N --reason 'superseded by PREFIX-X'
-yoke lifecycle transition PREFIX-N --to cancelled --reason 'superseded by PREFIX-X'
-yoke claims work release --item PREFIX-N --reason cancelled`
-  - Status writes require a claim. Substitute: cancelled (abandoned/superseded), stopped (paused), failed.
+  - `yoke items cancel PREFIX-N --reason 'superseded by PREFIX-X' --ref PREFIX-X
+yoke lifecycle transition PREFIX-N --to stopped --reason 'paused'
+yoke lifecycle transition PREFIX-N --to failed --reason 'blocked'`
+  - `items.cancel.run` takes the claim, cancels a frozen item in one step (clears frozen as part of the terminal close), reconciles item_dependencies, and closes GitHub. Substitute stopped (paused) or failed via lifecycle transition.
 - _Move a work item forward in lifecycle (claim → transition → release)_
   - `yoke claims work acquire --item PREFIX-N --reason transition
 yoke lifecycle transition PREFIX-N --to refined-idea

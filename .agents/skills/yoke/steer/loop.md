@@ -137,7 +137,8 @@ Two things the report deliberately does not do, so do them yourself:
   excludes frozen and operator-blocked items rather than guessing intent
   from age, so an item you have parked reports as available until you say
   so with `yoke items freeze PREFIX-N` or `yoke items block PREFIX-N
-  --reason TEXT`.
+  --reason TEXT`. Work that will never resume is
+  `yoke items cancel PREFIX-N --reason TEXT`, not freeze.
 
 The dashboard session card carries these signals faster when the operator
 has it open: every card renders the control plane's own liveness word beside

@@ -145,6 +145,16 @@ ITEMS_ADAPTERS = [
         notes="Takes the item claim for the caller; refuses a foreign holder.",
     ),
     AdapterEntry(
+        function_id="items.cancel.run",
+        cli_invocation="yoke items cancel YOK-N --reason TEXT [--ref PREFIX-M]",
+        notes=(
+            "Takes the item claim for the caller; refuses a foreign holder. "
+            "Consumes execute_close (dependency reconciliation + GitHub close). "
+            "Frozen items cancel in one step; frozen is cleared as part of the "
+            "terminal close, not thawed for later."
+        ),
+    ),
+    AdapterEntry(
         function_id="items.block.run",
         cli_invocation="yoke items block YOK-N --reason TEXT",
         notes=(

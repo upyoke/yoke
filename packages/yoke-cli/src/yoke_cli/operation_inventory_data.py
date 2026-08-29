@@ -72,6 +72,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke items thaw", "items.flags"),
     _w("yoke items block", "items.flags"),
     _w("yoke items unblock", "items.flags"),
+    _w("yoke items cancel", "items.cancel"),
     # items_merge_provenance: operator repair for a terminal item's unset
     # merged_at, the one sanctioned exception to terminal immutability.
     _w(

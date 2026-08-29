@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Tuple
 
+from yoke_cli.commands.adapters.items_cancel import items_cancel
 from yoke_cli.commands.adapters.items_flags import (
     items_block,
     items_freeze,
@@ -20,6 +21,7 @@ ITEMS_FLAGS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = 
     ("items", "thaw"): ("items.thaw.run", items_thaw),
     ("items", "block"): ("items.block.run", items_block),
     ("items", "unblock"): ("items.unblock.run", items_unblock),
+    ("items", "cancel"): ("items.cancel.run", items_cancel),
 }
 
 

@@ -19,6 +19,7 @@ from yoke_cli.commands._helpers import (
     item_target,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.items_cancel import ITEMS_CANCEL_USAGE
 
 
 __all__ = [
@@ -46,6 +47,7 @@ USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "items.thaw.run": ITEMS_THAW_USAGE,
     "items.block.run": ITEMS_BLOCK_USAGE,
     "items.unblock.run": ITEMS_UNBLOCK_USAGE,
+    "items.cancel.run": ITEMS_CANCEL_USAGE,
 }
 
 
@@ -129,6 +131,9 @@ sections for the Freezer, without changing its lifecycle status. The
 item keeps `implementing` / `planned` / whatever it holds, and returns
 to the matching section when thawed.
 
+This is not cancel. Freeze parks work that will resume; work that will
+never resume is `yoke items cancel PREFIX-N --reason TEXT`.
+
 Refuses a done item — a done item is already off the active board.
 Advance it back into an in-flight status first if you truly need it
 parked. Freezing an already-frozen item is a reported no-op.
@@ -146,7 +151,8 @@ parked. Freezing an already-frozen item is a reported no-op.
         _receipt(
             lambda r: (
                 f"frozen — status {r.get('status')} preserved, hidden from the "
-                "active board."
+                "active board. For work that will never resume, use "
+                "`yoke items cancel` instead."
             ),
             "already frozen — no change.",
         ),
