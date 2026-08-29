@@ -18,9 +18,8 @@ from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import
 
 BODY_EXCERPT_CHARACTERS = 72
 EMPTY_VALUE = "—"
-#: ``(heading, accessor, width)``. A width caps prose; an identifier
-#: column passes ``None``, because the first characters of a session,
-#: message, or attempt id name a set of rows rather than one of them.
+#: ``(heading, accessor, width)``. Identifier columns pass ``None``: a
+#: width elides the cell, and part of an id is not the id.
 Column = tuple[str, Callable[[Mapping[str, Any]], Any], int | None]
 
 
