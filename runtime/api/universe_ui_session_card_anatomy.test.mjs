@@ -275,7 +275,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   mounted.unmount();
 });
 
-test("Sessions card badges parked with the reason and hides every other mode", async (t) => {
+test("Sessions card exposes the parked reason without rendering it inline", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -310,8 +310,10 @@ test("Sessions card badges parked with the reason and hides every other mode", a
   });
   await settle();
   assert.deepEqual(
-    byClass(root, "session-parked-badge").filter((n) => !n.hidden).map((n) => n.textContent),
-    ["parked · waiting on YOK-2546"],
+    byClass(root, "session-parked-badge").filter((n) => !n.hidden).map(
+      (n) => [n.textContent, n.title, n.attributes.get("aria-label")],
+    ),
+    [["parked", "waiting on YOK-2546", "parked: waiting on YOK-2546"]],
   );
   mounted.unmount();
 });
