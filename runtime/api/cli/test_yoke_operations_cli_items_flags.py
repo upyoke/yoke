@@ -117,12 +117,12 @@ class TestFlagRoutes:
 
     def test_cancel_carries_reason_and_optional_ref(self) -> None:
         assert _run(
-            "items", "cancel", "YOK-42", "--reason", "superseded", "--ref", "YOK-7"
+            "items", "cancel", "42", "--reason", "superseded", "--ref", "7"
         ) == 0
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == "items.cancel.run"
-        assert request.target.item_ref == "YOK-42"
-        assert request.payload == {"reason": "superseded", "ref": "YOK-7"}
+        assert request.target.item_ref == "42"
+        assert request.payload == {"reason": "superseded", "ref": "7"}
 
     def test_cancel_without_a_reason_is_a_usage_error(self) -> None:
         assert _run("items", "cancel", "42") == 2
