@@ -64,7 +64,10 @@ def test_job_without_new_optional_field_remains_launchable(relay_context) -> Non
             or ClaudeProcessResult(
                 0,
                 17,
-                f"backgrounded · {SHORT_ID}\nclaude attach {SHORT_ID}",
+                (
+                    f"backgrounded · {SHORT_ID} · Schema skew launch\n"
+                    f"claude attach {SHORT_ID}"
+                ),
             )
         ),
         session_lookup=lambda _invocation: ClaudeProcessResult(
