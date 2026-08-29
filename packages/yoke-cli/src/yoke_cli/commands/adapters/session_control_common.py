@@ -40,31 +40,35 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
     """Add union anchors followed by intersecting recipient filters."""
     anchor_help = {
         "public_refs": (
-            "Item whose current holder is a recipient (repeatable). "
-            "The address to prefer: one live claim, one holder, no id to copy."
+            "ANCHOR (union). Item whose current holder is a recipient "
+            "(repeatable). The address to prefer: one live claim, one "
+            "holder, no id to copy."
         ),
-        "epic_tasks": "Epic task as QUALIFIED-ITEM:TASK (repeatable).",
-        "process_keys": "Claimed process key (repeatable).",
-        "projects": "Project slug or id (repeatable).",
+        "epic_tasks": "ANCHOR (union). Epic task as QUALIFIED-ITEM:TASK.",
+        "process_keys": "ANCHOR (union). Claimed process key (repeatable).",
+        "projects": (
+            "ANCHOR (union). Every session in the project — this WIDENS the "
+            "audience, it does not narrow another anchor."
+        ),
         "session_ids": (
-            "Exact whole top-level Yoke session id (repeatable). For a "
-            "recipient no claim addresses; prefixes collide, so never "
-            "assemble, pad, or complete one."
+            "ANCHOR (union). Exact whole top-level Yoke session id "
+            "(repeatable). For a recipient no claim addresses; prefixes "
+            "collide, so never assemble, pad, or complete one."
         ),
     }
     filter_help = {
-        "executor_families": "Keep recipients from this executor family (repeatable).",
-        "executor_surfaces": "Keep recipients on this exact surface (repeatable).",
-        "work_roles": "Keep recipients with this work role (repeatable).",
-        "execution_lanes": "Keep recipients in this execution lane (repeatable).",
-        "worktree_lanes": "Keep recipients on this worktree or branch (repeatable).",
-        "machine_ids": "Keep recipients on this machine (repeatable).",
+        "executor_families": "FILTER. Keep recipients from this executor family.",
+        "executor_surfaces": "FILTER. Keep recipients on this exact surface (repeatable).",
+        "work_roles": "FILTER. Keep recipients with this work role (repeatable).",
+        "execution_lanes": "FILTER. Keep recipients in this execution lane (repeatable).",
+        "worktree_lanes": "FILTER. Keep recipients on this worktree or branch (repeatable).",
+        "machine_ids": "FILTER. Keep recipients on this machine (repeatable).",
         "liveness": (
-            "Keep recipients in this liveness state (repeatable). "
+            "FILTER. Keep recipients in this liveness state (repeatable). "
             "--project and --universe resolve against active sessions "
             "unless this widens them; 'all' restores every state."
         ),
-        "exclude_session_ids": "Remove this exact session from the result (repeatable).",
+        "exclude_session_ids": "FILTER. Remove this exact session from the result (repeatable).",
     }
     for dest, flag in SELECTOR_ARGUMENTS:
         parser.add_argument(
@@ -78,7 +82,10 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--universe",
         action="store_true",
-        help="Select every visible session; exact preview confirmation may apply.",
+        help=(
+            "ANCHOR (union). Every visible session; exact preview "
+            "confirmation may apply."
+        ),
     )
 
 
