@@ -48,7 +48,9 @@ _PROGRESS_MARKERS = (
     re.compile(r"\bnext poll\b", re.IGNORECASE),
     re.compile(r"\bsuppressed\s+\d+\s+ticks?\b", re.IGNORECASE),
     re.compile(r"\d{1,3}\s?%"),
-    re.compile(r"\bstill\s+(?:green|running|going|passing|good|fine|ok)\b", re.IGNORECASE),
+    re.compile(
+        r"\bstill\s+(?:green|running|going|passing|good|fine|ok)\b", re.IGNORECASE
+    ),
     re.compile(r"\bso far\b", re.IGNORECASE),
     re.compile(r"\b(?:progress|passing|green)\s+dots\b", re.IGNORECASE),
     re.compile(r"\bstreaming\b", re.IGNORECASE),

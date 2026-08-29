@@ -37,7 +37,7 @@ FLEET_SUBSTANTIVE_ONLY_GUIDANCE = (
     "conflict between your instruction and what you are seeing, a defect outside "
     "your scope, a terminal item state, or a decision you need. Progress output is "
     "never substantive: a percentage, an elapsed-time poll, a watcher heartbeat, or "
-    "a \"still green\" liveness note. Relaying a matched watcher line into your own "
+    'a "still green" liveness note. Relaying a matched watcher line into your own '
     "visible output is required; forwarding it to another session as a durable "
     "message is not. The recipient watches liveness with its own fleet watcher and "
     "has no use for a second copy arriving as mail."

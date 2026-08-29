@@ -133,7 +133,8 @@ __all__ = [
 def resolve_reminder_text(repo_root: Optional[Path] = None) -> str:
     """Return the reminder text: config override if present, else default."""
     override = runtime_settings.get_str(
-        CONFIG_KEY, "",
+        CONFIG_KEY,
+        "",
     ).strip()
     return override if override else DEFAULT_REMINDER
 
