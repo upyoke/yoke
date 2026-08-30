@@ -1,5 +1,6 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
+  steeringDocCovers,
   steeringHoldingText,
   steeringLeadCovers,
 } from "./universe_sessions_steering.js";
@@ -211,9 +212,16 @@ export function appendHoldings(documentNode, body, row, projects = []) {
     appendAttachedEntry(documentNode, currentGroup, row, attribution);
     rendered = true;
   }
-  if (groups.previous.length || groups.previousRemainder) {
+  // A released seat still names the documents it steered from, so the
+  // lock beside it is that seat written twice. The steering row keeps
+  // the pair; a lock no released seat covers keeps its own row.
+  const foldedIntoSeat = steeringDocCovers(groups.previous);
+  const previous = groups.previous.filter(
+    (holding) => !foldedIntoSeat(holding),
+  );
+  if (previous.length || groups.previousRemainder) {
     const group = appendHoldingGroup(
-      documentNode, body, row, "Previously held", groups.previous, true,
+      documentNode, body, row, "Previously held", previous, true,
       projects,
     );
     if (groups.previousRemainder) {

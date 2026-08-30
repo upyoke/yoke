@@ -7,8 +7,12 @@ function projectSlug(projects, projectId) {
   return String(found?.slug || found?.name || "").trim();
 }
 
+function currentHoldings(row) {
+  return Array.isArray(row?.holdings?.current) ? row.holdings.current : [];
+}
+
 function steeringClaims(row) {
-  return (Array.isArray(row?.holdings?.current) ? row.holdings.current : []).filter(
+  return currentHoldings(row).filter(
     (claim) => claim.target_kind === "steering",
   );
 }
@@ -17,14 +21,26 @@ function claimProjectId(claim) {
   return claim.project_id ?? claim.scope?.project_id;
 }
 
-function steeringScope(claim, projects) {
-  const docs = (Array.isArray(claim.strategy_docs) ? claim.strategy_docs : [])
+function steeringDocs(claim) {
+  return (Array.isArray(claim.strategy_docs) ? claim.strategy_docs : [])
     .map((slug) => String(slug || ""))
     .filter(Boolean);
+}
+
+function steeringScope(claim, projects) {
+  const docs = steeringDocs(claim);
   return {
     project: projectSlug(projects, claimProjectId(claim)) || "unknown project",
     docs: docs.length ? docs.join(", ") : "no doc lock",
   };
+}
+
+// One document lock, named the way a steering claim names the same one.
+// The project is half the key: two projects steered from same-named
+// documents are two distinct locks, and folding on the slug alone would
+// hide one behind the other.
+function documentKey(projectId, slug) {
+  return `${String(projectId)}\u0000${String(slug || "")}`;
 }
 
 export function steeringHoldingText(claim, projects = []) {
@@ -42,18 +58,33 @@ function steeringScopes(row, projects) {
   return steeringClaims(row).map((claim) => steeringScope(claim, projects));
 }
 
+// Which document locks a steering claim among `entries` already names,
+// so the seat and its document read as the one hold they are instead of
+// two rows saying the same thing. A lock nobody steers from — a document
+// held without the seat — is not covered and keeps its own row. Current
+// and released holdings fold by the same rule: released steering claims
+// carry the documents whose hold windows overlapped theirs, so a seat
+// that has been let go still names what it steered from.
+export function steeringDocCovers(entries) {
+  const covered = new Set();
+  for (const claim of (Array.isArray(entries) ? entries : [])) {
+    if (claim.target_kind !== "steering") continue;
+    for (const slug of steeringDocs(claim)) {
+      covered.add(documentKey(claimProjectId(claim), slug));
+    }
+  }
+  if (!covered.size) return () => false;
+  return (holding) => holding.holding_kind === "strategy_document"
+    && covered.has(documentKey(holding.project_id, holding.strategy_doc));
+}
+
 // Which current holdings the steering block above the roster already
 // states, so the holdings list can leave them out instead of repeating
-// them. A document lock on a project this session does not steer is not
-// covered — it belongs in the ordinary holdings.
+// them. The block names every current seat outright, and each seat folds
+// in the documents it steers from.
 export function steeringLeadCovers(row) {
-  const steered = new Set(
-    steeringClaims(row).map((claim) => String(claimProjectId(claim))),
-  );
-  if (!steered.size) return () => false;
-  return (holding) => holding.target_kind === "steering"
-    || (holding.holding_kind === "strategy_document"
-      && steered.has(String(holding.project_id)));
+  const foldsIn = steeringDocCovers(currentHoldings(row));
+  return (holding) => holding.target_kind === "steering" || foldsIn(holding);
 }
 
 // A steering seat holds no item; its scope IS its work, so on its card the
