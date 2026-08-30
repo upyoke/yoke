@@ -1,11 +1,6 @@
 """Mutation-side CRUD for deployment runs.
 
-Owns the write paths: ``cmd_next_id``, ``cmd_create_run``, ``cmd_add_item``,
-``cmd_remove_item``, ``cmd_update``. ``cmd_update`` carries the full
-status-transition validation logic preserved verbatim — auto-set ``started_at``
-on ``executing``, auto-set ``completed_at`` on terminal states, reject
-``succeeded`` when ``current_stage`` ends in ``-failed`` or is not the final
-flow stage.
+Owns run creation, membership writes, transitions, and success bookkeeping.
 """
 
 from __future__ import annotations
@@ -122,8 +117,7 @@ def _refuse_run_that_cannot_execute(
         "SELECT stages FROM deployment_flows WHERE id = %s", (flow,)
     ).fetchone()
     stages = loads_text(row[0]) if row and row[0] else []
-    lineage.require_lineage_for_stages(
-        stages, release_lineage, flow=flow)
+    lineage.require_lineage_for_stages(stages, release_lineage, flow=flow)
 
 
 def cmd_create_run(
@@ -144,12 +138,10 @@ def cmd_create_run(
         if db_backend.connection_is_postgres(conn):
             conn.execute("LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE")
         project_id = resolve_project_id(conn, project)
-        _flow_project_id, target_tier, target_environment_id = (
-            require_flow_for_new_run(
-                conn,
-                flow,
-                project_id=project_id,
-            )
+        _flow_project_id, target_tier, target_environment_id = require_flow_for_new_run(
+            conn,
+            flow,
+            project_id=project_id,
         )
         if environment:
             from yoke_core.domain.environment_delivery_record import (
@@ -158,7 +150,9 @@ def cmd_create_run(
 
             target_tier = "persistent"
             target_environment_id = require_registered_environment(
-                conn, project_id, environment,
+                conn,
+                project_id,
+                environment,
             )
 
         _refuse_run_that_cannot_execute(conn, flow, release_lineage)
@@ -331,10 +325,15 @@ def cmd_update(
                     (value, completed_at, run_id),
                 )
                 if value == "succeeded":
+                    from yoke_core.domain.deployment_run_carried_work import (
+                        record_carried_work,
+                    )
                     from yoke_core.domain.environment_delivery_record import (
                         stamp_run_environment,
                     )
+
                     stamp_run_environment(conn, run_id, when=completed_at)
+                    record_carried_work(conn, run_id)
                 conn.commit()
                 return None
         elif _lock_run(conn, run_id) is None:

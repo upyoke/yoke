@@ -26,7 +26,8 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     field = payload.get("field")
     if field is not None and not isinstance(field, str):
         return error(
-            "payload_invalid", "field must be a string when present",
+            "payload_invalid",
+            "field must be a string when present",
             jsonpath="$.payload.field",
         )
 
@@ -52,11 +53,15 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             },
             primary_success=True,
         )
+    parsed = pipe_to_dict(raw, RUN_FIELDS)
+    from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+
+    parsed["carried_work"] = parse_carried_work(parsed.get("carried_work"))
     return HandlerOutcome(
         result_payload={
             "run_id": resolved_run_id,
             "fields": list(RUN_FIELDS),
-            "run": pipe_to_dict(raw, RUN_FIELDS),
+            "run": parsed,
         },
         primary_success=True,
     )
@@ -126,12 +131,14 @@ def handle_deployment_run_update(request: FunctionCallRequest) -> HandlerOutcome
     force = bool(payload.get("force", False))
     if not isinstance(field, str) or not field.strip():
         return error(
-            "payload_invalid", "field is required",
+            "payload_invalid",
+            "field is required",
             jsonpath="$.payload.field",
         )
     if value is None:
         return error(
-            "payload_invalid", "value is required",
+            "payload_invalid",
+            "value is required",
             jsonpath="$.payload.value",
         )
 
@@ -142,7 +149,9 @@ def handle_deployment_run_update(request: FunctionCallRequest) -> HandlerOutcome
         lower = err.lower()
         if "not found" in lower:
             return error(
-                "not_found", err, jsonpath="$.target.workflow_run_id",
+                "not_found",
+                err,
+                jsonpath="$.target.workflow_run_id",
             )
         if "not updatable" in lower:
             return error("invalid_field", err, jsonpath="$.payload.field")
@@ -232,12 +241,14 @@ def handle_deployment_run_resolve_target(
     environment = payload.get("environment")
     if not isinstance(project, str) or not project.strip():
         return error(
-            "payload_invalid", "project is required",
+            "payload_invalid",
+            "project is required",
             jsonpath="$.payload.project",
         )
     if not isinstance(flow, str) or not flow.strip():
         return error(
-            "payload_invalid", "flow is required",
+            "payload_invalid",
+            "flow is required",
             jsonpath="$.payload.flow",
         )
     if environment is not None and not isinstance(environment, str):

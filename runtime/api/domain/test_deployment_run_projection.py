@@ -47,6 +47,7 @@ def _snapshot(**overrides: Any) -> dict[str, Any]:
         "started_at": "2026-07-30T00:02:00Z",
         "completed_at": "2026-07-30T00:03:00Z",
         "created_by": "release-control-plane",
+        "carried_work": {"schema": 1, "items": [], "commits": []},
     }
     row.update(overrides)
     assert set(row) == set(RUN_FIELDS)
@@ -72,15 +73,27 @@ def test_projection_inserts_and_exact_replay_is_unchanged(test_db: Any) -> None:
         "FROM deployment_runs WHERE id=%s",
         (RUN_ID,),
     ).fetchone()
-    assert tuple(row[field] for field in (
-        "status", "created_at", "started_at", "completed_at", "created_by"
-    )) == (
+    assert tuple(
+        row[field]
+        for field in (
+            "status",
+            "created_at",
+            "started_at",
+            "completed_at",
+            "created_by",
+        )
+    ) == (
         "succeeded",
         "2026-07-30T00:01:00Z",
         "2026-07-30T00:02:00Z",
         "2026-07-30T00:03:00Z",
         "release-control-plane",
     )
+    carried = test_db.execute(
+        "SELECT carried_work FROM deployment_runs WHERE id=%s",
+        (RUN_ID,),
+    ).fetchone()
+    assert '"schema":1' in carried["carried_work"]
 
 
 def test_projection_repairs_same_identity_with_destination_digest(

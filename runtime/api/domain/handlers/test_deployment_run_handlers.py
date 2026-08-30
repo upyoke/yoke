@@ -35,6 +35,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "",
             "",
             "operator",
+            '{"schema":1,"items":[],"commits":[]}',
         ]
         raw = "|".join(values[: len(RUN_FIELDS)])
         with patch(
@@ -53,6 +54,10 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertEqual(
             outcome.result_payload["run"]["target_environment"],
             "prod",
+        )
+        self.assertEqual(
+            outcome.result_payload["run"]["carried_work"]["schema"],
+            1,
         )
 
     def test_run_get_not_found_returns_not_found(self):
@@ -284,7 +289,8 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "2026-06-15T01:00:00Z|operator"
         )
         created = source.replace("run-old", "run-new").replace(
-            "|failed|", "|created|",
+            "|failed|",
+            "|created|",
         )
         with (
             patch(
@@ -296,13 +302,16 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                 return_value="run-new",
             ) as create,
         ):
-            outcome = deployment_runs.handle_deployment_run_create(_request(
-                function="deployment_runs.create",
-                payload={
-                    "project": "yoke", "flow": "yoke-hosted-prod",
-                    "retry_of": "run-old",
-                },
-            ))
+            outcome = deployment_runs.handle_deployment_run_create(
+                _request(
+                    function="deployment_runs.create",
+                    payload={
+                        "project": "yoke",
+                        "flow": "yoke-hosted-prod",
+                        "retry_of": "run-old",
+                    },
+                )
+            )
         self.assertTrue(outcome.primary_success)
         self.assertEqual(create.call_args.kwargs["release_lineage"], "a" * 40)
 
@@ -318,8 +327,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
 
     def test_resolve_target_returns_typed_triple(self):
         with patch(
-            "yoke_core.domain.deployment_run_target_resolution."
-            "cmd_resolve_target",
+            "yoke_core.domain.deployment_run_target_resolution.cmd_resolve_target",
             return_value=("persistent", 201, "prod"),
         ):
             outcome = deployment_runs.handle_deployment_run_resolve_target(

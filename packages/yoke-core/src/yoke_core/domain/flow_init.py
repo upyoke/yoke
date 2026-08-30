@@ -59,7 +59,10 @@ def _ensure_flow_schema(conn) -> None:
         conn, "deployment_flows", "target_tier", "TEXT DEFAULT NULL"
     )
     _add_column_if_not_exists(
-        conn, "deployment_flows", "target_environment_id", environment_ref,
+        conn,
+        "deployment_flows",
+        "target_environment_id",
+        environment_ref,
     )
     _add_column_if_not_exists(
         conn, "deployment_flows", "done_description", "TEXT DEFAULT NULL"
@@ -75,8 +78,12 @@ def _ensure_flow_schema(conn) -> None:
     if _table_exists(conn, "deployment_runs"):
         _add_column_if_not_exists(conn, "deployment_runs", "target_tier", "TEXT")
         _add_column_if_not_exists(
-            conn, "deployment_runs", "target_environment_id", environment_ref,
+            conn,
+            "deployment_runs",
+            "target_environment_id",
+            environment_ref,
         )
+        _add_column_if_not_exists(conn, "deployment_runs", "carried_work", "TEXT")
 
     # Add deployment_flow / deploy_stage to items (idempotent).
     # NOTE: SQLite silently drops the inline `REFERENCES` clause on
@@ -126,9 +133,7 @@ def create_or_replace_item_progress_view(conn, *, commit: bool = True) -> None:
 
     conn.execute("DROP VIEW IF EXISTS item_progress_view")
 
-    target_expr = (
-        "COALESCE(te.name, df.target_tier)" if has_envs else "df.target_tier"
-    )
+    target_expr = "COALESCE(te.name, df.target_tier)" if has_envs else "df.target_tier"
     flow_env_join = (
         "LEFT JOIN environments te ON te.id = df.target_environment_id"
         if has_envs

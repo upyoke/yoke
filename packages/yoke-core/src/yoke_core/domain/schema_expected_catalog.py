@@ -51,7 +51,7 @@ _EXPECTED_SCHEMA_STR = (
     "|deployment_preview_environments:id/INTEGER,project_id/INTEGER,env_name/TEXT,run_id/TEXT,status/TEXT,env_type/TEXT,url/TEXT,created_at/TEXT"
     "|deployment_run_items:run_id/TEXT,item_id/INTEGER,added_at/TEXT"
     "|deployment_run_qa:id/INTEGER,run_id/TEXT,check_name/TEXT,source/TEXT,blocking/INTEGER,status/TEXT,updated_at/TEXT"
-    "|deployment_runs:id/TEXT,project_id/INTEGER,flow/TEXT,target_tier/TEXT,target_environment_id/INTEGER,release_lineage/TEXT,status/TEXT,current_stage/TEXT,created_at/TEXT,started_at/TEXT,completed_at/TEXT,created_by/TEXT"
+    "|deployment_runs:id/TEXT,project_id/INTEGER,flow/TEXT,target_tier/TEXT,target_environment_id/INTEGER,release_lineage/TEXT,status/TEXT,current_stage/TEXT,created_at/TEXT,started_at/TEXT,completed_at/TEXT,created_by/TEXT,carried_work/TEXT"
     "|environments:id/INTEGER,site/INTEGER,project_id/INTEGER,name/TEXT,url/TEXT,deploy_method/TEXT,deploy_command/TEXT,health_check_url/TEXT,config_notes/TEXT,last_deployed_at/TEXT,created_at/TEXT,settings/TEXT"
     "|ephemeral_environments:id/INTEGER,project_id/INTEGER,branch/TEXT,item/TEXT,workflow_run_id/TEXT,github_ref/TEXT,port_api/INTEGER,port_web/INTEGER,url/TEXT,status/TEXT,started_at/TEXT,stopped_at/TEXT,health_check_url/TEXT,deployed_sha/TEXT,created_at/TEXT"
     "|epic_dispatch_chains:id/INTEGER,epic_id/INTEGER,queue/TEXT,current_index/INTEGER,current_task/TEXT,current_attempt/INTEGER,max_attempts/INTEGER,no_chain/INTEGER,started_at/TEXT,last_updated/TEXT,item_worktree_id/INTEGER"
