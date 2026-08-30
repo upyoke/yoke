@@ -50,9 +50,7 @@ class TestContentionEvidence:
         conn = _connect(db_path)
         try:
             coordination_claims.acquire(conn, qa_target(), "sess-a")
-            with pytest.raises(
-                coordination_claims.CoordinationClaimHeldError
-            ) as exc:
+            with pytest.raises(coordination_claims.CoordinationClaimHeldError) as exc:
                 coordination_claims.acquire(conn, qa_target(), "sess-b")
             message = str(exc.value)
             assert "sess-a" in message
@@ -88,9 +86,7 @@ class TestContentionEvidence:
             coordination_claims.acquire(
                 conn, migration_target(7), "sess-dead", now="2020-01-01T00:00:00Z"
             )
-            with pytest.raises(
-                coordination_claims.CoordinationClaimHeldError
-            ) as exc:
+            with pytest.raises(coordination_claims.CoordinationClaimHeldError) as exc:
                 coordination_claims.acquire(conn, migration_target(8), "sess-a")
             assert not isinstance(
                 exc.value, coordination_claims.CoordinationClaimStaleHolderError
@@ -116,9 +112,7 @@ class TestHeartbeat:
     def test_heartbeat_refuses_missing(self, db_path: str) -> None:
         conn = _connect(db_path)
         try:
-            with pytest.raises(
-                coordination_claims.CoordinationClaimNotFoundError
-            ):
+            with pytest.raises(coordination_claims.CoordinationClaimNotFoundError):
                 coordination_claims.heartbeat(conn, 9999)
         finally:
             conn.close()
@@ -166,9 +160,11 @@ class TestListing:
     def test_list_ignores_backlog_claims(self, db_path: str) -> None:
         """Only shared-operation kinds belong to this surface."""
         from yoke_core.domain.steering_claims import acquire as acquire_steering
+        from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 
         conn = _connect(db_path)
         try:
+            seed_default_docs(conn, PROJECT_YOKE, "Yoke")
             acquire_steering(
                 conn, session_id="sess-1", project_id=PROJECT_YOKE, reason="steer"
             )
@@ -185,9 +181,7 @@ class TestListing:
             coordination_claims.acquire(
                 conn, migration_target(7), "sess-2", now="2099-01-01T00:00:00Z"
             )
-            stale = stale_claim_candidates(
-                conn, threshold_iso="2030-01-01T00:00:00Z"
-            )
+            stale = stale_claim_candidates(conn, threshold_iso="2030-01-01T00:00:00Z")
             assert {row.key for row in stale} == {"QA_HOST:mac-mini-lab"}
         finally:
             conn.close()
@@ -202,9 +196,7 @@ class TestEventEmission:
         )
         return calls
 
-    def test_acquire_emits_the_acquired_event(
-        self, db_path: str, monkeypatch
-    ) -> None:
+    def test_acquire_emits_the_acquired_event(self, db_path: str, monkeypatch) -> None:
         calls = self._capture(monkeypatch)
         conn = _connect(db_path)
         try:
@@ -229,9 +221,7 @@ class TestEventEmission:
             call["name"] for call in calls
         ]
 
-    def test_release_emits_the_released_event(
-        self, db_path: str, monkeypatch
-    ) -> None:
+    def test_release_emits_the_released_event(self, db_path: str, monkeypatch) -> None:
         conn = _connect(db_path)
         try:
             claim = coordination_claims.acquire(conn, qa_target(), "sess-1")

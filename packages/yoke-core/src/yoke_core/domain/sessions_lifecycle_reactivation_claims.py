@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
+
 from .runtime_settings import get_seconds
 from .sessions_analytics import SessionError
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
@@ -197,6 +199,41 @@ def auto_reacquire_session_ended_claims(
             conflicts.append({**target, "holder_session_id": holder})
             continue
         new_id = _insert_reacquired_claim(conn, row, now_iso=now_iso)
+        if row["target_kind"] == TARGET_KIND_STEERING:
+            from .strategy_doc_steering_pair import (
+                paired_document_slug_for_history,
+            )
+            from .strategy_docs import StrategyDocMissingError
+            from .strategy_execution import (
+                StrategyExecutionError,
+                acquire_session_doc_claim,
+            )
+
+            doc_slug = (
+                paired_document_slug_for_history(conn, int(row["id"]))
+                or DEFAULT_STEERING_DOC_SLUG
+            )
+            try:
+                acquire_session_doc_claim(
+                    conn,
+                    project_id=int(work_claim_target_from_row(dict(row)).project_id),
+                    slug=doc_slug,
+                    session_id=session_id,
+                    actor_id=None,
+                    reason="session reactivated",
+                    paired_work_claim_id=new_id,
+                    commit=False,
+                )
+            except (StrategyExecutionError, StrategyDocMissingError) as exc:
+                conn.execute("DELETE FROM work_claims WHERE id = %s", (new_id,))
+                conflicts.append(
+                    {
+                        **target,
+                        "strategy_doc_slug": doc_slug,
+                        "document_claim_refusal": str(exc),
+                    }
+                )
+                continue
         reacquired.append({**target, "new_claim_id": new_id})
 
     if reacquired:

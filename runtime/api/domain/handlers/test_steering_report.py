@@ -16,6 +16,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_core.domain.handlers.steering_report import handle_get
 from yoke_core.domain.steering_fleet_report import FleetReport
 
@@ -95,7 +96,8 @@ def test_report_accepts_each_requested_project_claim(test_db, monkeypatch) -> No
 
 
 def test_report_refuses_without_the_requested_project_claim(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ) -> None:
     seed_standard_steering_world(test_db)
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
@@ -107,6 +109,6 @@ def test_report_refuses_without_the_requested_project_claim(
     assert not outcome.primary_success
     assert outcome.error.code == "steering_claim_required"
     assert (
-        f"yoke claims steering acquire --project {PROJECT_BETA}"
-        in outcome.error.message
+        f"yoke claims steering acquire --project {PROJECT_BETA} "
+        f"--doc {DEFAULT_STEERING_DOC_SLUG}" in outcome.error.message
     )

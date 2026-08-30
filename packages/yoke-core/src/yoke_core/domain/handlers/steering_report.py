@@ -17,6 +17,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 
 
 class SteeringReportGetRequest(BaseModel):
@@ -101,7 +102,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
                 "steering_claim_required",
                 "the fleet report reads from the live steering claim holder; "
                 f"acquire it with `yoke claims steering acquire --project "
-                f"{project_id}`",
+                f"{project_id} --doc {DEFAULT_STEERING_DOC_SLUG}`",
                 "$.actor.session_id",
             )
         report = compose_report(

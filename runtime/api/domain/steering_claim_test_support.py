@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.steering_claims import acquire
+from yoke_core.domain.strategy_docs_create import create_doc
 
 PROJECT_ALPHA = 71
 PROJECT_BETA = 72
@@ -20,6 +22,11 @@ def seed_project(conn: Any, project_id: int, slug: str) -> None:
         (project_id, slug, slug.title(), iso8601_now()),
     )
     conn.commit()
+    seed_strategy_doc(conn, project_id, DEFAULT_STEERING_DOC_SLUG)
+
+
+def seed_strategy_doc(conn: Any, project_id: int, slug: str) -> None:
+    create_doc(conn, project_id, slug, f"# {slug}\n", actor_id=2)
 
 
 def seed_session(conn: Any, session_id: str, project_id: int) -> None:
@@ -35,12 +42,20 @@ def seed_session(conn: Any, session_id: str, project_id: int) -> None:
     conn.commit()
 
 
-def acquire_steering(conn: Any, session_id: str, project_id: int):
+def acquire_steering(
+    conn: Any,
+    session_id: str,
+    project_id: int,
+    *,
+    doc_slug: str = DEFAULT_STEERING_DOC_SLUG,
+):
     return acquire(
         conn,
         session_id=session_id,
         project_id=project_id,
         reason="steering work",
+        doc_slug=doc_slug,
+        actor_id=2,
     )
 
 
@@ -61,5 +76,6 @@ __all__ = [
     "acquire_steering",
     "seed_project",
     "seed_session",
+    "seed_strategy_doc",
     "seed_standard_steering_world",
 ]

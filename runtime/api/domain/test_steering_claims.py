@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from runtime.api.domain.steering_claim_test_support import (
     PROJECT_ALPHA,
     PROJECT_BETA,
@@ -13,11 +14,16 @@ from runtime.api.domain.steering_claim_test_support import (
     SESSION_BETA,
     SESSION_GAMMA,
     acquire_steering,
+    seed_strategy_doc,
     seed_standard_steering_world,
 )
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.steering_claims import list_claims
+from yoke_core.domain.strategy_doc_steering_pair import (
+    active_paired_session_doc_claim,
+)
+from yoke_core.domain.strategy_execution import acquire_session_doc_claim
 from yoke_core.domain.work_claim_targets import make_steering_target
 
 
@@ -54,7 +60,37 @@ def test_acquire_records_session_owned_project_scope(steering_db) -> None:
     assert claim["scope"] == {"project_id": PROJECT_ALPHA}
     assert "owner_kind" not in claim
     assert "registered_by_actor_id" not in claim
+    document_claim = active_paired_session_doc_claim(steering_db, claim["id"])
+    assert document_claim is not None
+    assert document_claim["strategy_doc_slug"] == DEFAULT_STEERING_DOC_SLUG
+    assert document_claim["paired_work_claim_id"] == claim["id"]
     emitted.assert_called_once()
+
+
+def test_explicit_document_replaces_the_default_selection(steering_db) -> None:
+    seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        claim = acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            doc_slug="AREA-PLAN",
+        )
+    assert claim["document_claim"]["strategy_doc_slug"] == "AREA-PLAN"
+
+
+def test_document_conflict_rolls_back_the_steering_seat(steering_db) -> None:
+    acquire_session_doc_claim(
+        steering_db,
+        project_id=PROJECT_ALPHA,
+        slug=DEFAULT_STEERING_DOC_SLUG,
+        session_id=SESSION_BETA,
+        actor_id=2,
+    )
+    with pytest.raises(SessionError) as refusal:
+        acquire_steering(steering_db, SESSION_ALPHA, PROJECT_ALPHA)
+    assert refusal.value.code == "DOCUMENT_ALREADY_CLAIMED"
+    assert list_claims(steering_db, project_id=PROJECT_ALPHA, active_only=True) == []
 
 
 def test_second_project_claim_refuses_and_names_holder(steering_db) -> None:

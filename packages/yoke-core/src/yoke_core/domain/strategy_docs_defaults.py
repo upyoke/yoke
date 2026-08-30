@@ -20,8 +20,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
+
 DEFAULT_STRATEGY_DOC_SLUGS = (
-    "MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "CURRENT-PLAN",
+    "MISSION",
+    "VISION",
+    "MASTER-PLAN",
+    "LANDSCAPE",
+    DEFAULT_STEERING_DOC_SLUG,
 )
 
 
@@ -114,7 +120,7 @@ _PLACEHOLDER_RENDERERS = {
     "VISION": render_vision_placeholder,
     "MASTER-PLAN": render_master_plan_placeholder,
     "LANDSCAPE": render_landscape_placeholder,
-    "CURRENT-PLAN": render_current_plan_placeholder,
+    DEFAULT_STEERING_DOC_SLUG: render_current_plan_placeholder,
 }
 
 
@@ -131,7 +137,9 @@ def placeholder_content(slug: str, display_name: str) -> str:
 
 
 def seed_default_docs(
-    conn: Any, project_id: int, display_name: str,
+    conn: Any,
+    project_id: int,
+    display_name: str,
 ) -> Dict[str, Any]:
     """Top up the project's default strategy docs, seeding only missing slugs.
 
@@ -158,9 +166,7 @@ def seed_default_docs(
         (project_id, *DEFAULT_STRATEGY_DOC_SLUGS),
     ).fetchall()
     present = {str(row[0]) for row in rows or []}
-    already_present = [
-        slug for slug in DEFAULT_STRATEGY_DOC_SLUGS if slug in present
-    ]
+    already_present = [slug for slug in DEFAULT_STRATEGY_DOC_SLUGS if slug in present]
     seeded: List[str] = []
     updated_at = next_updated_at()
     for slug in DEFAULT_STRATEGY_DOC_SLUGS:

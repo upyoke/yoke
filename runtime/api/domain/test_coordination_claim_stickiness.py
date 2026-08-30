@@ -14,6 +14,7 @@ import pytest
 
 from yoke_core.domain import coordination_claims
 from yoke_core.domain.steering_claims import acquire as acquire_steering
+from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 from yoke_core.domain.work_claim_targets import (
     STICKY_TARGET_KINDS,
     TARGET_KIND_MIGRATION_SERIALIZATION,
@@ -92,6 +93,7 @@ class TestStaleSessionSweep:
         conn = _connect(db_path)
         try:
             claims = _hold_everything(conn)
+            seed_default_docs(conn, PROJECT_YOKE, "Yoke")
             acquire_steering(
                 conn, session_id=HOLDER, project_id=PROJECT_YOKE, reason="steer"
             )

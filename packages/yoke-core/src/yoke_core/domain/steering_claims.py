@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_claim_lifecycle_lock import (
@@ -56,8 +57,10 @@ def acquire(
     session_id: str,
     project_id: int,
     reason: Optional[str] = None,
+    doc_slug: str = DEFAULT_STEERING_DOC_SLUG,
+    actor_id: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Acquire the one live steering seat for a project."""
+    """Atomically acquire one project's steering seat and document lock."""
     target = make_steering_target(project_id)
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:
@@ -70,6 +73,14 @@ def acquire(
     for row in rows:
         payload = _claim_payload(row)
         if payload["session_id"] == session_id:
+            payload["document_claim"] = _acquire_document_pair(
+                conn,
+                claim=payload,
+                project_id=int(project_id),
+                doc_slug=doc_slug,
+                actor_id=actor_id,
+                reason=reason,
+            )
             conn.commit()
             return payload
     if rows:
@@ -98,13 +109,74 @@ def acquire(
     from yoke_core.domain.claim_chain_state import record_claim_reason
 
     record_claim_reason(conn, claim_id=claim_id, reason=reason)
+    claim = _claim_payload(
+        conn.execute(
+            f"SELECT * FROM work_claims WHERE id = {p}",
+            (claim_id,),
+        ).fetchone()
+    )
+    claim["document_claim"] = _acquire_document_pair(
+        conn,
+        claim=claim,
+        project_id=int(project_id),
+        doc_slug=doc_slug,
+        actor_id=actor_id,
+        reason=reason,
+    )
     conn.commit()
     emit_steering_claimed(session_id, claim_id, target, reason=reason)
-    row = conn.execute(
-        f"SELECT * FROM work_claims WHERE id = {p}",
-        (claim_id,),
-    ).fetchone()
-    return _claim_payload(row)
+    return claim
+
+
+def _acquire_document_pair(
+    conn: Any,
+    *,
+    claim: dict[str, Any],
+    project_id: int,
+    doc_slug: str,
+    actor_id: Optional[int],
+    reason: Optional[str],
+) -> dict[str, Any]:
+    from yoke_core.domain.strategy_doc_steering_pair import (
+        active_paired_session_doc_claim,
+    )
+    from yoke_core.domain.strategy_docs import StrategyDocMissingError
+    from yoke_core.domain.strategy_execution import (
+        StrategyDocClaimAuthorizationError,
+        StrategyDocClaimConflictError,
+        StrategyExecutionError,
+        acquire_session_doc_claim,
+    )
+
+    current = active_paired_session_doc_claim(conn, int(claim["id"]))
+    if current is not None and str(current["strategy_doc_slug"]) != doc_slug:
+        conn.rollback()
+        raise SessionError(
+            "DOCUMENT_MISMATCH",
+            f"Steering claim {claim['id']} is already paired with strategy "
+            f"document {current['strategy_doc_slug']!r}; release the claim "
+            f"before acquiring it with --doc {doc_slug}.",
+        )
+    try:
+        return acquire_session_doc_claim(
+            conn,
+            project_id=project_id,
+            slug=doc_slug,
+            session_id=str(claim["session_id"]),
+            actor_id=actor_id,
+            reason=reason,
+            paired_work_claim_id=int(claim["id"]),
+            commit=False,
+        )
+    except StrategyDocClaimConflictError as exc:
+        conn.rollback()
+        raise SessionError("DOCUMENT_ALREADY_CLAIMED", str(exc)) from exc
+    except StrategyDocMissingError as exc:
+        conn.rollback()
+        raise SessionError("DOCUMENT_NOT_FOUND", str(exc)) from exc
+    except (StrategyDocClaimAuthorizationError, StrategyExecutionError) as exc:
+        conn.rollback()
+        raise SessionError("DOCUMENT_CLAIM_FAILED", str(exc)) from exc
 
 
 def list_claims(

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -26,10 +27,12 @@ class SteeringClaimRow(BaseModel):
     reason: Optional[str] = None
     reason_intent: Optional[str] = None
     release_reason_intent: Optional[str] = None
+    document_claim: Optional[Dict[str, Any]] = None
 
 
 class AcquireRequest(BaseModel):
     reason: Optional[str] = None
+    doc_slug: str = Field(DEFAULT_STEERING_DOC_SLUG, min_length=1)
 
 
 class AcquireResponse(BaseModel):
@@ -99,11 +102,20 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=request.actor.session_id,
                 project_id=project_id,
                 reason=body.reason,
+                doc_slug=body.doc_slug,
+                actor_id=(
+                    int(request.actor.actor_id)
+                    if request.actor.actor_id is not None
+                    else None
+                ),
             )
         except SessionError as exc:
-            code = (
-                "already_claimed" if exc.code == "ALREADY_CLAIMED" else "claim_failed"
-            )
+            code = {
+                "ALREADY_CLAIMED": "already_claimed",
+                "DOCUMENT_ALREADY_CLAIMED": "document_already_claimed",
+                "DOCUMENT_NOT_FOUND": "unknown_document",
+                "DOCUMENT_MISMATCH": "document_mismatch",
+            }.get(exc.code, "claim_failed")
             return _error(code, f"{exc.code}: {exc}")
     return HandlerOutcome(result_payload={"claim": _claim_payload(row)})
 
@@ -123,12 +135,18 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import db_helpers
     from yoke_core.domain.sessions_analytics import SessionError
     from yoke_core.domain.sessions_lifecycle_claim import release_claim
+    from yoke_core.domain.strategy_execution import StrategyExecutionError
 
     with db_helpers.connect() as conn:
         try:
             row = release_claim(conn, int(request.target.claim_id), reason=body.reason)
         except SessionError as exc:
             return _error("release_failed", f"{exc.code}: {exc}")
+        except StrategyExecutionError as exc:
+            return _error(
+                "paired_document_release_failed",
+                f"{exc}; inspect the steering seat and document lock, then retry",
+            )
     return HandlerOutcome(result_payload={"claim": _claim_payload(row)})
 
 

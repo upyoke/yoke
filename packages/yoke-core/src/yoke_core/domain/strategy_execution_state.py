@@ -93,7 +93,8 @@ def _active_item_claim(
 
 CLAIM_COLUMNS = (
     "c.id, c.project_id, c.strategy_doc_slug, c.owner_kind, "
-    "c.owner_item_id, c.owner_session_id, c.registered_by_actor_id, "
+    "c.owner_item_id, c.owner_session_id, c.paired_work_claim_id, "
+    "c.registered_by_actor_id, "
     "c.registered_by_session_id, c.registered_at, "
     "i.title AS item_title, i.status AS item_status, "
     "i.workflow_id, i.workflow_version_id, "

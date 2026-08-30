@@ -27,6 +27,7 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from .work_claim_targets import TARGET_KIND_STEERING
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
@@ -44,7 +45,7 @@ def release_all_claims(
     now = _now_iso()
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     rows = conn.execute(
-        "SELECT id FROM work_claims "
+        "SELECT id, target_kind FROM work_claims "
         "WHERE session_id = %s AND released_at IS NULL "
         f"AND {LIVENESS_BOUND_SQL} ORDER BY id",
         (session_id,),
@@ -52,7 +53,19 @@ def release_all_claims(
     claim_ids = tuple(int(row["id"]) for row in rows)
     lock_work_claims_workflow_bindings(conn, claim_ids)
     released = 0
-    for claim_id in claim_ids:
+    for row in rows:
+        claim_id = int(row["id"])
+        if row["target_kind"] == TARGET_KIND_STEERING:
+            from .strategy_doc_steering_pair import release_paired_session_doc_claim
+
+            release_paired_session_doc_claim(
+                conn,
+                work_claim_id=claim_id,
+                session_id=session_id,
+                actor_id=None,
+                reason=reason,
+                commit=False,
+            )
         cursor = conn.execute(
             "UPDATE work_claims SET released_at = %s, release_reason = %s "
             "WHERE id = %s AND released_at IS NULL",

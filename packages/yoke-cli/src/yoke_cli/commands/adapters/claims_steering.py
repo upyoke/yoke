@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from typing import Any, Dict, List
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_cli.commands._helpers import (
     add_json_arg,
     client_project_context,
@@ -16,14 +17,11 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 STEERING_ACQUIRE_USAGE = (
-    "yoke claims steering acquire --project P [--reason TEXT] [--json]"
+    "yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT] [--json]"
 )
-STEERING_RELEASE_USAGE = (
-    "yoke claims steering release CLAIM_ID --reason TEXT [--json]"
-)
+STEERING_RELEASE_USAGE = "yoke claims steering release CLAIM_ID --reason TEXT [--json]"
 STEERING_LIST_USAGE = (
-    "yoke claims steering list [--project P] [--session-id S] "
-    "[--active-only] [--json]"
+    "yoke claims steering list [--project P] [--session-id S] [--active-only] [--json]"
 )
 
 
@@ -34,9 +32,11 @@ def _project_id(claim: Dict[str, Any]) -> Any:
 
 def _print_acquired(response: Any, stdout, _stderr) -> None:
     claim = (response.result or {}).get("claim") or {}
+    document_claim = claim.get("document_claim") or {}
     print(
         f"acquired steering claim {claim.get('id', '')}: "
         f"project={_project_id(claim)} "
+        f"doc={document_claim.get('strategy_doc_slug', '')} "
         f"holder={claim.get('session_id', '')}",
         file=stdout,
     )
@@ -44,9 +44,11 @@ def _print_acquired(response: Any, stdout, _stderr) -> None:
 
 def _print_released(response: Any, stdout, _stderr) -> None:
     claim = (response.result or {}).get("claim") or {}
+    document_claim = claim.get("document_claim") or {}
     print(
         f"released steering claim {claim.get('id', '')}: "
         f"project={_project_id(claim)} "
+        f"doc={document_claim.get('slug', '')} "
         f"holder={claim.get('session_id', '')}",
         file=stdout,
     )
@@ -75,12 +77,17 @@ def claims_steering_acquire(args: List[str]) -> int:
         description=STEERING_ACQUIRE_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument(
+        "--doc",
+        default=DEFAULT_STEERING_DOC_SLUG,
+        help=f"Strategy document to pair (default: {DEFAULT_STEERING_DOC_SLUG}).",
+    )
     parser.add_argument("--reason", default=None, help="Optional acquire rationale.")
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_ACQUIRE_USAGE)
     if parsed is None:
         return 2
-    payload: Dict[str, Any] = {}
+    payload: Dict[str, Any] = {"doc_slug": parsed.doc}
     if parsed.reason:
         payload["reason"] = parsed.reason
     return dispatch_and_emit(

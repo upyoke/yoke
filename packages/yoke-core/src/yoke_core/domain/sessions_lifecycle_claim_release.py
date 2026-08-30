@@ -157,6 +157,19 @@ def release_claim_by_id(
         )
     target = work_claim_target_from_row(dict(row))
 
+    paired_document_claim: Optional[Dict[str, Any]] = None
+    if target.kind == TARGET_KIND_STEERING:
+        from .strategy_doc_steering_pair import release_paired_session_doc_claim
+
+        paired_document_claim = release_paired_session_doc_claim(
+            conn,
+            work_claim_id=int(claim_id),
+            session_id=str(row["session_id"]),
+            actor_id=None,
+            reason=reason,
+            commit=False,
+        )
+
     conn.execute(
         f"UPDATE work_claims SET released_at = {_p(conn)}, "
         f"release_reason = {_p(conn)} WHERE id = {_p(conn)}",
@@ -248,6 +261,7 @@ def release_claim_by_id(
     claim_row = _get_claim(conn, claim_id)
     if isinstance(claim_row, dict):
         claim_row["linked_path_claim_ids"] = list(linked_path_claim_ids)
+        claim_row["document_claim"] = paired_document_claim
     return claim_row
 
 
