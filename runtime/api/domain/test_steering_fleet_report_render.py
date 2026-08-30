@@ -112,6 +112,7 @@ def test_a_quiet_detector_renders_nothing_at_all(steering_scope):
         "starved delivery",
         "unregistered launches",
         "landed without close-out",
+        "suspected orphaned waiter",
         "dead waits",
     ):
         assert absent not in body
@@ -199,6 +200,7 @@ def _populated_report():
                 reason="answerer session has ended",
             ),
         ),
+        suspected_orphaned_waiters=(quiet,),
         launchable=(SurfaceReadiness(machine_id="machine-1", surface=SURFACE),),
         session_counts=(("machine-1", SURFACE, 2),),
     )
@@ -210,6 +212,7 @@ def test_every_section_renders_in_the_order_a_steerer_reads_them():
     order = [
         "available —",
         "idle holders —",
+        "suspected orphaned waiter —",
         "starved delivery —",
         "unregistered launches —",
         "landed without close-out —",
@@ -238,6 +241,10 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     assert "identity parse failed" in launch_row
     assert "instruction not delivered" in launch_row
     assert "reconcile launch-1 --observed-native-id ID" in launch_row
+    waiter_row = next(line for line in body.splitlines() if "wake `yoke say" in line)
+    assert "YOK-3" in waiter_row
+    assert "session holder-session" in waiter_row
+    assert "yoke say --item YOK-3 --stdin" in waiter_row
 
 
 def test_the_populated_report_stays_short_enough_to_ride_every_message():

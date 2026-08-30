@@ -1,15 +1,7 @@
 """Turn one fleet report into the text a steerer reads and the JSON it queries.
 
-Kept apart from composition because the two change for different reasons: a
-new detector is a query, a clearer report is wording.
-
-Two rules shape the text. Available work comes first, because the section
-that answers "what can I staff right now" used to sit at the bottom under a
-heading reading like leftovers, and a steering seat read it as withheld work
-and waited twenty minutes for something it already had. And a detector with
-nothing to say renders nothing at all: this report is appended to every
-message a steering session receives, so a header plus "none" is a cost paid
-on every delivery forever, in exchange for saying that nothing happened.
+Available work comes first, and quiet detectors render nothing. The report
+rides every steering message, so empty headers are permanent noise.
 """
 
 from __future__ import annotations
@@ -52,7 +44,9 @@ LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch"
 
 
 def _landed_recovery(public_ref: str) -> str:
-    return f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
+    return (
+        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
+    )
 
 
 def _minutes(seconds: int) -> str:
@@ -153,6 +147,9 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             _launch_dict(entry) for entry in report.unregistered_launches
         ],
         "landed_open": [_landed_dict(entry) for entry in report.landed_open],
+        "suspected_orphaned_waiters": [
+            _holder_dict(holder) for holder in report.suspected_orphaned_waiters
+        ],
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}
@@ -180,12 +177,18 @@ def _available_lines(report: FleetReport) -> list[str]:
     return _capped(lines, len(report.available))
 
 
-def _holder_lines(holders: tuple[ClaimHolder, ...]) -> list[str]:
-    lines = [
-        f"  {holder.public_ref}  session {holder.session_id}  mode "
-        f"{holder.mode or 'unset'}  quiet {_minutes(holder.idle_seconds)}"
-        for holder in holders[:SECTION_LIMIT]
-    ]
+def _holder_lines(
+    holders: tuple[ClaimHolder, ...], *, with_wake: bool = False
+) -> list[str]:
+    lines = []
+    for holder in holders[:SECTION_LIMIT]:
+        line = (
+            f"  {holder.public_ref}  session {holder.session_id}  mode "
+            f"{holder.mode or 'unset'}  quiet {_minutes(holder.idle_seconds)}"
+        )
+        if with_wake:
+            line += f"  wake `yoke say --item {holder.public_ref} --stdin`"
+        lines.append(line)
     return _capped(lines, len(holders))
 
 
@@ -302,6 +305,10 @@ def report_body(report: FleetReport) -> str:
             f"idle holders — claim held, no tool call in over {idle} "
             "(parked sessions excluded; they declared their wait)",
             _holder_lines(report.idle),
+        ),
+        *_section(
+            "suspected orphaned waiter — Monitor completed, waiting past idle",
+            _holder_lines(report.suspected_orphaned_waiters, with_wake=True),
         ),
         *_section(
             "starved delivery — sent, never injected, recipient silent since",

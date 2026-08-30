@@ -1,4 +1,4 @@
-"""The four failures that arrive as silence, and the guesses not made about them."""
+"""The five failures that arrive as silence, and the guesses not made about them."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ from yoke_core.domain.steering_fleet_report_dead_waits import UNRESOLVED, dead_w
 from yoke_core.domain.steering_fleet_report_detectors import (
     landed_without_closeout,
     starved_deliveries,
+    suspected_orphaned_waiters,
     unregistered_launches,
 )
 
@@ -79,6 +80,16 @@ def _launch(
             result_code,
             native_session_id,
         ),
+    )
+
+
+def _complete_tool(conn, session_id: str, tool_name: str) -> None:
+    conn.execute(
+        "INSERT INTO events "
+        "(event_id, source_type, session_id, event_kind, event_type, event_name, "
+        "tool_name, created_at) VALUES (%s, 'hook', %s, 'system', 'tool_call', "
+        "'HarnessToolCallCompleted', %s, %s)",
+        (f"event-{session_id}-{tool_name}", session_id, tool_name, LONG_AGO),
     )
 
 
@@ -147,6 +158,34 @@ def test_an_ended_recipient_is_not_a_starved_worker(fleet):
     fleet.commit()
 
     assert starved_deliveries(fleet, project_id=PROJECT_ID, now=NOW) == ()
+
+
+@pytest.mark.parametrize(
+    ("turn_posture", "tool_name", "past_idle_threshold", "expected"),
+    [
+        ("waiting", "Monitor", True, True),
+        ("running", "Monitor", True, False),
+        ("waiting", "Bash", True, False),
+        ("waiting", "Monitor", False, False),
+    ],
+)
+def test_only_the_full_monitor_freeze_signature_is_suspected(
+    fleet, turn_posture, tool_name, past_idle_threshold, expected
+):
+    fleet.execute(
+        "UPDATE harness_sessions SET turn_posture = %s WHERE session_id = %s",
+        (turn_posture, ASKER),
+    )
+    _complete_tool(fleet, ASKER, tool_name)
+    fleet.commit()
+
+    idle = [quiet_holder(ASKER)] if past_idle_threshold else []
+    matches = suspected_orphaned_waiters(fleet, idle=idle)
+
+    assert bool(matches) is expected
+    if matches:
+        assert matches[0].session_id == ASKER
+        assert matches[0].public_ref == "YOK-1"
 
 
 def test_a_launch_past_its_deadline_with_no_session_is_reported(fleet):
