@@ -39,11 +39,16 @@ from yoke_core.domain.session_termination_events import EVENT_SESSION_TERMINATED
 
 ITEM_STATUS_CHANGED_DESCRIPTION = (
     "Item status transition stamped with the resolved acting session and "
-    "actor; sessionless transitions carry the named yoke-core system actor."
+    "actor; when no session exists, session_id and actor_id stay empty."
 )
 QA_RUN_COMPLETED_DESCRIPTION = (
     "QA run completed with a verdict and stamped with the resolved acting "
-    "session and actor; sessionless runs carry the named yoke-core system actor."
+    "session and actor; when no session exists, session_id and actor_id stay empty."
+)
+QA_RUN_CAPTURED_DESCRIPTION = (
+    "QA run captured with only an execution_status set (no verdict yet); "
+    "sibling of QARunCompleted. Stamped with the resolved acting session and "
+    "actor; when no session exists, session_id and actor_id stay empty."
 )
 
 # fmt: off
@@ -223,7 +228,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("HarnessSessionEndDeferred", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_destructive_guard", "INFO", "RETIRED — the destructive-guard defer emitter was removed together with the session-end deferral path. Status retired so historical ledger rows do not register as rogue."),
     ("SessionReactivationReacquiredClaims", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_reactivation", "INFO", "Receipt for the conditional auto-reacquire path on reactivation. Carries session_id, reacquired_count, conflict_count, claim_details ({outcome: reacquired|conflict, target}). Falls through to advisory only when another session legitimately holds the target."),
     ("HarnessSessionResumeBlockShown", "system", "session_lifecycle", "yoke_core.domain.sessions_resume_block", "INFO", "Once-per-reactivation marker emitted by the hook runner after it renders the slim resume block to the operator. Carries session_id, harness_event (UserPromptSubmit|SessionStart), reactivation_event_id, reacquired, advisory_only."),
-    ("QARunCaptured", "lifecycle", "qa_execution", "yoke_core.domain.qa_execution", "INFO", "QA run captured with only an execution_status set (no verdict yet); sibling of QARunCompleted that fires once a verdict is recorded."),
+    ("QARunCaptured", "lifecycle", "qa_execution", "yoke_core.domain.qa_execution", "INFO", QA_RUN_CAPTURED_DESCRIPTION),
     ("ReflectionMarkerParseFailed", "domain", "reflection_marker_parse_failed", "yoke_core.domain.reflection_capture_field_note", "WARN", "Subagent reflection block carried a field_note_kind marker whose value is outside the closed enum (failed|new|unclear|observation). The reflection itself was captured as plain text; the field-note was NOT fired. Context carries raw_value, valid_values, agent, entry_context, body_preview so operators can surface stale PM/PD body teaching."),
     ("ReflectionCaptureHookFired", "system", "tool_call", "yoke_core.domain.reflection_capture_hook", "INFO", "PostToolUse Agent-tool hook fired and called capture_reflections. Carries blocks_seen, blocks_parsed_successfully, blocks_skipped_known_falsepositive, blocks_unrecognized, blocks_partial_no_end_marker, entries_persisted, entries_duplicate_skipped, entries_persist_failed, error_count, tool_use_id, subagent_type, role, project."),
     ("ReflectionCaptureHookUnhandled", "domain", "reflection_unhandled", "yoke_core.domain.reflection_capture_hook", "WARN", "PostToolUse Agent-tool hook observed at least one reflection block with no matching shape parser. Carries blocks_unrecognized count plus raw_examples (each: excerpt + classification_attempt) so operators can grow the parser to cover the new shape, fixed by HC-reflection-capture-unhandled (24h WARN surface)."), ("ReflectionCapturePersistFailed", "domain", "reflection_capture", "yoke_core.domain.reflection_capture", "WARN", "persist_entries swallowed an exception while inserting one parsed reflection entry into ouroboros_entries. Carries agent, category, body_excerpt (first 200 chars), exception_type so operators can surface silent drops; backed by HC-reflection-capture-persist-failed (24h WARN surface)."),

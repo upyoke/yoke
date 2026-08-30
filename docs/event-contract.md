@@ -95,7 +95,7 @@ New envelopes omit the retired human-user key. Historical envelopes are
 immutable and may retain that key with a null value; consumers must ignore it
 and use `actor_id` for engine identity.
 
-`ItemStatusChanged` and `QARunCompleted` override caller-supplied attribution with the emitting call's resolved acting identity. Their `actor_id` is required; a session-bound write also requires that session's `session_id`. A genuinely sessionless sweep, backstop, or boot operation records an empty `session_id` with the named `yoke-core` system actor. Historical unattributed rows remain unchanged and are distinguishable by their empty fields.
+`ItemStatusChanged`, `QARunCompleted`, and `QARunCaptured` override caller-supplied attribution with the emitting call's resolved acting identity (dispatcher binding, then ambient session; `actor_id` from `harness_sessions`). When no session exists, `session_id` and `actor_id` stay empty. Historical unattributed rows remain unchanged and are distinguishable by their empty fields.
 
 ```json
 {

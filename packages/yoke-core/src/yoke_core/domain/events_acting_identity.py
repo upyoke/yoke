@@ -3,7 +3,7 @@
 The function dispatcher binds its server-resolved actor around handler
 execution.  Event emitters consult that request-local binding first, then the
 canonical ambient session chain for direct local operations.  A genuinely
-sessionless operation is attributed to the named ``yoke-core`` system actor.
+sessionless operation leaves ``session_id`` and ``actor_id`` empty.
 
 Caller-supplied event-envelope identity is deliberately ignored for the event
 names in :data:`ACTING_IDENTITY_EVENT_NAMES`: it must never disagree with the
@@ -18,18 +18,17 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import (
-    SYSTEM_COMPONENT_YOKE_CORE,
-    seed_system_actor,
-)
 from yoke_core.domain.events_session_actor import session_actor_lookup
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 
-ACTING_IDENTITY_EVENT_NAMES = frozenset({
-    "ItemStatusChanged",
-    "QARunCompleted",
-})
+ACTING_IDENTITY_EVENT_NAMES = frozenset(
+    {
+        "ItemStatusChanged",
+        "QARunCaptured",
+        "QARunCompleted",
+    }
+)
 
 
 class ActingEventIdentityUnavailable(RuntimeError):
@@ -39,7 +38,7 @@ class ActingEventIdentityUnavailable(RuntimeError):
 @dataclass(frozen=True)
 class ActingEventIdentity:
     session_id: str
-    actor_id: int
+    actor_id: Optional[int]
 
 
 @dataclass(frozen=True)
@@ -63,7 +62,9 @@ def _numeric_actor_id(value: Any) -> Optional[int]:
 
 @contextmanager
 def acting_event_identity(
-    *, session_id: Any, actor_id: Any,
+    *,
+    session_id: Any,
+    actor_id: Any,
 ) -> Iterator[None]:
     """Bind one dispatcher's resolved actor for nested event emission."""
     token = _BOUND_IDENTITY.set(
@@ -89,7 +90,11 @@ def _with_connection(conn: Any, db_path: Optional[str], operation):
 
 
 def _session_actor_id(
-    session_id: str, *, conn: Any, db_path: Optional[str], event_name: str,
+    session_id: str,
+    *,
+    conn: Any,
+    db_path: Optional[str],
+    event_name: str,
 ) -> int:
     def lookup(active_conn):
         _found, actor_id = session_actor_lookup(active_conn, session_id)
@@ -105,27 +110,6 @@ def _session_actor_id(
     return int(actor_id)
 
 
-def _system_actor_id(*, conn: Any, db_path: Optional[str]) -> int:
-    def resolve(active_conn):
-        marker = "%s" if db_backend.connection_is_postgres(active_conn) else "?"
-        row = active_conn.execute(
-            f"SELECT id FROM actors WHERE system_component = {marker}",
-            (SYSTEM_COMPONENT_YOKE_CORE,),
-        ).fetchone()
-        if row is not None:
-            return int(row[0])
-        return seed_system_actor(active_conn, SYSTEM_COMPONENT_YOKE_CORE)
-
-    try:
-        return int(_with_connection(conn, db_path, resolve))
-    except Exception as exc:
-        raise ActingEventIdentityUnavailable(
-            "sessionless event attribution could not resolve the canonical "
-            "yoke-core actor; run the control-plane schema/bootstrap repair "
-            "before retrying the write."
-        ) from exc
-
-
 def resolve_acting_event_identity(
     event_name: str,
     *,
@@ -137,12 +121,10 @@ def resolve_acting_event_identity(
         return None
 
     bound = _BOUND_IDENTITY.get()
-    session_id = (
-        bound.session_id
-        if bound is not None
-        else str(resolve_ambient_session_id() or "").strip()
-    )
+    session_id = bound.session_id if bound is not None else ""
     actor_id = bound.actor_id if bound is not None else None
+    if not session_id:
+        session_id = str(resolve_ambient_session_id() or "").strip()
     if actor_id is None and session_id:
         actor_id = _session_actor_id(
             session_id,
@@ -150,8 +132,6 @@ def resolve_acting_event_identity(
             db_path=db_path,
             event_name=event_name,
         )
-    if actor_id is None:
-        actor_id = _system_actor_id(conn=conn, db_path=db_path)
     return ActingEventIdentity(session_id=session_id, actor_id=actor_id)
 
 
