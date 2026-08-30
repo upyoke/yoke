@@ -1,8 +1,10 @@
 """The deploy watcher's line classification, guard, and registration.
 
-A deploy is the longest command an operator runs, so the filter has to
-carry both halves of the signal: enough progress that silence is not
-indistinguishable from a hang, and every terminal shape that ends a run.
+A deploy is the longest command an operator runs, so the filter reports
+the shapes that change what a watcher would do — stage boundaries, run
+identity, and every terminal that ends a run — and stays silent on the
+repeating status poll. Telling a quiet driver from a hung one is the
+shared runner's no-progress notice, not a per-minute tick from here.
 """
 
 from __future__ import annotations
@@ -63,17 +65,23 @@ def test_stage_boundaries_and_identifiers_are_summary(line):
     assert _line_class(line) == LineClass.SUMMARY
 
 
-def test_a_status_poll_is_progress_carrying_its_elapsed_seconds():
-    """Elapsed is the only monotonic quantity a deploy emits.
+@pytest.mark.parametrize(
+    "line",
+    [
+        "  Workflow status: in_progress (elapsed: 407s, next poll: 30s)",
+        "  Workflow status: queued (elapsed: 16s, next poll: 20s)",
+        "Workflow status: waiting (elapsed: 0s, next poll: 5s)",
+    ],
+)
+def test_a_status_poll_is_noise_so_a_quiet_deploy_stops_waking_watchers(line):
+    """A poll repeats what the previous poll already said.
 
-    Handing it to the throttle lets repetitive polls coalesce the way a
-    percentage does for a test run.
+    Emitting it wakes an armed watcher about once a minute per driver for
+    the whole run to report no new state. The runner's own no-progress
+    notice is what keeps a quiet driver distinguishable from a hung one.
     """
-    classification = watch_deploy.classify_deploy_line(
-        "  Workflow status: in_progress (elapsed: 407s, next poll: 30s)"
-    )
-    assert classification.cls == LineClass.PROGRESS
-    assert classification.progress_value == 407.0
+    assert _line_class(line) == LineClass.NOISE
+    assert not watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line)
 
 
 def test_unremarkable_output_is_noise():
@@ -91,8 +99,8 @@ def test_the_union_pattern_matches_every_classified_shape():
     for line in (
         "Error: stage failed",
         "--- Stage: merged (step_runner: auto) ---",
-        "  Workflow status: in_progress (elapsed: 12s, next poll: 30s)",
         "  Workflow run ID: 1",
+        "  Stage 'hosted-release' completed successfully",
     ):
         assert watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line), line
 
