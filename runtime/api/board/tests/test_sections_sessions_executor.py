@@ -151,7 +151,7 @@ class TestExecutorDisplayRendering:
         # canonical id not shown standalone when the alias is present
         assert "claude-code" not in section
 
-    def test_cursor_card_drops_the_redundant_family_prefix(self, tmp_path: Path) -> None:
+    def test_cursor_card_renders_the_stored_model_verbatim(self, tmp_path: Path) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db,
@@ -161,8 +161,7 @@ class TestExecutorDisplayRendering:
                 model="cursor-grok-4.6-xhigh",
             )
             section = render(db)
-        assert "grok-4.6-xhigh" in section
-        assert "cursor-grok-4.6-xhigh" not in section
+        assert "cursor-grok-4.6-xhigh" in section
 
     def test_canonical_used_when_display_alias_absent(self, tmp_path: Path) -> None:
         with _make_render_db(tmp_path) as (db, render):
