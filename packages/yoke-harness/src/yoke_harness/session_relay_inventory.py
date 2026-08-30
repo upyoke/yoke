@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -10,6 +10,7 @@ from yoke_cli.config import machine_config
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.machine_config.machine_name import machine_display_name
 from yoke_contracts.machine_config.runtime import ensure_machine_id
+from yoke_harness.session_relay_plan_limits import observe_plan_limits
 from yoke_harness.session_relay_surface_probe_cache import (
     cached_surface_versions,
 )
@@ -32,6 +33,7 @@ class RelayInventory:
     relay_version: str
     project_ids: tuple[int, ...]
     surface_versions: dict[str, str]
+    surface_plan_limits: dict[str, dict[str, object]] = field(default_factory=dict)
 
     def claim_payload(
         self,
@@ -47,6 +49,7 @@ class RelayInventory:
             "relay_version": self.relay_version,
             "projects": list(self.project_ids),
             "surfaces": dict(self.surface_versions),
+            "plan_limits": dict(self.surface_plan_limits),
         }
         if wait_seconds is not None:
             payload["wait_seconds"] = wait_seconds
@@ -76,7 +79,10 @@ def probe_surface_version(surface: str) -> str | None:
     return None
 
 
-def _inventory(versions: dict[str, str]) -> RelayInventory:
+def _inventory(
+    versions: dict[str, str],
+    plan_limits: dict[str, dict[str, object]] | None = None,
+) -> RelayInventory:
     project_ids = tuple(
         sorted(
             {
@@ -93,6 +99,7 @@ def _inventory(versions: dict[str, str]) -> RelayInventory:
         relay_version=local_handshake_version() or "source",
         project_ids=project_ids,
         surface_versions=versions,
+        surface_plan_limits=dict(plan_limits or {}),
     )
 
 
@@ -110,12 +117,13 @@ def collect_inventory(
         version = app_probe(path)
         if version:
             versions[surface] = version
-    return _inventory(versions)
+    return _inventory(versions, observe_plan_limits(tuple(versions)))
 
 
 def collect_cached_inventory(*, state_dir: Path | None = None) -> RelayInventory:
     """Return cache-backed versions without running a live probe inline."""
-    return _inventory(cached_surface_versions(state_dir=state_dir))
+    versions = cached_surface_versions(state_dir=state_dir)
+    return _inventory(versions, observe_plan_limits(tuple(versions), state_dir=state_dir))
 
 
 __all__ = [

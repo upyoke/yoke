@@ -121,6 +121,7 @@ def test_cached_inventory_does_not_probe_during_initial_registration(
         lambda **_kwargs: [],
     )
     monkeypatch.setattr(inventory_module, "local_handshake_version", lambda: "source")
+    monkeypatch.setattr(inventory_module, "observe_plan_limits", lambda *_a, **_k: {})
 
     observed = inventory_module.collect_cached_inventory(state_dir=tmp_path)
 

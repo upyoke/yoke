@@ -183,7 +183,8 @@ def create_session_control_tables(conn: Any) -> None:
             state TEXT NOT NULL DEFAULT 'active'
                 CHECK(state IN ('active','idle','revoked')),
             lease_id TEXT,
-            lease_expires_at TEXT
+            lease_expires_at TEXT,
+            surface_plan_limits TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_session_relays_machine_connected
             ON session_relays(machine_id, connected_until);
@@ -240,6 +241,8 @@ def create_session_control_tables(conn: Any) -> None:
         )
     if not _column_exists(conn, "session_launches", "session_name"):
         conn.execute("ALTER TABLE session_launches ADD COLUMN session_name TEXT")
+    if not _column_exists(conn, "session_relays", "surface_plan_limits"):
+        conn.execute("ALTER TABLE session_relays ADD COLUMN surface_plan_limits TEXT")
 
 
 def required_tables() -> tuple[str, ...]:

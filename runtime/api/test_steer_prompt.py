@@ -137,6 +137,7 @@ class TestSteerSkillContract:
             "**Unregistered launches**",
             "**Landed without close-out**",
             "**Dead waits**",
+            "**Plan limits**",
         ):
             assert finding in loop
         assert "A section with nothing to say prints nothing" in loop

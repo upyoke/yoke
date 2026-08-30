@@ -7,6 +7,7 @@ from typing import Any
 import uuid
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
+from yoke_contracts.session_control.plan_limits import sanitize_plan_limits
 from yoke_contracts.session_control.wake_delivery import (
     WAKE_DELIVERY_UNVERIFIED_RESULTS,
 )
@@ -86,6 +87,7 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
             for surface in sorted(heartbeat.surface_versions)
         },
         project_ids=project_ids,
+        surface_plan_limits=sanitize_plan_limits(heartbeat.surface_plan_limits),
     )
 
 
@@ -125,18 +127,20 @@ def heartbeat_relay(
     )
     surfaces = json_helper.dumps_compact(dict(heartbeat.surface_versions))
     projects = json_helper.dumps_compact(list(heartbeat.project_ids))
+    plan_limits = json_helper.dumps_compact(dict(heartbeat.surface_plan_limits))
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
-        "first_seen_at,last_seen_at,connected_until,state) "
-        f"VALUES ({','.join(p for _ in range(11))}) "
+        "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits) "
+        f"VALUES ({','.join(p for _ in range(12))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
         "surface_versions=excluded.surface_versions,"
         "project_checkouts=excluded.project_checkouts,"
         "last_seen_at=excluded.last_seen_at,"
-        "connected_until=excluded.connected_until,state=excluded.state",
+        "connected_until=excluded.connected_until,state=excluded.state,"
+        "surface_plan_limits=excluded.surface_plan_limits",
         (
             heartbeat.relay_id,
             heartbeat.actor_id,
@@ -149,6 +153,7 @@ def heartbeat_relay(
             now,
             connected_until,
             state,
+            plan_limits,
         ),
     )
     conn.commit()

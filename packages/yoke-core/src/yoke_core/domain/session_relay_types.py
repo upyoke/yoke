@@ -41,6 +41,7 @@ class RelayHeartbeat:
     relay_version: str
     surface_versions: Mapping[str, str]
     project_ids: Sequence[int]
+    surface_plan_limits: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

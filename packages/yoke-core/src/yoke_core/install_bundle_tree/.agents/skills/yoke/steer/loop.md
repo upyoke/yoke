@@ -81,8 +81,9 @@ used to be a hand query here — available work with a per-row never-started
 / owner-released marker and an overdue flag, idle claim holders keyed on
 `last_tool_call_at` rather than any liveness label, starved outbound
 delivery, launches with failed or overdue instruction binding, items whose branch
-landed while the item stayed open, and whether an idle holder's last
-question can still be answered. Do not re-run those queries by hand: a
+landed while the item stayed open, whether an idle holder's last
+question can still be answered, and per-surface plan remaining and reset
+(informational only). Do not re-run those queries by hand: a
 steering seat that did burned a pass rediscovering what the report on
 screen had already told it. A section with nothing to say prints nothing,
 so a short report is a quiet fleet, not a broken detector.
@@ -121,6 +122,10 @@ yours:
   answerer; it is context for the probe, not a finding to act on. Never
   send a bare `WAKE` to an idle holder without reading its row here — a
   wake alone parks it on the same question.
+
+- **Plan limits** — informational remaining and reset per connected CLI
+  surface. Approaching walls are raised with the operator; these numbers
+  never disable a surface or gate a launch.
 
 Two things the report deliberately does not do, so do them yourself:
 
