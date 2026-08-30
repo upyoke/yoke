@@ -13,6 +13,7 @@ from yoke_core.domain.schema_common import (
 
 
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
+RETIRES_INVARIANTS = ("0027_pair_steering_document_claims",)
 TABLE = "strategy_doc_claims"
 RETIRED_COLUMN = "paired_work_claim_id"
 RETIRED_INDEX = "uq_strategy_doc_claims_paired_work_claim"
@@ -43,6 +44,7 @@ def invariants(conn: Any) -> None:
 
 __all__ = [
     "MINIMUM_SERVING_VERSION",
+    "RETIRES_INVARIANTS",
     "RETIRED_COLUMN",
     "RETIRED_INDEX",
     "TABLE",
