@@ -52,6 +52,7 @@ CREATE TABLE strategy_doc_claims (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
     strategy_doc_slug TEXT NOT NULL, owner_kind TEXT NOT NULL DEFAULT 'item',
     owner_item_id INTEGER, owner_session_id TEXT,
+    paired_work_claim_id INTEGER,
     registered_by_actor_id INTEGER, registered_by_session_id TEXT,
     registered_at TEXT NOT NULL, released_by_actor_id INTEGER,
     released_by_session_id TEXT, released_at TEXT, release_mode TEXT,
