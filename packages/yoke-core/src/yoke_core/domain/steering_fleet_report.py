@@ -73,6 +73,11 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     suspected_orphaned_waiters,
     unregistered_launches,
 )
+from yoke_core.domain.steering_fleet_report_limits import (
+    MachinePlanLimit,
+    fingerprint_material,
+    load_plan_limits,
+)
 
 
 def _p(conn: Any) -> str:
@@ -116,6 +121,7 @@ class FleetReport:
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[tuple[str, str, int], ...]
     suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
+    plan_limits: tuple[MachinePlanLimit, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -164,6 +170,7 @@ class FleetReport:
                 (r.machine_id, r.surface, counts.get((r.machine_id, r.surface), 0))
                 for r in self.launchable
             ),
+            "plan_limits": fingerprint_material(self.plan_limits),
         }
         encoded = json.dumps(material, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
@@ -256,6 +263,7 @@ def compose_report(
         dead_waits=dead_waits(conn, idle=idle, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
+        plan_limits=load_plan_limits(conn, project_id=project_id, now=now),
     )
 
 

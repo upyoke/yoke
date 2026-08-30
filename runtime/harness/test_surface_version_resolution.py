@@ -61,6 +61,7 @@ def _machine_facts(monkeypatch) -> None:
         lambda **_kwargs: [],
     )
     monkeypatch.setattr(inventory_module, "local_handshake_version", lambda: "source")
+    monkeypatch.setattr(inventory_module, "observe_plan_limits", lambda *_a, **_k: {})
 
 
 def test_registration_records_the_version_the_probe_reports(

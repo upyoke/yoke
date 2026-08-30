@@ -76,6 +76,7 @@ def test_inventory_reports_versions_and_project_ids_without_checkout_paths(
         "local_handshake_version",
         lambda: "0.1.1",
     )
+    monkeypatch.setattr(inventory_module, "observe_plan_limits", lambda *_a, **_k: {})
 
     observed = inventory_module.collect_inventory(
         cli_probe=lambda command: "1.2.3" if command[0] == "codex" else None,
@@ -88,6 +89,7 @@ def test_inventory_reports_versions_and_project_ids_without_checkout_paths(
         "codex-cli": "1.2.3",
         "cursor-desktop": "2.3.4",
     }
+    assert payload["plan_limits"] == {}
     assert str(tmp_path) not in repr(payload)
 
 

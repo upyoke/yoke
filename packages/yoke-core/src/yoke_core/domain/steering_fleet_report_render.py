@@ -17,6 +17,7 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
 )
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
+from yoke_core.domain import steering_fleet_report_limits as _plan_limits
 
 
 #: Longest list rendered per section. The report is a wake, not an inventory:
@@ -155,6 +156,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             {"machine_id": ready.machine_id, "surface": ready.surface}
             for ready in report.launchable
         ],
+        "plan_limits": _plan_limits.plan_limit_dicts(report.plan_limits),
     }
 
 
@@ -330,6 +332,7 @@ def report_body(report: FleetReport) -> str:
         *_section("live item claims", _holder_lines(report.holders)),
         f"launchable machine/surface pairs: {launchable or 'none'}",
         *_launch_balance_lines(report),
+        *_plan_limits.plan_limit_lines(report.plan_limits),
         REPORT_END,
     ]
     return "\n".join(lines)

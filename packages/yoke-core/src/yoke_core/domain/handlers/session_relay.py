@@ -144,6 +144,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     relay_version=payload.relay_version,
                     surface_versions=payload.surfaces,
                     project_ids=payload.projects,
+                    surface_plan_limits=payload.plan_limits,
                 ),
                 wait_seconds=payload.wait_seconds,
                 broker_only=payload.broker_only,

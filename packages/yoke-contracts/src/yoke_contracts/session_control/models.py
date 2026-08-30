@@ -50,11 +50,14 @@ class RecipientSelector(BaseModel):
                 f"unknown liveness states: {', '.join(unknown_liveness)}; "
                 f"choose from {', '.join(LIVENESS_CHOICES)}"
             )
-        anchors = (
-            self.session_ids, self.public_refs, self.epic_tasks,
-            self.process_keys, self.projects, self.universe,
-        )
-        if not any(anchors):
+        if not (
+            self.session_ids
+            or self.public_refs
+            or self.epic_tasks
+            or self.process_keys
+            or self.projects
+            or self.universe
+        ):
             raise ValueError("at least one recipient anchor is required")
         return self
 
@@ -219,6 +222,7 @@ class RelayClaimRequest(BaseModel):
     relay_version: str
     projects: List[int]
     surfaces: Dict[str, str]
+    plan_limits: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     wait_seconds: int = Field(default=55, ge=0, le=55)
     broker_only: bool = False
     broker_lease_id: Optional[str] = None
