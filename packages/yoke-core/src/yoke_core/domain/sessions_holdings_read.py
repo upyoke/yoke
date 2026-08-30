@@ -107,9 +107,10 @@ def active_claims_by_session(
     doc_slugs = steered_document_slugs(
         conn,
         (
-            session_id
-            for session_id, claims in raw_by_session.items()
-            if any(claim.get("target_kind") == "steering" for claim in claims)
+            int(claim["id"])
+            for claims in raw_by_session.values()
+            for claim in claims
+            if claim.get("target_kind") == "steering"
         ),
     )
 
@@ -121,8 +122,7 @@ def active_claims_by_session(
             if claim.get("target_kind") == "steering":
                 # Each steered project pairs with its own documents; one
                 # session-level scope can only ever describe one of them.
-                key = (session_id, int(facts.get("project_id") or 0))
-                facts["strategy_docs"] = doc_slugs.get(key, [])
+                facts["strategy_docs"] = doc_slugs.get(int(claim["id"]), [])
             grouped.setdefault(session_id, []).append(
                 {
                     "target_kind": str(claim.get("target_kind") or ""),

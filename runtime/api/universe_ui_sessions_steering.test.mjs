@@ -198,7 +198,9 @@ test("a steering claim alone still marks the session as steering", () => {
   assert.equal(
     byClass(holder, "session-steering-project")[0].textContent, "platform",
   );
-  assert.equal(byClass(holder, "session-steering-docs")[0].textContent, "all docs");
+  assert.equal(
+    byClass(holder, "session-steering-docs")[0].textContent, "no doc lock",
+  );
 });
 
 

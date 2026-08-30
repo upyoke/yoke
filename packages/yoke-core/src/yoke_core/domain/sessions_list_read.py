@@ -206,9 +206,7 @@ def list_sessions(
 
         claims_by_session, roles_by_session = active_claims_by_session(conn)
         item_holders = live_item_claim_holders(conn)
-        holdings_by_session = session_holdings_by_session(
-            conn, current_claims=claims_by_session
-        )
+        holdings_by_session = session_holdings_by_session(conn)
         blitz_lanes_by_session = claimed_blitz_worktree_ids_by_session(conn)
         label_cache: Dict[int, str] = {}
         result: List[Dict[str, Any]] = []
