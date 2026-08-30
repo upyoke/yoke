@@ -11,10 +11,11 @@ query each: :func:`claimed_item_facts` for item claims, and
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def param_marker(conn: Any) -> str:
@@ -78,35 +79,45 @@ def claimed_item_facts(
 
 def steered_document_slugs(
     conn: Any,
-    session_ids: Iterable[str],
-) -> Dict[Tuple[str, int], List[str]]:
-    """Strategy documents each session steers a project from.
+    claim_ids: Iterable[int],
+) -> Dict[int, List[str]]:
+    """Strategy documents paired with each steering claim's hold window.
 
-    Keyed by ``(session_id, project_id)``, because a session steering
-    several projects holds a document lock per project and the reader
-    has to pair each project with its own documents. A pair with no
-    locked document is absent rather than empty.
+    Current steering claims pair only with current document locks. Released
+    claims pair with released locks from the same session and project whose
+    hold windows overlapped. Keying by claim id keeps repeated steering holds
+    for one session and project temporally distinct.
     """
-    holders = list(dict.fromkeys(str(value) for value in session_ids if value))
-    if not holders:
+    distinct = list(dict.fromkeys(int(value) for value in claim_ids))
+    if not distinct:
         return {}
     marker = param_marker(conn)
-    placeholders = ", ".join(marker for _ in holders)
+    placeholders = ", ".join(marker for _ in distinct)
+    project_id = scope_int_sql(conn, "claim.scope", "project_id")
     try:
         rows = conn.execute(
-            "SELECT owner_session_id, project_id, strategy_doc_slug "
-            "FROM strategy_doc_claims WHERE owner_kind = 'session' "
-            f"AND released_at IS NULL AND owner_session_id IN ({placeholders}) "
-            "ORDER BY project_id, strategy_doc_slug",
-            tuple(holders),
+            "SELECT DISTINCT claim.id AS claim_id, doc.strategy_doc_slug "
+            "FROM work_claims claim JOIN strategy_doc_claims doc "
+            "ON doc.owner_kind = 'session' "
+            "AND doc.owner_session_id = claim.session_id "
+            f"AND doc.project_id = {project_id} "
+            "AND ((claim.released_at IS NULL AND doc.released_at IS NULL) "
+            "OR (claim.released_at IS NOT NULL AND doc.released_at IS NOT NULL "
+            "AND doc.registered_at <= claim.released_at "
+            "AND doc.released_at >= claim.claimed_at)) "
+            "WHERE claim.target_kind = 'steering' "
+            f"AND claim.id IN ({placeholders}) "
+            "ORDER BY claim.id, doc.strategy_doc_slug",
+            tuple(distinct),
         ).fetchall()
     except db_backend.database_error_types(conn):
         clear_failed_read(conn)
         return {}
-    grouped: Dict[Tuple[str, int], List[str]] = {}
+    grouped: Dict[int, List[str]] = {}
     for row in rows:
-        key = (str(row["owner_session_id"]), int(row["project_id"]))
-        grouped.setdefault(key, []).append(str(row["strategy_doc_slug"]))
+        grouped.setdefault(int(row["claim_id"]), []).append(
+            str(row["strategy_doc_slug"])
+        )
     return grouped
 
 

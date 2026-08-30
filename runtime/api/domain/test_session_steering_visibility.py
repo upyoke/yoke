@@ -40,6 +40,7 @@ def _connection() -> sqlite3.Connection:
             strategy_doc_slug TEXT,
             owner_kind TEXT,
             owner_session_id TEXT,
+            registered_at TEXT,
             released_at TEXT
         );
         """
@@ -68,7 +69,8 @@ def _connection() -> sqlite3.Connection:
         ),
     )
     conn.execute(
-        "INSERT INTO strategy_doc_claims VALUES (10,'MISSION','session','holder-1',NULL)"
+        "INSERT INTO strategy_doc_claims VALUES "
+        "(10,'MISSION','session','holder-1','2026-08-26T11:00:00Z',NULL)"
     )
     return conn
 

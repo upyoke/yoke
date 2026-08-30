@@ -14,6 +14,7 @@ from typing import Any, Iterable, Mapping
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -88,23 +89,11 @@ def _attach_strategy_docs(
 ) -> None:
     if not scopes or not _table_exists(conn, "strategy_doc_claims"):
         return
-    marker = _marker(conn)
-    holders = tuple(scope["holder_session_id"] for scope in scopes.values())
-    projects = tuple(scopes)
-    rows = conn.execute(
-        "SELECT project_id,owner_session_id,strategy_doc_slug "
-        "FROM strategy_doc_claims WHERE owner_kind='session' "
-        "AND released_at IS NULL AND project_id IN ("
-        + ",".join(marker for _ in projects)
-        + ") AND owner_session_id IN ("
-        + ",".join(marker for _ in holders)
-        + ") ORDER BY project_id,strategy_doc_slug",
-        (*projects, *holders),
-    ).fetchall()
-    for row in rows:
-        scope = scopes.get(int(row["project_id"]))
-        if scope and scope["holder_session_id"] == str(row["owner_session_id"]):
-            scope["strategy_docs"].append(str(row["strategy_doc_slug"]))
+    documents = steered_document_slugs(
+        conn, (int(scope["claim_id"]) for scope in scopes.values())
+    )
+    for scope in scopes.values():
+        scope["strategy_docs"].extend(documents.get(int(scope["claim_id"]), []))
 
 
 def steering_visibility(

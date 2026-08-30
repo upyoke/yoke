@@ -17,6 +17,7 @@ from yoke_core.domain.coordination_claim_keys import key_for_target
 from yoke_core.domain.sessions_holdings_claim_facts import (
     claimed_item_facts,
     clear_failed_read,
+    steered_document_slugs,
 )
 from yoke_core.domain.sessions_holdings_claim_rows import all_claim_rows
 from yoke_core.domain.sessions_holdings_read import render_claim_target
@@ -70,25 +71,10 @@ def _item_claim_sessions(
     return historical, current, released_at
 
 
-def _steering_docs_by_target(
-    current_claims: Mapping[str, Iterable[Mapping[str, Any]]],
-) -> dict[tuple[str, int], list[str]]:
-    """Index the document pairing already carried by active claim facts."""
-    return {
-        (str(session_id), int(claim["project_id"])): list(
-            claim.get("strategy_docs") or []
-        )
-        for session_id, claims in current_claims.items()
-        for claim in claims
-        if claim.get("target_kind") == "steering"
-        and claim.get("project_id") is not None
-    }
-
-
 def _work_observations(
     claims: list[dict[str, Any]],
     item_facts: Mapping[int, Mapping[str, Any]],
-    steering_docs: Mapping[tuple[str, int], list[str]],
+    steering_docs: Mapping[int, list[str]],
 ) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for claim in claims:
@@ -102,8 +88,7 @@ def _work_observations(
         facts.pop("item_status", None)
         facts.pop("item_workflow_id", None)
         if kind == "steering" and facts.get("project_id") is not None:
-            key = (session_id, int(facts["project_id"]))
-            facts["strategy_docs"] = list(steering_docs.get(key, []))
+            facts["strategy_docs"] = list(steering_docs.get(int(claim["id"]), []))
         grouped.setdefault(session_id, []).append(
             {
                 "holding_kind": "work_claim",
@@ -306,7 +291,6 @@ def _strategy_observations(conn: Any) -> dict[str, list[dict[str, Any]]]:
 def session_holdings_by_session(
     conn: Any,
     *,
-    current_claims: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
     previous_limit: int = WEB_PREVIOUS_HOLDINGS_LIMIT,
 ) -> dict[str, dict[str, Any]]:
     """Return the shared holdings model for every session with a holding."""
@@ -323,7 +307,14 @@ def session_holdings_by_session(
                 item_ids.append(int(target.item_id))
     item_facts = claimed_item_facts(conn, item_ids)
     historical, current, releases = _item_claim_sessions(claims)
-    steering_docs = _steering_docs_by_target(current_claims or {})
+    steering_docs = steered_document_slugs(
+        conn,
+        (
+            int(claim["id"])
+            for claim in claims
+            if claim.get("target_kind") == "steering"
+        ),
+    )
     sources = [
         _work_observations(claims, item_facts, steering_docs),
         _path_observations(conn, claims, item_facts, historical, current, releases),

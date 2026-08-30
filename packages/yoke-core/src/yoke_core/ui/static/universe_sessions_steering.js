@@ -23,7 +23,7 @@ function steeringScope(claim, projects) {
     .filter(Boolean);
   return {
     project: projectSlug(projects, claimProjectId(claim)) || "unknown project",
-    docs: docs.length ? docs.join(", ") : "all docs",
+    docs: docs.length ? docs.join(", ") : "no doc lock",
   };
 }
 
