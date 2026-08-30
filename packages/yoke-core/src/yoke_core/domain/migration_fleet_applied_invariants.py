@@ -25,16 +25,30 @@ def verify_applied_history_invariants(
     conn: Any,
     applied: Sequence[str],
     *,
+    history: Sequence[str],
     load_module: Callable[[str], Any],
     redact: str = "",
 ) -> Optional[str]:
     """Run callable invariants for each applied name; return a fail detail.
 
+    Every shipped module is loaded before verification so a pending entry can
+    retire an applied predecessor's invariants before convergence applies the
+    retiring entry. ``RETIRES_INVARIANTS`` names prior history entries whose
+    surfaces no longer exist in the final schema.
+
     The detail names the failing entry and redacts *redact* (typically the
     copy DSN) so credentials never leave the verdict line.
     """
+    modules = {name: load_module(name) for name in history}
+    retired = {
+        retired_name
+        for module in modules.values()
+        for retired_name in getattr(module, "RETIRES_INVARIANTS", ())
+    }
     for name in applied:
-        module = load_module(name)
+        if name in retired:
+            continue
+        module = modules[name]
         invariants = getattr(module, "invariants", None)
         if not callable(invariants):
             continue

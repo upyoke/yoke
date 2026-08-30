@@ -233,6 +233,7 @@ class TestAppliedHistoryInvariants:
         detail = verify_applied_history_invariants(
             object(),
             HISTORY,
+            history=HISTORY,
             load_module=lambda name: (
                 _FailModule(f"broke against {secret}")
                 if name == "0002_second"

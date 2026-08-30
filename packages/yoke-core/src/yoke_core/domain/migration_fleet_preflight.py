@@ -225,7 +225,11 @@ def _converge_copy(
             None
             if plan.load_module is None
             else verify_applied_history_invariants(
-                conn, applied, load_module=plan.load_module, redact=copy_dsn
+                conn,
+                applied,
+                history=plan.history,
+                load_module=plan.load_module,
+                redact=copy_dsn,
             )
         )
         if failure is None and plan.post_converge_validator is not None:

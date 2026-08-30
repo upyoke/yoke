@@ -20,6 +20,8 @@ Contract for a module here:
   unrecorded" impossible; a commit inside ``apply()`` splits that
   transaction and gives the state back.
 - ``invariants(conn)`` is optional and runs after the apply commits.
+- Invariants remain true forever unless a later entry that removes their
+  surface declares ``RETIRES_INVARIANTS`` naming those prior entries.
 - **The body must be safe to re-run.** A database restored from a
   pre-ledger archive replays its history, so guard every statement
   (``IF EXISTS`` / ``IF NOT EXISTS``, or an explicit state check).
