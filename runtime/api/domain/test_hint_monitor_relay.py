@@ -76,6 +76,11 @@ class TestDefaultReminderContent(unittest.TestCase):
         self.assertEqual(text.count("<system-reminder>"), 1)
         self.assertEqual(text.count("</system-reminder>"), 1)
 
+    def test_turn_end_is_not_the_wait(self) -> None:
+        text = resolve_reminder_text()
+        self.assertNotIn("Waiting IS ending the turn", text)
+        self.assertIn("waiter dies with no wake", text)
+
 
 class TestReminderModuleSize(unittest.TestCase):
     """hint_monitor_relay.py stays ≤200 lines."""
@@ -117,17 +122,9 @@ class TestReminderSingleSourceOfTruth(unittest.TestCase):
         except FileNotFoundError:
             self.skipTest("grep not available on this platform")
         if output.returncode not in (0, 1):
-            self.fail(
-                f"grep failed: rc={output.returncode} stderr={output.stderr}"
-            )
-        hits = [
-            line.strip()
-            for line in output.stdout.splitlines()
-            if line.strip()
-        ]
-        hits = [
-            h for h in hits if not h.endswith("test_hint_monitor_relay.py")
-        ]
+            self.fail(f"grep failed: rc={output.returncode} stderr={output.stderr}")
+        hits = [line.strip() for line in output.stdout.splitlines() if line.strip()]
+        hits = [h for h in hits if not h.endswith("test_hint_monitor_relay.py")]
         self.assertEqual(len(hits), 1, f"expected 1 hit, got: {hits}")
         self.assertTrue(hits[0].endswith("hint_monitor_relay.py"))
 
@@ -141,8 +138,7 @@ class TestDefaultReminderConstantParity(unittest.TestCase):
         # constant (the override branch returns the override; the no-
         # override branch returns the constant).
         self.assertTrue(
-            text == DEFAULT_REMINDER
-            or text.strip() == DEFAULT_REMINDER.strip()
+            text == DEFAULT_REMINDER or text.strip() == DEFAULT_REMINDER.strip()
         )
 
 

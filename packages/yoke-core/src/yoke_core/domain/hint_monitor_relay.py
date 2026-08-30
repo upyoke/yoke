@@ -95,9 +95,9 @@ What you DO do during a Monitor-armed background command:
   and encouraged between wakes.
 - Do not emit no-op Bash calls to hold the turn while waiting
   (`echo 'waiting on deploy stage'`, bare `true`, decorative `date`).
-  A side-effect-free command probes nothing and relays nothing. End
-  the turn with text - the next matched line wakes you and resumes
-  the work. Waiting IS ending the turn.
+  A side-effect-free command probes nothing and relays nothing.
+  Do not Stop after arming Monitor while a claim is live: ending the
+  turn closes the reader and the waiter dies with no wake.
 - Avoid repeated peeks at the capture file
   (tail/head/cat/wc/grep/egrep/fgrep/rg/ls/awk/sed/less/more/file/stat/nl/cut/sort/uniq)
   while the owning command is running. The matched lines ARE the
