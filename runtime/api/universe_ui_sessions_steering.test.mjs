@@ -204,6 +204,120 @@ test("a steering claim alone still marks the session as steering", () => {
 });
 
 
+test("a released seat and its document lock read as one previous row", () => {
+  const documentNode = new FakeDocument();
+  const rendered = card(documentNode, {
+    ...baseRow("previous-pair"),
+    holdings: { current: [], previous: [
+      {
+        holding_kind: "work_claim", target_kind: "steering",
+        target: "steering for project 3", project_id: 3,
+        strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-29T12:00:00Z",
+      },
+      {
+        holding_kind: "strategy_document", target_kind: "strategy_document",
+        project_id: 3, strategy_doc: "CURRENT-PLAN",
+        target: "platform · CURRENT-PLAN", released_at: "2026-08-29T12:00:00Z",
+      },
+    ], previous_remainder: 0 },
+  }, [{ id: 3, slug: "platform" }]);
+
+  // One seat, one row: the steering claim already names the document its
+  // lock covers, so the lock folds into it instead of repeating it.
+  assert.deepEqual(
+    byClass(rendered, "session-hold-target").map((node) => node.textContent),
+    ["platform · CURRENT-PLAN"],
+  );
+});
+
+
+test("a previous document lock no released seat covers keeps its own row", () => {
+  const documentNode = new FakeDocument();
+  const rendered = card(documentNode, {
+    ...baseRow("previous-unpaired"),
+    holdings: { current: [], previous: [
+      {
+        holding_kind: "work_claim", target_kind: "steering",
+        target: "steering for project 3", project_id: 3,
+        strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-29T12:00:00Z",
+      },
+      {
+        holding_kind: "strategy_document", target_kind: "strategy_document",
+        project_id: 3, strategy_doc: "MISSION",
+        target: "platform · MISSION", released_at: "2026-08-29T12:00:00Z",
+      },
+    ], previous_remainder: 0 },
+  }, [{ id: 3, slug: "platform" }]);
+
+  // Somebody locked a document without taking the seat that steers from
+  // it — no steering row states that hold, so it needs one of its own.
+  assert.deepEqual(
+    byClass(rendered, "session-hold-target").map((node) => node.textContent),
+    ["platform · CURRENT-PLAN", "platform · MISSION"],
+  );
+});
+
+
+test("same-named documents in two projects stay two previous rows", () => {
+  const documentNode = new FakeDocument();
+  const rendered = card(documentNode, {
+    ...baseRow("previous-two-projects"),
+    holdings: { current: [], previous: [
+      {
+        holding_kind: "work_claim", target_kind: "steering",
+        target: "steering for project 3", project_id: 3,
+        strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-29T12:00:00Z",
+      },
+      {
+        holding_kind: "strategy_document", target_kind: "strategy_document",
+        project_id: 1, strategy_doc: "CURRENT-PLAN",
+        target: "yoke · CURRENT-PLAN", released_at: "2026-08-29T12:00:00Z",
+      },
+    ], previous_remainder: 0 },
+  }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
+
+  // The platform seat covers platform's CURRENT-PLAN and nothing else:
+  // yoke's same-named document is a different lock and keeps its row.
+  assert.deepEqual(
+    byClass(rendered, "session-hold-target").map((node) => node.textContent),
+    ["platform · CURRENT-PLAN", "yoke · CURRENT-PLAN"],
+  );
+});
+
+
+test("a current document lock the steering block does not name keeps a row", () => {
+  const documentNode = new FakeDocument();
+  const holder = card(documentNode, {
+    ...baseRow("holder-5"),
+    holdings: { current: [
+      {
+        holding_kind: "work_claim",
+        target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        strategy_docs: ["MISSION"],
+      },
+      {
+        holding_kind: "strategy_document", target_kind: "strategy_document",
+        project_id: 1, strategy_doc: "MISSION", target: "yoke · MISSION",
+      },
+      {
+        holding_kind: "strategy_document", target_kind: "strategy_document",
+        project_id: 1, strategy_doc: "VISION", target: "yoke · VISION",
+      },
+    ], previous: [], previous_remainder: 0 },
+  }, [{ id: 1, slug: "yoke" }]);
+
+  // The steering line states MISSION, so its lock folds in; VISION is a
+  // document held without a seat steering from it and still needs a row.
+  assert.equal(
+    byClass(holder, "session-steering-docs")[0].textContent, "MISSION",
+  );
+  assert.deepEqual(
+    byClass(holder, "session-hold-target").map((node) => node.textContent),
+    ["yoke · VISION"],
+  );
+});
+
+
 test("previous steering holdings use the paired project and document label", () => {
   const documentNode = new FakeDocument();
   const rendered = card(documentNode, {
