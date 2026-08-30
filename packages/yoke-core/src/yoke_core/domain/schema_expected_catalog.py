@@ -138,7 +138,7 @@ _EXPECTED_SCHEMA_STR = (
     "|sites:id/INTEGER,project_id/INTEGER,name/TEXT,description/TEXT,created_at/TEXT,settings/TEXT"
     "|strategize_landed_carry:item_id/INTEGER,project_id/INTEGER,state/TEXT,first_seen_at/TEXT,last_updated_at/TEXT,last_session_id/TEXT,reason/TEXT"
     "|strategy_checkpoints:id/INTEGER,project_id/INTEGER,kind/TEXT,created_at/TEXT"
-    "|strategy_doc_claims:id/INTEGER,project_id/INTEGER,strategy_doc_slug/TEXT,owner_kind/TEXT,owner_item_id/INTEGER,owner_session_id/TEXT,paired_work_claim_id/INTEGER,registered_by_actor_id/INTEGER,registered_by_session_id/TEXT,registered_at/TEXT,released_by_actor_id/INTEGER,released_by_session_id/TEXT,released_at/TEXT,release_mode/TEXT,release_reason/TEXT"
+    "|strategy_doc_claims:id/INTEGER,project_id/INTEGER,strategy_doc_slug/TEXT,owner_kind/TEXT,owner_item_id/INTEGER,owner_session_id/TEXT,registered_by_actor_id/INTEGER,registered_by_session_id/TEXT,registered_at/TEXT,released_by_actor_id/INTEGER,released_by_session_id/TEXT,released_at/TEXT,release_mode/TEXT,release_reason/TEXT"
     "|strategy_doc_revisions:id/INTEGER,project_id/INTEGER,slug/TEXT,revision/INTEGER,content/TEXT,content_sha256/TEXT,byte_length/INTEGER,source_operation/TEXT,actor_id/INTEGER,created_at/TEXT,session_id/TEXT"
     "|strategy_docs:id/INTEGER,project_id/INTEGER,slug/TEXT,content/TEXT,updated_at/TEXT,updated_by_actor_id/INTEGER,archived_at/TEXT,parent_slug/TEXT"
     "|test_machine_verifications:project_id/INTEGER,capability_type/TEXT,status/TEXT,checked_at/TEXT,receipt_json/TEXT,error_code/TEXT,updated_at/TEXT"

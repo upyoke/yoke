@@ -195,7 +195,7 @@ Tracks active harness-session occupancy through one canonical target pair: `targ
 - **Item** (`target_kind='item'`): `scope={"item_id":N}`.
 - **Epic task** (`target_kind='epic_task'`): `scope={"epic_id":N,"task_num":N}`.
 - **Process** (`target_kind='process'`): `scope={"process_key":K,"conflict_group":G}`. STRATEGIZE and FEED share `strategy-control-plane:<project>` and therefore conflict.
-- **Steering** (`target_kind='steering'`): `scope={"project_id":N}`. There is one live session-owned steering seat per project. Its document lock remains in `strategy_doc_claims`, linked by `paired_work_claim_id`; work-claim scope stays project-only.
+- **Steering** (`target_kind='steering'`): `scope={"project_id":N}`. There is one live session-owned steering seat per project. Its document lock remains in `strategy_doc_claims`, associated by `owner_kind='session'` plus `owner_session_id` and `project_id`; work-claim scope stays project-only.
 
 Domain validation requires exactly the keys for the named kind. Storage has no specialized target, typed-owner, or registration-provenance columns.
 

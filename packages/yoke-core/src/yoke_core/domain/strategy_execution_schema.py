@@ -3,9 +3,10 @@
 ``strategy_doc_claims`` carries typed ownership: ``owner_kind`` plus the
 one matching owner column. An ``item``-owned row is a Blitz holding the
 document it executes; a ``session``-owned row is a coordinator holding
-the document directly, with no work item. A steering-owned session row
-links to its steering work claim through ``paired_work_claim_id`` so the
-seat and document lock share one acquire/release transaction. The partial unique index on
+the document directly, with no work item. A steering seat associates
+with those session-owned rows by ``owner_kind='session'`` plus
+``owner_session_id`` and ``project_id`` at read time, so the seat and
+document lock still share one acquire/release transaction. The partial unique index on
 ``(project_id, strategy_doc_slug)`` makes the two kinds mutually
 exclusive on one document. ``registered_by_*`` stays provenance, so an
 item-owned claim survives the session that registered it.
@@ -51,7 +52,6 @@ CREATE TABLE IF NOT EXISTS strategy_doc_claims (
     CHECK(owner_kind IN ('item','session')),
   owner_item_id INTEGER REFERENCES items(id) ON DELETE CASCADE,
   owner_session_id TEXT REFERENCES harness_sessions(session_id),
-  paired_work_claim_id INTEGER REFERENCES work_claims(id),
   CONSTRAINT strategy_doc_claims_owner_shape_check CHECK (
     (owner_kind = 'item'
        AND owner_item_id IS NOT NULL AND owner_session_id IS NULL)
@@ -85,10 +85,6 @@ CREATE INDEX IF NOT EXISTS idx_strategy_doc_claims_item_history
 CREATE INDEX IF NOT EXISTS idx_strategy_doc_claims_owner_session
   ON strategy_doc_claims(owner_session_id)
   WHERE released_at IS NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_claims_paired_work_claim
-  ON strategy_doc_claims(paired_work_claim_id)
-  WHERE paired_work_claim_id IS NOT NULL;
 """
 
 
@@ -100,10 +96,6 @@ TYPED_OWNER_COLUMNS: tuple[tuple[str, str], ...] = (
     ("owner_kind", "TEXT NOT NULL DEFAULT 'item'"),
     ("owner_item_id", "INTEGER DEFAULT NULL"),
     ("owner_session_id", "TEXT DEFAULT NULL"),
-)
-
-STEERING_PAIR_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("paired_work_claim_id", "INTEGER DEFAULT NULL"),
 )
 
 
@@ -118,7 +110,7 @@ def ensure_strategy_execution_schema(
     # The typed-owner columns come first: the script below indexes them, so
     # a table that predates them (or lost one to a degradation sweep) must
     # gain the column before the index that reads it is created.
-    for column, ddl in (*TYPED_OWNER_COLUMNS, *STEERING_PAIR_COLUMNS):
+    for column, ddl in TYPED_OWNER_COLUMNS:
         if _table_exists(conn, "strategy_doc_claims"):
             _add_column_if_not_exists(conn, "strategy_doc_claims", column, ddl)
     execute_schema_script(conn, STRATEGY_EXECUTION_TABLE_SQL)
@@ -142,7 +134,6 @@ def ensure_strategy_execution_schema(
 
 __all__ = [
     "STRATEGY_EXECUTION_TABLE_SQL",
-    "STEERING_PAIR_COLUMNS",
     "TYPED_OWNER_COLUMNS",
     "ensure_strategy_execution_schema",
 ]

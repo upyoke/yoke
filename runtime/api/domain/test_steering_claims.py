@@ -63,7 +63,8 @@ def test_acquire_records_session_owned_project_scope(steering_db) -> None:
     document_claim = active_paired_session_doc_claim(steering_db, claim["id"])
     assert document_claim is not None
     assert document_claim["strategy_doc_slug"] == DEFAULT_STEERING_DOC_SLUG
-    assert document_claim["paired_work_claim_id"] == claim["id"]
+    assert document_claim["owner_kind"] == "session"
+    assert document_claim["owner_session_id"] == SESSION_ALPHA
     emitted.assert_called_once()
 
 
@@ -77,6 +78,20 @@ def test_explicit_document_replaces_the_default_selection(steering_db) -> None:
             doc_slug="AREA-PLAN",
         )
     assert claim["document_claim"]["strategy_doc_slug"] == "AREA-PLAN"
+    document_claim = active_paired_session_doc_claim(steering_db, claim["id"])
+    assert document_claim is not None
+    assert document_claim["strategy_doc_slug"] == "AREA-PLAN"
+    assert document_claim["owner_kind"] == "session"
+    assert document_claim["owner_session_id"] == SESSION_ALPHA
+    with pytest.raises(SessionError) as refusal:
+        acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            doc_slug=DEFAULT_STEERING_DOC_SLUG,
+        )
+    assert refusal.value.code == "DOCUMENT_MISMATCH"
+    assert "AREA-PLAN" in str(refusal.value)
 
 
 def test_document_conflict_rolls_back_the_steering_seat(steering_db) -> None:

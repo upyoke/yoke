@@ -137,9 +137,7 @@ def _acquire_document_pair(
     actor_id: Optional[int],
     reason: Optional[str],
 ) -> dict[str, Any]:
-    from yoke_core.domain.strategy_doc_steering_pair import (
-        active_paired_session_doc_claim,
-    )
+    from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
     from yoke_core.domain.strategy_docs import StrategyDocMissingError
     from yoke_core.domain.strategy_execution import (
         StrategyDocClaimAuthorizationError,
@@ -148,13 +146,16 @@ def _acquire_document_pair(
         acquire_session_doc_claim,
     )
 
-    current = active_paired_session_doc_claim(conn, int(claim["id"]))
-    if current is not None and str(current["strategy_doc_slug"]) != doc_slug:
+    held_slugs = steered_document_slugs(conn, (int(claim["id"]),)).get(
+        int(claim["id"]), []
+    )
+    if held_slugs and set(held_slugs) != {doc_slug}:
+        shown = held_slugs[0] if len(held_slugs) == 1 else ", ".join(held_slugs)
         conn.rollback()
         raise SessionError(
             "DOCUMENT_MISMATCH",
-            f"Steering claim {claim['id']} is already paired with strategy "
-            f"document {current['strategy_doc_slug']!r}; release the claim "
+            f"Steering claim {claim['id']} is already associated with strategy "
+            f"document {shown!r}; release the claim "
             f"before acquiring it with --doc {doc_slug}.",
         )
     try:
@@ -165,7 +166,6 @@ def _acquire_document_pair(
             session_id=str(claim["session_id"]),
             actor_id=actor_id,
             reason=reason,
-            paired_work_claim_id=int(claim["id"]),
             commit=False,
         )
     except StrategyDocClaimConflictError as exc:
