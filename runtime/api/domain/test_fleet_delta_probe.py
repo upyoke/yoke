@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -10,7 +11,9 @@ from typing import Any
 from yoke_core.domain import fleet_delta_probe
 from yoke_core.domain.fleet_delta_probe import (
     MAX_CONSECUTIVE_READ_FAILURES,
+    PROJECT_POLICY_FUNCTION,
     READ_FAILURE_EXIT,
+    STEERING_REPORT_FUNCTION,
     run,
 )
 from yoke_core.domain.fleet_delta_snapshot import (
@@ -20,6 +23,7 @@ from yoke_core.domain.fleet_delta_snapshot import (
 )
 
 NOW = datetime(2026, 8, 28, 17, 0, tzinfo=timezone.utc)
+REPORT_BODY = "fleet report\n  one composed picture"
 
 
 def _ok(result: dict[str, Any]) -> SimpleNamespace:
@@ -32,6 +36,20 @@ def _failure(code: str, message: str) -> SimpleNamespace:
         result=None,
         error=SimpleNamespace(code=code, message=message),
     )
+
+
+def _policy(interval_minutes: int = 2) -> SimpleNamespace:
+    return _ok(
+        {
+            "settings_json": json.dumps(
+                {"steering_report_interval_minutes": interval_minutes}
+            )
+        }
+    )
+
+
+def _report(fingerprint: str = "fleet-a") -> SimpleNamespace:
+    return _ok({"fingerprint": fingerprint, "body": REPORT_BODY})
 
 
 class _Clock:
@@ -76,19 +94,20 @@ def test_one_pass_reads_the_three_registered_functions() -> None:
     assert output == ""
 
 
-def test_an_unchanged_fleet_prints_nothing_across_passes() -> None:
+def test_heartbeat_only_quiet_passes_do_not_fetch_a_report() -> None:
     roster = _ok({"rows": [{"session_id": "a", "activity_at": "2026-08-28T17:00:00Z"}]})
     frontier = _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "idea"}]})
     envelopes = _ok({"messages": []})
-    code, output, _ = _drive(
+    code, output, calls = _drive(
         [roster, frontier, envelopes, roster, frontier, envelopes],
         duration=90,
     )
     assert code == 0
     assert output == ""
+    assert STEERING_REPORT_FUNCTION not in calls
 
 
-def test_a_status_change_between_passes_emits_one_line() -> None:
+def test_a_status_change_appends_the_composed_report_after_the_delta() -> None:
     roster = _ok({"rows": []})
     envelopes = _ok({"messages": []})
     code, output, _ = _drive(
@@ -99,11 +118,56 @@ def test_a_status_change_between_passes_emits_one_line() -> None:
             roster,
             _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "implementing"}]}),
             envelopes,
+            _policy(),
+            _report(),
         ],
         duration=90,
     )
     assert code == 0
-    assert output == "fleet item YOK-1 status idea -> implementing\n"
+    assert output == (f"fleet item YOK-1 status idea -> implementing\n{REPORT_BODY}\n")
+
+
+def test_an_unchanged_report_is_not_reprinted_after_the_rate_limit() -> None:
+    roster = _ok({"rows": []})
+    envelopes = _ok({"messages": []})
+    code, output, calls = _drive(
+        [
+            roster,
+            _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "idea"}]}),
+            envelopes,
+            roster,
+            _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "implementing"}]}),
+            envelopes,
+            _policy(),
+            _report(),
+            roster,
+            _ok(
+                {
+                    "ranked_steps": [
+                        {"item_id": "YOK-1", "status": "reviewing-implementation"}
+                    ]
+                }
+            ),
+            envelopes,
+            _policy(),
+            roster,
+            _ok(
+                {
+                    "ranked_steps": [
+                        {"item_id": "YOK-1", "status": "polishing-implementation"}
+                    ]
+                }
+            ),
+            envelopes,
+            _policy(),
+            _report(),
+        ],
+        duration=210,
+    )
+
+    assert code == 0
+    assert calls.count(STEERING_REPORT_FUNCTION) == 2
+    assert output.count(REPORT_BODY) == 1
 
 
 def test_a_transient_read_failure_is_named_and_the_loop_continues() -> None:
@@ -151,6 +215,10 @@ def test_the_session_id_is_resolved_from_ambient_identity(monkeypatch: Any) -> N
     seen: list[str] = []
 
     def call(function_id: str, payload: dict[str, Any]) -> Any:
+        if function_id == PROJECT_POLICY_FUNCTION:
+            return _policy()
+        if function_id == STEERING_REPORT_FUNCTION:
+            return _report()
         if function_id == ENVELOPES_FUNCTION:
             return _ok(
                 {
@@ -181,4 +249,4 @@ def test_the_session_id_is_resolved_from_ambient_identity(monkeypatch: Any) -> N
     seen.append(out.getvalue())
     # Only the envelope addressed to the resolved session is reported, and
     # the second pass is what compares it against the first.
-    assert seen[0] == "fleet inbox m state=pending from=w\n"
+    assert seen[0] == (f"fleet inbox m state=pending from=w\n{REPORT_BODY}\n")

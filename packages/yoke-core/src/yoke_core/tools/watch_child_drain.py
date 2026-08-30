@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import selectors
 from pathlib import Path
-from typing import Callable, Optional, TextIO
+from typing import Callable, Mapping, Optional, TextIO
 
 from yoke_core.domain import process_group_reaping
 from yoke_core.tools._watch_throttle import (
@@ -21,6 +21,15 @@ from yoke_core.tools.gate_stall_report import handle_quiet_period
 from yoke_core.tools.watch_progress_stall import ProgressEmitWatch
 
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
+
+
+def quiet_heartbeat_seconds(
+    progress_stall_seconds: float,
+    env: Mapping[str, str] | None = None,
+) -> float:
+    """Return the quiet-child notice cadence shared with progress stalls."""
+    source = os.environ if env is None else env
+    return float(source.get(QUIET_HEARTBEAT_SECONDS_ENV, str(progress_stall_seconds)))
 
 
 def _route_line(
@@ -83,8 +92,8 @@ def drain_watched_child(
     assert proc.stdout is not None
     last_summary: Optional[str] = None
     timed_out = False
-    quiet_seconds = float(os.environ.get(QUIET_HEARTBEAT_SECONDS_ENV, "60"))
     progress_watch = ProgressEmitWatch.start(kind, now=clock())
+    quiet_seconds = quiet_heartbeat_seconds(progress_watch.stall_seconds)
     with selectors.DefaultSelector() as selector:
         selector.register(proc.stdout, selectors.EVENT_READ)
         while True:
@@ -177,4 +186,5 @@ def drain_watched_child(
 __all__ = [
     "QUIET_HEARTBEAT_SECONDS_ENV",
     "drain_watched_child",
+    "quiet_heartbeat_seconds",
 ]

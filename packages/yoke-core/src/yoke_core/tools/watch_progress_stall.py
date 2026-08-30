@@ -14,7 +14,7 @@ from typing import Optional
 
 
 PROGRESS_STALL_SECONDS_ENV = "YOKE_WATCH_PROGRESS_STALL_SECONDS"
-DEFAULT_PROGRESS_STALL_SECONDS = 60.0
+DEFAULT_PROGRESS_STALL_SECONDS = 300.0
 
 
 def progress_stall_seconds(env: dict[str, str] | None = None) -> float:

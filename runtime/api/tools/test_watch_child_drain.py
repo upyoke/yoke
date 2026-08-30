@@ -14,6 +14,7 @@ import sys
 import time
 from pathlib import Path
 
+from yoke_core.tools import watch_child_drain, watch_progress_stall
 from yoke_core.tools._watch_throttle import (
     Classification,
     LineClass,
@@ -49,6 +50,21 @@ def _spawn(program: str) -> subprocess.Popen:
         stderr=subprocess.STDOUT,
         bufsize=1,
         text=True,
+    )
+
+
+def test_shared_liveness_notice_defaults_to_five_minutes(monkeypatch) -> None:
+    monkeypatch.delenv(watch_child_drain.QUIET_HEARTBEAT_SECONDS_ENV, raising=False)
+    monkeypatch.delenv(
+        watch_progress_stall.PROGRESS_STALL_SECONDS_ENV,
+        raising=False,
+    )
+
+    progress_watch = watch_progress_stall.ProgressEmitWatch.start("probe", now=0.0)
+
+    assert progress_watch.stall_seconds == 300.0
+    assert (
+        watch_child_drain.quiet_heartbeat_seconds(progress_watch.stall_seconds) == 300.0
     )
 
 
