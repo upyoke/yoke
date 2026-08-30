@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import signal
 import threading
 import time
 
 import pytest
 
-from yoke_harness.session_relay import ServeOnceOutcome
+from yoke_harness.session_relay import ServeOnceJobOutcome, ServeOnceOutcome
 from yoke_harness.session_relay_daemon import serve_forever
 
 
@@ -205,3 +206,135 @@ def test_cycle_cap_bounds_a_directly_driven_loop(tmp_path, cap: int) -> None:
     assert outcome.cycles == cap
     assert outcome.reason == "cycle_cap"
     assert outcome.last_state == "active"
+
+
+def test_failure_burst_logs_first_periodic_and_recovery_lines(caplog) -> None:
+    import yoke_harness.session_relay_daemon as daemon
+
+    interval = daemon.FAILURE_LOG_INTERVAL_SECONDS
+    observed = iter((0.0, 10.0, float(interval), float(interval + 5)))
+    reporter = daemon._FailureReporter(
+        interval_seconds=interval,
+        clock=lambda: next(observed),
+    )
+    caplog.set_level(logging.WARNING, logger=daemon.__name__)
+
+    reporter.failed("poll", "request rejected")
+    reporter.failed("poll", "request rejected")
+    reporter.failed("poll", "request rejected")
+    reporter.recovered("poll")
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages == [
+        "relay poll failed: request rejected; consecutive_failures=1 "
+        "elapsed_seconds=0.0",
+        "relay poll failed: request rejected; consecutive_failures=3 "
+        f"elapsed_seconds={interval:.1f}",
+        "relay poll recovered; consecutive_failures=3 "
+        f"elapsed_seconds={interval + 5:.1f}",
+    ]
+
+
+def test_claim_failure_logs_reason_then_poll_recovery(tmp_path, caplog) -> None:
+    outcomes = iter(
+        (
+            ServeOnceOutcome("claim_failed", error_code="unexpected_field"),
+            ServeOnceOutcome("active", 1),
+        )
+    )
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+
+    serve_forever(
+        state_dir=tmp_path,
+        cycle=lambda **_kwargs: next(outcomes),
+        stop_after_cycles=2,
+        idle_tick_seconds=0,
+        install_signals=False,
+    )
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("relay poll failed: unexpected_field" in line for line in messages)
+    assert any(
+        "relay poll recovered; consecutive_failures=1" in line for line in messages
+    )
+
+
+def test_poll_exception_is_logged_without_ending_the_relay(tmp_path, caplog) -> None:
+    calls: list[int] = []
+
+    def cycle(**_kwargs) -> ServeOnceOutcome:
+        calls.append(1)
+        if len(calls) == 1:
+            raise ValueError("server rejected relay payload")
+        return ServeOnceOutcome("active", 1)
+
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+    outcome = serve_forever(
+        state_dir=tmp_path,
+        cycle=cycle,
+        stop_after_cycles=2,
+        idle_tick_seconds=0,
+        install_signals=False,
+    )
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert outcome.cycles == 2
+    assert any(
+        "relay poll failed: ValueError: server rejected" in line for line in messages
+    )
+    assert any(
+        "relay poll recovered; consecutive_failures=1" in line for line in messages
+    )
+
+
+def test_async_report_failure_is_logged_with_its_error_code(tmp_path, caplog) -> None:
+    def cycle(*, dispatch_job=None, **_kwargs) -> ServeOnceOutcome:
+        dispatch_job(
+            lambda: ServeOnceJobOutcome(
+                "report_failed",
+                error_code="report_contract_rejected",
+            )
+        )
+        return ServeOnceOutcome("dispatched", 1)
+
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+    serve_forever(
+        state_dir=tmp_path,
+        cycle=cycle,
+        stop_after_cycles=1,
+        idle_tick_seconds=0,
+        install_signals=False,
+    )
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any(
+        "relay report failed: report_contract_rejected" in record.getMessage()
+        for record in caplog.records
+    )
+    assert not any("relay report recovered" in line for line in messages)
+
+
+def test_async_settlement_exception_logs_the_operation_and_exception(
+    tmp_path, caplog
+) -> None:
+    def fail_settlement() -> None:
+        raise RuntimeError("checkpoint response was rejected")
+
+    def cycle(*, dispatch_job=None, **_kwargs) -> ServeOnceOutcome:
+        dispatch_job(fail_settlement)
+        return ServeOnceOutcome("dispatched", 1)
+
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+    serve_forever(
+        state_dir=tmp_path,
+        cycle=cycle,
+        stop_after_cycles=1,
+        idle_tick_seconds=0,
+        install_signals=False,
+    )
+
+    assert any(
+        "relay job settlement failed: RuntimeError: checkpoint response was rejected"
+        in record.getMessage()
+        for record in caplog.records
+    )

@@ -17,6 +17,9 @@ instead:
 * a termination signal and a source change both stop *starting* work and
   then wait for what is in flight, so neither drops a job on the floor.
 
+Failure bursts log immediately, periodically, and on recovery. Transient
+cycle exceptions stay visible without ending the relay or flooding its log.
+
 A source change ends in ``exec`` rather than exit: a relay that stops
 serving is a machine whose launches and wakes silently stop landing, so
 replacing the process is the only honest response to new code.
@@ -57,6 +60,8 @@ DRAIN_TIMEOUT_SECONDS = 120
 # when someone deploys — the continuous burn this daemon exists to remove.
 SOURCE_CHECK_INTERVAL_SECONDS = 30
 
+FAILURE_LOG_INTERVAL_SECONDS = 300
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -71,10 +76,61 @@ class DaemonOutcome:
 
 
 @dataclass
+class _FailureBurst:
+    count: int
+    started_at: float
+    last_logged_at: float
+
+
+@dataclass
+class _FailureReporter:
+    """Write one useful line per failure burst and one when it recovers."""
+
+    interval_seconds: float = FAILURE_LOG_INTERVAL_SECONDS
+    clock: Callable[[], float] = time.monotonic
+    bursts: dict[str, _FailureBurst] = field(default_factory=dict)
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def failed(self, operation: str, reason: object) -> None:
+        now = self.clock()
+        detail = " ".join(str(reason).splitlines()).strip() or "unknown failure"
+        with self.lock:
+            burst = self.bursts.get(operation)
+            if burst is None:
+                burst = _FailureBurst(1, now, now)
+                self.bursts[operation] = burst
+            else:
+                burst.count += 1
+                if now - burst.last_logged_at < self.interval_seconds:
+                    return
+                burst.last_logged_at = now
+            _LOGGER.error(
+                "relay %s failed: %s; consecutive_failures=%d elapsed_seconds=%.1f",
+                operation,
+                detail,
+                burst.count,
+                max(0.0, now - burst.started_at),
+            )
+
+    def recovered(self, operation: str) -> None:
+        now = self.clock()
+        with self.lock:
+            burst = self.bursts.pop(operation, None)
+        if burst is not None:
+            _LOGGER.warning(
+                "relay %s recovered; consecutive_failures=%d elapsed_seconds=%.1f",
+                operation,
+                burst.count,
+                max(0.0, now - burst.started_at),
+            )
+
+
+@dataclass
 class _Supervisor:
     """Owns the worker pool and the futures still settling on it."""
 
     pool: ThreadPoolExecutor
+    failures: _FailureReporter
     pending: list[Future] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
     settled: int = 0
@@ -87,10 +143,21 @@ class _Supervisor:
 
     def _guarded(self, settle: Callable[[], object]) -> object:
         try:
-            return settle()
-        except Exception:  # noqa: BLE001 — one job must not stop the relay
-            _LOGGER.warning("relay job settlement failed", exc_info=True)
-            return None
+            try:
+                outcome = settle()
+            except Exception as exc:  # noqa: BLE001 — isolate one failed job
+                self.failures.failed("job settlement", f"{type(exc).__name__}: {exc}")
+                return None
+            state = str(getattr(outcome, "state", ""))
+            if state == "report_failed":
+                self.failures.failed(
+                    "report", getattr(outcome, "error_code", None) or state
+                )
+            else:
+                self.failures.recovered("job settlement")
+                if state == "reported":
+                    self.failures.recovered("report")
+            return outcome
         finally:
             with self.lock:
                 self.settled += 1
@@ -213,19 +280,40 @@ def _serve_under_lock(
         if not acquired:
             return DaemonOutcome("locked")
         baseline = source_fingerprint()
-        supervisor = _Supervisor(ThreadPoolExecutor(max_workers=max_job_workers))
+        failures = _FailureReporter()
+        supervisor = _Supervisor(
+            ThreadPoolExecutor(max_workers=max_job_workers), failures
+        )
         cycles = 0
         last_state = ""
         next_source_check = time.monotonic() + source_check_interval_seconds
         try:
             while not stop.is_set():
-                outcome = cycle(
-                    state_dir=state_dir,
-                    dispatch_job=supervisor.dispatch,
-                    **cycle_kwargs,
-                )
+                try:
+                    outcome = cycle(
+                        state_dir=state_dir,
+                        dispatch_job=supervisor.dispatch,
+                        **cycle_kwargs,
+                    )
+                except Exception as exc:  # noqa: BLE001 — keep the relay standing
+                    failures.failed("poll", f"{type(exc).__name__}: {exc}")
+                    last_state = "poll_failed"
+                else:
+                    last_state = str(getattr(outcome, "state", ""))
+                    if last_state == "claim_failed":
+                        failures.failed(
+                            "poll", getattr(outcome, "error_code", None) or last_state
+                        )
+                    elif last_state == "report_failed":
+                        failures.failed(
+                            "report",
+                            getattr(outcome, "error_code", None) or last_state,
+                        )
+                    elif last_state != "backoff":
+                        failures.recovered("poll")
+                        if last_state == "reported":
+                            failures.recovered("report")
                 cycles += 1
-                last_state = getattr(outcome, "state", "")
                 now = time.monotonic()
                 if now >= next_source_check:
                     next_source_check = now + source_check_interval_seconds
@@ -253,6 +341,7 @@ def _serve_under_lock(
 
 __all__ = [
     "DRAIN_TIMEOUT_SECONDS",
+    "FAILURE_LOG_INTERVAL_SECONDS",
     "IDLE_TICK_SECONDS",
     "SOURCE_CHECK_INTERVAL_SECONDS",
     "DaemonOutcome",
