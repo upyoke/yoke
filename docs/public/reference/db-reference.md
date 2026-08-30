@@ -20,7 +20,7 @@ Quick reference for the columns most often mis-named in agent SQL. The DB-comman
 - `epic_tasks`: use `epic_id` (NOT `item_id`), `task_num` (NOT `task_number`/`seq`), `dependencies` (NOT `depends_on`).
 - `epic_progress_notes`: content is in `body` (NOT `note`).
 - `events`: use `event_name`/`event_type`/`source_type`/`created_at`/`envelope` (NOT `type`/`timestamp`/`source`/`detail`/`context`/`worker`/`payload`/`outcome`).
-- `deployment_runs`: use `id` (NOT `run_id`), `current_stage` (NOT `deploy_stage`), `created_by` (NOT `creator`). No `item_id` column — join through `deployment_run_items` for item-bound runs.
+- `deployment_runs`: use `id` (NOT `run_id`), `current_stage` (NOT `deploy_stage`), `created_by` (NOT `creator`). No `item_id` column — join through `deployment_run_items` for item-bound runs. `carried_work` is the inert JSON record of resolved items and unresolved commit SHAs shipped by a succeeded run.
 - `deployment_run_items`: use `run_id` + `item_id` (composite PK, NO `id` column). **Junction table only** — has NO `deploy_stage`, `current_stage`, or `status` columns. Stage data lives on `items.deploy_stage` and `deployment_runs.current_stage`. Zero rows are valid for started environment-level deployment runs.
 - `qa_runs`: use `qa_requirement_id` (NOT `requirement_id` or `req_id`).
 - `deployment_flows`: use `id` (NOT `flow_id`), no `item_id` column.
@@ -316,6 +316,7 @@ Some `TEXT` columns carry JSON payloads. These columns are `TEXT` today and beco
 | `qa_runs` | `raw_result` | JSON-encoded tool output per `.yoke/docs/reference/qa-platform.md` |
 | `qa_artifacts` | `metadata` | JSON metadata envelope per `.yoke/docs/reference/qa-platform.md` |
 | `deployment_flows` | `stages` | JSON array of stage objects |
+| `deployment_runs` | `carried_work` | lineage derivation with resolved items, bare commits, and named empty reasons |
 | `work_claims` | `scope` | canonical typed-target JSON object selected by `target_kind` |
 
 These columns are annotated `-- → JSONB on Postgres` at their declaration site in the schema blocks in the topic files.

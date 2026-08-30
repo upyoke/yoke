@@ -293,7 +293,9 @@ def render_role_packet(role: str) -> str:
                 "`target_env` column); `deployment_runs.status` and "
                 "`deployment_runs.current_stage` record progress. There is no "
                 "`deployment_runs.item_id`; join through `deployment_run_items` "
-                "for item-bound runs."
+                "for item-bound runs. `deployment_runs.carried_work` is the "
+                "inert JSON record of what a succeeded run shipped: resolved "
+                "items plus unresolved bare commits."
             )
         )
     return "\n".join(chunks).rstrip() + "\n"

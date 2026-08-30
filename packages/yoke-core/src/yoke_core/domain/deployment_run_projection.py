@@ -7,7 +7,9 @@ import json
 from typing import Any, Mapping
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_runs_schema import RUN_FIELDS, VALID_STATUSES
+from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -25,14 +27,20 @@ def normalize_snapshot(raw: Mapping[str, Any]) -> dict[str, str | None]:
         raise DeploymentRunProjectionError(
             "snapshot must contain exactly the canonical deployment-run fields"
         )
-    normalized = {
-        field: (
-            None
-            if raw[field] is None or raw[field] == ""
-            else str(raw[field]).strip()
-        )
-        for field in RUN_FIELDS
-    }
+    normalized: dict[str, str | None] = {}
+    for field in RUN_FIELDS:
+        value = raw[field]
+        if value is None or value == "":
+            normalized[field] = None
+        elif field == "carried_work":
+            parsed = parse_carried_work(value)
+            if parsed is None:
+                raise DeploymentRunProjectionError(
+                    "snapshot carried_work must be a JSON object"
+                )
+            normalized[field] = dumps_compact(parsed)
+        else:
+            normalized[field] = str(value).strip()
     for required in ("id", "project", "flow", "status", "created_at"):
         if not normalized[required]:
             raise DeploymentRunProjectionError(
@@ -68,7 +76,7 @@ def _locked_existing(conn: Any, run_id: str) -> dict[str, str | None] | None:
         "SELECT dr.id,p.slug AS project,dr.flow,dr.target_tier,"
         "e.name AS target_environment,"
         "dr.release_lineage,dr.status,dr.current_stage,dr.created_at,"
-        "dr.started_at,dr.completed_at,dr.created_by "
+        "dr.started_at,dr.completed_at,dr.created_by,dr.carried_work "
         "FROM deployment_runs dr JOIN projects p ON p.id=dr.project_id "
         "LEFT JOIN environments e ON e.id=dr.target_environment_id "
         "WHERE dr.id=%s FOR UPDATE OF dr",
@@ -141,15 +149,22 @@ def project_snapshot(
                 "INSERT INTO deployment_runs("
                 "id,project_id,flow,target_tier,target_environment_id,"
                 "release_lineage,status,"
-                "current_stage,created_at,started_at,completed_at,created_by"
-                ") VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "current_stage,created_at,started_at,completed_at,created_by,"
+                "carried_work) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
-                    snapshot["id"], project_id, snapshot["flow"],
-                    snapshot["target_tier"], target_environment_id,
+                    snapshot["id"],
+                    project_id,
+                    snapshot["flow"],
+                    snapshot["target_tier"],
+                    target_environment_id,
                     snapshot["release_lineage"],
-                    snapshot["status"], snapshot["current_stage"],
-                    snapshot["created_at"], snapshot["started_at"],
-                    snapshot["completed_at"], snapshot["created_by"],
+                    snapshot["status"],
+                    snapshot["current_stage"],
+                    snapshot["created_at"],
+                    snapshot["started_at"],
+                    snapshot["completed_at"],
+                    snapshot["created_by"],
+                    snapshot["carried_work"],
                 ),
             )
             outcome = "created"
@@ -171,13 +186,18 @@ def project_snapshot(
                 "UPDATE deployment_runs SET target_tier=%s,"
                 "target_environment_id=%s,status=%s,"
                 "current_stage=%s,created_at=%s,started_at=%s,completed_at=%s,"
-                "created_by=%s WHERE id=%s",
+                "created_by=%s,carried_work=%s WHERE id=%s",
                 (
                     snapshot["target_tier"],
-                    target_environment_id, snapshot["status"],
-                    snapshot["current_stage"], snapshot["created_at"],
-                    snapshot["started_at"], snapshot["completed_at"],
-                    snapshot["created_by"], snapshot["id"],
+                    target_environment_id,
+                    snapshot["status"],
+                    snapshot["current_stage"],
+                    snapshot["created_at"],
+                    snapshot["started_at"],
+                    snapshot["completed_at"],
+                    snapshot["created_by"],
+                    snapshot["carried_work"],
+                    snapshot["id"],
                 ),
             )
             outcome = "updated"

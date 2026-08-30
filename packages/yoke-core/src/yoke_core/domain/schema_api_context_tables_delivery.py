@@ -55,6 +55,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("started_at", "TEXT"),
             ("completed_at", "TEXT"),
             ("created_by", "TEXT"),
+            ("carried_work", "TEXT"),
         ],
         "notes": (
             "One row per deployment-flow execution. Primary key is the "
@@ -67,6 +68,11 @@ DELIVERY_TABLES: dict[str, dict] = {
             "hosted releases are "
             "item-bound; zero-member runs are reserved for explicit "
             "environment administration and still advance this run row. To "
+            "read what any succeeded run actually shipped, inspect the "
+            "`carried_work` JSON object: `items` are attribution matches, "
+            "`commits` are unresolved bare SHAs, and `derivation.reason` "
+            "names an explicit empty result. It is independent of member "
+            "lifecycle. To "
             "approve an executing run whose current flow stage uses the "
             "`human-approval` executor, use `yoke deployment-runs approve "
             "RUN-ID [--note TEXT]`; the run stage is authoritative and Yoke "

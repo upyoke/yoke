@@ -26,9 +26,19 @@ from yoke_core.domain.schema_common import _column_exists
 # ---------------------------------------------------------------------------
 
 RUN_FIELDS = (
-    "id", "project", "flow", "target_tier", "target_environment",
-    "release_lineage", "status", "current_stage", "created_at",
-    "started_at", "completed_at", "created_by",
+    "id",
+    "project",
+    "flow",
+    "target_tier",
+    "target_environment",
+    "release_lineage",
+    "status",
+    "current_stage",
+    "created_at",
+    "started_at",
+    "completed_at",
+    "created_by",
+    "carried_work",
 )
 
 UPDATABLE_FIELDS = ("status", "current_stage", "created_by")
@@ -48,13 +58,15 @@ _RUN_SELECT = (
     "environments e WHERE e.id=deployment_runs.target_environment_id),''), "
     "COALESCE(release_lineage,''), "
     "status, COALESCE(current_stage,''), created_at, "
-    "COALESCE(started_at,''), COALESCE(completed_at,''), COALESCE(created_by,'')"
+    "COALESCE(started_at,''), COALESCE(completed_at,''), "
+    "COALESCE(created_by,''), COALESCE(carried_work,'')"
 )
 
 
 # ---------------------------------------------------------------------------
 # Pipe-delimited formatters
 # ---------------------------------------------------------------------------
+
 
 def _pipe_row(row) -> str:
     """Format a DB row as a pipe-delimited string."""
@@ -69,6 +81,7 @@ def _pipe_rows(rows) -> str:
 # ---------------------------------------------------------------------------
 # DDL bootstrap
 # ---------------------------------------------------------------------------
+
 
 def cmd_init(db_path: Optional[str] = None) -> None:
     """Create tables if not exist (idempotent)."""
@@ -95,6 +108,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 started_at TEXT,
                 completed_at TEXT,
                 created_by TEXT DEFAULT 'operator',
+                carried_work TEXT,  -- → JSONB on Postgres
                 CONSTRAINT deployment_runs_target_tier_vocabulary
                     CHECK (target_tier IS NULL
                            OR target_tier IN ('persistent','ephemeral')),

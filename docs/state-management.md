@@ -123,7 +123,9 @@ For a compatible `release_stage` definition, the registered delivery skill
 may create a deployment run. Each run references a `deployment_flow`.
 Item-bound runs operate on one or more items through
 `deployment_run_items`; environment-level runs may intentionally operate on
-zero items. Run execution may move the item through the definition's delivery
+zero items. A succeeded run's `carried_work` JSON records the trunk items and
+bare commits shipped between release lineages without adding run members or
+touching item lifecycle. Run execution may move the item through the definition's delivery
 stages, while `needs-capability` and `awaiting-approval` remain run halt states.
 Stage authority for the run itself lives on `deployment_runs.current_stage`.
 See `.yoke/docs/reference/db-reference.md` for the `deployment_runs`,

@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.workflows_definition_read import _stage_names
 
@@ -120,7 +121,8 @@ def list_deployment_runs(
             "SELECT dr.id, p.slug AS project, dr.flow, dr.target_tier, "
             "e.name AS target_environment, "
             "dr.release_lineage, dr.status, dr.current_stage, dr.created_at, "
-            "dr.started_at, dr.completed_at, dr.created_by, df.stages "
+            "dr.started_at, dr.completed_at, dr.created_by, dr.carried_work, "
+            "df.stages "
             "FROM deployment_runs dr "
             "JOIN projects p ON p.id = dr.project_id "
             "JOIN deployment_flows df ON df.id = dr.flow "
@@ -136,6 +138,7 @@ def list_deployment_runs(
         result: list[dict[str, Any]] = []
         for row in base:
             run_id = str(row["id"])
+            row["carried_work"] = parse_carried_work(row.get("carried_work"))
             stage_names = _stage_names(row.pop("stages", None))
             stages, stage_index = _stage_rows(
                 stage_names,

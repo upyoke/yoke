@@ -100,9 +100,19 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 started_at TEXT -- when execution actually began
 completed_at TEXT
 created_by TEXT -- 'operator' or 'system'
+carried_work TEXT -- → JSONB on Postgres; resolved items and unresolved commit SHAs
 ```
 
 A run copies the internal `target_tier` and `target_environment_id` from its flow. Operators select or override a persistent target only with `--environment <registered-name>`; numeric keys are never accepted or emitted by the operator surface. Setting `status=succeeded` stamps `environments.last_deployed_at` on the referenced row.
+
+Successful completion also compares this run's immutable `release_lineage`
+with the previous succeeded run for the same project and target environment.
+The resulting `carried_work` object keeps item matches under `items` and
+unresolved first-parent commits as bare SHAs under `commits`. Its
+`derivation.reason` names explicit empty cases such as no prior run or an
+unreachable lineage. This record never enrolls those items in
+`deployment_run_items` and never changes their lifecycle state. Historical
+runs remain unset; recording is forward-only.
 
 ## Table: deployment_run_items
 
