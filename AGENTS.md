@@ -294,8 +294,8 @@ Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke cura
 - When any feature or rule changes, update ALL docs that reference it. Undocumented features are invisible. **Editing a file the install bundle packages — this one included — requires re-syncing the packaged snapshot in the same commit:** `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`. The drift tests compare bytes, so an unsynced edit fails CI rather than the local impacted run, which is the slowest place to learn it.
 
 ## Bug Discipline
-- Always capture bugs via `/yoke idea`. DO NOT FIX without knowing root cause.
-- For minor bug observations best held as supporting records, file a field-note: `yoke ouroboros field-note append --kind observation --evidence '...'`.
+- Always capture bugs via `/yoke idea`. DO NOT FIX without knowing root cause. Minor observations best held as supporting records go to a field-note instead: `yoke ouroboros field-note append --kind observation --evidence '...'`.
+- Never route discovered work through harness task-suggestion surfaces (e.g. Claude's spawn-task chips) — they live outside the control plane: no claim, no lifecycle, no board row. File it instead: `/yoke idea`, `yoke dash "title" "instruction"`, or a field-note.
 
 ## Execution Discipline
 - **Simulate before executing.** Trace through commands mentally with actual values before running.
