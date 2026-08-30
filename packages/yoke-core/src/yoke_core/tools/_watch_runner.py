@@ -56,6 +56,10 @@ from yoke_core.tools.watch_child_drain import (
     QUIET_HEARTBEAT_SECONDS_ENV,  # noqa: F401 - watcher test/config surface
     drain_watched_child,
 )
+from yoke_core.tools.watch_waiter_liveness import (
+    arm_watcher_wait,
+    complete_watcher_wait,
+)
 
 # Wrapper-level error code: the wrapper itself failed to launch the
 # underlying command (e.g., binary missing). Distinct from a successful
@@ -193,8 +197,6 @@ def run_watcher(
     refresh the stale-session sweep reclaims the item claim mid-run.
     """
     out: TextIO = stdout_stream or sys.stdout
-    pump = liveness if liveness is not None else SessionLivenessPump()
-
     raw_capture.parent.mkdir(parents=True, exist_ok=True)
     progress_capture.parent.mkdir(parents=True, exist_ok=True)
 
@@ -220,6 +222,12 @@ def run_watcher(
     # follower may already be reading past it. Truncating here would both
     # drop the marker and strand that reader beyond a shortened file.
     progress_f = progress_capture.open("a", encoding="utf-8", buffering=1)
+    waiter_id = arm_watcher_wait(kind)
+    pump = (
+        liveness
+        if liveness is not None
+        else SessionLivenessPump(background_waiter_id=waiter_id)
+    )
 
     try:
         # Wrapper metadata is class METADATA: emit immediately, never to raw.
@@ -336,5 +344,6 @@ def run_watcher(
         _emit_immediate(footer, progress_f=progress_f, out=out)
         return rc
     finally:
+        complete_watcher_wait(waiter_id)
         raw_f.close()
         progress_f.close()

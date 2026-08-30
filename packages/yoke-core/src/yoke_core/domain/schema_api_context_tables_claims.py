@@ -37,6 +37,12 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("parked_reason", "TEXT"),
             ("keepalive_until", "TEXT"),
             ("keepalive_reason", "TEXT"),
+            ("background_waiter_id", "TEXT"),
+            ("background_waiter_kind", "TEXT"),
+            ("background_waiter_fact", "TEXT"),
+            ("background_waiter_armed_at", "TEXT"),
+            ("background_waiter_expected_by", "TEXT"),
+            ("background_waiter_completed_at", "TEXT"),
             ("execution_lane", "TEXT"),
             ("offer_envelope", "TEXT"),
             ("current_item_id", "TEXT"),
@@ -105,6 +111,10 @@ CLAIMS_TABLES: dict[str, dict] = {
             "calls neither set nor clear it. Read a live hold through "
             "session_keepalive_holds (an expired timestamp is not a "
             "hold), never by testing keepalive_until for NULL. "
+            "background_waiter_* is one wrapper arm: fact names what it "
+            "watches, expected_by advances only with its token-bound liveness "
+            "pulse, and completed_at is the wrapper's terminal record. An "
+            "overdue arm with no completion is a steering-report finding. "
             "offer_envelope is the JSON "
             "session-offer payload (see JSON-nested-field schemas below). "
             "The default routing lane is execution_lane on this row; "

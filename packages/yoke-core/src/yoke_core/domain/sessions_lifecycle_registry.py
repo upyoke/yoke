@@ -342,5 +342,3 @@ def heartbeat(conn: Any, session_id: str) -> Dict[str, Any]:
     conn.commit()
 
     return _get_session(conn, session_id)
-
-

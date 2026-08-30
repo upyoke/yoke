@@ -120,8 +120,7 @@ def test_cli_cheat_sheet_contains_canonical_flag_sets() -> None:
     body = main_body()
     for anchor in CLI_ANCHORS_REQUIRED:
         assert anchor in body, (
-            f"CLI cheat sheet must teach canonical flag set anchor "
-            f"{anchor!r}."
+            f"CLI cheat sheet must teach canonical flag set anchor {anchor!r}."
         )
 
 
@@ -302,3 +301,16 @@ def test_new_harness_sessions_columns_present() -> None:
             f"harness_sessions.{column} must be enumerated in the "
             "schema cheat sheet (task 002 packet expansion)."
         )
+
+
+def test_background_waiter_columns_are_in_the_session_packet() -> None:
+    body = main_body()
+    for column in (
+        "background_waiter_id",
+        "background_waiter_kind",
+        "background_waiter_fact",
+        "background_waiter_armed_at",
+        "background_waiter_expected_by",
+        "background_waiter_completed_at",
+    ):
+        assert column in body

@@ -113,6 +113,7 @@ def test_a_quiet_detector_renders_nothing_at_all(steering_scope):
         "unregistered launches",
         "landed without close-out",
         "dead waits",
+        "overdue background waiters",
     ):
         assert absent not in body
     assert ": none" not in body.replace("launchable machine/surface pairs: none", "")
@@ -127,6 +128,9 @@ def _populated_report():
         LandedItem,
         StarvedDelivery,
         UnregisteredLaunch,
+    )
+    from yoke_core.domain.steering_fleet_report_waiters import (
+        OverdueBackgroundWaiter,
     )
 
     quiet = ClaimHolder(
@@ -201,6 +205,20 @@ def _populated_report():
         ),
         launchable=(SurfaceReadiness(machine_id="machine-1", surface=SURFACE),),
         session_counts=(("machine-1", SURFACE, 2),),
+        overdue_waiters=(
+            OverdueBackgroundWaiter(
+                session_id="holder-session",
+                item_id=3,
+                public_ref="YOK-3",
+                waiter_id="wait-1",
+                kind="qa_case",
+                watched_fact="watch_qa_case completion",
+                armed_at=LONG_AGO,
+                expected_by=JUST_NOW,
+                armed_seconds=3 * 3600,
+                overdue_seconds=120,
+            ),
+        ),
     )
 
 
@@ -214,6 +232,7 @@ def test_every_section_renders_in_the_order_a_steerer_reads_them():
         "unregistered launches —",
         "landed without close-out —",
         "dead waits —",
+        "overdue background waiters —",
         "live item claims",
         "launchable machine/surface pairs",
     ]
@@ -238,6 +257,11 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     assert "identity parse failed" in launch_row
     assert "instruction not delivered" in launch_row
     assert "reconcile launch-1 --observed-native-id ID" in launch_row
+    waiter_row = next(
+        line for line in body.splitlines() if "watch_qa_case completion" in line
+    )
+    assert "watch_qa_case completion" in waiter_row
+    assert "yoke say --item YOK-3 --stdin" in waiter_row
 
 
 def test_the_populated_report_stays_short_enough_to_ride_every_message():

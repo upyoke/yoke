@@ -72,6 +72,10 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     starved_deliveries,
     unregistered_launches,
 )
+from yoke_core.domain.steering_fleet_report_waiters import (
+    OverdueBackgroundWaiter,
+    overdue_background_waiters,
+)
 
 
 def _p(conn: Any) -> str:
@@ -114,6 +118,7 @@ class FleetReport:
     dead_waits: tuple[DeadWait, ...]
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[tuple[str, str, int], ...]
+    overdue_waiters: tuple[OverdueBackgroundWaiter, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -133,6 +138,7 @@ class FleetReport:
             or self.unregistered_launches
             or self.landed_open
             or self.dead_waits
+            or self.overdue_waiters
         )
 
     def fingerprint(self) -> str:
@@ -152,6 +158,9 @@ class FleetReport:
             "dead_waits": sorted(
                 (entry.session_id, entry.answerer_session_id, entry.reason)
                 for entry in self.dead_waits
+            ),
+            "overdue_waiters": sorted(
+                (entry.session_id, entry.waiter_id) for entry in self.overdue_waiters
             ),
             "launch_balance": sorted(
                 (r.machine_id, r.surface, counts.get((r.machine_id, r.surface), 0))
@@ -248,6 +257,7 @@ def compose_report(
         dead_waits=dead_waits(conn, idle=idle, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
+        overdue_waiters=overdue_background_waiters(conn, holders=holders, now=now),
     )
 
 

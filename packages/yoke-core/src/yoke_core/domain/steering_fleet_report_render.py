@@ -1,15 +1,8 @@
 """Turn one fleet report into the text a steerer reads and the JSON it queries.
 
-Kept apart from composition because the two change for different reasons: a
-new detector is a query, a clearer report is wording.
-
-Two rules shape the text. Available work comes first, because the section
-that answers "what can I staff right now" used to sit at the bottom under a
-heading reading like leftovers, and a steering seat read it as withheld work
-and waited twenty minutes for something it already had. And a detector with
-nothing to say renders nothing at all: this report is appended to every
-message a steering session receives, so a header plus "none" is a cost paid
-on every delivery forever, in exchange for saying that nothing happened.
+Available work comes first so it cannot be mistaken for withheld leftovers.
+A detector with nothing to say renders nothing: the report rides every
+steering message, so empty sections would impose a permanent reading cost.
 """
 
 from __future__ import annotations
@@ -23,6 +16,10 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
     StarvedDelivery,
     UnregisteredLaunch,
+)
+from yoke_core.domain.steering_fleet_report_waiter_render import (
+    waiter_dict,
+    waiter_lines,
 )
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 
@@ -52,7 +49,9 @@ LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch"
 
 
 def _landed_recovery(public_ref: str) -> str:
-    return f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
+    return (
+        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
+    )
 
 
 def _minutes(seconds: int) -> str:
@@ -154,6 +153,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         ],
         "landed_open": [_landed_dict(entry) for entry in report.landed_open],
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
+        "overdue_waiters": [waiter_dict(entry) for entry in report.overdue_waiters],
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}
             for ready in report.launchable
@@ -319,6 +319,12 @@ def report_body(report: FleetReport) -> str:
             "dead waits — idle holder's last question, and whether an answer "
             "can still arrive",
             _dead_wait_lines(report),
+        ),
+        *_section(
+            "overdue background waiters — expected heartbeat passed, no completion",
+            waiter_lines(
+                report.overdue_waiters, limit=SECTION_LIMIT, duration=_minutes
+            ),
         ),
         *_section("live item claims", _holder_lines(report.holders)),
         f"launchable machine/surface pairs: {launchable or 'none'}",

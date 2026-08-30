@@ -61,6 +61,24 @@ class TestRefreshCadence(unittest.TestCase):
                 pump.tick()
         self.assertEqual(refresh.call_count, 1)
 
+    def test_waiter_token_travels_with_the_refresh(self):
+        clock = _Clock()
+        pump = SessionLivenessPump(
+            session_id="s-1",
+            background_waiter_id="wait-1",
+            clock=clock,
+        )
+        with patch.object(
+            session_liveness_pump, "refresh_session_heartbeat", return_value=True
+        ) as refresh:
+            clock.advance(HEARTBEAT_INTERVAL_SECONDS)
+            self.assertTrue(pump.tick())
+
+        refresh.assert_called_once_with(
+            "s-1",
+            background_waiter_id="wait-1",
+        )
+
     def test_hour_long_run_refreshes_throughout(self):
         # The regression shape: a 60-minute gate with an idle session. The
         # session must be refreshed the whole way, not just at the start.
@@ -116,6 +134,37 @@ class TestIdentityResolution(unittest.TestCase):
 
 
 class TestRefreshFailureIsNotFatal(unittest.TestCase):
+    def test_waiter_refresh_sends_a_token_bound_pulse(self):
+        captured = {}
+
+        class Response:
+            success = True
+
+        def dispatch(**kwargs):
+            captured.update(kwargs)
+            return Response()
+
+        with patch(
+            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+            dispatch,
+        ):
+            self.assertTrue(
+                session_liveness_pump.refresh_session_heartbeat(
+                    "s-1",
+                    background_waiter_id="wait-1",
+                )
+            )
+
+        self.assertEqual(
+            captured["payload"],
+            {
+                "background_waiter": {
+                    "action": "pulse",
+                    "waiter_id": "wait-1",
+                }
+            },
+        )
+
     def test_a_transport_failure_does_not_interrupt_the_command(self):
         # The command being watched is the caller's real work; a heartbeat
         # that cannot land must never take it down.
