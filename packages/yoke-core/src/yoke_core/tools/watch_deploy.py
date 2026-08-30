@@ -65,11 +65,20 @@ DEPLOY_SUMMARY_RE = re.compile(
 DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(
     r"status relay is temporarily unavailable"
 )
-DEPLOY_POLL_RE = re.compile(r"Workflow status: \S+ \(elapsed: (\d+)s")
 
 
 def classify_deploy_line(line: str) -> Classification:
-    """Classify a single output line from the deployment pipeline."""
+    """Classify a single output line from the deployment pipeline.
+
+    The pipeline's ``Workflow status: <state> (elapsed: Ns)`` poll repeats
+    roughly once a minute for the whole run and carries no state the
+    previous poll did not. Waking a watching agent on it spends a wake and
+    a line of transcript per minute per driver to say nothing, so a poll is
+    deliberately noise here. Liveness is not lost with it: the shared watch
+    runner reports ``# watch_deploy no progress for Ns`` on its own cadence,
+    distinguishing a quiet-but-moving driver from one whose child has gone
+    silent, and a dead driver still lands the exit sentinel with its code.
+    """
     for prefix in DEPLOY_URGENT_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.URGENT)
@@ -80,14 +89,6 @@ def classify_deploy_line(line: str) -> Classification:
             return Classification(LineClass.SUMMARY)
     if DEPLOY_SUMMARY_RE.search(line):
         return Classification(LineClass.SUMMARY)
-    poll = DEPLOY_POLL_RE.search(line)
-    if poll:
-        # Elapsed seconds is the only monotonic quantity a deploy emits;
-        # handing it to the throttle lets repetitive polls coalesce the
-        # way a percentage does for a test run.
-        return Classification(
-            LineClass.PROGRESS, progress_value=float(poll.group(1))
-        )
     return Classification(LineClass.NOISE)
 
 
@@ -102,7 +103,6 @@ def _build_deploy_progress_pattern() -> re.Pattern[str]:
     parts.extend("^" + re.escape(p) for p in DEPLOY_SUMMARY_PREFIXES)
     parts.append(DEPLOY_SUMMARY_RE.pattern)
     parts.append(DEPLOY_RELAY_UNAVAILABLE_RE.pattern)
-    parts.append(DEPLOY_POLL_RE.pattern)
     return re.compile("|".join(parts))
 
 
