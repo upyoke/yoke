@@ -28,7 +28,13 @@ from yoke_core.domain.yoke_function_registry import (
 
 SESSION_ID = "session-attributed-events"
 FUNCTION_ID = "sessions.touch"
-EVENT_NAMES = frozenset({"ItemStatusChanged", "QARunCompleted"})
+EVENT_NAMES = frozenset(
+    {
+        "ItemStatusChanged",
+        "QARunCaptured",
+        "QARunCompleted",
+    }
+)
 
 
 class _Request(BaseModel):
@@ -115,9 +121,7 @@ def test_dispatch_stamps_stored_rows_from_real_session() -> None:
                 patch.object(dispatch_module, "_ensure_handlers_registered"),
                 patch.object(dispatch_events, "emit_event"),
                 patch.object(dispatch_events, "record_call", return_value=True),
-                patch.object(
-                    dispatch_module, "_idempotency_lookup", return_value=None
-                ),
+                patch.object(dispatch_module, "_idempotency_lookup", return_value=None),
             ):
                 response = dispatch(request)
             assert response.success, response.error
@@ -134,14 +138,14 @@ def test_dispatch_stamps_stored_rows_from_real_session() -> None:
             reset_registry_for_tests()
 
 
-def test_sessionless_events_use_named_system_actor(monkeypatch) -> None:
+def test_sessionless_events_leave_identity_empty(monkeypatch) -> None:
     monkeypatch.setattr(
         events_acting_identity,
         "resolve_ambient_session_id",
         lambda: None,
     )
     with test_database() as conn:
-        human_actor_id, system_actor_id = _actor_ids(conn)
+        human_actor_id, _system_actor_id = _actor_ids(conn)
         for event_name in EVENT_NAMES:
             result = events.emit_event(
                 event_name,
@@ -153,10 +157,40 @@ def test_sessionless_events_use_named_system_actor(monkeypatch) -> None:
             )
             assert result.ok, result.reason
         rows = conn.execute(
-            "SELECT session_id, actor_id FROM events "
-            "WHERE event_name = ANY(%s)",
+            "SELECT session_id, actor_id FROM events WHERE event_name = ANY(%s)",
             (list(EVENT_NAMES),),
         ).fetchall()
         assert len(rows) == len(EVENT_NAMES)
-        assert {str(row[0]) for row in rows} == {""}
-        assert {int(row[1]) for row in rows} == {system_actor_id}
+        assert {str(row[0] or "") for row in rows} == {""}
+        assert {row[1] for row in rows} == {None}
+
+
+def test_empty_bound_identity_falls_through_to_ambient(monkeypatch) -> None:
+    monkeypatch.setattr(
+        events_acting_identity,
+        "resolve_ambient_session_id",
+        lambda: SESSION_ID,
+    )
+    with test_database() as conn:
+        human_actor_id, _system_actor_id = _actor_ids(conn)
+        _insert_session(conn, human_actor_id)
+        with events_acting_identity.acting_event_identity(
+            session_id="",
+            actor_id=None,
+        ):
+            result = events.emit_event(
+                "ItemStatusChanged",
+                event_kind="lifecycle",
+                event_type="attribution_test",
+                session_id="caller-supplied-session",
+                auth_context=StandardAuthContext(actor_id=human_actor_id),
+                conn=conn,
+            )
+            assert result.ok, result.reason
+        row = conn.execute(
+            "SELECT session_id, actor_id FROM events WHERE event_name = %s",
+            ("ItemStatusChanged",),
+        ).fetchone()
+        assert row is not None
+        assert str(row[0]) == SESSION_ID
+        assert int(row[1]) == human_actor_id
