@@ -39,6 +39,7 @@ REINJECTION_COOLDOWN = timedelta(minutes=30)
 REINJECTION_CEILING = 3
 REASON_REINJECTED = "promised_work_reinjected"
 REASON_CAP_REACHED = "reinjection_cap_reached"
+REASON_MONITOR_ARMED = "monitor_waiter_live"
 UNFINISHED_CLOSE_OUT = "lifecycle_close_out"
 UNFINISHED_CLAIMED_ITEM = "claimed_item_in_progress"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
@@ -47,6 +48,10 @@ DIRECTIVE = (
     "if work remains; or release the claim if the work is finished or "
     "handed off; or stop deliberately and say why (blocked, waiting on "
     "the operator, parked)."
+)
+MONITOR_DIRECTIVE = (
+    "A Monitor waiter is still armed. Do not end this turn. "
+    "Ending it kills the waiter with no wake."
 )
 _HOLD_EXEMPT_STATUSES = (
     ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | frozenset({"done"})
@@ -57,14 +62,18 @@ def _allow() -> HookDecision:
     return HookDecision(outcome=Outcome.ALLOW, next=Next.CONTINUE)
 
 
-def _hold() -> HookDecision:
+def _deny_stop(message: str, reason: str) -> HookDecision:
     return HookDecision(
         outcome=Outcome.DENY,
-        message=DIRECTIVE,
+        message=message,
         block=True,
         next=Next.STOP,
-        audit_fields={"reason": REASON_REINJECTED},
+        audit_fields={"reason": reason},
     )
+
+
+def _hold() -> HookDecision:
+    return _deny_stop(DIRECTIVE, REASON_REINJECTED)
 
 
 def _evidence_for(context: HookContext) -> TurnEndEvidence:
@@ -123,6 +132,25 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
 def _item_blocks_hold(status: Any) -> bool:
     value = str(status or "").strip()
     return value in _HOLD_EXEMPT_STATUSES
+
+
+def _armed_monitor_blocks_stop(conn: Any, session_id: str) -> bool:
+    from yoke_core.domain import db_backend
+
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    mode = conn.execute(
+        f"SELECT mode FROM harness_sessions WHERE session_id={p}", (session_id,)
+    ).fetchone()
+    if mode is not None and str(mode["mode"] or "") == "parked":
+        return False
+    tool = conn.execute(
+        f"SELECT tool_name FROM events WHERE session_id={p}"
+        " AND event_name='HarnessToolCallCompleted'"
+        " AND tool_name IS NOT NULL AND tool_name <> ''"
+        " ORDER BY created_at DESC LIMIT 1",
+        (session_id,),
+    ).fetchone()
+    return bool(tool) and str(tool["tool_name"] or "") == "Monitor"
 
 
 def _reinjection_history(
@@ -264,7 +292,20 @@ def evaluate(record: HookContext) -> HookDecision:
             return _allow()
         if _item_blocks_hold(claim["status"]):
             return _allow()
-        # Snapshot is consumed for the deferred event, never recomputed here.
+        try:
+            monitor_armed = _armed_monitor_blocks_stop(conn, session_id)
+        except Exception:
+            monitor_armed = False
+        if monitor_armed:
+            _emit_deferred(
+                conn=conn,
+                session_id=session_id,
+                item_id=claim["item_id"],
+                reason=REASON_MONITOR_ARMED,
+                cap_reached=False,
+                claim=claim,
+            )
+            return _deny_stop(MONITOR_DIRECTIVE, REASON_MONITOR_ARMED)
         if _at_reinjection_cap(conn, session_id, claim["item_id"]):
             _emit_deferred(
                 conn=conn,
@@ -296,10 +337,10 @@ def evaluate(record: HookContext) -> HookDecision:
 __all__ = [
     "DIRECTIVE",
     "EVIDENCE_UNAVAILABLE_REASON",
+    "MONITOR_DIRECTIVE",
     "REASON_CAP_REACHED",
+    "REASON_MONITOR_ARMED",
     "REASON_REINJECTED",
-    "REINJECTION_CEILING",
-    "REINJECTION_COOLDOWN",
     "UNFINISHED_CLAIMED_ITEM",
     "UNFINISHED_CLOSE_OUT",
     "evaluate",
