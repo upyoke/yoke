@@ -1,9 +1,10 @@
-"""Three failures that arrive as silence, read from live control-plane state.
+"""Four failures that arrive as silence, read from live control-plane state.
 
 Each detector answers a question a steering seat used to answer by
 remembering to go and look: did a message reach the worker it was sent to,
-did a launch bind its native session and route the instruction, and did merged work ever close out. A
-habit is not a guarantee, so they are queries. The fourth silence -- an idle
+did a launch bind its native session and route the instruction, did a Monitor
+waiter freeze, and did merged work ever close out. A habit is not a guarantee,
+so they are queries. The fifth silence -- an idle
 worker waiting on an answer that cannot arrive -- is a judgment rather than a
 lookup and lives in :mod:`steering_fleet_report_dead_waits`.
 
@@ -21,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
@@ -51,6 +52,45 @@ def age_seconds(stamp: str | None, now: str) -> int | None:
     if not stamp:
         return None
     return max(0, int((parse_stamp(now) - parse_stamp(stamp)).total_seconds()))
+
+
+def suspected_orphaned_waiters(
+    conn: Any,
+    *,
+    idle: Sequence[Any],
+) -> tuple[Any, ...]:
+    """Idle holders matching the Monitor-freeze signature.
+
+    Membership in ``idle`` establishes that ``last_tool_call_at`` is past the
+    report's idle threshold. The remaining facts already live on the session
+    and its completed tool-call events; no waiter registry is inferred.
+    """
+    p = marker(conn)
+    matches = []
+    for holder in idle:
+        row = conn.execute(
+            f"""SELECT s.turn_posture,
+                       (SELECT e.tool_name
+                          FROM events e
+                         WHERE e.session_id = s.session_id
+                           AND e.event_name = 'HarnessToolCallCompleted'
+                           AND e.tool_name IS NOT NULL
+                           AND e.tool_name <> ''
+                         ORDER BY e.created_at DESC, e.id DESC
+                         LIMIT 1) AS last_completed_tool
+                  FROM harness_sessions s
+                 WHERE s.session_id = {p}""",
+            (holder.session_id,),
+        ).fetchone()
+        if row is None:
+            continue
+        record = dict(row)
+        if (
+            str(record.get("turn_posture") or "") == "waiting"
+            and str(record.get("last_completed_tool") or "") == "Monitor"
+        ):
+            matches.append(holder)
+    return tuple(matches)
 
 
 @dataclass(frozen=True)
@@ -282,5 +322,6 @@ __all__ = [
     "marker",
     "parse_stamp",
     "starved_deliveries",
+    "suspected_orphaned_waiters",
     "unregistered_launches",
 ]

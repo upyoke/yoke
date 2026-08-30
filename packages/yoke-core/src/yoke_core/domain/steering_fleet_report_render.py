@@ -1,8 +1,7 @@
 """Turn one fleet report into the text a steerer reads and the JSON it queries.
 
-Available work comes first so it cannot be mistaken for withheld leftovers.
-A detector with nothing to say renders nothing: the report rides every
-steering message, so empty sections would impose a permanent reading cost.
+Available work comes first, and quiet detectors render nothing. The report
+rides every steering message, so empty headers are permanent noise.
 """
 
 from __future__ import annotations
@@ -16,10 +15,6 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
     StarvedDelivery,
     UnregisteredLaunch,
-)
-from yoke_core.domain.steering_fleet_report_waiter_render import (
-    waiter_dict,
-    waiter_lines,
 )
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 
@@ -152,8 +147,10 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             _launch_dict(entry) for entry in report.unregistered_launches
         ],
         "landed_open": [_landed_dict(entry) for entry in report.landed_open],
+        "suspected_orphaned_waiters": [
+            _holder_dict(holder) for holder in report.suspected_orphaned_waiters
+        ],
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
-        "overdue_waiters": [waiter_dict(entry) for entry in report.overdue_waiters],
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}
             for ready in report.launchable
@@ -180,12 +177,18 @@ def _available_lines(report: FleetReport) -> list[str]:
     return _capped(lines, len(report.available))
 
 
-def _holder_lines(holders: tuple[ClaimHolder, ...]) -> list[str]:
-    lines = [
-        f"  {holder.public_ref}  session {holder.session_id}  mode "
-        f"{holder.mode or 'unset'}  quiet {_minutes(holder.idle_seconds)}"
-        for holder in holders[:SECTION_LIMIT]
-    ]
+def _holder_lines(
+    holders: tuple[ClaimHolder, ...], *, with_wake: bool = False
+) -> list[str]:
+    lines = []
+    for holder in holders[:SECTION_LIMIT]:
+        line = (
+            f"  {holder.public_ref}  session {holder.session_id}  mode "
+            f"{holder.mode or 'unset'}  quiet {_minutes(holder.idle_seconds)}"
+        )
+        if with_wake:
+            line += f"  wake `yoke say --item {holder.public_ref} --stdin`"
+        lines.append(line)
     return _capped(lines, len(holders))
 
 
@@ -304,6 +307,10 @@ def report_body(report: FleetReport) -> str:
             _holder_lines(report.idle),
         ),
         *_section(
+            "suspected orphaned waiter — Monitor completed, waiting past idle",
+            _holder_lines(report.suspected_orphaned_waiters, with_wake=True),
+        ),
+        *_section(
             "starved delivery — sent, never injected, recipient silent since",
             _starved_lines(report),
         ),
@@ -319,12 +326,6 @@ def report_body(report: FleetReport) -> str:
             "dead waits — idle holder's last question, and whether an answer "
             "can still arrive",
             _dead_wait_lines(report),
-        ),
-        *_section(
-            "overdue background waiters — expected heartbeat passed, no completion",
-            waiter_lines(
-                report.overdue_waiters, limit=SECTION_LIMIT, duration=_minutes
-            ),
         ),
         *_section("live item claims", _holder_lines(report.holders)),
         f"launchable machine/surface pairs: {launchable or 'none'}",

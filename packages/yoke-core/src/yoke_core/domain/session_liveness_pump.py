@@ -46,18 +46,13 @@ def _ambient_session_id() -> str:
         return ""
 
 
-def refresh_session_heartbeat(
-    session_id: str,
-    *,
-    background_waiter_id: str = "",
-) -> bool:
+def refresh_session_heartbeat(session_id: str) -> bool:
     """Send one ``sessions.touch`` for *session_id*; report whether it landed.
 
     A refresh that cannot land — server offline, transport error, session
     already ended — must never take down the command being watched, which
     is the caller's real work. The run continues and the sweep's ordinary
-    behavior resumes. When a watcher supplies its compare-by-id token, this
-    same request also proves that exact wrapper is still alive.
+    behavior resumes.
     """
     try:
         from yoke_contracts.api.function_call import ActorContext, TargetRef
@@ -65,16 +60,10 @@ def refresh_session_heartbeat(
             call_dispatcher,
         )
 
-        payload = {}
-        if background_waiter_id:
-            payload["background_waiter"] = {
-                "action": "pulse",
-                "waiter_id": background_waiter_id,
-            }
         response = call_dispatcher(
             function_id="sessions.touch",
             target=TargetRef(kind="global"),
-            payload=payload,
+            payload={},
             actor=ActorContext(session_id=session_id),
             intent="long command liveness",
         )
@@ -90,7 +79,6 @@ class SessionLivenessPump:
         self,
         *,
         session_id: Optional[str] = None,
-        background_waiter_id: str = "",
         interval_seconds: float = HEARTBEAT_INTERVAL_SECONDS,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -99,7 +87,6 @@ class SessionLivenessPump:
             raise ValueError("interval_seconds must be positive")
         self._clock = clock
         self._session_id = session_id
-        self._background_waiter_id = str(background_waiter_id or "")
         self._resolved = session_id is not None
         # Starting the command is itself activity, so the first refresh
         # falls due one interval into the run rather than immediately.
@@ -118,10 +105,7 @@ class SessionLivenessPump:
         session_id = self._session()
         if not session_id:
             return False
-        return refresh_session_heartbeat(
-            session_id,
-            background_waiter_id=self._background_waiter_id,
-        )
+        return refresh_session_heartbeat(session_id)
 
     def wait(
         self,

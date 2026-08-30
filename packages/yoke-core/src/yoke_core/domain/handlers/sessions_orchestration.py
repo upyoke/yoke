@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -19,33 +19,14 @@ from yoke_core.domain.handlers.sessions_charge_schedule import (
 )
 
 
-class BackgroundWaiterTouchRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    action: Literal["arm", "pulse", "complete"]
-    waiter_id: str
-    kind: Optional[str] = None
-    watched_fact: Optional[str] = None
-
-    @model_validator(mode="after")
-    def _arm_fields(self):
-        if self.action == "arm" and (not self.kind or not self.watched_fact):
-            raise ValueError("arm requires kind and watched_fact")
-        return self
-
-
 class TouchRequest(BaseModel):
     mode: Optional[str] = None
     reason: Optional[str] = None
-    background_waiter: Optional[BackgroundWaiterTouchRequest] = None
 
 
 class TouchResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
     success: bool
     session: Dict[str, Any]
-    background_waiter: Optional[Dict[str, Any]] = None
 
 
 class CheckpointRequest(BaseModel):
@@ -120,10 +101,7 @@ class OfferResponse(BaseModel):
 
 
 def _err(
-    code: str,
-    message: str,
-    *,
-    jsonpath: Optional[str] = None,
+    code: str, message: str, *, jsonpath: Optional[str] = None,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -151,36 +129,14 @@ def handle_touch(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("session_required", "session id is required")
 
     from yoke_core.domain.sessions import SessionError, heartbeat, set_session_mode
-    from yoke_core.domain.session_background_waiter import (
-        arm_background_waiter,
-        complete_background_waiter,
-        pulse_background_waiter,
-    )
 
     with _connect_rw() as conn:
         try:
             session = heartbeat(conn, sid)
-            waiter = None
-            if body.background_waiter is not None:
-                change = body.background_waiter
-                if change.action == "arm":
-                    waiter = arm_background_waiter(
-                        conn,
-                        sid,
-                        waiter_id=change.waiter_id,
-                        kind=change.kind or "",
-                        watched_fact=change.watched_fact or "",
-                    )
-                elif change.action == "pulse":
-                    waiter = pulse_background_waiter(
-                        conn, sid, waiter_id=change.waiter_id
-                    )
-                else:
-                    waiter = complete_background_waiter(
-                        conn, sid, waiter_id=change.waiter_id
-                    )
             if body.mode is not None:
-                session = set_session_mode(conn, sid, body.mode, reason=body.reason)
+                session = set_session_mode(
+                    conn, sid, body.mode, reason=body.reason
+                )
             elif body.reason is not None:
                 return _err(
                     "reason_requires_parked",
@@ -188,10 +144,7 @@ def handle_touch(request: FunctionCallRequest) -> HandlerOutcome:
                 )
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)
-    result = {"success": True, "session": session}
-    if waiter is not None:
-        result["background_waiter"] = waiter
-    return HandlerOutcome(result_payload=result)
+    return HandlerOutcome(result_payload={"success": True, "session": session})
 
 
 def handle_checkpoint(request: FunctionCallRequest) -> HandlerOutcome:
@@ -271,9 +224,7 @@ def handle_ownership_guard(request: FunctionCallRequest) -> HandlerOutcome:
 
     with _connect_rw() as conn:
         result = evaluate_ownership_guard(
-            conn,
-            session_id=sid,
-            item_id=int(item_id),
+            conn, session_id=sid, item_id=int(item_id),
         )
     return HandlerOutcome(result_payload=asdict(result))
 
@@ -301,21 +252,10 @@ def handle_offer(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "TouchRequest",
-    "TouchResponse",
-    "handle_touch",
-    "CheckpointRequest",
-    "CheckpointResponse",
-    "handle_checkpoint",
-    "CheckpointReadRequest",
-    "handle_checkpoint_read",
-    "OwnershipGuardRequest",
-    "OwnershipGuardResponse",
-    "handle_ownership_guard",
-    "OfferRequest",
-    "OfferResponse",
-    "handle_offer",
-    "ChargeScheduleRequest",
-    "ChargeScheduleResponse",
-    "handle_charge_schedule",
+    "TouchRequest", "TouchResponse", "handle_touch",
+    "CheckpointRequest", "CheckpointResponse", "handle_checkpoint",
+    "CheckpointReadRequest", "handle_checkpoint_read",
+    "OwnershipGuardRequest", "OwnershipGuardResponse", "handle_ownership_guard",
+    "OfferRequest", "OfferResponse", "handle_offer",
+    "ChargeScheduleRequest", "ChargeScheduleResponse", "handle_charge_schedule",
 ]

@@ -260,16 +260,6 @@ def list_sessions(
                     "parked_reason": row.get("parked_reason"),
                     "keepalive_until": row.get("keepalive_until"),
                     "keepalive_reason": row.get("keepalive_reason"),
-                    "background_waiter_id": row.get("background_waiter_id"),
-                    "background_waiter_kind": row.get("background_waiter_kind"),
-                    "background_waiter_fact": row.get("background_waiter_fact"),
-                    "background_waiter_armed_at": row.get("background_waiter_armed_at"),
-                    "background_waiter_expected_by": row.get(
-                        "background_waiter_expected_by"
-                    ),
-                    "background_waiter_completed_at": row.get(
-                        "background_waiter_completed_at"
-                    ),
                     "actor_id": row.get("actor_id"),
                     "actor_kind": row.get("actor_kind"),
                     "actor_label": _actor_label(

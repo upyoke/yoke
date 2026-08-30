@@ -46,12 +46,6 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("parked_reason", "TEXT DEFAULT NULL"),
         ("keepalive_until", "TEXT DEFAULT NULL"),
         ("keepalive_reason", "TEXT DEFAULT NULL"),
-        ("background_waiter_id", "TEXT DEFAULT NULL"),
-        ("background_waiter_kind", "TEXT DEFAULT NULL"),
-        ("background_waiter_fact", "TEXT DEFAULT NULL"),
-        ("background_waiter_armed_at", "TEXT DEFAULT NULL"),
-        ("background_waiter_expected_by", "TEXT DEFAULT NULL"),
-        ("background_waiter_completed_at", "TEXT DEFAULT NULL"),
         ("last_steering_report_at", "TEXT DEFAULT NULL"),
         ("last_steering_report_fingerprint", "TEXT DEFAULT NULL"),
     ):

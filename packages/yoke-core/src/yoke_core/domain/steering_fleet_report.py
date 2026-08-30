@@ -1,6 +1,6 @@
 """What the steering seat cannot see from inside its own turn.
 
-Composes available work, idle holders, four silent failure classes,
+Composes available work, idle holders, five silent failure classes,
 launchable surfaces, and live session counts into one report. It decides
 nothing and launches nothing. The only detector used to be the steerer's own
 memory to go and look, which is a habit rather than a guarantee.
@@ -70,11 +70,8 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     age_seconds,
     landed_without_closeout,
     starved_deliveries,
+    suspected_orphaned_waiters,
     unregistered_launches,
-)
-from yoke_core.domain.steering_fleet_report_waiters import (
-    OverdueBackgroundWaiter,
-    overdue_background_waiters,
 )
 
 
@@ -118,7 +115,7 @@ class FleetReport:
     dead_waits: tuple[DeadWait, ...]
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[tuple[str, str, int], ...]
-    overdue_waiters: tuple[OverdueBackgroundWaiter, ...] = ()
+    suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -137,8 +134,8 @@ class FleetReport:
             or self.starved
             or self.unregistered_launches
             or self.landed_open
+            or self.suspected_orphaned_waiters
             or self.dead_waits
-            or self.overdue_waiters
         )
 
     def fingerprint(self) -> str:
@@ -155,12 +152,13 @@ class FleetReport:
                 entry.launch_id for entry in self.unregistered_launches
             ),
             "landed_open": sorted(entry.item_id for entry in self.landed_open),
+            "suspected_orphaned_waiters": sorted(
+                (holder.session_id, holder.item_id)
+                for holder in self.suspected_orphaned_waiters
+            ),
             "dead_waits": sorted(
                 (entry.session_id, entry.answerer_session_id, entry.reason)
                 for entry in self.dead_waits
-            ),
-            "overdue_waiters": sorted(
-                (entry.session_id, entry.waiter_id) for entry in self.overdue_waiters
             ),
             "launch_balance": sorted(
                 (r.machine_id, r.surface, counts.get((r.machine_id, r.surface), 0))
@@ -254,10 +252,10 @@ def compose_report(
             conn, project_id=project_id, now=now
         ),
         landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
+        suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=idle),
         dead_waits=dead_waits(conn, idle=idle, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
-        overdue_waiters=overdue_background_waiters(conn, holders=holders, now=now),
     )
 
 
