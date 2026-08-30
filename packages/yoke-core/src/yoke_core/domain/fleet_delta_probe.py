@@ -2,7 +2,8 @@
 
 This is the command the ``yoke watch fleet`` wrapper runs. It has no
 Yoke-side dependency on any harness: it reads registered functions,
-compares consecutive observations, and writes delta lines to stdout.
+compares consecutive observations, and writes delta lines plus a
+rate-limited changed steering report to stdout.
 Whether those lines become Claude ``Monitor`` wake events, Codex PTY
 output, or a scrollback the operator reads afterwards is the caller's
 concern, not this loop's.
@@ -19,10 +20,16 @@ and a follower armed against it always terminates.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
-from datetime import datetime, timezone
-from typing import Any, Callable, Sequence, TextIO
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, Mapping, Sequence, TextIO
+
+from yoke_contracts.project_contract.project_keys import (
+    DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
+    PROJECT_POLICY_CAPABILITY,
+)
 
 from yoke_core.domain.fleet_delta_alarms import DeltaState
 from yoke_core.domain.fleet_delta_lines import compare, error_line, fatal_line
@@ -34,6 +41,9 @@ from yoke_core.domain.fleet_delta_snapshot import (
 
 DEFAULT_INTERVAL_SECONDS = 60
 DEFAULT_DURATION_SECONDS = 3600
+PROJECT_POLICY_FUNCTION = "projects.capability_settings.get"
+STEERING_REPORT_FUNCTION = "steering.report.get"
+STEERING_REPORT_INTERVAL_KEY = "steering_report_interval_minutes"
 #: Consecutive failed passes before the probe stops instead of looping
 #: silently against a control plane it cannot reach.
 MAX_CONSECUTIVE_READ_FAILURES = 3
@@ -41,8 +51,10 @@ READ_FAILURE_EXIT = 1
 
 HELP_EPILOG = """\
 Each pass reads `sessions.list`, `charge.schedule`, and the durable
-message listing, then prints one line per change. A pass that observes
-no change prints nothing.
+message listing, then prints one line per change. A real delta batch is
+followed by the composed steering report when its configured interval
+has elapsed and its fingerprint changed. A pass that observes no change
+prints nothing.
 
 Every identifier is printed whole. Session ids collide heavily at any
 prefix, so a line never carries a fragment of one.
@@ -77,9 +89,10 @@ def dispatch_call(function_id: str, payload: dict[str, Any]) -> Any:
         call_dispatcher,
     )
 
+    project = str(payload.get("project") or "").strip() or None
     return call_dispatcher(
         function_id=function_id,
-        target=TargetRef(kind="global"),
+        target=TargetRef(kind="global", project_id=project),
         payload=payload,
         actor=build_actor(),
     )
@@ -90,6 +103,97 @@ def ambient_session_id() -> str:
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
     return build_actor().session_id or ""
+
+
+def _response_result(response: Any, function_id: str) -> dict[str, Any]:
+    """Unwrap a registered read or raise a named fleet-read failure."""
+    if not getattr(response, "success", False):
+        error = getattr(response, "error", None)
+        detail = (
+            f"{error.code}: {error.message}" if error is not None else "unknown error"
+        )
+        raise FleetReadError(function_id, detail)
+    return dict(getattr(response, "result", None) or {})
+
+
+def _report_interval_minutes(
+    project: str,
+    *,
+    call: Callable[[str, dict[str, Any]], Any],
+) -> int:
+    result = _response_result(
+        call(
+            PROJECT_POLICY_FUNCTION,
+            {"project": project, "cap_type": PROJECT_POLICY_CAPABILITY},
+        ),
+        PROJECT_POLICY_FUNCTION,
+    )
+    try:
+        settings = json.loads(str(result.get("settings_json") or "{}"))
+    except (TypeError, ValueError) as exc:
+        raise FleetReadError(
+            PROJECT_POLICY_FUNCTION,
+            f"project {project} returned invalid project-policy JSON",
+        ) from exc
+    if not isinstance(settings, Mapping):
+        raise FleetReadError(
+            PROJECT_POLICY_FUNCTION,
+            f"project {project} project-policy must be a JSON object",
+        )
+    try:
+        minutes = int(
+            settings.get(
+                STEERING_REPORT_INTERVAL_KEY,
+                DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
+            )
+        )
+    except (TypeError, ValueError):
+        minutes = DEFAULT_STEERING_REPORT_INTERVAL_MINUTES
+    return max(1, minutes)
+
+
+def _append_steering_reports(
+    projects: Sequence[str],
+    *,
+    observed_at: datetime,
+    stream: TextIO,
+    call: Callable[[str, dict[str, Any]], Any],
+    last_checks: dict[str, datetime],
+    last_fingerprints: dict[str, str],
+) -> None:
+    """Append changed reports after a real delta batch, subject to policy."""
+    for project in projects:
+        try:
+            interval = _report_interval_minutes(project, call=call)
+            last_check = last_checks.get(project)
+            if last_check is not None and observed_at - last_check < timedelta(
+                minutes=interval
+            ):
+                continue
+            result = _response_result(
+                call(STEERING_REPORT_FUNCTION, {"project": project}),
+                STEERING_REPORT_FUNCTION,
+            )
+            fingerprint = str(result.get("fingerprint") or "").strip()
+            body = str(result.get("body") or "").strip()
+            if not fingerprint or not body:
+                raise FleetReadError(
+                    STEERING_REPORT_FUNCTION,
+                    f"project {project} response omitted fingerprint or body",
+                )
+            last_checks[project] = observed_at
+            if last_fingerprints.get(project) == fingerprint:
+                continue
+            last_fingerprints[project] = fingerprint
+            _write(stream, body)
+        except FleetReadError as failure:
+            _write(
+                stream,
+                f"fleet ERROR steering report unavailable project={project} "
+                f"via {failure.function_id}: {failure.detail}; check "
+                f"`yoke steering report get --project {project}`, then keep "
+                "the fleet watch armed for the next real delta",
+            )
 
 
 def run(
@@ -103,7 +207,7 @@ def run(
     sleep: Callable[[float], None] = time.sleep,
     session_id: str | None = None,
 ) -> int:
-    """Poll until *duration* elapses, printing one line per change.
+    """Poll until *duration* elapses, printing changes and steering context.
 
     ``call``, ``clock``, and ``sleep`` are seams so the loop is testable
     without a control plane and without wall-clock waiting.
@@ -113,6 +217,8 @@ def run(
     state = DeltaState()
     previous: FleetSnapshot | None = None
     consecutive_failures = 0
+    last_report_checks: dict[str, datetime] = {}
+    last_report_fingerprints: dict[str, str] = {}
     started = clock()
 
     while True:
@@ -150,8 +256,18 @@ def run(
             )
         else:
             consecutive_failures = 0
-            for line in compare(previous, current, state):
+            delta_lines = compare(previous, current, state)
+            for line in delta_lines:
                 _write(stream, line)
+            if delta_lines:
+                _append_steering_reports(
+                    projects,
+                    observed_at=pass_at,
+                    stream=stream,
+                    call=call,
+                    last_checks=last_report_checks,
+                    last_fingerprints=last_report_fingerprints,
+                )
             previous = current
 
         if duration > 0 and (pass_at - started).total_seconds() >= duration:

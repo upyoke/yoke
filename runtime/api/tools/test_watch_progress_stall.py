@@ -21,16 +21,17 @@ def test_progress_stall_seconds_refuses_non_positive(monkeypatch):
 
 def test_progress_emit_watch_names_throttle_mirage():
     watch = watch_progress_stall.ProgressEmitWatch.start("pytest", now=0.0)
+    cadence = watch.stall_seconds
     watch.note_progress_emit(0.0, 90.0)
-    watch.note_output(50.0)
-    line = watch.report_if_stalled(60.0)
+    watch.note_output(cadence - 10.0)
+    line = watch.report_if_stalled(cadence)
     assert line is not None
-    assert "no progress for 60s" in line
+    assert f"no progress for {cadence:g}s" in line
     assert "last reported 90%" in line
     assert "waiting_on=progress_throttle" in line
     assert "child output 10s ago" in line
     # Cadence: do not re-report until another stall interval elapses.
-    assert watch.report_if_stalled(90.0) is None
+    assert watch.report_if_stalled(cadence + 30.0) is None
 
 
 def test_watcher_reports_progress_throttle_while_child_keeps_printing(
