@@ -67,10 +67,14 @@ def test_claims_packet_teaches_project_steering_claim_lifecycle() -> None:
     assert 'steering={"project_id":N}' in body
     assert "one live session-owned seat per project" in body
     assert "strategy-document locks remain in strategy_doc_claims" in body
-    assert "yoke claims steering acquire --project P [--reason TEXT]" in body
+    assert (
+        "yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT]" in body
+    )
+    assert "Acquire atomically pairs the seat" in body
+    assert "releases the paired document too" in body
     assert "yoke claims steering list --project P --active-only" in body
     assert "yoke claims steering release CLAIM_ID --reason TEXT" in body
-    assert "stale-session reclaim free the steering seat" in body
+    assert "Stale-session reclaim frees both" in body
 
 
 def test_claims_packet_teaches_live_progress_log_content_flags() -> None:

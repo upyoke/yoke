@@ -16,8 +16,9 @@ from runtime.api.test_sessions import (
     _register,
     conn,  # noqa: F401
 )
-from yoke_core.domain import steering_claims
 from yoke_core.domain.backlog_session_attribution import record_touched_item
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.work_claim_targets import make_steering_target
 from yoke_core.domain.sessions import (
     claim_work,
     release_claim,
@@ -51,7 +52,14 @@ def test_filing_from_a_steering_seat_leaves_the_focus_slot_empty(conn):
     """A steering claim is not an item claim, and never becomes one."""
     _insert_claimable_items(conn, 1)
     _register(conn)
-    steering_claims.acquire(conn, session_id="sess-1", project_id=1)
+    now = iso8601_now()
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
+        "VALUES ('sess-1', 'steering', %s, 'exclusive', %s, %s)",
+        (make_steering_target(1).scope_json(), now, now),
+    )
+    conn.commit()
 
     record_touched_item(conn, 1, "sess-1")
 

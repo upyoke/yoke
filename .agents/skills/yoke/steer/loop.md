@@ -1,7 +1,7 @@
 # /yoke steer — standing loop
 
-Run this loop after the steering-scope claim and strategy-doc lock are held. Each
-pass reads the claimed document first, then keeps it current while moving the scope.
+Run this loop after one steering acquire atomically holds the project seat and
+paired strategy-doc lock. Each pass reads the claimed document first, then keeps it current.
 
 Do not invoke `/yoke feed`.
 
@@ -333,6 +333,6 @@ Everything else continues autonomously.
 
 ## Stop
 
-A clean stop is wrapup in `SKILL.md` step 5: release the document lock
-and the steering-scope claim. An abandoned coordinator is reclaimed by
-the stale sweep; do not treat that as a successful wrapup.
+A clean stop is wrapup in `SKILL.md` step 5: release the steering-scope claim,
+which releases its paired document lock too. An abandoned coordinator is
+reclaimed by the stale sweep; do not treat that as a successful wrapup.

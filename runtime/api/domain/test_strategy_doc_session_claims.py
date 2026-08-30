@@ -19,6 +19,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.sessions_render_end_if_empty import end_session_if_empty
 from yoke_core.domain.sessions_render_reclaim import reclaim_stale_session
+from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.strategy_execution import (
     StrategyDocClaimAuthorizationError,
     StrategyDocClaimConflictError,
@@ -109,6 +110,36 @@ def test_only_the_holding_session_releases_its_lock(tmp_db: str) -> None:
                 session_id=COORDINATOR,
                 actor_id=1,
                 reason="no lock there",
+            )
+    finally:
+        conn.close()
+
+
+def test_paired_document_refuses_direct_release_while_seat_is_active(
+    tmp_db: str,
+) -> None:
+    conn = connect_test_db(tmp_db)
+    try:
+        _seed_doc(conn, DOC, "# Area plan\n")
+        _seed_session(conn, COORDINATOR)
+        steering = acquire_steering(
+            conn,
+            session_id=COORDINATOR,
+            project_id=1,
+            doc_slug=DOC,
+            actor_id=1,
+        )
+        with pytest.raises(
+            StrategyDocClaimAuthorizationError,
+            match=f"yoke claims steering release {steering['id']}",
+        ):
+            release_session_doc_claim(
+                conn,
+                project_id=1,
+                slug=DOC,
+                session_id=COORDINATOR,
+                actor_id=1,
+                reason="split the pair",
             )
     finally:
         conn.close()

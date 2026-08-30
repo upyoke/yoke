@@ -52,6 +52,8 @@ class TestSteerSkillContract:
         assert "# Frontier" in text
         assert "# Decisions" in text
         assert "# Gates" in text
+        assert "yoke claims steering acquire --project {_project} --doc {SLUG}" in text
+        assert "yoke strategy doc-claim acquire" not in text
 
     def test_vocabulary_is_steering_not_coordination(self):
         corpus = _corpus()
@@ -78,7 +80,7 @@ class TestSteerSkillContract:
         assert "yoke strategy doc get" in loop
         assert "blitz-handoff" in loop
         assert "yoke strategy execution link" in blitz_handoff
-        assert "yoke strategy doc-claim release" in blitz_handoff
+        assert "yoke claims steering release" in blitz_handoff
         assert "yoke steering report get" in loop
         assert "unclaimed" in loop
         assert "Escalate" in loop
@@ -222,12 +224,13 @@ class TestSteerSkillContract:
         lifecycle = _read(_STEER_DIR / "worker-lifecycle.md")
         assert "There is no second staffing" in lifecycle
 
-    def test_blitz_handoff_releases_the_document_lock(self):
+    def test_blitz_handoff_releases_and_reacquires_paired_authority(self):
         blitz_handoff = _read(_STEER_DIR / "blitz-handoff.md")
-        release_at = blitz_handoff.index("yoke strategy doc-claim release")
+        release_at = blitz_handoff.index("yoke claims steering release")
+        reacquire_at = blitz_handoff.index("yoke claims steering acquire")
         link_at = blitz_handoff.index("yoke strategy execution link")
-        assert link_at < release_at
-        assert "mutually exclusive" in blitz_handoff
+        assert link_at < release_at < reacquire_at
+        assert "atomically releases the document lock" in blitz_handoff
 
     def test_operator_escalation_path_waits(self):
         loop = _read(_STEER_DIR / "loop.md")
@@ -318,6 +321,8 @@ class TestSteerDiscoveryAndPacket:
         notes = _read(_CLAIMS_PACKET)
         assert "/yoke steer SLUG" in notes
         assert "offer to create if absent" in notes
+        assert "--doc SLUG" in notes
+        assert "Acquire atomically" in notes
         assert "yoke steering report get --project P" in notes
         assert "never `/yoke do`" in notes
         assert "yoke say --item PREFIX-N --stdin" in notes

@@ -98,7 +98,7 @@ CLAIMS_ADAPTERS = [
     ),
     AdapterEntry(
         "claims.steering.acquire",
-        "yoke claims steering acquire --project P [--reason TEXT]",
+        "yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT]",
     ),
     AdapterEntry(
         "claims.steering.release",

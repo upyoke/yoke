@@ -195,7 +195,7 @@ Tracks active harness-session occupancy through one canonical target pair: `targ
 - **Item** (`target_kind='item'`): `scope={"item_id":N}`.
 - **Epic task** (`target_kind='epic_task'`): `scope={"epic_id":N,"task_num":N}`.
 - **Process** (`target_kind='process'`): `scope={"process_key":K,"conflict_group":G}`. STRATEGIZE and FEED share `strategy-control-plane:<project>` and therefore conflict.
-- **Steering** (`target_kind='steering'`): `scope={"project_id":N}`. There is one live session-owned steering seat per project. Strategy-document locking remains in `strategy_doc_claims`; work claims do not carry document slugs.
+- **Steering** (`target_kind='steering'`): `scope={"project_id":N}`. There is one live session-owned steering seat per project. Its document lock remains in `strategy_doc_claims`, linked by `paired_work_claim_id`; work-claim scope stays project-only.
 
 Domain validation requires exactly the keys for the named kind. Storage has no specialized target, typed-owner, or registration-provenance columns.
 
@@ -225,9 +225,9 @@ Active-claim exclusivity invariants — these partial unique indexes, each scope
 
 The item and epic-task indexes are the authoritative storage-level prevention layer for concurrent writers from separate database connections; the application-level `WHERE NOT EXISTS` check inside `claim_work` remains in place for readable holder lookups, but the partial unique indexes are what guarantee two writers cannot both leave unreleased active rows for the same work unit. A losing concurrent writer surfaces as `SessionError("ALREADY_CLAIMED")` with the winning session id preserved in the message.
 
-Steering acquisition locks the project row before checking the unique project scope. Ordinary release and stale-session reclamation free the steering seat.
+Steering acquisition locks the project row, then creates the project seat and selected document lock in one transaction. `CURRENT-PLAN` is the default; `--doc SLUG` selects another document. A document conflict rolls back the seat. Steering release and stale-session reclamation release the pair together, while direct release of the paired document is refused until the seat leaves.
 
-Shell access: item/process targets use `yoke claims work`; steering uses `yoke claims steering acquire --project P [--reason TEXT]`, `list [--project P] [--active-only]`, and `release CLAIM_ID --reason TEXT`. All dispatch through `/v1/functions/call`.
+Shell access: item/process targets use `yoke claims work`; steering uses `yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT]`, `list [--project P] [--active-only]`, and `release CLAIM_ID --reason TEXT`. All dispatch through `/v1/functions/call`.
 
 ### Steering fleet report
 

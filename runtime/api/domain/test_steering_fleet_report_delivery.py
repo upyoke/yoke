@@ -8,6 +8,7 @@ import pytest
 
 from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain.steering_claims import acquire as acquire_steering
+from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 from yoke_core.domain.steering_fleet_report_delivery import (
     steered_project_id,
     steering_report_for_delivery,
@@ -70,6 +71,7 @@ def steering_scope(test_db):
         spec="# Unpicked work\n\nA real spec body.",
     )
     test_db.commit()
+    seed_default_docs(test_db, PROJECT_ID, "Yoke")
     acquire_steering(
         test_db,
         session_id=STEERING_SESSION,

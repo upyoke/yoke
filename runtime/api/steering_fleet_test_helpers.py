@@ -12,6 +12,7 @@ import json
 from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.steering_fleet_report import ClaimHolder, compose_report
+from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 
 
 NOW = "2026-08-26T12:00:00Z"
@@ -123,6 +124,7 @@ def seed_steering_scope(conn):
             spec=f"# Unpicked work {item_id}\n\nA real spec body.",
         )
     conn.commit()
+    seed_default_docs(conn, PROJECT_ID, "Yoke")
     acquire_steering(
         conn,
         session_id=STEERING_SESSION,

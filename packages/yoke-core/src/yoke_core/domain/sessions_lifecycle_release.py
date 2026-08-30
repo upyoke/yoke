@@ -32,6 +32,7 @@ from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
     TARGET_KIND_PROCESS,
+    TARGET_KIND_STEERING,
     WorkClaimTarget,
     make_item_target,
 )
@@ -211,6 +212,19 @@ def release_work_claim_for_execution(
             )
             raise
 
+    paired_document_claim: Optional[Dict[str, Any]] = None
+    if target.kind == TARGET_KIND_STEERING:
+        from .strategy_doc_steering_pair import release_paired_session_doc_claim
+
+        paired_document_claim = release_paired_session_doc_claim(
+            conn,
+            work_claim_id=int(claim_id),
+            session_id=session_id,
+            actor_id=None,
+            reason=reason,
+            commit=False,
+        )
+
     if target.kind == TARGET_KIND_ITEM and target.item_id is not None:
         release_item_focus_if_current(conn, session_id, target.item_id)
 
@@ -253,6 +267,7 @@ def release_work_claim_for_execution(
         "reason_stored": canonical_reason,
         "target_kind": target.kind,
         "target_label": target_label,
+        "document_claim": paired_document_claim,
     }
     if not commit:
         result[_POST_COMMIT_RECEIPT_KEY] = receipt

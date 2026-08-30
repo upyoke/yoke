@@ -32,6 +32,10 @@ from yoke_core.domain.strategy_execution_state import (
     active_strategy_doc_claim,
     claim_holder_label,
 )
+from yoke_core.domain.strategy_doc_steering_pair import (
+    require_steering_pair,
+    work_claim_is_active,
+)
 
 
 def _require_live_session(conn: Any, session_id: str) -> None:
@@ -61,6 +65,7 @@ def acquire_session_doc_claim(
     session_id: str,
     actor_id: Optional[int],
     reason: Optional[str] = None,
+    paired_work_claim_id: Optional[int] = None,
     commit: bool = True,
 ) -> dict[str, Any]:
     """Lock one strategy document for the calling session, with no work item.
@@ -74,6 +79,13 @@ def acquire_session_doc_claim(
             "locking a strategy document requires the calling session id"
         )
     _require_live_session(conn, clean_session)
+    if paired_work_claim_id is not None:
+        require_steering_pair(
+            conn,
+            work_claim_id=int(paired_work_claim_id),
+            session_id=clean_session,
+            project_id=int(project_id),
+        )
     get_doc(conn, int(project_id), slug)
     held = active_strategy_doc_claim(conn, project_id=int(project_id), slug=slug)
     if held is not None:
@@ -81,6 +93,28 @@ def acquire_session_doc_claim(
             str(held["owner_kind"]) == "session"
             and str(held["owner_session_id"]) == clean_session
         ):
+            current_pair = held.get("paired_work_claim_id")
+            if (
+                paired_work_claim_id is not None
+                and current_pair != paired_work_claim_id
+            ):
+                if current_pair is not None and work_claim_is_active(
+                    conn, int(current_pair)
+                ):
+                    raise StrategyDocClaimConflictError(
+                        f"strategy document {slug!r} is paired with active "
+                        f"steering claim {current_pair}; release that steering "
+                        "claim before acquiring another seat"
+                    )
+                marker = _marker(conn)
+                conn.execute(
+                    "UPDATE strategy_doc_claims "
+                    f"SET paired_work_claim_id = {marker} WHERE id = {marker}",
+                    (int(paired_work_claim_id), int(held["id"])),
+                )
+                held = active_strategy_doc_claim(
+                    conn, project_id=int(project_id), slug=slug
+                )
             if commit:
                 conn.commit()
             return dict(held, acquire_reason=reason)
@@ -95,14 +129,16 @@ def acquire_session_doc_claim(
         conn.execute(
             "INSERT INTO strategy_doc_claims "
             "(project_id, strategy_doc_slug, owner_kind, owner_session_id, "
-            "registered_by_actor_id, registered_by_session_id, registered_at) "
+            "paired_work_claim_id, registered_by_actor_id, "
+            "registered_by_session_id, registered_at) "
             f"VALUES ({marker}, {marker}, 'session', {marker}, "
-            f"{marker}, {marker}, {marker}) "
+            f"{marker}, {marker}, {marker}, {marker}) "
             "ON CONFLICT DO NOTHING RETURNING id",
             (
                 int(project_id),
                 slug,
                 clean_session,
+                paired_work_claim_id,
                 actor_id,
                 clean_session,
                 iso8601_now(),
@@ -145,6 +181,14 @@ def release_session_doc_claim(
         raise StrategyDocClaimAuthorizationError(
             f"strategy document {slug!r} is held by "
             f"{claim_holder_label(claim)}; only that session may release it"
+        )
+    paired_claim_id = claim.get("paired_work_claim_id")
+    if paired_claim_id is not None and work_claim_is_active(conn, int(paired_claim_id)):
+        raise StrategyDocClaimAuthorizationError(
+            f"strategy document {slug!r} is paired with active steering claim "
+            f"{paired_claim_id}; release it with `yoke claims steering release "
+            f"{paired_claim_id} --reason TEXT` so the seat and document lock "
+            "leave together"
         )
     released = _release_rows(
         conn,

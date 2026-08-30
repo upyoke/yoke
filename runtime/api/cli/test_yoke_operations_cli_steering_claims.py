@@ -11,6 +11,7 @@ import pytest
 
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 
 
 _CAPTURED: list[FunctionCallRequest] = []
@@ -32,6 +33,10 @@ def _claim(
         "last_heartbeat": "2026-08-25T17:01:00Z",
         "released_at": released_at,
         "release_reason": "completed" if released_at else None,
+        "document_claim": {
+            "strategy_doc_slug": DEFAULT_STEERING_DOC_SLUG,
+            "slug": DEFAULT_STEERING_DOC_SLUG,
+        },
     }
 
 
@@ -82,6 +87,8 @@ def test_acquire_dispatches_project_target_and_reason() -> None:
         "acquire",
         "--project",
         "alpha",
+        "--doc",
+        "AREA-PLAN",
         "--reason",
         "guide planning",
     )
@@ -90,10 +97,13 @@ def test_acquire_dispatches_project_target_and_reason() -> None:
     assert request.function == "claims.steering.acquire"
     assert request.target.kind == "global"
     assert request.target.project_id == "alpha"
-    assert request.payload == {"reason": "guide planning"}
+    assert request.payload == {
+        "doc_slug": "AREA-PLAN",
+        "reason": "guide planning",
+    }
 
 
-def test_acquire_omitted_reason_uses_empty_payload() -> None:
+def test_acquire_omitted_doc_uses_current_plan() -> None:
     rc, out, err = _run(
         "claims",
         "steering",
@@ -102,8 +112,9 @@ def test_acquire_omitted_reason_uses_empty_payload() -> None:
         "alpha",
     )
     assert rc == 0, err
-    assert _CAPTURED[-1].payload == {}
+    assert _CAPTURED[-1].payload == {"doc_slug": DEFAULT_STEERING_DOC_SLUG}
     assert "project=7" in out
+    assert f"doc={DEFAULT_STEERING_DOC_SLUG}" in out
     assert "holder=steering-session" in out
 
 
@@ -225,6 +236,8 @@ def test_function_registry_exposes_steering_contracts() -> None:
     assert acquire is not None and acquire.claim_required_kind is None
     assert acquire.target_kinds == ("global",)
     assert acquire.emitted_event_names == ("SteeringClaimed",)
+    assert "strategy_doc_claims_insert_or_pair" in acquire.side_effects
     assert release is not None and release.claim_required_kind == "self_only"
     assert release.target_kinds == ("claim",)
+    assert "paired_strategy_doc_claim_update_released_at" in release.side_effects
     assert listed is not None and listed.side_effects == ()

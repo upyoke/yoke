@@ -29,13 +29,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 | Function id | CLI adapter |
 |---|---|
-| `claims.steering.acquire` | `yoke claims steering acquire --project P [--reason TEXT]` |
+| `claims.steering.acquire` | `yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT]` |
 | `claims.steering.release` | `yoke claims steering release CLAIM_ID --reason TEXT` |
 | `claims.steering.list` | `yoke claims steering list --project P --active-only` |
 | `strategy.doc.get` | `yoke strategy doc get SLUG [--project P]` |
 | `strategy.doc.create` | `yoke strategy doc create SLUG --stdin [--project P]` |
-| `strategy.doc_claim.acquire` | `yoke strategy doc-claim acquire SLUG --project P` |
-| `strategy.doc_claim.release` | `yoke strategy doc-claim release SLUG --project P --reason TEXT` |
 | `strategy.execution.link` | `yoke strategy execution link ITEM --slug SLUG --project P` |
 | `items.detail.get` | `yoke items detail get PREFIX-N --json` |
 | `workflows.item.get` | `yoke workflows item get PREFIX-N --json` |
@@ -61,9 +59,9 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 
 ## Invariants
 
-- **Itemless.** This session holds no work item. The steering-scope claim
-  plus the strategy-doc lock are its authority. The doc and the project's
-  items ARE the surviving state.
+- **Itemless.** This session holds no work item. One atomic steering acquire
+  pairs the steering-scope claim with its strategy-doc lock; together they
+  are its authority. The doc and the project's items ARE the surviving state.
 - **One live steering-scope claim per project.** Acquire refuses on overlap
   and names the holder. v0 is one coordinator per scope.
 - **Strategy doc is both input and output.** There is no doc-less steer mode.
@@ -104,16 +102,7 @@ yoke projects checkout-context --field slug
 yoke sessions touch --mode steer
 ```
 
-## 2. Acquire the steering-scope claim
-
-```text
-yoke claims steering acquire --project {_project} --reason "steer {SLUG}"
-```
-
-On refusal, stop and report the named holder. Do not proceed without the
-seat. Keep the returned `claim_id` for wrapup release.
-
-## 3. Require a strategy document
+## 2. Require a strategy document
 
 ```text
 yoke strategy doc list --project {_project}
@@ -123,7 +112,7 @@ yoke strategy doc get {SLUG} --project {_project}
 - Named doc exists → extract its cold-start refresh, open-work index
   (`In flight`, `Ready to staff`, `Blocked`, `Awaiting operator decision`),
   and every standing decision that constrains action. Treat those as the
-  initial next-steps plan, then acquire the doc lock.
+  initial next-steps plan.
 - No slug, or `strategy.doc.get` says the slug is absent → **offer to
   create**. There is no silent create and no doc-less continuation.
 
@@ -145,14 +134,16 @@ printf '%s' "$SEED" | yoke strategy doc create {SLUG} --stdin --project {_projec
 `# Objective`, `# Frontier`, `# Decisions`, `# Gates`. After create,
 continue as if the doc already existed. On no, stop.
 
-Then acquire the itemless document lock:
+## 3. Acquire the paired steering authority
 
 ```text
-yoke strategy doc-claim acquire {SLUG} --project {_project} --reason "steer"
+yoke claims steering acquire --project {_project} --doc {SLUG} --reason "steer {SLUG}"
 ```
 
-A live Blitz already bound to this slug refuses the lock — that is the
-handoff exclusion. Do not force it.
+This one function call acquires the project seat and document lock in the
+same transaction. A live seat or document holder refuses the call and leaves
+neither half behind. Do not proceed without both. Keep the returned
+`claim_id` for wrapup release.
 
 ## 4. Run the standing loop
 
@@ -164,15 +155,16 @@ version — do not defer them.
 ## 5. Wrapup releases claims
 
 Release is mark-complete. An abandoned coordinator is reclaimed by the
-stale sweep. Before ending the session:
+stale sweep. Before ending the session, release the steering claim; its paired
+document lock leaves in the same transaction:
 
 ```text
-yoke strategy doc-claim release {SLUG} --project {_project} --reason "steer wrapup"
 yoke claims steering release {CLAIM_ID} --reason "steer wrapup"
 ```
 
 Then `/yoke wrapup` if the operator asked for a session close. Do not
-leave either claim held after a clean stop.
+release the paired document directly while the seat is live; that refusal
+teaches this paired release instead.
 
 ## Surface disable marks
 

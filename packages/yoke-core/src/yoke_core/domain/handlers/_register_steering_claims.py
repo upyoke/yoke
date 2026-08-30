@@ -18,9 +18,12 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_steering",
         target_kinds=["global"],
-        side_effects=["work_claims_insert"],
+        side_effects=["work_claims_insert", "strategy_doc_claims_insert_or_pair"],
         emitted_event_names=[EVENT_STEERING_CLAIMED],
-        guardrails=["one_steering_claim_per_project"],
+        guardrails=[
+            "one_steering_claim_per_project",
+            "atomic_strategy_document_pair",
+        ],
         adapter_status="live",
         claim_required_kind=None,
     )
@@ -32,9 +35,12 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_steering",
         target_kinds=["claim"],
-        side_effects=["work_claims_update_released_at"],
+        side_effects=[
+            "work_claims_update_released_at",
+            "paired_strategy_doc_claim_update_released_at",
+        ],
         emitted_event_names=[EVENT_STEERING_RELEASED],
-        guardrails=["actor_owns_claim"],
+        guardrails=["actor_owns_claim", "paired_strategy_document_release"],
         adapter_status="live",
         claim_required_kind="self_only",
     )

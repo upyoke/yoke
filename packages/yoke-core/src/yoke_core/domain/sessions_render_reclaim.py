@@ -24,7 +24,10 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-from .work_claim_targets import from_row as work_claim_target_from_row
+from .work_claim_targets import (
+    TARGET_KIND_STEERING,
+    from_row as work_claim_target_from_row,
+)
 from .workflow_item_binding_validation import (
     WorkflowItemBindingError,
     validate_work_claim_target,
@@ -224,6 +227,13 @@ def handoff_claim(
         )
     except WorkflowItemBindingError as exc:
         raise SessionError("INVALID_CLAIM", str(exc)) from exc
+    if old_target.kind == TARGET_KIND_STEERING:
+        raise SessionError(
+            "STEERING_HANDOFF_UNSUPPORTED",
+            "Steering claims cannot be handed off because their strategy-document "
+            "lock is session-owned; release the steering claim, then have the "
+            "target session acquire the intended document atomically.",
+        )
 
     # Release old claim
     conn.execute(

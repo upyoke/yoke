@@ -1,8 +1,8 @@
 # /yoke steer — worker lifecycle and frontier discipline
 
-These rules bind `/yoke steer` launch behavior. They ship in this first
-version: this file, the steering packet notes, and the launcher recipe
-below. Do not defer them.
+These rules bind `/yoke steer` launch behavior after one atomic steering
+acquire has paired the coordinator's project seat and strategy-doc lock.
+Workers never acquire or release either half. Do not defer these rules.
 
 ## 1. Encode dependency edges before frontier availability
 

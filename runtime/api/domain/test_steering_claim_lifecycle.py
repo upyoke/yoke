@@ -6,18 +6,26 @@ from unittest.mock import patch
 
 import pytest
 
+from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from runtime.api.domain.steering_claim_test_support import (
     PROJECT_ALPHA,
     SESSION_ALPHA,
     SESSION_BETA,
     acquire_steering,
+    seed_strategy_doc,
     seed_standard_steering_world,
 )
 from yoke_core.domain.sessions_lifecycle_claim import release_claim
+from yoke_core.domain.sessions_lifecycle_release_bulk import release_all_claims
 from yoke_core.domain.sessions_lifecycle_reactivation_claims import (
     auto_reacquire_session_ended_claims,
 )
 from yoke_core.domain.sessions_render_end_claim_release import release_session_claims
+from yoke_core.domain.sessions_render_reclaim import handoff_claim
+from yoke_core.domain.sessions_analytics import SessionError
+from yoke_core.domain.strategy_doc_steering_pair import (
+    active_paired_session_doc_claim,
+)
 
 
 @pytest.fixture
@@ -42,6 +50,8 @@ def test_ordinary_release_emits_event_and_unblocks_project(steering_db) -> None:
     ) as released_event:
         released = release_claim(steering_db, first["id"], reason="steering complete")
     assert released["release_reason"] == "released"
+    assert released["document_claim"]["slug"] == DEFAULT_STEERING_DOC_SLUG
+    assert active_paired_session_doc_claim(steering_db, first["id"]) is None
     released_event.assert_called_once()
 
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
@@ -68,12 +78,42 @@ def test_session_scoped_release_uses_generic_scope_descriptor(steering_db) -> No
             "claim_id": claim["id"],
         }
     ]
+    assert active_paired_session_doc_claim(steering_db, claim["id"]) is None
     released_event.assert_called_once()
 
 
-def test_recent_reclaimed_claim_reactivates_when_project_is_free(steering_db) -> None:
+def test_handoff_refuses_to_split_session_owned_document_pair(steering_db) -> None:
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
         claim = acquire_steering(steering_db, SESSION_ALPHA, PROJECT_ALPHA)
+
+    with pytest.raises(SessionError) as exc_info:
+        handoff_claim(steering_db, claim["id"], SESSION_BETA)
+
+    assert exc_info.value.code == "STEERING_HANDOFF_UNSUPPORTED"
+    assert len(_active_rows(steering_db, SESSION_ALPHA)) == 1
+    assert _active_rows(steering_db, SESSION_BETA) == []
+    assert active_paired_session_doc_claim(steering_db, claim["id"]) is not None
+
+
+def test_bulk_work_release_cascades_the_paired_document(steering_db) -> None:
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        claim = acquire_steering(steering_db, SESSION_ALPHA, PROJECT_ALPHA)
+
+    released = release_all_claims(steering_db, SESSION_ALPHA)
+
+    assert released == 1
+    assert active_paired_session_doc_claim(steering_db, claim["id"]) is None
+
+
+def test_recent_reclaimed_claim_reactivates_when_project_is_free(steering_db) -> None:
+    seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        claim = acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            doc_slug="AREA-PLAN",
+        )
     with patch(
         "yoke_core.domain.sessions_lifecycle_claim_release.emit_steering_released"
     ):
@@ -87,6 +127,11 @@ def test_recent_reclaimed_claim_reactivates_when_project_is_free(steering_db) ->
     assert conflicts == []
     assert reacquired[0]["scope"] == {"project_id": PROJECT_ALPHA}
     assert len(_active_rows(steering_db, SESSION_ALPHA)) == 1
+    document = active_paired_session_doc_claim(
+        steering_db, reacquired[0]["new_claim_id"]
+    )
+    assert document is not None
+    assert document["strategy_doc_slug"] == "AREA-PLAN"
 
 
 def test_reactivation_reports_new_project_holder(steering_db) -> None:
