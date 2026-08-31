@@ -79,6 +79,16 @@ def _git(repo_root: str, *args: str) -> Optional[str]:
     return completed.stdout.strip()
 
 
+def head_commit(repo_root: str) -> Optional[str]:
+    """The commit *repo_root* currently runs, or ``None`` when git cannot say.
+
+    The identity of a checkout that carries no wheel version — what it is
+    compared against a server build, and what names the engine a source install
+    is about to serve its own universe with.
+    """
+    return _git(repo_root, "rev-parse", "HEAD")
+
+
 def compare_to_server_build(
     repo_root: str, server_build: str
 ) -> BuildComparison:

@@ -1,12 +1,28 @@
-"""Additional dynamic engine-import allowlist entries for CLI adapters.
+"""Additional dynamic engine-import allowlist entries from the CLI package.
 
 Kept beside the main roster so that roster can stay under the authored-file
-line limit while new CLI adapter call sites continue to register.
+line limit while new ``yoke_cli`` call sites continue to register. The split
+is a line-budget one, not a classification: an entry belongs here or there by
+where there is room, and both halves are read as one roster.
 """
 
 from __future__ import annotations
 
-CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
+CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
+    (
+        "packages/yoke-cli/src/yoke_cli/engine_upgrade_convergence.py",
+        "yoke_core.domain.local_universe_convergence",
+    ): (
+        "local_universe_dispatch",
+        "converge this machine's own universe before in-process dispatch serves it",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/engine_upgrade_convergence.py",
+        "yoke_core.domain.db_backend",
+    ): (
+        "local_universe_dispatch",
+        "read the address the engine would serve, to tell own universe from foreign",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/source_dev_run.py",
         "yoke_core.tools.source_dev_run",
@@ -126,4 +142,4 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
 }
 
-__all__ = ["CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS"]
+__all__ = ["CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS"]

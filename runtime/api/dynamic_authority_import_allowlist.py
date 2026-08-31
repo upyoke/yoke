@@ -19,12 +19,12 @@ enforcement logic past the authored-file line limit.
 from __future__ import annotations
 
 from runtime.api.dynamic_authority_import_allowlist_cli import (
-    CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS,
+    CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS,
 )
 
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
-        "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
+        "packages/yoke-cli/src/yoke_cli/commands/local_dispatch_preload.py",
         "yoke_core.domain.handlers.__init_register__",
     ): (
         "local_universe_dispatch",
@@ -333,6 +333,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "in-process dispatch branch for non-https connections",
     ),
 }
-ALLOWED_DYNAMIC_AUTHORITY_IMPORTS.update(CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS)
+ALLOWED_DYNAMIC_AUTHORITY_IMPORTS.update(CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS)
 
 __all__ = ["ALLOWED_DYNAMIC_AUTHORITY_IMPORTS"]

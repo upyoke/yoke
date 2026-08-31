@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, TextIO
 
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands.local_dispatch_preload import ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import (
     build_actor,
     call_dispatcher,
@@ -68,57 +69,6 @@ def attach_field_note_footer(parser: argparse.ArgumentParser) -> None:
         parser.epilog = _FIELD_NOTE_FOOTER
     if parser.formatter_class is argparse.HelpFormatter:
         parser.formatter_class = argparse.RawDescriptionHelpFormatter
-
-
-def ensure_handlers_loaded() -> None:
-    """Register the engine's handlers when in-process dispatch is sanctioned.
-
-    The gate is transport-keyed on the active connection: an https
-    connection relays to the server, so no local handlers load; a
-    prod-flagged postgres connection is operator-only by doctrine, so
-    this pre-load declines it; any other local-postgres connection is
-    a local universe whose in-process dispatch is the product path, so
-    the engine's handler registry loads. A machine without the engine
-    importable degrades to a no-op — the dispatcher then fails closed
-    with ``local_postgres_core_unavailable``.
-    """
-    try:
-        from yoke_cli.transport.https import resolve_https_connection
-
-        if resolve_https_connection() is not None:
-            return
-    except Exception:
-        return
-    if _active_connection_is_prod_postgres():
-        return
-    try:
-        register = importlib.import_module(
-            "yoke_core.domain.handlers.__init_register__"
-        )
-    except ImportError:
-        return
-    register.register_all_handlers()
-
-
-def _active_connection_is_prod_postgres() -> bool:
-    """True when the active connection is prod-flagged local postgres.
-
-    Prod postgres stays operator-only: the sanctioned admin surfaces
-    drive it explicitly, so this client-side pre-load declines to
-    register in-process handlers against it.
-    """
-    try:
-        from yoke_cli.config import machine_config
-        from yoke_contracts.machine_config.schema import (
-            connection_is_prod,
-            POSTGRES_TRANSPORTS,
-        )
-
-        connection = machine_config.active_connection()
-    except Exception:
-        return False
-    transport = str(connection.get("transport") or "").strip()
-    return transport in POSTGRES_TRANSPORTS and connection_is_prod(connection)
 
 
 def add_session_arg(parser: argparse.ArgumentParser) -> None:

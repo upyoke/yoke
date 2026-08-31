@@ -56,14 +56,21 @@ def test_dynamic_import_classification_is_loaded_from_boundary_facts():
 def test_local_machine_edges_stay_on_the_client_helper_path():
     rows = _rows()
     dispatcher = rows["helper yoke_cli.transport.dispatcher"]
-    handler_load = rows["helper yoke_cli.commands._helpers"]
-    assert dispatcher.disposition == inventory.CLIENT_LOCAL_HELPER
-    assert handler_load.disposition == inventory.CLIENT_LOCAL_HELPER
+    lane_cleanup = rows["helper yoke_cli.commands._helpers"]
+    handler_load = rows["helper yoke_cli.commands.local_dispatch_preload"]
+    schema_converge = rows["helper yoke_cli.engine_upgrade_convergence"]
+    for row in (dispatcher, lane_cleanup, handler_load, schema_converge):
+        assert row.disposition == inventory.CLIENT_LOCAL_HELPER
     assert {edge.classification for edge in dispatcher.import_edges} == {
         "local_universe_dispatch"
     }
-    assert {edge.classification for edge in handler_load.import_edges} == {
+    assert {edge.classification for edge in lane_cleanup.import_edges} == {
         "client_local_machine_state",
+    }
+    assert {edge.classification for edge in handler_load.import_edges} == {
+        "local_universe_dispatch",
+    }
+    assert {edge.classification for edge in schema_converge.import_edges} == {
         "local_universe_dispatch",
     }
 
