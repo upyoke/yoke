@@ -42,6 +42,25 @@ def test_bind_accepts_decimal_string_github_ids_unchanged():
     assert parsed.repository_id == "4567"
 
 
+@pytest.mark.parametrize(
+    ("installation_id", "repository_id"),
+    [(12345, "4567"), ("12345", 4567)],
+)
+def test_bind_accepts_mixed_numeric_and_string_github_ids(
+    installation_id,
+    repository_id,
+):
+    parsed = ProjectGithubBindingBindRequest(
+        **_bind_payload(
+            installation_id=installation_id,
+            repository_id=repository_id,
+        )
+    )
+
+    assert parsed.installation_id == "12345"
+    assert parsed.repository_id == "4567"
+
+
 def test_bind_accepts_a_numeric_project_id():
     parsed = ProjectGithubBindingBindRequest(**_bind_payload(project=41))
 
