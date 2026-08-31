@@ -6,6 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.project_contract.managed_block import (
+    MANAGED_BLOCK_BEGIN,
+    MANAGED_BLOCK_END,
+)
 from yoke_core.domain import install_bundle_tree_sync as sync_mod
 from yoke_core.domain.install_bundle_tree_sync import (
     InstallBundleTreeError,
@@ -28,7 +32,11 @@ def _seed_sources(root: Path) -> None:
         d.mkdir(parents=True, exist_ok=True)
         (d / "content.md").write_text(f"# {rel}\n", encoding="utf-8")
     for rel in sync_mod.INSTALL_BUNDLE_SOURCE_FILES:
-        (root / rel).write_text(f"# {rel}\n", encoding="utf-8")
+        (root / rel).write_text(
+            f"# {rel}\n{MANAGED_BLOCK_BEGIN}\nuniversal\n"
+            f"{MANAGED_BLOCK_END}\n# Yoke Repo Internals\nprivate\n",
+            encoding="utf-8",
+        )
 
 
 def test_sync_materializes_a_byte_exact_tree_from_empty(tmp_path) -> None:
@@ -79,7 +87,8 @@ def test_sync_materializes_symlink_as_regular_file(tmp_path) -> None:
     sync(target_root=tmp_path)
 
     packed = (
-        tmp_path / sync_mod.PACKAGED_TREE_REL
+        tmp_path
+        / sync_mod.PACKAGED_TREE_REL
         / "runtime/harness/claude/agents/linked.md"
     )
     assert packed.is_file() and not packed.is_symlink()
@@ -117,8 +126,7 @@ def test_stray_file_outside_declared_dirs_is_flagged_and_removed(
     drift = detect_drift(target_root=tmp_path)
 
     assert any(
-        "stray packaged file" in d and "not-a-source-dir/junk.md" in d
-        for d in drift
+        "stray packaged file" in d and "not-a-source-dir/junk.md" in d for d in drift
     )
     report = sync(target_root=tmp_path)
     assert "not-a-source-dir/junk.md" in report["removed"]
@@ -165,6 +173,8 @@ def test_root_source_files_are_snapshotted_and_guarded(tmp_path) -> None:
     file_rel = sync_mod.INSTALL_BUNDLE_SOURCE_FILES[0]
     packed = tmp_path / sync_mod.PACKAGED_TREE_REL / file_rel
     assert packed.is_file()
+    assert packed.read_text(encoding="utf-8").endswith(f"{MANAGED_BLOCK_END}\n")
+    assert "Yoke Repo Internals" not in packed.read_text(encoding="utf-8")
     # Content drift on a packaged root file is reported and repaired.
     packed.write_text("tampered\n", encoding="utf-8")
     assert any(
@@ -176,4 +186,13 @@ def test_root_source_files_are_snapshotted_and_guarded(tmp_path) -> None:
     # A missing source root file raises, like a missing source dir.
     (tmp_path / file_rel).unlink()
     with pytest.raises(InstallBundleTreeError, match="source file is missing"):
+        sync(target_root=tmp_path)
+
+
+def test_root_source_file_without_shipping_boundary_is_refused(tmp_path) -> None:
+    _seed_sources(tmp_path)
+    file_rel = sync_mod.INSTALL_BUNDLE_SOURCE_FILES[0]
+    (tmp_path / file_rel).write_text("# no managed block\n", encoding="utf-8")
+
+    with pytest.raises(InstallBundleTreeError, match="lacks managed-block boundary"):
         sync(target_root=tmp_path)

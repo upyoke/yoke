@@ -4,13 +4,11 @@ Owns the rendering of the layer-explicit ``main_agent`` packet that sits
 between ``schema_api_context`` (LLM-facing schema/API truth) and
 ``harness_contract`` (substrate manifest truth).
 
-Lives in the shipped core package because three surfaces need it and the
-packet must be identical in all three: the source-repo startup renderer,
-the install bundle (which composes the packet into the managed doctrine
-block every managed project auto-loads), and the client-side session
-orientation a managed project's hooks render. Keeps the packet generated,
-not hand-copied prose: one source of truth for what the main session sees
-about live tables, claim shape, and wrapper commands.
+Lives in the shipped core package because both startup surfaces need it and
+the packet must be identical in each: the source-repo startup renderer and the
+client-side session orientation a managed project's hooks render. Keeps the
+packet generated, not hand-copied prose: one source of truth for what the main
+session sees about live tables, claim shape, and wrapper commands.
 
 Public surface:
 
@@ -192,33 +190,6 @@ def _render_packet_body() -> str:
         return render_role_packet(MAIN_AGENT_ROLE).rstrip()
     except Exception as exc:
         return _render_failure_banner(exc)
-
-
-def render_main_agent_section() -> str:
-    """Return heading + prefix + packet body, with no machine-local advisories.
-
-    The install bundle composes this into the managed doctrine block, so it is
-    rendered on the SERVER: the install and interpreter advisories probe
-    whichever machine runs the renderer, and the server's PATH says nothing
-    about the operator's. Those advisories belong only to the render paths that
-    already run on the operator's own machine.
-
-    Returns ``""`` on any render failure rather than the failure banner the
-    orientation paths use. A banner shipped into a managed project's rules file
-    would be permanent, unreadable to the operator who could act on it, and
-    would falsely mark the block as carrying a packet; leaving the block
-    packet-free instead routes delivery to that project's own session hooks,
-    where the failure is both visible and actionable.
-    """
-    try:
-        from yoke_core.domain.schema_api_context import render_role_packet
-
-        body = render_role_packet(MAIN_AGENT_ROLE).rstrip()
-    except Exception:
-        return ""
-    if not body:
-        return ""
-    return _join_packet_frame(f"{_MAIN_AGENT_HEADING}:", body)
 
 
 def _join_packet_frame(heading: str, body: str) -> str:

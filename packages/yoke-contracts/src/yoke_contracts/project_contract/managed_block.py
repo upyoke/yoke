@@ -1,7 +1,8 @@
 """The Yoke-managed Markdown block: markers, rendering, and extraction.
 
 A managed block is the marker-delimited region ``yoke project install`` owns
-inside a co-owned Markdown file (``AGENTS.md`` / ``CLAUDE.md`` / ``CODEX.md``).
+inside a co-owned Markdown file (``AGENTS.md`` / ``CLAUDE.md`` / ``CODEX.md`` /
+``CURSOR.md``).
 The contract lives here, in the shared base package, because two sides need it
 and must agree byte-for-byte:
 
@@ -22,11 +23,6 @@ from typing import Optional, Tuple
 
 MANAGED_BLOCK_BEGIN = "<!-- BEGIN YOKE MANAGED BLOCK -->"
 MANAGED_BLOCK_END = "<!-- END YOKE MANAGED BLOCK -->"
-# Marks where the generated main-agent packet begins inside a managed block.
-# The bundle appends the packet under this marker; a managed project's session
-# hooks read the marker to decide whether the rules file already supplies the
-# packet or whether they must deliver it themselves.
-MAIN_AGENT_PACKET_MARKER = "<!-- YOKE MAIN-AGENT PACKET -->"
 # Human-facing guidance rendered as the first line inside every block. Kept out
 # of the marker strings themselves so block detection stays an exact-string
 # search regardless of how the guidance is later reworded.
@@ -40,10 +36,7 @@ MANAGED_BLOCK_NOTE = (
 def render_block(content: str) -> str:
     """Wrap block content in the begin/end markers plus the do-not-edit note."""
     body = content.strip("\n")
-    return (
-        f"{MANAGED_BLOCK_BEGIN}\n{MANAGED_BLOCK_NOTE}\n{body}\n"
-        f"{MANAGED_BLOCK_END}"
-    )
+    return f"{MANAGED_BLOCK_BEGIN}\n{MANAGED_BLOCK_NOTE}\n{body}\n{MANAGED_BLOCK_END}"
 
 
 def block_span(text: str) -> Optional[Tuple[int, int]]:
@@ -72,32 +65,18 @@ def extract_block_body(text: str) -> Optional[str]:
     if span is None:
         return None
     start, end = span
-    inner = text[start + len(MANAGED_BLOCK_BEGIN): end - len(MANAGED_BLOCK_END)]
+    inner = text[start + len(MANAGED_BLOCK_BEGIN) : end - len(MANAGED_BLOCK_END)]
     lines = inner.lstrip("\n").split("\n")
     if lines and lines[0] == MANAGED_BLOCK_NOTE:
         lines = lines[1:]
     return "\n".join(lines).strip("\n")
 
 
-def carries_main_agent_packet(text: str) -> bool:
-    """True when *text* already carries the generated main-agent packet.
-
-    The install bundle composes the packet into the managed block, so a
-    managed project's auto-loaded rules file normally supplies it to every
-    session at no cost. A project installed before the packet shipped — or one
-    whose server-side render degraded — has no marker, and its session hooks
-    deliver the packet themselves rather than leaving the session without one.
-    """
-    return MAIN_AGENT_PACKET_MARKER in text
-
-
 __all__ = [
-    "MAIN_AGENT_PACKET_MARKER",
     "MANAGED_BLOCK_BEGIN",
     "MANAGED_BLOCK_END",
     "MANAGED_BLOCK_NOTE",
     "block_span",
-    "carries_main_agent_packet",
     "extract_block_body",
     "render_block",
 ]

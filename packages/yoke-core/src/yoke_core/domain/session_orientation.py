@@ -19,9 +19,9 @@ nothing but the wheels installed:
   filesystem, and ``git``; a project whose control plane is unreachable
   still gets oriented rather than getting nothing.
 
-The packet is normally supplied for free by the managed doctrine block the
-install bundle composes, so this path adds it only when the project's
-rules files do not already carry it — see :func:`_packet_lines`.
+The generated packet is supplied by this client-side orientation path for
+every managed session. Keeping it out of the auto-loaded rules files preserves
+their harness context headroom while retaining the same startup teaching.
 """
 
 from __future__ import annotations
@@ -34,9 +34,6 @@ from typing import Any, Optional
 from yoke_contracts.hook_runner.chain_registry import (
     session_orientation_event,
     session_orientation_redelivery_event,
-)
-from yoke_contracts.project_contract.managed_block import (
-    carries_main_agent_packet,
 )
 from yoke_core.domain.session_orientation_delivery import (
     confirm_orientation_delivery,
@@ -57,11 +54,6 @@ ORIENTATION_REDELIVERED_MARKER = "YOKE_ORIENTATION_REDELIVERED"
 # marker so it consumes the shared body directly only when no client body is
 # already waiting to be merged into its SessionStart reply.
 CLIENT_ORIENTATION_PRESENT_KEY = "_yoke_client_orientation_present"
-
-# Rules files the install bundle writes the managed doctrine block into.
-# Presence of the packet marker in ANY of them means the harness already
-# auto-loads the packet and this path must not send a second copy.
-_RULES_FILES = ("AGENTS.md", "CLAUDE.md")
 
 _GIT_TIMEOUT_S = 5
 
@@ -89,17 +81,6 @@ def _git_line(root: Path, args: list[str]) -> str:
     if result.returncode != 0:
         return ""
     return result.stdout.rstrip("\n").strip()
-
-
-def _read_rules_text(root: Path) -> str:
-    """Concatenate the managed rules files that exist, for marker detection."""
-    parts: list[str] = []
-    for name in _RULES_FILES:
-        try:
-            parts.append((root / name).read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError):
-            continue
-    return "\n".join(parts)
 
 
 def _operating_layer_advisory(root: Path) -> str:
@@ -151,18 +132,8 @@ def _advisory_lines(root: Path) -> list[str]:
     return lines
 
 
-def _packet_lines(root: Path) -> list[str]:
-    """The main-agent packet, but only when the rules files lack it.
-
-    The install bundle composes the packet into the managed doctrine block,
-    which the harness auto-loads — so on a current install this returns
-    nothing and the session pays no context cost. A project installed
-    before the packet shipped, or one whose bundle render degraded, has no
-    marker; there this path is the only thing standing between the session
-    and confabulated table names.
-    """
-    if carries_main_agent_packet(_read_rules_text(root)):
-        return []
+def _packet_lines() -> list[str]:
+    """The generated main-agent packet delivered with session orientation."""
     from yoke_core.domain.main_agent_packet import render_main_agent_block
 
     block = render_main_agent_block()
@@ -198,7 +169,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
         lines.extend(["", "Recent commits:", commits])
     if (root / ".yoke" / "BOARD.md").is_file():
         lines.extend(["", "Board available at .yoke/BOARD.md"])
-    lines.extend(_packet_lines(root))
+    lines.extend(_packet_lines())
     return "\n".join(lines).rstrip() + "\n"
 
 
