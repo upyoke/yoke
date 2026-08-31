@@ -21,15 +21,16 @@ from __future__ import annotations
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import (
+from runtime.api.test_service_client_sessions_helpers import (  # noqa: F401
     _pre_register_session,
+    session_offer_db,
 )
 
 
 class TestSessionOfferModelResolution:
     """End-to-end model resolution against ``session-offer``."""
 
-    def test_session_offer_preserves_variant_suffix_via_db(self, session_offer_db):
+    def test_session_offer_preserves_variant_suffix_via_db(self, session_offer_db):  # noqa: F811
         """SessionStart-equivalent registration writes
         ``claude-opus-4-7[1m]``; ``session-offer`` invoked WITHOUT
         ``--model`` resolves the value verbatim from the same DB row.
@@ -66,7 +67,7 @@ class TestSessionOfferModelResolution:
         assert row["model"] is None
 
     def test_session_offer_falls_back_to_the_requested_model_when_row_absent(
-        self, session_offer_db, monkeypatch,
+        self, session_offer_db, monkeypatch,  # noqa: F811
     ):
         """When no ``harness_sessions`` row exists for the supplied
         session id, the offer surface still resolves a model via

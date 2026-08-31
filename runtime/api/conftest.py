@@ -125,11 +125,6 @@ _AMBIENT_TEST_PG_DSN_FILE = os.environ.get(_db_backend.PG_DSN_FILE_ENV)
 
 pytest_plugins = [
     "runtime.api.fixtures.backlog",
-    # Declared here rather than by the test modules that use it: a module
-    # declaring its own plugin only registers when that module is the one
-    # being collected, so a subset run that picks a consumer without its
-    # declarer resolves no fixture at all.
-    "runtime.api.test_service_client_sessions_helpers",
     "runtime.api.fixtures.runtime",
     "runtime.api.engines._done_transition_test_helpers",
     "runtime.api.domain._path_claim_guard_test_helpers",
