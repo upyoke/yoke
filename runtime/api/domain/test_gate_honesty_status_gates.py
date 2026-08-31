@@ -36,6 +36,7 @@ def test_hard_blocks_gate_refuses_an_unsatisfied_activation_dependency(
     monkeypatch,
 ):
     """The gate the implementing stage lists actually reads the edges."""
+    monkeypatch.setattr(activation, "_table_exists", lambda conn, table: True)
     monkeypatch.setattr(
         "yoke_core.domain.check_hard_blocks.evaluate_blockers",
         lambda item_id, gate_filter=None, conn=None: (
@@ -45,7 +46,7 @@ def test_hard_blocks_gate_refuses_an_unsatisfied_activation_dependency(
         ),
     )
     failure = activation.evaluate_check_hard_blocks(
-        item_id=7, target_status="implementing", db_path="", conn=None
+        item_id=7, target_status="implementing", db_path="", conn=object()
     )
     assert failure is not None
     assert failure["error_code"] == "GATE_HARD_BLOCKS_UNSATISFIED"
@@ -53,16 +54,36 @@ def test_hard_blocks_gate_refuses_an_unsatisfied_activation_dependency(
 
 
 def test_hard_blocks_gate_passes_with_no_unsatisfied_edge(monkeypatch):
+    monkeypatch.setattr(activation, "_table_exists", lambda conn, table: True)
     monkeypatch.setattr(
         "yoke_core.domain.check_hard_blocks.evaluate_blockers",
         lambda item_id, gate_filter=None, conn=None: [],
     )
     assert (
         activation.evaluate_check_hard_blocks(
-            item_id=7, target_status="implementing", db_path="", conn=None
+            item_id=7, target_status="implementing", db_path="", conn=object()
         )
         is None
     )
+
+
+def test_hard_blocks_gate_names_its_skip_when_there_is_no_registry(monkeypatch):
+    """A universe without dependency storage records why the gate was absent."""
+    monkeypatch.setattr(activation, "_table_exists", lambda conn, table: False)
+    recorded: list[dict] = []
+    monkeypatch.setattr(
+        activation,
+        "record_gate_absence",
+        lambda **kwargs: recorded.append(kwargs),
+    )
+    assert (
+        activation.evaluate_check_hard_blocks(
+            item_id=7, target_status="implementing", db_path="", conn=object()
+        )
+        is None
+    )
+    assert recorded[0]["gate_id"] == "check_hard_blocks"
+    assert recorded[0]["reason"] == "dependency_registry_absent"
 
 
 def test_claim_activation_gate_refuses_a_claim_that_never_locked(monkeypatch):

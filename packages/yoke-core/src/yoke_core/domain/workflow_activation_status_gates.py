@@ -19,9 +19,9 @@ commit through:
   planned claim holds no door lock, and a blocked one names a live
   conflicting holder.
 
-Where a check genuinely cannot apply — a fixture universe with no
-``path_claims`` registry — the gate records ``WorkflowGateAbsent`` rather
-than passing quietly.
+Where a check genuinely cannot apply — a fixture universe with no dependency
+or path-claim registry — the gate records ``WorkflowGateAbsent`` rather than
+passing quietly.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_gate_absence import record_gate_absence
 from yoke_core.domain.workflow_gate_catalog import (
     GATE_CHECK_HARD_BLOCKS,
@@ -66,11 +67,31 @@ def evaluate_check_hard_blocks(
     """Refuse while an activation-gated upstream dependency is unsatisfied."""
     from yoke_core.domain.check_hard_blocks import evaluate_blockers
 
-    blocked = evaluate_blockers(
-        int(item_id),
-        gate_filter=ACTIVATION_GATE_POINT,
-        conn=conn,
-    )
+    gate_conn = conn if conn is not None else connect(db_path)
+    try:
+        registry_present = _table_exists(gate_conn, "item_dependencies")
+        blocked = (
+            evaluate_blockers(
+                int(item_id),
+                gate_filter=ACTIVATION_GATE_POINT,
+                conn=gate_conn,
+            )
+            if registry_present
+            else []
+        )
+    finally:
+        if conn is None:
+            gate_conn.close()
+    if not registry_present:
+        record_gate_absence(
+            gate_id=GATE_CHECK_HARD_BLOCKS,
+            item_id=int(item_id),
+            target_status=target_status,
+            reason="dependency_registry_absent",
+            detail="this universe has no item_dependencies registry to evaluate",
+            conn=conn,
+        )
+        return None
     if not blocked:
         return None
     summary = "; ".join(_blocker_summary(line) for line in blocked)
