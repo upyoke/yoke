@@ -26,7 +26,7 @@ filled in the last column.
 | G-byo-aws-identity | missing-config-surface | deployed | AWS accepts guided or existing access keys; role, SSO/OIDC, instance-profile, and web-identity execution remain unsupported | A03 A07 | YOK-2473 |
 | G-idea-default-flow | blocker | released | `infer-and-create.md`: non-empty deploy-defaults **always** assigned | all with a default flow | YOK-2474 |
 | G-test-setup-unasked | blocker | merged / done | Wizard and profile never ask how tests run; gates still expect a registered command | all | YOK-2477 |
-| G-no-tests-posture | closed | merged / done | Closed: `verification_posture` singleton family, written by `yoke qa no-tests attest`, seeds a blocking `implementation_review` where the registered command would have run | A01 A05 A08 A10 A12 | YOK-2478 |
+| G-no-tests-posture | closed | merged / done | Closed: command absence seeds a blocking `no_tests_declared` floor where the registered command would run; an optional-QA workflow declares no gate | A01 A05 A08 A10 A12 | YOK-2478 |
 | G-scaffold-tests-unregistered | friction | merged / done | `webapp-scaffold` lands tests + `ci.yml`; onboard does not declare `ci_workflow_file` or `registered-command-*` | A01 A12 | YOK-2477 |
 | G-ci-workflow-undeclared | closed | merged / done | Closed: the step-1 survey classifies each workflow by purpose and the step-2 profile proposes `ci_workflow_file` for the test workflow only | A02 A03 A04 A07 A09 | YOK-2479 |
 | G-command-ci-misbind | closed | merged / done | Closed: registration reads the named file and refuses one the gate cannot start — absent, not an Actions workflow, or no `workflow_dispatch` / `yoke_dispatch_id` input — naming any other CI system the repo carries | A03 A04 A06 A09 A11 | YOK-2479 |
@@ -85,10 +85,10 @@ project, one with no `pull_request` trigger. `merge_queue` without GitHub +
 `ci_workflow_file`, or whose workflow has no `merge_group` trigger. Inventing
 `pytest` for a repo that has none.
 
-**Instead:** offer scaffold (or Pack tests) first; if declined, attested
-no-tests → seed `implementation_review`. Local `command` when CI is not
-GitHub Actions. Never write `verification_profiles.test_command` and
-treat it as the gate.
+**Instead:** offer scaffold (or Pack tests) first; if declined, command
+absence seeds `no_tests_declared` for workflows consuming project defaults.
+Use local `command` when CI is not GitHub Actions. Never write
+`verification_profiles.test_command` and treat it as the gate.
 
 ### Installed (OS / PATH / uv)
 

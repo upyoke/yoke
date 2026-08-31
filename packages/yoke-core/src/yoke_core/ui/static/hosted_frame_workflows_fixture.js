@@ -150,7 +150,6 @@ function hostedFrameWorkflows() {
           "done",
           [
             gate("architecture_impact"),
-            gate("qa_verification"),
             gate("dash_evidence"),
           ],
           "Result and verification evidence are recorded on the item; delivery, when enabled, ran as an after-merge action.",

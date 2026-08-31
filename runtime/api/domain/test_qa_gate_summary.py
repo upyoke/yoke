@@ -52,24 +52,24 @@ def test_valid_targets_are_exactly_two():
     assert VALID_TARGETS == ("reviewed-implementation", "implemented")
 
 
-def test_no_qa_tables_present_returns_satisfied(qa_db_no_tables):
-    """Pre-migration DBs without qa_requirements should not crash."""
+def test_no_qa_tables_present_returns_unsatisfied(qa_db_no_tables):
+    """Pre-migration DBs without qa_requirements refuse without crashing."""
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db_no_tables, transition_name="reviewed-implementation"
     )
     assert summary["qa_tables_present"] is False
-    assert summary["satisfied"] is True
+    assert summary["satisfied"] is False
     assert summary["requirements"] == []
 
 
 def test_no_requirements_for_scope(qa_db):
-    """Empty scope is satisfied, with no_requirements flag set."""
+    """Empty scope is unsatisfied, with no_requirements flag set."""
     summary = render_gate_summary(
         GateTarget(item_id=999), qa_db, transition_name="reviewed-implementation"
     )
     assert summary["qa_tables_present"] is True
     assert summary["no_requirements"] is True
-    assert summary["satisfied"] is True
+    assert summary["satisfied"] is False
     assert summary["blocking_unsatisfied_count"] == 0
 
 

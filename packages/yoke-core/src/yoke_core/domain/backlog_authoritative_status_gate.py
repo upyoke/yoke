@@ -3,19 +3,15 @@ governed DB-mutation gates, prose-vs-claim consistency check,
 architecture-impact gate, and path-claim boundary check that
 share the canonical status write path.
 
-For most targets the composer short-circuits on the first failure. For
-the ``reviewing-implementation -> reviewed-implementation`` transition it
-runs the independent gates (architecture-impact, path-claim boundary, QA
-verification) in sequence and aggregates every blocker into one envelope
-so the operator can remediate them in a single pass instead of N rounds
-of fix-and-retry.
+Most targets short-circuit on the first failure. The
+``reviewing-implementation -> reviewed-implementation`` transition aggregates
+its independent blockers so the operator can remediate them in one pass.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
-from . import db_backend
 from .db_helpers import connect
 from .qa_terminal_settlement import terminal_transition_result
 from .workflow_gate_catalog import (
@@ -56,7 +52,6 @@ def _run_authoritative_status_gate(
     """Run the authoritative QA + governed-DB-mutation gates for status writes.
 
     Composes the gate families that share the canonical write path:
-
     * Governed DB-mutation gate (governed DB-mutation contract) for ``refining-idea``,
       ``reviewing-implementation``, ``implemented`` plus the prose check
       for ``refining-idea``, ``refined-idea``, ``planned``,
@@ -76,6 +71,19 @@ def _run_authoritative_status_gate(
     returns the failure payload (verbatim for serial targets, aggregated
     for ``reviewed-implementation``).
     """
+    if qa_bypass:
+        from yoke_core.domain.qa_gate_preconditions import (
+            QA_BYPASS_FORBIDDEN,
+            qa_bypass_result,
+        )
+
+        bypass = qa_bypass_result(requested=True)
+        if bypass is not None and not bypass.passed:
+            return {
+                "success": False,
+                "error_code": QA_BYPASS_FORBIDDEN,
+                "error": "\n".join(bypass.errors),
+            }
     bypass_non_activation = qa_bypass or force
 
     if conn is None:
@@ -227,7 +235,6 @@ _QA_VERIFICATION_ERROR_CODES = {
     "release": "GATE_QA_RELEASE",
 }
 
-
 def _evaluate_qa_verification(
     *,
     item_id: int,
@@ -247,27 +254,19 @@ def _evaluate_qa_verification(
         "done",
     }:
         return None
-    try:
-        from yoke_core.domain import qa_gates
+    from yoke_core.domain import qa_gates
 
-        gate_target = qa_gates.GateTarget(item_id=int(item_id))
-        if target_status == "done":
-            gate_result = qa_gates.check_done_gate(gate_target, db_path)
-            error_code = "GATE_QA_DONE"
-        else:
-            gate_result = qa_gates.check_verification_gate(
-                gate_target,
-                db_path,
-                transition_name=target_status,
-            )
-            error_code = _QA_VERIFICATION_ERROR_CODES[target_status]
-    except db_backend.operational_error_types() as exc:
-        # Some isolated tests still seed a minimal legacy QA schema. Skip the
-        # richer gate when the required columns are absent and fall back to the
-        # preloaded mutation-layer counts for that harness.
-        if "no such column" in str(exc) or "no such table" in str(exc):
-            return None
-        raise
+    gate_target = qa_gates.GateTarget(item_id=int(item_id))
+    if target_status == "done":
+        gate_result = qa_gates.check_done_gate(gate_target, db_path)
+        error_code = "GATE_QA_DONE"
+    else:
+        gate_result = qa_gates.check_verification_gate(
+            gate_target,
+            db_path,
+            transition_name=target_status,
+        )
+        error_code = _QA_VERIFICATION_ERROR_CODES[target_status]
 
     if gate_result.passed:
         return None

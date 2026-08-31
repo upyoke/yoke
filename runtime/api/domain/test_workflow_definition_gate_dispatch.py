@@ -44,6 +44,7 @@ def test_direct_workflows_can_place_distinct_closure_gates():
     assert "doc_completion" in _gate_ids("blitz", "done")
     assert "dash_evidence" in _gate_ids("dash", "done")
     assert "floor_attestation" in _gate_ids("task", "done")
+    assert "qa_verification" not in _gate_ids("dash", "done")
     assert "doc_completion" not in _gate_ids("issue", "done")
     assert "dash_evidence" not in _gate_ids("epic", "done")
 
@@ -62,6 +63,22 @@ def test_composer_reads_the_pinned_definition_and_registered_gate_ids():
         "workflow_gate_family_dispatch",
     ):
         assert evaluator in source
+
+
+def test_composer_refuses_qa_bypass_outside_tests(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_gate_preconditions._running_under_test",
+        lambda: False,
+    )
+    result = backlog_authoritative_status_gate._run_authoritative_status_gate(
+        item_id=42,
+        target_status="done",
+        db_path="",
+        qa_bypass=True,
+        force=False,
+    )
+    assert result is not None
+    assert result["error_code"] == "GATE_QA_BYPASS_FORBIDDEN"
 
 
 def test_every_dispatched_gate_family_has_an_executable_evaluator():

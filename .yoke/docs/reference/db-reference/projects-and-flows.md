@@ -105,8 +105,9 @@ could only drift from it — so absence means no attestation. Write it with
 `yoke qa no-tests attest --project P --reason "..."`, which also retires any
 `registered-command-*` plan the project held, and remove it with `yoke qa
 no-tests clear --project P --reason "..."`. While it stands, the
-`reviewing-implementation` transition seeds a blocking `implementation_review`
-requirement where `registered-command-quick` would have attached, and
+workflows consuming project defaults seed a blocking `no_tests_declared`
+requirement where `registered-command-quick` would have attached. Its agent
+run is labeled `agent-attested / no-tests-declared`, not as executed tests, and
 registering a command for any scope — the `command-ci` runner included — is
 refused by name. Vocabulary: `yoke_contracts.verification_posture`.
 

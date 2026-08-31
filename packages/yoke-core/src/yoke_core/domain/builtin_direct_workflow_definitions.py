@@ -164,7 +164,6 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
             "done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
-                gate_ref(GATE_QA_VERIFICATION),
                 gate_ref(GATE_DASH_EVIDENCE),
             ),
             "Result and verification evidence are recorded on the item; "

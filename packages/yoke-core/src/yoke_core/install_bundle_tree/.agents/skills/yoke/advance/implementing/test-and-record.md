@@ -227,6 +227,15 @@ yoke qa run add \
  --raw-result "{brief evidence — e.g., 'All 12 tests pass', 'Config verified in output'}"
 ```
 
+For a structural `no_tests_declared` requirement, record exactly what the
+floor proves — an agent review, not an executed suite:
+
+```bash
+yoke qa run add --requirement-id {req-id} --performed-by agent \
+  --qa-kind no_tests_declared --verdict pass \
+  --raw-result "agent-attested / no-tests-declared: reviewed against the item spec; no test command is registered"
+```
+
 If a test fails, record `--verdict "fail"` with brief failure details in `--raw-result`. For multi-line file evidence, summarize the relevant excerpt or attach an artifact through the registered QA artifact surfaces; the old DB-router `qa run-add --raw-result-file` helper is operator-debug only, not normal product flow. Fix the issue, then record a new passing run. Do not pass prose as the run's identity — a blocking pass without a head sha is refused at record time.
 
 ## Evidence-Based Summary Discipline
@@ -268,7 +277,7 @@ When the advance reaches `reviewed-implementation` inside a routed `/yoke do` ch
 
 ## d. The done-gate checks these automatically
 
-When `advance done` is called, the done-transition engine calls `check_done_gate()`. Use `--skip-qa` to bypass for genuinely trivial items.
+When `advance done` is called, the done-transition engine calls `check_done_gate()`. `YOKE_QA_GATE_BYPASS` and `--skip-qa` are test-only; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`.
 
 ## e. Ad-hoc Tester Dispatch
 

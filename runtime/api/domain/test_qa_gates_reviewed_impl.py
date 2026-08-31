@@ -27,6 +27,11 @@ pytest_plugins = ("runtime.api.domain.qa_gates_reviewed_impl_fixture",)
 
 
 class TestCheckReviewedImplementationGate:
+    def test_tc_empty_requirement_set_refuses(self, qa_db):
+        result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
+        assert not result.passed
+        assert any("GATE_QA_REQUIREMENTS_EMPTY" in e for e in result.errors)
+
     def test_tc_passes_when_all_satisfied(self, qa_db):
         req_id = _add_requirement(qa_db)
         _add_run(qa_db, req_id, "pass")
@@ -76,6 +81,34 @@ class TestCheckReviewedImplementationGate:
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
         assert any("substrate evidence" in e for e in result.errors)
+
+    def test_tc_browser_without_git_root_refuses_by_name(self, qa_db):
+        _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
+        with mock.patch(
+            "yoke_core.domain.qa_gates._resolve_repo_root",
+            return_value=None,
+        ):
+            result = check_reviewed_implementation_gate(
+                GateTarget(item_id=42), qa_db
+            )
+        assert not result.passed
+        assert any("GATE_QA_BROWSER_GIT_ROOT_REQUIRED" in e for e in result.errors)
+
+    def test_tc_no_git_root_is_not_applicable_without_browser_methods(self, qa_db):
+        req_id = _add_requirement(qa_db)
+        _add_run(qa_db, req_id, "pass")
+        with mock.patch(
+            "yoke_core.domain.qa_gates._resolve_repo_root",
+            return_value=None,
+        ):
+            result = check_reviewed_implementation_gate(
+                GateTarget(item_id=42), qa_db
+            )
+        assert result.passed
 
     def test_tc_browser_evidence_remediation_points_to_advance(self, qa_db):
         """browser evidence failures point back to /yoke advance."""

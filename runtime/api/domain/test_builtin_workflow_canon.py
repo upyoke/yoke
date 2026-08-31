@@ -31,12 +31,12 @@ PINNED_CANON_GENERATION_COUNTS = {
     "issue": 6,
     "epic": 6,
     "blitz": 8,
-    "dash": 8,
+    "dash": 9,
     "task": 1,
 }
 
 PINNED_CANON_FINGERPRINT = (
-    "1c592496e8d982608d6d08622a4bc0da91da9dd98f41e56e531022735ebb4d1b"
+    "d8cf1a6cc157b4c66119a422faf69aef206b4fb2956b293a490df729502bac8f"
 )
 
 

@@ -98,7 +98,7 @@ def render_gate_summary(
         "transition": transition_name,
         "qa_tables_present": True,
         "no_requirements": False,
-        "satisfied": True,
+        "satisfied": False,
         "blocking_unsatisfied_count": 0,
         "browser_unsatisfied_count": 0,
         "e2e_unsatisfied_count": 0,
@@ -220,10 +220,10 @@ def render_gate_summary(
 def _format_text(summary: Dict[str, Any]) -> str:
     lines = [f"QA Gate Summary - {summary['target']} -> {summary['transition']}"]
     if not summary["qa_tables_present"]:
-        lines.append("  qa_requirements table not present (vacuously satisfied).")
+        lines.append("  GATE_QA_SCHEMA_MISSING: qa_requirements table not present.")
         return "\n".join(lines)
     if summary["no_requirements"]:
-        lines.append("  No QA requirements registered for this scope.")
+        lines.append("  GATE_QA_REQUIREMENTS_EMPTY: No QA requirements registered.")
         return "\n".join(lines)
     status = "SATISFIED" if summary["satisfied"] else "UNSATISFIED"
     lines.append(f"  Status: {status}")

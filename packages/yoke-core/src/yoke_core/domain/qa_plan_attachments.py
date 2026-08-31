@@ -35,6 +35,19 @@ from yoke_core.domain.qa_plan_project_defaults import (
     set_project_default,
     unset_project_default,
 )
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+
+PROJECT_DEFAULT_QA_POLICIES = frozenset({
+    "project_transition_defaults",
+    "project_and_task_attachments",
+})
+
+
+def workflow_uses_project_testing_defaults(conn: Any, item_id: int) -> bool:
+    """Whether this item's pinned workflow makes project defaults effective."""
+    workflow = load_item_workflow_runtime(conn, int(item_id))
+    return str(workflow.policies.get("qa") or "") in PROJECT_DEFAULT_QA_POLICIES
 
 
 def attach_plan_to_item(
@@ -107,14 +120,15 @@ def _attached_plans(
     if item is None:
         raise QaPlanError(f"item {item_id} not found")
     attachments: dict[int, dict] = {}
-    for row in query_rows(
-        conn,
-        "SELECT plan_id, qa_phase FROM qa_plan_project_defaults "
-        f"WHERE project_id={marker} AND workflow_id={marker} "
-        f"AND transition_id={marker} ORDER BY plan_id",
-        (int(item["project_id"]), str(item["workflow_id"]), transition_id),
-    ):
-        attachments[int(row["plan_id"])] = dict(row)
+    if workflow_uses_project_testing_defaults(conn, int(item_id)):
+        for row in query_rows(
+            conn,
+            "SELECT plan_id, qa_phase FROM qa_plan_project_defaults "
+            f"WHERE project_id={marker} AND workflow_id={marker} "
+            f"AND transition_id={marker} ORDER BY plan_id",
+            (int(item["project_id"]), str(item["workflow_id"]), transition_id),
+        ):
+            attachments[int(row["plan_id"])] = dict(row)
     for row in query_rows(
         conn,
         "SELECT plan_id, qa_phase FROM qa_plan_item_attachments "
@@ -286,6 +300,8 @@ __all__ = [
     "has_attached_plans",
     "materialize_for_deployment_run",
     "materialize_for_item",
+    "PROJECT_DEFAULT_QA_POLICIES",
     "set_project_default",
     "unset_project_default",
+    "workflow_uses_project_testing_defaults",
 ]

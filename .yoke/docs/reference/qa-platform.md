@@ -224,7 +224,7 @@ Transitioning to `done` requires all blocking `post_deploy` and `manual_acceptan
 
 ### Bypass
 
-Set `YOKE_QA_GATE_BYPASS=1` to bypass all gates (for force operations).
+`YOKE_QA_GATE_BYPASS=1` is accepted only in pytest contexts; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`. Unset it and satisfy or explicitly waive every declared requirement.
 
 ## Requirement Materialization
 

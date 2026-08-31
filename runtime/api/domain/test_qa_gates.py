@@ -20,6 +20,7 @@ from yoke_core.domain.qa_gates import (
     check_done_gate,
     check_epic_simulation_gate,
     check_verification_entry,
+    check_verification_gate,
 )
 
 TEST_ITEM_ID = 42
@@ -49,7 +50,7 @@ class TestCheckVerificationEntry:
     def test_epic_task_recovery_names_the_derived_transition(self, qa_db):
         target = GateTarget(epic_id=833, task_num=5)
         with mock.patch(
-            "yoke_core.domain.qa_gates.item_transition_for_gate",
+            "yoke_core.domain.qa_workflow_binding_validation.item_transition_for_gate",
             return_value="qa-review",
         ):
             result = check_verification_entry(target, qa_db)
@@ -67,12 +68,22 @@ class TestCheckVerificationEntry:
         result = check_verification_entry(target, qa_db)
         assert result.passed
 
-    def test_tc_graceful_without_qa_tables(self, tmp_path):
-        # Gate passes gracefully if the qa_requirements table doesn't exist.
+    def test_tc_bypass_refuses_outside_tests(self, qa_db, monkeypatch):
+        monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")
+        with mock.patch(
+            "yoke_core.domain.qa_gate_preconditions._running_under_test",
+            return_value=False,
+        ):
+            result = check_verification_entry(GateTarget(item_id=42), qa_db)
+        assert not result.passed
+        assert any("GATE_QA_BYPASS_FORBIDDEN" in e for e in result.errors)
+
+    def test_tc_missing_qa_tables_refuses_by_name(self, tmp_path):
         with init_test_db(tmp_path, apply_schema=_apply_items_only) as db_path:
             target = GateTarget(item_id=42)
             result = check_verification_entry(target, db_path)
-            assert result.passed
+            assert not result.passed
+            assert any("GATE_QA_SCHEMA_MISSING" in e for e in result.errors)
 
 
 # Reviewed-implementation gate coverage lives in test_qa_gates_reviewed_impl.py.
@@ -80,6 +91,11 @@ class TestCheckVerificationEntry:
 
 
 class TestCheckDoneGate:
+    def test_tc_empty_requirement_set_refuses(self, qa_db):
+        result = check_done_gate(GateTarget(item_id=42), qa_db)
+        assert not result.passed
+        assert any("GATE_QA_REQUIREMENTS_EMPTY" in e for e in result.errors)
+
     def test_tc_passes_when_all_satisfied(self, qa_db):
         req_id = _add_requirement(qa_db, qa_phase="verification")
         _add_run(qa_db, req_id, "pass")
@@ -155,6 +171,16 @@ class TestCheckDoneGate:
             result = check_done_gate(target, qa_db)
         assert not result.passed
         assert any("Latest SHA: fresh999" in e for e in result.errors)
+
+
+def test_mid_lifecycle_empty_requirement_set_refuses(qa_db):
+    result = check_verification_gate(
+        GateTarget(item_id=42),
+        qa_db,
+        transition_name="release",
+    )
+    assert not result.passed
+    assert any("GATE_QA_REQUIREMENTS_EMPTY" in e for e in result.errors)
 
 
 # --- check_epic_simulation_gate ---

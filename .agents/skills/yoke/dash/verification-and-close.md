@@ -76,13 +76,13 @@ which invalidates nothing because no evidence exists yet.
 
 **Materialize the attached plan and run its cases before the transition.**
 The `implementing` → `reviewing-implementation` preflight materializes every
-plan attached at that stage into blocking case rows and only then evaluates
-that stage's gates, so a transition attempted first creates the very
-requirement that fails it. Attachment is independent of posture: a
-project-default plan materializes even when no `verification` knob is
-selected, and `done` refuses while any blocking requirement lacks a passing
-run. Run this whenever `qa_plan_attachments` in `yoke items detail get ITEM
---json` names a plan for `reviewing-implementation`:
+effective plan attached at that stage into blocking case rows and only then
+evaluates that stage's gates. Project defaults are effective only for workflow
+QA policies that declare project defaults. Dash's
+`optional_item_attachment` policy ignores them and has no definition-owned
+`qa_verification` done gate; an item-specific verification posture still adds
+and enforces its own plan. Run this whenever `qa_plan_attachments` in `yoke
+items detail get ITEM --json` names a plan for `reviewing-implementation`:
 
 ```text
 yoke qa plan materialize --item ITEM --transition reviewing-implementation --json
@@ -97,8 +97,9 @@ runs:
 yoke qa case run --requirement-id <requirement-id>
 ```
 
-An empty listing means no plan is attached at that transition; do not invent
-a substitute command or a hand-written run.
+An empty listing means no effective plan is attached at that transition. For
+optional Dash QA that is an honest absence; do not invent a substitute command
+or a hand-written run.
 
 Then execute each selected posture knob through its shared authority:
 
