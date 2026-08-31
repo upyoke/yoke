@@ -16,7 +16,7 @@ import {
 } from "./universe_view_support.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
-import { appendSessionPresentation, remotePresentationCount } from "./universe_session_presentation.js";
+import { appendSessionPresentation } from "./universe_session_presentation.js";
 import { appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
   appendSessionMessaging,
@@ -143,7 +143,6 @@ function metricFacts(rows) {
   return [
     [rows.length, `session${rows.length === 1 ? "" : "s"} shown`],
     [claimedItems.size, `item${claimedItems.size === 1 ? "" : "s"} claimed`],
-    [remotePresentationCount(rows), "Remote Control attached"],
     [actorCount, `actor${actorCount === 1 ? "" : "s"}`],
   ];
 }

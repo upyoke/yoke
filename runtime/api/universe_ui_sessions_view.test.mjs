@@ -61,7 +61,7 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
     byClass(emptyRoot, "sessions-stats")[0].children.map(
       (tile) => tile.children[0].textContent,
     ),
-    ["0", "0", "0", "0"],
+    ["0", "0", "0"],
   );
   assert.equal(
     byClass(emptyRoot, "item-button").find(
@@ -125,5 +125,16 @@ test("Sessions styles use theme tokens and collapse stats and cards on narrow sc
   assert.match(
     css,
     /@media \(max-width: 760px\)[\s\S]*\.sessions-stats \{[\s\S]*repeat\(2,[\s\S]*\.session-grid \{ grid-template-columns: 1fr; \}/,
+  );
+});
+
+test("Sessions sizes its stat row to the three tiles it renders", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
+    import.meta.url,
+  ), "utf8");
+  assert.match(
+    css,
+    /\.sessions-stats \{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/,
   );
 });

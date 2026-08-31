@@ -24,7 +24,3 @@ export function appendSessionPresentation(documentNode, body, row) {
   line.title = "Observed attachment only; initiating authority and frontend are unknown.";
   body.appendChild(line);
 }
-
-export function remotePresentationCount(rows) {
-  return rows.filter((row) => presentationLabel(row).startsWith("Remote Control")).length;
-}

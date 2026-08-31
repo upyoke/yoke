@@ -9,6 +9,11 @@
   font-size: 12px;
 }
 
+/* Sessions carries three stat tiles, not the shared row's four. */
+.universe-app-root .sessions-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .universe-app-root .sessions-empty {
   margin: 0;
   padding: 18px 15px;
