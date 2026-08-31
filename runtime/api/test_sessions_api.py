@@ -50,6 +50,7 @@ from yoke_core.domain.sessions import (
     release_claim,
     release_claims_for_done_item,
 )
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +77,7 @@ class TestEventEmission:
             session_id="ev-1",
             executor="claude-code",
             provider="anthropic",
-            model="opus",
+            model_facts=SessionModelFacts(requested_model="opus"),
             workspace="/tmp/test",
             project_id=1,
         )

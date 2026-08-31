@@ -59,7 +59,7 @@ class TestSessionEndCommand:
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
         # Create session without claims (just register, don't offer which may claim)
-        _pre_register_session(db, sid, executor="claude-code", provider="a", model="o", workspace=ws)
+        _pre_register_session(db, sid, executor="claude-code", provider="a", requested_model="o", workspace=ws)
         # End first time
         r1 = _run_client(["session-end", "--session-id", sid], db_path=db)
         assert r1.returncode == 0

@@ -155,11 +155,18 @@ def test_hooks_evaluate_registers_relayed_session_in_process(client, hooks_db) -
         conn.close()
 
 def test_hooks_evaluate_wire_identity_registers_full_metadata(client, hooks_db) -> None:
-    """Wire entrypoint/model metadata lands on relayed session rows."""
+    """Wire entrypoint/model metadata lands on relayed session rows.
+
+    A tier selector such as ``[1m]`` can only ever be a request — no
+    provider response returns one — so it rides the wire as
+    ``requested_model`` and lands in the requested column, leaving the
+    served column unattested.
+    """
     from yoke_core.domain import db_helpers
 
     session_id = "wire-identity-register-session"
-    # 1. Tool-call relay registers without model (no wire model on hot path).
+    # 1. Tool-call relay registers with nothing attested and nothing asked
+    #    (the hot path carries no wire model facts).
     response = client.post("/v1/hooks/evaluate", json=_request_body(
         executor="claude",
         stdin=json.dumps({
@@ -180,14 +187,14 @@ def test_hooks_evaluate_wire_identity_registers_full_metadata(client, hooks_db) 
             (session_id,),
         ).fetchone()
         assert row is not None
-        assert row["model"] == "unknown"
+        assert row["model"] is None
 
-        # 2. UserPromptSubmit relay with wire model + entrypoint upgrades it.
+        # 2. UserPromptSubmit relay with wire facts + entrypoint fills them.
         response2 = client.post("/v1/hooks/evaluate", json=_request_body(
             event_name="UserPromptSubmit",
             executor="claude",
             entrypoint="claude-desktop",
-            model="claude-fable-5[1m]",
+            requested_model="claude-fable-5[1m]",
             stdin=json.dumps({
                 "session_id": session_id,
                 "transcript_path": "/client/t.jsonl",
@@ -197,11 +204,11 @@ def test_hooks_evaluate_wire_identity_registers_full_metadata(client, hooks_db) 
         ))
         assert response2.status_code == 200
         row = conn.execute(
-            "SELECT model FROM harness_sessions WHERE session_id = %s",
+            "SELECT requested_model FROM harness_sessions WHERE session_id = %s",
             (session_id,),
         ).fetchone()
-        assert row["model"] == "claude-fable-5[1m]", (
-            "registration-class relay must upgrade the placeholder model"
+        assert row["requested_model"] == "claude-fable-5[1m]", (
+            "registration-class relay must fill the stated request"
         )
 
         # 3. A fresh session whose FIRST relay carries the wire identity
@@ -211,7 +218,7 @@ def test_hooks_evaluate_wire_identity_registers_full_metadata(client, hooks_db) 
             event_name="SessionStart",
             executor="claude",
             entrypoint="claude-desktop",
-            model="claude-fable-5[1m]",
+            requested_model="claude-fable-5[1m]",
             stdin=json.dumps({
                 "session_id": fresh,
                 "transcript_path": "/client/t2.jsonl",
@@ -220,12 +227,12 @@ def test_hooks_evaluate_wire_identity_registers_full_metadata(client, hooks_db) 
         ))
         assert response3.status_code == 200
         row = conn.execute(
-            "SELECT model, executor_surface FROM harness_sessions "
+            "SELECT requested_model, executor_surface FROM harness_sessions "
             "WHERE session_id = %s",
             (fresh,),
         ).fetchone()
         assert row is not None
-        assert row["model"] == "claude-fable-5[1m]"
+        assert row["requested_model"] == "claude-fable-5[1m]"
         assert "desktop" in (row["executor_surface"] or ""), (
             "wire entrypoint must drive the display name"
         )

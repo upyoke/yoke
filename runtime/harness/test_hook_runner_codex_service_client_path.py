@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.hooks import session_lifecycle_client
 from yoke_core.hooks import session_dispatch
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 def _pin_local_transport(monkeypatch) -> None:
@@ -120,7 +121,7 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
         session_id="sid-any",
         executor="claude",
         provider="anthropic",
-        model="opus",
+        model_facts=SessionModelFacts(requested_model="opus"),
         entrypoint="claude-desktop",
     )
 

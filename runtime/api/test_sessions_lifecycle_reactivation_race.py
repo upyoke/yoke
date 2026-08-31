@@ -8,6 +8,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import SessionError, register_session
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 class _ZeroRowcount:
@@ -84,7 +85,7 @@ def test_reactivation_loser_does_not_emit_started_event():
                 session_id="race-sess",
                 executor="codex",
                 provider="openai",
-                model="gpt",
+                model_facts=SessionModelFacts(requested_model="gpt"),
                 workspace="/repo",
                 project_id=1,
             )

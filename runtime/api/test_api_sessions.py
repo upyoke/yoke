@@ -21,6 +21,7 @@ from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
@@ -77,7 +78,7 @@ class TestSessionOffer:
                 session_id=session_id,
                 executor=executor,
                 provider=provider,
-                model=model,
+                model_facts=SessionModelFacts(requested_model=model),
                 workspace=workspace,
                 project_id=1,
                 execution_lane=execution_lane,

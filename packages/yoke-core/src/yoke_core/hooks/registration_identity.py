@@ -128,7 +128,11 @@ def _model_facts_can_upgrade(
             changed_columns,
         )
 
-        incoming = facts_from_mapping(payload)
+        incoming = _without_placeholder_model(facts_from_mapping(payload))
+        if not any(getattr(incoming, field) for field in MODEL_COLUMNS):
+            # The wire said nothing about the model, so there is nothing to
+            # compare and no reason to spend a query finding that out.
+            return False
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
             "SELECT " + ", ".join(MODEL_COLUMNS) + " FROM harness_sessions "
@@ -141,6 +145,21 @@ def _model_facts_can_upgrade(
         return bool(columns)
     except Exception:  # noqa: BLE001 - probe must never break dispatch
         return False
+
+
+def _without_placeholder_model(facts):
+    """Drop a placeholder served model: a placeholder is not an attestation.
+
+    An older client can still put ``unknown`` on the wire, and storing that
+    as the served model would assert a provider reported it.
+    """
+    from dataclasses import replace
+
+    from yoke_harness.hooks.identity import _is_placeholder_model
+
+    if facts.model is not None and _is_placeholder_model(facts.model):
+        return replace(facts, model=None)
+    return facts
 
 
 def _executor_version_can_upgrade(

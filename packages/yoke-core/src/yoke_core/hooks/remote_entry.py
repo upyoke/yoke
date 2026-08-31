@@ -21,6 +21,8 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+from yoke_contracts.session_model_facts import MODEL_FACT_FIELDS, SessionModelFacts
+
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
 from yoke_core.hooks.remote_policy import (
@@ -55,7 +57,7 @@ def evaluate_remote(
     agent_type: Optional[str],
     deadline_ms: int,
     entrypoint: Optional[str] = None,
-    model: Optional[str] = None,
+    model_facts: Optional[SessionModelFacts] = None,
     execution_lane: Optional[str] = None,
     project_id: Optional[int] = None,
     executor_version: Optional[str] = None,
@@ -76,13 +78,16 @@ def evaluate_remote(
     if agent_type and agent_type.strip():
         controls.payload_extra["agent_type"] = agent_type.strip()
     # Client-side identity facts the server cannot detect itself: the
-    # caller's entrypoint (desktop vs CLI display), transcript-detected
-    # model, and config-resolved execution lane ride the wire and merge
-    # into the payload, where the registration path already prefers them.
+    # caller's entrypoint (desktop vs CLI display), the model facts read
+    # from the harness's own artifact and launch environment, and the
+    # config-resolved execution lane ride the wire and merge into the
+    # payload, where the registration path already prefers them.
     if entrypoint and entrypoint.strip():
         controls.payload_extra["entrypoint"] = entrypoint.strip()
-    if model and model.strip():
-        controls.payload_extra["model"] = model.strip()
+    for field in MODEL_FACT_FIELDS:
+        value = getattr(model_facts, field, None) if model_facts else None
+        if value is not None:
+            controls.payload_extra[field] = value
     if execution_lane and execution_lane.strip():
         controls.payload_extra["execution_lane"] = execution_lane.strip()
     if project_id is not None:

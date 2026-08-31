@@ -22,6 +22,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
 from runtime.api.test_session_offer_schemas import fresh_now, session_offer_db  # noqa: F401
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 ITEM_TARGET = make_item_target(10)
@@ -77,7 +78,7 @@ class TestSessionOfferResume:
                 session_id=session_id,
                 executor=executor,
                 provider=provider,
-                model=model,
+                model_facts=SessionModelFacts(requested_model=model),
                 workspace=workspace,
                 project_id=1,
                 execution_lane=execution_lane,

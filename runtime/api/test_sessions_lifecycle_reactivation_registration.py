@@ -10,6 +10,7 @@ from runtime.api.test_sessions_lifecycle_reactivation_claims import (
 from yoke_core.domain.sessions_lifecycle_reactivation import (
     emit_reactivated_with_released_claims,
 )
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 class TestRegisterSessionReactivationWiring(_ReactivationDBTest):
@@ -41,7 +42,7 @@ class TestRegisterSessionReactivationWiring(_ReactivationDBTest):
                 session_id="sess-reac",
                 executor="claude-code",
                 provider="anthropic",
-                model="claude-sonnet-4-6",
+                model_facts=SessionModelFacts(requested_model="claude-sonnet-4-6"),
                 workspace="/tmp",
                 project_id=1,
             )
@@ -78,7 +79,7 @@ class TestRegisterSessionReactivationWiring(_ReactivationDBTest):
                 session_id="sess-new",
                 executor="claude-code",
                 provider="anthropic",
-                model="claude-sonnet-4-6",
+                model_facts=SessionModelFacts(requested_model="claude-sonnet-4-6"),
                 workspace="/tmp",
                 project_id=1,
             )

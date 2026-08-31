@@ -24,6 +24,7 @@ from yoke_core.hooks.session_dispatch import (
     _render_claude_orientation,
     _render_codex_orientation,
 )
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 _ENTRY_TOKENS = ("Work-item entry surfaces", "/yoke idea", "harness_skill")
@@ -54,10 +55,18 @@ def test_main_agent_bootstrap_distinguishes_receipt_from_body_authority() -> Non
 def test_every_top_level_harness_context_carries_receipt_trust_boundary() -> None:
     contexts = {
         "claude": _render_claude_orientation(
-            "claude-session", str(_REPO_ROOT), "", "claude-code", "claude-model"
+            "claude-session",
+            str(_REPO_ROOT),
+            "",
+            "claude-code",
+            SessionModelFacts(model="claude-model"),
         ),
         "codex": _render_codex_orientation(
-            "codex-session", str(_REPO_ROOT), "", "codex-model", "codex-desktop"
+            "codex-session",
+            str(_REPO_ROOT),
+            "",
+            SessionModelFacts(model="codex-model"),
+            "codex-desktop",
         ),
         "cursor": render_orientation({"session_id": "cursor-session"}, _REPO_ROOT),
     }

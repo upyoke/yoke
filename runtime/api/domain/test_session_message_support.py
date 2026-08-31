@@ -113,6 +113,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             terminated_by_session_id TEXT, termination_reason TEXT,
             turn_posture TEXT NOT NULL DEFAULT 'unknown', turn_posture_at TEXT,
             model TEXT, native_thread_id TEXT, offer_envelope TEXT
+            reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,

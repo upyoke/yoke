@@ -28,6 +28,7 @@ from yoke_core.domain.sessions_reactivation_driver import (
     build_reactivation_driver_stamp,
 )
 from yoke_core.hooks import telemetry
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 SESSION_ID = "sess-reactivation-driver"
@@ -72,7 +73,7 @@ def _register(conn, **kwargs):
         session_id=SESSION_ID,
         executor="claude-code",
         provider="anthropic",
-        model=TEST_MODEL_ID,
+        model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
         workspace="/tmp/work",
         project_id=1,
         entrypoint="claude-cli",

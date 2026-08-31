@@ -43,6 +43,24 @@ CLAUDE_CONTEXT_TIER_SUFFIX = "[1m]"
 CLAUDE_CONTEXT_TIER_TOKENS = 1_000_000
 
 
+#: Values a harness surface passes to mean "use whatever is configured"
+#: rather than to name a model. A placeholder is never a served fact and
+#: never a stated request: recording one would make every session that
+#: emitted it look identical. Bracketed forms such as ``<synthetic>``
+#: come from noninteractive SDK invocations before a concrete model exists.
+PLACEHOLDER_MODEL_VALUES = frozenset({"", "default", "auto", "unknown"})
+
+
+def is_placeholder_model(value: object) -> bool:
+    """Return True when *value* names no model."""
+    if not isinstance(value, str):
+        return True
+    normalized = value.strip().lower()
+    if normalized in PLACEHOLDER_MODEL_VALUES:
+        return True
+    return normalized.startswith("<") and normalized.endswith(">")
+
+
 #: The served half, in the order every serializer and column list uses.
 SERVED_FIELDS = ("model", "reasoning_effort", "context_window_tokens")
 #: The requested half, same order.
@@ -132,8 +150,12 @@ def facts_from_mapping(source: Any) -> SessionModelFacts:
             values[field] = normalize_context_window_tokens(raw)
         elif field.endswith("reasoning_effort"):
             values[field] = normalize_reasoning_effort(raw)
+        elif is_placeholder_model(raw):
+            # A placeholder names no model, so it is neither half of the
+            # split — recording one would read as a real answer.
+            values[field] = None
         else:
-            values[field] = raw.strip() or None if isinstance(raw, str) else None
+            values[field] = raw.strip()
     return SessionModelFacts(**values)
 
 
@@ -192,6 +214,7 @@ __all__ = [
     "CLAUDE_CONTEXT_TIER_SUFFIX",
     "CLAUDE_CONTEXT_TIER_TOKENS",
     "MODEL_FACT_FIELDS",
+    "PLACEHOLDER_MODEL_VALUES",
     "REQUESTED_LABEL",
     "UNKNOWN_MODEL_DISPLAY",
     "REASONING_EFFORT_VALUES",
@@ -202,6 +225,7 @@ __all__ = [
     "fact_flag",
     "facts_arguments",
     "facts_from_mapping",
+    "is_placeholder_model",
     "model_display",
     "normalize_context_window_tokens",
     "normalize_reasoning_effort",

@@ -8,6 +8,7 @@ from yoke_core.api.routing_config import load_routing_config
 from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
 from yoke_core.domain.sessions import SessionError, end_session
 from runtime.api.test_sessions import _p, _register, conn  # noqa: F401
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 _PROJECT_ROUTING = {
     "executor_default_lane_claude*": "DARIUS",
@@ -54,7 +55,7 @@ class TestBeginSessionStampsRoutedLane:
             session_id=f"begin-{executor}",
             executor=executor,
             provider="anthropic",
-            model="test-model",
+            model_facts=SessionModelFacts(requested_model="test-model"),
             workspace="/tmp/work",
             project_id=1,
         )

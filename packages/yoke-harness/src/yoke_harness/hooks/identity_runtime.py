@@ -15,6 +15,10 @@ import subprocess
 from typing import Any, Optional
 
 from yoke_contracts.session_identity import resolve_env_session_id
+from yoke_contracts.session_model_facts import (
+    PLACEHOLDER_MODEL_VALUES as _PLACEHOLDER_MODEL_VALUES,  # noqa: F401
+    is_placeholder_model as _is_placeholder_model,
+)
 from yoke_contracts.executor_labels import (
     canonical_harness_id as _contract_canonical_harness_id,
 )
@@ -35,7 +39,6 @@ _CURSOR_TRANSCRIPT_ENV = "CURSOR_TRANSCRIPT_PATH"
 _CURSOR_CONVERSATION_ENV = "CURSOR_CONVERSATION_ID"
 _CURSOR_SURFACE_CLI = "cli"
 _CURSOR_SURFACE_DESKTOP = "desktop"
-_PLACEHOLDER_MODEL_VALUES = frozenset({"", "default", "auto", "unknown"})
 
 
 def _parse_payload(stdin_data: str) -> dict[str, Any]:
@@ -53,15 +56,6 @@ def _payload_field(stdin_data: str, field: str) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     return str(value)
-
-
-def _is_placeholder_model(value: object) -> bool:
-    if not isinstance(value, str):
-        return True
-    normalized = value.strip().lower()
-    if normalized in _PLACEHOLDER_MODEL_VALUES:
-        return True
-    return normalized.startswith("<") and normalized.endswith(">")
 
 
 def is_codex(executor: Optional[str]) -> bool:

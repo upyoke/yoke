@@ -13,6 +13,11 @@ import os
 import subprocess
 from typing import Optional
 
+from yoke_contracts.session_model_facts import (
+    PLACEHOLDER_MODEL_VALUES as _PLACEHOLDER_MODEL_VALUES,  # noqa: F401
+    is_placeholder_model as _is_placeholder_model,
+)
+
 from yoke_core.hooks.helpers_identity import detect_executor, is_codex
 
 
@@ -42,30 +47,6 @@ def _read_parent_argv() -> list[str]:
     if result.returncode != 0:
         return []
     return result.stdout.strip().split()
-
-
-# Model-ID values that some harness surfaces pass as placeholders
-# ("use whatever the user has configured") rather than as authoritative
-# model IDs. VS Code extension <= 2.1.77 launched Claude Code with
-# ``--model default`` — treating that literal string as a real model ID
-# mis-reports every VS Code session's model in telemetry. Noninteractive
-# Claude SDK invocations can report bracketed placeholders such as
-# ``<synthetic>`` before a concrete transcript model exists. (The 2.1.112+
-# extension drops the ``--model`` flag entirely, which has the same
-# net effect on detection: no usable signal from argv.) Normalize any
-# such placeholder to the empty string so callers fall through to the
-# next precedence source.
-_PLACEHOLDER_MODEL_VALUES = frozenset({"", "default", "auto", "unknown"})
-
-
-def _is_placeholder_model(value: object) -> bool:
-    """Return True if *value* is a known non-authoritative placeholder."""
-    if not isinstance(value, str):
-        return True
-    normalized = value.strip().lower()
-    if normalized in _PLACEHOLDER_MODEL_VALUES:
-        return True
-    return normalized.startswith("<") and normalized.endswith(">")
 
 
 def _extract_model_from_argv(argv: list[str]) -> str:

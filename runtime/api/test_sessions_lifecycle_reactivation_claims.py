@@ -49,7 +49,8 @@ _CREATE_SESSIONS = """
 CREATE TABLE IF NOT EXISTS harness_sessions (
     session_id TEXT PRIMARY KEY, executor TEXT NOT NULL,
     executor_surface TEXT DEFAULT NULL, provider TEXT NOT NULL,
-    model TEXT NOT NULL DEFAULT '', execution_lane TEXT NOT NULL DEFAULT 'primary',
+    model TEXT, execution_lane TEXT NOT NULL DEFAULT 'primary',
+    reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     executor_version TEXT, machine_id TEXT, workspace TEXT NOT NULL DEFAULT '',
     project_id INTEGER NOT NULL,
     mode TEXT NOT NULL DEFAULT 'wait', offered_at TEXT NOT NULL,

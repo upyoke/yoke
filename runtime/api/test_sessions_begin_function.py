@@ -34,7 +34,7 @@ def _valid_payload() -> dict:
     return {
         "executor": "claude-code",
         "provider": "anthropic",
-        "model": TEST_MODEL_ID,
+        "requested_model": TEST_MODEL_ID,
         "workspace": "/ws",
         "project_id": 1,
     }
@@ -185,7 +185,7 @@ _CLI_SESSION = "sid-cli"
 _BEGIN_ARGS = [
     "--executor", "claude-code",
     "--provider", "anthropic",
-    "--model", TEST_MODEL_ID,
+    "--requested-model", TEST_MODEL_ID,
     "--workspace", "/ws",
     "--project", "1",
     "--session-id", _CLI_SESSION,
@@ -288,7 +288,7 @@ class TestAdapterTransportRouting:
         rc = sessions_begin([
             "--executor", "claude-code",
             "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
+            "--requested-model", TEST_MODEL_ID,
             "--workspace", "/unmapped",
         ])
         assert rc == 2

@@ -9,6 +9,7 @@ from runtime.api.test_constants import TEST_MODEL_ID
 from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
 from yoke_core.domain.sessions import clean_stale_harness_sessions, end_session
 from yoke_core.hooks.remote_lifecycle import run_remote_session_lifecycle
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 def test_cleanup_ignores_prior_episode_tool_activity(conn):
@@ -41,7 +42,7 @@ def test_remote_session_start_reclaims_only_the_stale_episode(conn, monkeypatch)
             session_id=session_id,
             executor="claude-cli",
             provider="anthropic",
-            model=TEST_MODEL_ID,
+            model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
             workspace="/tmp",
             project_id=1,
         )

@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field
 
+from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
 from yoke_core.domain.execution_provenance import collect_execution_provenance
@@ -46,7 +47,15 @@ class HookEvaluateRequest(BaseModel):
     executor: str = "claude"
     agent_type: Optional[str] = None
     entrypoint: Optional[str] = None
+    #: Provider-attested served facts, resolved on the client because only
+    #: that machine can read the harness artifact.
     model: Optional[str] = None
+    reasoning_effort: Optional[str] = None
+    context_window_tokens: Optional[int] = None
+    #: The session's stated ask, resolved from the client's launch env.
+    requested_model: Optional[str] = None
+    requested_reasoning_effort: Optional[str] = None
+    requested_context_window_tokens: Optional[int] = None
     execution_lane: Optional[str] = None
     project_id: Optional[int] = None
     executor_version: Optional[str] = None
@@ -107,7 +116,7 @@ def post_hooks_evaluate(
         executor=request.executor,
         agent_type=request.agent_type,
         entrypoint=request.entrypoint,
-        model=request.model,
+        model_facts=facts_from_mapping(request.model_dump()),
         execution_lane=request.execution_lane,
         project_id=request.project_id,
         executor_version=request.executor_version,

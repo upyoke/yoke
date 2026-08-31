@@ -247,6 +247,7 @@ class TestBoardDataOverHttpBoundary:
                     " session_id TEXT PRIMARY KEY, actor_id TEXT,"
                     " current_item_id TEXT, recent_item_id TEXT,"
                     " executor TEXT, executor_surface TEXT, model TEXT,"
+                    reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
                     " mode TEXT, execution_lane TEXT, workspace TEXT,"
                     " project_id INTEGER, offered_at TEXT,"
                     " last_heartbeat TEXT, last_tool_call_at TEXT,"

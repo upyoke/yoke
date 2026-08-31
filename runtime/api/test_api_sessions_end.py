@@ -25,6 +25,7 @@ from runtime.api.test_service_client import (
     _with_source_pythonpath,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
@@ -186,7 +187,7 @@ class TestServiceClientSessionOffer:
             session_id="DARIUS-test-session",
             executor="claude-code",
             provider="anthropic",
-            model=TEST_MODEL_ID,
+            model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
             workspace=session_offer_db["tmp_dir"],
             project_id=1,
             execution_lane="primary",
