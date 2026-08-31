@@ -7,6 +7,7 @@ import sys
 import types
 
 from yoke_core.hooks import runner as runner_module
+from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.hooks.remote_entry import evaluate_remote
 from yoke_core.hooks.types import HookDecision, Next, Outcome
 
@@ -39,11 +40,12 @@ def test_remote_merges_wire_identity_into_payload(monkeypatch) -> None:
         None,
         2000,
         entrypoint="claude-desktop",
-        model="claude-fable-5[1m]",
+        model_facts=SessionModelFacts(requested_model="claude-fable-5[1m]"),
         execution_lane="DARIUS",
     )
 
     assert result.outcome == "completed"
     assert seen[0]["entrypoint"] == "claude-desktop"
-    assert seen[0]["model"] == "claude-fable-5[1m]"
+    # A tier selector is an ask, so it merges into the requested column.
+    assert seen[0]["requested_model"] == "claude-fable-5[1m]"
     assert seen[0]["execution_lane"] == "DARIUS"
