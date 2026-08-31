@@ -10,14 +10,9 @@ to merge additional fields into the event detail after the conditional
 ``rationale`` and ``source`` keys.
 
 All helpers are best-effort: if the ``events.emit_event`` import or call
-raises for any reason, the helper returns silently. This mirrors the
-existing try/except discipline that all duplicated copies use today.
-
-Both helpers commit the event row they wrote. ``events.emit_event`` leaves a
-caller-supplied connection's transaction open on purpose, and every caller
-here commits its own state before emitting and closes the connection right
-after -- so an uncommitted event row is simply discarded. Committing here is
-what puts the row in the ledger, and it commits nothing else.
+raises for any reason, the helper returns silently. The gateway commits a
+successful caller-connection write unless explicit transactional emission is
+requested, so these post-state-commit helpers need no local commit discipline.
 
 This module imports only ``typing``, ``yoke_core.domain.db_helpers``, and
 lazily imports ``emit_event`` from ``.events`` inside a try/except. It does
@@ -32,7 +27,7 @@ from yoke_core.domain.db_helpers import query_one
 
 
 # ---------------------------------------------------------------------------
-# Transaction handling shared by both emission helpers
+# Failure recovery shared by both emission helpers
 # ---------------------------------------------------------------------------
 
 def _safe_rollback(conn) -> None:
@@ -48,19 +43,6 @@ def _safe_rollback(conn) -> None:
         conn.rollback()
     except Exception:
         pass
-
-
-def _safe_commit(conn) -> None:
-    """Persist the event row an emission helper just wrote.
-
-    The caller's own state is already committed by the time it emits, so this
-    commits nothing but the event. Without it, a caller that closes its
-    connection immediately after emitting discards the row.
-    """
-    try:
-        conn.commit()
-    except Exception:
-        _safe_rollback(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +152,6 @@ def emit_qa_requirement_event(
     if not getattr(result, "ok", False):
         _safe_rollback(conn)
         return
-    _safe_commit(conn)
 
 
 # ---------------------------------------------------------------------------
@@ -253,8 +234,3 @@ def emit_qa_run_event(
     if not getattr(result, "ok", False):
         _safe_rollback(conn)
         return
-    # Commit the event row here rather than leaving it pending. Every caller
-    # commits its own state before emitting, so this transaction holds nothing
-    # but the event; the callers that own their connection close it right after
-    # this call, which would roll the row back and lose the event entirely.
-    _safe_commit(conn)

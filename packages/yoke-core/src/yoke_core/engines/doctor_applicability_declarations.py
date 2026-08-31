@@ -97,7 +97,7 @@ _SHAPES = (
             "epic-task-worktree",
             "epic-task-worktree-backfill",
             "epic-validation",
-            "event-emission-rate",
+            "event-family-liveness",
             "event-outcome-drift",
             "event-registry-coverage",
             "event-severity-drift",

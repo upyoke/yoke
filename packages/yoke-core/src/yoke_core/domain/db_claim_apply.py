@@ -258,6 +258,7 @@ def _emit_amended_event(
             context=context,
             created_at=now,
             conn=conn,
+            transactional=True,
         )
     except Exception:
         return None

@@ -102,6 +102,7 @@ def _emit_hook_event(
             duration_ms=duration_ms,
             context=context,
             conn=conn,
+            transactional=conn is not None,
         )
     except Exception:
         return

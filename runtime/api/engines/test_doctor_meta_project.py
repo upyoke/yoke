@@ -22,7 +22,7 @@ from runtime.api.engines._doctor_meta_test_helpers import (
 from yoke_core.engines.doctor import (
     RecordCollector,
     hc_duplicate_projects,
-    hc_event_emission_rate,
+    hc_event_family_liveness,
     hc_event_registry_coverage,
     hc_null_project_items,
     hc_premature_done,
@@ -202,10 +202,10 @@ class TestEventRegistryCoverage:
         assert res["HC-event-registry-coverage"][0] in ("PASS", "WARN")
 
 
-class TestEventEmissionRate:
-    def test_pass_no_sessions(self):
+class TestEventFamilyLiveness:
+    def test_pass_no_durable_activity(self):
         conn = _make_conn()
         rec = RecordCollector()
-        hc_event_emission_rate(conn, _args(), rec)
+        hc_event_family_liveness(conn, _args(), rec)
         res = _results(rec)
-        assert res["HC-event-emission-rate"][0] == "PASS"
+        assert res["HC-event-family-liveness"][0] == "PASS"

@@ -194,6 +194,7 @@ def emit_deployment_completion(
         project=str(run["project"]),
         context=event_context,
         conn=conn,
+        transactional=True,
     )
     if not event.ok or not event.event_id:
         raise RuntimeError(

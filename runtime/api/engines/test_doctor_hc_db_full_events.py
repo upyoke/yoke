@@ -15,7 +15,6 @@ from yoke_project_checks.check_event_catalog import (
     hc_event_callsite_registry_sync,
 )
 from yoke_core.engines.doctor import (
-    hc_event_emission_rate,
     hc_event_registry_coverage,
     hc_preview_occupancy_stale,
     hc_shepherd_lifecycle,
@@ -25,8 +24,6 @@ from runtime.api.conftest import (
     insert_event,
     insert_item,
 )
-from yoke_core.domain.db_helpers import iso8601_now
-
 from runtime.api.engines._doctor_hc_db_full_test_helpers import (
     _add_deployment_preview_environments_table,
     _result,
@@ -214,8 +211,7 @@ class TestHCShepherdLifecycleFull:
         assert "YOK-81" not in r.detail
 
 
-# HC-event-registry-coverage, HC-event-emission-rate,
-# HC-event-callsite-registry-sync tests (16 from shell)
+# HC-event-registry-coverage and HC-event-callsite-registry-sync tests
 
 
 class TestHCEventRegistryCoverage:
@@ -282,52 +278,6 @@ class TestHCEventRegistryCoverage:
         insert_event(test_db, event_id="evt-good-1", event_name="GoodEvent")
         rec = _run_hc(hc_event_registry_coverage, test_db)
         assert _result(rec).result == "PASS"
-
-
-class TestHCEventEmissionRate:
-    """Tests for HC-event-emission-rate."""
-
-    def test_pass_no_events_table(self, test_db):
-        """PASS when events table absent."""
-        test_db.execute("DROP TABLE IF EXISTS events CASCADE")
-        test_db.commit()
-        rec = _run_hc(hc_event_emission_rate, test_db)
-        r = _result(rec)
-        assert r.result == "PASS"
-        assert "events table not present" in r.detail
-
-    def test_pass_no_sessions_in_24h(self, test_db):
-        """PASS when no sessions in 24h."""
-        rec = _run_hc(hc_event_emission_rate, test_db)
-        r = _result(rec)
-        assert r.result == "PASS"
-        assert "No sessions in 24h" in r.detail
-
-    def test_warn_zero_events_despite_sessions(self, test_db):
-        """WARN when zero events despite active sessions."""
-        test_db.execute(
-            "INSERT INTO epic_dispatch_chains "
-            "(epic_id, last_updated) VALUES (%s, %s)",
-            (431, iso8601_now()),
-        )
-        test_db.commit()
-        rec = _run_hc(hc_event_emission_rate, test_db)
-        r = _result(rec)
-        assert r.result == "WARN"
-        assert "0 events emitted" in r.detail
-
-    def test_pass_events_with_sessions(self, test_db):
-        """PASS when events emitted with active sessions."""
-        test_db.execute(
-            "INSERT INTO epic_dispatch_chains "
-            "(epic_id, last_updated) VALUES (%s, %s)",
-            (431, iso8601_now()),
-        )
-        insert_event(test_db, event_id="evt-rate-1", event_name="SomeEvent")
-        rec = _run_hc(hc_event_emission_rate, test_db)
-        r = _result(rec)
-        assert r.result == "PASS"
-        assert "1 events emitted" in r.detail
 
 
 class TestHCEventCallsiteRegistrySync:

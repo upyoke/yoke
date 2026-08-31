@@ -299,14 +299,14 @@ For the full catalog with descriptions, see `docs/event-catalog.md` (auto-genera
 
 `HookGuardrailEvaluated`, `HookExecutionFailed`, and `HookDispatchTelemetry` are runner-native emissions from `yoke_core.hooks.telemetry` (see `emit_hook_guardrail_evaluated`, `emit_hook_execution_failed`, `emit_hook_dispatch_telemetry`). They are the only hook-runner telemetry names that exist as registered events.
 
-These three flush together over ONE shared connection (`hook_emit_connection`),
-which **commits before it closes**. The row writer never commits a
-caller-owned transaction — that is the caller's job — so a shared connection
-that closes without committing rolls its whole batch back silently: no
-exception, no log line, no rows. That is how `HookDispatchTelemetry` went from
-911,220 rows to zero on 2026-07-29 and stayed silent for a month while the
-emitters, the severity floor, and this registry all stayed healthy. Anything
-new that batches `emit_event(conn=...)` calls owns the same commit.
+These three flush together over ONE shared connection (`hook_emit_connection`)
+and pass `transactional=True`; that explicit batch boundary commits before it
+closes. Normal `emit_event(conn=...)` calls commit successful rows themselves,
+so closing or rolling back the caller connection cannot silently discard an
+event. Use `transactional=True` only when the event must ride the caller's
+state transaction, whose owner then commits or rolls back both together.
+`HC-event-family-liveness` compares recent durable activity with expected
+event names strictly as a telemetry audit; no product path reads events as state.
 
 `HookDispatchTelemetry` context additionally carries `driver_pid`,
 `driver_ppid`, and `driver_origin` — the process that DROVE the invocation.

@@ -206,6 +206,7 @@ def emit_event(
     created_at: Optional[str] = None,
     db_path: Optional[str] = None,
     conn: Optional[Any] = None,
+    transactional: bool = False,
 ) -> EmitResult:
     """Emit a structured event to the events table (non-fatal).
 
@@ -215,9 +216,15 @@ def emit_event(
     ``severity_filtered`` drops, and other exceptions.
 
     See ``docs/event-contract.md`` for canonical field semantics.
-    Pass ``db_path`` to override the DB target (testing); pass ``conn``
-    when the caller manages the connection lifecycle.
+    Pass ``db_path`` to override the DB target (testing). A successful write
+    through ``conn`` commits by default; pass ``transactional=True`` to leave
+    the event on the caller's transaction for an explicit atomic state write.
     """
+    if transactional and conn is None:
+        raise ValueError(
+            "transactional event emission requires conn; pass conn=... or "
+            "omit transactional=True for an emitter-owned transaction"
+        )
     try:
         resolved_item_id = resolve_item_id_for_event(
             conn, db_path, item_id, project=project
@@ -313,6 +320,8 @@ def emit_event(
                 False, envelope["event_id"], "severity_filtered", envelope
             )
         wrote = _write_event(envelope, db_path=db_path, conn=conn)
+        if wrote and conn is not None and not transactional:
+            conn.commit()
         return EmitResult(
             wrote, envelope["event_id"], "" if wrote else "exception", envelope
         )
