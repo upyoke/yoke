@@ -153,14 +153,13 @@ CLIs, each with an observable check — ships in the
 `docs/packs/machine-qa/host-provisioning.md`. Follow it there; a second copy
 here is how this checklist went stale before.
 
-This project's Test Mac adds only host-specific facts on top of it:
+This project's Test Mac fleet adds only host-specific facts:
 
-- It uses its existing `screen` command as the `host_control` backend, which
-  prefers `tmux` when both exist; do not add Homebrew or `tmux` for it.
-- Its saved `host` is the machine's stable private-network name; a rebuilt
-  host is a new node with a new address, so a stored address breaks silently.
-- Yoke is not provisioned onto it. Yoke arrives the way a user installs it,
-  which keeps an installer mission a real test.
+| Resource | Host/user | Golden baseline and fixture notes |
+| --- | --- | --- |
+| `test-mac` | `testys-mac-mini.taile868e2.ts.net` / `testy` | `/Users/Shared/yoke-golden/testy-home-20260826`; Apple Silicon |
+| `test-mac-pro` | `bens-mac-pro.taile868e2.ts.net` / `oxpecker` | `/Users/Shared/yoke-golden/oxpecker-home-20260831`; Intel MacPro6,1, macOS 12.7.6, APFS, no T2, FileVault off; Ethernet `00:3e:e1:c8:4e:a5`; every other login and home excluded; Codex.app intentionally absent while its CLI is signed in |
+Both use existing GNU `screen`, stable private-network names, and no preprovisioned Yoke or `tmux`.
 
 The `machine_browser_approval` gate self-approves in the host's visible Safari
 session (`self_approving: true` on `machine_qa.operator_gate`). No operator

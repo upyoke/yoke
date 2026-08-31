@@ -141,6 +141,16 @@ to work as a rule and is wrong: it passes unchanged on a host where the grant wa
 later revoked, which is the same silent failure wearing a different mask. Assert
 the grant.
 
+The same attribution rule governs interactive control. Remote Login commands
+that send AppleEvents or synthesize keystrokes are attributed by macOS to
+`/usr/libexec/sshd-keygen-wrapper`, not to Terminal.app merely because Terminal
+is the visible target. The wrapper therefore needs its own Accessibility and
+Automation grants. Terminal's Screen Recording grant remains separate for
+captures performed inside the GUI bridge. Provisioning must probe each real
+path and request the consent dialog for the process that failed; routing an
+action through another process to avoid the dialog would make the fixture less
+representative and leave the original path broken.
+
 The failure it prevents is precise. Without the grant, the identical restore
 command skipped 8,389 entries across protected library subtrees — containers,
 metadata, browser and messaging state — and reported success. It looked clean
@@ -159,6 +169,26 @@ control list forbids removing certain home directories while permitting their
 contents to be cleared, so a correct run reports those errors, and an
 implementation that aborts on the delete phase's exit status fails on success.
 That tolerance applies to the delete phase only — never to the restore.
+
+Restore cannot assume that clear made every destination absent. Read-only cache
+trees can retain children, and macOS home directories such as `Public` and
+`Library/Audio` carry delete-denying ACLs. Clone-copy then refuses an existing
+file, while merging a protected directory can duplicate its ACL on every reset.
+For each non-preserved captured entry, reset therefore removes ACLs from the
+live destination, makes its directories owner-writable, deletes it, and permits
+only an empty, type-compatible protected directory to remain before copying the
+captured metadata back. The golden is never made writable or modified. This is
+safe precisely because the symmetric level walk never hands `.ssh` or the TCC
+database to destination preparation.
+
+The same ownership boundary applies at capture. Every entry in the dedicated
+test home must belong to the test user before sealing. A root-owned preference
+file is not harmless noise: the test user cannot reliably clear or restore it,
+so excluding it would make the whole-home completeness claim false. Repair the
+owner inside the test home, re-run the ownership check, then capture.
+Apply the golden's final mode before generating its manifest. A manifest made
+first records a transient mode and fails every later integrity check even when
+all captured content and digests are unchanged.
 
 ### The capability stores a stable host name, not an address
 
@@ -208,6 +238,9 @@ it by design.
   two frames across a window-state change: the digests must differ.
 - Permission grants are asserted independently, every time. They are durable
   machine state that neither a reset nor a restore re-establishes.
+- Privacy grants are recorded against the process macOS actually attributes as
+  the controller. Remote Login and GUI Terminal are separate paths and neither
+  one's grants prove the other can control or capture the desktop.
 - The readiness gate that verifies a test-machine capability performs the full
   destructive host reset before installing the current release. Every surface
   that teaches the command says so, because reaching for it as a reachability

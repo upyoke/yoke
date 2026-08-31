@@ -3,7 +3,7 @@
   "slug": "machine-qa",
   "name": "Machine QA",
   "description": "Registers reusable terminal, machine-state, and exploratory mission proof methods.",
-  "latest_version": "1.0.8",
+  "latest_version": "1.0.9",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -273,6 +273,54 @@
     },
     "1.0.8": {
       "source": "versions/1.0.8/files",
+      "documentation": "docs/packs/machine-qa/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "qa_methods": "qa/methods/machine-qa.json",
+      "files": [
+        {
+          "source": "docs/packs/machine-qa/README.md",
+          "target": "docs/packs/machine-qa/README.md",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "docs/packs/machine-qa/host-provisioning.md",
+          "target": "docs/packs/machine-qa/host-provisioning.md",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "qa/methods/machine-qa.json",
+          "target": "qa/methods/machine-qa.json",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "qa/examples/installer-exploration.json",
+          "target": "qa/examples/installer-exploration.json",
+          "mode": "0644",
+          "render": "copy"
+        }
+      ],
+      "verification": [
+        {
+          "name": "method-contracts",
+          "command": "python3 -m json.tool qa/methods/machine-qa.json"
+        },
+        {
+          "name": "worked-mission",
+          "command": "python3 -m json.tool qa/examples/installer-exploration.json"
+        }
+      ]
+    },
+    "1.0.9": {
+      "source": "versions/1.0.9/files",
       "documentation": "docs/packs/machine-qa/README.md",
       "dependencies": [],
       "settings_schema": {
