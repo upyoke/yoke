@@ -24,6 +24,9 @@ from yoke_core.domain.pack_projection import (
     converge_pack_catalog,
     create_pack_projection_tables,
 )
+from yoke_core.domain.postgres_application_role_settings import (
+    converge_application_role_settings,
+)
 from yoke_core.domain.project_onboarding_runs import (
     create_project_onboarding_tables,
 )
@@ -168,6 +171,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     plane it does not serve is refused whatever it is running.
     """
     refuse_without_serving_build_authority("converging a database schema")
+    converge_application_role_settings(conn)
     # Read born-ness BEFORE creating anything. A database that is already a
     # live universe owes the history; a newborn one gets its schema from this
     # very call and therefore already satisfies every historical entry. After
