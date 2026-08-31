@@ -51,6 +51,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.path_claim_bash_guard",
                 "yoke_core.domain.lint_structured_field_transform_shell",
                 "yoke_core.domain.lint_shell_quoted_function_payload",
+                "yoke_core.domain.lint_yoke_adapter_stderr_visibility",
                 "yoke_core.domain.lint_shell_backtick_search",
                 "yoke_core.domain.lint_local_privacy",
                 "yoke_core.domain.lint_unmatched_path_glob",

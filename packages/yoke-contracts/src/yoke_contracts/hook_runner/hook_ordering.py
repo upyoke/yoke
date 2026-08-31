@@ -34,11 +34,9 @@ PreToolUse Bash chain order rationale:
     transform choreography (``items get`` -> tmp/var -> ``items update --stdin``).
     Runs after the broad cwd/path-claim guards because it inspects command
     shape, not path coverage.
-11. ``lint_shell_quoted_function_payload`` — block hand-quoted JSON payloads
-    to ``service_client`` and registry-covered Yoke CLIs wrapped with
-    shell choreography. Runs after the structured-field transform shell
-    lint because both inspect command shape; this one is keyed on the
-    adapter inventory (function-id coverage).
+11. Adapter-shape lints block hand-quoted payloads, shell choreography, and
+    hidden diagnostic stderr on the named state-changing Yoke CLI families.
+    They run together after the structured-field transform shell lint.
 12. ``lint_shell_backtick_search`` / ``lint_local_privacy`` /
     ``lint_unmatched_path_glob`` —
     shell-footgun deniers (backticks in double-quoted grep/rg; unquoted
@@ -145,6 +143,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.path_claim_bash_guard",
     "yoke_core.domain.lint_structured_field_transform_shell",
     "yoke_core.domain.lint_shell_quoted_function_payload",
+    "yoke_core.domain.lint_yoke_adapter_stderr_visibility",
     "yoke_core.domain.lint_shell_backtick_search",
     "yoke_core.domain.lint_local_privacy",
     "yoke_core.domain.lint_unmatched_path_glob",
