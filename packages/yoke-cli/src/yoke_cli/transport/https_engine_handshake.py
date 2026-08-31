@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Optional
 
 from yoke_cli.transport import control_plane_payload, source_build_skew
@@ -115,6 +116,11 @@ def _loaded_source_checkout() -> Optional[str]:
     project still loads ``yoke_cli`` from this checkout, and git history
     of the caller project is not Yoke client/server skew.
     """
+    return _loaded_source_checkout_cached()
+
+
+@lru_cache(maxsize=1)
+def _loaded_source_checkout_cached() -> Optional[str]:
     import yoke_cli
     from yoke_contracts.install_binding import source_checkout_root
 
@@ -129,9 +135,7 @@ def _source_checkout_comparison(
     checkout = _loaded_source_checkout()
     if checkout is None:
         return None
-    return source_build_skew.compare_to_server_build(
-        checkout, f"v{raw_server_version}"
-    )
+    return source_build_skew.compare_to_server_build(checkout, f"v{raw_server_version}")
 
 
 def _warn_on_source_checkout_skew(

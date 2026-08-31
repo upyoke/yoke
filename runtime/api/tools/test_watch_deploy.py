@@ -56,6 +56,7 @@ def test_an_unavailable_relay_is_urgent_although_the_pipeline_retries():
         "--- Stage: hosted-release (step_runner: github-actions-workflow) ---",
         "Pipeline complete for run run-20260805-005",
         "Deployment authority: release_control_plane=prod target_env=stage",
+        "deploy succeeded, finalization pending — re-drive run-20260805-005 to finalize",
         "  Workflow run ID: 30970494088",
         "  Stage 'hosted-release' completed successfully",
         "Run run-20260805-005 has no member items (environment-level deploy)",

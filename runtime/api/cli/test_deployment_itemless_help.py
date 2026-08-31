@@ -42,7 +42,9 @@ def _assert_itemless_recipe(text: str) -> None:
 
 def test_resolve_target_help_teaches_verify_destination() -> None:
     rc, out, err = _help(
-        "deployment-runs", "resolve-target", "--help",
+        "deployment-runs",
+        "resolve-target",
+        "--help",
     )
     assert rc == 0, err
     assert "being deployed TO" in out
@@ -84,6 +86,7 @@ def test_execute_help_teaches_interrupted_run_redrive() -> None:
     assert INTERRUPTED_RUN_RECOVERY.strip() in text
     assert "SAME run id" in text
     assert "does not fire a second release" in text
+    assert "finalization pending" in text
 
 
 def test_create_post_note_points_at_watch_deploy() -> None:
@@ -110,10 +113,14 @@ def test_create_post_note_points_at_watch_deploy() -> None:
                 out = io.StringIO()
                 err = io.StringIO()
                 with redirect_stdout(out), redirect_stderr(err):
-                    rc = cli_main([
-                        "deployment-runs", "create",
-                        "yoke", "yoke-hosted-stage-no-ci-gate",
-                    ])
+                    rc = cli_main(
+                        [
+                            "deployment-runs",
+                            "create",
+                            "yoke",
+                            "yoke-hosted-stage-no-ci-gate",
+                        ]
+                    )
     assert rc == 0
     assert out.getvalue().strip() == "run-20260805-001"
     assert "watch deploy -- run-20260805-001" in err.getvalue()

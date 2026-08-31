@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Optional
 
 #: Relationships between a local checkout and a server's build. ``UNKNOWN``
@@ -89,19 +90,28 @@ def head_commit(repo_root: str) -> Optional[str]:
     return _git(repo_root, "rev-parse", "HEAD")
 
 
-def compare_to_server_build(
-    repo_root: str, server_build: str
-) -> BuildComparison:
+def compare_to_server_build(repo_root: str, server_build: str) -> BuildComparison:
     """Relate this checkout's HEAD to the commit a server was built from.
 
     Never raises and never guesses. Every way of failing to answer returns
     ``UNKNOWN`` with the reason, because a wrong confident answer here is
     worse than an admitted absence: the caller's whole purpose is deciding
     whether a difference explains something else that just broke.
+
+    Cached per ``(checkout, HEAD, server_build)`` for the process lifetime so
+    a long-lived caller and a burst of short-lived helpers do not each walk
+    git history again for the same pair.
     """
+    head = head_commit(repo_root) or ""
+    return _compare_to_server_build_cached(repo_root, server_build, head)
+
+
+@lru_cache(maxsize=16)
+def _compare_to_server_build_cached(
+    repo_root: str, server_build: str, head: str
+) -> BuildComparison:
     if not server_build:
         return BuildComparison(UNKNOWN, reason="server advertises no build")
-    head = _git(repo_root, "rev-parse", "HEAD")
     if not head:
         return BuildComparison(
             UNKNOWN,
@@ -157,20 +167,33 @@ def compare_to_server_build(
 
 def compare_main_to_origin(repo_root: str) -> OriginComparison:
     """Relate the main worktree's default branch to its last-fetched origin."""
+    head = head_commit(repo_root) or ""
+    return _compare_main_to_origin_cached(repo_root, head)
+
+
+@lru_cache(maxsize=8)
+def _compare_main_to_origin_cached(repo_root: str, head: str) -> OriginComparison:
+    del head  # included in the cache key so a new commit recomputes
     listing = _git(repo_root, "worktree", "list", "--porcelain")
     first = (listing or "").splitlines()
     if not first or not first[0].startswith("worktree "):
         return OriginComparison(UNKNOWN, reason="main checkout is not resolvable")
     main_root = first[0].removeprefix("worktree ").strip()
     remote_head = _git(
-        main_root, "symbolic-ref", "--quiet", "--short",
+        main_root,
+        "symbolic-ref",
+        "--quiet",
+        "--short",
         "refs/remotes/origin/HEAD",
     )
     if not remote_head or not remote_head.startswith("origin/"):
         return OriginComparison(UNKNOWN, reason="origin default branch is unknown")
     branch = remote_head.removeprefix("origin/")
     counts = _git(
-        main_root, "rev-list", "--left-right", "--count",
+        main_root,
+        "rev-list",
+        "--left-right",
+        "--count",
         f"refs/heads/{branch}...refs/remotes/origin/{branch}",
     )
     parts = (counts or "").split()
@@ -187,9 +210,7 @@ def compare_main_to_origin(repo_root: str) -> OriginComparison:
         relationship = AHEAD
     else:
         relationship = EQUAL
-    return OriginComparison(
-        relationship, branch=branch, behind_by=origin_only
-    )
+    return OriginComparison(relationship, branch=branch, behind_by=origin_only)
 
 
 def _short(ref: str) -> str:

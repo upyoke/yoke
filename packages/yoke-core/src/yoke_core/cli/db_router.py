@@ -68,7 +68,6 @@ from yoke_core.cli.db_router_dispatch import (  # noqa: F401
 from yoke_core.cli.db_router_help import _print_domain_help, _print_usage  # noqa: F401
 from yoke_core.cli.db_router_suggestions import emit_unknown_domain_hint, emit_unknown_domain_subcmd_hint, emit_unknown_items_subcmd_hint
 from yoke_core.cli.db_router_init import (  # noqa: F401
-    _AUTO_INIT_MODULES,
     _connected_postgres_authority_active,
     _INIT_ALLOW_ENV,
     _INIT_DONE_ENV,

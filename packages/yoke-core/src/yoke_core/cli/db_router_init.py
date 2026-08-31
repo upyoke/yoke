@@ -22,12 +22,17 @@ from pathlib import Path
 from typing import List, Optional
 
 
-#: Auto-init dispatch order — canonically owned by the environment
-#: bootstrap module (the loud production form for empty-env init); this
-#: alias keeps db_router's opportunistic auto-init on the same chain.
-from yoke_core.domain.environment_bootstrap import (
-    INIT_MODULE_CHAIN as _AUTO_INIT_MODULES,
-)
+def _auto_init_modules() -> tuple:
+    """Load the canonical init chain only when bootstrap actually runs."""
+    from yoke_core.domain.environment_bootstrap import INIT_MODULE_CHAIN
+
+    return INIT_MODULE_CHAIN
+
+
+def __getattr__(name: str):
+    if name == "_AUTO_INIT_MODULES":
+        return _auto_init_modules()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 #: Env flag used to opt a process into ambient bootstrap (tests,
@@ -46,10 +51,7 @@ def _connected_postgres_authority_active(repo_root: Path) -> bool:
     """Return True when the checkout binding selects ambient Postgres."""
     from yoke_core.domain import db_backend, yoke_connected_env
 
-    return (
-        yoke_connected_env.connected_backend(start=repo_root)
-        == db_backend.POSTGRES
-    )
+    return yoke_connected_env.connected_backend(start=repo_root) == db_backend.POSTGRES
 
 
 def _init_allowed() -> bool:
@@ -65,7 +67,11 @@ def _run_init_modules(repo_root: Path) -> None:
     normal runtime commands.
     """
     try:
-        from yoke_core.domain.schema import _check_sibling_state_collision, _resolve_db_root
+        from yoke_core.domain.schema import (
+            _check_sibling_state_collision,
+            _resolve_db_root,
+        )
+
         _resolved_root = _resolve_db_root()
         if _check_sibling_state_collision(_resolved_root):
             sibling_hint = "yoke/" if Path(_resolved_root).name == "data" else "data/"
@@ -85,11 +91,14 @@ def _run_init_modules(repo_root: Path) -> None:
         sys.path.insert(0, root_str)
 
     devnull = io.StringIO()
-    for modname in _AUTO_INIT_MODULES:
+    for modname in _auto_init_modules():
         try:
             mod = importlib.import_module(modname)
             try:
-                with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
+                with (
+                    contextlib.redirect_stdout(devnull),
+                    contextlib.redirect_stderr(devnull),
+                ):
                     mod.main(["init"])
             except SystemExit:
                 pass
@@ -144,7 +153,7 @@ def _dispatch_items_get_section(item_args: List[str]) -> int:
     """
     if len(item_args) < 2:
         print(
-            "Usage: items get <item-id> <field> --section \"## Heading\"",
+            'Usage: items get <item-id> <field> --section "## Heading"',
             file=sys.stderr,
         )
         return 2
@@ -181,9 +190,7 @@ def _dispatch_items_get_section(item_args: List[str]) -> int:
         )
         return 2
     if not section:
-        print(
-            "Error: --section requires a heading argument", file=sys.stderr
-        )
+        print("Error: --section requires a heading argument", file=sys.stderr)
         return 2
     try:
         from yoke_core.domain.render_body import (
@@ -229,9 +236,7 @@ def _dispatch_items_get_section(item_args: List[str]) -> int:
     return 2
 
 
-def _extract_structured_field_section(
-    item_id: int, field: str, section: str
-) -> int:
+def _extract_structured_field_section(item_id: int, field: str, section: str) -> int:
     """Print one ``## <section>`` block from a stored structured field.
 
     Reuses :func:`render_body_section.extract_section` so the heading
@@ -247,15 +252,12 @@ def _extract_structured_field_section(
     try:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT COALESCE(CAST({field} AS TEXT), '') FROM items "
-            f"WHERE id = {p}",
+            f"SELECT COALESCE(CAST({field} AS TEXT), '') FROM items WHERE id = {p}",
             (item_id,),
         ).fetchone()
         public_ref = render_item_ref(conn, item_id)
         if row is None:
-            print(
-                f"Error: item {public_ref} not found", file=sys.stderr
-            )
+            print(f"Error: item {public_ref} not found", file=sys.stderr)
             return 1
         text = row[0] if row else ""
         content = extract_section(text, section)

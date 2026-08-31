@@ -28,7 +28,8 @@ from yoke_core.domain.deploy_pipeline_reporting import (
     _yoke_db,
 )
 from yoke_core.domain.deploy_pipeline_run_context import (
-    finalize_run_success,
+    EXIT_FINALIZATION_PENDING,  # noqa: F401 — public pipeline exit 4
+    complete_run_finalization,
     resolve_flow_target,
     resolve_project_checkout_path,
 )
@@ -152,8 +153,13 @@ def run_pipeline(
         if current_stage.endswith("-failed"):
             start_stage = current_stage.replace("-failed", "")
         elif current_stage == "complete":
-            print(f"Pipeline already complete for run {run_id}")
-            return EXIT_SUCCESS
+            if run_status == "succeeded":
+                print(f"Pipeline already complete for run {run_id}")
+                return EXIT_SUCCESS
+            return complete_run_finalization(
+                run_id, flow_id, project, member_items,
+                target_tier, environment_name, sd=sd,
+            )
         else:
             start_stage = current_stage
 
@@ -291,11 +297,10 @@ def run_pipeline(
     finally:
         conn.close()
 
-    finalize_run_success(
+    return complete_run_finalization(
         run_id, flow_id, project, member_items, target_tier,
-        environment_name, sd=sd)
-    print(f"Pipeline complete for run {run_id}")
-    return EXIT_SUCCESS
+        environment_name, sd=sd,
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:

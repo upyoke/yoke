@@ -10,18 +10,23 @@ assuming the two names match.
 
 from __future__ import annotations
 
+FINALIZATION_PENDING_PREFIX = "deploy succeeded, finalization pending"
+
 INTERRUPTED_RUN_RECOVERY = """\
 Interrupted driver (watch/execute died; GitHub kept going): re-drive the
 SAME run id. The dispatch correlation token reattaches to the workflow
 already started and does not fire a second release.
   yoke --env CONTROL-PLANE-db-admin watch deploy -- RUN-ID
+If the driver exits 4 (deploy succeeded, finalization pending), stages
+already finished — re-drive the same run id to land the succeeded stamp.
 `deployment-runs terminalize` only records failed or cancelled. Do not
 use it to close a run whose workflow succeeded — re-driving is the
 recovery.
 """
 
 # Copy-pasteable recipe shown on the surfaces that own each step.
-ITEMLESS_RELEASE_RECIPE = """\
+ITEMLESS_RELEASE_RECIPE = (
+    """\
 Itemless environment release (project-generic):
   # tier|environment-name of the flow's registered target:
   yoke deployment-runs resolve-target PROJECT FLOW
@@ -41,7 +46,9 @@ Retry a failed or cancelled run without following a moving branch:
     PROJECT FLOW --retry-of FAILED_RUN_ID)
   yoke --env CONTROL-PLANE-db-admin watch deploy -- "$RETRY_ID"
 
-""" + INTERRUPTED_RUN_RECOVERY
+"""
+    + INTERRUPTED_RUN_RECOVERY
+)
 
 RESOLVE_TARGET_DESCRIPTION = (
     "Resolve the flow's target tier and registered environment (or honor "
@@ -83,6 +90,7 @@ def execute_created_run_note(authority: str, run_id: str) -> str:
 
 __all__ = [
     "CREATE_DESCRIPTION",
+    "FINALIZATION_PENDING_PREFIX",
     "INTERRUPTED_RUN_RECOVERY",
     "ITEMLESS_RELEASE_RECIPE",
     "RESOLVE_TARGET_DESCRIPTION",
