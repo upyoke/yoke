@@ -84,7 +84,7 @@ def test_birth_reports_prior_socket_dsn_for_same_cluster(monkeypatch, tmp_path):
     spec = lu.cluster_spec(root=root)
 
     assert spec.socket_dir is not None
-    assert lu._socket_dsn_aliases(spec) == [
+    assert lu.socket_dsn_aliases(spec) == [
         f"host={root / 'sock'} user=yoke dbname=yoke"
     ]
 
