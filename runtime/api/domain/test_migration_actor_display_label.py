@@ -133,17 +133,26 @@ def test_resolution_surfaces_stay_uniquely_keyed(pre_entry_db) -> None:
 def test_entry_is_a_no_op_on_a_universe_born_after_it() -> None:
     name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(name)
-    try:
-        create_actor_identity_tables(conn)
-        assert RESOLUTION_LABEL_INDEX in {
+    def _indexes() -> set[str]:
+        return {
             row[0]
             for row in conn.execute(
                 "SELECT indexname FROM pg_indexes WHERE tablename = 'actor_labels'"
             ).fetchall()
         }
+
+    try:
+        create_actor_identity_tables(conn)
+        born = _indexes()
+        assert RESOLUTION_LABEL_INDEX in born
         entry.apply(conn)
         entry.invariants(conn)
         conn.commit()
+        # The entry spells its index name out rather than importing the live
+        # constant, so applying it to a universe already born with that index
+        # must add nothing. A second index here would mean the two spellings
+        # have drifted apart.
+        assert _indexes() == born
 
         first = _actor(conn)
         second = _actor(conn)

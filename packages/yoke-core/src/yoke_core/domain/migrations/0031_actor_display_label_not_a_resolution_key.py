@@ -17,21 +17,26 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.actor_labels import DISPLAY_LABEL_SURFACE
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
 from yoke_core.domain.schema_common import (
     _connection_is_postgres,
     _index_exists,
     _table_exists,
 )
-from yoke_core.domain.schema_init_actor_path_claim_tables import (
-    RESOLUTION_LABEL_INDEX,
-)
 
 
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
 TABLE = "actor_labels"
 RETIRED_CONSTRAINT = "actor_labels_surface_label_key"
+
+# Spelled out rather than imported from the live surface vocabulary. An entry
+# is loaded from the installed tree, which predates any module this change
+# adds, and it is permanent history besides: renaming the display surface or
+# the index later must not retroactively change what this entry did when it
+# ran. The live definitions are yoke_contracts.actor_labels and
+# schema_init_actor_path_claim_tables.RESOLUTION_LABEL_INDEX.
+DISPLAY_SURFACE = "display"
+RESOLUTION_LABEL_INDEX = "uq_actor_labels_resolution_surface_label"
 
 
 def apply(conn: Any) -> None:
@@ -52,7 +57,7 @@ def apply(conn: Any) -> None:
     conn.execute(
         f'CREATE UNIQUE INDEX IF NOT EXISTS "{RESOLUTION_LABEL_INDEX}" '
         f'ON "{TABLE}"(surface, label) '
-        f"WHERE surface <> '{DISPLAY_LABEL_SURFACE}'"
+        f"WHERE surface <> '{DISPLAY_SURFACE}'"
     )
 
 
@@ -67,7 +72,7 @@ def invariants(conn: Any) -> None:
     if _connection_is_postgres(conn):
         assert not _index_exists(conn, RETIRED_CONSTRAINT, TABLE), (
             f"{RETIRED_CONSTRAINT} must be absent so two actors may carry the "
-            f"same {DISPLAY_LABEL_SURFACE!r} label"
+            f"same {DISPLAY_SURFACE!r} label"
         )
 
 
