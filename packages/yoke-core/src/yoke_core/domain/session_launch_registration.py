@@ -99,7 +99,7 @@ def prepare_launch_registration(
             session_id=session_id,
             facts=facts,
             now=current,
-            wake_after=launch.deadline_at,
+            wake_after=current,
         )
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()

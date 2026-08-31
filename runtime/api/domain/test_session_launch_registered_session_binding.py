@@ -147,10 +147,11 @@ def test_reconciliation_reopens_and_routes_the_stranded_instruction() -> None:
     assert reopened[0] is None
 
 
-def test_attested_registration_recovers_a_missing_native_identity() -> None:
+def test_attested_registration_anchors_wake_at_delivery_without_changing_deadline() -> None:
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _claim(conn, key="attested-identity")
+    registration_time = "2026-08-22T12:00:30Z"
     uncertain = report_launch_attempt(
         conn,
         launch_id=launch.launch_id,
@@ -167,7 +168,7 @@ def test_attested_registration_recovers_a_missing_native_identity() -> None:
         launch_id=launch.launch_id,
         attestation=claim.attestation,
         session_id="attested-session",
-        now="2026-08-22T12:00:30Z",
+        now=registration_time,
     )
     bound = get_launch(conn, launch.launch_id)
 
@@ -175,7 +176,9 @@ def test_attested_registration_recovers_a_missing_native_identity() -> None:
     assert bound.state == "awaiting_registration"
     assert bound.native_session_id == bound.registered_session_id == "attested-session"
     assert bound.result_code == "registration_bound"
-    assert bound.attestation_consumed_at == "2026-08-22T12:00:30Z"
+    assert bound.attestation_consumed_at == registration_time
+    assert bound.deadline_at == launch.deadline_at
+    assert bound.deadline_at != registration_time
     attempt = conn.execute(
         "SELECT native_session_id FROM session_launch_attempts WHERE launch_id=?",
         (launch.launch_id,),
@@ -184,7 +187,7 @@ def test_attested_registration_recovers_a_missing_native_identity() -> None:
     assert tuple(_recipient(conn, launch.message_id)) == (
         "attested-session",
         "pending",
-        launch.deadline_at,
+        registration_time,
     )
     reopened = conn.execute(
         "SELECT cancellation_reason FROM session_messages WHERE message_id=?",
