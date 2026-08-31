@@ -57,7 +57,7 @@ Exit-code dispatch:
 - **Exit 4:** User files at risk — **HARD STOP**. Revert to `implemented`. Report: `[Route A] PREFIX-N: user files at risk (exit 4). Reverted to implemented. Manual review required.`
 - **Exit 7:** Deployment flow guard. The item has a persistent, ephemeral, unregistered, or unresolved flow rather than a verified merge-only flow. Revert to `implemented`. Report: `[Route A] PREFIX-N: deployment flow guard (exit 7). This item needs Route B or a repaired flow-definition read, not Route A. Reverted to implemented. Re-run usher without --skip-deploy or verify the item's deployment_flow and target_tier.`
 - **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from the project's default branch. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] PREFIX-N: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
-  **Recovery:** The canonical remediation is the evidence-only path — future items should enter implementing with `--no-worktree`. Only after the rollback to `implemented`, read the registered lane path and prove it contains no modified tracked, untracked, or ignored files:
+  **Recovery:** The canonical remediation is the evidence-only path — future items should enter implementing with `--no-worktree`. Only after the rollback to `implemented`, read the registered lane path and prove it contains no modified tracked or untracked files:
   ```bash
   _wt_path=$(yoke item-worktrees get PREFIX-N \
    --lane-role implementation --field path)
@@ -66,7 +66,7 @@ Exit-code dispatch:
    exit 1
   fi
   _wt_dirty=$(git -C "$_wt_path" status --porcelain \
-   --ignored=matching --untracked-files=all)
+   --untracked-files=all)
   _wt_git_rc=$?
   if [ "$_wt_git_rc" -ne 0 ] || [ -n "$_wt_dirty" ]; then
    echo "Blocked: preserve or commit every worktree file before lane release."
@@ -75,7 +75,7 @@ Exit-code dispatch:
   yoke item-worktrees release PREFIX-N --all-active \
    --reason evidence-only-recovery
   ```
-  The release adapter repeats the branch and cleanliness checks. The server accepts only this fixed recovery reason, an `implemented` item with exactly one active implementation lane, and an attestation matching that lane. Then re-run `/yoke usher PREFIX-N`.
+  The release adapter repeats the branch and cleanliness checks. The server accepts only this fixed recovery reason, a post-implementation stage of the pinned workflow with exactly one active implementation lane, and an attestation matching that lane. Then re-run `/yoke usher PREFIX-N`.
 - **Exit 99:** Self-modifying bootstrap — the underlying done-transition engine re-executes itself. This is handled internally by the launcher and should never surface to usher. If it does, treat as unexpected and apply the catch-all below.
 - **Any other non-zero exit (catch-all):** Unexpected failure. Revert to `implemented` so the item is never stranded in `release`. Report: `[Route A] PREFIX-N: unexpected done-transition failure (exit {code}). Reverted to implemented. Investigate the done-transition output above.`
 

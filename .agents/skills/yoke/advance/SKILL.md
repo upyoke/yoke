@@ -54,7 +54,7 @@ Items that require no code changes (validation, proof, guidance updates) should 
 **If an evidence-only item was advanced WITHOUT `--no-worktree`** and later hits exit 8 during done-transition or usher, the recovery path is:
 1. Complete the caller's rollback to `implemented`; lane release is refused at every other status.
 2. Ensure this session holds the item claim: `yoke claims work acquire --item PREFIX-N --reason evidence-only-recovery`.
-3. Read the registered implementation-lane path and prove it has no modified tracked, untracked, or ignored files:
+3. Read the registered implementation-lane path and prove it has no modified tracked or untracked files:
 
 ```bash
 _wt_path=$(yoke item-worktrees get PREFIX-N \
@@ -64,7 +64,7 @@ if [ -z "$_wt_path" ] || [ "$_wt_path" = "null" ] || [ ! -d "$_wt_path" ]; then
  exit 1
 fi
 _wt_dirty=$(git -C "$_wt_path" status --porcelain \
- --ignored=matching --untracked-files=all)
+ --untracked-files=all)
 _wt_git_rc=$?
 if [ "$_wt_git_rc" -ne 0 ] || [ -n "$_wt_dirty" ]; then
  echo "Blocked: preserve or commit every worktree file before lane release."
@@ -72,7 +72,7 @@ if [ "$_wt_git_rc" -ne 0 ] || [ -n "$_wt_dirty" ]; then
 fi
 ```
 
-4. Immediately release the attested lane: `yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery`. The adapter repeats the branch and cleanliness checks, and the server requires the item to remain `implemented` with exactly one active implementation lane matching the attestation.
+4. Immediately release the attested lane: `yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery`. The adapter repeats the branch and cleanliness checks, and the server requires a post-implementation stage of the pinned workflow with exactly one active implementation lane matching the attestation.
 5. Re-run the done-transition or usher command.
 
 The empty-branch guard exists to catch accidental merges of branches with no work. For items that intentionally have no code changes, the guard is a false positive — releasing the active lane records is the canonical recovery.

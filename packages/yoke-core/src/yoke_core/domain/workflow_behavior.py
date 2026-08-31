@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from yoke_core.domain.workflow_definition_builders import (
+    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
+)
 from yoke_core.domain.workflow_gate_catalog import GATE_PLAN_SIMULATION
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
 from yoke_contracts.item_worktrees import (
@@ -11,6 +14,8 @@ from yoke_contracts.item_worktrees import (
     ITEM_WORKTREE_LANE_INTEGRATION,
     ITEM_WORKTREE_LANE_WORKER,
 )
+
+_LANE_RELEASE_RECOVERY_SKILL_IDS = IMPLEMENTATION_WORKFLOW_SKILL_IDS | {"polish"}
 
 LANE_IMPLEMENTATION = ITEM_WORKTREE_LANE_IMPLEMENTATION
 LANE_WORKER = ITEM_WORKTREE_LANE_WORKER
@@ -86,6 +91,29 @@ def delivery_redirect_stage(runtime: WorkflowRuntime) -> str | None:
     return predecessors.pop()
 
 
+def lane_release_recovery_statuses(runtime: WorkflowRuntime) -> frozenset[str]:
+    """Non-terminal stages at which evidence-only lane recovery may run.
+
+    Implementation and polish handoffs that stop before a terminal stage are
+    the recovery set. When those bindings land on a terminal (Dash, Blitz),
+    recovery uses the last non-terminal stage — the verification close.
+    """
+    terminals = runtime.terminal_stage_ids
+    accepted: set[str] = set()
+    for binding in runtime.definition.get("skill_bindings") or ():
+        if str(binding["skill_id"]) not in _LANE_RELEASE_RECOVERY_SKILL_IDS:
+            continue
+        through = str(binding["through_stage_id"])
+        if through not in terminals:
+            accepted.add(through)
+    if accepted:
+        return frozenset(accepted)
+    for stage_id in reversed(runtime.stage_ids):
+        if stage_id not in terminals:
+            return frozenset({stage_id})
+    return frozenset()
+
+
 def worktree_lane_policy(runtime: WorkflowRuntime) -> WorktreeLanePolicy:
     """Interpret the definition's worktree policy as lane-role constraints."""
     policy_id = str(runtime.policies["worktrees"])
@@ -107,6 +135,7 @@ __all__ = [
     "WorktreeLanePolicy",
     "delivery_redirect_stage",
     "generates_task_graph",
+    "lane_release_recovery_statuses",
     "release_note_category",
     "requires_plan_simulation",
     "worktree_lane_policy",

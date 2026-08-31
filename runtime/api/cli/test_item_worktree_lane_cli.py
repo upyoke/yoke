@@ -183,17 +183,18 @@ def test_release_refuses_a_dirty_registered_lane(
     assert "worktree_cleanliness_unverified" in capsys.readouterr().err
 
 
-def test_clean_lane_attestation_counts_ignored_files_as_dirty(tmp_path) -> None:
+def test_clean_lane_attestation_treats_ignored_only_residue_as_clean(tmp_path) -> None:
     lane = _clean_git_lane(tmp_path, worktree_id=954, branch="YOK-954")
     cache = tmp_path / "YOK-954" / "cache"
     cache.mkdir()
-    (cache / "generated.txt").write_text("preserve me too\n")
+    (cache / "generated.txt").write_text("provisioned by prepare\n")
 
     attestation, error = lane_release_evidence.attest_releasable_lane(lane)
 
-    assert attestation is None
-    assert error is not None
-    assert "not clean" in error
+    assert error is None
+    assert attestation is not None
+    assert attestation["observed_clean"] is True
+    assert attestation["evidence"] == lane_release_evidence.EVIDENCE_WORKTREE_CLEAN
 
 
 def test_list_and_path_record_build_registered_envelopes(monkeypatch) -> None:
@@ -204,12 +205,20 @@ def test_list_and_path_record_build_registered_envelopes(monkeypatch) -> None:
     assert captured["payload"] == {}
 
     captured.clear()
-    assert item_worktrees.item_worktrees_path_record([
-        "YOK-955",
-        "--worktree-id", "44",
-        "--branch", "blitz/docs",
-        "--path", "/tmp/blitz-docs",
-    ]) == 0
+    assert (
+        item_worktrees.item_worktrees_path_record(
+            [
+                "YOK-955",
+                "--worktree-id",
+                "44",
+                "--branch",
+                "blitz/docs",
+                "--path",
+                "/tmp/blitz-docs",
+            ]
+        )
+        == 0
+    )
     assert captured["function_id"] == "item_worktrees.path_record"
     assert captured["payload"] == {"path": "/tmp/blitz-docs"}
     assert captured["preconditions"] == {
@@ -220,9 +229,7 @@ def test_list_and_path_record_build_registered_envelopes(monkeypatch) -> None:
 
 def test_registry_usage_and_inventory_expose_lane_operations() -> None:
     assert SUBCOMMAND_REGISTRY[("item-worktrees", "get")][0] == ("item_worktrees.get")
-    assert SUBCOMMAND_REGISTRY[("item-worktrees", "list")][0] == (
-        "item_worktrees.list"
-    )
+    assert SUBCOMMAND_REGISTRY[("item-worktrees", "list")][0] == ("item_worktrees.list")
     assert SUBCOMMAND_REGISTRY[("item-worktrees", "path-record")][0] == (
         "item_worktrees.path_record"
     )

@@ -15,15 +15,13 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.item_worktrees import LANE_ROLES
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
+    lane_release_recovery_statuses,
     worktree_lane_policy,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
-
-
-_RECOVERY_STATUS = "implemented"
 
 
 class ItemWorktreeLane(BaseModel):
@@ -177,13 +175,16 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
         if item is None:
             return _error("not_found", f"item {item_id} was not found")
         status = str(item["status"] if hasattr(item, "keys") else item[0])
-        if status != _RECOVERY_STATUS:
+        runtime = load_item_workflow_runtime(conn, item_id)
+        accepted = lane_release_recovery_statuses(runtime)
+        if status not in accepted:
+            named = ", ".join(repr(stage) for stage in sorted(accepted)) or "none"
             return _error(
                 "recovery_status_invalid",
-                "evidence-only lane release requires item status "
-                f"{_RECOVERY_STATUS!r}; got {status!r}",
+                "evidence-only lane release requires a post-implementation "
+                f"stage of the pinned workflow ({named}); got {status!r}",
             )
-        policy = worktree_lane_policy(load_item_workflow_runtime(conn, item_id))
+        policy = worktree_lane_policy(runtime)
         if policy.allowed_roles != frozenset({LANE_IMPLEMENTATION}):
             return _error(
                 "recovery_lane_policy_invalid",
@@ -276,9 +277,7 @@ def handle_release_merged_lane(request: FunctionCallRequest) -> HandlerOutcome:
             request.payload or {}
         )
     except Exception as exc:
-        return _error(
-            "payload_invalid", f"release_merged_lane payload invalid: {exc}"
-        )
+        return _error("payload_invalid", f"release_merged_lane payload invalid: {exc}")
 
     from yoke_core.domain import db_helpers
     from yoke_core.domain.item_worktrees import release_item_worktrees

@@ -5,8 +5,8 @@ so it is gated on evidence that the lane holds nothing anyone still wants.
 There are exactly two ways to earn that evidence:
 
 1. **The directory is there and clean.** Git confirms the checkout sits on the
-   branch the row records and reports no modified, untracked, or ignored
-   files. This is the everyday case.
+   branch the row records and reports no modified or untracked files.
+   Ignored residue that worktree prepare itself created is not dirt.
 
 2. **The directory is already gone and the branch landed.** A merge removes a
    lane directory only after proving the branch is contained by the target,
@@ -149,7 +149,7 @@ def attest_releasable_lane(
             f"worktree branch {actual_branch.strip()!r}"
         )
     dirty = _git(
-        ["status", "--porcelain", "--ignored=matching", "--untracked-files=all"],
+        ["status", "--porcelain", "--untracked-files=all"],
         raw_path,
     )
     if dirty is None:
@@ -158,7 +158,7 @@ def attest_releasable_lane(
         detail = "\n".join(dirty.strip().splitlines()[:20])
         return None, (
             "the registered lane is not clean; preserve or commit modified "
-            f"tracked, untracked, and ignored files before retrying:\n{detail}"
+            f"tracked and untracked files before retrying:\n{detail}"
         )
     return _attestation(EVIDENCE_WORKTREE_CLEAN), None
 
