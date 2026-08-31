@@ -29,6 +29,41 @@ from yoke_harness.ssh_mac_full_reset_contract import (
 )
 
 
+TYPE_RECONCILIATION_FUNCTIONS = r"""
+reconcile_entry_types() {
+  local source="$1" destination="$2" remaining=""
+  if [[ -d "$destination" && ! -L "$destination" ]]; then
+    /bin/chmod -RN "$destination" 2>/dev/null || true
+    /usr/bin/find "$destination" -type d \
+      -exec /bin/chmod u+rwx {} \; || return 1
+  fi
+  if lexists "$destination"; then
+    /bin/rm -rf -- "$destination" 2>/dev/null || true
+  fi
+  if ! lexists "$destination"; then
+    return 0
+  fi
+  if [[ -d "$source" && ! -L "$source" \
+      && -d "$destination" && ! -L "$destination" ]]; then
+    remaining=$(
+      /usr/bin/find "$destination" -mindepth 1 -print | /usr/bin/wc -l
+    )
+    remaining="${remaining// /}"
+    [[ "$remaining" == 0 ]] && return 0
+  fi
+  print -u2 -- "restore destination remains occupied: $destination"
+  return 1
+}
+
+restore_entry() {
+  local captured="$1" target_dir="$2"
+  local destination="${target_dir%/}/${captured:t}"
+  reconcile_entry_types "$captured" "$destination" || return 1
+  /bin/cp -Rpf "$captured" "$target_dir"
+}
+"""
+
+
 def _array(values: tuple[str, ...]) -> str:
     return "(" + shlex.join(values) + ")"
 
@@ -85,9 +120,16 @@ def render_level_functions(
             f"  /usr/bin/find {home_level} -mindepth 1 -maxdepth 1 {keep} "
             "-exec /bin/rm -rf -- {} + 2>/dev/null || true"
         )
-        restore_lines.append(
-            f"  /usr/bin/find {golden_level} -mindepth 1 -maxdepth 1 {keep} "
-            f"-exec /bin/cp -Rc {{}} {target} ';' " + '2>>"$restore_error_log" || true'
+        restore_lines.extend(
+            (
+                "  while IFS= read -r -d '' captured; do",
+                f"    restore_entry \"$captured\" {target} "
+                '2>>"$restore_error_log" || true',
+                "  done < <(",
+                f"    /usr/bin/find {golden_level} -mindepth 1 -maxdepth 1 "
+                f"{keep} -print0",
+                "  )",
+            )
         )
     clear_lines.extend(("  return 0", "}"))
     restore_lines.extend(("  return 0", "}"))
@@ -125,6 +167,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"yoke_absent_files={_array(contract.tool_file_suffixes)}",
             f"yoke_absent_temp_files={_array(YOKE_ABSENT_TEMP_FILES)}",
             REAP_FUNCTIONS.lstrip(),
+            TYPE_RECONCILIATION_FUNCTIONS.lstrip(),
             render_level_functions(preserved_levels()),
             SCRIPT_BODY.lstrip(),
         )

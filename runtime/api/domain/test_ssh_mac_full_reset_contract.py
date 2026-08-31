@@ -70,9 +70,17 @@ def test_clear_and_restore_walk_the_same_levels_and_keep_the_same_names() -> Non
     assert separator
     clear_levels = [line for line in clear.splitlines() if "/usr/bin/find" in line]
     restore_levels = [line for line in restore.splitlines() if "/usr/bin/find" in line]
+    restore_calls = [
+        line for line in restore.splitlines() if 'restore_entry "$captured"' in line
+    ]
     # Symmetry is the invariant: flattening either walk lets the captured copy
     # of a preserved path overwrite the live one.
-    assert len(clear_levels) == len(restore_levels) == len(preserved_levels())
+    assert (
+        len(clear_levels)
+        == len(restore_levels)
+        == len(restore_calls)
+        == len(preserved_levels())
+    )
     for clear_line, restore_line, (_directory, names) in zip(
         clear_levels, restore_levels, preserved_levels()
     ):
@@ -82,9 +90,10 @@ def test_clear_and_restore_walk_the_same_levels_and_keep_the_same_names() -> Non
             )
             assert name in restore_line
         assert "/bin/rm -rf" in clear_line
-        assert "/bin/cp -Rc" in restore_line
+    assert "/bin/cp -Rpf" in FULL_RESET_SCRIPT
+    assert '/bin/chmod -RN "$destination"' in FULL_RESET_SCRIPT
     # Restore records why it failed; the clear tolerates cosmetic ACL refusals.
-    assert all('2>>"$restore_error_log"' in line for line in restore_levels)
+    assert all('2>>"$restore_error_log"' in line for line in restore_calls)
     assert all("2>/dev/null" in line for line in clear_levels)
 
 
