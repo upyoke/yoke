@@ -5,9 +5,11 @@ Before the rip-out, ``/yoke do`` substituted a model identifier into
 the ``session-offer`` command line (and the substitution silently
 dropped the ``[variant]`` suffix observed live on 2026-05-15). Now the
 loop omits ``--model`` entirely; ``session-offer`` reads the canonical
-value from ``harness_sessions.model`` (populated by ``session-begin``)
-with a ``hook_helpers_model.detect_model`` fallback for the cold-start
-case.
+value from the session row (populated by ``session-begin``) with a
+``hook_helpers_model.detect_requested_model`` fallback for the cold-start
+case. Registration states an ask, so the value lands in
+``requested_model``; the served columns stay unattested until a harness
+artifact proves what actually ran.
 
 The two tests in this file are regressions —
 they would have failed before the rip-out (variant suffix lost) and
@@ -23,8 +25,6 @@ from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
 )
 
-pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
-
 
 class TestSessionOfferModelResolution:
     """End-to-end model resolution against ``session-offer``."""
@@ -38,7 +38,9 @@ class TestSessionOfferModelResolution:
         sid = "variant-suffix-sess"
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
-        _pre_register_session(db, sid, workspace=ws, model="claude-opus-4-7[1m]")
+        _pre_register_session(
+            db, sid, workspace=ws, requested_model="claude-opus-4-7[1m]"
+        )
 
         result = _run_client(
             [
@@ -54,18 +56,22 @@ class TestSessionOfferModelResolution:
 
         conn = connect_test_db(db)
         row = conn.execute(
-            "SELECT model FROM harness_sessions WHERE session_id = %s", (sid,)
+            "SELECT model, requested_model FROM harness_sessions "
+            "WHERE session_id = %s",
+            (sid,),
         ).fetchone()
         conn.close()
-        assert row["model"] == "claude-opus-4-7[1m]"
+        assert row["requested_model"] == "claude-opus-4-7[1m]"
+        # A tier selector is an ask; no provider ever served that string.
+        assert row["model"] is None
 
-    def test_session_offer_falls_back_to_detect_model_when_row_absent(
+    def test_session_offer_falls_back_to_the_requested_model_when_row_absent(
         self, session_offer_db, monkeypatch,
     ):
         """When no ``harness_sessions`` row exists for the supplied
         session id, the offer surface still resolves a model via
-        ``hook_helpers_model.detect_model`` rather than crashing or
-        emitting an empty value.
+        ``hook_helpers_model.detect_requested_model`` rather than crashing
+        or emitting an empty value.
         """
         # Pre-register a sibling session so the harness_sessions table
         # is populated; the offer below targets a DIFFERENT session id
@@ -76,7 +82,7 @@ class TestSessionOfferModelResolution:
         )
         # Run session-offer against an unknown session id WITHOUT --model.
         # monkeypatch.setenv propagates to the subprocess via
-        # _run_client's os.environ.copy(); detect_model() honors
+        # _run_client's os.environ.copy(); the resolver honors
         # YOKE_MODEL as the top precedence source so the resolver
         # returns that value.
         monkeypatch.setenv("YOKE_MODEL", "detected-fallback-model")

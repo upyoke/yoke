@@ -50,21 +50,22 @@ class TestOrientationProjectAuthority(unittest.TestCase):
     """Session orientation must not teach DB repo paths as client checkouts."""
 
     def test_orientation_does_not_render_project_repo_path_map(self) -> None:
-        from yoke_core.hooks import session_dispatch
+        from yoke_contracts.session_model_facts import SessionModelFacts
+        from yoke_core.hooks import session_dispatch_orientation as orientation
 
         with mock.patch(
-            "yoke_core.hooks.session_dispatch._bootstrap_lines",
+            "yoke_core.hooks.session_dispatch_orientation._bootstrap_lines",
             return_value=["Read before editing:", "- AGENTS.md"],
         ), mock.patch(
-            "yoke_core.hooks.session_dispatch._git_line",
+            "yoke_core.hooks.session_dispatch_orientation._git_line",
             return_value="",
         ):
-            rendered = session_dispatch._render_claude_orientation(
+            rendered = orientation._render_claude_orientation(
                 "sess-orient",
                 "/Users/alice/yoke",
                 "",
                 "claude-code",
-                "claude-opus",
+                SessionModelFacts(model="claude-opus"),
             )
 
         self.assertNotIn("Project repos", rendered)
@@ -118,7 +119,7 @@ class TestEndSessionCommand(unittest.TestCase):
             "yoke_core.hooks.telemetry.resolve_direct_session_id",
             return_value="sess-stop",
         ), mock.patch(
-            "yoke_core.hooks.telemetry.refresh_session_model_if_placeholder",
+            "yoke_core.hooks.telemetry.attest_served_model_facts",
         ) as refresh, mock.patch(
             "yoke_core.hooks.session_dispatch._end_session_if_empty",
         ) as cleanup:

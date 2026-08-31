@@ -53,8 +53,11 @@ def apply(conn: Any) -> None:
     # Only rows that have not already been moved: requested_model IS NULL is
     # the "untouched" marker, and it is exactly the state this entry leaves
     # behind for a row that never carried a model in the first place.
+    # NULLIF because a blank is not a model: it names neither an ask nor
+    # anything a provider served, so it moves to nothing rather than
+    # becoming a blank request.
     conn.execute(
-        f"UPDATE {TABLE} SET requested_model = model, model = NULL "
+        f"UPDATE {TABLE} SET requested_model = NULLIF(model, ''), model = NULL "
         "WHERE requested_model IS NULL AND model IS NOT NULL"
     )
 

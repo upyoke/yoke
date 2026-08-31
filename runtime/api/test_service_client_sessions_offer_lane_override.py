@@ -15,8 +15,6 @@ from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
 )
 
-pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
-
 
 def _set_row_lane(db_path: str, session_id: str, lane: str) -> None:
     """Override the session row's execution_lane after session-begin."""

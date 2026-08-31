@@ -23,6 +23,7 @@ import pytest
 import yoke_core.hooks.denial as denial
 import yoke_core.hooks.identity as identity
 import yoke_core.hooks.service_client as svc_client
+import yoke_core.hooks.session_model_attestation_write as model_attestation
 import yoke_core.hooks.stdin as stdin
 import yoke_core.hooks.telemetry as telemetry
 from yoke_core.hooks import runner as runner_module
@@ -43,7 +44,7 @@ _CALLABLE_RE_EXPORTS: tuple[str, ...] = (
     "emit_harness_session_sent_first_user_prompt_submit",
     "emit_session_hook_failed",
     "persist_session_id_to_env_file",
-    "refresh_session_model_if_placeholder",
+    "attest_served_model_facts",
     "register_session",
     "resolve_direct_session_id",
     "resolve_env_init_session_id",
@@ -70,7 +71,7 @@ _OWNER_FOR: dict[str, object] = {
     "resolve_direct_session_id": identity,
     "resolve_env_init_session_id": identity,
     "resolve_session_id_from_env_and_payload": identity,
-    "refresh_session_model_if_placeholder": svc_client,
+    "attest_served_model_facts": model_attestation,
     "register_session": svc_client,
     "resolve_repo_root": svc_client,
     "session_service_client_path": svc_client,

@@ -86,7 +86,7 @@ class TestSessionOfferCommand:
             handle.write("executor_default_lane_codex=ALTMAN\n")
 
         sid = "config-default-lane"
-        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", requested_model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
         result = _run_client(
             [
                 "session-offer",
@@ -142,7 +142,7 @@ class TestSessionOfferCommand:
             handle.write("executor_default_lane_codex=ALTMAN\n")
 
         sid = "lane-telemetry-default"
-        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", requested_model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
         result = _run_client(
             [
                 "session-offer",

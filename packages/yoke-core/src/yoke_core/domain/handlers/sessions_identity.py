@@ -40,7 +40,11 @@ class IdentityResponse(BaseModel):
     executor: str
     executor_surface: Optional[str] = None
     provider: Optional[str] = None
+    #: Provider-attested served truth; null until something attests it.
     model: Optional[str] = None
+    #: The launch request. A caller showing this where ``model`` is null
+    #: must say it is showing a request.
+    requested_model: Optional[str] = None
     execution_lane: Optional[str] = None
     lane_allowed_paths: List[str] = []
     workspace: Optional[str] = None

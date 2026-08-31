@@ -68,7 +68,7 @@ def _completed_response() -> _FakeResponse:
     )
 
 
-def test_hook_evaluate_https_registration_events_carry_client_model(
+def test_hook_evaluate_https_registration_events_carry_the_requested_model(
     monkeypatch,
     https_connection,
 ) -> None:
@@ -85,8 +85,8 @@ def test_hook_evaluate_https_registration_events_carry_client_model(
         lambda: "claude-code",
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay.detect_model",
-        lambda executor, transcript_path="": "claude-fable-5[1m]",
+        "yoke_harness.hooks.identity_runtime.detect_requested_model",
+        lambda executor=None: "claude-fable-5[1m]",
     )
     monkeypatch.setattr(
         "yoke_harness.hooks.identity_relay.detect_entrypoint",
@@ -104,11 +104,14 @@ def test_hook_evaluate_https_registration_events_carry_client_model(
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     assert cli_main(["hook", "evaluate", "UserPromptSubmit"]) == 0
-    assert captured["body"]["model"] == "claude-fable-5[1m]"
+    # A tier selector is an ask, never a served id: it rides the wire as
+    # the request, and nothing claims the session was served it.
+    assert captured["body"]["requested_model"] == "claude-fable-5[1m]"
+    assert "model" not in captured["body"]
     assert captured["body"]["entrypoint"] == "claude-desktop"
 
 
-def test_hook_evaluate_https_placeholder_client_model_not_sent(
+def test_hook_evaluate_https_placeholder_model_is_sent_as_neither_fact(
     monkeypatch,
     https_connection,
 ) -> None:
@@ -122,8 +125,8 @@ def test_hook_evaluate_https_placeholder_client_model_not_sent(
         lambda: "claude-code",
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay.detect_model",
-        lambda executor, transcript_path="": "unknown",
+        "yoke_harness.hooks.identity_runtime.detect_requested_model",
+        lambda executor=None: "unknown",
     )
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.record_session_anchor",
@@ -137,4 +140,5 @@ def test_hook_evaluate_https_placeholder_client_model_not_sent(
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     assert cli_main(["hook", "evaluate", "SessionStart"]) == 0
-    assert captured["body"]["model"] is None
+    assert "model" not in captured["body"]
+    assert "requested_model" not in captured["body"]

@@ -131,14 +131,14 @@ def test_a_row_that_already_carries_its_output_is_left_alone() -> None:
     assert _row(conn, "s1") == ("claude-opus-5", "claude-opus-5[1m]")
 
 
-def test_a_row_with_no_model_at_all_stays_empty_on_both_sides() -> None:
+def test_a_blank_model_moves_to_nothing_rather_than_a_blank_request() -> None:
     conn = _pre_cutover_table()
     conn.execute(f"INSERT INTO {entry.TABLE} VALUES ('s1', '')")
 
     entry.apply(conn)
     entry.invariants(conn)
 
-    assert _row(conn, "s1") == ("", None)
+    assert _row(conn, "s1") == (None, None)
 
 
 def test_the_entry_declares_the_next_release_as_its_serving_floor() -> None:
