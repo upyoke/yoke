@@ -70,6 +70,15 @@ exactly when that state is being re-read. Each row records what it was
 observed from, which is how a reader tells "no remote" from "nobody has
 looked".
 
+The stored rows are a warm cache, not a precondition. A project that has
+not synced since these facts existed has no rows at all, and reading
+that as unknown would refuse correct work for a reason the operator did
+nothing to cause — the first item to reach done after the release would
+be the one that discovered it. Each observer is a cheap control-plane
+read, so a missing fact is answered on the spot and marked as observed
+live. The `unknown` verdict is reserved for what genuinely cannot be
+answered: an unreadable catalog, or a fact no observer owns.
+
 The split between `item:` and `observed:` is a transport fact, not a
 taxonomy preference. An https control plane hands the driving machine no
 database to open, so anything the control plane can see is read on the

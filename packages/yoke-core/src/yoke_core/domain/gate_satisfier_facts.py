@@ -1,6 +1,6 @@
 """The extended capability registry a satisfier ladder resolves against.
 
-Three kinds of fact answer "what can this project prove?", and the key
+Four kinds of fact answer "what can this project prove?", and the key
 prefix names which kind a fact is, so provenance travels with the fact
 instead of being reconstructed by readers:
 
@@ -14,7 +14,8 @@ instead of being reconstructed by readers:
 ``derived:``
     Truth nobody declared but the control plane can observe about
     itself, converged into ``project_derived_facts`` on every
-    ``project.snapshot.sync``. See
+    ``project.snapshot.sync``, and observed live when a project has not
+    converged one yet. See
     :mod:`yoke_core.domain.project_derived_facts`.
 
 ``item:``
@@ -29,9 +30,11 @@ instead of being reconstructed by readers:
 
 A fact is PRESENT, ABSENT, or UNKNOWN, and the three stay distinct all
 the way to the refusal text. UNKNOWN is the one that used to become a
-silent pass: a project whose derived facts have never converged does not
-"have no remote", it has an unanswered question, and the ladder says so
-rather than guessing.
+silent pass: an unanswerable question is not the same as a negative
+answer, and the ladder says which it hit rather than guessing. It is
+reserved for what genuinely cannot be answered — an unreadable catalog,
+or a fact no source in this registry owns — so it never stands in for
+"nobody has run a sync yet".
 """
 
 from __future__ import annotations
@@ -236,23 +239,47 @@ def _declared_default_branch(conn: Any, project_id: int) -> Optional[str]:
 
 
 def _derived_facts(conn: Any, project_id: int) -> Dict[str, Fact]:
-    if not _table_exists(conn, "project_derived_facts"):
-        return {}
-    p = _p(conn)
-    rows = conn.execute(
-        "SELECT fact_key, present, fact_value, observed_from "
-        f"FROM project_derived_facts WHERE project_id = {p}",
-        (project_id,),
-    ).fetchall()
+    """Read the converged derived facts, observing live where none exist.
+
+    Convergence at snapshot sync is the normal source. A project that
+    has not synced since these facts existed has no rows, and reading
+    that as unknown would refuse correct work for a reason the operator
+    did nothing to cause — so each missing fact is observed on the spot
+    from the same control-plane reads the convergence uses, and the
+    stored rows stay a warm cache rather than a precondition.
+    """
+    from yoke_core.domain.project_derived_facts import DERIVED_FACT_KEYS, observe_now
+
     out: Dict[str, Fact] = {}
-    for row in rows:
-        key = f"derived:{row[0]}"
-        present = bool(int(row[1] or 0))
+    if _table_exists(conn, "project_derived_facts"):
+        p = _p(conn)
+        rows = conn.execute(
+            "SELECT fact_key, present, fact_value, observed_from "
+            f"FROM project_derived_facts WHERE project_id = {p}",
+            (project_id,),
+        ).fetchall()
+        for row in rows:
+            key = f"derived:{row[0]}"
+            present = bool(int(row[1] or 0))
+            out[key] = Fact(
+                key=key,
+                verdict=FactVerdict.PRESENT if present else FactVerdict.ABSENT,
+                value=str(row[2] or ""),
+                detail=str(row[3] or "converged at project snapshot sync"),
+            )
+    for fact_key in DERIVED_FACT_KEYS:
+        key = f"derived:{fact_key}"
+        if key in out:
+            continue
+        observation = observe_now(conn, project_id, fact_key)
+        if observation is None:
+            continue
+        present, value, observed_from = observation
         out[key] = Fact(
             key=key,
             verdict=FactVerdict.PRESENT if present else FactVerdict.ABSENT,
-            value=str(row[2] or ""),
-            detail=str(row[3] or "converged at project snapshot sync"),
+            value=value,
+            detail=f"{observed_from} (observed live; not yet converged)",
         )
     return out
 

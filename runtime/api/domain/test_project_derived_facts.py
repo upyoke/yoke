@@ -12,12 +12,19 @@ from typing import Any, Iterator
 import pytest
 
 from runtime.api.fixtures import pg_testdb
+from yoke_core.domain.gate_satisfier_facts import (
+    DERIVED_ENVIRONMENTS_PRESENT,
+    FactVerdict,
+    load_project_facts,
+)
 from yoke_core.domain.project_derived_facts import (
+    DERIVED_FACT_KEYS,
     FACT_DEFAULT_BRANCH,
     FACT_ENVIRONMENTS_PRESENT,
     FACT_REMOTE_PRESENT,
     FACT_TEST_COMMAND_DECLARED,
     converge_derived_facts,
+    observe_now,
 )
 
 
@@ -143,3 +150,41 @@ def test_a_missing_store_warns_instead_of_claiming_the_facts_are_stored(conn):
     result = converge_derived_facts(conn, 1, warnings)
     assert result["stored"] is False
     assert warnings and "snapshot sync" in warnings[0]
+
+
+def test_every_declared_fact_key_has_an_observer(conn):
+    for fact_key in DERIVED_FACT_KEYS:
+        assert observe_now(conn, 1, fact_key) is not None
+
+
+def test_an_unknown_fact_key_has_no_observer(conn):
+    assert observe_now(conn, 1, "invented_fact") is None
+
+
+def test_an_unconverged_project_observes_live_rather_than_reading_unknown(conn):
+    """A project that has never synced must not refuse correct work.
+
+    Convergence is the normal source, but treating its absence as
+    unknown would block a transition for a reason the operator did
+    nothing to cause, so the fact is observed on the spot instead.
+    """
+    conn.execute("INSERT INTO environments (id, project_id) VALUES (9, 1)")
+    conn.commit()
+    facts = load_project_facts(conn, 1)
+    assert facts.verdict(DERIVED_ENVIRONMENTS_PRESENT) is FactVerdict.PRESENT
+    assert "not yet converged" in facts.explain(DERIVED_ENVIRONMENTS_PRESENT)
+
+
+def test_a_converged_row_wins_over_a_live_observation(conn):
+    converge_derived_facts(conn, 1)
+    facts = load_project_facts(conn, 1)
+    assert facts.verdict(DERIVED_ENVIRONMENTS_PRESENT) is FactVerdict.ABSENT
+    assert "not yet converged" not in facts.explain(DERIVED_ENVIRONMENTS_PRESENT)
+
+
+def test_an_absent_store_still_answers_from_a_live_observation(conn):
+    conn.execute("DROP TABLE project_derived_facts")
+    conn.execute("INSERT INTO environments (id, project_id) VALUES (9, 1)")
+    conn.commit()
+    facts = load_project_facts(conn, 1)
+    assert facts.verdict(DERIVED_ENVIRONMENTS_PRESENT) is FactVerdict.PRESENT

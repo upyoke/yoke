@@ -138,6 +138,28 @@ _OBSERVERS = (
 )
 
 
+DERIVED_FACT_KEYS: Tuple[str, ...] = tuple(key for key, _obs in _OBSERVERS)
+
+
+def observe_now(conn: Any, project_id: int, fact_key: str) -> Optional[
+    Tuple[bool, str, str]
+]:
+    """Observe one fact live, without storing it.
+
+    A converged row is the normal source, but a project that has not
+    synced since these facts existed has no rows at all — and treating
+    that as unknown would block correct work behind a refusal the
+    operator did nothing to earn. Every observer is a cheap
+    control-plane read, so a missing row is answered on the spot and the
+    stored convergence stays a warm cache rather than a precondition.
+    Returns ``None`` for a fact key no observer owns.
+    """
+    for key, observer in _OBSERVERS:
+        if key == fact_key:
+            return observer(conn, project_id)
+    return None
+
+
 def converge_derived_facts(
     conn: Any,
     project_id: int,
@@ -220,12 +242,14 @@ def _write_rows(
 
 
 __all__ = [
+    "DERIVED_FACT_KEYS",
     "FACT_DEFAULT_BRANCH",
     "FACT_ENVIRONMENTS_PRESENT",
     "FACT_REMOTE_PRESENT",
     "FACT_TEST_COMMAND_DECLARED",
     "converge_derived_facts",
     "observe_default_branch",
+    "observe_now",
     "observe_environments",
     "observe_remote",
     "observe_test_command",

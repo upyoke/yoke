@@ -124,7 +124,7 @@ def resolve_ladder(
     """
     rejected: List[RungRejection] = []
     for rung in ladder.rungs:
-        blocker = _first_missing_fact(rung.requires, facts)
+        blocker = _first_missing_fact(rung.rung_id, rung.requires, facts)
         if blocker is None:
             return LadderResolution(
                 obligation=ladder.obligation,
@@ -132,7 +132,7 @@ def resolve_ladder(
                 rejected=tuple(rejected),
                 facts=facts.snapshot(),
             )
-        rejected.append(blocker._replace_rung(rung.rung_id))
+        rejected.append(blocker)
     return LadderResolution(
         obligation=ladder.obligation,
         rung=None,
@@ -142,33 +142,20 @@ def resolve_ladder(
 
 
 def _first_missing_fact(
-    requires: Sequence[str], facts: CapabilityFacts,
-) -> Optional["_PendingRejection"]:
+    rung_id: str, requires: Sequence[str], facts: CapabilityFacts,
+) -> Optional[RungRejection]:
+    """Return the first fact that puts ``rung_id`` out of reach."""
     for key in requires:
         verdict = facts.verdict(key)
         if verdict is FactVerdict.PRESENT:
             continue
-        return _PendingRejection(
+        return RungRejection(
+            rung_id=rung_id,
             missing_fact=key,
             verdict=verdict.value,
             detail=facts.explain(key),
         )
     return None
-
-
-@dataclass(frozen=True)
-class _PendingRejection:
-    missing_fact: str
-    verdict: str
-    detail: str
-
-    def _replace_rung(self, rung_id: str) -> RungRejection:
-        return RungRejection(
-            rung_id=rung_id,
-            missing_fact=self.missing_fact,
-            verdict=self.verdict,
-            detail=self.detail,
-        )
 
 
 def require_rung(
