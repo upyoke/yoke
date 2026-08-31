@@ -13,7 +13,7 @@ The classifier maps:
 - The engine's own failure line (``yoke qa case run: ...``), a
   tree-binding refusal, and the degraded-relay retry notice → ``URGENT``.
 - ``Workflow status: <state> (elapsed: Ns, next poll: Ns)`` CI polls →
-  ``PROGRESS`` on the first poll and on every state change, ``NOISE``
+  ``SUMMARY`` on the first poll and on every state change, ``NOISE``
   while the state repeats.
 - The restated outcome (``# qa case run: verdict=...``) and the final
   result envelope → ``SUMMARY``.
@@ -122,13 +122,24 @@ class QaCaseLineClassifier:
     13-14 minute CI run and carries the state the previous poll already
     carried, so on an idle-wake harness it wakes the waiting agent every
     minute to say nothing — the highest-frequency wasted-wake class in
-    the system, since every item runs the gate. A poll is progress only
-    when its state token differs from the last one seen (the first poll,
-    then ``queued`` → ``in_progress`` → concluded); a repeat is noise
-    that stays in the raw capture and wakes nobody. Liveness does not
-    ride on those ticks: the shared watch runner reports its own
-    ``# watch_qa_case no progress for Ns`` notices, and a dead gate still
-    lands the exit sentinel.
+    the system, since every item runs the gate. Only a poll whose state
+    token differs from the last one seen is news: the first poll, then
+    ``queued`` → ``in_progress`` → concluded. A repeat is noise that
+    stays in the raw capture and wakes nobody.
+
+    A state change is classified ``SUMMARY`` rather than ``PROGRESS``
+    because it is a status transition, not a repeating tick, and the
+    shared progress gate throttles ticks on a configurable time window —
+    thirty seconds on an installation that has widened it. The gate's
+    early polls are five to twenty seconds apart before the interval
+    settles, so the one transition an operator most wants
+    (``queued`` → ``in_progress``) is exactly the one a time window
+    would swallow. There are at most a handful of transitions in a run;
+    each emits immediately.
+
+    Liveness does not ride on the suppressed ticks: the shared watch
+    runner reports its own ``# watch_qa_case no progress for Ns``
+    notices, and a dead gate still lands the exit sentinel.
 
     One instance per run, so a fresh gate run starts with no remembered
     state rather than inheriting the previous run's last poll.
@@ -141,11 +152,11 @@ class QaCaseLineClassifier:
         """Classify a single gate-run output line.
 
         Order matters: a failure line that also carries a gate token must
-        still emit immediately, so URGENT is checked first and SUMMARY
-        before the poll shape. SUMMARY is also checked before the
-        announcement shape, because the outcome line shares the
+        still emit immediately, so URGENT is checked first and the
+        outcome shape before the poll shape. The outcome is also checked
+        before the announcement shape, because it shares the
         announcements' prefix and only the outcome may be reported as the
-        run's summary.
+        run's result.
 
         A line matching none of the gate shapes is handed to the pytest
         classifier: a locally-executed case streams its command's output
@@ -165,7 +176,7 @@ class QaCaseLineClassifier:
             if state == self._last_workflow_state:
                 return Classification(LineClass.NOISE)
             self._last_workflow_state = state
-            return Classification(LineClass.PROGRESS)
+            return Classification(LineClass.SUMMARY)
         return classify_pytest_line(line)
 
 

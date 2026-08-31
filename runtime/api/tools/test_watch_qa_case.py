@@ -29,8 +29,8 @@ def classify(line: str) -> Classification:
     """Classify one line through a classifier that has seen nothing yet.
 
     The classifier carries the last workflow state across calls, so a
-    test asserting a single line's class needs a fresh instance rather
-    than a shared one whose state leaks between cases.
+    single-line assertion needs a fresh instance rather than a shared
+    one whose state leaks between cases.
     """
     return watch_qa_case.QaCaseLineClassifier()(line)
 
@@ -44,9 +44,9 @@ class TestGateClassifier:
             "Workflow status: queued (elapsed: 16s, next poll: 20s)",
         ],
     )
-    def test_first_workflow_poll_is_progress(self, line: str) -> None:
+    def test_first_workflow_poll_wakes(self, line: str) -> None:
         """The first poll of a run is news: it names the state to wake on."""
-        assert classify(line).cls is LineClass.PROGRESS
+        assert classify(line).cls is LineClass.SUMMARY
 
     @pytest.mark.parametrize(
         "line",
@@ -112,9 +112,10 @@ class TestGateClassifier:
 class TestWorkflowStateChanges:
     """A poll wakes a watcher only when it carries a state change.
 
-    The gate polls roughly once a minute for the whole 13-14 minute CI
-    run, so classifying every repeat as progress woke the waiting agent
-    per poll to report the state the previous poll already carried.
+    Repeats are noise because the gate polls for the whole 13-14 minute
+    run and each poll restates the last. A change is SUMMARY, not
+    PROGRESS, so the shared progress gate's time window cannot swallow
+    the early transition that arrives while polls are seconds apart.
     """
 
     def _poll(self, state: str, elapsed: int) -> str:
@@ -125,7 +126,7 @@ class TestWorkflowStateChanges:
     def test_same_state_repeats_are_silent(self) -> None:
         classifier = watch_qa_case.QaCaseLineClassifier()
         assert (
-            classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
+            classifier(self._poll("in_progress", 60)).cls is LineClass.SUMMARY
         )
         for elapsed in (120, 180, 240):
             assert (
@@ -135,29 +136,19 @@ class TestWorkflowStateChanges:
 
     def test_each_state_transition_wakes(self) -> None:
         classifier = watch_qa_case.QaCaseLineClassifier()
-        observed = [
-            classifier(self._poll(state, elapsed)).cls
-            for state, elapsed in (
-                ("queued", 16),
-                ("queued", 46),
-                ("in_progress", 76),
-                ("in_progress", 106),
-                ("completed", 136),
-            )
-        ]
+        polls = (("queued", 16), ("queued", 46), ("in_progress", 76),
+                 ("in_progress", 106), ("completed", 136))
+        observed = [classifier(self._poll(s, e)).cls for s, e in polls]
         assert observed == [
-            LineClass.PROGRESS,
-            LineClass.NOISE,
-            LineClass.PROGRESS,
-            LineClass.NOISE,
-            LineClass.PROGRESS,
+            LineClass.SUMMARY, LineClass.NOISE, LineClass.SUMMARY,
+            LineClass.NOISE, LineClass.SUMMARY,
         ]
 
     def test_other_lines_do_not_disturb_the_remembered_state(self) -> None:
         """A poll repeat stays silent across intervening gate output."""
         classifier = watch_qa_case.QaCaseLineClassifier()
         assert (
-            classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
+            classifier(self._poll("in_progress", 60)).cls is LineClass.SUMMARY
         )
         classifier("# qa case run: requirement=1 attached run=2 https://x/2")
         assert (
@@ -167,9 +158,9 @@ class TestWorkflowStateChanges:
     def test_a_new_run_starts_with_no_remembered_state(self) -> None:
         """One classifier per run; a fresh gate run wakes on its first poll."""
         first = watch_qa_case.QaCaseLineClassifier()
-        assert first(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
+        assert first(self._poll("in_progress", 60)).cls is LineClass.SUMMARY
         second = watch_qa_case.QaCaseLineClassifier()
-        assert second(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
+        assert second(self._poll("in_progress", 60)).cls is LineClass.SUMMARY
 
 
 class TestPytestDelegation:
