@@ -146,16 +146,15 @@ Two things the report deliberately does not do, so do them yourself:
   `yoke items cancel PREFIX-N --reason TEXT`, not freeze.
 
 The dashboard session card carries these signals faster when the operator
-has it open: every card renders the control plane's own liveness word beside
-the elapsed activity — `active <age>` or `stale <age>` — and a claim-holding
-card carries a `waiting` / `probed` / `possibly stale` health pill. The word
-and the age answer different questions. The word is the server's
-classification against the executor-aware TTL (1440 minutes on this surface),
-so a session reading `active 6h` is one the control plane still counts, not a
-card that has gone unrefreshed. The age is how long it has been quiet, which
-is what tells you whether to nudge it. The pill only appears past the
-staleness window, so it names a quiet claim-holder rather than replacing
-either.
+has it open: a server-active session reads `active now` under a minute and
+`idle <age>` once quiet; a server-stale session keeps `stale <age>` (or
+`stale · activity just now` after fresh activity). A claim-holding card also
+carries a `waiting` / `probed` / `possibly stale` health pill. The server's
+classification against the executor-aware TTL (1440 minutes on this surface)
+solely decides alive versus stale, so `idle 6h` can still be a session the
+control plane counts. The age says how long it has been quiet and whether to
+nudge it. The pill only appears past the staleness window, naming a quiet
+claim-holder without replacing either signal.
 
 Wake sources are events; failures are silences — the report scans the
 silences on every pass.

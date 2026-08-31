@@ -26,10 +26,9 @@ function renderedActivityAge(documentNode, activityAt, extras = {}) {
 }
 
 
-// The server owns the executor-aware TTL. A session it calls active stays
-// active on the card however old its activity stamp is, and one it calls stale
-// stays stale however fresh — the elapsed time beside the word never votes.
-test("session liveness copy is the server's classification, not the elapsed time", (t) => {
+// The server owns the executor-aware TTL. Activity age chooses active or idle
+// copy only within a server-active session; it never recategorizes liveness.
+test("session activity copy keeps server liveness authoritative", (t) => {
   const now = Date.parse("2026-08-27T12:00:00Z");
   const originalNow = Date.now;
   Date.now = () => now;
@@ -42,19 +41,25 @@ test("session liveness copy is the server's classification, not the elapsed time
   );
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 60_000).toISOString()),
-    "active 1m",
+    "idle 1m",
   );
-  // The live defect this replaces: 1440m of quiet under a 1440m TTL is still
-  // active, and the card used to call it idle after 60 seconds.
+  // A long executor TTL can keep a quiet session alive without making its
+  // activity recent.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 1440 * 60_000).toISOString()),
-    "active 24h",
+    "idle 24h",
   );
   assert.equal(
     renderedActivityAge(
       documentNode, new Date(now - 1_000).toISOString(), { liveness: "stale" },
     ),
     "stale · activity just now",
+  );
+  assert.equal(
+    renderedActivityAge(
+      documentNode, new Date(now - 60_000).toISOString(), { liveness: "stale" },
+    ),
+    "stale 1m",
   );
   assert.equal(
     renderedActivityAge(

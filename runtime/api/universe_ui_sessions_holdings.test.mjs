@@ -241,6 +241,9 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
+  const originalNow = Date.now;
+  Date.now = () => Date.parse("2026-07-26T12:05:00Z");
+  t.after(() => { Date.now = originalNow; });
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.hash = "#/sessions?project=1";
   const root = documentNode.createElement("div");
@@ -288,7 +291,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   const text = visibleText(root);
   assert.ok(!text.includes("worktree attached"), "no worktree line");
   const prefixes = byClass(root, "session-age-prefix").map((n) => n.textContent);
-  assert.deepEqual(prefixes, ["filed ", "active "], "attribution, then liveness");
+  assert.deepEqual(prefixes, ["filed ", "idle "], "attribution, then activity");
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children.map(
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
