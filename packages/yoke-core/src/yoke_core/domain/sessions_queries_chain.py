@@ -10,6 +10,7 @@ from . import sessions_analytics as _sa
 from .sessions_analytics import EVENT_CHAIN_STEP_COMPLETED, SessionError
 from .sessions_ended_recovery import session_ended_message
 from .sessions_queries_base import _now_iso
+from .sessions_terminal_chain_checkpoint import preserve_consumed_terminal_outcome
 
 
 def _p(conn: Any) -> str:
@@ -62,6 +63,15 @@ def update_chain_checkpoint(
             existing_envelope = json.loads(row["offer_envelope"])
         except (json.JSONDecodeError, TypeError):
             pass
+
+    handler_outcome, chain_summary_label = preserve_consumed_terminal_outcome(
+        conn,
+        previous_checkpoint=existing_envelope.get("chain_checkpoint"),
+        item_id=item_id,
+        chainable=chainable,
+        handler_outcome=handler_outcome,
+        chain_summary_label=chain_summary_label,
+    )
 
     checkpoint: Dict[str, Any] = {
         "step": step,

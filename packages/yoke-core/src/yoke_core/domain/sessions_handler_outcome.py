@@ -26,6 +26,9 @@ Outcomes:
   cleanup does not release it.
 - ``blocked`` — the handler hit a real non-recoverable blocker; the
   chain is non-chainable.
+- ``terminal_item_closed`` — the checkpoint's item reached a terminal
+  stage. A live loop may re-offer, but an idle hook has no unfinished
+  item work to preserve.
 
 The chain summary surface in ``/yoke do`` consumes
 :func:`render_chain_summary_label` so prose and runtime stay in sync.
@@ -38,6 +41,10 @@ from typing import Any, Dict, Optional
 from .scheduler_events import emit_scheduler_offer_skipped
 from .sessions_queries_base import normalize_claim_item_id
 from .sessions_queries_chain import append_chain_skip_entry, update_chain_checkpoint
+from .sessions_terminal_chain_checkpoint import (
+    OUTCOME_TERMINAL_ITEM_CLOSED,
+    TERMINAL_ITEM_CLOSED_LABEL,
+)
 
 
 OUTCOME_COMPLETED = "completed"
@@ -85,17 +92,21 @@ def classify_substrate_failure(failure_class: Optional[str]) -> str:
 
 # Slice commits and recoverable substrate failures must
 # not consume useful chain budget.
-NON_USEFUL_STEP_OUTCOMES = frozenset({
-    OUTCOME_SLICE_COMMITTED,
-    OUTCOME_RECOVERABLE_SUBSTRATE,
-})
+NON_USEFUL_STEP_OUTCOMES = frozenset(
+    {
+        OUTCOME_SLICE_COMMITTED,
+        OUTCOME_RECOVERABLE_SUBSTRATE,
+    }
+)
 
 
 # Outcomes that imply ``chainable=False`` on the chain checkpoint.
-TERMINAL_OUTCOMES = frozenset({
-    OUTCOME_INTERACTIVE_CHECKPOINT,
-    OUTCOME_BLOCKED,
-})
+TERMINAL_OUTCOMES = frozenset(
+    {
+        OUTCOME_INTERACTIVE_CHECKPOINT,
+        OUTCOME_BLOCKED,
+    }
+)
 
 
 # Operator-facing labels for each outcome. The chain
@@ -107,6 +118,7 @@ _OUTCOME_LABELS = {
     OUTCOME_RECOVERABLE_SUBSTRATE: "recoverable substrate failure; handler continuing",
     OUTCOME_INTERACTIVE_CHECKPOINT: "interactive checkpoint active",
     OUTCOME_BLOCKED: "handler blocked",
+    OUTCOME_TERMINAL_ITEM_CLOSED: TERMINAL_ITEM_CLOSED_LABEL,
 }
 
 
@@ -273,7 +285,9 @@ def render_chain_summary_label(handler_outcome: Optional[str]) -> str:
     ``CHAIN STEP N/M COMPLETE``. Unknown outcomes fall back to the
     completed label so older callers stay safe.
     """
-    return _OUTCOME_LABELS.get(handler_outcome or "", _OUTCOME_LABELS[OUTCOME_COMPLETED])
+    return _OUTCOME_LABELS.get(
+        handler_outcome or "", _OUTCOME_LABELS[OUTCOME_COMPLETED]
+    )
 
 
 def resolve_checkpoint_outcome(
@@ -316,6 +330,7 @@ __all__ = [
     "OUTCOME_RECOVERABLE_SUBSTRATE",
     "OUTCOME_INTERACTIVE_CHECKPOINT",
     "OUTCOME_BLOCKED",
+    "OUTCOME_TERMINAL_ITEM_CLOSED",
     "RELEASE_REASON_RECOVERABLE_SUBSTRATE_SKIP",
     "SUBSTRATE_FAILURE_TAXONOMY",
     "NON_USEFUL_STEP_OUTCOMES",

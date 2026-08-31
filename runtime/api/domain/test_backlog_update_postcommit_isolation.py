@@ -8,7 +8,7 @@ from unittest.mock import Mock
 from yoke_core.domain import (
     item_status_transitions,
     path_claims_dependency_propagation,
-    sessions_item_focus_release,
+    sessions_terminal_chain_checkpoint,
 )
 from yoke_core.domain.backlog_update_effects import (
     UpdateEffectReceipt,
@@ -29,11 +29,9 @@ def _terminal_receipt() -> UpdateEffectReceipt:
 def test_telemetry_failure_cannot_skip_terminal_cleanup(monkeypatch) -> None:
     calls: list[tuple[str, object]] = []
     monkeypatch.setattr(
-        sessions_item_focus_release,
-        "release_item_focus_for_sessions",
-        lambda _conn, item_id, session_ids: calls.append(
-            ("focus", (item_id, session_ids))
-        ),
+        sessions_terminal_chain_checkpoint,
+        "close_terminal_item_sessions",
+        lambda _conn, **kwargs: calls.append(("closeout", kwargs)),
     )
     monkeypatch.setattr(
         path_claims_dependency_propagation,
@@ -59,25 +57,32 @@ def test_telemetry_failure_cannot_skip_terminal_cleanup(monkeypatch) -> None:
     )
 
     assert calls == [
-        ("focus", (72, ("holder",))),
+        (
+            "closeout",
+            {
+                "item_id": 72,
+                "terminal_status": "done",
+                "holder_session_ids": ("holder",),
+            },
+        ),
         ("path", (31, True)),
         ("path", (32, True)),
     ]
     assert "status-change telemetry deferred" in out.getvalue()
 
 
-def test_focus_failure_cannot_skip_path_repair_or_telemetry(
+def test_closeout_failure_cannot_skip_path_repair_or_telemetry(
     monkeypatch,
 ) -> None:
     calls: list[tuple[str, object]] = []
 
-    def fail_focus(*_args, **_kwargs):
-        raise RuntimeError("focus unavailable")
+    def fail_closeout(*_args, **_kwargs):
+        raise RuntimeError("session closeout unavailable")
 
     monkeypatch.setattr(
-        sessions_item_focus_release,
-        "release_item_focus_for_sessions",
-        fail_focus,
+        sessions_terminal_chain_checkpoint,
+        "close_terminal_item_sessions",
+        fail_closeout,
     )
     monkeypatch.setattr(
         path_claims_dependency_propagation,
@@ -105,4 +110,4 @@ def test_focus_failure_cannot_skip_path_repair_or_telemetry(
         ("telemetry", True),
     ]
     conn.rollback.assert_called_once()
-    assert "terminal session focus cleanup deferred" in out.getvalue()
+    assert "terminal session closeout deferred" in out.getvalue()
