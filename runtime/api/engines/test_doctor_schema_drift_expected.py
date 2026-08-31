@@ -23,6 +23,8 @@ def test_expected_catalog_includes_ordered_migration_ledger() -> None:
         "minimum_serving_version": "TEXT",
         "content_sha256": "TEXT",
     }
+    assert expected["doctor_runs"]["ran_at"] == "TEXT"
+    assert expected["doctor_runs"]["results"] == "TEXT"
     assert expected["migration_content_adoptions"]["source_sha256"] == "TEXT"
 
 

@@ -14,11 +14,12 @@ The shapes:
 ``_SRC``
     Reads the target project's source tree. Only a runner holding that
     checkout can answer it.
-There is deliberately no self-project shape here. A check that only
-describes the project owning this installation — its agent prompts, skills,
-docs, harness adapters, code doctrine — belongs in that project's own
-``.yoke/doctor/`` folder, where it carries its declaration on its own row.
-The engine roster is what is true of any project Yoke manages.
+There is deliberately no general self-project shape here. A check that
+only describes the project owning this installation belongs in that
+project's own ``.yoke/doctor/`` folder. The one engine exception is
+``retired-schema-resurrection``, which inspects this installation's
+schema history and is declared ``project_scope=self``.
+The engine roster is otherwise what is true of any project Yoke manages.
 ``_EXT`` / ``_EXT_SRC``
     Diagnoses a project other than the one that owns the installation.
 ``_MIGRATION`` / ``_EXT_HEALTH`` / ``_EXT_VPS``
@@ -33,6 +34,7 @@ from typing import Dict, List
 from yoke_core.engines.doctor_applicability import (
     CheckApplicability,
     PROJECT_SCOPE_EXTERNAL,
+    PROJECT_SCOPE_SELF,
     RUNTIME_LOCAL,
     UNIVERSAL,
 )
@@ -40,6 +42,11 @@ from yoke_core.engines.doctor_applicability import (
 
 _DB = UNIVERSAL
 _LOCAL = CheckApplicability(runtimes=frozenset({RUNTIME_LOCAL}))
+_LOCAL_HTTPS = CheckApplicability(
+    runtimes=frozenset({RUNTIME_LOCAL}),
+    requires_https_control_plane=True,
+)
+_SELF = CheckApplicability(project_scope=PROJECT_SCOPE_SELF)
 _SRC = CheckApplicability(requires_source_checkout=True)
 _EXT = CheckApplicability(project_scope=PROJECT_SCOPE_EXTERNAL)
 _EXT_SRC = CheckApplicability(
@@ -137,7 +144,6 @@ _SHAPES = (
             "qa-runs-mutated",
             "reflection-capture-persist-failed",
             "reflection-capture-unhandled",
-            "retired-schema-resurrection",
             "reviewed-implementation-epics-no-sim",
             "routed-ownership-live-frame-no-defense",
             "routed-ownership-non-terminal-release-still-schedulable",
@@ -200,9 +206,16 @@ _SHAPES = (
         _LOCAL,
         (
             "local-operating-actor-authority",
-            "session-relay",
             "session-relay-orphans",
         ),
+    ),
+    (
+        _LOCAL_HTTPS,
+        ("session-relay",),
+    ),
+    (
+        _SELF,
+        ("retired-schema-resurrection",),
     ),
     (
         _EXT,
@@ -258,7 +271,8 @@ def source_checkout_slugs() -> frozenset[str]:
 def local_runtime_slugs() -> frozenset[str]:
     """Slugs that must execute on the operator's own machine."""
     return frozenset(
-        slug for slug, shape in DECLARATIONS.items()
+        slug
+        for slug, shape in DECLARATIONS.items()
         if shape.runtimes == _LOCAL.runtimes
     )
 

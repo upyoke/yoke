@@ -90,6 +90,9 @@ def render_human(report: Mapping[str, Any]) -> str:
             f"ok={db.get('ok')} "
             f"action={db.get('action') or '<none>'}"
         )
+    doctor = report.get("doctor")
+    if isinstance(doctor, Mapping) and doctor.get("summary"):
+        lines.append(f"  doctor: {doctor.get('summary')}")
     issues = list(report.get("issues") or [])
     if issues:
         lines.append("  issues:")

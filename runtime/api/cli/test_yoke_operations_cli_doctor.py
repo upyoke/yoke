@@ -65,6 +65,12 @@ def _record_project_check(conn, args, rec) -> None:
 
 
 class _Conn:
+    def execute(self, *_args, **_kwargs):
+        return self
+
+    def commit(self) -> None:
+        pass
+
     def close(self) -> None:
         pass
 

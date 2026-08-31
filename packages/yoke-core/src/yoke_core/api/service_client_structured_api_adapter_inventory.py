@@ -229,8 +229,8 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         function_id="doctor.last_run.get",
         cli_invocation="yoke doctor last-run get [--project P]",
         notes=(
-            "Reads the newest completed doctor run from the events journal; "
-            "doctor findings persist nowhere else."
+            "Reads the newest completed doctor run from doctor_runs; "
+            "the events journal is telemetry only."
         ),
     ),
     *WORKFLOW_ADAPTERS,

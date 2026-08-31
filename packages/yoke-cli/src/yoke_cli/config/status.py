@@ -1,17 +1,10 @@
-"""Product-wheel ``yoke status`` implementation.
-
-This product version validates machine config, project mapping, credentials,
-and the import surface available to the installed CLI. Local-Postgres admin
-envs are legitimate local-core authority: status reports whether the required
-source-dev runtime is present instead of treating those envs as refused.
-"""
+"""Product-wheel ``yoke status``: config, mapping, credentials, import surface."""
 
 from __future__ import annotations
 
 import importlib.util
 import os
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as metadata_version
+from importlib.metadata import PackageNotFoundError, version as metadata_version
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -21,25 +14,25 @@ from yoke_cli.config import (
     status_release_lineage,
     status_server,
 )
-from yoke_cli.config.status_credentials import (
-    credential_status as _credential_status,
-)
-from yoke_cli.config.status_environment import (
-    ambient_env_status,
-    permission_issues,
-)
+from yoke_cli.config.status_credentials import credential_status as _credential_status
+from yoke_cli.config.status_environment import ambient_env_status, permission_issues
 from yoke_cli.config.status_render import dumps_json, render_human
 from yoke_cli.config.status_runtime import (
     build_runtime_status,
     with_runtime_identity,
 )
+from yoke_cli.config.status_doctor import attach_doctor
 from yoke_cli.config.status_surface_policy import attach_live_marks
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.machine_config import schema as contract
 
 REQUIRED_IMPORTS = (
-    "yoke_cli", "yoke_contracts", "yoke_harness", "pydantic", "pyfiglet",
+    "yoke_cli",
+    "yoke_contracts",
+    "yoke_harness",
+    "pydantic",
+    "pyfiglet",
 )
 PRODUCT_RUNTIME_MODULES = {
     install_binding.CLI_DISTRIBUTION_NAME: "yoke_cli",
@@ -48,6 +41,7 @@ PRODUCT_RUNTIME_MODULES = {
     ENGINE_DISTRIBUTION_NAME: "yoke_core",
 }
 PRODUCT_RUNTIME_PACKAGES = tuple(PRODUCT_RUNTIME_MODULES)
+
 
 def build_status(
     *,
@@ -134,7 +128,9 @@ def build_status(
             "ambient_env": env,
         }
     )
-    return attach_live_marks(with_runtime_identity(report), selected_path)
+    return attach_doctor(
+        attach_live_marks(with_runtime_identity(report), selected_path)
+    )
 
 
 def _connection_status(
@@ -146,7 +142,9 @@ def _connection_status(
     issues: list[dict[str, str]] = []
     raw_connections = payload.get("connections")
     available = (
-        sorted(map(str, raw_connections)) if isinstance(raw_connections, Mapping) else []
+        sorted(map(str, raw_connections))
+        if isinstance(raw_connections, Mapping)
+        else []
     )
     connection: Mapping[str, Any] = {}
     try:
@@ -166,9 +164,7 @@ def _connection_status(
         "prod": _connection_prod_flag(connection),
         "api_url": connection.get("api_url") or "",
         "authority_kind": (
-            str(authority.get("kind") or "")
-            if isinstance(authority, Mapping)
-            else ""
+            str(authority.get("kind") or "") if isinstance(authority, Mapping) else ""
         ),
         "credential_source": credential,
         "client_authority": (
@@ -220,14 +216,10 @@ def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _package_version(name: str, *, source_bound: bool) -> str:
-    # A source-bound CLI is one coherent checkout, even when ambient wheel
-    # metadata exists. Keep every product version blank so status never mixes
-    # checkout code with unrelated installed distribution versions.
+    # Source-bound CLI: blank versions so checkout code is not mixed with wheels.
     if source_bound:
         return ""
-    # HTTPS product commands must not probe/import the engine. A packaged CLI
-    # establishes the isolated product tool environment, so distribution
-    # metadata is the correct presence/version surface for the unimported core.
+    # HTTPS product commands must not import the engine; use distribution metadata.
     if name == ENGINE_DISTRIBUTION_NAME:
         try:
             return metadata_version(name)
@@ -313,8 +305,10 @@ def _import_status(name: str) -> dict[str, Any]:
         spec = importlib.util.find_spec(name)
     except ImportError as exc:
         return {"available": False, "origin": "", "error": str(exc)}
-    return {"available": spec is not None,
-            "origin": spec.origin if spec and spec.origin else ""}
+    return {
+        "available": spec is not None,
+        "origin": spec.origin if spec and spec.origin else "",
+    }
 
 
 def _import_available(imports: Mapping[str, Any], name: str) -> bool:
@@ -336,9 +330,11 @@ def _report(
     issues: list[dict[str, str]],
 ) -> dict[str, Any]:
     report: dict[str, Any] = {
-        "ok": ok, "config_path": str(config_path),
+        "ok": ok,
+        "config_path": str(config_path),
         "repo_root": str(repo_root),
-        "install": install_binding.detect(), "issues": issues,
+        "install": install_binding.detect(),
+        "issues": issues,
     }
     lineage = status_release_lineage.detect(repo_root)
     if lineage is not None:

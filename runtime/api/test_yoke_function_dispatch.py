@@ -46,6 +46,12 @@ def _fake_failing_hc(conn, args, rec):
 
 
 class _Conn:
+    def execute(self, *_args, **_kwargs):
+        return self
+
+    def commit(self):
+        pass
+
     def close(self):
         pass
 

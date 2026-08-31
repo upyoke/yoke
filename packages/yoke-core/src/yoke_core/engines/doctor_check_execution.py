@@ -15,6 +15,9 @@ from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
+INTERNAL_ERROR_CHECK_ID = "HC-internal-error"
+
+
 def _rollback_if_supported(conn: Any) -> None:
     rollback = getattr(conn, "rollback", None)
     if callable(rollback):
@@ -37,35 +40,33 @@ def execute_check_isolated(
         _rollback_if_supported(conn)
     except Exception as exc:  # pragma: no cover - broken connection guard
         rec.record(
-            f"HC-{health_check.slug}",
+            INTERNAL_ERROR_CHECK_ID,
             health_check.name,
             "FAIL",
-            f"Internal error: could not isolate check transaction: {exc}",
+            f"Internal error isolating {health_check.slug}: {exc}",
         )
         return
 
     try:
         health_check.fn(conn, args, rec)
     except Exception as exc:
-        detail = f"Internal error: {exc}"
+        detail = f"Internal error in {health_check.slug}: {exc}"
         try:
             _rollback_if_supported(conn)
         except Exception as rollback_exc:  # pragma: no cover - broken connection guard
             detail += f"; transaction recovery also failed: {rollback_exc}"
-        rec.record(
-            f"HC-{health_check.slug}", health_check.name, "FAIL", detail,
-        )
+        rec.record(INTERNAL_ERROR_CHECK_ID, health_check.name, "FAIL", detail)
         return
 
     try:
         _rollback_if_supported(conn)
     except Exception as exc:  # pragma: no cover - broken connection guard
         rec.record(
-            f"HC-{health_check.slug}",
+            INTERNAL_ERROR_CHECK_ID,
             health_check.name,
             "FAIL",
-            f"Internal error: could not close check transaction: {exc}",
+            f"Internal error closing {health_check.slug}: {exc}",
         )
 
 
-__all__ = ["execute_check_isolated"]
+__all__ = ["INTERNAL_ERROR_CHECK_ID", "execute_check_isolated"]

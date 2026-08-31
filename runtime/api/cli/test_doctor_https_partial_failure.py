@@ -62,11 +62,13 @@ def test_failed_relay_local_scope_respects_applicability() -> None:
         patch(f"{module}.checkout_root_for_project", return_value=Path("/checkout")),
         patch(f"{module}.is_yoke_source_checkout", return_value=False),
     ):
-        runtime, source_tree = requested_local_machine_slugs({
-            "project": "external",
-            "only": "HC-local-fix,HC-source-check,HC-capability-check",
-            "fix": True,
-        })
+        runtime, source_tree = requested_local_machine_slugs(
+            {
+                "project": "external",
+                "only": "HC-local-fix,HC-source-check,HC-capability-check",
+                "fix": True,
+            }
+        )
 
     assert runtime == ["local-fix"]
     assert source_tree == ["source-check"]
@@ -91,12 +93,14 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
                 version="v1",
                 request_id="first",
                 result={
-                    "results": [{
-                        "hc": "HC-first",
-                        "name": "Completed remote check",
-                        "severity": "PASS",
-                        "detail": "",
-                    }],
+                    "results": [
+                        {
+                            "hc": "HC-first",
+                            "name": "Completed remote check",
+                            "severity": "PASS",
+                            "detail": "",
+                        }
+                    ],
                     "scope": "quick",
                     "project": "yoke",
                     "runtime": "hosted",
@@ -119,12 +123,14 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
             ),
         )
 
-    local = [{
-        "hc": "HC-session-relay-orphans",
-        "name": "Machine relay orphan sweep",
-        "severity": "PASS",
-        "detail": "removed one orphan",
-    }]
+    local = [
+        {
+            "hc": "HC-session-relay-orphans",
+            "name": "Machine relay orphan sweep",
+            "severity": "PASS",
+            "detail": "removed one orphan",
+        }
+    ]
     with (
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.prepare_https_only_payload",
@@ -150,6 +156,9 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
             "yoke_cli.commands.adapters.doctor_https_run.call_dispatcher",
             side_effect=_relay,
         ),
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
+        ) as persist,
         redirect_stdout(StringIO()) as stdout,
     ):
         rc = dispatch_chunked(
@@ -166,6 +175,7 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
         fix=True,
         slugs=["session-relay-orphans"],
     )
+    persist.assert_not_called()
     envelope = json.loads(stdout.getvalue())
     assert rc == 1
     assert envelope["success"] is False

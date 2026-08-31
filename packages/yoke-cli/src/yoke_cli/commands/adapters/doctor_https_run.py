@@ -17,6 +17,9 @@ from yoke_cli.commands._helpers import (
     call_dispatcher,
     emit_response,
 )
+from yoke_cli.commands.adapters.doctor_https_receipt import (
+    persist_composed_receipt,
+)
 
 
 _TRANSPORT_FAILURE_CODE = "https_transport_failed"
@@ -51,20 +54,24 @@ def dispatch_chunked(
     relay_payload, local_project_slugs = prepare_https_only_payload(payload)
     if not https_relay_needed(relay_payload):
         project = str(payload.get("project") or "")
+        local_result = local_project_only_result(
+            project=project,
+            slugs=local_project_slugs,
+            fix=bool(payload.get("fix")),
+            runtime=str(payload.get("runtime") or DESTINATION_LOCAL),
+        )
+        persist_composed_receipt(
+            local_result,
+            session_id=session_id,
+            timeout_s=timeout_s,
+        )
         return emit_response(
             FunctionCallResponse(
                 success=True,
                 function="doctor.run.run",
                 version="v1",
                 request_id="",
-                result=local_project_only_result(
-                    project=project,
-                    slugs=local_project_slugs,
-                    fix=bool(payload.get("fix")),
-                    runtime=str(
-                        payload.get("runtime") or DESTINATION_LOCAL
-                    ),
-                ),
+                result=local_result,
             ),
             json_mode=json_mode,
         )
@@ -150,6 +157,12 @@ def dispatch_chunked(
         event_ids=response.event_ids,
         warnings=response.warnings,
     )
+    if not relay_failed:
+        persist_composed_receipt(
+            result,
+            session_id=session_id,
+            timeout_s=timeout_s,
+        )
     return _emit_doctor_response(
         final,
         json_mode=json_mode,
@@ -259,23 +272,25 @@ def collect_chunked(
         event_ids.extend(response.event_ids)
         warnings.extend(response.warnings)
         if not response.success:
-            return response.model_copy(update={
-                "result": {
-                    "results": results,
-                    "scope": final_scope or _scope_label(payload),
-                    "project": final_project,
-                    "runtime": final_runtime,
-                    "fail_count": fail_count,
-                    "warn_count": warn_count,
-                    "pass_count": pass_count,
-                    "na_count": na_count,
-                    "done": False,
-                    "cursor": cursor,
-                    "completed_control_plane_batches": completed_batches,
-                },
-                "event_ids": event_ids,
-                "warnings": warnings,
-            })
+            return response.model_copy(
+                update={
+                    "result": {
+                        "results": results,
+                        "scope": final_scope or _scope_label(payload),
+                        "project": final_project,
+                        "runtime": final_runtime,
+                        "fail_count": fail_count,
+                        "warn_count": warn_count,
+                        "pass_count": pass_count,
+                        "na_count": na_count,
+                        "done": False,
+                        "cursor": cursor,
+                        "completed_control_plane_batches": completed_batches,
+                    },
+                    "event_ids": event_ids,
+                    "warnings": warnings,
+                }
+            )
 
         result = response.result or {}
         results.extend(result.get("results") or [])
@@ -296,9 +311,7 @@ def collect_chunked(
                     "success": False,
                     "error": FunctionError(
                         code="doctor_cursor_stalled",
-                        message=(
-                            "doctor chunk response did not advance its cursor"
-                        ),
+                        message=("doctor chunk response did not advance its cursor"),
                     ),
                 }
             )

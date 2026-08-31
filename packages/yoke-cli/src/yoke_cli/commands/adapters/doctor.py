@@ -4,7 +4,7 @@
 scope flag (``--quick`` | ``--full`` | ``--only NAMES``) is required;
 the explicit-scope rule mirrors the human CLI and is enforced
 server-side. ``doctor.last_run.get`` serves the most recent completed
-run recorded in the events journal without re-running any checks.
+run recorded in ``doctor_runs`` without re-running any checks.
 """
 
 from __future__ import annotations
@@ -33,8 +33,10 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "doctor_run", "DOCTOR_RUN_USAGE",
-    "doctor_last_run_get", "DOCTOR_LAST_RUN_GET_USAGE",
+    "doctor_run",
+    "DOCTOR_RUN_USAGE",
+    "doctor_last_run_get",
+    "DOCTOR_LAST_RUN_GET_USAGE",
 ]
 
 
@@ -57,7 +59,8 @@ def doctor_last_run_get(args: List[str]) -> int:
         description=DOCTOR_LAST_RUN_GET_USAGE,
     )
     parser.add_argument(
-        "--project", default=None,
+        "--project",
+        default=None,
         help="Serve only a run recorded for this project (slug or id).",
     )
     add_session_arg(parser)
@@ -72,32 +75,40 @@ def doctor_last_run_get(args: List[str]) -> int:
         function_id="doctor.last_run.get",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
 def doctor_run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke doctor run", description=DOCTOR_RUN_USAGE,
+        prog="yoke doctor run",
+        description=DOCTOR_RUN_USAGE,
     )
     scope = parser.add_mutually_exclusive_group(required=True)
-    scope.add_argument("--quick", action="store_true",
-                       help="Quick scope: sampled critical HCs.")
-    scope.add_argument("--full", action="store_true",
-                       help="Full scope: every registered HC.")
-    scope.add_argument("--only", default=None,
-                       help="Comma-separated HC slugs (subset).")
-    parser.add_argument("--fix", action="store_true",
-                        help="Apply auto-fixes where supported.")
+    scope.add_argument(
+        "--quick", action="store_true", help="Quick scope: sampled critical HCs."
+    )
+    scope.add_argument(
+        "--full", action="store_true", help="Full scope: every registered HC."
+    )
+    scope.add_argument(
+        "--only", default=None, help="Comma-separated HC slugs (subset)."
+    )
     parser.add_argument(
-        "--project", default=None,
+        "--fix", action="store_true", help="Apply auto-fixes where supported."
+    )
+    parser.add_argument(
+        "--project",
+        default=None,
         help=(
             "Project to run against. Defaults to the project bound to the "
             "checkout you are standing in."
         ),
     )
-    parser.add_argument("--db-path", dest="db_path", default=None,
-                        help="Optional DB path override.")
+    parser.add_argument(
+        "--db-path", dest="db_path", default=None, help="Optional DB path override."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DOCTOR_RUN_USAGE)
@@ -129,7 +140,8 @@ def doctor_run(args: List[str]) -> int:
         function_id="doctor.run.run",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         timeout_s=DOCTOR_RUN_READ_TIMEOUT_S,
     )
 

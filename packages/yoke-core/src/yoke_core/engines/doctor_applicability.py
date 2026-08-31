@@ -65,9 +65,13 @@ CHECKOUT_BEARING_RUNTIMES = frozenset({RUNTIME_LOCAL})
 PROJECT_SCOPE_ANY = "any"
 PROJECT_SCOPE_SELF = "self"
 PROJECT_SCOPE_EXTERNAL = "external"
-PROJECT_SCOPES = frozenset({
-    PROJECT_SCOPE_ANY, PROJECT_SCOPE_SELF, PROJECT_SCOPE_EXTERNAL,
-})
+PROJECT_SCOPES = frozenset(
+    {
+        PROJECT_SCOPE_ANY,
+        PROJECT_SCOPE_SELF,
+        PROJECT_SCOPE_EXTERNAL,
+    }
+)
 
 #: Result severity for a check the live context puts out of scope. Distinct
 #: from PASS (the check ran and found nothing) and from omission (the check
@@ -83,6 +87,7 @@ class CheckApplicability:
     requires_source_checkout: bool = False
     runtimes: frozenset = RUNTIMES
     required_capabilities: tuple = ()
+    requires_https_control_plane: bool = False
 
     def __post_init__(self) -> None:
         if self.project_scope not in PROJECT_SCOPES:
@@ -119,6 +124,7 @@ class DoctorContext:
     self_project_names: frozenset = field(default_factory=frozenset)
     source_checkout: Optional[Path] = None
     capabilities: frozenset = field(default_factory=frozenset)
+    https_control_plane: bool = False
 
     @property
     def targets_self_project(self) -> bool:
@@ -130,7 +136,8 @@ class DoctorContext:
 
 
 def not_applicable_reason(
-    applicability: CheckApplicability, context: DoctorContext,
+    applicability: CheckApplicability,
+    context: DoctorContext,
 ) -> Optional[str]:
     """Why *applicability* is out of scope for *context*, or ``None``.
 
@@ -142,6 +149,11 @@ def not_applicable_reason(
         return (
             f"declared for the {_join(sorted(applicability.runtimes))} "
             f"runtime; this run is {context.runtime}"
+        )
+
+    if applicability.requires_https_control_plane and not context.https_control_plane:
+        return (
+            "needs an HTTPS control-plane connection; this run is local-postgres only"
         )
 
     if applicability.project_scope == PROJECT_SCOPE_SELF:
@@ -170,7 +182,8 @@ def not_applicable_reason(
         )
 
     missing = [
-        capability for capability in applicability.required_capabilities
+        capability
+        for capability in applicability.required_capabilities
         if capability not in context.capabilities
     ]
     if missing:

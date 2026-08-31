@@ -149,7 +149,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "organizations",
         "actor_org_roles",
     ),
-    "qa": ("qa_requirements", "qa_runs"),
+    "qa": ("qa_requirements", "qa_runs", "doctor_runs"),
     "packs": (
         "pack_catalog",
         "project_pack_reports",
@@ -198,5 +198,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # recipe: waiting on a commit's CI runs is a long command agents otherwise
 # poll by hand, and a hand-authored filter fails silently, so the recipe has
 # to reach every role that waits on CI rather than living in help text alone.
-PACKET_LINE_BUDGET_PER_ROLE: int = 425
-PACKET_LINE_BUDGET_AGGREGATE: int = 2630
+# The qa topic also names doctor_runs so last_run and status readers do not
+# reconstruct receipts from the events journal.
+PACKET_LINE_BUDGET_PER_ROLE: int = 427
+PACKET_LINE_BUDGET_AGGREGATE: int = 2638

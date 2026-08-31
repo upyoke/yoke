@@ -1,9 +1,8 @@
 """``doctor.last_run.get`` read handler: the most recent Doctor report.
 
-Doctor results persist only as the ``YokeFunctionCalled`` journal
-envelope of the ``doctor.run.run`` call; the scan, completeness rule
-(``done: true`` only), and shrink-truncation honesty live in
-:mod:`yoke_core.domain.last_doctor_run_read`.
+Receipts live in ``doctor_runs``. The scan lives in
+:mod:`yoke_core.domain.last_doctor_run_read` and never reads the events
+journal.
 """
 
 from __future__ import annotations
