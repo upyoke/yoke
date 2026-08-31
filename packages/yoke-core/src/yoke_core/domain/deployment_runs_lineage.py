@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
-from yoke_core.domain.deployment_runs_schema import _RUN_SELECT, _pipe_rows
+from yoke_core.domain.deployment_runs_schema import _pipe_rows, _run_select
 
 
 def cmd_lineage(run_id: str, db_path: Optional[str] = None) -> Optional[str]:
@@ -28,7 +28,7 @@ def cmd_lineage(run_id: str, db_path: Optional[str] = None) -> Optional[str]:
 
         rows = query_rows(
             conn,
-            f"SELECT {_RUN_SELECT} FROM deployment_runs WHERE release_lineage=%s ORDER BY created_at ASC",
+            f"SELECT {_run_select(conn)} FROM deployment_runs WHERE release_lineage=%s ORDER BY created_at ASC",
             (lineage,),
         )
         return _pipe_rows(rows)

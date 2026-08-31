@@ -7,6 +7,7 @@ from typing import Any, Optional
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+from yoke_core.domain.deployment_runs_schema import _run_named_columns
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.workflows_definition_read import _stage_names
 
@@ -117,16 +118,13 @@ def list_deployment_runs(
             clauses.append("dr.status = %s")
             params.append(status)
         where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
+        run_columns, env_join = _run_named_columns(conn)
         rows = conn.execute(
-            "SELECT dr.id, p.slug AS project, dr.flow, dr.target_tier, "
-            "e.name AS target_environment, "
-            "dr.release_lineage, dr.status, dr.current_stage, dr.created_at, "
-            "dr.started_at, dr.completed_at, dr.created_by, dr.carried_work, "
-            "df.stages "
+            f"SELECT {run_columns}, df.stages "
             "FROM deployment_runs dr "
             "JOIN projects p ON p.id = dr.project_id "
             "JOIN deployment_flows df ON df.id = dr.flow "
-            "LEFT JOIN environments e ON e.id = dr.target_environment_id "
+            f"{env_join} "
             f"{where}"
             "ORDER BY dr.created_at DESC, dr.id DESC LIMIT %s",
             (*params, limit),
