@@ -1,14 +1,13 @@
-"""Registered handler for reading one steering scope's fleet report on demand.
+"""Registered handler for the steering fleet report on demand.
 
 The report normally arrives on its own — appended to the messages a steering
-session already receives. This is the pull form for a steerer who wants the
-current picture between wakes, and it composes the identical report so the two
-can never disagree.
+session already receives. This is the pull form. Omit a project to compose
+every live steering claim this session holds; pass one to keep a single scope.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -21,16 +20,17 @@ from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 
 
 class SteeringReportGetRequest(BaseModel):
-    """Read the fleet report for the project this caller steers."""
+    """Read the fleet report for the scopes this caller steers."""
 
 
 class SteeringReportGetResponse(BaseModel):
-    project_id: int
-    composed_at: str
-    staffing_after_seconds: int
-    idle_after_seconds: int
-    actionable: bool
-    fingerprint: str
+    composed_at: str = ""
+    staffing_after_seconds: int = 0
+    idle_after_seconds: int = 0
+    actionable: bool = False
+    fingerprint: str = ""
+    body: str = ""
+    project_id: Optional[int] = None
     available: List[Dict[str, Any]] = Field(default_factory=list)
     waited_too_long: List[Dict[str, Any]] = Field(default_factory=list)
     holders: List[Dict[str, Any]] = Field(default_factory=list)
@@ -40,7 +40,7 @@ class SteeringReportGetResponse(BaseModel):
     landed_open: List[Dict[str, Any]] = Field(default_factory=list)
     dead_waits: List[Dict[str, Any]] = Field(default_factory=list)
     launchable: List[Dict[str, Any]] = Field(default_factory=list)
-    body: str = ""
+    scopes: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 def _error(code: str, message: str, jsonpath: str = "$.payload") -> HandlerOutcome:
@@ -50,27 +50,36 @@ def _error(code: str, message: str, jsonpath: str = "$.payload") -> HandlerOutco
     )
 
 
-def _authorized_project_id(request: FunctionCallRequest) -> int | None:
+def _requested_project_ref(request: FunctionCallRequest) -> Any:
     raw = (request.options or {}).get("authorized_project_id")
-    try:
-        return int(raw) if raw is not None else None
-    except (TypeError, ValueError):
-        return None
+    if raw is not None:
+        return raw
+    target = request.target
+    if target is not None and target.project_id not in (None, ""):
+        return target.project_id
+    payload = request.payload or {}
+    return payload.get("project_id") or payload.get("project")
+
+
+def _claim_required(project_id: int | None) -> HandlerOutcome:
+    if project_id is None:
+        hint = f"--project P --doc {DEFAULT_STEERING_DOC_SLUG}"
+    else:
+        hint = f"--project {project_id} --doc {DEFAULT_STEERING_DOC_SLUG}"
+    return _error(
+        "steering_claim_required",
+        "the fleet report reads from the live steering claim holder; "
+        f"acquire it with `yoke claims steering acquire {hint}`",
+        "$.actor.session_id",
+    )
 
 
 def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
-    """Compose this scope's report, or explain why the caller cannot read it."""
+    """Compose held-scope reports, or one scope when --project is set."""
     try:
         SteeringReportGetRequest.model_validate(request.payload or {})
     except ValidationError as exc:
         return _error("payload_invalid", f"report payload invalid: {exc}")
-    project_id = _authorized_project_id(request)
-    if project_id is None:
-        return _error(
-            "project_context_required",
-            "steering report get requires --project <slug-or-id>",
-            "$.target.project_id",
-        )
     session_id = request.actor.session_id
     if not session_id:
         return _error(
@@ -80,48 +89,42 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.project_settings import get_project_int_for_id
-    from yoke_core.domain.steering_fleet_report import compose_report
-    from yoke_core.domain.steering_claims import list_claims
+    from yoke_core.domain.project_identity import resolve_project_id
+    from yoke_core.domain.session_launch_store import utc_now
+    from yoke_core.domain.steering_fleet_report_compose import (
+        combined_dict,
+        compose_held_reports,
+    )
     from yoke_core.domain.steering_fleet_report_render import (
         report_body,
         report_dict,
     )
-    from yoke_core.domain.session_launch_store import utc_now
 
     conn = connect()
     try:
-        claims = list_claims(
+        ref = _requested_project_ref(request)
+        project_id: int | None = None
+        if ref is not None:
+            try:
+                project_id = resolve_project_id(conn, ref)
+            except LookupError as exc:
+                return _error("not_found", str(exc))
+        combined = compose_held_reports(
             conn,
-            project_id=project_id,
             session_id=session_id,
-            active_only=True,
-        )
-        if not claims:
-            return _error(
-                "steering_claim_required",
-                "the fleet report reads from the live steering claim holder; "
-                f"acquire it with `yoke claims steering acquire --project "
-                f"{project_id} --doc {DEFAULT_STEERING_DOC_SLUG}`",
-                "$.actor.session_id",
-            )
-        report = compose_report(
-            conn,
-            project_id=project_id,
-            session_id=session_id,
-            staffing_after_seconds=60
-            * get_project_int_for_id(project_id, "steering_report_staffing_minutes"),
-            idle_after_seconds=60
-            * get_project_int_for_id(project_id, "steering_report_idle_minutes"),
             now=utc_now(),
+            project_id=project_id,
         )
-    except LookupError as exc:
-        return _error("not_found", str(exc))
+        if not combined.sections:
+            return _claim_required(project_id)
+        if project_id is not None:
+            report = combined.sections[0].report
+            return HandlerOutcome(
+                result_payload={**report_dict(report), "body": report_body(report)}
+            )
+        return HandlerOutcome(result_payload=combined_dict(combined))
     finally:
         conn.close()
-    return HandlerOutcome(
-        result_payload={**report_dict(report), "body": report_body(report)}
-    )
 
 
 __all__ = [

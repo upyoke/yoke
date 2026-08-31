@@ -34,13 +34,16 @@ class _KeepOpenConnection:
         pass
 
 
-def _request(project_id: int) -> FunctionCallRequest:
+def _request(project_id: int | None = None) -> FunctionCallRequest:
+    options = {}
+    if project_id is not None:
+        options["authorized_project_id"] = project_id
     return FunctionCallRequest(
         function="steering.report.get",
         actor=ActorContext(actor_id="2", session_id=SESSION_ALPHA),
         target=TargetRef(kind="global"),
         payload={},
-        options={"authorized_project_id": project_id},
+        options=options,
     )
 
 
@@ -112,3 +115,34 @@ def test_report_refuses_without_the_requested_project_claim(
         f"yoke claims steering acquire --project {PROJECT_BETA} "
         f"--doc {DEFAULT_STEERING_DOC_SLUG}" in outcome.error.message
     )
+
+
+def test_omitting_project_composes_every_held_scope(test_db, monkeypatch) -> None:
+    seed_standard_steering_world(test_db)
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA)
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_BETA)
+    _patch_report_dependencies(monkeypatch, test_db)
+
+    outcome = handle_get(_request())
+
+    assert outcome.primary_success
+    descriptors = [scope["descriptor"] for scope in outcome.result_payload["scopes"]]
+    assert descriptors == ["alpha", "beta"]
+    assert "## alpha" in outcome.result_payload["body"]
+    assert "## beta" in outcome.result_payload["body"]
+    assert "project_id" not in outcome.result_payload
+
+
+def test_explicit_project_keeps_the_single_scope_payload(test_db, monkeypatch) -> None:
+    seed_standard_steering_world(test_db)
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA)
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_BETA)
+    _patch_report_dependencies(monkeypatch, test_db)
+
+    outcome = handle_get(_request(PROJECT_ALPHA))
+
+    assert outcome.primary_success
+    assert outcome.result_payload["project_id"] == PROJECT_ALPHA
+    assert "scopes" not in outcome.result_payload

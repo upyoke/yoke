@@ -73,10 +73,12 @@ CLAIMS_COMMANDS: list[dict] = [
             "with substantive updates only "
             "(never progress ticks — the send path refuses those as "
             "`body_not_substantive`), and the fleet report arrives appended "
-            "to the messages this session receives — available work first, "
+            "to the messages this session receives — one combined report "
+            "covering every live steering claim, available work first, "
             "then idle holders, starved delivery, unregistered launches, "
             "items landed without close-out, and dead waits; pull it between "
-            "wakes with `yoke steering report get --project P`."
+            "wakes with `yoke steering report get` (optional `--project P` "
+            "keeps a single scope)."
         ),
     },
     {

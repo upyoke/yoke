@@ -73,7 +73,7 @@ stream emits worker messages, alarms, abnormal session ends, blocked item
 transitions, read failures, and one marker for a changed rate-limited report.
 Healthy item transitions, claim churn, registrations, clean ends, and alarm
 clears stay silent at delta time and surface through the next report. Pull its
-full body with `yoke steering report get --project P`.
+full body with `yoke steering report get`.
 
 examples:
   yoke watch fleet -- --project yoke

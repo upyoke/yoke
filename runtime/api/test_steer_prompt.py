@@ -221,7 +221,7 @@ class TestSteerSkillContract:
     def test_steering_seat_is_the_only_staffing_path(self):
         loop = _read(_STEER_DIR / "loop.md")
         assert "unclaimed" in loop
-        assert "yoke steering report get --project" in loop
+        assert "yoke steering report get" in loop
         assert "this seat's to staff; nothing else" in loop
         lifecycle = _read(_STEER_DIR / "worker-lifecycle.md")
         assert "There is no second staffing" in lifecycle
@@ -327,6 +327,7 @@ class TestSteerDiscoveryAndPacket:
         assert "offer to create if absent" in notes
         assert "--doc SLUG" in notes
         assert "Acquire atomically" in notes
-        assert "yoke steering report get --project P" in notes
+        assert "yoke steering report get" in notes
+        assert "optional `--project P`" in notes
         assert "never `/yoke do`" in notes
         assert "yoke say --item PREFIX-N --stdin" in notes

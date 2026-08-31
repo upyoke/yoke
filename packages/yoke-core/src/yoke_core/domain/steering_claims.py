@@ -205,4 +205,25 @@ def list_claims(
     return [_claim_payload(row) for row in rows]
 
 
-__all__ = ["acquire", "list_claims", "lock_project"]
+def list_session_claims(
+    conn: Any,
+    *,
+    session_id: str,
+    active_only: bool = True,
+) -> list[dict[str, Any]]:
+    """List this session's steering claims across every held scope."""
+    p = _p(conn)
+    clauses = [f"target_kind = {p}", f"session_id = {p}"]
+    params: list[Any] = [TARGET_KIND_STEERING, str(session_id)]
+    if active_only:
+        clauses.append("released_at IS NULL")
+    rows = conn.execute(
+        "SELECT * FROM work_claims WHERE "
+        + " AND ".join(clauses)
+        + " ORDER BY claimed_at ASC, id ASC",
+        tuple(params),
+    ).fetchall()
+    return [_claim_payload(row) for row in rows]
+
+
+__all__ = ["acquire", "list_claims", "list_session_claims", "lock_project"]

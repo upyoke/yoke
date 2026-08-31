@@ -14,37 +14,34 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 
-STEERING_REPORT_GET_USAGE = "yoke steering report get --project P [--json]"
+STEERING_REPORT_GET_USAGE = "yoke steering report get [--project P] [--json]"
 
 STEERING_REPORT_GET_DESCRIPTION = """\
-Read this steering scope's fleet report.
+Read the fleet report for every steering scope this session holds.
+
+Omit --project to compose one report covering each live steering claim, with
+a section named by that claim's scope descriptor (today, the project slug).
+Pass --project to keep single-scope behavior. The same combined report rides
+the messages this session already receives.
 
 The report names what a steering session cannot see from inside its own turn.
 It leads with available work -- everything runnable and unclaimed, each row
 marked `new` (never started) or `stopped` (owner released) and flagged `!`
 once it has waited past the staffing threshold -- and then names the failures
-that arrive as silence: claim holders that have gone quiet, envelopes the
-delivery plane never injected, launches past their deadline that never
-registered a session, branches that landed while their item stayed open, and
-idle holders waiting on an answer that cannot arrive. It closes with the
-machine/surface pairs a launch could actually reach. It reports; it never
-staffs. A detector with nothing to say prints nothing.
+that arrive as silence. It reports; it never staffs. Scopes with actionable
+rows sort first. A detector with nothing to say prints nothing.
 
-Runs from the live steering claim holder. The same report is appended to the
-messages that session receives, so this command is the pull form of what
-already arrives on its own -- reach for it when you want the picture between
-wakes.
-
-Three `project-policy` keys tune it. `steering_report_staffing_minutes`
+Three `project-policy` keys tune each scope. `steering_report_staffing_minutes`
 (default 5) is how long runnable unclaimed work may sit before the report
 marks it overdue. `steering_report_idle_minutes` (default 20) is how long a
-claim holder stays quiet before the report presumes it stuck -- a separate
-judgment from the staffing one, not the same number twice. And
+claim holder stays quiet before the report presumes it stuck. And
 `steering_report_interval_minutes` (default 2) is the shortest gap between
-reports appended to one session's messages.
+reports appended to one session; one combined report per interval, attached
+when any held scope changed or needs a decision.
 
+  yoke steering report get
   yoke steering report get --project yoke
-  yoke steering report get --project yoke --json
+  yoke steering report get --json
 """
 
 
@@ -61,16 +58,21 @@ def steering_report_get(args: List[str]) -> int:
         description=STEERING_REPORT_GET_DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Optional filter: one held scope (slug or id). Omit to compose all.",
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_REPORT_GET_USAGE)
     if parsed is None:
         return 2
+    explicit = (parsed.project or "").strip() or None
     return dispatch_and_emit(
         function_id="steering.report.get",
         target=TargetRef(
             kind="global",
-            project_id=client_project_context(parsed.project),
+            project_id=client_project_context(explicit) if explicit else None,
         ),
         payload={},
         session_id=None,

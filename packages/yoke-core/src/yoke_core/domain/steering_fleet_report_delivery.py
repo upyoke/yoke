@@ -22,17 +22,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from yoke_contracts.project_contract.project_keys import (
-    DEFAULT_STEERING_REPORT_IDLE_MINUTES,
     DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
-    DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_policy_capabilities import project_policy_value
-from yoke_core.domain.steering_fleet_report import compose_report
-from yoke_core.domain.steering_fleet_report_render import report_body
-from yoke_core.domain.work_claim_targets import (
-    TARGET_KIND_STEERING,
-    scope_int_sql,
+from yoke_core.domain.steering_claims import list_session_claims
+from yoke_core.domain.steering_fleet_report_compose import (
+    combined_body,
+    compose_held_reports,
 )
 
 
@@ -52,19 +49,9 @@ def _policy_minutes(conn: Any, project_id: int, key: str, default: int) -> int:
 
 
 def steered_project_id(conn: Any, session_id: str) -> int | None:
-    """The project whose live steering claim this session holds, if any."""
-    project_id = scope_int_sql(conn, "c.scope", "project_id")
-    row = conn.execute(
-        f"""SELECT {project_id} AS project_id
-              FROM work_claims c
-             WHERE c.session_id = {_p(conn)}
-               AND c.target_kind = {_p(conn)}
-               AND c.released_at IS NULL
-             ORDER BY c.id ASC
-             LIMIT 1""",
-        (session_id, TARGET_KIND_STEERING),
-    ).fetchone()
-    return int(dict(row)["project_id"]) if row is not None else None
+    """A project_id from this session's live steering claims, if any."""
+    held = _held_project_ids(conn, session_id)
+    return held[0] if held else None
 
 
 def _last_report(conn: Any, session_id: str) -> tuple[str, str]:
@@ -113,6 +100,16 @@ def _claim_interval(
     return cursor.rowcount == 1
 
 
+def _held_project_ids(conn: Any, session_id: str) -> tuple[int, ...]:
+    ids: list[int] = []
+    for claim in list_session_claims(conn, session_id=session_id, active_only=True):
+        raw = dict(claim.get("scope") or {}).get("project_id")
+        if raw is None:
+            continue
+        ids.append(int(raw))
+    return tuple(ids)
+
+
 def steering_report_for_delivery(
     conn: Any,
     *,
@@ -124,44 +121,33 @@ def steering_report_for_delivery(
     Returns ``None`` for every session that is not steering, for a steering
     session still inside its report interval, and for a report whose content
     neither needs a decision nor differs from the one that session last saw.
+    The attached body covers every scope the session holds.
     """
-    project_id = steered_project_id(conn, session_id)
-    if project_id is None:
+    project_ids = _held_project_ids(conn, session_id)
+    if not project_ids:
         return None
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    interval = _policy_minutes(
-        conn,
-        project_id,
-        "steering_report_interval_minutes",
-        DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
+    interval = min(
+        _policy_minutes(
+            conn,
+            project_id,
+            "steering_report_interval_minutes",
+            DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
+        )
+        for project_id in project_ids
     )
     not_after = _stamp(current - timedelta(minutes=interval))
     last_at, last_fingerprint = _last_report(conn, session_id)
     if last_at and last_at > not_after:
         return None
 
-    report = compose_report(
+    combined = compose_held_reports(
         conn,
-        project_id=project_id,
         session_id=session_id,
-        staffing_after_seconds=60
-        * _policy_minutes(
-            conn,
-            project_id,
-            "steering_report_staffing_minutes",
-            DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
-        ),
-        idle_after_seconds=60
-        * _policy_minutes(
-            conn,
-            project_id,
-            "steering_report_idle_minutes",
-            DEFAULT_STEERING_REPORT_IDLE_MINUTES,
-        ),
         now=_stamp(current),
     )
-    fingerprint = report.fingerprint()
-    if not report.actionable and fingerprint == last_fingerprint:
+    fingerprint = combined.fingerprint()
+    if not combined.actionable and fingerprint == last_fingerprint:
         # Nothing to act on and nothing new to see. Still take the interval so
         # the next delivery does not pay for the same composition again.
         _claim_interval(
@@ -180,7 +166,7 @@ def steering_report_for_delivery(
         fingerprint=fingerprint,
     ):
         return None
-    return report_body(report)
+    return combined_body(combined)
 
 
 __all__ = ["steered_project_id", "steering_report_for_delivery"]

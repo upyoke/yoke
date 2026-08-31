@@ -163,3 +163,69 @@ def test_changed_content_reports_again_after_the_interval(steering_scope):
 
     assert body is not None
     assert "YOK-2" in body
+
+
+QUIET_PROJECT_ID = 2
+
+
+def _hold_second_scope(conn) -> None:
+    seed_default_docs(conn, QUIET_PROJECT_ID, "ExternalWebapp")
+    acquire_steering(
+        conn,
+        session_id=STEERING_SESSION,
+        project_id=QUIET_PROJECT_ID,
+        reason="steering",
+    )
+
+
+def test_a_quiet_scope_overdue_row_rides_any_wake(steering_scope):
+    steering_scope.execute("DELETE FROM items WHERE id = 1")
+    steering_scope.commit()
+    _hold_second_scope(steering_scope)
+    insert_item(
+        steering_scope,
+        id=59,
+        title="Aging quiet work",
+        status="idea",
+        created_at=LONG_AGO,
+        updated_at=LONG_AGO,
+        project_id=QUIET_PROJECT_ID,
+        spec="# Aging quiet work\n\nA real spec body.",
+    )
+
+    body = steering_report_for_delivery(
+        steering_scope, session_id=STEERING_SESSION, now=NOW
+    )
+
+    assert body is not None
+    assert "## externalwebapp" in body
+    assert "Aging quiet work" in body
+    assert "!" in body
+
+
+def test_a_change_in_either_held_scope_reports_again(steering_scope):
+    _hold_second_scope(steering_scope)
+    assert steering_report_for_delivery(
+        steering_scope, session_id=STEERING_SESSION, now=NOW
+    )
+
+    insert_item(
+        steering_scope,
+        id=59,
+        title="Quiet-scope change",
+        status="idea",
+        created_at=LONG_AGO,
+        updated_at=LONG_AGO,
+        project_id=QUIET_PROJECT_ID,
+        spec="# Quiet-scope change\n\nA real spec body.",
+    )
+
+    body = steering_report_for_delivery(
+        steering_scope,
+        session_id=STEERING_SESSION,
+        now=NOW + timedelta(minutes=30),
+    )
+
+    assert body is not None
+    assert "## externalwebapp" in body
+    assert "Quiet-scope change" in body
