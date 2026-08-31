@@ -161,7 +161,7 @@ def _wire_close_out(monkeypatch, *, pr_files) -> dict:
     monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda _item: None)
     monkeypatch.setattr(
         close_out_mod, "observe_batch",
-        lambda _ctx, *, pr_num, member_snapshot: (None, None),
+        lambda _ctx, *, pr_num, member_snapshot, drift_check=None: (None, None),
     )
     monkeypatch.setattr(
         close_out_mod, "read_pr_changed_files", lambda _ctx, _pr: pr_files

@@ -173,7 +173,10 @@ def wire_happy_path(
     )
     monkeypatch.setattr(
         close_out_mod, "observe_batch",
-        lambda _ctx, *, pr_num, member_snapshot: (receipt, None),
+        lambda _ctx, *, pr_num, member_snapshot, drift_check=None: (
+            receipt,
+            None,
+        ),
     )
     monkeypatch.setattr(
         close_out_mod, "record_batch_evidence",
