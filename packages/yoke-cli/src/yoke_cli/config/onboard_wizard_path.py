@@ -28,12 +28,14 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     _post_install: bool
     _history: list["_View"]
+    _path_apply_now: bool
     result: Any
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
     def _render_current(self) -> None: ...
     def _start_connect(self) -> None: ...
+    def _apply_path_now(self) -> bool: ...
 
 
 INSTALL_ROWS = [
@@ -151,11 +153,20 @@ def path_diagnosis_body(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
     return widgets
 
 
-def path_preview_body(plan: dict[str, Any]) -> list[Static]:
-    widgets = _heading(
-        f"What {_BRAND} will write after you choose Apply.",
-        "Review repeats these exact files and reasons before anything is written.",
-    )
+def path_preview_body(plan: dict[str, Any], *, apply_now: bool = False) -> list[Static]:
+    if apply_now:
+        title = f"Review the shell files {_BRAND} will write now."
+        subtitle = "Apply updates login and non-login/SSH shells before the next step."
+        apply_row = SelectionRow("apply", "Apply", "write both shell files now")
+    else:
+        title = f"What {_BRAND} will write after you choose Apply."
+        subtitle = (
+            "Review repeats these exact files and reasons before anything is written."
+        )
+        apply_row = SelectionRow(
+            "apply", "Add it to Review", "Apply writes the files later"
+        )
+    widgets = _heading(title, subtitle)
     for line in path_repair_plan.description_lines(plan):
         widgets.append(Static(f"  • {escape(line)}", classes="onboard-plan-line"))
     widgets.append(Static("", classes="onboard-spacer"))
@@ -165,10 +176,27 @@ def path_preview_body(plan: dict[str, Any]) -> list[Static]:
     )
     widgets.append(Static("", classes="onboard-spacer"))
     rows = [
-        SelectionRow("apply", "Add it to Review", "Apply writes the files later"),
+        apply_row,
         SelectionRow("different", "Back", "return to the PATH summary"),
     ]
     widgets.extend(selection_body("", "", rows))
+    return widgets
+
+
+def path_apply_error_body(message: str) -> list[Static]:
+    widgets = _heading(
+        "PATH files were written, but a shell probe failed.",
+        "yoke is not yet resolvable in a new login or SSH shell.",
+    )
+    widgets.append(Static(escape(message), classes="onboard-plan-line"))
+    widgets.append(Static("", classes="onboard-spacer"))
+    widgets.append(
+        Static(
+            "Recovery: rerun `yoke path fix`, then open a new terminal "
+            "or `ssh host 'command -v yoke'`.",
+            classes="onboard-note",
+        )
+    )
     return widgets
 
 
@@ -211,7 +239,7 @@ class PathFlow:
 
     def _on_path_diagnosis(self: _Shell, choice: str) -> None:
         if choice == "fix":
-            self._start_connect()
+            self._goto_path_preview(apply_now=True)
             return
         if choice == "preview":
             self._goto_path_preview()
@@ -219,24 +247,68 @@ class PathFlow:
         # An all-clear diagnosis has only "continue".
         self._start_connect()
 
-    def _goto_path_preview(self: _Shell) -> None:
+    def _goto_path_preview(self: _Shell, apply_now: bool = False) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
         plan = self.result.path_repair or path_repair_plan.build(path_doctor.diagnose())
         self.result.path_repair = plan
+        self._path_apply_now = apply_now
 
         def builder() -> list[Static]:
-            return path_preview_body(plan)
+            return path_preview_body(plan, apply_now=apply_now)
 
         self._goto(_View(STEP_INSTALL, builder, self._on_path_preview))
 
     def _on_path_preview(self: _Shell, choice: str) -> None:
         if choice == "apply":
+            if getattr(self, "_path_apply_now", False) and not self._apply_path_now():
+                return
             self._start_connect()
             return
         if choice == "different":
             self._return_to_path_diagnosis()
             return
+
+    def _apply_path_now(self: _Shell) -> bool:
+        from yoke_cli.config import onboard_apply_path
+
+        plan = self.result.path_repair
+        if not plan:
+            return True
+        report: dict[str, Any] = {}
+        try:
+            onboard_apply_path.apply(plan, progress=None, report=report)
+        except OSError as exc:
+            self._goto_path_apply_error(
+                f"Could not write the shell files ({exc}). "
+                "Check permissions, then Apply again or run `yoke path fix`."
+            )
+            return False
+        outcome = report.get("path_repair") or {}
+        self.result.path_repair = {**plan, **outcome}
+        if outcome.get("login_verified") and outcome.get("ssh_verified"):
+            return True
+        missing = [
+            name
+            for name, ok in (
+                ("login", outcome.get("login_verified")),
+                ("SSH", outcome.get("ssh_verified")),
+            )
+            if not ok
+        ]
+        self._goto_path_apply_error(
+            "Could not resolve yoke/uv in a "
+            + " or ".join(missing)
+            + " shell after writing. "
+            "Rerun `yoke path fix`, then open a new terminal "
+            "or `ssh host 'command -v yoke'`."
+        )
+        return False
+
+    def _goto_path_apply_error(self: _Shell, message: str) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        self._goto(_View(STEP_INSTALL, lambda: path_apply_error_body(message)))
 
     def _return_to_path_diagnosis(self: _Shell) -> None:
         target = getattr(self, "_path_diagnosis_view", None)
@@ -254,6 +326,7 @@ __all__ = [
     "PATH_OK_ROWS",
     "PathFlow",
     "install_summary_body",
+    "path_apply_error_body",
     "path_diagnosis_body",
     "path_preview_body",
 ]

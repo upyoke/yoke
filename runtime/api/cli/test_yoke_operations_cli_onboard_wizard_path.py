@@ -235,32 +235,31 @@ def test_preview_choose_different_returns_to_path_diagnosis(stub_path) -> None:
     asyncio.run(scenario())
 
 
-def test_fix_choice_queues_for_review(stub_path) -> None:
+def test_add_path_reviews_both_files_then_applies(monkeypatch, stub_path) -> None:
+    applied: dict = {}
+
+    def fake_apply(plan, *, progress, report):
+        applied["ok"] = True
+        report["path_repair"] = {**plan, "login_verified": True, "ssh_verified": True}
+
+    monkeypatch.setattr("yoke_cli.config.onboard_apply_path.apply", fake_apply)
     app = _app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await pilot.pause()
-            await pilot.press("enter")  # path diagnosis: "Add yoke to my PATH"
+            await pilot.press("space")  # Add-PATH
             await pilot.pause()
+            text = _visible_static_text(app)
+            assert "/home/u/.zprofile" in text and "/home/u/.zshenv" in text
+            assert app.query_one(Stepper).active == STEP_INSTALL
+            assert not applied
+            await pilot.press("enter")  # Apply writes now
+            await pilot.pause()
+            assert applied["ok"]
+            assert app.query_one(Stepper).active != STEP_INSTALL
 
     asyncio.run(scenario())
-
-    assert app.result.path_repair["targets"]
-
-
-def test_fix_choice_accepts_space(stub_path) -> None:
-    app = _app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            await pilot.press("space")  # path diagnosis: "Add yoke to my PATH"
-            await pilot.pause()
-
-    asyncio.run(scenario())
-
-    assert app.result.path_repair["targets"]
 
 
 def test_path_continue_accepts_ctrl_j(monkeypatch) -> None:
