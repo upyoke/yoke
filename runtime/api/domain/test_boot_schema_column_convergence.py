@@ -36,7 +36,7 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # table must instead restore through boot convergence and leave this digest
 # unchanged.
 _BORN_WITH_COLUMN_DIGEST = (
-    "847b2aa4db85e9aa97bf351bcbf93d8176b9f33aefaab004326cb3281e4fa6c8"
+    "7b8be0883ee8b9b8acd6202ce6c2762c50274d0b4d795f51fe26315146f8a0cf"
 )
 
 

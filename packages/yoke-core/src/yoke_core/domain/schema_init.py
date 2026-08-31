@@ -7,7 +7,7 @@ from yoke_core.domain.decision_request_schema import create_decision_request_tab
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
 from yoke_core.domain.session_control_schema import create_session_control_tables
-from yoke_core.domain.doctor_runs_schema import ensure_doctor_runs_schema
+from yoke_core.domain.health_runs_schema import ensure_doctor_runs_schema
 from yoke_core.domain.field_note_dash_promotion import (
     ensure_field_note_dash_promotion_schema,
 )

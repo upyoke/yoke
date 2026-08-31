@@ -50,6 +50,12 @@ def _fake_bar_warn_hc(conn, args, rec):
 
 
 class _StubConn:
+    def execute(self, *_args, **_kwargs):
+        return self
+
+    def commit(self):
+        pass
+
     def close(self):
         pass
 

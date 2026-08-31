@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain.doctor_runs_schema import DOCTOR_RUNS_TABLE
+from yoke_core.domain.health_runs_schema import DOCTOR_RUNS_TABLE
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.project_identity import resolve_project, row_value
 from yoke_core.domain.schema_common import _table_exists as table_exists

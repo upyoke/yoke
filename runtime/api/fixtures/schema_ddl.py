@@ -50,7 +50,7 @@ def _schema_ddl() -> str:
             OVERVIEW_ACTIVATION_FACTS_CREATE_SQL,
         )
         from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
-        from yoke_core.domain.doctor_runs_schema import DOCTOR_RUNS_SCHEMA_SQL
+        from yoke_core.domain.health_runs_schema import DOCTOR_RUNS_SCHEMA_SQL
         from yoke_core.domain.item_worktree_schema import (
             ITEM_WORKTREES_INDEX_SQL,
             ITEM_WORKTREES_TABLE_SQL,
@@ -163,7 +163,7 @@ def apply_fixture_schema(conn: Any) -> None:
     from yoke_core.domain.field_note_dash_promotion import (
         ensure_field_note_dash_promotion_schema,
     )
-    from yoke_core.domain.doctor_runs_schema import (
+    from yoke_core.domain.health_runs_schema import (
         ensure_doctor_runs_schema,
     )
     from yoke_core.domain.schema_ouroboros_columns import (

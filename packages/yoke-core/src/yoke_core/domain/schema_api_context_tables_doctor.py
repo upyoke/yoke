@@ -24,11 +24,8 @@ DOCTOR_TABLES: dict[str, dict] = {
             ("results", "TEXT"),
         ],
         "notes": (
-            "One row per completed `doctor.run.run`. `doctor.last_run.get` "
-            "and `yoke status` read the newest row; they never scan the "
-            "events journal. `results` is a JSON array of "
-            "{hc, name, severity, detail}. Guessing `YokeFunctionCalled` "
-            "as the receipt store is the stale path this table replaced."
+            "Newest `doctor.run.run` receipt. `doctor.last_run.get` and "
+            "`yoke status` read it; never scan events."
         ),
     },
 }

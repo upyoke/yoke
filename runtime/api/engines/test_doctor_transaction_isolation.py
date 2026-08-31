@@ -68,7 +68,8 @@ def test_failing_query_cannot_poison_the_following_check() -> None:
 
     report = output.getvalue()
     assert rc == 1
-    assert "Internal error: synthetic query failed" in report
+    assert "HC-internal-error" in report
+    assert "synthetic query failed" in report
     assert "HC-after-error: PASS" in report
-    assert "Internal error: current transaction is aborted" not in report
+    assert "current transaction is aborted" not in report
     assert conn.rollback_count >= 4
