@@ -55,7 +55,7 @@ function sessionResult(row) {
     ].filter(Boolean).join(" · "),
     terms: [
       sessionId, row.current_item, row.current_item_title, row.actor_label,
-      row.executor, row.model, row.project, row.execution_lane,
+      row.executor, row.model, row.requested_model, row.project, row.execution_lane,
     ],
   };
 }

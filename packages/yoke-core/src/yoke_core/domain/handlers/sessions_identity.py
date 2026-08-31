@@ -136,7 +136,8 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "executor": identity.executor,
             "executor_surface": identity.executor_surface,
             "provider": identity.provider,
-            "model": identity.model,
+            "model": identity.model or None,
+            "requested_model": identity.requested_model or None,
             "execution_lane": identity.execution_lane,
             "lane_allowed_paths": _lane_allowed_paths(
                 conn, identity.project_id, identity.execution_lane,

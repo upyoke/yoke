@@ -37,7 +37,13 @@ def bound_registration_evidence(
     launch: LaunchRecord,
     registered_model: Any,
 ) -> str:
-    """Merge the two model labels in when the request and the session differ."""
+    """Record the ask beside the served value when the two differ.
+
+    ``registered_model`` is the session row's attested served model, so a
+    launch that asked for one variant and ran another is visible as a fact
+    rather than a suspicion. An unattested session has nothing to compare
+    and records no labels rather than an invented mismatch.
+    """
     requested = str(launch.requested_model or "").strip()
     registered = str(registered_model or "").strip()
     labels = (

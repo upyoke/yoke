@@ -28,6 +28,8 @@ from typing import Optional
 from yoke_core.hooks.ended_session_terminal_read import (
     skip_ended_session_revival,
 )
+from yoke_contracts.session_model_facts import SessionModelFacts
+
 from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
@@ -39,10 +41,17 @@ from yoke_core.hooks.types import (
 _BUSY_TIMEOUT_MS = 5000
 
 
-def _fallback_model(record: HookContext) -> str:
+def _model_facts(record: HookContext, executor: str) -> SessionModelFacts:
+    """Resolve both halves for a backfill registration.
+
+    The heartbeat path registers a session the lifecycle events missed, so
+    it resolves the facts the same way registration does rather than
+    lifting whatever string the payload happened to carry.
+    """
+    from yoke_harness.hooks.identity_relay import resolve_model_facts
+
     payload = record.payload if isinstance(record.payload, dict) else {}
-    raw = payload.get("model")
-    return raw if isinstance(raw, str) and raw.strip() else "unknown"
+    return resolve_model_facts(payload, executor)
 
 
 def _fallback_workspace(record: HookContext) -> str:
@@ -106,7 +115,7 @@ def _backfill_session(conn, session_id: str, record: HookContext) -> None:
         session_id=session_id,
         executor=executor,
         provider=provider,
-        model=_fallback_model(record),
+        model_facts=_model_facts(record, executor),
         entrypoint=entrypoint,
     )
 

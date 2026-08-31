@@ -9,13 +9,15 @@ from __future__ import annotations
 
 from typing import Optional
 
+from yoke_contracts.session_model_facts import SessionModelFacts
+
 from yoke_core.hooks import session_lifecycle_client
 
 
 def recovery_command(
     session_id: str,
     root: str,
-    model: str,
+    requested_model: str,
     entrypoint: Optional[str],
 ) -> str:
     return session_lifecycle_client.session_begin_recovery_command(
@@ -23,7 +25,7 @@ def recovery_command(
         session_id=session_id,
         executor="cursor",
         provider="cursor",
-        model=model,
+        requested_model=requested_model,
         entrypoint=entrypoint,
     )
 
@@ -31,7 +33,7 @@ def recovery_command(
 def register(
     root: str,
     session_id: str,
-    model: str,
+    model_facts: SessionModelFacts,
     entrypoint: Optional[str],
 ) -> str:
     return session_lifecycle_client.register_harness_session(
@@ -39,7 +41,7 @@ def register(
         session_id=session_id,
         executor="cursor",
         provider="cursor",
-        model=model,
+        model_facts=model_facts,
         entrypoint=entrypoint,
     )
 

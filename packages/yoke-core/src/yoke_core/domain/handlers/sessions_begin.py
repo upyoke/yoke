@@ -15,6 +15,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_contracts.session_model_facts import facts_from_mapping
 
 from yoke_core.domain.handlers.sessions_orchestration import (
     _connect_rw,
@@ -26,7 +27,14 @@ from yoke_core.domain.handlers.sessions_orchestration import (
 class BeginRequest(BaseModel):
     executor: str
     provider: str
-    model: str
+    #: The ask. A caller establishing a session states what it wants to
+    #: run; the served columns below are filled only by an attestation.
+    requested_model: Optional[str] = None
+    requested_reasoning_effort: Optional[str] = None
+    requested_context_window_tokens: Optional[int] = None
+    model: Optional[str] = None
+    reasoning_effort: Optional[str] = None
+    context_window_tokens: Optional[int] = None
     workspace: str
     project_id: int
     mode: str = "wait"
@@ -85,7 +93,7 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=sid,
                 executor=body.executor,
                 provider=body.provider,
-                model=body.model,
+                model_facts=facts_from_mapping(body.model_dump()),
                 workspace=body.workspace,
                 project_id=body.project_id,
                 mode=body.mode,

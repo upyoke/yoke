@@ -52,7 +52,9 @@ class SessionOffer(BaseModel):
         executor: Harness identity (e.g., ``claude-code``, ``codex``,
             ``api``).  Multiple sessions may share an executor identity.
         provider: Model provider (e.g., ``anthropic``, ``openai``).
-        model: Model identifier string (e.g., ``claude-opus-4-7``).
+        model: The model a provider attested it served; empty when
+            nothing has attested one.
+        requested_model: The model this session asked for.
         capabilities: List of capability tags the session supports
             (e.g., ``["browser", "shell", "file_write", "github"]``).
         workspace: Absolute path or identifier for the working
@@ -77,8 +79,19 @@ class SessionOffer(BaseModel):
         description="Model provider (e.g., anthropic, openai).",
     )
     model: str = Field(
-        ...,
-        description="Model identifier string (e.g., claude-opus-4-7).",
+        default="",
+        description=(
+            "The model a provider attested it served (e.g. claude-opus-5). "
+            "Empty when nothing has attested one yet — never the request."
+        ),
+    )
+    requested_model: str = Field(
+        default="",
+        description=(
+            "The model this session asked for (e.g. claude-opus-5[1m]). "
+            "A reader showing this in place of model must label it as a "
+            "request."
+        ),
     )
     capabilities: List[str] = Field(
         default_factory=list,

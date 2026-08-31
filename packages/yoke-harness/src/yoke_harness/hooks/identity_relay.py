@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts.session_model_facts import (
+    MODEL_FACT_FIELDS,
+    SessionModelFacts,
+)
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -17,12 +21,8 @@ from yoke_contracts.cursor_session_map import (
 )
 from yoke_harness.hooks.identity_runtime import (
     _codex_resolve_entrypoint,
-    _codex_resolve_model,
-    _is_placeholder_model,
-    cursor_payload_model,
     cursor_surface_entrypoint,
     detect_entrypoint,
-    detect_model,
     is_claude,
     is_codex,
     is_cursor,
@@ -64,61 +64,78 @@ def _mark_model_shipped(session_id: str) -> None:
         return
 
 
-def client_model(
+def model_facts_settled(event_name: str, session_id: str) -> bool:
+    """True when this session's model facts need not be resolved again.
+
+    Resolution is not free — it reads a transcript or a conversation store,
+    and on Claude it shells out for the parent's argv — so once a served
+    model has actually been read the marker stops the work on every later
+    hook event. Registration events always resolve, and a session whose
+    artifact has not answered yet stays unmarked and keeps trying, which is
+    the normal case for the first events of a run: the artifact naming the
+    served model does not exist until the first turn completes.
+    """
+    if event_name in REGISTRATION_EVENTS:
+        return False
+    if not session_id:
+        return True
+    try:
+        return _model_shipped_marker(session_id).exists()
+    except Exception:
+        return True
+
+
+def resolve_model_facts(payload: dict[str, Any], executor: str) -> SessionModelFacts:
+    """Resolve both halves of this session's model facts from the machine.
+
+    The ask comes from the launch environment; the served truth comes from
+    the harness's own artifact. Either half may be empty — an artifact that
+    has not been written yet attests nothing — and neither ever stands in
+    for the other.
+    """
+    try:
+        from yoke_harness.model_attestation import attest_served_facts
+        from yoke_harness.model_request import requested_facts
+
+        transcript = payload.get("transcript_path")
+        served = attest_served_facts(
+            executor,
+            payload,
+            transcript_path=transcript if isinstance(transcript, str) else "",
+        )
+        asked = requested_facts(executor, payload)
+    except Exception:  # noqa: BLE001 — identity probes never break a hook
+        return SessionModelFacts()
+    return SessionModelFacts(
+        model=served.model,
+        reasoning_effort=served.reasoning_effort,
+        context_window_tokens=served.context_window_tokens,
+        requested_model=asked.requested_model,
+        requested_reasoning_effort=asked.requested_reasoning_effort,
+        requested_context_window_tokens=asked.requested_context_window_tokens,
+    )
+
+
+def client_model_facts(
     event_name: str, payload: dict[str, Any], executor: str
-) -> Optional[str]:
+) -> dict[str, Any]:
+    """Model facts for the relayed wire, or ``{}`` once they are settled.
+
+    Absent keys mean "nothing to say"; an explicit value is either what was
+    asked or what a provider reported, never one standing in for the other.
+    """
     session_id = payload.get("session_id")
     session_id = session_id if isinstance(session_id, str) else ""
-    cursor = is_cursor(executor)
-    # Cursor must keep shipping the store measurement. Skipping after a local
-    # settle marked the executed name "already sent" before the relay
-    # acknowledged it, and later events then left stdin's bare family id on
-    # the wire.
-    if event_name not in REGISTRATION_EVENTS and not cursor:
-        if not session_id:
-            return None
-        try:
-            if _model_shipped_marker(session_id).exists():
-                return None
-        except Exception:
-            return None
-    try:
-        if cursor:
-            return cursor_payload_model(payload) or "unknown"
-        elif is_codex(executor):
-            sid = resolve_session_id(json.dumps(payload))
-            model = _codex_resolve_model(thread_id=sid or None) or ""
-        else:
-            tp = payload.get("transcript_path")
-            model = detect_model(
-                executor,
-                transcript_path=tp if isinstance(tp, str) else "",
-            )
-        if _is_placeholder_model(model):
-            return None
-        if session_id and _model_is_settled(executor, payload, model):
-            _mark_model_shipped(session_id)
-        return model
-    except Exception:
-        return None
-
-
-def _model_is_settled(executor: str, payload: dict[str, Any], model: str) -> bool:
-    """True when this model is the last word and need not be shipped again.
-
-    Cursor is the exception: its hook payload names a bare family id while
-    the variant that actually served the turn is written to the conversation
-    store, which does not exist until the session composes its first request
-    — and that is normally after the event this session first registers on.
-    Marking a payload-reported model as settled is what froze every launched
-    cursor session at its family id, so it stays unsettled and re-ships until
-    the store answers.
-    """
-    if not is_cursor(executor):
-        return True
-    from yoke_harness.cursor_executed_model import executed_model_for_payload
-
-    return model == executed_model_for_payload(payload)
+    if model_facts_settled(event_name, session_id):
+        return {}
+    facts = resolve_model_facts(payload, executor)
+    if session_id and facts.model is not None:
+        _mark_model_shipped(session_id)
+    return {
+        field: getattr(facts, field)
+        for field in MODEL_FACT_FIELDS
+        if getattr(facts, field) is not None
+    }
 
 
 def _normalize_config_token(value: str) -> str:
@@ -283,7 +300,7 @@ def relay_identity_payload(
     entrypoint = client_entrypoint(executor, payload)
     return {
         "entrypoint": entrypoint,
-        "model": client_model(event_name, payload, executor),
+        **client_model_facts(event_name, payload, executor),
         "execution_lane": client_lane(event_name, executor),
         "project_id": client_project_id(payload),
         "executor_version": client_executor_version(executor, entrypoint),
@@ -302,7 +319,8 @@ __all__ = [
     "client_executor_version",
     "client_lane",
     "client_machine_id",
-    "client_model",
+    "client_model_facts",
+    "resolve_model_facts",
     "client_native_thread_id",
     "client_project_id",
     "relay_identity_payload",

@@ -93,7 +93,7 @@ export function sessionRosterFilters(documentNode, onChange) {
       return rows.filter((row) => {
         const searchable = [
           row.session_id, row.project, row.focus, row.actor_label,
-          row.current_item_title, row.model,
+          row.current_item_title, row.model, row.requested_model,
         ].join(" ").toLowerCase();
         return (!query || searchable.includes(query))
           && (!harness || includes(row.executor, harness)

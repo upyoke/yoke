@@ -33,7 +33,7 @@ SESSIONS_CHECKPOINT_READ_USAGE = (
     "yoke sessions checkpoint-read [--session-id S] [--json]"
 )
 SESSIONS_BEGIN_USAGE = (
-    "yoke sessions begin --executor E --provider P --model M --workspace W "
+    "yoke sessions begin --executor E --provider P --requested-model M --workspace W "
     "[--project ID] [--mode MODE] [--entrypoint E] [--session-id S] [--json]"
 )
 SESSIONS_OFFER_USAGE = (
@@ -197,7 +197,7 @@ def sessions_begin(args: List[str]) -> int:
     )
     parser.add_argument("--executor", required=True)
     parser.add_argument("--provider", required=True)
-    parser.add_argument("--model", required=True)
+    parser.add_argument("--requested-model", required=True)
     parser.add_argument("--workspace", required=True)
     parser.add_argument(
         "--project", metavar="ID", default=None,
@@ -222,7 +222,7 @@ def sessions_begin(args: List[str]) -> int:
     payload: Dict[str, Any] = {
         "executor": parsed.executor,
         "provider": parsed.provider,
-        "model": parsed.model,
+        "requested_model": parsed.requested_model,
         "workspace": parsed.workspace,
         "project_id": project_id,
         "mode": parsed.mode,

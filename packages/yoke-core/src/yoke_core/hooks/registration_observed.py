@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+
+from yoke_contracts.session_model_facts import SessionModelFacts, facts_from_mapping
 
 
 @dataclass(frozen=True)
 class HookRegistrationFacts:
-    model: str = ""
+    #: The model facts the relaying client already resolved, when the
+    #: payload came over the wire. Empty for a local payload, which the
+    #: caller then resolves against this machine's own evidence.
+    model_facts: SessionModelFacts = field(default_factory=SessionModelFacts)
     entrypoint: str = ""
     execution_lane: str = ""
     executor_version: str = ""
@@ -37,7 +42,6 @@ def parse_hook_registration_facts(
     *,
     project_id: Optional[int],
     transcript_path: str,
-    is_placeholder_model: Callable[[str], bool],
 ) -> HookRegistrationFacts:
     """Parse only the bounded scalar identity fields carried by a hook."""
     try:
@@ -47,17 +51,12 @@ def parse_hook_registration_facts(
     if not isinstance(payload, dict):
         payload = {}
 
-    model = payload.get("model", "")
-    model = model if isinstance(model, str) else ""
-    if not model or is_placeholder_model(model):
-        model = ""
-
     def _text(key: str) -> str:
         value = payload.get(key, "")
         return value.strip() if isinstance(value, str) else ""
 
     return HookRegistrationFacts(
-        model=model,
+        model_facts=facts_from_mapping(payload),
         entrypoint=_text("entrypoint"),
         execution_lane=_text("execution_lane"),
         executor_version=_text("executor_version"),

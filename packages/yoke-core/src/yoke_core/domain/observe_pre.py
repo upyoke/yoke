@@ -149,33 +149,29 @@ def write_pre_event(envelope: Dict[str, Any]) -> bool:
 
 
 def _try_refresh_session_model(data: Dict[str, Any]) -> None:
-    """Best-effort upgrade of a placeholder ``harness_sessions.model``.
+    """Best-effort attestation of the served model facts.
 
     PreToolUse is the earliest hook that fires *after* the LLM has begun
     generating a response, so the transcript's latest assistant-message
-    ``model`` field is already present. For surfaces whose SessionStart
-    payload omits ``model`` (notably VS Code — see
-    runtime/harness/hook_helpers.detect_model docstring), this is the
-    turn-1 correction point. Without it, VS Code sessions stay on
-    ``model=unknown`` until the user sends a second prompt and
-    SessionStart reactivation's transcript walk catches up.
+    ``model`` and ``effort`` are already present. It is the turn-1
+    attestation point: without it a session's served columns stay NULL
+    until the next prompt, and no surface has told the operator what
+    actually ran.
     """
     session_id = data.get("session_id")
     transcript_path = data.get("transcript_path")
     if not isinstance(session_id, str) or not isinstance(transcript_path, str):
         return
     try:
-        from yoke_core.hooks.telemetry import (
-            refresh_session_model_if_placeholder,
-        )
+        from yoke_core.hooks.telemetry import attest_served_model_facts
 
-        refresh_session_model_if_placeholder(
+        attest_served_model_facts(
             session_id,
             transcript_path,
             hook_source="PreToolUse",
         )
     except Exception:
-        logger.warning("observe-pre model refresh failed", exc_info=True)
+        logger.warning("observe-pre model attestation failed", exc_info=True)
 
 
 def _try_check_session_main_drift(data: Dict[str, Any]) -> None:

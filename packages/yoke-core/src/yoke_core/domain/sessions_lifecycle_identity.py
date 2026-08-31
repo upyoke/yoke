@@ -6,6 +6,9 @@ from typing import Any, Optional
 import uuid
 
 from yoke_contracts.session_lane import lane_is_unresolved
+from yoke_contracts.session_model_facts import SessionModelFacts
+
+from yoke_core.domain.session_model_columns import MODEL_COLUMNS, changed_columns
 
 
 def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
@@ -136,28 +139,34 @@ def lane_should_upgrade(stored_lane: str, incoming_lane: str) -> bool:
     return lane_is_unresolved(stored_lane) and not lane_is_unresolved(incoming_lane)
 
 
-def resolve_reactivation_identity(
-    existing: Any,
-    *,
-    model: str,
-    execution_lane: str,
-) -> tuple[str, str]:
-    """Return ``(model, lane)`` for reactivating an ended session."""
-    from yoke_harness.hooks.identity import _is_placeholder_model
+def resolve_reactivation_lane(existing: Any, *, execution_lane: str) -> str:
+    """Return the lane a reactivating session should carry.
 
-    stored_model = _stored_value(existing, "model")
-    resolved_model = (
-        stored_model
-        if _is_placeholder_model(model) and not _is_placeholder_model(stored_model)
-        else model
-    )
+    An opt-out incoming lane yields to a real stored one; anything else
+    the caller resolved wins.
+    """
     stored_lane = _stored_value(existing, "execution_lane")
-    resolved_lane = (
-        stored_lane
-        if lane_is_unresolved(execution_lane) and not lane_is_unresolved(stored_lane)
-        else execution_lane
-    )
-    return resolved_model, resolved_lane
+    if lane_is_unresolved(execution_lane) and not lane_is_unresolved(stored_lane):
+        return stored_lane
+    return execution_lane
+
+
+def existing_registration_row(
+    conn: Any,
+    *,
+    placeholder: str,
+    session_id: str,
+    include_native_thread: bool,
+) -> Any:
+    """Read the row a duplicate registration collided with."""
+    thread_select = ", native_thread_id" if include_native_thread else ""
+    return conn.execute(
+        "SELECT ended_at, terminated_at, " + ", ".join(MODEL_COLUMNS) + ", "
+        "actor_id, execution_lane, project_id, executor, executor_version, "
+        f"machine_id, executor_surface{thread_select} "
+        f"FROM harness_sessions WHERE session_id = {placeholder}",
+        (session_id,),
+    ).fetchone()
 
 
 def resolve_reactivation_executor_version(
@@ -180,49 +189,13 @@ def resolve_reactivation_executor_version(
     return stored_version
 
 
-def _cursor_incoming_replaces_stored(stored: str, incoming: str) -> bool:
-    """True when Cursor's incoming value is a better measurement than stored.
-
-    A composed wire name is more specific than the bare family id it
-    contains. A less-specific family id must not overwrite a measurement.
-    Two different composed names are both measurements (a mid-conversation
-    switch) and the later one wins.
-    """
-    if stored in incoming and len(incoming) > len(stored):
-        return True
-    if incoming in stored:
-        return False
-    return True
-
-
-def _model_should_upgrade(*, stored: str, incoming: str, executor: Any) -> bool:
-    """True when ``incoming`` is a better answer than the stored model.
-
-    Filling a placeholder always qualifies. Replacing one real model with
-    another is refused, because a re-registration carrying a differently
-    resolved model would otherwise swap the row on every prompt — except on
-    Cursor, where the stored model is a measurement of the conversation's
-    current variant. A later store reading must replace a bare family id; a
-    later family id must not replace a measurement.
-    """
-    from yoke_harness.hooks.identity import _is_placeholder_model, is_cursor
-
-    if _is_placeholder_model(incoming) or stored == incoming:
-        return False
-    if _is_placeholder_model(stored):
-        return True
-    if not is_cursor(str(executor or "")):
-        return False
-    return _cursor_incoming_replaces_stored(stored, incoming)
-
-
 def refresh_active_duplicate_identity(
     conn: Any,
     *,
     placeholder: str,
     existing: Any,
     session_id: str,
-    model: str,
+    model_facts: SessionModelFacts,
     execution_lane: str,
     resolved_actor_id: int,
     executor_surface: Optional[str],
@@ -237,22 +210,13 @@ def refresh_active_duplicate_identity(
     """
     if existing is None:
         return
-    stored_model = _stored_value(existing, "model")
-    if _model_should_upgrade(
-        stored=stored_model,
-        incoming=model,
-        # The stored surface is NULL for a row registered before its
-        # entrypoint was known, so the incoming one stands in.
-        executor=(
-            _stored_value(existing, "executor_surface")
-            or executor_surface
-            or _stored_value(existing, "executor")
-        ),
-    ):
+    model_columns, model_values = changed_columns(existing, model_facts)
+    if model_columns:
+        assignments = ", ".join(f"{column} = {placeholder}" for column in model_columns)
         conn.execute(
-            f"UPDATE harness_sessions SET model = {placeholder} "
+            f"UPDATE harness_sessions SET {assignments} "
             f"WHERE session_id = {placeholder}",
-            (model, session_id),
+            (*model_values, session_id),
         )
         conn.commit()
 
@@ -307,11 +271,12 @@ def refresh_active_duplicate_identity(
 
 
 __all__ = [
+    "existing_registration_row",
     "lane_should_upgrade",
     "normalize_observed_identity",
     "refresh_active_duplicate_identity",
     "resolve_session_actor_id",
     "resolve_session_project_id",
     "resolve_reactivation_executor_version",
-    "resolve_reactivation_identity",
+    "resolve_reactivation_lane",
 ]

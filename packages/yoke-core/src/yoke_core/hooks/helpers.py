@@ -11,7 +11,7 @@ resolve. Active sibling owners:
   marker primitives.
 - :mod:`yoke_core.hooks.helpers_identity` — executor / provider /
   predicate / entrypoint detection.
-- :mod:`yoke_core.hooks.helpers_model` — model-detection chain
+- :mod:`yoke_core.hooks.helpers_model` — requested-model detection
   (transcript walk + ``--model`` argv parsing).
 """
 
@@ -42,9 +42,8 @@ from yoke_core.hooks.helpers_model import (  # noqa: F401
     _PLACEHOLDER_MODEL_VALUES,
     _extract_model_from_argv,
     _is_placeholder_model,
-    _read_model_from_transcript,
     _read_parent_argv,
-    detect_model,
+    detect_requested_model,
 )
 from yoke_core.hooks.helpers_session_id import (  # noqa: F401
     BUSY_TIMEOUT_MS,
@@ -65,7 +64,7 @@ __all__ = [
     "compose_executor_from_entrypoint",
     "detect_entrypoint",
     "detect_executor",
-    "detect_model",
+    "detect_requested_model",
     "detect_native_thread_id",
     "detect_provider",
     "find_project_root",
