@@ -21,7 +21,7 @@ the class so consumers import from one module.
 from __future__ import annotations
 
 import subprocess
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 
 class BoundaryCheckError(Exception):
@@ -43,24 +43,41 @@ def run_git(repo_path: str, *args: str) -> str:
     return proc.stdout
 
 
+REMOTE_INTEGRATION_REF = "refs/remotes/origin/{target}"
+LOCAL_INTEGRATION_REF = "refs/heads/{target}"
+
+#: Ordered highest-first, matching the boundary obligation's satisfier
+#: ladder: a shared remote is what the project actually integrates into,
+#: and the local trunk is what a repository with no remote has instead.
+INTEGRATION_REF_PREFERENCE = (REMOTE_INTEGRATION_REF, LOCAL_INTEGRATION_REF)
+
+
+def resolve_ref(repo_path: str, ref: str) -> Optional[str]:
+    """Return the SHA ``ref`` names in ``repo_path``, or ``None``.
+
+    Unlike :func:`run_git` this reports absence rather than raising, so
+    a caller probing which rung of the integration ladder is reachable
+    can ask about each ref without treating "not present" as an error.
+    """
+    proc = subprocess.run(
+        ["git", "-C", repo_path, "rev-parse", "--verify", ref],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
 def resolve_integration_head(
     repo_path: str, integration_target: str
 ) -> str:
     """Resolve the integration target ref to a SHA, trying origin then local heads."""
-    for ref in (
-        f"refs/remotes/origin/{integration_target}",
-        f"refs/heads/{integration_target}",
-    ):
-        proc = subprocess.run(
-            ["git", "-C", repo_path, "rev-parse", "--verify", ref],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode == 0:
-            sha = proc.stdout.strip()
-            if sha:
-                return sha
+    for template in INTEGRATION_REF_PREFERENCE:
+        sha = resolve_ref(repo_path, template.format(target=integration_target))
+        if sha:
+            return sha
     raise BoundaryCheckError(
         f"cannot resolve integration target {integration_target!r} in "
         f"{repo_path}; tried refs/remotes/origin and refs/heads"
@@ -202,11 +219,15 @@ def filter_gitignored_paths(
 
 __all__ = [
     "BoundaryCheckError",
+    "INTEGRATION_REF_PREFERENCE",
+    "LOCAL_INTEGRATION_REF",
+    "REMOTE_INTEGRATION_REF",
     "collect_committed_changes",
     "collect_worktree_drift",
     "filter_gitignored_paths",
     "merge_base",
     "resolve_integration_head",
+    "resolve_ref",
     "resolve_worktree_head",
     "run_git",
 ]

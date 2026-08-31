@@ -20,6 +20,7 @@ from yoke_contracts.path_snapshot_chunks import (
     PathSnapshotChunkSyncPayload,
     snapshot_chunk_payload_size_bytes,
 )
+from yoke_core.domain.project_derived_facts import converge_derived_facts
 from yoke_core.domain.project_snapshot_chunk_uploads import (
     ChunkUploadMissingError,
     sync_chunk,
@@ -42,6 +43,7 @@ class ProjectSnapshotSyncResponse(BaseModel):
     snapshots: List[Dict[str, Any]]
     warnings: List[str]
     architecture_refresh: Optional[Dict[str, Any]] = None
+    derived_facts: Optional[Dict[str, Any]] = None
     render_relationship_refresh: Optional[Dict[str, Any]] = None
 
 
@@ -247,12 +249,14 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
             rows,
             warnings,
         )
+        derived_facts = converge_derived_facts(conn, project_id, warnings)
     return {
         "project_id": project_id,
         "snapshots": rows,
         "warnings": warnings,
         "architecture_refresh": architecture_refresh,
         "render_relationship_refresh": render_relationship_refresh,
+        "derived_facts": derived_facts,
     }
 
 

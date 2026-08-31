@@ -87,7 +87,10 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "name": "Path-claim boundary",
         "description": (
             "The item's changed files must stay inside its registered path "
-            "claims."
+            "claims, diffed against the highest reachable rung of the "
+            "integration ladder — the remote integration ref, else the "
+            "local one. An item with no claims is clear; an item with "
+            "claims and no worktree, or no resolvable ref, is refused."
         ),
         "source_kind": "status_gate",
         "availability": "live",

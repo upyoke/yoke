@@ -17,6 +17,7 @@ from runtime.api.domain._path_claims_test_helpers import (
     seed_target,
 )
 from yoke_core.domain.path_claims import register
+from yoke_core.domain.gate_satisfier_stamp import read_rungs
 from yoke_core.domain.path_claims_gate_boundary import check_boundary_for_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
@@ -68,6 +69,9 @@ def _apply_boundary_schema(project_repo):
         from yoke_core.domain import db_backend
         from yoke_core.domain.actors import seed_canonical_actors
         from yoke_core.domain.events_schema import _create_events_table
+        from yoke_core.domain.gate_satisfaction_schema import (
+            create_gate_satisfaction_tables,
+        )
         from yoke_core.domain.schema_init_actor_path_claim_tables import (
             create_actor_path_claim_tables,
         )
@@ -86,6 +90,7 @@ def _apply_boundary_schema(project_repo):
             _create_events_table(c)
             create_path_registry_tables(c)
             create_actor_path_claim_tables(c)
+            create_gate_satisfaction_tables(c)
             seed_canonical_actors(c)
             register_machine_checkout(project_repo.parent, project_repo, 1)
             c.execute(
@@ -241,8 +246,8 @@ class TestBoundaryGate:
         assert result["error_code"] == "GATE_PATH_CLAIM_BOUNDARY"
         assert "have diverged" in result["error"]
 
-    def test_gate_self_skips_when_no_worktree(self, real_db):
-        # Remove active lane authority from the item.
+    def test_gate_is_clear_when_no_claims_and_no_worktree(self, real_db):
+        """Nothing declared is genuinely nothing to enforce."""
         with closing(connect_test_db(real_db)) as wconn:
             wconn.execute(
                 "DELETE FROM item_worktrees WHERE item_id = 7777"
@@ -253,3 +258,91 @@ class TestBoundaryGate:
             db_path=real_db,
         )
         assert result is None
+
+    def test_gate_blocks_when_claims_exist_but_no_worktree_does(self, real_db):
+        """Coverage with nothing to check it against is not a clean pass."""
+        with closing(connect_test_db(real_db)) as wconn:
+            actor = local_human(wconn)
+            target = seed_target(wconn, path_string="src/foo.py")
+            register(
+                wconn, actor_id=actor, integration_target="main",
+                target_ids=[target], item_id=7777,
+            )
+            wconn.execute("DELETE FROM item_worktrees WHERE item_id = 7777")
+            wconn.commit()
+        result = check_boundary_for_item(
+            item_id=7777, target_status="reviewed-implementation",
+            db_path=real_db,
+        )
+        assert result is not None
+        assert result["error_code"] == "GATE_PATH_CLAIM_BOUNDARY"
+        assert "no resolvable worktree" in result["error"]
+        assert "worktree prepare" in result["error"]
+
+    def test_gate_blocks_when_no_integration_ref_resolves(
+        self, project_repo, real_db
+    ):
+        """Neither ladder rung reachable refuses and names both rungs."""
+        with closing(connect_test_db(real_db)) as wconn:
+            actor = local_human(wconn)
+            target = seed_target(wconn, path_string="src/foo.py")
+            register(
+                wconn, actor_id=actor, integration_target="main",
+                target_ids=[target], item_id=7777,
+            )
+            wconn.commit()
+        _git(project_repo, "branch", "-m", "main", "renamed-trunk")
+        result = check_boundary_for_item(
+            item_id=7777, target_status="reviewed-implementation",
+            db_path=real_db,
+        )
+        assert result is not None
+        assert result["error_code"] == "GATE_PATH_CLAIM_BOUNDARY"
+        assert "remote_integration_ref" in result["error"]
+        assert "local_integration_ref" in result["error"]
+
+    def test_clear_boundary_stamps_the_rung_it_resolved(
+        self, project_repo, real_db
+    ):
+        """The item records which integration ref proved the boundary."""
+        with closing(connect_test_db(real_db)) as wconn:
+            actor = local_human(wconn)
+            target = seed_target(wconn, path_string="src/foo.py")
+            register(
+                wconn, actor_id=actor, integration_target="main",
+                target_ids=[target], item_id=7777,
+            )
+        _commit_in_worktree(project_repo, name="foo.py")
+        assert check_boundary_for_item(
+            item_id=7777, target_status="reviewed-implementation",
+            db_path=real_db,
+        ) is None
+        with closing(connect_test_db(real_db)) as rconn:
+            stamps = read_rungs(rconn, 7777)
+        assert [s["obligation"] for s in stamps] == ["path_claim_boundary"]
+        assert stamps[0]["rung_id"] == "local_integration_ref"
+        assert stamps[0]["target_status"] == "reviewed-implementation"
+
+    def test_remote_ref_outranks_the_local_one_in_the_stamp(
+        self, project_repo, real_db
+    ):
+        """A project with a remote proves against what it integrates into."""
+        with closing(connect_test_db(real_db)) as wconn:
+            actor = local_human(wconn)
+            target = seed_target(wconn, path_string="src/foo.py")
+            register(
+                wconn, actor_id=actor, integration_target="main",
+                target_ids=[target], item_id=7777,
+            )
+        _commit_in_worktree(project_repo, name="foo.py")
+        _git(
+            project_repo, "update-ref", "refs/remotes/origin/main",
+            _git(project_repo, "rev-parse", "main"),
+        )
+        assert check_boundary_for_item(
+            item_id=7777, target_status="reviewed-implementation",
+            db_path=real_db,
+        ) is None
+        with closing(connect_test_db(real_db)) as rconn:
+            stamps = read_rungs(rconn, 7777)
+        assert stamps[0]["rung_id"] == "remote_integration_ref"

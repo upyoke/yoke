@@ -12,6 +12,7 @@ from yoke_core.domain.file_budget_paths import extract_file_budget_paths
 from yoke_core.domain.field_note_dash_promotion import (
     source_field_note_for_dash,
 )
+from yoke_core.domain.gate_satisfier_stamp import read_rungs
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
@@ -218,6 +219,7 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
             "progress_log": _progress_log(conn, item_id),
             "source_field_note": source_field_note_for_dash(conn, item_id),
             "qa_requirements": qa_requirements,
+            "gate_satisfactions": read_rungs(conn, item_id),
             "qa_plan_attachments": qa_plan_attachments(
                 conn,
                 item_id=item_id,

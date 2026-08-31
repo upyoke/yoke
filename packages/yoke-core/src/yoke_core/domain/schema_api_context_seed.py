@@ -117,6 +117,11 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "event_registry",
         "ouroboros_entries",
         "item_sections",
+        # The satisfier-ladder substrate: how a gate obligation was
+        # actually discharged for an item, and the derived project
+        # facts that pick the rung.
+        "item_gate_satisfactions",
+        "project_derived_facts",
         # Python helper surfaces — not SQL tables, but rendered alongside
         # the schema cheat sheet so agents learn the Postgres-native DB router
         # path and `db_helpers.connect()` signature without confabulating wrong
