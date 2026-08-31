@@ -27,7 +27,7 @@ def _catalog_entry(gate_id: str) -> dict:
 
 def test_no_inert_file_line_gate_on_the_status_write_path():
     """The 350-line limit is enforced where a checkout exists, not here."""
-    assert not hasattr(backlog_updates_helpers, "_run_file_line_gate")
+    assert not [name for name in backlog_updates_helpers.__all__ if "file_line" in name]
     source = inspect.getsource(backlog_authoritative_status_gate)
     assert "file_line" not in source
 

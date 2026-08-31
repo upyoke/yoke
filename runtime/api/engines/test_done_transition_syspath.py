@@ -26,6 +26,7 @@ from yoke_core.engines import (
     done_transition_finalize,
     done_transition_github_sync,
 )
+from yoke_core.engines.done_transition_github_sync import Step8Result
 from yoke_core.engines.done_transition_result import TransitionResult
 
 from runtime.api.engines._done_transition_test_helpers import (
@@ -48,6 +49,7 @@ def _patch_run_internals(repo_root, **overrides):
         ("_resolve_project_context", (repo_root, "")),
         ("_get_base_branch", "main"),
         ("_check_merge_guard", True),
+        ("_check_blocked_flag", None),
         ("_verify_recovery_evidence", True),
         ("_check_empty_branch", None),
         ("_cleanup_stale_branches", True),
@@ -172,6 +174,7 @@ class TestLanePrunedLast:
         def _sync(_item_id, _old_status, run_result, *, public_ref):
             seen["lane_present_at_sync"] = lane.is_dir()
             run_result.add_step("8")
+            return Step8Result(returncode=0, step_marker="8", message="ok")
 
         def _prune():
             seen["sync_ran_first"] = "8" in result.steps_completed
