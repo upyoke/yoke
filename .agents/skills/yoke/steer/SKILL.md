@@ -166,6 +166,19 @@ Then `/yoke wrapup` if the operator asked for a session close. Do not
 release the paired document directly while the seat is live; that refusal
 teaches this paired release instead.
 
+## Seat hygiene (token economics)
+
+- Every wake resends the seat's whole transcript, so cost-per-wake grows
+  with transcript length. When the transcript is heavy and the fleet is
+  quiet, prefer an orderly handoff — update the strategy doc's Live
+  status, release the seats, and let a fresh session cold-start from the
+  doc — over dragging a long transcript through every subsequent wake.
+- When self-scheduling a wakeup, pick the delay for what is actually
+  being awaited and avoid landing just past the prompt-cache window:
+  wake densely while genuinely active or rarely with a batched pass —
+  the just-expired middle pays full transcript price per wake for
+  nothing.
+
 ## Surface disable marks
 
 This is a manual circuit breaker, not a state machine. Do not count
