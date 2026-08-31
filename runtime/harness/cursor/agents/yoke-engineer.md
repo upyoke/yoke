@@ -635,6 +635,9 @@ yoke workflow-item epic-dispatch-chain get --epic 1704 --worktree branch-name`
 - _Register a live Pulumi checkpoint's operator state_
   - `yoke projects pulumi-state checkpoint-import --project <project> --stack <stack> --checkpoint-file <owner-only-export> [--apply]`
   - Use this typed dry-run-default boundary when an already-live stack has no legacy site settings to migrate. The CLI reads the 0600 checkpoint locally, extracts only the awskms provider and encrypted data key, and returns a redacted receipt. Never copy another stack's operator state or write stack_state through raw SQL or generic capability-settings surfaces.
+- _Init a checkout and create a private GitHub remote_
+  - `yoke project git bootstrap CHECKOUT --project <project> --yes`
+  - Client-local project.git.bootstrap; default dry-run. Wrong guess: wizard-only git init.
 
 **Schema cheat sheet:**
 

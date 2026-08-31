@@ -111,9 +111,13 @@ def test_dry_run_hard_errors_on_path_that_is_a_regular_file(tmp_path: Path) -> N
 
 
 def test_apply_on_missing_folder_creates_directory_and_git_repo(
-    tmp_path: Path, _stub_backend
+    tmp_path: Path, _stub_backend, monkeypatch
 ) -> None:
     """Apply makes the folder and a git repo, parity with create_project."""
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Test")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "t@example.com")
+    monkeypatch.setenv("GIT_COMMITTER_NAME", "Test")
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "t@example.com")
     missing = tmp_path / "to-be-created"
     assert not missing.exists()
 
@@ -121,3 +125,4 @@ def test_apply_on_missing_folder_creates_directory_and_git_repo(
 
     assert missing.is_dir()
     assert (missing / ".git").is_dir()
+    assert (missing / ".gitignore").is_file()

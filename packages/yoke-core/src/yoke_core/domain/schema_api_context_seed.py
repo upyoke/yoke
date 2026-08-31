@@ -199,6 +199,8 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # poll by hand, and a hand-authored filter fails silently, so the recipe has
 # to reach every role that waits on CI rather than living in help text alone.
 # The qa topic also names doctor_runs so last_run and status readers do not
-# reconstruct receipts from the events journal.
-PACKET_LINE_BUDGET_PER_ROLE: int = 427
-PACKET_LINE_BUDGET_AGGREGATE: int = 2638
+# reconstruct receipts from the events journal. The project topic also
+# names the client-local git-bootstrap operation so agents do not treat
+# git init and private-remote creation as wizard-only choreography.
+PACKET_LINE_BUDGET_PER_ROLE: int = 430
+PACKET_LINE_BUDGET_AGGREGATE: int = 2647

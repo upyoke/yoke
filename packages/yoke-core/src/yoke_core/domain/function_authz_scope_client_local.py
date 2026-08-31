@@ -22,6 +22,7 @@ CLIENT_LOCAL_BY_ID: dict[str, AuthzSpec] = {
     "config.status.run": AuthzSpec(CLIENT_LOCAL, None),
     "status.run": AuthzSpec(CLIENT_LOCAL, None),
     "project.register.run": AuthzSpec(CLIENT_LOCAL, None),
+    "project.git.bootstrap": AuthzSpec(CLIENT_LOCAL, None),
     "packs.get.run": AuthzSpec(CLIENT_LOCAL, None),
     "packs.relink.run": AuthzSpec(CLIENT_LOCAL, None),
     "packs.update.run": AuthzSpec(CLIENT_LOCAL, None),

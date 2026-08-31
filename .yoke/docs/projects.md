@@ -36,6 +36,20 @@ clean checkout on the project default branch, then commit the bundle
 output. `--force` overrides the checkout gate; `--no-commit` skips the
 commit. Pushing stays an operator decision.
 
+## Init git and a private GitHub remote
+
+A plain folder with no `.git`, or a repo with no `origin`, uses one
+registered operation — not wizard-only choreography:
+
+```bash
+yoke project git bootstrap ~/work/my-app --project my-app --yes
+```
+
+Default is dry-run. `--no-init` / `--no-create-remote` decline a step.
+Existing remotes are never replaced; nested folders inside another repo
+refuse. Create-new and existing-folder installers share the same local
+init (starter `.gitignore` + initial commit).
+
 ## Execution-ready onboard
 
 The `/yoke onboard` harness skill makes a wired project execution-ready:

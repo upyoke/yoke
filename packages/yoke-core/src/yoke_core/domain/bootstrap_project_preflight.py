@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.project_git_bootstrap import GIT_BOOTSTRAP_OFFER
 from yoke_core.domain import bootstrap_project_helpers as helpers
 from yoke_core.domain.bootstrap_project_helpers import (
     BootstrapContext,
@@ -121,6 +122,7 @@ def run_preflight(ctx: BootstrapContext) -> int:
             _print_fail(
                 f"project_capabilities missing github entry for {project}",
                 "Bind a GitHub App repository:",
+                "  " + GIT_BOOTSTRAP_OFFER.format(project=project),
                 "  yoke projects github-binding bind "
                 f"--project {project} --github-repo OWNER/REPO ...",
                 f"Re-run: python3 -m yoke_core.domain.bootstrap_project cli {project}",

@@ -24,6 +24,7 @@ from yoke_cli.config.project_onboard_support import (
     dry_run_report,
     project_api_payload,
 )
+from yoke_cli.config import project_git_bootstrap
 from yoke_cli.config.project_publish_support import PublishRequest
 
 
@@ -171,6 +172,7 @@ def onboard_existing(
     if not reuse_checkout:
         with onboard_apply_progress.step(progress, checkout_action, progress_target):
             if clone_remote_url:
+                project_git_bootstrap.refuse_nested_checkout(root)
                 operations.resumable_clone(
                     root,
                     clone_remote_url,
@@ -179,7 +181,11 @@ def onboard_existing(
                 )
             else:
                 root.mkdir(parents=True, exist_ok=True)
-                operations.init_repo_if_needed(root, default_branch)
+                project_git_bootstrap.prepare_checkout(
+                    root,
+                    default_branch,
+                    init_repo_if_needed=operations.init_repo_if_needed,
+                )
             if publish is not None and operations.publish_checkout_needed(
                 root,
                 publish,

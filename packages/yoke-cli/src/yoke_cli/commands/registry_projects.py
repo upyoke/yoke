@@ -8,6 +8,7 @@ from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.projects_write import (
     projects_environment_update,
 )
+from yoke_cli.commands.adapters.project_git_bootstrap import project_git_bootstrap
 from yoke_cli.commands.adapters.release_pin_record import release_pin_record
 
 
@@ -107,6 +108,10 @@ PROJECTS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "github-sync-mode", "repair"): (
         "projects.github_sync_mode.repair",
         _adapters.projects_github_sync_mode_repair,
+    ),
+    ("project", "git", "bootstrap"): (
+        "project.git.bootstrap",
+        project_git_bootstrap,
     ),
     ("project", "register"): (
         "project.register.run",
