@@ -105,7 +105,7 @@ from yoke_core.engines.doctor_hc_db_project import (  # noqa: F401
     hc_schema_drift,
 )
 from yoke_core.engines.doctor_hc_db_events import (  # noqa: F401
-    hc_event_emission_rate,
+    hc_event_family_liveness,
     hc_event_registry_coverage,
     hc_events_destructive_maintenance_audit,
     hc_events_historical_coverage_collapse,
@@ -250,7 +250,9 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("migration-audit", "Migration audit evidence", hc_migration_audit),
     # DB-only: events
     HealthCheck("event-registry-coverage", "Event registry coverage", hc_event_registry_coverage),
-    HealthCheck("event-emission-rate", "Event emission rate", hc_event_emission_rate),
+    HealthCheck(
+        "event-family-liveness", "Event family liveness", hc_event_family_liveness
+    ),
     HealthCheck("synthetic-event-contamination", "Synthetic event contamination", hc_synthetic_event_contamination),
     # events ledger trust signals
     HealthCheck("events-synthetic-contamination", "Synthetic or test rows in canonical events ledger", hc_events_synthetic_contamination),

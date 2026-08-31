@@ -1,8 +1,8 @@
-"""Event-emission rate and stray-DB health checks.
+"""Event-family liveness and stray-DB health checks.
 
 Owns:
 
-- ``hc_event_emission_rate`` — events-per-active-session sanity check.
+- ``hc_event_family_liveness`` — durable activity paired with expected events.
 - ``hc_stray_db`` — stray ``yoke.db`` files at repo root or under
   ``.worktrees/<branch>/{yoke,data,runtime}/``.
 
@@ -17,6 +17,7 @@ left for operator review (never auto-deleted), and there is no authoritative
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
@@ -29,9 +30,41 @@ from yoke_core.engines.doctor_tree_scan import list_directory
 
 
 __all__ = (
-    "hc_event_emission_rate",
+    "EVENT_FAMILY_LIVENESS_PAIRS",
+    "hc_event_family_liveness",
     "hc_stray_db",
     "_find_worktree_stray_dbs",
+)
+
+
+EVENT_FAMILY_JOIN_WINDOW_DAYS = 7
+
+
+@dataclass(frozen=True)
+class EventFamilyLivenessPair:
+    """One durable activity source and the telemetry it should produce."""
+
+    durable_table: str
+    expected_event: str
+    activity_column: str
+    join_window_days: int
+
+
+EVENT_FAMILY_LIVENESS_PAIRS = (
+    EventFamilyLivenessPair(
+        "items", "ItemStatusChanged", "updated_at", EVENT_FAMILY_JOIN_WINDOW_DAYS
+    ),
+    EventFamilyLivenessPair(
+        "qa_requirements", "QARequirementCreated", "created_at",
+        EVENT_FAMILY_JOIN_WINDOW_DAYS,
+    ),
+    EventFamilyLivenessPair(
+        "qa_runs", "QARunCompleted", "completed_at", EVENT_FAMILY_JOIN_WINDOW_DAYS
+    ),
+    EventFamilyLivenessPair(
+        "harness_sessions", "HarnessSessionStarted", "offered_at",
+        EVENT_FAMILY_JOIN_WINDOW_DAYS,
+    ),
 )
 
 
@@ -59,46 +92,74 @@ def _find_worktree_stray_dbs(main_root: Path) -> List[Path]:
     return strays
 
 
-def hc_event_emission_rate(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-event-emission-rate: Event emission rate."""
-    if not _base._table_exists(conn, "events"):
-        rec.record("HC-event-emission-rate", "Event emission rate", "PASS",
-                    "events table not present, skipping")
+def hc_event_family_liveness(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    """Warn when recent durable activity has no matching event family."""
+    check_id = "HC-event-family-liveness"
+    check_name = "Event family liveness"
+    events_available = _base._table_exists(conn, "events")
+    checked = 0
+    active = 0
+    dark_families: list[str] = []
+
+    for pair in EVENT_FAMILY_LIVENESS_PAIRS:
+        if not _base._table_exists(conn, pair.durable_table):
+            continue
+        if not _base._column_exists(
+            conn, pair.durable_table, pair.activity_column
+        ):
+            continue
+        checked += 1
+        cutoff = now_sql(offset_days=-pair.join_window_days)
+        durable_count = int(
+            query_scalar(
+                conn,
+                f"SELECT COUNT(*) FROM {pair.durable_table} "
+                f"WHERE {pair.activity_column} IS NOT NULL "
+                f"AND {pair.activity_column} >= {cutoff}",
+            )
+            or 0
+        )
+        if durable_count == 0:
+            continue
+        active += 1
+        event_count = 0
+        if events_available:
+            event_count = int(
+                query_scalar(
+                    conn,
+                    "SELECT COUNT(*) FROM events WHERE event_name = %s "
+                    f"AND created_at >= {cutoff}",
+                    (pair.expected_event,),
+                )
+                or 0
+            )
+        if event_count == 0:
+            dark_families.append(
+                f"- {pair.durable_table}: {durable_count} recent row(s), "
+                f"0 {pair.expected_event} events"
+            )
+
+    if dark_families:
+        # Initial posture is WARN; the zero-event predicate is deliberately
+        # binary so rare families with no durable activity remain green.
+        rec.record(
+            check_id,
+            check_name,
+            "WARN",
+            "Durable activity has no matching telemetry in the trailing "
+            f"{EVENT_FAMILY_JOIN_WINDOW_DAYS}-day join window:\n"
+            + "\n".join(dark_families)
+            + "\nRecovery: inspect emit_event durability for each named family. "
+            "Product state remains authoritative in the durable tables.",
+        )
         return
 
-    # Check if any sessions ran in the past 24h
-    session_activity = 0
-    if _base._table_exists(conn, "epic_dispatch_chains"):
-        v = query_scalar(
-            conn,
-            "SELECT COUNT(*) FROM epic_dispatch_chains "
-            f"WHERE last_updated >= {now_sql(offset_days=-1)}",
-        )
-        session_activity += int(v) if v else 0
-    if _base._table_exists(conn, "shepherd_verdicts"):
-        v = query_scalar(
-            conn,
-            "SELECT COUNT(*) FROM shepherd_verdicts "
-            f"WHERE created_at >= {now_sql(offset_days=-1)}",
-        )
-        session_activity += int(v) if v else 0
-
-    if session_activity == 0:
-        rec.record("HC-event-emission-rate", "Event emission rate", "PASS",
-                    "No sessions in 24h, emission rate check skipped")
-        return
-
-    event_count = query_scalar(
-        conn,
-        f"SELECT COUNT(*) FROM events WHERE created_at >= {now_sql(offset_days=-1)}",
+    rec.record(
+        check_id,
+        check_name,
+        "PASS",
+        f"{checked} family pair(s) checked; {active} had recent durable activity",
     )
-    count = int(event_count) if event_count else 0
-    if count == 0:
-        rec.record("HC-event-emission-rate", "Event emission rate", "WARN",
-                    "0 events emitted in 24h despite active sessions")
-    else:
-        rec.record("HC-event-emission-rate", "Event emission rate", "PASS",
-                    f"{count} events emitted in past 24h")
 
 
 def hc_stray_db(conn, args: DoctorArgs, rec: RecordCollector) -> None:

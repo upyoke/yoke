@@ -194,6 +194,7 @@ def emit_lane_override_applied_event(
         outcome="completed",
         severity="INFO",
         conn=conn,
+        transactional=conn is not None,
     )
 
 

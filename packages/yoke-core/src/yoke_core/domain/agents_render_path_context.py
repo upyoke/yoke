@@ -153,6 +153,7 @@ def record_render_relationships(
         project=project_id,
         context={"render_target_count": len(relationships)},
         conn=conn,
+        transactional=True,
     )
     if not result.event_id:
         return 0

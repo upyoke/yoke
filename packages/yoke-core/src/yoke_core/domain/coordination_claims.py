@@ -291,6 +291,7 @@ def emit_claim_event(
             outcome="completed",
             context=payload,
             conn=conn,
+            transactional=conn is not None,
         )
     except Exception:
         # Best-effort telemetry; the claim row remains the source of truth.

@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from yoke_core.domain import db_backend
 from yoke_core.domain.events import emit_event
 from runtime.api.fixtures.pg_testdb import test_database
 
 
-def _emit(conn=None):
+def _emit(conn=None, *, transactional: bool = False):
     return emit_event(
         "TestEmitResult",
         event_kind="lifecycle",
@@ -18,6 +21,7 @@ def _emit(conn=None):
         item_id="1572",
         context={"detail": {"source": "test"}},
         conn=conn,
+        transactional=transactional,
     )
 
 
@@ -38,18 +42,39 @@ def test_emit_event_returns_ok_result_and_event_id() -> None:
         assert json.loads(row["envelope"])["context"]["detail"]["source"] == "test"
 
 
-def test_caller_owned_event_write_rolls_back_with_caller_transaction() -> None:
+def test_caller_connection_close_does_not_discard_event() -> None:
+    with test_database() as caller_conn:
+        result = _emit(caller_conn)
+        assert result.ok is True
+        caller_conn.close()
+
+        observer = db_backend.connect()
+        try:
+            row = observer.execute(
+                "SELECT 1 FROM events WHERE event_id=%s",
+                (result.event_id,),
+            ).fetchone()
+        finally:
+            observer.close()
+        assert row is not None
+
+
+def test_explicit_transactional_event_rides_caller_transaction() -> None:
     with test_database() as conn:
-        result = _emit(conn)
+        result = _emit(conn, transactional=True)
         assert result.ok is True
 
         conn.rollback()
-
         row = conn.execute(
             "SELECT 1 FROM events WHERE event_id=%s",
             (result.event_id,),
         ).fetchone()
         assert row is None
+
+
+def test_transactional_mode_requires_a_caller_connection() -> None:
+    with pytest.raises(ValueError, match="pass conn"):
+        _emit(transactional=True)
 
 
 def test_emitter_owned_connection_commits_event() -> None:
