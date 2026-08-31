@@ -55,6 +55,7 @@ def _route_line(
     if cls is LineClass.NOISE:
         return None
     if cls in (LineClass.URGENT, LineClass.SUMMARY, LineClass.METADATA):
+        progress_watch.note_progress_emit(now)
         emit_immediate(line)
         return line if cls is LineClass.SUMMARY else None
     decision = gate.consider(classification)

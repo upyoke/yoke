@@ -30,6 +30,7 @@ from yoke_core.domain import (
     qa_case_ci_entry_run,
     qa_case_ci_lane,
     qa_case_ci_progress,
+    qa_case_ci_superseded_run,
     verification_tree_binding,
 )
 from yoke_core.domain.qa_case_ci_conclusion import (
@@ -108,6 +109,11 @@ def execute_ci_case(
         checked_out_branch = qa_case_ci_lane.checked_out_branch(checkout)
     except QaCaseExecutionError:
         checked_out_branch = ""
+    previous_head_sha = (
+        qa_case_ci_lane.ref_sha(checkout, "HEAD")
+        if checked_out_branch == branch
+        else ""
+    )
     # Rebase before the head sha is resolved: the rebase is what it names.
     entry_run_base = qa_case_ci_entry_run.prepare_entry_run_lane(
         checkout,
@@ -157,6 +163,7 @@ def execute_ci_case(
     known_conclusion = ""
     exit_code = 0
     poll_output = ""
+    superseded_ci_run_id = ""
     try:
         qa_case_ci_lane.push_lane(checkout, branch, source_ref=source_ref)
         with qa_case_ci_lane.github_actions_authority():
@@ -167,6 +174,16 @@ def execute_ci_case(
                     branch=branch,
                     target=entry_run_base,
                     lane_head=head_sha,
+                )
+                superseded_ci_run_id = (
+                    qa_case_ci_superseded_run.force_cancel_if_rebased(
+                        project=project,
+                        repo=repo,
+                        workflow=workflow,
+                        branch=branch,
+                        previous_head_sha=previous_head_sha,
+                        current_head_sha=head_sha,
+                    )
                 )
                 covering_run = qa_case_ci_entry_run.find_entry_run(
                     requirement_id=requirement_id,
@@ -240,6 +257,7 @@ def execute_ci_case(
                 "ci_run_id": ci_run_id or None,
                 "ci_conclusion": "error",
                 "ci_run_source": ci_run_source,
+                "superseded_ci_run_id": superseded_ci_run_id or None,
                 "failure_class": "infrastructure_transient",
                 "error": str(exc),
                 "verification_tree": tree.as_payload(),
@@ -274,6 +292,7 @@ def execute_ci_case(
             "exit_code": exit_code,
             "ci_conclusion": conclusion,
             "ci_run_source": ci_run_source,
+            "superseded_ci_run_id": superseded_ci_run_id or None,
             "failure_class": failure_class or None,
             "verification_tree": tree.as_payload(),
             **selected_budget.as_record(),
@@ -311,6 +330,7 @@ def execute_ci_case(
         "run_url": run_url,
         "ci_conclusion": conclusion,
         "ci_run_source": ci_run_source,
+        "superseded_ci_run_id": superseded_ci_run_id or None,
         "failure_class": failure_class or None,
         **selected_budget.as_record(),
         "verification_tree": tree.as_payload(),

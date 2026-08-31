@@ -24,6 +24,7 @@ from yoke_core.domain import (
     qa_case_ci_entry_run as entry_run,
     qa_case_ci_lane,
     qa_case_ci_run,
+    qa_case_ci_superseded_run,
 )
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.verification_tree_binding import TreeIdentity
@@ -38,10 +39,16 @@ def wired(tmp_path, monkeypatch):
     monkeypatch.setattr(
         qa_case_ci_lane, "checked_out_branch", lambda _c: "PRJ-9",
     )
+    monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda *_a: LANE_HEAD)
     monkeypatch.setattr(
         entry_run, "routes_through_merge_queue", lambda _p: True,
     )
     monkeypatch.setattr(entry_run, "base_branch", lambda _p, _c: "main")
+    monkeypatch.setattr(
+        qa_case_ci_superseded_run,
+        "force_cancel_if_rebased",
+        lambda **_kwargs: "",
+    )
     return checkout, recorder, artifact
 
 
@@ -112,6 +119,51 @@ def test_the_lane_is_rebased_before_the_pull_request_opens(wired, monkeypatch):
     assert result["verification_tree"]["head_sha"] == POST_REBASE_HEAD
     evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
     assert evidence["verification_tree"]["head_sha"] == POST_REBASE_HEAD
+
+
+def test_rebased_gate_force_cancels_and_records_the_superseded_run(
+    wired,
+    monkeypatch,
+):
+    checkout, recorder, _ = wired
+    head = {"sha": LANE_HEAD}
+    monkeypatch.setattr(
+        "yoke_core.domain.verification_tree_binding.resolve_tree_identity",
+        lambda tree: TreeIdentity(root=str(tree), head_sha=head["sha"]),
+    )
+
+    def _rebase(*_args, **_kwargs):
+        head["sha"] = POST_REBASE_HEAD
+
+    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", _rebase)
+    monkeypatch.setattr(
+        entry_run,
+        "open_landing_pull_request",
+        lambda *a, **k: "213",
+    )
+    monkeypatch.setattr(
+        entry_run,
+        "find_entry_run",
+        lambda **k: completed_run(POST_REBASE_HEAD),
+    )
+    cancel = mock.Mock(return_value="88")
+    monkeypatch.setattr(
+        qa_case_ci_superseded_run,
+        "force_cancel_if_rebased",
+        cancel,
+    )
+
+    result = _run(
+        checkout,
+        dispatch=mock.Mock(side_effect=AssertionError("must not dispatch")),
+        await_result=mock.Mock(side_effect=AssertionError("must not await")),
+    )
+
+    assert result["superseded_ci_run_id"] == "88"
+    assert cancel.call_args.kwargs["previous_head_sha"] == LANE_HEAD
+    assert cancel.call_args.kwargs["current_head_sha"] == POST_REBASE_HEAD
+    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    assert evidence["superseded_ci_run_id"] == "88"
 
 
 def test_an_entry_run_for_another_sha_falls_back_to_dispatch(wired, monkeypatch):

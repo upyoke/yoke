@@ -107,6 +107,20 @@ def announce_run(
     return run_url
 
 
+def announce_superseded_run_cancelled(
+    *,
+    repo: str,
+    branch: str,
+    run_id: str,
+    stream: TextIO | None = None,
+) -> None:
+    """Record the older pull-request run the rebased gate force-cancelled."""
+    _emit(
+        f"force-cancelled superseded run={run_id} repo={repo} branch={branch}",
+        stream=stream,
+    )
+
+
 @contextlib.contextmanager
 def relay_poll_output(stream: TextIO | None = None) -> Iterator[None]:
     """Relay legacy poll narration to flushed stderr for the QA JSON CLI."""
@@ -120,5 +134,6 @@ __all__ = [
     "announce_covering_wait",
     "announce_dispatch",
     "announce_run",
+    "announce_superseded_run_cancelled",
     "relay_poll_output",
 ]

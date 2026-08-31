@@ -11,7 +11,8 @@ the gate finishes.
 The classifier maps:
 
 - The engine's own failure line (``yoke qa case run: ...``), a
-  tree-binding refusal, and the degraded-relay retry notice → ``URGENT``.
+  tree-binding refusal, a stale pending/zero-job dispatch, and the
+  degraded-relay retry notice → ``URGENT``.
 - ``Workflow status: <state> (elapsed: Ns, next poll: Ns)`` CI polls →
   ``SUMMARY`` on the first poll and on every state change, ``NOISE``
   while the state repeats.
@@ -54,6 +55,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from yoke_core.domain.github_actions_run_stall import STALLED_DISPATCH_TOKEN
 from yoke_core.tools import _watch_runner
 from yoke_core.tools._watch_pytest_classify import classify_pytest_line
 from yoke_core.tools._watch_throttle import Classification, LineClass
@@ -74,7 +76,9 @@ CASE_RUN_MODULE = "yoke_core.domain.qa_case_execution_cli"
 # time. Separate constants let tests exercise each class independently.
 QA_CASE_URGENT_RE = re.compile(
     r"(^yoke qa case run:|TREE-BINDING REFUSAL|"
-    r"status relay is temporarily unavailable)",
+    r"status relay is temporarily unavailable|"
+    + re.escape(STALLED_DISPATCH_TOKEN)
+    + r")",
 )
 # The workflow-state token is captured, not just matched: the classifier
 # wakes on a state change and stays silent while the state repeats, so it
