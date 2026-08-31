@@ -20,6 +20,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
+  const originalNow = Date.now;
+  Date.now = () => Date.parse("2026-07-26T12:05:00Z");
+  t.after(() => { Date.now = originalNow; });
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.hash = "#/sessions?project=1";
   const root = documentNode.createElement("div");
@@ -214,7 +217,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
-    "🧭 Integration", "claude-opus-4-8", "claim held", "active", "ben",
+    "🧭 Integration", "claude-opus-4-8", "claim held", "idle", "ben",
     "Relay:", "test-mac",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);
@@ -225,7 +228,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }
-  for (const gone of ["a7b4pl", "v8c2qa", "resume", "wait", "idle"]) {
+  for (const gone of ["a7b4pl", "v8c2qa", "resume", "wait"]) {
     assert.ok(!cardText.join(" ").includes(gone), gone);
   }
   // Messaging offers a button only where it would actually arrive; the stale
@@ -239,10 +242,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(cards[1], "session-messaging-blocked")[0].textContent,
     "Messaging unavailable: no relay is connected on this session's machine.",
   );
-  // Each card ends on the word the server sent for it, not on one derived here.
+  // The server-active card can be quiet without being recategorized as stale.
   assert.deepEqual(
     byClass(cards[0], "session-age-prefix").map((node) => node.textContent),
-    ["claim held ", "active "],
+    ["claim held ", "idle "],
   );
   assert.deepEqual(
     byClass(cards[1], "session-age-prefix").map((node) => node.textContent),

@@ -31,11 +31,14 @@ export function appendSessionAge(documentNode, body, row) {
     add(attributed === "lane" ? "worktree attached " : "filed ", row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
-  // The server classified this session against an executor-aware TTL; the
-  // card reports that state without recalculating it from elapsed time.
-  const staleNow = row.liveness === "stale"
-    && isInstantRelativeTime(row.activity_at, now);
-  add(staleNow ? "stale · activity " : `${row.liveness || "unknown"} `,
+  // The server still owns alive-versus-stale classification. Activity age
+  // only distinguishes a recently active session from one that is alive but quiet.
+  const instantActivity = isInstantRelativeTime(row.activity_at, now);
+  const staleNow = row.liveness === "stale" && instantActivity;
+  const activityState = row.liveness === "active" && !instantActivity
+    ? "idle"
+    : row.liveness || "unknown";
+  add(staleNow ? "stale · activity " : `${activityState} `,
     row.activity_at, staleNow ? "just now" : undefined);
   body.appendChild(age);
 }

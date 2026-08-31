@@ -192,25 +192,27 @@ class TestSteerSkillContract:
     def test_dashboard_card_is_named_as_the_faster_read(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "dashboard session card" in loop
-        # The card shows the server's own classification, so the prose teaches
-        # that word and the elapsed age as the two different answers they are.
-        assert "`active <age>` or `stale <age>`" in loop
+        # The server owns liveness while the copy distinguishes recent from
+        # quiet activity within sessions that are still alive.
+        assert "`active now` under a minute" in loop
+        assert "`idle <age>` once quiet" in loop
+        assert "`stale <age>`" in loop
         assert "`waiting` / `probed` / `possibly stale`" in loop
-        assert "The word and the age answer different questions" in loop
         assert "executor-aware TTL (1440 minutes on this surface)" in loop
-        assert "The age is how long it has been quiet" in loop
+        assert "solely decides alive versus stale" in loop
+        assert "The age says how long it has been quiet" in loop
 
     def test_no_steer_file_teaches_the_retired_label_or_snapshot_reads(self):
         corpus = _corpus()
         assert "**Stale claim holders:**" not in corpus
         assert "**Silent in-flight work:**" not in corpus
-        # The report's idle detector keys on last activity, never on the
-        # liveness label: the card displays that label as the control plane's
-        # own answer, but a 1440-minute TTL is the wrong clock for deciding a
-        # worker has stopped moving.
+        # The report's idle detector keys on last activity, never on liveness:
+        # the card uses liveness only for alive-versus-stale classification,
+        # and a 1440-minute TTL is the wrong clock for deciding a worker has
+        # stopped moving.
         assert "liveness=stale" not in corpus
         assert "rather than any liveness label" in _words(corpus)
-        assert "The age is how long it has been quiet" in _words(corpus)
+        assert "The age says how long it has been quiet" in _words(corpus)
 
     def test_no_steer_file_teaches_steerer_sent_only_scope(self):
         corpus = _corpus()
