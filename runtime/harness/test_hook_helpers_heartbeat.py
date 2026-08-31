@@ -194,7 +194,9 @@ def test_heartbeat_session_backfills_missing_session(base_context):
     assert kwargs["session_id"] == "missing-sid"
     assert kwargs["executor"] == "claude-code"
     assert kwargs["provider"] == "anthropic"
-    assert kwargs["model"] == "unknown"
+    # The backfill resolves facts the same way registration does; with no
+    # artifact and no launch env it attests and requests nothing.
+    assert kwargs["model_facts"].model is None
     assert kwargs["root"] == "/tmp"
     assert kwargs["entrypoint"] is None
     conn.close.assert_called_once()
