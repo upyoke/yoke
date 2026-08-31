@@ -252,8 +252,8 @@ class TestExecuteCloseDependencyReconciliation:
         assert rows == [(1270, 1269, "integration", "fact:merged")]
 
     def test_existing_guards_still_block_reconciliation(self, tmp_db):
-        """Delivery-tail, merge-evidence, and active-lane guards still stop
-        the close before reconciliation touches item_dependencies."""
+        """Delivery-tail and merge-evidence still stop the close before
+        reconciliation touches item_dependencies."""
         # delivery-tail
         _seed_item(tmp_db, id=1, status="implemented")
         _seed_item(tmp_db, id=99, status="refined-idea")
@@ -291,7 +291,8 @@ class TestExecuteCloseDependencyReconciliation:
             (2, 77, "activation", "status:done")
         ]
 
-        # active item lane
+    def test_close_with_active_lane_still_reconciles_dependencies(self, tmp_db):
+        """An active lane is released with the cancel; outbound deps still go."""
         _seed_item(tmp_db, id=3)
         _seed_item(tmp_db, id=88, status="refined-idea")
         _seed_active_item_lane(tmp_db, item_id=3, branch="YOK-3")
@@ -305,7 +306,5 @@ class TestExecuteCloseDependencyReconciliation:
         out = io.StringIO()
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(3, "obsolete", out=out)
-        assert result["success"] is False
-        assert _dependency_rows(tmp_db, dependent="YOK-3") == [
-            (3, 88, "activation", "status:done")
-        ]
+        assert result["success"] is True
+        assert _dependency_rows(tmp_db, dependent="YOK-3") == []
