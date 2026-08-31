@@ -8,11 +8,10 @@ id and an item-id range baked into the command. That shape breaks the
 bare-adapter rule, cannot survive a handoff, and — having no exit
 sentinel — leaves its paired follower running after the command stops.
 
-This wrapper is that missing artifact. It runs
-:mod:`yoke_core.domain.fleet_delta_probe` under the same raw + throttled-
-progress contract as every other watcher, so the probe's delta lines
-reach a follower immediately and the run ends with the sentinel that
-lets the follower exit.
+This wrapper runs :mod:`yoke_core.domain.fleet_delta_probe` under the shared
+raw + progress contract. Its central tier table sends actionable deltas to
+the follower immediately, keeps routine churn raw until the next report
+wake, and always ends with the follower's sentinel.
 """
 
 from __future__ import annotations
@@ -23,6 +22,8 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from yoke_core.domain import fleet_delta_probe
+from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN
 from yoke_core.tools import _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
@@ -31,27 +32,18 @@ KIND = "fleet"
 DEFAULT_PROG = "watch_fleet"
 PROBE_MODULE = "yoke_core.domain.fleet_delta_probe"
 
-# An alarm names a fleet failure that arrives as silence, and a read
-# failure means the probe is blind; both outrank any ordinary change.
-FLEET_URGENT_RE = re.compile(
-    r"^fleet (?:ALARM|ERROR|FATAL)\b|^(?:[\w.]*Error|[\w.]*Exception):"
+PROCESS_FAILURE_RE = re.compile(
+    r"^(?:[\w.]*Error|[\w.]*Exception):"
     r"|^Traceback \(most recent call last\):"
-)
-# Every ordinary delta is a discrete event worth waking for, so deltas
-# are SUMMARY rather than PROGRESS: the throttle must never coalesce
-# two different items moving into one reported line.
-FLEET_SUMMARY_RE = re.compile(r"^fleet (?:CLEAR|item|session|inbox)\b")
-FLEET_PROGRESS_PATTERN = re.compile(
-    "|".join((FLEET_URGENT_RE.pattern, FLEET_SUMMARY_RE.pattern))
 )
 
 
 def classify_fleet_line(line: str) -> Classification:
     """Classify one fleet-delta probe output line."""
-    if FLEET_URGENT_RE.search(line):
+    if PROCESS_FAILURE_RE.search(line) or line.rstrip() == REPORT_BEGIN:
         return Classification(LineClass.URGENT)
-    if FLEET_SUMMARY_RE.search(line):
-        return Classification(LineClass.SUMMARY)
+    if fleet_delta_probe.delta_wake_tier(line) == fleet_delta_probe.WAKE_NOW:
+        return Classification(LineClass.URGENT)
     return Classification(LineClass.NOISE)
 
 
@@ -75,18 +67,13 @@ The negative-space thresholds are the steering loop's and are not
 flags: a claim holder idle past 20 minutes, an in-flight item unowned
 continuously past 15, an envelope undelivered past 10.
 
-The steerer's session id is resolved from ambient harness identity, so
-the same command works unedited after a steering handoff. Each pass
-reads `sessions.list`, `charge.schedule`, and the durable message
-listing, then prints one line per change — and nothing at all while the
-fleet is unchanged.
-
-Signal classes:
-  inbound envelopes addressed to this session, still unacknowledged
-  item status and ownership changes across the watched projects
-  session lifecycle: registered, ended, terminated
-  ALARM lines for idle claim holders, items unowned past the threshold,
-  and starved envelopes (recipients whose session ended are excluded)
+The steerer's session id comes from ambient harness identity, so the same
+command survives handoff. Every delta remains in the raw capture. The wake
+stream emits worker messages, alarms, abnormal session ends, blocked item
+transitions, read failures, and one marker for a changed rate-limited report.
+Healthy item transitions, claim churn, registrations, clean ends, and alarm
+clears stay silent at delta time and surface through the next report. Pull its
+full body with `yoke steering report get --project P`.
 
 examples:
   yoke watch fleet -- --project yoke

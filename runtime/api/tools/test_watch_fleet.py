@@ -6,6 +6,7 @@ import io
 from pathlib import Path
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
+from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.tools import watch_fleet
 from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
@@ -31,9 +32,14 @@ def test_the_cli_usage_table_carries_the_command() -> None:
     assert "yoke watch fleet" in TOOL_SHAPED_USAGE
 
 
-def test_alarm_and_read_failure_lines_are_urgent() -> None:
+def test_actionable_delta_kinds_are_immediate() -> None:
     for line in (
         "fleet ALARM idle-holder session=a items=YOK-1 idle=41m surface=x",
+        "fleet ALARM unowned-item YOK-1 status=implementing unowned=15m",
+        "fleet ALARM starved-envelope message=m recipient=a pending=10m",
+        "fleet inbox msg-1 state=pending from=w",
+        "fleet session abc terminated surface=codex-cli",
+        "fleet item YOK-1 status implementing -> blocked",
         "fleet ERROR read failed sessions.list: unreachable (attempt 1/3)",
         "fleet FATAL read failed sessions.list: unreachable",
         "Traceback (most recent call last):",
@@ -42,15 +48,18 @@ def test_alarm_and_read_failure_lines_are_urgent() -> None:
         assert watch_fleet.classify_fleet_line(line).cls is LineClass.URGENT
 
 
-def test_ordinary_deltas_are_summary_so_none_are_coalesced() -> None:
-    """Two different items moving must never collapse into one line."""
+def test_routine_deltas_are_silent_until_a_report_wake() -> None:
     for line in (
         "fleet item YOK-1 status idea -> implementing",
+        "fleet item YOK-1 claim unclaimed -> claimed_by_other_live",
         "fleet session abc registered surface=codex-cli mode=dash",
-        "fleet inbox msg-1 state=pending from=w",
+        "fleet session abc ended surface=codex-cli",
         "fleet CLEAR idle-holder session=a",
     ):
-        assert watch_fleet.classify_fleet_line(line).cls is LineClass.SUMMARY
+        assert watch_fleet.classify_fleet_line(line).cls is LineClass.NOISE
+
+    assert watch_fleet.classify_fleet_line(REPORT_BEGIN).cls is LineClass.URGENT
+    assert watch_fleet.classify_fleet_line(REPORT_END).cls is LineClass.NOISE
 
 
 def test_unrecognized_output_is_noise() -> None:
