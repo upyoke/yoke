@@ -192,7 +192,9 @@ def test_server_internal_status_change_leaves_identity_empty(
 
 
 def _seed_open_qa_run(conn) -> tuple[int, int]:
-    insert_item(conn, id=ITEM_ID, title="Attribution", status="reviewing-implementation")
+    insert_item(
+        conn, id=ITEM_ID, title="Attribution", status="reviewing-implementation"
+    )
     requirement = insert_qa_requirement(
         conn,
         item_id=ITEM_ID,
