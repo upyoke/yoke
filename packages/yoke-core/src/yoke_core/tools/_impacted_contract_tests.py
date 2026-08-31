@@ -100,6 +100,17 @@ DIRECT_WORKFLOW_PREPARE_TESTS = (
     "runtime/api/domain/test_worktree_prepare_source_recipe.py",
 )
 
+HOOK_GUARD_POLICY_SOURCE_PATHS = frozenset(
+    {
+        ".yoke/lint-config",
+        "packages/yoke-contracts/src/yoke_contracts/hook_runner/"
+        "hook_guard_catalog.py",
+        "packages/yoke-contracts/src/yoke_contracts/hook_runner/hook_ordering.py",
+    }
+)
+
+HOOK_GUARD_POLICY_TESTS = ("runtime/api/domain/test_lint_config.py",)
+
 HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS = (
     "runtime/api/domain/test_platform_release_bridge_workflow.py",
     "runtime/api/domain/test_release_notes_workflow.py",
@@ -111,6 +122,11 @@ CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
 
 PATH_CONTRACT_TESTS = (
     *PATH_CLAIM_CONTRACTS,
+    (
+        "hook_guard_policy_contract",
+        HOOK_GUARD_POLICY_SOURCE_PATHS,
+        HOOK_GUARD_POLICY_TESTS,
+    ),
     (
         "hosted_release_workflow_contract",
         frozenset(
@@ -252,6 +268,8 @@ __all__ = [
     "DONE_TRANSITION_CLOSE_OUT_TESTS",
     "EPIC_QA_READ_CONTRACT_TESTS",
     "EPIC_RESOLUTION_SOURCE_PATH",
+    "HOOK_GUARD_POLICY_SOURCE_PATHS",
+    "HOOK_GUARD_POLICY_TESTS",
     "HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "MACHINE_QA_PACK_CONTRACT_TESTS",

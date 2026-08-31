@@ -123,3 +123,15 @@ def test_surface_capability_consumers_survive_bounded_tooling_deferral(
         token.startswith("session_surface_capability_contract:")
         for token in selection.widening_triggers
     )
+
+
+def test_hook_guard_policy_sources_select_catalog_contract() -> None:
+    expected = set(contracts.HOOK_GUARD_POLICY_TESTS)
+
+    for source in contracts.HOOK_GUARD_POLICY_SOURCE_PATHS:
+        selection = contracts.contract_selection_for([source])
+
+        assert expected <= set(selection.tests)
+        assert f"hook_guard_policy_contract:{source}" in (
+            selection.widening_triggers
+        )
