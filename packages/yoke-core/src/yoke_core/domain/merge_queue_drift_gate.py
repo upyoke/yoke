@@ -1,4 +1,14 @@
-"""Merge-path drift check with durable observability for fail-open skips."""
+"""Merge-path drift check, and what the landing records when it cannot run.
+
+The comparison needs a readable declaration and a reachable GitHub; when
+either is missing it cannot answer, and refusing the merge on an outage
+would stop landings for a reason unrelated to the branch. It therefore
+does not block — but "did not block" and "compared and agreed" are
+different facts, and the batch receipt used to carry neither. The skip is
+recorded twice now: once as its own audit event, and once on the batch
+evidence every member of the train stores, so a landing that was never
+compared says so where the evidence is read.
+"""
 
 from __future__ import annotations
 
@@ -64,7 +74,7 @@ def drift_check_before_landing(
     branch: str,
     item_id: int,
 ) -> LiveDriftReport:
-    """Run the fail-open gate and count every skipped comparison."""
+    """Run the gate and count every skipped comparison."""
     report = drift_blocking_landing(
         project,
         checkout=checkout,
@@ -83,7 +93,19 @@ def drift_check_before_landing(
     return replace(report, unreadable=report.unreadable + (advisory,))
 
 
+def drift_receipt(report: LiveDriftReport) -> dict[str, str]:
+    """What the batch evidence records about this comparison."""
+    if not report.skipped:
+        return {"status": "compared"}
+    return {
+        "status": "skipped",
+        "skip_reason": report.skip_reason,
+        "detail": report.skip_detail,
+    }
+
+
 __all__ = [
     "MERGE_QUEUE_DRIFT_CHECK_SKIPPED_EVENT_NAME",
     "drift_check_before_landing",
+    "drift_receipt",
 ]

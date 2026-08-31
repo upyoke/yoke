@@ -32,7 +32,10 @@ from yoke_core.domain.merge_queue_landing_pull_request import (
 )
 from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
 from yoke_core.domain.merge_queue_landing_timeout import timeout_message
-from yoke_core.domain.merge_queue_drift_gate import drift_check_before_landing
+from yoke_core.domain.merge_queue_drift_gate import (
+    drift_check_before_landing,
+    drift_receipt,
+)
 from yoke_core.domain.merge_queue_landing_verdict import (
     CLOSED_UNMERGED,
     CONFLICTED,
@@ -113,7 +116,8 @@ def land_item_through_merge_queue(
     warnings: list[str] = []
 
     # The queue enforces whatever the live ruleset requires, so landing
-    # into a drifted one is gated on a set main already disowned.
+    # into a drifted one is gated on a set main already disowned. A
+    # comparison that could not run rides the batch evidence instead.
     drift = drift_check_before_landing(
         ctx.project or "",
         checkout=ctx.repo_root,
@@ -122,9 +126,7 @@ def land_item_through_merge_queue(
     )
     if drift.drifted:
         return QueueLandingOutcome(
-            ok=False,
-            exit_code=1,
-            error=drift.refusal(ctx.project or ""),
+            ok=False, exit_code=1, error=drift.refusal(ctx.project or "")
         )
     warnings.extend(drift.unreadable)
 
@@ -321,11 +323,9 @@ def land_item_through_merge_queue(
         )
 
     close_out = record_landing(
-        ctx,
-        item_id=item_id,
-        commit_sha=commit_sha,
-        pr_num=pr_num,
+        ctx, item_id=item_id, commit_sha=commit_sha, pr_num=pr_num,
         member_snapshot=tuple(dict.fromkeys((*member_refs, public_ref))),
+        drift_check=drift_receipt(drift),
     )
     warnings.extend(close_out.warnings)
     return QueueLandingOutcome(

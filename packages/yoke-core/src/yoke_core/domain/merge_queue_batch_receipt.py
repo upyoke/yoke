@@ -15,8 +15,8 @@ passing run already covered accept these rows unchanged.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from dataclasses import dataclass, field
+from typing import Any, Callable, Mapping, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_installation_permissions import (
@@ -47,6 +47,10 @@ class BatchReceipt:
     members: tuple[str, ...] = ()
     head_sha: str = ""
     run_url: str = ""
+    # What the pre-landing ruleset comparison concluded, or why it could
+    # not run. A train landed without that comparison is still a train the
+    # evidence must be able to name.
+    drift_check: Mapping[str, str] = field(default_factory=dict)
 
 
 def observe_batch(
@@ -54,6 +58,7 @@ def observe_batch(
     *,
     pr_num: str,
     member_snapshot: tuple[str, ...] = (),
+    drift_check: Optional[Mapping[str, str]] = None,
 ) -> tuple[Optional[BatchReceipt], Optional[str]]:
     """Resolve the merge_group run and merge identity covering ``pr_num``.
 
@@ -95,6 +100,7 @@ def observe_batch(
             members=member_snapshot,
             head_sha=run.head_sha if run is not None else "",
             run_url=run.url if run is not None else "",
+            drift_check=dict(drift_check or {}),
         ),
         run_note,
     )
@@ -117,6 +123,7 @@ def record_batch_evidence(
             "run_url": receipt.run_url,
             "pr_num": receipt.pr_num,
             "merge_sha": receipt.merge_sha,
+            "drift_check": dict(receipt.drift_check),
         },
     })
     response = dispatch(
