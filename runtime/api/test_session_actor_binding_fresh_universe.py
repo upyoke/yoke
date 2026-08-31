@@ -116,19 +116,24 @@ def test_path_claim_registration_succeeds_on_a_fresh_universe(fresh_universe):
 
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        rc = cmd_register([
-            "--item", f"YOK-{_ITEM_ID}",
-            "--integration-target", "main",
-            "--paths", "src/fresh_install.py",
-            "--allow-planned",
-            "--session-id", _SESSION_ID,
-        ])
+        rc = cmd_register(
+            [
+                "--item",
+                f"YOK-{_ITEM_ID}",
+                "--integration-target",
+                "main",
+                "--paths",
+                "src/fresh_install.py",
+                "--allow-planned",
+                "--session-id",
+                _SESSION_ID,
+            ]
+        )
     payload = json.loads(out.getvalue() or err.getvalue())
     assert rc == 0, payload
     assert payload["success"] is True
     registered_by = conn.execute(
-        "SELECT registered_by_actor_id FROM path_claims "
-        "WHERE owner_item_id = %s",
+        "SELECT registered_by_actor_id FROM path_claims WHERE owner_item_id = %s",
         (_ITEM_ID,),
     ).fetchone()["registered_by_actor_id"]
     assert registered_by == _human_actor_id(conn)
@@ -162,13 +167,39 @@ def test_claiming_works_on_a_universe_upgraded_without_the_grant(fresh_universe)
 
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        rc = cmd_register([
-            "--item", f"YOK-{_ITEM_ID}",
-            "--integration-target", "main",
-            "--paths", "src/upgraded_universe.py",
-            "--allow-planned",
-            "--session-id", _SESSION_ID,
-        ])
+        rc = cmd_register(
+            [
+                "--item",
+                f"YOK-{_ITEM_ID}",
+                "--integration-target",
+                "main",
+                "--paths",
+                "src/upgraded_universe.py",
+                "--allow-planned",
+                "--session-id",
+                _SESSION_ID,
+            ]
+        )
     payload = json.loads(out.getvalue() or err.getvalue())
     assert rc == 0, payload
     assert payload["success"] is True
+
+
+def test_an_explicit_actor_converges_nothing(fresh_universe):
+    """The bearer-token path belongs to universes that bootstrap their own."""
+    conn = fresh_universe
+    actor_id = _strip_org_grant(conn)
+
+    result = begin_session(
+        conn,
+        session_id="explicit-actor-session",
+        executor="claude-code",
+        provider="anthropic",
+        model=TEST_MODEL_ID,
+        workspace="/tmp/fresh-universe",
+        project_id=1,
+        actor_id=actor_id,
+    )
+
+    assert result["success"] is True
+    assert not holds_org_admin(conn, actor_id)

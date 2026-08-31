@@ -19,12 +19,16 @@ def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
     claim, and that refusal lands far from the registration that caused
     it, so registration refuses here with the reason and the recovery.
 
-    Binding that actor is also where a single-owner universe converges
-    the org admin role it operates under. Birth grants it, but an engine
-    upgraded in place over a universe born before the grant existed
-    never re-enters birth — leaving sessions bound and then denied on
-    every mutation. Registration is the first moment the upgraded engine
-    names that actor, so it is the moment the grant catches up.
+    Resolving the operating actor — and only that branch — is also where
+    a single-owner universe converges the org admin role it operates
+    under. Birth grants it, but an engine upgraded in place over a
+    universe born before the grant existed never re-enters birth,
+    leaving sessions bound and then denied on every mutation, and
+    registration is the first moment the upgraded engine names that
+    actor. An explicitly supplied actor is the bearer-token path, where
+    a control plane establishes its administrators through token
+    bootstrap and sign-in instead, so that branch converges nothing and
+    a hosted registration never reaches the grant at all.
     """
     from yoke_core.domain.local_operating_actor import (
         converge_operating_actor_grant,
@@ -35,13 +39,13 @@ def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
     )
     from yoke_core.domain.sessions import SessionError
 
-    binding = (
-        explicit_actor_binding(conn, explicit)
-        if explicit is not None
-        else resolve_operating_actor(conn)
-    )
+    if explicit is not None:
+        binding = explicit_actor_binding(conn, explicit)
+    else:
+        binding = resolve_operating_actor(conn)
+        if binding.actor_id is not None:
+            converge_operating_actor_grant(conn)
     if binding.actor_id is not None:
-        converge_operating_actor_grant(conn)
         return binding.actor_id
     raise SessionError(
         binding.code,
