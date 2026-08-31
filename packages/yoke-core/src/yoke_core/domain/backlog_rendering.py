@@ -129,16 +129,26 @@ STATUS_COMMENT_GITHUB_TIMEOUT_SECONDS = 5.0
 STATUS_COMMENT_GITHUB_MAX_ATTEMPTS = 1
 
 
-def _sync_item(item_id: int, out: TextIO = sys.stderr) -> None:
-    """Sync item to GitHub (create/update issue)."""
+def _sync_item(item_id: int, out: TextIO = sys.stderr) -> str:
+    """Sync item to GitHub, reporting one mirror-attempt outcome.
+
+    Swallowing the failure here is what let a create report success while
+    the issue it promised was never opened.
+    """
+    from yoke_core.domain import backlog_github_mirror_state as mirror
+
     if _is_dry_run():
         print(f"[DRY-RUN] Skipping GitHub: sync-item for {item_ref_for_id(item_id)}", file=out)
-        return
+        return mirror.MIRROR_ATTEMPT_SKIPPED
     try:
         from yoke_core.domain import backlog_github_sync
-        backlog_github_sync.sync_item(item_id, stdout=out, stderr=out)
+        rc = backlog_github_sync.sync_item(item_id, stdout=out, stderr=out)
     except Exception as exc:
-        print(f"Note: GitHub sync skipped (non-fatal): {exc}", file=out)
+        print(f"Warning: GitHub sync failed for {item_ref_for_id(item_id)}: {exc}", file=out)
+        return mirror.MIRROR_ATTEMPT_FAILED
+    if int(rc or 0) == 0:
+        return mirror.MIRROR_ATTEMPT_SYNCED
+    return mirror.MIRROR_ATTEMPT_FAILED
 
 
 def _sync_labels(item_id: int, out: TextIO = sys.stderr) -> bool:
