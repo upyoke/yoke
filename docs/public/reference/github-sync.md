@@ -92,7 +92,9 @@ order:
    project and verify (`yoke projects get --project <slug> --field
    github_sync_mode`).
 2. **Bind verified App access:** run `yoke projects github-binding bind` with
-   the project, installation id, repository id, and new `owner/repo`.
+   the project, installation id, repository id, and new `owner/repo`. If the
+   checkout has no GitHub remote yet, create a private repo and bind it with
+   `yoke project git bootstrap CHECKOUT --project <slug> --yes` instead.
 3. **Migrate intentionally or keep history:** existing `items.github_issue` /
    `epic_tasks.github_issue` numbers keep pointing at the old repo's
    issues until the explicit issue-migration flow moves them. No sync writes

@@ -19,6 +19,7 @@ from yoke_cli.config.project_onboard_support import (
     project_api_payload,
     project_dry_run,
 )
+from yoke_cli.config import project_git_bootstrap
 from yoke_cli.config.project_publish_support import PublishRequest
 
 
@@ -99,7 +100,11 @@ def create_project(
     project_onboard_apply.ensure_git_available()
     with onboard_apply_progress.step(progress, checkout_action, progress_target):
         root.mkdir(parents=True, exist_ok=True)
-        operations.init_repo_if_needed(root, default_branch)
+        project_git_bootstrap.prepare_checkout(
+            root,
+            default_branch,
+            init_repo_if_needed=operations.init_repo_if_needed,
+        )
         if publish is not None and operations.publish_checkout_needed(root, publish):
             created = operations.create_and_publish(
                 root,

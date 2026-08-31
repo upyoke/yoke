@@ -120,6 +120,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke project install", "project", REASON_TOOL_SHAPED),
     _p("yoke project refresh", "project", REASON_TOOL_SHAPED),
     _p("yoke project uninstall", "project", REASON_TOOL_SHAPED),
+    _p("yoke project git bootstrap", "project", REASON_TOOL_SHAPED),
     _p("yoke packs get", "packs", REASON_TOOL_SHAPED),
     _p("yoke packs relink", "packs", REASON_TOOL_SHAPED),
     _p("yoke packs update", "packs", REASON_TOOL_SHAPED),

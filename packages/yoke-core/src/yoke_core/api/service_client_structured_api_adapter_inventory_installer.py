@@ -72,6 +72,17 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
         notes="Removes manifest-tracked files and de-merges Yoke hook entries.",
     ),
     AdapterEntry(
+        function_id="project.git.bootstrap",
+        cli_invocation=(
+            "yoke project git bootstrap CHECKOUT [--no-init] "
+            "[--no-create-remote] [--project SLUG] [--yes]"
+        ),
+        notes=(
+            "Client-local: git init, starter .gitignore, initial commit, "
+            "optional private GitHub repo + binding. Default is dry-run."
+        ),
+    ),
+    AdapterEntry(
         function_id="project.snapshot.sync",
         cli_invocation="yoke project snapshot sync [REPO_ROOT] [--project P]",
         notes="Client scans committed git tree state; API writes canonical path snapshot rows for the project.",

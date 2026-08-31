@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.project_git_bootstrap import GIT_BOOTSTRAP_OFFER
 from yoke_core.domain.github_app_control_plane import (
     GITHUB_APP_ISSUER_ENV,
     GITHUB_APP_PRIVATE_KEY_FILE_ENV,
@@ -169,7 +170,9 @@ def _check_database_prerequisites(
                 _check_fail(
                     counters,
                     "GitHub App repo binding not configured",
-                    "Bind via: yoke projects github-binding bind "
+                    "Bind via: "
+                    + GIT_BOOTSTRAP_OFFER.format(project=project_slug)
+                    + f"; or yoke projects github-binding bind "
                     f"--project {project_slug} ...",
                 )
             try:

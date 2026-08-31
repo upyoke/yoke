@@ -18,6 +18,7 @@ from yoke_contracts.github_auth_transience import (
     GITHUB_AUTH_RETRY_RECIPE,
     GITHUB_AUTH_STATUS_CHECK_RECIPE,
 )
+from yoke_contracts.project_git_bootstrap import GIT_BOOTSTRAP_OFFER
 from yoke_core.domain.github_app_control_plane import GitHubAppControlPlaneConfig
 from yoke_core.domain.github_app_installation_tokens import InstallationTokenCache
 from yoke_core.domain.project_github_auth_models import (
@@ -97,7 +98,8 @@ def resolve_project_github_auth(
         raise MissingCapability(
             state.project_slug,
             f"project '{state.project_slug}' has no GitHub App capability row; "
-            "bind a repository with `yoke projects github-binding bind`",
+            f"{GIT_BOOTSTRAP_OFFER.format(project=state.project_slug)}; "
+            "or bind a repository with `yoke projects github-binding bind`",
         )
     if state.binding is None:
         raise MissingRepoBinding(
@@ -245,12 +247,14 @@ def _auth_result(
 
 _HINT_BY_CODE: Mapping[str, str] = {
     "missing_capability": (
-        "bind a GitHub App repo with `yoke projects github-binding bind "
+        GIT_BOOTSTRAP_OFFER + "; or bind a GitHub App repo with "
+        "`yoke projects github-binding bind "
         "--project {project} ...`, or switch the project to disabled"
     ),
     "missing_repo_metadata": "re-bind the GitHub App repo for project {project}",
     "missing_repo_binding": (
-        "bind a GitHub App repo with `yoke projects github-binding bind "
+        GIT_BOOTSTRAP_OFFER + "; or bind a GitHub App repo with "
+        "`yoke projects github-binding bind "
         "--project {project} ...`, or keep the project disabled"
     ),
     "missing_installation": "reconnect GitHub, then re-bind project {project}",

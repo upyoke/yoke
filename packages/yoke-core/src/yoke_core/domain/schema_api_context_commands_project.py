@@ -135,4 +135,13 @@ PROJECT_COMMANDS: list[dict] = [
             "SQL or generic capability-settings surfaces."
         ),
     },
+    {
+        "topic": "project",
+        "purpose": "Init a checkout and create a private GitHub remote",
+        "recipe": "yoke project git bootstrap CHECKOUT --project <project> --yes",
+        "notes": (
+            "Client-local project.git.bootstrap; default dry-run. "
+            "Wrong guess: wizard-only git init."
+        ),
+    },
 ]
