@@ -47,7 +47,8 @@ class TestApplicabilityAxes(unittest.TestCase):
     def test_source_tree_check_needs_a_checkout(self):
         declaration = CheckApplicability(requires_source_checkout=True)
         reason = not_applicable_reason(
-            declaration, _context(runtime=RUNTIME_HOSTED, source_checkout=None),
+            declaration,
+            _context(runtime=RUNTIME_HOSTED, source_checkout=None),
         )
         self.assertIsNotNone(reason)
         self.assertIn("source tree", reason)
@@ -83,7 +84,8 @@ class TestApplicabilityAxes(unittest.TestCase):
     def test_runtime_restriction_names_the_declared_runtimes(self):
         declaration = CheckApplicability(runtimes=frozenset({RUNTIME_LOCAL}))
         reason = not_applicable_reason(
-            declaration, _context(runtime=RUNTIME_HOSTED),
+            declaration,
+            _context(runtime=RUNTIME_HOSTED),
         )
         self.assertIn(RUNTIME_LOCAL, reason)
         self.assertIn(RUNTIME_HOSTED, reason)
@@ -110,6 +112,21 @@ class TestApplicabilityAxes(unittest.TestCase):
         with self.assertRaises(ValueError):
             CheckApplicability(runtimes=frozenset({"moon"}))
 
+    def test_https_check_skips_local_postgres(self):
+        declaration = CheckApplicability(requires_https_control_plane=True)
+        reason = not_applicable_reason(declaration, _context())
+        self.assertIsNotNone(reason)
+        self.assertIn("HTTPS", reason)
+
+    def test_https_check_runs_when_the_plane_is_https(self):
+        declaration = CheckApplicability(requires_https_control_plane=True)
+        self.assertIsNone(
+            not_applicable_reason(
+                declaration,
+                _context(https_control_plane=True),
+            ),
+        )
+
 
 class TestDeclarationTable(unittest.TestCase):
     def test_every_registered_check_declares_its_applicability(self):
@@ -132,13 +149,24 @@ class TestDeclarationTable(unittest.TestCase):
         # universal made an external project pass from the control-plane
         # ledger without inspecting either of its declared surfaces.
         for slug in (
-            "pending-migrations", "project-migration-ledger-contract",
+            "pending-migrations",
+            "project-migration-ledger-contract",
         ):
             declaration = applicability_for(slug)
             self.assertEqual(
-                declaration.required_capabilities, ("migration_model",),
+                declaration.required_capabilities,
+                ("migration_model",),
             )
             self.assertTrue(declaration.requires_source_checkout)
+
+    def test_session_relay_needs_https_and_the_local_runtime(self):
+        declaration = applicability_for("session-relay")
+        self.assertTrue(declaration.requires_https_control_plane)
+        self.assertEqual(declaration.runtimes, frozenset({RUNTIME_LOCAL}))
+
+    def test_retired_schema_resurrection_is_self_scoped(self):
+        declaration = applicability_for("retired-schema-resurrection")
+        self.assertEqual(declaration.project_scope, PROJECT_SCOPE_SELF)
 
 
 class TestNotApplicableReporting(unittest.TestCase):

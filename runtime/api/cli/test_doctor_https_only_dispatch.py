@@ -17,12 +17,14 @@ from yoke_contracts.api.function_call import (
 def test_https_only_checkout_declared_slug_skips_relayed_validation() -> None:
     """A checkout-declared project-local slug must not hit server only= validation."""
     local_result = {
-        "results": [{
-            "hc": "HC-shipped-doctrine-path-portability",
-            "name": "Shipped doctrine",
-            "severity": "PASS",
-            "detail": "",
-        }],
+        "results": [
+            {
+                "hc": "HC-shipped-doctrine-path-portability",
+                "name": "Shipped doctrine",
+                "severity": "PASS",
+                "detail": "",
+            }
+        ],
         "scope": "only",
         "project": "yoke",
         "runtime": "hosted",
@@ -40,9 +42,12 @@ def test_https_only_checkout_declared_slug_skips_relayed_validation() -> None:
     with (
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.prepare_https_only_payload",
-            return_value=({"project": "yoke", "quick": False, "full": False}, [
-                "shipped-doctrine-path-portability",
-            ]),
+            return_value=(
+                {"project": "yoke", "quick": False, "full": False},
+                [
+                    "shipped-doctrine-path-portability",
+                ],
+            ),
         ),
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.https_relay_needed",
@@ -55,6 +60,9 @@ def test_https_only_checkout_declared_slug_skips_relayed_validation() -> None:
         patch(
             "yoke_cli.commands.adapters.doctor_https_run.collect_chunked",
             side_effect=_forbid_relay,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
         ),
         redirect_stdout(StringIO()) as stdout,
     ):
@@ -78,9 +86,9 @@ def test_https_only_checkout_declared_slug_skips_relayed_validation() -> None:
     envelope = captured[0]
     assert envelope["success"] is True
     assert envelope["result"]["composed"] == "local_project_checks"
-    assert [
-        row["hc"] for row in envelope["result"]["results"]
-    ] == ["HC-shipped-doctrine-path-portability"]
+    assert [row["hc"] for row in envelope["result"]["results"]] == [
+        "HC-shipped-doctrine-path-portability"
+    ]
 
 
 def test_https_only_still_relays_unknown_slug() -> None:
@@ -98,12 +106,15 @@ def test_https_only_still_relays_unknown_slug() -> None:
     with (
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.prepare_https_only_payload",
-            return_value=({
-                "project": "yoke",
-                "only": "HC-not-a-real-check",
-                "quick": False,
-                "full": False,
-            }, []),
+            return_value=(
+                {
+                    "project": "yoke",
+                    "only": "HC-not-a-real-check",
+                    "quick": False,
+                    "full": False,
+                },
+                [],
+            ),
         ),
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.https_relay_needed",
@@ -112,6 +123,9 @@ def test_https_only_still_relays_unknown_slug() -> None:
         patch(
             "yoke_cli.commands.adapters.doctor_https_run.collect_chunked",
             return_value=relay_error,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
         ),
         redirect_stdout(StringIO()) as stdout,
     ):
@@ -143,12 +157,14 @@ def test_https_only_composes_local_runtime_verdict() -> None:
         version="v1",
         request_id="r2",
         result={
-            "results": [{
-                "hc": "HC-session-relay",
-                "name": "Machine relay",
-                "severity": "N/A",
-                "detail": "declared for the local runtime; this run is hosted",
-            }],
+            "results": [
+                {
+                    "hc": "HC-session-relay",
+                    "name": "Machine relay",
+                    "severity": "N/A",
+                    "detail": "declared for the local runtime; this run is hosted",
+                }
+            ],
             "scope": "only",
             "project": "yoke",
             "runtime": "hosted",
@@ -158,12 +174,14 @@ def test_https_only_composes_local_runtime_verdict() -> None:
             "na_count": 1,
         },
     )
-    local = [{
-        "hc": "HC-session-relay",
-        "name": "Machine relay",
-        "severity": "PASS",
-        "detail": "relay-1 is loaded and authenticated",
-    }]
+    local = [
+        {
+            "hc": "HC-session-relay",
+            "name": "Machine relay",
+            "severity": "PASS",
+            "detail": "relay-1 is loaded and authenticated",
+        }
+    ]
 
     with (
         patch(
@@ -178,6 +196,9 @@ def test_https_only_composes_local_runtime_verdict() -> None:
             "yoke_cli.commands.adapters.doctor_https_compose.machine_has_checkout_for",
             return_value=False,
         ),
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
+        ) as persist,
         redirect_stdout(StringIO()) as stdout,
     ):
         rc = dispatch_chunked(
@@ -201,3 +222,5 @@ def test_https_only_composes_local_runtime_verdict() -> None:
     assert result["pass_count"] == 1
     assert result["na_count"] == 0
     assert result["composed"] == "local_runtime+relayed_control_plane"
+    persist.assert_called_once()
+    assert persist.call_args.args[0]["pass_count"] == 1

@@ -67,16 +67,7 @@ def handle_path_claims_conflicts(request: FunctionCallRequest) -> HandlerOutcome
 
 
 # ---------------------------------------------------------------------------
-# doctor.run.run
-# ---------------------------------------------------------------------------
-#
-# Machine-callable Doctor surface. The request mirrors the human CLI's
-# DoctorArgs: project / db_path / fix / only / quick / full. Callers must
-# pick exactly one scope (quick | full | only) — the explicit-scope rule
-# is enforced server-side so JSON callers cannot
-# silently burn quota by omitting it. Unknown HC slugs in ``only`` return
-# a structured ``invalid_check`` error rather than a successful empty
-# result.
+# doctor.run.run — exactly one of quick / full / only, unless payload.receipt.
 
 
 class DoctorRunRequest(BaseModel):
@@ -87,6 +78,7 @@ class DoctorRunRequest(BaseModel):
     project: Optional[str] = None
     db_path: Optional[str] = None
     runtime: Optional[str] = None
+    receipt: Optional[Dict[str, Any]] = None
 
 
 class DoctorRunResponse(BaseModel):
@@ -107,6 +99,10 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
         project_safe_quick_checks,
         validate_only_slugs,
     )
+    from yoke_core.domain.last_doctor_run_read import (
+        persist_completed_run,
+        record_receipt_from_payload,
+    )
     from yoke_core.engines.doctor_context import FALLBACK_PROJECT, resolve_context
     from yoke_core.engines.doctor_check_execution import execute_check_isolated
     from yoke_core.engines.doctor_registry import HEALTH_CHECKS
@@ -119,6 +115,8 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     payload = request.payload or {}
+    if "receipt" in payload:
+        return record_receipt_from_payload(payload.get("receipt"))
     only_raw = payload.get("only")
     quick = bool(payload.get("quick", False))
     full = bool(payload.get("full", False))
@@ -199,7 +197,8 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
                 error=FunctionError(
                     code="invalid_check",
                     message=(
-                        "unknown HC slug(s): " + ", ".join(unknown)
+                        "unknown HC slug(s): "
+                        + ", ".join(unknown)
                         + ". Use only slugs registered for the target "
                         "project. List engine slugs via `python3 -m "
                         "yoke_core.engines.doctor --list-checks`; "
@@ -232,14 +231,14 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
                 error=FunctionError(
                     code="invalid_cursor",
                     message=(
-                        "cursor_after does not match this doctor scope: "
-                        f"{cursor_after}"
+                        f"cursor_after does not match this doctor scope: {cursor_after}"
                     ),
                     jsonpath="$.payload.cursor_after",
                 ),
             )
     ran_count = 0
     last_cursor = cursor_after or None
+    served: Dict[str, Any]
     try:
         for hc in selected[start_index:]:
             if max_checks is not None and ran_count >= max_checks:
@@ -247,21 +246,17 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
             execute_check_isolated(conn, args, rec, hc)
             ran_count += 1
             last_cursor = hc.slug
-    finally:
-        conn.close()
-    done = start_index + ran_count >= len(selected)
-    results = [
-        {
-            "hc": r.check_id,
-            "name": r.check_name,
-            "severity": r.result,
-            "detail": r.detail,
-        }
-        for r in rec.results
-    ]
-    return HandlerOutcome(
-        result_payload={
-            "results": results,
+        done = start_index + ran_count >= len(selected)
+        served = {
+            "results": [
+                {
+                    "hc": r.check_id,
+                    "name": r.check_name,
+                    "severity": r.result,
+                    "detail": r.detail,
+                }
+                for r in rec.results
+            ],
             "scope": doctor_scope_label(args),
             "project": args.project,
             "runtime": context.runtime,
@@ -271,9 +266,12 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
             "na_count": rec.na_count,
             "done": done,
             "cursor": last_cursor,
-        },
-        primary_success=True,
-    )
+        }
+        if done and not cursor_after_raw:
+            persist_completed_run(conn, served)
+    finally:
+        conn.close()
+    return HandlerOutcome(result_payload=served, primary_success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -328,9 +326,13 @@ def handle_projects_capability_has(request: FunctionCallRequest) -> HandlerOutco
 
 
 __all__ = [
-    "PathClaimsConflictsRequest", "PathClaimsConflictsResponse",
+    "PathClaimsConflictsRequest",
+    "PathClaimsConflictsResponse",
     "handle_path_claims_conflicts",
-    "DoctorRunRequest", "DoctorRunResponse", "handle_doctor_run",
-    "ProjectsCapabilityHasRequest", "ProjectsCapabilityHasResponse",
+    "DoctorRunRequest",
+    "DoctorRunResponse",
+    "handle_doctor_run",
+    "ProjectsCapabilityHasRequest",
+    "ProjectsCapabilityHasResponse",
     "handle_projects_capability_has",
 ]

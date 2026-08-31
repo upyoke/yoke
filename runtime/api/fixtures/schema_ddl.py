@@ -50,6 +50,7 @@ def _schema_ddl() -> str:
             OVERVIEW_ACTIVATION_FACTS_CREATE_SQL,
         )
         from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
+        from yoke_core.domain.doctor_runs_schema import DOCTOR_RUNS_SCHEMA_SQL
         from yoke_core.domain.item_worktree_schema import (
             ITEM_WORKTREES_INDEX_SQL,
             ITEM_WORKTREES_TABLE_SQL,
@@ -94,6 +95,7 @@ def _schema_ddl() -> str:
             + item_worktrees_without_fk
             + ITEM_WORKTREES_INDEX_SQL
             + _EPIC_QA_DDL
+            + DOCTOR_RUNS_SCHEMA_SQL
             + _RUNTIME_DDL
             + _MOMENTUM_FEEDS_DDL
             + qa_catalog_without_fk
@@ -161,6 +163,9 @@ def apply_fixture_schema(conn: Any) -> None:
     from yoke_core.domain.field_note_dash_promotion import (
         ensure_field_note_dash_promotion_schema,
     )
+    from yoke_core.domain.doctor_runs_schema import (
+        ensure_doctor_runs_schema,
+    )
     from yoke_core.domain.schema_ouroboros_columns import (
         apply_ouroboros_columns,
     )
@@ -199,6 +204,7 @@ def apply_fixture_schema(conn: Any) -> None:
     ensure_workflow_execution_instructions_schema(conn, commit=False)
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
+    ensure_doctor_runs_schema(conn)
     apply_ouroboros_columns(conn)
     sync_machine_qa_pack_methods(conn)
     create_decision_request_tables(conn)

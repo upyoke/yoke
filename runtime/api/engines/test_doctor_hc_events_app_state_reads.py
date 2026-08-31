@@ -100,7 +100,6 @@ class TestScanEventsReads(unittest.TestCase):
         reader_suffixes = (
             "yoke_contracts/board/widgets_velocity_meter.py",
             "yoke_core/domain/board_momentum_signals.py",
-            "yoke_core/domain/last_doctor_run_read.py",
             "yoke_core/domain/source_authority_receipts.py",
             ".yoke/doctor/check_session_identity_provenance.py",
             ".yoke/doctor/check_silent_hooks.py",

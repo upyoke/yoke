@@ -146,7 +146,8 @@ class TestItemsGet(unittest.TestCase):
 class TestEpicTasksList(unittest.TestCase):
     def test_rejects_missing_epic_id(self):
         req = _request(
-            "epic_tasks.list.run", TargetRef(kind="item", item_id=99),
+            "epic_tasks.list.run",
+            TargetRef(kind="item", item_id=99),
         )
         outcome = reads.handle_epic_tasks_list(req)
         self.assertFalse(outcome.primary_success)
@@ -155,12 +156,32 @@ class TestEpicTasksList(unittest.TestCase):
     def test_returns_typed_task_list(self):
         rows = [
             (
-                1, 7, 1, "t1", "planned", 41, "deps",
-                41, "wt", "/repo/.worktrees/wt", "worker", "active",
+                1,
+                7,
+                1,
+                "t1",
+                "planned",
+                41,
+                "deps",
+                41,
+                "wt",
+                "/repo/.worktrees/wt",
+                "worker",
+                "active",
             ),
             (
-                2, 7, 2, "t2", "implementing", None, "",
-                None, None, None, None, None,
+                2,
+                7,
+                2,
+                "t2",
+                "implementing",
+                None,
+                "",
+                None,
+                None,
+                None,
+                None,
+                None,
             ),
         ]
 
@@ -176,7 +197,8 @@ class TestEpicTasksList(unittest.TestCase):
                 pass
 
         with patch(
-            "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
+            "yoke_core.domain.db_helpers.connect",
+            return_value=_Conn(),
         ):
             req = _request(
                 "epic_tasks.list.run",
@@ -188,7 +210,8 @@ class TestEpicTasksList(unittest.TestCase):
         self.assertEqual(len(outcome.result_payload["tasks"]), 2)
         self.assertEqual(outcome.result_payload["tasks"][0]["task_num"], 1)
         self.assertEqual(
-            outcome.result_payload["tasks"][0]["lane"]["branch"], "wt",
+            outcome.result_payload["tasks"][0]["lane"]["branch"],
+            "wt",
         )
         self.assertIsNone(outcome.result_payload["tasks"][1]["lane"])
 
@@ -225,17 +248,26 @@ class TestDoctorRun(unittest.TestCase):
         fake_hcs = [HealthCheck(slug="fake", name="Fake HC", fn=_fake_hc_fn)]
 
         class _Conn:
+            def execute(self, *_args, **_kwargs):
+                return self
+
+            def commit(self):
+                pass
+
             def close(self):
                 pass
 
         with patch(
-            "yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs,
+            "yoke_core.engines.doctor_registry.HEALTH_CHECKS",
+            fake_hcs,
         ):
             with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_Conn(),
             ):
                 req = _request(
-                    "doctor.run.run", TargetRef(kind="global"),
+                    "doctor.run.run",
+                    TargetRef(kind="global"),
                     payload={"only": "fake", "project": "yoke"},
                 )
                 outcome = reads_misc.handle_doctor_run(req)
@@ -251,7 +283,8 @@ class TestProjectsCapabilityHas(unittest.TestCase):
 
     def test_rejects_missing_project(self):
         req = _request(
-            "projects.capability.has", TargetRef(kind="global"),
+            "projects.capability.has",
+            TargetRef(kind="global"),
             payload={"cap_type": "migration_model"},
         )
         outcome = reads_misc.handle_projects_capability_has(req)
@@ -260,7 +293,8 @@ class TestProjectsCapabilityHas(unittest.TestCase):
 
     def test_rejects_missing_cap_type(self):
         req = _request(
-            "projects.capability.has", TargetRef(kind="global"),
+            "projects.capability.has",
+            TargetRef(kind="global"),
             payload={"project": "yoke"},
         )
         outcome = reads_misc.handle_projects_capability_has(req)
@@ -272,7 +306,8 @@ class TestProjectsCapabilityHas(unittest.TestCase):
             return_value=True,
         ):
             req = _request(
-                "projects.capability.has", TargetRef(kind="global"),
+                "projects.capability.has",
+                TargetRef(kind="global"),
                 payload={"project": "yoke", "cap_type": "migration_model"},
             )
             outcome = reads_misc.handle_projects_capability_has(req)
@@ -286,7 +321,8 @@ class TestProjectsCapabilityHas(unittest.TestCase):
             return_value=False,
         ):
             req = _request(
-                "projects.capability.has", TargetRef(kind="global"),
+                "projects.capability.has",
+                TargetRef(kind="global"),
                 payload={"project": "externalwebapp", "cap_type": "fake_capability"},
             )
             outcome = reads_misc.handle_projects_capability_has(req)

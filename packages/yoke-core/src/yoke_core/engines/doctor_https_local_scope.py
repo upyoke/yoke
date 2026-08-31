@@ -52,6 +52,7 @@ def requested_local_machine_slugs(
             self_project=project if self_names else None,
             self_project_names=self_names,
             source_checkout=checkout,
+            https_control_plane=True,
         ),
         include_project_checks=False,
     )

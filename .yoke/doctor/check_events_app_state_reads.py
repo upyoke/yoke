@@ -99,7 +99,6 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     # -- telemetry-observability: views over the event record itself
     f"{_CONTRACTS_BOARD_SOURCE_ROOT}/widgets_velocity_meter.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/board_momentum_signals.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/last_doctor_run_read.py",
     # -- keep-as-audit: doctor surfaces that verify behavior against telemetry
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_agents_sessions.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_stop_hook_chain.py",

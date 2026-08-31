@@ -149,7 +149,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "organizations",
         "actor_org_roles",
     ),
-    "qa": ("qa_requirements", "qa_runs"),
+    "qa": ("qa_requirements", "qa_runs", "doctor_runs"),
     "packs": (
         "pack_catalog",
         "project_pack_reports",

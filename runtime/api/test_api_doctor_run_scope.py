@@ -30,13 +30,26 @@ def _request(payload) -> FunctionCallRequest:
     )
 
 
+def _quick(project: str = "yoke", **extra):
+    payload = {"quick": True, "project": project, "runtime": "hosted"}
+    payload.update(extra)
+    return _request(payload)
+
+
 def _record(label):
     def _fake_hc_fn(conn, args, rec):
         rec.record(f"HC-{label}", f"{label} HC", "PASS", "all good")
+
     return _fake_hc_fn
 
 
 class _Conn:
+    def execute(self, *_args, **_kwargs):
+        return self
+
+    def commit(self):
+        pass
+
     def close(self):
         pass
 
@@ -59,6 +72,9 @@ class _AbortedTransactionConn:
     def rollback(self):
         self.aborted = False
 
+    def commit(self):
+        pass
+
     def close(self):
         pass
 
@@ -68,7 +84,9 @@ def _record_query_failure_without_raising(conn, args, rec):
         conn.execute("synthetic broken query")
     except RuntimeError:
         rec.record(
-            "HC-query-failure", "Query-failure HC", "FAIL",
+            "HC-query-failure",
+            "Query-failure HC",
+            "FAIL",
             "the original query failed",
         )
 
@@ -79,7 +97,10 @@ def _record_after_query_failure(conn, args, rec):
 
 
 def _run_only_with_project_roster(
-    *, context: DoctorContext, checks: list[HealthCheck], slug: str,
+    *,
+    context: DoctorContext,
+    checks: list[HealthCheck],
+    slug: str,
 ):
     with (
         patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", []),
@@ -93,11 +114,15 @@ def _run_only_with_project_roster(
             return_value=Discovery(checks, []),
         ),
     ):
-        return reads_misc.handle_doctor_run(_request({
-            "only": slug,
-            "project": context.project,
-            "runtime": context.runtime,
-        }))
+        return reads_misc.handle_doctor_run(
+            _request(
+                {
+                    "only": slug,
+                    "project": context.project,
+                    "runtime": context.runtime,
+                }
+            )
+        )
 
 
 class TestDoctorRunScope(unittest.TestCase):
@@ -149,29 +174,14 @@ class TestDoctorRunScope(unittest.TestCase):
             HealthCheck(slug="second", name="Second HC", fn=_record("second")),
         ]
 
-        with patch(
-            "yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs,
+        with (
+            patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs),
+            patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
         ):
-            with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
-            ):
-                # Cursor mechanics over a fixed roster: pinning the runtime
-                # keeps the roster exactly the two patched checks, instead of
-                # also collecting whatever this checkout declares in its own
-                # .yoke/doctor/ folder.
-                first = reads_misc.handle_doctor_run(_request({
-                    "quick": True,
-                    "project": "yoke",
-                    "runtime": "hosted",
-                    "max_checks": 1,
-                }))
-                second = reads_misc.handle_doctor_run(_request({
-                    "quick": True,
-                    "project": "yoke",
-                    "runtime": "hosted",
-                    "max_checks": 1,
-                    "cursor_after": "first",
-                }))
+            first = reads_misc.handle_doctor_run(_quick(max_checks=1))
+            second = reads_misc.handle_doctor_run(
+                _quick(max_checks=1, cursor_after="first"),
+            )
 
         self.assertTrue(first.primary_success)
         self.assertFalse(first.result_payload["done"])
@@ -183,9 +193,6 @@ class TestDoctorRunScope(unittest.TestCase):
         self.assertEqual(second.result_payload["results"][0]["hc"], "HC-second")
 
     def test_source_tree_checks_report_not_applicable_without_a_checkout(self):
-        # The checks declare on their own rows rather than borrowing real
-        # slugs: what is being tested is the applicability contract, not
-        # which slugs happen to be in the engine table today.
         source_tree = CheckApplicability(requires_source_checkout=True)
         fake_hcs = [
             HealthCheck(
@@ -214,24 +221,16 @@ class TestDoctorRunScope(unittest.TestCase):
             ),
         ]
 
-        with patch(
-            "yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs,
+        with (
+            patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs),
+            patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
         ):
-            with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
-            ):
-                outcome = reads_misc.handle_doctor_run(_request({
-                    "quick": True,
-                    "project": "yoke",
-                    "runtime": "hosted",
-                }))
+            outcome = reads_misc.handle_doctor_run(_quick())
 
         self.assertTrue(outcome.primary_success)
         rows = outcome.result_payload["results"]
         by_severity = {row["hc"]: row["severity"] for row in rows}
         self.assertEqual(by_severity["HC-db"], "PASS")
-        # Named with a reason, not dropped: the report must be able to
-        # distinguish "checked and clean" from "could not be checked here".
         for hc in (
             "HC-reads-a-source-tree",
             "HC-reads-a-checkout",
@@ -272,22 +271,18 @@ class TestDoctorRunScope(unittest.TestCase):
             ),
         ]
 
-        with patch(
-            "yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs,
+        with (
+            patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs),
+            patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
         ):
-            with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
-            ):
-                outcome = reads_misc.handle_doctor_run(_request({
-                    "quick": True,
-                    "project": "externalwebapp",
-                    "runtime": "hosted",
-                    "project_safe_quick": True,
-                }))
+            outcome = reads_misc.handle_doctor_run(
+                _quick(project="externalwebapp", project_safe_quick=True),
+            )
 
         self.assertTrue(outcome.primary_success)
         executed = [
-            row["hc"] for row in outcome.result_payload["results"]
+            row["hc"]
+            for row in outcome.result_payload["results"]
             if row["severity"] != "N/A"
         ]
         self.assertEqual(executed, ["HC-token", "HC-flows", "HC-ci"])
@@ -296,29 +291,25 @@ class TestDoctorRunScope(unittest.TestCase):
         conn = _AbortedTransactionConn()
         fake_hcs = [
             HealthCheck(
-                slug="query-failure", name="Query-failure HC",
+                slug="query-failure",
+                name="Query-failure HC",
                 fn=_record_query_failure_without_raising,
             ),
             HealthCheck(
-                slug="after-query", name="After-query HC",
+                slug="after-query",
+                name="After-query HC",
                 fn=_record_after_query_failure,
             ),
         ]
 
-        with patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs):
-            with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=conn,
-            ):
-                outcome = reads_misc.handle_doctor_run(_request({
-                    "quick": True,
-                    "project": "yoke",
-                    "runtime": "hosted",
-                }))
+        with (
+            patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs),
+            patch("yoke_core.domain.db_helpers.connect", return_value=conn),
+        ):
+            outcome = reads_misc.handle_doctor_run(_quick())
 
         self.assertTrue(outcome.primary_success)
-        by_hc = {
-            row["hc"]: row for row in outcome.result_payload["results"]
-        }
+        by_hc = {row["hc"]: row for row in outcome.result_payload["results"]}
         self.assertEqual(by_hc["HC-query-failure"]["severity"], "FAIL")
         self.assertEqual(
             by_hc["HC-query-failure"]["detail"],

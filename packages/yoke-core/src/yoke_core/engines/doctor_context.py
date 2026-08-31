@@ -163,7 +163,19 @@ def resolve_context(conn, args, *, runtime: Optional[str] = None) -> DoctorConte
         self_project_names=names,
         source_checkout=checkout,
         capabilities=project_capabilities(conn, project),
+        https_control_plane=resolve_https_control_plane(),
     )
+
+
+def resolve_https_control_plane() -> bool:
+    """True when the active connection is the HTTPS product plane."""
+    try:
+        from yoke_contracts.machine_config.schema import TRANSPORT_HTTPS
+        from yoke_core.domain.machine_config import active_connection
+
+        return str(active_connection().get("transport") or "") == TRANSPORT_HTTPS
+    except Exception:  # noqa: BLE001 - context reads are advisory
+        return False
 
 
 def default_project(directory: Path) -> str:
@@ -196,6 +208,7 @@ __all__ = [
     "default_project",
     "project_capabilities",
     "resolve_context",
+    "resolve_https_control_plane",
     "resolve_runtime",
     "resolve_self_project",
     "running_source_root",
