@@ -4,21 +4,18 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.session_model_facts import SessionModelFacts, model_display
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.hooks import session_dispatch_codex_lifecycle as _codex_lifecycle
 from yoke_core.hooks.resume_block_dispatch import render as _render_resume_block
 from yoke_core.hooks.session_dispatch_orientation import (
-    _connected_env_remediation,
     _render_claude_orientation,
     _render_codex_orientation,
     _render_codex_reminder,
-    _requested,
 )
 
 _register_codex = _codex_lifecycle.register

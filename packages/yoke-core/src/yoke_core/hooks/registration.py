@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_contracts.session_model_facts import SessionModelFacts, facts_from_mapping
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.hooks.session_lifecycle_client import (
     register_harness_session,
