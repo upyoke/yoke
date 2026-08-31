@@ -59,6 +59,9 @@ from yoke_core.domain.schema_api_context_tables_harness import (
 from yoke_core.domain.schema_api_context_tables_project import (
     PROJECT_TABLES,
 )
+from yoke_core.domain.schema_api_context_tables_gate_satisfier import (
+    GATE_SATISFIER_TABLES,
+)
 from yoke_core.domain.schema_api_context_tables_packs import PACK_TABLES
 from yoke_core.domain.schema_api_context_tables_python_helpers import (
     PYTHON_HELPERS_TABLES,
@@ -70,6 +73,7 @@ from yoke_core.domain.schema_api_context_tables_qa import (
 
 CANONICAL_TABLES: dict[str, dict] = {
     **CORE_TABLES,
+    **GATE_SATISFIER_TABLES,
     **DISPATCH_TABLES,
     **CLAIMS_TABLES,
     **HARNESS_TABLES,

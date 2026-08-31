@@ -42,6 +42,7 @@ from yoke_core.domain.handlers import (
     _register_epic_tasks,
     _register_events_reads,
     _register_frontier,
+    _register_gate_satisfier,
     _register_github,
     _register_github_actions,
     _register_harness_machine,
@@ -161,6 +162,7 @@ _DOMAIN_REGISTRARS = (
     _register_done_transition_writes,
     _register_done_transition_status_writes,
     _register_item_merge_provenance,
+    _register_gate_satisfier,
     _register_resync,
 )
 

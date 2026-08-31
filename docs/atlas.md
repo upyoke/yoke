@@ -2,12 +2,12 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-31T19:30:08Z_
+_Audit generated_at: 2026-08-31T21:19:23Z_
 
 ## 1. Summary
 
-- Function ids registered: **443**
-- Internal dispatch-only functions without CLI adapters: **87**
+- Function ids registered: **444**
+- Internal dispatch-only functions without CLI adapters: **88**
 - `yoke` CLI subcommands: **369** (369 carry usable `--help`)
 - Operation tracker: **345 wrapped**, 13 tool_cli, 127 permanent, 0 pending
 - Skill-body recipes: 328 total (276 template-skipped, 0 failing)
@@ -538,7 +538,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 135 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 33 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 34 |
 | runtime/agents/*.md | 9 |
 | runtime/harness/claude/agents/yoke-*.md | 8 |
 | runtime/harness/codex/agents/yoke-*.toml | 8 |
@@ -551,9 +551,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 39 |
-| claude-code | 8 |
-| cursor | 3 |
+| codex | 35 |
+| claude-code | 10 |
+| cursor | 5 |
 
 ## 8. Contradictions
 

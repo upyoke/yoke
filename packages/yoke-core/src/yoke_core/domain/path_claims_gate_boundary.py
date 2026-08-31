@@ -18,26 +18,37 @@ The adapter:
 * Blocks the transition with ``GATE_PATH_CLAIM_BOUNDARY`` and the
   rejection diagnostic when any claim returns ``conflict``.
 
-The check is fail-open in three cases that the contract treats as
-"nothing to enforce":
+The gate never passes on an unexamined boundary. An item with zero
+non-terminal claims has genuinely nothing to enforce and returns clear;
+every other shortage is a named refusal:
 
-* The ``path_claims`` table is absent (minimal-fixture test).
-* The item has no worktree branch recorded (planning advances,
-  ``--no-worktree`` items, evidence-only items).
-* The integration target cannot be resolved in the worktree (no
-  remote tracking branch in a fresh test repo).
+* The ``path_claims`` table cannot be read — the control plane cannot
+  say whether coverage was declared, which is not the same as no
+  coverage being declared.
+* The item holds claims but has no resolvable worktree — there is no
+  committed tree to compare the coverage against.
+* Neither integration ref resolves — see
+  :mod:`yoke_core.domain.path_claims_boundary_ladder`, which owns the
+  ordered ladder (remote ref, then local ref) and the refusal narrative.
 
-Fail-open here mirrors the existing gate runners (`db_mutation_gate`)
-which opt out on minimal schemas. Real worktrees with a real
-integration ref always surface the check.
+When a rung does resolve, the item records which one through
+:func:`yoke_core.domain.gate_satisfier_stamp.record_rung`, so a reader
+can later tell a boundary proved against the shared remote from one
+proved against a local trunk.
 """
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.gate_satisfier_ladder import LadderUnsatisfied
+from yoke_core.domain.gate_satisfier_ladder_catalog import (
+    PATH_CLAIM_BOUNDARY_LADDER,
+)
+from yoke_core.domain.gate_satisfier_stamp import record_refusal, record_rung
+from yoke_core.domain.path_claims_boundary_ladder import resolve_boundary_rung
 from yoke_core.domain.project_checkout_locations import item_worktree_path
 from yoke_core.domain.project_identity import render_item_ref
 
@@ -50,8 +61,34 @@ class PinnedPathClaimPolicyUnreadable(RuntimeError):
     """A real workflow pin exists but cannot resolve to a policy."""
 
 
+class PathClaimsUnreadable(RuntimeError):
+    """The claim rows themselves could not be read for this item."""
+
+
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _blocked(message: str) -> dict:
+    """Render the canonical block payload for this gate."""
+    return {
+        "success": False,
+        "error_code": "GATE_PATH_CLAIM_BOUNDARY",
+        "error": message,
+    }
+
+
+def _project_id(conn: Any, item_id: int) -> int:
+    p = _p(conn)
+    row = conn.execute(
+        f"SELECT project_id FROM items WHERE id = {p}", (item_id,)
+    ).fetchone()
+    if row is None:
+        raise PathClaimsUnreadable(
+            f"item {item_id} has no row in items; the boundary gate cannot "
+            "resolve the project whose facts the integration ladder needs"
+        )
+    return int(row[0])
 
 
 def _resolve_repo_path(conn: Any, item_id: int) -> Optional[str]:
@@ -61,7 +98,7 @@ def _resolve_repo_path(conn: Any, item_id: int) -> Optional[str]:
     return str(candidate)
 
 
-def _claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
+def _claims_for_item(conn: Any, item_id: int) -> List[Tuple[int, str]]:
     p = _p(conn)
     try:
         from yoke_core.domain.path_claim_task_bindings import (
@@ -77,7 +114,7 @@ def _claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
     try:
         if task_scoped:
             rows = conn.execute(
-                "SELECT DISTINCT pc.id FROM path_claims pc "
+                "SELECT DISTINCT pc.id, pc.integration_target FROM path_claims pc "
                 "JOIN path_claim_task_bindings b ON b.claim_id = pc.id "
                 f"WHERE b.epic_id = {p} "
                 "AND pc.state IN ('planned', 'blocked', 'active') "
@@ -86,15 +123,22 @@ def _claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT id FROM path_claims "
+                "SELECT id, integration_target FROM path_claims "
                 f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
                 "AND state IN ('planned', 'blocked', 'active') "
                 "ORDER BY id",
                 (item_id,),
             ).fetchall()
-    except db_backend.operational_error_types(conn):
-        return []
-    return [int(r[0]) for r in rows]
+    except db_backend.operational_error_types(conn) as exc:
+        raise PathClaimsUnreadable(
+            f"cannot read path claims for {render_item_ref(conn, item_id)}: "
+            f"{exc}. The control plane could not say whether this item "
+            "declared coverage, which is not the same as it declaring none, "
+            "so the boundary is refused rather than passed. Converge the "
+            "schema (restart the server, which applies the pending schema on "
+            "boot) and retry the transition."
+        ) from exc
+    return [(int(r[0]), str(r[1] or "")) for r in rows]
 
 
 def check_boundary_for_item(
@@ -106,28 +150,60 @@ def check_boundary_for_item(
 ) -> Optional[dict]:
     """Run boundary checks for every claim attached to the item.
 
-    Returns ``None`` on pass / opt-out. Returns the canonical failure
-    payload (``{"success": False, "error_code", "error"}``) when any
-    claim's boundary check is ``conflict``.
+    Returns ``None`` when the item declares no coverage to enforce.
+    Returns the canonical failure payload
+    (``{"success": False, "error_code", "error"}``) when a claim's
+    boundary check is ``conflict``, when the claims cannot be read, when
+    the item has claims but no worktree, or when no rung of the
+    integration ladder is reachable.
     """
     if not definition_selected and target_status not in _GATED_TARGETS:
         return None
 
     conn = connect(db_path)
     try:
+        try:
+            claims = _claims_for_item(conn, item_id)
+        except (PinnedPathClaimPolicyUnreadable, PathClaimsUnreadable) as exc:
+            return _blocked(str(exc))
+        if not claims:
+            return None
+        claim_ids = [claim_id for claim_id, _target in claims]
+
         repo_path = _resolve_repo_path(conn, item_id)
         if repo_path is None:
-            return None
+            return _blocked(
+                f"{render_item_ref(conn, item_id)} holds "
+                f"{len(claim_ids)} active path claim(s) but has no resolvable "
+                "worktree on this machine, so the committed change cannot be "
+                "compared against the coverage it declared.\n\n"
+                "Remediate by preparing the item's lane "
+                "(`yoke direct-workflow worktree prepare <ITEM>`), repairing "
+                "the recorded path (`yoke item-worktrees path-record`), or "
+                "releasing the claims if this item no longer edits files. "
+                "The gate does not pass here: an unchecked boundary and a "
+                "clean boundary are not the same answer."
+            )
+
         try:
-            claim_ids = _claim_ids_for_item(conn, item_id)
-        except PinnedPathClaimPolicyUnreadable as exc:
-            return {
-                "success": False,
-                "error_code": "GATE_PATH_CLAIM_BOUNDARY",
-                "error": str(exc),
-            }
-        if not claim_ids:
-            return None
+            resolution = resolve_boundary_rung(
+                conn,
+                project_id=_project_id(conn, item_id),
+                item_id=item_id,
+                repo_path=repo_path,
+                integration_targets=[target for _cid, target in claims],
+            )
+        except PathClaimsUnreadable as exc:
+            return _blocked(str(exc))
+        except LadderUnsatisfied as exc:
+            record_refusal(
+                conn,
+                item_id=item_id,
+                ladder=PATH_CLAIM_BOUNDARY_LADDER,
+                resolution=exc.resolution,
+                target_status=target_status,
+            )
+            return _blocked(exc.message)
 
         try:
             from yoke_core.domain.path_claims_boundary import (
@@ -138,8 +214,13 @@ def check_boundary_for_item(
             from yoke_core.domain.path_claims_integration_resolver import (
                 IntegrationTargetDiverged,
             )
-        except ImportError:  # pragma: no cover - defensive
-            return None
+        except ImportError as exc:  # pragma: no cover - defensive
+            return _blocked(
+                "the path-claim boundary implementation could not be "
+                f"imported ({exc}); this build cannot evaluate the boundary "
+                "it is being asked to enforce. Reinstall or repair the Yoke "
+                "engine on this machine and retry."
+            )
 
         try:
             from yoke_core.domain import path_claims_events as _events
@@ -167,7 +248,10 @@ def check_boundary_for_item(
             except IntegrationTargetDiverged as exc:
                 hard_errors.append(f"claim {claim_id}: {exc}")
                 continue
-            except BoundaryCheckError:
+            except BoundaryCheckError as exc:
+                hard_errors.append(
+                    f"claim {claim_id}: boundary check could not run: {exc}"
+                )
                 continue
             per_claim_results.append((claim_id, result))
             union_declared.update(result.declared_paths or [])
@@ -191,6 +275,13 @@ def check_boundary_for_item(
                 rejections = []
         all_rejections = hard_errors + rejections
         if not all_rejections:
+            record_rung(
+                conn,
+                item_id=item_id,
+                ladder=PATH_CLAIM_BOUNDARY_LADDER,
+                resolution=resolution,
+                target_status=target_status,
+            )
             if _events is not None:
                 for claim_id, result in per_claim_results:
                     _events.emit_boundary_passed(
@@ -233,5 +324,7 @@ def check_boundary_for_item(
 
 
 __all__ = [
+    "PathClaimsUnreadable",
+    "PinnedPathClaimPolicyUnreadable",
     "check_boundary_for_item",
 ]

@@ -21,6 +21,7 @@ from yoke_core.engines.done_transition_branch_lookup import (
     branch_exists_for_item,
 )
 from yoke_core.engines.done_transition_runtime import _reseat_runtime_paths
+from yoke_core.engines.done_transition_satisfiers import check_done_satisfiers
 
 
 def _parent():
@@ -191,6 +192,9 @@ def run(
 
     merge_ran = False
     merge_output = ""
+    # A recorded lane branch IS an implementation branch; the no-lane
+    # path below probes for an orphaned one.
+    lane_branch_exists = bool(lane_branch)
     if not resume_from_step6:
         if lane_branch and not branch_already_merged:
             merge_exit, merge_output, _ = _do_merge(
@@ -230,29 +234,29 @@ def run(
         elif branch_already_merged:
             print("Branch already merged — skipping merge step.")
         else:
-            if resume_from_step6:
-                print(
-                    "Merge already completed in prior run — continuing "
-                    "with post-merge steps."
-                )
-            else:
-                branch_exists = branch_exists_for_item(
-                    item_id,
-                    project_repo=project_repo,
-                    run_git=_run_git,
-                    connect=_connect,
-                )
-                if not branch_exists:
-                    print(
-                        "No active worktree lane and no branch found — "
-                        "continuing without a merge."
-                    )
-                else:
-                    print("No active worktree lane but branch exists — skipping merge.")
+            lane_branch_exists = branch_exists_for_item(
+                item_id,
+                project_repo=project_repo,
+                run_git=_run_git,
+                connect=_connect,
+            )
 
     result.add_step("4")
     if merge_ran:
         result.merge_ran = True
+
+    print("\n=== Step 4s: Merge and delivery satisfiers ===")
+    satisfier_block = check_done_satisfiers(
+        item_id,
+        merge_ran=merge_ran,
+        branch_already_merged=bool(branch_already_merged or resume_from_step6),
+        branch_exists=lane_branch_exists,
+    )
+    if satisfier_block:
+        print(f"\nBlocked: {satisfier_block}", file=sys.stderr)
+        print(f"RESULT_FILE={result_file}")
+        return result.fail(result_file, 7, "4s")
+    result.add_step("4s")
 
     from yoke_core.engines.done_transition_cleanup import _has_foreign_claim
     cleanup_foreign_claim = _has_foreign_claim(item_id)

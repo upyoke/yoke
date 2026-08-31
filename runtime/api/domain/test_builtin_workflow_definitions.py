@@ -136,7 +136,11 @@ EXPECTED_GATE_DESCRIPTIONS = {
         "Project Structure family)."
     ),
     "path_claim_boundary": (
-        "The item's changed files must stay inside its registered path claims."
+        "The item's changed files must stay inside its registered path "
+        "claims, diffed against the highest reachable rung of the "
+        "integration ladder — the remote integration ref, else the "
+        "local one. An item with no claims is clear; an item with "
+        "claims and no worktree, or no resolvable ref, is refused."
     ),
     "plan_simulation": (
         "The epic's plan must pass the simulator's cross-task execution trace."

@@ -6,6 +6,9 @@ from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
+from yoke_core.domain.gate_satisfaction_schema import (
+    create_gate_satisfaction_tables,
+)
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.health_runs_schema import ensure_doctor_runs_schema
 from yoke_core.domain.field_note_dash_promotion import (
@@ -210,6 +213,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     # Plans attach to projects, workflows and items; requirements snapshot
     # those plans, so the catalog follows all four authorities.
     create_qa_catalog_tables(conn)
+    create_gate_satisfaction_tables(conn)
     # Instruction scope junctions reference workflows and projects, so the
     # instruction tables follow both authorities.
     ensure_workflow_execution_instructions_schema(conn, commit=False)

@@ -85,6 +85,7 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "DeploymentRunFailed",
     "DeploymentRunStageFailed",
     "DispatcherDownstreamDegraded",
+    "GateSatisfierRefused",
     "GitHubCloseFailure",
     "HarnessSessionResumeBlockShown",
     "HarnessToolCallStructuredExit",

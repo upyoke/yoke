@@ -4,6 +4,14 @@ Deployment evidence is owned by ``deployment_runs`` /
 ``deployment_run_items`` (plus the legacy ``deploy_stage`` item field
 for runless flows). The events ledger is telemetry-only and is not
 consulted.
+
+Whether the delivery *obligation* was met at all is settled earlier, at
+step 4a, by the delivery satisfier ladder — see
+:mod:`yoke_core.engines.done_transition_satisfiers`. These guards run
+after that, and enforce the specifics of a real registered flow. An
+empty or ``*-internal`` flow reaches them already satisfied by the
+merge-only rung, which the item records; it is not an obligation these
+guards skip.
 """
 
 from __future__ import annotations
@@ -87,6 +95,15 @@ def _check_deployment_flow_guard(
     """
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if not deploy_flow or is_internal:
+        # Not "no obligation" — the delivery obligation was already
+        # discharged and stamped on the item at step 4a, by the
+        # merge-only rung of the delivery ladder. Saying so keeps an
+        # empty flow from reading as a gate that quietly did not apply.
+        print(
+            f"Delivery for {public_ref} is merge-only "
+            f"({'no deployment flow declared' if not deploy_flow else deploy_flow}); "
+            "the satisfied rung is recorded on the item."
+        )
         return None
 
     # Distinguish registered flows that lack deployment evidence from

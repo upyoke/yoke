@@ -117,6 +117,11 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "event_registry",
         "ouroboros_entries",
         "item_sections",
+        # The satisfier-ladder substrate: how a gate obligation was
+        # actually discharged for an item, and the derived project
+        # facts that pick the rung.
+        "item_gate_satisfactions",
+        "project_derived_facts",
         # Python helper surfaces — not SQL tables, but rendered alongside
         # the schema cheat sheet so agents learn the Postgres-native DB router
         # path and `db_helpers.connect()` signature without confabulating wrong
@@ -201,6 +206,11 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # The qa topic also names doctor_runs so last_run and status readers do not
 # reconstruct receipts from the events journal. The project topic also
 # names the client-local git-bootstrap operation so agents do not treat
-# git init and private-remote creation as wizard-only choreography.
-PACKET_LINE_BUDGET_PER_ROLE: int = 430
-PACKET_LINE_BUDGET_AGGREGATE: int = 2647
+# git init and private-remote creation as wizard-only choreography. The
+# core topic also carries the two gate-satisfier tables: an agent that
+# reads a gate's refusal needs to know that the rung which discharged it
+# is recorded on the item, and that a derived project fact nobody has
+# converged reads as unknown rather than as false — guessing either way
+# turns an honest refusal into a suspected bug.
+PACKET_LINE_BUDGET_PER_ROLE: int = 434
+PACKET_LINE_BUDGET_AGGREGATE: int = 2675

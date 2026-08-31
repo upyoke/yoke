@@ -3,10 +3,12 @@
 Two concerns this owns:
 
 1. **Default to project trunk** when the CLI caller omitted
-   ``--integration-target`` — looks up ``projects.default_branch`` via
-   :mod:`yoke_core.domain.projects_trunk`, falling back to
-   :data:`yoke_core.domain.projects_trunk.DEFAULT_TRUNK` when the
-   project row has no usable value.
+   ``--integration-target`` — resolves the project's trunk through
+   :func:`yoke_core.domain.projects_trunk.resolve_trunk`. There is no
+   ``"main"`` fallback: a project that names no trunk refuses the
+   registration and says which command supplies one, because guessing
+   the base is how a claim ends up anchored to a tree the item never
+   branched from.
 2. **Ref validation** — the supplied (or defaulted) target must
    resolve to a current git ref in the project's repo. The cheap check
    is at registration time; without it, a self-referencing target (an
@@ -44,7 +46,8 @@ from yoke_core.domain.path_claims_boundary_git import (
 )
 from yoke_core.domain.path_claims_register import PathClaimRegistrationError
 from yoke_core.domain.projects_trunk import (
-    DEFAULT_TRUNK,
+    TrunkUnspecified,
+    resolve_trunk,
     resolve_trunk_safe,
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
@@ -97,9 +100,9 @@ def resolve_and_validate_integration_target(
     """Return the validated integration target string.
 
     When ``supplied_target`` is ``None`` or blank, resolves the
-    project's trunk branch from ``projects.default_branch`` and falls
-    back to :data:`DEFAULT_TRUNK` when no usable value exists. When
-    ``supplied_target`` is non-empty, uses it verbatim.
+    project's trunk through the integration-trunk satisfier ladder and
+    refuses when the project names none. When ``supplied_target`` is
+    non-empty, uses it verbatim.
 
     Always validates that the resulting target resolves to a current
     git ref in this machine's mapped project checkout (via the existing
@@ -120,7 +123,16 @@ def resolve_and_validate_integration_target(
     if project_id:
         trunk_hint = resolve_trunk_safe(conn, project_id)
     if not candidate:
-        candidate = trunk_hint or DEFAULT_TRUNK
+        if not project_id:
+            raise IntegrationTargetUnresolvable(
+                f"item {item_id!r} resolves to no project, so no trunk can "
+                "be resolved for the omitted --integration-target. Pass "
+                "--integration-target explicitly."
+            )
+        try:
+            candidate = resolve_trunk(conn, project_id)
+        except TrunkUnspecified as exc:
+            raise IntegrationTargetUnresolvable(str(exc)) from exc
     if not project_id:
         return candidate
     checkout = checkout_for_project_id(project_id)
@@ -130,13 +142,21 @@ def resolve_and_validate_integration_target(
     try:
         resolve_integration_head(repo_path, candidate)
     except BoundaryCheckError as exc:
-        recommended = trunk_hint or DEFAULT_TRUNK
+        recommendation = (
+            f"Use {trunk_hint!r} (the project trunk) unless you have a "
+            "specific reason to target a branch."
+            if trunk_hint
+            else (
+                "This project also names no trunk to recommend; set one "
+                "with `yoke projects update --slug <SLUG> --name <NAME> "
+                "--default-branch <BRANCH>`."
+            )
+        )
         raise IntegrationTargetUnresolvable(
             f"integration target {candidate!r} does not resolve to a git "
             f"ref in project {project_id!r}; tried "
             f"refs/remotes/origin/{candidate} and refs/heads/{candidate}. "
-            f"Use {recommended!r} (the project trunk) unless you have a "
-            f"specific reason to target a branch."
+            f"{recommendation}"
         ) from exc
     return candidate
 

@@ -156,26 +156,25 @@ def test_omitted_target_uses_configured_default_branch(tmp_path, conn):
     assert result == "trunk"
 
 
-def test_omitted_target_falls_back_to_main_when_default_branch_null(
-    tmp_path, conn,
-):
+def test_omitted_target_refuses_when_default_branch_is_null(tmp_path, conn):
+    """A project that names no trunk refuses instead of guessing "main"."""
     repo = _init_repo_with_main(tmp_path / "alpha")
     _seed(conn, 1, "alpha", str(repo), None)
-    result = resolve_and_validate_integration_target(
-        conn, item_id=1, supplied_target=None,
-    )
-    assert result == "main"
+    with pytest.raises(IntegrationTargetUnresolvable) as excinfo:
+        resolve_and_validate_integration_target(
+            conn, item_id=1, supplied_target=None,
+        )
+    assert "integration_trunk" in str(excinfo.value)
+    assert "--default-branch" in str(excinfo.value)
 
 
-def test_omitted_target_falls_back_to_main_when_default_branch_blank(
-    tmp_path, conn,
-):
+def test_omitted_target_refuses_when_default_branch_is_blank(tmp_path, conn):
     repo = _init_repo_with_main(tmp_path / "alpha")
     _seed(conn, 1, "alpha", str(repo), "   ")
-    result = resolve_and_validate_integration_target(
-        conn, item_id=1, supplied_target=None,
-    )
-    assert result == "main"
+    with pytest.raises(IntegrationTargetUnresolvable):
+        resolve_and_validate_integration_target(
+            conn, item_id=1, supplied_target=None,
+        )
 
 
 def test_validation_skips_when_checkout_missing(conn):
@@ -204,12 +203,14 @@ def test_validation_skips_when_item_has_no_project(tmp_path, conn):
     assert result == "any"
 
 
-def test_omitted_target_with_no_project_falls_back_to_main(conn):
+def test_omitted_target_with_no_project_refuses(conn):
+    """No project means no trunk to resolve, so the caller must name one."""
     conn.execute("INSERT INTO items (id, project_id) VALUES (1, NULL)")
-    result = resolve_and_validate_integration_target(
-        conn, item_id=1, supplied_target=None,
-    )
-    assert result == "main"
+    with pytest.raises(IntegrationTargetUnresolvable) as excinfo:
+        resolve_and_validate_integration_target(
+            conn, item_id=1, supplied_target=None,
+        )
+    assert "no project" in str(excinfo.value)
 
 
 def test_validation_skips_when_projects_table_missing(tmp_path):
