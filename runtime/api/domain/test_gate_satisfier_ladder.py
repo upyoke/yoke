@@ -133,9 +133,14 @@ def test_resolution_carries_the_fact_snapshot_for_stamping():
     assert resolution.facts == {"observed:local_ok": "present"}
 
 
-def test_unknown_derived_fact_explains_the_sync_recovery():
+def test_a_derived_fact_no_observer_owns_names_the_engine_defect():
+    """A derived fact is only unknown when nothing can answer it.
+
+    Convergence has a live-observation fallback, so an absent row is
+    not unknown; a key no observer owns is, and no sync fixes that.
+    """
     facts = CapabilityFacts(facts={})
-    assert "snapshot sync" in facts.explain("derived:remote_present")
+    assert "engine defect" in facts.explain("derived:remote_present")
 
 
 def test_with_observed_layers_site_facts_over_the_registry():

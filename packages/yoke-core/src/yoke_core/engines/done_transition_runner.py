@@ -245,7 +245,7 @@ def run(
     if merge_ran:
         result.merge_ran = True
 
-    print("\n=== Step 4a: Merge and delivery satisfiers ===")
+    print("\n=== Step 4s: Merge and delivery satisfiers ===")
     satisfier_block = check_done_satisfiers(
         item_id,
         merge_ran=merge_ran,
@@ -255,8 +255,8 @@ def run(
     if satisfier_block:
         print(f"\nBlocked: {satisfier_block}", file=sys.stderr)
         print(f"RESULT_FILE={result_file}")
-        return result.fail(result_file, 7, "4a")
-    result.add_step("4a")
+        return result.fail(result_file, 7, "4s")
+    result.add_step("4s")
 
     from yoke_core.engines.done_transition_cleanup import _has_foreign_claim
     cleanup_foreign_claim = _has_foreign_claim(item_id)

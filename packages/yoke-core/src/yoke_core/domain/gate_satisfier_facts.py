@@ -65,7 +65,6 @@ DERIVED_TEST_COMMAND_DECLARED = "derived:test_command_declared"
 DERIVED_ENVIRONMENTS_PRESENT = "derived:environments_present"
 DERIVED_DEFAULT_BRANCH = "derived:default_branch"
 
-OBSERVED_GIT_REPOSITORY = "observed:git_repository"
 OBSERVED_REMOTE_INTEGRATION_REF = "observed:remote_integration_ref"
 OBSERVED_LOCAL_INTEGRATION_REF = "observed:local_integration_ref"
 OBSERVED_MERGE_RECORDED = "observed:merge_recorded"
@@ -73,9 +72,9 @@ OBSERVED_NO_IMPLEMENTATION_BRANCH = "observed:no_implementation_branch"
 
 _UNKNOWN_RECOVERY = {
     "derived": (
-        "no converged observation for this fact; run "
-        "`yoke project snapshot sync` to converge the project's derived "
-        "facts, then retry"
+        "no observer owns this fact key, so neither the converged rows "
+        "nor a live observation can answer it; this is an engine defect "
+        "in the derived-fact registry, not something a sync will fix"
     ),
     "declared": (
         "the control plane holds no declaration for this fact; declare it "
@@ -294,7 +293,6 @@ __all__ = [
     "DERIVED_TEST_COMMAND_DECLARED",
     "Fact",
     "FactVerdict",
-    "OBSERVED_GIT_REPOSITORY",
     "OBSERVED_LOCAL_INTEGRATION_REF",
     "OBSERVED_MERGE_RECORDED",
     "OBSERVED_NO_IMPLEMENTATION_BRANCH",

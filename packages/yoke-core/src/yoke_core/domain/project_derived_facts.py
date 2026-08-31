@@ -169,9 +169,11 @@ def converge_derived_facts(
 
     Returns ``{"stored": bool, "facts": {key: {"present", "value"}}}``.
     A failure appends to ``warnings`` and leaves any prior rows in
-    place rather than aborting the sync: a ladder that needs a fact
-    this never wrote reads it as UNKNOWN and refuses with the sync
-    recipe, so a missed refresh can never become a quiet pass.
+    place rather than aborting the sync. A ladder needing a fact this
+    never wrote falls back to :func:`observe_now`, so a missed refresh
+    costs freshness rather than blocking correct work, and cannot
+    become a quiet pass either: the fallback answers from the same
+    reads this one uses.
     """
     summary: Dict[str, Any] = {}
     rows: List[Tuple[str, bool, str, str]] = []
@@ -184,12 +186,18 @@ def converge_derived_facts(
         if warnings is not None:
             warnings.append(f"derived project facts did not converge: {exc}")
         return {"stored": False, "facts": summary}
+    if not _column_exists(conn, "project_derived_facts", "fact_key"):
+        # The store arrives with the boot converge, and readers already
+        # fall back to a live observation until it does. Warning on every
+        # sync of a database that has simply not booted the new schema
+        # yet would be noise about a state nothing is waiting on.
+        return {"stored": False, "facts": summary}
     if not _write_rows(conn, project_id, rows):
         if warnings is not None:
             warnings.append(
-                "derived project facts were observed but not stored; "
-                "run `yoke project snapshot sync` again once the schema "
-                "has converged"
+                "derived project facts were observed but could not be "
+                "stored; the facts still resolve live, but the cache is "
+                "stale until the next `yoke project snapshot sync`"
             )
         return {"stored": False, "facts": summary}
     return {"stored": True, "facts": summary}

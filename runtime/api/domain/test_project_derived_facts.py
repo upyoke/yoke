@@ -143,13 +143,20 @@ def test_rows_are_replaced_rather_than_appended_on_reconvergence(conn):
     assert int(row[1]) == 1
 
 
-def test_a_missing_store_warns_instead_of_claiming_the_facts_are_stored(conn):
+def test_an_unconverged_store_reports_unstored_without_warning(conn):
+    """The store arrives with the boot converge; that is not a fault.
+
+    Readers fall back to a live observation until it exists, so warning
+    on every sync of a not-yet-booted database would be noise about a
+    state nothing is waiting on.
+    """
     conn.execute("DROP TABLE project_derived_facts")
     conn.commit()
     warnings: list[str] = []
     result = converge_derived_facts(conn, 1, warnings)
     assert result["stored"] is False
-    assert warnings and "snapshot sync" in warnings[0]
+    assert result["facts"][FACT_REMOTE_PRESENT]["present"] is False
+    assert warnings == []
 
 
 def test_every_declared_fact_key_has_an_observer(conn):
