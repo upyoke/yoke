@@ -44,7 +44,7 @@ from enum import Enum
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists
 
 
 class FactVerdict(Enum):
@@ -211,10 +211,11 @@ def load_project_facts(
 
 
 def _declared_capability_types(conn: Any, project_id: int) -> list[str]:
-    # Probe the catalog rather than letting a missing table raise: on
-    # Postgres a failed statement aborts the whole transaction, so a
-    # swallowed error would silently turn every LATER fact unknown too.
-    if not _table_exists(conn, "project_capabilities"):
+    # Probe the catalog rather than letting a missing table or column
+    # raise: on Postgres a failed statement aborts the whole transaction,
+    # so a swallowed error would silently turn every LATER fact unknown
+    # too — which is why the probe is column-level, not table-level.
+    if not _column_exists(conn, "project_capabilities", "type"):
         return []
     p = _p(conn)
     rows = conn.execute(
@@ -226,7 +227,7 @@ def _declared_capability_types(conn: Any, project_id: int) -> list[str]:
 
 
 def _declared_default_branch(conn: Any, project_id: int) -> Optional[str]:
-    if not _table_exists(conn, "projects"):
+    if not _column_exists(conn, "projects", "default_branch"):
         return None
     p = _p(conn)
     row = conn.execute(
@@ -251,7 +252,7 @@ def _derived_facts(conn: Any, project_id: int) -> Dict[str, Fact]:
     from yoke_core.domain.project_derived_facts import DERIVED_FACT_KEYS, observe_now
 
     out: Dict[str, Fact] = {}
-    if _table_exists(conn, "project_derived_facts"):
+    if _column_exists(conn, "project_derived_facts", "fact_key"):
         p = _p(conn)
         rows = conn.execute(
             "SELECT fact_key, present, fact_value, observed_from "

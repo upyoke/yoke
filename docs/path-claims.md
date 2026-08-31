@@ -56,6 +56,8 @@ The boundary check (the break-glass `path-claims boundary` adapter and the lifec
 
 The check is **committed-only**: uncommitted changes do NOT participate in coverage matching but still block via dirty-state detection.
 
+The gate resolves an ordered satisfier ladder for the integration target: `remote_integration_ref` (`refs/remotes/origin/<target>`, what a project with a remote integrates into), else `local_integration_ref` (`refs/heads/<target>`, the local trunk a git-only repository integrates into — a real answer, not a degraded one). The rung that ran is recorded in `item_gate_satisfactions`, readable from item detail's `gate_satisfactions` key. An item with no non-terminal claims is clear; every other shortage is a named refusal, because an unchecked boundary and a clean boundary are not the same answer — the claims cannot be read, the item holds claims but has no resolvable worktree, or neither rung resolves.
+
 ## When to amend, when to revert, when to split
 
 When the boundary check returns `conflict`, pick the remediation

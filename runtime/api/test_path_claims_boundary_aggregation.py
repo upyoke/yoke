@@ -27,6 +27,40 @@ def _git(repo: Path, *args: str) -> str:
     return proc.stdout.strip()
 
 
+class StubResult:
+    """One per-claim verdict, so the tests exercise aggregation only."""
+
+    def __init__(
+        self, claim_id, declared_paths, touched_paths, undeclared_paths, status,
+    ):
+        self.claim_id = claim_id
+        self.integration_target = "main"
+        self.declared_paths = declared_paths
+        self.touched_paths = touched_paths
+        self.uncommitted_paths = []
+        self.undeclared_paths = undeclared_paths
+        self.undeclared_target_ids = []
+        self.diagnostics = "stub"
+        self.status = status
+
+
+def _repo_with_worktree(tmp_path: Path) -> Path:
+    """A real git repo on ``main`` plus the item's worktree directory.
+
+    These tests stub the per-claim check, but the gate still resolves
+    which rung of the integration ladder it may diff against before
+    running any check — so the fixture needs a trunk that resolves.
+    """
+    repo_root = tmp_path / "repo"
+    (repo_root / ".worktrees" / "YOK-9").mkdir(parents=True)
+    _git(repo_root, "init", "-q", "--initial-branch=main")
+    (repo_root / "README.md").write_text("# repo\n")
+    _git(repo_root, "add", "README.md")
+    _git(repo_root, "-c", "user.name=t", "-c", "user.email=t@x",
+         "commit", "-q", "-m", "initial")
+    return repo_root
+
+
 def _make_branch_apply_schema(repo_root: Path):
     """Zero-arg ``apply_schema`` seeding the minimal aggregation-gate tables.
 
@@ -59,7 +93,8 @@ def _make_branch_apply_schema(repo_root: Path):
             conn.execute(
                 "CREATE TABLE path_claims ("
                 "id INTEGER PRIMARY KEY, owner_kind TEXT, "
-                "owner_item_id INTEGER, state TEXT)"
+                "owner_item_id INTEGER, state TEXT, "
+                "integration_target TEXT)"
             )
             conn.execute(
                 "INSERT INTO projects (id, slug) VALUES (3, 'demo')",
@@ -74,13 +109,13 @@ def _make_branch_apply_schema(repo_root: Path):
             )
             conn.execute(
                 "INSERT INTO path_claims "
-                "(id, owner_kind, owner_item_id, state) "
-                "VALUES (1, 'item', 9, 'active')"
+                "(id, owner_kind, owner_item_id, state, integration_target) "
+                "VALUES (1, 'item', 9, 'active', 'main')"
             )
             conn.execute(
                 "INSERT INTO path_claims "
-                "(id, owner_kind, owner_item_id, state) "
-                "VALUES (2, 'item', 9, 'active')"
+                "(id, owner_kind, owner_item_id, state, integration_target) "
+                "VALUES (2, 'item', 9, 'active', 'main')"
             )
             conn.commit()
         finally:
@@ -96,23 +131,6 @@ class TestAggregationBranching:
         # Stub out the inner boundary_check_for_claim so we control the
         # per-claim verdicts and exercise only the aggregation logic.
         from yoke_core.domain import path_claims_boundary as _pb
-
-        class StubResult:
-            def __init__(
-                self,
-                claim_id, declared_paths, touched_paths,
-                undeclared_paths,
-                status,
-            ):
-                self.claim_id = claim_id
-                self.integration_target = "main"
-                self.declared_paths = declared_paths
-                self.touched_paths = touched_paths
-                self.uncommitted_paths = []
-                self.undeclared_paths = undeclared_paths
-                self.undeclared_target_ids = []
-                self.diagnostics = "stub"
-                self.status = status
 
         # Two claims: A declares foo.py, B declares bar.py; both touched.
         results = {
@@ -132,8 +150,7 @@ class TestAggregationBranching:
         monkeypatch.setattr(_pb, "boundary_check_for_claim", stub_check)
 
         # Seed an item + project + two non-terminal claims.
-        repo_root = tmp_path / "repo"
-        (repo_root / ".worktrees" / "YOK-9").mkdir(parents=True)
+        repo_root = _repo_with_worktree(tmp_path)
 
         with init_test_db(
             tmp_path, apply_schema=_make_branch_apply_schema(repo_root)
@@ -150,23 +167,6 @@ class TestAggregationBranching:
     def test_two_claims_union_misses_paths(self, tmp_path, monkeypatch):
         """Two claims, union still missing a touched path — reject."""
         from yoke_core.domain import path_claims_boundary as _pb
-
-        class StubResult:
-            def __init__(
-                self,
-                claim_id, declared_paths, touched_paths,
-                undeclared_paths,
-                status,
-            ):
-                self.claim_id = claim_id
-                self.integration_target = "main"
-                self.declared_paths = declared_paths
-                self.touched_paths = touched_paths
-                self.uncommitted_paths = []
-                self.undeclared_paths = undeclared_paths
-                self.undeclared_target_ids = []
-                self.diagnostics = "stub"
-                self.status = status
 
         results = {
             1: StubResult(
@@ -186,8 +186,7 @@ class TestAggregationBranching:
 
         monkeypatch.setattr(_pb, "boundary_check_for_claim", stub_check)
 
-        repo_root = tmp_path / "repo"
-        (repo_root / ".worktrees" / "YOK-9").mkdir(parents=True)
+        repo_root = _repo_with_worktree(tmp_path)
 
         with init_test_db(
             tmp_path, apply_schema=_make_branch_apply_schema(repo_root)
