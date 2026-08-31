@@ -2,9 +2,10 @@
 
 Covers the gate-run line classifier against representative output (CI
 workflow polls, the restated outcome, the result envelope, engine
-failures), the delegation to the pytest classifier that a locally
-executed case relies on, the nested-invocation rejection, the
-passthrough contract, and the one property the wrapper exists for: a
+failures), the state-change rule that keeps a repeating poll from waking
+a watching agent every minute, the delegation to the pytest classifier
+that a locally executed case relies on, the nested-invocation rejection,
+the passthrough contract, and the one property the wrapper exists for: a
 kind that the exit sentinel — and therefore an armed Monitor — can
 actually match.
 """
@@ -20,8 +21,18 @@ import pytest
 
 from yoke_core.tools import watch_qa_case
 from yoke_core.tools._watch_runner import filter_match
-from yoke_core.tools._watch_throttle import LineClass
+from yoke_core.tools._watch_throttle import Classification, LineClass
 from yoke_core.tools.watch_tail import EXIT_SENTINEL
+
+
+def classify(line: str) -> Classification:
+    """Classify one line through a classifier that has seen nothing yet.
+
+    The classifier carries the last workflow state across calls, so a
+    test asserting a single line's class needs a fresh instance rather
+    than a shared one whose state leaks between cases.
+    """
+    return watch_qa_case.QaCaseLineClassifier()(line)
 
 
 class TestGateClassifier:
@@ -33,8 +44,9 @@ class TestGateClassifier:
             "Workflow status: queued (elapsed: 16s, next poll: 20s)",
         ],
     )
-    def test_workflow_polls_are_progress(self, line: str) -> None:
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.PROGRESS
+    def test_first_workflow_poll_is_progress(self, line: str) -> None:
+        """The first poll of a run is news: it names the state to wake on."""
+        assert classify(line).cls is LineClass.PROGRESS
 
     @pytest.mark.parametrize(
         "line",
@@ -47,7 +59,7 @@ class TestGateClassifier:
         ],
     )
     def test_outcome_and_envelope_are_summary(self, line: str) -> None:
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.SUMMARY
+        assert classify(line).cls is LineClass.SUMMARY
 
     @pytest.mark.parametrize(
         "line",
@@ -72,7 +84,7 @@ class TestGateClassifier:
         class reports the last hint — how to force-cancel — as the result
         of a run that passed.
         """
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.METADATA
+        assert classify(line).cls is LineClass.METADATA
 
     @pytest.mark.parametrize(
         "line",
@@ -83,7 +95,7 @@ class TestGateClassifier:
         ],
     )
     def test_failures_and_degraded_relay_are_urgent(self, line: str) -> None:
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.URGENT
+        assert classify(line).cls is LineClass.URGENT
 
     @pytest.mark.parametrize(
         "line",
@@ -94,7 +106,70 @@ class TestGateClassifier:
         ],
     )
     def test_unrecognized_lines_are_noise(self, line: str) -> None:
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.NOISE
+        assert classify(line).cls is LineClass.NOISE
+
+
+class TestWorkflowStateChanges:
+    """A poll wakes a watcher only when it carries a state change.
+
+    The gate polls roughly once a minute for the whole 13-14 minute CI
+    run, so classifying every repeat as progress woke the waiting agent
+    per poll to report the state the previous poll already carried.
+    """
+
+    def _poll(self, state: str, elapsed: int) -> str:
+        return (
+            f"  Workflow status: {state} (elapsed: {elapsed}s, next poll: 30s)"
+        )
+
+    def test_same_state_repeats_are_silent(self) -> None:
+        classifier = watch_qa_case.QaCaseLineClassifier()
+        assert (
+            classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
+        )
+        for elapsed in (120, 180, 240):
+            assert (
+                classifier(self._poll("in_progress", elapsed)).cls
+                is LineClass.NOISE
+            )
+
+    def test_each_state_transition_wakes(self) -> None:
+        classifier = watch_qa_case.QaCaseLineClassifier()
+        observed = [
+            classifier(self._poll(state, elapsed)).cls
+            for state, elapsed in (
+                ("queued", 16),
+                ("queued", 46),
+                ("in_progress", 76),
+                ("in_progress", 106),
+                ("completed", 136),
+            )
+        ]
+        assert observed == [
+            LineClass.PROGRESS,
+            LineClass.NOISE,
+            LineClass.PROGRESS,
+            LineClass.NOISE,
+            LineClass.PROGRESS,
+        ]
+
+    def test_other_lines_do_not_disturb_the_remembered_state(self) -> None:
+        """A poll repeat stays silent across intervening gate output."""
+        classifier = watch_qa_case.QaCaseLineClassifier()
+        assert (
+            classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
+        )
+        classifier("# qa case run: requirement=1 attached run=2 https://x/2")
+        assert (
+            classifier(self._poll("in_progress", 120)).cls is LineClass.NOISE
+        )
+
+    def test_a_new_run_starts_with_no_remembered_state(self) -> None:
+        """One classifier per run; a fresh gate run wakes on its first poll."""
+        first = watch_qa_case.QaCaseLineClassifier()
+        assert first(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
+        second = watch_qa_case.QaCaseLineClassifier()
+        assert second(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
 
 
 class TestPytestDelegation:
@@ -107,15 +182,15 @@ class TestPytestDelegation:
 
     def test_pytest_progress_still_classifies(self) -> None:
         line = "........................................ [ 47%]"
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.PROGRESS
+        assert classify(line).cls is LineClass.PROGRESS
 
     def test_pytest_failure_still_classifies(self) -> None:
         line = "FAILED tests/test_thing.py::test_case - AssertionError"
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.URGENT
+        assert classify(line).cls is LineClass.URGENT
 
     def test_pytest_summary_still_classifies(self) -> None:
         line = "==================== 12 passed in 3.20s ====================="
-        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.SUMMARY
+        assert classify(line).cls is LineClass.SUMMARY
 
 
 class TestUnionPattern:

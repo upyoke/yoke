@@ -13,7 +13,8 @@ The classifier maps:
 - The engine's own failure line (``yoke qa case run: ...``), a
   tree-binding refusal, and the degraded-relay retry notice → ``URGENT``.
 - ``Workflow status: <state> (elapsed: Ns, next poll: Ns)`` CI polls →
-  ``PROGRESS`` (time-window throttled).
+  ``PROGRESS`` on the first poll and on every state change, ``NOISE``
+  while the state repeats.
 - The restated outcome (``# qa case run: verdict=...``) and the final
   result envelope → ``SUMMARY``.
 - The gate's other ``# qa case run:`` announcements — which run covers
@@ -75,7 +76,12 @@ QA_CASE_URGENT_RE = re.compile(
     r"(^yoke qa case run:|TREE-BINDING REFUSAL|"
     r"status relay is temporarily unavailable)",
 )
-QA_CASE_PROGRESS_RE = re.compile(r"^\s*Workflow status:\s*\S+")
+# The workflow-state token is captured, not just matched: the classifier
+# wakes on a state change and stays silent while the state repeats, so it
+# needs the token itself rather than the fact that a poll happened.
+QA_CASE_WORKFLOW_STATUS_RE = re.compile(
+    r"^\s*Workflow status:\s*(?P<state>\S+)",
+)
 # The restated outcome line, then the machine-readable envelope the gate
 # prints last. The envelope is matched by its verdict key rather than its
 # first key, which is only ``artifact_id`` for the runners that produce
@@ -100,7 +106,7 @@ QA_CASE_PROGRESS_PATTERN = re.compile(
     r"|".join(
         (
             QA_CASE_URGENT_RE.pattern,
-            QA_CASE_PROGRESS_RE.pattern,
+            QA_CASE_WORKFLOW_STATUS_RE.pattern,
             QA_CASE_SUMMARY_RE.pattern,
             QA_CASE_ANNOUNCEMENT_RE.pattern,
         )
@@ -108,30 +114,59 @@ QA_CASE_PROGRESS_PATTERN = re.compile(
 )
 
 
-def classify_qa_case_line(line: str) -> Classification:
-    """Classify a single gate-run output line.
+class QaCaseLineClassifier:
+    """Classify gate-run output lines, carrying the last CI state seen.
 
-    Order matters: a failure line that also carries a gate token must
-    still emit immediately, so URGENT is checked first and SUMMARY
-    before PROGRESS. SUMMARY is also checked before the announcement
-    shape, because the outcome line shares the announcements' prefix and
-    only the outcome may be reported as the run's summary.
+    The classifier is stateful because the gate's ``Workflow status:``
+    poll is not news. It repeats roughly once a minute for the whole
+    13-14 minute CI run and carries the state the previous poll already
+    carried, so on an idle-wake harness it wakes the waiting agent every
+    minute to say nothing — the highest-frequency wasted-wake class in
+    the system, since every item runs the gate. A poll is progress only
+    when its state token differs from the last one seen (the first poll,
+    then ``queued`` → ``in_progress`` → concluded); a repeat is noise
+    that stays in the raw capture and wakes nobody. Liveness does not
+    ride on those ticks: the shared watch runner reports its own
+    ``# watch_qa_case no progress for Ns`` notices, and a dead gate still
+    lands the exit sentinel.
 
-    A line matching none of the gate shapes is handed to the pytest
-    classifier: a locally-executed case streams its command's output
-    through this same stream, and that command is usually pytest. The
-    pytest classifier answers ``NOISE`` for anything it does not
-    recognize, which is the right answer here too.
+    One instance per run, so a fresh gate run starts with no remembered
+    state rather than inheriting the previous run's last poll.
     """
-    if QA_CASE_URGENT_RE.search(line):
-        return Classification(LineClass.URGENT)
-    if QA_CASE_SUMMARY_RE.search(line):
-        return Classification(LineClass.SUMMARY)
-    if QA_CASE_ANNOUNCEMENT_RE.search(line):
-        return Classification(LineClass.METADATA)
-    if QA_CASE_PROGRESS_RE.search(line):
-        return Classification(LineClass.PROGRESS)
-    return classify_pytest_line(line)
+
+    def __init__(self) -> None:
+        self._last_workflow_state: str | None = None
+
+    def __call__(self, line: str) -> Classification:
+        """Classify a single gate-run output line.
+
+        Order matters: a failure line that also carries a gate token must
+        still emit immediately, so URGENT is checked first and SUMMARY
+        before the poll shape. SUMMARY is also checked before the
+        announcement shape, because the outcome line shares the
+        announcements' prefix and only the outcome may be reported as the
+        run's summary.
+
+        A line matching none of the gate shapes is handed to the pytest
+        classifier: a locally-executed case streams its command's output
+        through this same stream, and that command is usually pytest. The
+        pytest classifier answers ``NOISE`` for anything it does not
+        recognize, which is the right answer here too.
+        """
+        if QA_CASE_URGENT_RE.search(line):
+            return Classification(LineClass.URGENT)
+        if QA_CASE_SUMMARY_RE.search(line):
+            return Classification(LineClass.SUMMARY)
+        if QA_CASE_ANNOUNCEMENT_RE.search(line):
+            return Classification(LineClass.METADATA)
+        status = QA_CASE_WORKFLOW_STATUS_RE.search(line)
+        if status is not None:
+            state = status.group("state")
+            if state == self._last_workflow_state:
+                return Classification(LineClass.NOISE)
+            self._last_workflow_state = state
+            return Classification(LineClass.PROGRESS)
+        return classify_pytest_line(line)
 
 
 NESTED_INVOCATION_REJECTION_MESSAGE = (
@@ -278,7 +313,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     return _watch_runner.run_watcher(
         argv=_case_run_argv(case_args),
-        classifier=classify_qa_case_line,
+        classifier=QaCaseLineClassifier(),
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
