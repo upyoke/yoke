@@ -116,7 +116,10 @@ yoke --env <connection> qa mission host-command \
 This command revalidates subject ownership, the parked execution, immutable
 case snapshot, and retained lease before resolving client-local Test Machine
 credentials. It accepts bounded argv rather than shell text and returns
-redacted output.
+redacted output. Every path in that argv names the **Test Machine's**
+filesystem, never the calling machine's, so the session-cwd write-authority
+guard exempts it from local write classification — a shell redirect written
+after the argv still runs locally and stays enforced.
 
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:

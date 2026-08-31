@@ -9,6 +9,10 @@ from typing import List, Mapping, Optional, Tuple
 from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
     extract_gh_repo_selector_targets,
 )
+from yoke_core.domain.lint_session_cwd_host_command import (
+    remote_argv_indexes,
+    yoke_subcommand_positionals,
+)
 from yoke_core.domain.lint_shell_target_tokens import (
     path_target_from_token,
     shell_command_segments,
@@ -93,31 +97,12 @@ _YOKE_PAYLOAD_PATH_SUBCOMMANDS = (
     ("project", "register"),
 )
 
-# Yoke global flag values must not be mistaken for subcommands.
-_YOKE_VALUE_FLAGS = frozenset({"--env", "--config", "--session-id"})
-
 
 def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
     """True when the segment is an exempt ``yoke`` registration adapter."""
     if command_base != "yoke":
         return False
-    positionals: List[str] = []
-    seen_command = False
-    i = 0
-    while i < len(tokens) and len(positionals) < 2:
-        tok = tokens[i]
-        if tok in _YOKE_VALUE_FLAGS:
-            i += 2
-            continue
-        if tok.startswith("-"):
-            i += 1
-            continue
-        if not seen_command:
-            seen_command = True
-            i += 1
-            continue
-        positionals.append(tok)
-        i += 1
+    positionals = yoke_subcommand_positionals(tokens, limit=2)
     return any(
         tuple(positionals[: len(shape)]) == shape
         for shape in _YOKE_PAYLOAD_PATH_SUBCOMMANDS
@@ -125,8 +110,18 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
 
 
 def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
+    """Indexes naming a resource on another machine, not a local path.
+
+    Two ``yoke`` shapes carry operands off this host: ``aws exec -- logs
+    tail <log-group>`` names an AWS resource, and ``qa mission
+    host-command ... -- ARGV...`` ships its whole argv over a mission's
+    retained Test Machine lease.
+    """
     if command_base != "yoke":
         return set()
+    remote = remote_argv_indexes(command_base, tokens)
+    if remote:
+        return remote
     try:
         separator = tokens.index("--")
         adapter = tokens.index("aws", 1, separator)
@@ -186,18 +181,22 @@ def _extract_segment_targets(
     n = len(tokens)
     while i < n:
         tok = tokens[i]
-        if i in remote_resource_indexes:
-            i += 1
-            continue
         if command_base == "curl" and tok in _CURL_NON_PATH_VALUE_FLAGS:
             i += 2
             continue
+        # Redirects are resolved before the remote-resource skip: the
+        # shell performs them on THIS machine even when they trail a
+        # remote invocation's argv, so ``host-command ... -- ls /x >
+        # /local/out`` still surfaces the local destination.
         if tok in REDIRECT_OPERATORS:
             if i + 1 < n:
                 target = path_target_from_token(tokens[i + 1], bindings)
                 if target is not None:
                     out.append(target)
             i += 2
+            continue
+        if i in remote_resource_indexes:
+            i += 1
             continue
         if not skip_arg_targets:
             if tok in FLAG_BINARY and i + 1 < n:

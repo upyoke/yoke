@@ -209,6 +209,7 @@ def evaluate_pre_tool_use(
             offending_target=outcome.offending_target,
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
+            command=extract_payload_command(payload),
         )
         body += repo_command_block(payload, outcome.claims) if not targets else ""
     reason = append_field_note_footer(body, rule_id="lint-session-cwd")
