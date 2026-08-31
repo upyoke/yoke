@@ -152,6 +152,20 @@ with copy-paste inspection and watch commands that target the repository
 explicitly, because linked worktrees do not provide consistent repository
 inference. A second line names the force-cancel endpoint for an orphaned run.
 
+When a merge-queue gate rebases a lane and publishes a replacement head on the
+same pull-request branch, it also finds the prior active run for that workflow
+and branch and force-cancels it before waiting for the replacement. The gate
+prints `force-cancelled superseded run=RUN_ID` and stores that id as
+`superseded_ci_run_id` in its result evidence. A run that concluded or was
+already cancelled during the lookup-to-cancel race is a silent no-op.
+
+A run that remains `pending` with zero jobs and an unchanged GitHub
+`updated_at` for two minutes is reported as `stalled_dispatch` with
+`waiting_on=pending_zero_jobs_stall` and the exact force-cancel command. This
+named state is emitted immediately by `yoke watch qa-case`; it is not reported
+as the healthy `waiting_on=progress_throttle` condition used when a child is
+still producing ordinary suppressed progress.
+
 If normal cancellation leaves the run in progress, use that force-cancel
 recipe. Wait for the original case invocation to observe the cancellation and
 exit, then rerun the same requirement through Yoke so the replacement run and
