@@ -42,7 +42,7 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
   // One machine has one operator, so the local card names no one at all.
   assert.equal(byClass(root, "session-operator").length, 0);
   assert.equal(byClass(root, "session-actor-avatar").length, 0);
-  assert.ok(visibleText(root).includes("No actionable work right now"));
+  assert.ok(visibleText(root).includes("No active work claims"));
   mounted.unmount();
 
   const emptyDocument = new FakeDocument();
