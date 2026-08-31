@@ -7,10 +7,8 @@ import { sessionCard } from "./universe_views_sessions.js";
 import {
   el,
   mergedRows,
-  portabilityMode,
   scopeBuckets,
   settledScopedCalls,
-  whoColumn,
 } from "./universe_view_support.js";
 
 
@@ -67,8 +65,6 @@ export function renderRegisteredSessionDetail(
     content.replaceChildren(sessionCard(
       documentNode,
       row,
-      whoColumn(context.capabilities),
-      portabilityMode(context.capabilities),
       openMessage,
       context.projects(),
     ));

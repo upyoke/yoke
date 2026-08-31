@@ -111,13 +111,20 @@ function appendHealth(documentNode, body, row) {
   body.appendChild(line);
 }
 
-export function appendSessionDiagnostics(documentNode, body, row) {
+export function appendSessionDiagnostics(
+  documentNode, body, row, messageAction = null,
+) {
   appendKillCause(documentNode, body, row);
   const badge = latestMessageBadge(documentNode, row.latest_message);
-  if (badge) {
+  if (badge || messageAction) {
     const message = el(documentNode, "div", "session-latest-message");
-    message.appendChild(el(documentNode, "span", null, "Latest message"));
-    message.appendChild(badge);
+    if (messageAction) message.appendChild(messageAction);
+    if (badge) {
+      message.appendChild(el(
+        documentNode, "span", "session-latest-label", "Latest:",
+      ));
+      message.appendChild(badge);
+    }
     body.appendChild(message);
   }
   appendHealth(documentNode, body, row);

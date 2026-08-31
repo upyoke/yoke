@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
+import { sessionCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
   FakeDocument,
   byClass,
@@ -15,7 +16,7 @@ import {
   visibleText,
 } from "./universe_ui_sessions_view_test_support.mjs";
 
-test("Sessions keeps local identity honest and renders the exact empty state", async (t) => {
+test("Sessions renders resolved local identity and the exact empty state", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -39,8 +40,7 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
   });
   await settle();
 
-  // One machine has one operator, so the local card names no one at all.
-  assert.equal(byClass(root, "session-operator").length, 0);
+  assert.equal(byClass(root, "session-operator")[0].textContent, "Ben");
   assert.equal(byClass(root, "session-actor-avatar").length, 0);
   assert.ok(visibleText(root).includes("No active work claims"));
   mounted.unmount();
@@ -70,6 +70,28 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
     true,
   );
   emptyMount.unmount();
+});
+
+test("session cards omit only absent or placeholder operator names", () => {
+  const render = (actorLabel) => sessionCard(
+    new FakeDocument(),
+    {
+      session_id: "operator-card",
+      liveness: "active",
+      executor: "codex",
+      actor_id: 2,
+      actor_kind: "human",
+      actor_label: actorLabel,
+      claims: [],
+      messageability: { messageable: false },
+    },
+    () => {},
+  );
+
+  assert.equal(byClass(render("ben"), "session-operator")[0].textContent, "ben");
+  for (const missing of [null, "", "—"]) {
+    assert.equal(byClass(render(missing), "session-operator").length, 0);
+  }
 });
 
 test("Sessions reports a scoped read failure without presenting cleanup as available", async (t) => {
@@ -128,7 +150,7 @@ test("Sessions styles use theme tokens and collapse stats and cards on narrow sc
   );
 });
 
-test("Sessions sizes its stat row to the three tiles it renders", () => {
+test("Sessions sizes its stats and keeps the message row to one text line", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
     import.meta.url,
@@ -136,5 +158,17 @@ test("Sessions sizes its stat row to the three tiles it renders", () => {
   assert.match(
     css,
     /\.sessions-stats \{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/,
+  );
+  assert.match(
+    css,
+    /\.session-latest-message \{[^}]*flex-wrap: nowrap;[^}]*line-height: 1\.2;[^}]*white-space: nowrap;/,
+  );
+  assert.match(
+    css,
+    /\.session-message-button \{[^}]*height: 1\.2em;[^}]*min-height: 0;[^}]*padding: 0 5px;/,
+  );
+  assert.match(
+    css,
+    /\.session-latest-message \.session-message-badge \{[^}]*padding-block: 0;/,
   );
 });

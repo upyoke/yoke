@@ -9,10 +9,6 @@ import {
   byClass,
 } from "./universe_ui_dom_test_support.mjs";
 
-
-const WHO = { label: "member", value: () => "Ben" };
-
-
 function baseRow(sessionId) {
   return {
     session_id: sessionId,
@@ -29,7 +25,7 @@ function baseRow(sessionId) {
 
 
 function card(documentNode, row, projects = []) {
-  return sessionCard(documentNode, row, WHO, "hosted", () => {}, projects);
+  return sessionCard(documentNode, row, () => {}, projects);
 }
 
 

@@ -14,11 +14,10 @@ import {
   byClass,
 } from "./universe_ui_dom_test_support.mjs";
 
-const WHO = { label: "member", value: () => "Ben" };
 const ITEM_CLAIM = [{ target_kind: "item", target: "YOK-1" }];
 
 function card(row) {
-  return sessionCard(new FakeDocument(), row, WHO, "hosted", () => {});
+  return sessionCard(new FakeDocument(), row, () => {});
 }
 
 // A session past the staleness window with claims held, so every health state

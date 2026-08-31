@@ -9,10 +9,6 @@ import {
   byClass,
 } from "./universe_ui_dom_test_support.mjs";
 
-
-const WHO = { label: "member", value: () => "Ben" };
-
-
 function item(target, title) {
   return {
     holding_kind: "work_claim",
@@ -47,8 +43,6 @@ function card(documentNode, liveness, holdings) {
       holdings,
       messageability: { messageable: false },
     },
-    WHO,
-    "hosted",
     () => {},
   );
 }
