@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded, item_target
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
-from yoke_core.domain.workflow_behavior import runs_without_git_lane
+from yoke_contracts.item_worktrees import runs_without_git_lane
 
 
 @dataclass(frozen=True)
@@ -138,9 +138,7 @@ def verification_tree(
     if root and head:
         return root, head
     try:
-        module = importlib.import_module(
-            "yoke_core.domain.verification_tree_binding"
-        )
+        module = importlib.import_module("yoke_core.domain.verification_tree_binding")
         identity = module.resolve_tree_identity()
     except Exception:
         identity = None

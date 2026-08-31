@@ -8,6 +8,7 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from yoke_contracts.item_worktrees import runs_without_git_lane
 from yoke_contracts.lifecycle_status import LEGACY_STATUS_GLYPHS
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
 from yoke_core.domain.dash_execution import (
@@ -66,6 +67,21 @@ def test_task_definition_is_a_shared_vocabulary_subset() -> None:
         "web_form",
         "promotion",
     }
+
+
+def test_runs_without_git_lane_reads_effective_policy() -> None:
+    """Client packages share this read; it must not live in the engine."""
+    assert runs_without_git_lane(
+        {"effective_policies": {"worktrees": WORKFLOW_WORKTREES_NONE}}
+    )
+    assert runs_without_git_lane({"policies": {"worktrees": WORKFLOW_WORKTREES_NONE}})
+    assert not runs_without_git_lane(
+        {
+            "effective_policies": {"worktrees": "single_implementation_lane"},
+            "policies": {"worktrees": WORKFLOW_WORKTREES_NONE},
+        }
+    )
+    assert not runs_without_git_lane({})
 
 
 def test_dash_no_changes_closes_without_shas(test_db) -> None:
@@ -129,9 +145,14 @@ def test_task_floor_attestation_closes_without_shas(test_db, monkeypatch) -> Non
         "connect",
         lambda _path: _NonClosingConnection(test_db),
     )
-    assert floor_attestation_gate.evaluate(
-        item_id=26821, target_status="done", db_path="unused",
-    ) is None
+    assert (
+        floor_attestation_gate.evaluate(
+            item_id=26821,
+            target_status="done",
+            db_path="unused",
+        )
+        is None
+    )
 
 
 def test_task_activation_does_not_require_a_worktree(tmp_path, monkeypatch) -> None:
@@ -168,9 +189,7 @@ def test_task_activation_does_not_require_a_worktree(tmp_path, monkeypatch) -> N
         )
         conn = connect_test_db(db_path)
         try:
-            with pytest.raises(
-                ItemWorktreeLaneCreationError, match="worktrees=none"
-            ):
+            with pytest.raises(ItemWorktreeLaneCreationError, match="worktrees=none"):
                 ensure_default_item_worktree_lane(conn, item_id=26822)
         finally:
             conn.close()
@@ -197,7 +216,8 @@ def test_a_merging_workflow_still_owes_its_shas(test_db) -> None:
 
 
 def test_a_folder_project_carries_a_task_without_a_repo(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     """No git identity anywhere: activation still prepares no lane."""
     folder = tmp_path / "notes-project"
@@ -212,11 +232,15 @@ def test_a_folder_project_carries_a_task_without_a_repo(
         structured_api_adapter,
         "call_dispatcher",
         lambda **_kwargs: SimpleNamespace(
-            success=True, result={"item": item}, error=None,
+            success=True,
+            result={"item": item},
+            error=None,
         ),
     )
     monkeypatch.setattr(
-        worktree_preflight, "claim_work", lambda _item_id: (True, "acquired"),
+        worktree_preflight,
+        "claim_work",
+        lambda _item_id: (True, "acquired"),
     )
     monkeypatch.setattr(
         worktree_preflight,

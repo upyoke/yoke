@@ -56,10 +56,11 @@ def test_state_management_teaches_workflow_labels() -> None:
 
 def test_overview_names_every_builtin_workflow_and_pinned_authority() -> None:
     text = _read(OVERVIEW)
-    assert "Every Dash, Blitz, Issue, and Epic" in text
+    assert "Every item — Dash, Blitz, Task, Issue, Epic" in text
     assert "pinned immutable workflow" in text
     assert "Dash runs `idea`" in text
     assert "Blitz adds idea refinement" in text
+    assert "Task is the floor subset" in text
 
 
 def test_overview_uses_project_id_as_item_authority() -> None:

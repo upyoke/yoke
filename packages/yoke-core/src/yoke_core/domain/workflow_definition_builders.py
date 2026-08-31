@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Sequence
 
+from yoke_contracts.item_worktrees import WORKFLOW_WORKTREES_NONE
 from yoke_contracts.lifecycle_status import (
     LEGACY_STATUS_BUCKETS,
     LEGACY_STATUS_GLYPHS,
@@ -18,7 +19,6 @@ WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
 WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
 WORKFLOW_PATH_SURVEY_OPTIONAL = WORKFLOW_PATH_CLAIMS_OPTIONAL
 WORKFLOW_PATH_SURVEY_REQUIRED = WORKFLOW_PATH_CLAIMS_REQUIRED
-WORKFLOW_WORKTREES_NONE = "none"
 WORKFLOW_DELIVERY_MERGE_FREE = "merge_free"
 WORKFLOW_QA_OPTIONAL = "optional"
 REGISTERED_WORKFLOW_SKILL_IDS = frozenset(

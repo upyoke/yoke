@@ -47,6 +47,17 @@ def _definition(workflow_id: str = "issue") -> dict:
     return builtin_workflow_definition(workflow_id)["definition"]
 
 
+def _seeded_first_digest(workflow_id: str) -> str:
+    """The digest of the generation :func:`_seed_first_generation` stored."""
+    for fixture in builtin_workflow_version_history():
+        if (
+            fixture["workflow"]["id"] == workflow_id
+            and int(fixture["canon_version"]) == 1
+        ):
+            return definition_digest(fixture["definition"])
+    raise AssertionError(f"no first generation published for {workflow_id!r}")
+
+
 def _seed_first_generation(conn, fixtures) -> None:
     """Stand the universe up holding only each workflow's first generation."""
     conn.execute("TRUNCATE workflows, workflow_versions RESTART IDENTITY CASCADE")
@@ -110,17 +121,35 @@ def test_convergence_appends_the_current_definition_without_rewriting(
     ).fetchone()
     assert tuple(dash_copy) == (expected_dash["name"], expected_dash["description"])
     workflows = list_current_workflows(test_db)
-    assert all(
-        [version["version"] for version in row["versions"]] == [1, 2]
+    # A workflow whose first published generation already IS its current
+    # definition has nothing to append and stays a single row; every other
+    # one gains the current definition as this universe's row 2.
+    expected_versions = {
+        workflow_id: (
+            [1]
+            if definition_digest(
+                builtin_workflow_definition(workflow_id)["definition"]
+            ) == _seeded_first_digest(workflow_id)
+            else [1, 2]
+        )
+        for workflow_id in BUILTIN_WORKFLOW_IDS
+    }
+    assert {
+        row["id"]: [version["version"] for version in row["versions"]]
         for row in workflows
-    )
+    } == expected_versions
     # Convergence decides what an UNMODIFIED FOLLOWER runs, and nothing else:
     # every workflow here is on a recognized generation with following left at
     # its default, so each is moved onto the appended one and told afterwards.
     # The cases it declines to move -- a customized definition, a workflow whose
     # following was turned off by a local publication -- are proven in
     # test_workflow_canon_auto_follow.py.
-    assert {row["current_version"] for row in workflows} == {2}
+    assert {
+        row["id"]: row["current_version"] for row in workflows
+    } == {
+        workflow_id: versions[-1]
+        for workflow_id, versions in expected_versions.items()
+    }
     # Both rows are published generations, recognized by content rather than
     # by sitting at the number the code expected.
     assert all(
@@ -131,10 +160,17 @@ def test_convergence_appends_the_current_definition_without_rewriting(
 
     # Re-selecting finds the row it just appended rather than adding another.
     selected = select_current_builtin_workflow_versions(test_db)
-    assert set(selected.values()) == {2}
+    assert selected == {
+        workflow_id: versions[-1]
+        for workflow_id, versions in expected_versions.items()
+    }
     assert {
-        row["current_version"] for row in list_current_workflows(test_db)
-    } == {2}
+        row["id"]: row["current_version"]
+        for row in list_current_workflows(test_db)
+    } == {
+        workflow_id: versions[-1]
+        for workflow_id, versions in expected_versions.items()
+    }
 
 
 def test_an_unrecognized_definition_is_reported_not_refused(test_db):

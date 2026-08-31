@@ -149,13 +149,11 @@ def run_preflight(
     from yoke_core.domain.worktree_preflight_repo_resolution import (
         resolve_preflight_repo_root,
     )
-    from yoke_core.domain.workflow_behavior import runs_without_git_lane
+    from yoke_contracts.item_worktrees import runs_without_git_lane
 
     # A laneless workflow needs no flag and no repo: the work happens in
     # place under the session's existing write authority.
-    no_worktree = no_worktree or runs_without_git_lane(
-        item.get("workflow") or {}
-    )
+    no_worktree = no_worktree or runs_without_git_lane(item.get("workflow") or {})
 
     repo_root, resolution_error = resolve_preflight_repo_root(
         item=item,

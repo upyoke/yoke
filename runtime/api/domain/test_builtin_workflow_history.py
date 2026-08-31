@@ -118,14 +118,21 @@ def test_converging_appends_the_current_definition(test_db) -> None:
 
 def test_a_universe_numbered_ahead_converges(test_db) -> None:
     """Stage numbering ran one ahead of prod for weeks. That is legal."""
-    _seed(test_db, generations_per_workflow=3, start_at=7)
+    seeded = _seed(test_db, generations_per_workflow=3, start_at=7)
 
     converge_builtin_workflows(test_db)
 
     for workflow_id in BUILTIN_WORKFLOW_IDS:
-        versions = [version for version, _ in _rows(test_db, workflow_id)]
-        assert versions[:3] == [7, 8, 9], "existing numbering was disturbed"
-        assert max(versions) == 10, "current definition did not append after them"
+        held = seeded[workflow_id]
+        rows = _rows(test_db, workflow_id)
+        assert rows[: len(held)] == held, "existing numbering was disturbed"
+        # A workflow whose whole canon was seeded is already current and
+        # appends nothing; every other one appends exactly one row, and it
+        # continues this universe's numbering rather than restarting at 1.
+        appended = [version for version, _ in rows[len(held):]]
+        assert appended in ([], [held[-1][0] + 1]), (
+            "the append did not continue the universe's own numbering"
+        )
 
 
 def test_an_unrecognized_definition_does_not_stop_the_boot(test_db) -> None:

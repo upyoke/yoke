@@ -199,9 +199,11 @@ assembled on demand from structured fields). The auto-generated board in
   `reviewing-implementation` → `done`; Blitz adds idea refinement and then
   closes directly through its continuous-slice executor, with `done`
   archiving the linked execution document while preserving its row and
-  revision history. Issue uses the full review, polish, and release path.
-  Epic adds `planning` / `plan-drafted` / `refining-plan` / `planned` before
-  that implementation and delivery path.
+  revision history. Task is the floor subset: `idea` → `implementing` →
+  `done`, with no git lane and a no-SHA close-out. Issue uses the full
+  review, polish, and release path. Epic adds `planning` /
+  `plan-drafted` / `refining-plan` / `planned` before that implementation
+  and delivery path.
 - **Epic tasks:** `epic_tasks` table — one row per task, keyed by `(epic_id, task_num)`. Status, body, GitHub issue, universal `item_worktree_id` lane, dependencies, and dispatch attempts are tracked in DB.
 - **Dispatch chains:** `epic_dispatch_chains` table — ordered task queue per universal `item_worktree_id` lane, with current index and attempt tracking. Branch and path facts live only on `item_worktrees`.
 - **Task history:** `events` rows with `event_type='task_status_change'` — epic task status transition log with timestamps and envelope detail.
