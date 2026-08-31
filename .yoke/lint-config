@@ -62,6 +62,9 @@ lint_structured_field_transform_shell=deny
 # Refuse hand-quoted JSON payloads and adapter shell-choreography.
 lint_shell_quoted_function_payload=deny
 
+# Keep diagnostic stderr visible on state-changing Yoke adapters.
+lint_yoke_adapter_stderr_visibility=deny
+
 # Refuse grep/rg search text with backticks inside double quotes.
 lint_shell_backtick_search=deny
 
