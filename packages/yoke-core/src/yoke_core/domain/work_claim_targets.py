@@ -31,13 +31,8 @@ ALL_TARGET_KINDS = (
     TARGET_KIND_ROUTE_QUALIFICATION,
 )
 
-#: Kinds whose hold outlives the session that took it. A liveness-bound
-#: kind is reclaimed when its holder goes stale or its session ends. A
-#: sticky kind names a shared resource whose real-world operation keeps
-#: running — a migration mid-authorship, a physical host mid-suite — so
-#: dropping the row would hand the resource to a second holder while the
-#: first is still using it. Recovery for a sticky kind is the audited
-#: human operator release, never an automatic sweep.
+#: Sticky kinds outlive the taking session (a migration or host suite in
+#: flight); reclaim is the audited operator release, never an auto-sweep.
 STICKY_TARGET_KINDS = frozenset(
     {TARGET_KIND_MIGRATION_SERIALIZATION, TARGET_KIND_QA_ADMISSION}
 )
@@ -309,12 +304,17 @@ def validate_target(target: WorkClaimTarget) -> None:
     normalize_scope(target.kind, target.scope)
 
 
-from yoke_core.domain.work_claim_target_sql import (  # noqa: E402
-    conflict_match_clause,
-    exact_match_clause,
-    scope_int_sql,
-    scope_text_sql,
-)
+# SQL helpers stay lazy so schema_init can import kinds without a cycle.
+def __getattr__(name: str):
+    if name not in {
+        "conflict_match_clause", "exact_match_clause",
+        "scope_int_sql", "scope_text_sql",
+    }:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from yoke_core.domain import work_claim_target_sql as sql
+    value = getattr(sql, name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "ALL_TARGET_KINDS",

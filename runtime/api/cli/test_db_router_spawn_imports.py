@@ -38,6 +38,26 @@ def test_runs_help_does_not_import_frontier_or_session_planning():
         assert banned not in imported, imported
 
 
+def test_schema_init_imports_as_the_first_domain_module():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import yoke_core.domain.schema_init;"
+                " from yoke_core.domain.work_claim_targets import conflict_match_clause;"
+                " assert callable(conflict_match_clause); print('ok')"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "ok"
+
+
 def test_domain_package_still_reexports_frontier_names():
     from yoke_core.domain import FrontierItem, compute_frontier
 
