@@ -158,3 +158,20 @@ def test_workflow_copy_contracts_survive_bounded_visual_fixture_deferral(
         token.startswith("workflow_definition_validation_contract:")
         for token in selection.widening_triggers
     )
+
+
+def test_item_detail_qa_source_selects_item_page_read_contract(
+    tmp_path: Path,
+) -> None:
+    source = next(iter(contracts.ITEM_DETAIL_QA_READ_SOURCE_PATHS))
+    _write(tmp_path, source)
+    for test_path in {
+        *impacted_tests.ALWAYS_RUN_TESTS,
+        *contracts.ITEM_DETAIL_QA_READ_TESTS,
+    }:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select([source], build_import_index(tmp_path), bounded=True)
+
+    assert set(contracts.ITEM_DETAIL_QA_READ_TESTS) <= set(selection.files)
+    assert f"item_detail_qa_read_contract:{source}" in selection.widening_triggers
