@@ -21,7 +21,6 @@ from yoke_contracts.session_control.models import (
 )
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
-    LaunchRequest,
     SessionLaunchError,
 )
 from yoke_core.domain.session_launch_projection import (
@@ -160,8 +159,9 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchCreateRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
-    from yoke_core.domain.session_launch_requests import create_launch
     from yoke_core.domain.session_launch_assignment import assignment_session_name
+    from yoke_core.domain.session_launch_mandate import launch_request_for_create
+    from yoke_core.domain.session_launch_requests import create_launch
 
     conn = _open()
     try:
@@ -170,24 +170,17 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
             int(_fleet_policy(conn, project_id, "fleet.launch_deadline_minutes")) * 60
         )
         max_body_bytes = int(_fleet_policy(conn, project_id, "fleet.max_body_bytes"))
-        session_name = assignment_session_name(
-            conn,
-            public_ref=parsed.item,
-            project_id=project_id,
-        )
         outcome = create_launch(
             conn,
             auth=_authorization(conn, request, project_id),
-            request=LaunchRequest(
+            request=launch_request_for_create(
+                conn,
+                parsed,
+                request,
                 project_id=project_id,
-                executor_surface=parsed.executor_surface,
-                instructions=parsed.instructions,
-                idempotency_key=parsed.idempotency_key,
-                machine_id=parsed.machine_id,
-                model=parsed.model,
-                presentation=parsed.presentation,
-                session_name=session_name,
-                allow_surface_fallback=parsed.allow_surface_fallback,
+                session_name=assignment_session_name(
+                    conn, public_ref=parsed.item, project_id=project_id
+                ),
                 deadline_seconds=deadline_seconds,
             ),
             max_body_bytes=max_body_bytes,

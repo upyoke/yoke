@@ -292,6 +292,8 @@ class TestSteerWorkerLifecycle:
         assert "yoke say --stdin --session" in text
         assert "never pad, complete, or expand one by hand" in text
         assert "yoke session-control launch preview" in text
+        assert "Do not hand-assemble" in text
+        assert "the server composes it" in text
         assert "session_control.launch.preview" in _read(_STEER_DIR / "SKILL.md")
         assert "session_control.launch.list" in _read(_STEER_DIR / "SKILL.md")
 

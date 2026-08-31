@@ -83,11 +83,13 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     machine: el(documentNode, "select", "session-control-input"),
     model: el(documentNode, "input", "session-control-input"),
     fallback: el(documentNode, "input", "session-control-checkbox"),
+    raw: el(documentNode, "input", "session-control-checkbox"),
     instructions: el(documentNode, "textarea", "session-control-input session-message-body"),
   };
   fields.fallback.type = "checkbox";
+  fields.raw.type = "checkbox";
   fields.instructions.setAttribute("rows", "8");
-  fields.instructions.placeholder = "What should the new session do first?";
+  fields.instructions.placeholder = "Optional extras appended after the composed mandate";
   fields.instructions.setAttribute("aria-describedby", help.id);
   for (const project of projectRefs) {
     fields.project.appendChild(option(documentNode, project));
@@ -107,7 +109,8 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     ["Allow same-family fallback", fields.fallback],
     ["Machine", fields.machine],
     ["Requested model (verified after launch)", fields.model],
-    ["First operational message", fields.instructions],
+    ["Use typed text as the full instruction body", fields.raw],
+    ["Optional extras after the composed mandate", fields.instructions],
   ]) shell.dialog.appendChild(labelledControl(documentNode, label, field));
 
   const status = statusRegion(documentNode);
@@ -185,10 +188,13 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   preview.addEventListener("click", async () => {
     if (
       !fields.project.value || !fields.item.value.trim()
-      || !fields.surface.value || !fields.instructions.value.trim()
+      || !fields.surface.value
+      || (fields.raw.checked && !fields.instructions.value.trim())
     ) {
       status.hidden = false;
-      status.textContent = "Choose a project, work item, and surface, then add instructions.";
+      status.textContent = fields.raw.checked
+        ? "Choose a project, work item, and surface, then add the full instruction body."
+        : "Choose a project, work item, and surface.";
       return;
     }
     preview.disabled = true;
@@ -210,6 +216,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
         request,
         item: String(fields.item.value).trim(),
         instructions: String(fields.instructions.value),
+        composeMandate: !fields.raw.checked,
       };
       renderEligible(documentNode, eligible, result.eligible_relays || []);
       const outcome = result.launchable
@@ -240,6 +247,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
         ...previewed.request,
         item: previewed.item,
         instructions: previewed.instructions,
+        compose_mandate: previewed.composeMandate,
         idempotency_key: idempotencyKey,
       });
       close();
