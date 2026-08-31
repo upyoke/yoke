@@ -53,6 +53,18 @@ canonical session identity for registration or `session-offer`.
  probe, and `HC-session-actor-binding` reports and (under `--fix`) repairs the
  rows that never see one.
 
+5. **Registration also converges the operating actor's authority.** Binding an
+ actor that holds no org role only moves the refusal one step later, to the
+ first claim or path registration. So on a single-owner universe — exactly one
+ human actor, the shape a machine-local universe has and a server or hosted
+ control plane does not — registration grants that actor the org `admin` role
+ if it is missing (`yoke_core.domain.local_operating_actor`), the same grant
+ birth performs. This is the convergence point for a universe born before the
+ grant existed and upgraded in place, because nothing on that path re-enters
+ birth. `HC-local-operating-actor-authority` reports the same gap and repairs
+ it under `--fix`, and a permission denial whose cause is that missing grant
+ names that repair command rather than only the permission it lacked.
+
 ## Identity Read-Back Contract
 
 Registration resolves identity once. Every later consumer READS it back

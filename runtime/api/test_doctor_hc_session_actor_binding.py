@@ -20,6 +20,9 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_core.domain.local_operating_actor import (
+    OPERATING_ACTOR_GRANT_REPAIR,
+)
 from yoke_core.engines.doctor_hc_session_actor_binding import (
     AUTHORITY_SLUG,
     AUTHORITY_TITLE,
@@ -128,7 +131,7 @@ def test_fails_and_names_the_repair_for_actorless_sessions(conn):
     record = _run(conn)
     assert record.verdict == "FAIL"
     assert "unbound" in record.detail
-    assert "yoke doctor run --quick --fix" in record.detail
+    assert OPERATING_ACTOR_GRANT_REPAIR in record.detail
 
 
 def test_fix_binds_actorless_sessions_to_the_operating_actor(conn):
@@ -184,7 +187,7 @@ def test_authority_fails_when_the_operating_actor_holds_no_role(conn):
     _seed_human(conn)
     record = _run_authority(conn)
     assert record.verdict == "FAIL"
-    assert "yoke doctor run --quick --fix" in record.detail
+    assert OPERATING_ACTOR_GRANT_REPAIR in record.detail
 
 
 def test_authority_fix_grants_the_org_admin_role(conn):

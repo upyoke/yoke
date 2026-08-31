@@ -18,7 +18,17 @@ def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
     falls through to NULL: an actor-less session cannot register a path
     claim, and that refusal lands far from the registration that caused
     it, so registration refuses here with the reason and the recovery.
+
+    Binding that actor is also where a single-owner universe converges
+    the org admin role it operates under. Birth grants it, but an engine
+    upgraded in place over a universe born before the grant existed
+    never re-enters birth — leaving sessions bound and then denied on
+    every mutation. Registration is the first moment the upgraded engine
+    names that actor, so it is the moment the grant catches up.
     """
+    from yoke_core.domain.local_operating_actor import (
+        converge_operating_actor_grant,
+    )
     from yoke_core.domain.session_actor_binding import (
         explicit_actor_binding,
         resolve_operating_actor,
@@ -31,6 +41,7 @@ def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
         else resolve_operating_actor(conn)
     )
     if binding.actor_id is not None:
+        converge_operating_actor_grant(conn)
         return binding.actor_id
     raise SessionError(
         binding.code,
