@@ -158,7 +158,7 @@ def test_registration_converges_the_grant_an_upgrade_left_missing(fresh_universe
 
 
 def test_claiming_works_on_a_universe_upgraded_without_the_grant(fresh_universe):
-    """The leg the walk could not reach: claim and path-register after upgrade."""
+    """Claiming and path-registering, the legs the missing grant denied."""
     conn = fresh_universe
     _strip_org_grant(conn)
     _begin(conn)
