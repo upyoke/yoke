@@ -70,10 +70,12 @@ Positive wake events are not enough. Failures arrive as silence, and the
 fleet report is the detector for them: it is composed server-side and
 appended to the messages this session already receives, so on every
 periodic pass you **read the report you were given** before consuming
-events, messages, or worker reports. Between wakes, pull the current one:
+events, messages, or worker reports. The attached body covers every
+steering claim this session holds. Between wakes, pull the current one
+(omit `--project` so a quiet scope's `!` row still rides the pull):
 
 ```text
-yoke steering report get --project {_project}
+yoke steering report get
 ```
 
 The report already answers, from live control-plane state, every check that
@@ -262,10 +264,11 @@ does it. Work this seat files is staffed in the same pass, as soon as it is
 runnable; the report is not its trigger. The report covers work this seat
 did not create — its available list carries everything runnable and
 unclaimed, each row marked never-started or owner-released — and arrives
-appended to this session's messages; pull it between wakes with:
+appended to this session's messages covering every held scope; pull it
+between wakes with:
 
 ```text
-yoke steering report get --project {_project}
+yoke steering report get
 ```
 
 Launch per [`worker-lifecycle.md`](worker-lifecycle.md) — item-bound and

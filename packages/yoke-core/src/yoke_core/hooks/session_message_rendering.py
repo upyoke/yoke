@@ -23,8 +23,8 @@ MAX_FULL_MESSAGES_PER_INJECTION = 3
 MAX_SESSION_MESSAGE_INJECTION_BYTES = 24 * 1024
 _REPORT_OMITTED_NOTICE = (
     "The accompanying Fleet report was omitted by the hook-context byte ceiling. "
-    "Read it with `yoke steering report get --project PROJECT`, replacing PROJECT "
-    "with the current project slug."
+    "Read it with `yoke steering report get` (covers every steering claim this "
+    "session holds; pass `--project P` only to filter to one scope)."
 )
 
 

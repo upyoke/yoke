@@ -209,8 +209,12 @@ _BY_ID: dict[str, AuthzSpec] = {
     # impossible for a session that legitimately holds more than one claim.
     "claims.work.release_session_scoped": AuthzSpec(ACTOR_SESSION, None),
     "charge.schedule": AuthzSpec(ACTOR_SESSION, None),
+    # Reads every steering claim this session holds. A PROJECT target cannot
+    # name that set; --project is an optional filter the handler applies.
+    "steering.report.get": AuthzSpec(ACTOR_SESSION, None),
     **CLIENT_LOCAL_BY_ID,
 }
+
 
 def classify(
     function_id: str,

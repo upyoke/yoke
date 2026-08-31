@@ -112,7 +112,7 @@ CLAIMS_ADAPTERS = [
     ),
     AdapterEntry(
         "steering.report.get",
-        "yoke steering report get --project P [--json]",
+        "yoke steering report get [--project P] [--json]",
     ),
 ]
 
