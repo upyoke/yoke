@@ -179,7 +179,8 @@ without hardcoded assumptions about a project's test runner or layout.
 
 ## QA Walker
 
-**Tools:** Read, Grep, Glob, Bash (no Write or Edit)
+**Tools:** Read, Grep, Glob, Bash (no repository Write or Edit; Cursor declares
+`readonly: false` so state-changing mission substrate commands remain available)
 **Hooks:** The normal Bash-capable observe, policy, and SubagentStop hooks.
 
 Walks one exploratory mission whose sequence is chosen at run time. The main

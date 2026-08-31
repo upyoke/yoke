@@ -50,7 +50,11 @@ scripted installer campaign with one agent-chosen mission.
 Choose the executor per case:
 
 - `informed_subagent` isolates the walk while supplying the relevant project
-  and Progress Log context.
+  and Progress Log context. Its harness adapter must permit the mission's
+  state-changing host, browser, and artifact operations. Cursor renders this
+  contract explicitly as `readonly: false`; dispatch refuses
+  `cursor_qa_walker_readonly` before starting a walker when the discovered
+  adapter is stale, and tells the caller to rerender before retrying.
 - `naive_target_session` starts a separate agent session on the target machine.
   A fresh machine without a project checkout is naive by construction. Do not
   add a checkout or project internals to make the walk easier.
