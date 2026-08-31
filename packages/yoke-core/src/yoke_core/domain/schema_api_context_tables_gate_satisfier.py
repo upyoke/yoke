@@ -26,22 +26,19 @@ GATE_SATISFIER_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "One row per (item_id, obligation) recording WHICH rung of that "
-            "obligation's satisfier ladder actually discharged it — the "
-            "durable answer to 'was this done merged with CI, merged "
-            "locally, or merely attested'. Live obligations: "
-            "'path_claim_boundary' (rungs remote_integration_ref, "
-            "local_integration_ref), 'done_merge_evidence' (merged_with_ci, "
-            "merged_locally, agent_attested), 'delivery_evidence' "
-            "(deployment_run_succeeded, merge_only), and 'integration_trunk' "
-            "(declared_default_branch, derived_default_branch). `facts` is a "
-            "JSON `{fact_key: present|absent|unknown}` snapshot of what the "
-            "ladder resolved against. Rows are upserted, not appended: "
-            "re-satisfying an obligation replaces its row. Read them from "
-            "item detail's `gate_satisfactions` key or with "
-            "`yoke_core.domain.gate_satisfier_stamp.read_rungs`; writes go "
-            "through the internal `gate_satisfier.rung.resolve` function "
-            "(wrong guess — there is no `item_gate_rungs` table and no "
-            "agent-facing CLI adapter for the resolve call)."
+            "obligation's satisfier ladder discharged it — the durable "
+            "answer to 'was this done merged with CI, merged locally, or "
+            "merely attested'. Obligations: 'path_claim_boundary' "
+            "(remote_integration_ref, local_integration_ref), "
+            "'done_merge_evidence' (merged_with_ci, merged_locally, "
+            "agent_attested), 'delivery_evidence' "
+            "(deployment_run_succeeded, merge_only), 'integration_trunk' "
+            "(declared_default_branch, derived_default_branch). `facts` is "
+            "a JSON {fact_key: present|absent|unknown} snapshot. Rows are "
+            "upserted, never appended. Read via item detail's "
+            "`gate_satisfactions` key; writes go through the internal "
+            "`gate_satisfier.rung.resolve` function (wrong guess — no "
+            "`item_gate_rungs` table, no CLI adapter for the resolve call)."
         ),
     },
     "project_derived_facts": {
@@ -55,15 +52,15 @@ GATE_SATISFIER_TABLES: dict[str, dict] = {
             ("observed_from", "TEXT"),
         ],
         "notes": (
-            "Project truth nobody declared but the control plane can observe "
-            "about itself, converged on every `project.snapshot.sync` the way "
-            "path-context rows are. Live `fact_key` values: 'remote_present', "
+            "Project truth nobody declared but the control plane observes "
+            "about itself, converged on every `project.snapshot.sync` as "
+            "path-context rows are. `fact_key` values: 'remote_present', "
             "'default_branch', 'test_command_declared', "
-            "'environments_present'. Ladders read these under the `derived:` "
-            "prefix (e.g. `derived:default_branch`), alongside `declared:` "
-            "capability rows, `item:` per-item control-plane observations, "
-            "and `observed:` facts the calling machine probes. A MISSING row "
-            "reads as UNKNOWN, never as false — the ladder refuses and names "
+            "'environments_present'. Ladders read these under the "
+            "`derived:` prefix, alongside `declared:` capability rows, "
+            "`item:` per-item control-plane observations, and `observed:` "
+            "facts the calling machine probes. A MISSING row reads as "
+            "UNKNOWN, never false — the ladder refuses and names "
             "`yoke project snapshot sync` as the recovery."
         ),
     },
