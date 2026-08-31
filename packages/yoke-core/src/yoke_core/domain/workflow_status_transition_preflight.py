@@ -7,6 +7,9 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_QA_OPTIONAL,
+)
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
@@ -88,7 +91,12 @@ def prepare_status_transition(
                 ),
             },
         )
-    if _table_exists(conn, "qa_plan_project_defaults"):
+    # A workflow whose QA policy is optional attaches no plans, so there is
+    # nothing to materialize and the project defaults do not apply to it.
+    qa_attaches_plans = (
+        str(workflow.policies.get("qa") or "") != WORKFLOW_QA_OPTIONAL
+    )
+    if qa_attaches_plans and _table_exists(conn, "qa_plan_project_defaults"):
         from yoke_core.domain.qa_plan_attachments import (
             has_attached_plans,
             materialize_for_item,

@@ -79,7 +79,8 @@ const GATES = {
   work_claim_activation: {
     name: "Work-claim activation",
     description:
-      "The executing session takes the exclusive work claim and a worktree.",
+      "The executing session takes the exclusive work claim, and a " +
+      "worktree when the worktrees policy requires one.",
     source_kind: "activation_operation",
     availability: "live",
   },

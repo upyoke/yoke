@@ -213,6 +213,8 @@ def get_case_execution_context(
     ):
         from yoke_core.domain.dash_execution import (
             DASH_EVIDENCE_SECTION,
+        )
+        from yoke_core.domain.item_json_sections import (
             read_json_section,
         )
 

@@ -18,6 +18,8 @@ from yoke_core.domain.strategy_execution import (
     active_strategy_doc_claim,
 )
 from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.workflow_behavior import worktree_lane_policy
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 def _marker(conn: Any) -> str:
@@ -75,6 +77,11 @@ def _activation_prerequisites(
             f"session {clean_session!r}.",
             "Acquire the item work claim or coordinate with its holder.",
         )
+    # A workflow that requires no lane has nothing further to activate: the
+    # work claim above is the whole gate, and the item never gets a worktree.
+    runtime = load_item_workflow_runtime(conn, int(item_id))
+    if not worktree_lane_policy(runtime).required_roles:
+        return None
     if not _table_exists(conn, "item_worktrees"):
         return _failure(
             code,

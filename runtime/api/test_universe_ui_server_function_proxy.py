@@ -228,7 +228,7 @@ class TestFunctionProxy:
         result = envelope["result"]
         assert result["family"] == "work-items"
         by_id = {row["id"]: row for row in result["workflows"]}
-        assert set(by_id) == {"issue", "epic", "blitz", "dash"}
+        assert set(by_id) == {"issue", "epic", "blitz", "dash", "task"}
         assert len(by_id["issue"]["definition"]["stages"]) == 10
         assert len(by_id["epic"]["definition"]["stages"]) == 14
         assert all(

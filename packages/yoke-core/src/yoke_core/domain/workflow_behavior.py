@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Mapping
 
 from yoke_core.domain.workflow_definition_builders import (
     IMPLEMENTATION_WORKFLOW_SKILL_IDS,
+    WORKFLOW_WORKTREES_NONE,
 )
 from yoke_core.domain.workflow_gate_catalog import GATE_PLAN_SIMULATION
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
@@ -45,6 +47,10 @@ _WORKTREE_LANE_POLICIES = {
     "worker_lanes_optional_integration": WorktreeLanePolicy(
         allowed_roles=frozenset({LANE_WORKER, LANE_INTEGRATION}),
         required_roles=frozenset({LANE_WORKER}),
+    ),
+    WORKFLOW_WORKTREES_NONE: WorktreeLanePolicy(
+        allowed_roles=frozenset(),
+        required_roles=frozenset(),
     ),
 }
 
@@ -114,6 +120,21 @@ def lane_release_recovery_statuses(runtime: WorkflowRuntime) -> frozenset[str]:
     return frozenset()
 
 
+def runs_without_git_lane(workflow_projection: Mapping[str, Any]) -> bool:
+    """Whether an item-detail workflow projection provisions no git lane.
+
+    Callers hold the read model rather than a :class:`WorkflowRuntime`, and
+    an item's posture may override a policy, so the effective values win
+    over the pinned ones wherever the projection carries both.
+    """
+    policies = (
+        workflow_projection.get("effective_policies")
+        or workflow_projection.get("policies")
+        or {}
+    )
+    return str(policies.get("worktrees") or "") == WORKFLOW_WORKTREES_NONE
+
+
 def worktree_lane_policy(runtime: WorkflowRuntime) -> WorktreeLanePolicy:
     """Interpret the definition's worktree policy as lane-role constraints."""
     policy_id = str(runtime.policies["worktrees"])
@@ -138,6 +159,7 @@ __all__ = [
     "lane_release_recovery_statuses",
     "release_note_category",
     "requires_plan_simulation",
+    "runs_without_git_lane",
     "worktree_lane_policy",
     "worktree_lane_policy_for_id",
 ]

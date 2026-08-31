@@ -35,7 +35,7 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke strategize` | Direct-mode: guided SML review (research, propose, approve) |
 | `/yoke steer <STRATEGY-DOC-SLUG> [--project P]` | Direct-mode: itemless steering loop over a required strategy doc |
 | `/yoke onboard [--project P] [--run-id RUN]` | Make a wired project execution-ready: strategy, profile, Packs, hosting, environments, gated first deploy, seeded work |
-| `/yoke idea [--workflow issue\|epic\|blitz] {title}` | Capture a new backlog item; use the typed `blitz` selection for document-led execution |
+| `/yoke idea [--workflow issue\|epic\|blitz\|task] {title}` | Capture a new backlog item; `blitz` for document-led execution, `task` for laneless floor work |
 | `/yoke dash "instruction"` or `/yoke dash PREFIX-N` | File and execute instruction-sized work, or resume a Dash |
 | `/yoke blitz PREFIX-N` | Execute a refined Blitz from its single linked strategy document |
 | `/yoke shepherd PREFIX-N` | Drive item through quality-gated lifecycle to ready |

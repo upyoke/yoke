@@ -36,8 +36,9 @@ def evaluate(
             + ", ".join(verdict.missing)
         ),
         "remediation_hint": (
-            "Record the result, passing verification, commit and merge SHAs, "
-            "touched files, and every tightened posture check."
+            "Record the result, passing verification, and either commit and "
+            "merge SHAs or an agent-attested floor (no-changes / task "
+            "close-out), plus touched files and every tightened posture check."
         ),
     }
 

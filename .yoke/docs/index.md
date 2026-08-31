@@ -9,7 +9,7 @@ backed universe.
 
 - **Strategy** — a durable planning corpus per project
 - **Frontier** — what can run now, and why
-- **Items** — work with pinned workflows (Dash, Issue, Epic, Blitz)
+- **Items** — work with pinned workflows (Dash, Issue, Epic, Blitz, Task)
 - **Sessions** — harness sessions and what they hold
 - **Delivery** — environments, flows, runs, databases, infrastructure
 - **QA** — methods, plans, and recorded outcomes

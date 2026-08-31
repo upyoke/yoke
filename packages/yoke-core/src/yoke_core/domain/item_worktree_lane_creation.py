@@ -224,6 +224,11 @@ def ensure_default_item_worktree_lane(
     ensure_item_accepts_active_resources(conn, item_id)
     runtime = load_item_workflow_runtime(conn, item_id)
     policy = worktree_lane_policy(runtime)
+    if not policy.required_roles:
+        raise ItemWorktreeLaneCreationError(
+            f"workflow {runtime.workflow_id}@{runtime.version} declares "
+            "worktrees=none; it has no default worktree lane"
+        )
     active = list_item_worktrees(conn, item_id, active_only=True)
     if len(policy.required_roles) != 1:
         present_roles = {str(lane["lane_role"]) for lane in active}

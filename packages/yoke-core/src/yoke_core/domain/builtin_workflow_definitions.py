@@ -14,6 +14,9 @@ from yoke_core.domain.builtin_direct_workflow_definitions import (
     BLITZ_WORKFLOW_DEFINITION,
     DASH_WORKFLOW_DEFINITION,
 )
+from yoke_core.domain.builtin_task_workflow_definition import (
+    TASK_WORKFLOW_DEFINITION,
+)
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
     REGISTERED_WORKFLOW_SKILL_IDS,
@@ -22,13 +25,14 @@ from yoke_core.domain.workflow_definition_builders import (
 )
 from yoke_core.domain.workflow_definition_codec import definition_digest
 
-BUILTIN_WORKFLOW_IDS = ("issue", "epic", "blitz", "dash")
+BUILTIN_WORKFLOW_IDS = ("issue", "epic", "blitz", "dash", "task")
 
 _BUILTIN_WORKFLOW_DEFINITIONS = (
     ISSUE_WORKFLOW_DEFINITION,
     EPIC_WORKFLOW_DEFINITION,
     BLITZ_WORKFLOW_DEFINITION,
     DASH_WORKFLOW_DEFINITION,
+    TASK_WORKFLOW_DEFINITION,
 )
 
 
@@ -53,7 +57,7 @@ def _with_canon_version(fixture: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def builtin_workflow_definitions() -> list[Dict[str, Any]]:
-    """Return caller-owned copies of the four current definitions."""
+    """Return caller-owned copies of the current built-in definitions."""
     return [_with_canon_version(fixture) for fixture in _BUILTIN_WORKFLOW_DEFINITIONS]
 
 

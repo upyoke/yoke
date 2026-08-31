@@ -150,7 +150,7 @@ tests/                        # Import-graph and installer boundary tests
 
 ## Backlog Registry
 
-Every Dash, Blitz, Issue, and Epic gets a stable global integer `items.id` and
+Every item — Dash, Blitz, Task, Issue, Epic — gets a stable global integer `items.id` and
 a stable public reference formed from the owning project's item prefix plus
 the item's `project_sequence` (for example, `YOK-42`). The connected Postgres
 authority (`items` table) is the source of truth for all registry data. Item

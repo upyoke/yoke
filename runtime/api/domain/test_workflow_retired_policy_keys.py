@@ -40,7 +40,7 @@ def _definition(workflow_id: str = "issue", **policies):
 
 
 def test_the_current_definitions_no_longer_carry_the_retired_key():
-    for workflow_id in ("issue", "epic", "blitz", "dash"):
+    for workflow_id in ("issue", "epic", "blitz", "dash", "task"):
         policies = builtin_workflow_definition(workflow_id)["definition"][
             "policies"
         ]

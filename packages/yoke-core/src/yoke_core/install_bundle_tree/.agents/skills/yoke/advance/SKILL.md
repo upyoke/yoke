@@ -26,7 +26,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 - `{PREFIX-N}` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 - `[status]` — Optional target status or advance-target name. If omitted, advances to the next status in the lifecycle. The advance target `implementation` is end-to-end **in the same harness session**: worktree creation is a pure filesystem + DB operation (not a session boundary), the work-claim acquired in preflight is the session's authority over the new worktree, and the same session continues into the implementation sub-skill ([implementing/implementation.md](implementing/implementation.md)) and the review loop until `reviewed-implementation`. No parent-session stop, no claim release on worktree entry, no manual relaunch from the worktree. Stopping at `implementing` and announcing `/yoke polish` (or any later step) as "next" remains the hand-off-to-operator anti-pattern this contract exists to prevent.
 - `--env <name>` — Optional. Update the item's `deployed_to` field. Valid environments are resolved per-project from DB tables (`environments` via `sites`, `project_capabilities`). Can be combined with a status advance or used standalone on an already-done item.
-- `--no-worktree` — Optional. Skip worktree creation when advancing to `implementing`. The item will remain on the current branch with no isolation. Use this for evidence-only / validation / proof items that intentionally make no repo changes; the done-transition empty-branch guard only applies when a worktree branch exists.
+- `--no-worktree` — Optional. Skip worktree creation when advancing to `implementing`. The item will remain on the current branch with no isolation. Use this for evidence-only / validation / proof items that intentionally make no repo changes; the done-transition empty-branch guard only applies when a worktree branch exists. A workflow whose pinned `policies.worktrees` is `none` skips lane creation on its own — the flag is neither needed nor meaningful there, and the item may live in a project with no git repository at all.
 - `--force` — Optional. Override the file-level collision blocker, generated-task existence/completion gates, or merge verification gate.
 - `--skip-polish` — Optional. Operator-asserted fast path across the pinned `polish` skill segment. Dispatches through the advance skill's internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper), derives the hops from the binding's `from_stage_id`, `through_stage_id`, ordered stages, and transitions, emits a `SkipHopPerformed` event, and releases the item claim with reason `handoff-to-usher`. Requires the current status to equal that pinned binding's entry stage. Use when the current mission explicitly declares that polish is unnecessary, such as a bounded theme swap whose acceptance criteria require no implementation review. Do NOT infer a skip from the item title, and do NOT pass a target status with this flag — the flag owns the target.
 - `--skip-refine` — Optional. Operator-asserted fast path across a pinned `refine` skill segment's gate-free bookkeeping rungs. The internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) validates the current stage against its allowlist and advances to that binding's handoff. It emits a `SkipHopPerformed` event. Use when refine deliberation is unnecessary (low-risk content swaps, copy edits). Do NOT pass a target status with this flag.
@@ -237,7 +237,12 @@ else
  _wt_repo=$(git rev-parse --show-toplevel)
 fi
 
-if [ "$_worktree_policy" = "single_implementation_lane" ]; then
+if [ "$_worktree_policy" = "none" ]; then
+ # Laneless workflow: there is no worktree to re-enter. The work happens
+ # in place under the session's existing write authority.
+ _wt_branch=""
+ WORKTREE_PATH=""
+elif [ "$_worktree_policy" = "single_implementation_lane" ]; then
  _wt_branch=$(yoke item-worktrees get PREFIX-N \
   --lane-role implementation --field branch 2>/dev/null)
 elif [ "$_worktree_policy" = "worker_and_integration_lanes" ] \
@@ -255,10 +260,11 @@ else
 fi
 ```
 
+- If the policy is `none` → leave `WORKTREE_PATH` empty and continue; never create a lane for a laneless workflow.
 - If `_wt_branch` set → check `$_wt_repo/.worktrees/$_wt_branch`.
  - Directory exists → set `WORKTREE_PATH` to the absolute path and continue.
  - Missing → recreate through the source-dev/admin worktree helper, update DB, set `WORKTREE_PATH`, and continue. No registered product CLI wrapper exists for direct worktree creation; normal operators use `/yoke advance PREFIX-N implementation`.
-- If `_wt_branch` empty → create new worktree, update DB, set `WORKTREE_PATH`, and continue.
+- If `_wt_branch` empty under a lane-bearing policy → create new worktree, update DB, set `WORKTREE_PATH`, and continue.
 
 After `WORKTREE_PATH` is ready:
 - If current status is `implementing`, continue with step 4 as the normal single-lane implementation loop selected by the pinned `advance` binding.
@@ -274,10 +280,12 @@ After `WORKTREE_PATH` is ready:
 
 **Implementation entry (`_target = "implementing"`) is orchestrator-driven.** When `_target` resolves to `implementing` (the `/yoke advance PREFIX-N implementation` path), invoke the canonical orchestrator instead of reading and executing each phase doc inline:
 
-Before invocation, require `_target_skill=advance` and
-`_worktree_policy=single_implementation_lane`. Route `conduct` to `/yoke
-conduct PREFIX-N` and halt on every other mismatch; this engine is an
-skill-specific contract, not a generic transition shortcut.
+Before invocation, require `_target_skill=advance` and a
+single-session worktree policy — `single_implementation_lane`, or `none`
+for a laneless workflow, where the orchestrator skips worktree creation
+and the item runs in place. Route `conduct` to `/yoke conduct PREFIX-N`
+and halt on every other mismatch; this engine is an skill-specific
+contract, not a generic transition shortcut.
 
 ```bash
 yoke advance implementation-entry --item PREFIX-N

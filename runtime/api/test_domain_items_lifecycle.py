@@ -53,7 +53,7 @@ def test_display_label_is_generic():
     )
 
 
-@pytest.mark.parametrize("workflow_id", ["issue", "epic", "blitz", "dash"])
+@pytest.mark.parametrize("workflow_id", ["issue", "epic", "blitz", "dash", "task"])
 def test_item_stage_order_is_owned_by_workflow_definitions(workflow_id):
     workflow = builtin_workflow_runtime(workflow_id)
 

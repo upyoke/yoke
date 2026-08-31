@@ -214,6 +214,7 @@ def test_no_change_merge_records_base_identity_and_closes_dash(
     assert envelope["merge_sha"] == LANE_SHA
     assert receipts[0].merge_sha == LANE_SHA
     evidence = dict(calls)["direct_workflow.dash.evidence"]
-    assert evidence["merge_sha"] == LANE_SHA
+    assert evidence["commit_sha"] == ""
+    assert evidence["merge_sha"] == ""
     assert evidence["touched_files"] == []
     assert evidence["no_changes"] is True

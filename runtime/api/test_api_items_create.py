@@ -115,12 +115,12 @@ class TestCreateItem:
     def test_create_item_invalid_workflow(self, client):
         resp = client.post("/v1/items", json={
             "title": "Valid title",
-            "workflow": "task",
+            "workflow": "not-a-workflow",
         })
         assert resp.status_code == 422
         data = resp.json()
         assert data["error"]["code"] == "VALIDATION_ERROR"
-        assert "task" in data["error"]["message"]
+        assert "not-a-workflow" in data["error"]["message"]
 
     def test_create_item_invalid_priority(self, client):
         resp = client.post("/v1/items", json={

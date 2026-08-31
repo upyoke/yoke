@@ -1,8 +1,12 @@
-"""Structured execution evidence and escalation records for Dash items."""
+"""Structured execution evidence and escalation records.
+
+Shared by every direct-execution workflow that closes on its own
+evidence rather than on a downstream review: Dash, which usually lands
+a merge, and the floor Task shape, which never does.
+"""
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
@@ -16,7 +20,21 @@ from yoke_core.domain.progress_log import (
     format_entry,
     join_entry,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.floor_attestation import (
+    evidence_workflow_mismatch,
+    resolved_floor_rung,
+    sha_fields_required,
+)
+from yoke_core.domain.item_json_sections import (
+    read_json_section,
+    upsert_json_section,
+    upsert_section,
+)
+from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_DELIVERY_MERGE_FREE,
+)
+from yoke_core.domain.workflow_registry import WorkflowRegistryError
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 from yoke_contracts.dash_evidence_status import (
     is_passing as _status_is_passing,
     rejection_message as _status_rejection_message,
@@ -48,7 +66,8 @@ def _row_dict(cursor: Any) -> Optional[dict[str, Any]]:
     return dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
 
 
-def _require_dash(conn: Any, item_id: int) -> dict[str, Any]:
+def _require_evidence_workflow(conn: Any, item_id: int) -> dict[str, Any]:
+    """Return the item row, refusing a workflow that owns no such record."""
     marker = _p(conn)
     row = _row_dict(conn.execute(
         "SELECT id, workflow_id, workflow_posture, status, project_id "
@@ -57,57 +76,25 @@ def _require_dash(conn: Any, item_id: int) -> dict[str, Any]:
     ))
     if row is None:
         raise LookupError(f"item {item_id} does not exist")
-    if str(row["workflow_id"]) != "dash":
-        raise ValueError(
-            f"item {item_id} uses workflow {row['workflow_id']!r}, not Dash"
-        )
+    mismatch = evidence_workflow_mismatch(str(row["workflow_id"]), int(item_id))
+    if mismatch:
+        raise ValueError(mismatch)
     return row
 
 
-def _upsert_section(
-    conn: Any,
-    *,
-    item_id: int,
-    section: str,
-    content: str,
-    ordering: int,
-) -> None:
-    marker = _p(conn)
-    now = iso8601_now()
-    conn.execute(
-        "INSERT INTO item_sections "
-        "(item_id, section_name, content, ordering, source, created_at, updated_at) "
-        f"VALUES ({', '.join(marker for _ in range(7))}) "
-        "ON CONFLICT(item_id, section_name) DO UPDATE SET "
-        "content = excluded.content, source = excluded.source, "
-        "updated_at = excluded.updated_at",
-        (
-            int(item_id),
-            section,
-            content,
-            ordering,
-            "direct-workflow",
-            now,
-            now,
-        ),
-    )
+def _delivers_merge_free(conn: Any, item_id: int) -> bool:
+    """Whether the item's pinned workflow closes without a merge commit.
 
-
-def _upsert_json_section(
-    conn: Any,
-    *,
-    item_id: int,
-    section: str,
-    payload: Mapping[str, Any],
-    ordering: int,
-) -> None:
-    _upsert_section(
-        conn,
-        item_id=item_id,
-        section=section,
-        content=json.dumps(dict(payload), sort_keys=True, indent=2),
-        ordering=ordering,
-    )
+    An item whose workflow never produces a merge cannot supply merge
+    SHAs, so its close-out records the agent-attested floor instead. An
+    unreadable pin answers no rather than guessing: the closure gate then
+    refuses by name for the missing floor stamp.
+    """
+    try:
+        runtime = load_item_workflow_runtime(conn, int(item_id))
+    except WorkflowRegistryError:
+        return False
+    return runtime.policies.get("delivery") == WORKFLOW_DELIVERY_MERGE_FREE
 
 
 def _append_close_out_progress(
@@ -117,9 +104,14 @@ def _append_close_out_progress(
     result_summary: str,
     merge_sha: str,
     recorded_at: str,
+    floor_rung: str = "",
 ) -> None:
     """Append the landed outcome once, before the item becomes terminal."""
-    marker = f"Merge SHA: `{merge_sha}`"
+    marker = (
+        f"Merge SHA: `{merge_sha}`"
+        if merge_sha
+        else f"Floor: `{floor_rung}`"
+    )
     placeholder = _p(conn)
     row = conn.execute(
         "SELECT content FROM item_sections "
@@ -134,7 +126,7 @@ def _append_close_out_progress(
         headline="Landed",
         body=f"{result_summary}\n\n{marker}",
     )
-    _upsert_section(
+    upsert_section(
         conn,
         item_id=item_id,
         section=PROGRESS_LOG_SECTION,
@@ -158,6 +150,7 @@ def record_dash_evidence(
     tree_head_sha: str,
     posture_checks: Optional[Mapping[str, str]] = None,
     no_changes: bool = False,
+    actor_id: str = "",
 ) -> dict[str, Any]:
     """Write the canonical evidence section consumed by the done gate.
 
@@ -168,7 +161,7 @@ def record_dash_evidence(
     them is what keeps a green produced against the wrong tree from
     reading exactly like a green against the right one.
     """
-    _require_dash(conn, item_id)
+    _require_evidence_workflow(conn, item_id)
     clean_result = str(result_summary).strip()
     clean_verification = str(verification_summary).strip()
     clean_status = str(verification_status).strip().casefold()
@@ -185,14 +178,32 @@ def record_dash_evidence(
         raise ValueError(_status_rejection_message(verification_status))
     clean_tree_root = str(tree_root).strip()
     clean_tree_head = str(tree_head_sha).strip()
-    for label, value in (
+    stamped_rung = resolved_floor_rung(
+        no_changes=bool(no_changes),
+        merge_free_delivery=_delivers_merge_free(conn, item_id),
+        merge_sha=clean_merge,
+    )
+    require_shas = sha_fields_required(
+        no_changes=bool(no_changes), floor_rung=stamped_rung,
+    )
+    sha_fields = (
         ("commit_sha", clean_commit),
         ("merge_sha", clean_merge),
         ("tree_head_sha", clean_tree_head),
-    ):
+    )
+    # A floor close-out omits the SHAs entirely; whatever it does supply
+    # still has to be a real SHA rather than a placeholder.
+    for label, value in sha_fields:
+        if not value and not require_shas:
+            continue
         if not _SHA_PATTERN.fullmatch(value):
-            raise ValueError(f"{label} must be a 7-64 character git SHA")
-    if not clean_tree_root:
+            raise ValueError(
+                f"{label} must be a 7-64 character git SHA. Work that lands "
+                "no commit closes on the agent-attested floor instead: "
+                "record it with no_changes=true, or pin the item to a "
+                "workflow whose delivery policy is merge-free."
+            )
+    if require_shas and not clean_tree_root:
         raise ValueError("tree_root is required")
     if not files and not no_changes:
         raise ValueError("touched_files is required unless no_changes=true")
@@ -211,6 +222,8 @@ def record_dash_evidence(
         "merge_sha": clean_merge,
         "touched_files": files,
         "no_changes": bool(no_changes),
+        "floor_rung": stamped_rung,
+        "actor_id": str(actor_id or "").strip(),
         "posture_checks": checks,
         "verification_tree": {
             "root": clean_tree_root,
@@ -218,7 +231,7 @@ def record_dash_evidence(
         },
         "recorded_at": recorded_at,
     }
-    _upsert_json_section(
+    upsert_json_section(
         conn,
         item_id=item_id,
         section=DASH_EVIDENCE_SECTION,
@@ -231,38 +244,15 @@ def record_dash_evidence(
         result_summary=clean_result,
         merge_sha=clean_merge,
         recorded_at=recorded_at,
+        floor_rung=stamped_rung,
     )
     conn.commit()
     return payload
 
 
-def read_json_section(
-    conn: Any,
-    *,
-    item_id: int,
-    section: str,
-) -> Optional[dict[str, Any]]:
-    """Read one JSON-shaped item section."""
-    if not _table_exists(conn, "item_sections"):
-        return None
-    marker = _p(conn)
-    row = conn.execute(
-        "SELECT content FROM item_sections "
-        f"WHERE item_id = {marker} AND section_name = {marker}",
-        (int(item_id), section),
-    ).fetchone()
-    if row is None:
-        return None
-    try:
-        parsed = json.loads(str(row[0]))
-    except (TypeError, ValueError):
-        return None
-    return dict(parsed) if isinstance(parsed, Mapping) else None
-
-
 def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
     """Validate execution evidence; posture is checked by real authorities."""
-    _require_dash(conn, item_id)
+    _require_evidence_workflow(conn, item_id)
     evidence = read_json_section(
         conn, item_id=item_id, section=DASH_EVIDENCE_SECTION,
     )
@@ -275,10 +265,15 @@ def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
         missing.append("verification_summary")
     if not _status_is_passing(evidence.get("verification_status") or ""):
         missing.append("passing_verification")
-    if not _SHA_PATTERN.fullmatch(str(evidence.get("commit_sha") or "")):
-        missing.append("commit_sha")
-    if not _SHA_PATTERN.fullmatch(str(evidence.get("merge_sha") or "")):
-        missing.append("merge_sha")
+    require_shas = sha_fields_required(
+        no_changes=bool(evidence.get("no_changes")),
+        floor_rung=str(evidence.get("floor_rung") or ""),
+    )
+    if require_shas:
+        if not _SHA_PATTERN.fullmatch(str(evidence.get("commit_sha") or "")):
+            missing.append("commit_sha")
+        if not _SHA_PATTERN.fullmatch(str(evidence.get("merge_sha") or "")):
+            missing.append("merge_sha")
     if not evidence.get("touched_files") and not evidence.get("no_changes"):
         missing.append("touched_files")
     return DashEvidenceVerdict(not missing, tuple(missing), evidence)
@@ -293,7 +288,7 @@ def record_dash_escalation(
     issue_ref: str,
 ) -> dict[str, Any]:
     """Link a stopped Dash to the Issue that absorbed its findings."""
-    _require_dash(conn, item_id)
+    _require_evidence_workflow(conn, item_id)
     clean_findings = str(findings).strip()
     if not clean_findings:
         raise ValueError("escalation findings are required")
@@ -305,7 +300,7 @@ def record_dash_escalation(
         "findings": clean_findings,
         "recorded_at": iso8601_now(),
     }
-    _upsert_json_section(
+    upsert_json_section(
         conn,
         item_id=item_id,
         section=DASH_ESCALATION_SECTION,
@@ -321,7 +316,6 @@ __all__ = [
     "DASH_EVIDENCE_SECTION",
     "DashEvidenceVerdict",
     "evaluate_dash_evidence",
-    "read_json_section",
     "record_dash_escalation",
     "record_dash_evidence",
 ]

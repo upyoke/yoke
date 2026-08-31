@@ -43,6 +43,7 @@ def test_epic_definition_adds_plan_simulation_only_to_planned():
 def test_direct_workflows_can_place_distinct_closure_gates():
     assert "doc_completion" in _gate_ids("blitz", "done")
     assert "dash_evidence" in _gate_ids("dash", "done")
+    assert "floor_attestation" in _gate_ids("task", "done")
     assert "doc_completion" not in _gate_ids("issue", "done")
     assert "dash_evidence" not in _gate_ids("epic", "done")
 
@@ -64,10 +65,10 @@ def test_composer_reads_the_pinned_definition_and_registered_gate_ids():
 
 
 def test_every_direct_and_approval_gate_has_an_executable_dispatch():
-    gate_ids = {"work_claim_activation", "doc_claim_activation", "conflict_survey", "doc_completion", "dash_evidence", "approval"}
+    gate_ids = {"work_claim_activation", "doc_claim_activation", "conflict_survey", "doc_completion", "dash_evidence", "floor_attestation", "approval"}
     assert all(direct_workflow_gate_dispatch.handles(value) for value in gate_ids)
     source = inspect.getsource(direct_workflow_gate_dispatch)
-    for evaluator_module in ("direct_workflow_activation_gate", "conflict_survey_gate", "doc_completion_gate", "dash_evidence_gate", "approval_status_gate"):
+    for evaluator_module in ("direct_workflow_activation_gate", "conflict_survey_gate", "doc_completion_gate", "dash_evidence_gate", "floor_attestation_gate", "approval_status_gate"):
         assert evaluator_module in source
 
 

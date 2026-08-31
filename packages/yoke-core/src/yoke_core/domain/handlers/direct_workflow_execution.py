@@ -14,10 +14,10 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.dash_execution import (
     DASH_ESCALATION_SECTION,
-    read_json_section,
     record_dash_escalation,
     record_dash_evidence,
 )
+from yoke_core.domain.item_json_sections import read_json_section
 from yoke_core.domain.handlers.direct_workflow_survey import (
     SurveyRequest,
     SurveyResponse,
@@ -29,15 +29,15 @@ class EvidenceRequest(BaseModel):
     result_summary: str
     verification_summary: str
     verification_status: str = "passed"
-    commit_sha: str
-    merge_sha: str
+    commit_sha: str = ""
+    merge_sha: str = ""
     touched_files: List[str] = Field(default_factory=list)
     posture_checks: Mapping[str, str] = Field(default_factory=dict)
     no_changes: bool = False
     # Which tree the verification summary describes. Resolved by the
     # caller, because only the machine holding the checkout can answer.
-    tree_root: str
-    tree_head_sha: str
+    tree_root: str = ""
+    tree_head_sha: str = ""
 
 
 class EvidenceResponse(BaseModel):
@@ -117,6 +117,7 @@ def handle_dash_evidence(request: FunctionCallRequest) -> HandlerOutcome:
                 tree_head_sha=payload.tree_head_sha,
                 posture_checks=payload.posture_checks,
                 no_changes=payload.no_changes,
+                actor_id=_actor_id(request) or "",
             )
         except (LookupError, ValueError) as exc:
             return _error("evidence_refused", str(exc))

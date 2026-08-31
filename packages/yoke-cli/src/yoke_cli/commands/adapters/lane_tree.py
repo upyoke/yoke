@@ -22,6 +22,7 @@ from typing import Any, Optional
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded, item_target
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_core.domain.workflow_behavior import runs_without_git_lane
 
 
 @dataclass(frozen=True)
@@ -34,12 +35,15 @@ class LaneTree:
     that has been removed but still names the tree verification covered.
     ``checkout`` is this machine's mapped checkout for the item's project,
     used to size a pre-lane survey against the right repo rather than the
-    caller's cwd.
+    caller's cwd. ``laneless`` separates "no lane yet" from "no lane ever":
+    a workflow whose worktrees policy provisions none never gets a path,
+    so callers must not read an empty one as a missing prerequisite.
     """
 
     path: str = ""
     live: bool = False
     checkout: str = ""
+    laneless: bool = False
 
 
 def _lane_path(item: dict[str, Any]) -> str:
@@ -84,9 +88,15 @@ def item_lane_tree(
     item = ((response.result or {}).get("item")) or {}
     path = _lane_path(item)
     checkout = _mapped_checkout(item)
+    laneless = runs_without_git_lane(item.get("workflow") or {})
     if not path:
-        return LaneTree(checkout=checkout)
-    return LaneTree(path=path, live=Path(path).is_dir(), checkout=checkout)
+        return LaneTree(checkout=checkout, laneless=laneless)
+    return LaneTree(
+        path=path,
+        live=Path(path).is_dir(),
+        checkout=checkout,
+        laneless=laneless,
+    )
 
 
 def _mapped_checkout(item: dict[str, Any]) -> str:

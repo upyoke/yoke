@@ -10,6 +10,7 @@ from yoke_core.domain.workflow_gate_catalog import (
     GATE_DASH_EVIDENCE,
     GATE_DOC_CLAIM_ACTIVATION,
     GATE_DOC_COMPLETION,
+    GATE_FLOOR_ATTESTATION,
     GATE_WORK_CLAIM_ACTIVATION,
 )
 
@@ -20,6 +21,7 @@ _GATE_IDS = frozenset(
         GATE_DASH_EVIDENCE,
         GATE_DOC_CLAIM_ACTIVATION,
         GATE_DOC_COMPLETION,
+        GATE_FLOOR_ATTESTATION,
         GATE_WORK_CLAIM_ACTIVATION,
     }
 )
@@ -45,6 +47,8 @@ def evaluate(
         from yoke_core.domain.doc_completion_gate import evaluate as evaluator
     elif gate_id == GATE_DASH_EVIDENCE:
         from yoke_core.domain.dash_evidence_gate import evaluate as evaluator
+    elif gate_id == GATE_FLOOR_ATTESTATION:
+        from yoke_core.domain.floor_attestation_gate import evaluate as evaluator
     elif gate_id == GATE_APPROVAL:
         from yoke_core.domain.approval_status_gate import evaluate as evaluator
     else:

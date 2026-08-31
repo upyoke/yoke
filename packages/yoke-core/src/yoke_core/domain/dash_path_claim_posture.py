@@ -139,10 +139,8 @@ def completion_gate(
     active = activation_gate(conn, item_id)
     if active is not None:
         return active
-    from yoke_core.domain.dash_execution import (
-        DASH_EVIDENCE_SECTION,
-        read_json_section,
-    )
+    from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+    from yoke_core.domain.item_json_sections import read_json_section
 
     evidence = read_json_section(
         conn,

@@ -19,6 +19,7 @@ from yoke_core.domain.path_claims_overlap_survey import (
     SURVEY_ADVISORY_PROCEED,
     SURVEY_ADVISORY_YIELD,
 )
+from yoke_core.domain.workflow_behavior import runs_without_git_lane
 from yoke_core.domain.worktree_preflight import run_preflight
 from yoke_core.tools._source_pythonpath import (
     INSTALL_BUNDLE_SYNC_RECIPE,
@@ -156,6 +157,12 @@ def run(args: List[str]) -> int:
     if workflow_id != parsed.workflow:
         parser.error(
             f"item uses workflow {workflow_id!r}, not {parsed.workflow!r}"
+        )
+    if runs_without_git_lane(item.get("workflow") or {}):
+        parser.error(
+            f"workflow {workflow_id!r} declares worktrees=none, so this item "
+            "has no lane to prepare. Run the work in place under the session's "
+            "existing write authority and close out on the evidence."
         )
 
     status = call_dispatcher(

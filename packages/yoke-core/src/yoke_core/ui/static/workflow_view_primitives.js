@@ -4,7 +4,7 @@ import {
   workflowDomId,
 } from "./workflow_accessibility.js";
 
-const BUILTIN_WORKFLOW_ORDER = ["dash", "blitz", "issue", "epic"];
+const BUILTIN_WORKFLOW_ORDER = ["dash", "blitz", "issue", "epic", "task"];
 
 const POLICY_VALUE_COPY = {
   ownership: {
@@ -34,6 +34,7 @@ const POLICY_VALUE_COPY = {
     worker_and_integration_lanes: "worker + integration lanes",
     worker_lanes_optional_integration:
       "worker lanes + optional integration",
+    none: "no git lane",
   },
   generated_children: {
     none: "never generated",
@@ -43,6 +44,7 @@ const POLICY_VALUE_COPY = {
     release_stage: "before done · waits in release until delivered",
     after_merge_action: "after done · closes on merge; delivery is separate",
     continuous_slice_actions: "during work · each slice proves delivery",
+    merge_free: "no merge · done is the floor attestation",
   },
 };
 

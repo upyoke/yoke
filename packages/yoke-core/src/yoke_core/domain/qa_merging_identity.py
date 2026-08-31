@@ -122,10 +122,8 @@ def queue_batch_covers_receipt(
 
 
 def _evidence_sha(conn: Any, item_id: int) -> str:
-    from yoke_core.domain.dash_execution import (
-        DASH_EVIDENCE_SECTION,
-        read_json_section,
-    )
+    from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+    from yoke_core.domain.item_json_sections import read_json_section
 
     evidence = read_json_section(conn, item_id=item_id, section=DASH_EVIDENCE_SECTION)
     if not evidence:
