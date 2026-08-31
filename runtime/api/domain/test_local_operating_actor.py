@@ -107,9 +107,7 @@ def test_upgrade_convergence_skips_a_universe_with_several_people(test_db):
 
     assert single_owner_universe(test_db) is None
     assert converge_operating_actor_grant(test_db) is None
-    granted = test_db.execute(
-        "SELECT COUNT(*) FROM actor_org_roles"
-    ).fetchone()[0]
+    granted = test_db.execute("SELECT COUNT(*) FROM actor_org_roles").fetchone()[0]
     assert int(granted) == 0
 
 
