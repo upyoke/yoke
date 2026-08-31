@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, Mapping
 
 from yoke_core.domain.agents_render_conditional import (
     CURSOR_HARNESS_ID,
@@ -41,6 +42,76 @@ GENERATED_MD_HEADER = (
     "     Source: canonical Yoke agent prompt and reference material.\n"
     "     Adapter sidecar: canonical Cursor agent metadata -->\n"
 )
+
+CURSOR_QA_WALKER_READONLY_REASON = "cursor_qa_walker_readonly"
+CURSOR_QA_WALKER_POSTURE_MISSING_REASON = "cursor_qa_walker_write_posture_missing"
+
+
+class CursorAgentCapabilityError(ValueError):
+    """A Cursor custom-agent adapter cannot satisfy its dispatch contract."""
+
+
+def require_cursor_agent_write_capability(
+    role: str,
+    spec: Mapping[str, Any],
+) -> None:
+    """Require an explicit write-capable posture for mission walkers."""
+    if role != "qa-walker":
+        return
+    readonly = spec.get("readonly")
+    if readonly is True:
+        raise CursorAgentCapabilityError(
+            f"{CURSOR_QA_WALKER_READONLY_REASON}: Cursor's QA walker cannot "
+            "run host, browser, or artifact commands while readonly. Set "
+            "runtime/agents/qa-walker.cursor.json readonly to false, run "
+            "`yoke agents render --target-root <checkout>`, and retry the "
+            "QA plan run."
+        )
+    if readonly is not False:
+        raise CursorAgentCapabilityError(
+            f"{CURSOR_QA_WALKER_POSTURE_MISSING_REASON}: Cursor's QA walker "
+            "must declare readonly=false explicitly. Set it in "
+            "runtime/agents/qa-walker.cursor.json, run `yoke agents render "
+            "--target-root <checkout>`, and retry the QA plan run."
+        )
+
+
+def load_rendered_cursor_spec(path: Path) -> dict[str, Any]:
+    """Read the dispatch-relevant metadata from a rendered Cursor adapter."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise CursorAgentCapabilityError(
+            "cursor_qa_walker_adapter_unavailable: Cursor's QA walker adapter "
+            f"is not readable at {path}. Run `yoke agents render "
+            "--target-root <checkout>` and retry the QA plan run."
+        ) from exc
+    if not lines or lines[0] != "---":
+        raise CursorAgentCapabilityError(
+            "cursor_qa_walker_adapter_invalid: Cursor's QA walker adapter "
+            f"at {path} has no YAML frontmatter. Run `yoke agents render "
+            "--target-root <checkout>` and retry the QA plan run."
+        )
+    spec: dict[str, Any] = {}
+    frontmatter_closed = False
+    for line in lines[1:]:
+        if line == "---":
+            frontmatter_closed = True
+            break
+        key, separator, value = line.partition(":")
+        if separator and key.strip() == "readonly":
+            normalized = value.strip().lower()
+            if normalized in {"true", "false"}:
+                spec["readonly"] = normalized == "true"
+            else:
+                spec["readonly"] = normalized
+    if not frontmatter_closed:
+        raise CursorAgentCapabilityError(
+            "cursor_qa_walker_adapter_invalid: Cursor's QA walker adapter "
+            f"at {path} has unterminated YAML frontmatter. Run `yoke agents "
+            "render --target-root <checkout>` and retry the QA plan run."
+        )
+    return spec
 
 
 def _read_text(path: Path) -> str:
@@ -59,9 +130,7 @@ def load_cursor_spec(canonical_dir: Path, role: str) -> dict:
 
 def render_cursor_agent_body(canonical_dir: Path, role: str) -> str:
     """Render the portable prompt body for a Cursor agent."""
-    return render_agent_prompt_body(
-        canonical_dir, role, harness_id=CURSOR_HARNESS_ID
-    )
+    return render_agent_prompt_body(canonical_dir, role, harness_id=CURSOR_HARNESS_ID)
 
 
 def render_cursor_agent(canonical_dir: Path, role: str) -> str:
@@ -72,14 +141,18 @@ def render_cursor_agent(canonical_dir: Path, role: str) -> str:
     it, followed by the body as the system prompt.
     """
     spec = load_cursor_spec(canonical_dir, role)
+    require_cursor_agent_write_capability(role, spec)
     body = render_cursor_agent_body(canonical_dir, role)
 
     lines: list[str] = ["---"]
     lines.append(f"name: yoke-{role}")
     description = spec.get("description", "")
     lines.append(f"description: {json.dumps(description)}")
-    if spec.get("readonly") is True:
-        lines.append("readonly: true")
+    if "readonly" in spec:
+        readonly = spec["readonly"]
+        if not isinstance(readonly, bool):
+            raise ValueError(f"Cursor agent {role!r} readonly must be a JSON boolean")
+        lines.append(f"readonly: {str(readonly).lower()}")
     lines.append("---")
     lines.append("")
     lines.append(GENERATED_MD_HEADER.replace("{role}", role).rstrip("\n"))

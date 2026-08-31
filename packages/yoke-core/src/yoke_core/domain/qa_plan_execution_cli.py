@@ -7,6 +7,7 @@ import json
 import os
 import shlex
 import sys
+from pathlib import Path
 from typing import Any, List, Optional
 
 from yoke_core.domain.qa_case_execution_cli import WAITING_RETRY_EXIT
@@ -60,6 +61,53 @@ def _review_connection_env() -> str:
     return active_env()
 
 
+def _require_walker_dispatch_capability(
+    result: dict[str, Any],
+    *,
+    harness_id: Optional[str] = None,
+    target_root: Optional[Path] = None,
+) -> None:
+    """Refuse an informed walker whose actual harness adapter is readonly."""
+    bundle = result.get("review_bundle")
+    dispatch = bundle.get("dispatch") if isinstance(bundle, dict) else None
+    walkers = dispatch.get("walker_dispatches") if isinstance(dispatch, dict) else None
+    informed = [
+        walker
+        for walker in walkers or []
+        if isinstance(walker, dict) and walker.get("executor") == "informed_subagent"
+    ]
+    if not informed:
+        return
+    if harness_id is None:
+        from yoke_core.hooks.helpers_identity import (
+            canonical_harness_id,
+            detect_executor,
+        )
+
+        harness_id = canonical_harness_id(detect_executor())
+    if harness_id != "cursor":
+        return
+    if target_root is None:
+        from yoke_contracts.cursor_hook_root import (
+            resolve_existing_hook_root_from_env,
+        )
+
+        target_root = Path(resolve_existing_hook_root_from_env())
+    from yoke_core.domain.agents_render import CURSOR_NATIVE_AGENTS_DIR
+    from yoke_core.domain.agents_render_cursor import (
+        CursorAgentCapabilityError,
+        load_rendered_cursor_spec,
+        require_cursor_agent_write_capability,
+    )
+
+    adapter_path = Path(target_root) / CURSOR_NATIVE_AGENTS_DIR / "yoke-qa-walker.md"
+    try:
+        spec = load_rendered_cursor_spec(adapter_path)
+        require_cursor_agent_write_capability("qa-walker", spec)
+    except CursorAgentCapabilityError as exc:
+        raise QaPlanExecutionError(str(exc)) from exc
+
+
 def _qualify_review_dispatch(result: dict[str, Any]) -> None:
     bundle = result.get("review_bundle")
     if not isinstance(bundle, dict):
@@ -87,6 +135,7 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
     walkers = dispatch.get("walker_dispatches") or []
     if not isinstance(walkers, list):
         raise QaPlanExecutionError("QA review bundle has invalid walker dispatches")
+    _require_walker_dispatch_capability(result)
     for walker in walkers:
         if not isinstance(walker, dict):
             raise QaPlanExecutionError("QA mission walker is not an object")
@@ -99,9 +148,7 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
             command = walker.get(key)
             if not isinstance(command, str) or not command.startswith("yoke "):
                 label = key.replace("_", "-")
-                raise QaPlanExecutionError(
-                    f"QA mission walker lacks a typed {label}"
-                )
+                raise QaPlanExecutionError(f"QA mission walker lacks a typed {label}")
             qualified = command.replace("yoke ", f"{prefix} ", 1)
             walker[key] = qualified
             walker["prompt"] = str(walker.get("prompt") or "").replace(
