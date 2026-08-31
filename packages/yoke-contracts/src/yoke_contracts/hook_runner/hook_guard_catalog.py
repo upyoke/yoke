@@ -143,6 +143,12 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         "Refuse hand-quoted JSON payloads and adapter shell-choreography.",
     ),
     GuardSpec(
+        "lint_yoke_adapter_stderr_visibility",
+        f"{_MODULE_PREFIX}lint_yoke_adapter_stderr_visibility",
+        False,
+        "Keep diagnostic stderr visible on state-changing Yoke adapters.",
+    ),
+    GuardSpec(
         "lint_shell_backtick_search",
         f"{_MODULE_PREFIX}lint_shell_backtick_search",
         False,
