@@ -46,8 +46,9 @@ seed at minimum one explicit requirement with
 `--success-policy "Implementation matches the item title/description"`.
 
 That fallback is for the genuinely uncategorized item. A pinned workflow that
-uses project testing defaults and has no registered command gets a structural
-`no_tests_declared` requirement at the transition where `quick` would run.
+uses project testing defaults and has no registered command gets a
+`no_tests_declared` requirement seeded structurally at the transition where
+`quick` would run.
 Record its verdict with `performed_by=agent` and the stored kind; the resulting
 `agent-attested / no-tests-declared` evidence is an honest floor, not a claim
 that tests ran. `yoke qa no-tests attest --project P --reason "..."` adds the
