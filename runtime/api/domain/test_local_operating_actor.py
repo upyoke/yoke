@@ -19,6 +19,7 @@ from yoke_core.domain.local_operating_actor import (
     OPERATING_ACTOR_GRANT_REPAIR,
     converge_operating_actor_grant,
     ensure_local_operating_actor,
+    grant_tables_present,
     holds_org_admin,
     missing_grant_repair_detail,
     single_owner_universe,
@@ -132,3 +133,29 @@ def test_a_denial_with_the_grant_present_stays_an_authorization_answer(test_db):
     actor_id = _human_actor_id(test_db)
 
     assert missing_grant_repair_detail(test_db, actor_id) == ""
+
+
+def test_convergence_leaves_a_grant_less_schema_and_its_caller_untouched(test_db):
+    """A database without the grant tables must cost the caller nothing.
+
+    Both readers run inside somebody else's open transaction. Probing a
+    missing table would abort it, and rolling back to recover would
+    discard the caller's own uncommitted rows — which is exactly what
+    happened to a suite whose minimal schema carries actors but no
+    org/role tables: its freshly inserted items and sessions vanished.
+    """
+    test_db.execute("DROP TABLE IF EXISTS actor_org_roles CASCADE")
+    test_db.commit()
+    assert grant_tables_present(test_db) is False
+
+    test_db.execute(
+        "INSERT INTO actors (kind, system_component, created_at) "
+        "VALUES ('system', 'grant-witness', '2026-05-01T00:00:00Z')"
+    )
+    uncommitted = int(test_db.execute("SELECT COUNT(*) FROM actors").fetchone()[0])
+
+    assert converge_operating_actor_grant(test_db) is None
+    assert missing_grant_repair_detail(test_db, 1) == ""
+
+    still_there = int(test_db.execute("SELECT COUNT(*) FROM actors").fetchone()[0])
+    assert still_there == uncommitted

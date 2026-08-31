@@ -86,6 +86,27 @@ def holds_org_admin(conn: Any, actor_id: int) -> bool:
     return row is not None
 
 
+def grant_tables_present(conn: Any) -> bool:
+    """True when this database carries the tables the grant lives in.
+
+    Both readers below run inside somebody else's open transaction —
+    session registration before it inserts its row, a permission check
+    on its way to raising. Asking a table that does not exist would
+    abort that transaction, and recovering by rolling back would discard
+    the caller's own uncommitted work: a minimal-schema fixture proved
+    it, losing the items and sessions its test had just inserted. So the
+    absence is a question asked up front, through the same existence
+    probe the rest of the engine uses, and never an exception caught
+    afterwards.
+    """
+    from yoke_core.domain.schema_common import _table_exists
+
+    return all(
+        _table_exists(conn, table)
+        for table in ("actors", "actor_org_roles", "organizations", "roles")
+    )
+
+
 def single_owner_universe(conn: Any) -> Optional[int]:
     """The sole human actor of a single-owner universe, else ``None``.
 
@@ -97,15 +118,9 @@ def single_owner_universe(conn: Any) -> Optional[int]:
     nothing but the database in front of it — no machine config, no
     environment variable, no deployment-mode guess.
     """
-    from yoke_core.domain import db_backend
-
-    try:
-        rows = conn.execute(
-            "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 2"
-        ).fetchall()
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
-        return None
+    rows = conn.execute(
+        "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 2"
+    ).fetchall()
     return int(rows[0][0]) if len(rows) == 1 else None
 
 
@@ -115,26 +130,21 @@ def converge_operating_actor_grant(conn: Any) -> Optional[int]:
     The convergence point for an engine upgraded in place over a
     universe born before the grant existed: birth is never re-entered on
     that path, so the first session to register carries the repair. The
-    settled case costs one indexed read and writes nothing.
+    settled case costs one existence probe and one indexed read, and
+    writes nothing.
 
     Returns the actor that was granted, or ``None`` when there was
     nothing to converge — the grant is already present, the universe is
-    not single-owner, or its org/role tables are not readable (a
-    schema-incomplete database is schema convergence's problem, not this
-    function's).
+    not single-owner, or the database does not carry the grant tables at
+    all (a schema-incomplete database is schema convergence's problem,
+    not this function's).
     """
-    from yoke_core.domain import db_backend
-
+    if not grant_tables_present(conn):
+        return None
     actor_id = single_owner_universe(conn)
-    if actor_id is None:
+    if actor_id is None or holds_org_admin(conn, actor_id):
         return None
-    try:
-        if holds_org_admin(conn, actor_id):
-            return None
-        ensure_local_operating_actor(conn)
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
-        return None
+    ensure_local_operating_actor(conn)
     return actor_id
 
 
@@ -148,19 +158,15 @@ def missing_grant_repair_detail(conn: Any, actor_id: Any) -> str:
     whole cause, and the agent that hit it concluded no grant surface
     existed at all, because nothing it could read said otherwise.
     """
-    from yoke_core.domain import db_backend
-
     try:
         candidate = int(actor_id)
     except (TypeError, ValueError):
         return ""
-    try:
-        if single_owner_universe(conn) != candidate:
-            return ""
-        if holds_org_admin(conn, candidate):
-            return ""
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
+    if not grant_tables_present(conn):
+        return ""
+    if single_owner_universe(conn) != candidate:
+        return ""
+    if holds_org_admin(conn, candidate):
         return ""
     return (
         "This universe's operating actor holds no org admin role, so every "
@@ -170,18 +176,11 @@ def missing_grant_repair_detail(conn: Any, actor_id: Any) -> str:
     )
 
 
-def _rollback_quietly(conn: Any) -> None:
-    """Clear the aborted-transaction state a failed probe leaves behind."""
-    try:
-        conn.rollback()
-    except Exception:  # noqa: BLE001 — the probe result is the whole product
-        pass
-
-
 __all__ = [
     "OPERATING_ACTOR_GRANT_REPAIR",
     "converge_operating_actor_grant",
     "ensure_local_operating_actor",
+    "grant_tables_present",
     "holds_org_admin",
     "missing_grant_repair_detail",
     "single_owner_universe",
