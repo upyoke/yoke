@@ -139,17 +139,21 @@ def test_in_process_payload_entrypoint_preferred(monkeypatch):
     seen = []
     monkeypatch.setattr(
         register_module, "_register_in_process",
-        lambda sid, executor, provider, model, workspace, entrypoint,
+        lambda sid, executor, provider, model_facts, workspace, entrypoint,
         actor_id=None, execution_lane=None, project_id=None,
         executor_version=None, machine_id=None, native_thread_id=None, **_k:
-            seen.append((model, entrypoint)) or "",
+            seen.append((model_facts, entrypoint)) or "",
     )
     register_module._register_from_hook(
-        '{"session_id": "s", "model": "claude-fable-5[1m]", '
+        '{"session_id": "s", "requested_model": "claude-fable-5[1m]", '
         '"entrypoint": "claude-desktop", "project_id": 1}',
         "s", register_in_process=True, executor_hint="claude",
     )
-    assert seen == [("claude-fable-5[1m]", "claude-desktop")]
+    facts, entrypoint = seen[0]
+    assert entrypoint == "claude-desktop"
+    # A tier selector is an ask; registration must not assert it was served.
+    assert facts.requested_model == "claude-fable-5[1m]"
+    assert facts.model is None
 
 
 class TestEnsureForceReregister:

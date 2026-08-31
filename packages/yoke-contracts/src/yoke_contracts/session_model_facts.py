@@ -42,7 +42,6 @@ REASONING_EFFORT_VALUES = (
 CLAUDE_CONTEXT_TIER_SUFFIX = "[1m]"
 CLAUDE_CONTEXT_TIER_TOKENS = 1_000_000
 
-
 #: Values a harness surface passes to mean "use whatever is configured"
 #: rather than to name a model. A placeholder is never a served fact and
 #: never a stated request: recording one would make every session that
@@ -121,6 +120,24 @@ def model_display(facts: SessionModelFacts) -> str:
     return UNKNOWN_MODEL_DISPLAY
 
 
+def served_model_or_none(value: object) -> Optional[str]:
+    """Return a model a provider could have served, else ``None``.
+
+    Beyond a placeholder, one more string reaches the served slot without
+    being an attestation: a context tier selector. No provider response
+    returns one, and a client older than this split ships its requested
+    model under the plain key, so during the rollout window that is
+    exactly what arrives. Storing it as served would assert a provider
+    reported it.
+    """
+    if is_placeholder_model(value):
+        return None
+    text = str(value).strip()
+    if text.lower().endswith(CLAUDE_CONTEXT_TIER_SUFFIX):
+        return None
+    return text
+
+
 def facts_arguments(facts: SessionModelFacts) -> list[str]:
     """Render the facts as CLI flags, one per stated column.
 
@@ -150,6 +167,10 @@ def facts_from_mapping(source: Any) -> SessionModelFacts:
             values[field] = normalize_context_window_tokens(raw)
         elif field.endswith("reasoning_effort"):
             values[field] = normalize_reasoning_effort(raw)
+        elif field == "model":
+            # Guarded at the parser so the write path and the upgrade
+            # probe inherit one rule rather than each carrying its own.
+            values[field] = served_model_or_none(raw)
         elif is_placeholder_model(raw):
             # A placeholder names no model, so it is neither half of the
             # split — recording one would read as a real answer.
@@ -217,6 +238,7 @@ __all__ = [
     "PLACEHOLDER_MODEL_VALUES",
     "REQUESTED_LABEL",
     "UNKNOWN_MODEL_DISPLAY",
+    "PLACEHOLDER_MODEL_VALUES",
     "REASONING_EFFORT_VALUES",
     "REQUESTED_FIELDS",
     "SERVED_FIELDS",
@@ -230,4 +252,5 @@ __all__ = [
     "normalize_context_window_tokens",
     "normalize_reasoning_effort",
     "requested_context_window_of",
+    "served_model_or_none",
 ]

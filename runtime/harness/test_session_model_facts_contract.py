@@ -15,6 +15,7 @@ from yoke_contracts.session_model_facts import (
     normalize_context_window_tokens,
     normalize_reasoning_effort,
     requested_context_window_of,
+    served_model_or_none,
 )
 
 
@@ -102,6 +103,27 @@ def test_facts_read_back_out_of_a_wire_mapping() -> None:
     assert facts.context_window_tokens == 258400
     assert facts.requested_model == "claude-opus-5[1m]"
     assert facts.requested_reasoning_effort is None
+
+
+def test_a_tier_selector_on_the_wire_is_never_read_as_served() -> None:
+    """A client older than this split ships its ask under the plain key."""
+    facts = facts_from_mapping(
+        {"model": "claude-opus-5[1m]", "requested_model": "claude-opus-5[1m]"}
+    )
+
+    assert facts.model is None
+    # The same string is a perfectly good request.
+    assert facts.requested_model == "claude-opus-5[1m]"
+
+
+def test_a_placeholder_on_the_wire_is_never_read_as_served() -> None:
+    for placeholder in ("unknown", "default", "auto", "<synthetic>", "  "):
+        assert facts_from_mapping({"model": placeholder}).model is None
+
+
+def test_served_model_or_none_keeps_a_real_provider_id() -> None:
+    assert served_model_or_none(" claude-opus-5 ") == "claude-opus-5"
+    assert served_model_or_none(None) is None
 
 
 def test_a_mapping_with_no_model_keys_attests_nothing() -> None:
