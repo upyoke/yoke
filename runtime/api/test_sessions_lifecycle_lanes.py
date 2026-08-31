@@ -16,9 +16,10 @@ _PROJECT_ROUTING = {
 }
 
 
-def _stored_lane(conn, session_id: str) -> str:
-    row = conn.execute(
-        f"SELECT execution_lane FROM harness_sessions WHERE session_id = {_p(conn)}",
+def _stored_lane(connection, session_id: str) -> str:
+    row = connection.execute(
+        "SELECT execution_lane FROM harness_sessions WHERE session_id = "
+        f"{_p(connection)}",
         (session_id,),
     ).fetchone()
     assert row is not None
@@ -48,7 +49,7 @@ class TestBeginSessionStampsRoutedLane:
         ],
     )
     def test_each_executor_surface_stamps_its_family_lane(
-        self, conn, executor, expected,
+        self, conn, executor, expected,  # noqa: F811
     ):
         result = begin_session(
             conn,
@@ -65,7 +66,7 @@ class TestBeginSessionStampsRoutedLane:
 
 
 class TestRegisterSessionLaneHealing:
-    def test_duplicate_upgrades_primary_lane_to_real_lane(self, conn):
+    def test_duplicate_upgrades_primary_lane_to_real_lane(self, conn):  # noqa: F811
         _register(conn, session_id="lane-upgrade")
 
         with pytest.raises(SessionError) as exc_info:
@@ -74,7 +75,7 @@ class TestRegisterSessionLaneHealing:
         assert exc_info.value.code == "SESSION_EXISTS"
         assert _stored_lane(conn, "lane-upgrade") == "DARIUS"
 
-    def test_duplicate_never_downgrades_real_lane_to_primary(self, conn):
+    def test_duplicate_never_downgrades_real_lane_to_primary(self, conn):  # noqa: F811
         _register(conn, session_id="lane-stable", execution_lane="ALTMAN")
 
         with pytest.raises(SessionError) as exc_info:
@@ -83,7 +84,7 @@ class TestRegisterSessionLaneHealing:
         assert exc_info.value.code == "SESSION_EXISTS"
         assert _stored_lane(conn, "lane-stable") == "ALTMAN"
 
-    def test_duplicate_never_swaps_real_lane_laterally(self, conn):
+    def test_duplicate_never_swaps_real_lane_laterally(self, conn):  # noqa: F811
         _register(conn, session_id="lane-lateral", execution_lane="DARIUS")
 
         with pytest.raises(SessionError) as exc_info:
@@ -92,7 +93,7 @@ class TestRegisterSessionLaneHealing:
         assert exc_info.value.code == "SESSION_EXISTS"
         assert _stored_lane(conn, "lane-lateral") == "DARIUS"
 
-    def test_reactivation_never_downgrades_real_lane_to_primary(self, conn):
+    def test_reactivation_never_downgrades_real_lane_to_primary(self, conn):  # noqa: F811
         _register(conn, session_id="lane-reactivate", execution_lane="ALTMAN")
         end_session(conn, "lane-reactivate")
 
@@ -101,7 +102,7 @@ class TestRegisterSessionLaneHealing:
         assert result["execution_lane"] == "ALTMAN"
         assert _stored_lane(conn, "lane-reactivate") == "ALTMAN"
 
-    def test_reactivation_upgrades_primary_lane_to_real_lane(self, conn):
+    def test_reactivation_upgrades_primary_lane_to_real_lane(self, conn):  # noqa: F811
         _register(conn, session_id="lane-reactivate-upgrade")
         end_session(conn, "lane-reactivate-upgrade")
 

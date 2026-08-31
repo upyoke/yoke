@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.hooks import registration as register_module
 
 from runtime.harness.register_identity_upgrade_test_support import (

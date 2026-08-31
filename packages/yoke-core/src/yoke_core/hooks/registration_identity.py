@@ -128,7 +128,7 @@ def _model_facts_can_upgrade(
             changed_columns,
         )
 
-        incoming = _without_placeholder_model(facts_from_mapping(payload))
+        incoming = _without_unservable_model(facts_from_mapping(payload))
         if not any(getattr(incoming, field) for field in MODEL_COLUMNS):
             # The wire said nothing about the model, so there is nothing to
             # compare and no reason to spend a query finding that out.
@@ -147,19 +147,29 @@ def _model_facts_can_upgrade(
         return False
 
 
-def _without_placeholder_model(facts):
-    """Drop a placeholder served model: a placeholder is not an attestation.
+def _without_unservable_model(facts):
+    """Drop a wire ``model`` no provider could have served.
 
-    An older client can still put ``unknown`` on the wire, and storing that
-    as the served model would assert a provider reported it.
+    Two values reach the served slot without being attestations. A
+    placeholder such as ``unknown`` is the absence of an answer. A context
+    tier selector such as ``claude-opus-5[1m]`` is an ask — no provider
+    response returns one — and a client older than this contract ships its
+    requested model under the plain key, so during the rollout window that
+    is exactly what arrives. Storing either would assert that a provider
+    reported it.
     """
     from dataclasses import replace
 
+    from yoke_contracts.session_model_facts import CLAUDE_CONTEXT_TIER_SUFFIX
     from yoke_harness.hooks.identity import _is_placeholder_model
 
-    if facts.model is not None and _is_placeholder_model(facts.model):
-        return replace(facts, model=None)
-    return facts
+    model = facts.model
+    if model is None:
+        return facts
+    unservable = _is_placeholder_model(model) or model.strip().lower().endswith(
+        CLAUDE_CONTEXT_TIER_SUFFIX
+    )
+    return replace(facts, model=None) if unservable else facts
 
 
 def _executor_version_can_upgrade(

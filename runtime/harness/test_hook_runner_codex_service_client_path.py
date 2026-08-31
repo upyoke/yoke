@@ -272,27 +272,31 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
     )
     monkeypatch.setattr(hook_runner_register, "register_harness_session", fake_register)
 
-    err, executor, provider, model, entrypoint = (
+    err, executor, provider, facts, entrypoint = (
         hook_runner_register._register_from_hook(
-            '{"model":"claude-opus-4-8[1m]"}',
+            '{"requested_model":"claude-opus-4-8[1m]"}',
             "sid-claude",
         )
     )
 
     assert err == ""
-    assert (executor, provider, model, entrypoint) == (
+    assert (executor, provider, entrypoint) == (
         "claude",
         "anthropic",
-        "claude-opus-4-8[1m]",
         "claude-desktop",
     )
+    # A tier selector is an ask; nothing claims it was served.
+    assert facts.requested_model == "claude-opus-4-8[1m]"
+    assert facts.model is None
     assert calls == [
         {
             "root": "/Users/x/externalwebapp",
             "session_id": "sid-claude",
             "executor": "claude",
             "provider": "anthropic",
-            "model": "claude-opus-4-8[1m]",
+            "model_facts": SessionModelFacts(
+                requested_model="claude-opus-4-8[1m]"
+            ),
             "entrypoint": "claude-desktop",
             "executor_version": "0.1.0",
             "machine_id": "00000000-0000-4000-8000-000000000123",
