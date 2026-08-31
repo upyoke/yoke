@@ -23,8 +23,7 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
 
 
 _SUBJECT = (
-    "yoke qa mission host-command --item-id 5 "
-    "--execution-id exec-1 --requirement-id 7"
+    "yoke qa mission host-command --item-id 5 --execution-id exec-1 --requirement-id 7"
 )
 
 
@@ -69,15 +68,13 @@ class TestLocalWriteTargetsStayEnforced:
 
     def test_aws_exec_local_copy_source_is_unchanged(self):
         command = (
-            "yoke aws exec -- s3 cp /Users/dev/archive.json "
-            "s3://example/archive.json"
+            "yoke aws exec -- s3 cp /Users/dev/archive.json s3://example/archive.json"
         )
         assert extract_command_targets(command) == ["/Users/dev/archive.json"]
 
     def test_aws_logs_tail_resource_is_unchanged(self):
         command = (
-            "yoke aws exec --project platform -- logs tail /yoke/stage/core "
-            "--since 10m"
+            "yoke aws exec --project platform -- logs tail /yoke/stage/core --since 10m"
         )
         assert extract_command_targets(command) == []
 
