@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain.capability_undeclare_remedy import undeclare_remedy
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.merge_queue_route import land_item_through_merge_queue
 from yoke_core.domain.projects_seed_ci_workflow import (

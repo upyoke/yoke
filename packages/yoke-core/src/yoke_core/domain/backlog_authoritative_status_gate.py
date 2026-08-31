@@ -20,8 +20,6 @@ from .db_helpers import connect
 from .qa_terminal_settlement import terminal_transition_result
 from .workflow_gate_catalog import (
     GATE_ARCHITECTURE_IMPACT,
-    GATE_CHECK_HARD_BLOCKS,
-    GATE_CLAIM_ACTIVATION,
     GATE_CONFLICT_SURVEY,
     GATE_DB_CLAIM_PROSE,
     GATE_DB_MUTATION,
@@ -32,6 +30,7 @@ from .workflow_gate_catalog import (
     GATE_WORK_CLAIM_ACTIVATION,
 )
 from .workflow_runtime import load_item_workflow_runtime
+from .workflow_stage_gate_selection import select_stage_gates
 
 
 _REVIEWED_IMPLEMENTATION_TARGET = "reviewed-implementation"
@@ -101,7 +100,12 @@ def _run_authoritative_status_gate(
         if posture_result is not None:
             return posture_result
     failures: list[dict] = []
-    gate_refs = workflow.gates_for_stage(target_status)
+    gate_refs = select_stage_gates(
+        workflow.gates_for_stage(target_status),
+        item_id=item_id,
+        db_path=db_path,
+        conn=conn,
+    )
     if bypass_non_activation:
         gate_refs = tuple(
             ref
@@ -196,10 +200,10 @@ def _evaluate_definition_gate(
             db_path=db_path,
             definition_selected=True,
         )
-    from yoke_core.domain import direct_workflow_gate_dispatch
+    from yoke_core.domain import workflow_gate_family_dispatch
 
-    if direct_workflow_gate_dispatch.handles(gate_id):
-        return direct_workflow_gate_dispatch.evaluate(
+    if workflow_gate_family_dispatch.handles(gate_id):
+        return workflow_gate_family_dispatch.evaluate(
             gate_id=gate_id,
             item_id=item_id,
             target_status=target_status,
@@ -207,8 +211,6 @@ def _evaluate_definition_gate(
             session_id=session_id,
             conn=conn,
         )
-    if gate_id in {GATE_CHECK_HARD_BLOCKS, GATE_CLAIM_ACTIVATION}:
-        return None
     return {
         "success": False,
         "error_code": "GATE_IMPLEMENTATION_UNAVAILABLE",

@@ -11,7 +11,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from yoke_core.domain import backlog_authoritative_status_gate
-from yoke_core.domain import direct_workflow_gate_dispatch
+from yoke_core.domain import workflow_gate_family_dispatch
 from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers.lifecycle_transition import handle_transition
@@ -59,16 +59,34 @@ def test_composer_reads_the_pinned_definition_and_registered_gate_ids():
         "check_boundary_for_item",
         "_evaluate_plan_simulation",
         "_evaluate_qa_verification",
-        "direct_workflow_gate_dispatch",
+        "workflow_gate_family_dispatch",
     ):
         assert evaluator in source
 
 
-def test_every_direct_and_approval_gate_has_an_executable_dispatch():
-    gate_ids = {"work_claim_activation", "doc_claim_activation", "conflict_survey", "doc_completion", "dash_evidence", "floor_attestation", "approval"}
-    assert all(direct_workflow_gate_dispatch.handles(value) for value in gate_ids)
-    source = inspect.getsource(direct_workflow_gate_dispatch)
-    for evaluator_module in ("direct_workflow_activation_gate", "conflict_survey_gate", "doc_completion_gate", "dash_evidence_gate", "floor_attestation_gate", "approval_status_gate"):
+def test_every_dispatched_gate_family_has_an_executable_evaluator():
+    gate_ids = {
+        "work_claim_activation",
+        "doc_claim_activation",
+        "conflict_survey",
+        "doc_completion",
+        "dash_evidence",
+        "floor_attestation",
+        "approval",
+        "check_hard_blocks",
+        "claim_activation",
+    }
+    assert all(workflow_gate_family_dispatch.handles(value) for value in gate_ids)
+    source = inspect.getsource(workflow_gate_family_dispatch)
+    for evaluator_module in (
+        "direct_workflow_activation_gate",
+        "conflict_survey_gate",
+        "doc_completion_gate",
+        "dash_evidence_gate",
+        "floor_attestation_gate",
+        "approval_status_gate",
+        "workflow_activation_status_gates",
+    ):
         assert evaluator_module in source
 
 

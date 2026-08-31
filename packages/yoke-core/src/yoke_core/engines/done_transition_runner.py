@@ -321,8 +321,8 @@ def run(
 
     _finalize_done_local_side_effects(
         item_id, release_note_category(workflow), title, item_project, env_name,
+        result=result,
     )
-    result.add_step("6c")
 
     if has_task_graph and task_parent_ref:
         _cascade_epic_tasks_to_done(item_id, public_ref=public_ref)

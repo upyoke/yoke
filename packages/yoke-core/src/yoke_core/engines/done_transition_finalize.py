@@ -17,22 +17,46 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _record_finalization(result, note: str) -> None:
+    """Stamp the finalization outcome where the run's reader will find it.
+
+    A degraded finalization used to leave only an ``Advisory:`` line in a
+    log nobody re-reads, while the recorded steps claimed the finalization
+    ran. The step marker and a structured warning carry the degradation
+    onto the result instead, matching how Step 8 records its own.
+    """
+    if result is None:
+        return
+    if not note:
+        result.add_step("6c")
+        return
+    result.add_step("6c-degraded")
+    result.warnings.append({
+        "code": "done_finalization_degraded",
+        "step": "6c",
+        "message": note,
+    })
+
+
 def _finalize_done_local_side_effects(
     item_id: int,
     release_category: str,
     title: str,
     item_project: str,
     env_name: str,
-) -> None:
+    result=None,
+) -> str:
     """Run the collapsed local done finalization through the transport.
 
     The deployed_to resolution + conditional ``items.deployed_to`` update +
     ``release_entries`` upsert are relayed as ONE atomic
     ``done_transition.finalize_local_side_effects`` write so the whole
     transaction runs server-side on a single connection (over an https
-    control plane as well as a local Postgres connection). Finalization is
-    advisory: matching the inline ``connect()`` behavior, any failure
-    degrades with a note and the item still reaches done — it never raises.
+    control plane as well as a local Postgres connection). Finalization
+    still never raises — the item has already reached done and nothing here
+    can un-reach it — but a failure is recorded as a degraded step plus a
+    structured warning rather than a print the run then reports over.
+    Returns the degradation note, empty when finalization completed.
     """
     print("\n=== Step 6c/6d/7/10: Local done finalization ===")
     try:
@@ -46,22 +70,28 @@ def _finalize_done_local_side_effects(
                 "item_project": item_project,
             },
         )
-    except Exception as exc:  # noqa: BLE001 - advisory; matches inline degrade
-        print(f"Advisory: local done finalization failed: {exc}")
-        return
+    except Exception as exc:  # noqa: BLE001 - the item already reached done
+        note = f"local done finalization failed: {exc}"
+        print(f"Degraded: {note}")
+        _record_finalization(result, note)
+        return note
     if not resp.success:
         message = resp.error.message if resp.error else "unknown error"
-        print(f"Advisory: local done finalization partly skipped: {message}")
-        return
+        note = f"local done finalization partly skipped: {message}"
+        print(f"Degraded: {note}")
+        _record_finalization(result, note)
+        return note
 
-    result = resp.result or {}
-    deployed_to = str(result.get("deployed_to") or "")
-    release_note = bool(result.get("release_note"))
+    finalized = resp.result or {}
+    deployed_to = str(finalized.get("deployed_to") or "")
+    release_note = bool(finalized.get("release_note"))
     deploy_msg = (
         f"deployed_to={deployed_to}" if deployed_to else "deployed_to unchanged"
     )
     note_msg = "release note upserted" if release_note else "release note skipped"
     print(f"Local finalization: {deploy_msg}; {note_msg}.")
+    _record_finalization(result, "")
+    return ""
 
 
 def _resolve_deployed_to(conn, item_id: int, env_name: str) -> str:
@@ -196,7 +226,7 @@ def _run_closeout(
 ) -> None:
     """Run every step that follows the committed status write."""
     print("\n=== Step 8: Sync done state to GitHub ===")
-    done_transition_github_sync.apply_step_8(
+    github_closeout = done_transition_github_sync.apply_step_8(
         item_id, old_status, result, public_ref=ref,
     )
     # The scan addresses the item by its public ref: a digit string is a
@@ -246,6 +276,14 @@ def _run_closeout(
     print("\n=== Step 14: Report ===")
     print("==========================================")
     print(f"{ref} ({title}): {old_status} -> done")
+    if github_closeout.is_incomplete:
+        # The item is terminal either way; what a clean report would hide is
+        # a GitHub issue this closeout left open.
+        print(
+            f"GitHub closeout incomplete ({github_closeout.step_marker}): "
+            f"{github_closeout.message}\n"
+            f"Converge it with `yoke resync --fix`."
+        )
     print("==========================================\n")
     print(format_workflow_route(workflow))
     result.add_step("14")

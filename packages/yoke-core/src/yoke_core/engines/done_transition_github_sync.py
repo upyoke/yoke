@@ -4,8 +4,15 @@ Routes the closeout sync (labels + body + close) through
 :func:`yoke_core.domain.backlog_github_sync.sync_done_item`, classifies
 its return code, and emits a structured result so the runner can record
 either ``"8"`` (clean), ``"8-degraded"`` (sync returned non-zero), or
-``"8-skipped"`` (no linked GitHub issue / dry run / gh missing) instead
-of unconditionally marking the step complete on a silent failure.
+``"8-skipped"`` (the sync module could not be reached at all) instead of
+unconditionally marking the step complete on a silent failure.
+
+Step 8 runs after the item is already terminal, so nothing here can
+un-reach done — which is exactly why an incomplete closeout has to be
+recorded rather than reported over. Both incomplete markers write a
+``SyncFailed`` row against the item, the same surface ``/yoke resync
+--fix`` converges from, and the closeout report names the outcome instead
+of printing a clean ``-> done`` line over a GitHub issue still open.
 
 The runner's single integration point is :func:`apply_step_8`, which
 runs Step 8 and stamps the resulting marker + structured warning onto
@@ -30,6 +37,11 @@ class Step8Result:
     @property
     def is_degraded(self) -> bool:
         return self.step_marker == "8-degraded"
+
+    @property
+    def is_incomplete(self) -> bool:
+        """Whether the GitHub closeout did not finish, however it failed."""
+        return self.step_marker in {"8-degraded", "8-skipped"}
 
 
 def run_step_8(
@@ -105,9 +117,11 @@ def apply_step_8(
     """Run Step 8 and stamp the outcome onto the caller's ``TransitionResult``.
 
     Records ``step_marker`` (``"8"``, ``"8-degraded"``, or ``"8-skipped"``)
-    in ``result.steps_completed`` and appends a structured
-    ``github_sync_degraded`` warning on the degraded path. Returns the
-    underlying :class:`Step8Result` for callers that need it.
+    in ``result.steps_completed`` and, whenever the closeout did not finish,
+    appends the structured ``github_sync_degraded`` warning and writes the
+    matching ``SyncFailed`` row. A skipped sync is not a quieter failure
+    than a degraded one — neither closed the issue — so both are recorded.
+    Returns the underlying :class:`Step8Result` for callers that need it.
 
     The bundled ``sync_done_item`` call is not one operation. It resolves the
     authorization the closeout needs, writes the issue body through the typed
@@ -127,16 +141,17 @@ def apply_step_8(
         item_id, old_status, stderr=sys.stderr, public_ref=public_ref
     )
     result.add_step(outcome.step_marker)
-    if outcome.is_degraded:
+    if outcome.is_incomplete:
         result.warnings.append({
             "code": "github_sync_degraded",
             "step": "8",
+            "step_marker": outcome.step_marker,
             "message": outcome.message,
         })
         from yoke_core.domain.backlog_rendering import _record_sync_failure
         _record_sync_failure(
             item_id, "state",
-            f"done_transition step 8 degraded: {outcome.message}",
+            f"done_transition step {outcome.step_marker}: {outcome.message}",
         )
     return outcome
 
