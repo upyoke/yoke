@@ -67,7 +67,7 @@ test("a filed item another live session holds leaves this card entirely", () => 
   assert.equal(byClass(body, "session-item-link").length, 0);
   assert.equal(
     byClass(body, "session-unassigned")[0].textContent,
-    "Filed by the steering seat",
+    "No active work claims",
   );
 });
 

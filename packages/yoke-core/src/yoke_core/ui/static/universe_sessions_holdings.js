@@ -188,6 +188,17 @@ function appendHoldingGroup(
   return group;
 }
 
+// Whether this session holds anything at all. A hold the steering block
+// above already states is still a hold, so it counts here even though the
+// holdings list leaves it out — the card's duty display is every block on
+// it, not this function's output alone.
+function holdsAnything(groups) {
+  return Boolean(
+    groups.current.length || groups.previous.length
+      || groups.previousRemainder,
+  );
+}
+
 export function appendHoldings(documentNode, body, row, projects = []) {
   const groups = holdingGroups(row);
   let rendered = false;
@@ -245,13 +256,10 @@ export function appendHoldings(documentNode, body, row, projects = []) {
     body.appendChild(group);
     rendered = true;
   }
-  if (!rendered && row.liveness !== "ended") {
+  if (!rendered && !holdsAnything(groups) && row.liveness !== "ended") {
     const work = el(documentNode, "div", "session-work");
     work.appendChild(el(
-      documentNode,
-      "span",
-      "session-unassigned",
-      row.current_item_title || "No actionable work right now",
+      documentNode, "span", "session-unassigned", "No active work claims",
     ));
     body.appendChild(work);
   }
