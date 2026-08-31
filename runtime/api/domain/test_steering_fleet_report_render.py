@@ -7,17 +7,23 @@ import json
 import pytest
 
 from runtime.api.steering_fleet_test_helpers import (
+    ACTOR_ID,
     IDLE_SECONDS,
     JUST_NOW,
     LONG_AGO,
     NOW,
     PROJECT_ID,
     STAFFING_SECONDS,
+    STEERING_SESSION,
     SURFACE,
     WORKER_SESSION,
     compose as _compose,
     seed_session,
     seed_steering_scope,
+)
+from yoke_contracts.session_control.launch_origin import (
+    LAUNCH_ORIGIN_OPERATOR,
+    LAUNCH_ORIGIN_STEERING,
 )
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
@@ -47,6 +53,7 @@ def test_the_body_leads_with_the_work_a_steerer_can_staff(steering_scope):
     assert "YOK-1" in body
     assert "launch balance  machine-1" in body
     assert "codex-cli 2" in body
+    assert "origin operator 0 · steering 0" in body
     assert "try to maximize balance with each new session launch" in body
 
 
@@ -79,6 +86,54 @@ def test_launch_balance_shows_zero_only_for_an_empty_launchable_surface(
     assert "claude-cli 0" in body
     assert "codex-cli 2" in body
     assert "claude-desktop" not in body
+
+
+def _register_live_launch(
+    conn, session_id: str, *, origin: str, launch_id: str
+) -> None:
+    conn.execute(
+        "INSERT INTO session_messages "
+        "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
+        "selector_snapshot, created_at, expires_at) "
+        "VALUES (%s, %s, %s, 'launch instruction', 'sha', %s, %s, %s)",
+        (f"msg-{launch_id}", ACTOR_ID, STEERING_SESSION, json.dumps({}), LONG_AGO, NOW),
+    )
+    conn.execute(
+        "INSERT INTO session_launches "
+        "(launch_id, requester_actor_id, project_id, requested_surface, "
+        "selected_surface, allow_surface_fallback, message_id, state, "
+        "deadline_at, created_at, origin, assigned_machine_id, "
+        "registered_session_id) "
+        "VALUES (%s, %s, %s, 'codex-cli', 'codex-cli', 0, %s, 'succeeded', "
+        "%s, %s, %s, 'machine-1', %s)",
+        (
+            launch_id,
+            ACTOR_ID,
+            PROJECT_ID,
+            f"msg-{launch_id}",
+            NOW,
+            LONG_AGO,
+            origin,
+            session_id,
+        ),
+    )
+
+
+def test_launch_balance_splits_live_sessions_by_origin(steering_scope):
+    _register_live_launch(
+        steering_scope, WORKER_SESSION, origin=LAUNCH_ORIGIN_OPERATOR, launch_id="op-1"
+    )
+    _register_live_launch(
+        steering_scope,
+        STEERING_SESSION,
+        origin=LAUNCH_ORIGIN_STEERING,
+        launch_id="st-1",
+    )
+    steering_scope.commit()
+
+    body = report_body(_compose(steering_scope))
+
+    assert "origin operator 1 · steering 1" in body
 
 
 def test_ended_and_terminated_sessions_do_not_count_toward_launch_balance(
@@ -203,6 +258,7 @@ def _populated_report():
         suspected_orphaned_waiters=(quiet,),
         launchable=(SurfaceReadiness(machine_id="machine-1", surface=SURFACE),),
         session_counts=(("machine-1", SURFACE, 2),),
+        origin_counts=(("operator", 1), ("steering", 1)),
     )
 
 
@@ -251,7 +307,8 @@ def test_the_populated_report_stays_short_enough_to_ride_every_message():
     """It is appended to every message a steering session gets, forever."""
     body = report_body(_populated_report())
 
-    assert len(body.splitlines()) <= 30
+    assert "origin operator 1 · steering 1" in body
+    assert len(body.splitlines()) <= 31
 
 
 def test_full_sections_are_reported_as_actionable():

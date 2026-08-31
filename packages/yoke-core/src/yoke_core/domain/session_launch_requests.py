@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain.session_launch_surface_selection import preview_launch
 from yoke_core.domain.session_launch_validation import validate_launch_request
 from yoke_core.domain import session_relay_managed_presentation as managed_presentation
@@ -48,7 +49,6 @@ def _same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> bo
             launch.presentation_preference == request.presentation,
             launch.session_name == request.session_name,
             launch.allow_surface_fallback == request.allow_surface_fallback,
-            launch.origin == request.origin,
             body_hash == sha256_text(request.instructions),
             body == request.instructions,
         )
@@ -111,7 +111,9 @@ def _insert_launch(
         deadline_at,
         created_at,
         created_at,
-        request.origin,
+        derived_launch_origin(
+            conn, session_id=auth.session_id, project_id=request.project_id
+        ),
     )
     row = conn.execute(
         f"INSERT INTO session_launches ({columns}) "
@@ -133,7 +135,6 @@ def create_launch(
     now: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchCreateOutcome:
-    """Persist one instruction message and an assigned launch atomically."""
     ensure_operator(auth)
     request = managed_presentation.normalize_launch_presentation(request)
     validate_launch_request(request, max_body_bytes=max_body_bytes)

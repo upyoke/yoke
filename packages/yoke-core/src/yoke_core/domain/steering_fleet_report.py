@@ -60,6 +60,7 @@ from yoke_core.domain.steering_fleet_report_available import (
 from yoke_core.domain.steering_fleet_report_capacity import (
     SurfaceReadiness,
     launchable_surfaces,
+    live_launch_origin_counts,
     live_session_counts,
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
@@ -122,6 +123,7 @@ class FleetReport:
     session_counts: tuple[tuple[str, str, int], ...]
     suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
+    origin_counts: tuple[tuple[str, int], ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -171,6 +173,7 @@ class FleetReport:
                 for r in self.launchable
             ),
             "plan_limits": fingerprint_material(self.plan_limits),
+            "origin_counts": list(self.origin_counts),
         }
         encoded = json.dumps(material, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
@@ -263,6 +266,7 @@ def compose_report(
         dead_waits=dead_waits(conn, idle=idle, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
+        origin_counts=live_launch_origin_counts(conn, project_id=project_id),
         plan_limits=load_plan_limits(conn, project_id=project_id, now=now),
     )
 

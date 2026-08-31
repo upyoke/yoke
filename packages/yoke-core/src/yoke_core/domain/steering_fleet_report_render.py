@@ -36,9 +36,6 @@ REPORT_PREAMBLE = (
     "steerer's; nothing here has acted."
 )
 
-#: The marker on an available row whose work has waited past the staffing
-#: threshold. One character, because it is on the row the seat is already
-#: reading rather than in a section of its own.
 OVERDUE_MARK = "!"
 
 LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch"
@@ -157,6 +154,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             for ready in report.launchable
         ],
         "plan_limits": _plan_limits.plan_limit_dicts(report.plan_limits),
+        "origin_counts": list(report.origin_counts),
     }
 
 
@@ -253,7 +251,6 @@ def _dead_wait_lines(report: FleetReport) -> list[str]:
 
 
 def _section(heading: str, lines: list[str]) -> list[str]:
-    """A heading and its rows, or nothing at all when there are no rows."""
     return [heading + ":", *lines] if lines else []
 
 
@@ -274,6 +271,10 @@ def _launch_balance_lines(report: FleetReport) -> list[str]:
                 f"  {' · '.join(parts)}",
                 f"  {LAUNCH_BALANCE_NOTE}",
             ]
+        )
+    if report.origin_counts:
+        lines.append(
+            "origin " + " · ".join(f"{name} {n}" for name, n in report.origin_counts)
         )
     return lines
 

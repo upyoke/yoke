@@ -34,7 +34,7 @@ WORKER = "session-worker"
 def _worker_tables(conn) -> None:
     """Add the work and activity state read by the abandonment backstop."""
     conn.execute(
-        """CREATE TABLE work_claims (
+        """CREATE TABLE IF NOT EXISTS work_claims (
             id INTEGER PRIMARY KEY,
             session_id TEXT NOT NULL,
             released_at TEXT
