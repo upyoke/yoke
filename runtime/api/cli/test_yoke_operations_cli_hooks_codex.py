@@ -6,6 +6,7 @@ client-side cache-write relocation and the no-fabricated-model rule.
 
 from __future__ import annotations
 
+from yoke_contracts.session_model_facts import SessionModelFacts
 import io
 import json
 import sys
@@ -63,8 +64,12 @@ def test_hook_evaluate_https_codex_session_start_captures_and_resolves(
         lambda sid, payload: cache_writes.append((sid, payload)),
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay._codex_resolve_model",
-        lambda thread_id=None: "gpt-6-real" if thread_id == "codex-thread-1" else None,
+        "yoke_harness.model_attestation._codex_facts",
+        lambda payload: SessionModelFacts(
+            model="gpt-6-real"
+            if payload.get("session_id") == "codex-thread-1"
+            else None
+        ),
     )
     monkeypatch.setattr(
         "yoke_harness.hooks.identity_relay._codex_resolve_entrypoint",
@@ -98,8 +103,8 @@ def test_hook_evaluate_https_codex_unresolved_model_ships_nothing(
         "yoke_harness.hooks.relay.detect_executor", lambda: "codex",
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay._codex_resolve_model",
-        lambda thread_id=None: None,
+        "yoke_harness.model_attestation._codex_facts",
+        lambda _payload: SessionModelFacts(),
     )
     monkeypatch.setattr(
         "yoke_harness.hooks.identity_relay._codex_resolve_entrypoint",
@@ -120,5 +125,7 @@ def test_hook_evaluate_https_codex_unresolved_model_ships_nothing(
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     assert cli_main(["hook", "evaluate", "UserPromptSubmit"]) == 0
-    assert captured["body"]["model"] is None
+    # Nothing attested and nothing requested: neither key ships, because a
+    # null in the served slot would read as a provider report.
+    assert "model" not in captured["body"]
     assert captured["body"]["entrypoint"] is None

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from yoke_contracts.session_model_facts import SessionModelFacts
 from runtime.api.test_sessions import _p, _register
 from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.session_reclaim_activity import latest_activity
@@ -46,7 +47,11 @@ class TestProbeDoesNotStampLiveness:
         before = _row(conn, "idle-wake")
         end_session(conn, "idle-wake")
 
-        revived = _register(conn, session_id="idle-wake", model="new-model")
+        revived = _register(
+            conn,
+            session_id="idle-wake",
+            model_facts=SessionModelFacts(model="new-model"),
+        )
         after = _row(conn, "idle-wake")
 
         assert revived["ended_at"] is None

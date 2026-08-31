@@ -27,10 +27,7 @@ class _RaceConn:
             return _RowResult({"id": 1})
         if sql.startswith("INSERT INTO harness_sessions"):
             raise db_backend.integrity_error_types()[0]("duplicate session")
-        if (
-            "SELECT ended_at, terminated_at, model, actor_id, "
-            "execution_lane, project_id" in sql
-        ):
+        if "SELECT ended_at, terminated_at, model" in sql:
             return _RowResult(
                 {
                     "ended_at": "2026-06-06T00:00:00Z",

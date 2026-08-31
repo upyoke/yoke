@@ -109,12 +109,33 @@ def test_existing_placeholder_model_with_wire_model_drives_reregister(monkeypatc
 
     drove = register_module.ensure_registered_from_hook(
         _Conn([{"model": "unknown"}]),
-        '{"model": "claude-fable-5[1m]"}',
+        '{"model": "claude-fable-5"}',
         "s-model",
     )
 
     assert drove is True
     assert calls == ["s-model"]
+
+
+def test_a_wire_tier_selector_never_drives_a_served_upgrade(monkeypatch):
+    # No provider response returns a tier selector, and a client older than
+    # this contract ships its requested model under the plain key, so during
+    # the rollout window that is exactly what arrives.
+    _patch_existing_row(monkeypatch)
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda *_a, **_kw: pytest.fail("a tier selector is an ask, not an attestation"),
+    )
+
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn([{"model": "unknown"}]),
+            '{"model": "claude-fable-5[1m]"}',
+            "s-model-tier",
+        )
+        is False
+    )
 
 
 def test_wire_placeholder_model_does_not_drive_reregister(monkeypatch):
