@@ -73,6 +73,9 @@ def test_otel_export_mode_resolves_configured_sink() -> None:
     assert mode({}) == "none"
     assert mode({"OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector:4318"}) == "otlp"
     assert mode({"YOKE_OTEL_CONSOLE_EXPORT": "1"}) == "console"
+    assert mode({"YOKE_ENVIRONMENT": "prod"}) == "log"
+    assert mode({"YOKE_ENVIRONMENT": "prod", "YOKE_OTEL_LOG_METRICS": "0"}) == "none"
+    assert mode({"YOKE_OTEL_LOG_METRICS": "1"}) == "log"
     # Blank endpoint is not a sink.
     assert mode({"OTEL_EXPORTER_OTLP_ENDPOINT": "  "}) == "none"
 
@@ -151,3 +154,87 @@ def test_request_log_extra_uses_canonical_envelope_fields() -> None:
     assert extra["actor_id"] == 3
     assert extra["request_id"] == "req-2"
     assert extra["context"]["api_token_id"] == 4
+
+
+def test_hosted_environment_enables_log_metric_export() -> None:
+    enabled, reason = observability.configure_otel(
+        None, env={"YOKE_ENVIRONMENT": "prod"}
+    )
+    if reason.startswith("missing_dependency"):
+        assert enabled is False
+        return
+    assert enabled is True
+    assert reason == "exporting:log"
+
+
+def test_hosted_can_disable_log_metrics() -> None:
+    enabled, reason = observability.configure_otel(
+        None,
+        env={"YOKE_ENVIRONMENT": "prod", "YOKE_OTEL_LOG_METRICS": "0"},
+    )
+    if reason.startswith("missing_dependency"):
+        assert enabled is False
+        return
+    assert enabled is True
+    assert reason == "instrumented_no_exporter"
+
+
+def test_emf_documents_encode_histogram_and_gauge() -> None:
+    from types import SimpleNamespace
+
+    from yoke_core.api.observability_log_metrics import emf_documents
+
+    histogram_point = SimpleNamespace(
+        attributes={"http.method": "POST", "http.target": "/v1/hooks/evaluate"},
+        count=3,
+        sum=90.0,
+        max=50.0,
+        time_unix_nano=1_700_000_000_000_000_000,
+    )
+    gauge_point = SimpleNamespace(
+        attributes={},
+        value=41.5,
+        time_unix_nano=1_700_000_000_000_000_000,
+    )
+    metrics_data = SimpleNamespace(
+        resource_metrics=[
+            SimpleNamespace(
+                resource=SimpleNamespace(attributes={"deployment.environment": "prod"}),
+                scope_metrics=[
+                    SimpleNamespace(
+                        metrics=[
+                            SimpleNamespace(
+                                name="yoke.http.request.duration_ms",
+                                data=SimpleNamespace(data_points=[histogram_point]),
+                            ),
+                            SimpleNamespace(
+                                name="yoke.api.process.cpu.percent",
+                                data=SimpleNamespace(data_points=[gauge_point]),
+                            ),
+                        ]
+                    )
+                ],
+            )
+        ]
+    )
+    docs = emf_documents(metrics_data)
+    assert len(docs) == 2
+    hist, cpu = docs
+    assert hist["Environment"] == "prod"
+    assert hist["http.target"] == "/v1/hooks/evaluate"
+    assert hist["yoke.http.request.duration_ms.sum"] == 90.0
+    assert hist["yoke.http.request.duration_ms.count"] == 3.0
+    assert hist["_aws"]["CloudWatchMetrics"][0]["Namespace"] == "Yoke/API"
+    assert cpu["yoke.api.process.cpu.percent"] == 41.5
+    assert cpu["_aws"]["CloudWatchMetrics"][0]["Metrics"][0]["Unit"] == "Percent"
+
+
+def test_emf_logger_does_not_propagate_into_json_formatter() -> None:
+    from yoke_core.api import observability_log_metrics as log_metrics
+
+    logger = log_metrics._configure_emf_logger()
+    assert logger.propagate is False
+    assert any(
+        isinstance(handler, log_metrics._RawStderrHandler)
+        for handler in logger.handlers
+    )

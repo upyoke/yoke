@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from yoke_core.domain.observe_anomaly import detect_anomalies
 from yoke_core.domain.observe_db import (
@@ -27,6 +27,46 @@ def _resolve_db_fallback() -> Optional[str]:
     execution.
     """
     return None
+
+
+def record_hook_event(
+    data: dict[str, Any],
+    *,
+    session_id: str = "",
+    item_id: Optional[str] = None,
+    task_num: Optional[int] = None,
+    agent_type: Optional[str] = None,
+    attribution_source: Optional[str] = None,
+    hook_event: Optional[str] = None,
+    tool_use_id: Optional[str] = None,
+    db_path: Optional[str] = None,
+    project_dir: Optional[str] = None,
+) -> None:
+    """Parse, detect, and insert one hook payload. Failures are swallowed."""
+    rec = parse_hook_event(
+        data,
+        session_id=session_id,
+        item_id=item_id,
+        task_num=task_num,
+        agent_type=agent_type,
+        attribution_source=attribution_source,
+        hook_event=hook_event,
+        tool_use_id=tool_use_id,
+        db_path=normalize_observe_db_path(db_path),
+        project_dir=project_dir,
+    )
+    if rec is None:
+        return
+    detect_anomalies(rec)
+    envelope = build_envelope(rec)
+    try:
+        conn = connect_observe_db()
+        try:
+            insert_event(conn, envelope)
+        finally:
+            conn.close()
+    except Exception:
+        pass
 
 
 def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> None:
@@ -52,7 +92,6 @@ def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> 
     )
     args = parser.parse_args()
 
-    # Read JSON from stdin
     try:
         raw = sys.stdin.read()
         if not raw.strip():
@@ -60,10 +99,11 @@ def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> 
         data = json.loads(raw)
     except Exception:
         return
+    if not isinstance(data, dict):
+        return
 
     resolver = db_fallback_resolver or _resolve_db_fallback
     db_path = args.db or resolver()
-    read_db_path = normalize_observe_db_path(db_path)
     task_num_val: Optional[int] = None
     if args.task_num:
         try:
@@ -71,7 +111,7 @@ def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> 
         except ValueError:
             pass
 
-    rec = parse_hook_event(
+    record_hook_event(
         data,
         session_id=args.session_id,
         item_id=args.item_id or None,
@@ -80,22 +120,9 @@ def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> 
         attribution_source=args.attribution_source or None,
         hook_event=args.hook_event or None,
         tool_use_id=args.tool_use_id or None,
-        db_path=read_db_path,
+        db_path=db_path,
         project_dir=args.project_dir or None,
     )
-
-    if rec is None:
-        return
-
-    detect_anomalies(rec)
-    envelope = build_envelope(rec)
-
-    try:
-        conn = connect_observe_db()
-        insert_event(conn, envelope)
-        conn.close()
-    except Exception:
-        pass
 
 
 if __name__ == "__main__":

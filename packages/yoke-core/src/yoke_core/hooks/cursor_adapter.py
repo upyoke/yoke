@@ -31,10 +31,4 @@ CAPABILITY: AdapterCapability = AdapterCapability(
     decision_renderer=render_cursor_decision,
     apply_patch_chain_omissions=frozenset(),
     pretool_omissions=frozenset(),
-    subprocess_modules=frozenset(
-        {
-            "yoke_core.domain.observe",
-            "yoke_core.domain.db_error_hook",
-        }
-    ),
 )

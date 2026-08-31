@@ -3,8 +3,8 @@
 Full universal-ordering parity tests live in
 `runtime/harness/test_hook_runner_parity.py`. This file covers only the
 adapter's own contract: import works, family is correct, no chain
-omissions are declared, `subprocess_modules` carries the documented
-carve-outs, the adapter file stays data-only, and the payload module
+omissions are declared, `subprocess_modules` is empty (typed evaluate),
+the adapter file stays data-only, and the payload module
 surfaces the adapter depends on still resolve.
 """
 
@@ -41,16 +41,9 @@ def test_no_chain_omissions_declared() -> None:
 
 
 def test_subprocess_modules_carveout() -> None:
-    # observe + db_error_hook dispatch via subprocess.run instead of the
-    # runner's typed importlib + evaluate(record) path.
     from yoke_core.hooks.codex_adapter import CAPABILITY
 
-    assert CAPABILITY.subprocess_modules == frozenset(
-        {
-            "yoke_core.domain.observe",
-            "yoke_core.domain.db_error_hook",
-        }
-    )
+    assert CAPABILITY.subprocess_modules == frozenset()
 
 
 def test_callables_bound_by_reference_not_wrappers() -> None:
@@ -66,16 +59,16 @@ def test_adapter_module_has_zero_def_declarations() -> None:
     adapter_path = Path(codex_adapter.__file__).resolve()
     source = adapter_path.read_text(encoding="utf-8")
     def_lines = [line for line in source.splitlines() if line.startswith("def ")]
-    assert def_lines == [], f"adapter.py must contain zero def declarations, found: {def_lines}"
+    assert def_lines == [], (
+        f"adapter.py must contain zero def declarations, found: {def_lines}"
+    )
 
 
 def test_payload_module_line_budget() -> None:
     # codex_payload.py stays within its line budget.
     payload_path = Path(codex_payload.__file__).resolve()
     line_count = len(payload_path.read_text(encoding="utf-8").splitlines())
-    assert line_count <= 329, (
-        f"codex_payload.py is {line_count} lines, must be <=329"
-    )
+    assert line_count <= 329, f"codex_payload.py is {line_count} lines, must be <=329"
 
 
 def test_normalize_tool_event_still_importable() -> None:
