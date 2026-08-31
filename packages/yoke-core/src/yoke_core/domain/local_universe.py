@@ -228,7 +228,7 @@ def birth(
         "repaired": False,
         "cluster": cluster,
         "dsn": dsn,
-        "socket_dsn_aliases": _socket_dsn_aliases(spec),
+        "socket_dsn_aliases": socket_dsn_aliases(spec),
     }
     with contextlib.ExitStack() as stack:
         stack.enter_context(pinned_authority(dsn))
@@ -253,7 +253,7 @@ def birth(
     return report
 
 
-def _socket_dsn_aliases(spec: ClusterSpec) -> list[str]:
+def socket_dsn_aliases(spec: ClusterSpec) -> list[str]:
     """Prior DSNs that address this same durable cluster through its old socket."""
     if spec.socket_dir is None:
         return []

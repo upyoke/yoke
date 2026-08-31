@@ -55,6 +55,15 @@ explicit public PyPI default, and ignores ambient uv index settings for that
 resolver run. Direct multi-index `uv tool install` commands are not a supported
 install surface.
 
+Upgrading replaces the engine and nothing else, so the first command served
+after it finishes the job. A machine-local universe is converged to the new
+engine's schema before that command runs — the local counterpart of the boot
+converge a hosted container performs, using the same convergence — and any
+project checkout whose operating layer predates the new engine is named once
+with the exact `yoke project install <checkout>` refresh. Both are skipped
+when nothing changed, and a universe this machine only administers rather than
+serves is never converged from here.
+
 ### 2. Local Mode: Create a Machine-Local Universe (free, no signup)
 
 Local mode runs the whole engine on your machine: one embedded Postgres

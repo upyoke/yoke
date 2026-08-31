@@ -37,6 +37,13 @@ yoke ui              # local workbench (local mode)
 Upgrade later by re-running the same curl installer. It resolves one channel
 version for every Yoke product package.
 
+The first command you run after an upgrade brings the rest of the install up
+to the new engine. A machine-local universe has its schema converged before
+the command is served — the same step a hosted container runs on boot — and a
+project checkout whose operating layer predates the new engine is named once,
+with the `yoke project install <checkout>` that refreshes it. Run that when it
+appears; otherwise the checkout keeps teaching the previous release.
+
 ## Project-only install
 
 If the project already exists in the universe and you only need the repo
