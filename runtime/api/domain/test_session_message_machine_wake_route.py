@@ -205,15 +205,23 @@ def test_cursor_desktop_wakes_through_the_installed_cursor_cli(
 
 
 @pytest.mark.parametrize(
-    ("executor", "surface", "version", "relay_versions", "result_code"),
+    ("executor", "surface", "version", "relay_versions", "result_code", "reason"),
     (
-        ("cursor", "cursor-desktop", CURSOR_DESKTOP_VERSION, {}, "skipped_surface"),
+        (
+            "cursor",
+            "cursor-desktop",
+            CURSOR_DESKTOP_VERSION,
+            {},
+            "skipped_surface",
+            "peer_driver_not_installed",
+        ),
         (
             "cursor",
             "cursor-desktop",
             CURSOR_DESKTOP_VERSION,
             {"cursor-cli": "2026.08.10-deadbee"},
             "skipped_version",
+            "peer_driver_version_below_floor",
         ),
         (
             "codex",
@@ -221,6 +229,7 @@ def test_cursor_desktop_wakes_through_the_installed_cursor_cli(
             "0.148.0-alpha.15",
             {"codex-cli": "0.148.0-alpha.15"},
             "skipped_operation",
+            "surface_operation_unsupported",
         ),
     ),
 )
@@ -230,6 +239,7 @@ def test_capability_refusal_records_one_observable_wake_skip(
     version: str,
     relay_versions: dict[str, str],
     result_code: str,
+    reason: str,
 ) -> None:
     conn = _surface_connection(
         executor=executor,
@@ -247,6 +257,13 @@ def test_capability_refusal_records_one_observable_wake_skip(
     details = message_details(conn, message_id)
     assert details["attempt_count"] == 1
     assert details["attempts"][0]["result_code"] == result_code
+    # The bare code cannot separate "no route exists" from "the peer binary
+    # is missing"; the recorded rule is what an operator reads instead.
+    evidence = details["attempts"][0]["evidence"]
+    evidence = json.loads(evidence) if isinstance(evidence, str) else evidence
+    assert evidence["skip_reason"] == reason
+    assert evidence["turn_posture"] == "running"
+    assert evidence["liveness"] == "stale"
     assert details["attempts"][0]["completed_at"] is not None
     assert details["recipients"][0]["wake_attempt_count"] == 0
 

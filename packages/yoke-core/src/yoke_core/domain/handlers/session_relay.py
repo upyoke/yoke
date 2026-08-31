@@ -9,6 +9,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.session_control.native_turn_end import RelayTurnEndRequest
 from yoke_contracts.session_control.models import (
     RelayClaimRequest,
     RelayClaimResponse,
@@ -46,6 +47,22 @@ def _sweep_quiet_claim_holders(conn, *, machine_id: str, projects) -> None:
             sweep(conn, machine_id=machine_id, authorized_projects=projects)
         except Exception:
             _LOGGER.debug("%s failed during relay poll", sweep.__name__, exc_info=True)
+
+
+def _stuck_native_turn_probes(conn, *, machine_id: str, projects) -> list:
+    """Name the sessions this machine should read a turn record back for.
+
+    Best-effort like the sweeps above: a poll whose job is to hand the relay
+    its next wake must not be lost to the probe list that would have fixed a
+    later one. The next poll re-derives the same targets from the same rows.
+    """
+    from yoke_core.domain.session_native_turn_end import probe_targets
+
+    try:
+        return probe_targets(conn, machine_id=machine_id, authorized_projects=projects)
+    except Exception:
+        _LOGGER.debug("native turn-end probe targets skipped", exc_info=True)
+        return []
 
 
 def _failure(code: str, message: str) -> HandlerOutcome:
@@ -155,11 +172,55 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     else None
                 ),
             )
+            probes = _stuck_native_turn_probes(
+                conn,
+                machine_id=payload.machine_id,
+                projects=payload.projects,
+            )
         except (SessionRelayError, ValueError) as exc:
             return _failure(getattr(exc, "code", "relay_claim_failed"), str(exc))
     finally:
         conn.close()
-    return HandlerOutcome(primary_success=True, result_payload=outcome.to_dict())
+    result = outcome.to_dict()
+    result["turn_end_probes"] = probes
+    return HandlerOutcome(primary_success=True, result_payload=result)
+
+
+def handle_relay_turn_end(request: FunctionCallRequest) -> HandlerOutcome:
+    """Reclassify the reported sessions whose native turn already ended."""
+    if invalid := _target_failure(request):
+        return invalid
+    try:
+        payload = RelayTurnEndRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _failure("payload_invalid", str(exc))
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.session_native_turn_end import apply_native_turn_ends
+    from yoke_core.domain.session_relay_authorization import (
+        require_relay_project_authority,
+    )
+
+    conn = connect()
+    try:
+        try:
+            require_relay_project_authority(
+                conn,
+                actor_id=_actor_id(request),
+                project_ids=payload.projects,
+            )
+            outcome = apply_native_turn_ends(
+                conn,
+                machine_id=payload.machine_id,
+                authorized_projects=payload.projects,
+                reports=[entry.model_dump(mode="json") for entry in payload.turn_ends],
+            )
+            conn.commit()
+        except (SessionRelayError, ValueError) as exc:
+            conn.rollback()
+            return _failure(getattr(exc, "code", "relay_turn_end_failed"), str(exc))
+    finally:
+        conn.close()
+    return HandlerOutcome(primary_success=True, result_payload=outcome)
 
 
 def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:

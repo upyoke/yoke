@@ -21,6 +21,7 @@ from yoke_contracts.session_control.function_ids import (
 )
 from yoke_harness.session_relay_diagnostic_retention import retain_private_diagnostic
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
+from yoke_harness.session_relay_native_turn_end import report_native_turn_ends
 from yoke_harness.session_relay_process_liveness import report_verified_dead_sessions
 from yoke_harness.session_relay_report_delivery import (
     RELAY_REPORT_TIMEOUT_SECONDS,
@@ -31,9 +32,7 @@ from yoke_harness.session_relay_report_delivery import (
     diagnostic_outcome_fields,
     retry_pending_reports,
 )
-from yoke_harness.session_relay_resume_settlement import (
-    settle_finished_native_resumes,
-)
+from yoke_harness.session_relay_resume_settlement import settle_finished_native_resumes
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
 from yoke_harness.session_relay_schedule import (
     poll_is_due,
@@ -199,8 +198,7 @@ def _poll(
         state_dir=state_dir,
         timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
     )
-    # A session whose native died reads stale rather than ended, so every
-    # wake for it pokes a process that is gone; this machine holds the proof.
+    # A native that died reads stale rather than ended; this machine has proof.
     report_verified_dead_sessions(dispatcher, inventory, state_dir=state_dir)
     response = dispatcher(
         function_id=RELAY_CLAIM_FUNCTION_ID,
@@ -215,6 +213,8 @@ def _poll(
     if not getattr(response, "success", False):
         return ServeOnceOutcome("claim_failed", error_code=_error_code(response))
     payload = getattr(response, "result", None) or {}
+    # A turn that ended with no hook to say so left a posture nothing wakes.
+    report_native_turn_ends(dispatcher, inventory, payload.get("turn_end_probes"))
     next_poll = max(1, int(payload.get("next_poll_seconds") or 1))
     claimed = payload.get("jobs")
     jobs = [job for job in claimed if isinstance(job, Mapping)] if claimed else []

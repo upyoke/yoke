@@ -29,13 +29,26 @@ def _normalize_entrypoint(originator: str = "", source: str = "") -> Optional[st
     return source or None
 
 
-def _codex_transcript_candidates(thread_id: str) -> list[Path]:
-    roots = [
-        Path.home() / ".codex" / "sessions",
-        Path.home() / ".codex" / "archived_sessions",
-    ]
+#: Where Codex keeps the thread transcripts every reader here walks. The
+#: relay's turn-record probe reads the same store, so the location lives
+#: here once rather than once per caller.
+CODEX_TRANSCRIPT_ROOT_NAMES = ("sessions", "archived_sessions")
+
+
+def codex_transcript_roots() -> list[Path]:
+    """Return Codex's transcript stores, newest-first search order."""
+    home = Path.home() / ".codex"
+    return [home / name for name in CODEX_TRANSCRIPT_ROOT_NAMES]
+
+
+def codex_transcript_candidates(
+    thread_id: str,
+    *,
+    roots: list[Path] | None = None,
+) -> list[Path]:
+    """Return one thread's transcripts, most recently written first."""
     candidates: list[Path] = []
-    for root in roots:
+    for root in roots if roots is not None else codex_transcript_roots():
         if root.exists():
             candidates.extend(root.rglob(f"*{thread_id}.jsonl"))
     candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
@@ -43,7 +56,7 @@ def _codex_transcript_candidates(thread_id: str) -> list[Path]:
 
 
 def _codex_model_from_transcript(thread_id: str) -> Optional[str]:
-    for path in _codex_transcript_candidates(thread_id):
+    for path in codex_transcript_candidates(thread_id):
         model = ""
         try:
             with path.open("r", encoding="utf-8") as handle:
@@ -64,7 +77,7 @@ def _codex_model_from_transcript(thread_id: str) -> Optional[str]:
 
 
 def _codex_entrypoint_from_transcript(thread_id: str) -> Optional[str]:
-    for path in _codex_transcript_candidates(thread_id):
+    for path in codex_transcript_candidates(thread_id):
         entrypoint = None
         try:
             with path.open("r", encoding="utf-8") as handle:
@@ -76,10 +89,13 @@ def _codex_entrypoint_from_transcript(thread_id: str) -> Optional[str]:
                     if row.get("type") != "session_meta":
                         continue
                     payload = row.get("payload") or {}
-                    entrypoint = _normalize_entrypoint(
-                        str(payload.get("originator") or ""),
-                        str(payload.get("source") or ""),
-                    ) or entrypoint
+                    entrypoint = (
+                        _normalize_entrypoint(
+                            str(payload.get("originator") or ""),
+                            str(payload.get("source") or ""),
+                        )
+                        or entrypoint
+                    )
         except Exception:
             continue
         if entrypoint:
@@ -111,7 +127,9 @@ def write_runtime_cache(session_id: str, stdin_data: str) -> None:
 
 def _cache_field(session_id: str, field: str) -> str:
     try:
-        payload = json.loads(_runtime_cache_path(session_id).read_text(encoding="utf-8"))
+        payload = json.loads(
+            _runtime_cache_path(session_id).read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError):
         return ""
     if not isinstance(payload, dict):
@@ -144,13 +162,15 @@ def _codex_resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
     ``executor_surface`` whether the session registers through a hook,
     the CLI's ensure-register probe, or session self-repair.
     """
-    env_entrypoint = surface_alias(_normalize_entrypoint(
-        str(
-            os.environ.get("CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "")
-            or os.environ.get("CODEX_ORIGINATOR", "")
-        ),
-        "",
-    ))
+    env_entrypoint = surface_alias(
+        _normalize_entrypoint(
+            str(
+                os.environ.get("CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "")
+                or os.environ.get("CODEX_ORIGINATOR", "")
+            ),
+            "",
+        )
+    )
     if env_entrypoint:
         return env_entrypoint
     thread_id = thread_id or os.environ.get("CODEX_THREAD_ID", "")
@@ -166,12 +186,14 @@ def _codex_resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
 
 
 __all__ = [
+    "CODEX_TRANSCRIPT_ROOT_NAMES",
     "_cache_field",
     "_codex_entrypoint_from_transcript",
     "_codex_model_from_transcript",
     "_codex_resolve_entrypoint",
     "_codex_resolve_model",
-    "_codex_transcript_candidates",
+    "codex_transcript_candidates",
+    "codex_transcript_roots",
     "_normalize_entrypoint",
     "_runtime_cache_path",
     "write_runtime_cache",
