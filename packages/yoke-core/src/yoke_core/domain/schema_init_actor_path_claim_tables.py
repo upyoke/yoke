@@ -16,11 +16,12 @@ Tables created (idempotent):
 * ``actor_labels`` — surface-specific human-readable label projection.
   Renders ``actors.id`` to surface labels. ``surface='display'`` is the
   generic actor-facing display projection; ``surface='github_label'`` is
-  the GitHub sync projection. Two uniqueness constraints together ensure
-  that for any given surface, every actor has at most one label AND every
-  label maps to at most one actor — these guarantee the central rendering
-  helper in :mod:`yoke_core.domain.actors` cannot produce ambiguous
-  output.
+  the GitHub sync projection. Every actor has at most one label per
+  surface, so the central rendering helper in
+  :mod:`yoke_core.domain.actors` cannot produce ambiguous output. The
+  reverse direction — one label naming at most one actor — is enforced
+  only on the resolution surfaces, because a display name is read, never
+  resolved, and two people can share one.
 * ``path_claims`` — first path-claim storage. One row per registered
   intent to edit a declared path coverage on an integration target.
   Carries explicit typed ownership (``owner_kind`` in
@@ -60,11 +61,14 @@ Schema layering rules:
   state machine; domain code treats the CHECK as the definitive set.
   Adding a new state requires updating the CHECK and the domain
   validator together.
-* The two ``actor_labels`` uniqueness constraints — ``UNIQUE(surface,
-  label)`` and ``UNIQUE(actor_id, surface)`` — together prevent two
-  actors from claiming the same external label on the same surface AND
-  prevent one actor from carrying multiple labels on the same surface.
-  The central rendering helper relies on both.
+* ``UNIQUE(actor_id, surface)`` prevents one actor from carrying multiple
+  labels on the same surface; the central rendering helper relies on it
+  for every surface. The partial unique index named by
+  :data:`RESOLUTION_LABEL_INDEX` adds the converse — one label naming at
+  most one actor — over the resolution surfaces only. Excluding the
+  display surface is deliberate: a display label resolves nothing, so
+  uniqueness there would refuse a second member who legitimately shares a
+  name with the first rather than prevent an ambiguity.
 * The partial unique index on ``actors.system_component`` (``WHERE
   system_component IS NOT NULL``) preserves uniqueness for system rows
   without forcing humans to disambiguate against each other on a NULL
@@ -75,6 +79,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.actor_labels import DISPLAY_LABEL_SURFACE
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -87,6 +92,13 @@ _REQUIRED_TABLES = (
     "path_claim_amendments",
     "path_claim_overrides",
 )
+
+#: Label uniqueness holds only on resolution surfaces. A resolution surface
+#: answers "which actor is this token?", so two actors sharing one label there
+#: would make the answer ambiguous. The display surface answers "what do we
+#: call this actor?" and resolves nothing, so two people who genuinely share a
+#: name must both be able to carry it.
+RESOLUTION_LABEL_INDEX = "uq_actor_labels_resolution_surface_label"
 
 _ACTOR_IDENTITY_SQL = """
         CREATE TABLE IF NOT EXISTS actors (
@@ -110,9 +122,11 @@ _ACTOR_IDENTITY_SQL = """
             surface TEXT NOT NULL,
             label TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            UNIQUE(surface, label),
             UNIQUE(actor_id, surface)
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS """ + RESOLUTION_LABEL_INDEX + """
+            ON actor_labels(surface, label)
+            WHERE surface <> '""" + DISPLAY_LABEL_SURFACE + """';
         CREATE INDEX IF NOT EXISTS idx_actor_labels_actor
             ON actor_labels(actor_id);
 """
@@ -255,6 +269,7 @@ def required_tables() -> tuple[str, ...]:
 
 
 __all__ = [
+    "RESOLUTION_LABEL_INDEX",
     "create_actor_identity_tables",
     "create_actor_path_claim_tables",
     "create_path_claim_task_binding_table",

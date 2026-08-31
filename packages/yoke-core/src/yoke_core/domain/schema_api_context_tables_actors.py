@@ -33,8 +33,12 @@ ACTOR_TABLES: dict[str, dict] = {
         "notes": (
             "Surface-specific actor labels. surface='display' is the "
             "generic actor-facing display projection; surface='github_label' "
-            "is the GitHub sync projection. The table is constrained to one "
-            "label per actor per surface and one actor per surface/label pair."
+            "is the GitHub sync projection. One label per actor per surface "
+            "on every surface. One actor per surface/label pair only on the "
+            "resolution surfaces (github_label): display labels are names, "
+            "so two actors may carry the same one. Write a display label "
+            "with actor_display.set_actor_display_name, which upserts; "
+            "actors.set_actor_label binds once and no-ops on a relabel."
         ),
     },
 }

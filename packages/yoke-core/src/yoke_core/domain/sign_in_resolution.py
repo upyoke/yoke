@@ -22,6 +22,15 @@ the id_token marks ``email_verified`` true. A provider that omits the
 claim entirely is trusted only when the operator opted in
 (``allow_unverified_email=True``); an explicit ``email_verified: false``
 is never trusted.
+
+Every admitted sign-in also adopts the id_token's ``name`` claim as the
+actor's display label, so the account system that owns a person's name
+owns what Yoke calls them. Adoption happens on all three admitting rungs,
+which is what lets a renamed account propagate on its next sign-in rather
+than freezing the name it first joined under. A claim with no name writes
+nothing and leaves the actor's existing display row and fallback chain
+alone; an actor that has never signed in through a named account keeps
+the generic chain unchanged.
 """
 
 from __future__ import annotations
@@ -30,6 +39,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_display import set_actor_display_name
 from yoke_core.domain.actor_invites import (
     Invite,
     mark_invite_accepted,
@@ -154,10 +164,35 @@ def _grant_invite_role(conn: Any, invite: Invite, actor_id: int) -> None:
     )
 
 
-def _succeed(issuer: str, actor_id: int, outcome: str, detail: str) -> SignInResolution:
+def _succeed(
+    conn: Any,
+    issuer: str,
+    actor_id: int,
+    outcome: str,
+    detail: str,
+    *,
+    name_claim: Any,
+) -> SignInResolution:
+    """Record the admission, adopting the provider's name for the actor.
+
+    Every rung lands here, so the identity provider's ``name`` claim owns
+    the actor's display label on each admission rather than only on the
+    one that created the actor. That is what makes a renamed account
+    propagate: the linked-identity rung re-adopts the current name, and a
+    claim with no name leaves the existing display row and fallback chain
+    untouched. The name needs no ``email_verified`` gate — it is not an
+    admission decision, and it rides the same already-verified id_token
+    whose (issuer, subject) proved the identity.
+    """
+    renamed = set_actor_display_name(conn, actor_id, name_claim)
     emit_identity_event(
         EVENT_SIGN_IN_SUCCEEDED,
-        context={"actor_id": actor_id, "issuer": issuer, "outcome": outcome},
+        context={
+            "actor_id": actor_id,
+            "issuer": issuer,
+            "outcome": outcome,
+            "display_name_adopted": renamed,
+        },
     )
     return SignInResolution(
         actor_id=actor_id, outcome=outcome, refusal_reason=None, detail=detail,
@@ -188,6 +223,7 @@ def resolve_sign_in(
     """
     issuer = str(claims.get("issuer") or claims.get("iss") or "").strip()
     subject = str(claims.get("subject") or claims.get("sub") or "").strip()
+    name_claim = claims.get("name")
     if not issuer or not subject:
         return _refuse(
             issuer or None,
@@ -199,8 +235,9 @@ def resolve_sign_in(
     linked = resolve_external_identity(conn, issuer=issuer, subject=subject)
     if linked is not None:
         return _succeed(
-            issuer, linked, OUTCOME_LINKED_IDENTITY,
+            conn, issuer, linked, OUTCOME_LINKED_IDENTITY,
             f"external identity is linked to actor {linked}",
+            name_claim=name_claim,
         )
 
     email = str(claims.get("email") or "").strip()
@@ -227,8 +264,6 @@ def resolve_sign_in(
             "auto-join only match verified emails",
         )
 
-    name_claim = claims.get("name")
-
     # Rung 2 — a pending invite admits this email.
     invite = pending_invite_for_email(conn, email=email)
     if invite is not None:
@@ -246,8 +281,9 @@ def resolve_sign_in(
         )
         _grant_invite_role(conn, invite, actor_id)
         return _succeed(
-            issuer, actor_id, OUTCOME_INVITE_ACCEPTED,
+            conn, issuer, actor_id, OUTCOME_INVITE_ACCEPTED,
             f"invite {invite.invite_id} accepted for actor {actor_id}",
+            name_claim=name_claim,
         )
 
     # Rung 3 — enabled verified-domain membership admits this email.
@@ -266,8 +302,9 @@ def resolve_sign_in(
             conn, actor_id=actor_id, issuer=issuer, subject=subject, email=email,
         )
         return _succeed(
-            issuer, actor_id, OUTCOME_AUTO_JOINED,
+            conn, issuer, actor_id, OUTCOME_AUTO_JOINED,
             f"verified email domain {domain!r} admitted actor {actor_id}",
+            name_claim=name_claim,
         )
 
     # Rung 4 — refuse.
