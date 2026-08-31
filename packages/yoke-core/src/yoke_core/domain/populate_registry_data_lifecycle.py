@@ -122,4 +122,5 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "StrategyDocUnarchived",
     "YokeFunctionPermissionDenied",
     "WorkHandedOff",
+    "WorkflowGateAbsent",
 )

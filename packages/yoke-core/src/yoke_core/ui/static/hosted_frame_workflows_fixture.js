@@ -108,7 +108,7 @@ const GATES = {
   approval: {
     name: "Approval",
     description:
-      "The approval request declared for this transition must be resolved.",
+      "The approval request declared for this transition must be resolved. A transition with no approving role or actor declared carries no approval obligation — the gate is absent until one exists, and each absence is recorded as WorkflowGateAbsent.",
     source_kind: "status_gate",
     availability: "live",
   },

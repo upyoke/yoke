@@ -1,4 +1,12 @@
-"""Read-side status gate for a lifecycle approval already requested."""
+"""Read-side status gate for a lifecycle approval already requested.
+
+A definition may list this gate on a stage before the project has anyone
+authorized to answer it. Refusing there strands the item behind a decision
+nobody can make, so an undeclared approval authority makes the gate ABSENT
+rather than blocking: the obligation arrives with the roster that can
+satisfy it. Absence is recorded as ``WorkflowGateAbsent`` so the skip is
+countable instead of silent.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +18,7 @@ from yoke_core.domain.approval_gate import (
 )
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.decision_requests import list_subject_requests
+from yoke_core.domain.workflow_gate_absence import record_gate_absence
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
@@ -27,14 +36,32 @@ def evaluate(
             target_status
         )
         if not configured:
-            return {
-                "success": False,
-                "error_code": "GATE_APPROVAL_UNCONFIGURED",
-                "error": (
-                    f"Workflow gate 'approval' at {target_status!r} has no "
-                    "declared role or actor authority."
+            # Same authority resolution the preflight uses when it decides
+            # whether to create the decision request at all, so the gate and
+            # the request agree about who — if anyone — may answer.
+            from yoke_core.domain.dash_posture_gate import (
+                approval_policy_for_transition,
+            )
+
+            configured = approval_policy_for_transition(
+                conn,
+                item_id=int(item_id),
+                target_status=target_status,
+            )
+        if not configured:
+            record_gate_absence(
+                gate_id="approval",
+                item_id=int(item_id),
+                target_status=target_status,
+                reason="approval_authority_undeclared",
+                detail=(
+                    "neither the pinned workflow nor the item's posture "
+                    "declares an approving role or actor for "
+                    f"{target_status!r}"
                 ),
-            }
+                conn=conn,
+            )
+            return None
         history = list_subject_requests(
             conn,
             "item_transition",
