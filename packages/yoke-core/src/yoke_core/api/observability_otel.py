@@ -5,10 +5,11 @@ name resolution stays under the authored-file line cap. This module does
 NOT import ``observability`` — ``observability`` re-exports these names so
 existing callers keep importing from ``yoke_core.api.observability``.
 
-The configured sink is resolved once via :func:`_otel_export_mode`. With
-no exporter endpoint set, the app is instrumented but spans are created
-and dropped and no metric provider is installed — the CloudWatch
-structured logs are the live observability surface in that mode.
+The configured sink is resolved once via :func:`_otel_export_mode`. OTLP
+and console sinks export traces and metrics. Hosted prod/stage with no
+OTLP endpoint uses CloudWatch EMF log metrics so per-request latency and
+process CPU stay visible without a collector. Local development with no
+sink stays ``instrumented_no_exporter`` (spans created and dropped).
 """
 
 from __future__ import annotations
@@ -35,9 +36,7 @@ def service_name(env: Optional[Mapping[str, str]] = None) -> str:
 def environment_name(env: Optional[Mapping[str, str]] = None) -> str:
     source = os.environ if env is None else env
     return (
-        source.get("YOKE_ENVIRONMENT")
-        or source.get("APP_ENV")
-        or DEFAULT_ENVIRONMENT
+        source.get("YOKE_ENVIRONMENT") or source.get("APP_ENV") or DEFAULT_ENVIRONMENT
     )
 
 
@@ -49,10 +48,10 @@ def configure_otel(
     """Wire OTel when installed; degrade cleanly in local dev checkouts.
 
     The returned reason is honest about whether spans/metrics actually
-    leave the process: ``exporting:otlp`` / ``exporting:console`` when a
-    sink is configured, ``instrumented_no_exporter`` when the app is
-    instrumented but no exporter endpoint is set (spans created and
-    dropped), ``disabled``, or ``missing_dependency:<pkg>``.
+    leave the process: ``exporting:otlp`` / ``exporting:console`` /
+    ``exporting:log`` when a sink is configured, ``instrumented_no_exporter``
+    when the app is instrumented but no exporter endpoint is set (spans
+    created and dropped), ``disabled``, or ``missing_dependency:<pkg>``.
     """
     source = os.environ if env is None else env
     if str(source.get("YOKE_OTEL_DISABLED", "")).lower() in {"1", "true", "yes"}:
@@ -92,6 +91,9 @@ def configure_otel(
             metrics.set_meter_provider(
                 MeterProvider(resource=resource, metric_readers=[reader])
             )
+            from yoke_core.api.observability_metrics import bind_process_cpu_gauge
+
+            bind_process_cpu_gauge()
     except Exception:  # noqa: BLE001 - metric setup must not block startup
         pass
 
@@ -105,15 +107,21 @@ def configure_otel(
         return True, "exporting:otlp"
     if mode == "console":
         return True, "exporting:console"
+    if mode == "log":
+        return True, "exporting:log"
     return True, "instrumented_no_exporter"
 
 
 def _otel_export_mode(env: Mapping[str, str]) -> str:
-    """Resolve the configured OTel sink: ``otlp`` | ``console`` | ``none``."""
+    """Resolve the configured OTel sink: ``otlp`` | ``console`` | ``log`` | ``none``."""
     if str(env.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip():
         return "otlp"
     if str(env.get("YOKE_OTEL_CONSOLE_EXPORT", "")).lower() in {"1", "true", "yes"}:
         return "console"
+    from yoke_core.api.observability_log_metrics import log_metrics_requested
+
+    if log_metrics_requested(env):
+        return "log"
     return "none"
 
 
@@ -124,6 +132,7 @@ def _span_exporter(env: Mapping[str, str]) -> Any:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                 OTLPSpanExporter,
             )
+
             return OTLPSpanExporter()
         except ImportError:
             return None
@@ -145,6 +154,7 @@ def _metric_reader(env: Mapping[str, str]) -> Any:
             from opentelemetry.sdk.metrics.export import (
                 PeriodicExportingMetricReader,
             )
+
             return PeriodicExportingMetricReader(OTLPMetricExporter())
         except ImportError:
             return None
@@ -154,7 +164,15 @@ def _metric_reader(env: Mapping[str, str]) -> Any:
                 ConsoleMetricExporter,
                 PeriodicExportingMetricReader,
             )
+
             return PeriodicExportingMetricReader(ConsoleMetricExporter())
+        except ImportError:
+            return None
+    if mode == "log":
+        try:
+            from yoke_core.api.observability_log_metrics import make_log_metric_reader
+
+            return make_log_metric_reader()
         except ImportError:
             return None
     return None

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.db_error_hook_collapse import (
@@ -31,6 +31,7 @@ from yoke_core.domain.db_error_hook_collapse import (
 )
 from yoke_core.domain.db_error_hook_query_failure import detect_db_query_failure
 from yoke_core.domain.db_error_hook_stray import StrayDbResult, detect_stray_db
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
     "check_row_count_collapse",
     "detect_db_query_failure",
     "detect_stray_db",
+    "evaluate",
     "main",
     "run",
 ]
@@ -76,6 +78,47 @@ def analyze_bash_output(
     return "\n".join(messages) if messages else None
 
 
+def _tool_command(data: dict[str, Any]) -> str:
+    tool_input = data.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        return ""
+    command = tool_input.get("command", "")
+    return command if isinstance(command, str) else ""
+
+
+def _response_content(data: dict[str, Any]) -> str:
+    response = data.get("tool_response", {})
+    if isinstance(response, dict):
+        content = response.get("content", "")
+        if isinstance(content, list):
+            return " ".join(
+                str(c.get("text", "")) if isinstance(c, dict) else str(c)
+                for c in content
+            )
+        return content if isinstance(content, str) else str(content)
+    if isinstance(response, str):
+        return response
+    return str(response)
+
+
+def _advisory_for_payload(
+    data: dict[str, Any],
+    *,
+    repo_root: str,
+    db_path: str,
+    script_dir: str,
+    session_id: str,
+) -> Optional[str]:
+    return analyze_bash_output(
+        command=_tool_command(data),
+        response_content=_response_content(data),
+        repo_root=repo_root,
+        db_path=db_path,
+        script_dir=script_dir,
+        session_id=session_id,
+    )
+
+
 def run(stdin_data: str) -> None:
     """Run the DB-error-hook pipeline against a PostToolUse payload string.
 
@@ -90,33 +133,15 @@ def run(stdin_data: str) -> None:
         data = json.loads(stdin_data)
     except json.JSONDecodeError:
         return
+    if not isinstance(data, dict):
+        return
 
-    command = data.get("tool_input", {}).get("command", "")
-    response = data.get("tool_response", {})
-    if isinstance(response, dict):
-        content = response.get("content", "")
-        if isinstance(content, list):
-            content = " ".join(
-                str(c.get("text", "")) if isinstance(c, dict) else str(c)
-                for c in content
-            )
-    elif isinstance(response, str):
-        content = response
-    else:
-        content = str(response)
-
-    repo_root = os.environ.get("YOKE_REPO_ROOT", "")
-    db_path = os.environ.get("YOKE_DB_PATH", "")
-    script_dir = os.environ.get("YOKE_SCRIPT_DIR", "")
-    session_id = resolve_ambient_session_id() or ""
-
-    result = analyze_bash_output(
-        command=command,
-        response_content=content,
-        repo_root=repo_root,
-        db_path=db_path,
-        script_dir=script_dir,
-        session_id=session_id,
+    result = _advisory_for_payload(
+        data,
+        repo_root=os.environ.get("YOKE_REPO_ROOT", ""),
+        db_path=os.environ.get("YOKE_DB_PATH", ""),
+        script_dir=os.environ.get("YOKE_SCRIPT_DIR", ""),
+        session_id=resolve_ambient_session_id() or "",
     )
 
     if result:
@@ -127,6 +152,36 @@ def run(stdin_data: str) -> None:
             }
         }
         print(json.dumps(output))
+
+
+def evaluate(record: HookContext) -> HookDecision:
+    """Typed PostToolUse DB-error advisory. Fail-open; never blocks the chain."""
+    try:
+        payload = record.payload if isinstance(record.payload, dict) else {}
+        if not payload:
+            return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+        repo_root = (
+            record.target_root
+            or record.cwd
+            or os.environ.get("YOKE_REPO_ROOT", "")
+            or ""
+        )
+        result = _advisory_for_payload(
+            payload,
+            repo_root=repo_root,
+            db_path=os.environ.get("YOKE_DB_PATH", ""),
+            script_dir=os.environ.get("YOKE_SCRIPT_DIR", ""),
+            session_id=record.session_id or resolve_ambient_session_id() or "",
+        )
+        if result:
+            return HookDecision(
+                outcome=Outcome.NOOP,
+                audit_fields={"additionalContext": result},
+                next=Next.CONTINUE,
+            )
+    except Exception:
+        pass
+    return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
 
 
 def main() -> None:

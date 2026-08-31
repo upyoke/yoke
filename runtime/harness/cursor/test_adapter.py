@@ -45,12 +45,7 @@ def test_no_chain_omissions_declared() -> None:
 def test_subprocess_modules_carveout() -> None:
     from yoke_core.hooks.cursor_adapter import CAPABILITY
 
-    assert CAPABILITY.subprocess_modules == frozenset(
-        {
-            "yoke_core.domain.observe",
-            "yoke_core.domain.db_error_hook",
-        }
-    )
+    assert CAPABILITY.subprocess_modules == frozenset()
 
 
 def test_callables_bound_by_reference_not_wrappers() -> None:
@@ -143,7 +138,9 @@ def test_adapter_module_has_zero_def_declarations() -> None:
     adapter_path = Path(cursor_adapter.__file__).resolve()
     source = adapter_path.read_text(encoding="utf-8")
     def_lines = [line for line in source.splitlines() if line.startswith("def ")]
-    assert def_lines == [], f"adapter.py must contain zero def declarations, found: {def_lines}"
+    assert def_lines == [], (
+        f"adapter.py must contain zero def declarations, found: {def_lines}"
+    )
 
 
 def test_adapter_module_under_140_lines() -> None:

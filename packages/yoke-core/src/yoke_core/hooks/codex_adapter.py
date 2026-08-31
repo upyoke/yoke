@@ -1,12 +1,11 @@
 """Codex `AdapterCapability` instance consumed by the shared hook runner.
 
 The adapter is data-only: it points at the existing JSON payload parser
-(`_parse_payload`) and the Codex-shaped decision renderer, declares no
-chain omissions — Codex runs the same universal chains as Claude,
+(`_parse_payload`) and the Codex-shaped decision renderer, and declares
+no chain omissions — Codex runs the same universal chains as Claude,
 including the `apply_patch` chain, which shares the `Edit`/`Write` gate
-ordering — and lists the two policy modules that dispatch via
-`subprocess.run` instead of the runner's typed `importlib +
-evaluate(record)` path.
+ordering. Every chained policy is typed ``evaluate``; the runner's
+``subprocess_modules`` carve-out stays empty.
 
 The `payload_parser` binds `_parse_payload` directly — its signature
 (``(payload: str) -> dict``) matches the runner's call shape.
@@ -30,10 +29,4 @@ CAPABILITY: AdapterCapability = AdapterCapability(
     decision_renderer=render_codex_decision,
     apply_patch_chain_omissions=frozenset(),
     pretool_omissions=frozenset(),
-    subprocess_modules=frozenset(
-        {
-            "yoke_core.domain.observe",
-            "yoke_core.domain.db_error_hook",
-        }
-    ),
 )
