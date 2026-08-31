@@ -243,6 +243,7 @@ def wake_eligible_recipients(
                     row,
                     operation=operation,
                     relay_versions=versions,
+                    liveness=liveness,
                     now=current,
                 )
                 continue

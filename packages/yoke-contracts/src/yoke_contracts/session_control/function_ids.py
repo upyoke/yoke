@@ -25,12 +25,15 @@ RELAY_CLAIM_FUNCTION_ID = "session_control.relay.claim"
 RELAY_REPORT_FUNCTION_ID = "session_control.relay.report"
 #: The machine's report that a session's native process is verifiably gone.
 RELAY_LIVENESS_FUNCTION_ID = "session_control.relay.liveness"
+#: The machine's report that a session's native turn is already over.
+RELAY_TURN_END_FUNCTION_ID = "session_control.relay.turn_end"
 
 RELAY_FUNCTION_IDS = (
     RELAY_LIST_FUNCTION_ID,
     RELAY_CLAIM_FUNCTION_ID,
     RELAY_REPORT_FUNCTION_ID,
     RELAY_LIVENESS_FUNCTION_ID,
+    RELAY_TURN_END_FUNCTION_ID,
 )
 
 QUALIFICATION_FUNCTION_IDS = ("session_control.qualification.open",)
@@ -64,6 +67,7 @@ __all__ = [
     "RELAY_LIST_FUNCTION_ID",
     "RELAY_LIVENESS_FUNCTION_ID",
     "RELAY_REPORT_FUNCTION_ID",
+    "RELAY_TURN_END_FUNCTION_ID",
     "SESSION_FUNCTION_IDS",
     "SESSION_CONTROL_FUNCTION_IDS",
     "SURFACE_POLICY_FUNCTION_IDS",

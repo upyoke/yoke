@@ -111,7 +111,8 @@ def test_native_wake_skips_a_disabled_surface() -> None:
         )
         is False
     )
-    code, _driver = _wake_skip_result(
+    code, _driver, reason = _wake_skip_result(
         row, "create", {"cursor-cli": "2026.08.11-e8db854"}, conn=conn
     )
     assert code == WAKE_SKIP_SURFACE_DISABLED
+    assert reason == "surface_policy_disabled"

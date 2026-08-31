@@ -58,6 +58,15 @@ _TEXT_FIELDS = frozenset(
         "registration_session_id",
         "requested_model",
         "result_code",
+        # Why a wake was skipped, and what it was reading when it decided:
+        # the eligibility rule that fired, the operation it resolved, and the
+        # posture and liveness behind that operation. The bare result code
+        # cannot separate "this surface has no such route" from "the peer
+        # binary is missing", which is the first question an operator asks.
+        "skip_reason",
+        "wake_operation",
+        "turn_posture",
+        "liveness",
         "surface",
         # Why a wake fired against a session whose liveness read active. The
         # attempt is otherwise identical to an ordinary stopped-session

@@ -11,14 +11,13 @@ from yoke_contracts.session_control.termination import (
     SessionTerminateRequest,
     SessionTerminateResponse,
 )
-from yoke_contracts.session_control.wake import (
-    SessionWakeRequest,
-    SessionWakeResponse,
-)
+from yoke_contracts.session_control.wake import SessionWakeRequest, SessionWakeResponse
 from yoke_core.domain.handlers import session_launch as _launch
 from yoke_core.domain.handlers import session_messages as _messages
 from yoke_core.domain.handlers import session_messages_receipts as _receipts
 from yoke_core.domain.handlers import session_relay as _relay
+from yoke_contracts.session_control import native_turn_end as _turn_end
+from yoke_core.domain.session_native_turn_end import EVENT_SESSION_TURN_END_OBSERVED
 from yoke_core.domain.handlers import session_termination as _termination
 from yoke_core.domain.handlers import session_wake as _wake
 from yoke_core.domain.handlers import session_qualification as _qualification
@@ -282,6 +281,17 @@ def register(registry) -> None:
         owner_module=_relay.__name__,
         adapter_status="internal",
         emitted_event_names=["YokeFunctionCalled", EVENT_HARNESS_SESSION_ENDED],
+    )
+    _register(
+        registry,
+        "session_control.relay.turn_end",
+        _relay.handle_relay_turn_end,
+        _turn_end.RelayTurnEndRequest,
+        _turn_end.RelayTurnEndResponse,
+        side_effects=["harness_sessions_update"],
+        owner_module=_relay.__name__,
+        adapter_status="internal",
+        emitted_event_names=["YokeFunctionCalled", EVENT_SESSION_TURN_END_OBSERVED],
     )
     _register(
         registry,
