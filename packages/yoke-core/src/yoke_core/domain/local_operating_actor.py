@@ -163,8 +163,8 @@ def missing_grant_repair_detail(conn: Any, actor_id: Any) -> str:
         _rollback_quietly(conn)
         return ""
     return (
-        f"actor {candidate} operates this universe but holds no org admin "
-        "role, so every mutation its sessions attempt is denied. Repair: "
+        "This universe's operating actor holds no org admin role, so every "
+        "mutation its sessions attempt is denied. Repair: "
         f"`{OPERATING_ACTOR_GRANT_REPAIR}`, which grants exactly that role "
         "on this universe's own org."
     )

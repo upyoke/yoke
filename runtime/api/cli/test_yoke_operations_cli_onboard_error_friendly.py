@@ -5,7 +5,10 @@ org M`` / ``on project M``) and, once the name-bearing server build ships, the
 ``on org 'NAME' (id M)`` form. ``friendly_permission_error`` rewrites all of
 them into one actionable sentence and leaves every other error untouched. These
 tests pin both the id-only and name-bearing inputs the client must handle while
-the server change deploys separately.
+the server change deploys separately, plus the denial that carries its own
+recovery clause — where "contact your administrator" would be advice to
+contact yourself, and dropping the clause would cost the operator the one
+command that repairs it.
 """
 
 from __future__ import annotations
@@ -87,8 +90,7 @@ def test_generic_dispatch_permission_denial_names_permission_path() -> None:
     raw = "projects.create failed: permission denied for org acme"
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks project.create rights. "
-        "Contact your Yoke administrator."
+        "Your API token lacks project.create rights. Contact your Yoke administrator."
     )
 
 
@@ -110,3 +112,29 @@ def test_friendly_publish_error_rewrites_permission_denied() -> None:
 def test_friendly_publish_error_passes_unrelated_message_through() -> None:
     raw = "token from argument is empty"
     assert friendly_publish_error(raw) == raw
+
+
+def test_denial_carrying_a_recovery_clause_closes_with_it() -> None:
+    raw = (
+        "actor 2 lacks 'claims.acquire' on project 'Yoke' (yoke, id 1). This "
+        "universe's operating actor holds no org admin role, so every mutation "
+        "its sessions attempt is denied. Repair: `yoke doctor run --quick "
+        "--fix`, which grants exactly that role on this universe's own org."
+    )
+    friendly = friendly_permission_error(raw)
+    assert friendly == (
+        "Your API token lacks claims.acquire rights for Yoke. This universe's "
+        "operating actor holds no org admin role, so every mutation its "
+        "sessions attempt is denied. Repair: `yoke doctor run --quick --fix`, "
+        "which grants exactly that role on this universe's own org."
+    )
+
+
+def test_id_only_scope_with_a_recovery_clause_still_resolves_the_scope() -> None:
+    """The scope must not swallow the clause and lose its own end anchor."""
+    raw = "actor 2 lacks 'items.write' on project 9. Do the thing that fixes it."
+    friendly = friendly_permission_error(raw)
+    assert friendly == (
+        "Your API token lacks items.write rights for project 9. "
+        "Do the thing that fixes it."
+    )

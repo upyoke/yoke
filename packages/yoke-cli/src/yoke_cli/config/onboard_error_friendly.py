@@ -8,17 +8,29 @@ that shape — across both the old id-only and the new name-bearing forms — an
 rewrites it to a single actionable sentence. Any message that is not a
 permission denial is returned unchanged, so wrapping every surfaced onboarding
 error in this helper is safe.
+
+A denial may carry its own recovery clause after the scope, when the server
+knows what would actually fix it — a machine-local universe whose operator
+holds no org role is the worked case, and there "contact your administrator"
+is advice to contact yourself. That clause replaces the generic closing
+sentence rather than being dropped, so the operator still reads the terse
+denial as one friendly sentence AND gets the command that repairs it.
 """
 
 from __future__ import annotations
 
 import re
 
-# actor <id> lacks '<perm>' on <scope>. The scope tail is captured whole and
-# parsed by _scope_target so one regex covers org / project and id-only /
-# name-bearing forms. Quotes around the permission may be ' or " (repr style).
+# actor <id> lacks '<perm>' on <scope>[. <recovery>]. The scope tail is
+# captured whole and parsed by _scope_target so one regex covers org / project
+# and id-only / name-bearing forms. Quotes around the permission may be ' or "
+# (repr style). Scope stops at the first sentence break, so a trailing recovery
+# clause is captured separately instead of swallowing the scope's end anchor —
+# which would leave the whole denial unrewritten.
 _DENY_RE = re.compile(
-    r"actor\s+\d+\s+lacks\s+['\"](?P<perm>[^'\"]+)['\"]\s+on\s+(?P<scope>.+?)\s*$"
+    r"actor\s+\d+\s+lacks\s+['\"](?P<perm>[^'\"]+)['\"]\s+on\s+"
+    r"(?P<scope>(?:[^.]|\.(?!\s|$))+)"
+    r"(?:\.\s+(?P<recovery>.+))?\s*$"
 )
 
 # A scope that carries a name: ``org 'Acme' (id 1)`` or
@@ -96,10 +108,9 @@ def friendly_permission_error(message: str) -> str:
     if target is None:
         return message
     perm = match.group("perm")
-    return (
-        f"Your API token lacks {perm} rights for {target}. "
-        "Contact your Yoke administrator."
-    )
+    recovery = (match.group("recovery") or "").strip()
+    closing = recovery if recovery else "Contact your Yoke administrator."
+    return f"Your API token lacks {perm} rights for {target}. {closing}"
 
 
 __all__ = ["friendly_permission_error", "friendly_publish_error"]
