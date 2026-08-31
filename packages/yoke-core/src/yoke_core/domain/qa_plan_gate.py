@@ -10,9 +10,7 @@ from yoke_core.domain.qa_gate_preconditions import (
 )
 
 
-def check_plan_simulation_satisfied(
-    item_id: int, db_path: str
-) -> GateResult:
+def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
     """Refuse ``-> planned`` when blocking verification evidence is unsatisfied.
 
     This is defense in depth for a workflow that records resolution

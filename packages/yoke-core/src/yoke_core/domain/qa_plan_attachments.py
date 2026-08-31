@@ -38,10 +38,12 @@ from yoke_core.domain.qa_plan_project_defaults import (
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
-PROJECT_DEFAULT_QA_POLICIES = frozenset({
-    "project_transition_defaults",
-    "project_and_task_attachments",
-})
+PROJECT_DEFAULT_QA_POLICIES = frozenset(
+    {
+        "project_transition_defaults",
+        "project_and_task_attachments",
+    }
+)
 
 
 def workflow_uses_project_testing_defaults(conn: Any, item_id: int) -> bool:

@@ -42,14 +42,16 @@ def test_multiple_project_default_plans_share_one_transition() -> None:
         replace_plan_cases(
             conn,
             plan_id=lint["id"],
-            cases=[{
-                "case_key": "lint",
-                "position": 1,
-                "method_id": "command",
-                "instructions": "Run the registered lint command.",
-                "expected_outcome": "The command exits successfully.",
-                "method_config": {"command": "ruff check ."},
-            }],
+            cases=[
+                {
+                    "case_key": "lint",
+                    "position": 1,
+                    "method_id": "command",
+                    "instructions": "Run the registered lint command.",
+                    "expected_outcome": "The command exits successfully.",
+                    "method_config": {"command": "ruff check ."},
+                }
+            ],
         )
         for plan in (release, lint):
             set_project_default(
@@ -125,10 +127,13 @@ def test_optional_qa_ignores_project_testing_defaults() -> None:
             item_id=int(item["id"]),
             transition_id="reviewing-implementation",
         )
-        assert detail_attachments(
-            conn,
-            item_id=int(item["id"]),
-            project_id=1,
-            workflow_id="dash",
-            requirements=[],
-        ) == []
+        assert (
+            detail_attachments(
+                conn,
+                item_id=int(item["id"]),
+                project_id=1,
+                workflow_id="dash",
+                requirements=[],
+            )
+            == []
+        )

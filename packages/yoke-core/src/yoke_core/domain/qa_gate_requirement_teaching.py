@@ -23,7 +23,7 @@ def missing_verification_requirement_errors(
         "no qa_requirements found.",
         f"  Add at least one QA requirement before moving to {target_transition}:",
         "  Raise the project to executed tests: yoke qa registered-command set "
-        "--project <project> --scope quick --command \"<argv>\"",
+        '--project <project> --scope quick --command "<argv>"',
     ]
     if target.item_id is not None:
         errors.append(

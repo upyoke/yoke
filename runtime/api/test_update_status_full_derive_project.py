@@ -53,7 +53,9 @@ class TestAutoDerive:
             )
         env.init_git()
         r = env.run(
-            "42", "003", "done",
+            "42",
+            "003",
+            "done",
             extra_env={
                 "YOKE_QA_GATE_BYPASS": "1",
                 "YOKE_TASK_DONE_VERIFIED": "1",
@@ -61,7 +63,10 @@ class TestAutoDerive:
             },
         )
         assert r.returncode == 0
-        assert env.query("SELECT status FROM items WHERE id=42") == "reviewing-implementation"
+        assert (
+            env.query("SELECT status FROM items WHERE id=42")
+            == "reviewing-implementation"
+        )
 
     def test_in_flight_promotes_planned_parent(self, env):
         """TEST 28: mixed tasks promote planned parent to implementing."""
@@ -116,6 +121,7 @@ class TestCrossProject:
     def test_cross_project_checkbox_repo_flag(self, env):
         """TEST 32: checkbox update on externalwebapp parent uses /repos/example-org/externalwebapp/ URL."""
         import json
+
         self._setup_externalwebapp_project(env)
         env.exec_sql("""
             UPDATE items
@@ -132,18 +138,22 @@ class TestCrossProject:
         rest_dir = env.tmp / "rest-fakes"
         rest_dir.mkdir(exist_ok=True)
         (rest_dir / "GET_repos_example-org_externalwebapp_issues_200.json").write_text(
-            json.dumps({
-                "status": 200,
-                "body": {
-                    "number": 200,
-                    "body": "- [ ] #100 ExternalWebapp task\n",
-                    "state": "open",
-                },
-            }),
+            json.dumps(
+                {
+                    "status": 200,
+                    "body": {
+                        "number": 200,
+                        "body": "- [ ] #100 ExternalWebapp task\n",
+                        "state": "open",
+                    },
+                }
+            ),
         )
 
         r = env.run(
-            "EXT-42", "003", "done",
+            "EXT-42",
+            "003",
+            "done",
             extra_env={"YOKE_TASK_DONE_VERIFIED": "1"},
         )
         assert r.returncode == 0

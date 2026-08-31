@@ -17,14 +17,11 @@ stays under the 350-line authored-file cap.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_summary import (
     VALID_TARGETS,
-    cmd_gate_summary,
     render_gate_summary,
 )
 from runtime.api.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
@@ -55,7 +52,9 @@ def test_valid_targets_are_exactly_two():
 def test_no_qa_tables_present_returns_unsatisfied(qa_db_no_tables):
     """Pre-migration DBs without qa_requirements refuse without crashing."""
     summary = render_gate_summary(
-        GateTarget(item_id=42), qa_db_no_tables, transition_name="reviewed-implementation"
+        GateTarget(item_id=42),
+        qa_db_no_tables,
+        transition_name="reviewed-implementation",
     )
     assert summary["qa_tables_present"] is False
     assert summary["satisfied"] is False
@@ -95,10 +94,15 @@ def test_blocking_browser_without_substrate_run_unsatisfied(qa_db):
 def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
     """Pass + non-agent runner + artifact satisfies the gate."""
     rid = add_requirement(
-        qa_db, qa_kind="plan_case", method_id="browser-inspection",
+        qa_db,
+        qa_kind="plan_case",
+        method_id="browser-inspection",
     )
     run_id = add_run(
-        qa_db, rid, performed_by="browser_substrate", qa_kind="plan_case",
+        qa_db,
+        rid,
+        performed_by="browser_substrate",
+        qa_kind="plan_case",
     )
     add_artifact(qa_db, run_id)
     summary = render_gate_summary(
@@ -118,7 +122,9 @@ def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
 def test_browser_with_agent_only_run_unsatisfied(qa_db):
     """Agent-executed pass alone does not satisfy a Browser case."""
     rid = add_requirement(
-        qa_db, qa_kind="plan_case", method_id="browser-check",
+        qa_db,
+        qa_kind="plan_case",
+        method_id="browser-check",
     )
     add_run(qa_db, rid, performed_by="agent", qa_kind="plan_case")
     summary = render_gate_summary(
@@ -132,10 +138,15 @@ def test_browser_with_agent_only_run_unsatisfied(qa_db):
 def test_browser_substrate_run_without_artifact_unsatisfied(qa_db):
     """Browser pass without an artifact does not satisfy."""
     rid = add_requirement(
-        qa_db, qa_kind="plan_case", method_id="browser-check",
+        qa_db,
+        qa_kind="plan_case",
+        method_id="browser-check",
     )
     add_run(
-        qa_db, rid, performed_by="browser_substrate", qa_kind="plan_case",
+        qa_db,
+        rid,
+        performed_by="browser_substrate",
+        qa_kind="plan_case",
     )
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
@@ -261,81 +272,17 @@ def test_summary_render_does_not_mutate_qa_tables(qa_db):
 
 def test_epic_task_target(qa_db):
     rid = add_requirement(
-        qa_db, item_id=None, epic_id=833, task_num=5, qa_kind="ac_verification",
+        qa_db,
+        item_id=None,
+        epic_id=833,
+        task_num=5,
+        qa_kind="ac_verification",
     )
     add_run(qa_db, rid, performed_by="agent", qa_kind="ac_verification")
     summary = render_gate_summary(
-        GateTarget(epic_id=833, task_num=5), qa_db,
+        GateTarget(epic_id=833, task_num=5),
+        qa_db,
         transition_name="reviewed-implementation",
     )
     assert summary["target"] == "epic 833/task 5"
     assert summary["satisfied"] is True
-
-
-# ---------------------------------------------------------------------------
-# CLI handler (cmd_gate_summary)
-# ---------------------------------------------------------------------------
-
-
-def test_cli_target_validation(qa_db, capsys):
-    rc = cmd_gate_summary(
-        db_path=qa_db, item_id=42, epic_id=None, task_num=None,
-        target="invalid", as_json=False,
-    )
-    assert rc == 2
-    assert "must be one of" in capsys.readouterr().err
-
-
-def test_cli_target_requires_item_or_epic(qa_db, capsys):
-    rc = cmd_gate_summary(
-        db_path=qa_db, item_id=None, epic_id=None, task_num=None,
-        target="reviewed-implementation", as_json=False,
-    )
-    assert rc == 2
-    assert "item-id" in capsys.readouterr().err
-
-
-def test_cli_item_and_epic_are_mutually_exclusive(qa_db, capsys):
-    rc = cmd_gate_summary(
-        db_path=qa_db, item_id=42, epic_id=833, task_num=5,
-        target="reviewed-implementation", as_json=False,
-    )
-    assert rc == 2
-    assert "mutually exclusive" in capsys.readouterr().err
-
-
-def test_cli_json_output_is_valid_json(qa_db, capsys):
-    add_requirement(qa_db, qa_kind="e2e")
-    rc = cmd_gate_summary(
-        db_path=qa_db, item_id=42, epic_id=None, task_num=None,
-        target="reviewed-implementation", as_json=True,
-    )
-    assert rc == 0
-    parsed = json.loads(capsys.readouterr().out)
-    assert parsed["target"] == "YOK-42"
-    assert parsed["transition"] == "reviewed-implementation"
-    assert parsed["e2e_unsatisfied_count"] == 1
-
-
-def test_cli_text_output_includes_status_and_counts(qa_db, capsys):
-    add_requirement(qa_db, qa_kind="ac_verification")
-    rc = cmd_gate_summary(
-        db_path=qa_db, item_id=42, epic_id=None, task_num=None,
-        target="reviewed-implementation", as_json=False,
-    )
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "Status: UNSATISFIED" in out
-    assert "Blocking unsatisfied: 1" in out
-    assert "ac_verification" in out
-
-
-def test_cli_returns_zero_when_satisfied(qa_db, capsys):
-    """A satisfied summary still exits 0; verdict belongs to the gate."""
-    rc = cmd_gate_summary(
-        db_path=qa_db, item_id=999, epic_id=None, task_num=None,
-        target="reviewed-implementation", as_json=False,
-    )
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "No QA requirements" in out

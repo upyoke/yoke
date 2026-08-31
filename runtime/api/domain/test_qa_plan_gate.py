@@ -211,12 +211,8 @@ class TestCheckPlanSimulationSatisfied:
         assert any("GATE_QA_BYPASS_FORBIDDEN" in e for e in result.errors)
 
     def test_missing_qa_tables_fails_closed(self, tmp_path: Path) -> None:
-        with init_test_db(
-            tmp_path, apply_schema=_apply_items_only_schema
-        ) as db_path:
-            with mock.patch.dict(
-                os.environ, {"YOKE_DB": db_path}, clear=False
-            ):
+        with init_test_db(tmp_path, apply_schema=_apply_items_only_schema) as db_path:
+            with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                 result = check_plan_simulation_satisfied(TEST_ITEM_ID, db_path)
         assert not result.passed
         assert any("GATE_QA_SCHEMA_MISSING" in e for e in result.errors)

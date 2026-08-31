@@ -1,7 +1,4 @@
-"""Backlog authoritative status gate — composes the QA verification gates,
-governed DB-mutation gates, prose-vs-claim consistency check,
-architecture-impact gate, and path-claim boundary check that
-share the canonical status write path.
+"""Compose the gates that share the authoritative backlog status write path.
 
 Most targets short-circuit on the first failure. The
 ``reviewing-implementation -> reviewed-implementation`` transition aggregates
@@ -234,6 +231,7 @@ _QA_VERIFICATION_ERROR_CODES = {
     "implemented": "GATE_QA_IMPLEMENTED",
     "release": "GATE_QA_RELEASE",
 }
+
 
 def _evaluate_qa_verification(
     *,

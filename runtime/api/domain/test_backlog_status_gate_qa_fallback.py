@@ -23,7 +23,9 @@ def test_missing_qa_schema_error_propagates() -> None:
     ):
         with pytest.raises(db_backend.operational_error_types(), match="qa_runs"):
             _evaluate_qa_verification(
-                item_id=42, target_status="release", db_path="/tmp/fake.db",
+                item_id=42,
+                target_status="release",
+                db_path="/tmp/fake.db",
             )
 
 
@@ -34,5 +36,7 @@ def test_other_operational_errors_propagate() -> None:
     ):
         with pytest.raises(db_backend.operational_error_types()):
             _evaluate_qa_verification(
-                item_id=42, target_status="release", db_path="/tmp/fake.db",
+                item_id=42,
+                target_status="release",
+                db_path="/tmp/fake.db",
             )

@@ -92,9 +92,7 @@ class TestCheckReviewedImplementationGate:
             "yoke_core.domain.qa_gates._resolve_repo_root",
             return_value=None,
         ):
-            result = check_reviewed_implementation_gate(
-                GateTarget(item_id=42), qa_db
-            )
+            result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
         assert not result.passed
         assert any("GATE_QA_BROWSER_GIT_ROOT_REQUIRED" in e for e in result.errors)
 
@@ -105,9 +103,7 @@ class TestCheckReviewedImplementationGate:
             "yoke_core.domain.qa_gates._resolve_repo_root",
             return_value=None,
         ):
-            result = check_reviewed_implementation_gate(
-                GateTarget(item_id=42), qa_db
-            )
+            result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
         assert result.passed
 
     def test_tc_browser_evidence_remediation_points_to_advance(self, qa_db):
@@ -200,7 +196,8 @@ class TestCheckReviewedImplementationGate:
         )
         run_id = _add_run(qa_db, req_id, "pass", performed_by="browser_substrate")
         _add_artifact(
-            qa_db, run_id,
+            qa_db,
+            run_id,
             s3_handle("proj-prod-artifacts", "qa-artifacts/testproj/42/7/shot.png"),
         )
         target = GateTarget(item_id=42)

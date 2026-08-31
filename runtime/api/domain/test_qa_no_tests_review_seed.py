@@ -86,11 +86,13 @@ def test_seeding_twice_leaves_one_requirement() -> None:
         attest_no_tests(conn, project_id=1, project="yoke", reason=_REASON)
 
         first = ensure_no_tests_review_requirement(
-            conn, item_id=int(item["id"]),
+            conn,
+            item_id=int(item["id"]),
             transition_id="reviewing-implementation",
         )
         second = ensure_no_tests_review_requirement(
-            conn, item_id=int(item["id"]),
+            conn,
+            item_id=int(item["id"]),
             transition_id="reviewing-implementation",
         )
         conn.commit()
@@ -104,7 +106,8 @@ def test_command_absence_seeds_the_floor_without_a_posture_row() -> None:
         item = _seeded_item(conn)
 
         seeded = ensure_no_tests_review_requirement(
-            conn, item_id=int(item["id"]),
+            conn,
+            item_id=int(item["id"]),
             transition_id="reviewing-implementation",
         )
         conn.commit()
@@ -129,7 +132,8 @@ def test_registered_command_seeds_no_floor_requirement() -> None:
         )
 
         seeded = ensure_no_tests_review_requirement(
-            conn, item_id=int(item["id"]),
+            conn,
+            item_id=int(item["id"]),
             transition_id="reviewing-implementation",
         )
         conn.commit()
@@ -142,7 +146,8 @@ def test_floor_verdict_is_recorded_as_agent_no_tests_declared() -> None:
     with test_database() as conn:
         item = _seeded_item(conn)
         requirement_id = ensure_no_tests_review_requirement(
-            conn, item_id=int(item["id"]),
+            conn,
+            item_id=int(item["id"]),
             transition_id="reviewing-implementation",
         )
         conn.commit()
@@ -154,8 +159,7 @@ def test_floor_verdict_is_recorded_as_agent_no_tests_declared() -> None:
             head_sha="a" * 40,
         )
         row = conn.execute(
-            "SELECT performed_by,qa_kind,verdict,raw_result FROM qa_runs "
-            "WHERE id=%s",
+            "SELECT performed_by,qa_kind,verdict,raw_result FROM qa_runs WHERE id=%s",
             (run_id,),
         ).fetchone()
 
@@ -173,7 +177,9 @@ def test_other_transitions_seed_nothing() -> None:
         attest_no_tests(conn, project_id=1, project="yoke", reason=_REASON)
 
         seeded = ensure_no_tests_review_requirement(
-            conn, item_id=int(item["id"]), transition_id="release",
+            conn,
+            item_id=int(item["id"]),
+            transition_id="release",
         )
         conn.commit()
 

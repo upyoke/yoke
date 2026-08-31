@@ -37,9 +37,7 @@ def _running_under_test() -> bool:
 def qa_bypass_result(*, requested: Optional[bool] = None) -> Optional[GateResult]:
     """Return the explicit bypass verdict, or ``None`` when not requested."""
     enabled = (
-        os.environ.get(QA_BYPASS_ENV) == "1"
-        if requested is None
-        else bool(requested)
+        os.environ.get(QA_BYPASS_ENV) == "1" if requested is None else bool(requested)
     )
     if not enabled:
         return None
@@ -64,9 +62,7 @@ def qa_schema_result(
     """Refuse when the tables a lifecycle QA gate reads are unavailable."""
     conn = connect(db_path)
     try:
-        missing = [
-            table for table in required_tables if not _table_exists(conn, table)
-        ]
+        missing = [table for table in required_tables if not _table_exists(conn, table)]
     finally:
         conn.close()
     if not missing:
@@ -124,9 +120,7 @@ def requirement_set_result(
     transition_id = item_transition_for_gate(
         conn,
         item_id=(
-            int(target.item_id)
-            if target.item_id is not None
-            else int(target.epic_id)
+            int(target.item_id) if target.item_id is not None else int(target.epic_id)
         ),
         gate_id=GATE_QA_VERIFICATION,
     )
@@ -161,7 +155,7 @@ def browser_git_root_result(
         SELECT r.id, r.method_id FROM qa_requirements r
         WHERE {where}{phase_sql}
           AND r.waived_at IS NULL
-          AND {browser_requirement_predicate('r')}
+          AND {browser_requirement_predicate("r")}
         ORDER BY r.id
         """,
         params,

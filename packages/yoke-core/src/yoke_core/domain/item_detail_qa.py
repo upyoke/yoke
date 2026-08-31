@@ -155,10 +155,9 @@ def qa_plan_attachments(
         return []
     marker = _p(conn)
     attachments: dict[tuple[int, str], dict[str, Any]] = {}
-    if (
-        _table_exists(conn, "qa_plan_project_defaults")
-        and workflow_uses_project_testing_defaults(conn, int(item_id))
-    ):
+    if _table_exists(
+        conn, "qa_plan_project_defaults"
+    ) and workflow_uses_project_testing_defaults(conn, int(item_id)):
         rows = _dict_rows(
             conn.execute(
                 "SELECT d.plan_id, d.transition_id, d.qa_phase, d.attached_at, "

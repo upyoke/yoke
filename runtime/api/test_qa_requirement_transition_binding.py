@@ -54,7 +54,7 @@ def _request(item_id: int, transition_id: str | None) -> FunctionCallRequest:
 
 def test_requirement_persists_a_valid_pinned_workflow_transition():
     with test_database() as conn:
-        insert_item(conn, id=2401, workflow_id="dash")
+        insert_item(conn, id=2401, workflow_id="blitz")
         outcome = handle_qa_requirement_add(
             _request(2401, " done "),
         )
@@ -68,9 +68,9 @@ def test_requirement_persists_a_valid_pinned_workflow_transition():
 
 def test_requirement_rejects_a_transition_outside_the_pinned_workflow():
     with test_database() as conn:
-        insert_item(conn, id=2402, workflow_id="dash")
+        insert_item(conn, id=2402, workflow_id="blitz")
         outcome = handle_qa_requirement_add(
-            _request(2402, "reviewed-implementation"),
+            _request(2402, "planned"),
         )
     assert outcome.primary_success is False
     assert outcome.error.code == "payload_invalid"
@@ -79,7 +79,7 @@ def test_requirement_rejects_a_transition_outside_the_pinned_workflow():
 
 def test_requirement_rejects_a_missing_workflow_transition():
     with test_database() as conn:
-        insert_item(conn, id=2403, workflow_id="dash")
+        insert_item(conn, id=2403, workflow_id="blitz")
         outcome = handle_qa_requirement_add(_request(2403, None))
     assert outcome.primary_success is False
     assert outcome.error.code == "payload_invalid"
@@ -96,7 +96,7 @@ def test_requirement_rejects_a_missing_pinned_parent():
 
 def test_requirement_batch_rejects_a_missing_workflow_transition():
     with test_database() as conn:
-        insert_item(conn, id=2405, workflow_id="dash")
+        insert_item(conn, id=2405, workflow_id="blitz")
         single = _request(2405, None)
         batch = FunctionCallRequest(
             function="qa.requirement.add_batch",
@@ -112,7 +112,7 @@ def test_requirement_batch_rejects_a_missing_workflow_transition():
 
 def test_requirement_rejects_a_stage_without_a_qa_gate():
     with test_database() as conn:
-        definition = deepcopy(builtin_workflow_definition("dash")["definition"])
+        definition = deepcopy(builtin_workflow_definition("blitz")["definition"])
         definition["stages"][0]["label"] = "No QA enforcement"
         for stage in definition["stages"]:
             stage["gates"] = [
@@ -120,10 +120,10 @@ def test_requirement_rejects_a_stage_without_a_qa_gate():
             ]
         publish_workflow_version(
             conn,
-            workflow_id="dash",
+            workflow_id="blitz",
             definition=definition,
         )
-        insert_item(conn, id=2404, workflow_id="dash")
+        insert_item(conn, id=2404, workflow_id="blitz")
         outcome = handle_qa_requirement_add(
             _request(2404, "reviewing-implementation"),
         )
@@ -134,7 +134,7 @@ def test_requirement_rejects_a_stage_without_a_qa_gate():
 
 def test_requirement_accepts_only_stages_at_or_before_the_qa_gate():
     with test_database() as conn:
-        definition = deepcopy(builtin_workflow_definition("dash")["definition"])
+        definition = deepcopy(builtin_workflow_definition("blitz")["definition"])
         done_stage = definition["stages"][-1]
         qa_gate = next(
             gate for gate in done_stage["gates"] if gate["id"] == "qa_verification"
@@ -145,10 +145,10 @@ def test_requirement_accepts_only_stages_at_or_before_the_qa_gate():
         definition["stages"][-2]["gates"].append(qa_gate)
         publish_workflow_version(
             conn,
-            workflow_id="dash",
+            workflow_id="blitz",
             definition=definition,
         )
-        insert_item(conn, id=2406, workflow_id="dash")
+        insert_item(conn, id=2406, workflow_id="blitz")
 
         accepted = handle_qa_requirement_add(
             _request(2406, "reviewing-implementation"),
@@ -164,7 +164,7 @@ def test_requirement_accepts_only_stages_at_or_before_the_qa_gate():
 
 def test_domain_cli_item_requirement_persists_transition():
     with test_database() as conn:
-        insert_item(conn, id=2410, workflow_id="dash")
+        insert_item(conn, id=2410, workflow_id="blitz")
         requirement_id = qa.cmd_requirement_add(
             item_id=2410,
             qa_kind="implementation_review",
@@ -202,7 +202,7 @@ def test_domain_cli_locks_parent_before_transition_validation(monkeypatch):
         record_validation,
     )
     with test_database() as conn:
-        insert_item(conn, id=2415, workflow_id="dash")
+        insert_item(conn, id=2415, workflow_id="blitz")
         qa.cmd_requirement_add(
             item_id=2415,
             qa_kind="implementation_review",
@@ -265,7 +265,7 @@ def test_domain_cli_batch_validates_each_parent_transition(tmp_path):
     payload = tmp_path / "requirements.json"
     payload.write_text(json.dumps(rows), encoding="utf-8")
     with test_database() as conn:
-        insert_item(conn, id=2413, workflow_id="dash")
+        insert_item(conn, id=2413, workflow_id="blitz")
         insert_item(conn, id=2414, workflow_id="epic")
         insert_epic_task(conn, epic_id=2414, task_num=1)
         requirement_ids = qa.cmd_requirement_add_batch(json_file=str(payload))
@@ -297,7 +297,7 @@ def test_domain_cli_batch_rolls_back_when_a_transition_is_missing(tmp_path):
     payload = tmp_path / "missing-transition.json"
     payload.write_text(json.dumps(rows), encoding="utf-8")
     with test_database() as conn:
-        insert_item(conn, id=2416, workflow_id="dash")
+        insert_item(conn, id=2416, workflow_id="blitz")
         with pytest.raises(SystemExit, match="2"):
             qa.cmd_requirement_add_batch(json_file=str(payload))
         count = conn.execute(
