@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  presentationLabel,
-  remotePresentationCount,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_presentation.js";
+import { presentationLabel } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_presentation.js";
 
 
 test("session presentation reports attachment without inventing a frontend", () => {
@@ -16,5 +13,4 @@ test("session presentation reports attachment without inventing a frontend", () 
   assert.equal(presentationLabel(attached), "Remote Control · bidirectional");
   assert.equal(presentationLabel({ presentation_state: "not-attached" }), "local only");
   assert.equal(presentationLabel({}), "");
-  assert.equal(remotePresentationCount([attached, {}, attached]), 2);
 });
