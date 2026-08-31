@@ -27,7 +27,11 @@ On a git checkout, install and refresh refuse a dirty working tree and refuse
 when HEAD is not the project's `default_branch`. Pass `--force` to proceed
 anyway. A successful write commits the touched bundle paths — including
 untracked and deleted files — and leaves pushing to the operator. Pass
-`--no-commit` to skip that commit. `--source-checkout` preview never
+`--no-commit` to skip that commit. Outputs that land on ignore-covered paths
+are generated local views — the board render, the strategy renders under
+`.yoke/strategy/`, the install manifest: they are written to the checkout and
+never staged, never force-added, and dropped from the index when a checkout
+onboarded before the ignore name still tracks them. `--source-checkout` preview never
 enforces the dirty-tree check and never commits; `--apply` still refuses a
 dirty tree and still commits, but does not require the default branch.
 
