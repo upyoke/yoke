@@ -14,6 +14,13 @@ universe (:func:`yoke_core.domain.session_actor_binding.resolve_operating_actor`
 indistinguishable from a freshly registered one). When that actor cannot
 be resolved, the check reports the resolver's own reason and recovery
 rather than guessing at an identity.
+
+The paired authority check asks the next question — does that actor hold
+the org role its sessions act under? — and answers it with the same
+grant, membership read, and repair command
+:mod:`yoke_core.domain.local_operating_actor` gives birth, the
+registration convergence, and the permission denial, so every surface
+names one command.
 """
 
 from __future__ import annotations
@@ -22,6 +29,11 @@ from typing import Any, List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.local_operating_actor import (
+    OPERATING_ACTOR_GRANT_REPAIR,
+    ensure_local_operating_actor,
+    holds_org_admin,
+)
 from yoke_core.domain.session_actor_binding import resolve_operating_actor
 
 import yoke_core.engines.doctor_report as _base
@@ -114,7 +126,7 @@ def hc_session_actor_binding(
         "FAIL",
         f"{len(actorless)} session(s) carry no actor_id "
         f"({_summarize(actorless)}); those sessions cannot register a path "
-        f"claim. Repair: `yoke doctor run --quick --fix`, which binds exactly "
+        f"claim. Repair: `{OPERATING_ACTOR_GRANT_REPAIR}`, which binds exactly "
         f"those rows to actor {binding.actor_id}, this universe's operating "
         "actor.",
     )
@@ -142,7 +154,7 @@ def hc_local_operating_actor_authority(
         return
 
     actor_id = int(binding.actor_id)
-    if _holds_org_admin(conn, actor_id):
+    if holds_org_admin(conn, actor_id):
         rec.record(
             AUTHORITY_SLUG,
             AUTHORITY_TITLE,
@@ -152,12 +164,8 @@ def hc_local_operating_actor_authority(
         return
 
     if args.fix:
-        from yoke_core.domain.local_operating_actor import (
-            ensure_local_operating_actor,
-        )
-
         ensure_local_operating_actor(conn)
-        if _holds_org_admin(conn, actor_id):
+        if holds_org_admin(conn, actor_id):
             rec.record(
                 AUTHORITY_SLUG,
                 AUTHORITY_TITLE,
@@ -172,20 +180,9 @@ def hc_local_operating_actor_authority(
         "FAIL",
         f"actor {actor_id} operates this universe but holds no org admin "
         "role, so the dispatcher denies every mutation its sessions "
-        "attempt. Repair: `yoke doctor run --quick --fix`, which grants "
+        f"attempt. Repair: `{OPERATING_ACTOR_GRANT_REPAIR}`, which grants "
         "exactly that role on this universe's own org.",
     )
-
-
-def _holds_org_admin(conn: Any, actor_id: int) -> bool:
-    from yoke_core.domain.actor_permissions import ROLE_ADMIN
-
-    row = conn.execute(
-        "SELECT 1 FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
-        f"WHERE aor.actor_id = {_p(conn)} AND r.name = {_p(conn)} LIMIT 1",
-        (actor_id, ROLE_ADMIN),
-    ).fetchone()
-    return row is not None
 
 
 __all__ = [

@@ -12,6 +12,11 @@ exactly the way ``schema_init.cmd_init`` seeds a real one: register
 through :func:`begin_session` (the shared core under both the operator
 command and the hook-driven registrar), then register a path claim as
 that session with no explicit actor anywhere in the call.
+
+The same path carries the grant convergence, because binding an actor
+that holds no org role only moves the refusal one step later. A universe
+born before the grant existed and upgraded in place arrives here exactly
+that way, so registration is where it catches up.
 """
 
 from __future__ import annotations
@@ -30,6 +35,7 @@ from runtime.api.fixtures.file_test_db import (
 )
 from runtime.api.test_constants import TEST_MODEL_ID
 from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
+from yoke_core.domain.local_operating_actor import holds_org_admin
 from yoke_core.domain.path_claims_dispatch import cmd_register
 from yoke_core.domain.sessions import claim_work
 
@@ -110,19 +116,90 @@ def test_path_claim_registration_succeeds_on_a_fresh_universe(fresh_universe):
 
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        rc = cmd_register([
-            "--item", f"YOK-{_ITEM_ID}",
-            "--integration-target", "main",
-            "--paths", "src/fresh_install.py",
-            "--allow-planned",
-            "--session-id", _SESSION_ID,
-        ])
+        rc = cmd_register(
+            [
+                "--item",
+                f"YOK-{_ITEM_ID}",
+                "--integration-target",
+                "main",
+                "--paths",
+                "src/fresh_install.py",
+                "--allow-planned",
+                "--session-id",
+                _SESSION_ID,
+            ]
+        )
     payload = json.loads(out.getvalue() or err.getvalue())
     assert rc == 0, payload
     assert payload["success"] is True
     registered_by = conn.execute(
-        "SELECT registered_by_actor_id FROM path_claims "
-        "WHERE owner_item_id = %s",
+        "SELECT registered_by_actor_id FROM path_claims WHERE owner_item_id = %s",
         (_ITEM_ID,),
     ).fetchone()["registered_by_actor_id"]
     assert registered_by == _human_actor_id(conn)
+
+
+def _strip_org_grant(db) -> int:
+    """Model a universe born by an engine that predated the grant."""
+    actor_id = _human_actor_id(db)
+    db.execute("DELETE FROM actor_org_roles WHERE actor_id = %s", (actor_id,))
+    db.commit()
+    assert not holds_org_admin(db, actor_id)
+    return actor_id
+
+
+def test_registration_converges_the_grant_an_upgrade_left_missing(fresh_universe):
+    conn = fresh_universe
+    actor_id = _strip_org_grant(conn)
+
+    assert _begin(conn)["success"] is True
+
+    assert holds_org_admin(conn, actor_id)
+
+
+def test_claiming_works_on_a_universe_upgraded_without_the_grant(fresh_universe):
+    """Claiming and path-registering, the legs the missing grant denied."""
+    conn = fresh_universe
+    _strip_org_grant(conn)
+    _begin(conn)
+
+    claim_work(conn, session_id=_SESSION_ID, item_id=str(_ITEM_ID), reason="claim")
+
+    out, err = io.StringIO(), io.StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
+        rc = cmd_register(
+            [
+                "--item",
+                f"YOK-{_ITEM_ID}",
+                "--integration-target",
+                "main",
+                "--paths",
+                "src/upgraded_universe.py",
+                "--allow-planned",
+                "--session-id",
+                _SESSION_ID,
+            ]
+        )
+    payload = json.loads(out.getvalue() or err.getvalue())
+    assert rc == 0, payload
+    assert payload["success"] is True
+
+
+def test_an_explicit_actor_converges_nothing(fresh_universe):
+    """The bearer-token path belongs to universes that bootstrap their own."""
+    conn = fresh_universe
+    actor_id = _strip_org_grant(conn)
+
+    result = begin_session(
+        conn,
+        session_id="explicit-actor-session",
+        executor="claude-code",
+        provider="anthropic",
+        model=TEST_MODEL_ID,
+        workspace="/tmp/fresh-universe",
+        project_id=1,
+        actor_id=actor_id,
+    )
+
+    assert result["success"] is True
+    assert not holds_org_admin(conn, actor_id)

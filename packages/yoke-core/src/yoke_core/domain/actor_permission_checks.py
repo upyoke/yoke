@@ -174,8 +174,12 @@ def require_permission(
     )
     if not decision.allowed:
         raise PermissionDenied(
-            f"actor {actor_id} lacks {permission_key!r} on "
-            f"{_project_scope_label(conn, project_id)}"
+            _with_repair(
+                conn,
+                actor_id,
+                f"actor {actor_id} lacks {permission_key!r} on "
+                f"{_project_scope_label(conn, project_id)}",
+            )
         )
     return decision
 
@@ -247,10 +251,32 @@ def require_org_permission(
     )
     if not decision.allowed:
         raise PermissionDenied(
-            f"actor {actor_id} lacks {permission_key!r} on "
-            f"org {_org_scope_label(conn, org_id)}"
+            _with_repair(
+                conn,
+                actor_id,
+                f"actor {actor_id} lacks {permission_key!r} on "
+                f"org {_org_scope_label(conn, org_id)}",
+            )
         )
     return decision
+
+
+def _with_repair(conn: Any, actor_id: int, denial: str) -> str:
+    """Append the missing-grant recovery when that is what caused *denial*.
+
+    A refusal that names only the permission sends the reader looking for
+    a permission surface, and on a universe whose operator simply never
+    received its org role there is none to find — an agent reading one
+    concluded no grant surface existed at all. So the denial carries the
+    command that writes the grant, and only when that is genuinely the
+    cause; every other refusal stays the authorization answer it is.
+    """
+    from yoke_core.domain.local_operating_actor import (
+        missing_grant_repair_detail,
+    )
+
+    repair = missing_grant_repair_detail(conn, actor_id)
+    return f"{denial}. {repair}" if repair else denial
 
 
 __all__ = [
