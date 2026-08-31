@@ -304,6 +304,11 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_ITEMS_READ
     if fid == "db_claim.amend":
         return PERM_ITEMS_WRITE
+    if fid.startswith("gate_satisfier."):
+        # Resolving an obligation's satisfier ladder stamps the rung on
+        # the item, so it is an item write even though the caller is the
+        # engine rather than an authoring agent.
+        return PERM_ITEMS_WRITE
     if fid.startswith("strategy."):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("events."):

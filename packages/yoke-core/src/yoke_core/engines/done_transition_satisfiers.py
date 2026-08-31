@@ -83,7 +83,7 @@ def _report(outcome: Dict[str, Any], heading: str) -> Optional[str]:
         )
         if not outcome.get("stamp_recorded", True):
             print(
-                f"  Warning: the rung resolved but was not recorded on the "
+                "  Warning: the rung resolved but was not recorded on the "
                 "item. The transition stands on the resolution; re-run "
                 "`yoke project snapshot sync` and check the item detail."
             )
