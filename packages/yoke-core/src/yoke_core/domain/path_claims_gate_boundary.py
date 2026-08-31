@@ -193,6 +193,8 @@ def check_boundary_for_item(
                 repo_path=repo_path,
                 integration_targets=[target for _cid, target in claims],
             )
+        except PathClaimsUnreadable as exc:
+            return _blocked(str(exc))
         except LadderUnsatisfied as exc:
             record_refusal(
                 conn,
