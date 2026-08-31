@@ -18,7 +18,9 @@ from yoke_cli.transport import source_build_skew as skew
 def _git(repo, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(repo), *args],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
 
 
@@ -138,7 +140,9 @@ def test_fetched_origin_ahead_of_local_main_reports_the_gap(repo):
     origin = _commit(repo, "landed remotely\n")
     _git(repo, "update-ref", "refs/remotes/origin/main", origin)
     _git(
-        repo, "symbolic-ref", "refs/remotes/origin/HEAD",
+        repo,
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
         "refs/remotes/origin/main",
     )
     _git(repo, "reset", "--hard", local)
@@ -157,7 +161,9 @@ def test_current_main_has_no_origin_gap(repo):
     head = _git(repo, "rev-parse", "HEAD")
     _git(repo, "update-ref", "refs/remotes/origin/main", head)
     _git(
-        repo, "symbolic-ref", "refs/remotes/origin/HEAD",
+        repo,
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
         "refs/remotes/origin/main",
     )
 
@@ -165,3 +171,24 @@ def test_current_main_has_no_origin_gap(repo):
 
     assert result.relationship == skew.EQUAL
     assert not result.behind
+
+
+def test_same_checkout_head_and_build_reuse_the_history_walk(repo, monkeypatch):
+    """A second compare for the same HEAD must not cat-file the build again."""
+    seen: list[tuple[str, ...]] = []
+    inner = skew._git
+
+    def wrapped(root, *args: str):
+        seen.append(args)
+        return inner(root, *args)
+
+    monkeypatch.setattr(skew, "_git", wrapped)
+    skew._compare_to_server_build_cached.cache_clear()
+    head = _git(repo, "rev-parse", "HEAD")
+    first = skew.compare_to_server_build(str(repo), head)
+    second = skew.compare_to_server_build(str(repo), head)
+    assert first.relationship == skew.EQUAL
+    assert second.relationship == first.relationship
+    assert [a for a in seen if a[:1] == ("cat-file",)] == [
+        ("cat-file", "-e", f"{head}^{{commit}}"),
+    ]

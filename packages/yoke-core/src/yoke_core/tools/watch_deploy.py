@@ -27,6 +27,7 @@ from yoke_contracts.machine_config.schema import (
     ENV_OVERRIDE,
 )
 from yoke_contracts.deployment_itemless_teaching import (
+    FINALIZATION_PENDING_PREFIX,
     ITEMLESS_RELEASE_RECIPE,
     WATCH_DEPLOY_DESCRIPTION,
 )
@@ -53,6 +54,7 @@ DEPLOY_SUMMARY_PREFIXES: tuple[str, ...] = (
     "--- Stage:",
     "Pipeline complete",
     "Deployment authority:",
+    FINALIZATION_PENDING_PREFIX,
 )
 # Indented by the pipeline, so these match anywhere on the line rather
 # than at its start.
@@ -62,9 +64,7 @@ DEPLOY_SUMMARY_RE = re.compile(
 # A relay that cannot answer is the failure mode that cost a release most
 # of its wall clock, so it is urgent rather than progress even though the
 # pipeline keeps retrying past it.
-DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(
-    r"status relay is temporarily unavailable"
-)
+DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(r"status relay is temporarily unavailable")
 
 
 def classify_deploy_line(line: str) -> Classification:
@@ -133,7 +133,8 @@ def _engine_argv(args: Sequence[str]) -> list[str]:
 
 
 def _parse_args(
-    argv: Sequence[str], prog: str = DEFAULT_PROG,
+    argv: Sequence[str],
+    prog: str = DEFAULT_PROG,
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog=prog,
