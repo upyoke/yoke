@@ -168,6 +168,29 @@
   gap: 7px;
 }
 
+.universe-app-root .session-latest-message {
+  flex-wrap: nowrap;
+  min-width: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-message-button {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  height: 1.2em;
+  min-height: 0;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: inherit;
+  line-height: 1;
+}
+
+.universe-app-root .session-latest-message .session-message-badge {
+  padding-block: 0;
+  line-height: 1.2;
+}
+
 .universe-app-root .session-message-badge,
 .universe-app-root .session-kill-badge {
   display: inline-flex;

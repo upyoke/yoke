@@ -106,7 +106,11 @@ def _latest_activity(
     return str(raw), parsed
 
 
-def _actor_label(conn: Any, cache: Dict[int, str], actor_id: Any) -> Optional[str]:
+def _actor_label(
+    conn: Any,
+    cache: Dict[int, Optional[str]],
+    actor_id: Any,
+) -> Optional[str]:
     if actor_id is None:
         return None
     key = int(actor_id)
@@ -114,7 +118,7 @@ def _actor_label(conn: Any, cache: Dict[int, str], actor_id: Any) -> Optional[st
         try:
             cache[key] = actor_display_name(conn, key)
         except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
-            cache[key] = f"actor {key}"
+            cache[key] = None
     return cache[key]
 
 
@@ -208,7 +212,7 @@ def list_sessions(
         item_holders = live_item_claim_holders(conn)
         holdings_by_session = session_holdings_by_session(conn)
         blitz_lanes_by_session = claimed_blitz_worktree_ids_by_session(conn)
-        label_cache: Dict[int, str] = {}
+        label_cache: Dict[int, Optional[str]] = {}
         result: List[Dict[str, Any]] = []
         for raw in rows:
             row = dict(raw)

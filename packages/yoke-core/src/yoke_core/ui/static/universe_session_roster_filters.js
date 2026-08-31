@@ -194,23 +194,29 @@ export function messagingAvailability(row) {
   return { available: true, reason: "" };
 }
 
-export function appendSessionMessaging(documentNode, body, row, onMessage) {
-  appendRelay(documentNode, body, row);
+export function sessionMessageButton(documentNode, row, onMessage) {
   const availability = messagingAvailability(row);
-  if (!availability.available) {
-    body.appendChild(el(
-      documentNode,
-      "p",
-      "fact-line session-messaging-blocked",
-      availability.reason,
-    ));
-    return;
-  }
-  const actions = el(documentNode, "div", "session-control-actions");
-  const message = el(documentNode, "button", "item-button", "Message");
+  if (!availability.available) return null;
+  const message = el(
+    documentNode,
+    "button",
+    "item-button session-message-button",
+    "Message",
+  );
   message.type = "button";
   message.title = `Message only session ${row.session_id}`;
   message.addEventListener("click", () => onMessage(String(row.session_id)));
-  actions.appendChild(message);
-  body.appendChild(actions);
+  return message;
+}
+
+export function appendSessionMessaging(documentNode, body, row) {
+  appendRelay(documentNode, body, row);
+  const availability = messagingAvailability(row);
+  if (availability.available) return;
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-messaging-blocked",
+    availability.reason,
+  ));
 }

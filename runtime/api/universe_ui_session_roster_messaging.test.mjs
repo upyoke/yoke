@@ -197,7 +197,13 @@ test("Message all sends to the exact current roster result without a preview ste
 test("a card Message action sends to only that session", async (t) => {
   const requests = [];
   const rows = [
-    sessionRow("session-one", "active"),
+    sessionRow("session-one", "active", {
+      latest_message: {
+        message_id: "latest-one",
+        state: "acknowledged",
+        created_at: "2026-08-27T11:59:00Z",
+      },
+    }),
     sessionRow("session-two", "active"),
   ];
   const handlers = {
@@ -211,7 +217,21 @@ test("a card Message action sends to only that session", async (t) => {
     }),
   };
   const { root, mounted } = await mountRoster(t, rows, requests, handlers);
-  button(byClass(root, "session-card")[0], "Message").dispatchEvent(new Event("click"));
+  const card = byClass(root, "session-card")[0];
+  const latest = byClass(card, "session-latest-message")[0];
+  assert.deepEqual(
+    latest.children.map((node) => [node.tagName, node.className]),
+    [
+      ["BUTTON", "item-button session-message-button"],
+      ["SPAN", "session-latest-label"],
+      ["SPAN", "session-message-badge is-acknowledged"],
+    ],
+  );
+  assert.equal(latest.children[0].textContent, "Message");
+  assert.equal(latest.children[1].textContent, "Latest:");
+  assert.match(latest.children[2].textContent, /^acknowledged · /);
+  assert.equal(byClass(card, "session-control-actions").length, 0);
+  button(card, "Message").dispatchEvent(new Event("click"));
   await settle();
   const preview = requests.find(
     (request) => request.function === "session_control.message.preview",

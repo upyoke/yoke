@@ -8,11 +8,9 @@ import {
   callFunction,
   el,
   mergedRows,
-  portabilityMode,
   scopeBuckets,
   parkedBadge,
   settledScopedCalls,
-  whoColumn,
 } from "./universe_view_support.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
@@ -20,6 +18,7 @@ import { appendSessionPresentation } from "./universe_session_presentation.js";
 import { appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
   appendSessionMessaging,
+  sessionMessageButton,
   sessionRosterFilters,
 } from "./universe_session_roster_filters.js";
 import { displaySessionModel } from "./session_model_display.js";
@@ -66,20 +65,10 @@ function laneChip(documentNode, row) {
   return chip;
 }
 
-function operatorLabel(documentNode, row, who, mode) {
-  // One machine has one operator, so naming them on every card says nothing.
-  if (mode === "local") return null;
-  const machine = row.actor_kind === "system";
-  const directory = who.label === "member";
-  if (machine && directory) {
-    return el(documentNode, "span", "session-operator", "machine");
-  }
-  return el(
-    documentNode,
-    "span",
-    "session-operator",
-    who.value(row) || "unattributed",
-  );
+function operatorLabel(documentNode, row) {
+  const label = String(row.actor_label || "").trim();
+  if (!label || /^[-–—]+$/.test(label)) return null;
+  return el(documentNode, "span", "session-operator", label);
 }
 
 function appendModel(documentNode, body, row) {
@@ -97,7 +86,7 @@ function appendModel(documentNode, body, row) {
 // Steering scope is a holding, so on a steering seat it leads the work the
 // way a claimed item leads a worker's.
 export function sessionCard(
-  documentNode, row, who, mode, onMessage, projects = [],
+  documentNode, row, onMessage, projects = [],
 ) {
   const card = el(documentNode, "article", "session-card");
   card.setAttribute("data-session-id", String(row.session_id || ""));
@@ -114,7 +103,7 @@ export function sessionCard(
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
   top.appendChild(laneChip(documentNode, row));
   top.appendChild(parkedBadge(documentNode, row.mode, row.parked_reason));
-  const operator = operatorLabel(documentNode, row, who, mode);
+  const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);
   card.appendChild(top);
 
@@ -124,8 +113,9 @@ export function sessionCard(
   appendSessionPresentation(documentNode, body, row);
   appendHoldings(documentNode, body, row, projects);
   if (row.liveness !== "ended") appendSessionAge(documentNode, body, row);
-  appendSessionDiagnostics(documentNode, body, row);
-  appendSessionMessaging(documentNode, body, row, onMessage);
+  const messageAction = sessionMessageButton(documentNode, row, onMessage);
+  appendSessionDiagnostics(documentNode, body, row, messageAction);
+  appendSessionMessaging(documentNode, body, row);
   card.appendChild(body);
   return card;
 }
@@ -148,7 +138,7 @@ function metricFacts(rows) {
 }
 
 function renderSessions(
-  documentNode, host, rows, who, mode, onMessage, projects, filtered = false,
+  documentNode, host, rows, onMessage, projects, filtered = false,
 ) {
   host.replaceChildren(statRow(documentNode, metricFacts(rows)));
   if (!rows.length) {
@@ -162,9 +152,7 @@ function renderSessions(
   }
   const grid = el(documentNode, "div", "session-grid");
   for (const row of rows) {
-    grid.appendChild(sessionCard(
-      documentNode, row, who, mode, onMessage, projects,
-    ));
+    grid.appendChild(sessionCard(documentNode, row, onMessage, projects));
   }
   host.appendChild(grid);
 }
@@ -192,7 +180,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   const renderRoster = () => {
     const rows = currentRows();
     renderSessions(
-      documentNode, content, rows, who, mode, openMessage,
+      documentNode, content, rows, openMessage,
       context.projects(),
       filters.isRestrictive(),
     );
@@ -231,8 +219,6 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   }
 
   const buckets = scopeBuckets(scope, context.projects(), false);
-  const who = whoColumn(context.capabilities);
-  const mode = portabilityMode(context.capabilities);
   const reclaimPayload = scope === "all"
     ? { confirm: true }
     : {

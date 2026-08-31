@@ -103,7 +103,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     capabilities: {
       data: {
         portability: { mode: "hosted" },
-        memberDirectory: { 2: "ben" },
+        memberDirectory: { 2: "stale-directory-name" },
       },
     },
   });
@@ -208,6 +208,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   // for the overview table, so their absence here is the card's own change.
   assert.equal(byClass(root, "session-id").length, 0);
   assert.equal(byClass(root, "session-actor-avatar").length, 0);
+  assert.deepEqual(
+    byClass(root, "session-operator").map((operator) => operator.textContent),
+    ["Ben", "preview-ci"],
+  );
   for (const gone of [
     "Executor version:", "Messageable:", "Stale cleanup:", "Why active:",
     "Machine:",
@@ -216,14 +220,14 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
-    "🧭 Integration", "claude-opus-4-8", "claim held", "idle", "ben",
+    "🧭 Integration", "claude-opus-4-8", "claim held", "idle", "Ben",
     "Relay:", "test-mac",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);
   }
   for (const expected of [
     "codex", "DARIUS", "gpt-5.6-sol", "worktree attached",
-    "stale", "machine", "no relay connected",
+    "stale", "preview-ci", "no relay connected",
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }
