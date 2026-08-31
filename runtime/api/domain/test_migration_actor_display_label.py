@@ -23,7 +23,7 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
 )
 
 
-ENTRY_NAME = "0030_actor_display_label_not_a_resolution_key"
+ENTRY_NAME = "0031_actor_display_label_not_a_resolution_key"
 
 
 def _entry():
