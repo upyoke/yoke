@@ -6,6 +6,9 @@ from contextlib import nullcontext
 from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import project_github_binding
+from yoke_core.domain.handlers.project_github_binding import (
+    ProjectGithubBindingBindRequest,
+)
 
 
 def test_bind_uses_cached_user_authorization_and_narrow_intent(monkeypatch) -> None:
@@ -23,9 +26,11 @@ def test_bind_uses_cached_user_authorization_and_narrow_intent(monkeypatch) -> N
     def _dispatch(
         function_id, payload, session_id, json_mode, *, sensitive_values=(),
     ):
+        parsed = ProjectGithubBindingBindRequest(**payload)
         captured.update({
             "function_id": function_id,
             "payload": payload,
+            "canonical_ids": (parsed.installation_id, parsed.repository_id),
             "session_id": session_id,
             "json_mode": json_mode,
             "sensitive_values": sensitive_values,
@@ -53,6 +58,7 @@ def test_bind_uses_cached_user_authorization_and_narrow_intent(monkeypatch) -> N
             "expected_api_url": "https://github.example/api/v3",
             "github_user_access_token": "transient-user-token",
         },
+        "canonical_ids": ("101", "202"),
         "session_id": None,
         "json_mode": True,
         "sensitive_values": ("transient-user-token",),
