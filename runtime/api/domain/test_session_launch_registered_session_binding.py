@@ -11,6 +11,7 @@ from yoke_core.domain.session_launch_execution import (
 )
 from yoke_core.domain.session_launch_registration import (
     complete_launch_for_message,
+    complete_launch_injection,
     prepare_launch_registration,
 )
 from yoke_core.domain.session_launch_store import get_launch
@@ -147,7 +148,9 @@ def test_reconciliation_reopens_and_routes_the_stranded_instruction() -> None:
     assert reopened[0] is None
 
 
-def test_attested_registration_anchors_wake_at_delivery_without_changing_deadline() -> None:
+def test_attested_registration_anchors_wake_at_delivery_without_changing_deadline() -> (
+    None
+):
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _claim(conn, key="attested-identity")
@@ -194,6 +197,80 @@ def test_attested_registration_anchors_wake_at_delivery_without_changing_deadlin
         (launch.message_id,),
     ).fetchone()
     assert reopened[0] is None
+
+
+def test_successful_send_restamps_wake_after_without_moving_deadline() -> None:
+    conn = launch_connection()
+    add_relay(conn)
+    launch, claim = _claim(conn, key="send-time-wake")
+    bind_time = "2026-08-22T12:00:30Z"
+    send_time = "2026-08-22T12:00:45Z"
+    _register(conn, "send-session")
+    report_launch_attempt(
+        conn,
+        launch_id=launch.launch_id,
+        lease_id=claim.lease_id,
+        result_code="native_created",
+        native_session_id="send-session",
+        now=bind_time,
+    )
+
+    assert tuple(_recipient(conn, launch.message_id)) == (
+        "send-session",
+        "pending",
+        bind_time,
+    )
+    deadline_at = get_launch(conn, launch.launch_id).deadline_at
+    assert deadline_at != bind_time
+    assert deadline_at != send_time
+
+    complete_launch_injection(
+        conn,
+        launch_id=launch.launch_id,
+        session_id="send-session",
+        injected=True,
+        now=send_time,
+    )
+
+    assert tuple(_recipient(conn, launch.message_id)) == (
+        "send-session",
+        "injected",
+        send_time,
+    )
+    bound = get_launch(conn, launch.launch_id)
+    assert bound.deadline_at == deadline_at
+    assert bound.deadline_at != send_time
+
+
+def test_failed_injection_does_not_restamp_wake_after() -> None:
+    conn = launch_connection()
+    add_relay(conn)
+    launch, claim = _claim(conn, key="failed-send-wake")
+    bind_time = "2026-08-22T12:00:30Z"
+    _register(conn, "failed-send-session")
+    report_launch_attempt(
+        conn,
+        launch_id=launch.launch_id,
+        lease_id=claim.lease_id,
+        result_code="native_created",
+        native_session_id="failed-send-session",
+        now=bind_time,
+    )
+
+    complete_launch_injection(
+        conn,
+        launch_id=launch.launch_id,
+        session_id="failed-send-session",
+        injected=False,
+        now="2026-08-22T12:00:45Z",
+    )
+
+    assert tuple(_recipient(conn, launch.message_id)) == (
+        "failed-send-session",
+        "pending",
+        bind_time,
+    )
+    assert get_launch(conn, launch.launch_id).deadline_at != bind_time
 
 
 def test_existing_session_mismatch_is_visible_without_losing_native_evidence() -> None:
