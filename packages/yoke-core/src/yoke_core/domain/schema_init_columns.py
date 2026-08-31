@@ -70,7 +70,10 @@ def apply_additive_schema(conn: Any) -> None:
     additive column MUST therefore be self-sufficient on ADD alone — nullable
     (NULL is a valid value) or ``NOT NULL DEFAULT`` (Postgres populates existing
     rows at ADD time). A column that needs a follow-up data backfill to be valid
-    belongs in :func:`apply_legacy_data_migrations`, not here.
+    belongs in :func:`apply_legacy_data_migrations`, not here. A column added to
+    a table the release driver reads must land with window-tolerant reads in the
+    same change: ``runs get`` / ``runs list`` and their shared projection
+    substitute empty for a declared column the live table has not yet converged.
     """
     # Scope-bound replay metadata. Empty defaults make legacy rows explicitly
     # unverifiable; the dispatcher denies them instead of replaying across a

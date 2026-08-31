@@ -8,7 +8,11 @@ from typing import Any, Mapping
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
-from yoke_core.domain.deployment_runs_schema import RUN_FIELDS, VALID_STATUSES
+from yoke_core.domain.deployment_runs_schema import (
+    RUN_FIELDS,
+    VALID_STATUSES,
+    _run_named_columns,
+)
 from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.project_identity import resolve_project
 
@@ -72,13 +76,11 @@ def _row_snapshot(row: Any) -> dict[str, str | None]:
 
 
 def _locked_existing(conn: Any, run_id: str) -> dict[str, str | None] | None:
+    columns, env_join = _run_named_columns(conn)
     row = conn.execute(
-        "SELECT dr.id,p.slug AS project,dr.flow,dr.target_tier,"
-        "e.name AS target_environment,"
-        "dr.release_lineage,dr.status,dr.current_stage,dr.created_at,"
-        "dr.started_at,dr.completed_at,dr.created_by,dr.carried_work "
+        f"SELECT {columns} "
         "FROM deployment_runs dr JOIN projects p ON p.id=dr.project_id "
-        "LEFT JOIN environments e ON e.id=dr.target_environment_id "
+        f"{env_join} "
         "WHERE dr.id=%s FOR UPDATE OF dr",
         (run_id,),
     ).fetchone()

@@ -12,9 +12,10 @@ from typing import List, Optional
 from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
 from yoke_core.domain.deployment_runs_schema import (
     RUN_FIELDS,
-    _RUN_SELECT,
     _pipe_row,
     _pipe_rows,
+    _run_field_available,
+    _run_select,
 )
 from yoke_core.domain.project_identity import resolve_project_id
 
@@ -42,6 +43,8 @@ def cmd_get(
             )
             if not exists:
                 return None
+            if not _run_field_available(conn, field):
+                return ""
             if field == "project":
                 val = query_scalar(
                     conn,
@@ -66,7 +69,7 @@ def cmd_get(
         else:
             row = query_one(
                 conn,
-                f"SELECT {_RUN_SELECT} FROM deployment_runs WHERE id=%s",
+                f"SELECT {_run_select(conn)} FROM deployment_runs WHERE id=%s",
                 (run_id,),
             )
             if row is None:
@@ -90,9 +93,7 @@ def cmd_list(
         or resolved_limit < 1
         or resolved_limit > MAX_RUN_LIST_LIMIT
     ):
-        raise ValueError(
-            f"limit must be an integer from 1 to {MAX_RUN_LIST_LIMIT}"
-        )
+        raise ValueError(f"limit must be an integer from 1 to {MAX_RUN_LIST_LIMIT}")
     conn = connect(db_path)
     try:
         clauses: List[str] = []
@@ -110,7 +111,7 @@ def cmd_list(
 
         rows = query_rows(
             conn,
-            f"SELECT {_RUN_SELECT} FROM deployment_runs {where} "
+            f"SELECT {_run_select(conn)} FROM deployment_runs {where} "
             "ORDER BY created_at DESC, id DESC LIMIT %s",
             (*params, resolved_limit),
         )

@@ -35,6 +35,9 @@ class _Result:
     def fetchall(self):
         return self.rows
 
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
+
 
 class _RunRows:
     def __enter__(self):
@@ -47,6 +50,8 @@ class _RunRows:
         return None
 
     def execute(self, sql, _params):
+        if "pg_catalog.pg_attribute" in sql:
+            return _Result([{"name": "present"}])
         if "FROM deployment_runs dr" in sql:
             return _Result(
                 [
