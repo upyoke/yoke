@@ -281,9 +281,26 @@ def resolve_ci_workflow_binding(
     if inspection.reason_code not in refusing:
         return workflow_file, inspection
     if refuse_unreachable:
+        from yoke_core.domain.capability_undeclare_remedy import undeclare_remedy
+        from yoke_core.domain.projects_seed_ci_workflow import (
+            CI_WORKFLOW_CAPABILITY_TYPE,
+            MERGE_QUEUE_CAPABILITY_TYPE,
+        )
+
+        capability = (
+            MERGE_QUEUE_CAPABILITY_TYPE
+            if inspection.reason_code == "pull_request_missing"
+            else CI_WORKFLOW_CAPABILITY_TYPE
+        )
         raise ValueError(
             f"cannot bind {scope!r} verification for project {project!r} to "
-            f"CI: {inspection.message}"
+            f"CI: {inspection.message}. "
+            + undeclare_remedy(
+                capability,
+                project=project,
+                consequence="verification then binds this machine's local "
+                "runner instead of CI",
+            )
         )
     return "", inspection
 

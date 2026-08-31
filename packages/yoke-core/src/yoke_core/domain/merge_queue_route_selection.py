@@ -147,7 +147,15 @@ def route_standalone_landing(
             ok=False,
             exit_code=1,
             already_merged=False,
-            error=f"merge-queue capability probe failed: {probe_error}",
+            error=(
+                f"merge-queue capability probe failed: {probe_error}. "
+                + undeclare_remedy(
+                    MERGE_QUEUE_CAPABILITY_TYPE,
+                    project=project,
+                    consequence="this branch then lands through the "
+                    "standalone merge engine",
+                )
+            ),
         )
     if not declared:
         return merge_standalone_branch(
