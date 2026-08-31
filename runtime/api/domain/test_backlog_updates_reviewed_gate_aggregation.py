@@ -34,9 +34,6 @@ def _aggregate_reviewed(*, arch=None, boundary=None, qa=None, item_id: int = 42)
             mock.patch.object(helpers, "_run_db_mutation_gate", return_value=None)
         )
         s.enter_context(
-            mock.patch.object(helpers, "_run_file_line_gate", return_value=None)
-        )
-        s.enter_context(
             mock.patch(
                 "yoke_core.domain.backlog_architecture_gate_runner._run_architecture_impact_gate",
                 return_value=arch,

@@ -79,19 +79,6 @@ def _run_authoritative_status_gate(
     """
     bypass_non_activation = qa_bypass or force
 
-    # Lazy import keeps the helpers shim patchable while avoiding a
-    # helpers <-> authoritative-gate import cycle at module load time.
-    from yoke_core.domain import backlog_updates_helpers as _helpers
-
-    if not bypass_non_activation:
-        file_line_result = _helpers._run_file_line_gate(
-            item_id=item_id,
-            target_status=target_status,
-            db_path=db_path,
-        )
-        if file_line_result is not None:
-            return file_line_result
-
     if conn is None:
         workflow_conn = connect(db_path)
         try:

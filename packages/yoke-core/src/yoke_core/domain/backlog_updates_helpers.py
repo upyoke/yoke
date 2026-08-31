@@ -13,7 +13,6 @@ Sibling layout (each imported directly — no two-hop indirection):
 - ``backlog_epic_task_cascade``             — cascade epic status to tasks
 - ``backlog_db_mutation_gate_runner``       — joint / evidence / polish gate
                                               dispatch + prose-vs-claim check
-- ``backlog_file_line_gate_runner``         — file-line lifecycle no-op shim
 - ``backlog_authoritative_status_gate``     — composes QA + DB + plan gates
 - ``backlog_unsupported_field_writes``      — source / deploy-stage writes
 - ``backlog_project_issue_migration``       — project change → issue migration
@@ -45,10 +44,6 @@ from yoke_core.domain.backlog_db_mutation_gate_runner import (  # noqa: F401
     _run_db_mutation_gate,
     _run_prose_vs_claim_check,
 )
-from yoke_core.domain.backlog_file_line_gate_runner import (  # noqa: F401
-    _FILE_LINE_GATE_TARGETS,
-    _run_file_line_gate,
-)
 from yoke_core.domain.backlog_authoritative_status_gate import (  # noqa: F401
     _run_authoritative_status_gate,
 )
@@ -78,9 +73,6 @@ __all__ = [
     "_profile_declares_mutation",
     "_run_db_mutation_gate",
     "_run_prose_vs_claim_check",
-    # File-line gate runner
-    "_FILE_LINE_GATE_TARGETS",
-    "_run_file_line_gate",
     # Authoritative status gate (composer)
     "_run_authoritative_status_gate",
     # Unsupported field writes

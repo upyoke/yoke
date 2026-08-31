@@ -30,7 +30,7 @@ const GATES = {
   architecture_impact: {
     name: "Architecture impact",
     description:
-      "The item's declared architecture impact must honor the project's authoritative architecture model (the per-project architecture_model Project Structure family).",
+      "The item's declared architecture impact must be resolved before it advances: an item still marked 'uncertain' is refused past refined-idea. Conformance to the project's architecture model itself is reported by the architecture Doctor checks, which hold the checkout this gate does not.",
     source_kind: "status_gate",
     availability: "live",
   },
