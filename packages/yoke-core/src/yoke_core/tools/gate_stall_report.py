@@ -227,7 +227,7 @@ def diagnose_quiet_run(
             detail = f"{detail} cmd={cmd[:120]}"
         return StallReport(waiting_on="child process", detail=detail)
 
-    return StallReport(waiting_on="pytest child with no further output")
+    return StallReport(waiting_on="no attributable child")
 
 
 def handle_quiet_period(

@@ -6,6 +6,7 @@ import io
 import sys
 from pathlib import Path
 
+from yoke_core.domain import process_group_reaping
 from yoke_core.tools import _watch_runner, gate_stall_report
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
@@ -71,6 +72,34 @@ def test_live_child_without_slot_context_names_the_process():
     assert report.waiting_on == "child process"
     assert "pid=300" in report.detail
     assert report.abort is False
+
+
+def test_deploy_watcher_does_not_attribute_concurrent_unrelated_process(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setenv(_watch_runner.QUIET_HEARTBEAT_SECONDS_ENV, "0.05")
+    monkeypatch.setenv(gate_stall_report.STALL_ABORT_ENV, "0")
+    command = [sys.executable, "-c", "import time; time.sleep(30)"]
+    unrelated = process_group_reaping.popen_in_process_group(command)
+    out = io.StringIO()
+    raw = tmp_path / "raw.log"
+    progress = tmp_path / "progress.log"
+    try:
+        rc = _watch_runner.run_watcher(
+            argv=[sys.executable, "-c", "import time; time.sleep(0.25)"],
+            classifier=lambda _line: Classification(LineClass.NOISE),
+            raw_capture=raw,
+            progress_capture=progress,
+            kind="deploy",
+            stdout_stream=out,
+        )
+    finally:
+        process_group_reaping.terminate_process_group(unrelated)
+
+    assert rc == 0
+    text = progress.read_text(encoding="utf-8")
+    assert "watch_deploy still running; waiting on: no attributable child" in text
+    assert str(unrelated.pid) not in text
 
 
 def test_quiet_watcher_emits_waiting_on_and_preserves_capture(
