@@ -191,7 +191,7 @@ yoke workflow-item epic-dispatch-chain refresh-activation --epic <epic-id> --wor
   - `yoke items cancel PREFIX-N --reason 'superseded by PREFIX-X' --ref PREFIX-X
 yoke lifecycle transition PREFIX-N --to stopped --reason 'paused'
 yoke lifecycle transition PREFIX-N --to failed --reason 'blocked'`
-  - `items.cancel.run` takes the claim, cancels a frozen item in one step (clears frozen as part of the terminal close), reconciles item_dependencies, and closes GitHub. Substitute stopped (paused) or failed via lifecycle transition.
+  - `items.cancel.run` takes the claim, cancels a frozen item in one step (clears frozen as part of the terminal close), releases the item's own worktree lanes, reconciles item_dependencies, and closes GitHub. Substitute stopped (paused) or failed via lifecycle transition.
 - _Move a work item forward in lifecycle (claim → transition → release)_
   - `yoke claims work acquire --item PREFIX-N --reason transition
 yoke lifecycle transition PREFIX-N --to refined-idea

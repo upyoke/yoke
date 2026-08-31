@@ -1,9 +1,9 @@
 """``yoke items cancel`` adapter for ``items.cancel.run``.
 
 Consumes the structured close path: work-claim scoping, frozen-item
-handling, dependency reconciliation, and GitHub close/comment happen in
-the handler. The caller supplies the item, a one-line reason, and an
-optional superseding-item ``--ref``.
+handling, worktree-lane release, dependency reconciliation, and GitHub
+close/comment happen in the handler. The caller supplies the item, a
+one-line reason, and an optional superseding-item ``--ref``.
 """
 
 from __future__ import annotations

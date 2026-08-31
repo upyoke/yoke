@@ -183,6 +183,9 @@ def test_release_refuses_an_item_outside_the_recovery_status(
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "recovery_status_invalid"
+    assert "implemented" in outcome.error.message
+    assert "reviewed-implementation" in outcome.error.message
+    assert "release" in outcome.error.message
     assert list_item_worktrees(test_db, 944, active_only=True)
 
 

@@ -22,6 +22,11 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.handlers.items_cancel import handle_cancel
+from yoke_core.domain.item_worktrees import (
+    list_item_worktrees,
+    record_item_worktree,
+)
+from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
 
 
 SESSION = "cancel-verb-session"
@@ -160,6 +165,22 @@ class TestCancel:
         assert "someone-else" in outcome.error.message
         assert _row(test_db, 8407)[0] == "implementing"
         assert _live_claims(test_db, 8407) == ["someone-else"]
+
+    def test_cancels_and_releases_an_active_lane(self, test_db) -> None:
+        insert_item(test_db, id=8408, status="implementing")
+        record_item_worktree(
+            test_db,
+            item_id=8408,
+            branch="YOK-8408",
+            path="/tmp/yoke-8408",
+            lane_role=LANE_IMPLEMENTATION,
+        )
+        test_db.commit()
+        outcome = handle_cancel(_request(8408, reason="will never resume"))
+        assert outcome.primary_success, outcome.error
+        assert _row(test_db, 8408)[0] == "cancelled"
+        assert list_item_worktrees(test_db, 8408, active_only=True) == []
+        assert _live_claims(test_db, 8408) == []
 
     def test_unknown_item_is_not_found(self, test_db) -> None:
         del test_db

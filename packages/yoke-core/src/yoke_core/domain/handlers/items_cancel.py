@@ -5,7 +5,9 @@ dependency reconciliation and GitHub close/comment are not skipped. The
 work claim still governs the write with the same implicit acquire as the
 flag verbs: take-and-release when nobody holds it, refuse a foreign
 holder. Unlike freeze, a successful cancel also releases a claim the
-caller already held, because the item is terminal.
+caller already held, because the item is terminal. Cancellation of the
+item is cancellation of its lanes: the terminal close releases the
+item's own worktree lanes in the same transaction.
 
 A frozen item is cancelled in this same call. Freeze parks work that
 will resume; cancel is terminal, so ``execute_close`` clears ``frozen``

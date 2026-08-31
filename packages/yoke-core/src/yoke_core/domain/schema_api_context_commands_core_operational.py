@@ -55,6 +55,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "notes": (
             "`items.cancel.run` takes the claim, cancels a frozen item in "
             "one step (clears frozen as part of the terminal close), "
+            "releases the item's own worktree lanes, "
             "reconciles item_dependencies, and closes GitHub. Substitute "
             "stopped (paused) or failed via lifecycle transition."
         ),

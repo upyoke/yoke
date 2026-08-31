@@ -83,7 +83,7 @@ ITEMS_ADAPTERS = [
         canonical_skill_invocation=(
             'yoke items create "{title}" {workflow} '
             '--entry-surface harness_skill --project "${_project}" '
-            '--execution-instructions-considered'
+            "--execution-instructions-considered"
         ),
     ),
     AdapterEntry(
@@ -154,6 +154,7 @@ ITEMS_ADAPTERS = [
         notes=(
             "Takes the item claim for the caller; refuses a foreign holder. "
             "Consumes execute_close (dependency reconciliation + GitHub close). "
+            "Releases the item's own worktree lanes in the same terminal close. "
             "Frozen items cancel in one step; frozen is cleared as part of the "
             "terminal close, not thawed for later."
         ),

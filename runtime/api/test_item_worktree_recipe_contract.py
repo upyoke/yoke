@@ -99,7 +99,8 @@ def test_evidence_only_recovery_releases_active_lane_records(
         assert clean_check != -1
         assert release != -1
         assert clean_check < release
-        assert "--ignored=matching --untracked-files=all" in text[clean_check:release]
+        assert "--untracked-files=all" in text[clean_check:release]
+        assert "--ignored=matching" not in text[clean_check:release]
         assert "--reason evidence-only-recovery" in text[release:]
         assert "exactly one active implementation lane" in text
         assert "attestation" in text
@@ -148,7 +149,7 @@ def test_function_reference_documents_transport_aware_lane_operations(
     assert "lane-id/branch stale-state preconditions" in text
     assert "`item_worktrees.release`" in text
     assert "fresh clean-lane attestation" in text
-    assert "modified tracked, untracked, or ignored files" in text
+    assert "modified tracked or untracked files" in text
 
 
 @pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
