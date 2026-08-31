@@ -30,6 +30,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
+from yoke_core.domain.lint_session_cwd_host_command import (
+    host_command_exemption_note,
+)
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
 
@@ -256,13 +259,23 @@ def build_scope_mismatch_block(
     offending_target: str,
     claims: Sequence[ClaimedWorktree],
     repo_roots: Sequence[str],
+    command: str = "",
 ) -> str:
-    """Render the BLOCKED message body shared by deny + orientation."""
-    return SCOPE_MISMATCH_TEMPLATE.format(
+    """Render the BLOCKED message body shared by deny + orientation.
+
+    ``command`` is the Bash body the deny came from, when there is one.
+    A refused ``yoke qa mission host-command`` call gets a closing
+    clause naming the remote-argv exemption, so a caller whose remote
+    paths were already exempted can see that the target above came from
+    the locally-running part of the call. The orientation path has no
+    command and renders the body unchanged.
+    """
+    body = SCOPE_MISMATCH_TEMPLATE.format(
         target=offending_target,
         claims_block=render_claims_block(claims),
         allowed_block=render_allowed_block(repo_roots),
     )
+    return body + host_command_exemption_note(command)
 
 
 def render_claims_block(claims: Sequence[ClaimedWorktree]) -> str:
