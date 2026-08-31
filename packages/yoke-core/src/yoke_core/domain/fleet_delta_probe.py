@@ -1,26 +1,14 @@
-"""Poll fleet state and print one line per change.
+"""Poll fleet state and classify each observed change.
 
-This is the command the ``yoke watch fleet`` wrapper runs. It has no
-Yoke-side dependency on any harness: it reads registered functions,
-compares consecutive observations, and writes delta lines plus a
-rate-limited changed steering report to stdout.
-Whether those lines become Claude ``Monitor`` wake events, Codex PTY
-output, or a scrollback the operator reads afterwards is the caller's
-concern, not this loop's.
-
-The steerer's own session id comes from ambient identity, so the same
-command survives a steering handoff without being edited.
-
-Silence is the design. A pass where nothing moved prints nothing at
-all, which is why the loop is bounded by ``--duration`` rather than
-running forever: a bounded run always writes its watcher exit sentinel,
-and a follower armed against it always terminates.
+The wrapper routes this module's urgent tier to wakes while retaining every
+line raw. Ambient identity survives handoff; bounded runs leave a sentinel.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -48,33 +36,53 @@ STEERING_REPORT_INTERVAL_KEY = "steering_report_interval_minutes"
 #: silently against a control plane it cannot reach.
 MAX_CONSECUTIVE_READ_FAILURES = 3
 READ_FAILURE_EXIT = 1
+WAKE_NOW = "urgent"
+DEFER_TO_REPORT = "routine"
+DELTA_WAKE_RULES = (
+    (
+        WAKE_NOW,
+        re.compile(
+            r"^fleet (?:(?:ERROR|FATAL)\b|inbox\b|ALARM "
+            r"(?:idle-holder|unowned-item|starved-envelope)\b|"
+            r"session \S+ terminated\b|item \S+ status .* -> (?:blocked|stopped)\b)"
+        ),
+    ),
+    (
+        DEFER_TO_REPORT,
+        re.compile(
+            r"^fleet (?:item \S+ (?:entered|status|claim|left-frontier)\b|"
+            r"session \S+ (?:registered|ended)\b|"
+            r"CLEAR (?:idle-holder|unowned-item|starved-envelope)\b)"
+        ),
+    ),
+)
 
 HELP_EPILOG = """\
-Each pass reads `sessions.list`, `charge.schedule`, and the durable
-message listing, then prints one line per change. A real delta batch is
-followed by the composed steering report when its configured interval
-has elapsed and its fingerprint changed. A pass that observes no change
-prints nothing.
+Each pass reads the session roster, charge schedule, and durable inbox. Every
+change stays in the raw capture. Failures, messages, alarms, abnormal ends,
+and blocked items wake now; routine lifecycle and claim churn wait for the
+next changed steering report. Identifiers are always printed whole.
 
-Every identifier is printed whole. Session ids collide heavily at any
-prefix, so a line never carries a fragment of one.
-
-Line shapes:
+Raw line shapes:
   fleet item YOK-N status <old> -> <new>
   fleet session <session-id> registered|ended|terminated surface=<surface>
   fleet inbox <message-id> state=pending|injected from=<session-id>
   fleet ALARM idle-holder|unowned-item|starved-envelope ...
   fleet CLEAR <alarm-kind> <subject>
-
-An alarm naming a worker carries `reach=` — the send form that addresses
-it. A claimed item has exactly one holder, so `yoke say --item PREFIX-N
---stdin` reaches that worker without copying any id at all.
-
-examples:
-  yoke watch fleet -- --project yoke
-  yoke watch fleet -- --project yoke --project platform --interval 30
-  yoke watch fleet --print-streaming-pair -- --project yoke
 """
+
+
+def delta_wake_tier(line: str) -> str | None:
+    """Return this line's tier, refusing an unclassified fleet delta."""
+    for tier, pattern in DELTA_WAKE_RULES:
+        if pattern.search(line):
+            return tier
+    if line.startswith("fleet "):
+        raise ValueError(
+            "unclassified fleet delta; add its kind and tier to "
+            f"DELTA_WAKE_RULES: {line.rstrip()}"
+        )
+    return None
 
 
 def _now() -> datetime:
@@ -258,6 +266,7 @@ def run(
             consecutive_failures = 0
             delta_lines = compare(previous, current, state)
             for line in delta_lines:
+                delta_wake_tier(line)
                 _write(stream, line)
             if delta_lines:
                 _append_steering_reports(

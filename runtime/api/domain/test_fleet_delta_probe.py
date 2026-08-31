@@ -8,12 +8,17 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from yoke_core.domain import fleet_delta_probe
 from yoke_core.domain.fleet_delta_probe import (
+    DEFER_TO_REPORT,
     MAX_CONSECUTIVE_READ_FAILURES,
     PROJECT_POLICY_FUNCTION,
     READ_FAILURE_EXIT,
     STEERING_REPORT_FUNCTION,
+    WAKE_NOW,
+    delta_wake_tier,
     run,
 )
 from yoke_core.domain.fleet_delta_snapshot import (
@@ -21,9 +26,10 @@ from yoke_core.domain.fleet_delta_snapshot import (
     FRONTIER_FUNCTION,
     SESSIONS_FUNCTION,
 )
+from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 
 NOW = datetime(2026, 8, 28, 17, 0, tzinfo=timezone.utc)
-REPORT_BODY = "fleet report\n  one composed picture"
+REPORT_BODY = f"{REPORT_BEGIN}\nproject 1\n  one composed picture\n{REPORT_END}"
 
 
 def _ok(result: dict[str, Any]) -> SimpleNamespace:
@@ -105,6 +111,43 @@ def test_heartbeat_only_quiet_passes_do_not_fetch_a_report() -> None:
     assert code == 0
     assert output == ""
     assert STEERING_REPORT_FUNCTION not in calls
+
+
+@pytest.mark.parametrize(
+    "line",
+    (
+        "fleet ERROR read failed sessions.list: unreachable",
+        "fleet inbox message-1 state=pending from=worker-1",
+        "fleet ALARM idle-holder session=worker-1",
+        "fleet ALARM unowned-item YOK-1 status=implementing",
+        "fleet ALARM starved-envelope message=message-1",
+        "fleet session worker-1 terminated surface=codex-cli",
+        "fleet item YOK-1 status implementing -> blocked",
+    ),
+)
+def test_actionable_delta_kinds_wake_now(line: str) -> None:
+    assert delta_wake_tier(line) == WAKE_NOW
+
+
+@pytest.mark.parametrize(
+    "line",
+    (
+        "fleet item YOK-1 entered status=idea claim=unclaimed",
+        "fleet item YOK-1 status idea -> implementing",
+        "fleet item YOK-1 claim unclaimed -> claimed_by_other_live",
+        "fleet item YOK-1 left-frontier last-status=done",
+        "fleet session worker-1 registered surface=codex-cli mode=dash",
+        "fleet session worker-1 ended surface=codex-cli",
+        "fleet CLEAR idle-holder session=worker-1",
+    ),
+)
+def test_routine_delta_kinds_defer_to_the_report(line: str) -> None:
+    assert delta_wake_tier(line) == DEFER_TO_REPORT
+
+
+def test_a_new_delta_kind_must_choose_a_tier() -> None:
+    with pytest.raises(ValueError, match="add its kind and tier"):
+        delta_wake_tier("fleet newly-added-kind detail")
 
 
 def test_a_status_change_appends_the_composed_report_after_the_delta() -> None:
