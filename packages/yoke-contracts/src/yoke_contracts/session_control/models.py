@@ -163,7 +163,8 @@ class LaunchPreviewRequest(BaseModel):
 
 class LaunchCreateRequest(LaunchPreviewRequest):
     item: str = Field(min_length=1, max_length=64)
-    instructions: str
+    instructions: str = ""
+    compose_mandate: bool = True
     idempotency_key: str
     presentation: Optional[str] = Field(
         default=None,

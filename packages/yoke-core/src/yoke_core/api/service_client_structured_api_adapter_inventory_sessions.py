@@ -133,7 +133,8 @@ SESSION_ADAPTERS = [
         function_id="session_control.launch.create",
         cli_invocation=(
             "yoke session-control launch create --project P --surface S "
-            "--stdin --item PREFIX-N --idempotency-key K [--json]"
+            "--item PREFIX-N --idempotency-key K [--stdin] [--raw-instructions] "
+            "[--json]"
         ),
     ),
     _read_entry(

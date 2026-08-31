@@ -25,13 +25,14 @@ LAUNCH_PREVIEW_USAGE = (
     "[--machine M] [--model M] [--allow-surface-fallback] [--list-models] [--json]"
 )
 LAUNCH_CREATE_USAGE = (
-    "yoke session-control launch create --project P --surface S --stdin "
-    "--item PREFIX-N --idempotency-key K [--machine M] [--model M] [--presentation P] "
+    "yoke session-control launch create --project P --surface S "
+    "--item PREFIX-N --idempotency-key K [--stdin] [--raw-instructions] "
+    "[--machine M] [--model M] [--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     "yoke sessions create --project P --surface S "
-    "(--preview | --stdin --item PREFIX-N --idempotency-key K) "
+    "(--preview | --item PREFIX-N --idempotency-key K [--stdin] [--raw-instructions]) "
     "[--machine M] [--model M] [--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
 )
@@ -137,15 +138,24 @@ def _launch_create_parser(
     parser = argparse.ArgumentParser(prog=prog, description=usage)
     _add_launch_selector(parser)
     if preview:
-        mode = parser.add_mutually_exclusive_group(required=True)
+        mode = parser.add_mutually_exclusive_group(required=False)
         mode.add_argument("--preview", action="store_true")
         mode.add_argument(
             "--stdin",
             action="store_true",
-            help="Read instructions from stdin; instructions never enter native argv.",
+            help="Optional extras appended after the server-composed mandate.",
         )
     else:
-        parser.add_argument("--stdin", action="store_true", required=True)
+        parser.add_argument(
+            "--stdin",
+            action="store_true",
+            help="Optional extras appended after the server-composed mandate.",
+        )
+    parser.add_argument(
+        "--raw-instructions",
+        action="store_true",
+        help="Treat --stdin as the full instruction body; skip mandate composition.",
+    )
     parser.add_argument("--idempotency-key", default=None)
     parser.add_argument("--item", default=None)
     parser.add_argument(
@@ -178,22 +188,24 @@ def _create(args: List[str], *, alias: bool) -> int:
         return usage_error("launch create requires --idempotency-key")
     if not parsed.item:
         return usage_error("launch create requires --item PREFIX-N")
-    instructions = read_stdin_payload(parsed)
-    if instructions is None:
-        return usage_error("launch create requires non-empty instructions on --stdin")
+    instructions = read_stdin_payload(parsed) or ""
+    if parsed.raw_instructions and not instructions.strip():
+        return usage_error("raw instruction launches require non-empty --stdin")
     payload = {
         **_preview_payload(parsed),
         "instructions": instructions,
         "idempotency_key": parsed.idempotency_key,
         "item": parsed.item,
     }
+    if parsed.raw_instructions:
+        payload["compose_mandate"] = False
     if parsed.presentation:
         payload["presentation"] = parsed.presentation
     return _dispatch_launch(
         parsed,
         function_id="session_control.launch.create",
         payload=payload,
-        sensitive_values=(instructions,),
+        sensitive_values=(instructions,) if instructions else (),
     )
 
 

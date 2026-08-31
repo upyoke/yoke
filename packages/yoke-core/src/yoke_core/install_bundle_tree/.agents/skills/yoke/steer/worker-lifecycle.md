@@ -143,15 +143,18 @@ yoke session-control launch preview --project {_project} --surface {_surface} --
 ## Launcher recipe
 
 Preview is mandatory. Do not create until preview returns
-`launchable=true` for the chosen CLI surface. The body is stdin. CLI
-surface only. One item.
+`launchable=true` for the chosen CLI surface. CLI surface only. One item.
+`session_control.launch.create` composes the canonical single-item mandate
+server-side from the item ref, the charge-schedule route, and this session
+id as the DONE target. Do not hand-assemble the worker body. Optional extras
+append after that mandate via `--stdin`. Use `--raw-instructions` only for a
+non-standard full body.
 
 ```text
-printf '%s' "$BODY" | yoke session-control launch create \
+yoke session-control launch create \
   --project {_project} \
   --surface {_surface} \
   --item {ITEM} \
-  --stdin \
   --idempotency-key "steer:{_project}:{ITEM}:{_surface}" \
   --model {_model} \
   --json
@@ -180,8 +183,9 @@ After repeated `relay_lease_expired` results on one surface, relaunch the item
 on a different CLI surface and immediately file a field-note with the launch
 ids and result codes.
 
-`$BODY` parameterizes both its first line and its legs from the live route.
-The steerer messages a worker with
+The server emits this single-item mandate (steering) shape — claim first,
+execute only that item through the routed legs, no deployment run, DONE then
+END. The steerer messages a worker with
 `yoke say --item PREFIX-N --stdin`. The worker reports back with
 `--session` only because the steerer is itemless (claim-less fallback).
 No Yoke surface shortens a session id, so a short one did not come from Yoke: never pad, complete, or expand one by hand.
@@ -202,8 +206,8 @@ the worker's own visible output; this seat reads liveness from
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --session {STEERER_SESSION_ID}) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
 ```
 
-Author the routed variants side by side from the pinned `workflow_id` and
-`charge.schedule.next_step`, never from memory:
+The server parameterizes that shape from the pinned `workflow_id` and
+`charge.schedule.next_step`. Workers still re-read the live binding:
 
 - Dash: `/yoke dash PREFIX-N`; one Dash leg through its merge/evidence close.
 - Issue: `/yoke refine PREFIX-N` to `refined-idea`, then
@@ -231,7 +235,7 @@ do not unpark.
 
 Use this recipe for every launch, whether the item just became runnable
 or the fleet report named it as available. There is no second staffing
-path: every launch is item-bound and CLI-only, and this seat composes it.
+path: every launch is item-bound and CLI-only, and the server composes it.
 
 When same-surface worker failures carry a vendor-side signature, disable
 that surface with `yoke session-control surface-policy disable` and staff

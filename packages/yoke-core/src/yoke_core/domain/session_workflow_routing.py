@@ -31,9 +31,8 @@ def read_item_project_and_workflow(
             f"WHERE i.id = {placeholder}",
             (bare,),
         ).fetchone()
-    except (
-        db_backend.operational_error_types(conn)
-        + db_backend.database_error_types(conn)
+    except db_backend.operational_error_types(conn) + db_backend.database_error_types(
+        conn
     ) as exc:
         _logger.debug("session item workflow read failed: %s", exc)
         return None, None
@@ -51,6 +50,9 @@ def read_item_project_and_workflow(
 def live_next_step(
     workflow: WorkflowRuntime,
     stage_id: str,
+    *,
+    conn: Any = None,
+    item_id: int | None = None,
 ) -> Optional[str]:
     """Return the definition-selected scheduler step for a live stage."""
     try:
@@ -59,9 +61,9 @@ def live_next_step(
         return None
     return _compute_next_step(
         adapter,
-        probe_path_claim_activation=(
-            workflow.requires_item_path_claim_probe(stage_id)
-        ),
+        probe_path_claim_activation=(workflow.requires_item_path_claim_probe(stage_id)),
+        conn=conn,
+        item_id=item_id,
     ).next_step.value
 
 

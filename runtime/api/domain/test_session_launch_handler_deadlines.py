@@ -139,6 +139,7 @@ def test_create_reads_the_organization_surface_fallback_gate(monkeypatch) -> Non
         "instructions": "Use an explicitly selected same-family surface.",
         "idempotency_key": "policy-off",
         "allow_surface_fallback": True,
+        "compose_mandate": False,
     }
 
     disabled = handlers.handle_launch_create(_request("session.launch.create", payload))
