@@ -276,11 +276,15 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
     assert rebound.result_code == "registration_bound"
     assert _delivery_state(conn, launch.message_id) == (None, "pending")
     reset = conn.execute(
-        "SELECT injection_count,last_injected_at,wake_attempt_count,last_wake_at "
-        "FROM session_message_recipients WHERE message_id=?",
+        "SELECT injection_count,last_injected_at,wake_attempt_count,"
+        "last_wake_at,wake_after FROM session_message_recipients "
+        "WHERE message_id=?",
         (launch.message_id,),
     ).fetchone()
-    assert tuple(reset) == (0, None, 0, None)
+    assert tuple(reset[:4]) == (0, None, 0, None)
+    assert reset[4] == "2026-08-22T12:11:03Z"
+    assert reset[4] != retried.deadline_at
+    assert rebound.deadline_at == retried.deadline_at
 
 
 @pytest.mark.parametrize("terminal_state", ["failed", "expired", "outcome_unknown"])

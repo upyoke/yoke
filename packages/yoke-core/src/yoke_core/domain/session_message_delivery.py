@@ -43,9 +43,7 @@ def _eligible_hook_event(conn: Any, session_id: str, hook_event: str) -> bool:
         f"SELECT executor_surface,terminated_at FROM harness_sessions WHERE session_id={_p(conn)}",
         (session_id,),
     ).fetchone()
-    if row is None:
-        return False
-    if row[1] is not None:
+    if row is None or row[1] is not None:
         return False
     capability = capability_for_surface(str(row[0] or ""))
     return capability is not None and hook_event in capability.inject_events
@@ -311,13 +309,15 @@ def complete_hook_lease(
                     "UPDATE session_message_recipients SET state='injected', "
                     "injection_count=injection_count+1,last_injected_at="
                     + marker
+                    + ",wake_after="
+                    + marker
                     + ",injection_lease_id=NULL,injection_leased_at=NULL,"
                     "injection_lease_expires_at=NULL WHERE message_id="
                     + marker
                     + " AND session_id="
                     + marker
                     + " AND state IN ('pending','injected')",
-                    (stamp, row["message_id"], row["target_session_id"]),
+                    (stamp, stamp, row["message_id"], row["target_session_id"]),
                 )
                 completed.append(row)
             else:

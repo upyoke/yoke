@@ -93,6 +93,9 @@ def prepare_launch_registration(
                 facts=facts,
                 now=current,
             )
+        # Wake eligibility starts at this send, not deadline_at. A worker
+        # that dies on arrival must not sit unwatched until registration
+        # timeout; later successful sends overwrite the stamp.
         bind_launch_to_session(
             conn,
             launch=launch,
@@ -153,10 +156,11 @@ def complete_launch_injection(
         if injected:
             cursor = conn.execute(
                 "UPDATE session_message_recipients SET state = 'injected', "
-                f"injection_count = injection_count + 1, last_injected_at = {p} "
+                f"injection_count = injection_count + 1, last_injected_at = {p}, "
+                f"wake_after = {p} "
                 f"WHERE message_id = {p} AND session_id = {p} "
                 "AND state IN ('pending','injected')",
-                (current, launch.message_id, session_id),
+                (current, current, launch.message_id, session_id),
             )
             if not cursor.rowcount:
                 raise SessionLaunchError(
