@@ -132,7 +132,7 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
             "sid-any",
             "claude",
             "anthropic",
-            "opus",
+            SessionModelFacts(requested_model="opus"),
             "/Users/x/externalwebapp",
             "claude-desktop",
             1,
