@@ -24,9 +24,7 @@ IdempotencyLookup = Callable[
 
 def _reservation_key(request_id: str) -> int:
     """Map one request id onto the signed bigint advisory-lock namespace."""
-    digest = hashlib.sha256(
-        f"function-call:{request_id}".encode("utf-8")
-    ).digest()
+    digest = hashlib.sha256(f"function-call:{request_id}".encode("utf-8")).digest()
     return int.from_bytes(digest[:8], byteorder="big", signed=True)
 
 
@@ -73,6 +71,10 @@ def request_reservation(
     lock_key = _reservation_key(request.request_id)
     try:
         conn.execute("SELECT pg_advisory_lock(%s)", (lock_key,))
+        # Session advisory locks survive a commit. End the transaction before
+        # invoking the handler so long-lived operations such as relay polls do
+        # not appear as idle-in-transaction lock holders while they wait.
+        conn.commit()
     except Exception:
         _close_quietly(conn)
         yield
@@ -83,6 +85,7 @@ def request_reservation(
     finally:
         try:
             conn.execute("SELECT pg_advisory_unlock(%s)", (lock_key,))
+            conn.commit()
         except Exception:
             pass
         finally:
