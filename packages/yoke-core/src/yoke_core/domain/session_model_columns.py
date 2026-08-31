@@ -39,11 +39,33 @@ def stored_facts(row: Any) -> SessionModelFacts:
     return SessionModelFacts(**{column: _value(row, column) for column in MODEL_COLUMNS})
 
 
+def _replaces_served_model(stored: Optional[str], incoming: Optional[str]) -> bool:
+    """True when ``incoming`` is a newer reading rather than a vaguer one.
+
+    A composed variant name contains the bare family id it belongs to
+    (``cursor-grok-4.6-xhigh`` contains ``grok-4.6``), so a name the stored
+    one already contains is the same model reported less precisely — an
+    older client's payload self-report, not a later measurement. Two
+    unrelated names are both measurements and the later one wins, which is
+    how a mid-run model switch heals.
+    """
+    if incoming is None:
+        return False
+    if stored is None:
+        return True
+    return incoming not in stored
+
+
 def merged_facts(existing: Any, incoming: SessionModelFacts) -> SessionModelFacts:
     """Fold an incoming reading into a stored row under both write rules."""
     stored = stored_facts(existing)
     merged = {}
     for column in SERVED_COLUMNS:
+        if column == "model" and not _replaces_served_model(
+            stored.model, incoming.model
+        ):
+            merged[column] = stored.model
+            continue
         merged[column] = getattr(incoming, column) or getattr(stored, column)
     for column in REQUESTED_COLUMNS:
         merged[column] = getattr(stored, column) or getattr(incoming, column)

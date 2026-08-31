@@ -76,6 +76,28 @@ def test_changed_columns_names_only_what_actually_moves() -> None:
     }
 
 
+def test_a_less_specific_name_does_not_replace_a_measurement() -> None:
+    """A composed variant contains the family id it belongs to.
+
+    A name the stored one already contains is the same model reported less
+    precisely — an older client's payload self-report, not a later reading.
+    """
+    stored = _row(model="cursor-grok-4.6-xhigh")
+
+    merged = merged_facts(stored, SessionModelFacts(model="grok-4.6"))
+
+    assert merged.model == "cursor-grok-4.6-xhigh"
+
+
+def test_an_unrelated_later_name_still_wins() -> None:
+    """Two real names are both measurements; a mid-run switch heals."""
+    stored = _row(model="cursor-grok-4.6-xhigh")
+
+    merged = merged_facts(stored, SessionModelFacts(model="claude-opus-5"))
+
+    assert merged.model == "claude-opus-5"
+
+
 def test_stored_facts_reads_an_empty_string_as_unset() -> None:
     assert stored_facts(_row(model="")).model is None
 
