@@ -328,10 +328,10 @@ __all__ = [
     "TARGET_KIND_STEERING",
     "TargetValidationError",
     "WorkClaimTarget",
-    "conflict_match_clause",
+    "conflict_match_clause",  # noqa: F822  (PEP 562)
     "decode_scope",
     "encode_scope",
-    "exact_match_clause",
+    "exact_match_clause",  # noqa: F822  (PEP 562)
     "from_row",
     "is_sticky",
     "item_id_from_row",
@@ -343,7 +343,7 @@ __all__ = [
     "make_route_qualification_target",
     "make_steering_target",
     "normalize_scope",
-    "scope_int_sql",
-    "scope_text_sql",
+    "scope_int_sql",  # noqa: F822  (PEP 562)
+    "scope_text_sql",  # noqa: F822  (PEP 562)
     "validate_target",
 ]
