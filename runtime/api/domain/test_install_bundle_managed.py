@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
+from yoke_contracts.project_contract.managed_block import MANAGED_BLOCK_END
 from yoke_core.domain import (
     install_bundle,
     install_bundle_managed,
@@ -18,6 +19,8 @@ from yoke_core.domain import (
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PACKAGED_ROOT = REPO_ROOT / install_bundle_tree_sync.PACKAGED_TREE_REL
 PYPROJECT = REPO_ROOT / "packages/yoke-core/pyproject.toml"
+INSTALLED_RULES_BUDGET_BYTES = 135_000
+REPRESENTATIVE_PROJECT_RULES = "# Project rules\n" + "- project-specific rule\n" * 350
 
 
 @pytest.fixture()
@@ -56,16 +59,39 @@ def conn():
 def test_packaged_snapshot_carries_root_source_files() -> None:
     # The doctrine files are FILES, not dirs, so the per-dir byte test in the
     # sibling suite never sees them; guard them explicitly so the product wheel
-    # carries the same AGENTS.md/CODEX.md build_bundle extracts blocks from.
+    # carries only the project-agnostic prefix build_bundle extracts blocks from.
     for rel in install_bundle_managed.INSTALL_BUNDLE_SOURCE_FILES:
         source = REPO_ROOT / rel
         packaged = PACKAGED_ROOT / rel
+        source_bytes = source.read_bytes()
+        marker = MANAGED_BLOCK_END.encode("utf-8")
+        boundary = source_bytes.index(marker) + len(marker)
+        expected = source_bytes[:boundary] + b"\n"
         assert packaged.is_file(), f"packaged snapshot missing root file {rel}"
-        assert packaged.read_bytes() == source.read_bytes(), (
+        assert packaged.read_bytes() == expected, (
             f"snapshot drift for {rel}: "
-            f"source_sha256={hashlib.sha256(source.read_bytes()).hexdigest()} "
+            f"source_sha256={hashlib.sha256(expected).hexdigest()} "
             f"packaged_sha256={hashlib.sha256(packaged.read_bytes()).hexdigest()}"
         )
+
+
+def test_packaged_snapshot_excludes_repo_internal_teaching() -> None:
+    markers = (
+        "# Yoke Repo Internals",
+        "origin/cla-signatures",
+        "yoke-hosted-stage-typed-target",
+    )
+    offenders = []
+    for path in PACKAGED_ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        found = [marker for marker in markers if marker in text]
+        if found:
+            offenders.append((path.relative_to(PACKAGED_ROOT).as_posix(), found))
+    assert offenders == [], (
+        f"repo-internal teaching reached install bundle: {offenders}"
+    )
 
 
 def test_pyproject_package_data_covers_root_source_files() -> None:
@@ -119,48 +145,31 @@ def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
     assert perms["auto_memory_enabled"] is False
 
 
-def test_doctrine_block_carries_the_generated_main_agent_packet(conn) -> None:
-    # A managed project auto-loads its rules files and nothing else Yoke owns,
-    # so the doctrine block is the only place a static packet reaches that
-    # project's top-level session. Without it the session has no schema/API
-    # truth and confabulates table and column names.
-    from yoke_contracts.project_contract.managed_block import (
-        MAIN_AGENT_PACKET_MARKER,
-        carries_main_agent_packet,
-    )
-    from yoke_core.domain.schema_api_context import render_role_packet
-
-    doctrine = install_bundle.build_bundle(1, conn)["managed_markdown"]["blocks"][
-        "doctrine"
-    ]
-
-    assert carries_main_agent_packet(doctrine)
-    packet_region = doctrine.split(MAIN_AGENT_PACKET_MARKER, 1)[1]
-    assert render_role_packet("main_agent").rstrip() in packet_region
-    # The packet is generated on the server, so machine-local advisories about
-    # the server's own PATH and interpreter must not ride along to the client.
-    assert "Yoke CLI not on PATH" not in doctrine
-
-
-def test_doctrine_block_omits_the_packet_when_the_render_degrades(
-    conn, monkeypatch,
+def test_composed_external_rules_keep_harness_context_headroom(
+    conn,
+    tmp_path,
 ) -> None:
-    # A degraded render must leave the block packet-free rather than ship a
-    # failure banner into a project's rules file: absent marker means the
-    # project's own hooks deliver the packet, on the machine that can act on it.
-    from yoke_contracts.project_contract.managed_block import (
-        carries_main_agent_packet,
-    )
+    from yoke_cli.project_install.managed_markdown import apply_managed_markdown
 
-    monkeypatch.setattr(
-        install_bundle_managed, "render_main_agent_section", lambda: "",
-    )
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        (tmp_path / name).write_text(REPRESENTATIVE_PROJECT_RULES, encoding="utf-8")
+    bundle = install_bundle.build_bundle(1, conn)
+
+    apply_managed_markdown(tmp_path, bundle["managed_markdown"], None)
+
+    sizes = {
+        name: (tmp_path / name).stat().st_size for name in ("AGENTS.md", "CLAUDE.md")
+    }
+    assert max(sizes.values()) <= INSTALLED_RULES_BUDGET_BYTES, sizes
+
+
+def test_doctrine_block_leaves_generated_packet_to_session_orientation(conn) -> None:
     doctrine = install_bundle.build_bundle(1, conn)["managed_markdown"]["blocks"][
         "doctrine"
     ]
 
     assert doctrine
-    assert not carries_main_agent_packet(doctrine)
+    assert "Main-session DB/API packet (main_agent)" not in doctrine
 
 
 def test_bundle_files_stay_out_of_yoke_dir_except_docs(conn) -> None:

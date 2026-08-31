@@ -1,10 +1,10 @@
 """Packets may only point at docs that reach a managed project.
 
-Packet bodies travel two ways: the install bundle composes the main-agent
-packet into the managed doctrine block, and every rendered subagent adapter
-carries its role's packet verbatim. Both land in projects that are not Yoke
-checkouts, so a doc pointer only helps if that doc ships. ``.yoke/docs/`` is
-the shipped set; every other docs tree exists only in the Yoke source repo.
+Packet bodies travel two ways: managed-project session orientation renders the
+main-agent packet, and every rendered subagent adapter carries its role's packet
+verbatim. Both reach projects that are not Yoke checkouts, so a doc pointer
+only helps if that doc ships. ``.yoke/docs/`` is the shipped set; every other
+docs tree exists only in the Yoke source repo.
 """
 
 from __future__ import annotations

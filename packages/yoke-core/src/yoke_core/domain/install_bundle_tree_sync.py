@@ -1,9 +1,10 @@
 """Materialize + drift-check the packaged install-bundle source tree.
 
-``yoke_core.install_bundle_tree`` is a committed, byte-exact snapshot of the
-repo-root source dirs served through ``server_tree_root()`` — the Yoke skill
-tree, the rendered Claude and Codex agent adapters, the shared Claude session
-rules, and the Pack catalog
+``yoke_core.install_bundle_tree`` is a committed snapshot of the repo-root
+sources served through ``server_tree_root()`` — byte-exact for source dirs and
+limited to the managed, project-agnostic region of the root doctrine files.
+Those sources include the Yoke skill tree, rendered agent adapters, rules, and
+the Pack catalog
 (:data:`install_bundle.INSTALL_BUNDLE_SOURCE_DIRS`). setuptools cannot ship
 files from outside the ``yoke_core`` package as package-data, so the wheel
 carries this in-package copy; :func:`install_bundle.server_tree_root` falls
@@ -15,8 +16,8 @@ this module: an adapter/skill/rules edit that skipped the hand-copy silently
 drifted the shipped wheel from source, caught only by a buried pytest. This
 module makes the snapshot machine-maintained:
 
-* :func:`sync` regenerates it from the source dirs, byte-for-byte — the
-  canonical repair, replacing manual file surgery.
+* :func:`sync` regenerates it from the source dirs and shippable doctrine
+  regions — the canonical repair, replacing manual file surgery.
 * :func:`detect_drift` reports any divergence and backs both
   ``HC-install-bundle-drift`` and the ``test_install_bundle`` invariant, so
   drift is caught by ``/yoke doctor`` and CI before merge.
@@ -42,6 +43,7 @@ from typing import Dict, List, Optional, Sequence
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
+from yoke_contracts.project_contract.managed_block import MANAGED_BLOCK_END
 from yoke_core.domain.install_bundle import (
     DOCS_DEST,
     INSTALL_BUNDLE_SOURCE_DIRS,
@@ -73,6 +75,18 @@ class InstallBundleTreeError(RuntimeError):
     """The packaged snapshot cannot be materialized; message names the repair."""
 
 
+def _project_agnostic_source_file_bytes(source: Path) -> bytes:
+    """Return the root doctrine prefix that is safe to ship to every project."""
+    data = source.read_bytes()
+    marker = MANAGED_BLOCK_END.encode("utf-8")
+    end = data.find(marker)
+    if end < 0:
+        raise InstallBundleTreeError(
+            f"install-bundle root source lacks managed-block boundary: {source}"
+        )
+    return data[: end + len(marker)] + b"\n"
+
+
 def _relative_files(root: Path) -> List[str]:
     """POSIX-relative paths of every file under ``root`` (symlinks followed).
 
@@ -100,9 +114,7 @@ def _relative_files_raw(root: Path) -> List[str]:
     if not root.is_dir():
         return []
     return sorted(
-        p.relative_to(root).as_posix()
-        for p in root.rglob("*")
-        if p.is_file()
+        p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()
     )
 
 
@@ -120,7 +132,6 @@ def _stray_packaged_files(packaged: Path) -> List[str]:
         for rel in _relative_files(packaged)
         if not rel.startswith(prefixes) and rel not in allowed
     ]
-
 
 
 def detect_drift(*, target_root: Path) -> List[str]:
@@ -156,7 +167,8 @@ def detect_drift(*, target_root: Path) -> List[str]:
         if not packed_file.is_file():
             drift.append(f"missing packaged file: {rel}")
             continue
-        if packed_file.read_bytes() != source_file.read_bytes():
+        expected = _project_agnostic_source_file_bytes(source_file)
+        if packed_file.read_bytes() != expected:
             drift.append(f"content drift: {rel}")
     for stray in _stray_packaged_files(packaged):
         drift.append(f"stray packaged file (outside declared source dirs): {stray}")
@@ -211,7 +223,7 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
             raise InstallBundleTreeError(
                 f"install-bundle source file is missing: {source_file}"
             )
-        data = source_file.read_bytes()
+        data = _project_agnostic_source_file_bytes(source_file)
         dst = packaged / rel
         if dst.is_file() and dst.read_bytes() == data:
             continue
@@ -281,7 +293,8 @@ def run_cli(argv: Optional[Sequence[str]] = None) -> int:
         "sync", help="Regenerate the snapshot from the source dirs."
     )
     p_sync.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Report what would change without writing.",
     )
     p_sync.add_argument("--target-root", default=None)

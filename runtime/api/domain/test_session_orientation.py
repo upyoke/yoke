@@ -4,7 +4,7 @@ The server skips the orientation policy over https because it cannot see
 the client machine, and the source-repo renderer is absent from a managed
 project. These regressions pin the client-side replacement: it orients each
 harness on its real startup-context event exactly once, stays silent on every
-other event, never raises, and does not duplicate the managed packet.
+other event, never raises, and carries the generated main-agent packet.
 """
 
 from __future__ import annotations
@@ -15,9 +15,6 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.project_contract.install_manifest import INSTALL_MANIFEST_REL
-from yoke_contracts.project_contract.managed_block import (
-    MAIN_AGENT_PACKET_MARKER,
-)
 from yoke_contracts.project_contract.installed_layer import (
     INSTALLED_LAYER_RECEIPT_REL,
     render_installed_layer_receipt,
@@ -122,10 +119,6 @@ def test_cursor_session_start_carries_every_shared_machine_advisory(
 ) -> None:
     from yoke_core.domain import main_agent_packet
 
-    (project / "AGENTS.md").write_text(
-        f"{MAIN_AGENT_PACKET_MARKER}\n",
-        encoding="utf-8",
-    )
     monkeypatch.setattr(
         so,
         "_operating_layer_advisory",
@@ -154,7 +147,7 @@ def test_cursor_session_start_carries_every_shared_machine_advisory(
     assert "install advisory" in out
 
 
-def test_cursor_session_start_carries_packet_fallback(project: Path) -> None:
+def test_cursor_session_start_carries_generated_packet(project: Path) -> None:
     (project / "AGENTS.md").write_text("# House rules\n", encoding="utf-8")
 
     out = so.orientation_for_hook(
@@ -212,36 +205,16 @@ def test_orientation_survives_a_checkout_without_git(
     assert "Recent commits:" not in out
 
 
-def test_packet_is_delivered_when_the_rules_files_lack_it(
+def test_packet_is_delivered_with_installed_rules(
     project: Path,
 ) -> None:
-    # A project installed before the packet shipped has rules files with no
-    # marker; the hook is then the only thing that can supply the packet.
+    # Auto-loaded rules stay compact; the hook supplies generated schema truth.
     (project / "AGENTS.md").write_text("# House rules\n", encoding="utf-8")
 
     out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
     assert out is not None
     assert "Main-session DB/API packet (main_agent)" in out
-
-
-def test_packet_is_not_duplicated_when_the_block_already_carries_it(
-    project: Path,
-) -> None:
-    # The doctrine block the install bundle composes already carries the
-    # packet and the harness auto-loads it; sending a second copy would
-    # spend tens of thousands of tokens to say the same thing twice.
-    (project / "CLAUDE.md").write_text(
-        f"# House rules\n\n{MAIN_AGENT_PACKET_MARKER}\nMain-session DB/API "
-        "packet (main_agent):\n",
-        encoding="utf-8",
-    )
-
-    out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
-
-    assert out is not None
-    assert so.ORIENTATION_HEADING in out
-    assert "Layer-explicit packet for the top-level Yoke session" not in out
 
 
 def test_orientation_names_the_board_only_when_it_exists(project: Path) -> None:

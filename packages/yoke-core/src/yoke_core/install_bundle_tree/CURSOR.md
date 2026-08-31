@@ -86,17 +86,3 @@ Both files are regular files, never symlinks (Cursor refuses project config path
 The canonical lifecycle guide is [.yoke/docs/reference/lifecycle.md](.yoke/docs/reference/lifecycle.md). For a live item, read `yoke workflows item get PREFIX-N` then `yoke workflows version get WORKFLOW VERSION`; the pinned definition is the source of truth for which executor owns the current stage. Routing for `/yoke do` lives in [.yoke/docs/reference/session-offer.md](.yoke/docs/reference/session-offer.md) and [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Cursor's supported-path set server-side from the shared registry plus any limitations declared in the Cursor manifest; the adapter does not self-report capabilities.
 
 <!-- END YOKE MANAGED BLOCK -->
-
-# Yoke Repo Internals (Cursor)
-<!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic Cursor shell `yoke project install` ships; the harness-build references below are yoke-source-dev material. -->
-
-## Harness contract references (yoke source dev)
-
-These describe how Yoke's harness adapters are built, measured, and compared.
-They live in `docs/`, which the install bundle does not ship, so they stay out
-of the managed block above:
-
-- [Cursor Harness Integration Assessment](docs/harness-cursor-assessment.md) -- measured substrate mapping for Cursor
-- [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations
-- [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
-- [Hook Parity Map](docs/hook-parity-map.md) -- hook classification across harnesses
