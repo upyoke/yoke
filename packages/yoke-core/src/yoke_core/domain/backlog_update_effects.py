@@ -197,19 +197,20 @@ def run_post_commit_update_effects(
     item_id, old_status, new_status, source = receipt.status_event
     if receipt.terminal_holder_session_ids:
         try:
-            from yoke_core.domain.sessions_item_focus_release import (
-                release_item_focus_for_sessions,
+            from yoke_core.domain.sessions_terminal_chain_checkpoint import (
+                close_terminal_item_sessions,
             )
 
-            release_item_focus_for_sessions(
+            close_terminal_item_sessions(
                 conn,
-                item_id,
-                receipt.terminal_holder_session_ids,
+                item_id=item_id,
+                terminal_status=new_status,
+                holder_session_ids=receipt.terminal_holder_session_ids,
             )
         except Exception as exc:  # noqa: BLE001 - postcommit attribution
             conn.rollback()
             print(
-                f"Advisory: terminal session focus cleanup deferred: {exc}",
+                f"Advisory: terminal session closeout deferred: {exc}",
                 file=out,
             )
     else:
