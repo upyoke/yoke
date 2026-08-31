@@ -232,8 +232,11 @@ def test_run_status_write_exercises_real_backlog_update(tmp_db):  # noqa: F811
         project="yoke",
     )
 
-    with _patch_externals(), \
-         mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False):
+    with _patch_externals(), mock.patch.dict(
+        os.environ,
+        {"YOKE_DB": tmp_db, "YOKE_QA_GATE_BYPASS": "1"},
+        clear=False,
+    ):
         rc, output = mod._run_status_write(43)
 
     assert rc == 0

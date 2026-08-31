@@ -57,6 +57,7 @@ class TestAutoDerive:
             extra_env={
                 "YOKE_QA_GATE_BYPASS": "1",
                 "YOKE_TASK_DONE_VERIFIED": "1",
+                "PYTEST_CURRENT_TEST": os.environ["PYTEST_CURRENT_TEST"],
             },
         )
         assert r.returncode == 0
