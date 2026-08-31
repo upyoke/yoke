@@ -101,22 +101,19 @@ def _lane_can_upgrade(
         return False
 
 
-def _model_can_upgrade(
+def _model_facts_can_upgrade(
     conn: Any,
     payload_json: str,
     session_id: str,
 ) -> bool:
-    """True when the wire model is an answer the stored row does not have.
+    """True when the wire's model facts say something the row does not.
 
-    Filling a placeholder always qualifies. So does a differing real model on
-    Cursor, whose stored model is a measurement of the conversation's current
-    variant rather than a report: the session registers under the bare family
-    id its payload names and learns the variant only once its conversation
-    store exists, so refusing the later reading is what pinned every launched
-    cursor session to the family id it started under. Every other harness
-    keeps the placeholder-only rule, because a re-resolved model there would
-    otherwise swap the row on every prompt. Once the row agrees with the wire
-    this returns False, which keeps a settled session from re-registering.
+    The served columns take the newest attestation, so a differing served
+    value always qualifies — a session that switched model or effort
+    mid-run is currently serving the later one. The requested columns fill
+    a gap only. Once the row already says everything the wire knows this
+    returns False, which keeps a settled session from re-registering on
+    every event.
     """
     try:
         if not payload_json:
@@ -124,36 +121,31 @@ def _model_can_upgrade(
         payload = json.loads(payload_json)
         if not isinstance(payload, dict):
             return False
-        from yoke_core.hooks.helpers import _is_placeholder_model
-
-        wire_model = payload.get("model", "")
-        if (
-            not isinstance(wire_model, str)
-            or not wire_model
-            or _is_placeholder_model(wire_model)
-        ):
-            return False
+        from yoke_contracts.session_model_facts import facts_from_mapping
+        from yoke_core.hooks.registration_observed import (
+            reclassify_unservable_model,
+        )
         from yoke_core.domain import db_backend
+        from yoke_core.domain.session_model_columns import (
+            MODEL_COLUMNS,
+            changed_columns,
+        )
 
+        incoming = reclassify_unservable_model(facts_from_mapping(payload))
+        if not any(getattr(incoming, field) for field in MODEL_COLUMNS):
+            # The wire said nothing about the model, so there is nothing to
+            # compare and no reason to spend a query finding that out.
+            return False
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            "SELECT model, executor_surface, executor FROM harness_sessions "
+            "SELECT " + ", ".join(MODEL_COLUMNS) + " FROM harness_sessions "
             f"WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
         if row is None:
             return False
-        keyed = hasattr(row, "get")
-        stored = (row.get("model") if keyed else row[0]) or ""
-        surface = (row.get("executor_surface") if keyed else row[1]) or ""
-        executor = (row.get("executor") if keyed else row[2]) or ""
-        from yoke_core.domain.sessions_lifecycle_identity import _model_should_upgrade
-
-        return _model_should_upgrade(
-            stored=str(stored).strip(),
-            incoming=wire_model.strip(),
-            executor=surface or executor,
-        )
+        columns, _values = changed_columns(row, incoming)
+        return bool(columns)
     except Exception:  # noqa: BLE001 - probe must never break dispatch
         return False
 
@@ -236,12 +228,13 @@ def placeholder_identity_can_upgrade(
 ) -> bool:
     """True when identity resolution can improve the stored row.
 
-    Model and lane heal from different authorities: the model rides the wire
-    from the client that can read the transcript, while the lane's last word
-    is project routing policy, which only the control plane can read.
+    Model facts and lane heal from different authorities: the facts ride
+    the wire from the client that can read the harness artifact, while the
+    lane's last word is project routing policy, which only the control
+    plane can read.
     """
     return (
-        _model_can_upgrade(
+        _model_facts_can_upgrade(
             conn,
             payload_json,
             session_id,

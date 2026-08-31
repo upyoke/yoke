@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.session_model_facts import SessionModelFacts
+
 import yoke_core.hooks.registration as register_module
 
 
@@ -34,10 +36,13 @@ def yoke_target(monkeypatch):
     for name, value in (
         ("detect_executor", lambda: "claude-code"),
         ("detect_provider", lambda _e: "anthropic"),
-        ("detect_model", lambda _e, transcript_path="": "model-x"),
         ("detect_entrypoint", lambda: None),
     ):
         monkeypatch.setattr(f"yoke_core.hooks.helpers.{name}", value)
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_relay.resolve_model_facts",
+        lambda _payload, _executor: SessionModelFacts(requested_model="model-x"),
+    )
 
 
 def _capture_anchors(monkeypatch):
@@ -79,7 +84,7 @@ class TestRegisterRecordsProcessAnchor:
             register_module, "register_harness_session", lambda **_k: "",
         )
         anchors = _capture_anchors(monkeypatch)
-        err, executor, _p, _m, _e = register_module._register_from_hook(
+        err, executor, _p, _facts, _e = register_module._register_from_hook(
             '{"transcript_path": "/t/from-payload.jsonl"}', "s-anchored",
         )
         assert err == ""
@@ -96,7 +101,7 @@ class TestRegisterRecordsProcessAnchor:
             lambda **_k: "db unreachable",
         )
         anchors = _capture_anchors(monkeypatch)
-        err, _executor, _p, _m, _e = register_module._register_from_hook(
+        err, _executor, _p, _facts, _e = register_module._register_from_hook(
             '{"transcript_path": "/t/from-payload.jsonl"}', "s-anchored",
         )
         assert err == "db unreachable"
@@ -129,7 +134,7 @@ class TestRegisterRecordsProcessAnchor:
             "yoke_core.domain.session_process_anchors.record_session_anchor",
             _boom,
         )
-        err, _executor, _p, _m, _e = register_module._register_from_hook(
+        err, _executor, _p, _facts, _e = register_module._register_from_hook(
             "{}", "s-1",
         )
         assert err == ""
@@ -143,7 +148,7 @@ class TestRegisterRecordsProcessAnchor:
         )
         anchors = _capture_anchors(monkeypatch)
         result = register_module._register_from_hook("{}", "s-1")
-        assert result == ("", "", "", "", None)
+        assert result == ("", "", "", SessionModelFacts(), None)
         assert anchors == []
 
 
@@ -170,7 +175,8 @@ class TestRelayOwnedRegistration:
         )
         err = slc.register_harness_session(
             root="/repo", session_id="s-https", executor="claude-code",
-            provider="anthropic", model="model-x",
+            provider="anthropic",
+            model_facts=SessionModelFacts(requested_model="model-x"),
         )
         # Success-shaped: no warning renders in the orientation block.
         assert err == ""
@@ -182,12 +188,12 @@ class TestRelayOwnedRegistration:
 
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: True)
         anchors = _capture_anchors(monkeypatch)
-        err, executor, _p, model, _e = register_module._register_from_hook(
+        err, executor, _p, facts, _e = register_module._register_from_hook(
             '{"transcript_path": "/t/x.jsonl"}', "s-https",
         )
         assert err == ""
         assert executor == "claude-code"
-        assert model == "model-x"
+        assert facts.requested_model == "model-x"
         # The process anchor is client-local and still writes on https.
         assert anchors == [("s-https", "/t/x.jsonl")]
 
@@ -206,7 +212,8 @@ class TestRelayOwnedRegistration:
         monkeypatch.setattr(slc, "_project_id_for_root", lambda _r: 1)
         err = slc.register_harness_session(
             root="/repo", session_id="s-local", executor="claude-code",
-            provider="anthropic", model="model-x",
+            provider="anthropic",
+            model_facts=SessionModelFacts(requested_model="model-x"),
         )
         assert err == ""
         assert len(calls) == 1

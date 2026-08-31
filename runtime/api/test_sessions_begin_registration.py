@@ -15,6 +15,7 @@ from runtime.api.test_constants import TEST_MODEL_ID
 from runtime.api.test_service_client_sessions_helpers import (
     session_offer_db as session_offer_db,
 )
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 class TestBeginSessionIntegration:
@@ -33,7 +34,7 @@ class TestBeginSessionIntegration:
                 session_id="sid-local",
                 executor="claude-code",
                 provider="anthropic",
-                model=TEST_MODEL_ID,
+                model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
                 workspace=session_offer_db["tmp_dir"],
                 project_id=1,
             )
@@ -45,7 +46,7 @@ class TestBeginSessionIntegration:
                 session_id="sid-local",
                 executor="claude-code",
                 provider="anthropic",
-                model=TEST_MODEL_ID,
+                model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
                 workspace=session_offer_db["tmp_dir"],
                 project_id=1,
             )
@@ -79,7 +80,7 @@ class TestBeginSessionIntegration:
                 session_id="sid-surface",
                 executor="codex-desktop",
                 provider="openai",
-                model=TEST_MODEL_ID,
+                model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
                 workspace=session_offer_db["tmp_dir"],
                 project_id=1,
                 entrypoint="dash",
@@ -109,7 +110,7 @@ class TestBeginSessionIntegration:
                 session_id="sid-coarse",
                 executor="codex",
                 provider="openai",
-                model=TEST_MODEL_ID,
+                model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
                 workspace=session_offer_db["tmp_dir"],
                 project_id=1,
                 entrypoint="vscode",

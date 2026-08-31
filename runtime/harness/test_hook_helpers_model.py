@@ -1,56 +1,50 @@
-"""Model-detection tests — ``detect_model`` plus ``_extract_model_from_argv``.
+"""Requested-model detection — ``detect_requested_model`` plus argv parsing.
 
-Companion to ``test_hook_helpers.py``. Includes the VS Code regression
-suite (covering the ``--model default`` placeholder fallthrough).
-Shared fixtures live in ``conftest.py``.
+Companion to ``test_hook_helpers.py``. Every source here is request-side:
+what the session was *asked* to run. What a provider actually served is a
+different fact read from the harness's own artifact, and its coverage lives
+in ``test_model_attestation.py``.
+
+Includes the VS Code regression suite (the ``--model default`` placeholder
+fallthrough). Shared fixtures live in ``conftest.py``.
 """
 
 from __future__ import annotations
 
-import json
 import os
 from unittest import mock
 
 from yoke_core.hooks.helpers import (
     _extract_model_from_argv,
     _is_placeholder_model,
-    detect_model,
+    detect_requested_model,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
 
 
 # ---------------------------------------------------------------------------
-# detect_model
+# detect_requested_model
 # ---------------------------------------------------------------------------
 
 
-class TestDetectModel:
+class TestDetectRequestedModel:
     def test_yoke_model_env(self, no_parent_argv):
         with mock.patch.dict(os.environ, {"YOKE_MODEL": "my-model"}):
-            assert detect_model() == "my-model"
+            assert detect_requested_model() == "my-model"
 
     def test_codex_no_signal_is_unknown_never_fabricated(self, no_parent_argv):
-        # No env, no thread id -> honest placeholder. A concrete guess
-        # (the old "gpt-5.4" literal) would be laundered into rows as a
-        # real detection and block the placeholder->real upgrade.
+        # No env -> honest placeholder. A concrete guess (the old "gpt-5.4"
+        # literal) would be laundered into rows as a real request.
         with mock.patch.dict(os.environ, {}, clear=True):
-            assert detect_model("codex") == "unknown"
+            assert detect_requested_model("codex") == "unknown"
 
     def test_codex_env_model_wins(self, no_parent_argv):
         with mock.patch.dict(os.environ, {"CODEX_MODEL": "gpt-6"}, clear=True):
-            assert detect_model("codex") == "gpt-6"
-
-    def test_codex_resolver_chain_consulted(self, no_parent_argv):
-        with mock.patch.dict(os.environ, {}, clear=True), \
-             mock.patch(
-                 "yoke_core.hooks.codex_model.resolve",
-                 return_value="gpt-6-real",
-             ):
-            assert detect_model("codex") == "gpt-6-real"
+            assert detect_requested_model("codex") == "gpt-6"
 
     def test_claude_default(self, no_parent_argv):
         with mock.patch.dict(os.environ, {}, clear=True):
-            assert detect_model() == "unknown"
+            assert detect_requested_model() == "unknown"
 
     def test_claude_default_llm_model_fallback(self, no_parent_argv):
         """Claude Desktop exposes DEFAULT_LLM_MODEL but not CLAUDE_MODEL."""
@@ -59,7 +53,7 @@ class TestDetectModel:
             {"DEFAULT_LLM_MODEL": "claude-opus-4-7"},
             clear=True,
         ):
-            assert detect_model() == "claude-opus-4-7"
+            assert detect_requested_model() == "claude-opus-4-7"
 
     def test_claude_model_takes_precedence_over_default_llm_model(self, no_parent_argv):
         with mock.patch.dict(
@@ -67,7 +61,7 @@ class TestDetectModel:
             {"CLAUDE_MODEL": "claude-sonnet-4-6", "DEFAULT_LLM_MODEL": "ignored"},
             clear=True,
         ):
-            assert detect_model() == "claude-sonnet-4-6"
+            assert detect_requested_model() == "claude-sonnet-4-6"
 
     def test_yoke_model_overrides_everything(self, no_parent_argv):
         with mock.patch.dict(
@@ -79,7 +73,7 @@ class TestDetectModel:
             },
             clear=True,
         ):
-            assert detect_model() == "wins"
+            assert detect_requested_model() == "wins"
 
     def test_parent_argv_wins_over_default_llm_model(self):
         """Claude Desktop's stale DEFAULT_LLM_MODEL must not win over the
@@ -103,18 +97,20 @@ class TestDetectModel:
                 "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=argv,
             ):
-                assert detect_model() == "claude-opus-4-7[1m]"
+                assert detect_requested_model() == "claude-opus-4-7[1m]"
 
     def test_parent_argv_preserves_variant_suffix(self):
-        """The ``[1m]`` / ``[variant]`` suffix carries useful provenance
-        (e.g. 1M-context) and must not be stripped.
+        """The ``[1m]`` suffix IS the context-tier request and must survive.
+
+        Nothing downstream can recover the ask once the suffix is stripped:
+        no provider response ever returns it.
         """
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
                 "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "claude-opus-4-7[1m]"],
             ):
-                assert detect_model() == "claude-opus-4-7[1m]"
+                assert detect_requested_model() == "claude-opus-4-7[1m]"
 
     def test_claude_model_env_wins_over_parent_argv(self):
         """Explicit env overrides still win over argv parsing."""
@@ -125,7 +121,7 @@ class TestDetectModel:
                 "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "argv-loses"],
             ):
-                assert detect_model() == "env-wins"
+                assert detect_requested_model() == "env-wins"
 
     def test_default_llm_model_used_when_argv_has_no_model_flag(self):
         with mock.patch.dict(
@@ -137,7 +133,7 @@ class TestDetectModel:
                 "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--output-format", "stream-json"],
             ):
-                assert detect_model() == TEST_MODEL_ID
+                assert detect_requested_model() == TEST_MODEL_ID
 
 
 # ---------------------------------------------------------------------------
@@ -176,8 +172,8 @@ class TestExtractModelFromArgv:
     def test_default_placeholder_is_treated_as_unset(self):
         """The VS Code extension launches with ``--model default`` to mean
         "use the user-selected default". Recording that literal string as
-        the model would mis-report every VS Code session in telemetry, so
-        the parser must normalize it to empty.
+        the request would mis-report every VS Code session, so the parser
+        must normalize it to empty.
         """
         assert _extract_model_from_argv(
             ["claude", "--model", "default", "--verbose"]
@@ -196,17 +192,17 @@ class TestExtractModelFromArgv:
 
 
 # ---------------------------------------------------------------------------
-# detect_model — VS Code regression coverage
+# detect_requested_model — VS Code regression coverage
 # ---------------------------------------------------------------------------
 
 
-class TestDetectModelVscodeRegression:
+class TestDetectRequestedModelVscodeRegression:
     """VS Code extension regression coverage (follow-up to d1f9aa51c)."""
 
     def test_vscode_default_argv_falls_through(self):
         """``--model default`` from the VS Code extension must not be
-        returned verbatim — otherwise harness_sessions.model records
-        the placeholder and every VS Code session looks identical.
+        returned verbatim — otherwise every VS Code session records the
+        placeholder as its request and they all look identical.
         """
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
@@ -219,60 +215,10 @@ class TestDetectModelVscodeRegression:
                     "default",
                 ],
             ):
-                # No transcript, no env — falls all the way through to
-                # "unknown" (a placeholder) so sessions_lifecycle can upgrade
-                # the stored value once the transcript reveals the real model.
-                assert detect_model() == "unknown"
-
-    def test_vscode_transcript_recovers_real_model(self, tmp_path):
-        """With ``--model default`` on argv and the transcript containing
-        an assistant message at the canonical ``TEST_MODEL_ID``, the
-        transcript wins.
-        """
-        transcript = tmp_path / "session.jsonl"
-        transcript.write_text(
-            "\n".join([
-                json.dumps({"type": "user"}),
-                json.dumps({"type": "assistant", "message": {"model": TEST_MODEL_ID}}),
-            ]) + "\n",
-            encoding="utf-8",
-        )
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with mock.patch(
-                "yoke_core.hooks.helpers_model._read_parent_argv",
-                return_value=["claude", "--model", "default"],
-            ):
-                assert detect_model(transcript_path=str(transcript)) == TEST_MODEL_ID
-
-    def test_transcript_latest_wins_when_model_swapped_mid_session(self, tmp_path):
-        transcript = tmp_path / "session.jsonl"
-        transcript.write_text(
-            "\n".join([
-                json.dumps({"type": "assistant", "message": {"model": TEST_MODEL_ID}}),
-                json.dumps({"type": "assistant", "message": {"model": "claude-sonnet-4-6"}}),
-            ]) + "\n",
-            encoding="utf-8",
-        )
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with mock.patch(
-                "yoke_core.hooks.helpers_model._read_parent_argv",
-                return_value=["claude", "--model", "default"],
-            ):
-                assert detect_model(transcript_path=str(transcript)) == "claude-sonnet-4-6"
-
-    def test_transcript_skipped_when_argv_has_real_model(self, tmp_path):
-        """Transcript is only a fallback — authoritative argv wins."""
-        transcript = tmp_path / "session.jsonl"
-        transcript.write_text(
-            json.dumps({"type": "assistant", "message": {"model": TEST_MODEL_ID}}) + "\n",
-            encoding="utf-8",
-        )
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with mock.patch(
-                "yoke_core.hooks.helpers_model._read_parent_argv",
-                return_value=["claude", "--model", "claude-opus-4-7[1m]"],
-            ):
-                assert detect_model(transcript_path=str(transcript)) == "claude-opus-4-7[1m]"
+                # No env, no usable argv — falls through to the placeholder.
+                # The session's real model arrives on the served side, from
+                # the transcript, once the first turn completes.
+                assert detect_requested_model() == "unknown"
 
     def test_placeholder_claude_model_env_is_skipped(self, no_parent_argv):
         """Some surfaces export ``CLAUDE_MODEL=default``; don't trust it."""
@@ -281,7 +227,7 @@ class TestDetectModelVscodeRegression:
             {"CLAUDE_MODEL": "default", "DEFAULT_LLM_MODEL": "claude-opus-4-7"},
             clear=True,
         ):
-            assert detect_model() == "claude-opus-4-7"
+            assert detect_requested_model() == "claude-opus-4-7"
 
     def test_bracket_placeholder_claude_model_env_is_skipped(self, no_parent_argv):
         with mock.patch.dict(
@@ -289,7 +235,7 @@ class TestDetectModelVscodeRegression:
             {"CLAUDE_MODEL": "<synthetic>", "DEFAULT_LLM_MODEL": TEST_MODEL_ID},
             clear=True,
         ):
-            assert detect_model() == TEST_MODEL_ID
+            assert detect_requested_model() == TEST_MODEL_ID
 
     def test_placeholder_default_llm_model_env_is_skipped(self, no_parent_argv):
         with mock.patch.dict(
@@ -297,42 +243,4 @@ class TestDetectModelVscodeRegression:
             {"DEFAULT_LLM_MODEL": "default"},
             clear=True,
         ):
-            assert detect_model() == "unknown"
-
-    def test_transcript_placeholder_entries_are_skipped(self, tmp_path):
-        transcript = tmp_path / "session.jsonl"
-        transcript.write_text(
-            "\n".join([
-                json.dumps({"type": "assistant", "message": {"model": TEST_MODEL_ID}}),
-                # A later placeholder entry must not overwrite the real one.
-                json.dumps({"type": "assistant", "message": {"model": "default"}}),
-                json.dumps({"type": "assistant", "message": {"model": "<synthetic>"}}),
-                json.dumps({"type": "user"}),
-            ]) + "\n",
-            encoding="utf-8",
-        )
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with mock.patch(
-                "yoke_core.hooks.helpers_model._read_parent_argv",
-                return_value=["claude", "--model", "default"],
-            ):
-                assert detect_model(transcript_path=str(transcript)) == TEST_MODEL_ID
-
-    def test_missing_transcript_path_is_safe(self, no_parent_argv):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            assert detect_model(transcript_path="/nonexistent/transcript.jsonl") == "unknown"
-
-    def test_malformed_transcript_lines_are_tolerated(self, tmp_path):
-        transcript = tmp_path / "session.jsonl"
-        transcript.write_text(
-            "not json\n"
-            + json.dumps({"type": "assistant", "message": {"model": TEST_MODEL_ID}}) + "\n"
-            + "{not valid either\n",
-            encoding="utf-8",
-        )
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with mock.patch(
-                "yoke_core.hooks.helpers_model._read_parent_argv",
-                return_value=[],
-            ):
-                assert detect_model(transcript_path=str(transcript)) == TEST_MODEL_ID
+            assert detect_requested_model() == "unknown"

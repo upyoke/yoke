@@ -16,6 +16,7 @@ from yoke_harness.hooks.identity_relay import (
     client_native_thread_id,
     relay_identity_payload,
 )
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 def test_captures_codex_thread_id_for_codex_executor():
@@ -99,7 +100,7 @@ def test_local_registration_resolves_native_identity(monkeypatch) -> None:
         session_id="yoke-session",
         executor="cursor",
         provider="cursor",
-        model="composer",
+        model_facts=SessionModelFacts(requested_model="composer"),
     )
 
     assert result == ""

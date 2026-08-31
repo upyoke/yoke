@@ -48,6 +48,13 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("keepalive_reason", "TEXT DEFAULT NULL"),
         ("last_steering_report_at", "TEXT DEFAULT NULL"),
         ("last_steering_report_fingerprint", "TEXT DEFAULT NULL"),
+        # The ask, stamped at registration.
+        ("requested_model", "TEXT DEFAULT NULL"),
+        ("requested_reasoning_effort", "TEXT DEFAULT NULL"),
+        ("requested_context_window_tokens", "INTEGER DEFAULT NULL"),
+        # Provider-attested served truth; NULL means not attested.
+        ("reasoning_effort", "TEXT DEFAULT NULL"),
+        ("context_window_tokens", "INTEGER DEFAULT NULL"),
     ):
         _add_column_if_not_exists(conn, "harness_sessions", column, ddl)
     conn.commit()

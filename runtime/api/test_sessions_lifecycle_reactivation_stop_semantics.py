@@ -24,6 +24,7 @@ from runtime.api.domain.test_session_turn_posture_migration import (
 from yoke_core.domain.sessions import end_session_if_empty
 from yoke_core.domain.sessions_lifecycle_registry import register_session
 from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
@@ -215,7 +216,7 @@ class TestReactivationAfterStop:
                 session_id="sess-resume",
                 executor="codex",
                 provider="openai",
-                model="gpt-5.4",
+                model_facts=SessionModelFacts(requested_model="gpt-5.4"),
                 execution_lane="primary",
                 workspace=workspace,
                 project_id=1,
@@ -251,7 +252,7 @@ class TestReactivationAfterStop:
                 session_id="sess-cycle",
                 executor="codex",
                 provider="openai",
-                model="gpt-5.4",
+                model_facts=SessionModelFacts(requested_model="gpt-5.4"),
                 execution_lane="primary",
                 workspace=workspace,
                 project_id=1,

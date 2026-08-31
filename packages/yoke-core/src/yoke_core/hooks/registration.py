@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.session_model_facts import SessionModelFacts
+
 from yoke_core.hooks.session_lifecycle_client import (
     register_harness_session,
 )
@@ -50,22 +52,22 @@ def _register_from_hook(
     register_in_process: bool = False,
     actor_id: Optional[int] = None,
     project_id: Optional[int] = None,
-) -> tuple[str, str, str, str, Optional[str]]:
+) -> tuple[str, str, str, SessionModelFacts, Optional[str]]:
     """Register the current session in harness_sessions.
 
     Called from two places with different signals:
 
-    - SessionStart (``run_session_start_hook``): payload carries the
-      authoritative ``model``, so we prefer it.
-    - UserPromptSubmit (``run_user_prompt_submit_hook``): no model in
-      payload; ``detect_model`` resolves via transcript/argv/env
-      fallbacks. This path is idempotent safety-net — if SessionStart
-      already registered the session, ``register_session`` hits
-      ``SESSION_EXISTS`` and the sessions_lifecycle layer still
-      upgrades a stored placeholder when the transcript finally
-      reveals a real model ID.
+    - SessionStart (``run_session_start_hook``): a relayed payload may
+      already carry resolved model facts, so those are preferred.
+    - UserPromptSubmit (``run_user_prompt_submit_hook``): nothing on the
+      payload; the facts are resolved here from the launch environment
+      and the harness's own artifact. This path is idempotent
+      safety-net — if SessionStart already registered the session,
+      ``register_session`` hits ``SESSION_EXISTS`` and the
+      sessions_lifecycle layer still fills the served columns once the
+      artifact finally names what the provider ran.
 
-    Returns ``(error_or_empty, executor, provider, model, entrypoint)``.
+    Returns ``(error_or_empty, executor, provider, model_facts, entrypoint)``.
     ``error_or_empty`` is "" on success or a short error string on
     failure. Returns empty-executor tuple when the target isn't a
     Yoke repo.
@@ -78,19 +80,17 @@ def _register_from_hook(
         script_dir = resolve_hook_script_dir()
         root = resolve_target_root(script_dir)
         if not root:
-            return ("", "", "", "", None)
+            return ("", "", "", SessionModelFacts(), None)
 
         from yoke_core.hooks.helpers import resolve_yoke_db
 
         db_path = resolve_yoke_db(script_dir)
         if not is_yoke_target(root, db_path):
-            return ("", "", "", "", None)
+            return ("", "", "", SessionModelFacts(), None)
 
     from yoke_core.hooks.helpers import (
-        _is_placeholder_model,
         detect_entrypoint,
         detect_executor,
-        detect_model,
         detect_native_thread_id,
         detect_provider,
     )
@@ -99,14 +99,12 @@ def _register_from_hook(
         payload_json,
         project_id=project_id,
         transcript_path=transcript_path,
-        is_placeholder_model=_is_placeholder_model,
     )
 
     executor = executor_hint or detect_executor()
     provider = detect_provider(executor)
-    model = facts.model or detect_model(
-        executor,
-        transcript_path=facts.transcript_path,
+    model_facts = _resolve_model_facts(
+        executor, payload_json, facts.model_facts, facts.transcript_path
     )
     # Relayed payloads carry the CLIENT's entrypoint (merged from the wire);
     # local payloads never carry one, so local detection is unchanged.
@@ -136,7 +134,7 @@ def _register_from_hook(
             session_id,
             executor,
             provider,
-            model,
+            model_facts,
             facts.cwd,
             entrypoint,
             actor_id=actor_id,
@@ -147,7 +145,7 @@ def _register_from_hook(
             native_thread_id=facts.native_thread_id or detect_native_thread_id(),
             driver=facts.driver,
         )
-        return (err, executor, provider, model, entrypoint)
+        return (err, executor, provider, model_facts, entrypoint)
 
     # On https-default machines register_harness_session self-skips —
     # the relayed hook chain's server-side ensure-register owns the
@@ -157,13 +155,42 @@ def _register_from_hook(
         session_id=session_id,
         executor=executor,
         provider=provider,
-        model=model,
+        model_facts=model_facts,
         entrypoint=entrypoint,
         executor_version=executor_version or None,
         machine_id=machine_id or None,
         native_thread_id=facts.native_thread_id or detect_native_thread_id(),
     )
-    return (err, executor, provider, model, entrypoint)
+    return (err, executor, provider, model_facts, entrypoint)
+
+
+def _resolve_model_facts(
+    executor: str,
+    payload_json: str,
+    wire: SessionModelFacts,
+    transcript_path: str,
+) -> SessionModelFacts:
+    """Prefer facts the wire already resolved; otherwise read them here.
+
+    A relayed hook payload was resolved on the machine that can see the
+    harness artifact, so the server-side evaluation must not try to read a
+    transcript it does not have. Locally there is no wire, and this is the
+    one place with access to both the launch environment and the artifact.
+    """
+    if wire.requested_model or wire.model:
+        return wire
+    try:
+        import json as _json
+
+        from yoke_harness.hooks.identity_relay import resolve_model_facts
+
+        payload = _json.loads(payload_json) if payload_json else {}
+        payload = payload if isinstance(payload, dict) else {}
+        if transcript_path:
+            payload.setdefault("transcript_path", transcript_path)
+        return resolve_model_facts(payload, executor)
+    except Exception:  # noqa: BLE001 — registration proceeds without facts
+        return wire
 
 
 def _record_process_anchor(session_id: str, transcript_path: str) -> None:

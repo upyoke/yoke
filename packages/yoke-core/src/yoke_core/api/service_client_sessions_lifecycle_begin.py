@@ -6,6 +6,13 @@ import json
 import sys
 from pathlib import Path
 
+from yoke_contracts.session_model_facts import (
+    MODEL_FACT_FIELDS,
+    SessionModelFacts,
+    fact_flag,
+    facts_from_mapping,
+)
+
 from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,
     _get_db_readwrite,
@@ -36,7 +43,7 @@ def begin_session(
     session_id: str,
     executor: str,
     provider: str,
-    model: str,
+    model_facts: SessionModelFacts,
     workspace: str,
     project_id: int,
     mode: str = "wait",
@@ -83,7 +90,7 @@ def begin_session(
             session_id=session_id,
             executor=executor,
             provider=provider,
-            model=model,
+            model_facts=model_facts,
             workspace=workspace,
             project_id=project_id,
             mode=mode,
@@ -109,7 +116,7 @@ def cmd_session_begin(args: list[str]) -> int:
     """Begin (or idempotently refresh) a session in harness_sessions.
 
     Usage: session-begin --session-id S --executor E --provider P
-                         --model M --workspace W [--mode MODE]
+                         --workspace W [--requested-model M] [--mode MODE]
 
     Idempotent: if the session already exists and is active, returns success
     without error. This allows hooks to call session-begin on every prompt
@@ -123,8 +130,12 @@ def cmd_session_begin(args: list[str]) -> int:
     parser.add_argument("--session-id", default=None)
     parser.add_argument("--executor", required=True)
     parser.add_argument("--provider", required=True)
-    parser.add_argument("--model", required=True)
     parser.add_argument("--workspace", required=True)
+    # One flag per model column. None is required: a session may register
+    # before any provider has attested anything, and an operator recovery
+    # recipe states only the ask.
+    for field in MODEL_FACT_FIELDS:
+        parser.add_argument(fact_flag(field), dest=field, default=None)
     parser.add_argument("--project-id", default=None)
     parser.add_argument("--mode", default="wait")
     parser.add_argument("--entrypoint", default=None)
@@ -136,7 +147,8 @@ def cmd_session_begin(args: list[str]) -> int:
         parsed = parser.parse_args(args)
     except SystemExit:
         print("Usage: session-begin [--session-id S] --executor E "
-              "--provider P --model M --workspace W [--mode MODE]",
+              "--provider P --workspace W [--requested-model M] "
+              "[--model SERVED] [--mode MODE]",
               file=sys.stderr)
         return 2
 
@@ -163,7 +175,7 @@ def cmd_session_begin(args: list[str]) -> int:
                 session_id=parsed.session_id,
                 executor=parsed.executor,
                 provider=parsed.provider,
-                model=parsed.model,
+                model_facts=facts_from_mapping(vars(parsed)),
                 workspace=parsed.workspace,
                 project_id=resolved_project_id,
                 mode=parsed.mode,

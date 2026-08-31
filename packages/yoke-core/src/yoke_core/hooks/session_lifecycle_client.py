@@ -5,6 +5,8 @@ from __future__ import annotations
 import shlex
 from typing import Optional
 
+from yoke_contracts.session_model_facts import SessionModelFacts
+
 from yoke_core.hooks import service_client, target
 
 
@@ -28,7 +30,7 @@ def register_harness_session(
     session_id: str,
     executor: str,
     provider: str,
-    model: str,
+    model_facts: SessionModelFacts,
     entrypoint: Optional[str] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
@@ -60,7 +62,7 @@ def register_harness_session(
             session_id,
             executor,
             provider,
-            model,
+            model_facts,
             root,
             entrypoint,
             project_id=project_id,
@@ -73,7 +75,7 @@ def register_harness_session(
         session_id,
         executor,
         provider,
-        model,
+        model_facts,
         root,
         entrypoint,
         project_id,
@@ -141,12 +143,17 @@ def session_begin_recovery_command(
     session_id: str,
     executor: str,
     provider: str,
-    model: str,
+    requested_model: str,
     entrypoint: Optional[str] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
 ) -> str:
-    """Render an operator recovery command for the target-aware service client."""
+    """Render an operator recovery command for the target-aware service client.
+
+    The recipe names the model as a *request*: an operator re-running
+    ``session-begin`` is stating what to run, not reporting what a provider
+    served, so the served columns stay unset until an attestation fills them.
+    """
     parts = [
         "python3",
         service_client_path(root),
@@ -157,8 +164,8 @@ def session_begin_recovery_command(
         executor,
         "--provider",
         provider,
-        "--model",
-        model,
+        "--requested-model",
+        requested_model,
         "--workspace",
         root,
     ]

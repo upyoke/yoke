@@ -169,7 +169,8 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     assert body["agent_type"] == "engineer"
     assert body["payload_extra"] == {}
     assert "entrypoint" in body
-    assert body["model"] is None, "tool-call relays never pay the transcript read"
+    # An unstated fact ships no key; a null would read as an attestation.
+    assert "model" not in body, "tool-call relays never pay the transcript read"
     assert 0 < body["deadline_ms"] <= 10000
     assert 0 < captured["timeout"] <= 10.0
     out = capsys.readouterr()

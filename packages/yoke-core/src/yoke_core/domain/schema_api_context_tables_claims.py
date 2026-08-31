@@ -33,6 +33,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("presentation_observed_at", "TEXT"),
             ("provider", "TEXT"),
             ("model", "TEXT"),
+            ("reasoning_effort", "TEXT"),
+            ("context_window_tokens", "INTEGER"),
+            ("requested_model", "TEXT"),
+            ("requested_reasoning_effort", "TEXT"),
+            ("requested_context_window_tokens", "INTEGER"),
             ("mode", "TEXT"),
             ("parked_reason", "TEXT"),
             ("keepalive_until", "TEXT"),
@@ -63,6 +68,17 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("last_checkpoint_at", "TEXT"),
         ],
         "notes": (
+            "model / reasoning_effort / context_window_tokens hold ONLY "
+            "provider-attested served truth read from the harness artifact "
+            "(claude transcript message.model + effort; codex rollout "
+            "turn_context + model_context_window; cursor store modelName); "
+            "NULL means not attested. A stale guess is that model holds what "
+            "the session was launched with: that is requested_model, stamped "
+            "at registration with requested_reasoning_effort / "
+            "requested_context_window_tokens (claude-opus-5[1m] is only ever "
+            "a request — no provider returns a tier selector). Never write a "
+            "request into a plain column; a NULL plain column falls back to "
+            "requested_model only with a label (model_display). "
             "executor stores only the canonical harness_id enum values "
             "claude-code, codex, or cursor (resolved at write time via "
             "yoke_harness.hooks.identity.canonical_harness_id); "

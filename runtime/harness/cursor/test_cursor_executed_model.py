@@ -9,7 +9,7 @@ from yoke_harness.cursor_executed_model import (
     executed_model,
     executed_model_for_payload,
 )
-from yoke_harness.hooks import identity_runtime
+from yoke_harness.model_attestation import attest_served_facts
 
 
 CONVERSATION = "148c6d42-ee52-4779-a6e1-7311d842fd14"
@@ -111,13 +111,14 @@ def test_the_measured_model_outranks_what_the_payload_reports(
 
     # The payload's tiered self-report is a claim; the store is the record.
     assert (
-        identity_runtime.cursor_payload_model(
+        attest_served_facts(
+            "cursor",
             {
                 "session_id": CONVERSATION,
                 "model": "cursor-grok-4.6-xhigh",
                 "model_id": "grok-4.6",
-            }
-        )
+            },
+        ).model
         == "cursor-grok-4.6-high-fast"
     )
 
@@ -130,9 +131,9 @@ def test_the_payload_is_not_the_model_when_the_store_cannot_answer(
     )
 
     assert (
-        identity_runtime.cursor_payload_model(
-            {"session_id": CONVERSATION, "model_id": "grok-4.6"}
-        )
-        == ""
+        attest_served_facts(
+            "cursor", {"session_id": CONVERSATION, "model_id": "grok-4.6"}
+        ).model
+        is None
     )
-    assert identity_runtime.cursor_payload_model({"session_id": CONVERSATION}) == ""
+    assert attest_served_facts("cursor", {"session_id": CONVERSATION}).model is None

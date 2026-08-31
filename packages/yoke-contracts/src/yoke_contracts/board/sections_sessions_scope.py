@@ -87,6 +87,7 @@ def _session_rows_sql(
 ) -> str:
     return f"""
         SELECT hs.session_id, hs.executor{surface_col}, hs.model,
+               hs.requested_model,
                hs.mode, hs.execution_lane, hs.offered_at, hs.last_heartbeat,
                hs.workspace, hs.project_id
                {ended_col}

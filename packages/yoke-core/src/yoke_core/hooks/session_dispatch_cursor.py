@@ -20,6 +20,8 @@ import json
 import os
 from pathlib import Path
 
+from yoke_contracts.session_model_facts import SessionModelFacts
+
 from yoke_core.hooks import session_dispatch_cursor_lifecycle as _lifecycle
 from yoke_core.hooks.resume_block_dispatch import render as _render_resume_block
 from yoke_core.hooks.types import HookContext
@@ -32,11 +34,16 @@ def _payload_json(payload: dict) -> str:
         return "{}"
 
 
-def _payload_model(payload: dict) -> str:
-    """Return the model the conversation store proves, or ``""``."""
-    from yoke_harness.hooks.identity import cursor_payload_model
+def _model_facts(payload: dict) -> SessionModelFacts:
+    """Return the ask plus whatever the conversation store proves served.
 
-    return cursor_payload_model(payload)
+    Cursor's hook payload names a bare family id that is neither: the ask
+    lives in the launch environment and the served variant is written per
+    conversation by Cursor itself, so neither is taken from stdin.
+    """
+    from yoke_harness.hooks.identity_relay import resolve_model_facts
+
+    return resolve_model_facts(payload, "cursor")
 
 
 def _entrypoint() -> str:
@@ -54,7 +61,9 @@ def _render_orientation(
         CLIENT_ORIENTATION_PRESENT_KEY,
         render_orientation,
     )
-    from yoke_core.hooks.session_dispatch import _connected_env_remediation
+    from yoke_core.hooks.session_dispatch_orientation import (
+        _connected_env_remediation,
+    )
 
     blocks: list[str] = []
     if registration_failed:
@@ -108,7 +117,7 @@ def run_session_start(record: HookContext, root: str) -> str:
     err = _lifecycle.register(
         root,
         session_id,
-        _payload_model(record.payload) or "unknown",
+        _model_facts(record.payload),
         _entrypoint(),
     )
     orientation = _render_orientation(record, root, err)
@@ -134,18 +143,13 @@ def run_prompt_submit(record: HookContext, root: str) -> str:
     if not session_id:
         return ""
     if not _cursor.is_folded_cursor_session(record.payload):
-        model = _payload_model(record.payload)
+        facts = _model_facts(record.payload)
         first_prompt = _first_prompt(session_id, codex=False)
-        # Registration is upgrade-only on the model, so the first prompt is
-        # a free chance to heal a session that opened before its surface
-        # named one. Later prompts do not heartbeat.
-        if first_prompt and model:
-            _lifecycle.register(
-                root,
-                session_id,
-                model or "unknown",
-                _entrypoint(),
-            )
+        # The served columns fill in rather than overwrite, so the first
+        # prompt is a free chance to attest a session that opened before
+        # its conversation store existed. Later prompts do not heartbeat.
+        if first_prompt and facts.model:
+            _lifecycle.register(root, session_id, facts, _entrypoint())
         if first_prompt:
             telemetry.emit_harness_session_sent_first_user_prompt_submit(
                 "",

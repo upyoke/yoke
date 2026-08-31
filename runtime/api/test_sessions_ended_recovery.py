@@ -71,7 +71,8 @@ class TestRecoveryCommandRendering:
         end_session(conn, "slept")
         command = session_ended_recovery_command(conn, "slept")
         assert command.startswith(f"{RECOVERY_COMMAND} --session-id slept ")
-        for flag in ("--executor", "--provider", "--model", "--workspace"):
+        # The recipe re-states an ask, so it names the stored request.
+        for flag in ("--executor", "--provider", "--requested-model", "--workspace"):
             assert f"{flag} " in command
 
     def test_quotes_values_that_need_it(self, conn):

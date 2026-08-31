@@ -26,7 +26,8 @@ from yoke_core.domain.work_claim_targets import (
 _DDL = """
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY, executor TEXT NOT NULL, provider TEXT NOT NULL,
-    model TEXT NOT NULL DEFAULT '', execution_lane TEXT NOT NULL DEFAULT 'primary',
+    model TEXT, execution_lane TEXT NOT NULL DEFAULT 'primary',
+    reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     workspace TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'wait',
     offered_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
     ended_at TEXT,

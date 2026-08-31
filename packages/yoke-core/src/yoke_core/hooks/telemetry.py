@@ -20,7 +20,7 @@ Sibling owners:
 - :mod:`yoke_core.hooks.service_client` — repo-root
   resolution, ``service_client.py`` path lookup, ``register_session``
   driver, and the post-turn model refresh
-  (``refresh_session_model_if_placeholder``).
+  (``attest_served_model_facts``).
 - :mod:`yoke_core.hooks.stdin` — bounded stdin reads and
   the ``HarnessSessionHookFailed`` /
   ``HarnessSessionSentFirstUserPromptSubmit`` emitters.
@@ -42,10 +42,12 @@ from yoke_core.hooks.identity import (  # noqa: F401
     resolve_session_id_from_env_and_payload,
 )
 from yoke_core.hooks.service_client import (  # noqa: F401
-    refresh_session_model_if_placeholder,
     register_session,
     resolve_repo_root,
     session_service_client_path,
+)
+from yoke_core.hooks.session_model_attestation_write import (  # noqa: F401
+    attest_served_model_facts,
 )
 from yoke_core.hooks.stdin import (  # noqa: F401
     STDIN_FALLBACK_MAX_BYTES,
@@ -337,7 +339,7 @@ __all__ = [
     "emit_session_hook_failed",
     "flush_hook_telemetry",
     "persist_session_id_to_env_file",
-    "refresh_session_model_if_placeholder",
+    "attest_served_model_facts",
     "register_session",
     "resolve_direct_session_id",
     "resolve_env_init_session_id",

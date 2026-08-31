@@ -38,6 +38,7 @@ from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
 from yoke_core.domain.local_operating_actor import holds_org_admin
 from yoke_core.domain.path_claims_dispatch import cmd_register
 from yoke_core.domain.sessions import claim_work
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 _ITEM_ID = 40501
@@ -83,7 +84,7 @@ def _begin(db) -> dict:
         session_id=_SESSION_ID,
         executor="claude-code",
         provider="anthropic",
-        model=TEST_MODEL_ID,
+        model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
         workspace="/tmp/fresh-universe",
         project_id=1,
     )
@@ -195,7 +196,7 @@ def test_an_explicit_actor_converges_nothing(fresh_universe):
         session_id="explicit-actor-session",
         executor="claude-code",
         provider="anthropic",
-        model=TEST_MODEL_ID,
+        model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
         workspace="/tmp/fresh-universe",
         project_id=1,
         actor_id=actor_id,

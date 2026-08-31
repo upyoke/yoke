@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from yoke_contracts.session_model_facts import SessionModelFacts
+
 from yoke_core.hooks.registration_identity import project_lane_for_executor
 
 
@@ -19,7 +21,7 @@ def _register_in_process(
     session_id: str,
     executor: str,
     provider: str,
-    model: str,
+    model_facts: SessionModelFacts,
     workspace: str,
     entrypoint: Optional[str],
     *,
@@ -66,7 +68,7 @@ def _register_in_process(
                 session_id=session_id,
                 executor=executor,
                 provider=provider,
-                model=model,
+                model_facts=model_facts,
                 workspace=workspace,
                 entrypoint=entrypoint,
                 actor_id=actor_id,

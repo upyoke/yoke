@@ -276,6 +276,7 @@ def list_sessions(
                     "executor": row.get("executor"),
                     "executor_surface": executor_surface,
                     "model": row.get("model"),
+                    "requested_model": row.get("requested_model"),
                     "workspace": row.get("workspace"),
                     "offered_at": row.get("offered_at"),
                     "ended_at": row.get("ended_at"),

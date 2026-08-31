@@ -2,7 +2,8 @@
 
 Owns repo-root resolution for hook CLI entrypoints, the
 ``service_client.py`` path lookup, the ``register_session`` driver, and
-the post-turn ``refresh_session_model_if_placeholder`` upgrade path.
+the post-turn served-fact write path in
+``session_model_attestation_write``.
 Re-exported via ``yoke_core.hooks.telemetry`` so post-cutover
 callers route through one canonical telemetry surface.
 """
@@ -14,6 +15,8 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Iterator, Optional
+
+from yoke_contracts.session_model_facts import SessionModelFacts, facts_arguments
 
 _RETIRED_BACKEND_ENV = "YOKE_" + "BACKEND"
 
@@ -149,7 +152,7 @@ def register_session(
     session_id: str,
     executor: str,
     provider: str,
-    model: str,
+    model_facts: SessionModelFacts,
     workspace: str,
     entrypoint: Optional[str] = None,
     project_id: Optional[int] = None,
@@ -164,6 +167,10 @@ def register_session(
     ``entrypoint``, when provided, identifies the harness sub-surface
     (e.g. ``claude-desktop``, ``claude-vscode-extension``, ``cli``) and
     is recorded in the HarnessSessionStarted event context for telemetry.
+
+    ``model_facts`` travels as one flag per column so the requested ask and
+    the attested served truth stay distinguishable across the subprocess
+    boundary; an unset fact ships no flag rather than an empty string.
     """
     if not os.path.isfile(service_client_path):
         return "service_client.py not found"
@@ -178,11 +185,10 @@ def register_session(
         executor,
         "--provider",
         provider,
-        "--model",
-        model,
         "--workspace",
         workspace,
     ]
+    cmd.extend(facts_arguments(model_facts))
     if project_id is not None:
         cmd.extend(["--project-id", str(project_id)])
     if entrypoint:
@@ -242,90 +248,7 @@ def touch_session(service_client_path: str, root: str, session_id: str) -> int:
     return result.returncode
 
 
-def refresh_session_model_if_placeholder(
-    session_id: str,
-    transcript_path: str,
-    *,
-    hook_source: str = "",
-) -> bool:
-    """Upgrade a placeholder ``harness_sessions.model`` using the transcript.
-
-    Intended for hooks that fire after the LLM has begun generating (and
-    so the transcript's assistant-message ``model`` field is now present).
-    Safe to call from every hook — no-ops when:
-      * the stored model is already real, or
-      * the transcript yields no non-placeholder model, or
-      * the DB / schema / session row isn't available.
-
-    Never downgrades a real stored model to a placeholder.
-
-    Emits a ``HarnessSessionModelRefreshed`` event when an upgrade fires,
-    so we can trace which hook surface did the upgrade and when.
-
-    Returns True when an UPDATE fired, False otherwise.
-    """
-    if not session_id or not transcript_path:
-        return False
-    from yoke_core.hooks.helpers import (
-        _is_placeholder_model,
-        _read_model_from_transcript,
-    )
-
-    transcript_model = _read_model_from_transcript(transcript_path)
-    if not transcript_model or _is_placeholder_model(transcript_model):
-        return False
-
-    try:
-        from yoke_core.domain import db_backend
-
-        conn = db_backend.connect(busy_timeout_ms=2000)
-    except Exception:
-        return False
-    try:
-        row = conn.execute(
-            "SELECT model FROM harness_sessions WHERE session_id = %s",
-            (session_id,),
-        ).fetchone()
-        if row is None:
-            return False
-        stored = row[0] or ""
-        if not _is_placeholder_model(stored):
-            return False
-        conn.execute(
-            "UPDATE harness_sessions SET model = %s WHERE session_id = %s",
-            (transcript_model, session_id),
-        )
-        conn.commit()
-    except Exception:
-        return False
-    finally:
-        conn.close()
-
-    try:
-        from yoke_core.domain.events import emit_event as _native_emit
-
-        _native_emit(
-            "HarnessSessionModelRefreshed",
-            event_kind="system",
-            event_type="session_lifecycle",
-            source_type="hook",
-            severity="INFO",
-            outcome="completed",
-            session_id=session_id,
-            project="yoke",
-            context={
-                "previous_model": stored,
-                "refreshed_model": transcript_model,
-                "hook_source": hook_source or "unknown",
-            },
-        )
-    except Exception:
-        pass
-    return True
-
-
 __all__ = [
-    "refresh_session_model_if_placeholder",
     "register_session",
     "resolve_repo_root",
     "session_service_client_path",

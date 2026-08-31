@@ -11,6 +11,7 @@ import pytest
 
 import yoke_core.hooks.helpers_identity as tree_identity
 import yoke_harness.hooks.identity_runtime as wheel_identity
+from yoke_harness.model_attestation import attest_served_facts
 
 BOTH = pytest.mark.parametrize("identity", [tree_identity, wheel_identity])
 
@@ -144,33 +145,32 @@ def test_detect_executor_claude_session_wins_over_conversation_id(
     assert identity.detect_executor() == "claude-code"
 
 
-def test_cursor_payload_model_ignores_payload_when_the_store_cannot_answer(
-    tmp_path,
-) -> None:
-    assert (
-        wheel_identity.cursor_payload_model(
-            {
-                "session_id": "no-such-conversation",
-                "model_id": "grok-4.6",
-                "model": "cursor-grok-4.6-xhigh",
-            }
-        )
-        == ""
+def test_cursor_attests_nothing_when_the_store_cannot_answer(tmp_path) -> None:
+    """The payload's self-reported model is a claim, never a measurement."""
+    facts = attest_served_facts(
+        "cursor",
+        {
+            "session_id": "no-such-conversation",
+            "model_id": "grok-4.6",
+            "model": "cursor-grok-4.6-xhigh",
+        },
     )
 
+    assert facts.model is None
 
-def test_cursor_payload_model_records_nothing_from_a_bare_payload() -> None:
+
+def test_cursor_attests_nothing_from_a_bare_payload() -> None:
     assert (
-        wheel_identity.cursor_payload_model(
-            {"session_id": "no-such-conversation", "model": "grok-4.6"}
-        )
-        == ""
+        attest_served_facts(
+            "cursor", {"session_id": "no-such-conversation", "model": "grok-4.6"}
+        ).model
+        is None
     )
     assert (
-        wheel_identity.cursor_payload_model(
-            {"session_id": "no-such-conversation", "model_id": "grok-4.6"}
-        )
-        == ""
+        attest_served_facts(
+            "cursor", {"session_id": "no-such-conversation", "model_id": "grok-4.6"}
+        ).model
+        is None
     )
 
 

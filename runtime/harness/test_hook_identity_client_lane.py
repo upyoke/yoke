@@ -1,17 +1,24 @@
 """Identity-enrichment tests for the HTTPS hook relay client.
 
-``client_lane`` / ``client_model`` live in ``yoke_harness.hooks.identity_relay``
+``client_lane`` / ``client_model_facts`` live in ``yoke_harness.hooks.identity_relay``
 and surface through ``yoke_harness.hooks.identity``. Lane resolution reads
 machine-config ``settings`` keys (``executor_default_lane_<token>``, with
 ``*`` wildcard suffixes and an ``unknown`` default), and answers ``None``
-when nothing matches so the server's project routing policy decides; model +
-codex detection come from ``identity_relay``'s own module globals. Tests
-patch those real surfaces.
+when nothing matches so the server's project routing policy decides. Model
+facts split into the ask and whatever the harness artifact attested, so the
+tests supply real artifacts rather than patching a single detector.
 """
 
 from __future__ import annotations
 
-from yoke_harness.hooks.identity import client_entrypoint, client_lane, client_model
+import json
+
+from yoke_contracts.session_model_facts import SessionModelFacts
+from yoke_harness.hooks.identity import (
+    client_entrypoint,
+    client_lane,
+    client_model_facts,
+)
 
 _RELAY = "yoke_harness.hooks.identity_relay"
 _MACHINE_CONFIG = "yoke_cli.config.machine_config"
@@ -53,73 +60,80 @@ def test_client_lane_skips_tool_call_events(monkeypatch) -> None:
     assert client_lane("PreToolUse", "codex-desktop") is None
 
 
-def test_tool_call_client_model_marks_first_real_model_then_skips(
+def _claude_transcript(tmp_path, model: str) -> str:
+    path = tmp_path / "live.jsonl"
+    path.write_text(
+        json.dumps({"type": "assistant", "effort": "high", "message": {"model": model}})
+        + "\n"
+    )
+    return str(path)
+
+
+def test_an_attested_model_ships_once_and_then_stops_resolving(
     monkeypatch,
     tmp_path,
 ) -> None:
-    calls: list[tuple[str, str]] = []
+    """Reading the artifact is not free, so a proven answer ends the work."""
     monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
-    monkeypatch.setattr(f"{_RELAY}.is_codex", lambda executor: False)
-    monkeypatch.setattr(
-        f"{_RELAY}.detect_model",
-        lambda executor, transcript_path="": (
-            calls.append((executor, transcript_path)) or "claude-fable-5[1m]"
-        ),
-    )
-    payload = {"session_id": "s-model", "transcript_path": "/t/live.jsonl"}
+    payload = {
+        "session_id": "s-model",
+        "transcript_path": _claude_transcript(tmp_path, "claude-fable-5"),
+    }
 
-    assert client_model("PreToolUse", payload, "claude-code") == "claude-fable-5[1m]"
-    assert client_model("PostToolUse", payload, "claude-code") is None
-    assert calls == [("claude-code", "/t/live.jsonl")]
+    first = client_model_facts("PreToolUse", payload, "claude-code")
+
+    assert first["model"] == "claude-fable-5"
+    assert first["reasoning_effort"] == "high"
     assert (tmp_path / "relay-model-shipped" / "s-model").exists()
+    assert client_model_facts("PostToolUse", payload, "claude-code") == {}
 
 
-def test_placeholder_client_model_does_not_mark_shipped(monkeypatch, tmp_path) -> None:
+def test_an_unattested_session_ships_its_ask_and_keeps_trying(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """The artifact naming the served model does not exist on turn one."""
     monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
-    monkeypatch.setattr(f"{_RELAY}.is_codex", lambda executor: False)
-    monkeypatch.setattr(
-        f"{_RELAY}.detect_model",
-        lambda executor, transcript_path="": "unknown",
-    )
+    monkeypatch.setenv("YOKE_MODEL", "claude-opus-5[1m]")
+    payload = {"session_id": "s-young", "transcript_path": str(tmp_path / "absent")}
 
-    assert (
-        client_model(
-            "PreToolUse",
-            {"session_id": "s-placeholder"},
-            "claude-code",
-        )
-        is None
-    )
-    assert not (tmp_path / "relay-model-shipped" / "s-placeholder").exists()
+    facts = client_model_facts("PreToolUse", payload, "claude-code")
+
+    assert facts["requested_model"] == "claude-opus-5[1m]"
+    assert "model" not in facts
+    assert not (tmp_path / "relay-model-shipped" / "s-young").exists()
 
 
-def test_cursor_unknown_model_ships_until_the_store_answers(
+def test_cursor_attests_nothing_until_its_conversation_store_answers(
     monkeypatch, tmp_path
 ) -> None:
     # Cursor's payload names a family id before its conversation store names
-    # the variant. That payload is not a measurement, so the client ships
-    # unknown and keeps shipping until the store answers.
+    # the variant. That payload is not a measurement, so nothing is attested
+    # and the client keeps trying until the store answers.
     monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
     monkeypatch.setattr(
         "yoke_harness.cursor_executed_model.CURSOR_CHATS_DIR", tmp_path / "no-chats"
     )
     payload = {"session_id": "s-cursor", "model": "grok-4.6"}
 
-    assert client_model("PreToolUse", payload, "cursor") == "unknown"
-    assert client_model("PostToolUse", payload, "cursor") == "unknown"
+    assert "model" not in client_model_facts("PreToolUse", payload, "cursor")
     assert not (tmp_path / "relay-model-shipped" / "s-cursor").exists()
 
 
-def test_cursor_measured_model_keeps_shipping(monkeypatch, tmp_path) -> None:
+def test_cursor_ships_the_variant_its_store_proves(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
     monkeypatch.setattr(
-        f"{_RELAY}.cursor_payload_model", lambda _payload: "cursor-grok-4.6-xhigh"
+        "yoke_harness.model_attestation._cursor_facts",
+        lambda _payload: SessionModelFacts(
+            model="cursor-grok-4.6-xhigh", reasoning_effort="xhigh"
+        ),
     )
     payload = {"session_id": "s-cursor-measured", "model": "grok-4.6"}
 
-    assert client_model("PreToolUse", payload, "cursor") == "cursor-grok-4.6-xhigh"
-    assert not (tmp_path / "relay-model-shipped" / "s-cursor-measured").exists()
-    assert client_model("PostToolUse", payload, "cursor") == "cursor-grok-4.6-xhigh"
+    facts = client_model_facts("PreToolUse", payload, "cursor")
+
+    assert facts["model"] == "cursor-grok-4.6-xhigh"
+    assert facts["reasoning_effort"] == "xhigh"
 
 
 def test_client_project_id_resolves_workspace_roots_payloads(monkeypatch) -> None:

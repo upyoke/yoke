@@ -97,6 +97,7 @@ def _p(conn) -> str:
 
 
 from runtime.api.sessions_schema_test_ddl import _SESSIONS_AND_CLAIMS_DDL
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 def _create_schema(conn) -> None:
@@ -180,7 +181,7 @@ def _register(conn, session_id="sess-1", **kwargs):
     defaults = dict(
         executor="claude-code",
         provider="anthropic",
-        model=TEST_MODEL_ID,
+        model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
         workspace="/tmp/work",
         project_id=1,
         execution_lane="primary",
@@ -338,7 +339,7 @@ def _ensure_active_session(
         session_id=session_id,
         executor=executor,
         provider=provider,
-        model=model,
+        model_facts=SessionModelFacts(requested_model=model),
         workspace=workspace,
         project_id=1,
         execution_lane=execution_lane,

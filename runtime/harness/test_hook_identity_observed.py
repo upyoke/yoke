@@ -119,7 +119,9 @@ def test_machine_id_enrichment_is_best_effort(monkeypatch) -> None:
 
 def test_relay_identity_payload_includes_observed_fields(monkeypatch) -> None:
     monkeypatch.setattr(identity_relay, "client_entrypoint", lambda *_: "codex-cli")
-    monkeypatch.setattr(identity_relay, "client_model", lambda *_: "gpt-test")
+    monkeypatch.setattr(
+        identity_relay, "client_model_facts", lambda *_: {"model": "gpt-test"}
+    )
     monkeypatch.setattr(identity_relay, "client_lane", lambda *_: "primary")
     monkeypatch.setattr(identity_relay, "client_project_id", lambda *_: 7)
     monkeypatch.setattr(
@@ -158,7 +160,9 @@ def test_a_claude_cli_hook_registers_the_version_its_shared_cache_reports(
         "yoke_harness.session_relay_surface_probe_cache.cached_surface_versions",
         lambda **_kwargs: {"claude-cli": "2.1.247"},
     )
-    monkeypatch.setattr(identity_relay, "client_model", lambda *_: "claude-opus-5")
+    monkeypatch.setattr(
+        identity_relay, "client_model_facts", lambda *_: {"model": "claude-opus-5"}
+    )
     monkeypatch.setattr(identity_relay, "client_lane", lambda *_: "primary")
     monkeypatch.setattr(identity_relay, "client_project_id", lambda *_: 1)
     monkeypatch.setattr(identity_relay, "client_machine_id", lambda: "machine-uuid")

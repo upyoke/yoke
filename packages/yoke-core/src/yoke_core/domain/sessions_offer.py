@@ -38,6 +38,7 @@ def session_offer_with_ownership(
     executor: str,
     provider: str,
     model: str,
+    requested_model: str = "",
     workspace: str,
     execution_lane: str = "primary",
     caller_supplied_lane: Optional[str] = None,
@@ -75,7 +76,9 @@ def session_offer_with_ownership(
         session_id: Stable session identifier for the offer lifetime.
         executor: Executor identity (e.g., ``claude-code``).
         provider: Model provider (e.g., ``anthropic``).
-        model: Model identifier.
+        model: The provider-attested served model; empty when nothing
+            has attested one yet.
+        requested_model: The model the session asked for.
         workspace: Absolute workspace path.
         execution_lane: Resolved executor-default lane (telemetry /
             fallback when the caller did not supply a lane).
@@ -184,6 +187,7 @@ def session_offer_with_ownership(
         executor=executor,
         provider=provider,
         model=model,
+        requested_model=requested_model,
         workspace=workspace,
         execution_lane=authoritative_lane,
         capabilities=capabilities,
@@ -200,6 +204,7 @@ def session_offer_with_ownership(
         executor=executor,
         provider=provider,
         model=model,
+        requested_model=requested_model,
         workspace=workspace,
         execution_lane=authoritative_lane,
         capabilities=capabilities,

@@ -160,7 +160,7 @@ def next_action_command(conn, session_id: str, next_step: int) -> str:
 
     # ``--model`` is intentionally omitted: ``session-offer`` resolves the
     # canonical model from ``harness_sessions.model`` (or the
-    # ``hook_helpers_model.detect_model`` fallback) using ``--session-id``,
+    # ``hook_helpers_model.detect_requested_model`` fallback) using ``--session-id``,
     # so echoing the model here would just round-trip the same value back
     # to the same row.
     parts = [

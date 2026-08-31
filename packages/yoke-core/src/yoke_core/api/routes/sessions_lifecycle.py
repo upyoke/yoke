@@ -15,6 +15,7 @@ from fastapi.routing import APIRouter
 from pydantic import BaseModel
 
 from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import (
     SessionError,
@@ -43,7 +44,12 @@ class RegisterSessionRequest(BaseModel):
     session_id: str
     executor: str
     provider: str
-    model: str
+    requested_model: Optional[str] = None
+    requested_reasoning_effort: Optional[str] = None
+    requested_context_window_tokens: Optional[int] = None
+    model: Optional[str] = None
+    reasoning_effort: Optional[str] = None
+    context_window_tokens: Optional[int] = None
     execution_lane: str = UNRESOLVED_EXECUTION_LANE
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
@@ -79,7 +85,7 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
             session_id=req.session_id,
             executor=req.executor,
             provider=req.provider,
-            model=req.model,
+            model_facts=facts_from_mapping(req.model_dump()),
             execution_lane=execution_lane,
             executor_version=req.executor_version,
             machine_id=req.machine_id,

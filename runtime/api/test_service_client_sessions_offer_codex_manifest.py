@@ -40,7 +40,7 @@ class TestSessionOfferCodexManifest:
             handle.write("lane_paths_altman=refine,polish\n")
 
         sid = "codex-altman-compatible"
-        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", requested_model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
         result = _run_client(
             [
                 "session-offer",
@@ -87,7 +87,7 @@ class TestSessionOfferCodexManifest:
             )
 
         sid = "codex-registry-derived"
-        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", requested_model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
         result = _run_client(
             [
                 "session-offer",
@@ -134,7 +134,7 @@ class TestSessionOfferCodexManifest:
             )
 
         sid = "codex-manifest-override"
-        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(session_offer_db["db_path"], sid, executor="codex", provider="openai", requested_model="gpt-5.4", workspace=session_offer_db["tmp_dir"])
         result = _run_client(
             [
                 "session-offer",

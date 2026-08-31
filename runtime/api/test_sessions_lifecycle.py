@@ -10,6 +10,7 @@ import pytest
 from unittest.mock import patch
 
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_contracts.session_model_facts import SessionModelFacts
 from runtime.api.test_sessions import (
     _insert_claimable_item,
     _p,
@@ -32,13 +33,24 @@ pytest_plugins = ("runtime.api.test_sessions",)
 # ---------------------------------------------------------------------------
 
 
+def _stored(conn, session_id: str, column: str):
+    """Read one model column straight from the row the registrar wrote."""
+    row = conn.execute(
+        f"SELECT {column} FROM harness_sessions WHERE session_id = {_p(conn)}",
+        (session_id,),
+    ).fetchone()
+    return row[column]
+
+
 class TestRegisterSession:
     def test_register_creates_record(self, conn):
         result = _register(conn)
         assert result["session_id"] == "sess-1"
         assert result["executor"] == "claude-code"
         assert result["provider"] == "anthropic"
-        assert result["model"] == TEST_MODEL_ID
+        # Registration states an ask; nothing has attested a served model.
+        assert result["requested_model"] == TEST_MODEL_ID
+        assert result["model"] is None
         assert result["execution_lane"] == "primary"
         assert result["workspace"] == "/tmp/work"
         assert result["mode"] == "wait"
@@ -57,82 +69,90 @@ class TestRegisterSession:
             _register(conn, session_id="dup")
         assert exc_info.value.code == "SESSION_EXISTS"
 
-    def test_register_refreshes_placeholder_model_on_duplicate(self, conn):
-        """VS Code registers the session with ``--model default`` (stored
-        as the literal ``"default"``). A subsequent UserPromptSubmit's
-        session-begin — armed with a real model ID from the transcript —
-        must upgrade the stored placeholder even though the insert
-        conflicts with SESSION_EXISTS.
+    def test_duplicate_registration_attests_a_served_model(self, conn):
+        """The served column is empty until an artifact names a model.
+
+        A session registers before its first turn completes, so the model
+        arrives on a later event whose insert conflicts with SESSION_EXISTS.
+        The healing path is what records it.
         """
-        _register(conn, session_id="vscode-sess", model="default")
-        with pytest.raises(SessionError) as exc_info:
-            _register(conn, session_id="vscode-sess", model=TEST_MODEL_ID)
-        assert exc_info.value.code == "SESSION_EXISTS"
-
-        row = conn.execute(
-            f"SELECT model FROM harness_sessions WHERE session_id = {_p(conn)}",
-            ("vscode-sess",),
-        ).fetchone()
-        assert row["model"] == TEST_MODEL_ID
-
-    def test_register_does_not_overwrite_real_model_with_placeholder(self, conn):
-        """Never downgrade a real model ID back to ``"default"``."""
-        _register(conn, session_id="real-sess", model="claude-opus-4-7[1m]")
-        with pytest.raises(SessionError) as exc_info:
-            _register(conn, session_id="real-sess", model="default")
-        assert exc_info.value.code == "SESSION_EXISTS"
-
-        row = conn.execute(
-            f"SELECT model FROM harness_sessions WHERE session_id = {_p(conn)}",
-            ("real-sess",),
-        ).fetchone()
-        assert row["model"] == "claude-opus-4-7[1m]"
-
-    def test_register_does_not_overwrite_real_model_with_different_real(self, conn):
-        """The refresh is a placeholder → real upgrade only, not a
-        free-for-all model swap on every prompt.
-        """
-        _register(conn, session_id="stable-sess", model=TEST_MODEL_ID)
-        with pytest.raises(SessionError) as exc_info:
-            _register(conn, session_id="stable-sess", model="claude-sonnet-4-6")
-        assert exc_info.value.code == "SESSION_EXISTS"
-
-        row = conn.execute(
-            f"SELECT model FROM harness_sessions WHERE session_id = {_p(conn)}",
-            ("stable-sess",),
-        ).fetchone()
-        assert row["model"] == TEST_MODEL_ID
-
-    def test_register_takes_a_later_cursor_model_over_the_stored_one(self, conn):
-        """A later store measurement replaces a less-specific family id."""
-        cursor = dict(executor="cursor-cli", provider="cursor")
-        _register(conn, session_id="cursor-sess", model="grok-4.6", **cursor)
+        _register(conn, session_id="vscode-sess")
         with pytest.raises(SessionError) as exc_info:
             _register(
                 conn,
-                session_id="cursor-sess",
-                model="cursor-grok-4.6-xhigh",
-                **cursor,
+                session_id="vscode-sess",
+                model_facts=SessionModelFacts(model=TEST_MODEL_ID),
             )
         assert exc_info.value.code == "SESSION_EXISTS"
 
-        row = conn.execute(
-            f"SELECT model FROM harness_sessions WHERE session_id = {_p(conn)}",
-            ("cursor-sess",),
-        ).fetchone()
-        assert row["model"] == "cursor-grok-4.6-xhigh"
+        assert _stored(conn, "vscode-sess", "model") == TEST_MODEL_ID
 
-    def test_reactivate_refuses_to_downgrade_real_model_to_placeholder(self, conn):
-        """VS Code sessions auto-end between prompts (session-end-if-empty),
-        then the next prompt re-fires SessionStart. The SessionStart payload
-        has no ``model``, so the caller passes ``"unknown"``. That must not
-        clobber the real model ID recovered during the previous turn's
-        UserPromptSubmit transcript refresh.
+    def test_a_registration_with_nothing_attested_keeps_the_served_model(
+        self, conn
+    ):
+        """Most later events have nothing to attest; they must not clear it."""
+        _register(
+            conn,
+            session_id="real-sess",
+            model_facts=SessionModelFacts(model="claude-opus-5"),
+        )
+        with pytest.raises(SessionError) as exc_info:
+            _register(
+                conn,
+                session_id="real-sess",
+                model_facts=SessionModelFacts(requested_model="claude-opus-5[1m]"),
+            )
+        assert exc_info.value.code == "SESSION_EXISTS"
+
+        assert _stored(conn, "real-sess", "model") == "claude-opus-5"
+
+    def test_a_later_attestation_replaces_the_stored_served_model(self, conn):
+        """A session that switched model mid-run is serving the later one."""
+        _register(
+            conn,
+            session_id="stable-sess",
+            model_facts=SessionModelFacts(model=TEST_MODEL_ID),
+        )
+        with pytest.raises(SessionError) as exc_info:
+            _register(
+                conn,
+                session_id="stable-sess",
+                model_facts=SessionModelFacts(model="claude-sonnet-4-6"),
+            )
+        assert exc_info.value.code == "SESSION_EXISTS"
+
+        assert _stored(conn, "stable-sess", "model") == "claude-sonnet-4-6"
+
+    def test_the_request_is_stamped_once_and_never_rewritten(self, conn):
+        """The ask was fixed at launch; a later reading only fills a gap."""
+        _register(
+            conn,
+            session_id="ask-sess",
+            model_facts=SessionModelFacts(requested_model="claude-opus-5[1m]"),
+        )
+        with pytest.raises(SessionError) as exc_info:
+            _register(
+                conn,
+                session_id="ask-sess",
+                model_facts=SessionModelFacts(requested_model="haiku"),
+            )
+        assert exc_info.value.code == "SESSION_EXISTS"
+
+        assert _stored(conn, "ask-sess", "requested_model") == "claude-opus-5[1m]"
+
+    def test_reactivation_with_nothing_attested_keeps_the_served_model(
+        self, conn
+    ):
+        """A resumed session must not lose what the prior episode proved.
+
+        SessionStart carries no artifact reading, so reactivation routinely
+        arrives with nothing to attest; clearing on that would erase the
+        model recovered during the previous turn.
         """
         _register(
             conn,
             session_id="vscode-reactivate",
-            model="claude-sonnet-4-6",
+            model_facts=SessionModelFacts(model="claude-sonnet-4-6"),
             executor="claude-vscode",
         )
         end_session(conn, "vscode-reactivate")
@@ -140,36 +160,22 @@ class TestRegisterSession:
         result = _register(
             conn,
             session_id="vscode-reactivate",
-            model="unknown",
             executor="claude-vscode",
         )
 
         assert result["ended_at"] is None
-        # Stored model stayed real, not downgraded to "unknown".
         assert result["model"] == "claude-sonnet-4-6"
-        row = conn.execute(
-            f"SELECT model FROM harness_sessions WHERE session_id = {_p(conn)}",
-            ("vscode-reactivate",),
-        ).fetchone()
-        assert row["model"] == "claude-sonnet-4-6"
+        assert _stored(conn, "vscode-reactivate", "model") == "claude-sonnet-4-6"
 
-    def test_reactivate_upgrades_placeholder_stored_to_real_caller(self, conn):
-        """The inverse: if the stored model was a placeholder (e.g. the
-        session ended before UserPromptSubmit could refresh), the
-        reactivation path should accept a real model from the caller.
-        """
-        _register(
-            conn,
-            session_id="vscode-upgrade",
-            model="unknown",
-            executor="claude-vscode",
-        )
+    def test_reactivation_records_a_newly_attested_served_model(self, conn):
+        """The inverse: a resumed episode that can attest one records it."""
+        _register(conn, session_id="vscode-upgrade", executor="claude-vscode")
         end_session(conn, "vscode-upgrade")
 
         result = _register(
             conn,
             session_id="vscode-upgrade",
-            model="claude-sonnet-4-6",
+            model_facts=SessionModelFacts(model="claude-sonnet-4-6"),
             executor="claude-vscode",
         )
 
@@ -183,7 +189,7 @@ class TestRegisterSession:
         original = _register(
             conn,
             session_id="reactivate-me",
-            model="old-model",
+            model_facts=SessionModelFacts(model="old-model"),
             mode="wait",
             executor="claude-desktop",
         )
@@ -192,7 +198,7 @@ class TestRegisterSession:
         result = _register(
             conn,
             session_id="reactivate-me",
-            model="new-model",
+            model_facts=SessionModelFacts(model="new-model"),
             mode="hook",
             executor="codex",
             provider="openai",

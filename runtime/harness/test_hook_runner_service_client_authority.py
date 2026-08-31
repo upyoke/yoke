@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.domain import machine_config, yoke_connected_env
 from yoke_core.hooks import service_client, target
 
@@ -77,7 +78,7 @@ def test_register_session_child_inherits_target_cwd_and_connected_env(
         "sid",
         "codex",
         "openai",
-        "gpt-5",
+        SessionModelFacts(requested_model="gpt-5"),
         str(root),
         "codex-desktop",
     )
@@ -121,7 +122,7 @@ def test_register_session_child_imports_yoke_code_for_external_target(
         "sid",
         "claude",
         "anthropic",
-        "opus",
+        SessionModelFacts(requested_model="opus"),
         str(external_root),
         "claude-desktop",
     )

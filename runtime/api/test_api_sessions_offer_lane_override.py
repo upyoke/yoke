@@ -20,6 +20,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import register_session
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
@@ -87,7 +88,7 @@ class TestApiSessionOfferLaneOverride:
                 session_id=session_id,
                 executor="claude-code",
                 provider="anthropic",
-                model="claude-opus-4-7",
+                model_facts=SessionModelFacts(requested_model="claude-opus-4-7"),
                 workspace="/tmp/api-lane",
                 project_id=1,
                 execution_lane=lane,

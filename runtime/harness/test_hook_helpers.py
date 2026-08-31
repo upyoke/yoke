@@ -6,7 +6,7 @@ item markers (current/done), and hook JSON parsing. Detection helpers
 
 - ``test_hook_helpers_identity.py`` — executor / provider / predicate /
   entrypoint env-probe tests
-- ``test_hook_helpers_model.py`` — ``detect_model`` plus
+- ``test_hook_helpers_model.py`` — ``detect_requested_model`` plus
   ``_extract_model_from_argv`` and the VS Code regression suite
 - ``test_hook_helpers_database_resolution.py`` — connected-environment
   database resolution

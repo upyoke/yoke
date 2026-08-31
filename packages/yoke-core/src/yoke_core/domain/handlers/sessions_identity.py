@@ -40,7 +40,11 @@ class IdentityResponse(BaseModel):
     executor: str
     executor_surface: Optional[str] = None
     provider: Optional[str] = None
+    #: Provider-attested served truth; null until something attests it.
     model: Optional[str] = None
+    #: The launch request. A caller showing this where ``model`` is null
+    #: must say it is showing a request.
+    requested_model: Optional[str] = None
     execution_lane: Optional[str] = None
     lane_allowed_paths: List[str] = []
     workspace: Optional[str] = None
@@ -136,7 +140,8 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "executor": identity.executor,
             "executor_surface": identity.executor_surface,
             "provider": identity.provider,
-            "model": identity.model,
+            "model": identity.model or None,
+            "requested_model": identity.requested_model or None,
             "execution_lane": identity.execution_lane,
             "lane_allowed_paths": _lane_allowed_paths(
                 conn, identity.project_id, identity.execution_lane,

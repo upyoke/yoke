@@ -12,6 +12,7 @@ import json
 
 import pytest
 
+from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.hooks import session_dispatch_cursor as dispatch_cursor
 from yoke_core.hooks.types import HookContext
 
@@ -31,8 +32,10 @@ def _context(payload: dict) -> HookContext:
 def quiet_side_effects(monkeypatch: pytest.MonkeyPatch) -> dict:
     calls: dict = {"register": [], "touch": []}
 
-    def fake_register(root, session_id, model, entrypoint):
-        calls["register"].append((root, session_id, model, entrypoint))
+    def fake_register(root, session_id, model_facts, entrypoint):
+        # The served model is what a register call is asserting about the
+        # session; an unattested one records None rather than a stand-in.
+        calls["register"].append((root, session_id, model_facts.model, entrypoint))
         return ""
 
     def fake_touch(root, session_id):
@@ -123,16 +126,16 @@ def test_session_start_does_not_register_hook_payload_as_model(
         "model": "cursor-grok-4.6-xhigh",
     }
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, None, "cursor-cli")]
 
 
-def test_session_start_records_unknown_when_store_is_not_yet_readable(
+def test_session_start_attests_nothing_when_the_store_is_not_yet_readable(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     payload = {"session_id": MAIN, "model": "grok-4.6"}
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, None, "cursor-cli")]
 
 
 def test_session_start_degrades_without_session_id(
@@ -182,8 +185,8 @@ def test_prompt_submit_heals_when_the_store_names_the_model(
         lambda session_id, codex: True,
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.identity.cursor_payload_model",
-        lambda _payload: "cursor-grok-4.6-xhigh",
+        "yoke_harness.model_attestation._cursor_facts",
+        lambda _payload: SessionModelFacts(model="cursor-grok-4.6-xhigh"),
     )
     payload = {"session_id": MAIN, "model": "grok-4.6"}
     dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
@@ -213,7 +216,7 @@ def test_session_start_records_unknown_until_the_store_answers(
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     payload = {"session_id": MAIN, "model": "cursor-grok-4.6-high-fast"}
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, None, "cursor-cli")]
 
 
 def test_session_start_refuses_to_store_the_default_placeholder(
@@ -226,7 +229,7 @@ def test_session_start_refuses_to_store_the_default_placeholder(
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     payload = {"session_id": MAIN, "model": "default"}
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, None, "cursor-cli")]
 
 
 def test_session_start_skips_register_for_subagent_session(

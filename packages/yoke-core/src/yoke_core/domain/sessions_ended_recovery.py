@@ -121,7 +121,7 @@ def session_ended_recovery_command(conn: Any, session_id: str) -> str:
     """
     row = _safe_fetchone(
         conn,
-        f"SELECT executor, provider, model, workspace, project_id "
+        f"SELECT executor, provider, requested_model, model, workspace, project_id "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
     )
@@ -131,13 +131,19 @@ def session_ended_recovery_command(conn: Any, session_id: str) -> str:
     for flag, column in (
         ("--executor", "executor"),
         ("--provider", "provider"),
-        ("--model", "model"),
         ("--workspace", "workspace"),
     ):
         value = row[column]
         if not value:
             return ""
         flags.append((flag, str(value)))
+    # The recipe re-states an ask, so it names the stored ask. A row that
+    # never recorded one falls back to what the provider served, which is
+    # still a model an operator can legitimately request next time.
+    requested = row["requested_model"] or row["model"]
+    if not requested:
+        return ""
+    flags.append(("--requested-model", str(requested)))
     project_id = row["project_id"]
     if project_id is not None:
         flags.append(("--project", str(project_id)))

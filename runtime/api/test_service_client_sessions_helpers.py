@@ -31,7 +31,12 @@ _SESSION_OFFER_SCHEMA_DDL = f"""
         executor TEXT NOT NULL,
         executor_surface TEXT DEFAULT NULL,
         provider TEXT NOT NULL,
-        model TEXT NOT NULL,
+        model TEXT DEFAULT NULL,
+        reasoning_effort TEXT DEFAULT NULL,
+        context_window_tokens INTEGER DEFAULT NULL,
+        requested_model TEXT DEFAULT NULL,
+        requested_reasoning_effort TEXT DEFAULT NULL,
+        requested_context_window_tokens INTEGER DEFAULT NULL,
         execution_lane TEXT NOT NULL DEFAULT 'DARIUS',
         executor_version TEXT, machine_id TEXT,
         workspace TEXT,
@@ -263,12 +268,14 @@ def _pre_register_session(
     session_id: str,
     executor: str = "claude-code",
     provider: str = "anthropic",
-    model: str = TEST_MODEL_ID,
+    requested_model: str = TEST_MODEL_ID,
     workspace: str = "/tmp",
     lane: str = "primary",
 ):
     """Pre-register a session in the DB so session-offer can find it.
 
+    Registration states an ask, so the model goes to ``requested_model``;
+    the served columns stay unattested until a harness artifact fills them.
     Uses session-begin which is idempotent — safe to call multiple times.
     """
     r = _run_client(
@@ -280,8 +287,8 @@ def _pre_register_session(
             executor,
             "--provider",
             provider,
-            "--model",
-            model,
+            "--requested-model",
+            requested_model,
             "--workspace",
             workspace,
             "--project-id",

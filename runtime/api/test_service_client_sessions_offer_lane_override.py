@@ -11,11 +11,10 @@ import json
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import (
+from runtime.api.test_service_client_sessions_helpers import (  # noqa: F401
     _pre_register_session,
+    session_offer_db,
 )
-
-pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 def _set_row_lane(db_path: str, session_id: str, lane: str) -> None:
@@ -60,7 +59,7 @@ class TestCallerSuppliedLaneOverridesRow:
     """--lane wins over the session row when the caller supplies it."""
 
     def test_caller_primary_against_darius_row_emits_applied(
-        self, session_offer_db, monkeypatch
+        self, session_offer_db, monkeypatch  # noqa: F811
     ):
         monkeypatch.delenv("YOKE_EVENTS_ISOLATION", raising=False)
         monkeypatch.delenv("YOKE_EVENTS_CAPTURE", raising=False)
@@ -87,7 +86,7 @@ class TestCallerSuppliedLaneOverridesRow:
         assert _lane_override_event_count(session_offer_db["db_path"], sid) == 1
         assert _envelope_lane(session_offer_db["db_path"], sid) == "primary"
 
-    def test_caller_default_sentinel_does_not_override(self, session_offer_db):
+    def test_caller_default_sentinel_does_not_override(self, session_offer_db):  # noqa: F811
         sid = "lane-anchor-default"
         _pre_register_session(
             session_offer_db["db_path"],
@@ -111,7 +110,7 @@ class TestCallerSuppliedLaneOverridesRow:
         assert _lane_override_event_count(session_offer_db["db_path"], sid) == 0
         assert _envelope_lane(session_offer_db["db_path"], sid) == "DARIUS"
 
-    def test_no_lane_argument_uses_row(self, session_offer_db):
+    def test_no_lane_argument_uses_row(self, session_offer_db):  # noqa: F811
         sid = "lane-anchor-none"
         _pre_register_session(
             session_offer_db["db_path"],
@@ -137,7 +136,7 @@ class TestCallerSuppliedLaneOverridesRow:
 class TestSessionOfferCarriesResolvedLaneToDecisionEngine:
     """The SessionOffer fed into decide_next_action carries the resolved lane."""
 
-    def test_offer_envelope_persists_row_lane_when_omitted(self, session_offer_db):
+    def test_offer_envelope_persists_row_lane_when_omitted(self, session_offer_db):  # noqa: F811
         sid = "carry-row-lane"
         _pre_register_session(
             session_offer_db["db_path"],

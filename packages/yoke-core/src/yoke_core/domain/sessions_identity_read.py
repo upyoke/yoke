@@ -39,7 +39,7 @@ UNREGISTERED_RECOVERY = (
     "Sessions register at start through the harness hooks. Check this "
     "project's hook installation with `yoke doctor run --quick`, or "
     "register explicitly with `yoke sessions begin --executor E "
-    "--provider P --model M --workspace W`."
+    "--provider P --requested-model M --workspace W`."
 )
 
 
@@ -53,7 +53,11 @@ class SessionIdentity:
     executor_version: Optional[str]
     machine_id: Optional[str]
     provider: str
+    #: What a provider attested it served; empty when nothing has.
     model: str
+    #: What the session asked for. A reader showing this in place of
+    #: ``model`` must say which it is showing.
+    requested_model: str
     workspace: str
     execution_lane: str
     capabilities: List[str] = field(default_factory=list)
@@ -88,8 +92,8 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
 
     row = conn.execute(
         "SELECT executor, executor_surface, executor_version, machine_id, "
-        "provider, model, workspace, execution_lane, project_id, actor_id, "
-        "mode, ended_at "
+        "provider, model, requested_model, workspace, execution_lane, "
+        "project_id, actor_id, mode, ended_at "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
     ).fetchone()
@@ -103,7 +107,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
         resolve_harness_capabilities,
     )
 
-    derived = resolve_harness_capabilities(_text(row[0]), _text(row[6]))
+    derived = resolve_harness_capabilities(_text(row[0]), _text(row[7]))
     return SessionIdentity(
         session_id=session_id,
         executor=_text(row[0]),
@@ -114,13 +118,14 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
         machine_id=(str(row[3]) if row[3] is not None else None),
         provider=_text(row[4]),
         model=_text(row[5]),
-        workspace=_text(row[6]),
-        execution_lane=_text(row[7]),
+        requested_model=_text(row[6]),
+        workspace=_text(row[7]),
+        execution_lane=_text(row[8]),
         capabilities=[str(value) for value in derived["downstream_paths"]],
-        project_id=_optional_int(row[8]),
-        actor_id=_optional_int(row[9]),
-        mode=(str(row[10]) if row[10] is not None else None),
-        ended_at=(str(row[11]) if row[11] is not None else None),
+        project_id=_optional_int(row[9]),
+        actor_id=_optional_int(row[10]),
+        mode=(str(row[11]) if row[11] is not None else None),
+        ended_at=(str(row[12]) if row[12] is not None else None),
     )
 
 

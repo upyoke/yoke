@@ -162,7 +162,7 @@ def dispatch_db(tmp_path):
 def no_parent_argv():
     """Stub parent-argv reading so env-only tests aren't affected by the real PPID.
 
-    Without this, ``detect_model`` under Claude Code would actually shell out
+    Without this, ``detect_requested_model`` under Claude Code would shell out
     to ``ps -p $PPID`` and could pick up a ``--model`` flag from the test
     runner's parent, masking the behavior under test.
     """

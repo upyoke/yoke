@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_contracts.session_model_facts import SessionModelFacts
 from . import db_backend
 from . import sessions_analytics as _sa
 from .session_activity_state import (
@@ -18,15 +19,18 @@ from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_canonicalize import (
     canonicalize_executor as _canonicalize_executor,
 )
+from .session_model_columns import MODEL_COLUMNS, facts_values, merged_facts
 from .sessions_lifecycle_identity import (
+    existing_registration_row,
     normalize_observed_identity,
     refresh_active_duplicate_identity,
     resolve_reactivation_executor_version,
-    resolve_reactivation_identity,
+    resolve_reactivation_lane,
     resolve_session_actor_id,
     resolve_session_project_id,
 )
 from .sessions_lifecycle_reactivation import emit_reactivated_with_released_claims
+from .sessions_started_event import session_started_context
 from .sessions_reactivation_driver import (
     build_reactivation_driver_stamp,
     record_reactivation_wake_driver,
@@ -73,7 +77,7 @@ def register_session(
     session_id: str,
     executor: str,
     provider: str,
-    model: str,
+    model_facts: SessionModelFacts,
     execution_lane: str = UNRESOLVED_EXECUTION_LANE,
     workspace: str,
     project_id: int,
@@ -88,6 +92,9 @@ def register_session(
 ) -> Dict[str, Any]:
     """Register a new active session.
 
+    ``model_facts`` carries the requested ask beside whatever a provider
+    attested; ``session_model_columns`` owns how each half is written.
+
     ``driver`` is the process that drove this call — pid, ppid, and the hook
     event behind it — resolved by the hook dispatch tail. A reactivation
     stamps it on its ``HarnessSessionStarted`` context unconditionally, so
@@ -99,10 +106,10 @@ def register_session(
     genuinely differ.
 
     ``native_thread_id`` is the harness's own thread/session identity
-    (currently Codex's ``CODEX_THREAD_ID``) when the environment or a
-    relayed hook payload carries it — distinct from ``session_id``, which
-    an operator-started session may register under a different value.
-    Wake resolves against this column instead of assuming the two agree.
+    (Codex's ``CODEX_THREAD_ID``) when the environment or a relayed hook
+    payload carries it — distinct from ``session_id``, which an
+    operator-started session may register under a different value. Wake
+    resolves against that column rather than assuming the two agree.
     """
     now = _now_iso()
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
@@ -119,14 +126,15 @@ def register_session(
     has_thread_col = native_thread_id_column_present(conn)
     insert_cols = (
         "session_id, executor, executor_surface, executor_version, machine_id, "
-        "provider, model, execution_lane, workspace, mode, offered_at, "
-        "last_heartbeat, ended_at, offer_envelope, actor_id, project_id"
+        "provider, " + ", ".join(MODEL_COLUMNS) + ", execution_lane, workspace, "
+        "mode, offered_at, last_heartbeat, ended_at, offer_envelope, actor_id, "
+        "project_id"
     )
     # fmt: off
     insert_values: List[Any] = [
         session_id, canonical_executor, display_name, executor_version, machine_id,
-        provider, model, execution_lane, workspace, mode, now, now,
-        None, envelope_json, resolved_actor_id, resolved_project_id,
+        provider, *facts_values(model_facts), execution_lane, workspace, mode,
+        now, now, None, envelope_json, resolved_actor_id, resolved_project_id,
     ]
     # fmt: on
     if has_thread_col:
@@ -139,6 +147,8 @@ def register_session(
     # Populated only on the reactivation branch below; a fresh insert leaves
     # the event context untouched.
     reactivation_driver: Dict[str, Any] = {}
+    # Reactivation folds the reading into what the row already proved.
+    resolved_facts = model_facts
 
     try:
         conn.execute(
@@ -152,13 +162,12 @@ def register_session(
         # does not, so only the native PG path rolls back before reactivation.
         if db_backend.connection_is_postgres(conn):
             conn.rollback()
-        thread_select = ", native_thread_id" if has_thread_col else ""
-        existing = conn.execute(
-            f"SELECT ended_at, terminated_at, model, actor_id, execution_lane, project_id, "
-            f"executor_version, machine_id, executor_surface{thread_select} "
-            f"FROM harness_sessions WHERE session_id = {p}",
-            (session_id,),
-        ).fetchone()
+        existing = existing_registration_row(
+            conn,
+            placeholder=p,
+            session_id=session_id,
+            include_native_thread=has_thread_col,
+        )
         if existing is not None and existing["terminated_at"] is not None:
             raise SessionError(
                 "SESSION_TERMINATED",
@@ -170,7 +179,7 @@ def register_session(
                 placeholder=p,
                 existing=existing,
                 session_id=session_id,
-                model=model,
+                model_facts=model_facts,
                 execution_lane=execution_lane,
                 resolved_actor_id=resolved_actor_id,
                 executor_surface=display_name,
@@ -183,8 +192,9 @@ def register_session(
                 f"Session '{session_id}' is already registered.",
             )
 
-        resolved_model, resolved_lane = resolve_reactivation_identity(
-            existing, model=model, execution_lane=execution_lane
+        resolved_facts = merged_facts(existing, model_facts)
+        resolved_lane = resolve_reactivation_lane(
+            existing, execution_lane=execution_lane
         )
         driver_version = executor_version
         executor_version = resolve_reactivation_executor_version(
@@ -205,9 +215,10 @@ def register_session(
             if has_thread_col
             else ""
         )
+        model_assignments = ", ".join(f"{column} = {p}" for column in MODEL_COLUMNS)
         # fmt: off
         params: List[Any] = [
-            provider, resolved_model, resolved_lane, workspace, mode,
+            provider, *facts_values(resolved_facts), resolved_lane, workspace, mode,
             envelope_json, executor_version, machine_id,
         ]
         # fmt: on
@@ -224,7 +235,7 @@ def register_session(
         cursor = conn.execute(
             f"""UPDATE harness_sessions
                SET provider = {p},
-                   model = {p},
+                   {model_assignments},
                    execution_lane = {p},
                    workspace = {p},
                    mode = {p},
@@ -263,42 +274,25 @@ def register_session(
             emit_reactivated_with_released_claims(conn, session_id)
         except Exception:
             pass  # telemetry — never block reactivation
-        model = resolved_model  # reflect the stored value in the event
         execution_lane = resolved_lane
 
-    # Stored executor/surface are write-once across reactivation. Version
-    # stays paired with the stored surface unless the same surface returns.
-    stored_row = conn.execute(
-        "SELECT executor, executor_surface FROM harness_sessions "
-        f"WHERE session_id = {p}",
-        (session_id,),
-    ).fetchone()
-    stored_executor = (
-        stored_row["executor"] if stored_row is not None else canonical_executor
+    event_context = session_started_context(
+        conn,
+        placeholder=p,
+        session_id=session_id,
+        fallback_executor=canonical_executor,
+        fallback_surface=display_name,
+        provider=provider,
+        model_facts=resolved_facts,
+        execution_lane=execution_lane,
+        workspace=workspace,
+        mode=mode,
+        executor_version=executor_version,
+        machine_id=machine_id,
+        project_id=resolved_project_id,
+        entrypoint=entrypoint,
+        reactivation_driver=reactivation_driver,
     )
-    stored_display = (
-        stored_row["executor_surface"] if stored_row is not None else display_name
-    )
-
-    event_context: Dict[str, Any] = {
-        "executor": stored_executor,
-        "provider": provider,
-        "model": model,
-        "execution_lane": execution_lane,
-        "workspace": workspace,
-        "mode": mode,
-    }
-    if stored_display:
-        event_context["executor_surface"] = stored_display
-    if executor_version:
-        event_context["executor_version"] = executor_version
-    if machine_id:
-        event_context["machine_id"] = machine_id
-    event_context["project_id"] = resolved_project_id
-    if entrypoint:
-        event_context["entrypoint"] = entrypoint
-    if reactivation_driver:
-        event_context.update(reactivation_driver)
     _sa._emit_session_event(
         EVENT_HARNESS_SESSION_STARTED,
         session_id=session_id,

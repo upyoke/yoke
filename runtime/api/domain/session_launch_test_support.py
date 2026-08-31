@@ -33,6 +33,11 @@ def launch_connection() -> sqlite3.Connection:
             executor_version TEXT,
             machine_id TEXT,
             model TEXT,
+            reasoning_effort TEXT DEFAULT NULL,
+            context_window_tokens INTEGER DEFAULT NULL,
+            requested_model TEXT DEFAULT NULL,
+            requested_reasoning_effort TEXT DEFAULT NULL,
+            requested_context_window_tokens INTEGER DEFAULT NULL,
             keepalive_until TEXT,
             keepalive_reason TEXT,
             ended_at TEXT

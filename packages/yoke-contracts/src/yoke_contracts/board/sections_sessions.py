@@ -72,6 +72,7 @@ def render_sessions_section(
                 executor,
                 executor_surface,
                 model,
+                requested_model,
                 mode,
                 lane,
                 offered_at,
@@ -95,6 +96,7 @@ def render_sessions_section(
                 executor,
                 executor_surface,
                 model,
+                requested_model,
                 project_id,
             )
 
@@ -141,6 +143,7 @@ def render_sessions_section(
                 executor,
                 executor_surface,
                 model,
+                requested_model,
                 mode,
                 lane,
                 offered_at,
@@ -177,6 +180,7 @@ def render_sessions_section(
                 executor,
                 executor_surface,
                 model,
+                requested_model,
                 project_id,
             )
             lane_str = _render_lane(

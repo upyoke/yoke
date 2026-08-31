@@ -12,10 +12,13 @@ import json
 import os
 import re
 import subprocess
-from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.session_identity import resolve_env_session_id
+from yoke_contracts.session_model_facts import (
+    PLACEHOLDER_MODEL_VALUES as _PLACEHOLDER_MODEL_VALUES,  # noqa: F401
+    is_placeholder_model as _is_placeholder_model,
+)
 from yoke_contracts.executor_labels import (
     canonical_harness_id as _contract_canonical_harness_id,
 )
@@ -36,7 +39,6 @@ _CURSOR_TRANSCRIPT_ENV = "CURSOR_TRANSCRIPT_PATH"
 _CURSOR_CONVERSATION_ENV = "CURSOR_CONVERSATION_ID"
 _CURSOR_SURFACE_CLI = "cli"
 _CURSOR_SURFACE_DESKTOP = "desktop"
-_PLACEHOLDER_MODEL_VALUES = frozenset({"", "default", "auto", "unknown"})
 
 
 def _parse_payload(stdin_data: str) -> dict[str, Any]:
@@ -54,28 +56,6 @@ def _payload_field(stdin_data: str, field: str) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     return str(value)
-
-
-def _is_placeholder_model(value: object) -> bool:
-    if not isinstance(value, str):
-        return True
-    normalized = value.strip().lower()
-    if normalized in _PLACEHOLDER_MODEL_VALUES:
-        return True
-    return normalized.startswith("<") and normalized.endswith(">")
-
-
-def cursor_payload_model(payload: dict[str, Any]) -> str:
-    """Return the model Cursor's conversation store proves, or ``""``.
-
-    The hook payload names a bare family id that drops the effort tier.
-    That value is never a measurement — a caller records unknown until the
-    store answers, then records the store's wire name. A launch's requested
-    model is deliberately not consulted.
-    """
-    from yoke_harness.cursor_executed_model import executed_model_for_payload
-
-    return executed_model_for_payload(payload)
 
 
 def is_codex(executor: Optional[str]) -> bool:
@@ -260,53 +240,28 @@ def _extract_model_from_argv(argv: list[str]) -> str:
     return ""
 
 
-def _read_model_from_transcript(transcript_path: Optional[str]) -> str:
-    if not transcript_path or not os.path.isfile(transcript_path):
-        return ""
-    try:
-        raw = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
-    for line in reversed(raw.splitlines()[-500:]):
-        if not line.strip():
-            continue
-        try:
-            entry = json.loads(line)
-        except (json.JSONDecodeError, TypeError):
-            continue
-        if not isinstance(entry, dict):
-            continue
-        msg = entry.get("message")
-        if isinstance(msg, dict):
-            model = msg.get("model")
-            if isinstance(model, str) and not _is_placeholder_model(model):
-                return model
-    return ""
+def detect_requested_model(executor: Optional[str] = None) -> str:
+    """Return the model this session was *asked* to run, or ``"unknown"``.
 
-
-def detect_model(
-    executor: Optional[str] = None,
-    transcript_path: Optional[str] = None,
-) -> str:
+    Every source here is request-side: a Yoke launch stamps ``YOKE_MODEL``,
+    the harness CLI carries ``--model``, and the surrounding environment
+    names a default. None of them reports what the provider served — that
+    answer comes from :mod:`yoke_harness.model_attestation` and is stored
+    separately, because the two disagree routinely (a Claude tier selector
+    such as ``claude-opus-5[1m]`` is a string no provider ever returns).
+    """
     if os.environ.get("YOKE_MODEL"):
         return os.environ["YOKE_MODEL"]
-    resolved_executor = executor or detect_executor()
-    if is_codex(resolved_executor):
-        return _codex_resolve_model() or "unknown"
-    if is_cursor(resolved_executor):
-        # The conversation store is the only Cursor measurement, and it is
-        # keyed by the hook payload's session/conversation id. Ambient
-        # detection has neither.
-        return "unknown"
+    if is_codex(executor or detect_executor()):
+        codex_env = os.environ.get("CODEX_MODEL", "")
+        if codex_env:
+            return codex_env
     claude_env = os.environ.get("CLAUDE_MODEL", "")
     if claude_env and not _is_placeholder_model(claude_env):
         return claude_env
     argv_model = _extract_model_from_argv(_read_parent_argv())
     if argv_model:
         return argv_model
-    transcript_model = _read_model_from_transcript(transcript_path)
-    if transcript_model:
-        return transcript_model
     default_env = os.environ.get("DEFAULT_LLM_MODEL", "")
     if default_env and not _is_placeholder_model(default_env):
         return default_env
@@ -323,7 +278,7 @@ __all__ = [
     "compose_executor_from_entrypoint",
     "detect_entrypoint",
     "detect_executor",
-    "detect_model",
+    "detect_requested_model",
     "detect_provider",
     "is_claude",
     "is_codex",
