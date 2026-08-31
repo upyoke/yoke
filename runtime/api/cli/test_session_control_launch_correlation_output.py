@@ -40,6 +40,7 @@ def _launch(**overrides):
         },
         "created_at": "2026-08-23T12:00:00Z",
         "deadline_at": "2026-08-23T12:05:00Z",
+        "origin": "operator",
         "attestation_hash": "secret-attestation",
         "message_id": "secret-message",
         "requester_session_id": "secret-requester",
@@ -57,6 +58,7 @@ def test_launch_detail_shows_identity_chain_and_only_sanitized_evidence() -> Non
     assert "Native session" in rendered and "session-1" in rendered
     assert "Registered session" in rendered
     assert "Identity correlation" in rendered and "matched" in rendered
+    assert "Origin" in rendered and "operator" in rendered
     assert "Instruction delivery" in rendered and "delivered" in rendered
     assert "Result evidence" in rendered
     assert "adapter revision=adapter-v2" in rendered
@@ -94,6 +96,7 @@ def test_launch_list_distinguishes_mismatch_and_awaiting_registration() -> None:
                     native_session_id="native-a",
                     registered_session_id="registered-b",
                     identity_correlation="mismatch",
+                    origin="operator",
                 ),
                 _launch(
                     launch_id="launch-2",
@@ -102,6 +105,7 @@ def test_launch_list_distinguishes_mismatch_and_awaiting_registration() -> None:
                     registered_session_id=None,
                     identity_correlation="awaiting_registration",
                     instruction_delivery="pending",
+                    origin="steering",
                 ),
             ]
         },
@@ -111,6 +115,9 @@ def test_launch_list_distinguishes_mismatch_and_awaiting_registration() -> None:
     rendered = output.getvalue()
     assert "NATIVE" in rendered
     assert "REGISTERED" in rendered
+    assert "ORIGIN" in rendered
+    assert "operator" in rendered
+    assert "steering" in rendered
     assert "CORRELATION" in rendered
     assert "mismatch" in rendered
     assert "awaiting registration" in rendered

@@ -81,7 +81,6 @@ class LaunchRequest:
     session_name: str | None = None
     allow_surface_fallback: bool = False
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS
-    origin: str = LAUNCH_ORIGIN_OPERATOR
 
 
 @dataclass(frozen=True)

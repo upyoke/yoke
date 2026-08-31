@@ -61,7 +61,7 @@ def _register_worker(conn) -> None:
         (WORKER,),
     )
     conn.execute(
-        "CREATE TABLE work_claims ("
+        "CREATE TABLE IF NOT EXISTS work_claims ("
         "id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, "
         "target_kind TEXT NOT NULL DEFAULT 'item', released_at TEXT)"
     )

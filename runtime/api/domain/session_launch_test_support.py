@@ -9,6 +9,7 @@ from typing import Any
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchAuthorization, LaunchRequest
+from yoke_core.domain.work_claim_targets import make_steering_target
 
 
 NOW = "2026-08-22T12:00:00Z"
@@ -42,11 +43,38 @@ def launch_connection() -> sqlite3.Connection:
             session_id, project_id, executor_surface, executor_version,
             machine_id, model
         ) VALUES ('caller', 10, 'codex-desktop', '26.814.41407', 'm0', 'gpt-5');
+        CREATE TABLE work_claims (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            target_kind TEXT NOT NULL DEFAULT 'item',
+            scope TEXT NOT NULL DEFAULT '{}',
+            claim_type TEXT NOT NULL DEFAULT 'exclusive',
+            claimed_at TEXT NOT NULL DEFAULT '',
+            last_heartbeat TEXT NOT NULL DEFAULT '',
+            released_at TEXT
+        );
         """
     )
     create_session_control_tables(conn)
     conn.commit()
     return conn
+
+
+def add_steering_claim(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str = "caller",
+    project_id: int = 10,
+    released_at: str | None = None,
+) -> None:
+    target = make_steering_target(project_id)
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
+        "last_heartbeat, released_at) VALUES (?, ?, ?, 'exclusive', ?, ?, ?)",
+        (session_id, target.kind, target.scope_json(), NOW, NOW, released_at),
+    )
+    conn.commit()
 
 
 def relay_connection(
@@ -151,6 +179,7 @@ def assigned_launch(
 __all__ = [
     "NOW",
     "add_relay",
+    "add_steering_claim",
     "assigned_launch",
     "authorization",
     "launch_connection",

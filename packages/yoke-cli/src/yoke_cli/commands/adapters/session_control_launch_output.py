@@ -96,6 +96,7 @@ def _write_launch_detail(
         ("Launch ID", launch.get("launch_id")),
         ("State / result", _launch_status(launch)),
         ("Project", launch.get("project") or launch.get("project_id")),
+        ("Origin", launch.get("origin")),
         ("Requested surface", launch.get("requested_surface")),
         ("Selected surface", launch.get("selected_surface")),
         (
@@ -185,6 +186,7 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("LAUNCH", lambda row: row.get("launch_id"), None),
             ("STATE / RESULT", _launch_status, 28),
             ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
+            ("ORIGIN", lambda row: row.get("origin"), 10),
             ("REQUESTED", lambda row: row.get("requested_surface"), 18),
             ("SELECTED", lambda row: row.get("selected_surface"), 18),
             ("NATIVE", lambda row: row.get("native_session_id"), None),

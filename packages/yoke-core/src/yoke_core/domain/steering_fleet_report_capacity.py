@@ -13,6 +13,7 @@ from typing import Any
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGINS
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
@@ -77,4 +78,31 @@ def live_session_counts(
     )
 
 
-__all__ = ["SurfaceReadiness", "launchable_surfaces", "live_session_counts"]
+def live_launch_origin_counts(
+    conn: Any, *, project_id: int
+) -> tuple[tuple[str, int], ...]:
+    """Live sessions joined to their launch origin, including zero counts.
+
+    Sessions with no matching ``session_launches.registered_session_id`` are
+    omitted from the split. Both vocabulary values are always present.
+    """
+    p = marker(conn)
+    rows = conn.execute(
+        f"""SELECT l.origin AS origin, COUNT(*) AS n
+              FROM harness_sessions s
+              JOIN session_launches l ON l.registered_session_id = s.session_id
+             WHERE s.ended_at IS NULL AND s.terminated_at IS NULL
+               AND s.project_id = {p}
+             GROUP BY l.origin""",
+        (int(project_id),),
+    ).fetchall()
+    counted = {str(row["origin"]): int(row["n"]) for row in rows}
+    return tuple((origin, counted.get(origin, 0)) for origin in LAUNCH_ORIGINS)
+
+
+__all__ = [
+    "SurfaceReadiness",
+    "launchable_surfaces",
+    "live_launch_origin_counts",
+    "live_session_counts",
+]
