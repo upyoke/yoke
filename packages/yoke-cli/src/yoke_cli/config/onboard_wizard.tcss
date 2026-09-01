@@ -115,6 +115,12 @@ _OptionRow {
     padding: 0 0 0 1;
 }
 
+/* Explicit continuation rows reserve one line for the complete hint; every
+   ordinary row retains its byte-stable one-line geometry. */
+_OptionRow.-hint-continuation {
+    height: 2;
+}
+
 _OptionRow.-selected {
     color: $onboard-accent-bright;
     text-style: bold;

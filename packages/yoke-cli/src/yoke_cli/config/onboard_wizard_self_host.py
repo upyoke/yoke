@@ -7,6 +7,7 @@ import platform
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+from yoke_cli.config import onboard_docker_prerequisites as docker
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.config.onboard_destinations import DESTINATION_SERVER
@@ -116,9 +117,13 @@ def _on_preview(shell: _Shell, setup: server.SelfHostSetup, choice: str) -> None
 def _run_preflight(shell: _Shell, setup: server.SelfHostSetup) -> None:
     shell._run_checking(
         step=STEP_CONNECT,
-        title="Checking Docker and Compose.",
-        message="No files are written during this prerequisite check.",
-        work=server.check_docker_prerequisites,
+        title="Checking Docker, Compose, and the engine.",
+        message="No files are written while the engine gets a bounded safety wait.",
+        detail_lines=[
+            f"Waiting up to {docker.DOCKER_ENGINE_WAIT_SECONDS:g} seconds for "
+            "Docker to become ready."
+        ],
+        work=docker.check_docker_prerequisites,
         on_success=lambda receipt: _run_provision(shell, setup, receipt),
         on_error=lambda exc: _goto_failure(shell, setup, _safe_error(exc)),
         group="onboard-self-host-preflight",
@@ -129,7 +134,7 @@ def _run_preflight(shell: _Shell, setup: server.SelfHostSetup) -> None:
 def _run_provision(
     shell: _Shell,
     setup: server.SelfHostSetup,
-    prerequisites: server.DockerPrerequisites,
+    prerequisites: docker.DockerPrerequisites,
 ) -> None:
     shell._run_checking(
         step=STEP_CONNECT,
@@ -292,6 +297,8 @@ def _back_to_destination(shell: _Shell) -> None:
 def _safe_error(exc: BaseException) -> server.SelfHostSetupError:
     if isinstance(exc, server.SelfHostSetupError):
         return exc
+    if isinstance(exc, docker.DockerPrerequisiteError):
+        return server.SelfHostSetupError(exc.code, str(exc), exc.detail_lines)
     return server.SelfHostSetupError(
         "unexpected",
         "Self-host server setup could not continue.",

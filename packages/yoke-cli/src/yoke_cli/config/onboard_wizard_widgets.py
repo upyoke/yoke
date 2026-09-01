@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rich.cells import cell_len
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Vertical
@@ -60,6 +61,7 @@ class SelectionRow:
     value: str
     label: str
     hint: str
+    hint_on_new_line: bool = False
 
 
 class Stepper(Static):
@@ -99,12 +101,16 @@ class _OptionRow(Static):
     def __init__(self, row: SelectionRow) -> None:
         super().__init__()
         self._row = row
+        if row.hint_on_new_line:
+            self.add_class("-hint-continuation")
 
     def render(self) -> Text:
         selected = self.has_class("-selected")
+        width = max(self.size.width, 40)
+        if self._row.hint_on_new_line:
+            return _option_row_text(self._row, selected=selected, width=width)
         marks = glyphs()
         marker = marks.selected if selected else marks.unselected
-        width = max(self.size.width, 40)
         prefix = f"{marker}  "
         label = plain_text(self._row.label) if plain_glyphs() else self._row.label
         hint = plain_text(self._row.hint) if plain_glyphs() else self._row.hint
@@ -115,6 +121,30 @@ class _OptionRow(Static):
         line.append(" " * gap)
         line.append(hint, style="dim" if not selected else "")
         return line
+
+
+def _option_row_text(row: SelectionRow, *, selected: bool, width: int) -> Text:
+    """Keep an overflowing hint intact on a right-aligned continuation line."""
+    marks = glyphs()
+    marker = marks.selected if selected else marks.unselected
+    prefix = f"{marker}  "
+    label = plain_text(row.label) if plain_glyphs() else row.label
+    hint = plain_text(row.hint) if plain_glyphs() else row.hint
+    hint_style = "" if selected else "dim"
+    line = Text()
+    line.append(prefix)
+    line.append(label)
+    if not hint:
+        return line
+    if not row.hint_on_new_line:
+        gap = max(width - len(prefix) - len(label) - len(hint), 1)
+        line.append(" " * gap)
+        line.append(hint, style=hint_style)
+        return line
+    line.append("\n")
+    line.append(" " * max(width - cell_len(hint), 0))
+    line.append(hint, style=hint_style)
+    return line
 
 
 class SelectionList(Vertical, can_focus=True):

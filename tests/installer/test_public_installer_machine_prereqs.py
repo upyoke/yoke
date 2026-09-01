@@ -47,7 +47,8 @@ class RecordingRunner:
         rc: int = 0,
         stdout: str = "",
         stderr: str = "",
-        responses: dict[tuple[str, ...], subprocess.CompletedProcess[str]] | None = None,
+        responses: dict[tuple[str, ...], subprocess.CompletedProcess[str]]
+        | None = None,
     ) -> None:
         self.commands: list[list[str]] = []
         self.rc = rc
@@ -81,15 +82,16 @@ def _installed_runtime() -> dict[str, object]:
 def test_no_node_npm_or_git_prerequisite_in_helper_or_shim() -> None:
     # uv owns Python; git, Node.js, npm, and the browser runtime are deferred to
     # the moment they are needed. Neither the helper nor the shim may probe them.
-    # Homebrew is the EXCEPTION: on macOS it is offered as an optional `uv/uvx`
-    # install path (never required — it falls back to the Astral installer), so
-    # it is intentionally allowed; the Linux package managers stay banned because
-    # the shim installs uv via the official Astral installer, not apt/dnf.
+    # System package managers stay out of the bootstrap: the shim uses the
+    # bounded official Astral installer on every supported operating system.
     helper = INSTALLER_PATH.read_text(encoding="utf-8")
     shim = INSTALL_SHIM_PATH.read_text(encoding="utf-8")
     for surface in (helper, shim):
         for absent in ("python3.1", "venv", "wheelhouse", "apt-get", "dnf"):
-            assert absent not in surface.lower(), f"unexpected prerequisite mechanic: {absent}"
+            assert absent not in surface.lower(), (
+                f"unexpected prerequisite mechanic: {absent}"
+            )
+    assert "brew install uv" not in shim
     # The browser runtime is never set up at install time (deferred to first use).
     for surface in (helper, shim):
         assert "qa browser setup" not in surface.lower()
@@ -156,9 +158,7 @@ def test_product_boundary_audit_passes_for_clean_product_status() -> None:
         ),
         "",
     )
-    runner = RecordingRunner(
-        responses={("yoke", "status", "--json"): status_ok}
-    )
+    runner = RecordingRunner(responses={("yoke", "status", "--json"): status_ok})
     installer = installer_mod.Installer(options(installer_mod), runner=runner)
 
     installer._product_boundary_audit()
