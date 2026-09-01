@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
@@ -20,6 +21,7 @@ from yoke_core.domain.session_message_delivery_probe import (
     PROBE_NO_LEASABLE_RECEIPT,
     PROBE_SESSION_NOT_DELIVERABLE,
 )
+from yoke_core.hooks.fleet_watcher_presence import maybe_append_fleet_watcher_nudge
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
     LeasedSessionMessage,
@@ -87,6 +89,15 @@ def _context_decision(
 def _decision_for_event(
     lease: SessionMessageLease, context: HookContext
 ) -> HookDecision:
+    lease = replace(
+        lease,
+        report=maybe_append_fleet_watcher_nudge(
+            lease.report,
+            session_id=str(context.session_id or ""),
+            executor_family=context.executor_family,
+            remote=context.remote,
+        ),
+    )
     rendered, token = render_lease(
         lease,
         session_id=str(context.session_id or ""),
