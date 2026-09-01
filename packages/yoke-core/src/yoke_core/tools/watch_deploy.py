@@ -31,7 +31,7 @@ from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
     WATCH_DEPLOY_DESCRIPTION,
 )
-from yoke_core.tools import _watch_runner
+from yoke_core.tools import _watch_runner, watch_preflight
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
@@ -65,6 +65,10 @@ DEPLOY_SUMMARY_RE = re.compile(
 # of its wall clock, so it is urgent rather than progress even though the
 # pipeline keeps retrying past it.
 DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(r"status relay is temporarily unavailable")
+FLEET_SCHEMA_REHEARSAL_START_RE = re.compile(r"^\s*Fleet schema rehearsal: uncovered\b")
+FLEET_SCHEMA_REHEARSAL_SUMMARY_RE = re.compile(
+    r"^\s*Fleet schema rehearsal: (?:covered\b|receipt covers\b)"
+)
 
 
 def classify_deploy_line(line: str) -> Classification:
@@ -84,11 +88,18 @@ def classify_deploy_line(line: str) -> Classification:
             return Classification(LineClass.URGENT)
     if DEPLOY_RELAY_UNAVAILABLE_RE.search(line):
         return Classification(LineClass.URGENT)
+    if FLEET_SCHEMA_REHEARSAL_START_RE.search(line):
+        return Classification(LineClass.PROGRESS)
+    if FLEET_SCHEMA_REHEARSAL_SUMMARY_RE.search(line):
+        return Classification(LineClass.SUMMARY)
     for prefix in DEPLOY_SUMMARY_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.SUMMARY)
     if DEPLOY_SUMMARY_RE.search(line):
         return Classification(LineClass.SUMMARY)
+    preflight_classification = watch_preflight.classify_preflight_line(line)
+    if preflight_classification.cls != LineClass.NOISE:
+        return preflight_classification
     return Classification(LineClass.NOISE)
 
 
@@ -103,6 +114,9 @@ def _build_deploy_progress_pattern() -> re.Pattern[str]:
     parts.extend("^" + re.escape(p) for p in DEPLOY_SUMMARY_PREFIXES)
     parts.append(DEPLOY_SUMMARY_RE.pattern)
     parts.append(DEPLOY_RELAY_UNAVAILABLE_RE.pattern)
+    parts.append(FLEET_SCHEMA_REHEARSAL_START_RE.pattern)
+    parts.append(FLEET_SCHEMA_REHEARSAL_SUMMARY_RE.pattern)
+    parts.append(f"(?i:{watch_preflight.PREFLIGHT_PROGRESS_PATTERN.pattern})")
     return re.compile("|".join(parts))
 
 

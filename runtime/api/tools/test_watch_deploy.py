@@ -51,6 +51,37 @@ def test_an_unavailable_relay_is_urgent_although_the_pipeline_retries():
 
 
 @pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        (
+            "  Fleet schema rehearsal: uncovered for prod (abc); "
+            "running before dispatch",
+            LineClass.PROGRESS,
+        ),
+        (
+            "  Fleet schema rehearsal: covered for prod (abc); skipping",
+            LineClass.SUMMARY,
+        ),
+        (
+            "  Fleet schema rehearsal: receipt covers release schema shape abc",
+            LineClass.SUMMARY,
+        ),
+        ("COPY/CONVERGE yoke_alpha: starting rehearsal", LineClass.PROGRESS),
+        ("PASS yoke_alpha: nothing pending -> converged", LineClass.SUMMARY),
+        ("FAIL yoke_beta: could not copy: pg_dump failed", LineClass.URGENT),
+        ("2 passed, 0 failed", LineClass.SUMMARY),
+        (
+            "receipt recorded on prod covering 7 history entries",
+            LineClass.SUMMARY,
+        ),
+    ],
+)
+def test_fleet_schema_rehearsal_phase_reaches_the_deploy_stream(line, expected):
+    assert _line_class(line) == expected
+    assert watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line)
+
+
+@pytest.mark.parametrize(
     "line",
     [
         "--- Stage: hosted-release (step_runner: github-actions-workflow) ---",

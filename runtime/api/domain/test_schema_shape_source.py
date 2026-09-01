@@ -28,18 +28,46 @@ def test_packet_modules_are_not_in_the_digest_set() -> None:
     assert not any(name.startswith("schema_api_context_") for name in names)
 
 
-def test_digest_changes_when_a_schema_module_changes(tmp_path: Path) -> None:
-    (tmp_path / "schema_init_columns.py").write_text("a = 1\n", encoding="utf-8")
-    (tmp_path / "session_control_schema.py").write_text("b = 2\n", encoding="utf-8")
+def test_digest_changes_when_a_schema_declaration_changes(tmp_path: Path) -> None:
+    (tmp_path / "schema_init_columns.py").write_text(
+        'DDL = "CREATE TABLE widget (id INTEGER)"\n', encoding="utf-8"
+    )
     before = digest_schema_shape(tmp_path)
-    (tmp_path / "session_control_schema.py").write_text("b = 3\n", encoding="utf-8")
+    (tmp_path / "schema_init_columns.py").write_text(
+        'DDL = "CREATE TABLE widget (id INTEGER, name TEXT)"\n', encoding="utf-8"
+    )
     after = digest_schema_shape(tmp_path)
     assert before != after
 
 
-def test_digest_is_stable_for_the_same_bytes(tmp_path: Path) -> None:
-    (tmp_path / "schema_init.py").write_text("pass\n", encoding="utf-8")
-    assert digest_schema_shape(tmp_path) == digest_schema_shape(tmp_path)
+def test_digest_ignores_comments_docstrings_and_formatting(tmp_path: Path) -> None:
+    source = tmp_path / "schema_init.py"
+    source.write_text(
+        '''"""Original module description."""
+
+# Original comment.
+def apply(conn):
+    """Original function description."""
+    conn.execute("CREATE TABLE widget (id INTEGER)")
+''',
+        encoding="utf-8",
+    )
+    before = digest_schema_shape(tmp_path)
+
+    source.write_text(
+        '''"""A rewritten module description."""
+
+def apply( conn ):
+    """A rewritten function description."""
+    # A newly worded comment.
+    conn.execute(
+        'CREATE TABLE widget (id INTEGER)'
+    )
+''',
+        encoding="utf-8",
+    )
+
+    assert digest_schema_shape(tmp_path) == before
 
 
 def test_an_empty_source_set_refuses_rather_than_inventing_a_digest(
@@ -86,6 +114,11 @@ def test_commit_digest_reads_the_release_tree_not_dirty_checkout(
     ).stdout.strip()
     committed = digest_schema_shape_commit(repo, commit_sha)
     assert committed == digest_schema_shape(domain)
+
+    (domain / "schema_init.py").write_text(
+        "# Descriptive edit only.\nshape = 1\n", encoding="utf-8"
+    )
+    assert digest_schema_shape(domain) == committed
 
     (domain / "schema_init.py").write_text("shape = 2\n", encoding="utf-8")
     assert digest_schema_shape(domain) != committed
