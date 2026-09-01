@@ -183,6 +183,13 @@ def run(args: List[str]) -> int:
     parser.add_argument("--plan")
     parser.add_argument("--project")
     parser.add_argument("--base-url", default="")
+    parser.add_argument(
+        "--machine",
+        help=(
+            "Pin Machine QA cases to one registered Test Machine. Without a "
+            "pin, verified free machines are preferred; case constraints win."
+        ),
+    )
     parser.add_argument("--expected-branch")
     parser.add_argument("--expected-sha")
     parser.add_argument("--timeout-seconds", type=int)
@@ -220,6 +227,7 @@ def run(args: List[str]) -> int:
             plan=parsed.plan,
             project=parsed.project,
             base_url=parsed.base_url,
+            machine=parsed.machine,
             expected_branch=parsed.expected_branch,
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,

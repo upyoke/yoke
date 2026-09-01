@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
@@ -9,6 +10,12 @@ from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 class MachinePlanCaseDispatchError(RuntimeError):
     """A plan-scoped host-control case cannot complete its protocol."""
+
+
+def _report_selection(begun: Mapping[str, Any], execution: Mapping[str, Any]) -> None:
+    reason = execution.get("selection_reason")
+    if begun.get("selection_new") and reason:
+        print(f"# qa plan run: {reason}", file=sys.stderr, flush=True)
 
 
 def _dispatch(
@@ -39,6 +46,7 @@ def execute_plan_machine_case(
     execution_id: str,
     ordinal: int,
     actor: ActorContext,
+    machine: str | None = None,
 ) -> dict[str, Any]:
     """Run one server-issued host case without releasing the plan lease."""
     requirement_id = int(case.get("requirement_id") or 0)
@@ -60,6 +68,7 @@ def execute_plan_machine_case(
         "execution_id": execution_id,
         "ordinal": int(ordinal),
         "requirement_id": requirement_id,
+        **({"machine": machine} if machine else {}),
     }
     begun = _dispatch(
         "test_machine.plan_case.begin",
@@ -80,6 +89,7 @@ def execute_plan_machine_case(
         raise MachinePlanCaseDispatchError(
             "test_machine.plan_case.begin returned no execution contract"
         )
+    _report_selection(begun, execution)
     submission = None
     try:
         from yoke_core.domain.machine_qa_local_execution import (
@@ -130,6 +140,7 @@ def execute_plan_agent_mission_case(
     execution_id: str,
     ordinal: int,
     actor: ActorContext,
+    machine: str | None = None,
 ) -> dict[str, Any]:
     """Prepare one leased target and record its zero-artifact mission docket."""
     requirement_id = int(case.get("requirement_id") or 0)
@@ -148,6 +159,7 @@ def execute_plan_agent_mission_case(
         "execution_id": execution_id,
         "ordinal": int(ordinal),
         "requirement_id": requirement_id,
+        **({"machine": machine} if machine else {}),
     }
     begun = _dispatch(
         "test_machine.plan_case.begin",
@@ -168,6 +180,7 @@ def execute_plan_agent_mission_case(
         raise MachinePlanCaseDispatchError(
             "test_machine.plan_case.begin returned no mission contract"
         )
+    _report_selection(begun, execution)
     try:
         from yoke_core.domain.machine_qa_local_execution import (
             prepare_agent_mission_contract,

@@ -38,10 +38,14 @@ Write one case with broad instructions and an observable good outcome:
   "method_id": "exploratory-mission",
   "instructions": "Install as a new user, work through onboarding, and investigate confusing, broken, missing, or unsafe behavior using the terminal, browser, and visible desktop.",
   "expected_outcome": "Return a ranked actionable report, name what could not be verified and why, and return a precise handoff if a person must act.",
-  "method_config": {"executor": "naive_target_session"},
+  "method_config": {"executor": "naive_target_session", "machine": "test-mac-pro"},
   "host_baselines": ["fresh-host"]
 }
 ```
+
+Omit `machine` when any registered host can run the mission. When present, it
+is validated during plan authoring and becomes the case's durable
+`test-machine:<name>` capability constraint.
 
 Do not turn likely landmarks into steps. The worked Machine QA Pack case
 `installer-exploration` deliberately replaces the territory of the ten-case
@@ -66,8 +70,12 @@ Run the attached plan at its transition:
 ```text
 yoke qa plan run \
   --item PREFIX-N \
-  --transition <transition>
+  --transition <transition> \
+  --machine <registered-name>
 ```
+
+The run pin is optional and must agree with every case-authored constraint.
+Without one, admission prefers a verified free machine and reports its reason.
 
 The plan runner reaches the declared host baseline, records a zero-artifact
 mission docket, advances the full roster, creates the existing review bundle,

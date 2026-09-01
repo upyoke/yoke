@@ -13,7 +13,13 @@ class QaMethodConfigError(ValueError):
     """A case configuration does not satisfy its method contract."""
 
 
-def validate_method_config(config_contract_id: str, raw: Any) -> dict:
+def validate_method_config(
+    config_contract_id: str,
+    raw: Any,
+    *,
+    conn: Any | None = None,
+    project_id: int | None = None,
+) -> dict:
     """Normalize config through the contract selected by the method row."""
     if raw is None:
         config: dict = {}
@@ -21,6 +27,22 @@ def validate_method_config(config_contract_id: str, raw: Any) -> dict:
         config = dict(raw)
     else:
         raise QaMethodConfigError("method_config must be a JSON object")
+    from yoke_core.domain.machine_qa_case_machine import (
+        MachineConstraintError,
+        normalize_config_machine,
+        require_registered_machine,
+    )
+
+    try:
+        machine = normalize_config_machine(config_contract_id, config)
+        if conn is not None and project_id is not None:
+            require_registered_machine(
+                conn,
+                project_id=project_id,
+                machine=machine,
+            )
+    except MachineConstraintError as exc:
+        raise QaMethodConfigError(str(exc)) from exc
     if config_contract_id in {"command", "command-ci"}:
         command = config.get("command")
         if not isinstance(command, str) or not command.strip():
@@ -45,8 +67,7 @@ def validate_method_config(config_contract_id: str, raw: Any) -> dict:
             workflow = config.get("ci_workflow")
             if not isinstance(workflow, str) or not workflow.strip():
                 raise QaMethodConfigError(
-                    "CI command cases require a non-empty "
-                    "method_config.ci_workflow"
+                    "CI command cases require a non-empty method_config.ci_workflow"
                 )
             config["ci_workflow"] = workflow.strip()
     elif config_contract_id in {"browser-check", "browser-inspection"}:
@@ -76,12 +97,15 @@ def validate_method_config(config_contract_id: str, raw: Any) -> dict:
             raise QaMethodConfigError(violation.message)
     elif config_contract_id == "agent-mission":
         executor = config.get("executor")
-        if set(config) != {"executor"} or executor not in {
+        if set(config) not in (
+            {"executor"},
+            {"executor", "machine"},
+        ) or executor not in {
             "informed_subagent",
             "naive_target_session",
         }:
             raise QaMethodConfigError(
-                "Agent missions require exactly one executor: "
+                "Agent missions require one executor and may name one machine: "
                 "informed_subagent or naive_target_session"
             )
         config["executor"] = str(executor)

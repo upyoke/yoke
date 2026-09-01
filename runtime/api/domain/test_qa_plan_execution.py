@@ -312,6 +312,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
         result = qa_plan_execution.execute_plan(
             public_ref=TEST_ITEM_REF,
             transition_id="implemented",
+            machine="mac-studio-lab",
             actor=actor,
         )
 
@@ -326,7 +327,9 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
     execute_group.assert_called_once_with(
         requirements[2],
         actor=actor,
+        machine="mac-studio-lab",
     )
+    assert function_calls[0][1]["machine"] == "mac-studio-lab"
     assert [function for function, _payload, _actor in function_calls] == [
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",

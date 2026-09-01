@@ -110,6 +110,7 @@ class HostControlExecutionContract(BaseModel):
     project_id: int = Field(ge=1)
     project: str
     settings: dict[str, str]
+    selection_reason: str | None = None
     checks: list[str] = Field(default_factory=list)
     baselines: list[str] = Field(default_factory=list)
     cases: list[MachineQaCaseContract] = Field(default_factory=list)
@@ -180,9 +181,10 @@ class HostControlExecutionContract(BaseModel):
 
 
 def _digest_payload(contract: HostControlExecutionContract) -> dict[str, Any]:
+    # Admission narration is operator context, not host-target authority.
     return contract.model_dump(
         mode="json",
-        exclude={"contract_digest"},
+        exclude={"contract_digest", "selection_reason"},
     )
 
 
@@ -206,6 +208,7 @@ def issue_execution_contract(
     project_id: int,
     project: str,
     settings: dict[str, str],
+    selection_reason: str | None = None,
     checks: list[str] | None = None,
     baselines: list[str] | None = None,
     cases: list[dict[str, Any]] | None = None,
@@ -224,6 +227,7 @@ def issue_execution_contract(
         project_id=int(project_id),
         project=str(project),
         settings=validate_test_machine_settings(dict(settings)),
+        selection_reason=selection_reason,
         checks=list(checks or []),
         baselines=list(baselines or []),
         cases=[MachineQaCaseContract.model_validate(case) for case in (cases or [])],

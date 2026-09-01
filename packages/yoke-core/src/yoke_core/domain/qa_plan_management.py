@@ -110,6 +110,7 @@ def create_plan(
         from yoke_core.domain.qa_hosted_runtime_identity import (
             resolve_plan_environment_reference,
         )
+
         try:
             target = resolve_plan_environment_reference(
                 conn,
@@ -284,6 +285,8 @@ def _validated_plan_cases(
             case["method_config"] = validate_method_config(
                 str(contract["config_contract_id"]),
                 case["method_config"],
+                conn=conn,
+                project_id=int(plan["project_id"]),
             )
         except QaMethodConfigError as exc:
             raise QaPlanError(f"case {case['case_key']!r}: {exc}") from exc

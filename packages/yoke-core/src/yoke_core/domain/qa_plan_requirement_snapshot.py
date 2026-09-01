@@ -8,6 +8,7 @@ from typing import Any, Iterable, Mapping, Optional
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
 from yoke_core.domain.qa_method_capabilities import encoded_capability_kinds
+from yoke_core.domain.machine_qa_case_machine import materialized_capability_kinds
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     require_case_target,
@@ -127,12 +128,13 @@ def insert_requirement(
         if case["success_policy_params"] is not None
         else json.loads(str(plan["success_policy_params"]))
     )
+    method_config = require_runnable_case(case)
     require_case_target(
         {
             "method_id": case["method_id"],
             "instructions": case["instructions"],
             "expected_outcome": case["expected_outcome"],
-            "method_config": require_runnable_case(case),
+            "method_config": method_config,
             "entry_surface": case["entry_surface"],
         },
         execution_target,
@@ -157,8 +159,10 @@ def insert_requirement(
             "flow_derived",
             _json({"id": policy_id, "params": params}),
             encoded_capability_kinds(
-                case["required_capability_kinds"],
-                subject=f"method {case['method_id']!r}",
+                materialized_capability_kinds(
+                    case["required_capability_kinds"], method_config
+                ),
+                subject=f"plan case {case['case_key']!r}",
             ),
             int(plan["id"]),
             str(case["case_key"]),
@@ -174,7 +178,7 @@ def insert_requirement(
             transition_id,
             str(case["instructions"]),
             str(case["expected_outcome"]),
-            str(case["method_config"]),
+            _json(method_config),
             canonical_target(execution_target),
             target_digest(execution_target),
             now,
@@ -205,12 +209,13 @@ def refresh_requirement(
         if case["success_policy_params"] is not None
         else json.loads(str(plan["success_policy_params"]))
     )
+    method_config = require_runnable_case(case)
     require_case_target(
         {
             "method_id": case["method_id"],
             "instructions": case["instructions"],
             "expected_outcome": case["expected_outcome"],
-            "method_config": require_runnable_case(case),
+            "method_config": method_config,
             "entry_surface": case["entry_surface"],
         },
         execution_target,
@@ -233,8 +238,10 @@ def refresh_requirement(
             str(attachment["qa_phase"]),
             _json({"id": policy_id, "params": params}),
             encoded_capability_kinds(
-                case["required_capability_kinds"],
-                subject=f"method {case['method_id']!r}",
+                materialized_capability_kinds(
+                    case["required_capability_kinds"], method_config
+                ),
+                subject=f"plan case {case['case_key']!r}",
             ),
             int(plan["id"]),
             str(case["case_key"]),
@@ -250,7 +257,7 @@ def refresh_requirement(
             transition_id,
             str(case["instructions"]),
             str(case["expected_outcome"]),
-            str(case["method_config"]),
+            _json(method_config),
             canonical_target(execution_target),
             target_digest(execution_target),
             int(requirement_id),

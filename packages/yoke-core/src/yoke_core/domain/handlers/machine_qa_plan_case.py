@@ -72,15 +72,13 @@ def _assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     )
     from yoke_core.domain.qa_plan_execution_store import canonical, marker
 
-    current = get_case_execution_context(
-        conn,
-        requirement_id=int(case["requirement_id"]),
-    )
+    requirement_id = int(case["requirement_id"])
+    current = get_case_execution_context(conn, requirement_id=requirement_id)
     row = query_one(
         conn,
         "SELECT case_position,baseline_position FROM qa_requirements "
         f"WHERE id={marker(conn)}",
-        (int(case["requirement_id"]),),
+        (requirement_id,),
     )
     if row is None:
         raise ValueError("ordered plan requirement no longer exists")
@@ -150,13 +148,18 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         if case.get("runner_id") not in {"host_control", "agent_mission"}:
             raise ValueError("the ordered plan case is not machine-backed")
         arguments = _contract_args(execution, case, ordinal=parsed.ordinal)
+        from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
+
+        machine = resolve_case_machine(case, parsed.machine)
         lease_id = execution.get("machine_lease_id")
+        selection_new = lease_id is None
         try:
             if lease_id is None:
                 contract = begin_host_control_execution(
                     commit_deferred_connection(conn),
                     project=str(case["project"]),
                     session_id=request.actor.session_id,
+                    machine=machine,
                     **arguments,
                 )
                 set_plan_machine_lease(
@@ -178,6 +181,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     ordinal=arguments["ordinal"],
                     case_position=arguments["case_position"],
                     baseline_position=arguments["baseline_position"],
+                    machine=machine,
                 )
         except MachineQaProtocolLeaseHeld as held:
             finish_plan_execution(
@@ -210,6 +214,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             "execution_id": str(execution["id"]),
             "cursor_ordinal": int(execution["cursor_ordinal"]),
             "execution": contract.model_dump(mode="json"),
+            "selection_new": selection_new,
         },
     )
 

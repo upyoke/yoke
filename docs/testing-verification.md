@@ -129,13 +129,13 @@ project without an item join.
 Capability availability is: not configured, configured (unverified), ready, in use, or error.
 Serial resources queue while in use; that does not prevent plan attachment.
 
-Each Test Mac is one composite `test-machine:<resource_name>` capability row,
-so a project may register several machines
-without splitting one host into separate resources. A resource name identifies
-the physical host globally: only one project may register it, and its
+A project may register several `test-machine:<resource_name>` rows, one per physical host.
+Resource names are global: one project may register each, and the matching
 `QA_HOST:<resource_name>` lease admits one execution at a time. Machine-backed
-missions choose the first free registered machine in name order; an explicit
-read, settings update, or verification selects one machine by name:
+plans prefer a free verified machine, then stable name, and report why. Pin a
+run with `yoke qa plan run --machine NAME`; durable `method_config.machine`
+case constraints take precedence. Explicit reads, settings updates, and
+verification also select one machine by name:
 
 ```text
 yoke test-machine list --project <project> --json

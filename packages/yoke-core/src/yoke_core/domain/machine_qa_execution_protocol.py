@@ -25,7 +25,7 @@ from yoke_core.domain.host_control_runner import (
 )
 from yoke_core.domain.machine_qa_host_selection import (
     TestMachineFleetBusy,
-    acquire_test_machine,
+    acquire_test_machine_admission,
 )
 from yoke_core.domain.machine_qa_execution_contract import (
     HostControlExecutionContract,
@@ -138,6 +138,7 @@ def _issue(
     checks: Sequence[str],
     baselines: Sequence[str],
     cases: Sequence[dict[str, Any]],
+    selection_reason: str | None = None,
     plan_execution_id: str | None = None,
     roster_digest: str | None = None,
     ordinal: int | None = None,
@@ -151,6 +152,7 @@ def _issue(
         project_id=machine.project_id,
         project=machine.project,
         settings=machine.settings,
+        selection_reason=selection_reason,
         checks=list(checks),
         baselines=list(baselines),
         cases=list(cases),
@@ -185,7 +187,7 @@ def begin_host_control_execution(
             "host-control execution requires an owning session"
         )
     try:
-        selected, lease = acquire_test_machine(
+        admission = acquire_test_machine_admission(
             conn,
             project=project,
             session_id=session_id,
@@ -202,12 +204,13 @@ def begin_host_control_execution(
             contention=held.contention,
         ) from None
     return _issue(
-        selected,
-        lease,
+        admission.contract,
+        admission.lease,
         operation=operation,
         checks=checks,
         baselines=baselines,
         cases=cases,
+        selection_reason=admission.selection_reason,
         plan_execution_id=plan_execution_id,
         roster_digest=roster_digest,
         ordinal=ordinal,
