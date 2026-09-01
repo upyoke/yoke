@@ -27,6 +27,8 @@ SESSION_LIST_FIELDS = (
     "presentation_source",
     "presentation_observed_at",
     "model",
+    "reasoning_effort",
+    "context_window_tokens",
     "workspace",
     "offered_at",
     "ended_at",

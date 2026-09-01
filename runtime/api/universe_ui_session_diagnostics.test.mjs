@@ -40,7 +40,8 @@ test("session card keeps the latest message badge and drops the removed facts", 
   const rendered = card({
     session_id: "session-1",
     liveness: "active",
-    executor: "codex",
+    executor: "codex", model: "gpt-5.6-sol",
+    reasoning_effort: "max", context_window_tokens: 258_400,
     claims: [],
     activity_at: createdAt,
     latest_message: {
@@ -51,9 +52,27 @@ test("session card keeps the latest message badge and drops the removed facts", 
     end_blocker: { status: "has_claims", active_claim_count: 1 },
     effective_stale_ttl_minutes: 60,
     stale_eligible_at: new Date(Date.now() + 11.2 * 60000).toISOString(),
-    messageability: { messageable: false },
+    machine_name: "test-mac",
+    relay: "connected",
+    messageability: {
+      messageable: true, wake_available: true, relay_connected: true,
+    },
   });
 
+  const body = byClass(rendered, "session-card-body")[0];
+  const rows = body.children.map((child) => child.className);
+  assert.equal(
+    rows.indexOf("session-latest-message"),
+    rows.indexOf("session-relay") + 1,
+  );
+  assert.equal(byClass(rendered, "session-message-button")[0].textContent, "Message");
+  assert.equal(byClass(rendered, "session-latest-label")[0].textContent, "Latest:");
+  assert.deepEqual(
+    byClass(rendered, "session-model-tag").map(
+      (tag) => [tag.textContent, tag.getAttribute("data-model-fact")],
+    ),
+    [["MAX", "reasoning-effort"], ["258k", "context-window"]],
+  );
   assert.equal(
     byClass(rendered, "session-message-badge")[0].textContent,
     "pending · 4m",

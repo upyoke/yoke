@@ -139,7 +139,8 @@
 }
 
 .universe-app-root .session-lane,
-.universe-app-root .session-machine {
+.universe-app-root .session-machine,
+.universe-app-root .session-model-tag {
   display: inline-flex;
   flex: 0 0 auto;
   padding: 1px 5px;
@@ -247,9 +248,19 @@
 }
 
 .universe-app-root .session-model {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--yoke-muted);
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-model-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
   white-space: nowrap;
 }
 

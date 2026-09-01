@@ -10,6 +10,28 @@
 
 export const REQUESTED_LABEL = " (requested)";
 
+function compactTokenCount(value) {
+  if (value === null || value === undefined) return "";
+  const count = Number(value);
+  if (!Number.isFinite(count) || count <= 0) return "";
+  const scale = count >= 1_000_000
+    ? [1_000_000, "m"]
+    : count >= 1_000 ? [1_000, "k"] : null;
+  if (!scale) return String(Math.round(count));
+  const scaled = count / scale[0];
+  const precision = scaled < 10 && !Number.isInteger(scaled) ? 1 : 0;
+  return `${scaled.toFixed(precision).replace(/\.0$/, "")}${scale[1]}`;
+}
+
+export function servedSessionModelFacts(row) {
+  const facts = [];
+  const effort = String(row?.reasoning_effort ?? "").trim();
+  if (effort) facts.push({ kind: "reasoning-effort", label: effort.toUpperCase() });
+  const contextWindow = compactTokenCount(row?.context_window_tokens);
+  if (contextWindow) facts.push({ kind: "context-window", label: contextWindow });
+  return facts;
+}
+
 export function displaySessionModel(row, empty = "model not reported") {
   const served = String(row?.model || "").trim();
   if (served) return served;
