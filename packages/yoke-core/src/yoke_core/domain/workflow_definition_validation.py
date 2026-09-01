@@ -119,7 +119,7 @@ _POLICY_VALUES = {
 _RETIRED_POLICY_KEYS = frozenset({"parallelism"})
 _APPROVAL_DEFAULT_KEYS = frozenset({"roles", "actors"})
 _APPROVAL_ROLES = frozenset({"owner", "operator", "admin"})
-_ITEM_POSTURE_VALUES = frozenset(
+ITEM_POSTURE_VALUES = frozenset(
     {
         "approval",
         "approval_on_done",
@@ -255,7 +255,7 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
     )
     if len(posture) != len(set(posture)):
         raise WorkflowDefinitionError("policies.item_posture_allowlist must be unique")
-    unknown = set(posture) - _ITEM_POSTURE_VALUES
+    unknown = set(posture) - ITEM_POSTURE_VALUES
     if unknown:
         raise WorkflowDefinitionError(
             f"policies.item_posture_allowlist has unknown values: {sorted(unknown)}"

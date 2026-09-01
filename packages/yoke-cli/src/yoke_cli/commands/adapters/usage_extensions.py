@@ -13,6 +13,7 @@ from yoke_cli.commands.adapters import shepherd_writes
 from yoke_cli.commands.adapters import strategy_event_usage
 from yoke_cli.commands.adapters import usage_composed_operations
 from yoke_cli.commands.adapters import usage_product_surfaces
+from yoke_cli.commands.adapters import workflows_item_posture
 from yoke_cli.commands.adapters.usage_readiness import READINESS_USAGE_BY_ID
 
 
@@ -25,6 +26,7 @@ def extend_adapter_usage(target: Dict[str, str]) -> None:
     target.update(strategy_event_usage.USAGE_BY_FUNCTION_ID)
     target.update(usage_composed_operations.USAGE_BY_FUNCTION_ID)
     target.update(usage_product_surfaces.USAGE_BY_FUNCTION_ID)
+    target.update(workflows_item_posture.USAGE_BY_FUNCTION_ID)
     target.update(claims_coordination_claim.USAGE_BY_FUNCTION_ID)
     target.update(claims_steering.USAGE_BY_FUNCTION_ID)
     target.update(steering_report.USAGE_BY_FUNCTION_ID)

@@ -201,8 +201,9 @@ The read and recovery adapters are `yoke item-worktrees get PREFIX-N --lane-role
 | `workflows.item.get` | `None` (read) | `yoke_core.domain.handlers.workflows_versioning` | Returns the item's exact pin, digest, stage, posture, interpreted lane policy, and active lanes. |
 | `workflows.current.set` | `"operator_override"` | same module | Selects an already-published version for subsequently created items; existing pins do not change. |
 | `workflows.item.migrate` | `"operator_override"` | same module | Atomically migrates one item when stage/posture, active lanes and claims, approval/QA gates, and delivery bindings remain representable; label-only changes are compatible, while retroactive unsatisfied gates are refused. |
+| `workflows.item_posture.amend` | `"item"` | `yoke_core.domain.handlers.workflows_item_posture` | Sets, replaces, or clears ONE posture key on an already-filed item. The amendable roster is the item's pinned `item_posture_allowlist`; each key declares its own guard, so a key with none refuses as unamendable rather than stranding records. Refuses at a terminal stage, over a verification selection whose requirement already carries a recorded run, while path claims are registered under a selection being cleared, and while an owner decision is open on a cleared approval selection. Replacing a verification selection waives its unexecuted requirement snapshots, detaches the superseded plan, and attaches the new one in the same transaction. |
 
-The operator adapters are `yoke workflows item get PREFIX-N`, `yoke workflows current set WORKFLOW VERSION`, and `yoke workflows item migrate PREFIX-N [--version N]`.
+The operator adapters are `yoke workflows item get PREFIX-N`, `yoke workflows current set WORKFLOW VERSION`, `yoke workflows item migrate PREFIX-N [--version N]`, and `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` (`--help` carries the per-key decision tree).
 
 ### `workflow_item.epic_task.*` and `workflow_item.epic_progress_note.*` — epic-task amendment
 

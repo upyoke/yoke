@@ -132,7 +132,10 @@ def validate_item_qa_transition(
     if effective.values.get("qa") == WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT:
         message += (
             "; optional item QA accepts only the plan or method selected "
-            "in workflow_posture.verification"
+            "in workflow_posture.verification. Select one on this item "
+            "first: yoke workflows item-posture amend <PREFIX-N> "
+            "--verification-plan <ID_OR_SLUG> --reason \"<why>\" "
+            "(--help for the decision tree), then retry"
         )
     raise QaWorkflowBindingError(message)
 

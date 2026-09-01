@@ -113,7 +113,15 @@ QA_COMMANDS: list[dict] = [
             "For a corrected definition, run `yoke qa plan rematerialize "
             "--item PREFIX-N --transition reviewed-implementation`; it refreshes "
             "matching requirements without losing runs, adds new cases, and waives "
-            "removed cases."
+            "removed cases. On a workflow whose QA policy is optional item "
+            "attachment (Dash), both attach and materialize accept only the "
+            "plan or method named in items.workflow_posture.verification; an "
+            "item filed without one selects it after the fact with `yoke "
+            "workflows item-posture amend PREFIX-N --verification-plan "
+            "ID_OR_SLUG --reason TEXT` (--help for the per-key decision "
+            "tree). Wrong guesses: that `yoke qa item-plan attach` can "
+            "select verification on an unselected Dash, and that the "
+            "create-time selection is final so the item must be re-filed."
         ),
     },
     {

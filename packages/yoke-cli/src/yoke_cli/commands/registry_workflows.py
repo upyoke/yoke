@@ -9,6 +9,9 @@ from yoke_cli.commands.adapters.workflows_read import (
     workflows_version_get,
     workflows_version_list,
 )
+from yoke_cli.commands.adapters.workflows_item_posture import (
+    workflows_item_posture_amend,
+)
 from yoke_cli.commands.adapters.workflow_mechanics import (
     workflows_approval_defaults_publish,
     workflows_delivery_default_set,
@@ -40,6 +43,10 @@ WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("workflows", "policy-defaults", "publish"): (
         "workflows.policy_defaults.publish",
         workflows_policy_defaults_publish,
+    ),
+    ("workflows", "item-posture", "amend"): (
+        "workflows.item_posture.amend",
+        workflows_item_posture_amend,
     ),
     ("workflows", "item", "migrate"): (
         "workflows.item.migrate",

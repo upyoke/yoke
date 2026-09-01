@@ -24,6 +24,9 @@ from yoke_cli.commands.adapters.dash_survey_recovery import (
     build_survey_timeout_recovery,
 )
 from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
+from yoke_cli.commands.adapters.workflows_item_posture import (
+    WORKFLOWS_ITEM_POSTURE_AMEND_HINT,
+)
 from yoke_cli.commands.adapters.lane_tree import (
     LaneTree,
     item_lane_tree,
@@ -73,6 +76,9 @@ def dash_file(args: List[str]) -> int:
     parser.add_argument("--path-claims", action="store_true")
     parser.add_argument("--approval-on-done", action="store_true")
     parser.add_argument("--deployment", action="store_true")
+    # Posture here is a convenience, not a one-shot: an item filed without a
+    # selection, or with the wrong one, is amended in place afterwards.
+    parser.epilog = WORKFLOWS_ITEM_POSTURE_AMEND_HINT
     parser.add_argument(
         "--execution-instructions-considered",
         dest="execution_instructions_considered",

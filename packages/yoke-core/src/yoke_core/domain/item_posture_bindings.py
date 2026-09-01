@@ -1,8 +1,9 @@
-"""Create-time bindings for definition-bounded item posture.
+"""Bindings from a selected item posture to its shared runtime records.
 
 The item row keeps the selected posture as the durable declaration.  This
-module binds selections that already have enough information at filing time
-to their shared runtime records.  Ad-hoc verification intentionally remains a
+module binds selections that already carry enough information to their shared
+runtime records, whether the selection arrives when the item is filed or
+through a later amendment.  Ad-hoc verification intentionally remains a
 method selection until the executing harness authors the concrete case
 contract from the instruction and actual target.
 """
@@ -16,7 +17,7 @@ from yoke_core.domain.qa_workflow_binding_validation import (
 )
 
 
-def bind_item_posture_on_create(
+def bind_item_posture_selection(
     conn: Any,
     *,
     item_id: int,
@@ -25,7 +26,7 @@ def bind_item_posture_on_create(
     actor_id: int,
     commit: bool = True,
 ) -> dict[str, Any]:
-    """Bind filing-time posture selections to shared runtime authorities."""
+    """Bind the current posture selections to shared runtime authorities."""
     verification = posture.get("verification")
     if not isinstance(verification, Mapping):
         if commit:
@@ -73,5 +74,5 @@ def bind_item_posture_on_create(
 
 
 __all__ = [
-    "bind_item_posture_on_create",
+    "bind_item_posture_selection",
 ]
