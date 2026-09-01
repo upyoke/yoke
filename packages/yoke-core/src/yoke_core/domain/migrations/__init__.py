@@ -25,7 +25,11 @@ Contract for a module here:
   produced, or a data fact no live writer can undo. A count of rows in the
   state the apply happened to leave behind is a snapshot, not an invariant —
   the writers that fill those rows afterwards are doing their job, and the
-  assertion fails on every preflight from the first one onward.
+  assertion fails on every preflight from the first one onward. It must also
+  hold after **this** entry's own ``apply()``, because rehearsal runs the
+  entry alone against a validation surface that may predate everything
+  before it: assert only a shape this entry establishes, converging it here
+  with guarded statements rather than assuming a predecessor ran.
 - Invariants remain true forever unless a later entry declares
   ``RETIRES_INVARIANTS`` naming those prior entries — because the surface
   they describe is gone, or because the claim was never an invariant.

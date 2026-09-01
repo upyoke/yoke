@@ -287,9 +287,19 @@ place turns a mis-stated invariant into a fleet-wide content mismatch and a
 refusal to boot — a worse outage than the one being fixed. The later entry
 declares `RETIRES_INVARIANTS` naming its predecessor and restates the durable
 half as its own. `0032_session_model_split_shape_invariant` does exactly that:
-it transforms nothing, retires 0030's assertion, and keeps proving what the
-split really owes — the requested and served columns exist, and `model` stays
-nullable so "nothing was attested" remains expressible.
+it retires 0030's assertion and keeps proving what the split really owes — the
+requested and served columns exist, and `model` stays nullable so "nothing was
+attested" remains expressible.
+
+Restating a predecessor's claim carries one more obligation, and rehearsal is
+where it surfaces. **An entry's invariants must hold after its own apply**, on
+whatever database it meets — and rehearsal applies the entry alone, against a
+validation surface that may predate everything before it. Written as a pure
+no-op, 0032 asserted columns 0030 had created and failed there instantly. So
+the entry converges that shape itself, with guarded adds and a `DROP NOT NULL`
+that apply nothing on every database 0030 has already reached. The rule
+generalizes: an invariant an entry does not establish is somebody else's claim,
+and the history has no way to know that predecessor ran.
 
 ## A projection that runs before the history cannot be rescued by the history
 

@@ -34,7 +34,10 @@ post-apply snapshot. It re-runs on every fleet preflight against a copy of a
 live database, so it may assert only what the entry owes forever — the schema
 shape it produced, or a data fact no live writer can undo. Asserting the row
 state the apply happened to leave behind fails from the first legitimate write
-onward and blocks the release train. Correcting a mis-stated invariant is
+onward and blocks the release train. It must also hold after this entry's own
+`apply(conn)`, since rehearsal runs the entry alone against a validation
+surface that may predate everything before it — assert only a shape this entry
+establishes. Correcting a mis-stated invariant is
 always a new history entry declaring `RETIRES_INVARIANTS`: an applied entry's
 bytes are recorded in every ledger that ran it, so editing the module in place
 makes those databases refuse to boot on a content mismatch.
