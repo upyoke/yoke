@@ -94,13 +94,13 @@ class TestSkewErrorDirection:
         assert error.code == SKEW_ERROR_CODE
         assert "deployed server predates this client build" in error.recovery_hint
 
-    def test_client_behind_points_at_the_installer(self):
+    def test_client_behind_points_at_the_paired_self_host_upgrade(self):
         error = skew_error(
             function_id=SERVED_LOCALLY,
             client_version="1.9.0",
             server_version="2.0.0",
         )
-        assert "rerun the public installer" in error.recovery_hint.lower()
+        assert "yoke self-host upgrade --dir <bundle>" in error.recovery_hint
 
     def test_unresolvable_versions_name_both_recoveries(self):
         error = skew_error(
@@ -110,7 +110,7 @@ class TestSkewErrorDirection:
         )
         hint = error.recovery_hint.lower()
         assert "retry after deploy" in hint
-        assert "rerun the public installer" in hint
+        assert "yoke self-host upgrade --dir <bundle>" in hint
         assert UNKNOWN_VERSION in error.message
 
     def test_development_suffixes_still_order(self):
@@ -194,7 +194,7 @@ class TestRelayedSkewGate:
             monkeypatch, server_version="2.0.0", client_version="1.0.0"
         )
         assert response.error.code == SKEW_ERROR_CODE
-        assert "rerun the public installer" in response.error.recovery_hint.lower()
+        assert "yoke self-host upgrade --dir <bundle>" in response.error.recovery_hint
 
     def test_unknown_function_keeps_the_servers_own_answer(self, monkeypatch):
         response = _dispatch_over_https(

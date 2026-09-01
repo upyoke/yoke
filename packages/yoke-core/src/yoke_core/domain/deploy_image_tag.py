@@ -2,19 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_contracts.server_image import (
+    CANONICAL_IMAGE_TAG_LENGTH,
+    canonical_server_image_tag,
+)
 
-CANONICAL_IMAGE_TAG_LENGTH = 12
-
-
-def canonical_image_tag(commit: str) -> str:
-    """Return the exact fixed-width image tag for a resolved commit."""
-    normalized = str(commit or "").strip()
-    if len(normalized) < CANONICAL_IMAGE_TAG_LENGTH:
-        raise ValueError(
-            "resolved commit is shorter than the canonical image tag length "
-            f"({CANONICAL_IMAGE_TAG_LENGTH})"
-        )
-    return normalized[:CANONICAL_IMAGE_TAG_LENGTH]
+canonical_image_tag = canonical_server_image_tag
 
 
 __all__ = ["CANONICAL_IMAGE_TAG_LENGTH", "canonical_image_tag"]

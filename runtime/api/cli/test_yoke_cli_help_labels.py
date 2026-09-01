@@ -25,10 +25,8 @@ def test_top_help_labels_non_product_dispositions() -> None:
     assert "yoke git pre-commit [hook-local]" in out
     assert "yoke status\n" in out
     assert "yoke self-host import ARCHIVE [--dir D] [--yes] [--json]" in out
-    assert not any(
-        line.startswith("    yoke status [")
-        for line in out.splitlines()
-    )
+    assert "yoke self-host upgrade [--dir D] [--channel C] [--yes] [--json]" in out
+    assert not any(line.startswith("    yoke status [") for line in out.splitlines())
 
 
 @pytest.mark.parametrize(

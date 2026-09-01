@@ -34,37 +34,25 @@ yoke connect http://127.0.0.1:8765 --token-stdin
 yoke status
 ```
 
-`yoke self-host init` takes `--dir`, `--port`, and `--image` overrides;
-the defaults come from one place (`yoke_contracts.server_image`, today
-`ghcr.io/upyoke/yoke-server:latest`) so the bundle always tracks the
-published image. Knobs live in the bundle's `.env`; generated
-credentials ride mounted secret files under `secrets/` — never `.env`,
-whose values compose `$`-interpolates.
+`yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By
+default it resolves the installed CLI's immutable release manifest and writes
+that release's exact `ghcr.io/upyoke/yoke-server:<sha12>` image to `.env`.
+Every fresh bundle therefore starts with matching CLI and server versions, and
+a later container restart keeps the same server. `--image` remains an explicit
+operator override. Generated credentials ride mounted files under `secrets/`
+rather than `.env`, whose values Compose `$`-interpolates.
 
-Bundles created before the managed ignore block can be protected in place,
-idempotently, without rewriting `.env`, Compose configuration, or database
-credentials:
+Protect older bundles in place without rewriting `.env`, Compose, or database credentials:
 
 ```bash
 yoke self-host init --dir /path/to/yoke-server --protect-existing
 ```
 
-The command preserves every operator-authored `.gitignore` rule outside its
-marked Yoke-owned block and reports explicitly that database credentials were
-not regenerated. The bundle and `secrets/` must be real directories owned by
-the operator; `secrets/` must have mode `0700`. Run
-`chmod 700 /path/to/yoke-server/secrets` if needed. It refuses symlinked secret
-paths and also refuses if Git already tracks `.env` or a file under `secrets/`:
-ignore rules cannot remove an indexed secret. Remove the reported paths from
-the Git index, rotate any credential that entered history, then retry the
-protection command.
+The command preserves operator-authored `.gitignore` rules and reports that credentials were not regenerated. The bundle and `secrets/` must be real operator-owned directories; `secrets/` must be mode `0700`. It refuses symlinked paths and secrets already tracked by Git. Remove reported paths from the index, rotate any exposed credential, and retry.
 
 ## Move an existing universe here
 
-Point the import at a bundle (a fresh one, or an existing one whose universe
-you are replacing), but do not start its `core` service. Protect the portable
-archive as private control-plane data, then import it from outside or inside
-the bundle directory:
+Point the import at a fresh or replaceable bundle, keep `core` stopped, and protect the archive as private control-plane data:
 
 ```bash
 yoke self-host init --dir /path/to/yoke-server
@@ -73,34 +61,13 @@ yoke self-host import ~/Downloads/acme-universe-20260714T120000Z.tar \
   --dir /path/to/yoke-server
 ```
 
-The archive is one tar carrying the database dump and its freeze receipt
-(see [Universe portability](universe-portability.md)); checksum verification
-is derived from the receipt inside it. The command asks exactly one thing
-beyond the file: consent to replace whatever universe the bundle's database
-currently holds (type `replace` at the prompt, or pass `--yes` for
-non-interactive runs).
+The tar carries the database dump and freeze receipt (see [Universe portability](universe-portability.md)); that receipt supplies checksum verification. Type `replace` at the prompt, or pass `--yes` for a non-interactive replacement.
 
-The command requires Docker with Compose, validates the existing bundle, and
-refuses while its `core` service is running. It opens the archive without
-following symlinks and requires a current-owner, single-link regular file with
-no group or world access. Compose starts only the database, then streams the
-archive over stdin to a one-off process in the pinned server image; the host
-archive is never bind-mounted into a container.
+The command requires Docker with Compose, validates the bundle, and refuses while `core` runs. The archive must be a current-owner, single-link regular file with no group/world access. Compose starts only the database and streams the archive to a one-off process in the pinned image; it never bind-mounts the host archive.
 
-Uploaded DDL is never run: Yoke resets the destination, creates the trusted
-schema from the destination image, validates the bounded archive, and restores
-only approved table data and sequence values inside one transaction. A failed
-or interrupted attempt is simply replaced by the next run.
+Uploaded DDL never runs. Yoke creates the trusted destination schema, validates the bounded archive, and restores approved data and sequences in one transaction; retry replaces a failed or interrupted attempt.
 
-A whole-universe archive can contain portable capability secrets in raw form,
-alongside hashed API and browser credential records. Keep the archive
-owner-only at every hop, and review or rotate capability secrets when custody
-changes between platforms. The import does not preserve API or browser access:
-in the same transaction as the data restore, it revokes every active imported
-API token and browser session, grants the neutral `admin` actor the org admin
-role, and mints one replacement token. Save the token from the success block
-immediately: it is shown once and never stored or reprinted. Then run the
-printed `docker compose up -d core` and `yoke connect` steps.
+Archives can contain raw capability secrets plus hashed credentials. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, grants neutral `admin` org-admin access, and mints one replacement token. Save its one-time success output, then run the printed `docker compose up -d core` and `yoke connect` steps.
 
 If the restore reported success but its one-time result was lost before you
 could save it, mint a recovery credential while `core` remains stopped:
@@ -341,22 +308,26 @@ state, or project-engine databases.
 
 ## Upgrades
 
-The server image is versioned by tag; on every boot the entrypoint converges the full
-idempotent core schema before serving (all tables, indexes, AND additive columns), so
-every net-new additive table or column the deployed code expects self-propagates to
-your already-born database — no manual migration step is needed for additive schema.
-(Data-transforming changes — backfills, drops, rewrites — still go through Yoke's
-governed migration runner.) An upgrade is therefore a pull plus a restart:
+Running bundles stay on their exact image pin until you deliberately advance
+the pair. From any directory, run:
 
 ```bash
-cd yoke-server
-docker compose pull core
-docker compose up -d
+yoke self-host upgrade --dir /path/to/yoke-server
 ```
 
-To pin instead of tracking `latest`, set `YOKE_SERVER_IMAGE` in `.env`
-to a sha-tagged reference and re-run `docker compose up -d`. Confirm
-which code is answering via the `build` field on `GET /v1/health`.
+The command performs a read-only preflight and shows the current image, target
+release, exact target image, and ordered actions before asking you to type
+`upgrade`. It then installs that release's CLI through the public installer
+channel, atomically rewrites `YOKE_SERVER_IMAGE`, runs `docker compose pull
+core`, and runs `docker compose up -d`. Use `--yes` only when an automated run
+has already accepted that same plan.
+
+Failures name the stage and exact retry. The pin is unchanged when CLI install
+fails; after the CLI and pin advance, a pull or restart failure leaves both
+durable identities on the target and prints the two Compose recovery commands.
+On every boot the entrypoint converges additive schema before serving;
+data-transforming changes still use Yoke's governed migration runner. Confirm
+the running source identity through the `build` field on `GET /v1/health`.
 
 ## You own the operations
 

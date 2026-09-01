@@ -11,7 +11,6 @@ connection-gated.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 from yoke_cli import operation_inventory as ops
@@ -25,8 +24,11 @@ from yoke_cli.product_boundary_import_scan import (
     repo_root_from_package,
     scan_import_edges,
 )
+from yoke_cli.product_boundary_inventory_render import (
+    InventoryRow,
+    render_inventory_markdown,
+)
 from yoke_cli.product_boundary_teaching import TeachingAudit, generate_teaching_audit
-from yoke_cli.product_boundary_teaching_render import render_teaching_audit_markdown
 
 PRODUCT_CLIENT = "product-client"
 HTTPS_RELAY = "https-relay"
@@ -51,7 +53,7 @@ def _commands(text: str) -> frozenset[str]:
 
 
 _PRODUCT = _commands(
-    "auth set|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|packs get|packs list|packs relink|packs update|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|status|ui|universe export|universe import|universe validate"
+    "auth set|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|packs get|packs list|packs relink|packs update|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|self-host upgrade|status|ui|universe export|universe import|universe validate"
 )
 _PROJECT_INSTALL = _commands(
     "project install|project refresh|project snapshot sync|project uninstall"
@@ -60,20 +62,6 @@ _SOURCE_DEV = _commands(
     "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets budget get|packets check|packets render|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
 )
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
-
-
-@dataclass(frozen=True)
-class InventoryRow:
-    command_helper: str
-    function_id: str | None
-    import_edges: tuple[ImportEdge, ...]  # noqa: E702
-    transport_branch: str
-    config_required: str
-    capability_required: str  # noqa: E702
-    expected_product_install_behavior: str
-    expected_refusal_shape: str  # noqa: E702
-    owner: str
-    disposition: str  # noqa: E702
 
 
 def generate_inventory(
@@ -159,35 +147,11 @@ def generate_inventory(
 def render_markdown(
     rows: Iterable[InventoryRow], *, teaching_audit: TeachingAudit | None = None
 ) -> str:
-    """Render a deterministic Markdown product-boundary report."""
-    ordered = tuple(rows)
-    lines = [
-        "# Yoke CLI Product-Boundary Inventory",
-        "",
-        "Generated from `yoke_cli.commands.registry`, `yoke_cli.operation_inventory`, `yoke_cli.commands.tool_shaped`, and the package import-boundary scan.",
-        "",
-    ]
-    header = "| command/helper | function_id | transport_branch | config_required | capability_required | product install | refusal shape | owner | import_edges |"
-    for disposition in DISPOSITIONS:
-        group = sorted(
-            (row for row in ordered if row.disposition == disposition),
-            key=lambda r: r.command_helper,
-        )
-        if not group:
-            continue
-        lines.extend(
-            [
-                f"## {disposition}",
-                "",
-                header,
-                "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-            ]
-        )
-        lines.extend(_markdown_row(row) for row in group)
-        lines.append("")
-    if teaching_audit is not None:
-        lines.extend(render_teaching_audit_markdown(teaching_audit))
-    return "\n".join(lines).rstrip() + "\n"
+    return render_inventory_markdown(
+        rows,
+        dispositions=DISPOSITIONS,
+        teaching_audit=teaching_audit,
+    )
 
 
 def _make_row(
@@ -293,7 +257,9 @@ def _config(command: str, disposition: str) -> str:
 
 
 def _capability(command: str, disposition: str) -> str:
-    if command.startswith(("yoke github pr ", "yoke github merge-queue ", "yoke github-actions ")):
+    if command.startswith(
+        ("yoke github pr ", "yoke github merge-queue ", "yoke github-actions ")
+    ):
         return "project GitHub App auth"
     if command in _PROJECT_INSTALL:
         return "project install bundle endpoint"
@@ -359,35 +325,6 @@ def _owner(shell_form: str, operation: ops.OperationEntry | None, module: str) -
 
 def _shell(tokens: Sequence[str]) -> str:
     return "yoke " + " ".join(tokens)
-
-
-def _edge_text(edges: Sequence[ImportEdge]) -> str:
-    return (
-        "none"
-        if not edges
-        else "<br>".join(
-            f"{e.kind}:{e.source}->{e.target} [{e.classification}]" for e in edges
-        )
-    )
-
-
-def _markdown_row(row: InventoryRow) -> str:
-    values = (
-        row.command_helper,
-        row.function_id or "",
-        row.transport_branch,
-        row.config_required,
-        row.capability_required,
-        row.expected_product_install_behavior,
-        row.expected_refusal_shape,
-        row.owner,
-        _edge_text(row.import_edges),
-    )
-    return "| " + " | ".join(_md(value) for value in values) + " |"
-
-
-def _md(value: str) -> str:
-    return str(value).replace("|", "\\|").replace("\n", "<br>")
 
 
 __all__ = [
