@@ -41,7 +41,9 @@ def facts_values(facts: SessionModelFacts) -> List[Any]:
 
 def stored_facts(row: Any) -> SessionModelFacts:
     """Read the model facts a ``harness_sessions`` row already holds."""
-    return SessionModelFacts(**{column: _value(row, column) for column in MODEL_COLUMNS})
+    return SessionModelFacts(
+        **{column: _value(row, column) for column in MODEL_COLUMNS}
+    )
 
 
 def _replaces_served_model(stored: Optional[str], incoming: Optional[str]) -> bool:

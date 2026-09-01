@@ -109,9 +109,7 @@ def test_a_claude_launch_stores_the_ask_its_pooled_process_could_not_read() -> N
 def test_a_codex_launch_stores_the_model_it_asked_for() -> None:
     conn = launch_connection()
 
-    facts = _bind(
-        conn, surface="codex-cli", version="0.148.0a15", model="gpt-5.6-sol"
-    )
+    facts = _bind(conn, surface="codex-cli", version="0.148.0a15", model="gpt-5.6-sol")
 
     assert facts["requested_model"] == "gpt-5.6-sol"
     assert facts["requested_reasoning_effort"] is None

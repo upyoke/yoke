@@ -119,8 +119,9 @@ def test_cli_wake_names_no_model_when_the_relay_asked_for_none(
     request = replace(_wake_request(tmp_path), requested_model=None)
 
     CursorCliTransport(
-        process_factory=lambda command, **kwargs: spawns.append((command, kwargs))
-        or RunningProcess()
+        process_factory=lambda command, **kwargs: (
+            spawns.append((command, kwargs)) or RunningProcess()
+        )
     ).resume_chat(request)
 
     command, options = spawns[0]

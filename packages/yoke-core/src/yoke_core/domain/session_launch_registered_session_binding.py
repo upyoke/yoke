@@ -191,9 +191,7 @@ def bind_launch_to_session(
     """
     require_exact_launch_session(launch, session_id, facts)
     hold_launch_registration_grace(conn, session_id, now=now)
-    stamped = stamp_launch_requested_facts(
-        conn, launch=launch, session_id=session_id
-    )
+    stamped = stamp_launch_requested_facts(conn, launch=launch, session_id=session_id)
     _insert_pending_recipient(
         conn,
         launch=launch,

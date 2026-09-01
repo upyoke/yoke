@@ -40,9 +40,7 @@ def attest_served_model_facts(
     try:
         from yoke_harness.model_attestation import attest_served_facts
 
-        served = attest_served_facts(
-            "claude-code", {}, transcript_path=transcript_path
-        )
+        served = attest_served_facts("claude-code", {}, transcript_path=transcript_path)
     except Exception:
         return False
     if not served.attested():
