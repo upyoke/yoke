@@ -78,9 +78,7 @@ def test_a_refresh_converges_yokes_own_line(tmp_path: Path) -> None:
         {"statusLine": {"type": "command", "command": "stale"}},
     )
 
-    record, report = apply_settings_status_line(
-        tmp_path, _MANAGED, {"seeded": True}
-    )
+    record, report = apply_settings_status_line(tmp_path, _MANAGED, {"seeded": True})
 
     assert record == {"seeded": True}
     assert report["changed"]
@@ -92,9 +90,7 @@ def test_a_second_install_of_the_same_command_writes_nothing(
 ) -> None:
     _write_settings(tmp_path, {"statusLine": dict(_MANAGED)})
 
-    _record, report = apply_settings_status_line(
-        tmp_path, _MANAGED, {"seeded": True}
-    )
+    _record, report = apply_settings_status_line(tmp_path, _MANAGED, {"seeded": True})
 
     assert not report["changed"]
 
@@ -104,9 +100,7 @@ def test_uninstall_removes_only_a_line_this_install_seeded(
 ) -> None:
     _write_settings(tmp_path, {"hooks": {}, "statusLine": dict(_MANAGED)})
 
-    assert remove_settings_status_line(tmp_path, {"seeded": True}) == {
-        "removed": True
-    }
+    assert remove_settings_status_line(tmp_path, {"seeded": True}) == {"removed": True}
     assert "statusLine" not in _read_settings(tmp_path)
 
 

@@ -3,11 +3,15 @@
 The status line is the only Claude artifact carrying
 ``context_window.context_window_size``, so these cover the whole path it
 travels: read it out of the payload, record it under the session, fold it
-into the session's served facts beside the transcript's model, and keep the
-relay asking until it has arrived. The last one is the regression that
-matters most — the window is written by a different process than the model
-and normally lands after it, so a settle rule keyed on the model alone
-drops it permanently and silently.
+into the session's served facts beside the transcript's model, and report it
+even after the session has otherwise settled.
+
+That last one is the regression that matters, and it cuts both ways. The
+window is written by a different process than the model and normally lands
+after it, so a relay that stopped looking once a model was proven would drop
+it silently — while a relay that refused to settle until it arrived would
+re-scan the transcript on every event, forever, in every project whose
+status line is not Yoke's.
 """
 
 from __future__ import annotations
@@ -20,10 +24,10 @@ import pytest
 from yoke_contracts.session_context_window_sources import (
     SERVED_CONTEXT_WINDOW_SOURCES,
     attests_context_window,
-    served_facts_settled,
+    records_window_separately,
 )
-from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_harness import claude_status_line
+from yoke_harness.hooks.identity import client_model_facts
 from yoke_harness.model_attestation import attest_served_facts
 
 
@@ -56,9 +60,7 @@ def _payload(window: int | None, *, session_id: str = SESSION) -> dict:
 
 def _transcript(path: Path, model: str = "claude-opus-5") -> Path:
     path.write_text(
-        json.dumps(
-            {"type": "assistant", "effort": "high", "message": {"model": model}}
-        )
+        json.dumps({"type": "assistant", "effort": "high", "message": {"model": model}})
         + "\n",
         encoding="utf-8",
     )
@@ -145,35 +147,50 @@ def test_the_window_is_reported_before_the_transcript_names_a_model(
     assert facts.context_window_tokens == 1_000_000
 
 
-def test_a_claude_session_is_not_settled_until_its_window_arrives() -> None:
-    """The regression: settling on the model alone strands the window.
+def test_a_window_recorded_after_the_model_still_reaches_the_wire(
+    tmp_path: Path, yoke_home: Path
+) -> None:
+    """The regression: the status line normally writes after the model.
 
-    The relay stops reading a session's artifacts once its facts are
-    settled, and Claude's window lands after its model, so a rule that
-    settled on the model would mark the session done one event before the
-    window was ever readable.
+    A session settles once its model is proven, which is what stops the
+    transcript being re-scanned forever. The window arrives later, from a
+    different process, so it has to keep being reported past that point or
+    it never lands at all.
     """
-    model_only = SessionModelFacts(model="claude-opus-5")
+    payload = {
+        "session_id": SESSION,
+        "transcript_path": str(_transcript(tmp_path / "session.jsonl")),
+    }
 
-    assert not served_facts_settled(model_only, harness_id="claude-code")
-    assert served_facts_settled(
-        SessionModelFacts(model="claude-opus-5", context_window_tokens=1_000_000),
-        harness_id="claude-code",
-    )
+    first = client_model_facts("PreToolUse", payload, "claude-code")
+    assert first["model"] == "claude-opus-5"
+    assert "context_window_tokens" not in first
+
+    claude_status_line.record_context_window(_payload(1_000_000))
+    later = client_model_facts("PostToolUse", payload, "claude-code")
+
+    assert later == {"context_window_tokens": 1_000_000}
 
 
-def test_a_cursor_session_settles_on_its_model_alone() -> None:
-    """Cursor states no window, so waiting for one would never settle."""
-    assert served_facts_settled(
-        SessionModelFacts(model="cursor-grok-4.6-xhigh"), harness_id="cursor"
-    )
+def test_a_settled_session_with_no_recording_reports_nothing(
+    tmp_path: Path, yoke_home: Path
+) -> None:
+    """A project keeping its own status line must not re-scan forever."""
+    payload = {
+        "session_id": SESSION,
+        "transcript_path": str(_transcript(tmp_path / "session.jsonl")),
+    }
+
+    client_model_facts("PreToolUse", payload, "claude-code")
+
+    assert client_model_facts("PostToolUse", payload, "claude-code") == {}
 
 
-def test_nothing_settles_before_a_model_is_attested() -> None:
-    assert not served_facts_settled(SessionModelFacts(), harness_id="codex")
-    assert not served_facts_settled(
-        SessionModelFacts(context_window_tokens=400_000), harness_id="codex"
-    )
+def test_only_claude_records_its_window_separately() -> None:
+    """Codex writes both facts into one rollout; Cursor writes neither."""
+    assert records_window_separately("claude-code")
+    assert not records_window_separately("codex")
+    assert not records_window_separately("cursor")
 
 
 def test_the_window_sources_declare_one_deferral_and_two_surfaces() -> None:

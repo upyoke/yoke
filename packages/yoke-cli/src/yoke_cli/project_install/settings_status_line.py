@@ -58,18 +58,14 @@ def _load(target: Path) -> Optional[Dict[str, Any]]:
 
 def _validate(managed: Any) -> Dict[str, Any]:
     if not isinstance(managed, dict):
-        raise ProjectInstallError(
-            f"{MANAGED_STATUS_LINE_KEY} must be an object"
-        )
+        raise ProjectInstallError(f"{MANAGED_STATUS_LINE_KEY} must be an object")
     command = managed.get("command")
     if not isinstance(command, str) or not command.strip():
         raise ProjectInstallError(
             f"{MANAGED_STATUS_LINE_KEY}.command must be a non-empty string"
         )
     if managed.get("type") != "command":
-        raise ProjectInstallError(
-            f"{MANAGED_STATUS_LINE_KEY}.type must be \"command\""
-        )
+        raise ProjectInstallError(f'{MANAGED_STATUS_LINE_KEY}.type must be "command"')
     return dict(managed)
 
 
@@ -155,9 +151,7 @@ def preview_settings_status_line(
             "would_change": True,
         }
     return {
-        "actions": [
-            f"Would keep: {CLAUDE_SETTINGS_REL} statusLine (already set)"
-        ],
+        "actions": [f"Would keep: {CLAUDE_SETTINGS_REL} statusLine (already set)"],
         "would_change": False,
     }
 

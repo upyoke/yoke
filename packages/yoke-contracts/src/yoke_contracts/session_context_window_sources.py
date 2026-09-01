@@ -7,9 +7,12 @@ read backwards — would file a guess under that promise, and the split
 between the served and requested columns exists precisely to keep guesses
 out. A harness with no such surface attests nothing and says so here.
 
-That declaration is not documentation alone: :func:`served_facts_settled`
-reads it, so a harness whose window arrives from a different artifact than
-its model keeps being asked until both have answered.
+That declaration is not documentation alone. Where the window is written
+matters as much as whether it exists: a harness that records it from a
+different process than the one naming its model can produce it *after* the
+model is known, so the relay has to keep looking for it even once the
+expensive artifact reads are finished. :data:`SEPARATELY_RECORDED_WINDOW_HARNESSES`
+names those harnesses.
 """
 
 from __future__ import annotations
@@ -21,8 +24,6 @@ from yoke_contracts.harness_family_identity import (
     CODEX_FAMILY,
     CURSOR_FAMILY,
 )
-from yoke_contracts.session_model_facts import SessionModelFacts
-
 
 #: The first-class served-window surface per harness family, or ``""`` for
 #: a family that states the window nowhere machine-readable.
@@ -65,28 +66,32 @@ def attests_context_window(harness_id: object) -> bool:
     return bool(SERVED_CONTEXT_WINDOW_SOURCES.get(str(harness_id or "").strip()))
 
 
-def served_facts_settled(facts: SessionModelFacts, *, harness_id: str) -> bool:
-    """True when every served fact this harness can state has been read.
+#: Harnesses whose served window is written by a different process than the
+#: one that names their model, and so can arrive after it.
+#:
+#: Only Claude: its model comes from the transcript the session itself
+#: writes, while its window comes from the status line, a separate
+#: short-lived process Claude runs on its own schedule. Codex writes both
+#: into one rollout, so a read that finds its model has already found its
+#: window; Cursor records neither a window nor anything to wait for.
+#:
+#: The distinction earns its place by bounding work. Resolving a served
+#: model costs a transcript scan or a store query, so the relay stops once
+#: a model is proven — and a harness listed here needs its window looked
+#: for past that point, which is only affordable because that lookup is
+#: opening one small recorded file rather than re-reading an artifact.
+SEPARATELY_RECORDED_WINDOW_HARNESSES = frozenset({CLAUDE_FAMILY})
 
-    Reading an attestation costs real work — a transcript scan, a store
-    query — so callers stop once the answer is complete. What counts as
-    complete is per harness, because the facts do not all arrive from one
-    artifact or at one moment: Claude reads its model from the transcript
-    and its window from the status line, which lands later, so settling on
-    the model alone would drop the window permanently. Effort is
-    deliberately not required — a model with no effort parameter never
-    reports one, and waiting for it would settle nothing.
-    """
-    if facts.model is None:
-        return False
-    if not attests_context_window(harness_id):
-        return True
-    return facts.context_window_tokens is not None
+
+def records_window_separately(harness_id: object) -> bool:
+    """True when *harness_id*'s window can arrive after its model."""
+    return str(harness_id or "").strip() in SEPARATELY_RECORDED_WINDOW_HARNESSES
 
 
 __all__ = [
     "CURSOR_CONTEXT_WINDOW_DEFERRAL",
+    "SEPARATELY_RECORDED_WINDOW_HARNESSES",
     "SERVED_CONTEXT_WINDOW_SOURCES",
     "attests_context_window",
-    "served_facts_settled",
+    "records_window_separately",
 ]
