@@ -176,6 +176,10 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
   );
   assert.match(
     css,
+    /\.session-message-badge,[\s\S]*\.session-kill-badge \{[\s\S]*padding: 2px 8px;[\s\S]*font-size: 11px;/,
+  );
+  assert.doesNotMatch(
+    css,
     /\.session-latest-message \.session-message-badge \{[^}]*padding-block: 0;/,
   );
 });

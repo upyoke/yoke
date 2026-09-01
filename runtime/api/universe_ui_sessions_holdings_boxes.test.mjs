@@ -66,9 +66,7 @@ test("Previously held uses the same boxed structure as Steering, in grey", () =>
   );
   assert.equal(byClass(previous, "session-lock").length, 1);
   assert.equal(byClass(previous, "session-item-link")[0].textContent, "YOK-19");
-  assert.equal(
-    byClass(previous, "session-item-title")[0].textContent, "Previous title",
-  );
+  assert.equal(byClass(previous, "session-item-title").length, 0);
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_holdings.css",
     import.meta.url,

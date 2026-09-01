@@ -74,10 +74,9 @@ function appendStage(documentNode, work, status, workflow) {
   work.appendChild(stage);
 }
 
-function titleHolding(entries, row, previous) {
+function titleHolding(entries, row) {
   const items = entries.filter((entry) => entry.target_kind === "item");
   if (!items.length) return null;
-  if (previous) return items[0];
   return items.find((entry) => entry.target === row.current_item) || items[0];
 }
 
@@ -197,7 +196,7 @@ function appendHoldingGroup(
   group.appendChild(el(
     documentNode, "div", "session-holdings-label", label,
   ));
-  const titled = titleHolding(entries, row, previous);
+  const titled = previous ? null : titleHolding(entries, row);
   for (const entry of entries) {
     appendHoldingEntry(documentNode, group, row, entry, projects, {
       showTitle: entry === titled,

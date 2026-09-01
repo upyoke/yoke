@@ -48,7 +48,7 @@ function card(documentNode, liveness, holdings) {
 }
 
 
-test("web tile labels current and previous groups with one title each", () => {
+test("web tile titles the current group and leaves previous title-free", () => {
   const documentNode = new FakeDocument();
   const rendered = card(documentNode, "active", {
     current: [item("YOK-20", "Current title")],
@@ -65,7 +65,21 @@ test("web tile labels current and previous groups with one title each", () => {
   );
   assert.deepEqual(
     byClass(rendered, "session-item-title").map((node) => node.textContent),
-    ["Current title", "Previous title"],
+    ["Current title"],
+  );
+  assert.equal(
+    byClass(
+      byClass(rendered, "session-holdings-previous")[0],
+      "session-item-title",
+    ).length,
+    0,
+  );
+  assert.deepEqual(
+    byClass(
+      byClass(rendered, "session-holdings-previous")[0],
+      "session-item-link",
+    ).map((node) => node.textContent),
+    ["YOK-19"],
   );
   assert.deepEqual(
     byClass(rendered, "session-holdings-more").map((node) => node.textContent),
