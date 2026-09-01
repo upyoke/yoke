@@ -294,6 +294,7 @@ def test_read_pr_landing_state_includes_mergeable_state(monkeypatch):
                 "state": "open",
                 "auto_merge": {"enabled_by": {}},
                 "mergeable_state": "dirty",
+                "head": {"sha": "abc123def"},
             }
         ),
     )
@@ -303,3 +304,22 @@ def test_read_pr_landing_state_includes_mergeable_state(monkeypatch):
     assert state.auto_merge_active
     assert not state.merged
     assert not state.closed
+    assert state.head_sha == "abc123def"
+
+
+def test_leave_merge_queue_disarms_merge_when_ready(monkeypatch):
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
+    calls = []
+
+    def fake_request(req, *, token, **_kw):
+        calls.append(req)
+        if req.method == "GET":
+            return _response({"node_id": "PR_node1"})
+        return _response(
+            {"data": {"disablePullRequestAutoMerge": {"pullRequest": {"number": 7}}}}
+        )
+
+    monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
+    result = queue_mod.leave_merge_queue(_ctx(), "7")
+    assert result.success
+    assert "disablePullRequestAutoMerge" in calls[-1].body["query"]

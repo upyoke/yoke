@@ -1,33 +1,17 @@
 """What one observation of a queued pull request actually means.
 
 Merging and ejection look identical from a single read. GitHub clears
-merge-when-ready when the queue merges a pull request and when the queue
-drops it, and the merged flag becomes visible a moment later, so a poll that
-lands in that window sees an unmerged, unarmed pull request and calls a
-successful landing a failure. Every misread of the kind came from deciding
-on one read.
-
-So nothing here is terminal on one read:
-
-* the merged flag is confirmed with a second read taken after a short delay,
-  because merging is the outcome that outranks every other reading;
-* a pull request that is still a queue entry is still landing however its
-  arming flag reads, since the queue clears arming while a train validates;
-* only a pull request that is unmerged, open, unarmed, and absent from the
-  queue after that confirmation, with a failed train, has genuinely
-  stopped. A green or unidentified train in that same window is still
-  landing: GitHub clears arming and the queue slot before the merged flag
-  is visible.
-
-Every verdict names the facts it saw, including what the train's own
-``merge_group`` run concluded — asserting failed train checks without
-reading them is what sent an operator to inspect a green run. A pending
-verdict carries that same description so a caller polling the queue can
-say what it is waiting on: a pull request the queue never picked up looks
-exactly like one mid-train until the readings are named, and an operator
-who cannot see the difference finds out at the deadline. The GitHub
-``mergeStateStatus`` is part of that description so a ``DIRTY`` pull
-request is not a silent 45-minute wait.
+merge-when-ready when the queue merges a pull request and when it drops
+it, and the merged flag becomes visible a moment later, so a poll in
+that window sees an unmerged, unarmed pull request. Nothing here is
+terminal on one read except red required checks: checks on the
+PR head that have already concluded failed/error/cancelled/timed_out
+with nothing in flight. That cannot merge, so it must not spend the
+poll budget. Other refusals still confirm: merged is re-read after a
+short delay; a still-queued entry is still landing; only an unmerged,
+open, unarmed, absent, failed-train PR has stalled. Every verdict names
+the facts it saw, including ``mergeStateStatus`` so ``DIRTY`` is not a
+silent wait.
 """
 
 from __future__ import annotations
@@ -47,12 +31,16 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     read_train_run,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_queue_entry_checks import (
+    ENTRY_CHECKS_FAILED,
+    entry_checks_are_red,
+)
 
 # Queue ejection is a failed train, not an empty slot. GitHub clears the
 # slot and merge-when-ready while a successful train is still merging.
-_FAILED_TRAIN_CONCLUSIONS = frozenset({
-    "cancelled", "failure", "startup_failure", "timed_out",
-})
+_FAILED_TRAIN_CONCLUSIONS = frozenset(
+    {"cancelled", "failure", "startup_failure", "timed_out"}
+)
 
 
 # What the pull request turned out to be doing.
@@ -62,10 +50,6 @@ CONFLICTED = "conflicted"
 STALLED = "stalled"
 PENDING = "pending"
 
-# How long to wait before the read that separates a merge in flight from a
-# pull request the queue has stopped driving. It outlasts the merge's own
-# read window, and it is a second read of the same pull request, so it keeps
-# the same floor every other read of a run's state keeps.
 DEFAULT_CONFIRM_SECONDS = MINIMUM_POLL_INTERVAL_SECONDS
 
 
@@ -85,16 +69,16 @@ class LandingVerdict:
     kind: str
     narrative: str = ""
     warnings: tuple[str, ...] = field(default=())
+    head_sha: str = ""
 
 
 def describe_checks(checks: Sequence[LandingCheck]) -> str:
     """Pending and concluded check names, sorted so a reshuffle is not news."""
-    pending = sorted(
-        check.name for check in checks if check.status != "completed"
-    )
+    pending = sorted(check.name for check in checks if check.status != "completed")
     concluded = sorted(
         f"{check.name}={check.conclusion or check.status}"
-        for check in checks if check.status == "completed"
+        for check in checks
+        if check.status == "completed"
     )
     return (
         f"pending-checks={','.join(pending) or 'none'} "
@@ -103,7 +87,8 @@ def describe_checks(checks: Sequence[LandingCheck]) -> str:
 
 
 def read_landing_checks(
-    ctx: MergeContext, head_sha: str,
+    ctx: MergeContext,
+    head_sha: str,
 ) -> tuple[Optional[tuple[LandingCheck, ...]], Optional[str]]:
     """Per-check breakdown for the SHA the train is validating."""
     from yoke_contracts.github_app_installation_permissions import (
@@ -141,11 +126,13 @@ def read_landing_checks(
     for raw in raw_runs:
         if not isinstance(raw, dict):
             return None, "check-runs response contained a malformed run"
-        checks.append(LandingCheck(
-            name=str(raw.get("name") or "unnamed check").strip(),
-            status=str(raw.get("status") or "").strip().lower(),
-            conclusion=str(raw.get("conclusion") or "").strip().lower(),
-        ))
+        checks.append(
+            LandingCheck(
+                name=str(raw.get("name") or "unnamed check").strip(),
+                status=str(raw.get("status") or "").strip().lower(),
+                conclusion=str(raw.get("conclusion") or "").strip().lower(),
+            )
+        )
     return tuple(checks), None
 
 
@@ -187,19 +174,23 @@ def describe(
     return narrative
 
 
+_Observe = tuple[
+    str,
+    Optional[QueueMember],
+    bool,
+    Optional[TrainRun],
+    Optional[tuple[LandingCheck, ...]],
+]
+
+
 def _observe(
     ctx: MergeContext,
     pr_num: str,
     state: PrLandingState,
     target: str,
     warnings: list[str],
-) -> tuple[str, Optional[QueueMember], bool, Optional[TrainRun]]:
-    """Read the queue slot and train run behind ``state`` and describe them.
-
-    Every reading it takes is one a terminal verdict takes anyway; taking
-    them on a pending observation too is what lets the poll narrate the
-    wait instead of reporting motion it never confirmed.
-    """
+) -> _Observe:
+    """Read the queue slot and train run behind ``state`` and describe them."""
     entry, entry_error = _queue_entry(ctx, pr_num, target)
     if entry_error:
         warnings.append(entry_error)
@@ -207,15 +198,21 @@ def _observe(
     if train_note:
         warnings.append(train_note)
     checks: Optional[tuple[LandingCheck, ...]] = None
-    if train is not None and train.head_sha:
-        checks, check_error = read_landing_checks(ctx, train.head_sha)
+    check_sha = (train.head_sha if train is not None else "") or state.head_sha
+    if check_sha:
+        checks, check_error = read_landing_checks(ctx, check_sha)
         if check_error:
             warnings.append(check_error)
             checks = None
     narrative = describe(
-        pr_num, state, entry, entry_error is None, train, checks,
+        pr_num,
+        state,
+        entry,
+        entry_error is None,
+        train,
+        checks,
     )
-    return narrative, entry, entry_error is None, train
+    return narrative, entry, entry_error is None, train, checks
 
 
 def _queue_entry(
@@ -268,17 +265,18 @@ def classify_landing(
             narrative=f"pull request {pr_num}: merged=true",
             warnings=tuple(warnings),
         )
-    if (
-        state.auto_merge_active
-        and not state.closed
-        and not _has_conflicts(state)
-    ):
-        narrative, _entry, _readable, _train = _observe(
+    if state.auto_merge_active and not state.closed and not _has_conflicts(state):
+        narrative, _entry, _readable, train, checks = _observe(
             ctx, pr_num, state, target, warnings
         )
-        return LandingVerdict(
-            PENDING, narrative=narrative, warnings=tuple(warnings)
-        )
+        if train is None and entry_checks_are_red(checks):
+            return LandingVerdict(
+                ENTRY_CHECKS_FAILED,
+                narrative=narrative,
+                warnings=tuple(warnings),
+                head_sha=state.head_sha,
+            )
+        return LandingVerdict(PENDING, narrative=narrative, warnings=tuple(warnings))
 
     # Unmerged and either closed, unarmed, or conflicted. A merge in
     # flight can look the same, so the reading is confirmed first.
@@ -299,13 +297,18 @@ def classify_landing(
             warnings=tuple(warnings),
         )
 
-    narrative, entry, entry_readable, train = _observe(
+    narrative, entry, entry_readable, train, checks = _observe(
         ctx, pr_num, confirmed, target, warnings
     )
-    if _has_conflicts(confirmed) and not confirmed.closed:
+    if train is None and entry_checks_are_red(checks):
         return LandingVerdict(
-            CONFLICTED, narrative=narrative, warnings=tuple(warnings)
+            ENTRY_CHECKS_FAILED,
+            narrative=narrative,
+            warnings=tuple(warnings),
+            head_sha=confirmed.head_sha,
         )
+    if _has_conflicts(confirmed) and not confirmed.closed:
+        return LandingVerdict(CONFLICTED, narrative=narrative, warnings=tuple(warnings))
     if not confirmed.closed:
         # An unreadable queue cannot prove the entry is gone. An entry that
         # is still there, or a train that has not failed, means GitHub is
@@ -331,6 +334,7 @@ __all__ = [
     "CLOSED_UNMERGED",
     "CONFLICTED",
     "DEFAULT_CONFIRM_SECONDS",
+    "ENTRY_CHECKS_FAILED",
     "LANDED",
     "LandingCheck",
     "LandingVerdict",

@@ -173,7 +173,10 @@ the command refuses with the remote head, the unpublished local commits, and
 the exact `git push --force-with-lease` recovery — it never reports the new
 SHA while origin still holds the old one.
 Codex and Cursor may add `--wait` to keep both phases inline when their process
-is safe for the full wait. Claude must never pass `--wait`.
+is safe for the full wait. Claude must never pass `--wait`. `--wait` returns
+immediately with a terminal failure when the pull request's required checks
+have already concluded red and nothing is in flight for that head sha; the
+poll budget applies only while checks or the train are genuinely pending.
 
 When deployment posture is selected, merge first without closing out, so the
 item-bound deployment can run against the recorded merge identity:

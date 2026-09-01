@@ -1,7 +1,5 @@
-"""Queue-routed landing for a verified item branch.
-Admission and PR arming are re-enterable: default mode records a durable
-handoff, while explicit wait mode polls the train. Both converge on an already
-merged PR and the same receipt; failures never silently downgrade to local merge.
+"""Queue-routed landing for a verified item branch. Wait mode polls; default
+mode records a durable handoff. Failures never silently downgrade to local merge.
 """
 
 from __future__ import annotations
@@ -39,9 +37,14 @@ from yoke_core.domain.merge_queue_drift_gate import (
 from yoke_core.domain.merge_queue_landing_verdict import (
     CLOSED_UNMERGED,
     CONFLICTED,
+    ENTRY_CHECKS_FAILED,
     LANDED,
     STALLED,
     classify_landing,
+)
+from yoke_core.domain.merge_queue_entry_checks import (
+    disarm_merge_when_ready,
+    entry_checks_refusal,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.engines.merge_worktree_pr_queue import (
@@ -52,35 +55,20 @@ from yoke_core.engines.merge_worktree_pr_queue import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-# Admission refusals and a queue that has stopped driving a pull request are
-# retry-later outcomes, the same recoverable class as the standalone engine's
-# held merge lock (exit 6). Exit 9 is free at the done-transition boundary,
-# whose codes 0-4, 7 (deployment flow guard), 8 (empty branch), and 99 are
-# taken.
+# Exit 9 is recoverable; red required checks are terminal (exit 1).
 RECOVERABLE_QUEUE_EXIT_CODE = 9
 
 DEFAULT_DEADLINE_SECONDS = 45.0 * 60.0
 
-# Every poll observation is announced under this prefix. The wait is the
-# landing's longest step by far, and a pull request the queue never took up
-# reads exactly like one mid-train unless each observation says what it saw;
-# the watcher wrapper classifies these lines as progress by this prefix.
 POLL_LINE_PREFIX = "Queue landing:"
 
 
 def _emit_to_stderr(line: str) -> None:
-    """Announce one poll observation without disturbing stdout.
-
-    The caller's result envelope is stdout's; progress belongs on stderr,
-    where the merge watcher already reads it.
-    """
     print(line, file=sys.stderr, flush=True)
 
 
 @dataclass(frozen=True)
 class QueueLandingOutcome:
-    """What one queue-routed landing attempt produced."""
-
     ok: bool
     exit_code: int
     pr_num: str = ""
@@ -93,6 +81,14 @@ class QueueLandingOutcome:
     enqueued_at: str = ""
     error: str = ""
     warnings: tuple[str, ...] = field(default=())
+
+
+def _fail_landing(
+    pr_num: str, error: str, warnings, *, exit_code: int = 1
+) -> QueueLandingOutcome:
+    return QueueLandingOutcome(
+        ok=False, exit_code=exit_code, pr_num=pr_num, error=error, warnings=warnings
+    )
 
 
 def land_item_through_merge_queue(
@@ -262,50 +258,49 @@ def land_item_through_merge_queue(
         if landing.kind == LANDED:
             merged = True
             break
-        if landing.kind == CLOSED_UNMERGED:
-            return QueueLandingOutcome(
-                ok=False,
-                exit_code=1,
-                pr_num=pr_num,
-                error=(
-                    f"pull request {pr_num} closed without merging — observed "
-                    f"{landing.narrative}; reopen or recreate it before "
-                    "re-entering the queue"
+        if landing.kind == ENTRY_CHECKS_FAILED:
+            return _fail_landing(
+                pr_num,
+                entry_checks_refusal(
+                    pr_num=pr_num,
+                    head_sha=landing.head_sha,
+                    narrative=landing.narrative,
+                    disarm_note=disarm_merge_when_ready(ctx, pr_num),
                 ),
-                warnings=tuple(warnings),
+                tuple(warnings),
+            )
+        if landing.kind == CLOSED_UNMERGED:
+            return _fail_landing(
+                pr_num,
+                f"pull request {pr_num} closed without merging — observed "
+                f"{landing.narrative}; reopen or recreate it before "
+                "re-entering the queue",
+                tuple(warnings),
             )
         if landing.kind == CONFLICTED:
-            return QueueLandingOutcome(
-                ok=False,
+            return _fail_landing(
+                pr_num,
+                f"pull request {pr_num} has merge conflicts — observed "
+                f"{landing.narrative}; rebase onto the current base and "
+                "re-enter the queue",
+                tuple(warnings),
                 exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-                pr_num=pr_num,
-                error=(
-                    f"pull request {pr_num} has merge conflicts — observed "
-                    f"{landing.narrative}; rebase onto the current base and "
-                    "re-enter the queue"
-                ),
-                warnings=tuple(warnings),
             )
         if landing.kind == STALLED:
-            return QueueLandingOutcome(
-                ok=False,
+            return _fail_landing(
+                pr_num,
+                f"the merge queue is no longer driving pull request "
+                f"{pr_num} — observed {landing.narrative}; address what "
+                "the train run reports and re-enter the queue. Re-running "
+                "the landing is safe: it converges on the merge if one "
+                "happens meanwhile",
+                tuple(warnings),
                 exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-                pr_num=pr_num,
-                error=(
-                    f"the merge queue is no longer driving pull request "
-                    f"{pr_num} — observed {landing.narrative}; address what "
-                    "the train run reports and re-enter the queue. Re-running "
-                    "the landing is safe: it converges on the merge if one "
-                    "happens meanwhile"
-                ),
-                warnings=tuple(warnings),
             )
         pump.wait(next_read_delay(now - started, schedule), sleep=sleep)
         now = monotonic()
     if not merged:
-        # A poll-budget timeout is resumable, not terminal: the claim is
-        # still held, so the message reports that and prints the command
-        # that runs from there without an undocumented re-acquire.
+        # Poll-budget timeout is resumable: the claim is still held.
         return QueueLandingOutcome(
             ok=False,
             exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
@@ -323,7 +318,10 @@ def land_item_through_merge_queue(
         )
 
     close_out = record_landing(
-        ctx, item_id=item_id, commit_sha=commit_sha, pr_num=pr_num,
+        ctx,
+        item_id=item_id,
+        commit_sha=commit_sha,
+        pr_num=pr_num,
         member_snapshot=tuple(dict.fromkeys((*member_refs, public_ref))),
         drift_check=drift_receipt(drift),
     )
