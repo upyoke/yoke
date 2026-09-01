@@ -204,18 +204,14 @@ class TestScalarUpdateGateMapping:
         test_db,
         monkeypatch,
     ):
-        # Item 1 is in 'implementing' with no qa_requirements seeded, so a
-        # reviewing-implementation transition triggers GATE_QA_REVIEWING in
-        # the mutation layer. The gate fires before claim verification, so
-        # the bypass is only needed for parity with the happy-path test.
+        # Item 1 is in 'implementing' and the caller asserts no done-ceremony
+        # nonce, so a done transition triggers GATE_DONE_NONCE in the mutation
+        # layer. The gate fires before claim verification, so the bypass is
+        # only needed for parity with the happy-path test.
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-isolation")
         resp = _post_scalar(
             test_db,
-            _scalar_envelope(
-                1,
-                field="status",
-                value="reviewing-implementation",
-            ),
+            _scalar_envelope(1, field="status", value="done"),
         )
         assert resp.status_code == 422, resp.text
         body = resp.json()

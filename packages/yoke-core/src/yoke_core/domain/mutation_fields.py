@@ -232,9 +232,6 @@ class GateContext:
     Attributes:
         epic_task_count: Number of epic_tasks rows for this item's epic.
             None if not applicable (non-epic items).
-        qa_requirement_count: Total qa_requirements rows for this item.
-        unsatisfied_verification_blocking: Count of blocking verification-phase
-            requirements without a passing run or waiver.
         unsatisfied_all_blocking: Count of all blocking requirements
             (any phase) without a passing run or waiver.
         has_merged_at: Whether the item has a non-null merged_at.
@@ -251,8 +248,6 @@ class GateContext:
     """
 
     epic_task_count: Optional[int] = None
-    qa_requirement_count: int = 0
-    unsatisfied_verification_blocking: int = 0
     unsatisfied_all_blocking: int = 0
     has_merged_at: bool = False
     valid_deploy_envs: Optional[List[str]] = None

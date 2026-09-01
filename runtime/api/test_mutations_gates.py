@@ -118,84 +118,40 @@ class TestEpicMergeGate:
 
 
 class TestQAGates:
-    def test_reviewing_blocked_no_requirements(self):
+    """Only the terminal done gate lives in the mutation layer.
+
+    Stage-scoped QA enforcement for ``reviewing-implementation``,
+    ``implemented``, and ``release`` belongs to the composed
+    ``qa_verification`` gate each pinned workflow version declares.
+    """
+
+    def test_reviewing_carries_no_mutation_layer_qa_gate(self):
         item = _make_item(workflow="issue", status="implementing")
-        gate = _make_gate(qa_requirement_count=0)
         result = prepare_update(
             item=item,
             field_name="status",
             value="reviewing-implementation",
-            gate=gate,
-        )
-        assert result.success is False
-        assert result.error_code == "GATE_QA_REVIEWING"
-
-    def test_reviewing_allowed_with_requirements(self):
-        item = _make_item(workflow="issue", status="implementing")
-        gate = _make_gate(qa_requirement_count=2)
-        result = prepare_update(
-            item=item,
-            field_name="status",
-            value="reviewing-implementation",
-            gate=gate,
+            gate=_make_gate(),
         )
         assert result.success is True
 
-    def test_implemented_blocked_unsatisfied(self):
+    def test_implemented_carries_no_mutation_layer_qa_gate(self):
         item = _make_item(workflow="issue", status="reviewed-implementation")
-        gate = _make_gate(
-            unsatisfied_verification_blocking=2,
-            done_nonce_verified=True,
-        )
         result = prepare_update(
             item=item,
             field_name="status",
             value="implemented",
-            gate=gate,
-        )
-        assert result.success is False
-        assert result.error_code == "GATE_QA_IMPLEMENTED"
-
-    def test_implemented_allowed_all_satisfied(self):
-        item = _make_item(workflow="issue", status="reviewed-implementation")
-        gate = _make_gate(
-            unsatisfied_verification_blocking=0,
-            done_nonce_verified=True,
-        )
-        result = prepare_update(
-            item=item,
-            field_name="status",
-            value="implemented",
-            gate=gate,
+            gate=_make_gate(done_nonce_verified=True),
         )
         assert result.success is True
 
-    def test_release_blocked_unsatisfied_verification(self):
+    def test_release_carries_no_mutation_layer_qa_gate(self):
         item = _make_item(workflow="issue", status="implemented")
-        gate = _make_gate(
-            unsatisfied_verification_blocking=2,
-            done_nonce_verified=True,
-        )
         result = prepare_update(
             item=item,
             field_name="status",
             value="release",
-            gate=gate,
-        )
-        assert result.success is False
-        assert result.error_code == "GATE_QA_RELEASE"
-
-    def test_release_allowed_all_verified(self):
-        item = _make_item(workflow="issue", status="implemented")
-        gate = _make_gate(
-            unsatisfied_verification_blocking=0,
-            done_nonce_verified=True,
-        )
-        result = prepare_update(
-            item=item,
-            field_name="status",
-            value="release",
-            gate=gate,
+            gate=_make_gate(done_nonce_verified=True),
         )
         assert result.success is True
 
@@ -219,33 +175,23 @@ class TestQAGates:
         assert result.success is True
 
     def test_qa_bypass_skips_gates(self):
-        item = _make_item(workflow="issue", status="implementing")
+        item = _make_item(workflow="issue", status="implemented")
         gate = _make_gate(
-            qa_requirement_count=0,
+            unsatisfied_all_blocking=1,
             qa_bypass=True,
             done_nonce_verified=True,
         )
-        result = prepare_update(
-            item=item,
-            field_name="status",
-            value="reviewing-implementation",
-            gate=gate,
-        )
+        result = prepare_update(item=item, field_name="status", value="done", gate=gate)
         assert result.success is True
 
     def test_force_skips_qa_gates(self):
-        item = _make_item(workflow="issue", status="implementing")
+        item = _make_item(workflow="issue", status="implemented")
         gate = _make_gate(
-            qa_requirement_count=0,
+            unsatisfied_all_blocking=1,
             force=True,
             done_nonce_verified=True,
         )
-        result = prepare_update(
-            item=item,
-            field_name="status",
-            value="reviewing-implementation",
-            gate=gate,
-        )
+        result = prepare_update(item=item, field_name="status", value="done", gate=gate)
         assert result.success is True
 
 

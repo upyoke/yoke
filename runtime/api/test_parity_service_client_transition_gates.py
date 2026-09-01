@@ -173,23 +173,3 @@ class TestGateParity:
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is False
         assert "GATE_DONE_NONCE" in cli_data.get("error_code", "")
-
-    def test_validate_without_qa_requirements_rejected_both(self, write_parity_env):
-        """Both surfaces should reject transition to reviewing-implementation without
-        qa_requirements rows."""
-        client = write_parity_env["client"]
-        db_path = write_parity_env["db_path"]
-
-        # Item 1 uses the issue workflow — reviewing-implementation is
-        # valid here, so the QA gate check is reached.
-        api_resp = client.patch("/v1/items/1", json={"status": "reviewing-implementation"})
-        assert api_resp.status_code == 409
-
-        cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "status", "--value", "reviewing-implementation",
-        )
-        assert cli_result.returncode == 1
-        cli_data = json.loads(cli_result.stdout)
-        assert cli_data["success"] is False
-        assert "GATE_QA_REVIEWING" in cli_data.get("error_code", "")

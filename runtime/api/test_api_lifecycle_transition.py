@@ -277,12 +277,10 @@ class TestLifecycleTransitionGateMapping:
         test_db,
         monkeypatch,
     ):
-        # Item 1 in 'implementing' with no qa_requirements -> GATE_QA_REVIEWING.
+        # Item 1 in 'implementing' without the done-ceremony nonce ->
+        # GATE_DONE_NONCE.
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-isolation")
-        resp = _post_lifecycle(
-            test_db,
-            _lifecycle_envelope(1, "reviewing-implementation"),
-        )
+        resp = _post_lifecycle(test_db, _lifecycle_envelope(1, "done"))
         assert resp.status_code == 422, resp.text
         assert resp.json()["error"]["code"] == "lifecycle_gate_unmet"
 
