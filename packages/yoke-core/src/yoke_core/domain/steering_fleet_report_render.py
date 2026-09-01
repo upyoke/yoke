@@ -38,7 +38,7 @@ REPORT_PREAMBLE = (
 
 OVERDUE_MARK = "!"
 
-LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch"
+LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch; counts are spreading weights only, and there is no per-surface session cap"
 
 
 def _landed_recovery(public_ref: str) -> str:
