@@ -19,7 +19,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
-from yoke_cli.self_host import atomic_file, bundle
+from yoke_cli.self_host import atomic_file, bundle, env_file
 from yoke_contracts.self_host_bootstrap_output import connect_url_from_publish_spec
 
 _RUN = subprocess.run
@@ -88,7 +88,7 @@ def tear_down(
 
 def bundle_connect_url(target: Path | str) -> str:
     """The URL a client would have been connected to for this bundle."""
-    return connect_url_from_publish_spec(bundle.read_publish_spec(target))
+    return connect_url_from_publish_spec(env_file.read_publish_spec(target))
 
 
 def _require_docker() -> str:

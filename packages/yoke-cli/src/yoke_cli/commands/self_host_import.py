@@ -20,7 +20,7 @@ from yoke_contracts.self_host_bootstrap_output import (
     connect_url_from_publish_spec,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_cli.self_host import bundle
+from yoke_cli.self_host import bundle, env_file
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -219,7 +219,7 @@ def _print_summary(payload: Dict[str, object], directory: Path) -> None:
     print("")
     print(f"    {payload.get('raw_token')}")
     print("")
-    connect_url = connect_url_from_publish_spec(bundle.read_publish_spec(directory))
+    connect_url = connect_url_from_publish_spec(env_file.read_publish_spec(directory))
     print("Save it now. Then start and connect to the restored server:")
     print(f"    cd {directory} && docker compose up -d core")
     print(f"    yoke connect {connect_url} --token-stdin")

@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.commands import self_host as commands
+from yoke_cli.commands import self_host_teardown as teardown_commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.config import writer
 from yoke_cli.self_host import bundle, first_boot_token, teardown
@@ -61,7 +62,7 @@ def _payload(machine_home: Path) -> dict:
 
 def test_teardown_is_registered_as_a_tool_shaped_command() -> None:
     resolved, _extra = resolve_tool_shaped(("self-host", "teardown"))
-    assert resolved is commands.self_host_teardown
+    assert resolved is teardown_commands.self_host_teardown
 
 
 def test_default_teardown_stops_the_stack_and_keeps_the_data(target, docker):
@@ -88,7 +89,7 @@ def test_destroy_universe_refuses_without_consent_when_not_a_tty(
 ):
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
 
-    rc = commands.self_host_teardown([
+    rc = teardown_commands.self_host_teardown([
         "--dir", str(target), "--destroy-universe", "--keep-connection",
     ])
 
