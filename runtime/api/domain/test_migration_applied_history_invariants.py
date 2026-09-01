@@ -28,9 +28,7 @@ def test_pending_entry_can_retire_an_applied_predecessor() -> None:
 
     modules = {
         "0001_presence": SimpleNamespace(invariants=removed_surface),
-        "0002_removal": SimpleNamespace(
-            RETIRES_INVARIANTS=("0001_presence",)
-        ),
+        "0002_removal": SimpleNamespace(RETIRES_INVARIANTS=("0001_presence",)),
     }
 
     detail = verify_applied_history_invariants(
@@ -73,13 +71,61 @@ def test_empty_database_converges_full_history_and_live_invariants(
         }
         assert applied == history
         assert applied_by == {"boot-converge"}
-        assert verify_applied_history_invariants(
-            conn,
-            applied,
-            history=history,
-            load_module=load_module,
-            redact=dsn,
-        ) is None
+        assert (
+            verify_applied_history_invariants(
+                conn,
+                applied,
+                history=history,
+                load_module=load_module,
+                redact=dsn,
+            )
+            is None
+        )
+
+        # A session whose provider attested a model but whose ask was never
+        # recorded is the normal shape of an operator-started session, and
+        # live builds write it constantly. Re-proving the applied history
+        # against a database carrying one must stay green: an entry's
+        # invariants are a claim about the schema, not about the rows.
+        _register_session_with_no_recorded_request(conn)
+
+        assert (
+            verify_applied_history_invariants(
+                conn,
+                applied,
+                history=history,
+                load_module=load_module,
+                redact=dsn,
+            )
+            is None
+        )
     finally:
         conn.close()
         pg_testdb.drop_test_database(database)
+
+
+def _register_session_with_no_recorded_request(conn: Any) -> None:
+    """Insert a session carrying a served model and no requested model."""
+    now = "2026-01-01T00:00:00Z"
+    conn.execute(
+        "INSERT INTO projects (id, slug, name, created_at) "
+        "VALUES (1, 'invariant-probe', 'Invariant probe', %s)",
+        (now,),
+    )
+    conn.execute(
+        "INSERT INTO harness_sessions ("
+        "session_id, executor, provider, model, workspace, project_id, "
+        "offered_at, last_heartbeat"
+        ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            "session-with-no-recorded-request",
+            "claude-code",
+            "anthropic",
+            "claude-opus-5",
+            "/tmp/workspace",
+            1,
+            now,
+            now,
+        ),
+    )
+    conn.commit()

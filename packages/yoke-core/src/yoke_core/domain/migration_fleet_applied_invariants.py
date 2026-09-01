@@ -4,6 +4,11 @@ Fleet rehearsal already converges pending entries. A ledger-green database
 can still hide a historical verification failure: membership alone does not
 re-run ``invariants(conn)``. After convergence, every shipped entry that
 has ledger membership must pass its callable invariants again on the copy.
+
+Re-proving against a live copy is what makes an entry's invariants a claim
+about the schema rather than about the rows: whatever the apply left behind,
+live builds have been writing since, and an entry that asserted a row count
+is re-judged here against traffic it never saw.
 """
 
 from __future__ import annotations
@@ -34,7 +39,8 @@ def verify_applied_history_invariants(
     Every shipped module is loaded before verification so a pending entry can
     retire an applied predecessor's invariants before convergence applies the
     retiring entry. ``RETIRES_INVARIANTS`` names prior history entries whose
-    surfaces no longer exist in the final schema.
+    claims no longer stand — the surface they describe is gone from the final
+    schema, or what they asserted was never an invariant.
 
     The detail names the failing entry and redacts *redact* (typically the
     copy DSN) so credentials never leave the verdict line.

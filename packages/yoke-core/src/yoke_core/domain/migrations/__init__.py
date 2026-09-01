@@ -19,9 +19,23 @@ Contract for a module here:
   the body and the ledger row together, which is what makes "applied but
   unrecorded" impossible; a commit inside ``apply()`` splits that
   transaction and gives the state back.
-- ``invariants(conn)`` is optional and runs after the apply commits.
-- Invariants remain true forever unless a later entry that removes their
-  surface declares ``RETIRES_INVARIANTS`` naming those prior entries.
+- ``invariants(conn)`` is optional. It runs after the apply commits, and
+  again on every fleet preflight against a copy of a live database. So it
+  may assert only what the entry permanently owes: the schema shape it
+  produced, or a data fact no live writer can undo. A count of rows in the
+  state the apply happened to leave behind is a snapshot, not an invariant —
+  the writers that fill those rows afterwards are doing their job, and the
+  assertion fails on every preflight from the first one onward. It must also
+  hold after **this** entry's own ``apply()``, because rehearsal runs the
+  entry alone against a validation surface that may predate everything
+  before it: assert only a shape this entry establishes, converging it here
+  with guarded statements rather than assuming a predecessor ran.
+- Invariants remain true forever unless a later entry declares
+  ``RETIRES_INVARIANTS`` naming those prior entries — because the surface
+  they describe is gone, or because the claim was never an invariant.
+  Correcting one is always a new entry: an applied entry's bytes are
+  recorded in every ledger that ran it, so editing the module in place makes
+  those databases refuse to boot on a content mismatch.
 - **The body must be safe to re-run.** A database restored from a
   pre-ledger archive replays its history, so guard every statement
   (``IF EXISTS`` / ``IF NOT EXISTS``, or an explicit state check).
