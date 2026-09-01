@@ -10,9 +10,9 @@ _RETIRED_CLI = (
     r"(?:yoke\s+)?" + r"shepherd\s+" + r"dependency-"
     + r"(?:add|list|remove|update)\b"
 )
-_RETIRED_MODULES = r"shepherd" + r"_" + r"dependency"
-_RETIRED_HANDLERS = r"handle_" + r"shepherd" + r"_" + r"dependency"
-_RETIRED_TYPES = r"Shepherd" + r"Dependency"
+_RETIRED_MODULES = r"shepherd" + r"\_" + r"dependency"
+_RETIRED_HANDLERS = r"handle_" + r"shepherd" + r"\_" + r"dependency"
+_RETIRED_TYPES = r"\bShepherd" + r"Dependency"
 
 
 ITEM_DEPENDENCY_RETIREMENT_PATTERNS = (
