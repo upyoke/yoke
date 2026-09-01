@@ -7,7 +7,8 @@ import json
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
-from yoke_core.domain.session_message_service import get_message, send_message
+from yoke_core.domain.session_message_queries import get_message
+from yoke_core.domain.session_message_service import send_message
 from runtime.api.domain.test_session_message_support import (
     NOW,
     message_connection,

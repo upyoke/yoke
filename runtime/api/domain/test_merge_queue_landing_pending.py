@@ -24,7 +24,6 @@ def _connection():
         ALTER TABLE items ADD COLUMN merge_queue_enqueued_at TEXT;
         ALTER TABLE items ADD COLUMN merge_queue_landed_at TEXT;
         ALTER TABLE items ADD COLUMN merge_queue_notified_at TEXT;
-        ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER;
         UPDATE harness_sessions SET actor_id=10;
         UPDATE items SET merge_queue_pr_number='42',
           merge_queue_enqueued_at='2026-08-27T17:00:00Z' WHERE id=101;

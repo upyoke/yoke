@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from typing import Any, TextIO
 
@@ -35,6 +36,27 @@ SELECTOR_ARGUMENTS = (
     ("liveness", "--liveness"),
     ("exclude_session_ids", "--exclude-session"),
 )
+
+
+#: The shape --steering-scope names, quoted for a shell.
+STEERING_SCOPE_EXAMPLE = '\'{"project_id": 1}\''
+
+
+def steering_scope_argument(raw: str) -> dict[str, Any]:
+    """Decode --steering-scope, naming the shape it must have when it is not."""
+    try:
+        scope = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(
+            f"--steering-scope must be a JSON object such as "
+            f"{STEERING_SCOPE_EXAMPLE}; {exc}"
+        ) from exc
+    if not isinstance(scope, dict):
+        raise argparse.ArgumentTypeError(
+            "--steering-scope must be a JSON object such as "
+            f"{STEERING_SCOPE_EXAMPLE}"
+        )
+    return scope
 
 
 def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
@@ -92,6 +114,26 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
             "confirmation may apply."
         ),
     )
+    parser.add_argument(
+        "--steering",
+        action="store_true",
+        help=(
+            "ANCHOR (union). The steering ROLE covering the work you hold — "
+            "no argument, no session id. Resolves at delivery to whichever "
+            "seat covers your item's scope, and parks for the next seat when "
+            "none is live."
+        ),
+    )
+    parser.add_argument(
+        "--steering-scope",
+        dest="steering_scope",
+        type=steering_scope_argument,
+        default=None,
+        help=(
+            "ANCHOR (union). The steering scope to address when you hold no "
+            'item, as JSON: \'{"project_id": N}\'. Implies --steering.'
+        ),
+    )
 
 
 def selector_payload(parsed: argparse.Namespace) -> dict[str, Any]:
@@ -102,6 +144,11 @@ def selector_payload(parsed: argparse.Namespace) -> dict[str, Any]:
     }
     if parsed.universe:
         selector["universe"] = True
+    if getattr(parsed, "steering", False):
+        selector["steering"] = True
+    raw_scope = getattr(parsed, "steering_scope", None)
+    if raw_scope:
+        selector["steering_scope"] = raw_scope
     return selector
 
 
@@ -124,9 +171,11 @@ def write_launch_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
 
 
 __all__ = [
+    "STEERING_SCOPE_EXAMPLE",
     "add_selector_arguments",
     "read_stdin_payload",
     "selector_payload",
+    "steering_scope_argument",
     "write_launch_result",
     "write_message_result",
 ]

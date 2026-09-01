@@ -85,8 +85,9 @@ used to be a hand query here — available work with a per-row never-started
 `last_tool_call_at` rather than any liveness label, starved outbound
 delivery, launches with failed or overdue instruction binding, items whose branch
 landed while the item stayed open, whether an idle holder's last
-question can still be answered, and per-surface plan remaining and reset
-(informational only). Do not re-run those queries by hand: a
+question can still be answered, how many role-addressed messages this
+scope holds that no seat has taken, and per-surface plan remaining and
+reset (informational only). Do not re-run those queries by hand: a
 steering seat that did burned a pass rediscovering what the report on
 screen had already told it. A section with nothing to say prints nothing,
 so a short report is a quiet fleet, not a broken detector.
@@ -96,6 +97,9 @@ yours:
 
 - **Available work** — staff it. An `!` row has waited past the staffing
   threshold; an unmarked row is simply available.
+- **Steering messages awaiting a seat** — mail addressed to a scope this
+  session does not hold. Acquiring that scope hands it over as one handoff
+  digest; until someone does, the reports in it are unread.
 - **Idle holders** — probe and revive. A holder that stamped `--mode
   parked` declared its wait and never appears here. A starved holder is
   also burning down its stale clock, so read `stale_eligible_at` and

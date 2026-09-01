@@ -50,7 +50,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `session_control.surface_policy.enable` | `yoke session-control surface-policy enable --project P --machine M --surface S` |
 | `session_control.surface_policy.list` | `yoke session-control surface-policy list [--machine M]` |
 | `session_control.session.terminate` | `yoke sessions terminate SESSION-ID --reason R` |
-| `session_control.message.send` | `yoke say --item PREFIX-N --stdin` |
+| `session_control.message.send` | `yoke say --item PREFIX-N --stdin` (workers reply with `yoke say --steering`) |
 | `session_control.message.acknowledge` | `yoke messages acknowledge MESSAGE-ID` |
 | `charge.schedule` | `yoke charge schedule --project P` |
 | `deployment_runs.create` | `yoke --env <cp>-db-admin deployment-runs create PROJECT FLOW ...` |
@@ -62,8 +62,15 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Itemless.** This session holds no work item. One atomic steering acquire
   pairs the steering-scope claim with its strategy-doc lock; together they
   are its authority. The doc and the project's items ARE the surviving state.
-- **One live steering-scope claim per project.** Acquire refuses on overlap
-  and names the holder. v0 is one coordinator per scope.
+- **No two live steering claims with overlapping scopes.** Acquire refuses on
+  overlap and names the holder by actor and session. The project is the outer
+  key, so a project seat and any finer scope inside it are the same seat's
+  territory.
+- **Workers address this seat as a role, never by its session id.** Their
+  mandate says `yoke say --steering`; the server resolves that at delivery to
+  whichever seat covers the sending item. Nothing routes to an ended session,
+  so releasing this seat strands no report: unattended mail parks and the next
+  seat inherits it.
 - **Strategy doc is both input and output.** There is no doc-less steer mode.
   Read it as the standing-plan source of record for intent, priority, next
   steps, and constraints; write plan-level progress back into the same
@@ -145,6 +152,14 @@ This one function call acquires the project seat and document lock in the
 same transaction. A live seat or document holder refuses the call and leaves
 neither half behind. Do not proceed without both. Keep the returned
 `claim_id` for wrapup release.
+
+Acquire also hands over every role-addressed message this scope covers that
+no live seat was acting on — the ones that parked with no seat at all, and
+the ones a previous seat took and then ended without answering. They arrive
+as one handoff digest, grouped by the item that sent them, newest first.
+Read it before the first loop pass: it is the backlog of reports the fleet
+sent while the scope was unowned. Answer what still needs answering with
+`yoke say --item PREFIX-N --stdin`.
 
 ## 4. Run the standing loop
 

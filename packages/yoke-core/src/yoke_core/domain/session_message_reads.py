@@ -8,6 +8,7 @@ from typing import Any
 from yoke_contracts.session_control.sender_surface import sender_surface_label
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import (
+    ACTOR_KIND,
     actor_recipients_for_message,
 )
 from yoke_core.domain.actor_render import actor_render_label
@@ -129,10 +130,11 @@ def list_message_ids(
     if session_id is None:
         actor_branch = (
             "EXISTS (SELECT 1 FROM actor_message_recipients ar "
-            "WHERE ar.message_id=m.message_id AND "
-            f"(ar.actor_id={marker} OR m.sender_actor_id={marker}) AND {actor_state})"
+            f"WHERE ar.message_id=m.message_id AND ar.recipient_kind={marker} "
+            f"AND (ar.actor_id={marker} OR m.sender_actor_id={marker}) "
+            f"AND {actor_state})"
         )
-        actor_params = [actor_id, actor_id, *actor_params]
+        actor_params = [ACTOR_KIND, actor_id, actor_id, *actor_params]
     else:
         actor_params = []
     params = [*session_params, *actor_params, max(1, min(int(limit), 500))]

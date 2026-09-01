@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.project_identity import resolve_item_id
 from yoke_core.domain.session_launch_store import marker, value
@@ -56,10 +55,16 @@ def compose_single_item_mandate(
     public_ref: str,
     entrypoint: str,
     remaining_legs: str,
-    done_session_id: str,
     extras: str = "",
 ) -> str:
-    """Return the canonical item-bound worker mandate, with optional extras."""
+    """Return the canonical item-bound worker mandate, with optional extras.
+
+    The report target is the steering ROLE, never the launching session.
+    Baking a session id in made every mandate outlive its own address: when
+    the operator stopped that seat, each later report drove a headless
+    resume of a dead session that acknowledged and never answered, and the
+    successor seat had to redirect every live worker by hand.
+    """
     mandate = (
         f"{entrypoint}\n\n"
         f"Single-item mandate (steering): acquire the {public_ref} work claim "
@@ -72,7 +77,7 @@ def compose_single_item_mandate(
         'heartbeats, or "still green" notes; relay those in your own output '
         "instead. When those legs are complete, message the orchestrator "
         f'(printf %s "DONE {public_ref} <one-line summary>" | yoke say --stdin '
-        f"--session {done_session_id}) and END your session — do not pick up "
+        "--steering) and END your session — do not pick up "
         "further work, do not chain into other items. If your claim is swept "
         "mid-work, reacquire and continue."
     )
@@ -120,7 +125,6 @@ def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, s
 def compose_item_launch_instructions(
     conn: Any,
     parsed: LaunchCreateRequest,
-    request: FunctionCallRequest,
     project_id: int,
 ) -> str:
     """Compose the persisted launch body, or keep an explicit full body."""
@@ -132,19 +136,11 @@ def compose_item_launch_instructions(
                 "instructions must be non-empty",
             )
         return body
-    session_id = str(request.actor.session_id or "").strip()
-    if not session_id:
-        raise SessionLaunchError(
-            "creator_session_required",
-            "composed item-bound mandates need the creating session id "
-            "as the DONE target",
-        )
     entrypoint, remaining_legs = _route_for_item(conn, parsed.item, project_id)
     return compose_single_item_mandate(
         public_ref=parsed.item,
         entrypoint=entrypoint,
         remaining_legs=remaining_legs,
-        done_session_id=session_id,
         extras=parsed.instructions,
     )
 
@@ -152,7 +148,6 @@ def compose_item_launch_instructions(
 def launch_request_for_create(
     conn: Any,
     parsed: LaunchCreateRequest,
-    request: FunctionCallRequest,
     *,
     project_id: int,
     session_name: str,
@@ -162,9 +157,7 @@ def launch_request_for_create(
     return LaunchRequest(
         project_id=project_id,
         executor_surface=parsed.executor_surface,
-        instructions=compose_item_launch_instructions(
-            conn, parsed, request, project_id
-        ),
+        instructions=compose_item_launch_instructions(conn, parsed, project_id),
         idempotency_key=parsed.idempotency_key,
         sender_surface=parsed.sender_surface,
         machine_id=parsed.machine_id,

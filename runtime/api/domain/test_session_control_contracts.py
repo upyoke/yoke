@@ -98,13 +98,23 @@ def test_session_control_schema_is_additive_and_idempotent() -> None:
     actor_recipient_columns = {
         row[1] for row in conn.execute("PRAGMA table_info(actor_message_recipients)")
     }
+    # One table, two recipient kinds: an actor's read state and a
+    # role-addressed steering delivery, each with its own columns.
     assert actor_recipient_columns == {
         "message_id",
+        "recipient_kind",
         "actor_id",
         "state",
         "created_at",
         "read_at",
         "expired_at",
+        "steering_scope",
+        "sender_item_id",
+        "project_id",
+        "seat_session_id",
+        "seat_claim_id",
+        "delivered_at",
+        "acknowledged_at",
     }
     relay_columns = {
         row[1]: bool(row[3])

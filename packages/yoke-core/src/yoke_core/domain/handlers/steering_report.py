@@ -95,10 +95,8 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         combined_dict,
         compose_held_reports,
     )
-    from yoke_core.domain.steering_fleet_report_render import (
-        report_body,
-        report_dict,
-    )
+    from yoke_core.domain.steering_fleet_report_projection import report_dict
+    from yoke_core.domain.steering_fleet_report_render import report_body
 
     conn = connect()
     try:

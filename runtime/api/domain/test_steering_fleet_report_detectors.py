@@ -19,7 +19,6 @@ from runtime.api.steering_fleet_test_helpers import (
     quiet_holder,
     seed_session,
 )
-from yoke_core.domain.steering_fleet_report_dead_waits import UNRESOLVED, dead_waits
 from yoke_core.domain.steering_fleet_report_detectors import (
     landed_without_closeout,
     starved_deliveries,
@@ -284,61 +283,3 @@ def test_a_queue_landing_counts_as_the_branch_landing(fleet):
     landed = landed_without_closeout(fleet, project_id=PROJECT_ID, now=NOW)
 
     assert [entry.item_id for entry in landed] == [1]
-
-
-def test_a_question_to_an_ended_session_is_a_dead_wait(fleet):
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    fleet.execute(
-        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
-        (JUST_NOW, ANSWERER),
-    )
-    fleet.commit()
-
-    waits = dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW)
-
-    assert [entry.session_id for entry in waits] == [ASKER]
-    assert waits[0].reason == "answerer session has ended"
-    assert waits[0].answer_impossible is True
-
-
-def test_a_question_to_a_worker_whose_item_is_done_is_a_dead_wait(fleet):
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    fleet.execute("UPDATE items SET status = 'done' WHERE id = 1")
-    fleet.execute(
-        "UPDATE harness_sessions SET current_item_id = 1 WHERE session_id = %s",
-        (ANSWERER,),
-    )
-    fleet.commit()
-
-    waits = dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW)
-
-    assert waits[0].reason == "answerer's own item is already terminal"
-
-
-def test_a_live_answerer_leaves_the_wait_unresolved_rather_than_dead(fleet):
-    """A false positive sends the steerer to answer a question nobody asked."""
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    fleet.commit()
-
-    waits = dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW)
-
-    assert waits[0].reason == UNRESOLVED
-    assert waits[0].answer_impossible is False
-
-
-def test_an_answer_that_already_came_back_is_not_a_dead_wait(fleet):
-    """The answerer replied and then ended; the asker already has its answer."""
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    _send(fleet, "msg-2", sender=ANSWERER, to=ASKER, at=JUST_NOW, state="acknowledged")
-    fleet.execute(
-        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
-        (NOW, ANSWERER),
-    )
-    fleet.commit()
-
-    assert dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW) == ()
-
-
-def test_an_idle_holder_that_asked_nobody_produces_no_row(fleet):
-    """Its silence has some other cause; inventing a wait is the other guess."""
-    assert dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW) == ()

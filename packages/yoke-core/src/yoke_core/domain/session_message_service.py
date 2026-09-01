@@ -11,7 +11,6 @@ from yoke_contracts.session_control.sender_surface import (
 )
 from yoke_core.domain.actor_message_recipients import (
     ResolvedActorRecipient,
-    acknowledge_actor_recipient,
     actor_message_limits,
     resolve_actor_recipients,
 )
@@ -25,18 +24,21 @@ from yoke_core.domain.session_message_selectors import (
     resolve_recipients,
 )
 from yoke_core.domain.session_message_store import (
-    acknowledge_recipient,
     begin_message_mutation,
-    cancel_message_rows,
     insert_message,
 )
 from yoke_core.domain.session_message_queries import get_message, list_messages
-from yoke_core.domain.session_message_reads import message_details, public_recipients
+from yoke_core.domain.session_message_reads import public_recipients
 from yoke_core.domain.session_message_substance import validate_body
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
     utc_now,
+)
+from yoke_core.domain.session_message_steering import (
+    SteeringAddress,
+    resolve_steering_address,
+    seat_session_id,
 )
 from yoke_core.domain.session_message_zero_recipients import require_recipients
 
@@ -59,19 +61,45 @@ def _selector_snapshot(selector: RecipientSelector) -> dict[str, Any]:
     }
 
 
+def _steering_address(
+    conn: Any,
+    selector: RecipientSelector,
+    sender_session_id: str | None,
+) -> SteeringAddress | None:
+    """Resolve where a role-addressed send belongs, before any seat is known."""
+    if not selector.steering:
+        return None
+    return resolve_steering_address(
+        conn, selector, sender_session_id=sender_session_id
+    )
+
+
 def preview_message(
     conn: Any,
     *,
     actor_id: int,
     selector: RecipientSelector,
+    sender_session_id: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    recipients = resolve_recipients(conn, selector, now=now)
+    address = _steering_address(conn, selector, sender_session_id)
+    recipients = resolve_recipients(
+        conn,
+        selector,
+        now=now,
+        steering_target=address.coverage_target() if address else None,
+    )
     actor_recipients = resolve_actor_recipients(
         conn, selector, sender_actor_id=actor_id
     )
-    require_recipients(recipients, selector, actor_recipients=actor_recipients)
-    policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
+    if address is None:
+        require_recipients(recipients, selector, actor_recipients=actor_recipients)
+    policies = authorize_recipients(
+        conn,
+        actor_id=actor_id,
+        recipients=recipients,
+        additional_project_ids=(address.project_id,) if address else (),
+    )
     if selector.universe:
         authorize_universe(conn, actor_id=actor_id, policies=policies.values())
     public = _public_recipients(recipients)
@@ -83,6 +111,11 @@ def preview_message(
         "applied_liveness": list(applied_liveness(selector)),
         "confirmation_token": confirmation_token(
             selector, recipients, actor_recipients=actor_recipients
+        ),
+        **(
+            {"steering_scope": dict(address.scope), "parked": not recipients}
+            if address
+            else {}
         ),
     }
 
@@ -115,12 +148,26 @@ def send_message(
     current = now or utc_now()
     begin_message_mutation(conn)
     try:
-        recipients = resolve_recipients(conn, selector, now=current)
+        address = _steering_address(conn, selector, sender_session_id)
+        recipients = resolve_recipients(
+            conn,
+            selector,
+            now=current,
+            steering_target=address.coverage_target() if address else None,
+        )
         actor_recipients = resolve_actor_recipients(
             conn, selector, sender_actor_id=actor_id
         )
-        require_recipients(recipients, selector, actor_recipients=actor_recipients)
-        policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
+        if address is None:
+            require_recipients(
+                recipients, selector, actor_recipients=actor_recipients
+            )
+        policies = authorize_recipients(
+            conn,
+            actor_id=actor_id,
+            recipients=recipients,
+            additional_project_ids=(address.project_id,) if address else (),
+        )
         actor_limits = actor_message_limits(conn, actor_recipients)
         expected_confirmation = confirmation_token(
             selector, recipients, actor_recipients=actor_recipients
@@ -175,6 +222,8 @@ def send_message(
             actor_recipients=actor_recipients,
             wake_after_by_project=wake_after_by_project,
         )
+        if address is not None and created:
+            _record_steering_row(conn, address, details, current)
         if commit:
             conn.commit()
         selected = (
@@ -197,126 +246,28 @@ def send_message(
         raise
 
 
-def acknowledge_message(
+def _record_steering_row(
     conn: Any,
-    *,
-    message_id: str,
-    session_id: str,
-    now: datetime | None = None,
-) -> dict[str, Any]:
-    from yoke_core.domain.session_message_delivery import expire_due_recipients
+    address: SteeringAddress,
+    details: dict[str, Any],
+    created_at: datetime,
+) -> None:
+    """Record the durable role-addressed row beside any live seat delivery."""
+    from yoke_core.domain.steering_message_recipients import (
+        record_steering_recipient,
+    )
 
-    expire_due_recipients(conn, now=now)
-    details = acknowledge_recipient(
+    seat_id, seat = seat_session_id(conn, address)
+    record_steering_recipient(
         conn,
-        message_id=message_id,
-        session_id=session_id,
-        acknowledged_at=now or utc_now(),
+        message_id=str(details["message_id"]),
+        scope=address.scope,
+        project_id=address.project_id,
+        sender_item_id=address.sender_item_id,
+        seat_session_id=seat_id,
+        seat_claim_id=int(seat["claim_id"]) if seat else None,
+        created_at=created_at,
     )
-    recipient = next(
-        (
-            row
-            for row in details.get("recipients", [])
-            if str(row.get("session_id") or "") == session_id
-        ),
-        None,
-    )
-    if recipient is not None:
-        from yoke_core.domain.session_private_route_qualification import (
-            PrivateRouteQualificationError,
-            consume_qualification_grant,
-            qualification_for_message,
-        )
-
-        try:
-            grant = qualification_for_message(
-                conn,
-                {"message_id": message_id, **recipient},
-                operation="message_active",
-                route="hook",
-                now=now,
-            )
-            if grant is not None:
-                consume_qualification_grant(conn, grant)
-        except PrivateRouteQualificationError:
-            # Qualification is acceptance evidence, never product ack authority.
-            # A raced, expired, or revoked grant stays unproven without making
-            # an otherwise valid delivered message impossible to acknowledge.
-            pass
-    conn.commit()
-    return details
 
 
-def acknowledge_actor_message(
-    conn: Any,
-    *,
-    message_id: str,
-    actor_id: int,
-    now: datetime | None = None,
-) -> dict[str, Any]:
-    acknowledge_actor_recipient(
-        conn, message_id=message_id, actor_id=actor_id, read_at=now
-    )
-    conn.commit()
-    return message_details(conn, message_id)
-
-
-def cancel_message(
-    conn: Any,
-    *,
-    message_id: str,
-    actor_id: int,
-    reason: str = "cancelled_by_sender",
-    now: datetime | None = None,
-) -> dict[str, Any]:
-    details = message_details(conn, message_id)
-    sender = int(details["sender_actor_id"]) == actor_id
-    project_ids = {
-        int(recipient["project_id"])
-        for recipient in details.get("recipients", [])
-        if recipient.get("project_id") is not None
-    }
-    if not sender:
-        from yoke_core.domain.actor_permissions import (
-            PERM_PROJECT_ADMIN,
-            permission_decision,
-        )
-
-        administers_all = bool(project_ids) and all(
-            permission_decision(
-                conn,
-                actor_id=actor_id,
-                project_id=project_id,
-                permission_key=PERM_PROJECT_ADMIN,
-            ).allowed
-            for project_id in project_ids
-        )
-    else:
-        administers_all = False
-    if not sender and not administers_all:
-        raise SessionMessageError(
-            "cancel_forbidden",
-            "only the sender or an administrator of every target project may cancel",
-        )
-    if administers_all and reason == "cancelled_by_sender":
-        reason = "cancelled_by_project_admin"
-    cancelled = cancel_message_rows(
-        conn,
-        message_id=message_id,
-        actor_id=actor_id,
-        reason=reason,
-        cancelled_at=now or utc_now(),
-    )
-    conn.commit()
-    return cancelled
-
-
-__all__ = [
-    "acknowledge_actor_message",
-    "acknowledge_message",
-    "cancel_message",
-    "get_message",
-    "list_messages",
-    "preview_message",
-    "send_message",
-]
+__all__ = ["get_message", "list_messages", "preview_message", "send_message"]

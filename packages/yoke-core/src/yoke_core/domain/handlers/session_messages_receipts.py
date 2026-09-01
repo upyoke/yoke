@@ -31,7 +31,7 @@ def handle_message_acknowledge(request: FunctionCallRequest) -> HandlerOutcome:
     invalid = require_top_level_message_actor(request)
     if invalid:
         return invalid
-    from yoke_core.domain.session_message_service import (
+    from yoke_core.domain.session_message_receipts import (
         acknowledge_actor_message,
         acknowledge_message,
     )
@@ -75,7 +75,7 @@ def handle_message_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     invalid = require_top_level_message_actor(request)
     if invalid:
         return invalid
-    from yoke_core.domain.session_message_service import cancel_message
+    from yoke_core.domain.session_message_receipts import cancel_message
 
     conn = open_connection()
     try:

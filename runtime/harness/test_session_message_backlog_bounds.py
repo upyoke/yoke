@@ -8,7 +8,8 @@ from yoke_core.domain.session_message_delivery import (
     complete_hook_lease,
     lease_for_hook,
 )
-from yoke_core.domain.session_message_service import list_messages, send_message
+from yoke_core.domain.session_message_queries import list_messages
+from yoke_core.domain.session_message_service import send_message
 from yoke_core.hooks.session_message_delivery_port import (
     LeasedSessionMessage,
     SessionMessageLease,

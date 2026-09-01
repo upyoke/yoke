@@ -17,8 +17,13 @@ import pytest
 from yoke_cli.commands.adapters.session_control_common import (
     SELECTOR_ARGUMENTS,
     add_selector_arguments,
+    selector_payload,
+    steering_scope_argument,
 )
-from yoke_contracts.session_control.teaching import FLEET_ADDRESSING_GUIDANCE
+from yoke_contracts.session_control.teaching import (
+    FLEET_ADDRESSING_GUIDANCE,
+    FLEET_STEERING_ADDRESSING_GUIDANCE,
+)
 
 #: Flags that ADD recipients. Every one of these widens the audience.
 ANCHOR_FLAGS = (
@@ -76,8 +81,39 @@ def _block(flag: str) -> str:
 
 
 def test_every_anchor_flag_is_labelled_an_anchor() -> None:
-    for flag in ANCHOR_FLAGS + ("--universe",):
+    for flag in ANCHOR_FLAGS + ("--universe", "--steering", "--steering-scope"):
         assert "ANCHOR (union)" in _block(flag), flag
+
+
+def test_the_steering_anchor_takes_no_address() -> None:
+    """It names a role, so there is no id for a sender to get wrong."""
+    block = _block("--steering")
+    assert "steering ROLE" in block
+    assert "no session id" in block
+    assert "parks" in block
+
+
+def test_the_steering_rule_says_the_address_outlives_the_seat() -> None:
+    assert "never as a session id" in FLEET_STEERING_ADDRESSING_GUIDANCE
+    assert "at DELIVERY rather than at send" in FLEET_STEERING_ADDRESSING_GUIDANCE
+    assert "--steering-scope" in FLEET_STEERING_ADDRESSING_GUIDANCE
+
+
+def test_a_steering_scope_must_decode_to_an_object() -> None:
+    for raw in ("not json", '["project_id"]'):
+        with pytest.raises(argparse.ArgumentTypeError) as raised:
+            steering_scope_argument(raw)
+        assert "JSON object" in str(raised.value)
+
+
+def test_a_steering_scope_reaches_the_selector_payload() -> None:
+    parser = argparse.ArgumentParser(prog="yoke say")
+    add_selector_arguments(parser)
+    parser.add_argument("--stdin", action="store_true")
+
+    parsed = parser.parse_args(["--steering-scope", '{"project_id": 3}'])
+
+    assert selector_payload(parsed)["steering_scope"] == {"project_id": 3}
 
 
 def test_every_filter_flag_is_labelled_a_filter() -> None:

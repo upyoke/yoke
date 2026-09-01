@@ -43,6 +43,11 @@ class ActorMessageLimits:
     max_body_bytes: int
 
 
+#: The recipient kind these reads and writes own. The table also holds
+#: role-addressed steering rows, which carry no actor at all.
+ACTOR_KIND = "actor"
+
+
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -160,11 +165,18 @@ def insert_actor_recipient_rows(
 
 
 def actor_recipients_for_message(conn: Any, message_id: str) -> list[dict[str, Any]]:
+    """The people addressed by one message.
+
+    The table also carries role-addressed steering rows, which have no actor
+    at all, so every actor-side read names its own kind rather than trusting
+    the table to hold only one.
+    """
     marker = _p(conn)
     rows = conn.execute(
         "SELECT actor_id,state,created_at,read_at,expired_at "
-        f"FROM actor_message_recipients WHERE message_id={marker} ORDER BY actor_id",
-        (message_id,),
+        f"FROM actor_message_recipients WHERE message_id={marker} "
+        f"AND recipient_kind={marker} ORDER BY actor_id",
+        (message_id, ACTOR_KIND),
     ).fetchall()
     result: list[dict[str, Any]] = []
     for row in rows:
@@ -181,10 +193,11 @@ def expire_due_actor_recipients(conn: Any, *, now: datetime | None = None) -> in
     cursor = conn.execute(
         "UPDATE actor_message_recipients SET state='expired',expired_at="
         + marker
-        + " WHERE state='pending' AND EXISTS (SELECT 1 FROM session_messages m "
+        + f" WHERE recipient_kind={marker} AND state='pending' "
+        "AND EXISTS (SELECT 1 FROM session_messages m "
         "WHERE m.message_id=actor_message_recipients.message_id AND "
         f"(m.cancelled_at IS NOT NULL OR m.expires_at<={marker}))",
-        (stamp, stamp),
+        (stamp, ACTOR_KIND, stamp),
     )
     return int(cursor.rowcount)
 
@@ -242,8 +255,9 @@ def expire_actor_recipients_for_cancel(
     conn.execute(
         "UPDATE actor_message_recipients SET state='expired',expired_at="
         + marker
-        + f" WHERE message_id={marker} AND state='pending'",
-        (timestamp(expired_at), message_id),
+        + f" WHERE message_id={marker} AND recipient_kind={marker} "
+        "AND state='pending'",
+        (timestamp(expired_at), message_id, ACTOR_KIND),
     )
 
 
@@ -254,8 +268,8 @@ def actor_message_ids(
     mapped = {"unacknowledged": "pending", "acknowledged": "read"}.get(
         str(state), state
     )
-    clauses = [f"r.actor_id={marker}"]
-    params: list[Any] = [actor_id]
+    clauses = [f"r.recipient_kind={marker}", f"r.actor_id={marker}"]
+    params: list[Any] = [ACTOR_KIND, actor_id]
     if mapped == "cancelled":
         return []
     if mapped is not None:
@@ -304,6 +318,7 @@ def inbox_actor_messages(
 
 
 __all__ = [
+    "ACTOR_KIND",
     "ActorMessageLimits",
     "ResolvedActorRecipient",
     "acknowledge_actor_recipient",

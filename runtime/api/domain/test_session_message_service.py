@@ -11,14 +11,12 @@ from yoke_core.domain.session_message_delivery import (
     complete_hook_lease,
     lease_for_hook,
 )
-from yoke_core.domain.session_message_service import (
+from yoke_core.domain.session_message_queries import get_message, list_messages
+from yoke_core.domain.session_message_receipts import (
     acknowledge_message,
     cancel_message,
-    get_message,
-    list_messages,
-    preview_message,
-    send_message,
 )
+from yoke_core.domain.session_message_service import preview_message, send_message
 from yoke_core.domain.session_message_types import SessionMessageError, parse_timestamp
 from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.domain.test_session_message_support import (

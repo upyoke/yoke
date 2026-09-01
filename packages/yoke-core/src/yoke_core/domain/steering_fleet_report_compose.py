@@ -23,11 +23,11 @@ from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_claims import list_session_claims
 from yoke_core.domain import steering_fleet_report as fleet_report
 from yoke_core.domain.steering_fleet_report import FleetReport
+from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import (
     REPORT_BEGIN,
     REPORT_END,
     report_body,
-    report_dict,
 )
 
 

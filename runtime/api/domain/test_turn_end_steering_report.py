@@ -21,7 +21,6 @@ from runtime.api.domain.test_session_message_support import (
 
 def _connection():
     conn = message_connection()
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER")
     conn.execute("UPDATE harness_sessions SET actor_id=10")
     target = make_steering_target(1)
     conn.execute(
