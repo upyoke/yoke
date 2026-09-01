@@ -1,9 +1,9 @@
 """Write what a harness transcript proves a session is being served.
 
 The served columns on ``harness_sessions`` are filled here and nowhere
-else on the hook path: registration stamps the request, and this runs from
-every later hook, once generation has produced a transcript that names a
-model. Split out of :mod:`yoke_core.hooks.service_client`, whose other
+else on the hook path: registration and the launch binding stamp the
+request, and this runs from every later hook, once generation has produced
+a transcript that names a model. Split out of :mod:`yoke_core.hooks.service_client`, whose other
 functions are all subprocess/path plumbing — this is the one that opens
 the database directly.
 """
@@ -23,7 +23,7 @@ def attest_served_model_facts(
     moment the transcript names a served model, so this runs from every
     later hook and writes whatever the artifact now proves. It is the
     write path for the served columns; the requested ones are stamped at
-    registration and are never touched here.
+    registration or by the launch binding, and are never touched here.
 
     No-ops when the transcript attests nothing, when the row already says
     the same thing, or when the DB / schema / session row is unavailable.
@@ -40,9 +40,7 @@ def attest_served_model_facts(
     try:
         from yoke_harness.model_attestation import attest_served_facts
 
-        served = attest_served_facts(
-            "claude-code", {}, transcript_path=transcript_path
-        )
+        served = attest_served_facts("claude-code", {}, transcript_path=transcript_path)
     except Exception:
         return False
     if not served.attested():

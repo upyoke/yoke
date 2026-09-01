@@ -43,10 +43,18 @@ def _session_id(value: str) -> str | None:
         return None
 
 
-def _environment() -> dict[str, str]:
+def _environment(model: str | None) -> dict[str, str]:
+    """Build the child environment, naming the model the turn asked for.
+
+    ``--model`` tells cursor-agent which variant to run; ``YOKE_MODEL``
+    tells the session inside it which variant it was asked for. Codex
+    passes both, and a child that gets only the flag reports no ask at all
+    when its own hooks register it.
+    """
     return native_session_environment(
         executor="cursor",
         provider="cursor",
+        model=model,
         markers={"CURSOR_INVOKED_AS": "cursor-agent"},
     )
 
@@ -112,7 +120,7 @@ class CursorCliTransport:
             process = self.process_factory(
                 command,
                 cwd=checkout,
-                env=_environment(),
+                env=_environment(model),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

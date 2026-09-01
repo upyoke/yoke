@@ -48,7 +48,8 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("keepalive_reason", "TEXT DEFAULT NULL"),
         ("last_steering_report_at", "TEXT DEFAULT NULL"),
         ("last_steering_report_fingerprint", "TEXT DEFAULT NULL"),
-        # The ask, stamped at registration.
+        # The ask, stamped once: from the session's own environment at
+        # registration, and from the launch record at launch binding.
         ("requested_model", "TEXT DEFAULT NULL"),
         ("requested_reasoning_effort", "TEXT DEFAULT NULL"),
         ("requested_context_window_tokens", "INTEGER DEFAULT NULL"),

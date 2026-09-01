@@ -20,7 +20,7 @@ is never overwritten with the request.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
@@ -36,6 +36,8 @@ from yoke_core.domain.session_launch_types import LaunchRecord
 def bound_registration_evidence(
     launch: LaunchRecord,
     registered_model: Any,
+    *,
+    stamped_columns: Sequence[str] = (),
 ) -> str:
     """Record the ask beside the served value when the two differ.
 
@@ -43,14 +45,21 @@ def bound_registration_evidence(
     launch that asked for one variant and ran another is visible as a fact
     rather than a suspicion. An unattested session has nothing to compare
     and records no labels rather than an invented mismatch.
+
+    ``stamped_columns`` names the requested columns the binding wrote onto
+    the session from this launch. A session that carried its own ask leaves
+    it empty, so the two ways a request reaches the roster stay tellable
+    apart when one of them stops working.
     """
     requested = str(launch.requested_model or "").strip()
     registered = str(registered_model or "").strip()
-    labels = (
+    labels: dict[str, Any] = (
         {"requested_model": requested, "registered_model": registered}
         if requested and registered and requested != registered
         else {}
     )
+    if stamped_columns:
+        labels["stamped_requested_columns"] = ",".join(stamped_columns)
     return merge_redacted_evidence(launch.result_evidence, labels)
 
 

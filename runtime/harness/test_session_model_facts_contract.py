@@ -15,8 +15,13 @@ from yoke_contracts.session_model_facts import (
     normalize_context_window_tokens,
     normalize_reasoning_effort,
     requested_context_window_of,
+    requested_facts_of,
     served_model_or_none,
 )
+
+CLAUDE = "claude-code"
+CODEX = "codex"
+CURSOR = "cursor"
 
 
 def test_a_recognized_effort_level_is_kept_and_folded() -> None:
@@ -131,3 +136,42 @@ def test_a_mapping_with_no_model_keys_attests_nothing() -> None:
 
     assert not facts.attested()
     assert facts.requested_model is None
+
+
+def test_a_cursor_variant_name_states_its_model_and_its_effort() -> None:
+    facts = requested_facts_of("cursor-grok-4.6-xhigh", harness_id=CURSOR)
+
+    assert facts.requested_model == "cursor-grok-4.6-xhigh"
+    assert facts.requested_reasoning_effort == "xhigh"
+    assert facts.requested_context_window_tokens is None
+
+
+def test_a_claude_tier_selector_states_its_requested_window() -> None:
+    facts = requested_facts_of("claude-opus-5[1m]", harness_id=CLAUDE)
+
+    assert facts.requested_model == "claude-opus-5[1m]"
+    assert facts.requested_context_window_tokens == CLAUDE_CONTEXT_TIER_TOKENS
+
+
+def test_only_a_name_encoding_harness_reads_an_effort_out_of_the_name() -> None:
+    """A Codex family name ending in an effort word is still a model name."""
+    assert requested_facts_of("gpt-5.1-codex-max", harness_id=CODEX) == (
+        SessionModelFacts(requested_model="gpt-5.1-codex-max")
+    )
+    assert (
+        requested_facts_of(
+            "cursor-model-max", harness_id=CURSOR
+        ).requested_reasoning_effort
+        == "max"
+    )
+
+
+def test_an_unknown_harness_still_states_the_model_it_asked_for() -> None:
+    facts = requested_facts_of("gpt-5.6-sol", harness_id="")
+
+    assert facts == SessionModelFacts(requested_model="gpt-5.6-sol")
+
+
+def test_a_placeholder_selector_states_no_ask_at_all() -> None:
+    assert requested_facts_of("default", harness_id=CURSOR) == SessionModelFacts()
+    assert requested_facts_of(None, harness_id=CLAUDE) == SessionModelFacts()

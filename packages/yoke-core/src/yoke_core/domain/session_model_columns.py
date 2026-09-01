@@ -14,7 +14,12 @@ columns, and they follow opposite write rules:
   but never rewrites an answer.
 
 Both rules are here rather than in the registrar so that insert,
-duplicate-registration healing, and reactivation cannot drift apart.
+duplicate-registration healing, reactivation, and the launch binding that
+stamps a launched session's ask cannot drift apart. That last writer is
+why the gap-filling half matters as much as the never-rewriting half: a
+session whose harness could not tell it which model it was asked for
+registers with the requested columns empty, and the launch record fills
+them without touching a session that answered for itself.
 """
 
 from __future__ import annotations
@@ -36,7 +41,9 @@ def facts_values(facts: SessionModelFacts) -> List[Any]:
 
 def stored_facts(row: Any) -> SessionModelFacts:
     """Read the model facts a ``harness_sessions`` row already holds."""
-    return SessionModelFacts(**{column: _value(row, column) for column in MODEL_COLUMNS})
+    return SessionModelFacts(
+        **{column: _value(row, column) for column in MODEL_COLUMNS}
+    )
 
 
 def _replaces_served_model(stored: Optional[str], incoming: Optional[str]) -> bool:
