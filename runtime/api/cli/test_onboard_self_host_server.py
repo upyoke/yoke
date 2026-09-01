@@ -44,6 +44,33 @@ def _compose_output() -> str:
     )
 
 
+def test_docker_preflight_export_delegates_to_shared_probe(monkeypatch) -> None:
+    receipt = docker.DockerPrerequisites("/usr/bin/docker")
+    monkeypatch.setattr(subject, "_check_docker_prerequisites", lambda: receipt)
+
+    assert subject.check_docker_prerequisites() is receipt
+
+
+def test_docker_preflight_export_preserves_setup_error_contract(monkeypatch) -> None:
+    refusal = docker.DockerPrerequisiteError(
+        "docker-engine-not-running",
+        "Docker is installed, but its engine is not running.",
+        ("Open Docker Desktop, then retry.",),
+    )
+
+    def refuse() -> docker.DockerPrerequisites:
+        raise refusal
+
+    monkeypatch.setattr(subject, "_check_docker_prerequisites", refuse)
+
+    with pytest.raises(subject.SelfHostSetupError) as raised:
+        subject.check_docker_prerequisites()
+
+    assert raised.value.code == refusal.code
+    assert str(raised.value) == str(refusal)
+    assert raised.value.detail_lines == refusal.detail_lines
+
+
 def test_shared_contract_extracts_plain_and_compose_prefixed_boot_output() -> None:
     block = first_boot_admin_token_block(RAW_TOKEN)
 

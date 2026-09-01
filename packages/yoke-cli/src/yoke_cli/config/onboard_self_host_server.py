@@ -11,7 +11,11 @@ from typing import Any, Sequence
 
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import server_connect
-from yoke_cli.config.onboard_docker_prerequisites import DockerPrerequisites
+from yoke_cli.config.onboard_docker_prerequisites import (
+    DockerPrerequisiteError,
+    DockerPrerequisites,
+    check_docker_prerequisites as _check_docker_prerequisites,
+)
 from yoke_cli.self_host import bundle
 from yoke_contracts.self_host_bootstrap_output import (
     extract_first_boot_admin_token,
@@ -64,6 +68,14 @@ class SelfHostSetupError(RuntimeError):
 def new_setup(*, config_path: str, directory: str | None = None) -> SelfHostSetup:
     target = Path(directory or bundle.DEFAULT_BUNDLE_DIR).expanduser().resolve()
     return SelfHostSetup(directory=target, config_path=config_path)
+
+
+def check_docker_prerequisites() -> DockerPrerequisites:
+    """Expose the shared read-only probe with this module's setup error contract."""
+    try:
+        return _check_docker_prerequisites()
+    except DockerPrerequisiteError as exc:
+        raise SelfHostSetupError(exc.code, str(exc), exc.detail_lines) from exc
 
 
 def provision(
@@ -252,6 +264,7 @@ __all__ = [
     "LOCAL_SERVER_URL",
     "SelfHostSetup",
     "SelfHostSetupError",
+    "check_docker_prerequisites",
     "new_setup",
     "provision",
     "recovery_commands",
