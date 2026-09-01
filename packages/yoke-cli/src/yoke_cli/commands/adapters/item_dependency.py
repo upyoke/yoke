@@ -1,4 +1,4 @@
-"""``yoke shepherd dependency-*`` write adapters."""
+"""``yoke items dependency add|list|remove|update`` adapters."""
 
 from __future__ import annotations
 
@@ -17,17 +17,57 @@ from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 
 
 __all__ = [
-    "shepherd_dependency_add",
-    "shepherd_dependency_update",
-    "shepherd_dependency_remove",
-    "SHEPHERD_DEPENDENCY_ADD_USAGE",
-    "SHEPHERD_DEPENDENCY_UPDATE_USAGE",
-    "SHEPHERD_DEPENDENCY_REMOVE_USAGE",
+    "items_dependency_add",
+    "items_dependency_list",
+    "items_dependency_update",
+    "items_dependency_remove",
+    "ITEMS_DEPENDENCY_ADD_USAGE",
+    "ITEMS_DEPENDENCY_LIST_USAGE",
+    "ITEMS_DEPENDENCY_UPDATE_USAGE",
+    "ITEMS_DEPENDENCY_REMOVE_USAGE",
 ]
 
 
-SHEPHERD_DEPENDENCY_ADD_USAGE = (
-    "yoke shepherd dependency-add <dependent> <blocking> <source> "
+ITEMS_DEPENDENCY_LIST_USAGE = (
+    "yoke items dependency list (PREFIX-N | --item PREFIX-N) "
+    "[--session-id S] [--json]"
+)
+
+
+def items_dependency_list(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke items dependency list",
+        description=ITEMS_DEPENDENCY_LIST_USAGE,
+    )
+    parser.add_argument(
+        "--item", default=None,
+        help="Item id (PREFIX-N or project-local number). Alternative to positional.",
+    )
+    parser.add_argument(
+        "item_positional", nargs="?", default=None,
+        help="Item id positional (alternative to --item).",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, ITEMS_DEPENDENCY_LIST_USAGE)
+    if parsed is None:
+        return 2
+    raw_item = parsed.item or parsed.item_positional
+    if not raw_item:
+        return usage_error(
+            "items dependency list requires --item PREFIX-N or a positional item"
+        )
+    return dispatch_and_emit(
+        function_id="items.dependency.list",
+        target=item_target("item", raw_item, parsed.project),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
+
+
+ITEMS_DEPENDENCY_ADD_USAGE = (
+    "yoke items dependency add <dependent> <blocking> <source> "
     "[--gate-point activation|integration|closure|coordination_only] "
     "[--satisfaction status:done|status:implemented|fact:merged] "
     "(--rationale TEXT | --rationale-file PATH) "
@@ -35,10 +75,10 @@ SHEPHERD_DEPENDENCY_ADD_USAGE = (
 )
 
 
-def shepherd_dependency_add(args: List[str]) -> int:
+def items_dependency_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke shepherd dependency-add",
-        description=SHEPHERD_DEPENDENCY_ADD_USAGE,
+        prog="yoke items dependency add",
+        description=ITEMS_DEPENDENCY_ADD_USAGE,
     )
     parser.add_argument(
         "item", metavar="dependent",
@@ -68,7 +108,7 @@ def shepherd_dependency_add(args: List[str]) -> int:
     )
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, SHEPHERD_DEPENDENCY_ADD_USAGE)
+    parsed = parse_or_usage_error(parser, args, ITEMS_DEPENDENCY_ADD_USAGE)
     if parsed is None:
         return 2
     try:
@@ -90,7 +130,7 @@ def shepherd_dependency_add(args: List[str]) -> int:
     if parsed.satisfaction:
         payload["satisfaction"] = parsed.satisfaction
     return dispatch_and_emit(
-        function_id="shepherd.dependency_add.run",
+        function_id="items.dependency.add",
         target=item_target("item", parsed.item, parsed.project),
         payload=payload,
         session_id=parsed.session_id,
@@ -98,18 +138,18 @@ def shepherd_dependency_add(args: List[str]) -> int:
     )
 
 
-SHEPHERD_DEPENDENCY_UPDATE_USAGE = (
-    "yoke shepherd dependency-update <dependent> <blocking> "
+ITEMS_DEPENDENCY_UPDATE_USAGE = (
+    "yoke items dependency update <dependent> <blocking> "
     "[--match-gate-point POINT] [--gate-point POINT] "
     "[--satisfaction VALUE] [--rationale TEXT | --rationale-file PATH] "
     "[--session-id S] [--json]"
 )
 
 
-def shepherd_dependency_update(args: List[str]) -> int:
+def items_dependency_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke shepherd dependency-update",
-        description=SHEPHERD_DEPENDENCY_UPDATE_USAGE,
+        prog="yoke items dependency update",
+        description=ITEMS_DEPENDENCY_UPDATE_USAGE,
     )
     parser.add_argument(
         "item", metavar="dependent",
@@ -127,7 +167,7 @@ def shepherd_dependency_update(args: List[str]) -> int:
     )
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, SHEPHERD_DEPENDENCY_UPDATE_USAGE)
+    parsed = parse_or_usage_error(parser, args, ITEMS_DEPENDENCY_UPDATE_USAGE)
     if parsed is None:
         return 2
     try:
@@ -148,7 +188,7 @@ def shepherd_dependency_update(args: List[str]) -> int:
     if rationale_text:
         payload["rationale"] = rationale_text
     return dispatch_and_emit(
-        function_id="shepherd.dependency_update.run",
+        function_id="items.dependency.update",
         target=item_target("item", parsed.item, parsed.project),
         payload=payload,
         session_id=parsed.session_id,
@@ -156,16 +196,16 @@ def shepherd_dependency_update(args: List[str]) -> int:
     )
 
 
-SHEPHERD_DEPENDENCY_REMOVE_USAGE = (
-    "yoke shepherd dependency-remove <dependent> <blocking> "
+ITEMS_DEPENDENCY_REMOVE_USAGE = (
+    "yoke items dependency remove <dependent> <blocking> "
     "[--session-id S] [--json]"
 )
 
 
-def shepherd_dependency_remove(args: List[str]) -> int:
+def items_dependency_remove(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke shepherd dependency-remove",
-        description=SHEPHERD_DEPENDENCY_REMOVE_USAGE,
+        prog="yoke items dependency remove",
+        description=ITEMS_DEPENDENCY_REMOVE_USAGE,
     )
     parser.add_argument(
         "item", metavar="dependent",
@@ -174,11 +214,11 @@ def shepherd_dependency_remove(args: List[str]) -> int:
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, SHEPHERD_DEPENDENCY_REMOVE_USAGE)
+    parsed = parse_or_usage_error(parser, args, ITEMS_DEPENDENCY_REMOVE_USAGE)
     if parsed is None:
         return 2
     return dispatch_and_emit(
-        function_id="shepherd.dependency_remove.run",
+        function_id="items.dependency.remove",
         target=item_target("item", parsed.item, parsed.project),
         payload={"blocking_item": parsed.blocking},
         session_id=parsed.session_id,

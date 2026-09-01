@@ -103,7 +103,7 @@ The readiness issue's `context.recovery_command` is a ready-to-paste invocation 
 Authoring command — coordination-only compatible overlap (independent):
 
 ```bash
-yoke shepherd dependency-add \
+yoke items dependency add \
     PREFIX-{candidate} PREFIX-{conflicting-item} refine \
     --gate-point coordination_only \
     --rationale "<non-empty: shared paths + disjoint subsections evidence>"
@@ -112,7 +112,7 @@ yoke shepherd dependency-add \
 Authoring command — directional activation (order-dependent overlap):
 
 ```bash
-yoke shepherd dependency-add \
+yoke items dependency add \
     PREFIX-{candidate} PREFIX-{upstream} refine \
     --gate-point activation \
     --satisfaction fact:merged \

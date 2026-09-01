@@ -1,8 +1,8 @@
-"""Shepherd read handlers: shepherd.dependency_list.run.
+"""Item-dependency list handler: items.dependency.list.
 
-Wraps :func:`yoke_core.domain.shepherd_dependency_read.dependency_rows`
-— the same projection the ``db_router shepherd dependency-list``
-operator-debug CLI renders. ``claim_required_kind=None`` (read).
+Wraps :func:`yoke_core.domain.item_dependency_read.dependency_rows`
+— the both-direction projection for ``item_dependencies`` rows.
+``claim_required_kind=None`` (read).
 """
 
 from __future__ import annotations
@@ -18,16 +18,16 @@ from yoke_contracts.api.function_call import (
 )
 
 
-class ShepherdDependencyListRequest(BaseModel):
+class ItemDependencyListRequest(BaseModel):
     pass
 
 
-class ShepherdDependencyListResponse(BaseModel):
+class ItemDependencyListResponse(BaseModel):
     item_id: int
     dependencies: List[Dict[str, Any]]
 
 
-def handle_shepherd_dependency_list(
+def handle_item_dependency_list(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     target = request.target
@@ -37,13 +37,13 @@ def handle_shepherd_dependency_list(
             error=FunctionError(
                 code="target_invalid",
                 message=(
-                    "shepherd.dependency_list requires target.kind='item' "
+                    "items.dependency.list requires target.kind='item' "
                     "with item_id"
                 ),
             ),
         )
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.shepherd_dependency_read import dependency_rows
+    from yoke_core.domain.item_dependency_read import dependency_rows
 
     item_id = int(target.item_id)
     conn = connect()
@@ -58,7 +58,7 @@ def handle_shepherd_dependency_list(
 
 
 __all__ = [
-    "ShepherdDependencyListRequest",
-    "ShepherdDependencyListResponse",
-    "handle_shepherd_dependency_list",
+    "ItemDependencyListRequest",
+    "ItemDependencyListResponse",
+    "handle_item_dependency_list",
 ]

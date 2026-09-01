@@ -307,7 +307,7 @@ operators can rescue or freeze it.
 If dependencies were auto-detected, persist them now that the item has a PREFIX-N ID. This uses the registered dependency-edge wrapper.
 
 ```bash
-yoke shepherd dependency-add {new-item-id} {blocking-item-id} operator --gate-point activation \
+yoke items dependency add {new-item-id} {blocking-item-id} operator --gate-point activation \
  --satisfaction status:done --rationale "Auto-detected from PREFIX-{blocking} reference in idea title/body"
 ```
 

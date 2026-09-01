@@ -233,12 +233,12 @@ from yoke_cli.commands.adapters.events import (
 from yoke_cli.commands.adapters.listing import (
     items_list,
     items_search,
-    shepherd_dependency_list,
 )
-from yoke_cli.commands.adapters.shepherd_dependency import (
-    shepherd_dependency_add,
-    shepherd_dependency_remove,
-    shepherd_dependency_update,
+from yoke_cli.commands.adapters.item_dependency import (
+    items_dependency_add,
+    items_dependency_list,
+    items_dependency_remove,
+    items_dependency_update,
 )
 from yoke_cli.commands.adapters.shepherd_writes import (
     shepherd_caveat_disposition,
@@ -422,12 +422,12 @@ __all__ = [
     "events_tail",
     "events_count",
     "events_anomalies",
-    "shepherd_dependency_list",
-    "shepherd_dependency_add",
+    "items_dependency_list",
+    "items_dependency_add",
     "shepherd_caveat_disposition",
     "shepherd_verdict",
-    "shepherd_dependency_update",
-    "shepherd_dependency_remove",
+    "items_dependency_update",
+    "items_dependency_remove",
     "lifecycle_transition",
     "lifecycle_skip_record_recoverable_substrate",
     "ouroboros_field_note_append",

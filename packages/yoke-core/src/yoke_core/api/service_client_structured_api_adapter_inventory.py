@@ -168,8 +168,8 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(function_id="db.read.run", cli_invocation='yoke db read "SELECT ..."'),
     _read_entry(
-        function_id="shepherd.dependency_list.run",
-        cli_invocation="yoke shepherd dependency-list PREFIX-N",
+        function_id="items.dependency.list",
+        cli_invocation="yoke items dependency list PREFIX-N",
     ),
     AdapterEntry(
         function_id="shepherd.verdict.run",
@@ -183,7 +183,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     *PROJECT_STRUCTURE_ADAPTERS,
     *STRATEGY_ADAPTERS,
     # Operational families wrapped by the registry_* sub-modules (deployment,
-    # readiness, shepherd-dependency, ephemeral-env, strategy-carry/checkpoint,
+    # readiness, item-dependency, ephemeral-env, strategy-carry/checkpoint,
     # events/ouroboros) + onboard-checklist; parity-synced into the inventory.
     *OPS_ADAPTERS,
     *GITHUB_ACTIONS_ADAPTERS,

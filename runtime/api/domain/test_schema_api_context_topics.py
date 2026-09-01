@@ -89,18 +89,18 @@ def test_qa_topic_includes_run_get_recipe_matching_cli() -> None:
 
 
 def test_core_topic_includes_dependency_wrappers() -> None:
-    """Dependency wrappers route through `shepherd dependency-*`."""
+    """List lives in core; add/update/remove recipes stay in claims."""
 
     body = sac.render_topic_packet("core")
-    assert "shepherd dependency-list" in body
+    assert "items dependency list" in body
     assert "dependent_item_id" in body
     assert "blocking_item_id" in body
     assert "Storage is" in body
     assert "Dependency add/update/remove are authoring-time surfaces" in body
     assert "registered command adapters land" in body
-    assert "yoke shepherd dependency-add" not in body
-    assert "yoke shepherd dependency-update" not in body
-    assert "yoke shepherd dependency-remove" not in body
+    assert "yoke items dependency add" not in body
+    assert "yoke items dependency update" not in body
+    assert "yoke items dependency remove" not in body
 
 
 def test_every_role_packet_teaches_worktree_source_pythonpath() -> None:

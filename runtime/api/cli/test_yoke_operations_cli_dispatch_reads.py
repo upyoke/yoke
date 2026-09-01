@@ -3,7 +3,7 @@
 Sibling of :mod:`test_yoke_operations_cli_dispatch` (kept separate so
 each test file stays under the line cap). Covers the reader ids: events
 tail/count/anomalies + extended query filters, claims path list/get,
-ouroboros entry list/get, items list/search, shepherd dependency-list.
+ouroboros entry list/get, items list/search, items dependency list.
 """
 
 from __future__ import annotations
@@ -316,20 +316,20 @@ class TestItemsListingDispatch:
         assert _CAPTURED_REQUESTS[-1].payload == {"keywords": "wibble"}
 
 
-class TestShepherdDependencyListDispatch:
+class TestItemDependencyListDispatch:
     def test_positional_item(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "shepherd", "dependency-list", "YOK-10",
+            _stub_dispatch_ok, "items", "dependency", "list", "YOK-10",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "shepherd.dependency_list.run"
+        assert req.function == "items.dependency.list"
         assert req.target.kind == "item"
         assert req.target.public_ref == "YOK-10"
 
     def test_item_flag(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "shepherd", "dependency-list",
+            _stub_dispatch_ok, "items", "dependency", "list",
             "--item", "1819",
         )
         assert rc == 0
@@ -337,7 +337,7 @@ class TestShepherdDependencyListDispatch:
 
     def test_missing_item_is_usage_error(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "shepherd", "dependency-list",
+            _stub_dispatch_ok, "items", "dependency", "list",
         )
         assert rc == 2
         assert not _CAPTURED_REQUESTS

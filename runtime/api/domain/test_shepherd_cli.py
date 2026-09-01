@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 import os
 import subprocess
 import sys
@@ -11,7 +10,6 @@ import tempfile
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.shepherd_dependency import VALID_SOURCES
 
 
 def _run_shepherd_cli(args, db_path):
@@ -115,26 +113,3 @@ def test_shepherd_verdicts_table_has_canonical_columns(shepherd_db):
         "id", "item", "transition", "worker", "verdict",
         "caveats", "attempt", "created_at",
     }
-
-
-def test_dependency_add_help_lists_positional_source_values(shepherd_db):
-    result = _run_shepherd_cli(["dependency-add", "--help"], shepherd_db)
-
-    assert result.returncode == 0, result.stderr
-    assert "dependency-add <dependent> <blocking> <source>" in result.stdout
-    for source in VALID_SOURCES:
-        assert source in result.stdout
-    assert "--source" not in result.stdout
-
-
-def test_dependency_add_invalid_source_is_actionable(shepherd_db):
-    result = _run_shepherd_cli(
-        ["dependency-add", "YOK-1", "YOK-2", "agent"],
-        shepherd_db,
-    )
-
-    assert result.returncode == 2
-    assert "source must be" in result.stderr
-    for source in VALID_SOURCES:
-        assert source in result.stderr
-    assert "sqlite3.IntegrityError" not in result.stderr

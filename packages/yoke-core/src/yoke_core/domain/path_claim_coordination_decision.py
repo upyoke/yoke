@@ -120,7 +120,7 @@ def _suggested_commands(
     cand = render_item_ref(conn, cand_id)
     other = render_item_ref(conn, other_id)
     co = GatePoint.COORDINATION_ONLY.value
-    dep_add = "yoke shepherd dependency-add"
+    dep_add = "yoke items dependency add"
     shared = ",".join(shared_paths) if shared_paths else "<shared-paths>"
     coord_rationale = (
         f"decision=coordination_only. shared_paths={shared}. "

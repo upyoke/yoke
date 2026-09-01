@@ -154,10 +154,10 @@ CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "List item dependencies (both directions)",
-        "recipe": ("yoke shepherd dependency-list PREFIX-N"),
+        "recipe": ("yoke items dependency list PREFIX-N"),
         "notes": (
             "Canonical agent shape (function id "
-            "``shepherd.dependency_list.run``); works over https. "
+            "``items.dependency.list``); works over https. "
             "Typed rows project ``direction`` and ``other_item`` (plus "
             "gate_point, satisfaction, source, …). Storage is "
             "``dependent_item_id``/``blocking_item_id``; those are not "
@@ -174,7 +174,7 @@ CORE_COMMANDS: list[dict] = [
             "their registered command adapters land in the claims/path-"
             "claim authoring packet instead of the compact core packet. "
             "They still route through registered function ids "
-            "``shepherd.dependency_add/update/remove.run``."
+            "``items.dependency.add/update/remove``."
         ),
     },
     {

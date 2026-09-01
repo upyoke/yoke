@@ -244,7 +244,7 @@ def execute_close(
                 f"Warning: {len(preserved_ambiguous)} inbound dependency "
                 f"row(s) preserved — cancelled {public_ref} still listed as "
                 "blocker. Review with `python3 -m yoke_core.cli.db_router "
-                "shepherd dependency-list` and remove with "
+                "items dependency list` and remove with "
                 "`dependency-remove` if stale:",
                 file=out,
             )

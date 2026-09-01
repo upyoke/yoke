@@ -54,7 +54,7 @@ If `_dep_exit` is non-zero (blockers found), **block** with the same format as a
 
 Then emit the inspection command:
 > Inspect the full dependency graph (both directions):
-> `yoke shepherd dependency-list PREFIX-{N}`
+> `yoke items dependency list PREFIX-{N}`
 
 Do NOT update status. Do NOT create worktree. Do NOT run any subsequent gates. **Stop.**
 

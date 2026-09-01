@@ -98,7 +98,7 @@ TYPICAL FLOW
 
 DEPENDENCY INSPECTION
  Authoritative dependency data lives in the item_dependencies table.
- yoke shepherd dependency-list PREFIX-N
+ yoke items dependency list PREFIX-N
  Show the full dependency graph for an item (both directions).
  Dependencies are enforced by advance (before implementing) and usher (before merge).
  usher --dry-run shows the dependency edges driving merge order.

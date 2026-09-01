@@ -9,9 +9,9 @@ from yoke_cli.operation_inventory_model import _Row, _w
 
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke qa requirement waive", "qa.requirement"),
-    _w("yoke shepherd dependency-add", "shepherd"),
-    _w("yoke shepherd dependency-update", "shepherd"),
-    _w("yoke shepherd dependency-remove", "shepherd"),
+    _w("yoke items dependency add", "items.dependency"),
+    _w("yoke items dependency update", "items.dependency"),
+    _w("yoke items dependency remove", "items.dependency"),
     _w("yoke shepherd verdict", "shepherd"),
     _w("yoke shepherd caveat-disposition", "shepherd"),
 )

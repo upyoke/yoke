@@ -1,14 +1,14 @@
-"""Handler coverage for shepherd.dependency_list.run."""
+"""Handler coverage for items.dependency.list."""
 
 from __future__ import annotations
 
 from yoke_core.domain.handlers import (
-    shepherd_dependency_writes,
-    shepherd_reads,
+    item_dependency_reads,
+    item_dependency_writes,
     shepherd_verdict_writes,
 )
 from runtime.api.conftest import insert_item
-from yoke_core.domain.shepherd_dependency import cmd_dependency_add
+from yoke_core.domain.item_dependency import cmd_dependency_add
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -18,7 +18,7 @@ from yoke_contracts.api.function_call import (
 
 def _request(target: TargetRef) -> FunctionCallRequest:
     return FunctionCallRequest(
-        function="shepherd.dependency_list.run",
+        function="items.dependency.list",
         actor=ActorContext(actor_id="op", session_id="s-1"),
         target=target,
         payload={},
@@ -38,9 +38,9 @@ def _write_request(
     )
 
 
-class TestShepherdDependencyList:
+class TestItemDependencyList:
     def test_rejects_non_item_target(self):
-        outcome = shepherd_reads.handle_shepherd_dependency_list(
+        outcome = item_dependency_reads.handle_item_dependency_list(
             _request(TargetRef(kind="global"))
         )
         assert not outcome.primary_success
@@ -54,7 +54,7 @@ class TestShepherdDependencyList:
         cmd_dependency_add(test_db, "YOK-10", "YOK-5", "operator")
         cmd_dependency_add(test_db, "YOK-20", "YOK-10", "operator")
         test_db.commit()
-        outcome = shepherd_reads.handle_shepherd_dependency_list(
+        outcome = item_dependency_reads.handle_item_dependency_list(
             _request(TargetRef(kind="item", item_id=10))
         )
         assert outcome.primary_success
@@ -66,20 +66,20 @@ class TestShepherdDependencyList:
         assert by_direction["depends-on"]["gate_point"] == "activation"
 
     def test_empty_graph_returns_no_rows(self, test_db):
-        outcome = shepherd_reads.handle_shepherd_dependency_list(
+        outcome = item_dependency_reads.handle_item_dependency_list(
             _request(TargetRef(kind="item", item_id=77))
         )
         assert outcome.primary_success
         assert outcome.result_payload["dependencies"] == []
 
 
-class TestShepherdDependencyWrites:
+class TestItemDependencyWrites:
     def test_add_update_remove_round_trip(self, test_db):
         for item_id in (10, 30):
             insert_item(test_db, id=item_id, title=f"item {item_id}")
-        add_outcome = shepherd_dependency_writes.handle_shepherd_dependency_add(
+        add_outcome = item_dependency_writes.handle_item_dependency_add(
             _write_request(
-                "shepherd.dependency_add.run",
+                "items.dependency.add",
                 TargetRef(kind="item", item_id=30),
                 {
                     "blocking_item": "YOK-10",
@@ -92,9 +92,9 @@ class TestShepherdDependencyWrites:
         assert add_outcome.primary_success
         assert add_outcome.result_payload["dependent_item"] == "YOK-30"
 
-        update_outcome = shepherd_dependency_writes.handle_shepherd_dependency_update(
+        update_outcome = item_dependency_writes.handle_item_dependency_update(
             _write_request(
-                "shepherd.dependency_update.run",
+                "items.dependency.update",
                 TargetRef(kind="item", item_id=30),
                 {
                     "blocking_item": "YOK-10",
@@ -107,29 +107,29 @@ class TestShepherdDependencyWrites:
         )
         assert update_outcome.primary_success
 
-        rows = shepherd_reads.handle_shepherd_dependency_list(
+        rows = item_dependency_reads.handle_item_dependency_list(
             _request(TargetRef(kind="item", item_id=30))
         ).result_payload["dependencies"]
         assert rows[0]["gate_point"] == "activation"
         assert rows[0]["satisfaction"] == "fact:merged"
 
-        remove_outcome = shepherd_dependency_writes.handle_shepherd_dependency_remove(
+        remove_outcome = item_dependency_writes.handle_item_dependency_remove(
             _write_request(
-                "shepherd.dependency_remove.run",
+                "items.dependency.remove",
                 TargetRef(kind="item", item_id=30),
                 {"blocking_item": "YOK-10"},
             )
         )
         assert remove_outcome.primary_success
-        rows = shepherd_reads.handle_shepherd_dependency_list(
+        rows = item_dependency_reads.handle_item_dependency_list(
             _request(TargetRef(kind="item", item_id=30))
         ).result_payload["dependencies"]
         assert rows == []
 
     def test_add_rejects_non_item_target(self):
-        outcome = shepherd_dependency_writes.handle_shepherd_dependency_add(
+        outcome = item_dependency_writes.handle_item_dependency_add(
             _write_request(
-                "shepherd.dependency_add.run",
+                "items.dependency.add",
                 TargetRef(kind="global"),
                 {
                     "blocking_item": "YOK-10",

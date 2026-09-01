@@ -187,7 +187,7 @@ Valid `disposition` values: `RESOLVED`, `DEFERRED`.
 
 ## Table: item_dependencies
 
-**Single source of truth for all inter-item dependencies**. Every row is a canonical enforced blocker. All dependency reads and writes go through this table via `yoke shepherd dependency-add` and `yoke shepherd dependency-list`. The `items.depends_on` column is a read-only compatibility column and should not be written to.
+**Single source of truth for all inter-item dependencies**. Every row is a canonical enforced blocker. All dependency reads and writes go through this table via `yoke items dependency add` and `yoke items dependency list`. The `items.depends_on` column is a read-only compatibility column and should not be written to.
 
 Cross-item dependency constraints discovered during shepherd phases. Any
 remaining non-empty `depends_on` values should be cleaned by direct data
@@ -208,7 +208,7 @@ UNIQUE(dependent_item_id, blocking_item_id, gate_point)
 ```
 
 Storage is integer foreign keys to `items.id`. Public `PREFIX-N` remains
-the API and display token (`yoke shepherd dependency-list PREFIX-N`
+the API and display token (`yoke items dependency list PREFIX-N`
 projects `direction` / `other_item`). Cross-project edges store the
 counterpart's internal id and still list as that project's prefix.
 

@@ -242,7 +242,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke ouroboros entry get", "ouroboros"),
     _w("yoke items list", "items.read"),
     _w("yoke items search", "items.read"),
-    _w("yoke shepherd dependency-list", "shepherd"),
+    _w("yoke items dependency list", "items.dependency"),
     *SHEPHERD_QA_WRITE_ROWS,
     *STRATEGY_EVENT_WRAPPED_ROWS,
     *EPHEMERAL_ENV_WRAPPED_ROWS,
