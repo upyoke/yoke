@@ -57,7 +57,6 @@ ITEM_WORKTREE_SCHEMA_TESTS = (
 ITEM_DETAIL_QA_READ_SOURCE_PATHS = frozenset(
     {"packages/yoke-core/src/yoke_core/domain/item_detail_qa.py"}
 )
-
 ITEM_DETAIL_QA_READ_TESTS = ("runtime/api/test_item_page_reads.py",)
 
 ITEM_POSTURE_QA_BINDING_SOURCE_PATHS = frozenset(
@@ -76,7 +75,6 @@ ITEM_POSTURE_QA_BINDING_TESTS = (
     "runtime/api/test_optional_item_qa_bindings.py",
     "runtime/api/test_qa_requirement_transition_binding.py",
 )
-
 QA_TRANSITION_CONSUMER_SOURCE_PATHS = frozenset(
     {
         "packages/yoke-core/src/yoke_core/domain/backlog_authoritative_status_gate.py",
