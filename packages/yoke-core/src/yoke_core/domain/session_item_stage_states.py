@@ -206,7 +206,7 @@ def _merge_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
         + ") AND event_name IN ("
         + ",".join(marker for _ in names)
         + ") ORDER BY created_at DESC,id DESC",
-        (*item_ids, *names),
+        tuple(str(item_id) for item_id in item_ids) + names,
     ).fetchall()
     failures: dict[int, str] = {}
     settled: set[int] = set()

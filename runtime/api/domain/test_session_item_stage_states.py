@@ -128,7 +128,7 @@ def _connection() -> sqlite3.Connection:
         );
         CREATE TABLE events (
             id INTEGER PRIMARY KEY,
-            item_id INTEGER,
+            item_id TEXT,
             event_name TEXT,
             created_at TEXT
         );
