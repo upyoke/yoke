@@ -1,6 +1,6 @@
 """The refusal a selector that reached nobody should teach.
 
-Resolving to zero sessions is the safe outcome of a bad address, and it
+Resolving to zero recipients is the safe outcome of a bad address, and it
 was reported as bare fact: "recipient selector resolved to zero sessions".
 A sender who had guessed at a session id read that as "not running" and
 guessed again. The dangerous case is the one that does not refuse — a
@@ -30,6 +30,11 @@ def _listed(values: list[str]) -> str:
 
 def zero_recipients_detail(selector: RecipientSelector) -> str:
     """Name the anchor that resolved to nobody, plus the way forward."""
+    if selector.actors:
+        return (
+            f"no human organization member matches {_listed(selector.actors)}. "
+            "Use an exact member actor id or registered resolution label."
+        )
     if selector.session_ids:
         return (
             "no session matches the session id(s) "
@@ -69,9 +74,11 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
 def require_recipients(
     recipients: list[ResolvedRecipient],
     selector: RecipientSelector,
+    *,
+    actor_recipients: list[object] | None = None,
 ) -> None:
     """Refuse an empty resolution, naming the anchor and the way forward."""
-    if not recipients:
+    if not recipients and not actor_recipients:
         raise SessionMessageError(
             ZERO_RECIPIENTS_CODE, zero_recipients_detail(selector)
         )

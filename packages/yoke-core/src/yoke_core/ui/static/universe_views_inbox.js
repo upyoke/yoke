@@ -9,6 +9,7 @@ import {
 } from "./universe_view_support.js";
 import {
   appendDecisionRow,
+  appendActorMessageRow,
   appendNotificationRow,
   appendPanelHint,
   appendRowError,
@@ -40,6 +41,7 @@ export function renderInboxView(context, main, scope) {
   const notifications = section(
     documentNode, "Notifications", { showRaw: false },
   );
+  const messages = section(documentNode, "Messages", { showRaw: false });
   appendPanelHint(documentNode, needs, "the gate waits until you resolve");
   appendPanelHint(documentNode, requests, "waiting, but nothing is halted");
   const markAll = el(
@@ -47,12 +49,13 @@ export function renderInboxView(context, main, scope) {
   );
   markAll.type = "button";
   notifications.children[0].appendChild(markAll);
-  for (const panel of [needs, requests, notifications]) {
+  for (const panel of [needs, requests, messages, notifications]) {
     panel.children[1].className += " inbox-stack";
   }
   const host = el(documentNode, "div", "inbox-panels");
   host.appendChild(needs);
   host.appendChild(requests);
+  host.appendChild(messages);
   host.appendChild(notifications);
   main.replaceChildren(host);
 
@@ -82,6 +85,16 @@ export function renderInboxView(context, main, scope) {
       if (!rows.length) emptyRow(documentNode, body, "No open requests.");
       for (const row of rows) {
         appendDecisionRow(context, body, row, resolve, rowProject(row));
+      }
+    }],
+    [messages, (body, calls) => {
+      const rows = calls[0].envelope.result.messages || [];
+      messages.setCount(
+        Number(calls[0].envelope.result.pending_actor_message_count || 0),
+      );
+      if (!rows.length) emptyRow(documentNode, body, "No unread messages.");
+      for (const row of rows) {
+        appendActorMessageRow(context, body, row, acknowledgeMessage);
       }
     }],
     [notifications, (body, calls) => {
@@ -151,6 +164,33 @@ export function renderInboxView(context, main, scope) {
       button.parentNode,
       result.envelope.error?.message ||
         "The notification could not be marked read.",
+    );
+  };
+
+  const acknowledgeMessage = async (messageId, button) => {
+    button.disabled = true;
+    let result;
+    try {
+      result = await callFunction(
+        context.client,
+        "session_control.message.acknowledge",
+        { message_id: messageId },
+      );
+    } catch (error) {
+      result = {
+        status: 0,
+        envelope: { success: false, error: { message: String(error) } },
+      };
+    }
+    if (result.status === 200 && result.envelope.success) {
+      await load();
+      return;
+    }
+    button.disabled = false;
+    appendRowError(
+      documentNode,
+      button.parentNode,
+      result.envelope.error?.message || "The message could not be acknowledged.",
     );
   };
 

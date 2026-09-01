@@ -14,8 +14,8 @@ from yoke_contracts.session_control import (
     RecipientSelector,
 )
 from yoke_core.domain.session_control_schema import (
-    SESSION_CONTROL_TABLES,
     create_session_control_tables,
+    required_tables,
 )
 
 
@@ -90,7 +90,22 @@ def test_session_control_schema_is_additive_and_idempotent() -> None:
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()
     }
-    assert set(SESSION_CONTROL_TABLES) <= present
+    assert set(required_tables()) <= present
+    message_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(session_messages)")
+    }
+    assert "sender_surface" in message_columns
+    actor_recipient_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(actor_message_recipients)")
+    }
+    assert actor_recipient_columns == {
+        "message_id",
+        "actor_id",
+        "state",
+        "created_at",
+        "read_at",
+        "expired_at",
+    }
     relay_columns = {
         row[1]: bool(row[3])
         for row in conn.execute("PRAGMA table_info(session_relays)").fetchall()
@@ -120,7 +135,7 @@ def test_portability_classifies_every_session_control_table() -> None:
     )
 
     portable = {"session_messages", "session_launches"}
-    operational = set(SESSION_CONTROL_TABLES) - portable
+    operational = set(required_tables()) - portable
     assert portable <= set(USER_CONTENT_TABLES)
     assert operational <= set(ARCHIVE_OMITTABLE_TARGET_TABLES)
     assert not (portable & set(ARCHIVE_OMITTABLE_TARGET_TABLES))

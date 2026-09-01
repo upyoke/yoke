@@ -63,6 +63,11 @@ def test_hook_completion_delivers_each_receipt_once() -> None:
                 "message_id": message_id,
                 "body": "Persistent instructions.",
                 "sender_actor_id": 10,
+                "sender_actor_label": "Ada",
+                "sender_actor_kind": "human",
+                "sender_session_id": "s1",
+                "sender_surface": "harness_session",
+                "sender_surface_label": "harness session",
             }
         ],
     }

@@ -226,10 +226,11 @@ def test_create_stores_instructions_once_and_deduplicates_exact_request() -> Non
     assert second.deduplicated is True
     assert conn.execute("SELECT COUNT(*) FROM session_launches").fetchone()[0] == 1
     message = conn.execute(
-        "SELECT body FROM session_messages WHERE message_id = ?",
+        "SELECT body, sender_surface FROM session_messages WHERE message_id = ?",
         (first.launch.message_id,),
     ).fetchone()
     assert message[0] == request.instructions
+    assert message[1] == "harness_session"
 
 
 def test_claude_launch_defaults_to_local_presentation_and_keeps_structured_name() -> (

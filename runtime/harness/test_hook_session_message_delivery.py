@@ -35,7 +35,7 @@ def test_tool_event_returns_delimited_additional_context(
     assert port.leased == [("session-top", "PreToolUse", 10)]
     rendered = decision.audit_fields["additionalContext"]
     assert f"BEGIN YOKE SESSION MESSAGE {MESSAGE_ID}" in rendered
-    assert "Authenticated sender actor: 41" in rendered
+    assert "Authenticated sender: actor 41 (actor, unknown surface)" in rendered
     assert FLEET_ENVELOPE_TRUST_GUIDANCE in rendered
     assert FLEET_BODY_TRUST_GUIDANCE in rendered
     assert port.body in rendered

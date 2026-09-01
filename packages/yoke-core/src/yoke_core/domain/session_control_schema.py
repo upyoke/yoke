@@ -7,6 +7,7 @@ from typing import Any
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
+from yoke_contracts.session_control.sender_surface import SENDER_SURFACES
 from yoke_core.domain.session_launch_surface_domain import (
     REQUESTED_SURFACE_COLUMN_DDL,
     SELECTED_SURFACE_COLUMN_DDL,
@@ -23,6 +24,8 @@ SESSION_CONTROL_TABLES = (
     "session_termination_reaps",
     "session_surface_policies",
 )
+ACTOR_MESSAGE_TABLES = ("actor_message_recipients",)
+_SENDER_SURFACE_VALUES = ",".join(f"'{value}'" for value in SENDER_SURFACES)
 
 
 def create_session_control_tables(conn: Any) -> None:
@@ -42,7 +45,8 @@ def create_session_control_tables(conn: Any) -> None:
             expires_at TEXT NOT NULL,
             cancelled_at TEXT,
             cancelled_by_actor_id INTEGER REFERENCES actors(id),
-            cancellation_reason TEXT
+            cancellation_reason TEXT,
+            sender_surface TEXT CHECK(sender_surface IN ({_SENDER_SURFACE_VALUES}))
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_messages_sender_dedupe
             ON session_messages(sender_actor_id, idempotency_key)
@@ -81,6 +85,19 @@ def create_session_control_tables(conn: Any) -> None:
             ON session_message_recipients(state, wake_after);
         CREATE INDEX IF NOT EXISTS idx_session_message_recipients_project
             ON session_message_recipients(project_id, state);
+
+        CREATE TABLE IF NOT EXISTS actor_message_recipients (
+            message_id TEXT NOT NULL REFERENCES session_messages(message_id),
+            actor_id INTEGER NOT NULL REFERENCES actors(id),
+            state TEXT NOT NULL DEFAULT 'pending'
+                CHECK(state IN ('pending','read','expired')),
+            created_at TEXT NOT NULL,
+            read_at TEXT,
+            expired_at TEXT,
+            UNIQUE(message_id, actor_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_actor_message_recipients_actor_state
+            ON actor_message_recipients(actor_id, state, created_at);
 
         CREATE TABLE IF NOT EXISTS session_message_attempts (
             attempt_id TEXT PRIMARY KEY,
@@ -243,13 +260,19 @@ def create_session_control_tables(conn: Any) -> None:
         conn.execute("ALTER TABLE session_launches ADD COLUMN session_name TEXT")
     if not _column_exists(conn, "session_relays", "surface_plan_limits"):
         conn.execute("ALTER TABLE session_relays ADD COLUMN surface_plan_limits TEXT")
+    if not _column_exists(conn, "session_messages", "sender_surface"):
+        conn.execute(
+            "ALTER TABLE session_messages ADD COLUMN sender_surface TEXT "
+            f"CHECK(sender_surface IN ({_SENDER_SURFACE_VALUES}))"
+        )
 
 
 def required_tables() -> tuple[str, ...]:
-    return SESSION_CONTROL_TABLES
+    return SESSION_CONTROL_TABLES + ACTOR_MESSAGE_TABLES
 
 
 __all__ = [
+    "ACTOR_MESSAGE_TABLES",
     "SESSION_CONTROL_TABLES",
     "create_session_control_tables",
     "required_tables",

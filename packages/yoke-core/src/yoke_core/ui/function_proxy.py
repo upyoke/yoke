@@ -141,6 +141,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "sessions.reclaim_stale",
         "organizations.settings.merge",
         "session_control.message.send",
+        "session_control.message.acknowledge",
         "session_control.message.cancel",
         "session_control.launch.create",
         "session_control.launch.cancel",
@@ -223,6 +224,16 @@ def proxy_function_call(
             {"error": {"code": "target_invalid", "message": str(exc)}},
             422,
         )
+    payload = dict(envelope.get("payload") or {})
+    if function_id in {
+        "session_control.message.send",
+        "session_control.launch.create",
+    }:
+        from yoke_contracts.session_control.sender_surface import (
+            WEB_FORM_SENDER_SURFACE,
+        )
+
+        payload["sender_surface"] = WEB_FORM_SENDER_SURFACE
     request = FunctionCallRequest(
         function=function_id,
         # No harness session exists in a browser: the empty session id
@@ -232,7 +243,7 @@ def proxy_function_call(
         actor=ActorContext(actor_id=operator_actor_id, session_id=""),
         target=target,
         request_id=str(envelope.get("request_id") or uuid.uuid4()),
-        payload=dict(envelope.get("payload") or {}),
+        payload=payload,
         options=dict(envelope.get("options") or {}),
     )
     # ambient_session_id="" (never None): the browser's identity lives

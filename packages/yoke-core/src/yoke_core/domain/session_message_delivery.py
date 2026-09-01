@@ -14,6 +14,9 @@ from yoke_core.domain.session_message_types import (
     timestamp,
     utc_now,
 )
+from yoke_core.domain.session_message_delivery_projection import (
+    delivery_message_projection,
+)
 
 
 HOOK_LEASE_SECONDS = 30
@@ -112,7 +115,8 @@ def _lease_candidates(
     rows = conn.execute(
         "SELECT r.message_id,r.session_id,r.project_id,r.state,"
         "r.injection_lease_id,m.body,"
-        "m.sender_actor_id,m.created_at FROM session_message_recipients r "
+        "m.sender_actor_id,m.sender_session_id,m.sender_surface,m.created_at "
+        "FROM session_message_recipients r "
         "JOIN session_messages m ON m.message_id=r.message_id "
         f"WHERE r.session_id={marker} AND r.state='pending' "
         "AND m.cancelled_at IS NULL AND m.expires_at>" + marker + " "
@@ -223,13 +227,7 @@ def lease_for_hook(
                     json.dumps({"hook_event": hook_event}, sort_keys=True),
                 ),
             )
-            leased.append(
-                {
-                    "message_id": str(row["message_id"]),
-                    "body": str(row["body"]),
-                    "sender_actor_id": int(row["sender_actor_id"]),
-                }
-            )
+            leased.append(delivery_message_projection(conn, row))
         conn.commit()
     except Exception:
         conn.rollback()

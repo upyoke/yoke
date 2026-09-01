@@ -326,13 +326,20 @@ def resolve_recipients(
 
 
 def confirmation_token(
-    selector: RecipientSelector, recipients: list[ResolvedRecipient]
+    selector: RecipientSelector,
+    recipients: list[ResolvedRecipient],
+    *,
+    actor_recipients: list[Any] | None = None,
 ) -> str:
     payload = {
         "selector": selector.model_dump(mode="json"),
         "recipients": [
             [recipient.session_id, sorted(recipient.authorized_project_ids)]
             for recipient in recipients
+        ],
+        "actor_recipients": [
+            [recipient.actor_id, sorted(recipient.shared_org_ids)]
+            for recipient in actor_recipients or []
         ],
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))

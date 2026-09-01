@@ -21,7 +21,6 @@ from yoke_core.domain.handlers.inbox_decision_models import (
     NotificationReadResponse,
     NotificationsReadAllRequest,
 )
-from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
 
 
 def _error(
@@ -37,7 +36,8 @@ def _error(
 
 
 def _require_global(
-    request: FunctionCallRequest, function_id: str,
+    request: FunctionCallRequest,
+    function_id: str,
 ) -> Optional[HandlerOutcome]:
     if request.target.kind != "global":
         return _error(
@@ -74,37 +74,20 @@ def handle_inbox_list(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.project_ids",
         )
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.decision_requests import pending_requests_for_actor
-    from yoke_core.domain.inbox_notifications import notification_rows
+    from yoke_core.domain.inbox_read import inbox_for_actor
 
     conn = db_helpers.connect()
     try:
-        decisions = pending_requests_for_actor(
+        result = inbox_for_actor(
             conn,
-            actor_id,
+            actor_id=actor_id,
             project_ids=project_ids,
+            include_read=bool(payload.get("include_read")),
         )
-        decisions = [row for row in decisions if row["kind"] != MACHINE_APPROVAL]
-        notifications = notification_rows(
-            conn,
-            actor_id,
-            unread_only=not bool(payload.get("include_read")),
-        )
-        if project_ids is not None:
-            allowed = set(project_ids)
-            notifications = [
-                row
-                for row in notifications
-                if row.get("project_id") is None or int(row["project_id"]) in allowed
-            ]
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={
-            "needs_decision": [row for row in decisions if row["blocking"]],
-            "requests": [row for row in decisions if not row["blocking"]],
-            "notifications": notifications,
-        },
+        result_payload=result,
         primary_success=True,
     )
 
@@ -325,8 +308,10 @@ def _mark_read(
 def handle_notification_read(request: FunctionCallRequest) -> HandlerOutcome:
     return _mark_read(request, all_rows=False)
 
+
 def handle_notifications_read_all(request: FunctionCallRequest) -> HandlerOutcome:
     return _mark_read(request, all_rows=True)
+
 
 __all__ = [
     "DecisionCreateRequest",

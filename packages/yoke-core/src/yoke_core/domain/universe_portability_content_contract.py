@@ -5,6 +5,7 @@ from __future__ import annotations
 ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
     {
         "addressed_event_deliveries",
+        "actor_message_recipients",
         "capability_secrets",
         "decision_request_actor_authorities",
         "decision_request_role_authorities",
@@ -87,6 +88,7 @@ ARCHIVE_COLUMN_RENAMES = {
 
 USER_CONTENT_TABLES: tuple[str, ...] = (
     "actor_invites",
+    "actor_message_recipients",
     "actor_project_roles",
     "api_token_audit",
     "api_tokens",

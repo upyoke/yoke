@@ -39,6 +39,42 @@ class TestFunctionProxy:
             == 403
         )
 
+    def test_browser_sender_surface_is_server_stamped(self, monkeypatch):
+        from yoke_contracts.api.function_call import FunctionCallResponse
+        from yoke_core.domain import yoke_function_dispatch
+        from yoke_core.ui import function_proxy, local_operator_actor
+
+        captured = []
+
+        def _dispatch(request, *, ambient_session_id):
+            captured.append((request, ambient_session_id))
+            return FunctionCallResponse(
+                success=True,
+                function=request.function,
+                version="v1",
+            )
+
+        monkeypatch.setattr(
+            local_operator_actor, "resolve_local_operator_actor", lambda: 10
+        )
+        monkeypatch.setattr(yoke_function_dispatch, "dispatch", _dispatch)
+        for function_id in (
+            "session_control.message.send",
+            "session_control.launch.create",
+        ):
+            result, status = function_proxy.proxy_function_call(
+                {
+                    "function": function_id,
+                    "payload": {"sender_surface": "cli"},
+                }
+            )
+            assert status == 200 and result["success"] is True
+        assert [row[0].payload["sender_surface"] for row in captured] == [
+            "web_form",
+            "web_form",
+        ]
+        assert [row[1] for row in captured] == ["", ""]
+
     def test_malformed_target_is_typed_422(self, ui_client):
         response = self._call(
             ui_client,
@@ -137,8 +173,12 @@ class TestFunctionProxy:
         assert envelope["success"] is True
         assert envelope["result"]["rows"] == []
         for field in (
-            "id", "flow", "target_tier", "target_environment",
-            "status", "current_stage",
+            "id",
+            "flow",
+            "target_tier",
+            "target_environment",
+            "status",
+            "current_stage",
         ):
             assert field in envelope["result"]["fields"]
 

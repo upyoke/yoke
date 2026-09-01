@@ -31,27 +31,34 @@ def handle_message_acknowledge(request: FunctionCallRequest) -> HandlerOutcome:
     invalid = require_top_level_message_actor(request)
     if invalid:
         return invalid
-    from yoke_core.domain.session_message_service import acknowledge_message
+    from yoke_core.domain.session_message_service import (
+        acknowledge_actor_message,
+        acknowledge_message,
+    )
 
     session_id = str(request.actor.session_id or "").strip()
-    if not session_id:
-        return failure(
-            "session_required", "recipient session is required", "$.actor.session_id"
-        )
     conn = open_connection()
     try:
         from yoke_core.domain.session_control_request_identity import (
             registered_request_session_id,
         )
 
-        if registered_request_session_id(conn, session_id) is None:
+        if session_id and registered_request_session_id(conn, session_id) is None:
             return failure(
                 "recipient_session_unregistered",
                 "Fleet acknowledgments require a registered top-level session",
                 "$.actor.session_id",
             )
-        message = acknowledge_message(
-            conn, message_id=parsed.message_id, session_id=session_id
+        message = (
+            acknowledge_message(
+                conn, message_id=parsed.message_id, session_id=session_id
+            )
+            if session_id
+            else acknowledge_actor_message(
+                conn,
+                message_id=parsed.message_id,
+                actor_id=numeric_actor_id(request),
+            )
         )
         return HandlerOutcome(result_payload={"message": message})
     except Exception as exc:

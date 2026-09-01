@@ -1,5 +1,3 @@
-"""Focused CLI contracts for fleet session-message operations."""
-
 from __future__ import annotations
 
 import io
@@ -92,6 +90,7 @@ def test_say_send_reads_body_only_from_stdin(monkeypatch) -> None:
         "selector": {"session_ids": ["session-1"]},
         "body": "act now",
         "idempotency_key": "send-1",
+        "sender_surface": "cli",
     }
     assert captured["sensitive_values"] == ("act now",)
 

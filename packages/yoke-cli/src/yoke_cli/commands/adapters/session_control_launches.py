@@ -18,6 +18,7 @@ from yoke_cli.commands.adapters.session_control_common import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import LaunchState
+from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 
 
 LAUNCH_PREVIEW_USAGE = (
@@ -196,6 +197,7 @@ def _create(args: List[str], *, alias: bool) -> int:
         "instructions": instructions,
         "idempotency_key": parsed.idempotency_key,
         "item": parsed.item,
+        "sender_surface": CLI_SENDER_SURFACE,
     }
     if parsed.raw_instructions:
         payload["compose_mandate"] = False

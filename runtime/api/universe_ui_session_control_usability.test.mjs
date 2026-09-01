@@ -75,7 +75,12 @@ test("message history leads with readable content and accessible receipts", asyn
       messages: [{
         message_id: "message-opaque-id",
         body: fullBody,
+        sender_actor_id: 2,
+        sender_actor_label: "ben",
+        sender_actor_kind: "human",
         sender_session_id: "sender-1",
+        sender_surface: "harness_session",
+        sender_surface_label: "harness session",
         created_at: "2026-08-23T01:02:03Z",
         recipients: [{
           session_id: "recipient-1", project_id: 1, state: "acknowledged",
@@ -84,7 +89,12 @@ test("message history leads with readable content and accessible receipts", asyn
       }, {
         message_id: "message-needs-attention",
         body: "Please confirm the queue is moving.",
+        sender_actor_id: 2,
+        sender_actor_label: "ben",
+        sender_actor_kind: "human",
         sender_session_id: "sender-2",
+        sender_surface: "harness_session",
+        sender_surface_label: "harness session",
         created_at: "2026-08-23T00:02:03Z",
         recipients: [{
           session_id: "recipient-2", project_id: 1, state: "pending",
@@ -130,7 +140,7 @@ test("message history leads with readable content and accessible receipts", asyn
   assert.equal(button(root, "Do not run"), undefined);
   assert.equal(allNodes(root).filter((node) => node.tagName === "TABLE").length, 0);
   assert.ok(byClass(root, "session-message-direction").some(
-    (node) => node.textContent.includes("From codex-cli · YOK-2500"),
+    (node) => node.textContent.includes("From ben via session sender-1"),
   ));
   assert.ok(byClass(root, "session-message-direction").some(
     (node) => node.textContent === "To 1 recipient",

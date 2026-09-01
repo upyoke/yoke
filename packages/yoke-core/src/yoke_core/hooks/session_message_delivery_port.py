@@ -18,6 +18,11 @@ class LeasedSessionMessage:
     message_id: str
     body: str
     sender_actor_id: int
+    sender_actor_label: str | None = None
+    sender_actor_kind: str | None = None
+    sender_session_id: str | None = None
+    sender_surface: str | None = None
+    sender_surface_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -99,6 +104,11 @@ def _coerce_messages(raw_messages: Any) -> tuple[LeasedSessionMessage, ...]:
                 message_id=message_id,
                 body=body,
                 sender_actor_id=int(sender_actor_id),
+                sender_actor_label=row.get("sender_actor_label"),
+                sender_actor_kind=row.get("sender_actor_kind"),
+                sender_session_id=row.get("sender_session_id"),
+                sender_surface=row.get("sender_surface"),
+                sender_surface_label=row.get("sender_surface_label"),
             )
         )
     return tuple(messages)
