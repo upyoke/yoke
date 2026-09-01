@@ -10,10 +10,12 @@ import subprocess
 import time
 from typing import Any, Callable, Mapping, Sequence
 
-from yoke_contracts.session_control.plan_limits import (
-    CLI_PLAN_LIMIT_SURFACES,
+from yoke_contracts.session_control.plan_limit_parsers import (
     parse_claude_usage,
     parse_cursor_usage,
+)
+from yoke_contracts.session_control.plan_limits import (
+    CLI_PLAN_LIMIT_SURFACES,
     sanitize_plan_limits,
     unknown_reading,
 )
@@ -29,6 +31,11 @@ from yoke_harness.session_relay_surface_probes import resolve_native_cli
 
 PLAN_LIMIT_REFRESH_SECONDS = 5 * 60
 PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
+# Bumped whenever the cached reading shape changes. A cache written by a
+# different shape is discarded rather than reported, so an upgraded relay
+# publishes real windows on its first poll instead of unreadable ones for
+# the rest of the refresh interval.
+PLAN_LIMIT_CACHE_SCHEMA_VERSION = 2
 _CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 _CURSOR_RPC = "https://api2.cursor.sh/aiserver.v1.DashboardService/"
 
@@ -44,12 +51,18 @@ def _cache_path(state_dir: Path | None) -> Path:
 
 
 def _read_cache(state_dir: Path | None) -> dict[str, Any]:
-    empty: dict[str, Any] = {"schema_version": 1, "probed_at": 0.0, "surfaces": {}}
+    empty: dict[str, Any] = {
+        "schema_version": PLAN_LIMIT_CACHE_SCHEMA_VERSION,
+        "probed_at": 0.0,
+        "surfaces": {},
+    }
     try:
         payload = json.loads(_cache_path(state_dir).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return empty
     if not isinstance(payload, dict):
+        return empty
+    if payload.get("schema_version") != PLAN_LIMIT_CACHE_SCHEMA_VERSION:
         return empty
     surfaces = payload.get("surfaces")
     try:
@@ -57,7 +70,7 @@ def _read_cache(state_dir: Path | None) -> dict[str, Any]:
     except (TypeError, ValueError):
         probed_at = 0.0
     return {
-        "schema_version": 1,
+        "schema_version": PLAN_LIMIT_CACHE_SCHEMA_VERSION,
         "probed_at": probed_at,
         "surfaces": dict(surfaces) if isinstance(surfaces, Mapping) else {},
     }
@@ -225,7 +238,11 @@ def observe_plan_limits(
     merged.update(readings)
     kept = {surface: merged[surface] for surface in wanted if surface in merged}
     _write_cache(
-        {"schema_version": 1, "probed_at": current, "surfaces": kept},
+        {
+            "schema_version": PLAN_LIMIT_CACHE_SCHEMA_VERSION,
+            "probed_at": current,
+            "surfaces": kept,
+        },
         state_dir,
     )
     return sanitize_plan_limits(kept)
@@ -233,6 +250,7 @@ def observe_plan_limits(
 
 __all__ = [
     "PLAN_LIMIT_CACHE_FILE_NAME",
+    "PLAN_LIMIT_CACHE_SCHEMA_VERSION",
     "PLAN_LIMIT_REFRESH_SECONDS",
     "observe_plan_limits",
 ]
