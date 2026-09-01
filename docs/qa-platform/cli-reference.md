@@ -33,7 +33,7 @@ yoke qa plan rematerialize --item YOK-N --transition reviewing-implementation
 # Execute the materialized cases in immutable plan/case/baseline order
 yoke qa plan run \
  --item YOK-N --transition reviewing-implementation \
- --base-url https://preview.example
+ --base-url https://preview.example --machine test-mac-pro
 
 # Submit the complete verdict batch requested by an exit-12 review descriptor
 printf '%s' '{"verdicts":[{"requirement_id":1,"verdict":"pass","rationale":"The captured frame matches the expected outcome."}]}' |
@@ -97,7 +97,7 @@ run owns its delivery context.
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Refresh corrected plan cases while retaining QA run history |
-| `yoke qa plan run` | `--item PREFIX-N --transition T [runner opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
+| `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine |
 | `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
@@ -122,6 +122,12 @@ side effect, pins the complete roster and digest server-side, and advances one
 canonical result at a time. Machine cases reuse one serial lease until the plan
 completes or aborts; retrying a waiting invocation resumes from the stored
 cursor.
+
+Machine QA cases may declare `"machine":"test-mac-pro"` in `method_config`.
+Authoring validates the project's registered machine and materialization adds
+`test-machine:test-mac-pro` to the requirement capability set. A run-level
+`--machine` must match every case constraint; an uninterrupted plan lease
+cannot serve cases that require different machines.
 
 A Command case is executed live rather than collected. Its combined output
 streams to **stderr** line by line as it arrives, preceded by a banner naming

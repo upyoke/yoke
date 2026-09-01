@@ -17,6 +17,7 @@ class PlanExecutionBeginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     transition_id: str | None = Field(default=None, min_length=1)
+    machine: str | None = Field(default=None, min_length=1)
 
 
 class PlanExecutionStateRequest(BaseModel):
@@ -106,6 +107,7 @@ def handle_plan_execution_begin(
             item_id=item_id,
             deployment_run_id=deployment_run_id,
             transition_id=parsed.transition_id,
+            machine=parsed.machine,
             actor_id=request.actor.actor_id,
             session_id=request.actor.session_id,
         )

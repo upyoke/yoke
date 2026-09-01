@@ -38,6 +38,7 @@ from yoke_core.domain.qa_case_execution_context import execution_host_capability
 
 class TestMachineBaselineGroupExecuteRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    machine: str | None = None
 
 
 class TestMachineBaselineGroupExecuteResponse(BaseModel):
@@ -60,26 +61,15 @@ class TestMachineBaselineGroupSubmitRequest(TestMachineCaseSubmitRequest):
 
 
 def handle_baseline_group_execute(request: FunctionCallRequest) -> HandlerOutcome:
-    target = _target_requirement(
-        request,
-        "test_machine.baseline_group_execute",
-    )
+    target = _target_requirement(request, "test_machine.baseline_group_execute")
     if isinstance(target, HandlerOutcome):
         return target
-    return _failure(
-        "host_control_client_required",
-        "Machine QA cannot execute on the hosted control plane; run the "
-        f"baseline group from a credential-owning harness using anchor {target}",
-    )
+    reason = f"credential-owning harness required for baseline anchor {target}"
+    return _failure("host_control_client_required", reason)
 
 
-def handle_baseline_group_begin(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
-    target = _target_requirement(
-        request,
-        "test_machine.baseline_group.begin",
-    )
+def handle_baseline_group_begin(request: FunctionCallRequest) -> HandlerOutcome:
+    target = _target_requirement(request, "test_machine.baseline_group.begin")
     if isinstance(target, HandlerOutcome):
         return target
     from yoke_core.domain.db_helpers import connect
@@ -100,6 +90,10 @@ def handle_baseline_group_begin(
             target,
             host_capability_kinds=host_capabilities,
         )
+        from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
+
+        payload = request.payload or {}
+        machine = resolve_case_machine(anchor, payload.get("machine"))
         cases = _baseline_group_cases(
             conn,
             anchor=anchor,
@@ -113,6 +107,7 @@ def handle_baseline_group_begin(
                 operation="baseline_group",
                 baselines=(str(anchor["host_baseline"]),),
                 cases=cases,
+                machine=machine,
             )
         except MachineQaProtocolLeaseHeld as held:
             results = [

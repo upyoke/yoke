@@ -74,6 +74,29 @@ def _release_stale_execution(
     conn.commit()
 
 
+def _validate_roster_machine(
+    conn: Any, roster: list[dict[str, Any]], machine: str | None
+) -> None:
+    from yoke_core.domain.machine_qa_case_machine import (
+        require_registered_machine,
+        resolve_plan_machine,
+    )
+
+    selected = resolve_plan_machine(roster, machine)
+    machine_projects = {
+        int(row["project_id"])
+        for row in roster
+        if row.get("runner_id") in {"host_control", "agent_mission"}
+    }
+    for project_id in machine_projects:
+        require_registered_machine(
+            conn,
+            project_id=project_id,
+            machine=selected,
+            subject="run pin" if machine else "case constraint",
+        )
+
+
 @rollback_workflow_binding_write_errors
 def begin_plan_execution(
     conn: Any,
@@ -81,6 +104,7 @@ def begin_plan_execution(
     item_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
+    machine: str | None = None,
     actor_id: str | None,
     session_id: str,
 ) -> dict[str, Any]:
@@ -118,6 +142,7 @@ def begin_plan_execution(
         deployment_run_id=deployment_run_id,
         host_capability_kinds=host_capabilities,
     )
+    _validate_roster_machine(conn, roster, machine)
     digest = roster_digest(roster)
     execution_target, execution_target_digest = execution_target_for_roster(roster)
     existing_id = live_plan_execution_id(
@@ -151,6 +176,7 @@ def begin_plan_execution(
                 deployment_run_id=deployment_run_id,
                 host_capability_kinds=host_capabilities,
             )
+            _validate_roster_machine(conn, roster, machine)
             digest = roster_digest(roster)
             execution_target, execution_target_digest = execution_target_for_roster(
                 roster

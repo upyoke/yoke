@@ -154,18 +154,16 @@ def get_case_execution_context(
         from yoke_core.domain.schema_common import _table_exists
 
         if _table_exists(conn, "project_capabilities"):
-            available_capabilities.update(
-                (
-                    TEST_MACHINE_CAPABILITY
-                    if is_test_machine_capability_type(capability["type"])
-                    else str(capability["type"])
-                )
-                for capability in query_rows(
-                    conn,
-                    f"SELECT type FROM project_capabilities WHERE project_id={marker}",
-                    (int(row["project_id"]),),
-                )
+            project_capabilities = query_rows(
+                conn,
+                f"SELECT type FROM project_capabilities WHERE project_id={marker}",
+                (int(row["project_id"]),),
             )
+            for capability in project_capabilities:
+                kind = str(capability["type"])
+                available_capabilities.add(kind)
+                if is_test_machine_capability_type(kind):
+                    available_capabilities.add(TEST_MACHINE_CAPABILITY)
         missing_capabilities = missing_capability_kinds(
             required_capabilities,
             available_capabilities,

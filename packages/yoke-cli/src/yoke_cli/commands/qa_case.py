@@ -11,9 +11,7 @@ from typing import List, Tuple
 from yoke_cli.transport.dispatcher import build_actor
 
 
-_QA_MISSION_HOST_COMMAND_MODULE = (
-    "yoke_core.domain.agent_mission_host_command_cli"
-)
+_QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
 
 
 QA_CASE_RUN_USAGE = (
@@ -25,7 +23,7 @@ QA_PLAN_RUN_USAGE = (
     "yoke qa plan run "
     "(--item PREFIX-N --transition TRANSITION | "
     "--deployment-run-id RUN --plan PLAN --project P) "
-    "[--project P] [--base-url URL] "
+    "[--project P] [--base-url URL] [--machine NAME] "
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--allow-tree-mismatch] [--session-id S]"
 )
@@ -111,9 +109,7 @@ def _assert_unmodified_host_command_args(
         min(len(requested_args), len(forwarded_args)),
     )
     forwarded = (
-        forwarded_args[difference]
-        if difference < len(forwarded_args)
-        else "<missing>"
+        forwarded_args[difference] if difference < len(forwarded_args) else "<missing>"
     )
     preview = forwarded if len(forwarded) <= 120 else f"{forwarded[:117]}..."
     raise RuntimeError(

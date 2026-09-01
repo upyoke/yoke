@@ -9,8 +9,6 @@ from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_execution_result_state import (
     BASELINE_GROUP_RESULTS as _BASELINE_GROUP_RESULTS,
-)
-from yoke_core.domain.qa_plan_execution_result_state import (
     QaPlanExecutionError,
     aggregate_state as _aggregate_state,
     plan_order as _plan_order,
@@ -24,6 +22,7 @@ from yoke_core.domain.qa_plan_execution_dispatch import (
 )
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
 from yoke_core.domain.qa_project_execution_target import resolve_execution_base_url
+from yoke_core.domain.machine_qa_case_machine import resolve_plan_machine
 
 _call_plan_function = call_plan_function
 
@@ -95,6 +94,7 @@ def execute_plan(
     plan: Optional[str] = None,
     project: Optional[str] = None,
     base_url: str = "",
+    machine: Optional[str] = None,
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
@@ -118,6 +118,8 @@ def execute_plan(
             payload={"plan": plan, "project": project},
             actor=resolved_actor,
         )
+    if machine:
+        begin_payload["machine"] = machine
     execution = _call_plan_function(
         function_id="qa.plan_execution.begin",
         target=target,
@@ -131,6 +133,11 @@ def execute_plan(
         raise QaPlanExecutionError(
             "qa.plan_execution.begin returned an invalid requirement roster"
         )
+    try:
+        selected_machine = resolve_plan_machine(requirements, machine)
+    except ValueError as exc:
+        raise QaPlanExecutionError(str(exc)) from exc
+    machine_options = {"machine": selected_machine} if selected_machine else {}
     execution_id = str(execution.get("execution_id") or "")
     cursor = int(execution.get("cursor_ordinal") or 0)
     if not execution_id or cursor < 0 or cursor > len(requirements):
@@ -194,6 +201,7 @@ def execute_plan(
                         group = execute_materialized_machine_baseline_group(
                             requirement,
                             actor=resolved_actor,
+                            **machine_options,
                         )
                         discovered, baseline_ok = _validated_baseline_group_results(
                             group,
@@ -222,6 +230,7 @@ def execute_plan(
                         execution_id=execution_id,
                         ordinal=ordinal,
                         actor=resolved_actor,
+                        **machine_options,
                     )
                     advance_result = False
             elif requirement.get("runner_id") == "agent_mission":
@@ -230,8 +239,11 @@ def execute_plan(
                 )
 
                 result = execute_plan_agent_mission_case(
-                    requirement, execution_id=execution_id,
-                    ordinal=ordinal, actor=resolved_actor,
+                    requirement,
+                    execution_id=execution_id,
+                    ordinal=ordinal,
+                    actor=resolved_actor,
+                    **machine_options,
                 )
                 advance_result = False
             else:

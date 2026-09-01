@@ -39,6 +39,10 @@ yoke qa plan run --item "PREFIX-{N}" \
  --transition reviewing-implementation
 ```
 
+For a mission that must run on one registered Test Machine, append
+`--machine NAME`. Without a pin the runner prefers a verified free machine;
+a case-authored machine constraint remains authoritative.
+
 The method owns execution: Command uses the mapped worktree and exit-code
 verdict, Browser check uses automatic assertions, Browser inspection captures
 evidence for agent review, and Exploratory mission returns a main-owned walker

@@ -190,6 +190,65 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
     release(conn, next_contract.lease_id, "test-complete")
 
 
+def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
+    conn = make_conn()
+    _register_fleet(conn)
+    seed_qa_session(conn, "automatic", "pinned", "missing")
+    record_test_machine_verification(
+        conn,
+        1,
+        machine=MACHINES[0],
+        status="error",
+        checks=[{"name": "terminal_bridge", "ok": False}],
+        error_code="terminal_bridge_failed",
+    )
+    record_test_machine_verification(
+        conn,
+        1,
+        machine=MACHINES[1],
+        status="verified",
+        checks=[{"name": "connection", "ok": True}],
+        error_code=None,
+    )
+
+    automatic = begin_host_control_execution(
+        conn,
+        project="yoke",
+        session_id="automatic",
+        operation="verify",
+        checks=VERIFICATION_CHECKS,
+        baselines=VERIFICATION_BASELINES,
+    )
+    assert automatic.settings["resource_name"] == MACHINES[1]
+    assert automatic.selection_reason == f"selected {MACHINES[1]}: verified"
+
+    pinned = begin_host_control_execution(
+        conn,
+        project="yoke",
+        session_id="pinned",
+        operation="verify",
+        checks=VERIFICATION_CHECKS,
+        baselines=VERIFICATION_BASELINES,
+        machine=MACHINES[0],
+    )
+    assert pinned.settings["resource_name"] == MACHINES[0]
+    assert "last verification error terminal_bridge_failed" in str(
+        pinned.selection_reason
+    )
+    with pytest.raises(MachineCapabilityError, match="has no test machine"):
+        begin_host_control_execution(
+            conn,
+            project="yoke",
+            session_id="missing",
+            operation="verify",
+            checks=VERIFICATION_CHECKS,
+            baselines=VERIFICATION_BASELINES,
+            machine="mac-pro-missing",
+        )
+    release(conn, automatic.lease_id, "test-complete")
+    release(conn, pinned.lease_id, "test-complete")
+
+
 def test_a_selector_cannot_name_different_settings() -> None:
     conn = make_conn()
     _register_fleet(conn)

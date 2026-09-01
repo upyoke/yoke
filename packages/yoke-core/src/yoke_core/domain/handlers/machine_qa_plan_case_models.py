@@ -20,6 +20,7 @@ class TestMachinePlanCaseBeginRequest(BaseModel):
     execution_id: str = Field(min_length=1)
     ordinal: int = Field(ge=0)
     requirement_id: int = Field(ge=1)
+    machine: str | None = None
 
 
 class TestMachinePlanCaseBeginResponse(BaseModel):
@@ -28,6 +29,7 @@ class TestMachinePlanCaseBeginResponse(BaseModel):
     cursor_ordinal: int
     execution: HostControlExecutionContract | None = None
     lease_context: dict[str, Any] | None = None
+    selection_new: bool = False
 
 
 class TestMachinePlanCaseSubmitRequest(TestMachinePlanCaseBeginRequest):

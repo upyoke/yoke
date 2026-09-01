@@ -284,12 +284,14 @@ def test_machine_lease_acquisition_defers_commit_until_plan_attachment(
                 execution_id=str(execution["id"]),
                 ordinal=0,
                 requirement_id=int(case["requirement_id"]),
+                payload={"machine": "mac-mini-lab"},
             )
         )
 
     assert ready.primary_success, ready.error
     deferred = begin.call_args.args[0]
     assert type(deferred).__name__ == "_CommitDeferredConnection"
+    assert begin.call_args.kwargs["machine"] == "mac-mini-lab"
     stored = lock_plan_execution(test_db, str(execution["id"]))
     assert stored["state"] == "active"
     assert stored["machine_lease_id"] == ready.result_payload["execution"]["lease_id"]
@@ -300,3 +302,45 @@ def test_machine_lease_acquisition_defers_commit_until_plan_attachment(
         reason="test-finished",
     )
     assert _active_lease_count(test_db) == 0
+
+
+def test_active_plan_lease_refuses_a_different_machine_pin(
+    test_db: Any,
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    item_id = 4423
+    materialize_installer_campaign(test_db, item_id=item_id)
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    execution = begin_plan_execution(
+        test_db,
+        item_id=item_id,
+        transition_id="reviewing-implementation",
+        actor_id=ACTOR.actor_id,
+        session_id=ACTOR.session_id,
+    )
+    case = execution["roster"][0]
+    ready = handle_plan_case_begin(
+        _request(
+            "test_machine.plan_case.begin",
+            item_id=item_id,
+            execution_id=str(execution["id"]),
+            ordinal=0,
+            requirement_id=int(case["requirement_id"]),
+        )
+    )
+    assert ready.primary_success, ready.error
+    mismatch = handle_plan_case_begin(
+        _request(
+            "test_machine.plan_case.begin",
+            item_id=item_id,
+            execution_id=str(execution["id"]),
+            ordinal=0,
+            requirement_id=int(case["requirement_id"]),
+            payload={"machine": "mac-studio-lab"},
+        )
+    )
+    assert not mismatch.primary_success
+    assert "active plan lease uses 'mac-mini-lab'" in mismatch.error.message
+    stored = lock_plan_execution(test_db, str(execution["id"]))
+    finish_plan_execution(test_db, stored, state="aborted", reason="test-finished")

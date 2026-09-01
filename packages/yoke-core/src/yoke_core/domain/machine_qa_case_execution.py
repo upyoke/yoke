@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import sys
 from typing import Any
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
@@ -52,9 +53,7 @@ def _dispatch_machine_function(
     if not response.success:
         code = response.error.code if response.error else "unknown"
         message = response.error.message if response.error else ""
-        raise MachineCaseDispatchError(
-            f"{function_id} failed ({code}): {message}"
-        )
+        raise MachineCaseDispatchError(f"{function_id} failed ({code}): {message}")
     return dict(response.result or {})
 
 
@@ -101,12 +100,15 @@ def _execute_issued_contract(
     abort_function: str,
     requirement_id: int,
     actor: ActorContext | None,
+    machine: str | None = None,
+    report_selection: bool = False,
 ) -> dict[str, Any]:
     resolved_actor = _actor(actor)
     begun = _dispatch_machine_function(
         begin_function,
         requirement_id,
         actor=resolved_actor,
+        payload={"machine": machine} if machine else None,
     )
     if begun.get("state") == "waiting":
         result = begun.get("result")
@@ -120,6 +122,9 @@ def _execute_issued_contract(
         raise MachineCaseDispatchError(
             f"{begin_function} returned no execution contract"
         )
+    reason = execution.get("selection_reason")
+    if report_selection and reason:
+        print(f"# qa plan run: {reason}", file=sys.stderr, flush=True)
     try:
         from yoke_core.domain.machine_qa_local_execution import (
             execute_machine_case_contract,
@@ -200,6 +205,7 @@ def execute_materialized_machine_baseline_group(
     case: Mapping[str, Any],
     *,
     actor: ActorContext | None = None,
+    machine: str | None = None,
 ) -> dict[str, Any]:
     """Run the server-discovered baseline group locally under one lease."""
     requirement_id = _require_machine_case(case)
@@ -214,14 +220,14 @@ def execute_materialized_machine_baseline_group(
         abort_function="test_machine.baseline_group.abort",
         requirement_id=requirement_id,
         actor=actor,
+        machine=machine,
+        report_selection=True,
     )
     if int(result.get("anchor_requirement_id") or 0) != requirement_id:
         raise MachineCaseDispatchError(
             "test_machine.baseline_group.submit returned the wrong anchor"
         )
-    requirement_ids = {
-        int(value) for value in result.get("requirement_ids") or []
-    }
+    requirement_ids = {int(value) for value in result.get("requirement_ids") or []}
     if requirement_id not in requirement_ids:
         raise MachineCaseDispatchError(
             "test_machine.baseline_group.submit omitted its anchor"
