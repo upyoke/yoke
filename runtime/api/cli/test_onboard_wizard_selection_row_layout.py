@@ -21,6 +21,7 @@ def test_long_destination_hint_wraps_intact_within_eighty_column_body() -> None:
 
     lines = rendered.plain.splitlines()
     assert row.hint == "Docker Compose · guided first boot"
+    assert row.hint_on_new_line is True
     assert row.hint in rendered.plain
     assert len(lines) == 2
     assert all(cell_len(line) <= 70 for line in lines)

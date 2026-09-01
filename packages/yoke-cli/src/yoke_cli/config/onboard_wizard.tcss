@@ -108,13 +108,17 @@ SelectionList {
 }
 
 _OptionRow {
-    /* Long labels keep their complete hint on a continuation row instead of
-       letting the terminal clip the hint's final words. */
-    height: auto;
+    height: 1;
     width: 1fr;
     color: $onboard-dim;
     border-left: blank;
     padding: 0 0 0 1;
+}
+
+/* Explicit continuation rows reserve one line for the complete hint; every
+   ordinary row retains its byte-stable one-line geometry. */
+_OptionRow.-hint-continuation {
+    height: 2;
 }
 
 _OptionRow.-selected {
