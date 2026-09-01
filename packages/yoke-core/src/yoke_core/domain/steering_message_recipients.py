@@ -232,6 +232,20 @@ def acknowledge_steering_recipient(
     return bool(cursor.rowcount)
 
 
+def holding_seat_session_id(conn: Any, message_id: str) -> str | None:
+    """The seat a role-addressed message is currently sitting with, if any."""
+    marker = _marker(conn)
+    row = conn.execute(
+        f"SELECT seat_session_id FROM {TABLE} "
+        f"WHERE recipient_kind = {marker} AND message_id = {marker}",
+        (STEERING_KIND, str(message_id)),
+    ).fetchone()
+    if row is None:
+        return None
+    seat = dict(row).get("seat_session_id")
+    return str(seat) if seat else None
+
+
 def role_addressed_message_ids(conn: Any, message_ids: Sequence[str]) -> set[str]:
     """Which of these messages are addressed to the steering role."""
     if not message_ids:
@@ -256,6 +270,7 @@ __all__ = [
     "awaiting_seat_count",
     "drainable_rows",
     "hand_to_seat",
+    "holding_seat_session_id",
     "record_steering_recipient",
     "role_addressed_message_ids",
     "row_coverage_target",
