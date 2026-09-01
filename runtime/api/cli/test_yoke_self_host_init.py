@@ -17,6 +17,7 @@ from yoke_cli.commands import self_host as commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.self_host import atomic_file
 from yoke_cli.self_host import bundle
+from yoke_cli.self_host import first_boot_token
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
 from yoke_contracts.server_image import (
@@ -36,6 +37,62 @@ def _mode(path: Path) -> int:
 
 def _password(target: Path) -> str:
     return (target / "secrets" / "db-password").read_text(encoding="utf-8").strip()
+
+
+def test_init_creates_the_owner_only_first_boot_token_file(target, capsys):
+    """Compose bind-mounts this path, so the bundle has to create it first.
+
+    A path Compose materializes itself becomes a root-owned directory, and
+    the operator can neither read the credential nor delete the mount.
+    """
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+
+    token_file = first_boot_token.token_drop_path(target)
+    assert token_file.is_file()
+    assert token_file.read_bytes() == b""
+    assert _mode(token_file) == 0o600
+
+    compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
+    assert (
+        "- ./secrets/first-boot-admin-token:/run/yoke-first-boot-admin-token"
+        in compose
+    )
+    assert "YOKE_FIRST_BOOT_TOKEN_FILE: /run/yoke-first-boot-admin-token" in compose
+    assert "YOKE_API_PUBLISH: ${YOKE_API_PUBLISH:-127.0.0.1:8765}" in compose
+
+    out = capsys.readouterr().out
+    assert str(token_file) in out
+    assert f"yoke connect http://127.0.0.1:8765 --token-stdin < {token_file}" in out
+    assert "docker compose logs core" not in out
+
+
+def test_init_never_truncates_an_already_delivered_token(target):
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+    token_file = first_boot_token.token_drop_path(target)
+    token_file.write_text("yoke_v1_" + ("A" * 43) + "\n", encoding="utf-8")
+
+    assert commands.self_host_init(["--dir", str(target), "--force"]) == 0
+
+    assert first_boot_token.read_first_boot_token(target) == "yoke_v1_" + ("A" * 43)
+
+
+def test_protect_existing_adds_a_missing_token_file(target):
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+    first_boot_token.token_drop_path(target).unlink()
+
+    assert commands.self_host_init(["--dir", str(target), "--protect-existing"]) == 0
+
+    assert _mode(first_boot_token.token_drop_path(target)) == 0o600
+
+
+def test_validating_a_bundle_without_a_token_file_names_the_repair(target):
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+    first_boot_token.token_drop_path(target).unlink()
+
+    with pytest.raises(bundle.SelfHostBundleError) as raised:
+        bundle.validate_existing_bundle(directory=str(target))
+
+    assert "--protect-existing" in str(raised.value)
 
 
 def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):

@@ -143,6 +143,7 @@ class TestRemoveConnection:
 
     def test_refuses_active_or_non_owned_authority(self, home, tmp_path):
         _seed_https(home, tmp_path, env="prod")
+        _seed_https(home, tmp_path, env="spare")
         with pytest.raises(MachineConfigWriteError, match="active authority"):
             writer.remove_connection("prod")
 
@@ -156,6 +157,35 @@ class TestRemoveConnection:
         (home / "config.json").chmod(0o600)
         with pytest.raises(MachineConfigWriteError, match="outside Yoke-owned"):
             writer.remove_connection("prod")
+
+    def test_named_replacement_takes_over_the_active_authority(
+        self, home, tmp_path,
+    ):
+        _seed_https(home, tmp_path, env="prod")
+        _seed_https(home, tmp_path, env="spare")
+
+        report = writer.remove_connection("prod", activate="spare")
+
+        assert report["active_env"] == "spare"
+        assert _config(home)["active_env"] == "spare"
+
+    def test_retiring_the_last_connection_leaves_the_machine_unconfigured(
+        self, home, tmp_path,
+    ):
+        """Removing the only server is the end state of a teardown.
+
+        Refusing it left the dead server's entry in the config with no
+        command able to delete it, which is how operators ended up editing
+        ~/.yoke/config.json by hand.
+        """
+        _seed_https(home, tmp_path, env="prod")
+
+        report = writer.remove_connection("prod")
+
+        assert report["removed_env"] == "prod"
+        payload = _config(home)
+        assert payload["connections"] == {}
+        assert payload.get("active_env", "") == ""
 
     def test_keeps_credential_referenced_by_canonical_connection(
         self, home, tmp_path,

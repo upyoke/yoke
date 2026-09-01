@@ -2,14 +2,14 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-01T20:55:50Z_
+_Audit generated_at: 2026-09-01T22:31:29Z_
 
 ## 1. Summary
 
 - Function ids registered: **445**
 - Internal dispatch-only functions without CLI adapters: **88**
 - `yoke` CLI subcommands: **371** (371 carry usable `--help`)
-- Operation tracker: **347 wrapped**, 14 tool_cli, 128 permanent, 0 pending
+- Operation tracker: **347 wrapped**, 14 tool_cli, 129 permanent, 0 pending
 - Skill-body recipes: 330 total (277 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
@@ -489,6 +489,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | self_host | `yoke self-host init` | tool_shaped | — |
 | self_host.connect | `yoke connect` | tool_shaped | — |
 | self_host.import | `yoke self-host import` | tool_shaped | — |
+| self_host.teardown | `yoke self-host teardown` | tool_shaped | — |
 | self_host.upgrade | `yoke self-host upgrade` | tool_shaped | — |
 | session_control.acceptance | `yoke session-control acceptance run` | tool_shaped | — |
 | session_control.relay | `yoke relay diagnostic` | tool_shaped | — |

@@ -16,11 +16,8 @@ from yoke_cli.config.onboard_docker_prerequisites import (
     DockerPrerequisites,
     check_docker_prerequisites as _check_docker_prerequisites,
 )
-from yoke_cli.self_host import bundle
-from yoke_contracts.self_host_bootstrap_output import (
-    extract_first_boot_admin_token,
-    redact_api_tokens,
-)
+from yoke_cli.self_host import bundle, first_boot_token
+from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 
 
 _LOOPBACK_HOST = "127.0.0.1"
@@ -106,9 +103,7 @@ def provision(
             detail,
         )
     setup.raw_token = _wait_for_first_boot_token(
-        setup,
-        prerequisites.executable,
-        timeout_s=token_wait_seconds,
+        setup, timeout_s=token_wait_seconds,
     )
     return retry_connection(setup)
 
@@ -144,7 +139,11 @@ def retry_connection(setup: SelfHostSetup) -> SelfHostSetup:
 
 
 def recovery_commands(setup: SelfHostSetup) -> list[str]:
-    return recovery_commands_for_directory(setup.directory)
+    token_file = first_boot_token.token_drop_path(setup.directory)
+    return [
+        *recovery_commands_for_directory(setup.directory),
+        f"yoke connect {setup.url} --token-stdin < {shlex.quote(str(token_file))}",
+    ]
 
 
 def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:
@@ -180,29 +179,21 @@ def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:
     setup.bundle_created = True
 
 
-def _wait_for_first_boot_token(
-    setup: SelfHostSetup,
-    executable: str,
-    *,
-    timeout_s: float,
-) -> str:
+def _wait_for_first_boot_token(setup: SelfHostSetup, *, timeout_s: float) -> str:
+    """Watch the bundle's owner-only token file the server writes at birth.
+
+    Reading the file rather than the service log is what keeps the wizard
+    honest about where the credential lives: the log never carries it.
+    """
     deadline = _MONOTONIC() + max(0.0, timeout_s)
     while True:
-        logs = _compose(
-            executable,
-            setup.directory,
-            ("logs", "--no-color", "--tail", str(COMPOSE_LOG_TAIL), "core"),
-            timeout=15.0,
-        )
-        token = extract_first_boot_admin_token(
-            f"{_text(logs.stdout)}\n{_text(logs.stderr)}"
-        )
+        token = first_boot_token.read_first_boot_token(setup.directory)
         if token:
             return token
         if _MONOTONIC() >= deadline:
             raise SelfHostSetupError(
                 "token-timeout",
-                "The server did not print its first-boot admin token in time.",
+                "The server did not write its first-boot admin token in time.",
                 (
                     "The bundle was preserved; choose Try again or Back.",
                     *recovery_commands(setup),

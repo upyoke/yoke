@@ -4,7 +4,8 @@ Boot behavior branches on universe born-ness against the server's resolved
 DSN. A born database boots idempotently (core schema ensure + permission
 catalog reseed). An empty database is birthed in full before the first
 request is served — control-plane bootstrap, org identity card, admin actor
-with the org ``admin`` role, and a one-time admin token printed to stdout —
+with the org ``admin`` role, and a one-time admin token delivered to the
+bundle's owner-only token file (stdout only when no bundle provided one) —
 and any birth failure aborts the boot: the server never serves a half-born
 universe. Because the born-ness sentinel (the org identity card) commits
 early in the birth while the admin token mints at the very end, a boot that
@@ -22,7 +23,9 @@ from typing import Mapping, Optional, Sequence
 
 from yoke_contracts.self_host_bootstrap_output import (
     FIRST_BOOT_TOKEN_MARKER as FIRST_BOOT_TOKEN_MARKER,
-    first_boot_admin_token_block,
+)
+from yoke_core.api.first_boot_admin_token_delivery import (
+    deliver_first_boot_admin_token,
 )
 
 
@@ -222,13 +225,12 @@ def birth_universe() -> None:
 
     Runs the full environment bootstrap against the server's resolved DSN,
     ensures the org identity card (named by :data:`ORG_NAME_ENV` when set),
-    grants the admin human actor the org ``admin`` role, and prints the
-    one-time admin token to stdout. Any failure propagates — the server
-    must never serve a half-born universe. A completed birth never
-    re-enters this path; an interrupted one (born-ness committed, token
-    never minted) re-enters it on every boot until it completes, so the
-    token is still minted and printed exactly once in the universe's
-    lifetime.
+    grants the admin human actor the org ``admin`` role, and delivers the
+    one-time admin token. Any failure propagates — the server must never
+    serve a half-born universe. A completed birth never re-enters this
+    path; an interrupted one (born-ness committed, token never minted)
+    re-enters it on every boot until it completes, so the token is still
+    minted and delivered exactly once in the universe's lifetime.
     """
     from yoke_contracts.schema_authority import serving_build_authority
     from yoke_core.domain import db_helpers, org_schema
@@ -261,17 +263,10 @@ def birth_universe() -> None:
         org = org_schema.ensure_org_identity_card(conn, org_name)
         created = bootstrap_admin_token(conn)
     _log.info("universe born: org %r", org["name"])
-    _print_admin_token_once(created.raw_token)
-
-
-def _print_admin_token_once(raw_token: str) -> None:
-    """Print the one-time admin-token block to stdout.
-
-    Sanctioned secret print: this is the only copy of the raw token in
-    existence (the DB stores a hash), and the credential probe guarantees
-    no boot after a completed birth re-enters the printing path.
-    """
-    print(first_boot_admin_token_block(raw_token), flush=True)
+    # Sanctioned one-time credential handoff: this is the only copy of the
+    # raw token in existence (the DB stores a hash), and the credential
+    # probe guarantees no boot after a completed birth re-enters it.
+    deliver_first_boot_admin_token(created.raw_token)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

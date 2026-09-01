@@ -114,9 +114,15 @@ def test_status_local_postgres_does_not_probe_http_identity(
     assert report["identity_verified"] is None
 
 
-def test_status_https_degrades_when_server_unreachable(
+def test_status_fails_when_its_only_server_is_unreachable(
     tmp_path: Path, capsys, monkeypatch,
 ) -> None:
+    """Status is the wired-up check, so it has to be able to say no.
+
+    A machine whose only control plane does not answer cannot run a single
+    relayed command. Reporting ok:true and exiting 0 there told operators
+    the setup was finished while nothing worked.
+    """
     repo = tmp_path / "repo"
     repo.mkdir()
     config = status_config(tmp_path, repo)
@@ -126,12 +132,17 @@ def test_status_https_degrades_when_server_unreachable(
         "status", "--config", str(config), "--repo-root", str(repo), "--json",
     ])
 
-    assert rc == 0
+    assert rc == 1
     report = json.loads(capsys.readouterr().out)
-    assert report["ok"] is True
+    assert report["ok"] is False
     assert report["server"]["reachable"] is False
     assert report["server"]["engine_version"] == ""
-    assert "server_unreachable" in {issue["code"] for issue in report["issues"]}
+    unreachable = [
+        issue for issue in report["issues"]
+        if issue["code"] == "server_unreachable"
+    ]
+    assert [issue["severity"] for issue in unreachable] == ["error"]
+    assert "docker compose up -d" in unreachable[0]["hint"]
 
 
 def test_render_human_shows_authenticated_server_authority() -> None:

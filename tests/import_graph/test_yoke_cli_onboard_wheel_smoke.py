@@ -182,11 +182,15 @@ def _run_onboard_flow(
     assert "product-token" not in config.read_text("utf-8")
     assert config.stat().st_mode & 0o077 == 0
 
+    # The stub answers only the registry, so /v1/health 404s: no control plane.
     status = _run([
         str(yoke), "status", "--config", str(config), "--env", "prod", "--json",
-    ], cwd=checkout, env=env)
+    ], cwd=checkout, env=env, check=False)
+    assert status.returncode == 1, _format_result(status)
     status_payload = json.loads(status.stdout)
-    assert status_payload["ok"] is True
+    errors = [i for i in status_payload["issues"] if i["severity"] == "error"]
+    assert status_payload["ok"] is False
+    assert [issue["code"] for issue in errors] == ["server_unreachable"]
     assert status_payload["connection"]["env"] == "prod"
     assert status_payload["connection"]["transport"] == "https"
     assert status_payload["connection"]["credential_source"]["present"] is True

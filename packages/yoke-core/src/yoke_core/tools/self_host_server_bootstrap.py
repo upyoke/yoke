@@ -11,6 +11,10 @@ from yoke_contracts.self_host_bootstrap import (
     IMPORT_UNIVERSE_ARG,
     RECOVER_IMPORT_CREDENTIAL_ARG,
 )
+from yoke_contracts.self_host_bootstrap_output import (
+    FIRST_BOOT_TOKEN_FD_ENV,
+    FIRST_BOOT_TOKEN_FILE_ENV,
+)
 from yoke_core.tools.self_host_secret_materialization import (
     SELF_HOST_RUNTIME_SECRETS_DIR,
     SELF_HOST_SOURCE_SECRETS_DIR,
@@ -41,6 +45,31 @@ def drop_to_self_host_runtime_identity(*, uid: int, gid: int) -> None:
         raise SelfHostServerBootstrapError(
             "self-host server bootstrap did not drop all root authority"
         )
+
+
+def open_first_boot_token_drop(env: dict[str, str]) -> dict[str, str]:
+    """Open the bundle's owner-only token file while still root.
+
+    The file belongs to the host operator, so the unprivileged runtime user
+    the server runs as cannot open it by name — and weakening the file so it
+    could is the opposite of the point. A descriptor opened here survives
+    both the identity drop and the exec, so the server writes the one-time
+    credential into a file it could never have opened itself, and the token
+    never reaches the container log.
+    """
+    path = str(env.get(FIRST_BOOT_TOKEN_FILE_ENV, "") or "").strip()
+    if not path:
+        return env
+    try:
+        descriptor = os.open(path, os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise SelfHostServerBootstrapError(
+            f"self-host first-boot token file cannot be opened: {path} ({exc}). "
+            "Create it with `yoke self-host init --dir <bundle> "
+            "--protect-existing`, then `docker compose up -d`"
+        ) from exc
+    os.set_inheritable(descriptor, True)
+    return {**env, FIRST_BOOT_TOKEN_FD_ENV: str(descriptor)}
 
 
 def assert_runtime_secrets_readable(paths: tuple[Path, ...]) -> None:
@@ -141,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
             runtime_gid=account.pw_gid,
             require_read_only_sources=True,
         )
+        env = open_first_boot_token_drop(env)
         drop_to_self_host_runtime_identity(uid=account.pw_uid, gid=account.pw_gid)
         assert_runtime_secrets_readable(targets)
         assert_no_effective_linux_capabilities()
@@ -181,5 +211,6 @@ __all__ = [
     "assert_runtime_secrets_readable",
     "drop_to_self_host_runtime_identity",
     "main",
+    "open_first_boot_token_drop",
     "materialize_self_host_runtime_secrets",
 ]

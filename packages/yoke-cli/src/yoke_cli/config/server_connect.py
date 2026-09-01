@@ -76,8 +76,8 @@ def connect_server(
     except ServerIdentityError as exc:
         raise ServerConnectError(
             f"{exc}; nothing was persisted — paste the server's initial admin "
-            "token (first boot prints it: docker compose logs core), or mint a "
-            "new one"
+            "token (first boot writes it to the bundle's "
+            "secrets/first-boot-admin-token), or mint a new one"
         ) from exc
 
     try:

@@ -33,6 +33,15 @@ _MALFORMED_HINT = (
     "The relay answered with something that is not a Yoke envelope, so the "
     "call cannot be reported either way."
 )
+# A refused loopback connection is answered, not unlucky: retrying it just
+# asks the same kernel the same question. Sending the operator to "retry"
+# here is what turns a five-second fix into a five-minute one.
+_CONCLUSIVE_HINT = (
+    "Nothing is listening on that address, so retrying will not help. "
+    "Start the server (`cd <bundle> && docker compose up -d`), or select a "
+    "different authority with `yoke env use NAME`; `yoke status` reports "
+    "which connection this machine is pointed at."
+)
 
 
 def transport_error_response(
@@ -41,6 +50,7 @@ def transport_error_response(
     detail: str,
     *,
     attempts: Optional[int] = None,
+    conclusive: bool = False,
     sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
     """Build the typed refusal, naming attempts when more than one was made."""
@@ -48,7 +58,10 @@ def transport_error_response(
     message = detail
     if attempts is not None and attempts > 1:
         message = f"{detail} after {attempts} attempts"
-    hint = _UNREACHABLE_HINT if attempts is not None else _MALFORMED_HINT
+    if conclusive:
+        hint = _CONCLUSIVE_HINT
+    else:
+        hint = _UNREACHABLE_HINT if attempts is not None else _MALFORMED_HINT
     return FunctionCallResponse(
         success=False,
         function=request.function,

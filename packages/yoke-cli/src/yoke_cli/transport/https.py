@@ -25,7 +25,9 @@ from yoke_cli.transport.https_retry_policy import (
     CONNECTION_ATTEMPTS,
     RESPONSE_DEADLINE_ATTEMPTS,
     connection_backoff_seconds,
+    connection_refusal_is_conclusive,
     http_status_is_transient,
+    should_retry_connection,
     write_retry_notice,
 )
 from yoke_cli.transport.https_engine_handshake import (
@@ -211,7 +213,7 @@ def _relay_attempts(
             # bounded read on a reply we are about to ask for again.
             if (
                 http_status_is_transient(getattr(exc, "code", None))
-                and _more_connection_attempts(attempt)
+                and should_retry_connection(attempt)
             ):
                 backoff = connection_backoff_seconds(attempt)
                 write_retry_notice(f"server returned {exc.code}", attempt, backoff)
@@ -238,14 +240,14 @@ def _relay_attempts(
                 request, connection, _RETRYABLE_RESPONSE_ERROR,
                 sensitive_values=sensitive_values,
             ), attempt + 1
-        except _NETWORK_ERRORS:
-            if _more_connection_attempts(attempt):
+        except _NETWORK_ERRORS as exc:
+            if should_retry_connection(attempt, connection.api_url, exc):
                 backoff = connection_backoff_seconds(attempt)
                 write_retry_notice("relay unreachable", attempt, backoff)
                 sleep(backoff)
                 continue
             return _refuse(
-                request, connection, _UNREACHABLE,
+                request, connection, _UNREACHABLE, error=exc,
                 attempts=attempt + 1, sensitive_values=sensitive_values,
             ), attempt + 1
         break
@@ -258,10 +260,6 @@ def _relay_attempts(
             request, connection, str(exc),
             sensitive_values=sensitive_values,
         ), attempt + 1
-
-
-def _more_connection_attempts(attempt: int) -> bool:
-    return attempt + 1 < CONNECTION_ATTEMPTS
 
 
 def _open_function_relay(
@@ -328,6 +326,7 @@ def _refuse(
     detail: str,
     *,
     attempts: Optional[int] = None,
+    error: BaseException | None = None,
     sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
     return transport_error_response(
@@ -335,6 +334,7 @@ def _refuse(
         connection.api_url,
         detail,
         attempts=attempts,
+        conclusive=connection_refusal_is_conclusive(connection.api_url, error),
         sensitive_values=sensitive_values,
     )
 
