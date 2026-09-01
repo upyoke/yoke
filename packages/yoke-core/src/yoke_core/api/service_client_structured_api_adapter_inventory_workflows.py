@@ -61,6 +61,16 @@ WORKFLOW_ADAPTERS = [
         ),
         notes="Previews or migrates an existing item to another published version.",
     ),
+    AdapterEntry(
+        function_id="workflows.item_posture.amend",
+        cli_invocation=(
+            "yoke workflows item-posture amend ITEM --reason TEXT "
+            "(--verification-plan ID_OR_SLUG | --verification-method ID | "
+            "--key KEY (--value JSON | --clear)) "
+            "[--project P] [--session-id S] [--json]"
+        ),
+        notes="Sets, replaces, or clears one posture key on a filed item.",
+    ),
     read_entry(
         function_id="workflows.mechanics.get",
         cli_invocation="yoke workflows mechanics get [--json]",

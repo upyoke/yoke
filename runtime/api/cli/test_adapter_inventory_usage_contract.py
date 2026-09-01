@@ -36,6 +36,9 @@ from yoke_cli.commands.adapters.workflows_read import (
     WORKFLOWS_ITEM_GET_USAGE,
     WORKFLOWS_ITEM_MIGRATE_USAGE,
 )
+from yoke_cli.commands.adapters.workflows_item_posture import (
+    WORKFLOWS_ITEM_POSTURE_AMEND_USAGE,
+)
 from yoke_cli.commands.adapters.workflows_versions import (
     WORKFLOWS_CURRENT_SET_USAGE,
     WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
@@ -62,6 +65,7 @@ def test_workflow_inventory_matches_public_cli_usage() -> None:
         "workflows.current.set": WORKFLOWS_CURRENT_SET_USAGE,
         "workflows.policy_defaults.publish": (WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE),
         "workflows.item.migrate": WORKFLOWS_ITEM_MIGRATE_USAGE,
+        "workflows.item_posture.amend": WORKFLOWS_ITEM_POSTURE_AMEND_USAGE,
         **mechanics_usage,
         **execution_instruction_usage,
     }
