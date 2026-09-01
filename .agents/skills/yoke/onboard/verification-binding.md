@@ -100,13 +100,13 @@ yoke qa no-tests attest --project {project} --reason "{why this project has no s
 ```
 
 The reason is required — it is what makes the row an attestation, and it is
-what the reviewer reads at the gate to learn why no command ran. One call
-records the posture and retires any `registered-command-*` plan the project
-already had, so the two declarations can never both stand. From then on the
-`reviewing-implementation` transition seeds a blocking `implementation_review`
-requirement where `registered-command-quick` would have attached, and
-registering any command — the `command-ci` runner included — is refused by
-name until the posture is cleared with `yoke qa no-tests clear --project
+included in the gate evidence explaining why no command ran. One call records
+the posture and retires any `registered-command-*` plan, so the declarations
+cannot both stand. Any workflow that consumes project testing defaults already
+seeds a blocking `no_tests_declared` requirement when no command is registered;
+the agent records it as `agent-attested / no-tests-declared`, never as an
+executed test. Registering a command — the `command-ci` runner included — is
+refused until the posture is cleared with `yoke qa no-tests clear --project
 {project} --reason "{what changed}"`.
 
 A `verification_profiles.test_command` entry in the policy rows below is
@@ -133,4 +133,3 @@ evidence such as `review-only suite: roots {test_roots}; argv {legacy_argv};
 suite health {known_condition}; runner advisory command because the suite is
 not expected green; no project-default command; blocking implementation_review
 plus advisory command requirements at seeding`.
-

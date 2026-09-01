@@ -10,7 +10,7 @@ const EXPECTED_GATE_PLACEMENT = {
     [],
     ["work_claim_activation", "conflict_survey", "architecture_impact"],
     ["db_claim_prose", "db_mutation:evidence", "architecture_impact"],
-    ["architecture_impact", "qa_verification", "dash_evidence"],
+    ["architecture_impact", "dash_evidence"],
   ],
   blitz: [
     [],

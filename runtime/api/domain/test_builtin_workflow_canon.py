@@ -31,20 +31,19 @@ PINNED_CANON_GENERATION_COUNTS = {
     "issue": 6,
     "epic": 6,
     "blitz": 8,
-    "dash": 8,
+    "dash": 9,
     "task": 1,
 }
 
 PINNED_CANON_FINGERPRINT = (
-    "1c592496e8d982608d6d08622a4bc0da91da9dd98f41e56e531022735ebb4d1b"
+    "d8cf1a6cc157b4c66119a422faf69aef206b4fb2956b293a490df729502bac8f"
 )
 
 
 def _canon_fingerprint() -> str:
     """One hash over every (workflow, version, digest) triple, in order."""
     material = "\n".join(
-        f"{g.workflow_id}.{g.canon_version:02d}={g.digest}"
-        for g in canon_generations()
+        f"{g.workflow_id}.{g.canon_version:02d}={g.digest}" for g in canon_generations()
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
@@ -106,9 +105,7 @@ def test_current_definition_is_the_newest_canon_generation() -> None:
     """
     for fixture in builtin_workflow_definitions():
         workflow_id = str(fixture["workflow"]["id"])
-        generation = recognize(
-            workflow_id, definition_digest(fixture["definition"])
-        )
+        generation = recognize(workflow_id, definition_digest(fixture["definition"]))
         assert generation is not None, (
             f"{workflow_id}'s current definition is not in canon; "
             "append it as the next generation"

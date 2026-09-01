@@ -198,13 +198,22 @@ class TestCheckPlanSimulationSatisfied:
         result = check_plan_simulation_satisfied(TEST_ITEM_ID, qa_db)
         assert result.passed
 
+    def test_bypass_refuses_outside_tests(
+        self, qa_db: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")
+        with mock.patch(
+            "yoke_core.domain.qa_gate_preconditions._running_under_test",
+            return_value=False,
+        ):
+            result = check_plan_simulation_satisfied(TEST_ITEM_ID, qa_db)
+        assert not result.passed
+        assert any("GATE_QA_BYPASS_FORBIDDEN" in e for e in result.errors)
+
     def test_missing_qa_tables_fails_closed(self, tmp_path: Path) -> None:
-        with init_test_db(
-            tmp_path, apply_schema=_apply_items_only_schema
-        ) as db_path:
-            with mock.patch.dict(
-                os.environ, {"YOKE_DB": db_path}, clear=False
-            ):
+        with init_test_db(tmp_path, apply_schema=_apply_items_only_schema) as db_path:
+            with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                 result = check_plan_simulation_satisfied(TEST_ITEM_ID, db_path)
         assert not result.passed
-        assert any("QA tables are unavailable" in e for e in result.errors)
+        assert any("GATE_QA_SCHEMA_MISSING" in e for e in result.errors)
+        assert any("qa_requirements" in e and "qa_runs" in e for e in result.errors)

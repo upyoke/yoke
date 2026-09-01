@@ -9,7 +9,9 @@ from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.qa_execution_environment_target import (
     resolve_plan_execution_target,
 )
-from yoke_core.domain.qa_plan_attachment_validation import validate_item_transition
+from yoke_core.domain.qa_plan_attachment_validation import (
+    validate_attached_item_transition,
+)
 from yoke_core.domain.qa_plan_attachments import _attached_plans
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
     rebind_unresolvable_targets,
@@ -41,15 +43,17 @@ def rematerialize_for_item(
 ) -> dict:
     """Refresh current plan snapshots and waive cases no longer in the plan."""
     lock_item_workflow_bindings(conn, (int(item_id),))
-    transition_id = validate_item_transition(
-        conn,
-        item_id=int(item_id),
-        transition_id=transition_id,
-    )
+    transition_id = str(transition_id or "").strip()
     attachments = _attached_plans(
         conn,
         item_id=int(item_id),
         transition_id=transition_id,
+    )
+    transition_id = validate_attached_item_transition(
+        conn,
+        item_id=int(item_id),
+        transition_id=transition_id,
+        plan_ids=attachments,
     )
     marker = _placeholder(conn)
     rows = query_rows(

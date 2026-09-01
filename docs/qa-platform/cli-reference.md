@@ -241,5 +241,5 @@ yoke qa gate-summary --item YOK-N --target implemented --json
 
 **Environment:**
 
-- `YOKE_QA_GATE_BYPASS` -- internal lifecycle bypass for force operations
+- `YOKE_QA_GATE_BYPASS` -- pytest-only gate bypass; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`
 - `YOKE_SKIP_SIMULATION` -- internal lifecycle bypass for the epic simulation gate only

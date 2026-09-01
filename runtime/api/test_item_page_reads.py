@@ -117,20 +117,7 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
         "The screenshot omits the mobile breakpoint."
     )
     assert item["qa_requirements"][0]["precondition_reason"] is None
-    assert item["qa_plan_attachments"] == [
-        {
-            "plan_id": 12,
-            "transition_id": "reviewing-implementation",
-            "qa_phase": "verification",
-            "attached_at": "2026-07-25T09:00:00Z",
-            "plan_slug": "browser-close",
-            "plan_name": "Browser closeout",
-            "source": "project default",
-            "case_count": 1,
-            "materialized_count": 1,
-            "materialized_at": "2026-07-26T10:30:00Z",
-        }
-    ]
+    assert item["qa_plan_attachments"] == []
     assert "Correct the footer" in item["narrative"]["spec"]
 
 

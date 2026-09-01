@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import os
-
 from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.qa_gate_definitions import GateResult
-from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
+from yoke_core.domain.qa_gate_preconditions import (
+    QA_CORE_TABLES,
+    qa_gate_precondition_result,
+)
 
 
-def check_plan_simulation_satisfied(
-    item_id: int, db_path: str
-) -> GateResult:
+def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
     """Refuse ``-> planned`` when blocking verification evidence is unsatisfied.
 
     This is defense in depth for a workflow that records resolution
@@ -21,17 +20,12 @@ def check_plan_simulation_satisfied(
     blocking verification requirement has a separate passing run or an
     explicit waiver.
     """
-    if os.environ.get("YOKE_QA_GATE_BYPASS") == "1":
-        return GateResult(passed=True)
-
-    if not _qa_tables_exist(db_path):
-        return GateResult(
-            passed=False,
-            errors=[
-                "Cannot advance to 'planned' -- QA tables are unavailable, "
-                "so blocking plan-phase verification evidence cannot be checked.",
-            ],
-        )
+    precondition = qa_gate_precondition_result(
+        db_path,
+        required_tables=QA_CORE_TABLES,
+    )
+    if precondition is not None:
+        return precondition
 
     conn = connect(db_path)
     try:

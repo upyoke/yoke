@@ -113,11 +113,10 @@ def prepare_status_transition(
                 transition_id=target_status,
                 commit=False,
             )
-        # A project that attested it has no suite has no plan to materialize,
-        # and an empty requirement set makes the QA gate pass vacuously. Seed
-        # the review that stands in for the command it never registered, in
-        # this same transaction so the requirement and the transition commit
-        # together.
+        # A project with no registered command has no plan to materialize.
+        # Seed the explicit no-tests floor in this transaction so its evidence
+        # requirement and the transition commit together; workflows whose QA
+        # policy makes project defaults inapplicable opt out here as well.
         from yoke_core.domain.qa_no_tests_review_seed import (
             ensure_no_tests_review_requirement,
         )

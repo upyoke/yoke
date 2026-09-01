@@ -1,9 +1,4 @@
-"""QA-verification gate fallback on minimal legacy QA schemas.
-
-``_evaluate_qa_verification`` swallows backend operational errors whose
-message names a missing column/table (minimal legacy QA fixtures) and
-re-raises every other operational error.
-"""
+"""QA-verification composer surfaces backend schema failures."""
 
 from __future__ import annotations
 
@@ -21,15 +16,17 @@ def _operational_error(message: str) -> Exception:
     return db_backend.operational_error_types()[0](message)
 
 
-def test_missing_qa_schema_skips_gate() -> None:
+def test_missing_qa_schema_error_propagates() -> None:
     with mock.patch(
         "yoke_core.domain.qa_gates.check_verification_gate",
         side_effect=_operational_error("no such table: qa_runs"),
     ):
-        result = _evaluate_qa_verification(
-            item_id=42, target_status="release", db_path="/tmp/fake.db",
-        )
-    assert result is None
+        with pytest.raises(db_backend.operational_error_types(), match="qa_runs"):
+            _evaluate_qa_verification(
+                item_id=42,
+                target_status="release",
+                db_path="/tmp/fake.db",
+            )
 
 
 def test_other_operational_errors_propagate() -> None:
@@ -39,5 +36,7 @@ def test_other_operational_errors_propagate() -> None:
     ):
         with pytest.raises(db_backend.operational_error_types()):
             _evaluate_qa_verification(
-                item_id=42, target_status="release", db_path="/tmp/fake.db",
+                item_id=42,
+                target_status="release",
+                db_path="/tmp/fake.db",
             )

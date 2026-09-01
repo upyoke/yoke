@@ -11,8 +11,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-
-ITEM_POSTURE_VERIFICATION_TRANSITION = "reviewing-implementation"
+from yoke_core.domain.qa_workflow_binding_validation import (
+    ITEM_POSTURE_VERIFICATION_TRANSITION,
+)
 
 
 def bind_item_posture_on_create(
@@ -72,6 +73,5 @@ def bind_item_posture_on_create(
 
 
 __all__ = [
-    "ITEM_POSTURE_VERIFICATION_TRANSITION",
     "bind_item_posture_on_create",
 ]

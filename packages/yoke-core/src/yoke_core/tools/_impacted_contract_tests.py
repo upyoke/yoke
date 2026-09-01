@@ -54,6 +54,41 @@ ITEM_WORKTREE_SCHEMA_TESTS = (
     "runtime/api/test_item_page_reads.py",
 )
 
+ITEM_DETAIL_QA_READ_SOURCE_PATHS = frozenset(
+    {"packages/yoke-core/src/yoke_core/domain/item_detail_qa.py"}
+)
+ITEM_DETAIL_QA_READ_TESTS = ("runtime/api/test_item_page_reads.py",)
+
+ITEM_POSTURE_QA_BINDING_SOURCE_PATHS = frozenset(
+    {
+        "packages/yoke-core/src/yoke_core/domain/"
+        "builtin_direct_workflow_definitions.py",
+        "packages/yoke-core/src/yoke_core/domain/item_posture_bindings.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_plan_attachment_validation.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_plan_attachments.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_workflow_binding_validation.py",
+    }
+)
+
+ITEM_POSTURE_QA_BINDING_TESTS = (
+    "runtime/api/domain/test_dash_posture_gate.py",
+    "runtime/api/test_optional_item_qa_bindings.py",
+    "runtime/api/test_qa_requirement_transition_binding.py",
+)
+QA_TRANSITION_CONSUMER_SOURCE_PATHS = frozenset(
+    {
+        "packages/yoke-core/src/yoke_core/domain/backlog_authoritative_status_gate.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_gate_preconditions.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_gates.py",
+    }
+)
+
+QA_TRANSITION_CONSUMER_TESTS = (
+    "runtime/api/domain/handlers/test_done_transition_status_writes.py",
+    "runtime/api/engines/test_done_transition_qa_gate.py",
+    "runtime/api/test_advance_skip_qa_gate.py",
+)
+
 WORKFLOW_DEFINITION_VALIDATION_TESTS = (
     "runtime/api/domain/handlers/test_workflows_versioning_handler.py",
     "runtime/api/domain/test_builtin_workflow_canon.py",
@@ -167,6 +202,21 @@ PATH_CONTRACT_TESTS = (
         ITEM_WORKTREE_SCHEMA_TESTS,
     ),
     (
+        "item_detail_qa_read_contract",
+        ITEM_DETAIL_QA_READ_SOURCE_PATHS,
+        ITEM_DETAIL_QA_READ_TESTS,
+    ),
+    (
+        "item_posture_qa_binding_contract",
+        ITEM_POSTURE_QA_BINDING_SOURCE_PATHS,
+        ITEM_POSTURE_QA_BINDING_TESTS,
+    ),
+    (
+        "qa_transition_consumer_contract",
+        QA_TRANSITION_CONSUMER_SOURCE_PATHS,
+        QA_TRANSITION_CONSUMER_TESTS,
+    ),
+    (
         "workflow_definition_validation_contract",
         WORKFLOW_DEFINITION_VALIDATION_SOURCE_PATHS,
         WORKFLOW_DEFINITION_VALIDATION_TESTS,
@@ -277,6 +327,10 @@ __all__ = [
     "HOOK_GUARD_POLICY_SOURCE_PATHS",
     "HOOK_GUARD_POLICY_TESTS",
     "HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS",
+    "ITEM_DETAIL_QA_READ_SOURCE_PATHS",
+    "ITEM_DETAIL_QA_READ_TESTS",
+    "ITEM_POSTURE_QA_BINDING_SOURCE_PATHS",
+    "ITEM_POSTURE_QA_BINDING_TESTS",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "MACHINE_QA_PACK_CONTRACT_TESTS",
     "MACHINE_QA_PACK_SOURCE_PREFIXES",
@@ -285,6 +339,8 @@ __all__ = [
     "HANDLER_REGISTRATION_CONTRACT_TESTS",
     "PREFIX_CONTRACT_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",
+    "QA_TRANSITION_CONSUMER_SOURCE_PATHS",
+    "QA_TRANSITION_CONSUMER_TESTS",
     "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "STANDALONE_MERGE_CLOSE_OUT_TESTS",

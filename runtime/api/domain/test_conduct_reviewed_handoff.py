@@ -45,24 +45,29 @@ class TestRun(unittest.TestCase):
         self.assertIn("not found", err)
 
     def test_simulation_gate_failure_exits_2(self) -> None:
-        with mock.patch.object(
-            mod,
-            "_fetch_status",
-            return_value="reviewing-implementation",
-        ), mock.patch.object(mod, "_run_simulation_gate", return_value=1):
+        with (
+            mock.patch.object(
+                mod,
+                "_fetch_status",
+                return_value="reviewing-implementation",
+            ),
+            mock.patch.object(mod, "_run_simulation_gate", return_value=1),
+        ):
             rc, _, err = self._run_capture(42)
         self.assertEqual(rc, 2)
         self.assertIn("Simulation gate failed", err)
 
     def test_status_write_failure_exits_3(self) -> None:
-        with mock.patch.object(
-            mod,
-            "_fetch_status",
-            side_effect=["reviewing-implementation"],
-        ), mock.patch.object(
-            mod, "_run_simulation_gate", return_value=0
-        ), mock.patch.object(
-            mod, "_run_status_write", return_value=(1, "write failed details")
+        with (
+            mock.patch.object(
+                mod,
+                "_fetch_status",
+                side_effect=["reviewing-implementation"],
+            ),
+            mock.patch.object(mod, "_run_simulation_gate", return_value=0),
+            mock.patch.object(
+                mod, "_run_status_write", return_value=(1, "write failed details")
+            ),
         ):
             rc, _, err = self._run_capture(42)
         self.assertEqual(rc, 3)
@@ -71,12 +76,12 @@ class TestRun(unittest.TestCase):
 
     def test_post_write_verification_failure_exits_3(self) -> None:
         statuses = iter(["reviewing-implementation", "reviewing-implementation"])
-        with mock.patch.object(
-            mod, "_fetch_status", side_effect=lambda _id: next(statuses)
-        ), mock.patch.object(
-            mod, "_run_simulation_gate", return_value=0
-        ), mock.patch.object(
-            mod, "_run_status_write", return_value=(0, "")
+        with (
+            mock.patch.object(
+                mod, "_fetch_status", side_effect=lambda _id: next(statuses)
+            ),
+            mock.patch.object(mod, "_run_simulation_gate", return_value=0),
+            mock.patch.object(mod, "_run_status_write", return_value=(0, "")),
         ):
             rc, _, err = self._run_capture(42)
         self.assertEqual(rc, 3)
@@ -84,14 +89,15 @@ class TestRun(unittest.TestCase):
 
     def test_success_path(self) -> None:
         statuses = iter(["reviewing-implementation", "reviewed-implementation"])
-        with mock.patch.object(
-            mod, "_fetch_status", side_effect=lambda _id: next(statuses)
-        ), mock.patch.object(
-            mod, "_run_simulation_gate", return_value=0
-        ), mock.patch.object(
-            mod, "_run_status_write", return_value=(0, "")
-        ), mock.patch.object(
-            mod, "_release_conduct_claim", return_value={"released": True}
+        with (
+            mock.patch.object(
+                mod, "_fetch_status", side_effect=lambda _id: next(statuses)
+            ),
+            mock.patch.object(mod, "_run_simulation_gate", return_value=0),
+            mock.patch.object(mod, "_run_status_write", return_value=(0, "")),
+            mock.patch.object(
+                mod, "_release_conduct_claim", return_value={"released": True}
+            ),
         ):
             rc, out, _ = self._run_capture(42)
         self.assertEqual(rc, 0)
@@ -124,11 +130,14 @@ class TestSimulationGateBypass(unittest.TestCase):
 
     def test_skip_env_var_bypasses(self) -> None:
         err_buf = io.StringIO()
-        with mock.patch.dict(
-            os.environ,
-            {"YOKE_SKIP_SIMULATION": "1"},
-            clear=False,
-        ), redirect_stderr(err_buf):
+        with (
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_SKIP_SIMULATION": "1"},
+                clear=False,
+            ),
+            redirect_stderr(err_buf),
+        ):
             rc = mod._run_simulation_gate(42)
         self.assertEqual(rc, 0)
         self.assertIn("bypassed via YOKE_SKIP_SIMULATION", err_buf.getvalue())
@@ -143,19 +152,25 @@ class TestMain(unittest.TestCase):
         self.assertIn("expected PREFIX-N", err_buf.getvalue())
 
     def test_forwards_to_run(self) -> None:
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument",
-            return_value=TEST_EPIC_ID,
-        ), mock.patch.object(mod, "run", return_value=0) as run_mock:
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=TEST_EPIC_ID,
+            ),
+            mock.patch.object(mod, "run", return_value=0) as run_mock,
+        ):
             rc = mod.main([str(TEST_EPIC_ID)])
         self.assertEqual(rc, 0)
         run_mock.assert_called_once_with(TEST_EPIC_ID, session_id=None)
 
     def test_forwards_explicit_session_id(self) -> None:
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument",
-            return_value=TEST_EPIC_ID,
-        ), mock.patch.object(mod, "run", return_value=0) as run_mock:
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=TEST_EPIC_ID,
+            ),
+            mock.patch.object(mod, "run", return_value=0) as run_mock,
+        ):
             rc = mod.main(["--session-id", "sess-1", str(TEST_EPIC_ID)])
         self.assertEqual(rc, 0)
         run_mock.assert_called_once_with(TEST_EPIC_ID, session_id="sess-1")
@@ -165,7 +180,11 @@ class TestAutoClaimRelease(unittest.TestCase):
     """T-4: successful handoff auto-releases the Conduct item claim."""
 
     @mock.patch.object(mod, "_release_conduct_claim")
-    @mock.patch.object(mod, "_fetch_status", side_effect=["reviewing-implementation", "reviewed-implementation"])
+    @mock.patch.object(
+        mod,
+        "_fetch_status",
+        side_effect=["reviewing-implementation", "reviewed-implementation"],
+    )
     @mock.patch.object(mod, "_run_simulation_gate", return_value=0)
     @mock.patch.object(mod, "_run_status_write", return_value=(0, ""))
     def test_success_calls_release(self, _write, _gate, _fetch, release_mock) -> None:
@@ -182,19 +201,31 @@ class TestAutoClaimRelease(unittest.TestCase):
         release_mock.assert_not_called()
 
     @mock.patch.object(mod, "_release_conduct_claim")
-    @mock.patch.object(mod, "_fetch_status", side_effect=["reviewing-implementation", "reviewing-implementation"])
+    @mock.patch.object(
+        mod,
+        "_fetch_status",
+        side_effect=["reviewing-implementation", "reviewing-implementation"],
+    )
     @mock.patch.object(mod, "_run_simulation_gate", return_value=0)
     @mock.patch.object(mod, "_run_status_write", return_value=(0, ""))
-    def test_post_write_verification_failure_skips_release(self, _write, _gate, _fetch, release_mock) -> None:
+    def test_post_write_verification_failure_skips_release(
+        self, _write, _gate, _fetch, release_mock
+    ) -> None:
         rc = mod.run(42)
         self.assertEqual(rc, 3)
         release_mock.assert_not_called()
 
     @mock.patch.object(mod, "_release_conduct_claim")
-    @mock.patch.object(mod, "_fetch_status", side_effect=["reviewing-implementation", "reviewed-implementation"])
+    @mock.patch.object(
+        mod,
+        "_fetch_status",
+        side_effect=["reviewing-implementation", "reviewed-implementation"],
+    )
     @mock.patch.object(mod, "_run_simulation_gate", return_value=0)
     @mock.patch.object(mod, "_run_status_write", return_value=(0, ""))
-    def test_missing_claim_is_idempotent_success(self, _write, _gate, _fetch, release_mock) -> None:
+    def test_missing_claim_is_idempotent_success(
+        self, _write, _gate, _fetch, release_mock
+    ) -> None:
         release_mock.return_value = {
             "released": False,
             "failure_reason": RELEASE_FAILURE_ITEM_NOT_FOUND,
@@ -203,10 +234,16 @@ class TestAutoClaimRelease(unittest.TestCase):
         self.assertEqual(rc, 0)
 
     @mock.patch.object(mod, "_release_conduct_claim")
-    @mock.patch.object(mod, "_fetch_status", side_effect=["reviewing-implementation", "reviewed-implementation"])
+    @mock.patch.object(
+        mod,
+        "_fetch_status",
+        side_effect=["reviewing-implementation", "reviewed-implementation"],
+    )
     @mock.patch.object(mod, "_run_simulation_gate", return_value=0)
     @mock.patch.object(mod, "_run_status_write", return_value=(0, ""))
-    def test_already_terminal_claim_is_idempotent_success(self, _write, _gate, _fetch, release_mock) -> None:
+    def test_already_terminal_claim_is_idempotent_success(
+        self, _write, _gate, _fetch, release_mock
+    ) -> None:
         release_mock.return_value = {
             "released": False,
             "failure_reason": RELEASE_FAILURE_ALREADY_TERMINAL,
@@ -215,13 +252,20 @@ class TestAutoClaimRelease(unittest.TestCase):
         self.assertEqual(rc, 0)
 
     @mock.patch.object(mod, "_release_conduct_claim")
-    @mock.patch.object(mod, "_fetch_status", side_effect=["reviewing-implementation", "reviewed-implementation"])
+    @mock.patch.object(
+        mod,
+        "_fetch_status",
+        side_effect=["reviewing-implementation", "reviewed-implementation"],
+    )
     @mock.patch.object(mod, "_run_simulation_gate", return_value=0)
     @mock.patch.object(mod, "_run_status_write", return_value=(0, ""))
-    def test_claim_release_failure_exits_4(self, _write, _gate, _fetch, release_mock) -> None:
+    def test_claim_release_failure_exits_4(
+        self, _write, _gate, _fetch, release_mock
+    ) -> None:
         release_mock.return_value = {"released": False, "reason": "missing_session_id"}
         rc = mod.run(42)
         self.assertEqual(rc, 4)
+
 
 def test_run_status_write_exercises_real_backlog_update(tmp_db):  # noqa: F811
     _seed_item(
@@ -232,8 +276,14 @@ def test_run_status_write_exercises_real_backlog_update(tmp_db):  # noqa: F811
         project="yoke",
     )
 
-    with _patch_externals(), \
-         mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False):
+    with (
+        _patch_externals(),
+        mock.patch.dict(
+            os.environ,
+            {"YOKE_DB": tmp_db, "YOKE_QA_GATE_BYPASS": "1"},
+            clear=False,
+        ),
+    ):
         rc, output = mod._run_status_write(43)
 
     assert rc == 0

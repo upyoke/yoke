@@ -1,18 +1,13 @@
-"""QA gate summary - typed read-only diagnostic for advance/polish handoff.
+"""Typed read-only QA gate diagnostic for advance/polish handoff.
 
-Computes target-aware unsatisfied QA requirement counts and latest-run
-evidence so callers do not need raw QA SQL when verifying the
-``reviewed-implementation`` or ``implemented`` gates.
-
-Read-only: never mutates ``qa_runs``, ``qa_requirements``,
-``qa_artifacts``, ``items``, or any other table. Generating a summary is
-not a satisfaction step — the gate verdict still belongs to
-``yoke_core.domain.qa_gates``; this module only surfaces evidence.
+Computes target-aware unsatisfied counts and latest-run evidence without raw
+QA SQL. It never mutates state or satisfies a gate; the verdict still belongs
+to ``yoke_core.domain.qa_gates``.
 
 Target semantics mirror the corresponding gate:
 
-- ``reviewed-implementation``: ``qa_phase = 'verification'`` blocking-
-  mode requirements. Browser method cases
+- ``reviewed-implementation``: verification-phase blocking requirements.
+  Browser method cases
   require a substrate-executed passing run with at least one artifact
   (matches :func:`yoke_core.domain.qa_browser_evidence_check.\
 check_browser_evidence_present`); other kinds satisfy on any passing
@@ -98,7 +93,7 @@ def render_gate_summary(
         "transition": transition_name,
         "qa_tables_present": True,
         "no_requirements": False,
-        "satisfied": True,
+        "satisfied": False,
         "blocking_unsatisfied_count": 0,
         "browser_unsatisfied_count": 0,
         "e2e_unsatisfied_count": 0,
@@ -132,9 +127,7 @@ def render_gate_summary(
         for r in req_rows:
             req_id = int(r["id"])
             qa_kind = str(r["qa_kind"])
-            method_id = (
-                str(r["method_id"]) if r["method_id"] is not None else None
-            )
+            method_id = str(r["method_id"]) if r["method_id"] is not None else None
             blocking_mode = str(r["blocking_mode"])
             waived_at = r["waived_at"]
 
@@ -188,16 +181,18 @@ def render_gate_summary(
             else:
                 evidence = pass_row or latest_row
 
-            summary["requirements"].append({
-                "id": req_id,
-                "qa_kind": qa_kind,
-                "method_id": method_id,
-                "qa_phase": str(r["qa_phase"]),
-                "blocking_mode": blocking_mode,
-                "waived_at": str(waived_at) if waived_at else None,
-                "satisfied": satisfied,
-                "latest_run": _format_run(evidence),
-            })
+            summary["requirements"].append(
+                {
+                    "id": req_id,
+                    "qa_kind": qa_kind,
+                    "method_id": method_id,
+                    "qa_phase": str(r["qa_phase"]),
+                    "blocking_mode": blocking_mode,
+                    "waived_at": str(waived_at) if waived_at else None,
+                    "satisfied": satisfied,
+                    "latest_run": _format_run(evidence),
+                }
+            )
 
             if not satisfied and blocking_mode == "blocking":
                 summary["blocking_unsatisfied_count"] += 1
@@ -220,10 +215,10 @@ def render_gate_summary(
 def _format_text(summary: Dict[str, Any]) -> str:
     lines = [f"QA Gate Summary - {summary['target']} -> {summary['transition']}"]
     if not summary["qa_tables_present"]:
-        lines.append("  qa_requirements table not present (vacuously satisfied).")
+        lines.append("  GATE_QA_SCHEMA_MISSING: qa_requirements table not present.")
         return "\n".join(lines)
     if summary["no_requirements"]:
-        lines.append("  No QA requirements registered for this scope.")
+        lines.append("  GATE_QA_REQUIREMENTS_EMPTY: No QA requirements registered.")
         return "\n".join(lines)
     status = "SATISFIED" if summary["satisfied"] else "UNSATISFIED"
     lines.append(f"  Status: {status}")
@@ -264,23 +259,29 @@ def cmd_gate_summary(
     """CLI handler. Returns 0 on success (regardless of satisfied state),
     2 on usage error. Read-only — no DB mutation, no side effects."""
     if target not in VALID_TARGETS:
-        print(f"Error: --target must be one of: {', '.join(VALID_TARGETS)}", file=sys.stderr)
+        print(
+            f"Error: --target must be one of: {', '.join(VALID_TARGETS)}",
+            file=sys.stderr,
+        )
         return 2
     if item_id is not None:
         if epic_id is not None or task_num is not None:
-            print("Error: --item-id is mutually exclusive with --epic-id/--task-num", file=sys.stderr)
+            print(
+                "Error: --item-id is mutually exclusive with --epic-id/--task-num",
+                file=sys.stderr,
+            )
             return 2
         gate_target = GateTarget(item_id=item_id)
     elif epic_id is not None and task_num is not None:
         gate_target = GateTarget(epic_id=epic_id, task_num=task_num)
     else:
-        print("Error: provide --item-id OR both --epic-id and --task-num", file=sys.stderr)
+        print(
+            "Error: provide --item-id OR both --epic-id and --task-num", file=sys.stderr
+        )
         return 2
 
     resolved_db = db_path or ""
-    summary = render_gate_summary(
-        gate_target, resolved_db, transition_name=target
-    )
+    summary = render_gate_summary(gate_target, resolved_db, transition_name=target)
 
     if as_json:
         print(json.dumps(summary, indent=2, sort_keys=True))

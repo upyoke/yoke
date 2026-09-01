@@ -10,7 +10,7 @@ _Audit generated_at: 2026-08-31T23:36:26Z_
 - Internal dispatch-only functions without CLI adapters: **88**
 - `yoke` CLI subcommands: **369** (369 carry usable `--help`)
 - Operation tracker: **345 wrapped**, 13 tool_cli, 127 permanent, 0 pending
-- Skill-body recipes: 328 total (276 template-skipped, 0 failing)
+- Skill-body recipes: 329 total (277 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 

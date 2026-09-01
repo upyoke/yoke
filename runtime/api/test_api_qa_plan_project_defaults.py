@@ -11,6 +11,7 @@ from yoke_core.domain.qa_plan_attachments import (
     has_attached_plans,
     materialize_for_item,
 )
+from yoke_core.domain.item_detail_qa import qa_plan_attachments as detail_attachments
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
     create_plan,
@@ -41,14 +42,16 @@ def test_multiple_project_default_plans_share_one_transition() -> None:
         replace_plan_cases(
             conn,
             plan_id=lint["id"],
-            cases=[{
-                "case_key": "lint",
-                "position": 1,
-                "method_id": "command",
-                "instructions": "Run the registered lint command.",
-                "expected_outcome": "The command exits successfully.",
-                "method_config": {"command": "ruff check ."},
-            }],
+            cases=[
+                {
+                    "case_key": "lint",
+                    "position": 1,
+                    "method_id": "command",
+                    "instructions": "Run the registered lint command.",
+                    "expected_outcome": "The command exits successfully.",
+                    "method_config": {"command": "ruff check ."},
+                }
+            ],
         )
         for plan in (release, lint):
             set_project_default(
@@ -100,3 +103,37 @@ def test_unset_project_default_detaches_only_the_named_transition() -> None:
                 workflow_id=str(item["workflow_id"]),
                 transition_id="release",
             )
+
+
+def test_optional_qa_ignores_project_testing_defaults() -> None:
+    with test_database() as conn:
+        item = insert_item(
+            conn,
+            id=88,
+            project_sequence=88,
+            workflow_id="dash",
+            status="idea",
+        )
+        plan = create_release_readiness_plan(conn)
+        set_project_default(
+            conn,
+            plan_id=plan["id"],
+            workflow_id="dash",
+            transition_id="reviewing-implementation",
+        )
+
+        assert not has_attached_plans(
+            conn,
+            item_id=int(item["id"]),
+            transition_id="reviewing-implementation",
+        )
+        assert (
+            detail_attachments(
+                conn,
+                item_id=int(item["id"]),
+                project_id=1,
+                workflow_id="dash",
+                requirements=[],
+            )
+            == []
+        )

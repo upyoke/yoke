@@ -18,6 +18,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_SURVEY_REQUIRED,
     WORKFLOW_DELIVERY_MERGE_FREE,
     WORKFLOW_QA_OPTIONAL,
+    WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
     WORKFLOW_WORKTREES_NONE,
 )
 from yoke_core.domain.workflow_definition_graph_validation import (
@@ -85,8 +86,8 @@ _POLICY_VALUES = {
             "project_transition_defaults",
             "project_and_task_attachments",
             "item_attachments",
-            "optional_item_attachment",
             WORKFLOW_QA_OPTIONAL,
+            WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
         }
     ),
     "approvals": frozenset(

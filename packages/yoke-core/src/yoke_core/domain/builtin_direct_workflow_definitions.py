@@ -18,6 +18,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_SURVEY_REQUIRED,
+    WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
     definition_fixture,
     skill_binding,
     gate_ref,
@@ -164,7 +165,6 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
             "done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
-                gate_ref(GATE_QA_VERIFICATION),
                 gate_ref(GATE_DASH_EVIDENCE),
             ),
             "Result and verification evidence are recorded on the item; "
@@ -180,7 +180,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
         "path_survey": WORKFLOW_PATH_SURVEY_REQUIRED,
         "worktrees": "single_implementation_lane",
         "generated_children": "none",
-        "qa": "optional_item_attachment",
+        "qa": WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
         "approvals": "none",
         "delivery": "after_merge_action",
         "item_posture_allowlist": [

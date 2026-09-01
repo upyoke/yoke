@@ -89,9 +89,9 @@ integration gate has nothing to run and a queued pull request never merges.
 
 ## When the project has no suite
 
-A repository with nothing runnable does not get an empty gate. A gate with no
-blocking requirement passes vacuously, which reports green for a review nobody
-performed — worse than a failure, because it looks like proof.
+A repository with nothing runnable does not get an empty gate. An empty
+requirement set refuses as `GATE_QA_REQUIREMENTS_EMPTY`; it can never report
+green for a review nobody performed.
 
 Offer a minimal suite first; one real test makes a real gate. When that is
 declined — an idea-only repo, a content site, a client who will not fund tests
@@ -102,18 +102,18 @@ yoke qa no-tests attest --project <p> --reason "<why there is no suite>"
 ```
 
 The reason is required. One call records the posture and retires any
-`registered-command-*` plan the project already had, so a project can never
-hold both declarations. From then on the `reviewing-implementation` transition
-seeds a blocking `implementation_review` requirement exactly where
-`registered-command-quick` would have attached, and registering a command for
-any scope — including the `command-ci` runner, which would otherwise point a
-gate at a workflow the project just said runs nothing — is refused by name.
+`registered-command-*` plan, so a project can never hold both declarations.
+For every workflow that consumes project testing defaults, command absence
+seeds a blocking `no_tests_declared` requirement where
+`registered-command-quick` would have attached. Its passing run is recorded by
+an agent and labeled `agent-attested / no-tests-declared`; it never implies a
+suite ran. Registering any command while the explicit posture stands — the
+`command-ci` runner included — is refused by name.
 
 When the project later gains a suite, clear the posture and bind the command:
 
 ```bash
-yoke qa no-tests clear --project <p> --reason "<what changed>"
-yoke qa registered-command set --project <p> --scope quick --command "<argv>"
+yoke qa no-tests clear --project <p> --reason "<what changed>" && yoke qa registered-command set --project <p> --scope quick --command "<argv>"
 ```
 
 Registration also refuses an argv the repository provably lacks: a path-shaped

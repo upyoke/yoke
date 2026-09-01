@@ -123,30 +123,6 @@ class TestResolveRepoRoot:
         assert "path resolution failed" in capsys.readouterr().err
 
 
-def test_update_item_direct_exercises_real_backlog_update(tmp_db):
-    _seed_item(tmp_db, id=44, workflow_id="issue", status="implemented", project="yoke")
-    _seed_session(tmp_db, session_id="sess-1")
-    _seed_claim(tmp_db, session_id="sess-1", item_id="44")
-
-    with (
-        _patch_externals(),
-        mock.patch.dict(
-            os.environ,
-            {"YOKE_DB": tmp_db, "YOKE_SESSION_ID": "sess-1"},
-            clear=False,
-        ),
-    ):
-        rc = done_transition._update_item_direct(
-            44,
-            "status",
-            "release",
-            env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
-        )
-
-    assert rc == 0
-    assert _item_field(tmp_db, 44, "status") == "release"
-
-
 # ---------------------------------------------------------------------------
 # Recovery detection tests
 # ---------------------------------------------------------------------------

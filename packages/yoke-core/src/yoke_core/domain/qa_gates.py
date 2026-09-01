@@ -15,11 +15,10 @@ Subcommands include verification entry/review, done, and epic simulation. Target
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
+from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.qa_browser_evidence_check import (
     check_browser_artifact_disk,
     check_browser_evidence_present,
@@ -29,25 +28,19 @@ from yoke_core.domain.qa_gate_definitions import (  # noqa: F401
     GateResult,
     LatestCodeRef,
 )
-from yoke_core.domain.qa_gate_requirement_teaching import (
-    missing_verification_requirement_errors,
+from yoke_core.domain.qa_gate_preconditions import (
+    target_gate_precondition_result,
 )
 from yoke_core.domain.qa_plan_gate import check_plan_simulation_satisfied  # noqa: F401
 from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
     check_epic_simulation_gate,
 )
-from yoke_core.domain.qa_workflow_binding_validation import (
-    item_transition_for_gate,
-)
-from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
-
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
     _browser_run_is_fresh,
     _collect_stale_browser_requirements,
     _extract_code_identity,
     _latest_browser_run,
-    _qa_tables_exist,
     _resolve_latest_code_ref,
     _resolve_latest_commit_ts,
     _resolve_repo_root,
@@ -62,44 +55,12 @@ from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
 
 def check_verification_entry(target: GateTarget, db_path: str) -> GateResult:
     """Verify at least one qa_requirements row exists for the target."""
-    if os.environ.get("YOKE_QA_GATE_BYPASS") == "1":
-        return GateResult(passed=True)
-
-    if not _qa_tables_exist(db_path):
-        return GateResult(passed=True)
-
-    where, params = target.where_clause()
-    name = target.display_name()
-
-    conn = connect(db_path)
-    try:
-        count = query_scalar(
-            conn, f"SELECT COUNT(*) FROM qa_requirements WHERE {where}", params
-        )
-        if not count or count == 0:
-            transition_id = item_transition_for_gate(
-                conn,
-                item_id=(
-                    int(target.item_id)
-                    if target.item_id is not None
-                    else int(target.epic_id)
-                ),
-                gate_id=GATE_QA_VERIFICATION,
-            )
-    finally:
-        conn.close()
-
-    if not count or count == 0:
-        return GateResult(
-            passed=False,
-            errors=missing_verification_requirement_errors(
-                target=target,
-                target_name=name,
-                transition_id=transition_id,
-            ),
-        )
-
-    return GateResult(passed=True)
+    return target_gate_precondition_result(
+        db_path,
+        target=target,
+        transition_name="reviewing-implementation",
+        qa_phase=None,
+    ) or GateResult(passed=True)
 
 
 def check_verification_gate(
@@ -109,11 +70,17 @@ def check_verification_gate(
     transition_name: str = "reviewed-implementation",
 ) -> GateResult:
     """Verify all blocking verification-phase requirements are satisfied."""
-    if os.environ.get("YOKE_QA_GATE_BYPASS") == "1":
-        return GateResult(passed=True)
-
-    if not _qa_tables_exist(db_path):
-        return GateResult(passed=True)
+    repo_root = _resolve_repo_root()
+    precondition = target_gate_precondition_result(
+        db_path,
+        target=target,
+        transition_name=transition_name,
+        qa_phase="verification",
+        repo_root=repo_root,
+        check_browser_git_root=True,
+    )
+    if precondition is not None:
+        return precondition
 
     where, params = target.where_clause()
     name = target.display_name()
@@ -161,7 +128,6 @@ def check_verification_gate(
             return evidence_result
 
         # (3) Artifact-disk existence
-        repo_root = _resolve_repo_root()
         if repo_root:
             disk_result = check_browser_artifact_disk(
                 conn,
@@ -214,11 +180,17 @@ def check_reviewed_implementation_gate(target: GateTarget, db_path: str) -> Gate
 
 def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
     """Verify ALL blocking requirements (any phase) are satisfied."""
-    if os.environ.get("YOKE_QA_GATE_BYPASS") == "1":
-        return GateResult(passed=True)
-
-    if not _qa_tables_exist(db_path):
-        return GateResult(passed=True)
+    repo_root = _resolve_repo_root()
+    precondition = target_gate_precondition_result(
+        db_path,
+        target=target,
+        transition_name="done",
+        qa_phase=None,
+        repo_root=repo_root,
+        check_browser_git_root=True,
+    )
+    if precondition is not None:
+        return precondition
 
     where, params = target.where_clause()
     name = target.display_name()
@@ -245,7 +217,8 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             errors = [
                 f"Error: Cannot transition {name} to 'done' -- {len(rows)} blocking QA requirement(s) unsatisfied.",
                 "  All blocking requirements must have a passing run or be waived.",
-                "  Use --skip-qa to bypass, or --force to override all gates.",
+                "  Satisfy each requirement or use the registered waiver "
+                "surface with explicit authorization.",
             ]
             for row in rows:
                 errors.append(
@@ -254,7 +227,6 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             return GateResult(passed=False, errors=errors)
 
         # (2) Artifact-disk existence
-        repo_root = _resolve_repo_root()
         if repo_root:
             disk_result = check_browser_artifact_disk(
                 conn,
@@ -264,7 +236,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                 transition_name="done",
                 repo_root=repo_root,
                 qa_phase=None,
-                bypass_hint="  Use --skip-qa to bypass, or --force to override all gates.",
+                bypass_hint=None,
             )
             if disk_result is not None:
                 return disk_result
@@ -287,7 +259,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                         transition_name="done",
                         latest_code=latest_code,
                         stale_rows=stale_rows,
-                        bypass_hint="  Use --skip-qa to bypass, or --force to override all gates.",
+                        bypass_hint=None,
                     ),
                 )
 

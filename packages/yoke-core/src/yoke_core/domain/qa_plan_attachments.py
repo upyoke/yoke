@@ -19,6 +19,7 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
 )
 from yoke_core.domain.qa_plan_attachment_validation import (
     require_plan_cases,
+    validate_attached_item_transition,
     validate_item_transition,
 )
 from yoke_core.domain.qa_deployment_plan_materialization import (
@@ -35,6 +36,21 @@ from yoke_core.domain.qa_plan_project_defaults import (
     set_project_default,
     unset_project_default,
 )
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+
+PROJECT_DEFAULT_QA_POLICIES = frozenset(
+    {
+        "project_transition_defaults",
+        "project_and_task_attachments",
+    }
+)
+
+
+def workflow_uses_project_testing_defaults(conn: Any, item_id: int) -> bool:
+    """Whether this item's pinned workflow makes project defaults effective."""
+    workflow = load_item_workflow_runtime(conn, int(item_id))
+    return str(workflow.policies.get("qa") or "") in PROJECT_DEFAULT_QA_POLICIES
 
 
 def attach_plan_to_item(
@@ -65,6 +81,7 @@ def attach_plan_to_item(
         conn,
         item_id=int(item_id),
         transition_id=transition_id,
+        plan_id=int(plan_id),
     )
     now = iso8601_now()
     try:
@@ -107,14 +124,15 @@ def _attached_plans(
     if item is None:
         raise QaPlanError(f"item {item_id} not found")
     attachments: dict[int, dict] = {}
-    for row in query_rows(
-        conn,
-        "SELECT plan_id, qa_phase FROM qa_plan_project_defaults "
-        f"WHERE project_id={marker} AND workflow_id={marker} "
-        f"AND transition_id={marker} ORDER BY plan_id",
-        (int(item["project_id"]), str(item["workflow_id"]), transition_id),
-    ):
-        attachments[int(row["plan_id"])] = dict(row)
+    if workflow_uses_project_testing_defaults(conn, int(item_id)):
+        for row in query_rows(
+            conn,
+            "SELECT plan_id, qa_phase FROM qa_plan_project_defaults "
+            f"WHERE project_id={marker} AND workflow_id={marker} "
+            f"AND transition_id={marker} ORDER BY plan_id",
+            (int(item["project_id"]), str(item["workflow_id"]), transition_id),
+        ):
+            attachments[int(row["plan_id"])] = dict(row)
     for row in query_rows(
         conn,
         "SELECT plan_id, qa_phase FROM qa_plan_item_attachments "
@@ -151,15 +169,17 @@ def materialize_for_item(
 ) -> dict:
     """Snapshot every attached case into idempotent QA requirements."""
     lock_item_workflow_bindings(conn, (int(item_id),))
-    transition_id = validate_item_transition(
-        conn,
-        item_id=int(item_id),
-        transition_id=transition_id,
-    )
+    transition_id = str(transition_id or "").strip()
     attachments = _attached_plans(
         conn,
         item_id=item_id,
         transition_id=transition_id,
+    )
+    transition_id = validate_attached_item_transition(
+        conn,
+        item_id=int(item_id),
+        transition_id=transition_id,
+        plan_ids=attachments,
     )
     marker = _placeholder(conn)
     created: list[int] = []
@@ -286,6 +306,8 @@ __all__ = [
     "has_attached_plans",
     "materialize_for_deployment_run",
     "materialize_for_item",
+    "PROJECT_DEFAULT_QA_POLICIES",
     "set_project_default",
     "unset_project_default",
+    "workflow_uses_project_testing_defaults",
 ]

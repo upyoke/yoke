@@ -6,18 +6,24 @@ from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.qa_gate_definitions import GateTarget
 
 
+QA_REQUIREMENTS_EMPTY = "GATE_QA_REQUIREMENTS_EMPTY"
+
+
 def missing_verification_requirement_errors(
     *,
     target: GateTarget,
     target_name: str,
     transition_id: str,
+    target_transition: str = "reviewing-implementation",
 ) -> list[str]:
     """Build the supported creation recipe for the gate target shape."""
     errors = [
-        "Error: Cannot transition "
-        f"{target_name} to 'reviewing-implementation' -- "
+        f"{QA_REQUIREMENTS_EMPTY}: Cannot transition "
+        f"{target_name} to '{target_transition}' -- "
         "no qa_requirements found.",
-        "  Add at least one QA requirement before moving to reviewing-implementation:",
+        f"  Add at least one QA requirement before moving to {target_transition}:",
+        "  Raise the project to executed tests: yoke qa registered-command set "
+        '--project <project> --scope quick --command "<argv>"',
     ]
     if target.item_id is not None:
         errors.append(
@@ -38,4 +44,4 @@ def missing_verification_requirement_errors(
     return errors
 
 
-__all__ = ["missing_verification_requirement_errors"]
+__all__ = ["QA_REQUIREMENTS_EMPTY", "missing_verification_requirement_errors"]
