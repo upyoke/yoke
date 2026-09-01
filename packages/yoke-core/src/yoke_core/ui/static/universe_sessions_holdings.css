@@ -1,0 +1,66 @@
+/* Currently held / Previously held groups on a session card. Same boxed
+   treatment as the Steering lead (left accent, tinted fill, label inside);
+   Previously held stays grey, Currently held paints a server-projected
+   health tone. The browser never derives those thresholds. */
+
+.universe-app-root .session-holdings-previous,
+.universe-app-root .session-holdings-current {
+  gap: 4px;
+  padding: 7px 9px;
+  border-left: 3px solid var(--yoke-idle);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--yoke-idle) 8%, transparent);
+}
+
+.universe-app-root .session-holdings-previous .session-holdings-label,
+.universe-app-root .session-holdings-current .session-holdings-label {
+  color: var(--yoke-idle);
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="green"] {
+  border-left-color: var(--yoke-good);
+  background: color-mix(in srgb, var(--yoke-good) 8%, transparent);
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="green"]
+  .session-holdings-label {
+  color: var(--yoke-good);
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="yellow"] {
+  border-left-color: color-mix(
+    in srgb,
+    var(--yoke-warn) 70%,
+    var(--yoke-good)
+  );
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--yoke-warn) 70%, var(--yoke-good)) 8%,
+    transparent
+  );
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="yellow"]
+  .session-holdings-label {
+  color: color-mix(in srgb, var(--yoke-warn) 70%, var(--yoke-good));
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="orange"] {
+  border-left-color: var(--yoke-warn);
+  background: color-mix(in srgb, var(--yoke-warn) 8%, transparent);
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="orange"]
+  .session-holdings-label {
+  color: var(--yoke-warn);
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="red"] {
+  border-left-color: var(--yoke-crit);
+  background: color-mix(in srgb, var(--yoke-crit) 8%, transparent);
+}
+
+.universe-app-root .session-holdings-current[data-holdings-health="red"]
+  .session-holdings-label {
+  color: var(--yoke-crit);
+}
