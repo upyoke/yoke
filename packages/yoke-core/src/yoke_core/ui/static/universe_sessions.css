@@ -151,6 +151,12 @@
   font-size: 10px;
   font-weight: 650;
 }
+.universe-app-root .session-model.is-requested,
+.universe-app-root .session-model-tag.is-requested {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--yoke-muted) 55%, transparent);
+  font-weight: 500;
+}
 .universe-app-root .session-lane {
   flex: 0 1 auto;
   min-width: 0;

@@ -30,7 +30,8 @@ import {
 } from "./universe_session_roster_filters.js";
 import {
   displaySessionModel,
-  servedSessionModelFacts,
+  sessionModelFactTags,
+  sessionModelIsRequested,
 } from "./session_model_display.js";
 const ROSTER_STATES = new Set(["active", "stale", "ended"]);
 function statRow(documentNode, facts) {
@@ -83,11 +84,17 @@ function operatorLabel(documentNode, row) {
 
 function appendModel(documentNode, body, row) {
   const line = el(documentNode, "div", "session-model-line");
+  const modelClass = sessionModelIsRequested(row)
+    ? "session-model is-requested"
+    : "session-model";
   line.appendChild(el(
-    documentNode, "span", "session-model", displaySessionModel(row),
+    documentNode, "span", modelClass, displaySessionModel(row),
   ));
-  for (const fact of servedSessionModelFacts(row)) {
-    const tag = el(documentNode, "span", "session-model-tag", fact.label);
+  for (const fact of sessionModelFactTags(row)) {
+    const tagClass = fact.requested
+      ? "session-model-tag is-requested"
+      : "session-model-tag";
+    const tag = el(documentNode, "span", tagClass, fact.label);
     tag.setAttribute("data-model-fact", fact.kind);
     line.appendChild(tag);
   }
