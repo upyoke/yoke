@@ -1,4 +1,4 @@
-"""Dependency graph commands for shepherd blocker rows."""
+"""Item-dependency graph commands for ``item_dependencies`` rows."""
 from __future__ import annotations
 
 import sys

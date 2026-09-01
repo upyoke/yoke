@@ -179,7 +179,7 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
         "events",
         "envelope",
         "event_name",
-        "shepherd dependency-list",
+        "items dependency list",
     ),
     "claims": (
         "harness_sessions",

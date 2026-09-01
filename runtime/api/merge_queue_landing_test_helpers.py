@@ -105,7 +105,7 @@ def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION):
                 "item_id": 0,
                 "fields": {"db_mutation_profile": shape.get("profile", "")},
             })
-        if function_id == "shepherd.dependency_list.run":
+        if function_id == "items.dependency.list":
             return ok_response({
                 "item_id": 0,
                 "dependencies": list(shape.get("dependencies") or []),

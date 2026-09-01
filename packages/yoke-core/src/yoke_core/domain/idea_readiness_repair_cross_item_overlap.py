@@ -19,7 +19,7 @@ case, and active overrides all silence the cluster. Only truly
 
 The default repair path is evidence-returning and non-mutating: the
 helper returns ``CoordinationContext`` packets plus suggested commands,
-and the agent calls ``yoke shepherd dependency-add ... --gate-point ...``
+and the agent calls ``yoke items dependency add ... --gate-point ...``
 itself per ``AGENTS.md`` ``## Path Claims — Hard Rule``. ``auto_attest``
 is reserved for future workflows that have already proven independence
 via ``classify_inter_item_edges``.
@@ -264,7 +264,7 @@ def _cluster_to_issue(conn: Any, cluster: OverlapCluster) -> Issue:
         remediation=(
             f"classify the overlap with {recovery_command} and author "
             f"the matching item_dependencies row via "
-            f"`yoke shepherd dependency-add {candidate_ref} "
+            f"`yoke items dependency add {candidate_ref} "
             f"{conflicting_ref} refine --gate-point "
             f"coordination_only|activation --rationale '...'`"
         ),

@@ -1,12 +1,10 @@
-"""``yoke items list|search`` + ``yoke shepherd dependency-list`` adapters.
+"""``yoke items list|search`` adapters.
 
 Backlog-wide read ids:
 
 * ``items.list.run`` — filtered item listing with column projection.
 * ``items.search.run`` — keyword search over title + structured fields
   (the dedup-search reader).
-* ``shepherd.dependency_list.run`` — both-direction dependency rows for
-  one item.
 """
 
 from __future__ import annotations
@@ -20,7 +18,6 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     client_project_context,
     dispatch_and_emit,
-    item_target,
     parse_or_usage_error,
     split_comma,
     usage_error,
@@ -29,9 +26,8 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "items_list", "items_search", "shepherd_dependency_list",
+    "items_list", "items_search",
     "ITEMS_LIST_USAGE", "ITEMS_SEARCH_USAGE",
-    "SHEPHERD_DEPENDENCY_LIST_USAGE",
 ]
 
 
@@ -147,44 +143,6 @@ def items_search(args: List[str]) -> int:
         function_id="items.search.run",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
-SHEPHERD_DEPENDENCY_LIST_USAGE = (
-    "yoke shepherd dependency-list (PREFIX-N | --item PREFIX-N) "
-    "[--session-id S] [--json]"
-)
-
-
-def shepherd_dependency_list(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke shepherd dependency-list",
-        description=SHEPHERD_DEPENDENCY_LIST_USAGE,
-    )
-    parser.add_argument(
-        "--item", default=None,
-        help="Item id (PREFIX-N or project-local number). Alternative to positional.",
-    )
-    parser.add_argument(
-        "item_positional", nargs="?", default=None,
-        help="Item id positional (alternative to --item).",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, SHEPHERD_DEPENDENCY_LIST_USAGE)
-    if parsed is None:
-        return 2
-    raw_item = parsed.item or parsed.item_positional
-    if not raw_item:
-        return usage_error(
-            "dependency-list requires --item PREFIX-N or a positional item"
-        )
-    return dispatch_and_emit(
-        function_id="shepherd.dependency_list.run",
-        target=item_target("item", raw_item, parsed.project),
-        payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )

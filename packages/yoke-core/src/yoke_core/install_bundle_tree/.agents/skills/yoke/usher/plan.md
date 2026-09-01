@@ -47,7 +47,7 @@ Merge order: {listed above}
 Dependencies (hard-block edges from item_dependencies — authoritative source):
  {for each edge in _dep_edges: " PREFIX-X depends-on PREFIX-Y (hard-block)"}
  {or " (none)"}
- Inspect: yoke shepherd dependency-list PREFIX-N
+ Inspect: yoke items dependency list PREFIX-N
 
 Deployment routing:
  Route A (internal -- no run):

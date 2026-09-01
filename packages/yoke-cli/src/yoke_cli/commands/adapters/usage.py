@@ -115,12 +115,12 @@ from yoke_cli.commands.adapters.items_section import (
 from yoke_cli.commands.adapters.listing import (
     ITEMS_LIST_USAGE,
     ITEMS_SEARCH_USAGE,
-    SHEPHERD_DEPENDENCY_LIST_USAGE,
 )
-from yoke_cli.commands.adapters.shepherd_dependency import (
-    SHEPHERD_DEPENDENCY_ADD_USAGE,
-    SHEPHERD_DEPENDENCY_REMOVE_USAGE,
-    SHEPHERD_DEPENDENCY_UPDATE_USAGE,
+from yoke_cli.commands.adapters.item_dependency import (
+    ITEMS_DEPENDENCY_ADD_USAGE,
+    ITEMS_DEPENDENCY_LIST_USAGE,
+    ITEMS_DEPENDENCY_REMOVE_USAGE,
+    ITEMS_DEPENDENCY_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.misc import (
     OUROBOROS_ENTRY_GET_USAGE,
@@ -295,10 +295,10 @@ ADAPTER_USAGE: Dict[str, str] = {
     "events.tail.run": EVENTS_TAIL_USAGE,
     "events.count.run": EVENTS_COUNT_USAGE,
     "events.anomalies.run": EVENTS_ANOMALIES_USAGE,
-    "shepherd.dependency_list.run": SHEPHERD_DEPENDENCY_LIST_USAGE,
-    "shepherd.dependency_add.run": SHEPHERD_DEPENDENCY_ADD_USAGE,
-    "shepherd.dependency_update.run": SHEPHERD_DEPENDENCY_UPDATE_USAGE,
-    "shepherd.dependency_remove.run": SHEPHERD_DEPENDENCY_REMOVE_USAGE,
+    "items.dependency.list": ITEMS_DEPENDENCY_LIST_USAGE,
+    "items.dependency.add": ITEMS_DEPENDENCY_ADD_USAGE,
+    "items.dependency.update": ITEMS_DEPENDENCY_UPDATE_USAGE,
+    "items.dependency.remove": ITEMS_DEPENDENCY_REMOVE_USAGE,
     "lifecycle.transition.execute": LIFECYCLE_TRANSITION_USAGE,
     "lifecycle.repair_status.execute": LIFECYCLE_REPAIR_STATUS_USAGE,
     "lifecycle.skip.record_recoverable_substrate": LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,

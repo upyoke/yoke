@@ -99,7 +99,6 @@ _DB_ROUTER_READ_ONLY_PATHS: tuple[tuple[str, ...], ...] = (
     ("query",),
     ("events", "list"),
     ("events", "get"),
-    ("shepherd", "dependency-list"),
     ("projects", "get"),
     ("harness-sessions", "who-claims"),
     ("path-claims", "list"),

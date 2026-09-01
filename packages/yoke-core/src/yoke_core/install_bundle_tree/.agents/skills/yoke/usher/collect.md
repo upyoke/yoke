@@ -56,13 +56,13 @@ for _item in $_ready_items; do
  #
  # Additionally, query persisted rationale for each blocker to explain
  # why the integration ordering exists (task 4):
- # > yoke shepherd dependency-list PREFIX-${_item}
+ # > yoke items dependency list PREFIX-${_item}
  # Parse the output and for each depends-on row, print:
  # > Blocked by {blocker}: {rationale} (gate: {gate_point}, requires: {satisfaction})
  #
  # Then print:
  # > Inspect the full dependency graph:
- # > yoke shepherd dependency-list PREFIX-${_item}
+ # > yoke items dependency list PREFIX-${_item}
  fi
 done
 ```
@@ -76,7 +76,7 @@ integration-gate ordering across `_ready_items`:
 
 ```bash
 # For each ready item, capture the typed dependency rows once.
-yoke shepherd dependency-list PREFIX-${_item}
+yoke items dependency list PREFIX-${_item}
 ```
 
 Build the directed graph from the returned integration-gate rows and

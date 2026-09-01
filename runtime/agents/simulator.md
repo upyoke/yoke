@@ -158,9 +158,9 @@ The Tester verifies each task against its own spec. You verify that tasks *work 
 
 9. **Shared-path coordination audit (plan + integration):** For each pair of tasks in the epic plan whose File Budgets share at least one path:
    - Resolve the owning items. Tasks within the same epic resolve to that epic's item id; for cross-epic detection, fall back to the path-claim row's owning item (see your `path_claims` packet stanza) for any claim covering the shared path.
-   - Query `yoke shepherd dependency-list PREFIX-{candidate}` for one of the two items and look for a dependency row linking the pair in either direction with any `gate_point` value (`coordination_only`, `activation`, `integration`, or `closure`) — see your `item_dependencies` packet stanza for the directional-edge schema.
-   - If no such row exists, emit a `[HIGH]` severity finding with category `coordination_gap` naming both items, the shared paths, and fix guidance: "Architect: author `coordination_only` or directional edge via `yoke shepherd dependency-add ... --gate-point coordination_only --rationale \"<...>\"`. If unsure, emit a plan caveat."
-   - Detection is **read-only** — you emit a finding; the Architect autofix pass authors the row. Never invoke `shepherd dependency-add` yourself.
+   - Query `yoke items dependency list PREFIX-{candidate}` for one of the two items and look for a dependency row linking the pair in either direction with any `gate_point` value (`coordination_only`, `activation`, `integration`, or `closure`) — see your `item_dependencies` packet stanza for the directional-edge schema.
+   - If no such row exists, emit a `[HIGH]` severity finding with category `coordination_gap` naming both items, the shared paths, and fix guidance: "Architect: author `coordination_only` or directional edge via `yoke items dependency add ... --gate-point coordination_only --rationale \"<...>\"`. If unsure, emit a plan caveat."
+   - Detection is **read-only** — you emit a finding; the Architect autofix pass authors the row. Never invoke `items dependency add` yourself.
 
 ### If Given Actual Code (integration phase only)
 

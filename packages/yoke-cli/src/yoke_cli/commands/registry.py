@@ -39,9 +39,8 @@ from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_product_surfaces as _product_surfaces
 from yoke_cli.commands.registry_db_claim import DB_CLAIM_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
-from yoke_cli.commands.registry_shepherd_dependency import (
-    SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY,
-)
+from yoke_cli.commands.registry_item_dependency import ITEM_DEPENDENCY_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_shepherd import SHEPHERD_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_sessions import SESSIONS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_session_control as _session_control
 from yoke_cli.commands.registry_strategy_event import STRATEGY_EVENT_SUBCOMMAND_REGISTRY
@@ -240,7 +239,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("packs", "update"): ("packs.update.run", _adapters.packs_update),
 }
 
-SUBCOMMAND_REGISTRY.update(SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(ITEM_DEPENDENCY_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(SHEPHERD_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(SESSIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(_session_control.SESSION_CONTROL_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPIC_OPS_SUBCOMMAND_REGISTRY)

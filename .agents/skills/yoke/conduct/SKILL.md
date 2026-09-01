@@ -196,7 +196,7 @@ item content; it layers on top of, and never replaces, the item's own spec.
  > - **PREFIX-{M}** ({title}): status `{status}`
  - Then print the authoritative inspection command:
  > Inspect the full dependency graph (both directions):
- > `yoke shepherd dependency-list PREFIX-N`
+ > `yoke items dependency list PREFIX-N`
  - Do NOT proceed to dispatch.
  - If `_dep_exit` is 0, continue.
 

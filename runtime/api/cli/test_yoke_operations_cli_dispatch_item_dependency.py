@@ -1,4 +1,4 @@
-"""Dispatch tests for shepherd dependency authoring wrappers."""
+"""Dispatch tests for item-dependency authoring wrappers."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from runtime.api.cli.test_yoke_operations_cli_dispatch import (
     _run_with_dispatch,
     _stub_dispatch_ok,
 )
+from yoke_core.domain.item_dependency import VALID_SOURCES
 
 
 @pytest.fixture(autouse=True)
@@ -17,18 +18,18 @@ def _reset_captured() -> None:
     _CAPTURED_REQUESTS.clear()
 
 
-class TestShepherdDependencyWriteDispatch:
+class TestItemDependencyWriteDispatch:
     def test_dependency_add_dispatches_coordination_only(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "shepherd", "dependency-add",
+            "items", "dependency", "add",
             "YOK-20", "YOK-10", "idea",
             "--gate-point", "coordination_only",
             "--rationale", "shared paths are independent",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "shepherd.dependency_add.run"
+        assert req.function == "items.dependency.add"
         assert req.target.kind == "item"
         assert req.target.public_ref == "YOK-20"
         assert req.payload == {
@@ -42,7 +43,7 @@ class TestShepherdDependencyWriteDispatch:
     def test_dependency_add_dispatches_activation_fact_merged(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "shepherd", "dependency-add",
+            "items", "dependency", "add",
             "YOK-20", "YOK-10", "feed",
             "--gate-point", "activation",
             "--satisfaction", "fact:merged",
@@ -51,7 +52,7 @@ class TestShepherdDependencyWriteDispatch:
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "shepherd.dependency_add.run"
+        assert req.function == "items.dependency.add"
         assert req.payload == {
             "blocking_item": "YOK-10",
             "source": "feed",
@@ -64,7 +65,7 @@ class TestShepherdDependencyWriteDispatch:
     def test_dependency_update_dispatches_fact_merged(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "shepherd", "dependency-update",
+            "items", "dependency", "update",
             "YOK-20", "YOK-10",
             "--match-gate-point", "activation",
             "--gate-point", "integration",
@@ -73,7 +74,7 @@ class TestShepherdDependencyWriteDispatch:
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "shepherd.dependency_update.run"
+        assert req.function == "items.dependency.update"
         assert req.target.public_ref == "YOK-20"
         assert req.payload == {
             "blocking_item": "YOK-10",
@@ -86,23 +87,25 @@ class TestShepherdDependencyWriteDispatch:
     def test_dependency_remove_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "shepherd", "dependency-remove", "YOK-20", "YOK-10",
+            "items", "dependency", "remove", "YOK-20", "YOK-10",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "shepherd.dependency_remove.run"
+        assert req.function == "items.dependency.remove"
         assert req.target.public_ref == "YOK-20"
         assert req.payload == {"blocking_item": "YOK-10"}
 
     def test_dependency_add_help_lists_authoring_flags(self) -> None:
         rc, out, _err = _run_capture(
-            _stub_dispatch_ok, "shepherd", "dependency-add", "--help",
+            _stub_dispatch_ok, "items", "dependency", "add", "--help",
         )
         assert rc == 0
-        assert "yoke shepherd dependency-add" in out
+        assert "yoke items dependency add" in out
         assert "--gate-point" in out
         assert "--satisfaction" in out
         assert "--rationale" in out
+        for source in VALID_SOURCES:
+            assert source in out
 
 
 class TestShepherdVerdictWriteDispatch:

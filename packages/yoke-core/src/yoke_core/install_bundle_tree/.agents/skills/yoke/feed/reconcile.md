@@ -21,13 +21,13 @@ for edge in _edges_to_generate:
 
 ## 4.2 Reconcile Per Dependent Item
 
-For each dependent item in `_edges_by_dependent`, use `dependency-add` for individual edge creation with full evidence metadata. The strategy is:
+For each dependent item in `_edges_by_dependent`, use `yoke items dependency add` for individual edge creation with full evidence metadata. The strategy is:
 
 1. **Remove stale feed edges** for this dependent item that are NOT in the new edge set
 2. **Add or update feed edges** that ARE in the new edge set
 3. **Never touch non-feed edges** (source is not `'feed'`)
 
-### Use dependency-add individually
+### Use `yoke items dependency add` individually
 
 When evidence metadata matters (it always does for feed), use the registered dependency edge writer for each edge individually. First remove stale feed edges, then add new ones:
 
@@ -36,10 +36,10 @@ When evidence metadata matters (it always does for feed), use the registered dep
 _existing=$(yoke db read --format lines "SELECT blocking_item_id, gate_point FROM item_dependencies WHERE dependent_item_id=N AND source='feed'")
 
 # Step 2: For each existing feed edge NOT in the new edge set, remove it
-yoke shepherd dependency-remove PREFIX-N PREFIX-OLD_BLOCKER
+yoke items dependency remove PREFIX-N PREFIX-OLD_BLOCKER
 
 # Step 3: For each new edge, add it with full metadata
-yoke shepherd dependency-add PREFIX-N PREFIX-M feed \
+yoke items dependency add PREFIX-N PREFIX-M feed \
  --gate-point activation \
  --satisfaction "status:done" \
  --rationale "Shared schema surface: both items modify item_dependencies table" \
@@ -71,7 +71,7 @@ _existing_edge=$(yoke db read --format lines "SELECT source, gate_point FROM ite
 - If a feed edge exists with different gate_point or satisfaction, update it via the registered dependency update surface:
 
 ```bash
-yoke shepherd dependency-update PREFIX-N PREFIX-M \
+yoke items dependency update PREFIX-N PREFIX-M \
  --match-gate-point activation \
  --gate-point integration \
  --satisfaction "fact:merged" \

@@ -116,7 +116,7 @@ def test_train_context_retries_busy_dependency_list(monkeypatch) -> None:
     seen = {"deps": 0}
 
     def dispatch(*, function_id, target, payload):
-        if function_id == "shepherd.dependency_list.run":
+        if function_id == "items.dependency.list":
             seen["deps"] += 1
             if seen["deps"] < 2:
                 return _busy()

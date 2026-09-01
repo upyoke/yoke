@@ -5,8 +5,8 @@ Covers two slices:
 Task 001 — vocabulary:
 * ``GatePoint.COORDINATION_ONLY`` enum membership and ``from_db`` resolution.
 * ``is_coordination_only`` / ``is_activation_gate`` predicate behavior.
-* ``shepherd_dependency.VALID_GATE_POINTS`` accepts the new value.
-* ``shepherd_dependency._DEFAULT_SATISFACTION`` maps ``coordination_only``
+* ``item_dependency.VALID_GATE_POINTS`` accepts the new value.
+* ``item_dependency._DEFAULT_SATISFACTION`` maps ``coordination_only``
   to ``fact:merged``.
 * ``cmd_dependency_add`` writes a ``coordination_only`` row with the
   defaulted satisfaction against a fresh in-memory schema.
@@ -33,7 +33,7 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 
-from yoke_core.domain import shepherd_dependency
+from yoke_core.domain import item_dependency
 from yoke_core.domain.dependency_planning import (
     evaluate_batch_gates,
     evaluate_item_gate,
@@ -44,7 +44,7 @@ from yoke_core.domain.dependency_types import (
     is_coordination_only,
 )
 from yoke_core.domain.frontier_compute import compute_frontier
-from yoke_core.domain.shepherd_dependency import cmd_dependency_add
+from yoke_core.domain.item_dependency import cmd_dependency_add
 from runtime.api.frontier_test_helpers import (
     insert_dep,
     insert_item,
@@ -106,7 +106,7 @@ def test_is_activation_gate_predicate() -> None:
 
 
 def test_valid_gate_points_includes_coordination_only() -> None:
-    assert shepherd_dependency.VALID_GATE_POINTS == frozenset(
+    assert item_dependency.VALID_GATE_POINTS == frozenset(
         {"activation", "integration", "closure", "coordination_only"}
     )
 
@@ -114,8 +114,8 @@ def test_valid_gate_points_includes_coordination_only() -> None:
 def test_valid_sources_include_idea_and_refine_authoring_paths(
     conn: Any,
 ) -> None:
-    assert "idea" in shepherd_dependency.VALID_SOURCES
-    assert "refine" in shepherd_dependency.VALID_SOURCES
+    assert "idea" in item_dependency.VALID_SOURCES
+    assert "refine" in item_dependency.VALID_SOURCES
     for idx, source in enumerate(("idea", "refine"), start=10):
         assert cmd_dependency_add(
             conn,
@@ -127,7 +127,7 @@ def test_valid_sources_include_idea_and_refine_authoring_paths(
 
 
 def test_default_satisfaction_coordination_only_is_fact_merged() -> None:
-    assert shepherd_dependency._DEFAULT_SATISFACTION["coordination_only"] == "fact:merged"
+    assert item_dependency._DEFAULT_SATISFACTION["coordination_only"] == "fact:merged"
 
 
 def test_dependency_add_accepts_coordination_only(conn: Any) -> None:
@@ -232,11 +232,11 @@ class TestRefreshHookWiring:
             return []
 
         monkeypatch.setattr(
-            shepherd_dependency,
+            item_dependency,
             "refresh_blocked_reason_for_edge_change",
             _spy,
         )
-        # The wiring lives in shepherd_dependency._refresh_blocked_reasons,
+        # The wiring lives in item_dependency._refresh_blocked_reasons,
         # which imports the helper via module-level binding — patching the
         # module attribute is enough.
         return calls
@@ -260,7 +260,7 @@ class TestRefreshHookWiring:
             gate_point="activation",
         )
         calls.clear()
-        from yoke_core.domain.shepherd_dependency import cmd_dependency_update
+        from yoke_core.domain.item_dependency import cmd_dependency_update
         cmd_dependency_update(
             conn, "YOK-1703", "YOK-1704",
             gate_point="coordination_only",
@@ -277,7 +277,7 @@ class TestRefreshHookWiring:
             gate_point="coordination_only",
         )
         calls.clear()
-        from yoke_core.domain.shepherd_dependency import cmd_dependency_remove
+        from yoke_core.domain.item_dependency import cmd_dependency_remove
         cmd_dependency_remove(conn, "YOK-1705", "YOK-1706")
         assert (1705, 1706) in calls
 
@@ -290,7 +290,7 @@ class TestRefreshHookWiring:
             gate_point="activation",
         )
         calls.clear()
-        from yoke_core.domain.shepherd_dependency import cmd_dependency_reconcile
+        from yoke_core.domain.item_dependency import cmd_dependency_reconcile
         cmd_dependency_reconcile(
             conn,
             "refine",

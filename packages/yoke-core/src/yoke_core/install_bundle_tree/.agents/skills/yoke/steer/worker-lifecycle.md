@@ -11,7 +11,7 @@ edges — or an explicit no-edges attestation — in the same action that
 files them. Before launching a worker at a new item:
 
 ```text
-yoke shepherd dependency-list PREFIX-N --json
+yoke items dependency list PREFIX-N --json
 ```
 
 Refuse to launch when a title-only related batch is already claimable

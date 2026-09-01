@@ -15,7 +15,7 @@ Specifically the suite verifies:
 * The ``yoke claims path coordination-decision-build`` helper invocation is named
   in idea and refine intake.
 * No path-claim conflict-resolution doc reintroduces the bare
-  ``shepherd dependency-add YOK-A YOK-B idea`` shape without an explicit
+  ``items dependency add YOK-A YOK-B idea`` shape without an explicit
   ``--gate-point`` flag — that shape silently defaults to activation
   and was the regression vector observed in the 2026-05-13 cleanup pass.
 * Skill prose and the AGENTS.md hard rule explicitly distinguish
@@ -95,9 +95,9 @@ class TestPathClaimBlockingClassificationFirst:
         text_lower = text.lower()
         assert "classify" in text_lower
         # The classification headline must precede the first
-        # `dependency-add` invocation.
+        # `items dependency add` invocation.
         first_classify = text_lower.find("classify")
-        first_dep_add = text.find("dependency-add")
+        first_dep_add = text.find("items dependency add")
         assert first_classify >= 0
         assert first_dep_add >= 0
         assert first_classify < first_dep_add
@@ -105,7 +105,7 @@ class TestPathClaimBlockingClassificationFirst:
 
 class TestPathClaimConflictDocsRequireExplicitGatePoint:
     """No path-claim conflict-resolution doc may reintroduce the bare
-    `dependency-add YOK-A YOK-B idea` shape that silently defaults to
+    `items dependency add YOK-A YOK-B idea` shape that silently defaults to
     activation."""
 
     @pytest.mark.parametrize("doc", [
@@ -117,16 +117,16 @@ class TestPathClaimConflictDocsRequireExplicitGatePoint:
         REFINE_SKILL,
     ])
     def test_no_bare_dependency_add_block(self, doc):
-        """A multi-line `dependency-add` invocation must always carry
+        """A multi-line `items dependency add` invocation must always carry
         `--gate-point` in the same code block. The pattern we forbid is
-        `dependency-add <candidate> <other> <source>` on its own line
+        `items dependency add <candidate> <other> <source>` on its own line
         with no `--gate-point` flag within the next two non-blank lines."""
         text = _read(doc)
         lines = text.splitlines()
         for idx, line in enumerate(lines):
-            # Detect the dependency-add invocation line, including
+            # Detect the items-dependency add invocation line, including
             # line-continuation backslash variants.
-            if "dependency-add" not in line:
+            if "items dependency add" not in line:
                 continue
             if line.strip().startswith("#"):
                 continue
@@ -136,7 +136,7 @@ class TestPathClaimConflictDocsRequireExplicitGatePoint:
             if "--gate-point" in window:
                 continue
             pytest.fail(
-                f"{doc.name}: dependency-add invocation at line {idx + 1} "
+                f"{doc.name}: items dependency add invocation at line {idx + 1} "
                 "is missing --gate-point in its code block — this silently "
                 "defaults to activation.\n"
                 f"Offending block:\n{window}"
@@ -166,7 +166,7 @@ class TestCoordinationOnlyDistinguishedFromActivation:
 
 
 class TestNoAmbiguousDepEdgeWording:
-    """The phrase 'dep-edge via shepherd dependency-add' (alone, without
+    """The phrase 'dep-edge via items dependency add' (alone, without
     naming the gate-point classification) is the regression vector this class
     pins against."""
 
@@ -182,10 +182,10 @@ class TestNoAmbiguousDepEdgeWording:
     def test_no_unqualified_dep_edge_via_dependency_add(self, doc):
         text = _read(doc)
         # The forbidden shape is the literal "dep-edge via
-        # `shepherd dependency-add`" without an immediately following
+        # `items dependency add`" without an immediately following
         # gate-point classification.
         ambiguous = re.compile(
-            r"dep-edge via\s+`?shepherd dependency-add`?",
+            r"dep-edge via\s+`?items dependency add`?",
             re.IGNORECASE,
         )
         for match in ambiguous.finditer(text):
@@ -195,7 +195,7 @@ class TestNoAmbiguousDepEdgeWording:
                 # coordination classification — not a regression.
                 continue
             pytest.fail(
-                f"{doc.name}: ambiguous 'dep-edge via dependency-add' "
+                f"{doc.name}: ambiguous 'dep-edge via items dependency add' "
                 "wording detected without --gate-point / coordination_only "
                 "qualification — this silently defaults to activation. "
                 f"Context window: {window!r}"

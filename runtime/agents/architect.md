@@ -105,7 +105,7 @@ Read the returned context packet. The helper is **evidence, not a verdict** — 
 - **Ambiguous** → emit a bullet under a `## Plan Caveats` section in the plan for refine/operator review. Do NOT author an edge you cannot justify.
 
 Author the non-ambiguous cases only through the registered dependency
-authoring surface named in your packet (`yoke shepherd dependency-add`).
+authoring surface named in your packet (`yoke items dependency add`).
 If the packet exposes a raw `python3 -m ... dependency-add` module path, stop
 and report the missing wrapper to the parent session instead of teaching or
 invoking that raw path.

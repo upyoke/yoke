@@ -2,7 +2,7 @@
 
 These function ids are agent-facing ``yoke`` subcommands whose token forms
 live in the dedicated ``yoke_cli.commands.registry_*`` sub-modules
-(deployment, readiness, shepherd-dependency, ephemeral-env, strategy/event/
+(deployment, readiness, item-dependency, ephemeral-env, strategy/event/
 ouroboros) plus ``onboard checklist`` and the ``claims path required-gate``
 read. The parity gate ``test_every_live_function_has_an_adapter_entry``
 requires a CLI_ADAPTERS row for every ``adapter_status='live'`` handler;
@@ -157,18 +157,18 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         function_id="claims.path.required_gate",
         cli_invocation="yoke claims path required-gate",
     ),
-    # Shepherd dependency-edge writers.
+    # Item-dependency writers.
     AdapterEntry(
-        function_id="shepherd.dependency_add.run",
-        cli_invocation="yoke shepherd dependency-add",
+        function_id="items.dependency.add",
+        cli_invocation="yoke items dependency add",
     ),
     AdapterEntry(
-        function_id="shepherd.dependency_remove.run",
-        cli_invocation="yoke shepherd dependency-remove",
+        function_id="items.dependency.remove",
+        cli_invocation="yoke items dependency remove",
     ),
     AdapterEntry(
-        function_id="shepherd.dependency_update.run",
-        cli_invocation="yoke shepherd dependency-update",
+        function_id="items.dependency.update",
+        cli_invocation="yoke items dependency update",
     ),
     # Strategy carry / checkpoint / master-plan surfaces (mixed read/write).
     _read_entry(

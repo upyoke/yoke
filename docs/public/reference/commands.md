@@ -73,7 +73,7 @@ Advance an epic from `refined-idea` to `planned` through quality-gated transitio
 Single-item execution mode for epics:
 
 - **`/yoke conduct PREFIX-N`** -- Single-item execution loop: start at `planned`, resume at `implementing` / `reviewing-implementation`, auto-resolve the next epic task, run Engineer + Tester, then finish with integration simulation and hand off at `reviewed-implementation`. Flags: `--no-chain`, `--max-attempts N`, `--force`/`--ignore-gaps`.
-- Hard-block dependency blockers should be inspected with `yoke shepherd dependency-list PREFIX-N`, which reads the authoritative `item_dependencies` graph in both directions.
+- Hard-block dependency blockers should be inspected with `yoke items dependency list PREFIX-N`, which reads the authoritative `item_dependencies` graph in both directions.
 
 On first epic dispatch, runs the simulation gap gate (blocks if CRITICAL plan simulation gaps exist). Per-task diffs exceeding 300 lines are externalized to temp files. Conduct does NOT run merge/deploy; successful runs hand the parent epic to `/yoke polish PREFIX-N`.
 
@@ -87,7 +87,7 @@ Unified merge+deploy pipeline skill. Takes `implemented` items through merge, de
 
 **Arguments:** `PREFIX-N [PREFIX-N ...]` (explicit items), `--dry-run`, `--merge-only`, `--deploy-only`, `--resume PREFIX-N` (sugar for single-item deploy-only). No args: all release-eligible items for the default project.
 
-Use `yoke shepherd dependency-list PREFIX-N` to inspect the authoritative dependency graph for any item. `/yoke usher --dry-run` surfaces the hard-block edges that explain its merge ordering.
+Use `yoke items dependency list PREFIX-N` to inspect the authoritative dependency graph for any item. `/yoke usher --dry-run` surfaces the hard-block edges that explain its merge ordering.
 
 **Pipeline phases:**
 

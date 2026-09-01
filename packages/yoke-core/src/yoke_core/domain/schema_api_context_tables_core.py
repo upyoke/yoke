@@ -97,7 +97,7 @@ CORE_TABLES: dict[str, dict] = {
             "`classification` column on this table. satisfaction is "
             "one of 'status:done', 'status:implemented', 'fact:merged'. "
             "source enum: conduct, feed, idea, migration, operator, "
-            "refine, shepherd. Reader `shepherd.dependency_list.run` "
+            "refine, shepherd. Reader `items.dependency.list` "
             "projects `direction`/`other_item` (wrong guess: result keys "
             "`dependent_item`/`blocking_item` — storage is *_item_id)."
         ),

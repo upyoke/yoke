@@ -107,11 +107,11 @@ def test_project_scoped_github_write_denies_omitted_project_context():
         conn.close()
 
 
-def test_shepherd_dependency_writes_require_item_write_permission():
-    assert permission_key_for(_read_entry("shepherd.dependency_list.run")) == "items.read"
-    assert permission_key_for(_entry("shepherd.dependency_add.run")) == "items.write"
-    assert permission_key_for(_entry("shepherd.dependency_update.run")) == "items.write"
-    assert permission_key_for(_entry("shepherd.dependency_remove.run")) == "items.write"
+def test_item_dependency_writes_require_item_write_permission():
+    assert permission_key_for(_read_entry("items.dependency.list")) == "items.read"
+    assert permission_key_for(_entry("items.dependency.add")) == "items.write"
+    assert permission_key_for(_entry("items.dependency.update")) == "items.write"
+    assert permission_key_for(_entry("items.dependency.remove")) == "items.write"
     assert permission_key_for(_entry("shepherd.verdict.run")) == "items.write"
     assert permission_key_for(_entry("shepherd.caveat_disposition.run")) == "items.write"
 

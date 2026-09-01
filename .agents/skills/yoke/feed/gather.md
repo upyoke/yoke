@@ -79,7 +79,7 @@ For each target item, query its dependency edges:
 
 ```bash
 # For each target item:
-yoke shepherd dependency-list PREFIX-N
+yoke items dependency list PREFIX-N
 ```
 
 Build a mental model of the current dependency graph:

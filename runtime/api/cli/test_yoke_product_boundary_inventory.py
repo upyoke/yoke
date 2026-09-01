@@ -126,27 +126,27 @@ def test_teaching_audit_accepts_tool_shaped_permanent_commands(tmp_path: Path):
     assert surface.drift_type is None
 
 
-def test_teaching_audit_resolves_shepherd_dependency_writers(tmp_path: Path):
+def test_teaching_audit_resolves_item_dependency_writers(tmp_path: Path):
     _write_doc(
         tmp_path,
         "```bash\n"
-        "yoke shepherd dependency-add YOK-20 YOK-10 idea "
+        "yoke items dependency add YOK-20 YOK-10 idea "
         "--gate-point coordination_only --rationale independent\n"
-        "yoke shepherd dependency-update YOK-20 YOK-10 "
+        "yoke items dependency update YOK-20 YOK-10 "
         "--match-gate-point activation --satisfaction fact:merged\n"
-        "yoke shepherd dependency-remove YOK-20 YOK-10\n"
+        "yoke items dependency remove YOK-20 YOK-10\n"
         "```\n",
     )
     audit = inventory.generate_teaching_audit(repo_root=tmp_path)
     by_command = {row.command_form: row for row in audit.surfaces}
-    assert by_command["yoke shepherd dependency-add"].function_id == (
-        "shepherd.dependency_add.run"
+    assert by_command["yoke items dependency add"].function_id == (
+        "items.dependency.add"
     )
-    assert by_command["yoke shepherd dependency-update"].function_id == (
-        "shepherd.dependency_update.run"
+    assert by_command["yoke items dependency update"].function_id == (
+        "items.dependency.update"
     )
-    assert by_command["yoke shepherd dependency-remove"].function_id == (
-        "shepherd.dependency_remove.run"
+    assert by_command["yoke items dependency remove"].function_id == (
+        "items.dependency.remove"
     )
     assert {row.drift_type for row in by_command.values()} == {None}
 

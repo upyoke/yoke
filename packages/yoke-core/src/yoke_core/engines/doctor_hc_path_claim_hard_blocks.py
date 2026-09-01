@@ -86,7 +86,7 @@ def hc_path_claim_hard_blocks(
     )
     issues.append(
         "- Convert to coordination_only with the listed edge refs: "
-        "`yoke shepherd dependency-update <dependent> <blocking> "
+        "`yoke items dependency update <dependent> <blocking> "
         "--match-gate-point activation --gate-point coordination_only "
         "--rationale '...'`"
     )

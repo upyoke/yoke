@@ -16,17 +16,17 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import check_hard_blocks, db_backend
-from yoke_core.domain.handlers.shepherd_dependency_writes import (
-    handle_shepherd_dependency_add,
+from yoke_core.domain.handlers.item_dependency_writes import (
+    handle_item_dependency_add,
 )
 from yoke_core.domain.path_claims_dependency_resolver_coordination import (
     has_forward_serial_edge,
     items_are_coordination_only,
 )
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
-from yoke_core.domain.shepherd_dependency import cmd_dependency_add
-from yoke_core.domain.shepherd_dependency_enrich import cmd_dependency_enrich
-from yoke_core.domain.shepherd_dependency_read import dependency_rows
+from yoke_core.domain.item_dependency import cmd_dependency_add
+from yoke_core.domain.item_dependency_enrich import cmd_dependency_enrich
+from yoke_core.domain.item_dependency_read import dependency_rows
 
 # Internal ids and the project sequences they render as. The gap between
 # the two columns is the whole point of the fixture.
@@ -101,9 +101,9 @@ def test_dispatcher_target_stores_the_internal_id(test_db):
     """``target.item_id`` is internal; storage keeps that id."""
     _seed_diverged_pair(test_db)
 
-    outcome = handle_shepherd_dependency_add(
+    outcome = handle_item_dependency_add(
         FunctionCallRequest(
-            function="shepherd.dependency_add.run",
+            function="items.dependency.add",
             actor=ActorContext(actor_id="op", session_id="s-1"),
             target=TargetRef(kind="item", item_id=DEPENDENT_ID),
             payload={

@@ -23,7 +23,7 @@ DOMAIN_TABLE = [
     ("items",            "Backlog item reads and writes"),
     ("epic",             "Epic task management"),
     ("ouroboros",        "Learning loop entries and field-notes"),
-    ("shepherd",         "Verdicts, caveats, and dependencies"),
+    ("shepherd",         "Verdicts and caveats"),
     ("release",          "Release notes management"),
     ("projects",         "Project registry management"),
     ("project-structure","Project Structure aggregate (path registry constitution)"),

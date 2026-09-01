@@ -105,7 +105,7 @@ def evaluate_check_hard_blocks(
         ),
         "remediation_hint": (
             "Land the blocking item, or amend the dependency with "
-            "`yoke shepherd dependency-list <item>` evidence when the edge "
+            "`yoke items dependency list <item>` evidence when the edge "
             "is no longer real."
         ),
     }

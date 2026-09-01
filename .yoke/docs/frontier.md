@@ -18,7 +18,7 @@ dependencies. Blocked items stay at their lifecycle stage with a reason;
 frontier routes them to wait until unblocked.
 
 ```bash
-yoke shepherd dependency-list PREFIX-N
+yoke items dependency list PREFIX-N
 ```
 
 ## Operator stance

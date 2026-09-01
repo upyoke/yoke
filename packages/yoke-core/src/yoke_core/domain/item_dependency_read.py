@@ -1,9 +1,9 @@
-"""Read-side projection for shepherd dependency rows.
+"""Read-side projection for item-dependency rows.
 
-Split from :mod:`yoke_core.domain.shepherd_dependency` (the writes) so
+Split from :mod:`yoke_core.domain.item_dependency` (the writes) so
 each file stays under the authored-file line cap. ``dependency_rows`` is
 the single owner of the both-direction projection; the
-``shepherd dependency-list`` CLI and the ``shepherd.dependency_list.run``
+``items dependency list`` CLI and the ``items.dependency.list``
 function handler both consume it.
 """
 from __future__ import annotations

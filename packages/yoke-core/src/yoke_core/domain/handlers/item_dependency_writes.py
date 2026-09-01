@@ -1,14 +1,14 @@
-"""Shepherd dependency write handlers.
+"""Item-dependency write handlers.
 
-Wraps the existing dependency graph domain commands behind registered
+Wraps the dependency graph domain commands behind registered
 function ids:
 
-* ``shepherd.dependency_add.run``
-* ``shepherd.dependency_update.run``
-* ``shepherd.dependency_remove.run``
+* ``items.dependency.add``
+* ``items.dependency.update``
+* ``items.dependency.remove``
 
 The dependent item is the dispatcher target. The blocking item remains a
-payload ref accepted by the underlying shepherd dependency domain owner.
+payload ref accepted by the underlying item-dependency domain owner.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from yoke_contracts.api.function_call import (
 )
 
 
-class ShepherdDependencyAddRequest(BaseModel):
+class ItemDependencyAddRequest(BaseModel):
     blocking_item: str = Field(..., min_length=1)
     source: str = Field(..., min_length=1)
     gate_point: str = "activation"
@@ -33,7 +33,7 @@ class ShepherdDependencyAddRequest(BaseModel):
     evidence_json: str = "{}"
 
 
-class ShepherdDependencyAddResponse(BaseModel):
+class ItemDependencyAddResponse(BaseModel):
     dependent_item: str
     blocking_item: str
     gate_point: str
@@ -42,7 +42,7 @@ class ShepherdDependencyAddResponse(BaseModel):
     result: str
 
 
-class ShepherdDependencyUpdateRequest(BaseModel):
+class ItemDependencyUpdateRequest(BaseModel):
     blocking_item: str = Field(..., min_length=1)
     match_gate_point: Optional[str] = None
     gate_point: Optional[str] = None
@@ -50,17 +50,17 @@ class ShepherdDependencyUpdateRequest(BaseModel):
     rationale: Optional[str] = None
 
 
-class ShepherdDependencyUpdateResponse(BaseModel):
+class ItemDependencyUpdateResponse(BaseModel):
     dependent_item: str
     blocking_item: str
     result: str
 
 
-class ShepherdDependencyRemoveRequest(BaseModel):
+class ItemDependencyRemoveRequest(BaseModel):
     blocking_item: str = Field(..., min_length=1)
 
 
-class ShepherdDependencyRemoveResponse(BaseModel):
+class ItemDependencyRemoveResponse(BaseModel):
     dependent_item: str
     blocking_item: str
     result: str
@@ -91,7 +91,7 @@ def _dependent_item(request: FunctionCallRequest) -> tuple[str | None, HandlerOu
     if request.target.kind != "item" or item_id is None:
         return None, _err(
             "target_invalid",
-            "shepherd dependency writes require target.kind='item' with item_id",
+            "item dependency writes require target.kind='item' with item_id",
             jsonpath="$.target.item_id",
         )
     from yoke_core.domain.item_ref_columns import render_column_item_ref
@@ -114,11 +114,11 @@ def _domain_error(exc: Exception) -> HandlerOutcome:
     return _err(code, str(exc))
 
 
-def handle_shepherd_dependency_add(
+def handle_item_dependency_add(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     body, err = _validate(
-        ShepherdDependencyAddRequest, request.payload, "dependency_add",
+        ItemDependencyAddRequest, request.payload, "dependency_add",
     )
     if err is not None:
         return err
@@ -127,7 +127,7 @@ def handle_shepherd_dependency_add(
         return err
     assert dependent is not None
 
-    from yoke_core.domain.shepherd_dependency import cmd_dependency_add
+    from yoke_core.domain.item_dependency import cmd_dependency_add
 
     try:
         result = _run_with_conn(
@@ -155,11 +155,11 @@ def handle_shepherd_dependency_add(
     )
 
 
-def handle_shepherd_dependency_update(
+def handle_item_dependency_update(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     body, err = _validate(
-        ShepherdDependencyUpdateRequest, request.payload, "dependency_update",
+        ItemDependencyUpdateRequest, request.payload, "dependency_update",
     )
     if err is not None:
         return err
@@ -168,7 +168,7 @@ def handle_shepherd_dependency_update(
         return err
     assert dependent is not None
 
-    from yoke_core.domain.shepherd_dependency import cmd_dependency_update
+    from yoke_core.domain.item_dependency import cmd_dependency_update
 
     try:
         result = _run_with_conn(
@@ -192,11 +192,11 @@ def handle_shepherd_dependency_update(
     )
 
 
-def handle_shepherd_dependency_remove(
+def handle_item_dependency_remove(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     body, err = _validate(
-        ShepherdDependencyRemoveRequest, request.payload, "dependency_remove",
+        ItemDependencyRemoveRequest, request.payload, "dependency_remove",
     )
     if err is not None:
         return err
@@ -205,7 +205,7 @@ def handle_shepherd_dependency_remove(
         return err
     assert dependent is not None
 
-    from yoke_core.domain.shepherd_dependency import cmd_dependency_remove
+    from yoke_core.domain.item_dependency import cmd_dependency_remove
 
     try:
         result = _run_with_conn(
@@ -226,13 +226,13 @@ def handle_shepherd_dependency_remove(
 
 
 __all__ = [
-    "ShepherdDependencyAddRequest",
-    "ShepherdDependencyAddResponse",
-    "ShepherdDependencyUpdateRequest",
-    "ShepherdDependencyUpdateResponse",
-    "ShepherdDependencyRemoveRequest",
-    "ShepherdDependencyRemoveResponse",
-    "handle_shepherd_dependency_add",
-    "handle_shepherd_dependency_update",
-    "handle_shepherd_dependency_remove",
+    "ItemDependencyAddRequest",
+    "ItemDependencyAddResponse",
+    "ItemDependencyUpdateRequest",
+    "ItemDependencyUpdateResponse",
+    "ItemDependencyRemoveRequest",
+    "ItemDependencyRemoveResponse",
+    "handle_item_dependency_add",
+    "handle_item_dependency_update",
+    "handle_item_dependency_remove",
 ]

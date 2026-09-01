@@ -148,16 +148,23 @@ def test_projects_resolve_by_github_repo_handler_registered() -> None:
     assert "projects.resolve_by_github_repo" in ids
 
 
-def test_shepherd_dependency_write_handlers_registered() -> None:
+def test_item_dependency_and_shepherd_verdict_handlers_registered() -> None:
     init_register.register_all_handlers()
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
     assert {
-        "shepherd.dependency_add.run",
-        "shepherd.dependency_update.run",
-        "shepherd.dependency_remove.run",
+        "items.dependency.list",
+        "items.dependency.add",
+        "items.dependency.update",
+        "items.dependency.remove",
         "shepherd.verdict.run",
         "shepherd.caveat_disposition.run",
     } <= ids
+    retired_family = "shepherd" + ".dependency_"
+    retired_suffix = ".run"
+    assert {
+        retired_family + verb + retired_suffix
+        for verb in ("add", "list", "remove", "update")
+    }.isdisjoint(ids)
 
 
 def test_qa_requirement_waive_handler_registered() -> None:

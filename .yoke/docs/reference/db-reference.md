@@ -50,7 +50,7 @@ When this reference changes (a new column, a renamed table, a new wrapper comman
 
 **Topics today:**
 
-- `core` — control plane + structured fields (`epic_tasks`, `epic_progress_notes`, `events`) plus item-dependency wrapper recipes (`shepherd dependency-list`, `dependency-add`, `dependency-update`, `dependency-remove`).
+- `core` — control plane + structured fields (`epic_tasks`, `epic_progress_notes`, `events`) plus item-dependency list (`yoke items dependency list`); add/update/remove recipes live in the claims authoring packet.
 - `claims` — `harness_sessions`, `work_claims`, `path_claims` plus work, steering, and path-claim wrappers.
 - `qa` — `qa_requirements`, `qa_runs`, the QA discovery wrappers (`yoke qa requirement list`, `yoke qa run list`, `yoke qa run add`), and the reviewed-implementation gate preview surfaced through `/yoke advance PREFIX-N reviewed-implementation`. The packet teaches that running the test suite alone does not satisfy the gate — agents must route reviewed-implementation transitions through `/yoke advance PREFIX-N reviewed-implementation`, never raw `items update`.
 - `project` — `project_structure` declarations plus project QA plans and
@@ -158,7 +158,7 @@ yoke workflow-item epic-task body-get --epic 42 --task-num 3
 yoke ouroboros entry list --unreviewed
 
 # Shepherd
-yoke shepherd dependency-list PREFIX-N
+yoke items dependency list PREFIX-N
 
 # Structured field reads
 yoke items get PREFIX-N spec

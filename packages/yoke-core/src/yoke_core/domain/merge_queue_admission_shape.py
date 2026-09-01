@@ -193,7 +193,7 @@ def train_context(
         members.append(shape)
     deps_result, deps_err = _dispatch_read(
         dispatch,
-        function_id="shepherd.dependency_list.run",
+        function_id="items.dependency.list",
         public_ref=candidate_ref,
         payload={},
     )

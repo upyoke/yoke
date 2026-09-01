@@ -325,7 +325,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "`escalate`). The helper does NOT decide; the caller "
             "classifies and runs the matching command. Most independent "
             "same-file edits resolve as `coordination_only` via "
-            "`yoke shepherd dependency-add ... --gate-point "
+            "`yoke items dependency add ... --gate-point "
             "coordination_only --rationale TEXT`."
         ),
     },

@@ -123,7 +123,7 @@ surfaces at PR-merge time as a normal git merge conflict and is resolved
 by `yoke_core.engines.merge_worktree`.
 
 ```bash
-yoke shepherd dependency-add \
+yoke items dependency add \
     PREFIX-{id-number} PREFIX-{conflicting-item-id} idea \
     --gate-point coordination_only \
     --rationale "<non-empty: name shared paths, the disjoint sections each work item edits, why the edits are independent>"
@@ -147,13 +147,13 @@ inherits — author an `activation` edge. The activation gate point gates
 lifecycle and keeps the candidate claim blocked until the upstream
 coordination condition is satisfied.
 
-`shepherd dependency-add` defaults to `--gate-point activation` when no
+`items dependency add` defaults to `--gate-point activation` when no
 flag is passed, but the path-claim conflict-resolution protocol requires
 the explicit flag plus a directional rationale so the row is
 distinguishable from over-hard mistakes.
 
 ```bash
-yoke shepherd dependency-add \
+yoke items dependency add \
     PREFIX-{id-number} PREFIX-{upstream-id} idea \
     --gate-point activation \
     --satisfaction fact:merged \

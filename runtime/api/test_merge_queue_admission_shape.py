@@ -10,9 +10,9 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
-from yoke_core.domain.handlers import reads, shepherd_reads
+from yoke_core.domain.handlers import item_dependency_reads, reads
 from yoke_core.domain.handlers.reads import ItemsGetResponse
-from yoke_core.domain.handlers.shepherd_reads import ShepherdDependencyListResponse
+from yoke_core.domain.handlers.item_dependency_reads import ItemDependencyListResponse
 from yoke_core.domain.merge_queue_admission import (
     REFUSE_MIGRATION_CARRIER,
     REFUSE_SERIAL_ORDERING,
@@ -23,8 +23,8 @@ from yoke_core.domain.merge_queue_admission_shape import (
     candidate_shape,
     train_context,
 )
-from yoke_core.domain.shepherd_dependency import cmd_dependency_add
-from yoke_core.domain.shepherd_dependency_read import DEPENDENCY_LIST_COLUMNS
+from yoke_core.domain.item_dependency import cmd_dependency_add
+from yoke_core.domain.item_dependency_read import DEPENDENCY_LIST_COLUMNS
 
 
 def _items_get_request(item_id, fields):
@@ -38,7 +38,7 @@ def _items_get_request(item_id, fields):
 
 def _dep_list_request(item_id):
     return FunctionCallRequest(
-        function="shepherd.dependency_list.run",
+        function="items.dependency.list",
         actor=ActorContext(actor_id="op", session_id="s-1"),
         target=TargetRef(kind="item", item_id=item_id),
         payload={},
@@ -70,10 +70,10 @@ def test_landing_fake_dependency_list_matches_handler_row_keys():
     row["gate_point"] = "activation"
     fake = dispatch_for({"YOK-200": {"dependencies": [row]}})
     result = fake(
-        function_id="shepherd.dependency_list.run",
+        function_id="items.dependency.list",
         target=SimpleNamespace(public_ref="YOK-200"),
     ).result
-    ShepherdDependencyListResponse.model_validate(result)
+    ItemDependencyListResponse.model_validate(result)
     emitted = result["dependencies"][0]
     assert "dependent_item" not in emitted
     assert "blocking_item" not in emitted
@@ -85,7 +85,7 @@ def test_blocks_edge_refuses_dependent_against_real_list_projection(test_db):
     insert_item(test_db, id=150, title="blocker")
     cmd_dependency_add(test_db, "YOK-200", "YOK-150", "operator")
     test_db.commit()
-    outcome = shepherd_reads.handle_shepherd_dependency_list(
+    outcome = item_dependency_reads.handle_item_dependency_list(
         _dep_list_request(200),
     )
     assert outcome.primary_success
@@ -107,7 +107,7 @@ def test_blocks_edge_refuses_dependent_against_real_list_projection(test_db):
             return ok_response({"claims": []})
         if function_id == "items.get.run":
             return ok_response({"item_id": 0, "fields": {"db_mutation_profile": ""}})
-        if function_id == "shepherd.dependency_list.run":
+        if function_id == "items.dependency.list":
             return ok_response(outcome.result_payload)
         raise AssertionError(function_id)
 
@@ -144,7 +144,7 @@ def test_migration_carrier_reads_fields_nested_items_get(test_db):
                 result=got.result_payload,
                 error=got.error,
             )
-        if function_id == "shepherd.dependency_list.run":
+        if function_id == "items.dependency.list":
             return ok_response({"item_id": item_id, "dependencies": []})
         raise AssertionError(function_id)
 
