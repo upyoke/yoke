@@ -13,6 +13,7 @@ from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import managed_markdown as managed_markdown_layer
 from yoke_cli.project_install import (
     settings_permissions as settings_permissions_layer,
+    settings_status_line as settings_status_line_layer,
 )
 from yoke_cli.project_install import strategy as strategy_layer
 from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
@@ -105,6 +106,12 @@ def preflight_apply(
         "owned_git_hook_hashes": owned_git_hook_hashes,
         "managed_markdown_preview": managed_markdown_preview,
         "settings_permissions_preview": settings_permissions_preview,
+        "settings_status_line_preview": (
+            settings_status_line_layer.preview_settings_status_line(
+                repo_root,
+                bundle.get(settings_status_line_layer.MANAGED_STATUS_LINE_KEY),
+            )
+        ),
         "cursor_permissions_preview": cursor_permissions_preview,
         "worktrees_ignore": worktrees_ignore,
     }

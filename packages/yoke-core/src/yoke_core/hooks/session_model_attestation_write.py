@@ -40,7 +40,15 @@ def attest_served_model_facts(
     try:
         from yoke_harness.model_attestation import attest_served_facts
 
-        served = attest_served_facts("claude-code", {}, transcript_path=transcript_path)
+        # The session id is not decoration here: Claude's served window
+        # lives in the status line recording keyed by it, not in the
+        # transcript, so a reader that passed only the transcript would
+        # attest the model and silently drop the window.
+        served = attest_served_facts(
+            "claude-code",
+            {"session_id": session_id},
+            transcript_path=transcript_path,
+        )
     except Exception:
         return False
     if not served.attested():

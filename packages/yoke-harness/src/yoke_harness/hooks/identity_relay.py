@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.session_context_window_sources import records_window_separately
 from yoke_contracts.session_model_facts import (
     MODEL_FACT_FIELDS,
     SessionModelFacts,
@@ -127,7 +129,7 @@ def client_model_facts(
     session_id = payload.get("session_id")
     session_id = session_id if isinstance(session_id, str) else ""
     if model_facts_settled(event_name, session_id):
-        return {}
+        return _recorded_window_facts(session_id, executor)
     facts = resolve_model_facts(payload, executor)
     if session_id and facts.model is not None:
         _mark_model_shipped(session_id)
@@ -136,6 +138,27 @@ def client_model_facts(
         for field in MODEL_FACT_FIELDS
         if getattr(facts, field) is not None
     }
+
+
+def _recorded_window_facts(session_id: str, executor: str) -> dict[str, Any]:
+    """The one served fact that can still arrive after a session settles.
+
+    Settling ends the expensive reads, and it has to: a proven model is the
+    whole answer a transcript or store will give. Claude's window is the
+    exception — a different process writes it on its own schedule, after the
+    model is known — so it is looked for past the settle point, affordable
+    only because that lookup opens one small file rather than re-reading an
+    artifact. A stored window resends harmlessly; the merge drops it.
+    """
+    try:
+        if not records_window_separately(canonical_harness_id(executor)):
+            return {}
+        from yoke_harness.claude_status_line import recorded_context_window
+
+        window = recorded_context_window(session_id)
+    except Exception:  # noqa: BLE001 — identity probes never break a hook
+        return {}
+    return {"context_window_tokens": window} if window is not None else {}
 
 
 def _normalize_config_token(value: str) -> str:

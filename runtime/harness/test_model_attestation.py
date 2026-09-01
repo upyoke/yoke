@@ -37,8 +37,10 @@ def test_claude_reports_the_served_model_and_effort_from_its_transcript(
     assert facts.reasoning_effort == "high"
 
 
-def test_claude_declares_no_context_window(tmp_path: Path) -> None:
-    """The tier is only measurable from consumption, never declared."""
+def test_a_claude_transcript_alone_declares_no_context_window(
+    tmp_path: Path,
+) -> None:
+    """The transcript states usage, never the window it is drawn from."""
     transcript = _claude_transcript(
         tmp_path / "session.jsonl", [_assistant("claude-opus-5", "high")]
     )

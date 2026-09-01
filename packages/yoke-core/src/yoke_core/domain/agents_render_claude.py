@@ -3,7 +3,7 @@
 Renders Claude-side substrate from universal Yoke source:
 
 - ``runtime/harness/claude/settings.json`` — hooks block (universal ordering)
-  plus Claude-specific permissions block.
+  plus Claude-specific permissions and status line blocks.
 - ``runtime/harness/claude/manifest.json`` — Yoke-shaped harness manifest.
 
 The Claude agent ``.md`` adapter tree is owned by the existing
@@ -16,6 +16,7 @@ import json
 
 from yoke_core.domain.agents_render_hooks import render_claude_hooks_block
 from yoke_core.domain.agents_render_manifests import CLAUDE_MANIFEST
+from yoke_harness.hooks.shell_command import hook_shell_command
 
 
 # Claude permissions — operator-authored static block reproduced here so the
@@ -39,6 +40,22 @@ CLAUDE_PERMISSIONS: dict = {
 }
 
 
+# Claude states the context window it is serving in exactly one
+# machine-readable place: the JSON it pipes to the status line command.
+# Hook payloads and transcript rows carry usage and never the window, so
+# without this entry a Claude session's served context_window_tokens can
+# only stay NULL — a requested [1m] tier would go forever unverified.
+# Claude allows one status line per session and hides most footer keyboard
+# hints once any is configured, so the command earns the slot by printing
+# the model, window and usage; an operator who wants their own sets
+# `statusLine` in .claude/settings.local.json, which overrides this and
+# gives up the attestation with it.
+CLAUDE_STATUS_LINE: dict = {
+    "type": "command",
+    "command": hook_shell_command("yoke hook status-line"),
+}
+
+
 def render_claude_settings_json() -> str:
     """Render Claude ``settings.json`` content with leading ``_generated`` marker.
 
@@ -54,6 +71,7 @@ def render_claude_settings_json() -> str:
         ),
         "hooks": render_claude_hooks_block(),
         "permissions": CLAUDE_PERMISSIONS,
+        "statusLine": CLAUDE_STATUS_LINE,
         # Yoke policy: project context (CLAUDE.md, AGENTS.md, session rules,
         # skill prose, work-item bodies) is the only durable surface. Claude's
         # auto-memory subsystem would route rules into a per-machine file that

@@ -10,9 +10,11 @@ plain columns exist to end.
 What each harness reports, measured rather than assumed:
 
 * **claude** — its session transcript stamps ``message.model`` and a
-  top-level ``effort`` on every assistant row. It declares no context
-  window; the served tier is only inferable from consumption, so the
-  window stays unattested.
+  top-level ``effort`` on every assistant row, and states no window at
+  all. The window comes from the one surface that does state it, the
+  status line JSON, recorded per session by
+  :mod:`yoke_harness.claude_status_line`; a session whose status line has
+  not run yet reports its model with the window still unattested.
 * **codex** — its rollout carries ``turn_context`` (model and effort) and
   a declared ``model_context_window``, the one served window any supported
   harness states outright.
@@ -68,9 +70,19 @@ def attest_served_facts(
 def _claude_facts(
     payload: Mapping[str, Any], transcript_path: str
 ) -> SessionModelFacts:
+    """Fold Claude's two artifacts into one reading.
+
+    The model and effort come from the transcript, the window from the
+    status line recording, and either may be present without the other:
+    they are written by different processes at different moments, so each
+    is reported the moment it exists rather than waiting for its partner.
+    """
+    from yoke_harness.claude_status_line import recorded_context_window
+
+    window = recorded_context_window(_text(payload.get("session_id")))
     path = transcript_path or _text(payload.get("transcript_path"))
     if not path or not Path(path).is_file():
-        return SessionModelFacts()
+        return SessionModelFacts(context_window_tokens=window)
     raw = Path(path).read_text(encoding="utf-8", errors="replace")
     for line in reversed(raw.splitlines()[-TRANSCRIPT_SCAN_LINES:]):
         row = _row(line)
@@ -83,8 +95,9 @@ def _claude_facts(
         return SessionModelFacts(
             model=model,
             reasoning_effort=normalize_reasoning_effort(row.get("effort")),
+            context_window_tokens=window,
         )
-    return SessionModelFacts()
+    return SessionModelFacts(context_window_tokens=window)
 
 
 def _codex_facts(payload: Mapping[str, Any]) -> SessionModelFacts:
