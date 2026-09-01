@@ -11,6 +11,7 @@ are not part of the digest.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import re
 import subprocess
@@ -49,7 +50,7 @@ def schema_shape_files(domain_dir: Path | None = None) -> tuple[Path, ...]:
 
 
 def digest_schema_shape(domain_dir: Path | None = None) -> str:
-    """Stable SHA-256 of the schema-shape sources in this install."""
+    """Stable SHA-256 of normalized schema declarations in this install."""
     files = schema_shape_files(domain_dir)
     return _digest_sources((path.name, path.read_bytes()) for path in files)
 
@@ -130,10 +131,65 @@ def _digest_sources(sources: Iterable[tuple[str, bytes]]) -> str:
         found = True
         hasher.update(name.encode("utf-8"))
         hasher.update(b"\0")
-        hasher.update(content)
+        hasher.update(_normalized_schema_declarations(name, content))
         hasher.update(b"\0")
     if not found:
         raise SchemaShapeSourceError(
             "no schema-shape source files found; refusing an empty digest"
         )
     return hasher.hexdigest()
+
+
+class _DocstringStripper(ast.NodeTransformer):
+    """Remove descriptive strings while retaining executable declarations."""
+
+    @staticmethod
+    def _strip_first_statement(node: ast.AST) -> ast.AST:
+        body = getattr(node, "body", None)
+        if (
+            isinstance(body, list)
+            and body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            node.body = body[1:]
+        return node
+
+    def visit_Module(self, node: ast.Module) -> ast.AST:  # noqa: N802
+        return self.generic_visit(self._strip_first_statement(node))
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> ast.AST:  # noqa: N802
+        return self.generic_visit(self._strip_first_statement(node))
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:  # noqa: N802
+        return self.generic_visit(self._strip_first_statement(node))
+
+    def visit_AsyncFunctionDef(  # noqa: N802
+        self, node: ast.AsyncFunctionDef
+    ) -> ast.AST:
+        return self.generic_visit(self._strip_first_statement(node))
+
+
+def _normalized_schema_declarations(name: str, content: bytes) -> bytes:
+    """Canonicalize executable syntax while excluding descriptive source trivia.
+
+    Schema modules build some DDL dynamically, so retaining their complete
+    executable syntax is safer than trying to recognize only SQL literals.
+    Python's parsed tree removes comments and formatting, and the explicit
+    docstring pass keeps descriptive edits from invalidating fleet receipts.
+    """
+    try:
+        tree = ast.parse(content, filename=name)
+    except (SyntaxError, UnicodeError, ValueError) as exc:
+        detail = getattr(exc, "msg", None) or str(exc)
+        raise SchemaShapeSourceError(
+            f"could not normalize schema-shape source {name}: {detail}. "
+            "Fix the source syntax or encoding before retrying the release."
+        ) from exc
+    normalized = _DocstringStripper().visit(tree)
+    return ast.dump(
+        normalized,
+        annotate_fields=True,
+        include_attributes=False,
+    ).encode("utf-8")
