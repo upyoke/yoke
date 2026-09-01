@@ -119,7 +119,7 @@ function itemTable(documentNode, rows, rowHref, scope, projects) {
     );
     titleLink.href = href;
     titleCell.appendChild(titleLink);
-    if (row.qa_attention?.verdict === "undetermined") {
+    if (row.workflow_id !== "task" && row.qa_attention?.verdict === "undetermined") {
       const reason = String(row.qa_attention.verdict_reason || "").trim();
       const attention = el(
         documentNode, "span", "item-workflow",

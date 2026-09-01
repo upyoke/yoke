@@ -78,9 +78,9 @@ for the contract.
   A bare number resolves as the current project's public item sequence. Do not
   invent or guess a prefix; pass the operator's token through unchanged.
 
-`yoke dash "title" "instruction" --execution-instructions-considered` is the
-non-harness filing adapter. It files and prints the item; it does not execute
-it.
+`yoke dash "title" "instruction" --execution-instructions-considered` files
+without executing; use `yoke task "title" "instruction" --execution-instructions-considered`
+for the laneless, merge-free alternative with no optional gate posture.
 
 ## Invariants
 

@@ -19,9 +19,10 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 - `--dry-run` — Preview what would be created without modifying files or syncing to GitHub (optional, must be first argument)
 - `--workflow issue|epic|blitz|task` — Select the workflow explicitly. Use
   `blitz` for a substantial document-led plan that refinement will link to
-  one execution strategy document. Use `task` for folder-only or non-code
-  floor work (no git lane). Dash work enters through `/yoke dash`,
-  not this flag.
+  one execution strategy document. Use `task` here for fully scaffolded floor
+  intake, or file one complete laneless instruction with `yoke task TITLE
+  INSTRUCTION --execution-instructions-considered`. Dash work enters through
+  `/yoke dash`; choose it when work needs a git lane or optional gate.
 - `{title}` — Short title for the item (required)
 
 ## Philosophy

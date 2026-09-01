@@ -44,7 +44,7 @@ export function renderNewItemView(context, main, projectId) {
       callResult.envelope.result?.workflows || [],
     );
     const steer = webWorkflowSteer(workflows);
-    const selected = steer.web[0];
+    let selected = steer.web[0];
     if (!selected) {
       loading.body.textContent =
         "No current workflow version allows the web form entry surface.";
@@ -60,10 +60,11 @@ export function renderNewItemView(context, main, projectId) {
       deployment: false,
       verification_target: "",
     };
-    const directWorkflow = ["dash", "blitz"].includes(selected.id);
-    const pathSurveyPolicy = selected.definition?.policies?.path_survey ||
-      (directWorkflow ? "required" : null);
-    state.path_survey = pathSurveyPolicy === "required";
+    const pathSurveyPolicyFor = (workflow) => (
+      workflow.definition?.policies?.path_survey ||
+      (["dash", "blitz"].includes(workflow.id) ? "required" : null)
+    );
+    state.path_survey = pathSurveyPolicyFor(selected) === "required";
     const verificationAvailable = Boolean(
       catalog.plans.length || catalog.methods.length,
     );
@@ -75,6 +76,8 @@ export function renderNewItemView(context, main, projectId) {
     instruction.required = true;
     instruction.rows = 3;
     const render = () => {
+      const directWorkflow = ["dash", "blitz"].includes(selected.id);
+      const pathSurveyPolicy = pathSurveyPolicyFor(selected);
       const host = el(documentNode, "div", "item-new");
       const head = el(
         documentNode, "div", "page-head item-new-heading",
@@ -98,14 +101,36 @@ export function renderNewItemView(context, main, projectId) {
       host.appendChild(head);
 
       const form = el(documentNode, "form", "item-form");
+      if (steer.web.length > 1) {
+        const choices = workflowPanel(documentNode, "Choose a workflow");
+        choices.body.className += " item-workflow-options";
+        for (const workflow of steer.web) {
+          const choice = button(
+            documentNode,
+            workflow.name || workflow.id,
+            `item-button${workflow.id === selected.id ? " primary" : ""}`,
+          );
+          choice.setAttribute("aria-pressed", String(workflow.id === selected.id));
+          choice.addEventListener("click", () => {
+            selected = workflow;
+            state.path_survey = pathSurveyPolicyFor(selected) === "required";
+            render();
+          });
+          choices.body.appendChild(choice);
+        }
+        form.appendChild(choices.panel);
+      }
       form.appendChild(itemIntakeField(documentNode, "Title", title));
       const instructionHelp = el(
         documentNode,
         "span",
         "item-form-help",
-        `This is the whole spec. If the work turns out bigger than it looks, ` +
-        `the agent stops, records findings, files an Issue, and cancels this ` +
-        `${selected.name || selected.id} with a link.`,
+        selected.id === "task"
+          ? "This is the complete laneless, merge-free instruction. Choose " +
+            "Dash when work needs a git lane, verification, or approval."
+          : `This is the whole spec. If the work turns out bigger than it ` +
+            `looks, the agent stops, records findings, files an Issue, and ` +
+            `cancels this ${selected.name || selected.id} with a link.`,
       );
       form.appendChild(itemIntakeField(
         documentNode, "Instruction", instruction, instructionHelp,
@@ -162,6 +187,7 @@ export function renderNewItemView(context, main, projectId) {
           "once the work merges, ship it through the project's delivery flow",
         ],
       ];
+      let settingCount = 0;
       for (const [key, icon, label, note] of rows) {
         const directSurvey = key === "path_survey" && directWorkflow;
         if (!allow.has(key) && !(key === "approval_on_done" && allow.has("approval")) && !directSurvey) {
@@ -181,8 +207,9 @@ export function renderNewItemView(context, main, projectId) {
           key !== "verification" || verificationAvailable,
           key === "path_survey" && pathSurveyPolicy === "required",
         ));
+        settingCount += 1;
       }
-      form.appendChild(settings.panel);
+      if (settingCount) form.appendChild(settings.panel);
       const footer = el(documentNode, "div", "item-form-actions");
       const submit = button(
         documentNode,
@@ -251,7 +278,7 @@ export function renderNewItemView(context, main, projectId) {
           };
         }
         if (result.status === 200 && result.envelope.success) {
-          const itemRef = result.envelope.result?.item_ref;
+          const itemRef = result.envelope.result?.public_ref;
           outcome.textContent = `Created ${itemRef}.`;
           const href = itemDrillInHref({
             projectId,

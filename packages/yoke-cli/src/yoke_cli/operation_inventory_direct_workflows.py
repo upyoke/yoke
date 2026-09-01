@@ -4,6 +4,7 @@ from yoke_cli.operation_inventory_model import REASON_TOOL_SHAPED, _p, _Row, _w
 
 WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke dash", "items.create"),
+    _w("yoke task", "items.create"),
     _w("yoke direct-workflow dash survey", "direct_workflow.dash"),
     _w("yoke direct-workflow blitz survey", "direct_workflow.blitz"),
     _w("yoke direct-workflow dash evidence", "direct_workflow.dash"),

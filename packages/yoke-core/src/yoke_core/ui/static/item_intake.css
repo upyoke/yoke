@@ -17,6 +17,12 @@
   margin-bottom: 0;
 }
 
+.universe-app-root .item-workflow-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
 .universe-app-root .item-form-field {
   display: grid;
   gap: 6px;

@@ -149,11 +149,16 @@ The `/yoke idea` pipeline handles:
 
   This files without executing. The item lands at `idea` with `workflow=dash`
   and reaches a `/yoke do` or `/yoke charge` session as `next_step=dash`.
+- When that concrete instruction is laneless and merge-free, file the floor
+  alternative instead: `yoke task "<title>" "<instruction>"
+  --execution-instructions-considered --json`. Task has no optional
+  verification, path-claim, approval, or deployment posture; use Dash if any
+  of those or a git lane is required.
 - Anything needing a spec, acceptance criteria, design, or more than one
   delivery slice: invoke `/yoke idea --workflow ${_workflow}` with the
   workflow already resolved above.
 
-Record Dash-filed items in `_materialized_items` exactly like idea-filed ones.
+Record Dash- and Task-filed items in `_materialized_items` like idea-filed ones.
 
 ### 3A.4 Record Created Item
 

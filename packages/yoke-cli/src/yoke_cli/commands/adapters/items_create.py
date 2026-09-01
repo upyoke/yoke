@@ -14,7 +14,7 @@ caller-asserted and does not perform skill-side dedup, classification,
 or body work. Retained callers are operator/debug (no ambient session),
 ``--dry-run``, test isolation, and ``/yoke idea`` (session mode
 ``idea``). Everyone else files through ``/yoke idea`` or
-``yoke dash TITLE INSTRUCTION``.
+``yoke dash TITLE INSTRUCTION`` or ``yoke task TITLE INSTRUCTION``.
 """
 
 from __future__ import annotations
@@ -50,7 +50,8 @@ ITEMS_CREATE_SKILL_SCAFFOLDING_REFUSAL = (
     "yoke items create is operator/debug, dry-run, and test-isolation only. "
     "A live harness session files through skill-side scaffolding: "
     "/yoke idea for issue, epic, or blitz; "
-    "yoke dash TITLE INSTRUCTION for dash."
+    "yoke dash TITLE INSTRUCTION for dash; "
+    "yoke task TITLE INSTRUCTION for laneless, merge-free task."
 )
 
 ITEMS_CREATE_USAGE = (

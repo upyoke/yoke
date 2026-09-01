@@ -57,6 +57,8 @@ LOCAL TERMINAL HELPERS
   Verify machine, env, credential, and checkout bindings.
  yoke dev setup [CHECKOUT]
   Explicit Yoke source-dev/admin setup.
+ yoke dash TITLE INSTRUCTION / yoke task TITLE INSTRUCTION
+  File direct work; Task is the laneless, merge-free alternative to Dash.
  yoke items freeze PREFIX-N / yoke items thaw PREFIX-N
   Park an item off the active board, or return it. Lifecycle status is kept.
   Work that will never resume is `yoke items cancel`, not freeze.

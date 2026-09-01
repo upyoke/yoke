@@ -39,6 +39,7 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 
 | Command | Description |
 |---|---|
+| `yoke dash TITLE INSTRUCTION` / `yoke task TITLE INSTRUCTION` | File direct work after resolving execution instructions: Dash owns a git lane and optional gates; Task is laneless and merge-free. |
 | `yoke board art variant create --ascii\|--mixed\|--image PATH` | Generate, preview, and optionally apply `.yoke/board-art` variants |
 | `yoke project snapshot sync [CHECKOUT]` | Scan committed git tree state and sync authoritative path snapshots |
 | `yoke git pre-commit` | Run the installed pre-commit gate entrypoint. |

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-31T23:36:26Z_
+_Audit generated_at: 2026-09-01T13:09:32Z_
 
 ## 1. Summary
 
 - Function ids registered: **444**
 - Internal dispatch-only functions without CLI adapters: **88**
-- `yoke` CLI subcommands: **369** (369 carry usable `--help`)
-- Operation tracker: **345 wrapped**, 13 tool_cli, 127 permanent, 0 pending
-- Skill-body recipes: 329 total (277 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **370** (370 carry usable `--help`)
+- Operation tracker: **346 wrapped**, 13 tool_cli, 127 permanent, 0 pending
+- Skill-body recipes: 330 total (277 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **345** (operation tracker confirms 345 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **346** (operation tracker confirms 346 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -122,6 +122,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **345** (operation track
 | items | `yoke items cancel` | `items.cancel.run` | ok |
 | items | `yoke items create` | `items.create` | ok |
 | items | `yoke dash` | `items.create` | ok |
+| items | `yoke task` | `items.create` | ok |
 | items | `yoke items detail get` | `items.detail.get` | ok |
 | items | `yoke items freeze` | `items.freeze.run` | ok |
 | items | `yoke items get` | `items.get.run` | ok |
@@ -551,9 +552,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 36 |
-| claude-code | 12 |
-| cursor | 2 |
+| codex | 40 |
+| claude-code | 10 |
 
 ## 8. Contradictions
 
@@ -564,7 +564,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 ## 9. Next-slice recommendation
 
-_No outstanding follow-ups — the harness has nothing to recommend._
+- **1 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
 
 ## 10. Curl floor — the envelope shape under every family
 

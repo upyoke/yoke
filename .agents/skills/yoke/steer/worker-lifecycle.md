@@ -210,6 +210,8 @@ The server parameterizes that shape from the pinned `workflow_id` and
 `charge.schedule.next_step`. Workers still re-read the live binding:
 
 - Dash: `/yoke dash PREFIX-N`; one Dash leg through its merge/evidence close.
+- Task: `/yoke advance PREFIX-N implementation`, then the bound Dash close-out
+  records merge-free floor evidence; no worktree, QA, merge, or deployment leg.
 - Issue: `/yoke refine PREFIX-N` to `refined-idea`, then
   `/yoke advance PREFIX-N implementation`, implementation and `/yoke polish`
   per the live bindings, then that binding's merge boundary.

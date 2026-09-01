@@ -42,6 +42,19 @@ test("New item derives web-fileability and settings from the definition", async 
         },
       },
     },
+    {
+      id: "task",
+      name: "Task",
+      definition: {
+        entry_surfaces: ["web_form", "cli", "harness_skill", "promotion"],
+        policies: {
+          item_posture_allowlist: [],
+          path_survey: "optional",
+          worktrees: "none",
+          delivery: "merge_free",
+        },
+      },
+    },
   ];
   const requests = [];
   renderNewItemView(itemContext(documentNode, async (request) => {
@@ -57,7 +70,7 @@ test("New item derives web-fileability and settings from the definition", async 
 
   const rendered = itemText(root);
   assert.match(rendered, /New Dash/);
-  assert.match(rendered, /Only Dash can currently be filed from the web/);
+  assert.match(rendered, /Dash and Task can be filed from the web/);
   assert.match(rendered, /Issue is filed in a harness \(\/yoke idea\)/);
   assert.match(rendered, /Title/);
   assert.match(rendered, /Instruction/);
@@ -72,6 +85,12 @@ test("New item derives web-fileability and settings from the definition", async 
     ["🐜 acme"],
   );
   assert.equal(byClass(root, "item-setting-row").length, 6);
+  assert.deepEqual(
+    byClass(root, "item-workflow-options")[0].children.map(
+      (node) => node.textContent,
+    ),
+    ["Dash", "Task"],
+  );
   assert.deepEqual(requests.map((request) => request.function), [
     "workflows.definition.get",
     "qa.plan.list",
@@ -96,6 +115,14 @@ test("New item derives web-fileability and settings from the definition", async 
   const textarea = allNodes(root).find((node) => node.tagName === "TEXTAREA");
   assert.equal(textarea.rows, 3);
   assert.equal(byClass(root, "item-form-help")[0].parentNode.tagName, "LABEL");
+
+  byClass(root, "item-workflow-options")[0].children[1]
+    .dispatchEvent(new Event("click"));
+  const taskView = itemText(root);
+  assert.match(taskView, /New Task/);
+  assert.match(taskView, /complete laneless, merge-free instruction/);
+  assert.doesNotMatch(taskView, /Verification|Approval on done|Deploy after merge/);
+  assert.equal(byClass(root, "item-setting-row").length, 0);
 });
 
 test("New item submits one atomic create and routes to the public ref", async () => {
@@ -146,7 +173,7 @@ test("New item submits one atomic create and routes to the public ref", async ()
     }
     return {
       status: 200,
-      envelope: { success: true, result: { item_ref: "ACM-23" } },
+      envelope: { success: true, result: { public_ref: "ACM-23" } },
     };
   });
   viewContext.navigate = (route) => {
@@ -189,4 +216,55 @@ test("New item submits one atomic create and routes to the public ref", async ()
     },
   });
   assert.equal(destination, "#/items/23?project=7");
+});
+
+test("New item files Task through the typed web surface without gate posture", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const requests = [];
+  renderNewItemView(itemContext(documentNode, async (request) => {
+    requests.push(request);
+    const result = request.function === "workflows.definition.get"
+      ? {
+        workflows: [{
+          id: "task",
+          name: "Task",
+          definition: {
+            entry_surfaces: ["web_form", "cli", "harness_skill", "promotion"],
+            policies: {
+              item_posture_allowlist: [],
+              path_survey: "optional",
+              worktrees: "none",
+              delivery: "merge_free",
+            },
+          },
+        }],
+      }
+      : request.function === "items.create"
+        ? { public_ref: "ACM-31" }
+        : { rows: [] };
+    return { status: 200, envelope: { success: true, result } };
+  }), root, "7");
+  await settle();
+
+  assert.match(itemText(root), /New Task/);
+  assert.equal(byClass(root, "item-setting-row").length, 0);
+  const input = allNodes(root).find((node) => node.tagName === "INPUT");
+  const textarea = allNodes(root).find((node) => node.tagName === "TEXTAREA");
+  input.value = "Refresh inventory";
+  textarea.value = "Refresh the local inventory file.";
+  allNodes(root).find((node) => node.tagName === "FORM")
+    .dispatchEvent(new Event("submit"));
+  await settle();
+
+  const create = requests.find((request) => request.function === "items.create");
+  assert.deepEqual(create.payload, {
+    title: "Refresh inventory",
+    instruction: "Refresh the local inventory file.",
+    project: "acme",
+    workflow: "task",
+    entry_surface: "web_form",
+    workflow_posture: {},
+  });
+  assert.match(itemText(root), /Created ACM-31/);
 });

@@ -37,6 +37,7 @@ def test_core_topic_packet_teaches_items_create_scaffolding_gate() -> None:
     assert "yoke items create" in body
     assert "idea mode" in body
     assert "yoke dash TITLE INSTRUCTION" in body
+    assert "yoke task TITLE INSTRUCTION" in body
 
 
 def test_item_entry_block_renders_before_function_call_surface() -> None:
