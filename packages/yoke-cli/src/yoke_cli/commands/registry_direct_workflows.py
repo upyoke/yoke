@@ -11,6 +11,7 @@ from yoke_cli.commands.adapters.dash import (
     dash_survey,
 )
 from yoke_cli.commands.adapters.field_note_promote import field_note_promote
+from yoke_cli.commands.adapters.task import task_file
 
 DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("direct-workflow", "dash", "survey"): (
@@ -41,6 +42,7 @@ DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY = {
 
 DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY = {
     ("dash",): ("items.create", dash_file),
+    ("task",): ("items.create", task_file),
 }
 
 __all__ = [

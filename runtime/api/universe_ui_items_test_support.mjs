@@ -20,24 +20,27 @@ export function itemText(root) {
 
 export function detailItem(workflowId) {
   const directWorkflow = ["dash", "blitz"].includes(workflowId);
-  const fileBudgetPolicy = directWorkflow
+  const fileBudgetPolicy = directWorkflow || workflowId === "task"
     ? "optional"
     : workflowId === "epic" ? "required_per_task" : "required";
-  const pathClaimsPolicy = directWorkflow
+  const pathClaimsPolicy = directWorkflow || workflowId === "task"
     ? "optional"
     : workflowId === "epic" ? "required_per_task" : "required";
-  const pathSurveyPolicy = directWorkflow ? "required" : undefined;
+  const pathSurveyPolicy = directWorkflow
+    ? "required" : workflowId === "task" ? "optional" : undefined;
   const policies = {
     file_budget: fileBudgetPolicy,
     path_claims: pathClaimsPolicy,
     ...(pathSurveyPolicy ? { path_survey: pathSurveyPolicy } : {}),
-    worktrees: workflowId === "epic"
+    worktrees: workflowId === "task"
+      ? "none"
+      : workflowId === "epic"
       ? "worker_and_integration_lanes"
       : workflowId === "blitz"
         ? "worker_lanes_optional_integration"
         : "single_implementation_lane",
     generated_children: workflowId === "epic" ? "epic_tasks" : "none",
-    delivery: "after_merge_action",
+    delivery: workflowId === "task" ? "merge_free" : "after_merge_action",
   };
   return {
     id: 51,
@@ -58,13 +61,16 @@ export function detailItem(workflowId) {
         dash: "Dash",
         epic: "Epic",
         issue: "Issue",
+        task: "Task",
       }[workflowId] || workflowId,
       version: 4,
       stage_label: "Reviewing implementation",
       skill_id: workflowId,
-      next_skill_id: workflowId === "issue"
-        ? "polish" : workflowId === "epic" ? "conduct" : workflowId,
-      item_posture: {
+      next_skill_id: workflowId === "task"
+        ? "advance"
+        : workflowId === "issue"
+          ? "polish" : workflowId === "epic" ? "conduct" : workflowId,
+      item_posture: workflowId === "task" ? {} : {
         verification: true,
         file_budget: false,
         path_claims: false,

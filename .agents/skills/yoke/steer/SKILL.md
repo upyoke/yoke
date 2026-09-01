@@ -78,8 +78,9 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   the scheduler's `next_step`; never convert or re-file incoming work to make
   it Dash-shaped. One worker owns that one item across its routed legs.
 - **Dash is the filing default, not the steering boundary.** New work filed by
-  the steerer uses Dash unless the outcome genuinely needs Issue, Epic, or
-  Blitz structure, or the operator directs another workflow.
+  the steerer uses Dash unless it is genuinely laneless, merge-free Task work
+  (`yoke task TITLE INSTRUCTION --execution-instructions-considered`), needs
+  Issue, Epic, or Blitz structure, or the operator directs another workflow.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.

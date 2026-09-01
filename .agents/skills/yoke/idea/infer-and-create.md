@@ -60,6 +60,10 @@ If the operator supplied `--workflow`:
 - If its initial stage is owned directly by the `dash` skill, route to
   `/yoke dash "instruction"` so filing and the direct-execution contract are
   created atomically.
+- If its policies declare `worktrees=none` and `delivery=merge_free`, the
+  terminal shortcut is `yoke task TITLE INSTRUCTION
+  --execution-instructions-considered`; it files the same Task shape without
+  the body-authoring steps this skill performs.
 - If its bindings hand from `refine` to `blitz`, preserve that registered
   boundary: refinement links exactly one execution strategy document, then
   Blitz executes it. Intake does not copy the plan into the item body or

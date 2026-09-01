@@ -207,6 +207,7 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
     help_skill = (ROOT / ".agents/skills/yoke/help/SKILL.md").read_text()
     for content in (root_skill, help_skill):
         assert "/yoke dash" in content
+        assert "yoke task" in content
         assert "/yoke blitz" in content
         assert "--workflow" in content
         assert "blitz" in content

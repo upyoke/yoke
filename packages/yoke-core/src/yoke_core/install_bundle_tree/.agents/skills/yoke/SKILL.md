@@ -62,6 +62,7 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 | `yoke project install [CHECKOUT]` | Install or repair the project-local Yoke operating layer |
 | `yoke status` | Verify machine, env, credential, and checkout bindings |
 | `yoke dev setup [CHECKOUT]` | Explicit Yoke source-dev/admin setup |
+| `yoke dash TITLE INSTRUCTION` / `yoke task TITLE INSTRUCTION` | File direct work: Dash owns repository lanes and optional gates; Task is laneless and merge-free. Resolve execution instructions first and pass `--execution-instructions-considered`. |
 | `yoke board art variant create --ascii\|--mixed\|--image PATH` | Generate, preview, and optionally apply `.yoke/board-art` variants |
 | `yoke project snapshot sync [CHECKOUT]` | Scan committed git tree state and sync authoritative path snapshots |
 | `yoke items freeze PREFIX-N` / `yoke items thaw PREFIX-N` | Park an item off the active board, or return it (keeps its lifecycle status). Work that will never resume is `yoke items cancel`. |

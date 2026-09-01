@@ -176,6 +176,28 @@ function dashPanels(documentNode, item) {
   );
 }
 
+function taskPanels(documentNode, item) {
+  const progressLog = progressIfPresent(documentNode, item);
+  return detailColumns(
+    documentNode,
+    [
+      textPanel(
+        documentNode,
+        "Instruction",
+        item.narrative.spec || item.narrative.body,
+        "No instruction recorded.",
+      ),
+      ...filledNarrativePanels(documentNode, item),
+    ],
+    [
+      factsPanel(documentNode, item),
+      posturePanel(documentNode, item),
+      commandPanel(documentNode, item),
+      ...(progressLog ? [progressLog] : []),
+    ],
+  );
+}
+
 function fallbackPanels(documentNode, item) {
   const body = String(item.narrative?.body || "").trim();
   const spec = String(item.narrative?.spec || "").trim();
@@ -224,6 +246,8 @@ export function renderWorkflowItemDetail(context, main, item) {
     host.appendChild(epicPanels(context, documentNode, item));
   } else if (workflowId === "dash") {
     host.appendChild(dashPanels(documentNode, item));
+  } else if (workflowId === "task") {
+    host.appendChild(taskPanels(documentNode, item));
   } else {
     host.appendChild(fallbackPanels(documentNode, item));
   }

@@ -134,7 +134,7 @@ export function factsPanel(documentNode, item) {
       pathClaimsFact(item),
     );
   }
-  if (!["epic", "blitz"].includes(workflowId)) {
+  if (!["epic", "blitz"].includes(workflowId) && item.workflow?.effective_policies?.worktrees !== "none") {
     appendFact(documentNode, table, "Worktree", worktreeFact(documentNode, item));
   }
   appendFact(
