@@ -87,12 +87,14 @@ class TestItemStatusSet:
                         "value": "release",
                         "claim_bypass": "done-transition:YOK-44",
                         "status_source": "done-transition",
+                        "qa_bypass": True,
                     },
                 )
             )
             _assert_env_untouched()
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["applied"] is True
+        assert outcome.result_payload["status_write_success"] is True
         assert _item_field(tmp_db, 44, "status") == "release"
 
     def test_refused_write_reports_why_in_the_result_payload(

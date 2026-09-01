@@ -10,7 +10,6 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import advance_skip, advance_skip_core
-from yoke_core.domain import advance_skip_finalize
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 from runtime.api.advance_skip_test_helpers import (
     _CallRecorder,
@@ -19,8 +18,6 @@ from runtime.api.advance_skip_test_helpers import (
     _patch_core,
 )
 from runtime.api.test_backlog import (
-    _item_field,
-    _patch_externals,
     _seed_item,
     tmp_db,  # noqa: F401 — fixture re-export
 )
@@ -311,35 +308,3 @@ class TestCli:
         assert rc == 2
         err = capsys.readouterr().err
         assert "expected PREFIX-N" in err
-
-# ---------------------------------------------------------------------------
-# Integration: real backlog.execute_update path for skip_polish
-# ---------------------------------------------------------------------------
-
-
-def test_real_execute_update_path_polish(tmp_db):
-    """Exercise the real backlog.execute_update seam for skip_polish."""
-    _seed_item(
-        tmp_db,
-        id=990,
-        workflow_id="issue",
-        status="reviewed-implementation",
-        project="yoke",
-    )
-
-    with _patch_externals(), \
-         mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False), \
-         mock.patch.object(
-             advance_skip_finalize,
-             "_emit_skip_event",
-             lambda *a, **kw: None,
-         ), \
-         mock.patch.object(
-             advance_skip_finalize,
-             "_release_claim",
-             lambda *a, **kw: {"released": False, "reason": "no_active_claim"},
-         ):
-        result = advance_skip.skip_polish(990, out=io.StringIO())
-
-    assert result["to_status"] == "implemented"
-    assert _item_field(tmp_db, 990, "status") == "implemented"

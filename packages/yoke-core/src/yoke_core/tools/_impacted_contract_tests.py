@@ -77,6 +77,19 @@ ITEM_POSTURE_QA_BINDING_TESTS = (
     "runtime/api/test_qa_requirement_transition_binding.py",
 )
 
+QA_TRANSITION_CONSUMER_SOURCE_PATHS = frozenset(
+    {
+        "packages/yoke-core/src/yoke_core/domain/backlog_authoritative_status_gate.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_gate_preconditions.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_gates.py",
+    }
+)
+
+QA_TRANSITION_CONSUMER_TESTS = (
+    "runtime/api/domain/handlers/test_done_transition_status_writes.py",
+    "runtime/api/test_advance_skip_qa_gate.py",
+)
+
 WORKFLOW_DEFINITION_VALIDATION_TESTS = (
     "runtime/api/domain/handlers/test_workflows_versioning_handler.py",
     "runtime/api/domain/test_builtin_workflow_canon.py",
@@ -198,6 +211,11 @@ PATH_CONTRACT_TESTS = (
         "item_posture_qa_binding_contract",
         ITEM_POSTURE_QA_BINDING_SOURCE_PATHS,
         ITEM_POSTURE_QA_BINDING_TESTS,
+    ),
+    (
+        "qa_transition_consumer_contract",
+        QA_TRANSITION_CONSUMER_SOURCE_PATHS,
+        QA_TRANSITION_CONSUMER_TESTS,
     ),
     (
         "workflow_definition_validation_contract",
@@ -322,6 +340,8 @@ __all__ = [
     "HANDLER_REGISTRATION_CONTRACT_TESTS",
     "PREFIX_CONTRACT_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",
+    "QA_TRANSITION_CONSUMER_SOURCE_PATHS",
+    "QA_TRANSITION_CONSUMER_TESTS",
     "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "STANDALONE_MERGE_CLOSE_OUT_TESTS",
