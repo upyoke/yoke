@@ -289,7 +289,10 @@ class TestSteerWorkerLifecycle:
         assert "/yoke blitz PREFIX-N" in text
         assert "/yoke shepherd" in text
         assert "yoke say --item PREFIX-N --stdin" in text
-        assert "yoke say --stdin --session" in text
+        # The DONE target is the steering ROLE. A session id there would not
+        # survive the seat that launched the worker being released.
+        assert "yoke say --stdin --steering" in text
+        assert "--session {STEERER_SESSION_ID}" not in text
         assert "never pad, complete, or expand one by hand" in text
         assert "yoke session-control launch preview" in text
         assert "Do not hand-assemble" in text
