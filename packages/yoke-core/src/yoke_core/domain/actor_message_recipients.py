@@ -58,7 +58,9 @@ def _org_ids(conn: Any, actor_id: int) -> set[int]:
 
 def _resolve_actor_ref(conn: Any, raw: str) -> int:
     cleaned = str(raw or "").strip()
-    actor_id = int(cleaned) if cleaned.isdigit() else resolve_actor_by_label(conn, cleaned)
+    actor_id = (
+        int(cleaned) if cleaned.isdigit() else resolve_actor_by_label(conn, cleaned)
+    )
     if actor_id is None or not validate_actor_id(conn, int(actor_id)):
         raise SessionMessageError(
             "actor_recipient_not_found",
@@ -168,16 +170,12 @@ def actor_recipients_for_message(conn: Any, message_id: str) -> list[dict[str, A
     for row in rows:
         recipient = row_dict(row)
         actor_id = int(recipient["actor_id"])
-        recipient.update(
-            {"label": actor_render_label(conn, actor_id), "kind": "human"}
-        )
+        recipient.update({"label": actor_render_label(conn, actor_id), "kind": "human"})
         result.append(recipient)
     return result
 
 
-def expire_due_actor_recipients(
-    conn: Any, *, now: datetime | None = None
-) -> int:
+def expire_due_actor_recipients(conn: Any, *, now: datetime | None = None) -> int:
     marker = _p(conn)
     stamp = timestamp(now or utc_now())
     cursor = conn.execute(

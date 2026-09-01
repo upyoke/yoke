@@ -76,14 +76,20 @@ def test_actor_anchor_unions_with_session_fanout_and_snapshots_once() -> None:
     ).fetchone()
     assert details["sender_surface"] == "cli"
     assert '"actors":["grace"]' in details["selector_snapshot"]
-    assert conn.execute(
-        "SELECT COUNT(*) FROM session_message_recipients WHERE message_id=?",
-        (sent["message_id"],),
-    ).fetchone()[0] == 1
-    assert conn.execute(
-        "SELECT state FROM actor_message_recipients WHERE message_id=?",
-        (sent["message_id"],),
-    ).fetchone()[0] == "pending"
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM session_message_recipients WHERE message_id=?",
+            (sent["message_id"],),
+        ).fetchone()[0]
+        == 1
+    )
+    assert (
+        conn.execute(
+            "SELECT state FROM actor_message_recipients WHERE message_id=?",
+            (sent["message_id"],),
+        ).fetchone()[0]
+        == "pending"
+    )
 
 
 def test_actor_inbox_acknowledgement_is_self_only_and_updates_badge() -> None:
@@ -154,13 +160,17 @@ def test_expired_actor_receipt_cannot_be_acknowledged() -> None:
     )
     conn.commit()
 
-    assert inbox_actor_messages(conn, actor_id=11, include_read=False)[
-        "pending_count"
-    ] == 0
+    assert (
+        inbox_actor_messages(conn, actor_id=11, include_read=False)["pending_count"]
+        == 0
+    )
     with pytest.raises(SessionMessageError) as expired:
         acknowledge_actor_message(conn, message_id=message_id, actor_id=11, now=NOW)
     assert expired.value.code == "invalid_state"
-    assert conn.execute(
-        "SELECT state FROM actor_message_recipients WHERE message_id=?",
-        (message_id,),
-    ).fetchone()[0] == "expired"
+    assert (
+        conn.execute(
+            "SELECT state FROM actor_message_recipients WHERE message_id=?",
+            (message_id,),
+        ).fetchone()[0]
+        == "expired"
+    )

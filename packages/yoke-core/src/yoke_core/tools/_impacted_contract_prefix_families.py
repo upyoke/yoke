@@ -52,6 +52,7 @@ AGENT_SKILL_SOURCE_PREFIXES = (
 )
 
 MIGRATION_HISTORY_CONTRACT_TESTS = (
+    "runtime/api/domain/test_boot_schema_column_convergence.py",
     "runtime/api/domain/test_universe_portability_migration_content_bridge.py",
     "runtime/api/engines/test_doctor_schema_drift_expected.py",
 )
@@ -61,6 +62,8 @@ MACHINE_QA_PACK_CONTRACT_TESTS = ("runtime/api/domain/test_machine_qa.py",)
 PRODUCT_CLI_BOUNDARY_TESTS = (
     # Registry rows and usage entries agree through dict keys, not imports,
     # so reachability cannot see a route added without its usage string.
+    "runtime/api/cli/test_fleet_message_cli_user_journey.py",
+    "runtime/api/cli/test_session_control_selector_help.py",
     "runtime/api/cli/test_yoke_cli_manifest.py",
     "runtime/api/cli/test_yoke_operations_cli.py",
     "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
@@ -96,6 +99,13 @@ HANDLER_REGISTRATION_SOURCE_PREFIXES = (
 
 MIGRATION_HISTORY_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/domain/migrations/",
+    "packages/yoke-core/src/yoke_core/domain/session_control_schema.py",
+)
+
+UNIVERSE_UI_CONTRACT_TESTS = ("runtime/api/test_universe_ui_mount_contract.py",)
+UNIVERSE_UI_SOURCE_PREFIXES = (
+    "packages/yoke-core/src/yoke_core/ui/static/",
+    "runtime/api/universe_ui_",
 )
 
 MACHINE_QA_PACK_SOURCE_PREFIXES = (
@@ -108,6 +118,11 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         "product_cli_boundary_contract",
         PRODUCT_CLI_SOURCE_PREFIXES,
         PRODUCT_CLI_BOUNDARY_TESTS,
+    ),
+    (
+        "universe_ui_contract",
+        UNIVERSE_UI_SOURCE_PREFIXES,
+        UNIVERSE_UI_CONTRACT_TESTS,
     ),
     (
         "handler_registration_contract",
@@ -144,4 +159,6 @@ __all__ = [
     "PREFIX_CONTRACT_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",
     "PRODUCT_CLI_SOURCE_PREFIXES",
+    "UNIVERSE_UI_CONTRACT_TESTS",
+    "UNIVERSE_UI_SOURCE_PREFIXES",
 ]

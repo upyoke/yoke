@@ -24,8 +24,7 @@ def _visible(
     if int(details["sender_actor_id"]) == actor_id:
         return True
     if any(
-        int(row["actor_id"]) == actor_id
-        for row in details.get("actor_recipients", [])
+        int(row["actor_id"]) == actor_id for row in details.get("actor_recipients", [])
     ):
         return True
     if session_id and any(

@@ -21,7 +21,14 @@ from yoke_cli.commands.adapters.session_control_common import (
 from yoke_contracts.session_control.teaching import FLEET_ADDRESSING_GUIDANCE
 
 #: Flags that ADD recipients. Every one of these widens the audience.
-ANCHOR_FLAGS = ("--item", "--epic-task", "--process", "--project", "--session")
+ANCHOR_FLAGS = (
+    "--item",
+    "--actor",
+    "--epic-task",
+    "--process",
+    "--project",
+    "--session",
+)
 #: Flags that narrow whatever the anchors selected.
 FILTER_FLAGS = (
     "--executor",

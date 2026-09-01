@@ -9,7 +9,9 @@ from yoke_core.domain.handlers import session_messages as _messages
 from yoke_core.domain.handlers import session_messages_receipts as _receipts
 
 
-def register_message_functions(registry: Any, register_one: Callable[..., None]) -> None:
+def register_message_functions(
+    registry: Any, register_one: Callable[..., None]
+) -> None:
     specs = (
         (
             "preview",

@@ -50,8 +50,6 @@ def _failure(
 
 
 class _FleetBroker:
-    """Stateful engine-boundary fake behind the real CLI dispatch path."""
-
     def __init__(self, recipient_mode: str = "messageable") -> None:
         self.recipient_mode = recipient_mode
         self.requests: list[FunctionCallRequest] = []
@@ -278,6 +276,7 @@ def test_operator_journey_discovers_sends_reads_and_acknowledges() -> None:
     assert send.payload == {
         "selector": {"session_ids": [RECIPIENT_ID]},
         "body": MESSAGE_BODY,
+        "sender_surface": "cli",
     }
     assert broker.requests[3].actor.session_id == RECIPIENT_ID
     assert broker.requests[3].payload["session_id"] == RECIPIENT_ID

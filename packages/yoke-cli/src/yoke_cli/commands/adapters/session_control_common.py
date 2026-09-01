@@ -20,8 +20,8 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
 #: work addresses its own holder, so --item leads and --session is the
 #: fallback for a recipient no claim names.
 SELECTOR_ARGUMENTS = (
-    ("actors", "--actor"),
     ("public_refs", "--item"),
+    ("actors", "--actor"),
     ("epic_tasks", "--epic-task"),
     ("process_keys", "--process"),
     ("projects", "--project"),

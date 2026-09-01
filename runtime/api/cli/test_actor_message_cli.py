@@ -43,9 +43,7 @@ def test_preview_output_lists_human_recipients() -> None:
         {
             "result": {
                 "recipients": [],
-                "actor_recipients": [
-                    {"actor_id": 11, "label": "ben", "kind": "human"}
-                ],
+                "actor_recipients": [{"actor_id": 11, "label": "ben", "kind": "human"}],
                 "recipient_count": 1,
             }
         },
