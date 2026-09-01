@@ -10,6 +10,9 @@ import { createFooter } from "./universe_shell_footer.js";
 // theirs bounds how much of that roster the browser holds.
 const SEARCH_RESULT_LIMIT = 8;
 const SESSION_INDEX_LIMIT = 500;
+// The sessions view is tabbed, so a session's own page is a drill-in on its
+// roster facet rather than a destination of its own.
+const SESSION_ROSTER_TAB = "roster";
 // Exported so a caller waiting for search results waits on the real interval
 // rather than a copy of it.
 export const SEARCH_DEBOUNCE_MS = 150;
@@ -27,13 +30,24 @@ function successfulRows(callResult, key) {
   return callResult.envelope.result?.[key] || [];
 }
 
+// An `items.search.run` match renders the item's public ref as `id`. That
+// projection carries no `public_ref` key, so `id` is the only ref a match
+// offers, and a row without one cannot be linked at all.
 function itemResult(row) {
-  const ref = String(row.public_ref || "");
+  const ref = String(row.id || "");
   const href = itemDrillInHref({
     projectId: row.project_id,
     publicRef: ref,
   });
-  if (!href) return null;
+  if (!href) {
+    // Dropping the row in silence renders an empty result list as though
+    // nothing matched, so name the row that could not be linked.
+    globalThis.console.error(
+      "universe search: item match carries no linkable public ref",
+      { ref, project_id: row.project_id },
+    );
+    return null;
+  }
   return {
     href,
     kind: "Item",
@@ -46,9 +60,13 @@ function sessionResult(row) {
   const sessionId = String(row.session_id || "session");
   return {
     href: buildUniverseRoute(
-      "sessions", row.project_id ? String(row.project_id) : null,
+      "sessions",
+      row.project_id ? String(row.project_id) : null,
+      SESSION_ROSTER_TAB,
+      sessionId,
     ),
     kind: "Session",
+    sessionId,
     label: sessionId,
     meta: [
       row.current_item, row.current_item_title, row.actor_label, row.executor,
@@ -125,12 +143,17 @@ function createSearch(documentNode, client) {
   // Items are matched on the server, so the whole backlog stays reachable no
   // matter how far it has grown past any roster the browser could hold.
   const collectMatches = async (query) => {
-    const [itemCall, sessionEntries] = await Promise.all([
+    const [itemCall, sessionEntries, exactSessionCall] = await Promise.all([
       client.call({
         function: "items.search.run",
         payload: { keywords: query, limit: SEARCH_RESULT_LIMIT },
       }).catch(() => null),
       loadSessionIndex().catch(() => null),
+      // The cached roster is a recency window, so a session id typed in full
+      // is read by id as well and stays findable however old it is.
+      client.call({
+        function: "sessions.list", payload: { session_id: query },
+      }).catch(() => null),
     ]);
     const itemRows = itemCall === null
       ? null
@@ -139,11 +162,23 @@ function createSearch(documentNode, client) {
       throw new Error("Search is unavailable");
     }
     const needle = query.toLowerCase();
-    return [
-      ...(itemRows || []).map(itemResult).filter(Boolean),
+    const exactSessions = (exactSessionCall === null
+      ? null
+      : successfulRows(exactSessionCall, "rows")) || [];
+    const sessionMatches = [
+      ...exactSessions.map(sessionResult),
       ...(sessionEntries || []).filter((entry) => entry.terms.some(
         (term) => String(term || "").toLowerCase().includes(needle),
       )),
+    ];
+    const seenSessions = new Set();
+    return [
+      ...(itemRows || []).map(itemResult).filter(Boolean),
+      ...sessionMatches.filter((entry) => {
+        if (seenSessions.has(entry.sessionId)) return false;
+        seenSessions.add(entry.sessionId);
+        return true;
+      }),
     ].slice(0, SEARCH_RESULT_LIMIT);
   };
   const selectResult = (next) => {

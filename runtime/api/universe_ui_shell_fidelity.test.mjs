@@ -16,6 +16,10 @@ async function settleSearch() {
   await settle();
 }
 
+// A session older than the roster's recency window: reachable only by the
+// read that names its id.
+const ARCHIVED_SESSION_ID = "claude-code-20260403T152218Z-56305";
+
 function keyEvent(key, extras = {}) {
   const event = new Event("keydown");
   Object.defineProperties(event, {
@@ -33,6 +37,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const searchRequests = [];
+  const sessionIdReads = [];
   const client = {
     async call(request) {
       if (request.function === "projects.list") {
@@ -42,14 +47,28 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
       }
       if (request.function === "items.search.run") {
         searchRequests.push(request.payload);
+        // The shape items.search.run really returns: `id` renders the public
+        // ref and `internal_id` carries the numeric key.
         return { status: 200, envelope: { success: true, result: {
-          matches: [{
-            id: 2262, public_ref: "YOK-2228", title: "Build shell",
+          // Nothing in the backlog is named by a session id.
+          matches: request.payload.keywords === ARCHIVED_SESSION_ID ? [] : [{
+            id: "YOK-2228", internal_id: 2262, title: "Build shell",
             project_id: 1, project: "yoke", status: "implementing",
           }],
         } } };
       }
       if (request.function === "sessions.list") {
+        if (request.payload?.session_id) {
+          sessionIdReads.push(request.payload.session_id);
+          return { status: 200, envelope: { success: true, result: {
+            rows: request.payload.session_id === ARCHIVED_SESSION_ID
+              ? [{
+                session_id: ARCHIVED_SESSION_ID, project_id: 1,
+                project: "yoke", executor: "codex",
+              }]
+              : [],
+          } } };
+        }
         return { status: 200, envelope: { success: true, result: {
           rows: [{
             session_id: "session-shell", project_id: 1, project: "yoke",
@@ -102,12 +121,43 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   input.dispatchEvent(new Event("input"));
   await settleSearch();
   const links = byClass(root, "header-search-result");
+  // The item leads, and it is offered at all only because the row is read
+  // the way items.search.run writes it.
   assert.equal(links.length, 2);
   assert.equal(links[0].href, "#/items/2228?project=1");
-  assert.equal(links[1].href, "#/sessions?project=1");
+  assert.equal(byClass(root, "header-search-kind")[0].textContent, "Item");
+  assert.equal(byClass(root, "header-search-label")[0].textContent,
+    "Build shell");
+  assert.equal(byClass(root, "header-search-meta")[0].textContent,
+    "YOK-2228 · yoke · implementing");
+  // A session result opens that session's own page rather than the roster it
+  // would have to be found in a second time.
+  assert.equal(links[1].href, "#/sessions/roster/session-shell?project=1");
   // Items are matched by the server, so the typed query travels with the
   // request — the browser never filters a prefetched roster it could outgrow.
   assert.deepEqual(searchRequests.at(-1), { keywords: "shell", limit: 8 });
+
+  // Every shape an operator uses to name one item reaches the item result:
+  // the bare number, the full ref, and the ref in either case.
+  for (const keywords of ["2228", "YOK-2228", "yok-2228", "Build shell"]) {
+    input.value = keywords;
+    input.dispatchEvent(new Event("input"));
+    await settleSearch();
+    assert.deepEqual(searchRequests.at(-1), { keywords, limit: 8 });
+    const matched = byClass(root, "header-search-result");
+    assert.equal(matched[0].href, "#/items/2228?project=1");
+  }
+
+  // A session past the roster's recency window is read by its own id, so a
+  // full session id finds it however old it is.
+  input.value = ARCHIVED_SESSION_ID;
+  input.dispatchEvent(new Event("input"));
+  await settleSearch();
+  assert.ok(sessionIdReads.includes(ARCHIVED_SESSION_ID));
+  const archived = byClass(root, "header-search-result");
+  assert.equal(archived.length, 1);
+  assert.equal(archived[0].href,
+    `#/sessions/roster/${ARCHIVED_SESSION_ID}?project=1`);
 
   // A query the client could not have matched locally still resolves: the
   // item's own text says nothing about the number the operator typed.

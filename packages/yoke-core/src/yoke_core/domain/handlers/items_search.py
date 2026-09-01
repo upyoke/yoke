@@ -133,9 +133,10 @@ def _search_items(
     A reference matches on ``project_sequence`` (qualified by the project's
     public prefix when the query carries one), so a query naming an item by
     number finds it whether or not the number appears in any of its prose.
-    Reference matches sort ahead of keyword matches; the rest are newest
-    first, so a capped result list holds the most recent work rather than the
-    oldest.
+    Reference matches sort ahead of keyword matches — under the same
+    qualification, so a prefixed query ranks only the named project's item
+    first; the rest are newest first, so a capped result list holds the most
+    recent work rather than the oldest.
     """
     if visible_project_ids is not None and not visible_project_ids:
         return []
@@ -164,11 +165,15 @@ def _search_items(
         params.extend(ordered_ids)
     order = "ORDER BY i.id DESC"
     if ref_sequence is not None:
-        order = (
-            "ORDER BY CASE WHEN i.project_sequence = %s THEN 0 ELSE 1 END, "
-            "i.id DESC"
-        )
+        # A qualified query ranks only its own project's item first: another
+        # project's item carrying the same sequence is a keyword match, and
+        # letting it share the reference rank pushes the named item down.
+        ranked = "i.project_sequence = %s"
         params.append(ref_sequence)
+        if ref_prefix is not None:
+            ranked += " AND UPPER(p.public_item_prefix) = %s"
+            params.append(ref_prefix)
+        order = f"ORDER BY CASE WHEN {ranked} THEN 0 ELSE 1 END, i.id DESC"
     sql = (
         "SELECT i.id, i.title, i.status, i.project_sequence, "
         "p.id AS project_id, p.slug AS project, p.public_item_prefix "

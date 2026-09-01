@@ -29,6 +29,8 @@ class TestItemsSearch:
         assert outcome.primary_success
         matches = outcome.result_payload["matches"]
         assert [m["id"] for m in matches] == ["YOK-2", "YOK-1"]
+        # The universe app's global search reads a match by these names —
+        # `id` is the public ref, and there is no `public_ref` alias.
         assert set(matches[0].keys()) == {
             "id", "internal_id", "title", "status", "project", "project_id",
         }
@@ -90,6 +92,31 @@ class TestItemsSearch:
 
         assert outcome.primary_success
         assert [m["id"] for m in outcome.result_payload["matches"]] == ["ABC-1991"]
+
+    def test_prefixed_ref_outranks_a_newer_same_sequence_keyword_match(
+        self, test_db,
+    ):
+        wanted = insert_prefixed_project(test_db, project_id=120, prefix="ABC")
+        other = insert_prefixed_project(test_db, project_id=121, prefix="XYZ")
+        insert_item(
+            test_db, id=1, title="Wanted", project_id=wanted,
+            project_sequence=1991,
+        )
+        # Newer, and shares the sequence, but is only a keyword match: the
+        # query names the other project.
+        insert_item(
+            test_db, id=2, title="Mentions ABC-1991 in passing",
+            project_id=other, project_sequence=1991,
+        )
+        test_db.commit()
+
+        outcome = items_search.handle_items_search(
+            request_for("items.search.run", {"keywords": "ABC-1991"})
+        )
+
+        assert outcome.primary_success
+        matches = outcome.result_payload["matches"]
+        assert [m["id"] for m in matches] == ["ABC-1991", "XYZ-1991"]
 
     def test_limit_keeps_the_newest_matches(self, test_db):
         for item_id in (1, 2, 3):
