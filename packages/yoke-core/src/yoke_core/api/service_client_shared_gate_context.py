@@ -146,9 +146,7 @@ def _load_gate_context(
                )""",
             (item_dict["id"],),
         ).fetchone()
-        gate.unsatisfied_all_blocking = (
-            unsatisfied_all["cnt"] if unsatisfied_all else 0
-        )
+        gate.unsatisfied_all_blocking = unsatisfied_all["cnt"] if unsatisfied_all else 0
 
     if deployment_flow_value:
         from yoke_core.domain.deployment_flow_validator import (
