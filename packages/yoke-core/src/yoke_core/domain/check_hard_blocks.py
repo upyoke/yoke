@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
@@ -159,45 +159,60 @@ def _is_satisfied(satisfaction: str, item: dict, conn) -> bool:
 def evaluate_blockers(
     item_id: int,
     gate_filter: Optional[str] = None,
+    conn: Optional[Any] = None,
 ) -> List[str]:
     """Return a list of ``BLOCKED|...`` lines for unsatisfied blockers.
 
     Uses a single DB connection for the entire evaluation (blockers query
     + per-blocker item lookups + optional project lookups) to avoid the
-    N+1 connection-open pattern from the original shell port.
+    N+1 connection-open pattern from the original shell port. A caller
+    already inside a transaction — the status-write gate — passes its own
+    connection so the evaluation reads the same uncommitted state the
+    transition is about to commit.
     """
+    if conn is not None:
+        return _blocker_lines(conn, item_id, gate_filter)
+    with db_helpers.connect() as owned:
+        return _blocker_lines(owned, item_id, gate_filter)
+
+
+def _blocker_lines(
+    conn: Any,
+    item_id: int,
+    gate_filter: Optional[str],
+) -> List[str]:
+    """Evaluate every blocker on one open connection."""
     output: list[str] = []
-    with db_helpers.connect() as conn:
-        blockers = _query_blockers(conn, item_id, gate_filter=gate_filter)
-        if not blockers:
-            return output
+    blockers = _query_blockers(conn, item_id, gate_filter=gate_filter)
+    if not blockers:
+        return output
 
-        from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
-        for blocking_item, gate_point, satisfaction in blockers:
-            dep_num = parse_item_id_or_none(blocking_item, conn=conn)
-            # Fail safe: a blocker ref that does not resolve to a live
-            # item still reports as missing rather than silently
-            # unblocking the dependent.
-            dep_item = None if dep_num is None else _query_item(conn, dep_num)
-            if dep_item is None:
-                output.append(
-                    "BLOCKED|%s|missing|<unknown>|%s|%s"
-                    % (blocking_item, gate_point, satisfaction)
-                )
-                continue
-            if _is_satisfied(satisfaction, dep_item, conn):
-                continue
+    for blocking_item, gate_point, satisfaction in blockers:
+        dep_num = parse_item_id_or_none(blocking_item, conn=conn)
+        # Fail safe: a blocker ref that does not resolve to a live
+        # item still reports as missing rather than silently
+        # unblocking the dependent.
+        dep_item = None if dep_num is None else _query_item(conn, dep_num)
+        if dep_item is None:
             output.append(
-                "BLOCKED|%s|%s|%s|%s|%s"
-                % (
-                    blocking_item,
-                    dep_item.get("status") or "",
-                    dep_item.get("title") or "",
-                    gate_point,
-                    satisfaction,
-                )
+                "BLOCKED|%s|missing|<unknown>|%s|%s"
+                % (blocking_item, gate_point, satisfaction)
             )
+            continue
+        if _is_satisfied(satisfaction, dep_item, conn):
+            continue
+        output.append(
+            "BLOCKED|%s|%s|%s|%s|%s"
+            % (
+                blocking_item,
+                dep_item.get("status") or "",
+                dep_item.get("title") or "",
+                gate_point,
+                satisfaction,
+            )
+        )
     return output
 
 

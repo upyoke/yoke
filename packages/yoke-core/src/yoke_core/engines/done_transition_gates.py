@@ -203,22 +203,39 @@ def _check_recovery(old_status: str, lane_branch: str) -> Tuple[bool, bool]:
     return False, False
 
 
+def _blocked_flag_unreadable(
+    item_id: int, detail: str, public_ref: Optional[str]
+) -> int:
+    """Refuse the done transition when the blocked flag cannot be read."""
+    ref = _ref(item_id, public_ref)
+    print(
+        f"\n=== Blocked-flag refusal ===\n"
+        f"Item {ref}: the blocked flag could not be read ({detail}), so this "
+        "transition cannot prove the item is unblocked.\n"
+        "Restore the control-plane read and retry; `yoke items get "
+        f"{ref} blocked` reports the flag directly."
+    )
+    return 9
+
+
 def _check_blocked_flag(
     item_id: int, *, public_ref: Optional[str] = None
 ) -> Optional[int]:
     """refuse done-transition while items.blocked=1.
 
-    Returns exit code 9 when the flag is set, None when clear or when
-    the DB is unavailable. The done-cleanup mutation logic clears blocked
-    automatically when status flips to done — this gate ensures the flip
-    cannot happen while the flag is still set, so the operator sees an
-    explicit refusal instead of having the cleanup silently swallow it.
+    Returns exit code 9 when the flag is set or when the flag could not be
+    read, and ``None`` only when the read came back clear. The done-cleanup
+    mutation logic clears blocked automatically when status flips to done —
+    this gate ensures the flip cannot happen while the flag is still set, so
+    the operator sees an explicit refusal instead of having the cleanup
+    silently swallow it.
 
-    The blocked read routes through the transport-aware
-    ``done_transition.blocked_gate`` relay so it runs over an https control
-    plane as well as a local Postgres connection; it degrades to a skip
-    (``None``) when the read is unavailable, preserving the advisory
-    ``except: return None`` behavior.
+    An unreadable flag is a refusal, not a skip. Degrading open here spent
+    the one guarantee the gate exists to give: the run would carry a blocked
+    item all the way to done and clear the flag on the way past, leaving no
+    evidence that the question was never answered. The blocked read routes
+    through the transport-aware ``done_transition.blocked_gate`` relay so it
+    runs over an https control plane as well as a local Postgres connection.
     """
     try:
         resp = call_dispatcher(
@@ -226,10 +243,11 @@ def _check_blocked_flag(
             target=TargetRef(kind="item", item_id=int(item_id)),
             payload={},
         )
-    except Exception:  # noqa: BLE001 - degrade if the read is unavailable
-        return None
+    except Exception as exc:  # noqa: BLE001 - refuse; never degrade open
+        return _blocked_flag_unreadable(item_id, str(exc), public_ref)
     if not resp.success:
-        return None
+        detail = resp.error.message if resp.error else "read refused"
+        return _blocked_flag_unreadable(item_id, detail, public_ref)
     data = resp.result or {}
     if not data.get("blocked"):
         return None

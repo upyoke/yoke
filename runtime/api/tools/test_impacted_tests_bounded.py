@@ -130,9 +130,7 @@ def test_product_cli_change_keeps_boundary_contracts_when_selection_is_deferred(
 
 def test_service_client_projection_change_keeps_cli_contracts(tmp_path) -> None:
     root = _tiny_repo(tmp_path)
-    changed = (
-        "packages/yoke-core/src/yoke_core/api/service_client_items_listing.py"
-    )
+    changed = "packages/yoke-core/src/yoke_core/api/service_client_items_listing.py"
     for test_path in impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS:
         _write(root, test_path, "def test_product_boundary(): pass\n")
 
@@ -162,14 +160,17 @@ def test_standalone_merge_change_keeps_close_out_contracts_when_deferred(
 
 def test_done_transition_change_keeps_cleanup_contracts(tmp_path) -> None:
     root = _tiny_repo(tmp_path)
-    changed = "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py"
-    _write(root, changed, "def run(): pass\n")
-    for test_path in DONE_TRANSITION_CLOSE_OUT_TESTS:
-        _write(root, test_path, "def test_close_out(): pass\n")
+    for changed in (
+        "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py",
+        "packages/yoke-core/src/yoke_core/engines/done_transition_github_sync.py",
+    ):
+        _write(root, changed, "def run(): pass\n")
+        for test_path in DONE_TRANSITION_CLOSE_OUT_TESTS:
+            _write(root, test_path, "def test_close_out(): pass\n")
 
-    selection = select([changed], build_import_index(root), bounded=True)
+        selection = select([changed], build_import_index(root), bounded=True)
 
-    assert set(DONE_TRANSITION_CLOSE_OUT_TESTS) <= set(selection.files)
+        assert set(DONE_TRANSITION_CLOSE_OUT_TESTS) <= set(selection.files)
 
 
 def test_direct_workflow_prepare_change_keeps_receipt_consumers(tmp_path) -> None:

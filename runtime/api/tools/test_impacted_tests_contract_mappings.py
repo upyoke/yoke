@@ -132,6 +132,29 @@ def test_hook_guard_policy_sources_select_catalog_contract() -> None:
         selection = contracts.contract_selection_for([source])
 
         assert expected <= set(selection.tests)
-        assert f"hook_guard_policy_contract:{source}" in (
-            selection.widening_triggers
-        )
+        assert f"hook_guard_policy_contract:{source}" in (selection.widening_triggers)
+
+
+def test_workflow_copy_contracts_survive_bounded_visual_fixture_deferral(
+    tmp_path: Path,
+) -> None:
+    changed = (
+        "packages/yoke-core/src/yoke_core/domain/workflow_gate_catalog.py",
+        "packages/yoke-core/src/yoke_core/ui/static/hosted_frame_workflows_fixture.js",
+    )
+    for source in changed:
+        _write(tmp_path, source)
+    for test_path in {
+        *impacted_tests.ALWAYS_RUN_TESTS,
+        *contracts.WORKFLOW_DEFINITION_VALIDATION_TESTS,
+    }:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select(changed, build_import_index(tmp_path), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(contracts.WORKFLOW_DEFINITION_VALIDATION_TESTS) <= set(selection.files)
+    assert any(
+        token.startswith("workflow_definition_validation_contract:")
+        for token in selection.widening_triggers
+    )

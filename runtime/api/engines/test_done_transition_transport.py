@@ -223,13 +223,17 @@ class TestBlockedFlagRelay:
         )
         assert gates._check_blocked_flag(42) is None
 
-    def test_degrades_to_none_on_failure(self, monkeypatch):
+    def test_unreadable_flag_refuses_rather_than_degrading_open(
+        self, monkeypatch, capsys
+    ):
         _install(
             monkeypatch,
             lambda **k: _resp("done_transition.blocked_gate", success=False),
             [gates],
         )
-        assert gates._check_blocked_flag(42) is None
+        assert gates._check_blocked_flag(42, public_ref=TEST_ITEM_REF) == 9
+        out = capsys.readouterr().out
+        assert "could not be read" in out
 
 
 class TestProjectContextRelay:

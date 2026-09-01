@@ -247,7 +247,7 @@ Every row in `item_dependencies` is a real enforced blocker with directional mea
  - `plan_candidate_set(conn, candidate_ids, gate_point)` -- plan a candidate set; returns eligible items in topological order and blocked items with detail.
 - Service-client commands: `python3 -m yoke_core.api.service_client evaluate-gate <item-id> <gate-point>` and `python3 -m yoke_core.api.service_client plan-candidates <gate-point> <item1> ...` delegate to the Python kernel.
 
-**Enforcement:** `python3 -m yoke_core.domain.check_hard_blocks` evaluates satisfaction conditions per dependency with an optional `--gate-point` filter. `advance`, `conduct`, and `usher` gates use the shared kernel through that CLI or the service-client dependency commands. The frontier computation in `frontier.py` uses `evaluate_batch_gates()` from the shared kernel for activation-gate evaluation.
+**Enforcement:** `python3 -m yoke_core.domain.check_hard_blocks` evaluates satisfaction conditions per dependency with an optional `--gate-point` filter. `advance`, `conduct`, and `usher` gates use the shared kernel through that CLI or the service-client dependency commands. The authoritative status write runs the same evaluation for the `check_hard_blocks` gate a workflow lists on its implementing stage, filtered to the `activation` gate point, so the definition's promise and the write path agree. The frontier computation in `frontier.py` uses `evaluate_batch_gates()` from the shared kernel for activation-gate evaluation.
 
 ## Table: ouroboros_entries
 

@@ -244,6 +244,7 @@ def _patch_run_internals(repo_root, **overrides):
         ("_resolve_project_context", (repo_root, "")),
         ("_get_base_branch", "main"),
         ("_check_merge_guard", True),
+        ("_check_blocked_flag", None),
         ("_verify_recovery_evidence", True),
         ("_check_empty_branch", None),
         ("_cleanup_stale_branches", True),

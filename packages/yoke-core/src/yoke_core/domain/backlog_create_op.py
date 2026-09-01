@@ -26,6 +26,8 @@ from yoke_core.domain.project_identity import (
     resolve_project,
 )
 from yoke_core.domain import backlog_rendering as _rendering
+from yoke_core.domain.backlog_create_body_completeness import warn_when_body_is_empty
+from yoke_core.domain.backlog_github_mirror_state import sync_and_record_mirror
 from yoke_core.domain.backlog_item_db_writes import _insert_item
 from yoke_core.domain.backlog_session_attribution import (
     record_touched_item,
@@ -316,31 +318,29 @@ def execute_create(
         public_ref = render_item_ref(conn, current_id)
         print(f"Created: {public_ref}", file=out)
 
-        # Body completeness warning
-        title_threshold = len(f"# {title}") + 4
-        body_len = len(body)
-        if not clean_instruction and body_len <= title_threshold:
-            print("", file=out)
-            print(f"WARNING: {public_ref} created with no body content.", file=out)
-            print(
-                "Cold-start sessions need full context: problem, fix plan, acceptance criteria.",
-                file=out,
-            )
-            print(
-                f"Use: printf '%s' \"$content\" | yoke items structured-field replace {public_ref} --field spec --stdin",
-                file=out,
-            )
-            print("", file=out)
-
-        # GitHub sync
-        _rendering._sync_item(current_id, out)
+        warn_when_body_is_empty(
+            public_ref=public_ref, title=title, body=body,
+            instruction=clean_instruction, out=out,
+        )
+        # A create is authoritative on its own; the mirror is a second write
+        # that can fail, so record what the mirror became instead of
+        # reporting success over an issue that was never opened.
+        github_mirror = sync_and_record_mirror(
+            conn, item_id=current_id, public_ref=public_ref,
+            project=project, out=out,
+        )
 
     finally:
         conn.close()
 
     _rendering._maybe_rebuild_board(rebuild_board, dry_run=dry_run, out=out)
 
-    return {"success": True, "item_id": current_id, "public_ref": public_ref}
+    return {
+        "success": True,
+        "item_id": current_id,
+        "public_ref": public_ref,
+        "github_mirror": github_mirror,
+    }
 
 
 __all__ = [

@@ -93,6 +93,7 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "IdeaClaimHeld",
     "IdeaReadinessClaimCoverageRepairApplied",
     "IssueMigrated",
+    "ItemMirrorAbsent",
     "ItemClaimReleaseRefused",
     "LeaseAcquired",
     "LeaseHeartbeated",
@@ -122,4 +123,5 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "StrategyDocUnarchived",
     "YokeFunctionPermissionDenied",
     "WorkHandedOff",
+    "WorkflowGateAbsent",
 )

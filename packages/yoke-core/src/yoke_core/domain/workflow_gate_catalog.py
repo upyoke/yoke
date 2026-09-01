@@ -75,9 +75,11 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_ARCHITECTURE_IMPACT,
         "name": "Architecture impact",
         "description": (
-            "The item's declared architecture impact must honor the project's "
-            "authoritative architecture model (the per-project "
-            "architecture_model Project Structure family)."
+            "The item's declared architecture impact must be resolved before "
+            "it advances: an item still marked 'uncertain' is refused past "
+            "refined-idea. Conformance to the project's architecture model "
+            "itself is reported by the architecture Doctor checks, which hold "
+            "the checkout this gate does not."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -214,7 +216,10 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_APPROVAL,
         "name": "Approval",
         "description": (
-            "The approval request declared for this transition must be resolved."
+            "The approval request declared for this transition must be "
+            "resolved. A transition with no approving role or actor declared "
+            "carries no approval obligation — the gate is absent until one "
+            "exists, and each absence is recorded as WorkflowGateAbsent."
         ),
         "source_kind": "status_gate",
         "availability": "live",

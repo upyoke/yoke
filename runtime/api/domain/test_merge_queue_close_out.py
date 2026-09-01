@@ -32,7 +32,10 @@ def _wire(
     monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id: None)
     monkeypatch.setattr(
         close_out_mod, "observe_batch",
-        lambda ctx, *, pr_num, member_snapshot: (batch, batch_warning),
+        lambda ctx, *, pr_num, member_snapshot, drift_check=None: (
+            batch,
+            batch_warning,
+        ),
     )
     monkeypatch.setattr(
         close_out_mod, "record_batch_evidence",

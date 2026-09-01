@@ -2,7 +2,7 @@
 
 Verifies that the Step 8 helper classifies ``sync_done_item`` outcomes
 into ``8`` (clean), ``8-degraded`` (sync returned non-zero), and
-``8-skipped`` (import failure) so the runner can record the right
+``8-skipped`` (the sync module is unreachable) so the runner records the right
 ``steps_completed`` marker and surface a structured warning instead of
 silently stamping ``"8"`` on a failed GitHub closeout.
 """
@@ -108,7 +108,8 @@ def test_run_step_8_treats_exception_as_degraded(monkeypatch):
 def test_run_step_8_skipped_on_import_failure(monkeypatch):
     """When ``backlog_github_sync`` cannot be imported (transient install
     issue, deleted module), Step 8 must record ``8-skipped`` so the
-    runner does not stamp success on a sync that did not happen.
+    runner does not stamp success on a sync that did not happen, and the
+    marker must read as incomplete so the closeout records it on the sync.
     """
     import builtins
 
@@ -125,6 +126,7 @@ def test_run_step_8_skipped_on_import_failure(monkeypatch):
 
     assert result.returncode == 0
     assert result.step_marker == "8-skipped"
+    assert result.is_incomplete is True
     assert "items.id=42" in stderr.getvalue()
 
 
@@ -136,3 +138,8 @@ def test_step_8_result_contract():
     assert ok.is_degraded is False
     assert bad.is_degraded is True
     assert skip.is_degraded is False
+    assert (ok.is_incomplete, bad.is_incomplete, skip.is_incomplete) == (
+        False,
+        True,
+        True,
+    )

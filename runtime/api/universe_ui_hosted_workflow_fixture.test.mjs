@@ -125,7 +125,10 @@ const EXPECTED_GATE_COPY = {
   db_mutation:
     "A declared governed mutation must satisfy this point's check — joint: the strategy fits the project's breakage policy with no cross-item overlap; evidence: the authoritative apply evidence exists; polish: migration closeout is complete.",
   architecture_impact:
-    "The item's declared architecture impact must honor the project's authoritative architecture model (the per-project architecture_model Project Structure family).",
+    "The item's declared architecture impact must be resolved before it advances: " +
+    "an item still marked 'uncertain' is refused past refined-idea. Conformance to " +
+    "the project's architecture model itself is reported by the architecture Doctor " +
+    "checks, which hold the checkout this gate does not.",
   path_claim_boundary:
     "The item's changed files must stay inside its registered path claims.",
   plan_simulation:

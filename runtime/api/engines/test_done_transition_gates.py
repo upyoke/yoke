@@ -95,6 +95,9 @@ class TestEmptyBranchGuard:
             mock.patch.object(done_transition, "_get_base_branch", return_value="main"),
             mock.patch.object(done_transition, "_check_merge_guard", return_value=True),
             mock.patch.object(
+                done_transition, "_check_blocked_flag", return_value=None
+            ),
+            mock.patch.object(
                 done_transition, "_verify_recovery_evidence", return_value=True
             ),
             mock.patch.object(done_transition, "_check_empty_branch") as mock_empty,

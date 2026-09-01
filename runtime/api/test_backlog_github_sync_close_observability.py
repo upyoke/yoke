@@ -20,10 +20,17 @@ class TestCloseIssueSyncFailedEmission:
             recorded.append((item_id, operation, reason))
 
         out = io.StringIO()
-        with patch.object(backlog_rendering, "_is_dry_run", return_value=False), patch(
-            "yoke_core.domain.backlog_github_sync.close_issue", return_value=7,
-        ), patch.object(
-            backlog_rendering, "_record_sync_failure", side_effect=capture,
+        with (
+            patch.object(backlog_rendering, "_is_dry_run", return_value=False),
+            patch(
+                "yoke_core.domain.backlog_github_sync.close_issue",
+                return_value=7,
+            ),
+            patch.object(
+                backlog_rendering,
+                "_record_sync_failure",
+                side_effect=capture,
+            ),
         ):
             ok = backlog_rendering._close_issue(73, out=out)
 
@@ -41,11 +48,17 @@ class TestCloseIssueSyncFailedEmission:
             recorded.append((item_id, operation, reason))
 
         out = io.StringIO()
-        with patch.object(backlog_rendering, "_is_dry_run", return_value=False), patch(
-            "yoke_core.domain.backlog_github_sync.close_issue",
-            side_effect=RuntimeError("transport blew up"),
-        ), patch.object(
-            backlog_rendering, "_record_sync_failure", side_effect=capture,
+        with (
+            patch.object(backlog_rendering, "_is_dry_run", return_value=False),
+            patch(
+                "yoke_core.domain.backlog_github_sync.close_issue",
+                side_effect=RuntimeError("transport blew up"),
+            ),
+            patch.object(
+                backlog_rendering,
+                "_record_sync_failure",
+                side_effect=capture,
+            ),
         ):
             ok = backlog_rendering._close_issue(74, out=out)
 
@@ -63,10 +76,17 @@ class TestCloseIssueSyncFailedEmission:
             recorded.append((item_id, operation, reason))
 
         out = io.StringIO()
-        with patch.object(backlog_rendering, "_is_dry_run", return_value=False), patch(
-            "yoke_core.domain.backlog_github_sync.close_issue", return_value=0,
-        ), patch.object(
-            backlog_rendering, "_record_sync_failure", side_effect=capture,
+        with (
+            patch.object(backlog_rendering, "_is_dry_run", return_value=False),
+            patch(
+                "yoke_core.domain.backlog_github_sync.close_issue",
+                return_value=0,
+            ),
+            patch.object(
+                backlog_rendering,
+                "_record_sync_failure",
+                side_effect=capture,
+            ),
         ):
             ok = backlog_rendering._close_issue(75, out=out)
 
@@ -80,8 +100,13 @@ class TestCloseIssueSyncFailedEmission:
             recorded.append((item_id, operation, reason))
 
         out = io.StringIO()
-        with patch.object(backlog_rendering, "_is_dry_run", return_value=True), patch.object(
-            backlog_rendering, "_record_sync_failure", side_effect=capture,
+        with (
+            patch.object(backlog_rendering, "_is_dry_run", return_value=True),
+            patch.object(
+                backlog_rendering,
+                "_record_sync_failure",
+                side_effect=capture,
+            ),
         ):
             ok = backlog_rendering._close_issue(76, out=out)
 
@@ -102,19 +127,26 @@ class TestCloseIssueSyncFailedEmission:
         def capture(item_id, operation, reason="unknown"):
             recorded.append((item_id, operation, reason))
 
-        with patch.object(
-            done_transition_github_sync,
-            "run_step_8",
-            return_value=done_transition_github_sync.Step8Result(
-                returncode=1,
-                step_marker="8-degraded",
-                message="sync_done_item returned 1",
+        with (
+            patch.object(
+                done_transition_github_sync,
+                "run_step_8",
+                return_value=done_transition_github_sync.Step8Result(
+                    returncode=1,
+                    step_marker="8-degraded",
+                    message="sync_done_item returned 1",
+                ),
             ),
-        ), patch.object(
-            backlog_rendering, "_record_sync_failure", side_effect=capture,
+            patch.object(
+                backlog_rendering,
+                "_record_sync_failure",
+                side_effect=capture,
+            ),
         ):
             outcome = done_transition_github_sync.apply_step_8(
-                77, "release", _FakeResult(),
+                77,
+                "release",
+                _FakeResult(),
             )
 
         assert outcome.is_degraded
@@ -122,4 +154,4 @@ class TestCloseIssueSyncFailedEmission:
         item_id, operation, reason = recorded[0]
         assert item_id == 77
         assert operation == "state"
-        assert "step 8 degraded" in reason
+        assert "step 8-degraded" in reason

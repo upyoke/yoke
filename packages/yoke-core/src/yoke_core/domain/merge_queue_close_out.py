@@ -36,7 +36,7 @@ the merge has already happened and refusing the bookkeeping would not undo it.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Mapping, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
@@ -86,6 +86,7 @@ def record_landing(
     commit_sha: str,
     pr_num: str,
     member_snapshot: tuple[str, ...] = (),
+    drift_check: Optional[Mapping[str, str]] = None,
 ) -> QueueCloseOut:
     """Record everything the item owes after its train landed."""
     warnings: list[str] = []
@@ -94,7 +95,10 @@ def record_landing(
         warnings.append(f"merged_at not recorded: {stamp_error}")
 
     batch, batch_warning = observe_batch(
-        ctx, pr_num=pr_num, member_snapshot=member_snapshot
+        ctx,
+        pr_num=pr_num,
+        member_snapshot=member_snapshot,
+        drift_check=drift_check,
     )
     if batch_warning:
         warnings.append(batch_warning)
