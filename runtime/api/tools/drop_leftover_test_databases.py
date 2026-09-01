@@ -23,8 +23,11 @@ import argparse
 import sys
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.pg_test_db_namespace import SCRATCH_DATABASE_PREFIX
 
-ELIGIBLE_PREFIX = "yoke_test_run"
+#: The one reserved scratch prefix, shared with the namespace that mints it
+#: and with the fleet enumeration that skips it.
+ELIGIBLE_PREFIX = SCRATCH_DATABASE_PREFIX
 
 
 def main(argv: list[str] | None = None) -> int:

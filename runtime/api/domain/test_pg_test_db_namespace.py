@@ -91,9 +91,19 @@ def test_untagged_names_have_no_owner(name):
     assert not namespace.belongs_to_current_run(name)
 
 
-def test_owned_database_pattern_matches_only_tagged_names():
-    assert namespace.OWNED_DATABASE_LIKE_PATTERN.startswith(
-        POSTGRES_TEST_DB_PREFIX
+def test_the_reserved_scratch_prefix_has_exactly_one_definition():
+    # Three surfaces read it — the fleet enumeration that skips scratch
+    # databases, the janitor that drops them, and the sweep pattern below —
+    # so it is composed once here and never spelled out again.
+    assert namespace.SCRATCH_DATABASE_PREFIX == (
+        f"{POSTGRES_TEST_DB_PREFIX}{namespace.RUN_TAG_MARKER}"
     )
+    assert namespace.OWNED_DATABASE_LIKE_PATTERN == (
+        f"{namespace.SCRATCH_DATABASE_PREFIX}%"
+    )
+
+
+def test_owned_database_pattern_matches_only_tagged_names():
+    assert namespace.OWNED_DATABASE_LIKE_PATTERN.startswith(POSTGRES_TEST_DB_PREFIX)
     assert namespace.OWNED_DATABASE_LIKE_PATTERN.endswith("%")
     assert namespace.RUN_TAG_MARKER in namespace.OWNED_DATABASE_LIKE_PATTERN

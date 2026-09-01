@@ -300,50 +300,9 @@ the red-main and CI-outage protocols — lives in
 ## Concurrent local runs
 
 One disposable PostgreSQL cluster serves every test invocation on the
-machine, and any number of them may run at once — a full three-anchor gate,
-a second gate, and a raw `uv run --frozen python3 -m pytest <one file>` all
-at the same time. Isolation comes from the database names rather than from a
-cluster per run:
-
-Correctness is not the same as capacity, though. *Heavy* invocations —
-anything sweeping directories rather than named files — additionally queue
-behind the machine-wide admission slot (`yoke_core.tools.gate_admission`), so
-one heavy gate runs at a time and a queued one reports who holds the slot and
-how many runs are behind it. Every wrapper-driven path arbitrates for that
-slot; a bare `python3 -m pytest <dirs>` does not, which is why
-`lint-raw-pytest-full-suite` denies the whole-verification-surface shape
-outside the wrapper and advises on any other directory sweep. Run sweeps
-through `yoke watch pytest`; file-scoped runs stay unqueued and free.
-The browser and the launchd login domain are the machine's other shared resources, guarded structurally rather than per test: [`testing-verification/machine-shared-resources.md`](testing-verification/machine-shared-resources.md).
-
-- Every database an invocation creates carries that invocation's run tag,
-  minted once and published through `YOKE_TEST_RUN_TAG` so pytest-xdist
-  workers share their controller's identity.
-- An invocation may only ever drop databases carrying its own tag. Nothing a
-  running suite does can reach another run's databases.
-- Databases left behind by an interrupted run are reclaimed by an orphan
-  sweep that first confirms the owning process has exited, then drops with
-  `FORCE` under a bounded statement timeout.
-
-The sweep never sits in a starting suite's critical path. Cluster preparation
-launches it detached and returns immediately, because dropping a database is
-seconds of disk work on a loaded machine — a synchronous sweep of a large
-backlog delayed pytest collection by minutes, which is the stall the cleanup
-exists to prevent. One sweeper runs at a time (a lock file under the cluster
-root; others skip instantly rather than queueing), and each pass stops at a
-time budget, so a large backlog drains over several runs and reports how many
-it deferred. Run one directly with:
-
-```bash
-yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune
-```
-
-Interrupting a run through `watch_pytest`, `run_tests`, or a QA registered
-command terminates and reaps the whole process group, so xdist workers do
-not outlive the run and keep its databases open. Only `SIGKILL` can bypass
-that, which is what the orphan sweep backstops.
-
-`YOKE_PG_CLUSTER_ROOT` still points an invocation at a wholly private
-cluster. That is an escape hatch for a wedged shared cluster, not the normal
-isolation mechanism — a full `initdb` per run would slow ordinary iteration
-without adding safety the run tag does not already provide.
+machine, and any number of them may run at once. How the run tag keeps
+them out of each other's databases, how heavy sweeps queue behind the
+machine-wide admission slot, how the orphan sweep reclaims what an
+interrupted run left, and why a run that named no cluster of its own may
+not borrow an administered one all live in
+[`testing-verification/concurrent-local-runs.md`](testing-verification/concurrent-local-runs.md).

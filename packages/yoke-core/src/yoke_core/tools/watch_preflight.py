@@ -34,7 +34,8 @@ PREFLIGHT_URGENT_RE = re.compile(
     re.IGNORECASE,
 )
 PREFLIGHT_SUMMARY_RE = re.compile(
-    r"(^PASS\b|^\d+ passed,\s+\d+ failed\b|^receipt recorded\b)",
+    r"(^PASS\b|^\d+ passed,\s+\d+ failed\b|^receipt recorded\b"
+    r"|^scratch databases skipped\b)",
     re.IGNORECASE,
 )
 PREFLIGHT_PROGRESS_RE = re.compile(
