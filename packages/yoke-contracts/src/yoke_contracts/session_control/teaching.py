@@ -8,8 +8,7 @@ from uuid import UUID
 FLEET_MESSAGE_RECIPE = """yoke say --preview --item PREFIX-N
 printf '%s\\n' 'MESSAGE' | yoke say --item PREFIX-N --stdin
 printf '%s\\n' 'MESSAGE' | yoke say --actor ben --stdin  # Human organization member
-# Reporting up to whoever is steering your work? Address the role, never a seat:
-printf '%s\\n' 'MESSAGE' | yoke say --steering --stdin
+printf '%s\\n' 'MESSAGE' | yoke say --steering --stdin  # Whoever is steering your work
 # No claim addresses them? `yoke sessions list --liveness active`, then --session
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID && yoke messages acknowledge MESSAGE-ID"""

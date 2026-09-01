@@ -213,4 +213,4 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # converged reads as unknown rather than as false — guessing either way
 # turns an honest refusal into a suspected bug.
 PACKET_LINE_BUDGET_PER_ROLE: int = 434
-PACKET_LINE_BUDGET_AGGREGATE: int = 2675
+PACKET_LINE_BUDGET_AGGREGATE: int = 2676
