@@ -19,7 +19,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
-from yoke_cli.self_host import atomic_file, bundle, first_boot_token
+from yoke_cli.self_host import atomic_file, bundle
 from yoke_contracts.self_host_bootstrap_output import connect_url_from_publish_spec
 
 _RUN = subprocess.run

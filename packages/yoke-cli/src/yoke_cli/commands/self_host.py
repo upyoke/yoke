@@ -20,9 +20,8 @@ from yoke_cli.commands.self_host_import import (
     TOOL_SHAPED_USAGE as _IMPORT_USAGE,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
-from yoke_cli.self_host import bundle, first_boot_token
-from yoke_cli.self_host import upgrade
 from yoke_cli.self_host import bundle, first_boot_token, teardown
+from yoke_cli.self_host import upgrade
 from yoke_contracts.self_host_bootstrap_output import (
     connect_url_from_publish_spec,
 )
