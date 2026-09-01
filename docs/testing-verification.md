@@ -284,6 +284,9 @@ Off-machine CI runs the full three-anchor suite on the pull request, on
 the merge queue's merge_group ref (one gate per train's combined head),
 and on the merged `main` commit. Local verification stays change-scoped:
 impacted selection to iterate; the QA case run is the one full execution.
+Queue landing (`yoke merge item --wait`) returns immediately when the
+pull request's required checks have already concluded red with nothing in
+flight — that is a terminal entry-ticket failure, not a poll-budget timeout.
 
 Selection output distinguishes pytest files from collected items as
 `files=N of M items=X of Y`; unavailable values are explicit as `unknown`.

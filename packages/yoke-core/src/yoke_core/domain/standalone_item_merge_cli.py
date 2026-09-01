@@ -96,7 +96,11 @@ def _build_parser() -> argparse.ArgumentParser:
         ("--no-changes", "Record a verified no-change result."),
         ("--skip-status", "Merge without changing lifecycle status."),
         ("--pr", "Merge through a pull request."),
-        ("--wait", "Wait for queue landing and close out inline."),
+        (
+            "--wait",
+            "Wait for queue landing inline. Red entry tickets return "
+            "immediately; the poll budget is for pending checks or trains.",
+        ),
     )
     for flag, help_text in boolean_options:
         parser.add_argument(flag, action="store_true", help=help_text)

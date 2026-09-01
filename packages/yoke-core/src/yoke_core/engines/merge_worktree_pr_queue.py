@@ -1,19 +1,9 @@
-"""Merge-queue entry and membership reads for an item's pull request.
+"""Merge-queue entry, membership, and landing-state reads for an item PR.
 
-Queue entry is GitHub's merge-when-ready: ``enablePullRequestAutoMerge``
-over GraphQL, carried on the same project-auth REST transport the other
-PR helpers use (``POST /graphql`` is one more :class:`RestRequest`).
-With a queue ruleset on the base branch, the mutation enqueues the PR
-and the queue runs the CI workflow's ``merge_group`` gate on the train's
-combined head; without a queue, GitHub refuses and the caller surfaces
-the named reason instead of silently merging another way.
-
-Membership reads power train-composition admission: queue entries map
-back to items by head branch name, which the merge boundary names after
-the item ref. The train run read answers what the queue's own
-``merge_group`` gate concluded about the combined head, so a landing can
-record it as covering evidence and name it in a refusal instead of
-asserting a verdict it never read.
+Queue entry is GitHub's merge-when-ready over GraphQL.
+``leave_merge_queue`` disarms it so a red entry ticket cannot auto-merge
+later. Membership reads power train admission; the train run read names
+the ``merge_group`` gate.
 """
 
 from __future__ import annotations
@@ -53,6 +43,14 @@ mutation($pullRequestId: ID!) {
 }
 """
 
+_DISABLE_AUTO_MERGE_MUTATION = """
+mutation($pullRequestId: ID!) {
+  disablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId}) {
+    pullRequest { number }
+  }
+}
+"""
+
 _MERGE_QUEUE_ENTRIES_QUERY = """
 query($owner: String!, $name: String!, $branch: String!) {
   repository(owner: $owner, name: $name) {
@@ -84,13 +82,7 @@ class QueueEntryResult:
 
 @dataclass(frozen=True)
 class QueueMember:
-    """One queued PR, mapped back to its item by head branch name.
-
-    ``state`` is the queue's own word for what the entry is doing —
-    ``AWAITING_CHECKS`` while the train validates, ``MERGEABLE`` once it
-    passes — and is the fact that distinguishes a PR the queue is still
-    driving from one it has dropped.
-    """
+    """One queued PR, mapped back to its item by head branch name."""
 
     pr_num: str
     head_ref: str
@@ -148,13 +140,10 @@ def _pr_node_id(
     return node_id, None
 
 
-def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
-    """Enqueue ``pr_num`` with merge-when-ready.
-
-    A refusal (no queue ruleset, auto-merge disallowed, PR not open) comes
-    back as ``success=False`` with the named reason; callers must surface
-    it rather than falling back to a direct merge.
-    """
+def _mutate_auto_merge(
+    ctx: MergeContext, pr_num: str, mutation: str
+) -> QueueEntryResult:
+    """Enable or disable merge-when-ready; refusals stay named."""
     auth, auth_err = resolve_auth_detail(ctx, PR_WRITE)
     if auth_err or auth is None:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err)
@@ -163,13 +152,23 @@ def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=node_err)
     _, mutation_err = graphql_with_auth(
         auth,
-        query=_ENABLE_AUTO_MERGE_MUTATION,
+        query=mutation,
         variables={"pullRequestId": node_id},
         required_permissions=PR_WRITE,
     )
     if mutation_err:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=mutation_err)
     return QueueEntryResult(success=True, pr_num=pr_num)
+
+
+def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
+    """Enqueue ``pr_num`` with merge-when-ready; refusals stay named."""
+    return _mutate_auto_merge(ctx, pr_num, _ENABLE_AUTO_MERGE_MUTATION)
+
+
+def leave_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
+    """Disarm merge-when-ready so a later green cannot auto-merge."""
+    return _mutate_auto_merge(ctx, pr_num, _DISABLE_AUTO_MERGE_MUTATION)
 
 
 @dataclass(frozen=True)
@@ -180,6 +179,7 @@ class PrLandingState:
     closed: bool
     auto_merge_active: bool
     merge_state_status: str = ""
+    head_sha: str = ""
 
 
 def read_pr_landing_state(
@@ -201,12 +201,15 @@ def read_pr_landing_state(
     except RestTransportError as exc:
         return None, f"github pr read failure: {exc}"
     body = response.body if isinstance(response.body, dict) else {}
+    head = body.get("head")
+    head_sha = str(head.get("sha") or "").strip() if isinstance(head, dict) else ""
     return (
         PrLandingState(
             merged=bool(body.get("merged")),
             closed=str(body.get("state") or "") == "closed",
             auto_merge_active=body.get("auto_merge") is not None,
             merge_state_status=str(body.get("mergeable_state") or "").lower(),
+            head_sha=head_sha,
         ),
         None,
     )
@@ -333,6 +336,7 @@ __all__ = [
     "TrainRun",
     "enter_merge_queue",
     "graphql_with_auth",
+    "leave_merge_queue",
     "read_pr_landing_state",
     "read_queue_members",
     "read_train_run",

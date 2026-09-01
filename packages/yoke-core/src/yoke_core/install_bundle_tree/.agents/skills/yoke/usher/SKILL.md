@@ -62,7 +62,7 @@ Read and follow each phase file in order. Each phase may halt the pipeline (bloc
 **Phase 3 — Merge Execution:** Read `.agents/skills/yoke/usher/merge.md`
 - Skip if `--deploy-only`
 - Pre-merge ephemeral verification, execute merges, handle results, post-merge CI
-- The standalone merge boundary is route-selected per project: a `merge_queue` capability lands branches through the GitHub merge queue (PR + merge-when-ready; admission control keeps overlapping, serial-linked, and double-migration-carrier items off one train; one `merge_group` gate proves the combined head). Recoverable exit 9 means admission refusal, ejection, or poll timeout — surface the named reason and requeue after it clears; never fall back to a local merge for a declared-queue project. Projects without the capability keep the local engine unchanged.
+- The standalone merge boundary is route-selected per project: a `merge_queue` capability lands branches through the GitHub merge queue (PR + merge-when-ready; admission control keeps overlapping, serial-linked, and double-migration-carrier items off one train; one `merge_group` gate proves the combined head). Recoverable exit 9 means admission refusal, ejection, or poll timeout — surface the named reason and requeue after it clears. A red entry ticket (required checks already failed, nothing in flight) is terminal exit 1, not a timeout: fix on the lane, commit, and re-run `yoke merge item`; do not wait out the poll budget. Never fall back to a local merge for a declared-queue project. Projects without the capability keep the local engine unchanged.
 
 **Phase 4 — Deployment Routing:** Read `.agents/skills/yoke/usher/deploy.md`
 - Skip if `--merge-only`
