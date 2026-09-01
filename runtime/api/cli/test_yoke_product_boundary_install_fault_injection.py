@@ -149,18 +149,17 @@ def test_project_install_https_external_repo_stays_product_client_only(
         client_cwd=checkout,
     )
 
-    assert status.returncode == 0
+    # The stub bundle server is already shut down here, so an honest status
+    # fails: this machine has no reachable control plane.
+    assert status.returncode == 1
     report = json.loads(status.stdout)
-    assert report["ok"] is True
+    assert report["ok"] is False
     assert report["repo_root"] == str(checkout)
     assert report["connection"]["transport"] == "https"
     assert report["connection"]["client_authority"] == "api"
     assert report["connection"]["credential_source"]["present"] is True
     assert report["project"]["project_id"] == PROJECT_ID
     assert report["db"] == {"relevant": False, "ok": None, "action": ""}
-    # status probes /v1/health live on https connections; the stub bundle
-    # server is already shut down here, so the unreachable warning is the
-    # correct report — and the only acceptable issue.
     assert _issue_codes(report) == {"server_unreachable"}
     assert status.stderr == ""
     _assert_clean_client_boundary(status)

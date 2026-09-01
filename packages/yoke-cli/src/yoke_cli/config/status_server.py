@@ -57,10 +57,13 @@ def server_status(
             reachable=False,
             authority=api_url,
             issues=[_issue(
-                "warning",
+                "error",
                 "server_unreachable",
                 f"health probe failed against {api_url}",
-                "Check the api_url and network; the server may be down.",
+                "This machine has no working control plane: every relayed "
+                "command will fail until the server answers. Start it "
+                "(`cd <bundle> && docker compose up -d`), or select a "
+                "reachable authority with `yoke env use NAME`.",
             )],
         )
 
