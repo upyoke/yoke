@@ -125,9 +125,9 @@ yours:
   send a bare `WAKE` to an idle holder without reading its row here — a
   wake alone parks it on the same question.
 
-- **Plan limits** — informational remaining and reset per connected CLI
-  surface. Approaching walls are raised with the operator; these numbers
-  never disable a surface or gate a launch.
+- **Plan limits** — informational table (quota left, time-to-reset,
+  headroom). Approaching walls are raised with the operator; these
+  numbers never disable a surface or gate a launch.
 
 Two things the report deliberately does not do, so do them yourself:
 

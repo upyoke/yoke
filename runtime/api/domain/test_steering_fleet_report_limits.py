@@ -1,15 +1,177 @@
-"""Fleet-report plan-limits block: remaining/reset, including unknown reads."""
+"""Fleet-report plan-limits: window-normalized headroom table."""
 
 from __future__ import annotations
 
+from datetime import timedelta
 import json
 
 from runtime.api.steering_fleet_test_helpers import compose, seed_steering_scope
-from yoke_core.domain.steering_fleet_report_limits import PLAN_LIMIT_HEADING
+from yoke_core.domain.steering_fleet_plan_capacity import (
+    EMPTY,
+    HEADROOM_LEGEND,
+    MONTHLY_WINDOW,
+    PLAN_LIMIT_HEADING,
+    ROLLING_5H_WINDOW,
+    ROLLING_7D_WINDOW,
+    TABLE_HEADER,
+    compute_plan_limit,
+    format_capacity_duration,
+    format_reset_utc,
+    plan_limit_dicts,
+    plan_limit_lines,
+    plan_window_length,
+    remaining_capacity,
+)
+from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_render import report_body
 
+_NOW = "2026-09-01T13:20:00Z"
+_HOST = "beebauman-macbook-pro-16"
 
-def test_report_renders_remaining_and_unknown_without_omitting_a_failed_read(
+
+def _row(
+    *,
+    machine_id: str = "machine-1",
+    hostname: str = _HOST,
+    surface: str = "cursor-cli",
+    plan_tier: str | None = "Ultra",
+    window_kind: str = "monthly",
+    remaining_percent: float | None = 22.0,
+    resets_at: str | None = "2026-09-07T01:00:00Z",
+    status: str = "ok",
+    reason: str | None = None,
+) -> MachinePlanLimit:
+    return MachinePlanLimit(
+        machine_id=machine_id,
+        hostname=hostname,
+        surface=surface,
+        plan_tier=plan_tier,
+        window_kind=window_kind,
+        remaining_percent=remaining_percent,
+        resets_at=resets_at,
+        status=status,
+        reason=reason,
+    )
+
+
+def test_window_length_is_fixed_per_kind() -> None:
+    assert plan_window_length("rolling_5h") == ROLLING_5H_WINDOW
+    assert plan_window_length("rolling_7d") == ROLLING_7D_WINDOW
+    assert plan_window_length("monthly") == MONTHLY_WINDOW
+    assert plan_window_length("unknown") is None
+
+
+def test_monthly_remaining_renders_to_the_minute() -> None:
+    remaining = remaining_capacity(22.0, MONTHLY_WINDOW)
+    assert remaining is not None
+    assert format_capacity_duration(remaining) == "6d 14h 24m"
+
+
+def test_worked_target_headroom_matches_format_ruling() -> None:
+    cursor = compute_plan_limit(_row(), now=_NOW)
+    claude = compute_plan_limit(
+        _row(
+            surface="claude-cli",
+            plan_tier="max",
+            window_kind="rolling_7d",
+            remaining_percent=44.0,
+            resets_at="2026-09-04T01:00:00Z",
+        ),
+        now=_NOW,
+    )
+    assert cursor.until_reset is not None
+    assert claude.until_reset is not None
+    assert cursor.until_reset == timedelta(days=5, hours=11, minutes=40)
+    assert claude.until_reset == timedelta(days=2, hours=11, minutes=40)
+    assert format_capacity_duration(cursor.until_reset) == "5d 11h 40m"
+    assert format_capacity_duration(claude.until_reset) == "2d 11h 40m"
+    assert cursor.headroom_percent is not None
+    assert claude.headroom_percent is not None
+    assert int(round(cursor.headroom_percent)) == 120
+    assert int(round(claude.headroom_percent)) == 124
+    assert format_reset_utc("2026-09-04T01:00:00Z") == "Sep 4 01:00"
+    assert format_reset_utc("2026-09-07T01:00:00Z") == "Sep 7 01:00"
+
+
+def test_plan_limit_lines_match_worked_target_table() -> None:
+    lines = plan_limit_lines(
+        (
+            _row(
+                surface="claude-cli",
+                plan_tier="max",
+                window_kind="rolling_7d",
+                remaining_percent=44.0,
+                resets_at="2026-09-04T01:00:00Z",
+            ),
+            _row(
+                surface="codex-cli",
+                plan_tier=None,
+                window_kind="unknown",
+                remaining_percent=None,
+                resets_at=None,
+                status="unknown",
+                reason="usage_unreadable",
+            ),
+            _row(),
+        ),
+        now=_NOW,
+    )
+    assert PLAN_LIMIT_HEADING + ":" in lines
+    assert TABLE_HEADER in lines
+    assert (
+        f"| {_HOST} | claude-cli | max | rolling 7d | 44% | 2d 11h 40m | "
+        "124% | Sep 4 01:00 | - |"
+    ) in lines
+    assert (
+        f"| {_HOST} | cursor-cli | Ultra | monthly | 22% | 5d 11h 40m | "
+        "120% | Sep 7 01:00 | - |"
+    ) in lines
+    assert (
+        f"| {_HOST} | codex-cli | {EMPTY} | {EMPTY} | {EMPTY} | {EMPTY} | "
+        f"{EMPTY} | {EMPTY} | usage_unreadable |"
+    ) in lines
+    assert HEADROOM_LEGEND in lines
+
+
+def test_unknown_reading_has_no_headroom() -> None:
+    computed = compute_plan_limit(
+        _row(
+            status="unknown",
+            window_kind="unknown",
+            remaining_percent=None,
+            resets_at=None,
+            reason="stale_credential",
+        ),
+        now=_NOW,
+    )
+    assert computed.headroom_percent is None
+    assert computed.remaining is None
+
+
+def test_past_reset_has_no_headroom() -> None:
+    computed = compute_plan_limit(
+        _row(resets_at="2026-08-31T13:04:00Z"),
+        now=_NOW,
+    )
+    assert computed.headroom_percent is None
+
+
+def test_rolling_five_hour_remaining_is_to_the_minute() -> None:
+    remaining = remaining_capacity(89.0, ROLLING_5H_WINDOW)
+    assert remaining is not None
+    assert format_capacity_duration(remaining) == "4h 27m"
+
+
+def test_plan_limit_dicts_carry_numeric_headroom() -> None:
+    payload = plan_limit_dicts((_row(),), now=_NOW)[0]
+    assert payload["window_seconds"] == MONTHLY_WINDOW.total_seconds()
+    remaining = remaining_capacity(22.0, MONTHLY_WINDOW)
+    assert remaining is not None
+    assert payload["remaining_seconds"] == remaining.total_seconds()
+    assert int(round(payload["headroom_percent"])) == 120
+
+
+def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
     test_db,
 ) -> None:
     scope = seed_steering_scope(test_db)
@@ -47,6 +209,9 @@ def test_report_renders_remaining_and_unknown_without_omitting_a_failed_read(
     body = report_body(compose(scope))
 
     assert PLAN_LIMIT_HEADING in body
-    assert "claude-cli  max  89% remaining  rolling_5h  resets 2026-08-30T03:00:00Z" in body
-    assert "cursor-cli  unknown  stale_credential" in body
+    assert TABLE_HEADER in body
+    assert "claude-cli | max | rolling 5h | 89%" in body
+    assert "cursor-cli |" in body
+    assert "stale_credential" in body
     assert "do not gate launches" in body
+    assert HEADROOM_LEGEND in body
