@@ -117,11 +117,18 @@ def status_line(payload: Mapping[str, Any]) -> str:
 def main(argv: Optional[list[str]] = None) -> int:
     """Record the served window and print the status line.
 
-    Claude re-runs this on every turn and discards a non-zero exit, so the
-    contract is to stay silent and harmless on anything unexpected: an
+    Claude renders this command's stdout, re-running it on every turn, so
+    the contract is to stay silent and harmless on anything unexpected: an
     unparseable payload prints nothing rather than an error, because the
     status line is a display surface and a traceback in it would be the
     most visible possible way to report the least important failure.
+
+    That same rule is what carries the rollout. A project whose settings
+    name this command can be running a Yoke build that predates it, and
+    there the CLI writes its whole unknown-subcommand refusal to stderr
+    with an empty stdout — so the window simply goes unattested behind a
+    blank status line until the release lands, which is why no
+    compatibility shim exists here.
     """
     del argv
     import sys
