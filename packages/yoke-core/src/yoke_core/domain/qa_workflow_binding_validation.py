@@ -134,7 +134,7 @@ def validate_item_qa_transition(
             "; optional item QA accepts only the plan or method selected "
             "in workflow_posture.verification. Select one on this item "
             "first: yoke workflows item-posture amend <PREFIX-N> "
-            "--verification-plan <ID_OR_SLUG> --reason \"<why>\" "
+            '--verification-plan <ID_OR_SLUG> --reason "<why>" '
             "(--help for the decision tree), then retry"
         )
     raise QaWorkflowBindingError(message)

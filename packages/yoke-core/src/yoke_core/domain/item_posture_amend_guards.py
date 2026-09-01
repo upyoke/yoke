@@ -96,7 +96,7 @@ def guard_verification(
         "and replacing the selection would orphan that evidence. Either "
         "finish the item under the current selection, or waive each "
         "recorded requirement first: yoke qa requirement waive "
-        f"--requirement-id {recorded[0]} --rationale \"<why>\"."
+        f'--requirement-id {recorded[0]} --rationale "<why>".'
     )
 
 

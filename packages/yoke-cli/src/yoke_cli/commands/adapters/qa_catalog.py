@@ -22,6 +22,9 @@ from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_plan_rematerialize,
 )
 from yoke_cli.commands.adapters.qa_catalog_usage import USAGE_BY_FUNCTION_ID
+from yoke_cli.commands.adapters.workflows_item_posture import (
+    WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE,
+)
 from yoke_contracts.api.function_call import TargetRef
 
 

@@ -130,9 +130,7 @@ def workflows_item_posture_amend(args: List[str]) -> int:
     )
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, WORKFLOWS_ITEM_POSTURE_AMEND_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, WORKFLOWS_ITEM_POSTURE_AMEND_USAGE)
     if parsed is None:
         return 2
     project = client_project_context(parsed.project)
@@ -171,17 +169,14 @@ def workflows_item_posture_amend(args: List[str]) -> int:
         print(
             "item-posture-amend|"
             + "|".join(
-                str(result.get(field) or "")
-                for field in ("item_id", "key", "changed")
+                str(result.get(field) or "") for field in ("item_id", "key", "changed")
             )
             + "|waived="
-            + ",".join(str(value) for value in result.get(
-                "waived_requirement_ids"
-            ) or [])
+            + ",".join(
+                str(value) for value in result.get("waived_requirement_ids") or []
+            )
             + "|detached="
-            + ",".join(str(value) for value in result.get(
-                "detached_plan_ids"
-            ) or []),
+            + ",".join(str(value) for value in result.get("detached_plan_ids") or []),
             file=stdout,
         )
 
