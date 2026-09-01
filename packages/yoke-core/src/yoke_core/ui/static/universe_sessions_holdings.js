@@ -5,6 +5,10 @@ import {
   steeringLeadCovers,
 } from "./universe_sessions_steering.js";
 import { el, statePill } from "./universe_view_support.js";
+import {
+  renderStageStrip,
+  stageFailureLabel,
+} from "./universe_stage_strip.js";
 
 const HOLDING_AUTHORITY_KINDS = new Set([
   "work_claim", "path_claim", "strategy_document", "coordination",
@@ -79,12 +83,25 @@ export function focusAttribution(row) {
   return row.current_item_holder_session_id ? null : "filed";
 }
 
-function appendStage(documentNode, work, status, workflow) {
+function appendStagePill(documentNode, work, status, workflow) {
   const label = workflow ? `${workflow} · ${status}` : status;
   const stage = statePill(documentNode, status, label);
   if (!stage) return;
   stage.className = `${stage.className} session-item-stage`;
   work.appendChild(stage);
+}
+
+function appendStageProgress(documentNode, work, stages) {
+  if (!Array.isArray(stages) || !stages.length) return;
+  const progress = el(documentNode, "div", "session-item-stage-progress");
+  progress.appendChild(renderStageStrip(documentNode, stages));
+  const failure = stageFailureLabel(stages);
+  if (failure) {
+    progress.appendChild(el(
+      documentNode, "span", "session-item-stage-failure", failure,
+    ));
+  }
+  work.appendChild(progress);
 }
 
 function titleHolding(entries, row) {
@@ -157,6 +174,7 @@ function appendHoldingEntry(
     if (title) {
       work.appendChild(el(documentNode, "span", "session-item-title", title));
     }
+    appendStageProgress(documentNode, work, row.primary_item_stages);
   }
   body.appendChild(work);
 }
@@ -178,13 +196,18 @@ function appendAttachedEntry(documentNode, body, row, attribution) {
   item.textContent = String(row.current_item);
   if (href) item.href = href;
   work.appendChild(item);
-  appendStage(
-    documentNode, work, row.current_item_status, row.current_item_workflow_id,
-  );
+  if (attribution === "filed") {
+    appendStagePill(
+      documentNode, work, row.current_item_status, row.current_item_workflow_id,
+    );
+  }
   if (row.current_item_title) {
     work.appendChild(el(
       documentNode, "span", "session-item-title", row.current_item_title,
     ));
+  }
+  if (attribution === "lane") {
+    appendStageProgress(documentNode, work, row.primary_item_stages);
   }
   body.appendChild(work);
 }
@@ -206,12 +229,6 @@ function appendHoldingGroup(
       ? `session-holdings-group session-holdings-${boxed}`
       : "session-holdings-group",
   );
-  if (boxed === "current") {
-    group.setAttribute(
-      "data-holdings-health",
-      String(row.current_holdings_health || "green"),
-    );
-  }
   group.appendChild(el(
     documentNode, "div", "session-holdings-label", label,
   ));

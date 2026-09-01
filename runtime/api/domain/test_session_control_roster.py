@@ -196,7 +196,7 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     assert row["messageability"]["messageable"] is True
     assert row["messageability"]["relay_connected"] is True
     assert row["messageability"]["wake_available"] is True
-    assert row["current_holdings_health"] == "green"
+    assert row["primary_item_stages"] == []
 
 
 def test_waiting_posture_uses_stopped_wake_capability() -> None:
