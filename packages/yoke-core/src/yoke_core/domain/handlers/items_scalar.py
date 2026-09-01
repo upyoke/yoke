@@ -75,25 +75,14 @@ class ScalarUpdateResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-# Mutation-layer ``error_code`` -> dispatcher ``error.code``. Gate codes
-# collapse to ``lifecycle_gate_unmet`` across every QA /
-# epic-merge / done-ceremony gate; field-validation codes remain
-# ``validation_error`` for the route layer to map to HTTP 422.
-_GATE_CODES = frozenset(
-    {
-        "GATE_QA_REVIEWING",
-        "GATE_QA_IMPLEMENTED",
-        "GATE_QA_RELEASE",
-        "GATE_QA_DONE",
-        "GATE_EPIC_TASKS",
-        "GATE_EPIC_MERGE",
-        "GATE_DONE_NONCE",
-    }
-)
+# Mutation-layer ``error_code`` -> dispatcher ``error.code``. Every
+# ``GATE_``-prefixed code collapses to ``lifecycle_gate_unmet``, whether it
+# comes from a mutation-layer gate or a composed stage gate; field-validation
+# codes remain ``validation_error`` for the route layer to map to HTTP 422.
 
 
 def _map_error_code(legacy_code: Optional[str]) -> str:
-    if legacy_code and (legacy_code in _GATE_CODES or legacy_code.startswith("GATE_")):
+    if legacy_code and legacy_code.startswith("GATE_"):
         return "lifecycle_gate_unmet"
     if legacy_code == "UNSUPPORTED_FIELD":
         return "unsupported_field"

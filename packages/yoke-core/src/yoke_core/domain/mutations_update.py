@@ -141,63 +141,26 @@ def prepare_update(
                     item_id=item.id,
                 )
 
-        # QA gates
-        if not gate.qa_bypass and not gate.force:
-            # review entry gate: needs qa_requirements rows
-            if value == "reviewing-implementation":
-                if gate.qa_requirement_count == 0:
-                    return MutationResult(
-                        success=False,
-                        error=(
-                            f"Cannot transition {item.ref} to 'reviewing-implementation' "
-                            f"-- no qa_requirements found."
-                        ),
-                        error_code="GATE_QA_REVIEWING",
-                        item_id=item.id,
-                    )
-
-            # implemented gate: all blocking verification-phase requirements satisfied
-            if value == "implemented":
-                if gate.unsatisfied_verification_blocking > 0:
-                    return MutationResult(
-                        success=False,
-                        error=(
-                            f"Cannot transition {item.ref} to 'implemented' -- "
-                            f"{gate.unsatisfied_verification_blocking} blocking verification "
-                            f"requirement(s) unsatisfied."
-                        ),
-                        error_code="GATE_QA_IMPLEMENTED",
-                        item_id=item.id,
-                    )
-
-            # release gate: usher must not pick up items whose verification
-            # requirements were never actually satisfied.
-            if value == "release":
-                if gate.unsatisfied_verification_blocking > 0:
-                    return MutationResult(
-                        success=False,
-                        error=(
-                            f"Cannot transition {item.ref} to 'release' -- "
-                            f"{gate.unsatisfied_verification_blocking} blocking verification "
-                            f"requirement(s) unsatisfied."
-                        ),
-                        error_code="GATE_QA_RELEASE",
-                        item_id=item.id,
-                    )
-
-            # done gate: all blocking requirements (any phase) satisfied
-            if value == "done":
-                if gate.unsatisfied_all_blocking > 0:
-                    return MutationResult(
-                        success=False,
-                        error=(
-                            f"Cannot transition {item.ref} to 'done' -- "
-                            f"{gate.unsatisfied_all_blocking} blocking QA "
-                            f"requirement(s) unsatisfied."
-                        ),
-                        error_code="GATE_QA_DONE",
-                        item_id=item.id,
-                    )
+        # Done QA gate: every workflow's terminal transition needs its
+        # blocking requirements satisfied. Stage-scoped QA enforcement for
+        # every other status belongs to the composed qa_verification gate
+        # the pinned workflow version declares for that stage.
+        if (
+            value == "done"
+            and gate.unsatisfied_all_blocking > 0
+            and not gate.qa_bypass
+            and not gate.force
+        ):
+            return MutationResult(
+                success=False,
+                error=(
+                    f"Cannot transition {item.ref} to 'done' -- "
+                    f"{gate.unsatisfied_all_blocking} blocking QA "
+                    f"requirement(s) unsatisfied."
+                ),
+                error_code="GATE_QA_DONE",
+                item_id=item.id,
+            )
 
         # --- Status-change side effects ---
 

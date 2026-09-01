@@ -2,7 +2,10 @@
 
 Each test seeds an unsatisfied (or stale) QA requirement and asserts that
 the corresponding lifecycle transition is denied with the expected
-``GATE_QA_*`` error_code, leaving status unchanged.
+``GATE_QA_*`` error_code, leaving status unchanged. The refusals come from
+the composed ``qa_verification`` gate each pinned workflow version declares
+for the stage, so a workflow that declares no such gate for a stage reaches
+it with no QA rows at all.
 """
 
 from __future__ import annotations
@@ -76,6 +79,25 @@ class TestExecuteUpdate:
         assert result["success"] is False
         assert result["error_code"] == "GATE_QA_RELEASE"
         assert _item_field(tmp_db, 10, "status") == "implemented"
+
+    def test_dash_reviewing_implementation_needs_no_qa_requirements(self, tmp_db):  # noqa: F811
+        """Dash declares no ``qa_verification`` gate at that stage."""
+        _seed_item(tmp_db, id=10, status="implementing", workflow_id="dash")
+        out = io.StringIO()
+        with _patch_externals(), \
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+             ):
+            result = backlog.execute_update(
+                item_id=10,
+                field="status",
+                value="reviewing-implementation",
+                out=out,
+            )
+
+        assert result["success"] is True, result
+        assert _item_field(tmp_db, 10, "status") == "reviewing-implementation"
 
     def test_implemented_blocks_browser_pass_without_artifact(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="reviewed-implementation")

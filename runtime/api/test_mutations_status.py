@@ -92,11 +92,7 @@ class TestStatusTransition:
 
     def test_issue_accepts_issue_family_statuses(self):
         """FR-3: Issue items accept every status in the Issue workflow."""
-        gate = _make_gate(
-            done_nonce_verified=True,
-            qa_requirement_count=1,
-            unsatisfied_verification_blocking=0,
-        )
+        gate = _make_gate(done_nonce_verified=True)
         for status in (
             "refining-idea",
             "refined-idea",
@@ -135,12 +131,7 @@ class TestStatusTransition:
 
     def test_epic_accepts_epic_family_statuses(self):
         """FR-3: Epic items accept every status in the Epic workflow."""
-        gate = _make_gate(
-            done_nonce_verified=True,
-            has_merged_at=True,
-            qa_requirement_count=1,
-            unsatisfied_verification_blocking=0,
-        )
+        gate = _make_gate(done_nonce_verified=True, has_merged_at=True)
         # Exclude done (needs special gates) — test the Epic progression.
         for status in (
             "refining-idea",
