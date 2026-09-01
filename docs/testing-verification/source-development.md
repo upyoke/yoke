@@ -30,17 +30,20 @@ general recipe only for a direct invocation that is not covered by a wrapper:
 yoke dev run -- python3 -m pytest path/to/test_file.py
 ```
 
-Ruff is a locked development dependency. Lint changed existing Python paths
-from the session's claimed source checkout with:
+Ruff is a locked development dependency. Lint committed, staged, and unstaged
+existing Python changes from the session's claimed source checkout with:
 
 ```bash
 yoke dev ruff-changed --base <ref>
 ```
 
-Add `--format-check` to also run `ruff format --check`. The command reads a
-NUL-delimited Git diff, excludes deleted or otherwise nonexistent paths, and
-runs the locked Ruff version without shell path expansion. Do not call a
-checkout-local `.venv/bin/ruff` path or rely on an ambient Homebrew install.
+Add `--format-check` to also run `ruff format --check`. The command resolves the
+merge-base and HEAD SHAs, reads a NUL-delimited diff from that base through the
+current staged and unstaged working tree, excludes deleted or otherwise
+nonexistent paths, and runs the locked Ruff version without shell path
+expansion. An empty result names both SHAs, the working tree, and the checkout
+it compared. Do not call a checkout-local `.venv/bin/ruff` path or rely on an
+ambient Homebrew install.
 
 The checkout it reads is never the working directory. A harness re-applies a
 previous `cd` between tool calls, so a cwd-derived tree can be a different

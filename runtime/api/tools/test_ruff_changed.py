@@ -59,12 +59,45 @@ def test_changed_paths_use_the_rename_destination(tmp_path: Path) -> None:
     assert ruff_changed.changed_python_paths(base, repo) == ("nested/renamed.py",)
 
 
+def test_changed_paths_include_committed_staged_and_unstaged_edits(
+    tmp_path: Path,
+) -> None:
+    repo, base = _repo_with_baseline(
+        tmp_path,
+        {
+            "committed.py": "value = 1\n",
+            "staged.py": "value = 1\n",
+            "unstaged.py": "value = 1\n",
+        },
+    )
+    (repo / "committed.py").write_text("value = 2\n", encoding="utf-8")
+    _git(repo, "add", "committed.py")
+    _git(repo, "commit", "-m", "committed change")
+    (repo / "staged.py").write_text("value = 2\n", encoding="utf-8")
+    _git(repo, "add", "staged.py")
+    (repo / "unstaged.py").write_text("value = 2\n", encoding="utf-8")
+
+    assert ruff_changed.changed_python_paths(base, repo) == (
+        "committed.py",
+        "staged.py",
+        "unstaged.py",
+    )
+
+
 def test_empty_changed_set_passes_without_invoking_ruff(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    repo, base = _repo_with_baseline(tmp_path, {"module.py": "value = 1\n"})
+    repo, base = _repo_with_baseline(
+        tmp_path,
+        {"module.py": "value = 1\n", "notes.txt": "baseline\n"},
+    )
+    (repo / "notes.txt").write_text("committed\n", encoding="utf-8")
+    _git(repo, "add", "notes.txt")
+    _git(repo, "commit", "-m", "non-Python change")
+    head = _git(repo, "rev-parse", "HEAD")
+    (repo / "notes.txt").write_text("unstaged\n", encoding="utf-8")
     invoked = False
 
     def _unexpected(*_args, **_kwargs) -> int:
@@ -76,7 +109,11 @@ def test_empty_changed_set_passes_without_invoking_ruff(
 
     assert ruff_changed.run(base, root=repo) == 0
     assert invoked is False
-    assert "no changed Python files" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "no changed Python files" in output
+    assert f"base SHA {base}" in output
+    assert f"HEAD {head}" in output
+    assert "staged + unstaged working tree" in output
 
 
 def test_format_check_runs_after_lint(
@@ -85,8 +122,12 @@ def test_format_check_runs_after_lint(
 ) -> None:
     monkeypatch.setattr(
         ruff_changed,
-        "changed_python_paths",
-        lambda _base, _root: ("module.py",),
+        "select_changed_python_paths",
+        lambda _base, _root: ruff_changed.ChangedPythonSelection(
+            ("module.py",),
+            "base-sha",
+            "head-sha",
+        ),
     )
     phases: list[tuple[str, ...]] = []
 
