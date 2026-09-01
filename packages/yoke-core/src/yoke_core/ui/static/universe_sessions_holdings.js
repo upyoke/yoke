@@ -171,10 +171,29 @@ function appendAttachedEntry(documentNode, body, row, attribution) {
   body.appendChild(work);
 }
 
+function holdingsBoxKind(label) {
+  if (label === "Currently held") return "current";
+  if (label === "Previously held") return "previous";
+  return null;
+}
+
 function appendHoldingGroup(
   documentNode, body, row, label, entries, previous, projects,
 ) {
-  const group = el(documentNode, "div", "session-holdings-group");
+  const boxed = holdingsBoxKind(label);
+  const group = el(
+    documentNode,
+    "div",
+    boxed
+      ? `session-holdings-group session-holdings-${boxed}`
+      : "session-holdings-group",
+  );
+  if (boxed === "current") {
+    group.setAttribute(
+      "data-holdings-health",
+      String(row.current_holdings_health || "green"),
+    );
+  }
   group.appendChild(el(
     documentNode, "div", "session-holdings-label", label,
   ));
