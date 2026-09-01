@@ -111,10 +111,9 @@ function appendHealth(documentNode, body, row) {
   body.appendChild(line);
 }
 
-export function appendSessionDiagnostics(
+export function appendSessionMessageLine(
   documentNode, body, row, messageAction = null,
 ) {
-  appendKillCause(documentNode, body, row);
   const badge = latestMessageBadge(documentNode, row.latest_message);
   if (badge || messageAction) {
     const message = el(documentNode, "div", "session-latest-message");
@@ -127,5 +126,9 @@ export function appendSessionDiagnostics(
     }
     body.appendChild(message);
   }
+}
+
+export function appendSessionDiagnostics(documentNode, body, row) {
+  appendKillCause(documentNode, body, row);
   appendHealth(documentNode, body, row);
 }

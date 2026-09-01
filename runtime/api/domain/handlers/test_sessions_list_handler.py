@@ -175,9 +175,7 @@ class TestClaimsAndAttribution:
         assert rows[0]["actor_id"] == system_actor_id
         assert rows[0]["actor_label"]
 
-    def test_human_attribution_uses_display_name_and_omits_missing_names(
-        self, test_db
-    ):
+    def test_human_attribution_uses_display_name_and_omits_missing_names(self, test_db):
         from yoke_core.domain.actors import (
             seed_human_actor,
             set_actor_label,
@@ -246,6 +244,22 @@ class TestClaimsAndAttribution:
 
 
 class TestHandler:
+    def test_handler_returns_served_model_facts(self, test_db):
+        create_session_control_tables(test_db)
+        test_db.commit()
+        _insert_session(test_db, "s-model-facts", last_heartbeat=_iso())
+        test_db.execute(
+            "UPDATE harness_sessions SET reasoning_effort = %s, "
+            "context_window_tokens = %s WHERE session_id = %s",
+            ("max", 258400, "s-model-facts"),
+        )
+        test_db.commit()
+
+        outcome = handle_sessions_list(_request())
+        assert outcome.primary_success
+        assert outcome.result_payload["rows"][0]["reasoning_effort"] == "max"
+        assert outcome.result_payload["rows"][0]["context_window_tokens"] == 258400
+
     def test_handler_returns_fields_and_rows(self, test_db):
         create_session_control_tables(test_db)
         test_db.commit()

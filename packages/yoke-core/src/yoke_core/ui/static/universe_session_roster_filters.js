@@ -117,7 +117,7 @@ function machineLabel(row) {
 // The relay is what carries a message to a session that is not mid-turn, so
 // its state is the whole difference between reaching the session and queuing
 // for it indefinitely.
-function appendRelay(documentNode, body, row) {
+export function appendSessionRelay(documentNode, body, row) {
   const line = el(documentNode, "div", "session-relay");
   line.appendChild(el(documentNode, "span", "session-relay-label", "Relay:"));
   const connected = row.relay === "connected";
@@ -209,8 +209,7 @@ export function sessionMessageButton(documentNode, row, onMessage) {
   return message;
 }
 
-export function appendSessionMessaging(documentNode, body, row) {
-  appendRelay(documentNode, body, row);
+export function appendSessionMessagingBlocker(documentNode, body, row) {
   const availability = messagingAvailability(row);
   if (availability.available) return;
   body.appendChild(el(

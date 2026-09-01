@@ -12,16 +12,23 @@ import {
   parkedBadge,
   settledScopedCalls,
 } from "./universe_view_support.js";
-import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
+import {
+  appendSessionDiagnostics,
+  appendSessionMessageLine,
+} from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import { appendSessionPresentation } from "./universe_session_presentation.js";
 import { appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
-  appendSessionMessaging,
+  appendSessionMessagingBlocker,
+  appendSessionRelay,
   sessionMessageButton,
   sessionRosterFilters,
 } from "./universe_session_roster_filters.js";
-import { displaySessionModel } from "./session_model_display.js";
+import {
+  displaySessionModel,
+  servedSessionModelFacts,
+} from "./session_model_display.js";
 const ROSTER_STATES = new Set(["active", "stale", "ended"]);
 function statRow(documentNode, facts) {
   const row = el(documentNode, "div", "stat-row sessions-stats");
@@ -72,12 +79,16 @@ function operatorLabel(documentNode, row) {
 }
 
 function appendModel(documentNode, body, row) {
-  body.appendChild(el(
-    documentNode,
-    "div",
-    "session-model",
-    displaySessionModel(row),
+  const line = el(documentNode, "div", "session-model-line");
+  line.appendChild(el(
+    documentNode, "span", "session-model", displaySessionModel(row),
   ));
+  for (const fact of servedSessionModelFacts(row)) {
+    const tag = el(documentNode, "span", "session-model-tag", fact.label);
+    tag.setAttribute("data-model-fact", fact.kind);
+    line.appendChild(tag);
+  }
+  body.appendChild(line);
 }
 
 // Identity, work, health — in that order and nothing else. The harness and its
@@ -114,8 +125,10 @@ export function sessionCard(
   appendHoldings(documentNode, body, row, projects);
   if (row.liveness !== "ended") appendSessionAge(documentNode, body, row);
   const messageAction = sessionMessageButton(documentNode, row, onMessage);
-  appendSessionDiagnostics(documentNode, body, row, messageAction);
-  appendSessionMessaging(documentNode, body, row);
+  appendSessionRelay(documentNode, body, row);
+  appendSessionMessageLine(documentNode, body, row, messageAction);
+  appendSessionMessagingBlocker(documentNode, body, row);
+  appendSessionDiagnostics(documentNode, body, row);
   card.appendChild(body);
   return card;
 }
