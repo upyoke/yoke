@@ -10,6 +10,7 @@ import {
   notificationPresentation,
   subjectHref,
 } from "./inbox_presentation.js";
+import { senderDescription } from "./universe_session_message_actors.js";
 
 function eventCameFromControl(event, row) {
   let target = event.target;
@@ -195,6 +196,37 @@ export function appendNotificationRow(
   button.addEventListener("click", () => markRead(row.id, button));
   wrap.appendChild(button);
   makeRowNavigable(documentNode, wrap, href, presentation.title);
+  body.appendChild(wrap);
+}
+
+export function appendActorMessageRow(context, body, message, acknowledge) {
+  const documentNode = context.document;
+  const wrap = el(documentNode, "article", "inbox-row inbox-message-row");
+  wrap.setAttribute("data-message-id", String(message.message_id || ""));
+  wrap.appendChild(el(documentNode, "span", "inbox-icon", "✉"));
+  const main = el(documentNode, "div", "inbox-row-main");
+  const href = "#/sessions/messages";
+  const title = el(
+    documentNode,
+    "a",
+    "inbox-row-title",
+    String(message.body || "Message body unavailable"),
+  );
+  title.href = href;
+  main.appendChild(title);
+  main.appendChild(timedSubtitle(
+    documentNode,
+    `From ${senderDescription(message)}`,
+    message.created_at,
+  ));
+  wrap.appendChild(main);
+  if (message.actor_receipt?.state === "pending") {
+    const button = el(documentNode, "button", "inbox-read", "Acknowledge");
+    button.type = "button";
+    button.addEventListener("click", () => acknowledge(message.message_id, button));
+    wrap.appendChild(button);
+  }
+  makeRowNavigable(documentNode, wrap, href, "message");
   body.appendChild(wrap);
 }
 

@@ -14,6 +14,14 @@ from yoke_cli.commands.adapters.session_control_native_diagnostic_output import 
 from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import (
     roster_diagnostics,
 )
+from yoke_cli.commands.adapters.session_control_recipient_output import (
+    display_recipients,
+    recipient_count,
+    recipient_party,
+    recipient_project,
+    recipient_states,
+    recipient_surface,
+)
 
 
 BODY_EXCERPT_CHARACTERS = 72
@@ -176,29 +184,18 @@ def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
     write_table("SESSIONS", columns, rows, stdout, empty="No sessions found.")
 
 
-def _recipient(row: Mapping[str, Any]) -> dict[str, Any]:
-    snapshot = row.get("routing_snapshot")
-    return {
-        **(dict(snapshot) if isinstance(snapshot, Mapping) else {}),
-        **dict(row),
-    }
-
-
-def _recipient_project(row: Mapping[str, Any]) -> Any:
-    return row.get("project") or row.get("project_id")
-
-
-def _recipient_status(row: Mapping[str, Any]) -> str:
-    return humanize(row.get("state") or row.get("liveness"))
-
-
-def _write_recipients(recipients: Iterable[Mapping[str, Any]], stdout: TextIO) -> None:
-    rows = [_recipient(recipient) for recipient in recipients]
+def _write_recipients(
+    recipients: Iterable[Mapping[str, Any]],
+    stdout: TextIO,
+    *,
+    actor_recipients: Iterable[Mapping[str, Any]] = (),
+) -> None:
+    rows = display_recipients(recipients, actor_recipients)
     columns: tuple[Column, ...] = (
-        ("SESSION", lambda row: row.get("session_id"), None),
-        ("PROJECT", _recipient_project, 14),
-        ("STATE", _recipient_status, 14),
-        ("SURFACE", lambda row: row.get("executor_surface"), 20),
+        ("SESSION / ACTOR", recipient_party, None),
+        ("PROJECT", recipient_project, 14),
+        ("STATE", lambda row: humanize(row.get("state") or row.get("liveness")), 14),
+        ("SURFACE", recipient_surface, 20),
         ("MACHINE", lambda row: row.get("machine_id"), None),
         ("MESSAGEABLE", _messageable, 18),
     )
@@ -215,12 +212,7 @@ def _message_state(message: Mapping[str, Any]) -> str:
     if message.get("cancelled_at"):
         reason = humanize(message.get("cancellation_reason"))
         return f"cancelled ({reason})" if reason != EMPTY_VALUE else "cancelled"
-    states = sorted(
-        {
-            humanize(recipient.get("state"))
-            for recipient in message.get("recipients") or []
-        }
-    )
+    states = sorted(humanize(state) for state in recipient_states(message))
     return " / ".join(states) if states else "no recipients"
 
 
@@ -261,6 +253,7 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
 
 def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
     recipients = message.get("recipients") or []
+    actor_recipients = message.get("actor_recipients") or []
     sender = message.get("sender_session_id")
     if not sender and message.get("sender_actor_id") is not None:
         sender = f"actor {message['sender_actor_id']}"
@@ -268,7 +261,7 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         ("Message ID", message.get("message_id")),
         ("State", _message_state(message)),
         ("Sender", sender),
-        ("Recipients", len(recipients)),
+        ("Recipients", recipient_count(message)),
         ("Created (UTC)", utc_time(message.get("created_at"))),
         ("Expires (UTC)", utc_time(message.get("expires_at"))),
         ("Body excerpt", _body_excerpt(message.get("body"))),
@@ -278,7 +271,7 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
             -1, ("Cancellation reason", humanize(message["cancellation_reason"]))
         )
     write_summary("MESSAGE", fields, stdout)
-    _write_recipients(recipients, stdout)
+    _write_recipients(recipients, stdout, actor_recipients=actor_recipients)
     _write_attempts(message.get("attempts") or [], stdout)
     if any(recipient.get("state") == "injected" for recipient in recipients):
         print(
@@ -304,7 +297,11 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         write_summary(
             "MESSAGE SENT" if message_id else "MESSAGE PREVIEW", fields, stdout
         )
-        _write_recipients(result.get("recipients") or [], stdout)
+        _write_recipients(
+            result.get("recipients") or [],
+            stdout,
+            actor_recipients=result.get("actor_recipients") or [],
+        )
         if message_id:
             print(f"Track delivery: yoke messages get {message_id}", file=stdout)
         return
@@ -312,7 +309,7 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         columns: tuple[Column, ...] = (
             ("MESSAGE", lambda row: row.get("message_id"), None),
             ("STATE / REASON", _message_state, 28),
-            ("TO", lambda row: len(row.get("recipients") or []), 4),
+            ("TO", recipient_count, 4),
             ("CREATED (UTC)", lambda row: utc_time(row.get("created_at")), 22),
             ("EXPIRES (UTC)", lambda row: utc_time(row.get("expires_at")), 22),
             (

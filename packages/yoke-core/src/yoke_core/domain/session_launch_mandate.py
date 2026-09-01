@@ -166,6 +166,7 @@ def launch_request_for_create(
             conn, parsed, request, project_id
         ),
         idempotency_key=parsed.idempotency_key,
+        sender_surface=parsed.sender_surface,
         machine_id=parsed.machine_id,
         model=parsed.model,
         presentation=parsed.presentation,

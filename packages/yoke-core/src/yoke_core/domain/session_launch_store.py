@@ -8,6 +8,9 @@ import json
 from typing import Any, Iterable
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
+from yoke_contracts.session_control.sender_surface import (
+    HARNESS_SESSION_SENDER_SURFACE,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchError
 
@@ -225,6 +228,7 @@ def insert_instruction_message(
     launch_id: str,
     actor_id: int,
     session_id: str | None,
+    sender_surface: str | None,
     project_id: int,
     body: str,
     created_at: str,
@@ -234,8 +238,8 @@ def insert_instruction_message(
     conn.execute(
         "INSERT INTO session_messages "
         "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
-        "selector_snapshot, idempotency_key, created_at, expires_at) "
-        f"VALUES ({', '.join(p for _ in range(9))})",
+        "selector_snapshot, idempotency_key, created_at, expires_at, sender_surface) "
+        f"VALUES ({', '.join(p for _ in range(10))})",
         (
             message_id,
             actor_id,
@@ -248,6 +252,7 @@ def insert_instruction_message(
             None,
             created_at,
             expires_at,
+            sender_surface or (HARNESS_SESSION_SENDER_SURFACE if session_id else None),
         ),
     )
 

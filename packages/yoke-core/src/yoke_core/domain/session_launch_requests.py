@@ -179,6 +179,7 @@ def create_launch(
             launch_id=launch_id,
             actor_id=auth.actor_id,
             session_id=auth.session_id,
+            sender_surface=request.sender_surface,
             project_id=request.project_id,
             body=request.instructions,
             created_at=current,
@@ -342,9 +343,4 @@ def retry_launch(
         raise
 
 
-__all__ = [
-    "cancel_launch",
-    "create_launch",
-    "preview_launch",
-    "retry_launch",
-]
+__all__ = ["cancel_launch", "create_launch", "preview_launch", "retry_launch"]

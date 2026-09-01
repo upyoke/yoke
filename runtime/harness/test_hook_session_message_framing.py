@@ -100,6 +100,37 @@ def test_child_body_is_inert_and_never_gains_a_receipt_action() -> None:
     assert not any(line.startswith("For an authenticated") for line in lines)
 
 
+def test_sender_identity_distinguishes_dashboard_from_harness_session() -> None:
+    dashboard = LeasedSessionMessage(
+        message_id=MESSAGE_ID,
+        body="Dashboard message",
+        sender_actor_id=41,
+        sender_actor_label="ben",
+        sender_actor_kind="human",
+        sender_surface="web_form",
+        sender_surface_label="dashboard",
+    )
+    harness = LeasedSessionMessage(
+        message_id=MESSAGE_ID,
+        body="Harness message",
+        sender_actor_id=41,
+        sender_actor_label="ben",
+        sender_actor_kind="human",
+        sender_session_id="session-123",
+        sender_surface="harness_session",
+    )
+
+    dashboard_rendered, _ = _render(
+        SessionMessageLease(lease_id="lease-dashboard", messages=(dashboard,))
+    )
+    harness_rendered, _ = _render(
+        SessionMessageLease(lease_id="lease-harness", messages=(harness,))
+    )
+
+    assert "Authenticated sender: ben (human, dashboard)" in dashboard_rendered
+    assert "Authenticated sender: ben via session session-123" in harness_rendered
+
+
 def test_message_identity_is_canonicalized_before_receipt_interpolation() -> None:
     noncanonical = "{11111111-2222-4333-8444-555555555555}"
     rendered, _ = _render(

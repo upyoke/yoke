@@ -99,7 +99,7 @@ def test_generic_create_cannot_mint_lifecycle_approvals():
 
 
 def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
-    from yoke_core.domain import db_helpers, decision_requests, inbox_notifications
+    from yoke_core.domain import db_helpers, inbox_read
 
     class Connection:
         def close(self):
@@ -107,7 +107,7 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
 
     monkeypatch.setattr(db_helpers, "connect", Connection)
     monkeypatch.setattr(
-        decision_requests,
+        inbox_read,
         "pending_requests_for_actor",
         lambda *_args, **_kwargs: [
             {"kind": "machine_approval", "blocking": True},
@@ -115,9 +115,14 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
         ],
     )
     monkeypatch.setattr(
-        inbox_notifications,
+        inbox_read,
         "notification_rows",
         lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        inbox_read,
+        "inbox_actor_messages",
+        lambda *_args, **_kwargs: {"messages": [], "pending_count": 0},
     )
 
     outcome = inbox_decisions.handle_inbox_list(
@@ -132,6 +137,8 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
     assert outcome.result_payload["needs_decision"] == [
         {"kind": "qa_needs_review", "blocking": True}
     ]
+    assert outcome.result_payload["messages"] == []
+    assert outcome.result_payload["pending_actor_message_count"] == 0
 
 
 def test_machine_lifecycle_handler_preserves_actor_and_timestamps(monkeypatch):

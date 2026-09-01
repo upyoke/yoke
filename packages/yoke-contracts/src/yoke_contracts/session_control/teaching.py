@@ -7,10 +7,10 @@ from uuid import UUID
 
 FLEET_MESSAGE_RECIPE = """yoke say --preview --item PREFIX-N
 printf '%s\\n' 'MESSAGE' | yoke say --item PREFIX-N --stdin
+printf '%s\\n' 'MESSAGE' | yoke say --actor ben --stdin  # Human organization member
 # No claim addresses them? `yoke sessions list --liveness active`, then --session
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
-yoke messages get MESSAGE-ID
-yoke messages acknowledge MESSAGE-ID"""
+yoke messages get MESSAGE-ID && yoke messages acknowledge MESSAGE-ID"""
 FLEET_UNDELIVERED_CANCEL_RECIPE = (
     "# Top-level sender recovery for an undelivered message:\n"
     "yoke messages cancel MESSAGE-ID"
@@ -27,7 +27,9 @@ FLEET_ADDRESSING_GUIDANCE = (
     "selected. Preview before sending and read the recipient count. "
     "Address a worker by the work, not by its session id. A live item claim "
     "has exactly one holder, so --item PREFIX-N reaches that worker and stays "
-    "correct across a handoff. A session id is an identity, not an address: "
+    "correct across a handoff. Address a person with --actor using their exact "
+    "actor id or registered resolution label; actor and session recipients share "
+    "one durable message. A session id is an identity, not an address: "
     "reach for --session only when no claim addresses the recipient, and then "
     "pass the id whole. Session ids collide heavily at any prefix — thousands "
     "of them share leading characters — so a fragment copied out of a watcher "

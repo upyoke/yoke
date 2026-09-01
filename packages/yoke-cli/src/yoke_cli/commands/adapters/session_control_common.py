@@ -21,6 +21,7 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
 #: fallback for a recipient no claim names.
 SELECTOR_ARGUMENTS = (
     ("public_refs", "--item"),
+    ("actors", "--actor"),
     ("epic_tasks", "--epic-task"),
     ("process_keys", "--process"),
     ("projects", "--project"),
@@ -39,6 +40,10 @@ SELECTOR_ARGUMENTS = (
 def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
     """Add union anchors followed by intersecting recipient filters."""
     anchor_help = {
+        "actors": (
+            "ANCHOR (union). Human organization member by exact actor id or "
+            "registered resolution label (repeatable)."
+        ),
         "public_refs": (
             "ANCHOR (union). Item whose current holder is a recipient "
             "(repeatable). The address to prefer: one live claim, one "

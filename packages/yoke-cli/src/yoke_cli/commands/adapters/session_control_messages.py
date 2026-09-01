@@ -20,6 +20,7 @@ from yoke_cli.commands.adapters.session_control_common import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import MessageListState
+from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 from yoke_contracts.session_control.teaching import (
     FLEET_MESSAGE_WORKFLOW_HELP,
     FLEET_OWNERSHIP_GUIDANCE,
@@ -29,7 +30,7 @@ from yoke_contracts.session_execution import is_subagent_execution
 
 SAY_USAGE = (
     "yoke say (--preview | --stdin) "
-    "(--item ITEM | --epic-task ITEM:N | --process P | --project P | "
+    "(--actor ACTOR | --item ITEM | --epic-task ITEM:N | --process P | --project P | "
     "--session S | --universe) [--liveness active|stale|ended|all] "
     "[recipient filters] [--json]"
 )
@@ -60,7 +61,7 @@ def _selector_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=prog,
         usage=usage,
-        description="Preview or send a durable Fleet message to exact top-level sessions.",
+        description="Preview or send a durable Fleet message to people and sessions.",
         epilog=MESSAGE_WORKFLOW_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -80,6 +81,7 @@ def _dispatch_selector(
     sensitive_values: tuple[str, ...] = ()
     if body is not None:
         payload["body"] = body
+        payload["sender_surface"] = CLI_SENDER_SURFACE
         sensitive_values = (body,)
         for key in ("idempotency_key", "confirmation_token"):
             value = getattr(parsed, key, None)

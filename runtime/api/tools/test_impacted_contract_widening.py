@@ -1,6 +1,7 @@
 """Regression coverage for contract-selected impacted tests and telemetry."""
 
 from yoke_core.tools import impacted_tests
+from yoke_core.tools import _impacted_contract_prefix_families as prefix_contracts
 from yoke_core.tools._impacted_contract_tests import (
     CURSOR_SESSION_IDENTITY_DISPATCH_TESTS,
 )
@@ -36,24 +37,68 @@ def test_cli_registry_change_selects_the_registry_usage_parity_tests(tmp_path):
     registry = "packages/yoke-cli/src/yoke_cli/commands/registry.py"
     manifest_test = "runtime/api/cli/test_yoke_cli_manifest.py"
     operations_test = "runtime/api/cli/test_yoke_operations_cli.py"
+    journey_test = "runtime/api/cli/test_fleet_message_cli_user_journey.py"
+    selector_help_test = "runtime/api/cli/test_session_control_selector_help.py"
     _write(root, registry, "SUBCOMMAND_REGISTRY = {}\n")
     _write(root, manifest_test, "def test_manifest_usage(): pass\n")
     _write(root, operations_test, "def test_usage_entry(): pass\n")
+    _write(root, journey_test, "def test_fleet_journey(): pass\n")
+    _write(root, selector_help_test, "def test_selector_help(): pass\n")
 
     selection = select([registry], build_import_index(root))
 
     assert selection.full_sweep is False
     assert manifest_test in selection.files
     assert operations_test in selection.files
+    assert journey_test in selection.files
+    assert selector_help_test in selection.files
     assert f"product_cli_boundary_contract:{registry}" in selection.telemetry()
+
+
+def test_session_schema_change_selects_boot_column_convergence(tmp_path):
+    root = _tiny_repo(tmp_path)
+    source = "packages/yoke-core/src/yoke_core/domain/session_control_schema.py"
+    boot_test = "runtime/api/domain/test_boot_schema_column_convergence.py"
+    _write(root, source, "def create_session_control_tables(): pass\n")
+    _write(root, boot_test, "def test_boot_columns(): pass\n")
+
+    selection = select([source], build_import_index(root))
+
+    assert boot_test in selection.files
+    assert f"migration_history_contract:{source}" in selection.telemetry()
+
+
+def test_universe_ui_javascript_selects_node_mount_contract(tmp_path):
+    root = _tiny_repo(tmp_path)
+    source = "packages/yoke-core/src/yoke_core/ui/static/universe_views_inbox.js"
+    mount_test = prefix_contracts.UNIVERSE_UI_CONTRACT_TESTS[0]
+    _write(root, source, "export const inbox = {};\n")
+    _write(root, mount_test, "def test_node_modules(): pass\n")
+
+    selection = select([source], build_import_index(root), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert mount_test in selection.files
+    assert f"universe_ui_contract:{source}" in selection.telemetry()
+
+
+def test_inbox_composition_selects_its_handler_boundary(tmp_path):
+    root = _tiny_repo(tmp_path)
+    source = "packages/yoke-core/src/yoke_core/domain/inbox_read.py"
+    handler_test = prefix_contracts.INBOX_COMPOSITION_CONTRACT_TESTS[0]
+    _write(root, source, "def inbox_for_actor(): pass\n")
+    _write(root, handler_test, "def test_inbox_handler(): pass\n")
+
+    selection = select([source], build_import_index(root))
+
+    assert handler_test in selection.files
+    assert f"inbox_composition_contract:{source}" in selection.telemetry()
 
 
 def test_registering_a_handler_selects_the_authorization_classification(tmp_path):
     """A newly registered function id reaches its authz contract by registry."""
     root = _tiny_repo(tmp_path)
-    registrar = (
-        "packages/yoke-core/src/yoke_core/domain/handlers/_register_widgets.py"
-    )
+    registrar = "packages/yoke-core/src/yoke_core/domain/handlers/_register_widgets.py"
     authz_test = "runtime/api/domain/test_function_authz_scope_routing.py"
     _write(root, registrar, "def register(registry): pass\n")
     _write(root, authz_test, "def test_every_function_is_classified(): pass\n")

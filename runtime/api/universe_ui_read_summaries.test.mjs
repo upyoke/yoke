@@ -215,6 +215,8 @@ test("Inbox renders its decided empty-state model under one page head", async (t
             result: {
               needs_decision: [],
               requests: [],
+              messages: [],
+              pending_actor_message_count: 0,
               notifications: [],
             },
           },
@@ -233,7 +235,7 @@ test("Inbox renders its decided empty-state model under one page head", async (t
     "Decisions waiting on you, and what happened while you were away.",
   );
   assert.equal(byClass(root, "stub-panel").length, 0);
-  assert.equal(byClass(root, "inbox-empty").length, 3);
+  assert.equal(byClass(root, "inbox-empty").length, 4);
   assert.equal(byClass(root, "raw-toggle").length, 0);
   mounted.unmount();
 });

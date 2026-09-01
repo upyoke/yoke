@@ -8,6 +8,9 @@ from typing import Any
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
+from yoke_core.domain.session_message_delivery_projection import (
+    delivery_message_projection,
+)
 
 
 def _p(conn: Any) -> str:
@@ -40,7 +43,8 @@ def read_for_hook(
     marker = _p(conn)
     stamp = timestamp(now or utc_now())
     rows = conn.execute(
-        "SELECT r.message_id,m.body,m.sender_actor_id FROM "
+        "SELECT r.message_id,m.body,m.sender_actor_id,m.sender_session_id,"
+        "m.sender_surface FROM "
         "session_message_recipients r JOIN session_messages m "
         "ON m.message_id=r.message_id "
         f"WHERE r.session_id={marker} AND r.state='pending' "
@@ -52,7 +56,11 @@ def read_for_hook(
             max(1, min(int(limit), 50)),
         ),
     ).fetchall()
-    return [row_dict(row) for row in rows]
+    messages: list[dict[str, Any]] = []
+    for raw in rows:
+        row = row_dict(raw)
+        messages.append(delivery_message_projection(conn, row))
+    return messages
 
 
 __all__ = ["read_for_hook"]

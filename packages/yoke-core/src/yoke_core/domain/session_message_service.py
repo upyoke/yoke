@@ -6,10 +6,18 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.session_control.models import RecipientSelector
+from yoke_contracts.session_control.sender_surface import (
+    HARNESS_SESSION_SENDER_SURFACE,
+)
+from yoke_core.domain.actor_message_recipients import (
+    ResolvedActorRecipient,
+    acknowledge_actor_recipient,
+    actor_message_limits,
+    resolve_actor_recipients,
+)
 from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
     authorize_universe,
-    can_read_project,
 )
 from yoke_core.domain.session_message_liveness import applied_liveness
 from yoke_core.domain.session_message_selectors import (
@@ -21,11 +29,9 @@ from yoke_core.domain.session_message_store import (
     begin_message_mutation,
     cancel_message_rows,
     insert_message,
-    list_message_ids,
-    message_details,
-    public_recipients,
-    recipient_project_ids,
 )
+from yoke_core.domain.session_message_queries import get_message, list_messages
+from yoke_core.domain.session_message_reads import message_details, public_recipients
 from yoke_core.domain.session_message_substance import validate_body
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
@@ -36,6 +42,12 @@ from yoke_core.domain.session_message_zero_recipients import require_recipients
 
 
 def _public_recipients(recipients: list[ResolvedRecipient]) -> list[dict[str, Any]]:
+    return [recipient.public() for recipient in recipients]
+
+
+def _public_actor_recipients(
+    recipients: list[ResolvedActorRecipient],
+) -> list[dict[str, Any]]:
     return [recipient.public() for recipient in recipients]
 
 
@@ -55,16 +67,23 @@ def preview_message(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     recipients = resolve_recipients(conn, selector, now=now)
-    require_recipients(recipients, selector)
+    actor_recipients = resolve_actor_recipients(
+        conn, selector, sender_actor_id=actor_id
+    )
+    require_recipients(recipients, selector, actor_recipients=actor_recipients)
     policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
     if selector.universe:
         authorize_universe(conn, actor_id=actor_id, policies=policies.values())
     public = _public_recipients(recipients)
+    public_actors = _public_actor_recipients(actor_recipients)
     return {
         "recipients": public,
-        "recipient_count": len(public),
+        "actor_recipients": public_actors,
+        "recipient_count": len(public) + len(public_actors),
         "applied_liveness": list(applied_liveness(selector)),
-        "confirmation_token": confirmation_token(selector, recipients),
+        "confirmation_token": confirmation_token(
+            selector, recipients, actor_recipients=actor_recipients
+        ),
     }
 
 
@@ -85,6 +104,7 @@ def send_message(
     message_id: str | None = None,
     actor_id: int,
     sender_session_id: str | None,
+    sender_surface: str | None = None,
     selector: RecipientSelector,
     body: str,
     idempotency_key: str | None = None,
@@ -96,9 +116,15 @@ def send_message(
     begin_message_mutation(conn)
     try:
         recipients = resolve_recipients(conn, selector, now=current)
-        require_recipients(recipients, selector)
+        actor_recipients = resolve_actor_recipients(
+            conn, selector, sender_actor_id=actor_id
+        )
+        require_recipients(recipients, selector, actor_recipients=actor_recipients)
         policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
-        expected_confirmation = confirmation_token(selector, recipients)
+        actor_limits = actor_message_limits(conn, actor_recipients)
+        expected_confirmation = confirmation_token(
+            selector, recipients, actor_recipients=actor_recipients
+        )
         if selector.universe:
             authorize_universe(conn, actor_id=actor_id, policies=policies.values())
             required = any(
@@ -122,11 +148,13 @@ def send_message(
                 jsonpath="$.payload.confirmation_token",
             )
         _validate_routes(recipients)
-        validate_body(
-            body,
-            max_body_bytes=min(policy.max_body_bytes for policy in policies.values()),
-        )
-        expiry_hours = min(policy.expiry_hours for policy in policies.values())
+        body_limits = [policy.max_body_bytes for policy in policies.values()]
+        expiry_limits = [policy.expiry_hours for policy in policies.values()]
+        if actor_limits is not None:
+            body_limits.append(actor_limits.max_body_bytes)
+            expiry_limits.append(actor_limits.expiry_hours)
+        validate_body(body, max_body_bytes=min(body_limits))
+        expiry_hours = min(expiry_limits)
         expires_at = current + timedelta(hours=expiry_hours)
         wake_after_by_project = {pid: current for pid in policies}
         details, created = insert_message(
@@ -134,12 +162,17 @@ def send_message(
             message_id=message_id,
             sender_actor_id=actor_id,
             sender_session_id=sender_session_id,
+            sender_surface=(
+                sender_surface
+                or (HARNESS_SESSION_SENDER_SURFACE if sender_session_id else None)
+            ),
             body=body,
             selector_snapshot=_selector_snapshot(selector),
             idempotency_key=idempotency_key,
             created_at=current,
             expires_at=expires_at,
             recipients=recipients,
+            actor_recipients=actor_recipients,
             wake_after_by_project=wake_after_by_project,
         )
         if commit:
@@ -147,86 +180,21 @@ def send_message(
         selected = (
             _public_recipients(recipients) if created else public_recipients(details)
         )
+        selected_actors = (
+            _public_actor_recipients(actor_recipients)
+            if created
+            else details.get("actor_recipients", [])
+        )
         return {
             "message_id": details["message_id"],
             "recipients": selected,
-            "recipient_count": len(selected),
+            "actor_recipients": selected_actors,
+            "recipient_count": len(selected) + len(selected_actors),
             "deduplicated": not created,
         }
     except Exception:
         conn.rollback()
         raise
-
-
-def _visible(
-    conn: Any,
-    details: dict[str, Any],
-    *,
-    actor_id: int,
-    session_id: str | None,
-) -> bool:
-    if int(details["sender_actor_id"]) == actor_id:
-        return True
-    if session_id and any(
-        str(row["session_id"]) == session_id for row in details["recipients"]
-    ):
-        return True
-    project_ids = recipient_project_ids(details)
-    return bool(project_ids) and all(
-        can_read_project(conn, actor_id=actor_id, project_id=project_id)
-        for project_id in project_ids
-    )
-
-
-def get_message(
-    conn: Any,
-    *,
-    message_id: str,
-    actor_id: int,
-    session_id: str | None,
-) -> dict[str, Any]:
-    from yoke_core.domain.session_message_delivery import expire_due_recipients
-
-    expire_due_recipients(conn)
-    details = message_details(conn, message_id)
-    if not _visible(conn, details, actor_id=actor_id, session_id=session_id):
-        raise SessionMessageError(
-            "message_forbidden", "message is not visible to the calling actor"
-        )
-    return details
-
-
-def list_messages(
-    conn: Any,
-    *,
-    actor_id: int,
-    caller_session_id: str | None,
-    state: str | None = None,
-    session_id: str | None = None,
-    limit: int = 50,
-) -> list[dict[str, Any]]:
-    from yoke_core.domain.session_message_delivery import expire_due_recipients
-
-    expire_due_recipients(conn)
-    ids = list_message_ids(
-        conn,
-        state=state,
-        session_id=session_id,
-        limit=min(500, max(limit * 4, limit)),
-    )
-    visible: list[dict[str, Any]] = []
-    for message_id in ids:
-        details = message_details(conn, message_id)
-        if _visible(
-            conn,
-            details,
-            actor_id=actor_id,
-            session_id=caller_session_id,
-        ):
-            visible.append(details)
-        if len(visible) >= limit:
-            break
-    return visible
 
 
 def acknowledge_message(
@@ -277,6 +245,20 @@ def acknowledge_message(
             pass
     conn.commit()
     return details
+
+
+def acknowledge_actor_message(
+    conn: Any,
+    *,
+    message_id: str,
+    actor_id: int,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    acknowledge_actor_recipient(
+        conn, message_id=message_id, actor_id=actor_id, read_at=now
+    )
+    conn.commit()
+    return message_details(conn, message_id)
 
 
 def cancel_message(
@@ -330,6 +312,7 @@ def cancel_message(
 
 
 __all__ = [
+    "acknowledge_actor_message",
     "acknowledge_message",
     "cancel_message",
     "get_message",

@@ -19,7 +19,7 @@ const PLAIN_FAILURES = {
   subagent_message_forbidden: "In-process subagents do not use Fleet messaging directly.",
   target_not_found: "No recipient matched the selected target.",
   unsupported_route: "One or more selected sessions cannot receive Fleet messages.",
-  zero_recipients: "No sessions matched the selected roster audience.",
+  zero_recipients: "No people or sessions matched the selected audience.",
 };
 
 const RECOVERY_BY_CODE = {
@@ -36,7 +36,7 @@ const RECOVERY_BY_CODE = {
   session_required: "Refresh the roster and try again from a registered session.",
   subagent_message_forbidden: "Send through the parent session's native agent channel.",
   unsupported_route: "Choose a session marked Messageable in the roster.",
-  zero_recipients: "Adjust the roster filters, then choose Message all again.",
+  zero_recipients: "Adjust the recipient anchors or filters, then preview again.",
 };
 
 const TECHNICAL_DETAIL = /HTTP undefined|\b(?:SQL(?:STATE)?|SQLite|Postgres(?:QL)?|database|relation|column|table|constraint|traceback|operationalerror|programmingerror|psycopg)\b|\b(?:SELECT|INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE)\b/i;

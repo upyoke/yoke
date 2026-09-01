@@ -75,6 +75,7 @@ class LaunchRequest:
     executor_surface: str
     instructions: str
     idempotency_key: str
+    sender_surface: str | None = None
     machine_id: str | None = None
     model: str | None = None
     presentation: str | None = None

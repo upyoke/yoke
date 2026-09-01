@@ -156,7 +156,9 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
     "session_control.message.list": () => ok({
       messages: [{
         message_id: "message-1", body: "Please report delivery status.",
+        sender_actor_id: 2, sender_actor_label: "ben", sender_actor_kind: "human",
         sender_session_id: "session-sender",
+        sender_surface: "harness_session", sender_surface_label: "harness session",
         created_at: "2026-08-23T01:00:00Z",
         recipients: [{
           session_id: "session-1", project_id: 1, state: "pending",
@@ -195,7 +197,7 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   assert.deepEqual(
     byClass(root, "session-message-party").map((node) => node.textContent),
     [
-      "codex-cli · YOK-25sender",
+      "ben via session session-sender",
       "codex-cli · YOK-251",
       "codex-cli · YOK-252",
       "codex-cli · YOK-253",

@@ -85,6 +85,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_session_presentation.js": "text/javascript; charset=utf-8",
     "session_message_compose_dialog.js": "text/javascript; charset=utf-8",
     "universe_session_messages.js": "text/javascript; charset=utf-8",
+    "universe_session_message_actors.js": "text/javascript; charset=utf-8",
     "session_launch_create_dialog.js": "text/javascript; charset=utf-8",
     "session_launch_timeline.js": "text/javascript; charset=utf-8",
     "session_relay_diagnostic_view.js": "text/javascript; charset=utf-8",

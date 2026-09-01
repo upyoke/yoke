@@ -74,6 +74,7 @@ def test_sessions_create_preview_and_create_use_registered_functions(
         "instructions": "private instructions",
         "item": "YOK-2580",
         "idempotency_key": "launch-1",
+        "sender_surface": "cli",
         "presentation": "focused",
     }
     assert calls[1]["sensitive_values"] == ("private instructions",)

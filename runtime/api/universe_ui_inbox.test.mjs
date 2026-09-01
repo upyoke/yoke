@@ -28,12 +28,12 @@ test("Inbox matches the three-class prototype and renders served counts", async 
     .filter((node) => node.tagName === "H2")
     .map(ownTextContent);
   assert.deepEqual(headings, [
-    "Needs your decision", "Requests", "Notifications",
+    "Needs your decision", "Requests", "Messages", "Notifications",
   ]);
   assert.equal(byClass(main, "inbox-row").length, 3);
   assert.deepEqual(
     byClass(main, "panel-count").map((node) => node.textContent),
-    ["· 1", "· 1", "· 1"],
+    ["· 1", "· 1", "· 0", "· 1"],
   );
   assert.equal(
     byClass(main, "inbox-panel-hint")[0].textContent,

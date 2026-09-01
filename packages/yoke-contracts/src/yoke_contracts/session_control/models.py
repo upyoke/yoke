@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
-from uuid import UUID
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -14,9 +13,22 @@ from yoke_contracts.session_control.states import (
     MessageListState,
     MessageState,
 )
+from yoke_contracts.session_control.relay_models import (
+    RelayClaimRequest,
+    RelayClaimResponse,
+    RelayListRequest,
+    RelayListResponse,
+    RelayLivenessReport,
+    RelayLivenessRequest,
+    RelayLivenessResponse,
+    RelayReportRequest,
+    RelayReportResponse,
+)
+from yoke_contracts.session_control.sender_surface import SenderSurface
 
 
 class RecipientSelector(BaseModel):
+    actors: List[str] = Field(default_factory=list)
     session_ids: List[str] = Field(default_factory=list)
     public_refs: List[str] = Field(default_factory=list)
     epic_tasks: List[str] = Field(default_factory=list)
@@ -51,7 +63,8 @@ class RecipientSelector(BaseModel):
                 f"choose from {', '.join(LIVENESS_CHOICES)}"
             )
         if not (
-            self.session_ids
+            self.actors
+            or self.session_ids
             or self.public_refs
             or self.epic_tasks
             or self.process_keys
@@ -77,8 +90,16 @@ class MessageRecipient(BaseModel):
     resolution: List[str] = Field(default_factory=list)
 
 
+class ActorMessageRecipient(BaseModel):
+    actor_id: int
+    label: Optional[str] = None
+    kind: str = "human"
+    resolution: List[str] = Field(default_factory=list)
+
+
 class MessagePreviewResponse(BaseModel):
     recipients: List[MessageRecipient]
+    actor_recipients: List[ActorMessageRecipient] = Field(default_factory=list)
     recipient_count: int
     confirmation_token: Optional[str] = None
 
@@ -88,11 +109,13 @@ class MessageSendRequest(BaseModel):
     body: str
     idempotency_key: Optional[str] = None
     confirmation_token: Optional[str] = None
+    sender_surface: Optional[SenderSurface] = None
 
 
 class MessageSendResponse(BaseModel):
     message_id: str
     recipients: List[MessageRecipient]
+    actor_recipients: List[ActorMessageRecipient] = Field(default_factory=list)
     recipient_count: int
     deduplicated: bool = False
 
@@ -166,6 +189,7 @@ class LaunchCreateRequest(LaunchPreviewRequest):
     instructions: str = ""
     compose_mandate: bool = True
     idempotency_key: str
+    sender_surface: Optional[SenderSurface] = None
     presentation: Optional[str] = Field(
         default=None,
         min_length=1,
@@ -215,102 +239,8 @@ class LaunchPreviewResponse(BaseModel):
     selected_relay: Optional[Dict[str, Any]] = None
 
 
-class RelayClaimRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    relay_id: str
-    machine_id: str
-    hostname: str
-    relay_version: str
-    projects: List[int]
-    surfaces: Dict[str, str]
-    plan_limits: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    wait_seconds: int = Field(default=55, ge=0, le=55)
-    broker_only: bool = False
-    broker_lease_id: Optional[str] = None
-
-    @field_validator("broker_lease_id")
-    @classmethod
-    def _validate_broker_lease_id(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        try:
-            return str(UUID(value))
-        except (TypeError, ValueError, AttributeError) as exc:
-            raise ValueError("broker_lease_id must be a UUID") from exc
-
-    @model_validator(mode="after")
-    def _require_exact_broker_lease(self) -> "RelayClaimRequest":
-        if self.broker_only != bool(self.broker_lease_id):
-            raise ValueError(
-                "broker_only and broker_lease_id must be provided together"
-            )
-        return self
-
-
-class RelayListRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    project: Optional[str] = None
-    state: Optional[Literal["active", "idle"]] = None
-    limit: int = Field(default=100, ge=1, le=500)
-
-
-class RelayListResponse(BaseModel):
-    relays: List[Dict[str, Any]]
-    count: int
-
-
-class RelayClaimResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    relay_id: str
-    machine_id: str
-    state: Literal["active", "idle"]
-    connected_until: str
-    next_poll_seconds: int
-    launch_stagger_seconds: int = 0
-    jobs: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class RelayLivenessReport(BaseModel):
-    """One session whose native process the reporting machine proved gone."""
-
-    model_config = ConfigDict(extra="forbid")
-    session_id: str
-    evidence: Dict[str, Any] = Field(default_factory=dict)
-
-
-class RelayLivenessRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    relay_id: str
-    machine_id: str
-    projects: List[int]
-    sessions: List[RelayLivenessReport] = Field(default_factory=list, max_length=100)
-
-
-class RelayLivenessResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    ended: List[str] = Field(default_factory=list)
-    skipped: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class RelayReportRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    relay_id: str
-    job_kind: Literal["wake", "launch", "terminate"]
-    job_id: str
-    lease_id: str
-    result: str
-    native_id: Optional[str] = None
-    adapter_revision: Optional[str] = None
-    evidence: Dict[str, Any] = Field(default_factory=dict)
-
-
-class RelayReportResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    job_kind: Literal["wake", "launch", "terminate"]
-    result: Dict[str, Any]
-
-
 __all__ = [
+    "ActorMessageRecipient",
     "LaunchCreateRequest",
     "LaunchListRequest",
     "LaunchListResponse",

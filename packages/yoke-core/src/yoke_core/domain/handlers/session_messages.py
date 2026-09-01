@@ -81,6 +81,7 @@ def handle_message_send(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             actor_id=actor_id,
             sender_session_id=sender_session_id,
+            sender_surface=body.sender_surface,
             selector=body.selector,
             body=body.body,
             idempotency_key=body.idempotency_key,

@@ -9,6 +9,13 @@ import {
   statusRegion,
 } from "./universe_session_control_data.js";
 import { relativeTime } from "./universe_time.js";
+import {
+  actorRecipientsOf,
+  actorRecipientStateCounts,
+  appendActorRecipientRows,
+  senderMessageParty,
+  sessionMessageParty,
+} from "./universe_session_message_actors.js";
 
 const OPEN_RECIPIENT_STATES = new Set(["pending", "injected"]);
 
@@ -29,6 +36,9 @@ function deliverySummary(message) {
   for (const recipient of recipientsOf(message)) {
     const state = String(recipient.state || "pending");
     counts.set(state, (counts.get(state) || 0) + 1);
+  }
+  for (const [state, count] of actorRecipientStateCounts(message)) {
+    counts.set(state, (counts.get(state) || 0) + count);
   }
   const awaiting = (counts.get("pending") || 0) + (counts.get("injected") || 0);
   if (awaiting) {
@@ -63,34 +73,6 @@ function statePill(documentNode, summary) {
     `pill ${pillFamilyForState(summary.state)}`,
     summary.label,
   );
-}
-
-function itemHeldBy(session) {
-  const claim = (session?.claims || []).find(
-    (row) => row.target_kind === "item" && row.target === session.current_item,
-  ) || (session?.claims || []).find((row) => row.target_kind === "item");
-  return claim?.target || session?.current_item || "";
-}
-
-function sessionIdLabel(value) {
-  const sessionId = String(value || "");
-  return sessionId ? `session ${sessionId}` : "session not reported";
-}
-
-function sessionIdentity(documentNode, sessionId, snapshot, sessions) {
-  const session = sessions.get(String(sessionId || ""));
-  const surface = session?.executor_surface || session?.executor
-    || snapshot?.executor_surface || snapshot?.executor;
-  const work = itemHeldBy(session);
-  const label = [surface, work].filter(Boolean).join(" · ")
-    || sessionIdLabel(sessionId);
-  const identity = el(documentNode, "span", "session-message-party", label);
-  const title = [
-    sessionId ? `Session ${sessionId}` : "",
-    session?.current_item_title || "",
-  ].filter(Boolean).join(" — ");
-  if (title) identity.title = title;
-  return identity;
 }
 
 function appendRelativeStatus(documentNode, host, label, timestamp) {
@@ -166,7 +148,7 @@ function recipientList(documentNode, message, sessions) {
       `session-message-recipient${OPEN_RECIPIENT_STATES.has(recipient.state) ? " is-waiting" : ""}`,
     );
     const main = el(documentNode, "div", "session-message-recipient-main");
-    main.appendChild(sessionIdentity(
+    main.appendChild(sessionMessageParty(
       documentNode, recipient.session_id, recipient, sessions,
     ));
     main.appendChild(recipientStatus(documentNode, recipient, message));
@@ -176,12 +158,15 @@ function recipientList(documentNode, message, sessions) {
     appendAttemptDiagnostics(documentNode, row, recipient, message);
     list.appendChild(row);
   }
+  appendActorRecipientRows(documentNode, list, message);
   return list;
 }
 
 function canCancel(message) {
-  return !message.cancelled_at && recipientsOf(message).some(
-    (recipient) => OPEN_RECIPIENT_STATES.has(recipient.state),
+  return !message.cancelled_at && (
+    recipientsOf(message).some(
+      (recipient) => OPEN_RECIPIENT_STATES.has(recipient.state),
+    ) || actorRecipientsOf(message).some((recipient) => recipient.state === "pending")
   );
 }
 
@@ -189,11 +174,10 @@ function messageRoute(documentNode, message, sessions) {
   const route = el(documentNode, "div", "session-message-route");
   const sender = el(documentNode, "span", "session-message-direction");
   sender.appendChild(el(documentNode, "span", null, "From "));
-  sender.appendChild(sessionIdentity(
-    documentNode, message.sender_session_id, null, sessions,
-  ));
+  sender.appendChild(senderMessageParty(documentNode, message));
   route.appendChild(sender);
-  const count = recipientsOf(message).length || Number(message.recipient_count || 0);
+  const count = recipientsOf(message).length + actorRecipientsOf(message).length
+    || Number(message.recipient_count || 0);
   route.appendChild(el(
     documentNode,
     "span",
@@ -206,7 +190,7 @@ function messageRoute(documentNode, message, sessions) {
   return route;
 }
 
-function messageCard(documentNode, message, sessions, cancelMessage) {
+function messageCard(documentNode, message, sessions, cancelMessage, acknowledge) {
   const summary = deliverySummary(message);
   const card = el(
     documentNode,
@@ -224,6 +208,13 @@ function messageCard(documentNode, message, sessions, cancelMessage) {
     cancel.addEventListener("click", () => cancelMessage(message.message_id, cancel));
     header.appendChild(cancel);
   }
+  if (message.actor_receipt?.state === "pending") {
+    const read = el(documentNode, "button", "item-button primary", "Acknowledge");
+    read.type = "button";
+    read.setAttribute("aria-label", "Acknowledge message");
+    read.addEventListener("click", () => acknowledge(message.message_id, read));
+    header.appendChild(read);
+  }
   card.appendChild(header);
   card.appendChild(el(
     documentNode, "p", "session-message-copy", messageBody(message.body),
@@ -233,7 +224,9 @@ function messageCard(documentNode, message, sessions, cancelMessage) {
   return card;
 }
 
-function renderMessages(documentNode, host, messages, sessions, cancelMessage) {
+function renderMessages(
+  documentNode, host, messages, sessions, cancelMessage, acknowledge,
+) {
   host.replaceChildren();
   if (!messages.length) {
     host.appendChild(el(
@@ -250,13 +243,16 @@ function renderMessages(documentNode, host, messages, sessions, cancelMessage) {
       - Number(deliverySummary(left).attention),
   );
   for (const message of ordered) {
-    list.appendChild(messageCard(documentNode, message, sessions, cancelMessage));
+    list.appendChild(messageCard(
+      documentNode, message, sessions, cancelMessage, acknowledge,
+    ));
   }
   host.appendChild(list);
 }
 
 function inProjectScope(message, projects) {
   if (projects === null) return true;
+  if (actorRecipientsOf(message).length) return true;
   const selected = new Set(projects.map(String));
   return recipientsOf(message).some(
     (recipient) => selected.has(String(recipient.project_id)),
@@ -268,8 +264,12 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
   const projects = scope === "all" ? null : scopedProjectRefs(context, scope);
   const view = el(documentNode, "div", "session-control-view");
   const status = statusRegion(documentNode);
+  const pendingBadge = el(
+    documentNode, "span", `pill ${pillFamilyForState("pending")}`, "0 pending",
+  );
   const content = el(documentNode, "div", "session-control-content", "Loading messages…");
   view.appendChild(status);
+  view.appendChild(pendingBadge);
   view.appendChild(content);
   main.replaceChildren(view);
 
@@ -288,6 +288,9 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
       const messages = (result.messages || []).filter(
         (message) => inProjectScope(message, projects),
       );
+      pendingBadge.textContent = `${messages.filter(
+        (message) => message.actor_receipt?.state === "pending",
+      ).length} pending`;
       let sessions = new Map();
       if (messages.length) {
         const roster = await sessionControlCall(
@@ -298,7 +301,9 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
         ));
       }
       if (!context.isMounted()) return;
-      renderMessages(documentNode, content, messages, sessions, cancelMessage);
+      renderMessages(
+        documentNode, content, messages, sessions, cancelMessage, acknowledge,
+      );
     } catch (error) {
       renderSessionControlFailure(
         content, error, "Session messages could not be loaded.",
@@ -318,6 +323,23 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
     } catch (error) {
       status.textContent = presentSessionControlFailure(
         error, "The message could not be cancelled.",
+      );
+      button.disabled = false;
+    }
+  };
+  const acknowledge = async (messageId, button) => {
+    button.disabled = true;
+    status.hidden = false;
+    status.textContent = "Acknowledging message…";
+    try {
+      await sessionControlCall(context, "session_control.message.acknowledge", {
+        message_id: messageId,
+      });
+      status.textContent = "Message acknowledged.";
+      await load();
+    } catch (error) {
+      status.textContent = presentSessionControlFailure(
+        error, "The message could not be acknowledged.",
       );
       button.disabled = false;
     }

@@ -50,6 +50,7 @@ class TestRegistrationShape:
             "sessions.reclaim_stale",
             "organizations.settings.merge",
             "session_control.message.send",
+            "session_control.message.acknowledge",
             "session_control.message.cancel",
             "session_control.launch.create",
             "session_control.launch.cancel",

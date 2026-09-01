@@ -34,10 +34,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # additive converge lookup. Update only when introducing a new table, or when
 # a governed migration retires a born-with column; a new column on an existing
 # table must instead restore through boot convergence and leave this digest
-# unchanged. Current value covers the gate-satisfier substrate's two net-new
-# tables, ``item_gate_satisfactions`` and ``project_derived_facts``.
+# unchanged. Current value includes the actor-message inbox table alongside
+# the gate-satisfier substrate's net-new tables.
 _BORN_WITH_COLUMN_DIGEST = (
-    "89574544ec8f869079d86ce0ce92e0ab87f9f88177fddb62aef49822563e8b7c"
+    "3f0d42604460df1f54a2612a5b1ac716288a8d704a401ea58a341aa0549d49b4"
 )
 
 

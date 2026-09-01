@@ -9,10 +9,20 @@ from datetime import datetime
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_message_recipients import (
+    ResolvedActorRecipient,
+    expire_actor_recipients_for_cancel,
+    insert_actor_recipient_rows,
+)
+from yoke_core.domain.session_message_reads import (
+    list_message_ids,
+    message_details,
+    public_recipients,
+    recipient_project_ids,
+)
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
-    row_dict,
     timestamp,
 )
 
@@ -30,45 +40,6 @@ def begin_message_mutation(conn: Any) -> None:
         getattr(conn, "in_transaction", False)
     ):
         conn.execute("BEGIN IMMEDIATE")
-
-
-def _decode(value: Any, fallback: Any) -> Any:
-    try:
-        return json.loads(str(value))
-    except (TypeError, ValueError):
-        return fallback
-
-
-def message_details(conn: Any, message_id: str) -> dict[str, Any]:
-    from yoke_core.domain.session_message_attempt_reads import (
-        message_attempt_evidence,
-    )
-
-    marker = _p(conn)
-    row = conn.execute(
-        f"SELECT * FROM session_messages WHERE message_id={marker}",
-        (message_id,),
-    ).fetchone()
-    if row is None:
-        raise SessionMessageError(
-            "message_not_found", f"message {message_id!r} not found"
-        )
-    message = row_dict(row)
-    recipients = [
-        row_dict(value)
-        for value in conn.execute(
-            "SELECT * FROM session_message_recipients "
-            f"WHERE message_id={marker} ORDER BY session_id",
-            (message_id,),
-        ).fetchall()
-    ]
-    message["selector_snapshot"] = _decode(message["selector_snapshot"], {})
-    for recipient in recipients:
-        recipient["resolution_evidence"] = _decode(recipient["resolution_evidence"], [])
-        recipient["routing_snapshot"] = _decode(recipient["routing_snapshot"], {})
-    message["recipients"] = recipients
-    message.update(message_attempt_evidence(conn, message_id))
-    return message
 
 
 def _idempotent_message(
@@ -89,12 +60,14 @@ def insert_message(
     message_id: str | None = None,
     sender_actor_id: int,
     sender_session_id: str | None,
+    sender_surface: str | None,
     body: str,
     selector_snapshot: dict[str, Any],
     idempotency_key: str | None,
     created_at: datetime,
     expires_at: datetime,
     recipients: list[ResolvedRecipient],
+    actor_recipients: list[ResolvedActorRecipient],
     wake_after_by_project: dict[int, datetime],
 ) -> tuple[dict[str, Any], bool]:
     """Insert one immutable message snapshot, or return its exact dedupe."""
@@ -125,8 +98,9 @@ def insert_message(
     inserted = conn.execute(
         "INSERT INTO session_messages (message_id, sender_actor_id, "
         "sender_session_id, body, body_sha256, selector_snapshot, "
-        "idempotency_key, created_at, expires_at) "
-        f"VALUES ({', '.join(marker for _ in range(9))}) ON CONFLICT DO NOTHING",
+        "idempotency_key, created_at, expires_at, sender_surface) "
+        "VALUES (" + ", ".join(marker for _ in range(10)) + ") "
+        "ON CONFLICT DO NOTHING",
         (
             message_id,
             sender_actor_id,
@@ -137,6 +111,7 @@ def insert_message(
             idempotency_key,
             timestamp(created_at),
             timestamp(expires_at),
+            sender_surface,
         ),
     )
     if not inserted.rowcount:
@@ -184,41 +159,16 @@ def insert_message(
                 timestamp(wake_after_by_project[recipient.project_id]),
             ),
         )
+    insert_actor_recipient_rows(
+        conn,
+        message_id=message_id,
+        recipients=actor_recipients,
+        created_at=created_at,
+    )
     return message_details(conn, message_id), True
 
 
 _UNACKNOWLEDGED_STATES: tuple[str, ...] = ("pending", "injected")
-
-
-def list_message_ids(
-    conn: Any,
-    *,
-    state: str | None,
-    session_id: str | None,
-    limit: int,
-) -> list[str]:
-    marker = _p(conn)
-    clauses: list[str] = []
-    params: list[Any] = []
-    if state == "unacknowledged":
-        slots = ",".join(marker for _ in _UNACKNOWLEDGED_STATES)
-        clauses.append(f"r.state IN ({slots})")
-        params.extend(_UNACKNOWLEDGED_STATES)
-    elif state is not None:
-        clauses.append(f"r.state={marker}")
-        params.append(state)
-    if session_id is not None:
-        clauses.append(f"r.session_id={marker}")
-        params.append(session_id)
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    params.append(max(1, min(int(limit), 500)))
-    rows = conn.execute(
-        "SELECT DISTINCT m.message_id, m.created_at FROM session_messages m "
-        f"JOIN session_message_recipients r ON r.message_id=m.message_id {where} "
-        f"ORDER BY m.created_at DESC, m.message_id LIMIT {marker}",
-        tuple(params),
-    ).fetchall()
-    return [str(row[0]) for row in rows]
 
 
 def acknowledge_recipient(
@@ -304,33 +254,10 @@ def cancel_message_rows(
         f"WHERE message_id={marker} AND state IN ('pending','injected')",
         (stamp, message_id),
     )
-    return message_details(conn, message_id)
-
-
-def recipient_project_ids(details: dict[str, Any]) -> set[int]:
-    return {int(row["project_id"]) for row in details.get("recipients", [])}
-
-
-def public_recipients(details: dict[str, Any]) -> list[dict[str, Any]]:
-    public_keys = (
-        "session_id",
-        "project",
-        "executor",
-        "executor_surface",
-        "machine_id",
-        "liveness",
-        "messageability",
-        "resolution",
+    expire_actor_recipients_for_cancel(
+        conn, message_id=message_id, expired_at=cancelled_at
     )
-    recipients: list[dict[str, Any]] = []
-    for row in details.get("recipients", []):
-        snapshot = row.get("routing_snapshot")
-        recipients.append(
-            {key: snapshot.get(key) for key in public_keys}
-            if isinstance(snapshot, dict)
-            else {}
-        )
-    return recipients
+    return message_details(conn, message_id)
 
 
 __all__ = [
