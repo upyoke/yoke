@@ -1,12 +1,18 @@
-"""Fleet-report plan-limits: window-normalized headroom table."""
+"""Fleet-report plan-limits: one row per window, with headroom and the binding meter."""
 
 from __future__ import annotations
 
 from datetime import timedelta
 import json
 
-from runtime.api.steering_fleet_test_helpers import compose, seed_steering_scope
+from runtime.api.steering_fleet_test_helpers import (
+    PLAN_LIMIT_HOST,
+    compose,
+    plan_limit_row,
+    seed_steering_scope,
+)
 from yoke_core.domain.steering_fleet_plan_capacity import (
+    ALL_MODELS_LABEL,
     EMPTY,
     HEADROOM_LEGEND,
     MONTHLY_WINDOW,
@@ -14,6 +20,7 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
     ROLLING_5H_WINDOW,
     ROLLING_7D_WINDOW,
     TABLE_HEADER,
+    TIGHTEST_NOTE,
     compute_plan_limit,
     format_capacity_duration,
     format_reset_utc,
@@ -22,36 +29,13 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
     plan_window_length,
     remaining_capacity,
 )
-from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_render import report_body
 
 _NOW = "2026-09-01T13:20:00Z"
-_HOST = "beebauman-macbook-pro-16"
+_HOST = PLAN_LIMIT_HOST
 
 
-def _row(
-    *,
-    machine_id: str = "machine-1",
-    hostname: str = _HOST,
-    surface: str = "cursor-cli",
-    plan_tier: str | None = "Ultra",
-    window_kind: str = "monthly",
-    remaining_percent: float | None = 22.0,
-    resets_at: str | None = "2026-09-07T01:00:00Z",
-    status: str = "ok",
-    reason: str | None = None,
-) -> MachinePlanLimit:
-    return MachinePlanLimit(
-        machine_id=machine_id,
-        hostname=hostname,
-        surface=surface,
-        plan_tier=plan_tier,
-        window_kind=window_kind,
-        remaining_percent=remaining_percent,
-        resets_at=resets_at,
-        status=status,
-        reason=reason,
-    )
+_row = plan_limit_row
 
 
 def test_window_length_is_fixed_per_kind() -> None:
@@ -119,15 +103,15 @@ def test_plan_limit_lines_match_worked_target_table() -> None:
     assert PLAN_LIMIT_HEADING + ":" in lines
     assert TABLE_HEADER in lines
     assert (
-        f"| {_HOST} | claude-cli | max | rolling 7d | 44% | 2d 11h 40m | "
-        "124% | Sep 4 01:00 | - |"
+        f"| {_HOST} | claude-cli | max | weekly · all models | 44% | 2d 11h 40m | "
+        f"124% | Sep 4 01:00 | {TIGHTEST_NOTE} |"
     ) in lines
     assert (
-        f"| {_HOST} | cursor-cli | Ultra | monthly | 22% | 5d 11h 40m | "
-        "120% | Sep 7 01:00 | - |"
+        f"| {_HOST} | cursor-cli | Ultra | monthly · all models | 22% | 5d 11h 40m | "
+        f"120% | Sep 7 01:00 | {TIGHTEST_NOTE} |"
     ) in lines
     assert (
-        f"| {_HOST} | codex-cli | {EMPTY} | {EMPTY} | {EMPTY} | {EMPTY} | "
+        f"| {_HOST} | codex-cli | {EMPTY} | unknown | {EMPTY} | {EMPTY} | "
         f"{EMPTY} | {EMPTY} | usage_unreadable |"
     ) in lines
     assert HEADROOM_LEGEND in lines
@@ -164,6 +148,9 @@ def test_rolling_five_hour_remaining_is_to_the_minute() -> None:
 
 def test_plan_limit_dicts_carry_numeric_headroom() -> None:
     payload = plan_limit_dicts((_row(),), now=_NOW)[0]
+    assert payload["scope"] == "all"
+    assert payload["window_label"] == f"monthly · {ALL_MODELS_LABEL}"
+    assert payload["tightest"] is True
     assert payload["window_seconds"] == MONTHLY_WINDOW.total_seconds()
     remaining = remaining_capacity(22.0, MONTHLY_WINDOW)
     assert remaining is not None
@@ -183,22 +170,40 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
                     "claude-cli": {
                         "surface": "claude-cli",
                         "plan_tier": "max",
-                        "window_kind": "rolling_5h",
-                        "remaining_percent": 89.0,
-                        "resets_at": "2026-08-30T03:00:00Z",
-                        "status": "ok",
-                        "reason": None,
                         "observed_at": "2026-08-30T01:00:00Z",
+                        "windows": [
+                            {
+                                "window_kind": "rolling_5h",
+                                "scope": "all",
+                                "remaining_percent": 89.0,
+                                "resets_at": "2026-08-30T03:00:00Z",
+                                "status": "ok",
+                                "reason": None,
+                            },
+                            {
+                                "window_kind": "rolling_7d",
+                                "scope": "Fable",
+                                "remaining_percent": 55.0,
+                                "resets_at": "2026-09-04T01:00:00Z",
+                                "status": "ok",
+                                "reason": None,
+                            },
+                        ],
                     },
                     "cursor-cli": {
                         "surface": "cursor-cli",
                         "plan_tier": None,
-                        "window_kind": "unknown",
-                        "remaining_percent": None,
-                        "resets_at": None,
-                        "status": "unknown",
-                        "reason": "stale_credential",
                         "observed_at": "2026-08-30T01:00:00Z",
+                        "windows": [
+                            {
+                                "window_kind": "unknown",
+                                "scope": "all",
+                                "remaining_percent": None,
+                                "resets_at": None,
+                                "status": "unknown",
+                                "reason": "stale_credential",
+                            }
+                        ],
                     },
                 }
             ),
@@ -210,7 +215,8 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
 
     assert PLAN_LIMIT_HEADING in body
     assert TABLE_HEADER in body
-    assert "claude-cli | max | rolling 5h | 89%" in body
+    assert "claude-cli | max | rolling 5h · all models | 89%" in body
+    assert "claude-cli | max | weekly · Fable | 55%" in body
     assert "cursor-cli |" in body
     assert "stale_credential" in body
     assert "do not gate launches" in body

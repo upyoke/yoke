@@ -1,23 +1,54 @@
-"""Normalized per-surface plan-limit readings. Values only; never tokens."""
+"""Normalized per-surface plan-limit readings. Values only; never tokens.
+
+A surface reading carries EVERY usage window its vendor exposes, because a
+vendor publishes several meters at once and only one of them binds. Claude
+publishes a rolling five-hour session meter plus two weekly meters — one for
+all models and one scoped to a named model family; Codex publishes a primary
+and a secondary window per limit bucket, and one bucket per model family;
+Cursor publishes a single monthly plan-spend meter. Collapsing those to the
+one with the least left is how a scoped weekly wall stayed invisible until an
+operator hit it.
+
+Status and reason live on the window rather than the surface, so a surface
+that could not be read is one window that names its own refusal. That also
+makes the shape self-announcing to a reader that predates it: a build looking
+for a surface-level ``status`` finds none, reads ``unknown``, and renders a
+labelled unreadable row instead of a blank one.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 CLI_PLAN_LIMIT_SURFACES = ("claude-cli", "codex-cli", "cursor-cli")
 PLAN_LIMIT_STATUSES = frozenset({"ok", "unknown"})
 PLAN_LIMIT_WINDOW_KINDS = frozenset({"rolling_5h", "rolling_7d", "monthly", "unknown"})
-_READING_KEYS = (
-    "surface",
-    "plan_tier",
+
+# The scope sentinel for a meter that covers every model, as opposed to one
+# named for a model family ("Fable", "GPT-5.3-Codex-Spark").
+ALL_MODELS_SCOPE = "all"
+
+# A vendor that starts publishing a bucket per model must not be able to grow
+# one machine row without bound.
+MAX_WINDOWS_PER_SURFACE = 16
+
+# A heartbeat with no windows list at all comes from a relay running a build
+# that predates per-window readings; updating that machine's relay is the
+# fix. A list that yields no usable window is a malformed document instead,
+# and the two must not share a name.
+RELAY_PREDATES_WINDOWS_REASON = "relay_predates_window_readings"
+WINDOWS_UNREADABLE_REASON = "plan_limit_windows_unreadable"
+
+_WINDOW_KEYS = (
     "window_kind",
+    "scope",
     "remaining_percent",
     "resets_at",
     "status",
     "reason",
-    "observed_at",
 )
+_READING_KEYS = ("surface", "plan_tier", "observed_at", "windows")
 _STRING_MAX = 128
 
 
@@ -34,43 +65,7 @@ def iso_from_epoch_ms(value: object) -> str | None:
         return None
 
 
-def unknown_reading(
-    surface: str, reason: str, *, observed_at: str, plan_tier: str | None = None
-) -> dict[str, Any]:
-    return {
-        "surface": surface,
-        "plan_tier": plan_tier,
-        "window_kind": "unknown",
-        "remaining_percent": None,
-        "resets_at": None,
-        "status": "unknown",
-        "reason": reason,
-        "observed_at": observed_at,
-    }
-
-
-def _kind_from_minutes(minutes: object) -> str:
-    try:
-        value = int(minutes)
-    except (TypeError, ValueError):
-        return "unknown"
-    if value == 300:
-        return "rolling_5h"
-    if value == 10080:
-        return "rolling_7d"
-    return "unknown"
-
-
-def _kind_from_claude(kind: object) -> str:
-    token = str(kind or "")
-    if token in {"session", "five_hour"}:
-        return "rolling_5h"
-    if token in {"weekly_all", "weekly_scoped", "seven_day"}:
-        return "rolling_7d"
-    return "unknown"
-
-
-def _remaining(used: object) -> float | None:
+def remaining_from_used_percent(used: object) -> float | None:
     try:
         percent = 100.0 - float(used)
     except (TypeError, ValueError):
@@ -80,164 +75,71 @@ def _remaining(used: object) -> float | None:
     return percent
 
 
-def _pick_tightest(
-    candidates: list[tuple[float, str, str | None]],
-) -> tuple[float, str, str | None] | None:
-    if not candidates:
-        return None
-    return min(candidates, key=lambda row: row[0])
-
-
-def parse_claude_usage(
-    credentials: Mapping[str, Any],
-    usage: Mapping[str, Any],
+def plan_limit_window(
     *,
-    observed_at: str,
+    window_kind: str,
+    scope: str,
+    remaining_percent: float,
+    resets_at: str | None,
 ) -> dict[str, Any]:
-    oauth = credentials.get("claudeAiOauth")
-    oauth = oauth if isinstance(oauth, Mapping) else credentials
-    plan_tier = oauth.get("subscriptionType") if isinstance(oauth, Mapping) else None
-    plan_tier = str(plan_tier) if plan_tier else None
-    candidates: list[tuple[float, str, str | None]] = []
-    for row in usage.get("limits") or []:
-        if not isinstance(row, Mapping):
-            continue
-        remaining = _remaining(row.get("percent"))
-        if remaining is None:
-            continue
-        resets = row.get("resets_at")
-        candidates.append(
-            (
-                remaining,
-                _kind_from_claude(row.get("kind")),
-                str(resets) if resets else None,
-            )
-        )
-    picked = _pick_tightest(candidates)
-    if picked is None:
-        return unknown_reading(
-            "claude-cli",
-            "usage_unreadable",
-            observed_at=observed_at,
-            plan_tier=plan_tier,
-        )
-    remaining, window_kind, resets_at = picked
+    """One readable meter: its kind, what it covers, and what is left."""
     return {
-        "surface": "claude-cli",
-        "plan_tier": plan_tier,
         "window_kind": window_kind,
-        "remaining_percent": remaining,
+        "scope": scope,
+        "remaining_percent": remaining_percent,
         "resets_at": resets_at,
         "status": "ok",
         "reason": None,
-        "observed_at": observed_at,
     }
 
 
-def _codex_from_http_mirror(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    window = payload.get("rate_limit")
-    window = window.get("primary_window") if isinstance(window, Mapping) else None
-    if not isinstance(window, Mapping):
-        return payload
-    try:
-        minutes = int(window["limit_window_seconds"]) // 60
-    except (TypeError, ValueError, KeyError):
-        minutes = None
-    snapshot = {
-        "planType": payload.get("plan_type"),
-        "primary": {
-            "usedPercent": window.get("used_percent"),
-            "windowDurationMins": minutes,
-            "resetsAt": window.get("reset_at"),
-        },
-    }
-    return {"rateLimits": snapshot, "rateLimitsByLimitId": {"codex": snapshot}}
-
-
-def parse_codex_rate_limits(
-    payload: Mapping[str, Any], *, observed_at: str
-) -> dict[str, Any]:
-    if "rateLimits" not in payload and "rate_limit" in payload:
-        payload = _codex_from_http_mirror(payload)
-    buckets = payload.get("rateLimitsByLimitId")
-    if not isinstance(buckets, Mapping):
-        buckets = {}
-    snapshot = buckets.get("codex")
-    if not isinstance(snapshot, Mapping):
-        snapshot = payload.get("rateLimits")
-    if not isinstance(snapshot, Mapping):
-        return unknown_reading("codex-cli", "usage_unreadable", observed_at=observed_at)
-    primary = snapshot.get("primary")
-    if not isinstance(primary, Mapping):
-        return unknown_reading(
-            "codex-cli",
-            "usage_unreadable",
-            observed_at=observed_at,
-            plan_tier=str(snapshot["planType"]) if snapshot.get("planType") else None,
-        )
-    remaining = _remaining(primary.get("usedPercent"))
-    resets = primary.get("resetsAt")
-    try:
-        resets_at = (
-            iso_from_epoch_seconds(float(resets)) if resets is not None else None
-        )
-    except (TypeError, ValueError):
-        resets_at = None
-    plan_tier = str(snapshot["planType"]) if snapshot.get("planType") else None
-    if remaining is None:
-        return unknown_reading(
-            "codex-cli",
-            "usage_unreadable",
-            observed_at=observed_at,
-            plan_tier=plan_tier,
-        )
+def unknown_window(reason: str) -> dict[str, Any]:
     return {
-        "surface": "codex-cli",
-        "plan_tier": plan_tier,
-        "window_kind": _kind_from_minutes(primary.get("windowDurationMins")),
-        "remaining_percent": remaining,
-        "resets_at": resets_at,
-        "status": "ok",
-        "reason": None,
-        "observed_at": observed_at,
+        "window_kind": "unknown",
+        "scope": ALL_MODELS_SCOPE,
+        "remaining_percent": None,
+        "resets_at": None,
+        "status": "unknown",
+        "reason": reason,
     }
 
 
-def parse_cursor_usage(
-    plan: Mapping[str, Any],
-    usage: Mapping[str, Any],
+def surface_reading(
+    surface: str,
     *,
     observed_at: str,
+    plan_tier: str | None,
+    windows: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    info = plan.get("planInfo") if isinstance(plan.get("planInfo"), Mapping) else plan
-    plan_tier = info.get("planName") if isinstance(info, Mapping) else None
-    plan_tier = str(plan_tier) if plan_tier else None
-    spend = usage.get("planUsage")
-    if not isinstance(spend, Mapping):
-        return unknown_reading(
-            "cursor-cli",
-            "usage_unreadable",
-            observed_at=observed_at,
-            plan_tier=plan_tier,
-        )
-    remaining = _remaining(spend.get("totalPercentUsed"))
-    if remaining is None:
-        return unknown_reading(
-            "cursor-cli",
-            "usage_unreadable",
-            observed_at=observed_at,
-            plan_tier=plan_tier,
-        )
     return {
-        "surface": "cursor-cli",
+        "surface": surface,
         "plan_tier": plan_tier,
-        "window_kind": "monthly",
-        "remaining_percent": remaining,
-        "resets_at": iso_from_epoch_ms(usage.get("billingCycleEnd")),
-        "status": "ok",
-        "reason": None,
         "observed_at": observed_at,
+        "windows": [dict(window) for window in windows],
     }
+
+
+def unknown_reading(
+    surface: str, reason: str, *, observed_at: str, plan_tier: str | None = None
+) -> dict[str, Any]:
+    """A surface that could not be read: one window carrying the refusal."""
+    return surface_reading(
+        surface,
+        observed_at=observed_at,
+        plan_tier=plan_tier,
+        windows=(unknown_window(reason),),
+    )
+
+
+def reading_is_ok(reading: Mapping[str, Any]) -> bool:
+    """True when at least one window of this surface was actually read."""
+    windows = reading.get("windows")
+    if not isinstance(windows, Sequence) or isinstance(windows, (str, bytes)):
+        return False
+    return any(
+        isinstance(window, Mapping) and window.get("status") == "ok"
+        for window in windows
+    )
 
 
 def _clip(value: object) -> str | None:
@@ -249,6 +151,46 @@ def _clip(value: object) -> str | None:
     return text[:_STRING_MAX]
 
 
+def _sanitize_window(raw: Mapping[str, Any]) -> dict[str, Any]:
+    status = str(raw.get("status") or "unknown")
+    if status not in PLAN_LIMIT_STATUSES:
+        status = "unknown"
+    window_kind = str(raw.get("window_kind") or "unknown")
+    if window_kind not in PLAN_LIMIT_WINDOW_KINDS:
+        window_kind = "unknown"
+    remaining = raw.get("remaining_percent")
+    try:
+        remaining_percent = float(remaining) if remaining is not None else None
+    except (TypeError, ValueError):
+        remaining_percent = None
+    if remaining_percent is not None and (
+        remaining_percent < 0 or remaining_percent > 100
+    ):
+        remaining_percent = None
+        status = "unknown"
+    return {
+        "window_kind": window_kind,
+        "scope": _clip(raw.get("scope")) or ALL_MODELS_SCOPE,
+        "remaining_percent": remaining_percent,
+        "resets_at": _clip(raw.get("resets_at")),
+        "status": status,
+        "reason": _clip(raw.get("reason")),
+    }
+
+
+def _sanitize_windows(raw: Any) -> list[dict[str, Any]]:
+    if raw is None:
+        return [unknown_window(RELAY_PREDATES_WINDOWS_REASON)]
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        return [unknown_window(WINDOWS_UNREADABLE_REASON)]
+    windows = [
+        _sanitize_window(window)
+        for window in raw[:MAX_WINDOWS_PER_SURFACE]
+        if isinstance(window, Mapping)
+    ]
+    return windows or [unknown_window(WINDOWS_UNREADABLE_REASON)]
+
+
 def sanitize_plan_limits(raw: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     """Allowlisted values-only rows. Extra keys, including tokens, are dropped."""
     cleaned: dict[str, dict[str, Any]] = {}
@@ -258,47 +200,35 @@ def sanitize_plan_limits(raw: Mapping[str, Any] | None) -> dict[str, dict[str, A
         row = raw.get(surface)
         if not isinstance(row, Mapping):
             continue
-        status = str(row.get("status") or "unknown")
-        if status not in PLAN_LIMIT_STATUSES:
-            status = "unknown"
-        window_kind = str(row.get("window_kind") or "unknown")
-        if window_kind not in PLAN_LIMIT_WINDOW_KINDS:
-            window_kind = "unknown"
-        remaining = row.get("remaining_percent")
-        try:
-            remaining_percent = float(remaining) if remaining is not None else None
-        except (TypeError, ValueError):
-            remaining_percent = None
-        if remaining_percent is not None and (
-            remaining_percent < 0 or remaining_percent > 100
-        ):
-            remaining_percent = None
-            status = "unknown"
-        cleaned[surface] = {
+        entry = {
             "surface": surface,
             "plan_tier": _clip(row.get("plan_tier")),
-            "window_kind": window_kind,
-            "remaining_percent": remaining_percent,
-            "resets_at": _clip(row.get("resets_at")),
-            "status": status,
-            "reason": _clip(row.get("reason")),
             "observed_at": _clip(row.get("observed_at")) or "",
+            "windows": _sanitize_windows(row.get("windows")),
         }
-        for key in list(cleaned[surface]):
-            if key not in _READING_KEYS:
-                del cleaned[surface][key]
+        cleaned[surface] = {key: entry[key] for key in _READING_KEYS}
+        for window in cleaned[surface]["windows"]:
+            for key in list(window):
+                if key not in _WINDOW_KEYS:
+                    del window[key]
     return cleaned
 
 
 __all__ = [
+    "ALL_MODELS_SCOPE",
     "CLI_PLAN_LIMIT_SURFACES",
+    "MAX_WINDOWS_PER_SURFACE",
     "PLAN_LIMIT_STATUSES",
     "PLAN_LIMIT_WINDOW_KINDS",
+    "RELAY_PREDATES_WINDOWS_REASON",
+    "WINDOWS_UNREADABLE_REASON",
     "iso_from_epoch_ms",
     "iso_from_epoch_seconds",
-    "parse_claude_usage",
-    "parse_codex_rate_limits",
-    "parse_cursor_usage",
+    "plan_limit_window",
+    "reading_is_ok",
+    "remaining_from_used_percent",
     "sanitize_plan_limits",
+    "surface_reading",
     "unknown_reading",
+    "unknown_window",
 ]

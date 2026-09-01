@@ -7,6 +7,7 @@ import json
 from typing import Any
 
 from yoke_contracts.session_control.plan_limits import (
+    ALL_MODELS_SCOPE,
     CLI_PLAN_LIMIT_SURFACES,
     sanitize_plan_limits,
 )
@@ -15,11 +16,14 @@ from yoke_core.domain import db_backend
 
 @dataclass(frozen=True)
 class MachinePlanLimit:
+    """One (machine, surface, window) meter as the report renders it."""
+
     machine_id: str
     hostname: str
     surface: str
     plan_tier: str | None
     window_kind: str
+    scope: str
     remaining_percent: float | None
     resets_at: str | None
     status: str
@@ -90,28 +94,29 @@ def load_plan_limits(
             row_data = remaining_source.get(surface)
             if row_data is None:
                 continue
-            remaining = row_data.get("remaining_percent")
-            found.append(
-                MachinePlanLimit(
-                    machine_id=machine_id,
-                    hostname=hostname,
-                    surface=surface,
-                    plan_tier=row_data.get("plan_tier")
-                    if isinstance(row_data.get("plan_tier"), str)
-                    else None,
-                    window_kind=str(row_data.get("window_kind") or "unknown"),
-                    remaining_percent=float(remaining)
-                    if isinstance(remaining, (int, float))
-                    else None,
-                    resets_at=row_data.get("resets_at")
-                    if isinstance(row_data.get("resets_at"), str)
-                    else None,
-                    status=str(row_data.get("status") or "unknown"),
-                    reason=row_data.get("reason")
-                    if isinstance(row_data.get("reason"), str)
-                    else None,
+            plan_tier = row_data.get("plan_tier")
+            for window in row_data.get("windows") or ():
+                remaining = window.get("remaining_percent")
+                found.append(
+                    MachinePlanLimit(
+                        machine_id=machine_id,
+                        hostname=hostname,
+                        surface=surface,
+                        plan_tier=plan_tier if isinstance(plan_tier, str) else None,
+                        window_kind=str(window.get("window_kind") or "unknown"),
+                        scope=str(window.get("scope") or ALL_MODELS_SCOPE),
+                        remaining_percent=float(remaining)
+                        if isinstance(remaining, (int, float))
+                        else None,
+                        resets_at=window.get("resets_at")
+                        if isinstance(window.get("resets_at"), str)
+                        else None,
+                        status=str(window.get("status") or "unknown"),
+                        reason=window.get("reason")
+                        if isinstance(window.get("reason"), str)
+                        else None,
+                    )
                 )
-            )
     return tuple(found)
 
 
@@ -123,6 +128,7 @@ def fingerprint_material(limits: tuple[MachinePlanLimit, ...]) -> list[tuple[Any
             row.status,
             row.reason,
             row.window_kind,
+            row.scope,
             row.remaining_percent,
             row.resets_at,
         )

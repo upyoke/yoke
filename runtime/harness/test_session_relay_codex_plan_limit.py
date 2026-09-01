@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.session_control.plan_limits import reading_is_ok
 from yoke_harness import session_relay_codex_plan_limit as codex_limits
 from yoke_harness.session_relay_codex_app_server_client import (
     CodexAppServerError,
@@ -29,6 +30,12 @@ _OK_APP_SERVER_RESULT = {
         }
     }
 }
+
+
+def _only_reason(reading: dict) -> str:
+    return reading["windows"][0]["reason"]
+
+
 _OK_MIRROR_PAYLOAD = {
     "plan_type": "pro",
     "rate_limit": {
@@ -99,8 +106,17 @@ def test_app_server_read_uses_the_proven_client_and_returns_the_bucket(
 
     assert client.requested == [("account/rateLimits/read", {})]
     assert client.closed is True
-    assert reading["status"] == "ok"
-    assert reading["remaining_percent"] == 88.0
+    assert reading_is_ok(reading)
+    assert reading["windows"] == [
+        {
+            "window_kind": "rolling_7d",
+            "scope": "all",
+            "remaining_percent": 88.0,
+            "resets_at": "2026-09-05T21:28:12Z",
+            "status": "ok",
+            "reason": None,
+        }
+    ]
     assert reading["plan_tier"] == "pro"
 
 
@@ -131,8 +147,8 @@ def test_each_client_failure_code_names_its_own_reason(
 
     reading = codex_limits.probe_codex_cli(observed_at=NOW)
 
-    assert reading["status"] == "unknown"
-    assert reading["reason"] == f"{expected_reason}+codex_auth_missing_tokens"
+    assert not reading_is_ok(reading)
+    assert _only_reason(reading) == f"{expected_reason}+codex_auth_missing_tokens"
 
 
 def test_spawn_failure_carries_the_class_that_actually_raised(monkeypatch) -> None:
@@ -144,7 +160,7 @@ def test_spawn_failure_carries_the_class_that_actually_raised(monkeypatch) -> No
     reading = codex_limits.probe_codex_cli(observed_at=NOW)
 
     assert (
-        reading["reason"]
+        _only_reason(reading)
         == "app_server_spawn_failed:PermissionError+codex_auth_not_json"
     )
 
@@ -157,7 +173,7 @@ def test_a_result_that_is_not_the_rate_limit_shape_is_named_unparsed(
 
     reading = codex_limits.probe_codex_cli(observed_at=NOW)
 
-    assert reading["reason"].startswith("app_server_result_unparsed+")
+    assert _only_reason(reading).startswith("app_server_result_unparsed+")
 
 
 def test_an_empty_result_is_named_rather_than_parsed(monkeypatch) -> None:
@@ -166,7 +182,7 @@ def test_an_empty_result_is_named_rather_than_parsed(monkeypatch) -> None:
 
     reading = codex_limits.probe_codex_cli(observed_at=NOW)
 
-    assert reading["reason"].startswith("app_server_empty_result+")
+    assert _only_reason(reading).startswith("app_server_empty_result+")
 
 
 @pytest.mark.parametrize("code", ["eof", "timeout", "spawn", "response_oversize"])
@@ -177,7 +193,21 @@ def test_every_app_server_failure_mode_falls_back_to_the_mirror(
         monkeypatch,
         _FakeClient(failure=CodexAppServerError("boom", code=code)),
     )
-    healed = {"surface": "codex-cli", "status": "ok", "remaining_percent": 60.0}
+    healed = {
+        "surface": "codex-cli",
+        "plan_tier": "pro",
+        "observed_at": NOW,
+        "windows": [
+            {
+                "window_kind": "rolling_7d",
+                "scope": "all",
+                "remaining_percent": 60.0,
+                "resets_at": None,
+                "status": "ok",
+                "reason": None,
+            }
+        ],
+    }
     _install_mirror(monkeypatch, healed, "")
 
     assert codex_limits.probe_codex_cli(observed_at=NOW) is healed
@@ -195,7 +225,11 @@ def test_the_app_server_failure_is_logged_even_when_the_mirror_heals_it(
             stderr_tail_text="codex: could not reach the desktop app",
         ),
     )
-    _install_mirror(monkeypatch, {"surface": "codex-cli", "status": "ok"}, "")
+    _install_mirror(
+        monkeypatch,
+        {"surface": "codex-cli", "plan_tier": None, "observed_at": NOW, "windows": []},
+        "",
+    )
     caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_failure_log")
 
     codex_limits.probe_codex_cli(observed_at=NOW)
@@ -237,8 +271,9 @@ def test_the_mirror_reads_the_primary_window_from_stored_credentials(
     reading, reason = codex_limits._usage_mirror_reading(NOW)
 
     assert reason == ""
-    assert reading["status"] == "ok"
-    assert reading["remaining_percent"] == 60.0
+    assert reading_is_ok(reading)
+    assert reading["windows"][0]["remaining_percent"] == 60.0
+    assert reading["windows"][0]["window_kind"] == "rolling_7d"
     assert seen["url"] == codex_limits.CODEX_USAGE_URL
     assert seen["headers"]["chatgpt-account-id"] == "a"
 

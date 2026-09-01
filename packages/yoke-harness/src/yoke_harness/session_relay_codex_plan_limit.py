@@ -18,10 +18,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_contracts.session_control.plan_limits import (
-    parse_codex_rate_limits,
-    unknown_reading,
-)
+from yoke_contracts.session_control.plan_limit_parsers import parse_codex_rate_limits
+from yoke_contracts.session_control.plan_limits import reading_is_ok, unknown_reading
 from yoke_harness.session_relay_codex_app_server_client import (
     CodexAppServerError,
     _Client,
@@ -96,7 +94,7 @@ def app_server_reading(observed_at: str) -> tuple[dict[str, Any] | None, str, st
     if not result:
         return None, "app_server_empty_result", "app_server_empty_result"
     reading = parse_codex_rate_limits(result, observed_at=observed_at)
-    if reading["status"] != "ok":
+    if not reading_is_ok(reading):
         return (
             None,
             "app_server_result_unparsed",
@@ -132,7 +130,7 @@ def _usage_mirror_reading(observed_at: str) -> tuple[dict[str, Any] | None, str]
     if isinstance(payload, str):
         return None, payload
     reading = parse_codex_rate_limits(payload, observed_at=observed_at)
-    if reading["status"] != "ok":
+    if not reading_is_ok(reading):
         return None, "usage_mirror_result_unparsed"
     return reading, ""
 

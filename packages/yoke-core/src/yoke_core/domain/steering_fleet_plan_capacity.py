@@ -1,9 +1,14 @@
 """Shared plan-capacity computer: raw readings plus window-normalized headroom.
 
 The fleet-report table and any dashboard capacity view are two renderers of
-this computer. Monthly remaining uses a 30-day window so percent is
-comparable across surfaces; rolling windows use the same formula and
-understate true headroom because they replenish continuously.
+this computer. One row per (machine, surface, window), because a vendor
+publishes several meters at once and the operator needs to see the scoped
+one that is about to bind as well as the account-wide one that is not.
+Monthly remaining uses a 30-day window so percent is comparable across
+surfaces; rolling windows use the same formula and understate true headroom
+because they replenish continuously. The row with the least quota left on
+each surface is marked, so the single number the report used to print stays
+readable at a glance.
 """
 
 from __future__ import annotations
@@ -12,6 +17,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
+from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 
@@ -23,7 +29,9 @@ PLAN_LIMIT_HEADING = (
 HEADROOM_LEGEND = (
     "headroom is remaining full-rate runway ÷ time-to-reset; ≥100% cannot "
     "exhaust before reset (informational, never gates launches). rolling "
-    "windows understate because they replenish continuously"
+    "windows understate because they replenish continuously. every window a "
+    "surface publishes is listed; `tightest` marks the one with the least "
+    "quota left on that surface"
 )
 TABLE_HEADER = (
     "| Machine | Surface | Tier | Window | Quota left | Resets in | "
@@ -40,9 +48,29 @@ _WINDOW_BY_KIND = {
 }
 WINDOW_LABELS = {
     "rolling_5h": "rolling 5h",
-    "rolling_7d": "rolling 7d",
+    "rolling_7d": "weekly",
     "monthly": "monthly",
 }
+ALL_MODELS_LABEL = "all models"
+TIGHTEST_NOTE = "tightest"
+# Shortest meter first, so a surface reads from the wall it hits soonest.
+_WINDOW_ORDER = ("rolling_5h", "rolling_7d", "monthly")
+
+
+def scope_label(scope: str) -> str:
+    return ALL_MODELS_LABEL if scope == ALL_MODELS_SCOPE else scope
+
+
+def window_label(window_kind: str, scope: str) -> str:
+    """Name the meter and what it covers, e.g. ``weekly · Fable``.
+
+    An unreadable window names no scope, because the reading that would
+    have said what it covers is the thing that is missing.
+    """
+    kind = WINDOW_LABELS.get(window_kind, window_kind)
+    if window_kind == "unknown":
+        return kind
+    return f"{kind} · {scope_label(scope)}"
 
 
 @dataclass(frozen=True)
@@ -51,6 +79,7 @@ class PlanLimitComputation:
     surface: str
     plan_tier: str | None
     window_kind: str
+    scope: str
     remaining_percent: float | None
     resets_at: str | None
     status: str
@@ -127,6 +156,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
             surface=row.surface,
             plan_tier=row.plan_tier,
             window_kind=row.window_kind,
+            scope=row.scope,
             remaining_percent=row.remaining_percent,
             resets_at=row.resets_at,
             status=row.status,
@@ -144,6 +174,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
         surface=row.surface,
         plan_tier=row.plan_tier,
         window_kind=row.window_kind,
+        scope=row.scope,
         remaining_percent=row.remaining_percent,
         resets_at=row.resets_at,
         status=row.status,
@@ -165,10 +196,11 @@ def _percent(value: float | None) -> str:
     return f"{int(round(value))}%"
 
 
-def _markdown_row(computed: PlanLimitComputation) -> str:
+def _markdown_row(computed: PlanLimitComputation, *, tightest: bool) -> str:
     if computed.status != "ok":
         return (
-            f"| {computed.hostname} | {computed.surface} | {EMPTY} | {EMPTY} | "
+            f"| {computed.hostname} | {computed.surface} | {EMPTY} | "
+            f"{window_label(computed.window_kind, computed.scope)} | "
             f"{EMPTY} | {EMPTY} | {EMPTY} | {EMPTY} | "
             f"{computed.reason or 'unreadable'} |"
         )
@@ -180,22 +212,61 @@ def _markdown_row(computed: PlanLimitComputation) -> str:
     return (
         f"| {computed.hostname} | {computed.surface} | "
         f"{_dash(computed.plan_tier)} | "
-        f"{WINDOW_LABELS.get(computed.window_kind, computed.window_kind)} | "
+        f"{window_label(computed.window_kind, computed.scope)} | "
         f"{_percent(computed.remaining_percent)} | {resets_in} | "
         f"{_percent(computed.headroom_percent)} | "
-        f"{format_reset_utc(computed.resets_at)} | {EMPTY} |"
+        f"{format_reset_utc(computed.resets_at)} | "
+        f"{TIGHTEST_NOTE if tightest else EMPTY} |"
     )
+
+
+def _window_identity(row: MachinePlanLimit) -> tuple[str, str, str, str]:
+    return (row.machine_id, row.surface, row.window_kind, row.scope)
+
+
+def _sort_key(row: MachinePlanLimit) -> tuple[str, str, int, str, str]:
+    try:
+        order = _WINDOW_ORDER.index(row.window_kind)
+    except ValueError:
+        order = len(_WINDOW_ORDER)
+    return (row.hostname, row.surface, order, row.window_kind, row.scope)
+
+
+def tightest_windows(
+    limits: tuple[MachinePlanLimit, ...],
+) -> frozenset[tuple[str, str, str, str]]:
+    """The binding window per (machine, surface): least quota left.
+
+    This is the one number the report printed before it carried every
+    window, so marking it keeps that reading a glance away rather than a
+    comparison across rows.
+    """
+    binding: dict[tuple[str, str], tuple[float, tuple[str, str, str, str]]] = {}
+    for row in sorted(limits, key=_sort_key):
+        if row.status != "ok" or row.remaining_percent is None:
+            continue
+        key = (row.machine_id, row.surface)
+        current = binding.get(key)
+        if current is None or row.remaining_percent < current[0]:
+            binding[key] = (row.remaining_percent, _window_identity(row))
+    return frozenset(identity for _, identity in binding.values())
 
 
 def plan_limit_lines(limits: tuple[MachinePlanLimit, ...], *, now: str) -> list[str]:
     if not limits:
         return []
-    rows = sorted(limits, key=lambda item: (item.hostname, item.surface))
+    binding = tightest_windows(limits)
     return [
         "",
         PLAN_LIMIT_HEADING + ":",
         TABLE_HEADER,
-        *(_markdown_row(compute_plan_limit(row, now=now)) for row in rows),
+        *(
+            _markdown_row(
+                compute_plan_limit(row, now=now),
+                tightest=_window_identity(row) in binding,
+            )
+            for row in sorted(limits, key=_sort_key)
+        ),
         HEADROOM_LEGEND,
     ]
 
@@ -204,6 +275,7 @@ def plan_limit_dicts(
     limits: tuple[MachinePlanLimit, ...], *, now: str | None = None
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    binding = tightest_windows(limits)
     for row in limits:
         payload: dict[str, Any] = {
             "machine_id": row.machine_id,
@@ -211,10 +283,13 @@ def plan_limit_dicts(
             "surface": row.surface,
             "plan_tier": row.plan_tier,
             "window_kind": row.window_kind,
+            "scope": row.scope,
+            "window_label": window_label(row.window_kind, row.scope),
             "remaining_percent": row.remaining_percent,
             "resets_at": row.resets_at,
             "status": row.status,
             "reason": row.reason,
+            "tightest": _window_identity(row) in binding,
         }
         if now is not None:
             computed = compute_plan_limit(row, now=now)
@@ -233,6 +308,7 @@ def plan_limit_dicts(
 
 
 __all__ = [
+    "ALL_MODELS_LABEL",
     "EMPTY",
     "HEADROOM_LEGEND",
     "MONTHLY_WINDOW",
@@ -241,6 +317,7 @@ __all__ = [
     "ROLLING_5H_WINDOW",
     "ROLLING_7D_WINDOW",
     "TABLE_HEADER",
+    "TIGHTEST_NOTE",
     "WINDOW_LABELS",
     "compute_plan_limit",
     "format_capacity_duration",
@@ -250,5 +327,8 @@ __all__ = [
     "plan_limit_lines",
     "plan_window_length",
     "remaining_capacity",
+    "scope_label",
+    "tightest_windows",
     "time_until_reset",
+    "window_label",
 ]

@@ -10,8 +10,10 @@ from __future__ import annotations
 import json
 
 from runtime.api.fixtures.backlog import insert_item
+from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.steering_fleet_report import ClaimHolder, compose_report
+from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 
 
@@ -27,6 +29,7 @@ WORKER_SESSION = "another-worker"
 ASKER = "asking-worker"
 ANSWERER = "answering-worker"
 PROJECT_ID = 1
+PLAN_LIMIT_HOST = "beebauman-macbook-pro-16"
 ACTOR_ID = 2
 
 
@@ -134,6 +137,34 @@ def seed_steering_scope(conn):
     return conn
 
 
+def plan_limit_row(
+    *,
+    machine_id: str = "machine-1",
+    hostname: str = PLAN_LIMIT_HOST,
+    surface: str = "cursor-cli",
+    plan_tier: str | None = "Ultra",
+    window_kind: str = "monthly",
+    scope: str = ALL_MODELS_SCOPE,
+    remaining_percent: float | None = 22.0,
+    resets_at: str | None = "2026-09-07T01:00:00Z",
+    status: str = "ok",
+    reason: str | None = None,
+) -> MachinePlanLimit:
+    """One (machine, surface, window) meter for the report renderers."""
+    return MachinePlanLimit(
+        machine_id=machine_id,
+        hostname=hostname,
+        surface=surface,
+        plan_tier=plan_tier,
+        window_kind=window_kind,
+        scope=scope,
+        remaining_percent=remaining_percent,
+        resets_at=resets_at,
+        status=status,
+        reason=reason,
+    )
+
+
 __all__ = [
     "ACTOR_ID",
     "ANSWERER",
@@ -143,12 +174,14 @@ __all__ = [
     "JUST_NOW",
     "LONG_AGO",
     "NOW",
+    "PLAN_LIMIT_HOST",
     "PROJECT_ID",
     "STAFFING_SECONDS",
     "STEERING_SESSION",
     "SURFACE",
     "WORKER_SESSION",
     "compose",
+    "plan_limit_row",
     "quiet_holder",
     "seed_relay",
     "seed_session",
