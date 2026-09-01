@@ -175,3 +175,21 @@ def test_item_detail_qa_source_selects_item_page_read_contract(
 
     assert set(contracts.ITEM_DETAIL_QA_READ_TESTS) <= set(selection.files)
     assert f"item_detail_qa_read_contract:{source}" in selection.widening_triggers
+
+
+def test_qa_plan_attachments_select_item_posture_binding_contract(
+    tmp_path: Path,
+) -> None:
+    source = "packages/yoke-core/src/yoke_core/domain/qa_plan_attachments.py"
+    assert source in contracts.ITEM_POSTURE_QA_BINDING_SOURCE_PATHS
+    _write(tmp_path, source)
+    for test_path in {
+        *impacted_tests.ALWAYS_RUN_TESTS,
+        *contracts.ITEM_POSTURE_QA_BINDING_TESTS,
+    }:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select([source], build_import_index(tmp_path), bounded=True)
+
+    assert set(contracts.ITEM_POSTURE_QA_BINDING_TESTS) <= set(selection.files)
+    assert f"item_posture_qa_binding_contract:{source}" in selection.widening_triggers

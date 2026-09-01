@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one
@@ -31,6 +32,7 @@ def validate_item_transition(
     *,
     item_id: int,
     transition_id: Any,
+    plan_id: Any = None,
 ) -> str:
     """Map the shared item QA binding error to the plan domain error."""
     try:
@@ -38,10 +40,41 @@ def validate_item_transition(
             conn,
             item_id=int(item_id),
             transition_id=transition_id,
+            plan_id=plan_id,
         )
     except QaWorkflowBindingError as exc:
         raise QaPlanError(str(exc)) from exc
     return transition
 
 
-__all__ = ["require_plan_cases", "validate_item_transition"]
+def validate_attached_item_transition(
+    conn: Any,
+    *,
+    item_id: int,
+    transition_id: Any,
+    plan_ids: Iterable[int],
+) -> str:
+    """Validate a transition and every attached plan's enforcement identity."""
+    selected = tuple(int(plan_id) for plan_id in plan_ids)
+    if not selected:
+        return validate_item_transition(
+            conn,
+            item_id=int(item_id),
+            transition_id=transition_id,
+        )
+    transition = transition_id
+    for plan_id in selected:
+        transition = validate_item_transition(
+            conn,
+            item_id=int(item_id),
+            transition_id=transition,
+            plan_id=plan_id,
+        )
+    return transition
+
+
+__all__ = [
+    "require_plan_cases",
+    "validate_attached_item_transition",
+    "validate_item_transition",
+]

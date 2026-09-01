@@ -16,7 +16,7 @@ from yoke_core.domain.dash_posture_read import (
     posture as _posture,
 )
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.item_posture_bindings import (
+from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
 from yoke_core.domain.schema_common import _table_exists

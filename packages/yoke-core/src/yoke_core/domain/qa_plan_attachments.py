@@ -19,6 +19,7 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
 )
 from yoke_core.domain.qa_plan_attachment_validation import (
     require_plan_cases,
+    validate_attached_item_transition,
     validate_item_transition,
 )
 from yoke_core.domain.qa_deployment_plan_materialization import (
@@ -80,6 +81,7 @@ def attach_plan_to_item(
         conn,
         item_id=int(item_id),
         transition_id=transition_id,
+        plan_id=int(plan_id),
     )
     now = iso8601_now()
     try:
@@ -167,15 +169,17 @@ def materialize_for_item(
 ) -> dict:
     """Snapshot every attached case into idempotent QA requirements."""
     lock_item_workflow_bindings(conn, (int(item_id),))
-    transition_id = validate_item_transition(
-        conn,
-        item_id=int(item_id),
-        transition_id=transition_id,
-    )
+    transition_id = str(transition_id or "").strip()
     attachments = _attached_plans(
         conn,
         item_id=item_id,
         transition_id=transition_id,
+    )
+    transition_id = validate_attached_item_transition(
+        conn,
+        item_id=int(item_id),
+        transition_id=transition_id,
+        plan_ids=attachments,
     )
     marker = _placeholder(conn)
     created: list[int] = []

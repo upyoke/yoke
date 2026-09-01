@@ -18,7 +18,7 @@ from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.path_claims_register import register_for_item
 from yoke_core.domain.dash_posture_gate import evaluate
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.item_posture_bindings import (
+from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
 from yoke_core.domain.workflow_status_transition_preflight import (
