@@ -58,6 +58,10 @@ _TEXT_FIELDS = frozenset(
         "registration_session_id",
         "requested_model",
         "result_code",
+        # Which requested_* columns the binding filled from this launch. A
+        # session that carried its own ask leaves it absent, so the two ways
+        # a request reaches the roster stay tellable apart when one breaks.
+        "stamped_requested_columns",
         # Why a wake was skipped, and what it was reading when it decided:
         # the eligibility rule that fired, the operation it resolved, and the
         # posture and liveness behind that operation. The bare result code

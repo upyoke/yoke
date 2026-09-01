@@ -6,17 +6,29 @@ requested — a Yoke launch's ``--model``, ``YOKE_MODEL``, a Claude context
 tier selector. The served truth is what the provider reports it actually
 ran, read back from the harness's own artifact after the fact.
 
-Storing both is the point. The ask lands in the ``requested_*`` columns at
-registration and is always available; the plain columns hold only what an
-attestation reader proved. ``None`` in a plain column means *not attested*
-— never "same as requested". A reader that needs a value where none was
-attested may show the requested one only while saying so.
+Storing both is the point. The ask lands in the ``requested_*`` columns
+and is always available; the plain columns hold only what an attestation
+reader proved. ``None`` in a plain column means *not attested* — never
+"same as requested". A reader that needs a value where none was attested
+may show the requested one only while saying so.
+
+The ask reaches those columns from two directions, because one of them
+alone loses it. A session the operator started names its own ask in its
+environment, which only that process can read. A launched session cannot
+be trusted to: a harness that serves a launch from a pre-warmed process
+pool hands the job to a process whose environment predates the launch, so
+nothing the child sniffs mentions the model it was asked for. The control
+plane holds that ask on the launch record and stamps it at binding —
+:func:`requested_facts_of` derives the whole ask from the selector either
+side holds, so both directions produce the same three columns.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Optional
+
+from yoke_contracts.harness_family_identity import CURSOR_FAMILY
 
 
 #: Reasoning-effort levels any supported harness names. Claude spells them
@@ -222,6 +234,41 @@ def effort_suffix_of(model_name: object) -> Optional[str]:
     return None
 
 
+#: Harness families whose model selector spells the effort as its own
+#: suffix, so the name *is* the effort request. Cursor exposes no separate
+#: effort parameter, which is why its variant names carry one. Reading a
+#: suffix outside this set would invent an ask: a Codex family name ending
+#: in ``-max`` names a model family, not a reasoning level.
+NAME_ENCODED_EFFORT_HARNESSES = frozenset({CURSOR_FAMILY})
+
+
+def requested_facts_of(model_name: object, *, harness_id: str) -> SessionModelFacts:
+    """Return every ask a model selector states about itself.
+
+    One derivation for both directions the ask arrives from — the child
+    process reading its own environment, and the control plane stamping a
+    launch's recorded model — so a launched session and an operator-started
+    one on the same harness store the same three values. Channels a
+    selector cannot carry (a Claude effort level, which rides the
+    environment) stay ``None`` here and are filled by the caller that can
+    read them.
+
+    A placeholder names no model, so it states no ask at all.
+    """
+    if is_placeholder_model(model_name):
+        return SessionModelFacts()
+    model = str(model_name).strip()
+    return SessionModelFacts(
+        requested_model=model,
+        requested_reasoning_effort=(
+            effort_suffix_of(model)
+            if harness_id in NAME_ENCODED_EFFORT_HARNESSES
+            else None
+        ),
+        requested_context_window_tokens=requested_context_window_of(model),
+    )
+
+
 def requested_context_window_of(model_name: object) -> Optional[int]:
     """Return the context window a model selector asks for, or ``None``."""
     if not isinstance(model_name, str):
@@ -235,6 +282,7 @@ __all__ = [
     "CLAUDE_CONTEXT_TIER_SUFFIX",
     "CLAUDE_CONTEXT_TIER_TOKENS",
     "MODEL_FACT_FIELDS",
+    "NAME_ENCODED_EFFORT_HARNESSES",
     "PLACEHOLDER_MODEL_VALUES",
     "REQUESTED_LABEL",
     "UNKNOWN_MODEL_DISPLAY",
@@ -252,5 +300,6 @@ __all__ = [
     "normalize_context_window_tokens",
     "normalize_reasoning_effort",
     "requested_context_window_of",
+    "requested_facts_of",
     "served_model_or_none",
 ]

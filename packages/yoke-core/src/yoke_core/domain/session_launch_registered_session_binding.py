@@ -7,6 +7,9 @@ from typing import Any
 from yoke_core.domain.session_launch_binding_evidence import (
     bound_registration_evidence,
 )
+from yoke_core.domain.session_launch_model_stamp import (
+    stamp_launch_requested_facts,
+)
 from yoke_core.domain.session_launch_registration_grace import (
     hold_launch_registration_grace,
 )
@@ -178,9 +181,19 @@ def bind_launch_to_session(
     now: str,
     wake_after: str,
 ) -> LaunchRecord:
-    """Bind one exact session and make its launch instruction deliverable."""
+    """Bind one exact session and make its launch instruction deliverable.
+
+    Binding is also where the launch's model ask reaches the session row.
+    The child process cannot be relied on to carry it — a pre-warmed
+    harness pool serves the launch from a process older than the launch
+    itself — while the launch record has held the exact request since it
+    was created.
+    """
     require_exact_launch_session(launch, session_id, facts)
     hold_launch_registration_grace(conn, session_id, now=now)
+    stamped = stamp_launch_requested_facts(
+        conn, launch=launch, session_id=session_id
+    )
     _insert_pending_recipient(
         conn,
         launch=launch,
@@ -195,7 +208,9 @@ def bind_launch_to_session(
         registered_session_id=session_id,
         attestation_consumed_at=now,
         result_code="registration_bound",
-        result_evidence=bound_registration_evidence(launch, facts["model"]),
+        result_evidence=bound_registration_evidence(
+            launch, facts["model"], stamped_columns=stamped
+        ),
     )
 
 

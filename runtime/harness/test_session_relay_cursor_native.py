@@ -100,6 +100,8 @@ def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
     assert options["env"]["YOKE_EXECUTOR"] == "cursor"
     assert options["env"]["YOKE_PROVIDER"] == "cursor"
     assert options["env"]["CURSOR_INVOKED_AS"] == "cursor-agent"
+    # YOKE_MODEL tells the session inside which variant it was asked for;
+    assert options["env"]["YOKE_MODEL"] == "composer-2"
     # A wake carries no launch, so it must not carry a launch attestation.
     assert LAUNCH_CONTEXT_ENV not in options["env"]
 
@@ -117,11 +119,12 @@ def test_cli_wake_names_no_model_when_the_relay_asked_for_none(
     request = replace(_wake_request(tmp_path), requested_model=None)
 
     CursorCliTransport(
-        process_factory=lambda command, **kwargs: spawns.append(command)
+        process_factory=lambda command, **kwargs: spawns.append((command, kwargs))
         or RunningProcess()
     ).resume_chat(request)
 
-    assert "--model" not in spawns[0]
+    command, options = spawns[0]
+    assert "--model" not in command and "YOKE_MODEL" not in options["env"]
 
 
 def test_cli_wake_refuses_an_inexact_session_before_spawn(
