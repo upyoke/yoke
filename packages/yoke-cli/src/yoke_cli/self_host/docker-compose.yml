@@ -50,6 +50,16 @@ services:
     environment:
       YOKE_SERVER_MODE: self-host
       YOKE_PG_DSN_FILE: /run/secrets/yoke-db-dsn
+      # Where the one-time first-boot admin token lands. The root bootstrap
+      # opens this bind-mounted, operator-owned file and hands the open
+      # descriptor to the server, which is how an unprivileged process
+      # writes a credential the operator can still read — and why the token
+      # never reaches this service's log.
+      YOKE_FIRST_BOOT_TOKEN_FILE: /run/yoke-first-boot-admin-token
+      YOKE_FIRST_BOOT_TOKEN_HOST_PATH: ./secrets/first-boot-admin-token
+      # The publish spec, so the boot banner prints a real connect URL
+      # instead of a placeholder the operator has to translate.
+      YOKE_API_PUBLISH: ${YOKE_API_PUBLISH:-127.0.0.1:8765}
       # Browser sign-in door (optional). Set the values in .env to
       # enable; blank keeps the door disabled. The client secret rides
       # a mounted secret file — see the commented blocks below.
@@ -75,6 +85,11 @@ services:
       # --dir . --protect-existing --github-app-private-key PATH` and
       # setting the GitHub App values in .env:
       #- yoke-github-app-private-key
+    volumes:
+      # A single owner-only file, created by `yoke self-host init`. Compose
+      # would materialize a missing path as a root-owned directory, so the
+      # bundle always creates it first.
+      - ./secrets/first-boot-admin-token:/run/yoke-first-boot-admin-token
     tmpfs:
       - /run/yoke-runtime-secrets:mode=0700
     ports:

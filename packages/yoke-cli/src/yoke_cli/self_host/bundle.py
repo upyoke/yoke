@@ -19,9 +19,11 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from yoke_cli.self_host import first_boot_token
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
 from yoke_cli.self_host import secure_layout
+from yoke_cli.self_host.secure_layout import SECRETS_DIR_NAME
 from yoke_contracts.github_app_public import (
     GITHUB_APP_CLIENT_ID_ENV,
     GITHUB_APP_ID_ENV,
@@ -40,9 +42,17 @@ DEFAULT_API_PORT = 8765
 COMPOSE_FILE_NAME = "docker-compose.yml"
 ENV_FILE_NAME = ".env"
 GITIGNORE_FILE_NAME = ".gitignore"
-SECRETS_DIR_NAME = "secrets"
 DB_PASSWORD_FILE_NAME = "db-password"
 DSN_FILE_NAME = "dsn"
+
+#: Owner-only files under ``secrets/``. The first-boot token file is one of
+#: them: Compose bind-mounts it into the core service, so it has to exist,
+#: owned by the operator, before the server ever starts.
+BUNDLE_SECRET_NAMES = (
+    DB_PASSWORD_FILE_NAME,
+    DSN_FILE_NAME,
+    first_boot_token.FIRST_BOOT_TOKEN_FILE_NAME,
+)
 
 _DB_NAME = "yoke"
 _DB_USER = "yoke"
@@ -60,8 +70,7 @@ def bundle_file_paths(target: Path) -> tuple[Path, ...]:
         target / COMPOSE_FILE_NAME,
         target / ENV_FILE_NAME,
         target / GITIGNORE_FILE_NAME,
-        secrets_dir / DB_PASSWORD_FILE_NAME,
-        secrets_dir / DSN_FILE_NAME,
+        *(secrets_dir / name for name in BUNDLE_SECRET_NAMES),
     )
 
 
@@ -133,6 +142,9 @@ def write_bundle(
         )
         _write_secret_file(secrets_dir / DB_PASSWORD_FILE_NAME, password)
         _write_secret_file(secrets_dir / DSN_FILE_NAME, dsn)
+        # Never truncated: a bundle whose universe is already born holds the
+        # only copy of its admin credential here.
+        first_boot_token.ensure_token_drop(target)
     except protection.SelfHostProtectionError as exc:
         raise SelfHostBundleError(str(exc)) from exc
 
@@ -161,10 +173,13 @@ def protect_existing_bundle(
     target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
     _prepare_layout(target, create=False)
     try:
+        # Repair before validation: this is the command that adds what an
+        # earlier bundle never had.
+        first_boot_token.ensure_token_drop(target)
         secure_layout.validate_existing_bundle_files(
             target,
             public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
-            secret_names=(DB_PASSWORD_FILE_NAME, DSN_FILE_NAME),
+            secret_names=BUNDLE_SECRET_NAMES,
         )
         protection.assert_sensitive_paths_untracked(target)
     except (
@@ -204,13 +219,15 @@ def validate_existing_bundle(*, directory: Optional[str] = None) -> Path:
     target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
     _prepare_layout(target, create=False)
     try:
+        first_boot_token.require_token_drop(target)
         secure_layout.validate_existing_bundle_files(
             target,
             public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
-            secret_names=(DB_PASSWORD_FILE_NAME, DSN_FILE_NAME),
+            secret_names=BUNDLE_SECRET_NAMES,
         )
         protection.assert_sensitive_paths_untracked(target)
     except (
+        first_boot_token.FirstBootTokenError,
         protection.SelfHostProtectionError,
         secure_layout.SecureLayoutError,
     ) as exc:
@@ -303,6 +320,7 @@ def _prepare_layout(target: Path, *, create: bool) -> None:
 
 
 __all__ = [
+    "BUNDLE_SECRET_NAMES",
     "COMPOSE_FILE_NAME",
     "DB_PASSWORD_FILE_NAME",
     "DEFAULT_API_PORT",

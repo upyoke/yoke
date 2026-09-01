@@ -7,6 +7,7 @@ from pathlib import Path
 import stat
 
 
+SECRETS_DIR_NAME = "secrets"
 SECRETS_DIRECTORY_MODE = 0o700
 
 
@@ -85,7 +86,7 @@ def validate_existing_bundle_files(
                 _validate_regular_file(
                     secrets_descriptor,
                     name,
-                    path=target / "secrets" / name,
+                    path=target / SECRETS_DIR_NAME / name,
                     owner_only=True,
                     flags=nofollow,
                 )
@@ -152,7 +153,7 @@ def _open_secrets_directory(
     flags: int,
     create: bool,
 ) -> int:
-    name = "secrets"
+    name = SECRETS_DIR_NAME
     created = False
     try:
         before = os.stat(

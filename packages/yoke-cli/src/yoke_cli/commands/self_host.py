@@ -20,8 +20,11 @@ from yoke_cli.commands.self_host_import import (
     TOOL_SHAPED_USAGE as _IMPORT_USAGE,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
-from yoke_cli.self_host import bundle
+from yoke_cli.self_host import bundle, first_boot_token
 from yoke_cli.self_host import upgrade
+from yoke_contracts.self_host_bootstrap_output import (
+    connect_url_from_publish_spec,
+)
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -51,8 +54,9 @@ def self_host_init(args: List[str]) -> int:
             "instead preserves an existing bundle and its DB credentials "
             "while repairing secret protection or rotating the GitHub App "
             "key. Then `docker compose up -d` from the bundle directory "
-            "starts the server; first boot prints a one-time initial admin "
-            "token to the core service log."
+            "starts the server; first boot writes a one-time initial admin "
+            "token to an owner-only file under the bundle's secrets/ "
+            "directory, and prints its path — never the token — to the log."
         ),
     )
     parser.add_argument(
@@ -226,12 +230,14 @@ def _print_summary(report: Dict[str, object]) -> None:
     print(f"self-host bundle written: {directory}")
     print(f"server image: {report.get('image')}")
     print(f"api publish: {report.get('publish')}")
+    token_file = first_boot_token.token_drop_path(str(directory))
+    connect_url = connect_url_from_publish_spec(str(report.get("publish") or ""))
     print("next steps:")
     print(f"  1. cd {directory} && docker compose up -d")
-    print("  2. first boot prints a one-time initial admin token:")
-    print("       docker compose logs core")
-    print("  3. connect this machine's CLI (paste the token on stdin):")
-    print(f"       yoke connect http://{report.get('publish')} --token-stdin")
+    print("  2. first boot writes a one-time initial admin token to:")
+    print(f"       {token_file}")
+    print("  3. connect this machine's CLI, then remove that file:")
+    print(f"       yoke connect {connect_url} --token-stdin < {token_file}")
 
 
 def _print_upgrade_preview(plan: upgrade.UpgradePlan) -> None:
