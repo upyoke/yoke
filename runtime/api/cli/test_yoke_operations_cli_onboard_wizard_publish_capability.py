@@ -25,6 +25,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     skip_hosting,
     stub_path_doctor,
+    submit_public_item_prefix,
     type_text,
 )
 
@@ -118,7 +119,7 @@ def test_unavailable_app_publish_opens_github_and_keeps_project_local(
             await pilot.press("down")  # manual recovery: disabled
             await pilot.press("enter")  # App publishing unavailable: disabled
             await pilot.press("enter")  # default branch main
-            await pilot.press("enter")  # prefix placeholder
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply

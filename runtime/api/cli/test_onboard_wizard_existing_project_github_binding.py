@@ -14,6 +14,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     skip_hosting,
     stub_path_doctor,
+    submit_public_item_prefix,
     type_text,
 )
 from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_existing_project import (  # noqa: E402
@@ -186,7 +187,7 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
             await app.workers.wait_for_complete()
             await pilot.press("enter")  # accept slug
             await pilot.press("enter")  # accept name; keep remote auto-routes
-            await pilot.press("enter")  # accept prefix
+            await submit_public_item_prefix(pilot)
             await pilot.pause()
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")

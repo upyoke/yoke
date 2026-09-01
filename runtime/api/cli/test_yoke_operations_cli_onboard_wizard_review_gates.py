@@ -24,6 +24,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     skip_hosting,
     stub_path_doctor,
+    submit_public_item_prefix,
     type_text,
 )
 
@@ -96,7 +97,7 @@ def test_review_preflight_blocks_apply_until_clear(monkeypatch) -> None:
             await pilot.press("down")   # publish: No
             await pilot.press("enter")
             await pilot.press("enter")  # default branch main
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Review (blocked)
             await pilot.pause()

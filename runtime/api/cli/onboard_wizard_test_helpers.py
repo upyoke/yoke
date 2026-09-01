@@ -302,3 +302,9 @@ def literal_key(char: str) -> str:
 async def type_text(pilot, text: str) -> None:
     for char in text:
         await pilot.press(literal_key(char))
+
+
+async def submit_public_item_prefix(pilot, prefix: str = "WIDG") -> None:
+    """Type a required public item prefix. The field has no derived default."""
+    await type_text(pilot, prefix)
+    await pilot.press("enter")

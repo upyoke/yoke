@@ -6,6 +6,7 @@ import asyncio
 
 import pytest
 
+from runtime.api.cli.onboard_wizard_test_helpers import submit_public_item_prefix
 from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_publish_capability import (
     _body_text,
     _github_config,
@@ -89,8 +90,11 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
             body = _body_text(app)
             assert "acme/manual-target" in body
             assert "other/widget" in body
-            for _ in range(5):
-                await pilot.press("enter")
+            await pilot.press("enter")  # pick acme/manual-target
+            await pilot.press("enter")  # default branch
+            await submit_public_item_prefix(pilot)
+            await pilot.press("enter")  # GitHub binding
+            await pilot.press("enter")  # exact-repository access
             await complete_board_art(pilot)
             await skip_hosting(pilot)
             await pilot.press("enter")
