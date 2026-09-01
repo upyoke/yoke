@@ -65,7 +65,21 @@ WORKFLOW_DEFINITION_VALIDATION_TESTS = (
     "runtime/api/domain/test_workflow_path_survey_policy.py",
     "runtime/api/domain/test_workflow_registry.py",
     "runtime/api/domain/test_workflow_retired_policy_keys.py",
+    "runtime/api/test_universe_ui_mount_contract.py",
     "runtime/api/test_universe_ui_server_mutations.py",
+)
+
+WORKFLOW_DEFINITION_VALIDATION_SOURCE_PATHS = frozenset(
+    {
+        "packages/yoke-core/src/yoke_core/domain/"
+        "workflow_definition_graph_validation.py",
+        "packages/yoke-core/src/yoke_core/domain/workflow_definition_validation.py",
+        "packages/yoke-core/src/yoke_core/domain/"
+        "workflow_definition_validation_support.py",
+        "packages/yoke-core/src/yoke_core/domain/workflow_gate_catalog.py",
+        "packages/yoke-core/src/yoke_core/ui/static/hosted_frame_workflows_fixture.js",
+        "runtime/api/universe_ui_hosted_workflow_fixture.test.mjs",
+    }
 )
 
 SCHEMA_CONVERGE_CONTRACT_TESTS = (
@@ -103,8 +117,7 @@ DIRECT_WORKFLOW_PREPARE_TESTS = (
 HOOK_GUARD_POLICY_SOURCE_PATHS = frozenset(
     {
         ".yoke/lint-config",
-        "packages/yoke-contracts/src/yoke_contracts/hook_runner/"
-        "hook_guard_catalog.py",
+        "packages/yoke-contracts/src/yoke_contracts/hook_runner/hook_guard_catalog.py",
         "packages/yoke-contracts/src/yoke_contracts/hook_runner/hook_ordering.py",
     }
 )
@@ -154,16 +167,7 @@ PATH_CONTRACT_TESTS = (
     ),
     (
         "workflow_definition_validation_contract",
-        frozenset(
-            {
-                "packages/yoke-core/src/yoke_core/domain/"
-                "workflow_definition_graph_validation.py",
-                "packages/yoke-core/src/yoke_core/domain/"
-                "workflow_definition_validation.py",
-                "packages/yoke-core/src/yoke_core/domain/"
-                "workflow_definition_validation_support.py",
-            }
-        ),
+        WORKFLOW_DEFINITION_VALIDATION_SOURCE_PATHS,
         WORKFLOW_DEFINITION_VALIDATION_TESTS,
     ),
     (
@@ -282,6 +286,7 @@ __all__ = [
     "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "STANDALONE_MERGE_CLOSE_OUT_TESTS",
+    "WORKFLOW_DEFINITION_VALIDATION_SOURCE_PATHS",
     "WORKFLOW_DEFINITION_VALIDATION_TESTS",
     "contract_selection_for",
 ]

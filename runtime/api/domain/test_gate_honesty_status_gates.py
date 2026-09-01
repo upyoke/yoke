@@ -20,9 +20,7 @@ from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
 
 
 def _catalog_entry(gate_id: str) -> dict:
-    return next(
-        entry for entry in workflow_gate_catalog() if entry["id"] == gate_id
-    )
+    return next(entry for entry in workflow_gate_catalog() if entry["id"] == gate_id)
 
 
 def test_no_inert_file_line_gate_on_the_status_write_path():
@@ -179,9 +177,7 @@ def test_approval_gate_is_absent_until_an_authority_is_declared(monkeypatch):
         lambda **kwargs: recorded.append(kwargs),
     )
     assert (
-        approval_status_gate.evaluate(
-            item_id=7, target_status="done", db_path=""
-        )
+        approval_status_gate.evaluate(item_id=7, target_status="done", db_path="")
         is None
     )
     assert recorded[0]["gate_id"] == "approval"
