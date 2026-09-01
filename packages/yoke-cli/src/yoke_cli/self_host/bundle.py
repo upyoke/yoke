@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from yoke_cli.self_host import protection
+from yoke_cli.self_host import release_target
 from yoke_cli.self_host import secure_layout
 from yoke_contracts.github_app_public import (
     GITHUB_APP_CLIENT_ID_ENV,
@@ -27,7 +28,6 @@ from yoke_contracts.github_app_public import (
     GITHUB_APP_SLUG_ENV,
     GITHUB_APP_WEB_URL_ENV,
 )
-from yoke_contracts.server_image import DEFAULT_SERVER_IMAGE
 
 #: Default bundle directory, created under the invoking directory. The
 #: bundle is an operator-managed working directory (``docker compose``
@@ -86,7 +86,17 @@ def write_bundle(
     """
     target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
     selected_port = int(port or DEFAULT_API_PORT)
-    selected_image = str(image or DEFAULT_SERVER_IMAGE)
+    matched_release = None
+    if image is None:
+        try:
+            matched_release = release_target.current_release_target()
+        except release_target.ReleaseTargetError as exc:
+            raise SelfHostBundleError(
+                "could not select the server image matched to this CLI: "
+                f"{exc}. Restore distribution access and retry, or pass "
+                "--image with an exact immutable image reference"
+            ) from exc
+    selected_image = str(image or matched_release.image)
     _prepare_layout(target, create=True)
     existing = [p for p in _bundle_payload_paths(target) if p.exists()]
     if existing and not force:
@@ -131,6 +141,8 @@ def write_bundle(
         "directory": str(target.resolve()),
         "files": [str(p) for p in bundle_file_paths(target)],
         "image": selected_image,
+        "matched_cli_version": matched_release.version if matched_release else None,
+        "source_commit": matched_release.source_commit if matched_release else None,
         "publish": publish_spec,
         "port": selected_port,
         "forced": bool(existing),

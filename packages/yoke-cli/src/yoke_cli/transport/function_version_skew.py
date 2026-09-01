@@ -40,14 +40,18 @@ _SERVER_BEHIND_RECOVERY = (
 )
 _CLIENT_BEHIND_RECOVERY = (
     "This client build predates the deployed server, which no longer "
-    "serves that function. Rerun the public installer to update this CLI, "
-    "then retry."
+    "serves that function. For a self-host bundle, run `yoke self-host "
+    "upgrade --dir <bundle>` to advance the CLI and pinned server image "
+    "together, then retry. For another environment, install the CLI release "
+    "that environment advertises."
 )
 _UNDETERMINED_RECOVERY = (
     "The engine versions do not establish which side is behind: either "
     "the env has not yet deployed an engine carrying that function (retry "
     "after deploy), or this client build predates the deployed server and "
-    "no longer matches its registry (rerun the public installer)."
+    "no longer matches its registry (for a self-host bundle, run `yoke "
+    "self-host upgrade --dir <bundle>`; otherwise install the CLI release "
+    "that environment advertises)."
 )
 
 

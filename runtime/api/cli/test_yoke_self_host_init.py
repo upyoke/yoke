@@ -18,9 +18,10 @@ from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.self_host import atomic_file
 from yoke_cli.self_host import bundle
 from yoke_cli.self_host import protection
+from yoke_cli.self_host import release_target
 from yoke_contracts.server_image import (
-    DEFAULT_SERVER_IMAGE,
     PUBLISHED_SERVER_IMAGE_REPOSITORY,
+    pinned_server_image,
 )
 
 
@@ -49,7 +50,9 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert "POSTGRES_PASSWORD_FILE" in compose
 
     env_text = (target / ".env").read_text(encoding="utf-8")
-    assert f"YOKE_SERVER_IMAGE={DEFAULT_SERVER_IMAGE}" in env_text
+    assert (
+        f"YOKE_SERVER_IMAGE={release_target.current_release_target().image}" in env_text
+    )
     assert "YOKE_API_PUBLISH=127.0.0.1:8765" in env_text
 
     gitignore = (target / ".gitignore").read_text(encoding="utf-8")
@@ -169,7 +172,9 @@ def test_init_json_report_omits_secrets(target, capsys):
     assert commands.self_host_init(["--dir", str(target), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True
-    assert report["image"] == DEFAULT_SERVER_IMAGE
+    assert report["image"] == release_target.current_release_target().image
+    assert report["matched_cli_version"]
+    assert len(report["source_commit"]) == 40
     assert str(target / ".gitignore") in report["files"]
     assert _password(target) not in json.dumps(report)
 
@@ -214,9 +219,40 @@ def test_default_directory_lands_under_cwd(tmp_path, monkeypatch):
     assert report["directory"] == str((tmp_path / bundle.DEFAULT_BUNDLE_DIR).resolve())
 
 
-def test_published_image_constant_shape():
-    assert DEFAULT_SERVER_IMAGE.startswith(PUBLISHED_SERVER_IMAGE_REPOSITORY)
+def test_published_image_pin_shape():
+    image = pinned_server_image("a" * 40)
+    assert image == f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:{'a' * 12}"
     assert PUBLISHED_SERVER_IMAGE_REPOSITORY.startswith("ghcr.io/")
+
+
+def test_init_pins_the_image_matching_the_installed_cli_release(
+    target, capsys, monkeypatch
+):
+    version = "0.1.1+launch.334"
+    source_commit = "b" * 40
+    monkeypatch.setattr(release_target, "local_handshake_version", lambda: version)
+
+    def fetch(url: str) -> bytes:
+        assert "/dist/releases/0.1.1%2Blaunch.334/migration-history.json" in url
+        return json.dumps(
+            {
+                "artifact": {
+                    "engine_version": version,
+                    "source_commit": source_commit,
+                }
+            }
+        ).encode()
+
+    monkeypatch.setattr(release_target, "_FETCH_BYTES", fetch)
+
+    assert commands.self_host_init(["--dir", str(target), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    env_text = (target / ".env").read_text(encoding="utf-8")
+    expected = pinned_server_image(source_commit)
+    assert report["matched_cli_version"] == version
+    assert report["image"] == expected
+    assert f"YOKE_SERVER_IMAGE={expected}" in env_text
+    assert ":latest" not in env_text
 
 
 def test_tool_shaped_resolution():

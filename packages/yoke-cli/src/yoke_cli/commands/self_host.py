@@ -1,10 +1,10 @@
-"""Tool-shaped self-host bundle initialization and import registry.
+"""Tool-shaped self-host bundle lifecycle registry.
 
 These client-local machine operations carry NO dispatcher function id.
 Initialization writes a ``docker compose`` working directory on the caller's
-machine; import securely streams an archive into that bundle's stopped server
-image. There is no control plane to dispatch through until the described
-server is running. Both resolve through the tool-shaped table after
+machine; upgrade advances its CLI and pinned image as one pair; import securely
+streams an archive into the stopped server image. There is no control plane to
+dispatch through until the described server is running. These resolve after
 ``SUBCOMMAND_REGISTRY`` misses, like the other machine-setup families.
 """
 
@@ -21,6 +21,7 @@ from yoke_cli.commands.self_host_import import (
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.self_host import bundle
+from yoke_cli.self_host import upgrade
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -28,11 +29,15 @@ INIT_USAGE = (
     "yoke self-host init [--dir D] [--port N] [--image REF] "
     "[--force | --protect-existing] [--github-app-private-key PATH] [--json]"
 )
+UPGRADE_USAGE = "yoke self-host upgrade [--dir D] [--channel C] [--yes] [--json]"
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke self-host init": INIT_USAGE,
+    "yoke self-host upgrade": UPGRADE_USAGE,
     **_IMPORT_USAGE,
 }
+
+_INPUT = input
 
 
 def self_host_init(args: List[str]) -> int:
@@ -74,8 +79,8 @@ def self_host_init(args: List[str]) -> int:
         "--image",
         default=None,
         help=(
-            "Server image reference written to .env (default: the published "
-            "server image)."
+            "Exact server image override written to .env (default: the "
+            "immutable image matched to this installed CLI release)."
         ),
     )
     rewrite_mode = parser.add_mutually_exclusive_group()
@@ -147,6 +152,67 @@ def self_host_init(args: List[str]) -> int:
     return 0
 
 
+def self_host_upgrade(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke self-host upgrade",
+        description=(
+            "Preview and deliberately advance one self-host installation as a "
+            "pair: install the selected Yoke CLI release, replace the bundle's "
+            "immutable server-image pin, pull it, and restart Compose."
+        ),
+    )
+    parser.add_argument(
+        "--dir",
+        dest="directory",
+        default=None,
+        help=f"Existing bundle directory (default: ./{bundle.DEFAULT_BUNDLE_DIR}).",
+    )
+    parser.add_argument(
+        "--channel",
+        default=None,
+        help="Published release channel (default: stable or YOKE_CHANNEL).",
+    )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Accept the displayed plan without an interactive confirmation.",
+    )
+    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parsed = parse_or_usage_error(parser, args, UPGRADE_USAGE)
+    if parsed is None:
+        return 2
+    if parsed.json_mode and not parsed.yes:
+        return usage_error("--json requires --yes so stdout remains one JSON result")
+    try:
+        plan = upgrade.plan_upgrade(
+            directory=parsed.directory,
+            channel=parsed.channel,
+        )
+    except upgrade.SelfHostUpgradeError as exc:
+        _print_upgrade_error(exc)
+        return 1
+    if not parsed.json_mode:
+        _print_upgrade_preview(plan)
+    if not parsed.yes:
+        try:
+            answer = _INPUT("Type 'upgrade' to continue: ").strip()
+        except EOFError:
+            answer = ""
+        if answer != "upgrade":
+            print("self-host upgrade cancelled; no changes were made")
+            return 0
+    try:
+        report = upgrade.execute_upgrade(plan)
+    except upgrade.SelfHostUpgradeError as exc:
+        _print_upgrade_error(exc)
+        return 1
+    if parsed.json_mode:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        _print_upgrade_summary(report)
+    return 0
+
+
 def _print_summary(report: Dict[str, object]) -> None:
     directory = report.get("directory")
     if report.get("mode") == "protect-existing":
@@ -168,8 +234,32 @@ def _print_summary(report: Dict[str, object]) -> None:
     print(f"       yoke connect http://{report.get('publish')} --token-stdin")
 
 
+def _print_upgrade_preview(plan: upgrade.UpgradePlan) -> None:
+    print("self-host paired upgrade preview (no changes made):")
+    print(f"  bundle: {plan.directory}")
+    print(f"  current server image: {plan.previous_image}")
+    print(f"  target release: {plan.target.version} ({plan.target.channel})")
+    print(f"  target server image: {plan.target.image}")
+    for index, step in enumerate(plan.steps, start=1):
+        print(f"  {index}. {step}")
+
+
+def _print_upgrade_summary(report: Dict[str, object]) -> None:
+    print(f"self-host pair upgraded: {report.get('version')}")
+    print(f"bundle: {report.get('directory')}")
+    print(f"server image: {report.get('image')}")
+    print("CLI, image pin, pull, and Compose restart all completed")
+
+
+def _print_upgrade_error(error: upgrade.SelfHostUpgradeError) -> None:
+    print(f"error [{error.code}]: {error}", file=sys.stderr)
+    for line in error.detail_lines:
+        print(f"  {line}", file=sys.stderr)
+
+
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("self-host", "init"): self_host_init,
+    ("self-host", "upgrade"): self_host_upgrade,
     **_IMPORT_SUBCOMMANDS,
 }
 
@@ -178,4 +268,5 @@ __all__ = [
     "TOOL_SHAPED_SUBCOMMANDS",
     "TOOL_SHAPED_USAGE",
     "self_host_init",
+    "self_host_upgrade",
 ]
