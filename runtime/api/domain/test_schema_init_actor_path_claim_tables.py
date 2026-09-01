@@ -133,6 +133,24 @@ def test_actor_labels_unique_label_per_surface(conn):
         )
 
 
+def test_actor_labels_share_one_display_label_across_actors(conn):
+    p = _p(conn)
+    aid = _insert_human_actor(conn)
+    bid = _insert_human_actor(conn)
+    for actor_id in (aid, bid):
+        conn.execute(
+            "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
+            f"VALUES ({p}, 'display', 'Alex Kim', {p})",
+            (actor_id, _now()),
+        )
+    holders = conn.execute(
+        "SELECT COUNT(*) FROM actor_labels "
+        f"WHERE surface = 'display' AND label = {p}",
+        ("Alex Kim",),
+    ).fetchone()
+    assert holders[0] == 2
+
+
 def test_actor_labels_unique_actor_per_surface(conn):
     p = _p(conn)
     aid = _insert_human_actor(conn)

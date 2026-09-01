@@ -41,10 +41,9 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional
 
+from yoke_contracts.actor_labels import DISPLAY_LABEL_SURFACE, GITHUB_LABEL_SURFACE
 from yoke_core.domain import db_backend
 
-DISPLAY_LABEL_SURFACE = "display"
-GITHUB_LABEL_SURFACE = "github_label"
 SYSTEM_COMPONENT_YOKE_CORE = "yoke-core"
 
 #: Env var that injects the local human actor's label into canonical-actor

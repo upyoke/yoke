@@ -125,9 +125,10 @@ def _create_schema(conn) -> None:
             surface TEXT NOT NULL,
             label TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            UNIQUE(surface, label),
             UNIQUE(actor_id, surface)
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_actor_labels_resolution_surface_label
+            ON actor_labels(surface, label) WHERE surface <> 'display';
         """,
         _SESSIONS_AND_CLAIMS_DDL,
     )
