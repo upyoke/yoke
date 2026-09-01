@@ -70,7 +70,7 @@ test("the steering sheet is a card tint; the lead box stays blue", () => {
   ), "utf8");
   assert.match(
     css,
-    /\.session-card\[data-steering-history\] \{[\s\S]*#7c5cbf/,
+    /\.session-card\[data-steering-history\] \{[\s\S]*#7c5cbf 5%/,
   );
   assert.match(css, /border-left: 3px solid var\(--yoke-accent\)/);
 });

@@ -113,3 +113,30 @@ test("parked pill stays on the card while Currently held stays calm green", () =
     "green",
   );
 });
+
+test("Previously held does not nest a Steering box for a released seat", () => {
+  const rendered = card(new FakeDocument(), {
+    holdings: {
+      current: [],
+      previous: [
+        {
+          holding_kind: "work_claim",
+          target_kind: "steering",
+          project_id: 1,
+          strategy_docs: ["CURRENT-PLAN"],
+          released_at: "2026-08-26T12:00:00Z",
+        },
+        item("YOK-19", "Previous title"),
+      ],
+      previous_remainder: 0,
+    },
+  });
+  const previous = byClass(rendered, "session-holdings-previous")[0];
+  assert.equal(byClass(previous, "session-steering-lead").length, 0);
+  assert.equal(byClass(rendered, "session-steering-lead").length, 0);
+  assert.equal(
+    byClass(previous, "session-lock").map((node) => node.textContent)
+      .includes("🛞"),
+    true,
+  );
+});

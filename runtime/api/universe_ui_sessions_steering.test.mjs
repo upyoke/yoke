@@ -329,5 +329,9 @@ test("previous steering holdings use the paired project and document label", () 
     byClass(rendered, "session-hold-target").map((node) => node.textContent),
     ["platform · CURRENT-PLAN"],
   );
+  assert.deepEqual(
+    byClass(rendered, "session-lock").map((node) => node.textContent),
+    ["🛞"],
+  );
   assert.ok(!rendered.textContent.includes("project 3"));
 });

@@ -133,3 +133,82 @@ test("session status line leads with total age from offered_at", (t) => {
     "worktree attached now · stale · activity just now",
   );
 });
+
+test("claim held duration follows the top rendered claim of any kind", (t) => {
+  const now = Date.parse("2026-08-27T12:00:00Z");
+  const originalNow = Date.now;
+  Date.now = () => now;
+  t.after(() => { Date.now = originalNow; });
+
+  const documentNode = new FakeDocument();
+  const activityNow = new Date(now - 1_000).toISOString();
+  const ago = (ms) => new Date(now - ms).toISOString();
+  const offered = { offered_at: ago(2 * 3_600_000) };
+
+  assert.equal(
+    renderedActivityAge(documentNode, activityNow, {
+      ...offered,
+      holdings: { current: [{
+        holding_kind: "work_claim",
+        target_kind: "steering",
+        project_id: 1,
+        strategy_docs: ["CURRENT-PLAN"],
+        claimed_at: ago(12 * 60_000),
+      }] },
+    }),
+    "2h old · claim held 12m · active now",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, activityNow, {
+      ...offered,
+      holdings: { current: [{
+        holding_kind: "work_claim",
+        target_kind: "process",
+        target: "process feed",
+        claimed_at: ago(5 * 60_000),
+      }] },
+    }),
+    "2h old · claim held 5m · active now",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, activityNow, {
+      ...offered,
+      holdings: { current: [
+        {
+          holding_kind: "work_claim",
+          target_kind: "steering",
+          project_id: 1,
+          strategy_docs: ["CURRENT-PLAN"],
+          claimed_at: ago(12 * 60_000),
+        },
+        {
+          holding_kind: "work_claim",
+          target_kind: "item",
+          target: "YOK-1",
+          claimed_at: ago(2 * 3_600_000),
+        },
+      ] },
+    }),
+    "2h old · claim held 12m · active now",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, activityNow, {
+      ...offered,
+      holdings: { current: [
+        {
+          holding_kind: "coordination",
+          target_kind: "qa_admission",
+          target: "QA_HOST:test-mac",
+          claimed_at: ago(8 * 60_000),
+        },
+        {
+          holding_kind: "work_claim",
+          target_kind: "item",
+          target: "YOK-1",
+          claimed_at: ago(3_600_000),
+        },
+      ] },
+    }),
+    "2h old · claim held 8m · active now",
+  );
+});

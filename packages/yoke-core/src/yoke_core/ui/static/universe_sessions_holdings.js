@@ -52,6 +52,19 @@ export function ownsFocusedItem(row) {
   );
 }
 
+// The meta line's "claim held" duration follows the top claim the card
+// actually renders: the first STEERING lead row when a live seat is up,
+// otherwise the first CURRENTLY HELD row, any target_kind.
+export function topRenderedClaim(row) {
+  const groups = holdingGroups(row);
+  const steering = groups.current.filter(
+    (holding) => holding.target_kind === "steering",
+  );
+  if (steering.length) return steering[0];
+  const coveredAbove = steeringLeadCovers(row);
+  return groups.current.find((holding) => !coveredAbove(holding)) || null;
+}
+
 // What puts this session's focused item on its card, if anything. A claim
 // is work. A worktree lane on the owning session's item is work too. A
 // filing attribution is only work while nobody else has picked the item
@@ -81,6 +94,12 @@ function titleHolding(entries, row) {
 }
 
 function holdingMarker(holding) {
+  if (holding.target_kind === "steering") {
+    return {
+      text: "🛞",
+      title: "steering seat — this session steered this project",
+    };
+  }
   if (holding.holding_kind === "path_claim") {
     return { text: "📁", title: "file claim — this session holds it" };
   }
@@ -241,9 +260,11 @@ export function appendHoldings(documentNode, body, row, projects = []) {
     appendAttachedEntry(documentNode, currentGroup, row, attribution);
     rendered = true;
   }
-  // A released seat still names the documents it steered from, so the
-  // lock beside it is that seat written twice. The steering row keeps
-  // the pair; a lock no released seat covers keeps its own row.
+  // A released seat is an ordinary previously-held row (steering marker,
+  // same project · docs text as the live lead). Its overlapping document
+  // lock folds into that row so the pair is not written twice. A lock no
+  // released seat covers keeps its own row. Never nest a Steering box
+  // inside Previously held.
   const foldedIntoSeat = steeringDocCovers(groups.previous);
   const previous = groups.previous.filter(
     (holding) => !foldedIntoSeat(holding),
