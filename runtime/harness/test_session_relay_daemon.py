@@ -209,15 +209,15 @@ def test_cycle_cap_bounds_a_directly_driven_loop(tmp_path, cap: int) -> None:
 
 
 def test_failure_burst_logs_first_periodic_and_recovery_lines(caplog) -> None:
-    import yoke_harness.session_relay_daemon as daemon
+    import yoke_harness.session_relay_failure_log as failure_log
 
-    interval = daemon.FAILURE_LOG_INTERVAL_SECONDS
+    interval = failure_log.FAILURE_LOG_INTERVAL_SECONDS
     observed = iter((0.0, 10.0, float(interval), float(interval + 5)))
-    reporter = daemon._FailureReporter(
+    reporter = failure_log.FailureReporter(
         interval_seconds=interval,
         clock=lambda: next(observed),
     )
-    caplog.set_level(logging.WARNING, logger=daemon.__name__)
+    caplog.set_level(logging.WARNING, logger=failure_log.__name__)
 
     reporter.failed("poll", "request rejected")
     reporter.failed("poll", "request rejected")
@@ -242,7 +242,7 @@ def test_claim_failure_logs_reason_then_poll_recovery(tmp_path, caplog) -> None:
             ServeOnceOutcome("active", 1),
         )
     )
-    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_failure_log")
 
     serve_forever(
         state_dir=tmp_path,
@@ -268,7 +268,7 @@ def test_poll_exception_is_logged_without_ending_the_relay(tmp_path, caplog) -> 
             raise ValueError("server rejected relay payload")
         return ServeOnceOutcome("active", 1)
 
-    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_failure_log")
     outcome = serve_forever(
         state_dir=tmp_path,
         cycle=cycle,
@@ -297,7 +297,7 @@ def test_async_report_failure_is_logged_with_its_error_code(tmp_path, caplog) ->
         )
         return ServeOnceOutcome("dispatched", 1)
 
-    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_failure_log")
     serve_forever(
         state_dir=tmp_path,
         cycle=cycle,
@@ -324,7 +324,7 @@ def test_async_settlement_exception_logs_the_operation_and_exception(
         dispatch_job(fail_settlement)
         return ServeOnceOutcome("dispatched", 1)
 
-    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_daemon")
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_failure_log")
     serve_forever(
         state_dir=tmp_path,
         cycle=cycle,

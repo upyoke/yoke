@@ -32,7 +32,9 @@ _CLIENT_MESSAGE_NAMESPACE = uuid.uuid5(
 def _thread(result: dict[str, Any]) -> dict[str, Any]:
     value = result.get("thread")
     if not isinstance(value, dict):
-        raise CodexAppServerError("thread response missing identity", "thread_open")
+        raise CodexAppServerError(
+            "thread response missing identity", "thread_open", code="response_shape"
+        )
     return value
 
 
@@ -40,7 +42,9 @@ def _identity(value: dict[str, Any]) -> tuple[str, str]:
     thread_id = str(value.get("id") or "").strip()
     session_id = str(value.get("sessionId") or "").strip()
     if not thread_id or not session_id:
-        raise CodexAppServerError("thread response missing identity", "thread_open")
+        raise CodexAppServerError(
+            "thread response missing identity", "thread_open", code="response_shape"
+        )
     return thread_id, session_id
 
 
@@ -52,13 +56,17 @@ def _turn_id(result: dict[str, Any]) -> str:
     turn = result.get("turn")
     value = turn.get("id") if isinstance(turn, dict) else None
     if not isinstance(value, str) or not value:
-        raise CodexAppServerError("turn response missing identity", "turn_start")
+        raise CodexAppServerError(
+            "turn response missing identity", "turn_start", code="response_shape"
+        )
     return value
 
 
 def _client_message_id(request: CodexNativeRequest, thread_id: str) -> str:
     if not request.instruction_id:
-        raise CodexAppServerError("instruction identity missing", "turn_start")
+        raise CodexAppServerError(
+            "instruction identity missing", "turn_start", code="instruction_identity"
+        )
     return str(
         uuid.uuid5(
             _CLIENT_MESSAGE_NAMESPACE,
@@ -148,7 +156,9 @@ class CodexAppServerTransport:
             created = True
             if identity[0] != identity[1]:
                 raise CodexAppServerError(
-                    "thread/session identity mismatch", "identity_match"
+                    "thread/session identity mismatch",
+                    "identity_match",
+                    code="identity_mismatch",
                 )
             turn_id = _start_turn(client, identity[0], request)
             client.detach_until_turn_completed(turn_id)
@@ -196,7 +206,9 @@ class CodexAppServerTransport:
                 identity = _identity(current)
                 if identity != (target_thread_id, target_thread_id):
                     raise CodexAppServerError(
-                        "thread/session identity mismatch", "identity_match"
+                        "thread/session identity mismatch",
+                        "identity_match",
+                        code="identity_mismatch",
                     )
                 status = current.get("status")
                 native_status = status.get("type") if isinstance(status, dict) else None
@@ -236,7 +248,9 @@ class CodexAppServerTransport:
                 )
                 if resumed != identity:
                     raise CodexAppServerError(
-                        "resumed identity mismatch", "identity_match"
+                        "resumed identity mismatch",
+                        "identity_match",
+                        code="identity_mismatch",
                     )
                 mutated = True
                 turn_id = _start_turn(client, identity[0], request)

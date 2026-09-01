@@ -9,29 +9,30 @@ from pathlib import Path
 import subprocess
 import time
 from typing import Any, Callable, Mapping, Sequence
-import urllib.error
-import urllib.request
 
 from yoke_contracts.session_control.plan_limits import (
     CLI_PLAN_LIMIT_SURFACES,
     parse_claude_usage,
-    parse_codex_rate_limits,
     parse_cursor_usage,
     sanitize_plan_limits,
     unknown_reading,
+)
+from yoke_harness.session_relay_codex_plan_limit import probe_codex_cli
+from yoke_harness.session_relay_failure_log import FailureReporter
+from yoke_harness.session_relay_plan_limit_http import (
+    PLAN_LIMIT_PROBE_TIMEOUT_SECONDS,
+    plan_limit_http_json,
 )
 from yoke_harness.session_relay_schedule import relay_state_dir
 from yoke_harness.session_relay_surface_probes import resolve_native_cli
 
 
 PLAN_LIMIT_REFRESH_SECONDS = 5 * 60
-PLAN_LIMIT_PROBE_TIMEOUT_SECONDS = 8.0
 PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
 _CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 _CURSOR_RPC = "https://api2.cursor.sh/aiserver.v1.DashboardService/"
-_CODEX_USAGE_URL = "https://chatgpt.com/backend-api/codex/usage"
-_CODEX_USER_AGENT = "codex_cli_rs/yoke-plan-limit-probe"
-_CODEX_CLIENT = {"name": "yoke-limit-probe", "title": "Yoke", "version": "1"}
+
+_failures = FailureReporter()
 
 
 def _now_iso() -> str:
@@ -103,30 +104,6 @@ def _load_claude_credentials() -> dict[str, Any] | str:
     return payload if isinstance(payload, dict) else "stale_credential"
 
 
-def _http_json(
-    url: str,
-    *,
-    headers: Mapping[str, str],
-    data: bytes | None = None,
-    method: str | None = None,
-) -> dict[str, Any] | str:
-    request = urllib.request.Request(
-        url, data=data, headers=dict(headers), method=method
-    )
-    try:
-        with urllib.request.urlopen(
-            request, timeout=PLAN_LIMIT_PROBE_TIMEOUT_SECONDS
-        ) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        if exc.code == 401:
-            return "stale_credential"
-        return f"http_{exc.code}"
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError, TimeoutError):
-        return "usage_unreadable"
-    return payload if isinstance(payload, dict) else "usage_unreadable"
-
-
 def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
     credentials = _load_claude_credentials()
     if isinstance(credentials, str):
@@ -137,93 +114,12 @@ def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
         return unknown_reading(
             "claude-cli", "stale_credential", observed_at=observed_at
         )
-    usage = _http_json(_CLAUDE_USAGE_URL, headers={"Authorization": f"Bearer {token}"})
+    usage = plan_limit_http_json(
+        _CLAUDE_USAGE_URL, headers={"Authorization": f"Bearer {token}"}
+    )
     if isinstance(usage, str):
         return unknown_reading("claude-cli", usage, observed_at=observed_at)
     return parse_claude_usage(credentials, usage, observed_at=observed_at)
-
-
-def _codex_app_server() -> dict[str, Any] | str:
-    binary = resolve_native_cli("codex")
-    if not binary:
-        return "cli_unavailable"
-    try:
-        process = subprocess.Popen(
-            [binary, "app-server"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1,
-        )
-    except OSError:
-        return "cli_unavailable"
-    if process.stdin is None or process.stdout is None:
-        process.kill()
-        return "cli_unavailable"
-
-    def send(payload: dict[str, Any]) -> None:
-        process.stdin.write(json.dumps(payload) + "\n")
-        process.stdin.flush()
-
-    try:
-        send({"id": 0, "method": "initialize", "params": {"clientInfo": _CODEX_CLIENT}})
-        send({"method": "initialized", "params": None})
-        send({"id": 1, "method": "account/rateLimits/read", "params": None})
-        deadline = time.time() + PLAN_LIMIT_PROBE_TIMEOUT_SECONDS
-        while time.time() < deadline:
-            line = process.stdout.readline()
-            if not line:
-                break
-            try:
-                message = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if message.get("id") != 1:
-                continue
-            if "error" in message:
-                return "unsupported_on_this_build"
-            result = message.get("result")
-            return result if isinstance(result, dict) else "usage_unreadable"
-        return "usage_unreadable"
-    finally:
-        process.kill()
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            process.kill()
-
-
-def _codex_http() -> dict[str, Any] | str:
-    path = Path.home() / ".codex" / "auth.json"
-    try:
-        auth = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return "stale_credential"
-    tokens = auth.get("tokens") if isinstance(auth, dict) else None
-    if not isinstance(tokens, Mapping):
-        return "stale_credential"
-    token = tokens.get("access_token")
-    account_id = tokens.get("account_id")
-    if not isinstance(token, str) or not isinstance(account_id, str):
-        return "stale_credential"
-    return _http_json(
-        _CODEX_USAGE_URL,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "chatgpt-account-id": account_id,
-            "User-Agent": _CODEX_USER_AGENT,
-        },
-    )
-
-
-def probe_codex_cli(*, observed_at: str) -> dict[str, Any]:
-    payload = _codex_app_server()
-    if payload in {"unsupported_on_this_build", "cli_unavailable"}:
-        payload = _codex_http()
-    if isinstance(payload, str):
-        return unknown_reading("codex-cli", payload, observed_at=observed_at)
-    return parse_codex_rate_limits(payload, observed_at=observed_at)
 
 
 def probe_cursor_cli(*, observed_at: str) -> dict[str, Any]:
@@ -237,10 +133,10 @@ def probe_cursor_cli(*, observed_at: str) -> dict[str, Any]:
         "Content-Type": "application/json",
         "Connect-Protocol-Version": "1",
     }
-    plan = _http_json(
+    plan = plan_limit_http_json(
         _CURSOR_RPC + "GetPlanInfo", headers=headers, data=b"{}", method="POST"
     )
-    usage = _http_json(
+    usage = plan_limit_http_json(
         _CURSOR_RPC + "GetCurrentPeriodUsage",
         headers=headers,
         data=b"{}",
@@ -287,8 +183,13 @@ def _probe_one(surface: str, observed_at: str) -> dict[str, Any]:
         return unknown_reading(surface, "unsupported_surface", observed_at=observed_at)
     try:
         return probe(observed_at=observed_at)
-    except Exception:
-        return unknown_reading(surface, "usage_unreadable", observed_at=observed_at)
+    except Exception as exc:
+        # Collapsing every exception into one reason is how a surface that
+        # is merely misconfigured reads the same as one that is broken.
+        _failures.failed(f"{surface} plan-limit probe", f"{type(exc).__name__}: {exc}")
+        return unknown_reading(
+            surface, f"probe_raised_{type(exc).__name__}", observed_at=observed_at
+        )
 
 
 def observe_plan_limits(
@@ -332,7 +233,6 @@ def observe_plan_limits(
 
 __all__ = [
     "PLAN_LIMIT_CACHE_FILE_NAME",
-    "PLAN_LIMIT_PROBE_TIMEOUT_SECONDS",
     "PLAN_LIMIT_REFRESH_SECONDS",
     "observe_plan_limits",
 ]
