@@ -19,9 +19,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_control_diagnostics import session_diagnostics
 from yoke_core.domain.session_control_health_facts import session_health_facts
-from yoke_core.domain.session_holdings_health import (
-    HOLDINGS_HEALTH_GREEN,
-    current_holdings_health_by_session,
+from yoke_core.domain.session_item_stage_states import (
+    primary_item_stages_by_session,
 )
 from yoke_core.domain.sessions_steering_visibility import steering_visibility
 from yoke_core.domain.session_message_routing import messageability
@@ -196,7 +195,7 @@ def _project_row(
     diagnostics: Mapping[str, Any],
     health: Mapping[str, Any],
     steering: Mapping[str, Any],
-    holdings_health: str,
+    primary_item_stages: list[dict[str, Any]],
 ) -> dict[str, Any]:
     merged = {**row, **identity}
     machine_id = str(merged.get("machine_id") or "")
@@ -240,7 +239,7 @@ def _project_row(
         **diagnostics,
         **health,
         **steering,
-        "current_holdings_health": holdings_health,
+        "primary_item_stages": primary_item_stages,
     }
 
 
@@ -276,9 +275,7 @@ def session_control_roster_result(
         diagnostics = session_diagnostics(conn, rows, identities)
         health = session_health_facts(conn, rows, identities)
         steering = steering_visibility(conn, rows, now=now)
-        holdings_health = current_holdings_health_by_session(
-            conn, rows, identities, diagnostics, now=now
-        )
+        stage_states = primary_item_stages_by_session(conn, rows)
         projected = [
             _project_row(
                 row,
@@ -290,9 +287,8 @@ def session_control_roster_result(
                 diagnostics=diagnostics.get(str(row.get("session_id") or ""), {}),
                 health=health.get(str(row.get("session_id") or ""), {}),
                 steering=steering.get(str(row.get("session_id") or ""), {}),
-                holdings_health=holdings_health.get(
-                    str(row.get("session_id") or ""),
-                    HOLDINGS_HEALTH_GREEN,
+                primary_item_stages=stage_states.get(
+                    str(row.get("session_id") or ""), []
                 ),
             )
             for row in rows

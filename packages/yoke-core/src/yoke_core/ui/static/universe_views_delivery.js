@@ -12,6 +12,7 @@ import {
   statePill,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
+import { renderStageStrip } from "./universe_stage_strip.js";
 import {
   isTerminalizable,
   terminalizationDialog,
@@ -49,28 +50,6 @@ function originatingItems(documentNode, row) {
     ));
   }
   return members;
-}
-
-function runStages(documentNode, row) {
-  const stages = row.stages || [];
-  const strip = el(documentNode, "span", "delivery-run-stages");
-  strip.setAttribute("role", "img");
-  strip.setAttribute(
-    "aria-label",
-    stages.length
-      ? `stages: ${stages.map((stage) => (
-        `${stage.name || "unnamed"} ${stage.state || "pending"}`
-      )).join(", ")}`
-      : "no stages published",
-  );
-  for (const stage of stages) {
-    const state = String(stage.state || "pending");
-    const segment = el(documentNode, "span", "delivery-run-stage");
-    segment.setAttribute("data-state", state);
-    segment.setAttribute("title", `${stage.name || "unnamed"} · ${state}`);
-    strip.appendChild(segment);
-  }
-  return strip;
 }
 
 function runProjectLabel(projects, projectSlug) {
@@ -116,7 +95,7 @@ function renderRunsTable(body, rows, projects, onTerminalized) {
       row.target_environment || row.target_tier || "—",
     ));
     const stages = el(documentNode, "td");
-    stages.appendChild(runStages(documentNode, row));
+    stages.appendChild(renderStageStrip(documentNode, row.stages));
     tr.appendChild(stages);
     const status = el(documentNode, "td", "delivery-run-status");
     const pill = statePill(documentNode, row.status, row.status);

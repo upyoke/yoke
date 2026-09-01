@@ -25,6 +25,9 @@ function item(target, title) {
 }
 
 function card(documentNode, extras = {}) {
+  const currentItem = Object.hasOwn(extras, "currentItem")
+    ? extras.currentItem
+    : "YOK-20";
   return sessionCard(
     documentNode,
     {
@@ -32,14 +35,21 @@ function card(documentNode, extras = {}) {
       liveness: "active",
       mode: extras.mode || "dash",
       executor: "codex",
-      current_item: "YOK-20",
+      current_item: currentItem,
       current_item_project_id: 1,
       current_item_project_sequence: 20,
       current_item_title: "Current title",
       current_item_status: "implementing",
       current_item_workflow_id: "dash",
       activity_at: "2026-08-28T12:00:00Z",
-      current_holdings_health: extras.health || "green",
+      primary_item_stages: extras.stages || [
+        { name: "idea", state: "complete", failure: null },
+        { name: "implementing", state: "active", failure: null },
+        {
+          name: "reviewing implementation", state: "pending", failure: null,
+        },
+        { name: "done", state: "pending", failure: null },
+      ],
       claims: [],
       holdings: extras.holdings || {
         current: [item("YOK-20", "Current title")],
@@ -81,37 +91,82 @@ test("Previously held uses the same boxed structure as Steering, in grey", () =>
   assert.match(css, /border-radius: 4px/);
 });
 
-test("Currently held paints the server-projected health tone", () => {
-  for (const health of ["green", "yellow", "orange", "red"]) {
-    const rendered = card(new FakeDocument(), { health });
-    const current = byClass(rendered, "session-holdings-current")[0];
-    assert.equal(current.getAttribute("data-holdings-health"), health);
-    assert.equal(
-      byClass(current, "session-item-link")[0].textContent, "YOK-20",
-    );
-  }
-});
-
-test("Currently held does not derive health from activity timestamps", () => {
-  const rendered = card(new FakeDocument(), { health: "orange" });
+test("primary held item shows its complete workflow stage strip", () => {
+  const rendered = card(new FakeDocument(), {
+    holdings: {
+      current: [
+        item("YOK-21", "Extra title"),
+        item("YOK-20", "Current title"),
+      ],
+      previous: [item("YOK-19", "Previous title")],
+      previous_remainder: 0,
+    },
+  });
   const current = byClass(rendered, "session-holdings-current")[0];
-  assert.equal(current.getAttribute("data-holdings-health"), "orange");
-  assert.equal(byClass(rendered, "session-age").length, 1);
+  assert.deepEqual(
+    byClass(current, "delivery-run-stage").map(
+      (node) => node.getAttribute("data-state"),
+    ),
+    ["complete", "active", "pending", "pending"],
+  );
+  assert.deepEqual(
+    byClass(current, "delivery-run-stage").map(
+      (node) => node.getAttribute("title"),
+    ),
+    [
+      "idea · complete",
+      "implementing · active",
+      "reviewing implementation · pending",
+      "done · pending",
+    ],
+  );
+  assert.equal(byClass(current, "session-item-stage-progress").length, 1);
+  assert.equal(byClass(current, "session-item-title").length, 1);
 });
 
-test("parked pill stays on the card while Currently held stays calm green", () => {
+test("failed segment names the real failure beneath the primary item", () => {
+  const rendered = card(new FakeDocument(), {
+    stages: [
+      { name: "idea", state: "complete", failure: null },
+      { name: "implementing", state: "complete", failure: null },
+      {
+        name: "reviewing implementation",
+        state: "failed",
+        failure: "QA failed",
+      },
+      { name: "done", state: "pending", failure: null },
+    ],
+  });
+
+  assert.equal(
+    byClass(rendered, "session-item-stage-failure")[0].textContent,
+    "reviewing implementation · QA failed",
+  );
+  assert.equal(
+    byClass(rendered, "delivery-run-stage")[2].getAttribute("data-state"),
+    "failed",
+  );
+});
+
+test("holder pill and age remain while the lifecycle strip stays item-only", () => {
   const rendered = card(new FakeDocument(), {
     mode: "parked",
-    health: "green",
   });
   const badge = byClass(rendered, "session-parked-badge")[0];
   assert.ok(!badge.className.includes("session-parked-badge-empty"));
   assert.equal(badge.hidden, false);
-  assert.equal(
-    byClass(rendered, "session-holdings-current")[0]
-      .getAttribute("data-holdings-health"),
-    "green",
-  );
+  assert.equal(byClass(rendered, "session-age").length, 1);
+  assert.equal(byClass(rendered, "delivery-run-stages").length, 1);
+});
+
+test("steering or no-item sessions do not render an item stage strip", () => {
+  const rendered = card(new FakeDocument(), {
+    mode: "steer",
+    currentItem: null,
+    holdings: { current: [], previous: [], previous_remainder: 0 },
+  });
+
+  assert.equal(byClass(rendered, "delivery-run-stages").length, 0);
 });
 
 test("Previously held does not nest a Steering box for a released seat", () => {

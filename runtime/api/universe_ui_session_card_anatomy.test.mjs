@@ -181,10 +181,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "pill").map((pill) => [pill.textContent, pill.className]),
     [
       ["test-mac", "pill good session-relay-pill"],
-      ["blitz · implementing", "pill run session-item-stage"],
       ["machine-2", "pill crit session-relay-pill"],
     ],
   );
+  assert.equal(byClass(root, "session-item-stage").length, 0);
   assert.deepEqual(
     byClass(root, "session-relay-warning").map((node) => node.textContent),
     ["no relay connected"],

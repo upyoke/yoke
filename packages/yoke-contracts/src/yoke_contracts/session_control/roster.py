@@ -27,7 +27,7 @@ SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "declared_wait",
     "stale_alive_probe",
     "steering_scope",
-    "current_holdings_health",
+    "primary_item_stages",
 )
 
 
