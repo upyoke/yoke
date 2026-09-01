@@ -106,6 +106,7 @@ DONE_TRANSITION_CLOSE_OUT_TESTS = (
     "runtime/api/engines/test_done_transition_gates.py",
     "runtime/api/engines/test_done_transition_post.py",
     "runtime/api/engines/test_done_transition_syspath.py",
+    "runtime/api/test_backlog_github_sync_close_observability.py",
 )
 
 DIRECT_WORKFLOW_PREPARE_TESTS = (
@@ -218,6 +219,7 @@ PATH_CONTRACT_TESTS = (
         frozenset(
             {
                 "packages/yoke-core/src/yoke_core/engines/done_transition_cleanup.py",
+                "packages/yoke-core/src/yoke_core/engines/done_transition_github_sync.py",
                 "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py",
             }
         ),
