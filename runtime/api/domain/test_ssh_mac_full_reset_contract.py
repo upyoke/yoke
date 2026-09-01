@@ -47,7 +47,9 @@ def test_rendered_program_restores_a_baseline_rather_than_enumerating_residue() 
         "restore_tokens",
         "yoke-smoke-tokens",
         "/tmp/yoke-stage.token",
-        "/opt/homebrew",
+        # The uv the old reset uninstalled, not the prefix itself: a container
+        # runtime legitimately installs under the same Homebrew prefix.
+        "/opt/homebrew/bin/uv",
         "YOKE TEST HOST BASELINE",
     ):
         assert retired not in FULL_RESET_SCRIPT, retired
@@ -71,7 +73,9 @@ def test_clear_and_restore_walk_the_same_levels_and_keep_the_same_names() -> Non
     clear_levels = [line for line in clear.splitlines() if "/usr/bin/find" in line]
     restore_levels = [line for line in restore.splitlines() if "/usr/bin/find" in line]
     restore_calls = [
-        line for line in restore.splitlines() if 'restore_entry "$captured"' in line
+        line
+        for line in restore.splitlines()
+        if 'restore_captured_entry "$captured"' in line
     ]
     # Symmetry is the invariant: flattening either walk lets the captured copy
     # of a preserved path overwrite the live one.
@@ -93,7 +97,11 @@ def test_clear_and_restore_walk_the_same_levels_and_keep_the_same_names() -> Non
     assert "/bin/cp -Rpf" in FULL_RESET_SCRIPT
     assert '/bin/chmod -RN "$destination"' in FULL_RESET_SCRIPT
     # Restore records why it failed; the clear tolerates cosmetic ACL refusals.
-    assert all('2>>"$restore_error_log"' in line for line in restore_calls)
+    # Each entry's diagnostics are captured by the per-entry wrapper rather than
+    # at the call site, so the aggregate log and the list of entries that
+    # produced it stay in step.
+    assert '2>"$entry_log"' in FULL_RESET_SCRIPT
+    assert '>> "$restore_failure_report"' in FULL_RESET_SCRIPT
     assert all("2>/dev/null" in line for line in clear_levels)
 
 

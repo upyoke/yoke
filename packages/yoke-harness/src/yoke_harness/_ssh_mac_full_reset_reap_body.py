@@ -8,6 +8,11 @@ reap_candidate_pids() {
     [[ "$pid" == <-> ]] || continue
     case "$command_line" in
       *"$reap_marker_anchor"*"$reap_marker_suffix"*|*"$reap_onboard_anchor"*) ;;
+      # A process running out of this home's Yoke directory is a Yoke process
+      # this walk started: the local universe's Postgres server names its data
+      # directory on its own command line, and it keeps writing there while the
+      # clear removes it unless it is stopped first.
+      *"$yoke_state_dir"*) ;;
       *) continue ;;
     esac
     print -r -- "$pid"

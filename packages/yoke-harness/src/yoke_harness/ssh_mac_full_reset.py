@@ -14,6 +14,7 @@ from yoke_cli.config.path_doctor import (
 
 from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
+    RESET_RESTORE_UNRESTORED_PREFIX,
     golden_baseline_clears_home,
     resolve_full_reset_path_contract,
 )
@@ -21,6 +22,7 @@ from yoke_harness.ssh_mac_full_reset_receipt import (
     closed_outcomes,
     failure_outcome,
     success_evidence,
+    unrestored_detail,
 )
 from yoke_harness.ssh_mac_full_reset_script import render_full_reset_script
 from yoke_harness.test_machine_types import HostActionResult
@@ -190,15 +192,20 @@ def execute_full_test_mac_reset(
         ]
     }
     if parsed_failure is not None:
-        phase, recovery_failed, reap_detail = parsed_failure
+        phase, recovery_failed, detail = parsed_failure
         failure_evidence.update(
             {
                 "reset_phase": phase,
                 "recovery_cleanup": "failed" if recovery_failed else "completed",
             }
         )
-        if reap_detail is not None:
-            reap_parts = reap_detail.split()
+        if detail is not None and detail.startswith(RESET_RESTORE_UNRESTORED_PREFIX):
+            # The restore names what it could not return. Without this the
+            # receipt carried only the phase, and diagnosis meant repeating the
+            # whole restore on the host just to watch where it stopped.
+            failure_evidence["restore_state"] = unrestored_detail(detail)
+        elif detail is not None:
+            reap_parts = detail.split()
             failure_evidence["process_state"] = {
                 "surviving_reap_failures": int(reap_parts[0]),
                 "surviving_matches": int(reap_parts[1]),

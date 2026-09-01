@@ -18,6 +18,7 @@ from yoke_cli.config.path_doctor import (
     SUPPORTED_SHELLS,
     resolve_path_state_contract,
 )
+from yoke_cli.self_host.bundle import DEFAULT_BUNDLE_DIR
 
 
 FULL_RESET_MARKER = "YOKE_MAC_WIPE_OK"
@@ -29,6 +30,7 @@ RESET_PHASES = {
     "assert_full_disk_access": "ASSERT_FULL_DISK_ACCESS",
     "validate_golden": "VALIDATE_GOLDEN",
     "reap_processes": "REAP_PROCESSES",
+    "stop_self_host_stack": "STOP_SELF_HOST_STACK",
     "clear_home": "CLEAR_HOME",
     "restore_golden": "RESTORE_GOLDEN",
     "verify_restored_home": "VERIFY_RESTORED_HOME",
@@ -69,11 +71,18 @@ GOLDEN_PROBES_SUFFIX = ".probes"
 
 RESET_TOOL_AUXILIARY_FILES = ("env",)
 INSTALLER_TEMP_PATH = "/tmp/yoke-install"
+# The machine-local Yoke directory, home-relative. Everything a walk writes
+# about this machine lives below it: the local universe's Postgres cluster, the
+# minted API tokens, the client configuration.
+YOKE_STATE_DIR_NAME = ".yoke"
 # Home-relative Yoke and uv state asserted absent after the restore. The golden
 # was captured with zero Yoke on it, so any of these reappearing means the
-# restore did not take.
+# restore did not take. The self-host bundle directory is here because it holds
+# the server's owner-only secrets/ and is written where the operator ran init,
+# which for the stranger walk is the home.
 YOKE_ABSENT_RELATIVE_DIRECTORIES = (
-    ".yoke",
+    YOKE_STATE_DIR_NAME,
+    DEFAULT_BUNDLE_DIR,
     ".yoke-e2e-logs",
     ".local/share/uv",
     ".local/state/uv",
@@ -90,6 +99,34 @@ RESET_REAP_ONBOARD_ANCHOR = "onboard --post-install"
 RESET_PROCESS_REAPED_PREFIX = "YOKE_RESET_PROCESS_TABLE_REAPED_"
 RESET_LOAD_AVERAGE_PREFIX = "YOKE_RESET_LOAD_AVERAGE_"
 RESET_RESTORED_ENTRIES_PREFIX = "YOKE_RESET_RESTORED_ENTRIES_"
+
+# Container runtime the self-host bundle drives. The reset resolves the client
+# from these absolute locations rather than from a login PATH, because the
+# program runs with a deliberately clean PATH and a runtime it cannot see is a
+# runtime whose containers it would silently leave running.
+CONTAINER_RUNTIME_PATHS = (
+    "/usr/local/bin/docker",
+    "/opt/homebrew/bin/docker",
+)
+# The desktop application owning the runtime's data. It is stopped before the
+# clear because a live backend keeps writing into the very home directory the
+# restore is replacing, which turns a clean restore into a race.
+CONTAINER_RUNTIME_PROCESS_ANCHOR = "/Applications/Docker.app"
+CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS = 30
+# Compose labels every object it creates with the project name it derives from
+# the bundle directory. Selecting by that label removes the server's own
+# containers and volumes while leaving a user's identically imaged ones alone.
+COMPOSE_PROJECT_LABEL = "com.docker.compose.project"
+SELF_HOST_COMPOSE_PROJECT = DEFAULT_BUNDLE_DIR
+RESET_SELF_HOST_CONTAINERS_PREFIX = "YOKE_RESET_SELF_HOST_CONTAINERS_REMOVED_"
+RESET_SELF_HOST_VOLUMES_PREFIX = "YOKE_RESET_SELF_HOST_VOLUMES_REMOVED_"
+RESET_SELF_HOST_IMAGES_PREFIX = "YOKE_RESET_SELF_HOST_IMAGES_REMOVED_"
+
+# A restore that stops names WHICH captured entries it could not return. The
+# phase marker alone sent the last operator back to reproduce a multi-gigabyte
+# restore just to learn where it stopped, so the report rides the failure.
+RESET_RESTORE_UNRESTORED_PREFIX = "YOKE_RESET_UNRESTORED_"
+RESTORE_REPORT_ENTRY_CAP = 12
 
 
 @dataclass(frozen=True)

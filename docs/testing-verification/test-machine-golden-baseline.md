@@ -17,6 +17,48 @@ declared probe reporting its program signed in. The live `.ssh` directory and
 `com.apple.TCC` privacy database survive the clear, and the restoring process
 must hold Full Disk Access, which the operation asserts rather than assumes.
 
+## What the restore cannot reach, the reset stops first
+
+Restoring one home replaces everything that lives inside it, and a self-hosting
+server walk puts most of its residue there: the bundle directory with its
+owner-only `secrets/`, the minted API tokens, the local universe's Postgres
+cluster, and — on a default macOS install — the container runtime's own data.
+
+Two things are still outside the restore's reach, and the reset handles both
+before it clears anything. The running server is one: containers, volumes, and
+images can only be named by a daemon that is up, and a runtime whose data root
+was moved outside the home would keep them whatever the restore does. So the
+reset removes the bundle's own objects first, selecting them by the Compose
+project label rather than by image name — the bundle shares its database image
+with whatever else a user runs, and a name match would take theirs too. Images
+are removed without force, because a refusal means another container still uses
+the image, which makes it that workload's image rather than residue.
+
+The live writer is the other. A container runtime backend keeps writing into
+the very home the clear is replacing, and a local-universe Postgres server
+names its own data directory on its command line while holding it open. Both
+are stopped before the clear: the runtime application by name, the Postgres
+server through the same process reap that already fails the reset when a Yoke
+process survives it. A clear that races a live writer leaves the restore a
+destination it cannot reconcile, which surfaces as a restore failure whose real
+cause was never the restore.
+
+The receipt reports what the teardown freed — containers, volumes, and images,
+alongside the Compose project it selected — so a walk that left nothing behind
+is distinguishable from one whose teardown never ran.
+
+## Reading a stopped restore
+
+A restore that stops names the captured entries it could not return, and that
+report rides the failure into the receipt as `restore_state`. Entry names are
+reduced to letters, digits, dots, dashes, and underscores before they travel,
+because the program's output contract is closed and a name carrying a space or
+a quote would reopen it.
+
+Read those names first. Without them the receipt carries only the phase, and
+diagnosis means reproducing a multi-gigabyte restore on the host just to watch
+where it stopped — which is what one operator did before the report existed.
+
 ## The probes live beside the golden
 
 Structure is not liveness. A credential file comes back byte-identical and
