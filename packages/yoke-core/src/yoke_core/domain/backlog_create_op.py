@@ -290,10 +290,10 @@ def execute_create(
                     commit=False,
                 )
                 from yoke_core.domain.item_posture_bindings import (
-                    bind_item_posture_on_create,
+                    bind_item_posture_selection,
                 )
 
-                bind_item_posture_on_create(
+                bind_item_posture_selection(
                     conn,
                     item_id=current_id,
                     definition=workflow_runtime.definition,

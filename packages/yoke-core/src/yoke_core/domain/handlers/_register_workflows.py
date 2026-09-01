@@ -9,6 +9,7 @@ from yoke_core.domain.handlers import (
     workflows_canon_follow as _wcf,
     workflows_canon_update as _wcu,
 )
+from yoke_core.domain.handlers import workflows_item_posture as _wip
 
 
 def register(registry) -> None:
@@ -196,6 +197,33 @@ def register(registry) -> None:
         ],
         adapter_status="live",
         claim_required_kind="operator_override",
+    )
+    registry.register(
+        "workflows.item_posture.amend",
+        _wip.handle_item_posture_amend,
+        _wip.ItemPostureAmendRequest,
+        _wip.ItemPostureAmendResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_item_posture",
+        target_kinds=["item"],
+        side_effects=[
+            "items_workflow_posture_update",
+            "qa_requirements_waive",
+            "qa_plan_item_attachments_delete",
+            "qa_plan_item_attachments_insert",
+        ],
+        emitted_event_names=[
+            "YokeFunctionCalled",
+            "ItemWorkflowPostureAmended",
+        ],
+        guardrails=[
+            "definition_posture_allowlist",
+            "declared_amendment_guard",
+            "non_terminal_stage_only",
+            "recorded_evidence_preserved",
+        ],
+        adapter_status="live",
+        claim_required_kind="item",
     )
 
 

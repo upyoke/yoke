@@ -22,6 +22,9 @@ from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_plan_rematerialize,
 )
 from yoke_cli.commands.adapters.qa_catalog_usage import USAGE_BY_FUNCTION_ID
+from yoke_cli.commands.adapters.workflows_item_posture import (
+    WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE,
+)
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -289,7 +292,19 @@ def qa_plan_item_attach(args: List[str]) -> int:
         "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N "
         "--transition T [--qa-phase PHASE] [--json]"
     )
-    parser = argparse.ArgumentParser(prog="yoke qa item-plan attach", description=usage)
+    parser = argparse.ArgumentParser(
+        prog="yoke qa item-plan attach",
+        description=usage,
+        epilog=(
+            "Attaching creates a blocking case row at --transition, and there "
+            "is no detach. On a workflow whose QA policy is optional item "
+            "attachment, attach accepts only the plan or method already "
+            "selected in workflow_posture.verification; select it first "
+            f"with `{WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}`, then attach and "
+            "`yoke qa plan materialize`."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--item", required=True)
     parser.add_argument("--project", required=True)
     _configure_attachment(parser)

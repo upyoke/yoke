@@ -74,7 +74,8 @@ do not leak into that item on a later materialization call. Empty plans cannot
 be attached or materialized. v1 accepts only the `all-pass` policy, including
 case-level overrides, and project-local methods can only be used by plans in
 that same project. Case waiver stays case-scoped, and the transition
-consumes the union of all materialized outcomes.
+consumes the union of all materialized outcomes. Where QA policy is optional item attachment, attach and materialize accept only the selection in
+`workflow_posture.verification`; set it on an item that has none with `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` (`--help` carries the per-key decision tree).
 
 If a plan definition needs correction after it has materialized, replace the
 active snapshot with:

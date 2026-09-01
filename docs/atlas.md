@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-01T13:09:32Z_
+_Audit generated_at: 2026-09-01T16:15:15Z_
 
 ## 1. Summary
 
-- Function ids registered: **444**
+- Function ids registered: **445**
 - Internal dispatch-only functions without CLI adapters: **88**
-- `yoke` CLI subcommands: **370** (370 carry usable `--help`)
-- Operation tracker: **346 wrapped**, 13 tool_cli, 127 permanent, 0 pending
+- `yoke` CLI subcommands: **371** (371 carry usable `--help`)
+- Operation tracker: **347 wrapped**, 13 tool_cli, 127 permanent, 0 pending
 - Skill-body recipes: 330 total (277 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **346** (operation tracker confirms 346 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **347** (operation tracker confirms 347 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -361,6 +361,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **346** (operation track
 | workflows | `yoke workflows delivery-default set` | `workflows.delivery_default.set` | ok |
 | workflows | `yoke workflows item get` | `workflows.item.get` | ok |
 | workflows | `yoke workflows item migrate` | `workflows.item.migrate` | ok |
+| workflows | `yoke workflows item-posture amend` | `workflows.item_posture.amend` | ok |
 | workflows | `yoke workflows mechanics get` | `workflows.mechanics.get` | ok |
 | workflows | `yoke workflows policy-defaults publish` | `workflows.policy_defaults.publish` | ok |
 | workflows | `yoke workflows testing-default set` | `workflows.testing_default.set` | ok |
@@ -539,7 +540,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 135 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 34 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 35 |
 | runtime/agents/*.md | 9 |
 | runtime/harness/claude/agents/yoke-*.md | 8 |
 | runtime/harness/codex/agents/yoke-*.toml | 8 |
@@ -552,8 +553,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 40 |
-| claude-code | 10 |
+| codex | 27 |
+| claude-code | 15 |
+| cursor | 8 |
 
 ## 8. Contradictions
 

@@ -292,7 +292,7 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("direct_workflow."):
         return PERM_ITEMS_WRITE
-    if fid.startswith("workflows.item."):
+    if fid.startswith(("workflows.item.", "workflows.item_posture.")):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("lifecycle."):
         return PERM_ITEMS_WRITE

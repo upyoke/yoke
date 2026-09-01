@@ -31,7 +31,7 @@ review plus advisory command requirements (`seed-work.md`).
 | Review-only legacy suite | Item requirements: blocking `implementation_review`, non-blocking method `command` | Records the exact known-red/flaky argv without making its current failure a project-default gate |
 | CI routing | `yoke projects capability-settings set --project P --cap-type ci_workflow_file --new --settings-json '{"workflow_file":"ci.yml"}'` | Filename under `.github/workflows/` (optional `scope_workflows` map). Empty declaration keeps the **local** `command` method |
 | Merge queue | `yoke projects capability-settings set --project P --cap-type merge_queue --new --settings-json '{}'` | Presence-only. Template `requires` `ci_workflow_file` and `github`. Absent → standalone merge engine |
-| Attach to an item | `yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition reviewing-implementation` | Seed-work already teaches this when CURRENT-PLAN names a plan |
+| Attach to an item | `yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition reviewing-implementation` | Seed-work already teaches this when CURRENT-PLAN names a plan. Where QA policy is optional item attachment, attach accepts only the selection in `workflow_posture.verification` — set it first with `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` |
 
 Routing (`qa_command_plan_registration.py` / `qa_command_scope_routing.py`):
 
