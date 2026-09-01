@@ -37,9 +37,9 @@ def git_out(repo_root: str, *args: str) -> str:
 
 
 def branch_exists(repo_root: str, branch: str) -> bool:
-    return _git(
-        repo_root, "rev-parse", "--verify", f"refs/heads/{branch}"
-    ).returncode == 0
+    return (
+        _git(repo_root, "rev-parse", "--verify", f"refs/heads/{branch}").returncode == 0
+    )
 
 
 def head_of(repo_root: str, branch: str) -> str:
@@ -47,26 +47,30 @@ def head_of(repo_root: str, branch: str) -> str:
     return git_out(repo_root, "rev-parse", f"refs/heads/{branch}")
 
 
-def remote_branch_exists(repo_root: str, branch: str) -> bool:
-    """Whether origin advertises ``branch``.
+def remote_head_of(repo_root: str, branch: str) -> str:
+    """The commit origin advertises for ``branch``; empty when absent.
 
     The exact ref is asked for, so a branch whose name prefixes another
-    cannot answer for it. An unreadable remote answers ``False``, because the
+    cannot answer for it. An unreadable remote answers empty, because the
     caller's response is to publish — which names its own failure if the
     remote is genuinely unreachable.
     """
-    return bool(
-        git_out(
-            repo_root, "ls-remote", "--heads", "origin", f"refs/heads/{branch}"
-        )
+    listing = git_out(
+        repo_root, "ls-remote", "--heads", "origin", f"refs/heads/{branch}"
     )
+    return listing.split()[0] if listing else ""
+
+
+def remote_branch_exists(repo_root: str, branch: str) -> bool:
+    """Whether origin advertises ``branch``."""
+    return bool(remote_head_of(repo_root, branch))
 
 
 def is_ancestor(repo_root: str, commit: str, target: str) -> bool:
     """Whether ``target`` already contains ``commit``."""
-    return _git(
-        repo_root, "merge-base", "--is-ancestor", commit, target
-    ).returncode == 0
+    return (
+        _git(repo_root, "merge-base", "--is-ancestor", commit, target).returncode == 0
+    )
 
 
 def fetch_target(repo_root: str, target: str) -> None:
@@ -128,9 +132,7 @@ def publish(repo_root: str, target: str) -> tuple[bool, str]:
     if pushed.returncode == 0:
         return True, ""
     detail = (pushed.stderr or pushed.stdout or "").strip()
-    return False, (
-        f"merge landed locally but publishing '{target}' failed: {detail}"
-    )
+    return False, (f"merge landed locally but publishing '{target}' failed: {detail}")
 
 
 __all__ = [
@@ -145,4 +147,5 @@ __all__ = [
     "is_landed",
     "publish",
     "remote_branch_exists",
+    "remote_head_of",
 ]
