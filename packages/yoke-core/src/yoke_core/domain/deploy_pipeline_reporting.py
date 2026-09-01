@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
+from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 from yoke_core.domain.github_poll_schedule import (
     STEADY_SCHEDULE,
     PollSchedule,
@@ -230,7 +231,7 @@ def _set_deploy_stage(
 
     for raw in member_items:
         stamp_item_field(int(raw), "deploy_stage", stage)
-    _yoke_db("runs", "update", run_id, "current_stage", stage, sd=sd)
+    run_updates.update_run_field(run_id, "current_stage", stage)
 
 
 # ---------------------------------------------------------------------------

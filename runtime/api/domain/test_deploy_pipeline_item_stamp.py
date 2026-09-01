@@ -16,6 +16,7 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.actors import seed_human_actor
+from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 from yoke_core.domain.deploy_pipeline_reporting import (
     DeployPipelineCommandError,
     _set_deploy_stage,
@@ -91,20 +92,16 @@ def test_set_deploy_stage_stamps_member_then_run(db, monkeypatch):
 
     seen: list[tuple[str, ...]] = []
 
-    def _fake_yoke_db(*args, sd=None):
-        seen.append(tuple(args))
-        return ""
+    def _fake_update_run_field(run_id, field, value):
+        seen.append((run_id, field, value))
 
-    monkeypatch.setattr(
-        "yoke_core.domain.deploy_pipeline_reporting._yoke_db",
-        _fake_yoke_db,
-    )
+    monkeypatch.setattr(run_updates, "update_run_field", _fake_update_run_field)
     _set_deploy_stage("warm-up", "run-20260822-001", [str(item_id)])
     assert _scalar(
         db, "SELECT deploy_stage FROM items WHERE id = %s", (item_id,)
     ) == "warm-up"
     assert seen == [
-        ("runs", "update", "run-20260822-001", "current_stage", "warm-up"),
+        ("run-20260822-001", "current_stage", "warm-up"),
     ]
 
 

@@ -5,7 +5,11 @@ from __future__ import annotations
 import subprocess
 from unittest import mock
 
-from yoke_core.domain import deploy_pipeline, deploy_pipeline_failure
+from yoke_core.domain import (
+    deploy_pipeline,
+    deploy_pipeline_failure,
+    deploy_pipeline_run_updates as run_updates,
+)
 
 
 def _completed(
@@ -34,8 +38,8 @@ def test_failed_stage_reports_terminal_trace_after_recording_state(capsys) -> No
             "cmd_record_stage_result",
         ) as record_qa,
         mock.patch.object(
-            deploy_pipeline_failure.reporting,
-            "_yoke_db",
+            run_updates,
+            "update_run_field",
         ) as update_run,
         mock.patch.object(
             deploy_pipeline_failure,
@@ -60,12 +64,9 @@ def test_failed_stage_reports_terminal_trace_after_recording_state(capsys) -> No
     set_stage.assert_called_once()
     record_qa.assert_called_once()
     update_run.assert_called_once_with(
-        "runs",
-        "update",
         "run-20260829-006",
         "status",
         "failed",
-        sd="/tmp/sd",
     )
     assert traced == ["run-20260829-006"]
     assert "stage 'hosted-release' failed" in capsys.readouterr().err

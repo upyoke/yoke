@@ -9,6 +9,7 @@ from typing import Callable, List, Optional
 
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain import deploy_pipeline_reporting as reporting
+from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 from yoke_core.domain import deploy_qa_recorder
 
 
@@ -154,7 +155,7 @@ def fail_pipeline_stage(
         "fail",
         script_dir=sd,
     )
-    reporting._yoke_db("runs", "update", run_id, "status", "failed", sd=sd)
+    run_updates.update_run_field(run_id, "status", "failed")
     emit_event(
         "DeploymentRunFailed",
         "failed",
