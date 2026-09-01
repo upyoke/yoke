@@ -15,6 +15,7 @@ import argparse
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -29,18 +30,18 @@ class ChangedPathError(RuntimeError):
         self.returncode = returncode
 
 
-def changed_python_paths(base: str, root: Path) -> tuple[str, ...]:
-    """Return existing changed Python paths, preserving unusual filenames."""
+@dataclass(frozen=True)
+class ChangedPythonSelection:
+    """Python paths and the exact Git revisions used to select them."""
+
+    paths: tuple[str, ...]
+    base_sha: str
+    head_sha: str
+
+
+def _git_output(root: Path, arguments: Sequence[str]) -> bytes:
     completed = subprocess.run(
-        [
-            "git",
-            "diff",
-            "--name-only",
-            "-z",
-            "--diff-filter=ACMRT",
-            f"{base}...HEAD",
-            "--",
-        ],
+        ["git", *arguments],
         cwd=root,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -49,16 +50,39 @@ def changed_python_paths(base: str, root: Path) -> tuple[str, ...]:
     if completed.returncode:
         detail = os.fsdecode(completed.stderr).strip()
         raise ChangedPathError(completed.returncode, detail)
+    return completed.stdout
+
+
+def select_changed_python_paths(base: str, root: Path) -> ChangedPythonSelection:
+    """Select committed, staged, and unstaged Python changes from ``base``."""
+    head_sha = os.fsdecode(_git_output(root, ("rev-parse", "--verify", "HEAD"))).strip()
+    base_sha = os.fsdecode(_git_output(root, ("merge-base", base, head_sha))).strip()
+    changed = _git_output(
+        root,
+        (
+            "diff",
+            "--name-only",
+            "-z",
+            "--diff-filter=ACMRT",
+            base_sha,
+            "--",
+        ),
+    )
 
     paths: list[str] = []
-    for raw_path in completed.stdout.split(b"\0"):
+    for raw_path in changed.split(b"\0"):
         if not raw_path:
             continue
         relative = os.fsdecode(raw_path)
         candidate = root / relative
         if candidate.suffix == ".py" and candidate.is_file():
             paths.append(relative)
-    return tuple(paths)
+    return ChangedPythonSelection(tuple(paths), base_sha, head_sha)
+
+
+def changed_python_paths(base: str, root: Path) -> tuple[str, ...]:
+    """Return existing changed Python paths, preserving unusual filenames."""
+    return select_changed_python_paths(base, root).paths
 
 
 def _run_ruff(root: Path, arguments: Sequence[str], paths: Sequence[str]) -> int:
@@ -88,7 +112,7 @@ def resolve_tree(workdir: str | None) -> tuple[Path | None, str | None]:
 def run(base: str, *, format_check: bool = False, root: Path) -> int:
     checkout = Path(root).resolve()
     try:
-        paths = changed_python_paths(base, checkout)
+        selection = select_changed_python_paths(base, checkout)
     except ChangedPathError as exc:
         print(
             f"ruff-changed: could not compare {base!r} with HEAD",
@@ -98,11 +122,13 @@ def run(base: str, *, format_check: bool = False, root: Path) -> int:
             print(str(exc), file=sys.stderr)
         return exc.returncode or 1
 
+    paths = selection.paths
     count = len(paths)
     if not paths:
         print(
-            f"ruff-changed: no changed Python files against {base} "
-            f"in {checkout}; passing"
+            "ruff-changed: no changed Python files after comparing "
+            f"base SHA {selection.base_sha}, HEAD {selection.head_sha}, and the "
+            f"staged + unstaged working tree in {checkout}; passing"
         )
         return 0
 
@@ -137,16 +163,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke dev ruff-changed",
         description=(
-            "Run Ruff on changed existing Python files in an explicitly "
-            "named Yoke source checkout, defaulting to the current "
-            "session's claimed lane."
+            "Run Ruff on committed, staged, and unstaged existing Python "
+            "changes in an explicitly named Yoke source checkout, defaulting "
+            "to the current session's claimed lane."
         ),
     )
     parser.add_argument(
         "--base",
         required=True,
         metavar="REF",
-        help="Compare the merge-base of REF and HEAD with HEAD.",
+        help=(
+            "Compare the merge-base of REF and HEAD with HEAD plus staged "
+            "and unstaged working-tree changes."
+        ),
     )
     parser.add_argument(
         "--workdir",
@@ -184,10 +213,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 __all__ = [
     "ChangedPathError",
+    "ChangedPythonSelection",
     "changed_python_paths",
     "main",
     "resolve_tree",
     "run",
+    "select_changed_python_paths",
 ]
 
 
