@@ -63,10 +63,13 @@ _STEERING_RECIPIENT_COLUMNS: tuple[tuple[str, str], ...] = (
 _RETIRED_STATE_CONSTRAINT = "actor_message_recipients_state_check"
 
 
-def converge_role_addressed_recipients(conn: Any) -> None:
-    """Widen an actor-only recipient table to hold role-addressed rows too."""
-    if not db_backend.connection_is_postgres(conn):
-        return
+def _converge_postgres_shape(conn: Any) -> None:
+    """Relax the actor-only column and constraint shape in place.
+
+    Only Postgres can alter a column's nullability or replace a constraint;
+    a validation-surface SQLite fixture is always born from the create
+    script above and already has the final shape.
+    """
     for column, column_ddl in _STEERING_RECIPIENT_COLUMNS:
         if not _column_exists(conn, TABLE, column):
             conn.execute(f"ALTER TABLE {TABLE} ADD COLUMN {column} {column_ddl}")
@@ -85,6 +88,18 @@ def converge_role_addressed_recipients(conn: Any) -> None:
             f"{RECIPIENT_KIND_STATE_CONSTRAINT} CHECK "
             f"({RECIPIENT_KIND_STATE_PREDICATE})"
         )
+
+
+def converge_role_addressed_recipients(conn: Any) -> None:
+    """Widen an actor-only recipient table to hold role-addressed rows too.
+
+    Every statement that names a steering column lives here rather than in
+    the create script, because the create script also runs against a table
+    that predates those columns: an index declared beside the table would
+    reference a column this function has not added yet.
+    """
+    if db_backend.connection_is_postgres(conn):
+        _converge_postgres_shape(conn)
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_actor_message_recipients_steering "
         f"ON {TABLE}(message_id) WHERE recipient_kind = 'steering'"

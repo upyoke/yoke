@@ -111,12 +111,6 @@ def create_session_control_tables(conn: Any) -> None:
                 {RECIPIENT_KIND_STATE_PREDICATE}
             )
         );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_actor_message_recipients_steering
-            ON actor_message_recipients(message_id)
-            WHERE recipient_kind = 'steering';
-        CREATE INDEX IF NOT EXISTS idx_actor_message_recipients_seat
-            ON actor_message_recipients(project_id, state, created_at)
-            WHERE recipient_kind = 'steering';
         CREATE INDEX IF NOT EXISTS idx_actor_message_recipients_actor_state
             ON actor_message_recipients(actor_id, state, created_at);
 
