@@ -247,7 +247,7 @@ def amend_item_posture(
         item_id=int(item_id),
         definition=runtime.definition,
         posture=normalized,
-        actor_id=int(actor_id or 0),
+        actor_id=actor_id,
         commit=False,
     )
     event_id = _emit_amended(

@@ -338,4 +338,8 @@ def validate_workflow_definition(
     _validate_structural_change(value, previous, stage_ids)
 
 
-__all__ = ["WorkflowDefinitionError", "validate_workflow_definition"]
+__all__ = [
+    "ITEM_POSTURE_VALUES",
+    "WorkflowDefinitionError",
+    "validate_workflow_definition",
+]

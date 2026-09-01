@@ -10,7 +10,7 @@ contract from the instruction and actual target.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
@@ -23,7 +23,7 @@ def bind_item_posture_selection(
     item_id: int,
     definition: Mapping[str, Any],
     posture: Mapping[str, Any],
-    actor_id: int,
+    actor_id: Optional[int],
     commit: bool = True,
 ) -> dict[str, Any]:
     """Bind the current posture selections to shared runtime authorities."""
@@ -52,7 +52,7 @@ def bind_item_posture_selection(
             plan_id=int(verification["plan_id"]),
             item_id=int(item_id),
             transition_id=ITEM_POSTURE_VERIFICATION_TRANSITION,
-            actor_id=int(actor_id),
+            actor_id=actor_id,
             commit=False,
         )
         if commit:

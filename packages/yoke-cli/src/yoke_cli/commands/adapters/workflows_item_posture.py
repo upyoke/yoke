@@ -80,6 +80,9 @@ What it does besides the write
   history stays readable) and a superseded plan attachment is removed. A new
   plan selection is attached at the review transition in the same
   transaction, so `yoke qa plan materialize` works immediately afterwards.
+  Amending back to a plan whose snapshots this waived leaves those rows
+  waived; `yoke qa plan rematerialize --item PREFIX-N --transition
+  reviewing-implementation` refreshes and un-waives them.
 
 Reading the result
   `changed=false` means the stored selection already matched — the call is
