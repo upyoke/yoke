@@ -60,12 +60,34 @@ clear_home() {
   return 0
 }
 
+# Entry names are reduced to a portable character set before they ride the
+# receipt. The summary is a pointer to what stopped the restore, and a captured
+# name carrying a space or a quote would reopen the closed output contract.
+unrestored_entry_summary() {
+  local count names
+  count=$(/usr/bin/wc -l < "$restore_failure_report" | tr -d ' ')
+  names=$(
+    /usr/bin/sort -u "$restore_failure_report" |
+      /usr/bin/head -"$restore_report_entry_cap" |
+      /usr/bin/sed -E 's/[^A-Za-z0-9._-]+/_/g' |
+      /usr/bin/tr '\n' ' '
+  )
+  print -r -- "$count ${names% }"
+}
+
 restore_golden() {
   : > "$restore_error_log"
+  : > "$restore_failure_report"
   restore_golden_levels
   # A restore that cannot prove it copied everything is the enumeration problem
   # this design exists to escape, reintroduced at the last step. Every skipped
-  # entry is reported, so a report that was discarded is a restore that lied.
+  # entry is reported, and the report rides the failure out: a phase marker on
+  # its own sent the last operator back to repeat a multi-gigabyte restore just
+  # to learn which entry it stopped on.
+  if [[ -s "$restore_failure_report" ]]; then
+    failure_detail="$restore_unrestored_prefix$(unrestored_entry_summary)"
+    return 1
+  fi
   [[ ! -s "$restore_error_log" ]] || return 1
   restored_entry_count=$(
     /usr/bin/find "$home" -mindepth 1 -maxdepth 1 -print | /usr/bin/wc -l
@@ -122,10 +144,11 @@ verify_restored_home() {
     fi
     return 1
   done
+  self_host_stack_is_absent || return 1
 }
 
 cleanup_scratch() {
-  /bin/rm -f -- "$restore_error_log" 2>/dev/null || true
+  /bin/rm -f -- "$restore_error_log" "$restore_failure_report" 2>/dev/null || true
   return 0
 }
 
@@ -143,8 +166,8 @@ finish() {
   cleanup_scratch
   if (( finish_rc != 0 )); then
     print -r -- "$reset_failure_prefix$failure_step"
-    if [[ -n "${reap_failure_detail:-}" ]]; then
-      print -r -- "$reap_failure_detail"
+    if [[ -n "${failure_detail:-}" ]]; then
+      print -r -- "$failure_detail"
     fi
   fi
   exit "$finish_rc"
@@ -162,7 +185,9 @@ if ! validate_home; then
   exit 1
 fi
 tool_bin_dir="$home/$tool_bin_suffix"
+yoke_state_dir="$home/$yoke_state_suffix"
 restore_error_log="/tmp/yoke-machine-qa-restore-errors.$$"
+restore_failure_report="/tmp/yoke-machine-qa-unrestored-entries.$$"
 golden_entry_count=0
 restored_entry_count=0
 golden_missing_count=0
@@ -172,13 +197,17 @@ reap_failed_count=0
 reap_match_count=0
 load_average_1min=""
 cpu_count=0
-reap_failure_detail=""
+self_host_containers_removed=0
+self_host_volumes_removed=0
+self_host_images_removed=0
+failure_detail=""
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
 
 run_reset_step "$reset_phase_assert_full_disk_access" assert_full_disk_access
 run_reset_step "$reset_phase_validate_golden" validate_golden
 run_reset_step "$reset_phase_reap_processes" reap_processes
+run_reset_step "$reset_phase_stop_self_host_stack" stop_self_host_stack
 run_reset_step "$reset_phase_clear_home" clear_home
 run_reset_step "$reset_phase_restore_golden" restore_golden
 run_reset_step "$reset_phase_verify_restored_home" verify_restored_home
@@ -187,11 +216,14 @@ reset_step="$reset_phase_emit_outcomes"
 count_reap_matches
 record_load_average
 print -r -- "$restored_entries_prefix$restored_entry_count"
+print -r -- "$self_host_containers_prefix$self_host_containers_removed"
+print -r -- "$self_host_volumes_prefix$self_host_volumes_removed"
+print -r -- "$self_host_images_prefix$self_host_images_removed"
 if [[ -z "$load_average_1min" ]] \
   || (( reap_failed_count > 0 || reap_match_count > 0 )) \
   || load_exceeds_capacity; then
   reset_step="$reset_phase_reap_processes"
-  reap_failure_detail="$reap_failed_count $reap_match_count ${load_average_1min:-0}"
+  failure_detail="$reap_failed_count $reap_match_count ${load_average_1min:-0}"
   exit 1
 fi
 print -r -- "$reset_process_reaped_prefix$reap_target_count"

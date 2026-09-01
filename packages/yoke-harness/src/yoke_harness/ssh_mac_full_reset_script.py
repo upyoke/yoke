@@ -9,7 +9,12 @@ from yoke_cli.config.path_doctor import resolve_path_state_contract
 
 from yoke_harness._ssh_mac_full_reset_reap_body import REAP_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_script_body import SCRIPT_BODY
+from yoke_harness._ssh_mac_full_reset_self_host_body import SELF_HOST_FUNCTIONS
 from yoke_harness.ssh_mac_full_reset_contract import (
+    COMPOSE_PROJECT_LABEL,
+    CONTAINER_RUNTIME_PATHS,
+    CONTAINER_RUNTIME_PROCESS_ANCHOR,
+    CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS,
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_MARKER,
     FullResetPathContract,
@@ -23,8 +28,15 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_REAP_MARKER_SUFFIX,
     RESET_REAP_ONBOARD_ANCHOR,
     RESET_RESTORED_ENTRIES_PREFIX,
+    RESET_RESTORE_UNRESTORED_PREFIX,
+    RESET_SELF_HOST_CONTAINERS_PREFIX,
+    RESET_SELF_HOST_IMAGES_PREFIX,
+    RESET_SELF_HOST_VOLUMES_PREFIX,
+    RESTORE_REPORT_ENTRY_CAP,
+    SELF_HOST_COMPOSE_PROJECT,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_TEMP_FILES,
+    YOKE_STATE_DIR_NAME,
     resolve_full_reset_path_contract,
 )
 
@@ -60,6 +72,21 @@ restore_entry() {
   local destination="${target_dir%/}/${captured:t}"
   reconcile_entry_types "$captured" "$destination" || return 1
   /bin/cp -Rpf "$captured" "$target_dir"
+}
+
+# The aggregate error log decides the outcome; this names WHICH captured entry
+# produced each report, because the aggregate is a wall of copier diagnostics
+# and the entry that stopped the restore is the fact an operator needs.
+restore_captured_entry() {
+  local captured="$1" target_dir="$2" entry_log="$restore_error_log.entry"
+  : > "$entry_log"
+  restore_entry "$captured" "$target_dir" 2>"$entry_log" || true
+  if [[ -s "$entry_log" ]]; then
+    print -r -- "${captured:t}" >> "$restore_failure_report"
+    /bin/cat -- "$entry_log" >> "$restore_error_log"
+  fi
+  /bin/rm -f -- "$entry_log" 2>/dev/null || true
+  return 0
 }
 """
 
@@ -123,8 +150,7 @@ def render_level_functions(
         restore_lines.extend(
             (
                 "  while IFS= read -r -d '' captured; do",
-                f"    restore_entry \"$captured\" {target} "
-                '2>>"$restore_error_log" || true',
+                f'    restore_captured_entry "$captured" {target}',
                 "  done < <(",
                 f"    /usr/bin/find {golden_level} -mindepth 1 -maxdepth 1 "
                 f"{keep} -print0",
@@ -157,6 +183,19 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"reset_process_reaped_prefix={shlex.quote(RESET_PROCESS_REAPED_PREFIX)}",
             f"reset_load_average_prefix={shlex.quote(RESET_LOAD_AVERAGE_PREFIX)}",
             f"restored_entries_prefix={shlex.quote(RESET_RESTORED_ENTRIES_PREFIX)}",
+            "restore_unrestored_prefix=" + shlex.quote(RESET_RESTORE_UNRESTORED_PREFIX),
+            f"restore_report_entry_cap={RESTORE_REPORT_ENTRY_CAP}",
+            f"yoke_state_suffix={shlex.quote(YOKE_STATE_DIR_NAME)}",
+            "self_host_containers_prefix="
+            + shlex.quote(RESET_SELF_HOST_CONTAINERS_PREFIX),
+            "self_host_volumes_prefix=" + shlex.quote(RESET_SELF_HOST_VOLUMES_PREFIX),
+            "self_host_images_prefix=" + shlex.quote(RESET_SELF_HOST_IMAGES_PREFIX),
+            f"compose_project_label={shlex.quote(COMPOSE_PROJECT_LABEL)}",
+            "self_host_compose_project=" + shlex.quote(SELF_HOST_COMPOSE_PROJECT),
+            "container_runtime_anchor=" + shlex.quote(CONTAINER_RUNTIME_PROCESS_ANCHOR),
+            "container_runtime_stop_timeout="
+            + str(CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS),
+            f"container_runtime_paths={_array(CONTAINER_RUNTIME_PATHS)}",
             *(
                 f"reset_phase_{name}={shlex.quote(value)}"
                 for name, value in RESET_PHASES.items()
@@ -167,6 +206,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"yoke_absent_files={_array(contract.tool_file_suffixes)}",
             f"yoke_absent_temp_files={_array(YOKE_ABSENT_TEMP_FILES)}",
             REAP_FUNCTIONS.lstrip(),
+            SELF_HOST_FUNCTIONS.lstrip(),
             TYPE_RECONCILIATION_FUNCTIONS.lstrip(),
             render_level_functions(preserved_levels()),
             SCRIPT_BODY.lstrip(),

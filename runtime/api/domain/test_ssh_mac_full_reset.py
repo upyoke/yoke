@@ -20,6 +20,10 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
 )
 from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 from yoke_harness.ssh_mac_full_reset import is_safe_test_mac_home
+from yoke_harness.ssh_mac_full_reset_contract import (
+    RESET_RESTORE_UNRESTORED_PREFIX,
+    SELF_HOST_COMPOSE_PROJECT,
+)
 
 
 HOME = "/Users/tester"
@@ -96,6 +100,7 @@ def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
         "baseline_state",
         "path_state",
         "process_state",
+        "self_host_state",
     }
     assert result.evidence["baseline_state"] == {
         "golden_baseline_path": GOLDEN_BASELINE_PATH,
@@ -204,6 +209,51 @@ def test_reset_fails_closed_when_matching_processes_survive_the_reap() -> None:
         "surviving_reap_failures": 1,
         "surviving_matches": 2,
         "load_average": 3.5,
+    }
+
+
+def test_reset_names_the_entries_a_stopped_restore_could_not_return() -> None:
+    transport = FakeResetTransport(
+        "\n".join(
+            (
+                RESET_FAILURE_PREFIX + RESET_PHASES["restore_golden"],
+                RESET_RESTORE_UNRESTORED_PREFIX + "2 Library Documents",
+            )
+        ),
+        reset_returncode=1,
+    )
+
+    result = _run(transport)
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_restore_golden_failed"
+    # A phase name on its own is a receipt that cannot be acted on: diagnosis
+    # then means repeating the whole restore on the host to watch where it
+    # stopped, which is exactly what this evidence removes.
+    assert result.evidence["restore_state"] == {
+        "unrestored_entry_count": 2,
+        "unrestored_entries": ["Library", "Documents"],
+    }
+
+
+def test_reset_reports_what_the_self_host_teardown_freed() -> None:
+    transport = FakeResetTransport(
+        closed_reset_stdout(
+            self_host_containers=2,
+            self_host_volumes=1,
+            self_host_images=2,
+        )
+    )
+
+    result = _run(transport)
+
+    assert result.ok
+    assert result.evidence["self_host_state"] == {
+        "compose_project": SELF_HOST_COMPOSE_PROJECT,
+        "containers_removed": 2,
+        "volumes_removed": 1,
+        "images_removed": 2,
+        "stack_reachable": False,
     }
 
 

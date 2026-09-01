@@ -2,72 +2,25 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-import pytest
 import shlex
 import subprocess
 
-from runtime.api.domain.ssh_mac_full_reset_test_support import zsh_binary
+from runtime.api.domain.ssh_mac_full_reset_test_support import (
+    assignment as _assignment,
+    function_program as _function_program,
+    isolated_shell_env as _isolated_shell_env,
+    require_zsh as _require_zsh,
+    run_functions as _run_functions,
+)
 from yoke_cli.config import path_doctor
-from yoke_core.domain.ssh_mac_full_reset_contract import (
+from yoke_harness.ssh_mac_full_reset_contract import (
     GOLDEN_MANIFEST_SUFFIX,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
+    RESET_RESTORE_UNRESTORED_PREFIX,
 )
 from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
-
-
-def _function_program() -> str:
-    functions, separator, _main = FULL_RESET_SCRIPT.partition(
-        '\nreset_step="$reset_phase_validate_home"\n'
-    )
-    assert separator
-    return functions
-
-
-def _assignment(name: str, value: str) -> str:
-    return f"{name}={shlex.quote(value)}"
-
-
-def _isolated_shell_env(
-    shell_home: Path, env: dict[str, str] | None = None
-) -> dict[str, str]:
-    shell_home.mkdir(parents=True, exist_ok=True)
-    for startup_file in (".zshenv", ".zprofile", ".zshrc", ".zlogin"):
-        (shell_home / startup_file).touch(exist_ok=True)
-    return {
-        **(env or os.environ),
-        "HOME": str(shell_home),
-        "ZDOTDIR": str(shell_home),
-    }
-
-
-def _run_functions(
-    lines: tuple[str, ...],
-    *,
-    shell_home: Path,
-    env: dict[str, str] | None = None,
-    **kwargs,
-) -> subprocess.CompletedProcess:
-    binary = zsh_binary()
-    assert binary is not None
-    return subprocess.run(
-        [binary, "-f"],
-        input="\n".join(lines),
-        text=True,
-        capture_output=True,
-        check=False,
-        env=_isolated_shell_env(shell_home, env),
-        **kwargs,
-    )
-
-
-def _require_zsh() -> str:
-    binary = zsh_binary()
-    if binary is None:
-        pytest.skip("zsh is required to execute the macOS reset program")
-    return binary
 
 
 def _write(path: Path, content: str) -> Path:
@@ -102,12 +55,23 @@ def _baseline_pair(tmp_path: Path) -> tuple[Path, Path]:
     return golden, home
 
 
+def _restore_scratch(error_log: Path) -> tuple[str, ...]:
+    """Assign and truncate both restore reports, as ``restore_golden`` does."""
+    return (
+        _assignment("restore_error_log", str(error_log)),
+        _assignment("restore_failure_report", str(error_log) + ".entries"),
+        "container_runtime_paths=()",
+        ': > "$restore_error_log"',
+        ': > "$restore_failure_report"',
+    )
+
+
 def _clear_and_restore(golden: Path, home: Path, error_log: Path) -> tuple[str, ...]:
     return (
         _function_program(),
         _assignment("home", str(home)),
         _assignment("golden", str(golden)),
-        _assignment("restore_error_log", str(error_log)),
+        *_restore_scratch(error_log),
         "clear_home_levels",
         "restore_golden_levels",
     )
@@ -172,12 +136,14 @@ def test_restore_refuses_when_any_entry_could_not_be_copied(
         _function_program(),
         _assignment("home", str(home)),
         _assignment("golden", str(golden)),
-        _assignment("restore_error_log", str(error_log)),
+        *_restore_scratch(error_log),
+        _assignment("restore_unrestored_prefix", RESET_RESTORE_UNRESTORED_PREFIX),
+        "restore_report_entry_cap=12",
         "clear_home_levels",
         # A read-only level is the local stand-in for the privacy-protected
         # subtrees a restore without Full Disk Access silently skips.
         f"/bin/chmod 500 {shlex.quote(str(home / 'Library' / 'Application Support'))}",
-        "restore_golden || print -r -- RESTORE_REFUSED",
+        'restore_golden || print -r -- "RESTORE_REFUSED $failure_detail"',
         f"/bin/chmod 700 {shlex.quote(str(home / 'Library' / 'Application Support'))}",
     )
 
@@ -185,6 +151,10 @@ def test_restore_refuses_when_any_entry_could_not_be_copied(
 
     assert "RESTORE_REFUSED" in result.stdout, result.stdout + result.stderr
     assert error_log.read_text() != ""
+    # The refusal names the captured entry it stopped on. Reporting only the
+    # phase is what forced the last operator to repeat the whole restore.
+    assert RESET_RESTORE_UNRESTORED_PREFIX in result.stdout
+    assert "Vendor" in result.stdout
 
 
 def test_full_disk_access_probe_uses_readability_as_the_grant_signal(
@@ -256,6 +226,7 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
         "yoke_absent_directories=(.yoke)",
         "yoke_absent_files=()",
         "yoke_absent_temp_files=()",
+        "container_runtime_paths=()",
     )
 
     clean = _run_functions(
@@ -280,59 +251,3 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
         shell_home=tmp_path / "shell-home",
     )
     assert "VERIFY_FAILED" in contaminated.stdout
-
-
-def test_zsh_program_verifies_shells_without_inheriting_dirty_path(
-    tmp_path: Path,
-) -> None:
-    binary = _require_zsh()
-    home = tmp_path / "test-home"
-    home.mkdir()
-    path_state = path_doctor.resolve_path_state_contract(
-        env={"HOME": str(home), "SHELL": binary}
-    )
-    tool_bin = Path(path_state.tool_bin_dir)
-    dirty_env = {**os.environ, "PATH": f"{tool_bin}:{os.environ.get('PATH', '')}"}
-    lines = (
-        _function_program(),
-        _assignment("shell_path", binary),
-        _assignment("clean_shell_path", "/usr/bin:/bin:/usr/sbin:/sbin"),
-        _assignment("tool_bin_dir", str(tool_bin)),
-        "tools=(definitely-no-yoke-reset-tool)",
-        "shell_surface_is_clean -c || print -r -- SURFACE_DIRTY",
-        "shell_surface_is_clean -lic || print -r -- SURFACE_DIRTY",
-    )
-
-    result = _run_functions(
-        lines,
-        shell_home=tmp_path / "shell-home",
-        env=dirty_env,
-    )
-
-    assert "SURFACE_DIRTY" not in result.stdout, result.stdout + result.stderr
-
-
-def test_shell_surface_check_reports_a_resolvable_tool(tmp_path: Path) -> None:
-    binary = _require_zsh()
-    tool_bin = tmp_path / "bin"
-    tool_bin.mkdir()
-    planted = tool_bin / "yoke-reset-probe"
-    planted.write_text("#!/bin/sh\nexit 0\n")
-    planted.chmod(0o755)
-    dirty_env = {**os.environ, "PATH": f"{tool_bin}:{os.environ.get('PATH', '')}"}
-    shell_home = tmp_path / "shell-home"
-    _write(shell_home / ".zprofile", f"export PATH={tool_bin}:$PATH\n")
-    lines = (
-        _function_program(),
-        _assignment("shell_path", binary),
-        _assignment("clean_shell_path", "/usr/bin:/bin"),
-        _assignment("tool_bin_dir", str(tool_bin)),
-        "tools=(yoke-reset-probe)",
-        "shell_surface_is_clean -lic || print -r -- SURFACE_DIRTY",
-    )
-
-    result = _run_functions(lines, shell_home=shell_home, env=dirty_env)
-
-    # The earlier program swallowed this failure inside an unchecked loop, so a
-    # dirty surface has to be observable on its own before it can gate anything.
-    assert "SURFACE_DIRTY" in result.stdout, result.stdout + result.stderr

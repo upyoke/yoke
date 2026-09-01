@@ -16,6 +16,11 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_PROCESS_REAPED_PREFIX,
     RESET_RECOVERY_FAILURE_MARKER,
     RESET_RESTORED_ENTRIES_PREFIX,
+    RESET_RESTORE_UNRESTORED_PREFIX,
+    SELF_HOST_COMPOSE_PROJECT,
+    RESET_SELF_HOST_CONTAINERS_PREFIX,
+    RESET_SELF_HOST_IMAGES_PREFIX,
+    RESET_SELF_HOST_VOLUMES_PREFIX,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_TEMP_FILES,
 )
@@ -24,11 +29,31 @@ from yoke_harness.ssh_mac_full_reset_contract import (
 _COUNT_PREFIXES = {
     RESET_RESTORED_ENTRIES_PREFIX: "restored_entries",
     RESET_PROCESS_REAPED_PREFIX: "reaped_processes",
+    RESET_SELF_HOST_CONTAINERS_PREFIX: "self_host_containers_removed",
+    RESET_SELF_HOST_VOLUMES_PREFIX: "self_host_volumes_removed",
+    RESET_SELF_HOST_IMAGES_PREFIX: "self_host_images_removed",
 }
+#: One line per counted outcome, plus the load average and the closing marker.
+_RECEIPT_LINE_COUNT = len(_COUNT_PREFIXES) + 2
+_UNRESTORED_NAME_CHARACTERS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+)
+
+
+def unrestored_detail(detail: str) -> dict[str, object] | None:
+    """Parse the captured entries a stopped restore could not return."""
+    body = detail.removeprefix(RESET_RESTORE_UNRESTORED_PREFIX)
+    count, _separator, names = body.partition(" ")
+    if not count.isdigit():
+        return None
+    entries = tuple(name for name in names.split(" ") if name)
+    if any(set(entry) - _UNRESTORED_NAME_CHARACTERS for entry in entries):
+        return None
+    return {"unrestored_entry_count": int(count), "unrestored_entries": list(entries)}
 
 
 def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
-    """Parse the four-line success receipt the restore program emits."""
+    """Parse the counted success receipt the restore program emits."""
     lines = tuple(line.strip() for line in stdout.splitlines() if line.strip())
     counts: dict[str, int] = {}
     load_average: str | None = None
@@ -51,7 +76,7 @@ def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
         if not matched:
             return None
     if (
-        len(lines) != 4
+        len(lines) != _RECEIPT_LINE_COUNT
         or lines.count(FULL_RESET_MARKER) != 1
         or set(counts) != set(_COUNT_PREFIXES.values())
         or not load_average
@@ -77,7 +102,10 @@ def failure_outcome(stdout: str) -> tuple[str, bool, str | None] | None:
         return None
     detail = lines[1] if len(lines) == 2 else None
     recovery_failed = detail is not None and detail == RESET_RECOVERY_FAILURE_MARKER
-    if detail is not None and not recovery_failed:
+    if detail is not None and detail.startswith(RESET_RESTORE_UNRESTORED_PREFIX):
+        if unrestored_detail(detail) is None:
+            return None
+    elif detail is not None and not recovery_failed:
         parts = tuple(detail.split())
         if len(parts) != 3 or any(not part.isdigit() for part in parts[:2]):
             return None
@@ -147,7 +175,19 @@ def success_evidence(
             "surviving_matches": 0,
             "load_average": outcomes["load_average"],
         },
+        "self_host_state": {
+            "compose_project": SELF_HOST_COMPOSE_PROJECT,
+            "containers_removed": outcomes["self_host_containers_removed"],
+            "volumes_removed": outcomes["self_host_volumes_removed"],
+            "images_removed": outcomes["self_host_images_removed"],
+            "stack_reachable": False,
+        },
     }
 
 
-__all__ = ["closed_outcomes", "failure_outcome", "success_evidence"]
+__all__ = [
+    "closed_outcomes",
+    "failure_outcome",
+    "success_evidence",
+    "unrestored_detail",
+]
