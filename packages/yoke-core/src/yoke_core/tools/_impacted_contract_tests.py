@@ -87,6 +87,7 @@ QA_TRANSITION_CONSUMER_SOURCE_PATHS = frozenset(
 
 QA_TRANSITION_CONSUMER_TESTS = (
     "runtime/api/domain/handlers/test_done_transition_status_writes.py",
+    "runtime/api/engines/test_done_transition_qa_gate.py",
     "runtime/api/test_advance_skip_qa_gate.py",
 )
 
