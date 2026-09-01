@@ -251,10 +251,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     def dsn_for(database: str) -> str:
         return database_dsn(authority.dsn, database)
 
-    databases = positional[1:] or yoke_migration_fleet.tenant_databases(dsn_for)
     plan = yoke_migration_fleet.rehearsal_plan()
     print(f"environment: {covered_env} (admin connection {admin_env})")
     print(f"rehearsal cluster: {spec.sock_dir}")
+    # Enumerated after the identity lines so the scratch-skip count the
+    # selector emits reads as a fact about this fleet, not a stray preamble.
+    databases = positional[1:] or yoke_migration_fleet.tenant_databases(dsn_for)
 
     with tempfile.TemporaryDirectory(prefix="yoke-migration-rehearsal-") as work:
         verdicts = migration_fleet_preflight.rehearse_fleet(
