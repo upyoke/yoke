@@ -234,6 +234,15 @@ def effort_suffix_of(model_name: object) -> Optional[str]:
     return None
 
 
+def requested_context_window_of(model_name: object) -> Optional[int]:
+    """Return the context window a model selector asks for, or ``None``."""
+    if not isinstance(model_name, str):
+        return None
+    if model_name.strip().lower().endswith(CLAUDE_CONTEXT_TIER_SUFFIX):
+        return CLAUDE_CONTEXT_TIER_TOKENS
+    return None
+
+
 #: Harness families whose model selector spells the effort as its own
 #: suffix, so the name *is* the effort request. Cursor exposes no separate
 #: effort parameter, which is why its variant names carry one. Reading a
@@ -267,15 +276,6 @@ def requested_facts_of(model_name: object, *, harness_id: str) -> SessionModelFa
         ),
         requested_context_window_tokens=requested_context_window_of(model),
     )
-
-
-def requested_context_window_of(model_name: object) -> Optional[int]:
-    """Return the context window a model selector asks for, or ``None``."""
-    if not isinstance(model_name, str):
-        return None
-    if model_name.strip().lower().endswith(CLAUDE_CONTEXT_TIER_SUFFIX):
-        return CLAUDE_CONTEXT_TIER_TOKENS
-    return None
 
 
 __all__ = [

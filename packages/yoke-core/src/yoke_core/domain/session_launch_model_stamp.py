@@ -24,14 +24,17 @@ from __future__ import annotations
 from typing import Any, List
 
 from yoke_contracts.executor_labels import canonical_harness_id
-from yoke_contracts.session_model_facts import requested_facts_of
+from yoke_contracts.session_model_facts import (
+    SessionModelFacts,
+    requested_facts_of,
+)
 
 from yoke_core.domain.session_launch_types import LaunchRecord
 from yoke_core.domain.session_model_columns import MODEL_COLUMNS, changed_columns
 from yoke_core.domain.session_launch_store import marker
 
 
-def launch_requested_facts(launch: LaunchRecord):
+def launch_requested_facts(launch: LaunchRecord) -> SessionModelFacts:
     """Return the ask this launch states, as far as its selector spells it.
 
     The selected surface names the harness family, which is what decides
