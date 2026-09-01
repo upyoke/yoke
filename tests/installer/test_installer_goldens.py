@@ -15,6 +15,7 @@ Regenerate after an approved copy change:
 
 which rewrites the golden files from the live capture instead of asserting.
 """
+
 from __future__ import annotations
 
 import io
@@ -80,7 +81,6 @@ def _run_shim_capture(
     tmp_path: Path,
     *,
     force_color: str,
-    force_brew: str,
     os_name: str,
     brew: bool,
     curl: bool,
@@ -95,7 +95,6 @@ def _run_shim_capture(
         "TERM": "xterm-256color" if force_color == "1" else "dumb",
         "YOKE_INSTALL_BASE_URL": "https://api.upyoke.com",
         "YOKE_INSTALL_FORCE_COLOR": force_color,
-        "YOKE_INSTALL_FORCE_BREW": force_brew,
         "YOKE_INSTALL_PROMPT_IN": str(prompt_in),
     }
     if force_color == "0":
@@ -131,32 +130,48 @@ def _slice_from_offer(captured: str) -> str:
 
 def test_shell_welcome(tmp_path: Path) -> None:
     captured = _run_shim_capture(
-        tmp_path, force_color="1", force_brew="1",
-        os_name="Darwin", brew=True, curl=False, answer="y\n",
+        tmp_path,
+        force_color="1",
+        os_name="Darwin",
+        brew=True,
+        curl=False,
+        answer="y\n",
     )
     _assert_golden("shell_welcome.txt", captured)
 
 
 def test_shell_welcome_astral(tmp_path: Path) -> None:
     captured = _run_shim_capture(
-        tmp_path, force_color="1", force_brew="0",
-        os_name="Linux", brew=False, curl=True, answer="y\n",
+        tmp_path,
+        force_color="1",
+        os_name="Linux",
+        brew=False,
+        curl=True,
+        answer="y\n",
     )
     _assert_golden("shell_welcome_astral.txt", captured)
 
 
 def test_shell_welcome_plain(tmp_path: Path) -> None:
     captured = _run_shim_capture(
-        tmp_path, force_color="0", force_brew="0",
-        os_name="Linux", brew=False, curl=True, answer="y\n",
+        tmp_path,
+        force_color="0",
+        os_name="Linux",
+        brew=False,
+        curl=True,
+        answer="y\n",
     )
     _assert_golden("shell_welcome_plain.txt", captured)
 
 
 def test_shell_uv_declined(tmp_path: Path) -> None:
     captured = _run_shim_capture(
-        tmp_path, force_color="1", force_brew="0",
-        os_name="Linux", brew=False, curl=True, answer="n\n",
+        tmp_path,
+        force_color="1",
+        os_name="Linux",
+        brew=False,
+        curl=True,
+        answer="n\n",
     )
     _assert_golden("shell_uv_declined.txt", _slice_from_offer(captured))
 
@@ -177,13 +192,8 @@ def test_exit_remediation() -> None:
     # asserted present in the surfaces that produce them so the golden can never
     # drift away from live behavior.
     shim_text = INSTALL_SHIM_PATH.read_text(encoding="utf-8")
-    assert (
-        "Run yoke onboard to finish setting up your machine & projects."
-        in shim_text
-    )
-    install_py = (
-        INSTALL_SHIM_PATH.parent / "install.py"
-    ).read_text(encoding="utf-8")
+    assert "Run yoke onboard to finish setting up your machine & projects." in shim_text
+    install_py = (INSTALL_SHIM_PATH.parent / "install.py").read_text(encoding="utf-8")
     assert "~/.local/bin/yoke path fix" in install_py
     _assert_golden("exit_remediation.txt", _EXIT_REMEDIATION)
 

@@ -108,7 +108,9 @@ SelectionList {
 }
 
 _OptionRow {
-    height: 1;
+    /* Long labels keep their complete hint on a continuation row instead of
+       letting the terminal clip the hint's final words. */
+    height: auto;
     width: 1fr;
     color: $onboard-dim;
     border-left: blank;

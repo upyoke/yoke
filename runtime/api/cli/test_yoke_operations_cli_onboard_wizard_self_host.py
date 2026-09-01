@@ -8,6 +8,7 @@ import pytest
 
 pytest.importorskip("textual")
 
+from yoke_cli.config import onboard_docker_prerequisites as docker  # noqa: E402
 from yoke_cli.config import onboard_self_host_server as server  # noqa: E402
 from yoke_cli.config import yoke_token_verify  # noqa: E402
 from yoke_cli.config.onboard_destinations import DESTINATION_SERVER  # noqa: E402
@@ -71,9 +72,9 @@ async def _open_preview(pilot) -> None:
 
 def _stub_success(monkeypatch, calls: list[str]) -> None:
     monkeypatch.setattr(
-        server,
+        docker,
         "check_docker_prerequisites",
-        lambda: server.DockerPrerequisites("/usr/bin/docker"),
+        lambda: docker.DockerPrerequisites("/usr/bin/docker"),
     )
 
     def provision(setup, prerequisites):
@@ -175,22 +176,28 @@ def test_prerequisite_refusal_names_docker_and_allows_back(
     tmp_path, monkeypatch
 ) -> None:
     def refuse():
-        raise server.SelfHostSetupError(
-            "docker-missing",
-            "Docker is required to set up a self-hosting server.",
-            (server.DOCKER_INSTALL_GUIDANCE,),
+        raise docker.DockerPrerequisiteError(
+            "docker-engine-not-running",
+            "Docker is installed, but its engine is not running.",
+            ("Open Docker Desktop, complete its first run, then retry.",),
         )
 
-    monkeypatch.setattr(server, "check_docker_prerequisites", refuse)
+    monkeypatch.setattr(docker, "check_docker_prerequisites", refuse)
     app, _spy = _app(tmp_path)
+    bundle_directory = tmp_path / "server"
+    app._self_host_setup = server.new_setup(
+        config_path=str(tmp_path / "config.json"),
+        directory=str(bundle_directory),
+    )
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _open_preview(pilot)
             await pilot.press("enter")
-            text = await _wait_for_text(app, pilot, "Docker is required")
-            assert "docs.docker.com" in text
+            text = await _wait_for_text(app, pilot, "engine is not running")
+            assert "Open Docker Desktop" in text
             assert app.query_one(SelectionList).rows[0].label == "Try again"
+            assert not bundle_directory.exists()
             await pilot.press("down", "enter")
             await pilot.pause()
             assert "Where should this Yoke live?" in _body_text(app)
@@ -203,9 +210,9 @@ def test_connect_recovery_displays_token_and_retries_it_in_memory(
 ) -> None:
     retries: list[str] = []
     monkeypatch.setattr(
-        server,
+        docker,
         "check_docker_prerequisites",
-        lambda: server.DockerPrerequisites("/usr/bin/docker"),
+        lambda: docker.DockerPrerequisites("/usr/bin/docker"),
     )
 
     def fail_connect(setup, prerequisites):
@@ -284,10 +291,12 @@ def test_quit_is_blocked_only_during_bundle_and_compose_provisioning(tmp_path) -
         config_path=str(tmp_path / "config.json"),
         directory=str(tmp_path / "server"),
     )
-    receipt = server.DockerPrerequisites("/usr/bin/docker")
+    receipt = docker.DockerPrerequisites("/usr/bin/docker")
 
     flow._run_preflight(probe, setup)
     flow._run_provision(probe, setup, receipt)
     flow._run_connect_retry(probe, setup)
 
     assert [call["blocks_quit"] for call in calls] == [False, True, False]
+    assert "bounded safety wait" in calls[0]["message"]
+    assert "20 seconds" in calls[0]["detail_lines"][0]

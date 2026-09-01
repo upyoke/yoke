@@ -26,6 +26,7 @@ prompt_out="${YOKE_INSTALL_PROMPT_OUT:-/dev/tty}"
 command_stdin="${YOKE_INSTALL_COMMAND_STDIN:-/dev/null}"
 command_shell="${YOKE_INSTALL_COMMAND_SHELL:-/bin/sh}"
 uv_installer_url="${YOKE_UV_INSTALLER_URL:-https://astral.sh/uv/install.sh}"
+uv_bootstrap_timeout_seconds="${YOKE_UV_BOOTSTRAP_TIMEOUT_SECONDS:-120}"
 onboard_launched=0
 # PATH as the calling shell handed it to us. The installer prepends the tool bin
 # dir to its own PATH before anything else runs, so this snapshot is the only
@@ -53,21 +54,6 @@ case "${YOKE_INSTALL_FORCE_COLOR:-}" in
     if [ -z "${NO_COLOR+x}" ] && [ -t 1 ] && [ "${TERM:-}" != "dumb" ] \
       && [ -n "${TERM:-}" ]; then
       welcome_color=1
-    fi
-    ;;
-esac
-
-# Homebrew is preferred for the uv/uvx install on macOS when `brew` is on PATH;
-# otherwise the offer names the official Astral installer. A test harness pins
-# the branch with YOKE_INSTALL_FORCE_BREW=1/0.
-uv_offer_brew=0
-case "${YOKE_INSTALL_FORCE_BREW:-}" in
-  1) uv_offer_brew=1 ;;
-  0) uv_offer_brew=0 ;;
-  *)
-    if [ "$(uname -s 2>/dev/null || printf unknown)" = "Darwin" ] \
-      && command -v brew >/dev/null 2>&1; then
-      uv_offer_brew=1
     fi
     ;;
 esac
@@ -156,33 +142,25 @@ print_welcome_banner() {
   printf '%s☀%s  %s%s%s\n' "$(c_amber)" "$(sgr_reset)" "$(c_dim)" "$tagline" "$(sgr_reset)"
 }
 
-# The uv/uvx consent block: dim status line, the install offer (Homebrew on
-# macOS when brew is present, else the Astral installer), the default-Yes
-# [Y/n] prompt (Y bright bold), and — for the brew branch — the Astral fallback
-# note. The plain (no-color) variant collapses to a single-line offer. The
-# trailing newline is omitted so the answer is typed on the prompt line.
+# The uv/uvx consent block: dim status line, the official Astral installer,
+# and the default-Yes [Y/n] prompt (Y bright bold). The plain (no-color)
+# variant collapses to a single-line offer. The trailing newline is omitted so
+# the answer is typed on the prompt line.
 # Reproduces the approved welcome screens verbatim.
 print_uv_consent() {
   printf '%s%sYoke'\''s only prerequisite — uv/uvx — isn'\''t installed yet.%s\n' \
     "$(gutter)" "$(c_dim)" "$(sgr_reset)"
   if [ "$welcome_color" -ne 1 ]; then
-    printf '%sInstall it with: curl -LsSf %s | sh  [Y/n]\n' "$(gutter)" "$uv_installer_url"
+    printf '%sInstall it with: %s  [Y/n]\n' \
+      "$(gutter)" "$(uv_manual_install_command)"
     return 0
   fi
-  if [ "$uv_offer_brew" -eq 1 ]; then
-    printf '%s%sInstall it with Homebrew?%s  %sbrew install uv%s  ' \
-      "$(gutter)" "$(c_dim)" "$(sgr_reset)" "$(c_bright)" "$(sgr_reset)"
-    print_yn_prompt
-    printf '\n%s  %s(no Homebrew? falls back to the official uv installer)%s\n' \
-      "$(gutter)" "$(c_dim)" "$(sgr_reset)"
-  else
-    printf '%s%sInstall it with the official uv installer?%s\n' \
-      "$(gutter)" "$(c_dim)" "$(sgr_reset)"
-    printf '%s  %scurl -LsSf %s | sh%s  ' \
-      "$(gutter)" "$(c_bright)" "$uv_installer_url" "$(sgr_reset)"
-    print_yn_prompt
-    printf '\n'
-  fi
+  printf '%s%sInstall it with the official uv installer?%s\n' \
+    "$(gutter)" "$(c_dim)" "$(sgr_reset)"
+  printf '%s  %s%s%s  ' \
+    "$(gutter)" "$(c_bright)" "$(uv_manual_install_command)" "$(sgr_reset)"
+  print_yn_prompt
+  printf '\n'
 }
 
 # Default-Yes prompt: Y bright bold, brackets and n dim. No trailing newline.
@@ -405,15 +383,10 @@ read_uv_consent_answer() {
   return 0
 }
 
-# The install command we name to the user: Homebrew on macOS-with-brew, else the
-# official Astral installer. The chosen command is what the decline screen tells
-# them to run by hand.
+# The install command named in consent and recovery is the official Astral
+# installer used by the bootstrap path on every supported operating system.
 uv_manual_install_command() {
-  if [ "$uv_offer_brew" -eq 1 ]; then
-    printf 'brew install uv'
-  else
-    printf 'curl -LsSf %s | sh' "$uv_installer_url"
-  fi
+  printf 'curl -LsSf %s | sh' "$uv_installer_url"
 }
 
 rerun_install_command() {
@@ -471,7 +444,7 @@ decline_unsupported_os_and_exit() {
 ensure_uv() {
   need_command uv && return 0
   validate_uv_installer_url
-  install_cmd=$(uv_manual_install_command)
+  validate_uv_bootstrap_timeout
   astral_cmd="curl -LsSf ${uv_installer_url} | sh"
   rerun_cmd=$(rerun_install_command)
   if [ -n "$dry_run" ]; then
@@ -515,28 +488,95 @@ validate_uv_installer_url() {
   esac
 }
 
-# Run the chosen install command. On the Homebrew branch, fall back to the
-# Astral installer when brew fails (the consent note promises this). The Astral
-# branch needs curl; a curl-missing host can never run it, so name the manual
-# path instead of attempting a broken install.
-install_uv_or_fail() {
-  if [ "$uv_offer_brew" -eq 1 ]; then
-    "$command_shell" -c "brew install uv" < "$command_stdin" && return 0
-    printf '%sHomebrew install did not complete; using the official uv installer instead.\n' "$(gutter)"
+validate_uv_bootstrap_timeout() {
+  case "$uv_bootstrap_timeout_seconds" in
+    ""|0|*[!0-9]*)
+      fail "YOKE_UV_BOOTSTRAP_TIMEOUT_SECONDS must be a positive integer number of seconds"
+      ;;
+  esac
+}
+
+terminate_uv_process_tree() {
+  uv_tree_frontier="$1"
+  uv_tree_pids="$1"
+  while [ -n "$uv_tree_frontier" ]; do
+    uv_tree_next=""
+    set -- $(ps -Ao pid=,ppid= 2>/dev/null)
+    while [ "$#" -ge 2 ]; do
+      uv_tree_child=$1
+      uv_tree_parent=$2
+      shift 2
+      case " $uv_tree_frontier " in
+        *" $uv_tree_parent "*)
+          uv_tree_next="$uv_tree_next $uv_tree_child"
+          uv_tree_pids="$uv_tree_pids $uv_tree_child"
+          ;;
+      esac
+    done
+    uv_tree_frontier=$uv_tree_next
+  done
+  for uv_tree_pid in $uv_tree_pids; do
+    kill -TERM "$uv_tree_pid" 2>/dev/null || :
+  done
+  sleep 1
+  for uv_tree_pid in $uv_tree_pids; do
+    kill -KILL "$uv_tree_pid" 2>/dev/null || :
+  done
+}
+
+run_uv_installer_with_timeout() {
+  uv_timeout_marker="$uv_download_dir/timed-out"
+  rm -f "$uv_timeout_marker"
+  "$command_shell" "$uv_download_file" < "$command_stdin" &
+  uv_install_pid=$!
+  (
+    sleep "$uv_bootstrap_timeout_seconds"
+    if kill -0 "$uv_install_pid" 2>/dev/null; then
+      : > "$uv_timeout_marker"
+      terminate_uv_process_tree "$uv_install_pid"
+    fi
+  ) &
+  uv_watchdog_pid=$!
+  wait "$uv_install_pid" 2>/dev/null
+  uv_install_rc=$?
+  if [ -f "$uv_timeout_marker" ]; then
+    wait "$uv_watchdog_pid" 2>/dev/null || :
+    return 124
   fi
+  kill "$uv_watchdog_pid" 2>/dev/null || :
+  wait "$uv_watchdog_pid" 2>/dev/null || :
+  return "$uv_install_rc"
+}
+
+# Download and run the official installer with a bounded wait around both
+# phases. A host missing curl or sleep gets a named recovery instead of an
+# unbounded or half-started bootstrap.
+install_uv_or_fail() {
   need_command curl || fail "uv/uvx is required and curl is missing. Install curl first, then install uv with '${astral_cmd}' and rerun: ${rerun_cmd}"
+  need_command sleep || fail "uv bootstrap cannot be time-bounded because sleep is missing. Install a POSIX sleep command, then rerun: ${rerun_cmd}"
+  need_command ps || fail "uv bootstrap cannot stop timed-out child processes because ps is missing. Install a POSIX ps command, then rerun: ${rerun_cmd}"
   uv_download_dir=$(mktemp -d "${TMPDIR:-/tmp}/yoke-uv-install.XXXXXX") \
     || fail "could not create a private uv installer directory"
   uv_download_file="$uv_download_dir/install.sh"
-  if ! curl -LsSf -- "$uv_installer_url" > "$uv_download_file"; then
+  curl -LsSf --connect-timeout "$uv_bootstrap_timeout_seconds" \
+    --max-time "$uv_bootstrap_timeout_seconds" -- "$uv_installer_url" \
+    > "$uv_download_file"
+  uv_download_rc=$?
+  if [ "$uv_download_rc" -ne 0 ]; then
     rm -f "$uv_download_file"
     rmdir "$uv_download_dir" 2>/dev/null || :
+    if [ "$uv_download_rc" -eq 28 ]; then
+      fail "uv bootstrap download timed out after ${uv_bootstrap_timeout_seconds}s. Check access to astral.sh, install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
+    fi
     fail "uv installer download failed. Install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
   fi
-  "$command_shell" "$uv_download_file" < "$command_stdin"
+  run_uv_installer_with_timeout
   uv_install_rc=$?
-  rm -f "$uv_download_file"
+  rm -f "$uv_download_file" "$uv_download_dir/timed-out"
   rmdir "$uv_download_dir" 2>/dev/null || :
+  if [ "$uv_install_rc" -eq 124 ]; then
+    fail "uv bootstrap timed out after ${uv_bootstrap_timeout_seconds}s while running the official installer. Check network access, install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
+  fi
   [ "$uv_install_rc" -eq 0 ] || fail "uv installation failed. Install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
 }
 

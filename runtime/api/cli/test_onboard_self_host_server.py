@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_cli.config import onboard_docker_prerequisites as docker
 from yoke_cli.config import onboard_self_host_server as subject
 from yoke_cli.config import server_connect
 from yoke_cli.self_host import bundle
@@ -33,7 +34,7 @@ def _completed(
 
 
 def _prerequisites() -> subject.DockerPrerequisites:
-    return subject.DockerPrerequisites("/usr/bin/docker")
+    return docker.DockerPrerequisites("/usr/bin/docker")
 
 
 def _compose_output() -> str:
@@ -50,33 +51,6 @@ def test_shared_contract_extracts_plain_and_compose_prefixed_boot_output() -> No
     assert extract_first_boot_admin_token(block) == RAW_TOKEN
     assert extract_first_boot_admin_token(_compose_output()) == RAW_TOKEN
     assert extract_first_boot_admin_token(f"unrelated {RAW_TOKEN}") is None
-
-
-def test_missing_docker_refuses_before_any_bundle_write(monkeypatch) -> None:
-    monkeypatch.setattr(subject, "_WHICH", lambda _name: None)
-
-    with pytest.raises(subject.SelfHostSetupError) as raised:
-        subject.check_docker_prerequisites()
-
-    assert raised.value.code == "docker-missing"
-    assert "Docker is required" in str(raised.value)
-    assert "docs.docker.com" in " ".join(raised.value.detail_lines)
-
-
-def test_missing_compose_plugin_is_a_named_prerequisite_refusal(monkeypatch) -> None:
-    monkeypatch.setattr(subject, "_WHICH", lambda _name: "/opt/docker")
-    monkeypatch.setattr(
-        subject,
-        "_RUN",
-        lambda *args, **kwargs: _completed(args[0], returncode=1, stderr="no plugin"),
-    )
-
-    with pytest.raises(subject.SelfHostSetupError) as raised:
-        subject.check_docker_prerequisites()
-
-    assert raised.value.code == "compose-missing"
-    assert "Compose plugin" in str(raised.value)
-    assert "no plugin" in " ".join(raised.value.detail_lines)
 
 
 def test_existing_bundle_collision_is_left_untouched(tmp_path, monkeypatch) -> None:

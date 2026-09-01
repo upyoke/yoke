@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rich.cells import cell_len
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Vertical
@@ -101,20 +102,36 @@ class _OptionRow(Static):
         self._row = row
 
     def render(self) -> Text:
-        selected = self.has_class("-selected")
-        marks = glyphs()
-        marker = marks.selected if selected else marks.unselected
-        width = max(self.size.width, 40)
-        prefix = f"{marker}  "
-        label = plain_text(self._row.label) if plain_glyphs() else self._row.label
-        hint = plain_text(self._row.hint) if plain_glyphs() else self._row.hint
-        gap = max(width - len(prefix) - len(label) - len(hint), 1)
-        line = Text()
-        line.append(prefix)
-        line.append(label)
-        line.append(" " * gap)
-        line.append(hint, style="dim" if not selected else "")
+        return _option_row_text(
+            self._row,
+            selected=self.has_class("-selected"),
+            width=max(self.size.width, 1),
+        )
+
+
+def _option_row_text(row: SelectionRow, *, selected: bool, width: int) -> Text:
+    """Keep an overflowing hint intact on a right-aligned continuation line."""
+    marks = glyphs()
+    marker = marks.selected if selected else marks.unselected
+    prefix = f"{marker}  "
+    label = plain_text(row.label) if plain_glyphs() else row.label
+    hint = plain_text(row.hint) if plain_glyphs() else row.hint
+    available = max(width, 1)
+    hint_style = "" if selected else "dim"
+    line = Text()
+    line.append(prefix)
+    line.append(label)
+    inline_width = cell_len(prefix) + cell_len(label) + 1 + cell_len(hint)
+    if not hint:
         return line
+    if inline_width <= available:
+        line.append(" " * (available - inline_width + 1))
+        line.append(hint, style=hint_style)
+        return line
+    line.append("\n")
+    line.append(" " * max(available - cell_len(hint), 0))
+    line.append(hint, style=hint_style)
+    return line
 
 
 class SelectionList(Vertical, can_focus=True):

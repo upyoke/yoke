@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shlex
-import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -12,6 +11,7 @@ from typing import Any, Sequence
 
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import server_connect
+from yoke_cli.config.onboard_docker_prerequisites import DockerPrerequisites
 from yoke_cli.self_host import bundle
 from yoke_contracts.self_host_bootstrap_output import (
     extract_first_boot_admin_token,
@@ -21,24 +21,12 @@ from yoke_contracts.self_host_bootstrap_output import (
 
 _LOOPBACK_HOST = "127.0.0.1"
 LOCAL_SERVER_URL = f"http://{_LOOPBACK_HOST}:{bundle.DEFAULT_API_PORT}"
-DOCKER_INSTALL_GUIDANCE = (
-    "Install Docker Desktop or Docker Engine with the Compose plugin: "
-    "https://docs.docker.com/get-started/get-docker/"
-)
 COMPOSE_LOG_TAIL = 200
 TOKEN_WAIT_SECONDS = 120.0
 
 _RUN = subprocess.run
-_WHICH = shutil.which
 _SLEEP = time.sleep
 _MONOTONIC = time.monotonic
-
-
-@dataclass(frozen=True)
-class DockerPrerequisites:
-    """A successful, read-only Docker + Compose preflight receipt."""
-
-    executable: str
 
 
 @dataclass
@@ -76,45 +64,6 @@ class SelfHostSetupError(RuntimeError):
 def new_setup(*, config_path: str, directory: str | None = None) -> SelfHostSetup:
     target = Path(directory or bundle.DEFAULT_BUNDLE_DIR).expanduser().resolve()
     return SelfHostSetup(directory=target, config_path=config_path)
-
-
-def check_docker_prerequisites() -> DockerPrerequisites:
-    """Check Docker and the Compose plugin without mutating machine state."""
-    executable = _WHICH("docker")
-    if not executable:
-        raise SelfHostSetupError(
-            "docker-missing",
-            "Docker is required to set up a self-hosting server.",
-            (DOCKER_INSTALL_GUIDANCE, "Install it, then choose Try again or Back."),
-        )
-    try:
-        result = _RUN(
-            (executable, "compose", "version"),
-            cwd=None,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False,
-            timeout=15.0,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise SelfHostSetupError(
-            "compose-missing",
-            "The Docker Compose plugin could not be checked.",
-            (DOCKER_INSTALL_GUIDANCE, f"Docker reported: {_diagnostic(str(exc))}"),
-        ) from exc
-    if result.returncode != 0:
-        diagnostic = _diagnostic(result.stderr or result.stdout)
-        details = [DOCKER_INSTALL_GUIDANCE]
-        if diagnostic:
-            details.append(f"Docker reported: {diagnostic}")
-        details.append("Install it, then choose Try again or Back.")
-        raise SelfHostSetupError(
-            "compose-missing",
-            "The Docker Compose plugin is required but was not available.",
-            details,
-        )
-    return DockerPrerequisites(executable=executable)
 
 
 def provision(
@@ -299,12 +248,10 @@ def _diagnostic(value: str | bytes | None) -> str:
 
 __all__ = [
     "COMPOSE_LOG_TAIL",
-    "DOCKER_INSTALL_GUIDANCE",
     "DockerPrerequisites",
     "LOCAL_SERVER_URL",
     "SelfHostSetup",
     "SelfHostSetupError",
-    "check_docker_prerequisites",
     "new_setup",
     "provision",
     "recovery_commands",
