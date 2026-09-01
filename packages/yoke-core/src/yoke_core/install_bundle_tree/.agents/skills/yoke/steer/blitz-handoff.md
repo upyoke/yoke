@@ -38,6 +38,11 @@ When a chunk of the document needs an implementer:
    yoke claims steering acquire --project {_project} --doc {NEXT_SLUG} --reason "steer {NEXT_SLUG}"
    ```
 
+   The gap between release and re-acquire strands nothing: workers address
+   the steering role rather than this session, so anything sent while the
+   scope was unowned parks and arrives in the re-acquire's handoff digest.
+   Read that digest before resuming the loop.
+
 6. Launch per [`worker-lifecycle.md`](worker-lifecycle.md). A successful Blitz
    `done` transition archives its linked execution document automatically and
    releases the item-owned document claim. Do not archive it by hand and do

@@ -106,6 +106,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         );
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY, project_id INTEGER NOT NULL,
+            actor_id INTEGER,
             executor TEXT, executor_surface TEXT, executor_version TEXT,
             machine_id TEXT, execution_lane TEXT, last_heartbeat TEXT,
             last_tool_call_at TEXT, offered_at TEXT, ended_at TEXT,
@@ -143,17 +144,19 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             (2,101,'worker','active','alpha-worker','/work/alpha-worker');
         INSERT INTO epic_tasks (epic_id,task_num,item_worktree_id) VALUES (101,1,2);
         INSERT INTO harness_sessions (
-            session_id,project_id,executor,executor_surface,executor_version,
+            session_id,project_id,actor_id,executor,executor_surface,
+            executor_version,
             machine_id,execution_lane,last_heartbeat,last_tool_call_at,offered_at,
             native_thread_id
         ) VALUES
-            ('s1',1,'codex','codex-desktop','26.814.41407','m1','direct',
+            ('s1',1,10,'codex','codex-desktop','26.814.41407','m1','direct',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}','codex-thread-s1'),
-            ('s2',1,'claude-code','claude-cli','2.1.238','m2','worktree',
+            ('s2',1,10,'claude-code','claude-cli','2.1.238','m2','worktree',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}',NULL),
-            ('{IDLE_WAKE_SESSION_ID}',2,'cursor','cursor-cli','2026.08.11','m3','direct',
+            ('{IDLE_WAKE_SESSION_ID}',2,10,'cursor','cursor-cli','2026.08.11','m3',
+             'direct',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}',NULL),
-            ('{NATIVE_WAKE_SESSION_ID}',1,'codex','codex-cli',
+            ('{NATIVE_WAKE_SESSION_ID}',1,10,'codex','codex-cli',
              '0.148.0a15','m4','direct',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}',NULL);
         INSERT INTO work_claims (

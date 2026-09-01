@@ -188,8 +188,13 @@ The server emits this single-item mandate (steering) shape — claim first,
 execute only that item through the routed legs, no deployment run, DONE then
 END. The steerer messages a worker with
 `yoke say --item PREFIX-N --stdin`. The worker reports back with
-`--session` only because the steerer is itemless (claim-less fallback).
-No Yoke surface shortens a session id, so a short one did not come from Yoke: never pad, complete, or expand one by hand.
+`yoke say --steering`, which addresses the ROLE rather than this seat: the
+server resolves it at delivery to whichever seat covers the worker's item,
+and parks it for the next seat when none is live. So a worker launched by a
+seat that later stops still reports to whoever holds the scope, and this seat
+inherits that mail on acquire instead of chasing it. Never put a session id in
+a mandate, and never pad, complete, or expand one by hand — no Yoke surface
+shortens a session id, so a short one did not come from Yoke.
 
 A worker's messages are substantive only. Every message costs this seat an
 inbox row and a hand acknowledgement, so a worker sends one when a gate goes
@@ -204,7 +209,7 @@ the worker's own visible output; this seat reads liveness from
 ```text
 {ROUTED_ENTRYPOINT}
 
-Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --session {STEERER_SESSION_ID}) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
+Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
 ```
 
 The server parameterizes that shape from the pinned `workflow_id` and

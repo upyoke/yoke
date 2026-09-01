@@ -6,11 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.session_launch_mandate import (
     compose_item_launch_instructions,
@@ -19,29 +14,30 @@ from yoke_core.domain.session_launch_mandate import (
 from yoke_core.domain.session_launch_types import SessionLaunchError
 
 
-def _create_request(**payload: object) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function="session_control.launch.create",
-        actor=ActorContext(actor_id="2", session_id="steerer-session"),
-        target=TargetRef(kind="global"),
-        payload=payload,
-    )
-
-
-def test_composed_mandate_names_item_entrypoint_and_done_target() -> None:
+def test_composed_mandate_names_item_entrypoint_and_the_steering_role() -> None:
     body = compose_single_item_mandate(
         public_ref="YOK-12",
         entrypoint="/yoke dash YOK-12",
         remaining_legs="the Dash leg to its merge/evidence close",
-        done_session_id="steerer-session",
     )
     assert body.startswith("/yoke dash YOK-12\n")
     assert "acquire the YOK-12 work claim" in body
     assert "the Dash leg to its merge/evidence close" in body
-    assert "yoke say --stdin --session steerer-session" in body
+    assert "yoke say --stdin --steering" in body
     assert "DONE YOK-12" in body
     assert "do not chain into other items" in body
     assert "NEVER send progress: no percentages" in body
+
+
+def test_composed_mandate_embeds_no_session_id() -> None:
+    """The address must survive the seat that launched the worker ending."""
+    body = compose_single_item_mandate(
+        public_ref="YOK-12",
+        entrypoint="/yoke dash YOK-12",
+        remaining_legs="the Dash leg to its merge/evidence close",
+    )
+    assert "--session " not in body
+    assert "steerer-session" not in body
 
 
 def test_extras_append_after_the_canonical_mandate() -> None:
@@ -49,7 +45,6 @@ def test_extras_append_after_the_canonical_mandate() -> None:
         public_ref="YOK-12",
         entrypoint="/yoke dash YOK-12",
         remaining_legs="the Dash leg to its merge/evidence close",
-        done_session_id="steerer-session",
         extras="Also reopen the failed QA case.",
     )
     mandate, extras = body.split("\n\nAlso reopen", 1)
@@ -72,15 +67,10 @@ def test_composed_create_uses_live_route_and_appends_extras(monkeypatch) -> None
         instructions="Also reopen the failed QA case.",
         idempotency_key="compose-1",
     )
-    body = compose_item_launch_instructions(
-        SimpleNamespace(),
-        parsed,
-        _create_request(),
-        1,
-    )
+    body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
     assert body.startswith("/yoke dash YOK-12\n")
     assert "acquire the YOK-12 work claim" in body
-    assert "steerer-session" in body
+    assert "yoke say --stdin --steering" in body
     assert body.endswith("Also reopen the failed QA case.")
 
 
@@ -93,12 +83,7 @@ def test_raw_instructions_keep_an_explicit_full_body() -> None:
         compose_mandate=False,
         idempotency_key="raw-1",
     )
-    body = compose_item_launch_instructions(
-        SimpleNamespace(),
-        parsed,
-        _create_request(),
-        1,
-    )
+    body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
     assert body == "Custom full body."
 
 
@@ -112,31 +97,27 @@ def test_raw_instructions_refuse_an_empty_body() -> None:
         idempotency_key="raw-empty",
     )
     with pytest.raises(SessionLaunchError) as raised:
-        compose_item_launch_instructions(
-            SimpleNamespace(),
-            parsed,
-            _create_request(),
-            1,
-        )
+        compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
     assert raised.value.code == "payload_invalid"
 
 
-def test_composed_create_refuses_a_missing_creator_session() -> None:
+def test_composition_needs_no_creator_session(monkeypatch) -> None:
+    """A role-addressed mandate has nothing to learn from who launched it."""
+    monkeypatch.setattr(
+        "yoke_core.domain.session_launch_mandate._route_for_item",
+        lambda *_args, **_kwargs: (
+            "/yoke dash YOK-12",
+            "the Dash leg to its merge/evidence close",
+        ),
+    )
     parsed = LaunchCreateRequest(
         project="yoke",
         executor_surface="cursor-cli",
         item="YOK-12",
         idempotency_key="no-session",
     )
-    request = FunctionCallRequest(
-        function="session_control.launch.create",
-        actor=ActorContext(actor_id="2", session_id=""),
-        target=TargetRef(kind="global"),
-        payload={},
-    )
-    with pytest.raises(SessionLaunchError) as raised:
-        compose_item_launch_instructions(SimpleNamespace(), parsed, request, 1)
-    assert raised.value.code == "creator_session_required"
+    body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
+    assert "yoke say --stdin --steering" in body
 
 
 def test_unroutable_live_step_refuses_composition(monkeypatch) -> None:
