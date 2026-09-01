@@ -125,6 +125,23 @@ def test_sanitize_drops_token_bearing_keys() -> None:
     assert "Authorization" not in str(cleaned)
 
 
+def test_a_raising_probe_names_the_class_that_raised(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A probe that blows up must not read the same as one that answered badly."""
+
+    def _boom(*, observed_at: str) -> dict:
+        raise RuntimeError("vendor client exploded")
+
+    monkeypatch.setitem(limits._PROBES, "claude-cli", _boom)
+
+    readings = limits.observe_plan_limits(
+        ("claude-cli",), state_dir=tmp_path, now=1_000.0, clock=lambda: NOW
+    )
+
+    assert readings["claude-cli"]["reason"] == "probe_raised_RuntimeError"
+
+
 def test_fresh_cache_skips_a_second_probe(monkeypatch, tmp_path: Path) -> None:
     calls: list[str] = []
 

@@ -37,6 +37,7 @@ import time
 from typing import Callable, Sequence
 
 from yoke_harness.session_relay import ServeOnceOutcome, run_serve_cycle
+from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_schedule import relay_run_lock
 from yoke_harness.session_relay_source_reload import (
     exec_reload,
@@ -60,8 +61,6 @@ DRAIN_TIMEOUT_SECONDS = 120
 # when someone deploys — the continuous burn this daemon exists to remove.
 SOURCE_CHECK_INTERVAL_SECONDS = 30
 
-FAILURE_LOG_INTERVAL_SECONDS = 300
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -76,61 +75,11 @@ class DaemonOutcome:
 
 
 @dataclass
-class _FailureBurst:
-    count: int
-    started_at: float
-    last_logged_at: float
-
-
-@dataclass
-class _FailureReporter:
-    """Write one useful line per failure burst and one when it recovers."""
-
-    interval_seconds: float = FAILURE_LOG_INTERVAL_SECONDS
-    clock: Callable[[], float] = time.monotonic
-    bursts: dict[str, _FailureBurst] = field(default_factory=dict)
-    lock: threading.Lock = field(default_factory=threading.Lock)
-
-    def failed(self, operation: str, reason: object) -> None:
-        now = self.clock()
-        detail = " ".join(str(reason).splitlines()).strip() or "unknown failure"
-        with self.lock:
-            burst = self.bursts.get(operation)
-            if burst is None:
-                burst = _FailureBurst(1, now, now)
-                self.bursts[operation] = burst
-            else:
-                burst.count += 1
-                if now - burst.last_logged_at < self.interval_seconds:
-                    return
-                burst.last_logged_at = now
-            _LOGGER.error(
-                "relay %s failed: %s; consecutive_failures=%d elapsed_seconds=%.1f",
-                operation,
-                detail,
-                burst.count,
-                max(0.0, now - burst.started_at),
-            )
-
-    def recovered(self, operation: str) -> None:
-        now = self.clock()
-        with self.lock:
-            burst = self.bursts.pop(operation, None)
-        if burst is not None:
-            _LOGGER.warning(
-                "relay %s recovered; consecutive_failures=%d elapsed_seconds=%.1f",
-                operation,
-                burst.count,
-                max(0.0, now - burst.started_at),
-            )
-
-
-@dataclass
 class _Supervisor:
     """Owns the worker pool and the futures still settling on it."""
 
     pool: ThreadPoolExecutor
-    failures: _FailureReporter
+    failures: FailureReporter
     pending: list[Future] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
     settled: int = 0
@@ -280,7 +229,7 @@ def _serve_under_lock(
         if not acquired:
             return DaemonOutcome("locked")
         baseline = source_fingerprint()
-        failures = _FailureReporter()
+        failures = FailureReporter()
         supervisor = _Supervisor(
             ThreadPoolExecutor(max_workers=max_job_workers), failures
         )
@@ -341,7 +290,6 @@ def _serve_under_lock(
 
 __all__ = [
     "DRAIN_TIMEOUT_SECONDS",
-    "FAILURE_LOG_INTERVAL_SECONDS",
     "IDLE_TICK_SECONDS",
     "SOURCE_CHECK_INTERVAL_SECONDS",
     "DaemonOutcome",
