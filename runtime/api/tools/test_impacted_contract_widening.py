@@ -82,6 +82,19 @@ def test_universe_ui_javascript_selects_node_mount_contract(tmp_path):
     assert f"universe_ui_contract:{source}" in selection.telemetry()
 
 
+def test_inbox_composition_selects_its_handler_boundary(tmp_path):
+    root = _tiny_repo(tmp_path)
+    source = "packages/yoke-core/src/yoke_core/domain/inbox_read.py"
+    handler_test = prefix_contracts.INBOX_COMPOSITION_CONTRACT_TESTS[0]
+    _write(root, source, "def inbox_for_actor(): pass\n")
+    _write(root, handler_test, "def test_inbox_handler(): pass\n")
+
+    selection = select([source], build_import_index(root))
+
+    assert handler_test in selection.files
+    assert f"inbox_composition_contract:{source}" in selection.telemetry()
+
+
 def test_registering_a_handler_selects_the_authorization_classification(tmp_path):
     """A newly registered function id reaches its authz contract by registry."""
     root = _tiny_repo(tmp_path)

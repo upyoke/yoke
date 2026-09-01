@@ -97,6 +97,15 @@ HANDLER_REGISTRATION_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/domain/handlers/",
 )
 
+INBOX_COMPOSITION_CONTRACT_TESTS = (
+    "runtime/api/domain/test_decision_request_handlers.py",
+)
+INBOX_COMPOSITION_SOURCE_PREFIXES = (
+    "packages/yoke-core/src/yoke_core/domain/actor_message_recipients.py",
+    "packages/yoke-core/src/yoke_core/domain/handlers/inbox_decisions.py",
+    "packages/yoke-core/src/yoke_core/domain/inbox_read.py",
+)
+
 MIGRATION_HISTORY_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/domain/migrations/",
     "packages/yoke-core/src/yoke_core/domain/session_control_schema.py",
@@ -130,6 +139,11 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         HANDLER_REGISTRATION_CONTRACT_TESTS,
     ),
     (
+        "inbox_composition_contract",
+        INBOX_COMPOSITION_SOURCE_PREFIXES,
+        INBOX_COMPOSITION_CONTRACT_TESTS,
+    ),
+    (
         "migration_history_contract",
         MIGRATION_HISTORY_SOURCE_PREFIXES,
         MIGRATION_HISTORY_CONTRACT_TESTS,
@@ -152,6 +166,8 @@ __all__ = [
     "AGENT_SKILL_SOURCE_PREFIXES",
     "HANDLER_REGISTRATION_CONTRACT_TESTS",
     "HANDLER_REGISTRATION_SOURCE_PREFIXES",
+    "INBOX_COMPOSITION_CONTRACT_TESTS",
+    "INBOX_COMPOSITION_SOURCE_PREFIXES",
     "MACHINE_QA_PACK_CONTRACT_TESTS",
     "MACHINE_QA_PACK_SOURCE_PREFIXES",
     "MIGRATION_HISTORY_CONTRACT_TESTS",
