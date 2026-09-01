@@ -73,6 +73,7 @@ The spread is diagnostic, not a quota: skew can hide a harness-specific
 regression. The fleet report's launch-balance block shows the live count
 per launchable surface on each machine. A surface absent from that line
 cannot accept a launch — do not read a missing surface as zero.
+Counts are spreading weights only, and there is no per-surface session cap.
 
 Measure balance against live load; never assume it from the batch. Read those
 counts before staffing, then allocate each launch so the counts it leaves
