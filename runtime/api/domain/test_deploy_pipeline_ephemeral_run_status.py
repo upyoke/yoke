@@ -18,7 +18,7 @@ from yoke_core.domain import (
     deploy_pipeline,
     deploy_pipeline_step_runners,
     deploy_pipeline_gates,
-    deploy_pipeline_reporting,
+    deploy_pipeline_run_updates,
     deploy_qa_recorder,
 )
 
@@ -41,6 +41,7 @@ class _Harness:
     def __init__(self, member_items=()):
         self.member_items = list(member_items)
         self.db_calls = []
+        self.run_mutations = []
         self.events = []
         self.stamps = []
         self.releases = []
@@ -62,6 +63,9 @@ class _Harness:
             return "implemented"
         return ""
 
+    def update_run_field(self, run_id, field, value):
+        self.run_mutations.append((run_id, field, value))
+
     def flow_db(self, *args, sd=None):
         if args[0] == "stages":
             return _STAGES
@@ -80,9 +84,9 @@ class _Harness:
                 side_effect=self.yoke_db,
             ),
             mock.patch.object(
-                deploy_pipeline_reporting,
-                "_yoke_db",
-                side_effect=self.yoke_db,
+                deploy_pipeline_run_updates,
+                "update_run_field",
+                side_effect=self.update_run_field,
             ),
             mock.patch.object(
                 deploy_pipeline,
@@ -103,11 +107,6 @@ class _Harness:
                 deploy_pipeline,
                 "_emit_run_event",
                 side_effect=self.emit,
-            ),
-            mock.patch.object(
-                deploy_pipeline_run_context,
-                "_yoke_db",
-                side_effect=self.yoke_db,
             ),
             mock.patch.object(
                 deploy_pipeline_run_context,
@@ -176,16 +175,16 @@ class _Harness:
 
     def stage_updates(self):
         return [
-            c[4]
-            for c in self.db_calls
-            if c[:4] == ("runs", "update", _RUN_ID, "current_stage")
+            value
+            for run_id, field, value in self.run_mutations
+            if (run_id, field) == (_RUN_ID, "current_stage")
         ]
 
     def status_updates(self):
         return [
-            c[4]
-            for c in self.db_calls
-            if c[:4] == ("runs", "update", _RUN_ID, "status")
+            value
+            for run_id, field, value in self.run_mutations
+            if (run_id, field) == (_RUN_ID, "status")
         ]
 
 

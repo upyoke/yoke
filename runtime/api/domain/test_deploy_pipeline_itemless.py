@@ -13,8 +13,8 @@ from unittest import mock
 from yoke_core.domain import (
     deploy_pipeline,
     deploy_pipeline_gates,
-    deploy_pipeline_reporting,
     deploy_pipeline_run_context,
+    deploy_pipeline_run_updates,
     deploy_qa_recorder,
 )
 
@@ -35,6 +35,7 @@ class TestItemLessRun:
             {"name": "complete", "step_runner": "auto"},
         ])
         db_calls = []
+        run_mutations = []
 
         def fake_yoke_db(*args, sd=None):
             db_calls.append(args)
@@ -52,6 +53,9 @@ class TestItemLessRun:
             if args[0] == "get":
                 return "stage"
             return ""
+
+        def fake_update_run_field(run_id, field, value):
+            run_mutations.append((run_id, field, value))
 
         dispatched = []
 
@@ -77,7 +81,9 @@ class TestItemLessRun:
         ), mock.patch.object(
             deploy_pipeline, "_yoke_db", side_effect=fake_yoke_db,
         ), mock.patch.object(
-            deploy_pipeline_reporting, "_yoke_db", side_effect=fake_yoke_db,
+            deploy_pipeline_run_updates,
+            "update_run_field",
+            side_effect=fake_update_run_field,
         ), mock.patch.object(
             deploy_pipeline, "_flow_db", side_effect=fake_flow_db,
         ), mock.patch.object(
@@ -87,8 +93,6 @@ class TestItemLessRun:
         ), mock.patch.object(
             deploy_pipeline, "resolve_flow_target",
             return_value=("persistent", "stage"),
-        ), mock.patch.object(
-            deploy_pipeline_run_context, "_yoke_db", side_effect=fake_yoke_db,
         ), mock.patch.object(
             deploy_pipeline_run_context, "_emit_run_event",
         ), mock.patch.object(
@@ -136,13 +140,13 @@ class TestItemLessRun:
         ]
         checkout_lookup.assert_called_once()
         stage_updates = [
-            c[4] for c in db_calls
-            if c[:4] == ("runs", "update", run_id, "current_stage")
+            value for mutated_run, field, value in run_mutations
+            if (mutated_run, field) == (run_id, "current_stage")
         ]
         assert stage_updates == ["merged", "complete", "complete"]
         status_updates = [
-            c[4] for c in db_calls
-            if c[:4] == ("runs", "update", run_id, "status")
+            value for mutated_run, field, value in run_mutations
+            if (mutated_run, field) == (run_id, "status")
         ]
         assert status_updates == ["executing", "succeeded"]
         # deployed_to is item-bound — never claimed for an item-less run

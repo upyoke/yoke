@@ -9,7 +9,6 @@ the end.
 
 from __future__ import annotations
 
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -22,18 +21,13 @@ from yoke_core.domain.deploy_pipeline_events import (
     emit_run_event as _emit_run_event,
 )
 from yoke_core.domain.deploy_pipeline_reporting import (
-    DeployPipelineCommandError,
     _flow_db,
-    _yoke_db,
 )
+from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 
 EXIT_FINALIZATION_PENDING = 4
 _STATUS_WRITE_BACKOFF_SECONDS = (1.0, 2.0)
-_STATUS_WRITE_RETRY_ERRORS = (
-    DeployPipelineCommandError,
-    OSError,
-    subprocess.TimeoutExpired,
-)
+_STATUS_WRITE_RETRY_ERRORS = (run_updates.DeployPipelineRunUpdateError,)
 
 
 class RunFinalizationPending(RuntimeError):
@@ -93,7 +87,7 @@ def _update_run_succeeded(run_id: str, sd: Optional[str]) -> None:
         if delay:
             time.sleep(delay)
         try:
-            _yoke_db("runs", "update", run_id, "status", "succeeded", sd=sd)
+            run_updates.update_run_field(run_id, "status", "succeeded")
             return
         except _STATUS_WRITE_RETRY_ERRORS as exc:
             last_exc = exc

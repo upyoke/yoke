@@ -13,6 +13,7 @@ from yoke_core.domain.deploy_pipeline_step_runners import (
     _dispatch_step_runner,
 )
 from yoke_core.domain import deploy_pipeline_environment as deploy_env
+from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
     resolve_flow_gate_branch,
@@ -180,7 +181,7 @@ def run_pipeline(
 
         # Start run execution on first stage
         if not run_started:
-            _yoke_db("runs", "update", run_id, "status", "executing", sd=sd)
+            run_updates.update_run_field(run_id, "status", "executing")
             _emit_run_event(
                 "DeploymentRunExecuting", "started",
                 {"run_id": run_id, "flow": flow_id, "project": project},
