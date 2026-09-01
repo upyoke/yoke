@@ -59,8 +59,8 @@ rehearsal run created them and nothing owns them once it exits — so the
 enumeration skips them and reports how many it skipped. Converging one
 proves nothing about any tenant, and two strays on a cluster were once
 enough to fail a release's rehearsal against the ledger of a run that had
-already gone. Remove strays with
-`python3 -m runtime.api.tools.drop_leftover_test_databases`.
+already gone. The reported count is the signal to clean them up: the skip
+keeps them out of the fleet, it does not hide that they are there.
 
 Deep reference: [reference/db-reference.md](reference/db-reference.md) and
 `reference/db-reference/migration-model-capabilities.md`.

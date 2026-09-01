@@ -10,6 +10,14 @@ and the tests that prove it.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.install_manifest import (
+    PACKAGED_INSTALL_BUNDLE_TREE_REL,
+)
+from yoke_core.domain.install_bundle import (
+    DOCS_DEST,
+    INSTALL_BUNDLE_SOURCE_DIRS,
+)
+
 
 AGENT_SKILL_CONTRACT_TESTS = (
     # Skill command prose has no import edge to its contract checks.
@@ -103,6 +111,34 @@ MACHINE_QA_PACK_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/install_bundle_tree/packs/machine-qa/",
 )
 
+INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS = (
+    # Prose copied verbatim into every installed project owes neutrality, and
+    # a markdown edit has no import edge to the check that proves it.
+    "runtime/api/test_install_bundle_surface_neutrality.py",
+)
+
+#: Canonical agent bodies the per-harness adapters render from. Shipped by way
+#: of those adapters rather than as a bundle source dir of its own, so it is
+#: named here alongside the dirs the bundle declares.
+CANONICAL_AGENT_BODIES_SOURCE = "runtime/agents"
+
+INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES = tuple(
+    dict.fromkeys(
+        prefix
+        for root in (
+            *INSTALL_BUNDLE_SOURCE_DIRS,
+            # The destination the neutrality check reads: docs ship from
+            # docs/public and are scanned where they land.
+            DOCS_DEST,
+            CANONICAL_AGENT_BODIES_SOURCE,
+        )
+        for prefix in (
+            f"{root}/",
+            f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/{root}/",
+        )
+    )
+)
+
 PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     (
         "product_cli_boundary_contract",
@@ -129,12 +165,20 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         AGENT_SKILL_SOURCE_PREFIXES,
         AGENT_SKILL_CONTRACT_TESTS,
     ),
+    (
+        "install_bundle_shipped_surface_contract",
+        INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES,
+        INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS,
+    ),
 )
 
 
 __all__ = [
     "AGENT_SKILL_CONTRACT_TESTS",
     "AGENT_SKILL_SOURCE_PREFIXES",
+    "CANONICAL_AGENT_BODIES_SOURCE",
+    "INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES",
+    "INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS",
     "HANDLER_REGISTRATION_CONTRACT_TESTS",
     "HANDLER_REGISTRATION_SOURCE_PREFIXES",
     "MACHINE_QA_PACK_CONTRACT_TESTS",

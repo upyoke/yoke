@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_core.tools import _impacted_contract_prefix_families as prefix_families
 from yoke_core.tools import _impacted_contract_tests as contracts
 from yoke_core.tools import _impacted_contract_tests_path_claims as path_claims
 from yoke_core.tools import (
@@ -209,3 +210,32 @@ def test_qa_preconditions_select_transition_consumers(tmp_path: Path) -> None:
 
     assert set(contracts.QA_TRANSITION_CONSUMER_TESTS) <= set(selection.files)
     assert f"qa_transition_consumer_contract:{source}" in (selection.widening_triggers)
+
+
+def test_a_shipped_prose_edit_still_selects_its_neutrality_check(
+    tmp_path: Path,
+) -> None:
+    """A markdown-only change is exactly the shape reachability cannot bound.
+
+    The regression: a doc edit landed a source-repo module path in a surface
+    copied verbatim into every installed project. The impacted run deferred on
+    the unmapped file kind and said so, the merge-queue build caught it, and
+    nothing in between paired the prose with the check that reads it.
+    """
+    changed = tuple(
+        f"{prefix}databases-and-migrations.md"
+        for prefix in prefix_families.INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES
+    )
+    for path in changed:
+        _write(tmp_path, path, "prose\n")
+    expected = set(prefix_families.INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS)
+    for test_path in {*impacted_tests.ALWAYS_RUN_TESTS, *expected}:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select(changed, build_import_index(tmp_path), bounded=True)
+
+    assert expected <= set(selection.files)
+    assert any(
+        token.startswith("install_bundle_shipped_surface_contract:")
+        for token in selection.widening_triggers
+    )

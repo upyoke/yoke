@@ -59,9 +59,7 @@ def cluster(monkeypatch: pytest.MonkeyPatch):
         connection = _Connection(rows)
         import psycopg
 
-        monkeypatch.setattr(
-            psycopg, "connect", lambda *_args, **_kwargs: connection
-        )
+        monkeypatch.setattr(psycopg, "connect", lambda *_args, **_kwargs: connection)
         return connection
 
     return hold
