@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-01T20:17:07Z_
+_Audit generated_at: 2026-09-01T22:31:29Z_
 
 ## 1. Summary
 
@@ -123,6 +123,10 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **347** (operation track
 | items | `yoke items create` | `items.create` | ok |
 | items | `yoke dash` | `items.create` | ok |
 | items | `yoke task` | `items.create` | ok |
+| items | `yoke items dependency add` | `items.dependency.add` | ok |
+| items | `yoke items dependency list` | `items.dependency.list` | ok |
+| items | `yoke items dependency remove` | `items.dependency.remove` | ok |
+| items | `yoke items dependency update` | `items.dependency.update` | ok |
 | items | `yoke items detail get` | `items.detail.get` | ok |
 | items | `yoke items freeze` | `items.freeze.run` | ok |
 | items | `yoke items get` | `items.get.run` | ok |
@@ -280,10 +284,6 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **347** (operation track
 | sessions | `yoke sessions reclaim-stale` | `sessions.reclaim_stale` | ok |
 | sessions | `yoke sessions touch` | `sessions.touch` | ok |
 | shepherd | `yoke shepherd caveat-disposition` | `shepherd.caveat_disposition.run` | ok |
-| shepherd | `yoke shepherd dependency-add` | `shepherd.dependency_add.run` | ok |
-| shepherd | `yoke shepherd dependency-list` | `shepherd.dependency_list.run` | ok |
-| shepherd | `yoke shepherd dependency-remove` | `shepherd.dependency_remove.run` | ok |
-| shepherd | `yoke shepherd dependency-update` | `shepherd.dependency_update.run` | ok |
 | shepherd | `yoke shepherd verdict` | `shepherd.verdict.run` | ok |
 | steering | `yoke steering report get` | `steering.report.get` | ok |
 | strategy | `yoke strategy carry candidate-set` | `strategy.carry.candidate_set` | ok |
@@ -556,8 +556,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 33 |
-| claude-code | 16 |
+| codex | 34 |
+| claude-code | 15 |
 | cursor | 1 |
 
 ## 8. Contradictions
