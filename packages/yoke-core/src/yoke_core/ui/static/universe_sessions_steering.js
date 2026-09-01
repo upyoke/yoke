@@ -15,9 +15,10 @@ function previousHoldings(row) {
   return Array.isArray(row?.holdings?.previous) ? row.holdings.previous : [];
 }
 
-// Live seat or released seat in history: the card sheet is lavender either
-// way. The holdings model also stamps `steered` so a truncated previous
-// list cannot hide a released seat.
+// Live seat or released seat in history: the card sheet is a faint
+// lavender either way. The holdings model also stamps `steered` so a
+// truncated previous list cannot hide a released seat. Released seats
+// list as ordinary previously-held rows; they do not keep this lead.
 export function sessionHasSteeringHistory(row) {
   const holdings = row?.holdings || {};
   if (holdings.steered) return true;

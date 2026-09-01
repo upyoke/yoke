@@ -290,7 +290,10 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   const text = visibleText(root);
   assert.ok(!text.includes("worktree attached"), "no worktree line");
   const prefixes = byClass(root, "session-age-prefix").map((n) => n.textContent);
-  assert.deepEqual(prefixes, ["filed ", "idle "], "attribution, then activity");
+  assert.deepEqual(
+    prefixes, ["claim held ", "idle "],
+    "currently held claim leads the meta line; filed stays a body row",
+  );
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children.map(
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],

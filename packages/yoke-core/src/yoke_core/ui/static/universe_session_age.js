@@ -1,6 +1,6 @@
 import {
   focusAttribution,
-  ownsFocusedItem,
+  topRenderedClaim,
 } from "./universe_sessions_holdings.js";
 import { isInstantRelativeTime, relativeTime } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
@@ -24,8 +24,12 @@ export function appendSessionAge(documentNode, body, row) {
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
   const attributed = focusAttribution(row);
-  if (row.current_item && ownsFocusedItem(row)) {
-    add("claim held ", row.claim_started_at || row.activity_at);
+  const topClaim = topRenderedClaim(row);
+  if (topClaim) {
+    add(
+      "claim held ",
+      topClaim.claimed_at || row.claim_started_at || row.activity_at,
+    );
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   } else if (attributed) {
     add(attributed === "lane" ? "worktree attached " : "filed ", row.activity_at);
