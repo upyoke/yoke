@@ -259,7 +259,6 @@ def render_section(
             celebration,
             glyph=item.status_glyph,
         )
-        rstat_emoji = item.merge_queue_status or rstat_emoji
         lines.append(
             f"| {rid_padded} | {rstat_emoji} | {item.project} | "
             f"{item.priority} | {item.workflow_id} | {item.progress} | {item.title} |"
