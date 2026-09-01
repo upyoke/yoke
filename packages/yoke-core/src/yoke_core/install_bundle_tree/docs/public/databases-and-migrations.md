@@ -29,6 +29,16 @@ When an item mutates a declared authoritative DB:
 Never apply destructive migrations without a named restore point. Never use
 ad hoc write SQL against a declared authoritative DB.
 
+A module's optional `invariants(conn)` hook is a permanent claim, not a
+post-apply snapshot. It re-runs on every fleet preflight against a copy of a
+live database, so it may assert only what the entry owes forever — the schema
+shape it produced, or a data fact no live writer can undo. Asserting the row
+state the apply happened to leave behind fails from the first legitimate write
+onward and blocks the release train. Correcting a mis-stated invariant is
+always a new history entry declaring `RETIRES_INVARIANTS`: an applied entry's
+bytes are recorded in every ledger that ran it, so editing the module in place
+makes those databases refuse to boot on a content mismatch.
+
 ## Item vs fleet
 
 Rehearsal against the validation surface does not prove every tenant DB.

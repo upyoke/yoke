@@ -247,6 +247,50 @@ real converge, and reports per database, reading the live databases and
 nothing more. A database it cannot reach reports FAIL — an unreachable check
 that reads as green is worse than no check.
 
+## An invariant is a claim about the schema, not a snapshot of the rows
+
+An entry's `invariants(conn)` hook runs twice in two very different worlds.
+Once immediately after the apply commits, where the database holds exactly
+what the apply just wrote. And again on every fleet preflight, against a copy
+of a database that has been serving live traffic ever since. Only the second
+one decides whether the release train moves.
+
+`0030_session_model_requested_split` moved each session's requested-era model
+echo out of the served-truth column, then asserted that no `harness_sessions`
+row holds a served `model` with no `requested_model`. True at the instant it
+committed. False from the next registration onward, because the split's own
+contract makes a null requested column mean *no ask was recorded* — the
+correct and permanent state for a session nobody launched with an explicit
+model. Ten such rows accumulated in one prod tenant within a day, every one of
+them written correctly by a then-current build, and the preflight re-proved the
+assertion against traffic the entry never saw. Prod deploy `run-20260901-006`
+failed at the release gate, and would have kept failing: the rows the assertion
+rejected are ones the system exists to produce.
+
+It also produced a deadlock worth naming, because it is the shape this class
+takes. One of the two row families came from a launch-stamping gap whose fix
+was merged and sitting in the very release the failing preflight blocked — the
+release that would stop producing the rows could not ship because of the rows.
+A repair backfill could not have broken it either: the other family is
+permanent by design, so no amount of re-deriving requests from served values
+makes a forever-false assertion true, and doing so would have invented an ask
+nobody recorded.
+
+So the rule is the one the second world implies. **An entry may assert only
+what it permanently owes** — the schema shape it produced, or a data fact no
+live writer can undo. The state the apply happened to leave behind is a
+snapshot; the writers that fill those rows afterwards are doing their job.
+
+And the correction is always a new entry, never an edit. An applied entry's
+bytes are recorded in every ledger that ran it, so rewriting the module in
+place turns a mis-stated invariant into a fleet-wide content mismatch and a
+refusal to boot — a worse outage than the one being fixed. The later entry
+declares `RETIRES_INVARIANTS` naming its predecessor and restates the durable
+half as its own. `0032_session_model_split_shape_invariant` does exactly that:
+it transforms nothing, retires 0030's assertion, and keeps proving what the
+split really owes — the requested and served columns exist, and `model` stays
+nullable so "nothing was attested" remains expressible.
+
 ## A projection that runs before the history cannot be rescued by the history
 
 The converge also projects the rows the code itself owns: built-in workflows,
