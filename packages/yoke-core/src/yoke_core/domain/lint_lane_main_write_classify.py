@@ -10,7 +10,10 @@ from typing import List, Sequence
 
 from yoke_core.domain import lint_lane_main_write_derivation as derivation
 from yoke_core.domain.file_line_check import classify_path
-from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, SUPPRESSION_TOKEN
+from yoke_core.domain.lint_lane_main_write_messages import (
+    ESCAPE_TOKEN,
+    SUPPRESSION_TOKEN,
+)
 from yoke_core.domain.lint_lane_main_write_lanes import matching_claim_for_main_target
 from yoke_core.domain.lint_session_cwd_path_authority import (
     is_free_path,
@@ -32,14 +35,16 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
     payload_has_embedded_python_write,
     _split_redirect_targets,
 )
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    strip_heredoc_syntax,
+)
 from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
 _WRITE_TOOLS = frozenset({"Write", "Edit", "apply_patch"})
 
-_UNTRACKED_GENERATED_VIEW_PATTERNS = (
-    re.compile(r"(?:^|/)\.yoke/BOARD\.md(?:\.ts)?$"),
-)
+_UNTRACKED_GENERATED_VIEW_PATTERNS = (re.compile(r"(?:^|/)\.yoke/BOARD\.md(?:\.ts)?$"),)
+
 
 def command_has_suppression_token(text: str) -> bool:
     return isinstance(text, str) and SUPPRESSION_TOKEN in text
@@ -54,7 +59,14 @@ def payload_has_escape_token(payload: dict) -> bool:
     for key in ("tool_input", "toolInput", "input"):
         value = payload.get(key)
         if isinstance(value, dict):
-            for field in ("command", "cmd", "file_path", "new_string", "old_string", "content"):
+            for field in (
+                "command",
+                "cmd",
+                "file_path",
+                "new_string",
+                "old_string",
+                "content",
+            ):
                 part = value.get(field)
                 if isinstance(part, str):
                     parts.append(part)
@@ -82,16 +94,20 @@ def is_generated_view_write(target: str, repo_root: str) -> bool:
     except (OSError, ValueError):
         rel = target.replace("\\", "/")
         if rel.startswith(repo_root):
-            rel = rel[len(repo_root):].lstrip(os.sep)
+            rel = rel[len(repo_root) :].lstrip(os.sep)
         else:
             return False
     rel_posix = rel.replace("\\", "/")
     if is_untracked_generated_view(rel_posix):
         return True
     try:
-        return classify_path(
-            rel_posix, repo_root=Path(repo_root),
-        ).value == "generated"
+        return (
+            classify_path(
+                rel_posix,
+                repo_root=Path(repo_root),
+            ).value
+            == "generated"
+        )
     except Exception:
         return False
 
@@ -147,7 +163,11 @@ def _segment_command_base(tokens: List[str]) -> str:
 
 
 def _bash_has_file_redirect(command: str) -> bool:
-    _clean, targets = _split_redirect_targets(_safe_split(command))
+    # Strip heredoc bodies first: shlex.split of the full command fails on
+    # an apostrophe in the body (``don't``), which used to hide ``cat > path``.
+    _clean, targets = _split_redirect_targets(
+        _safe_split(strip_heredoc_syntax(command)),
+    )
     return bool(targets)
 
 
@@ -191,8 +211,10 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
     never count as tracked-source writes unless the shell body itself
     carries a file redirect. Path-shaped arguments alone (``ls /repo``)
     are not writes — only Edit/Write tools, write-verb command bases,
-    shell file redirects, and embedded Python writes qualify. A heredoc
-    is not itself a write.
+    shell file redirects (including a heredoc feeding ``>`` / ``>>`` /
+    ``tee``), and embedded Python writes qualify. A heredoc is not
+    itself a write; opener-line redirects still are, even when the
+    body would not survive ``shlex.split``.
     """
     if is_write_tool_name(tool_name):
         return True
@@ -202,6 +224,9 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
     if not command:
         return False
     if payload_has_embedded_python_write(payload):
+        return True
+    analysis = analyze_payload_write_targets(payload)
+    if analysis.targets or analysis.unresolved_variable:
         return True
     if _bash_has_file_redirect(command):
         return True
@@ -246,7 +271,9 @@ def collect_main_write_targets(
         fell_back_to_cwd = True
 
     context = derivation.derivation_context(
-        fallback_cwd, is_write_tool_name(tool_name), fell_back_to_cwd,
+        fallback_cwd,
+        is_write_tool_name(tool_name),
+        fell_back_to_cwd,
         analysis.unresolved_writes,
     )
     hits: list[derivation.MainWriteHit] = []
