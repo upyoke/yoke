@@ -177,18 +177,28 @@ def _execute_update_once(
 
         if target_status:
             gate.has_merged_at = bool(item_dict.get("merged_at"))
-            unsatisfied_all = conn.execute(
-                """SELECT COUNT(*) as cnt FROM qa_requirements qr
-                   WHERE qr.item_id = %s AND qr.blocking_mode = 'blocking'
-                   AND qr.waived_at IS NULL
-                   AND NOT EXISTS (
-                       SELECT 1 FROM qa_runs qrun
-                       WHERE qrun.qa_requirement_id = qr.id
-                       AND qrun.verdict = 'pass'
-                   )""",
+            # The requirement count keeps the blocking scan off databases with
+            # no QA rows at all, whose minimal schema need not carry every
+            # column that scan reads.
+            qa_req_row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM qa_requirements WHERE item_id = %s",
                 (item_dict["id"],),
             ).fetchone()
-            gate.unsatisfied_all_blocking = unsatisfied_all["cnt"] if unsatisfied_all else 0
+            if (qa_req_row["cnt"] if qa_req_row else 0) > 0:
+                unsatisfied_all = conn.execute(
+                    """SELECT COUNT(*) as cnt FROM qa_requirements qr
+                       WHERE qr.item_id = %s AND qr.blocking_mode = 'blocking'
+                       AND qr.waived_at IS NULL
+                       AND NOT EXISTS (
+                           SELECT 1 FROM qa_runs qrun
+                           WHERE qrun.qa_requirement_id = qr.id
+                           AND qrun.verdict = 'pass'
+                       )""",
+                    (item_dict["id"],),
+                ).fetchone()
+                gate.unsatisfied_all_blocking = (
+                    unsatisfied_all["cnt"] if unsatisfied_all else 0
+                )
 
         # Deployed-to validation
         if field == "deployed_to" and value:
