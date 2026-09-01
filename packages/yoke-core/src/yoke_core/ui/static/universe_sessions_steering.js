@@ -11,6 +11,21 @@ function currentHoldings(row) {
   return Array.isArray(row?.holdings?.current) ? row.holdings.current : [];
 }
 
+function previousHoldings(row) {
+  return Array.isArray(row?.holdings?.previous) ? row.holdings.previous : [];
+}
+
+// Live seat or released seat in history: the card sheet is lavender either
+// way. The holdings model also stamps `steered` so a truncated previous
+// list cannot hide a released seat.
+export function sessionHasSteeringHistory(row) {
+  const holdings = row?.holdings || {};
+  if (holdings.steered) return true;
+  return [...currentHoldings(row), ...previousHoldings(row)].some(
+    (holding) => holding.target_kind === "steering",
+  );
+}
+
 function steeringClaims(row) {
   return currentHoldings(row).filter(
     (claim) => claim.target_kind === "steering",

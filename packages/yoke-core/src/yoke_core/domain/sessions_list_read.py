@@ -304,7 +304,12 @@ def list_sessions(
                     **focus,
                     "claims": claims,
                     "holdings": holdings_by_session.get(session_id)
-                    or {"current": [], "previous": [], "previous_remainder": 0},
+                    or {
+                        "current": [],
+                        "previous": [],
+                        "previous_remainder": 0,
+                        "steered": False,
+                    },
                     "claimed_blitz_worktree_ids": blitz_lanes_by_session.get(
                         session_id,
                         [],

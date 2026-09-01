@@ -18,7 +18,10 @@ import {
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import { appendSessionPresentation } from "./universe_session_presentation.js";
-import { appendSteeringHoldings } from "./universe_sessions_steering.js";
+import {
+  appendSteeringHoldings,
+  sessionHasSteeringHistory,
+} from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
   appendSessionRelay,
@@ -102,6 +105,9 @@ export function sessionCard(
   const card = el(documentNode, "article", "session-card");
   card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", row.liveness || "unknown");
+  if (sessionHasSteeringHistory(row)) {
+    card.setAttribute("data-steering-history", "");
+  }
 
   const top = el(documentNode, "div", "session-top");
   const harness = harnessIdentity(row);

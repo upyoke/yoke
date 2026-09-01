@@ -27,7 +27,7 @@ from yoke_core.domain.work_claim_targets import (
 )
 
 
-WEB_PREVIOUS_HOLDINGS_LIMIT = 4
+WEB_PREVIOUS_HOLDINGS_LIMIT = 3
 
 
 def _row_dicts(rows: Iterable[Any]) -> list[dict[str, Any]]:
@@ -325,10 +325,14 @@ def session_holdings_by_session(
     for source in sources:
         for session_id, entries in source.items():
             observations.setdefault(session_id, []).extend(entries)
-    return {
-        session_id: group_session_holdings(entries, previous_limit=previous_limit)
-        for session_id, entries in observations.items()
-    }
+    result: dict[str, dict[str, Any]] = {}
+    for session_id, entries in observations.items():
+        grouped = group_session_holdings(entries, previous_limit=previous_limit)
+        grouped["steered"] = any(
+            str(entry.get("target_kind") or "") == "steering" for entry in entries
+        )
+        result[session_id] = grouped
+    return result
 
 
 __all__ = ["WEB_PREVIOUS_HOLDINGS_LIMIT", "session_holdings_by_session"]

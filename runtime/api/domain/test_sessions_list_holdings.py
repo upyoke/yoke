@@ -16,6 +16,7 @@ from runtime.api.fixtures.session_holdings import (
     insert_steering_claim,
     iso,
 )
+from yoke_core.domain.sessions_holdings_projection import WEB_PREVIOUS_HOLDINGS_LIMIT
 from yoke_core.domain.sessions_list_read import list_sessions
 
 
@@ -45,6 +46,7 @@ def test_session_row_carries_empty_holdings_when_none_are_held(test_db):
         "current": [],
         "previous": [],
         "previous_remainder": 0,
+        "steered": False,
     }
 
 
@@ -297,8 +299,19 @@ def test_holdings_bound_previous_rows_and_report_the_remainder(test_db):
 
     holdings = list_sessions()[0]["holdings"]
 
-    assert len(holdings["previous"]) == 4
-    assert holdings["previous_remainder"] == 2
+    assert len(holdings["previous"]) == WEB_PREVIOUS_HOLDINGS_LIMIT
+    assert holdings["previous_remainder"] == 6 - WEB_PREVIOUS_HOLDINGS_LIMIT
+    assert holdings["steered"] is False
+
+
+def test_holdings_mark_a_session_that_steers(test_db):
+    insert_session(test_db, "s-steer")
+    insert_steering_claim(test_db, "s-steer")
+
+    holdings = list_sessions()[0]["holdings"]
+
+    assert holdings["steered"] is True
+    assert any(row["target_kind"] == "steering" for row in holdings["current"])
 
 
 def test_holdings_cover_released_files_documents_and_coordination(test_db):

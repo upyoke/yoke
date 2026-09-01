@@ -3,6 +3,13 @@
    scope IS the work, so it leads the body where a worker card leads with
    its claimed item. Only that seat renders this region. */
 
+/* Lavender sheet for a live or previously-held steering seat. Distinct
+   from ordinary worker cards; ink tokens stay as-is for contrast. The
+   Steering lead box below keeps its blue accent on top of this sheet. */
+.universe-app-root .session-card[data-steering-history] {
+  background: color-mix(in srgb, #7c5cbf 16%, var(--yoke-surface));
+}
+
 /* The lead block: a steering seat's scope, in the work position. Card ink
    and a tinted rule give it the weight a claimed item gets, because it
    answers the same question — what is this session doing. */
