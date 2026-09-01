@@ -1,0 +1,86 @@
+{
+  "canon_version": 1,
+  "definition": {
+    "entry_surfaces": [
+      "harness_skill",
+      "cli",
+      "web_form",
+      "promotion"
+    ],
+    "policies": {
+      "approval_defaults": {},
+      "approvals": "none",
+      "delivery": "merge_free",
+      "file_budget": "optional",
+      "generated_children": "none",
+      "item_posture_allowlist": [],
+      "ownership": "exclusive_session_work_claim",
+      "path_claims": "optional",
+      "path_survey": "optional",
+      "qa": "optional",
+      "worktrees": "none"
+    },
+    "schema_version": 4,
+    "skill_bindings": [
+      {
+        "from_stage_id": "idea",
+        "skill_id": "advance",
+        "through_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "skill_id": "dash",
+        "through_stage_id": "done"
+      }
+    ],
+    "stages": [
+      {
+        "board_bucket": "idea",
+        "gates": [],
+        "glyph": "💡",
+        "id": "idea",
+        "label": "idea"
+      },
+      {
+        "board_bucket": "implementing",
+        "description": "The executing session takes the exclusive work claim and performs the work without a git lane.",
+        "gates": [
+          {
+            "id": "work_claim_activation"
+          }
+        ],
+        "glyph": "🔨",
+        "id": "implementing",
+        "label": "implementing"
+      },
+      {
+        "board_bucket": "done",
+        "description": "The floor attestation is recorded — the agent account plus observed changes, with no merge SHA required.",
+        "gates": [
+          {
+            "id": "floor_attestation"
+          }
+        ],
+        "glyph": "✅",
+        "id": "done",
+        "label": "done"
+      }
+    ],
+    "terminal_stage_ids": [
+      "done"
+    ],
+    "transitions": [
+      {
+        "from_stage_id": "idea",
+        "to_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "to_stage_id": "done"
+      }
+    ]
+  },
+  "observed_as": [],
+  "published_at": "2026-08-31T21:00:00Z",
+  "workflow_id": "task"
+}

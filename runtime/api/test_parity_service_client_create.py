@@ -99,7 +99,7 @@ class TestCreateParity:
         # API
         api_resp = client.post("/v1/items", json={
             "title": "Bad workflow",
-            "workflow": "task",
+            "workflow": "not-a-workflow",
         })
         assert api_resp.status_code == 422
 
@@ -107,7 +107,7 @@ class TestCreateParity:
         cli_result = _run_service_client(
             db_path, "create-item",
             "--title", "Bad workflow",
-            "--workflow", "task",
+            "--workflow", "not-a-workflow",
             "--entry-surface", "cli",
         )
         assert cli_result.returncode == 1

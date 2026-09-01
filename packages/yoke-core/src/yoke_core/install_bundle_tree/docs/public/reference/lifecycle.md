@@ -301,7 +301,14 @@ target stages always come from the binding:
 Worktree shape also comes from `policies.worktrees` and
 `policies.generated_children`. A single-lane
 skill keeps implementation and review in one claimed worktree; a
-task-graph skill provisions the registered worker/integration lanes.
+task-graph skill provisions the registered worker/integration lanes; a
+`none` policy provisions no lane at all, so the item runs in place under
+the session's existing write authority and can live in a project that is
+a bare folder with no git repository.
+
+`policies.delivery` of `merge_free` pairs with that: done is the recorded
+floor attestation — the agent account plus the observed changes — and no
+merge SHA is required or expected.
 
 A binding's `through_stage_id` is a handoff boundary. The next skill starts
 as a fresh command entrypoint and acquires its own claim; the prior skill

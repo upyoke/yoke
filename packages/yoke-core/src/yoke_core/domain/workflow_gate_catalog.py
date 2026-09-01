@@ -23,6 +23,7 @@ GATE_DOC_CLAIM_ACTIVATION = "doc_claim_activation"
 GATE_CONFLICT_SURVEY = "conflict_survey"
 GATE_DOC_COMPLETION = "doc_completion"
 GATE_DASH_EVIDENCE = "dash_evidence"
+GATE_FLOOR_ATTESTATION = "floor_attestation"
 GATE_APPROVAL = "approval"
 
 _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
@@ -144,8 +145,8 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_WORK_CLAIM_ACTIVATION,
         "name": "Work-claim activation",
         "description": (
-            "The executing session takes the exclusive work claim and a "
-            "worktree."
+            "The executing session takes the exclusive work claim, and a "
+            "worktree when the worktrees policy requires one."
         ),
         "source_kind": "activation_operation",
         "availability": "live",
@@ -198,6 +199,18 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "modes": [],
     },
     {
+        "id": GATE_FLOOR_ATTESTATION,
+        "name": "Floor attestation",
+        "description": (
+            "Done is the recorded floor attestation — the agent account "
+            "plus observed changes, stamped agent-attested, with no "
+            "merge SHA required."
+        ),
+        "source_kind": "status_gate",
+        "availability": "live",
+        "modes": [],
+    },
+    {
         "id": GATE_APPROVAL,
         "name": "Approval",
         "description": (
@@ -222,6 +235,7 @@ __all__ = [
     "GATE_CLAIM_ACTIVATION",
     "GATE_CONFLICT_SURVEY",
     "GATE_DASH_EVIDENCE",
+    "GATE_FLOOR_ATTESTATION",
     "GATE_DB_CLAIM_PROSE",
     "GATE_DB_MUTATION",
     "GATE_DOC_CLAIM_ACTIVATION",

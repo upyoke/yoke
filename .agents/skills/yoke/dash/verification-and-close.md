@@ -253,3 +253,38 @@ yoke ouroboros field-note append --kind observation --evidence '...'
 
 Do not correlate denials to field-notes in storage. Visibility is the
 entire ask.
+
+### Laneless and evidence-only close-out
+
+Two closes record no merge SHA, and both are first-class rather than a
+bypass. A genuine no-changes finding edited nothing:
+
+```text
+yoke direct-workflow dash evidence ITEM --result "<account>" \
+  --verification "<what you observed>" --no-changes --json
+```
+
+An item whose pinned workflow delivers merge-free — `worktrees=none`,
+`delivery=merge_free`, the floor Task shape — did change things, and
+names them as the observed changes:
+
+```text
+yoke direct-workflow dash evidence ITEM --result "<account>" \
+  --verification "<what you observed>" --path notes/readme.txt --json
+```
+
+Do not reach for `--no-changes` to skip the SHAs on a laneless item that
+did change files: the floor rung comes from the item's own delivery
+policy, so the SHAs are already optional and `--no-changes` would record
+the wrong fact. A merging workflow that omits its SHAs is refused, and
+the refusal names both routes.
+
+Task items have no `reviewing-implementation` stage. Close
+`implementing` → `done` once the attestation is recorded:
+
+```text
+yoke lifecycle transition ITEM --from implementing --to done \
+  --reason "Floor attestation recorded"
+```
+
+Outward-action approval gating is a future seam; do not invent one here.

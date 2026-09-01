@@ -52,7 +52,7 @@ def _stored_rows(env: str) -> list[tuple[str, int, str]]:
         [
             "yoke", "db", "read",
             "SELECT workflow_id, version, definition_digest FROM workflow_versions "
-            "WHERE workflow_id IN ('issue','epic','blitz','dash') "
+            "WHERE workflow_id IN ('issue','epic','blitz','dash','task') "
             "ORDER BY workflow_id, version",
         ],
         capture_output=True,

@@ -1,10 +1,10 @@
 ---
 name: idea
 description: Create a new backlog item with a PREFIX-N ID. Infers project, workflow, priority, and flow from context.
-argument-hint: "[--dry-run] [--workflow issue|epic|blitz] {title}"
+argument-hint: "[--dry-run] [--workflow issue|epic|blitz|task] {title}"
 ---
 
-# /yoke idea [--dry-run] [--workflow issue|epic|blitz] {title}
+# /yoke idea [--dry-run] [--workflow issue|epic|blitz|task] {title}
 
 Create a new backlog item and assign it the next available PREFIX-N ID.
 
@@ -17,9 +17,10 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Arguments
 
 - `--dry-run` — Preview what would be created without modifying files or syncing to GitHub (optional, must be first argument)
-- `--workflow issue|epic|blitz` — Select the workflow explicitly. Use
+- `--workflow issue|epic|blitz|task` — Select the workflow explicitly. Use
   `blitz` for a substantial document-led plan that refinement will link to
-  one execution strategy document. Dash work enters through `/yoke dash`,
+  one execution strategy document. Use `task` for folder-only or non-code
+  floor work (no git lane). Dash work enters through `/yoke dash`,
   not this flag.
 - `{title}` — Short title for the item (required)
 
@@ -104,7 +105,8 @@ yoke sessions touch --mode idea
   `/yoke blitz` begins at `refined-idea`.
 - Status is always `idea` for new items. Follow the workflow-specific
   handoff in `infer-and-create.md`: Issue and Epic use `/yoke shepherd`;
-  Blitz uses `/yoke refine` and then `/yoke blitz`.
+  Blitz uses `/yoke refine` and then `/yoke blitz`. Task uses `/yoke do`
+  or `/yoke advance` into implementing, then Dash close-out to done.
 - The PREFIX-N ID is permanent — it never changes even after GitHub sync.
 - Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
 - This is a write command — it creates a file and inserts a DB row.

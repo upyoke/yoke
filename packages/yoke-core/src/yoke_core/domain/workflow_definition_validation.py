@@ -16,6 +16,9 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
     WORKFLOW_PATH_SURVEY_OPTIONAL,
     WORKFLOW_PATH_SURVEY_REQUIRED,
+    WORKFLOW_DELIVERY_MERGE_FREE,
+    WORKFLOW_QA_OPTIONAL,
+    WORKFLOW_WORKTREES_NONE,
 )
 from yoke_core.domain.workflow_definition_graph_validation import (
     validate_skill_bindings,
@@ -73,6 +76,7 @@ _POLICY_VALUES = {
             "single_implementation_lane",
             "worker_and_integration_lanes",
             "worker_lanes_optional_integration",
+            WORKFLOW_WORKTREES_NONE,
         }
     ),
     "generated_children": frozenset({"none", "epic_tasks"}),
@@ -82,6 +86,7 @@ _POLICY_VALUES = {
             "project_and_task_attachments",
             "item_attachments",
             "optional_item_attachment",
+            WORKFLOW_QA_OPTIONAL,
         }
     ),
     "approvals": frozenset(
@@ -96,6 +101,7 @@ _POLICY_VALUES = {
             "release_stage",
             "continuous_slice_actions",
             "after_merge_action",
+            WORKFLOW_DELIVERY_MERGE_FREE,
         }
     ),
 }

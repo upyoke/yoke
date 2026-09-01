@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 CANON_DIR = Path("packages/yoke-core/src/yoke_core/domain/builtin_workflow_canon")
-WORKFLOW_IDS = ("issue", "epic", "blitz", "dash")
+WORKFLOW_IDS = ("issue", "epic", "blitz", "dash", "task")
 
 
 def _rows(env: str) -> list[tuple[str, int, str, str, str]]:

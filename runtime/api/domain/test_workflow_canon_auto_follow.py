@@ -122,5 +122,5 @@ def test_a_universe_born_on_its_current_version_reports_no_adoption(test_db):
 
     converge_builtin_workflows(test_db)
 
-    for workflow_id in ("dash", "issue", "epic", "blitz"):
+    for workflow_id in ("dash", "issue", "epic", "blitz", "task"):
         assert _state(test_db, workflow_id)["canon_adopted_from_version"] is None

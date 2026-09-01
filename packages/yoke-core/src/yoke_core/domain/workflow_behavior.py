@@ -13,6 +13,7 @@ from yoke_contracts.item_worktrees import (
     ITEM_WORKTREE_LANE_IMPLEMENTATION,
     ITEM_WORKTREE_LANE_INTEGRATION,
     ITEM_WORKTREE_LANE_WORKER,
+    WORKFLOW_WORKTREES_NONE,
 )
 
 _LANE_RELEASE_RECOVERY_SKILL_IDS = IMPLEMENTATION_WORKFLOW_SKILL_IDS | {"polish"}
@@ -45,6 +46,10 @@ _WORKTREE_LANE_POLICIES = {
     "worker_lanes_optional_integration": WorktreeLanePolicy(
         allowed_roles=frozenset({LANE_WORKER, LANE_INTEGRATION}),
         required_roles=frozenset({LANE_WORKER}),
+    ),
+    WORKFLOW_WORKTREES_NONE: WorktreeLanePolicy(
+        allowed_roles=frozenset(),
+        required_roles=frozenset(),
     ),
 }
 

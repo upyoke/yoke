@@ -19,6 +19,7 @@ from yoke_core.domain.path_claims_overlap_survey import (
     SURVEY_ADVISORY_PROCEED,
     SURVEY_ADVISORY_YIELD,
 )
+from yoke_contracts.item_worktrees import runs_without_git_lane
 from yoke_core.domain.worktree_preflight import run_preflight
 from yoke_core.tools._source_pythonpath import (
     INSTALL_BUNDLE_SYNC_RECIPE,
@@ -90,10 +91,7 @@ def _prepare_dash_path_claim(
     )
     if not ensured.success:
         err = ensured.error
-        return (
-            err.message if err is not None
-            else "Dash path-claim preparation failed"
-        )
+        return err.message if err is not None else "Dash path-claim preparation failed"
     return None
 
 
@@ -146,7 +144,8 @@ def run(args: List[str]) -> int:
     )
     if not detail.success:
         message = (
-            detail.error.message if detail.error is not None
+            detail.error.message
+            if detail.error is not None
             else "item ref resolution failed"
         )
         parser.error(f"could not resolve item {parsed.item!r}: {message}")
@@ -154,8 +153,12 @@ def run(args: List[str]) -> int:
     item_id = int(item["id"])
     workflow_id = str((item.get("workflow") or {}).get("id") or "missing")
     if workflow_id != parsed.workflow:
+        parser.error(f"item uses workflow {workflow_id!r}, not {parsed.workflow!r}")
+    if runs_without_git_lane(item.get("workflow") or {}):
         parser.error(
-            f"item uses workflow {workflow_id!r}, not {parsed.workflow!r}"
+            f"workflow {workflow_id!r} declares worktrees=none, so this item "
+            "has no lane to prepare. Run the work in place under the session's "
+            "existing write authority and close out on the evidence."
         )
 
     status = call_dispatcher(
@@ -164,49 +167,61 @@ def run(args: List[str]) -> int:
     )
     if not status.success:
         message = (
-            status.error.message if status.error is not None
+            status.error.message
+            if status.error is not None
             else "conflict survey status failed"
         )
         parser.error(f"conflict survey status unavailable: {message}")
     survey = status.result or {}
     durable_state = str(survey.get("durable_state") or "")
     if durable_state in INCOMPLETE_DURABLE_STATES:
-        print(json.dumps({
-            "ok": False,
-            "block_kind": f"conflict-survey-{durable_state}",
-            "narrative": (
-                "Wait for the survey write to finish."
-                if durable_state == DURABLE_PENDING
-                else "Record a new survey because the durable row is unreadable."
-            ),
-            "item_id": item_id,
-        }))
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "block_kind": f"conflict-survey-{durable_state}",
+                    "narrative": (
+                        "Wait for the survey write to finish."
+                        if durable_state == DURABLE_PENDING
+                        else "Record a new survey because the durable row is unreadable."
+                    ),
+                    "item_id": item_id,
+                }
+            )
+        )
         return 1
     if not survey.get("found"):
-        print(json.dumps({
-            "ok": False,
-            "block_kind": "conflict-survey-missing",
-            "narrative": (
-                "Record the inferred touch set before worktree preparation."
-            ),
-            "item_id": item_id,
-        }))
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "block_kind": "conflict-survey-missing",
+                    "narrative": (
+                        "Record the inferred touch set before worktree preparation."
+                    ),
+                    "item_id": item_id,
+                }
+            )
+        )
         return 1
     blockers = list(survey.get("blockers") or [])
     advisory_by_contact: dict[tuple[int, str], dict] = {}
     for blocker in blockers:
         owner_item_id = int(blocker["owner_item_id"])
         kind = str(blocker.get("kind") or "unknown")
-        advisory = advisory_by_contact.setdefault((owner_item_id, kind), {
-            "kind": kind,
-            "public_ref": f"item {owner_item_id}",
-            "status": str(blocker.get("state") or "unknown"),
-            "shared_paths": [],
-            "routes": {
-                "proceed": SURVEY_ADVISORY_PROCEED,
-                "yield": SURVEY_ADVISORY_YIELD,
+        advisory = advisory_by_contact.setdefault(
+            (owner_item_id, kind),
+            {
+                "kind": kind,
+                "public_ref": f"item {owner_item_id}",
+                "status": str(blocker.get("state") or "unknown"),
+                "shared_paths": [],
+                "routes": {
+                    "proceed": SURVEY_ADVISORY_PROCEED,
+                    "yield": SURVEY_ADVISORY_YIELD,
+                },
             },
-        })
+        )
         path = str(blocker.get("path") or "")
         if path and path not in advisory["shared_paths"]:
             advisory["shared_paths"].append(path)
@@ -215,8 +230,9 @@ def run(args: List[str]) -> int:
             function_id="items.detail.get",
             target=TargetRef(kind="item", item_id=owner_item_id),
         )
-        other_item = (other_detail.result or {}).get("item") \
-            if other_detail.success else {}
+        other_item = (
+            (other_detail.result or {}).get("item") if other_detail.success else {}
+        )
         advisory["public_ref"] = str(
             other_item.get("public_ref") or advisory["public_ref"]
         )
@@ -245,9 +261,7 @@ def run(args: List[str]) -> int:
         )
     envelope = outcome.to_envelope()
     if outcome.ok:
-        envelope["run_recipes"] = _run_recipes(
-            str(envelope.get("worktree_path") or "")
-        )
+        envelope["run_recipes"] = _run_recipes(str(envelope.get("worktree_path") or ""))
     if advisories:
         envelope["advisories"] = advisories
     print(json.dumps(envelope, indent=2, sort_keys=True))

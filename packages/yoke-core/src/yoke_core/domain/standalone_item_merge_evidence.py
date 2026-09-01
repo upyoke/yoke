@@ -27,6 +27,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+from yoke_core.domain.floor_attestation import floor_rung_missing
 
 # The status a standalone item reaches once its close-out has run. An item
 # short of it has work left, so a claim refusal there is a real refusal.
@@ -49,6 +50,8 @@ def record(
     tree_root: str,
 ) -> str:
     """Write the item's execution evidence; empty string on success."""
+    commit_sha = "" if no_changes else str(outcome.commit_sha or "")
+    merge_sha = "" if no_changes else str(outcome.merge_sha or "")
     response = call_dispatcher(
         function_id="direct_workflow.dash.evidence",
         target=TargetRef(kind="item", item_id=item_id),
@@ -56,14 +59,14 @@ def record(
             "result_summary": result_summary,
             "verification_summary": verification_summary,
             "verification_status": verification_status,
-            "commit_sha": outcome.commit_sha,
-            "merge_sha": outcome.merge_sha,
+            "commit_sha": commit_sha,
+            "merge_sha": merge_sha,
             "touched_files": list(outcome.touched_files),
             "no_changes": no_changes,
             # The lane's own tip is what verification covered; the merge
             # commit belongs to the base branch, not to the tree tested.
             "tree_root": tree_root,
-            "tree_head_sha": outcome.commit_sha,
+            "tree_head_sha": commit_sha,
         },
     )
     if response.success:
@@ -97,11 +100,15 @@ def recorded_covers_merge(item_id: int, merge_sha: str) -> bool:
     """Whether the persisted record answers for ``merge_sha``.
 
     A record left by some earlier landing is not evidence for this one, so
-    the merge identity has to match before a refused write is forgiven.
+    the merge identity has to match before a refused write is forgiven —
+    except on a floor close, which records no merge SHA to match against
+    and is answered by its own attestation instead.
     """
     row = recorded(item_id)
     if row is None:
         return False
+    if row.get("no_changes") and not floor_rung_missing(row):
+        return True
     return str(row.get("merge_sha") or "") == str(merge_sha or "")
 
 

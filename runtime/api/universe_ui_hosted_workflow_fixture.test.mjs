@@ -137,7 +137,8 @@ const EXPECTED_GATE_COPY = {
   claim_activation:
     "Registered path claims activate together with the worktree; a conflicting live claim refuses activation.",
   work_claim_activation:
-    "The executing session takes the exclusive work claim and a worktree.",
+    "The executing session takes the exclusive work claim, and a " +
+    "worktree when the worktrees policy requires one.",
   doc_claim_activation:
     "The Blitz atomically claims its single execution document; an already-owned document refuses activation.",
   conflict_survey:

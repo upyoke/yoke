@@ -73,13 +73,14 @@ def test_builtin_file_budget_defaults_match_workflow_shape():
         workflow_id: builtin_workflow_definition(workflow_id)[
             "definition"
         ]["policies"]
-        for workflow_id in ("issue", "epic", "blitz", "dash")
+        for workflow_id in ("issue", "epic", "blitz", "dash", "task")
     }
 
     assert policies["issue"]["file_budget"] == "required"
     assert policies["epic"]["file_budget"] == "required_per_task"
     assert policies["blitz"]["file_budget"] == "optional"
     assert policies["dash"]["file_budget"] == "optional"
+    assert policies["task"]["file_budget"] == "optional"
     assert "file_budget" in policies["blitz"]["item_posture_allowlist"]
     assert "file_budget" in policies["dash"]["item_posture_allowlist"]
 

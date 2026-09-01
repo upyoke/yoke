@@ -24,7 +24,11 @@ from yoke_cli.commands.adapters.dash_survey_recovery import (
     build_survey_timeout_recovery,
 )
 from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
-from yoke_cli.commands.adapters.lane_tree import item_lane_tree, verification_tree
+from yoke_cli.commands.adapters.lane_tree import (
+    LaneTree,
+    item_lane_tree,
+    verification_tree,
+)
 
 DASH_FILE_USAGE = (
     "yoke dash TITLE INSTRUCTION --execution-instructions-considered "
@@ -39,7 +43,7 @@ DASH_SURVEY_USAGE = (
 )
 DASH_EVIDENCE_USAGE = (
     "yoke direct-workflow dash evidence ITEM --result TEXT "
-    "--verification TEXT --commit-sha SHA --merge-sha SHA "
+    "--verification TEXT [--commit-sha SHA --merge-sha SHA] "
     "[--path PATH ... | --no-changes] [--posture-check KEY=STATUS ...] "
     "[--tree-root PATH] [--tree-head-sha SHA] "
     "[--project P] [--session-id S] [--json]"
@@ -229,8 +233,8 @@ def dash_evidence(args: List[str]) -> int:
     parser.add_argument("--result", required=True)
     parser.add_argument("--verification", required=True)
     parser.add_argument("--verification-status", **status_argument_kwargs())
-    parser.add_argument("--commit-sha", required=True)
-    parser.add_argument("--merge-sha", required=True)
+    parser.add_argument("--commit-sha", default="")
+    parser.add_argument("--merge-sha", default="")
     parser.add_argument("--path", dest="paths", action="append", default=[])
     parser.add_argument("--posture-check", action="append", default=[])
     parser.add_argument("--no-changes", action="store_true")
@@ -255,24 +259,30 @@ def dash_evidence(args: List[str]) -> int:
         checks = _posture_checks(parsed.posture_check)
     except ValueError as exc:
         return usage_error(str(exc))
-    # A caller who named both halves has already answered; skip the lookup.
-    lane_path = ""
-    if not (parsed.tree_root and parsed.tree_head_sha):
-        lane_path = item_lane_tree(
-            parsed.item, parsed.project, parsed.session_id,
-        ).path
-    tree_root, tree_head_sha = verification_tree(
-        parsed.tree_root,
-        parsed.tree_head_sha,
-        lane_path=lane_path,
-        commit_sha=parsed.commit_sha,
-    )
-    if not tree_root or not tree_head_sha:
-        return usage_error(
-            "could not resolve the verification tree: this item has no "
-            "recorded implementation lane and this directory is not a git "
-            "worktree; pass --tree-root and --tree-head-sha."
+    # Naming no SHA at all is a floor close, and a floor close has no tree
+    # to resolve: nothing was committed, so no head could have been
+    # verified. A no-changes close that still landed a merge is not one of
+    # those — its merge names a real tree, and the lookup below finds it.
+    if not (parsed.commit_sha or parsed.merge_sha):
+        tree_root, tree_head_sha = parsed.tree_root, parsed.tree_head_sha
+    else:
+        lane = LaneTree()
+        if not (parsed.tree_root and parsed.tree_head_sha):
+            lane = item_lane_tree(
+                parsed.item, parsed.project, parsed.session_id,
+            )
+        tree_root, tree_head_sha = verification_tree(
+            parsed.tree_root,
+            parsed.tree_head_sha,
+            lane_path=lane.path,
+            commit_sha=parsed.commit_sha,
         )
+        if not (tree_root and tree_head_sha) and not lane.laneless:
+            return usage_error(
+                "could not resolve the verification tree: this item has no "
+                "recorded implementation lane and this directory is not a git "
+                "worktree; pass --tree-root and --tree-head-sha."
+            )
     return dispatch_and_emit(
         function_id="direct_workflow.dash.evidence",
         target=item_target("item", parsed.item, parsed.project),
