@@ -21,9 +21,19 @@ from yoke_contracts.machine_config import schema as contract
 @github_machine_operation.serialized_operation(MachineConfigWriteError)
 @serialized_mutation
 def remove_connection(
-    env: str, *, path: str | Path | None = None,
+    env: str,
+    *,
+    activate: str | None = None,
+    path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Remove an inactive alias and its Yoke-owned credential atomically."""
+    """Remove an alias and its Yoke-owned credential atomically.
+
+    Retiring the active authority needs somewhere for authority to go.
+    ``activate`` names the replacement; when the alias being removed is the
+    machine's only connection there is nothing to choose and the machine is
+    simply left unconfigured, which is the honest end state of a teardown
+    and the one `yoke status` then reports.
+    """
     payload, cfg_path = load_payload(path)
     if not cfg_path.is_file():
         raise MachineConfigWriteError(f"machine config is missing: {cfg_path}")
@@ -32,21 +42,21 @@ def remove_connection(
         raise MachineConfigWriteError(
             "machine config retirement requires an owner-only config file"
         )
-    if str(payload.get("active_env") or "") == env:
-        raise MachineConfigWriteError(
-            f"refusing to remove active authority {env!r}; select the canonical "
-            "replacement with `yoke env use` first"
-        )
     connections = payload.get("connections")
     connections = connections if isinstance(connections, dict) else {}
+    unconfigured = _resolve_active_authority(
+        payload, env=env, activate=activate, connections=connections,
+    )
     entry = connections.get(env)
     retirement = _retirement_tombstone(env)
     if not isinstance(entry, dict):
         tombstone = _existing_recovery_tombstone(env, retirement)
         entries = contract.normalize_projects(payload.get("projects"))
         payload["projects"] = [entry for entry in entries if entry.get("env") != env]
-        if len(entries) != len(payload["projects"]):
-            write_payload(payload, cfg_path)
+        # A stale active_env naming a connection that is already gone is
+        # exactly the state this command exists to clear.
+        if len(entries) != len(payload["projects"]) or unconfigured or activate:
+            write_payload(payload, cfg_path, allow_unconfigured=unconfigured)
         if tombstone is not None:
             _require_owner_only(tombstone, env=env)
             tombstone.unlink()
@@ -55,6 +65,7 @@ def remove_connection(
             "credential_removed": tombstone is not None,
             "credential_retained_shared": False,
             "project_mappings_removed": len(entries) - len(payload["projects"]),
+            "active_env": str(payload.get("active_env") or ""),
             "config": str(cfg_path),
         }
 
@@ -85,7 +96,7 @@ def remove_connection(
     entries = contract.normalize_projects(payload.get("projects"))
     payload["projects"] = [entry for entry in entries if entry.get("env") != env]
     try:
-        write_payload(payload, cfg_path)
+        write_payload(payload, cfg_path, allow_unconfigured=unconfigured)
     except BaseException:
         if tombstone is not None:
             os.replace(tombstone, secret)
@@ -97,8 +108,42 @@ def remove_connection(
         "credential_removed": tombstone is not None,
         "credential_retained_shared": bool(shared),
         "project_mappings_removed": len(entries) - len(payload["projects"]),
+        "active_env": str(payload.get("active_env") or ""),
         "config": str(cfg_path),
     }
+
+
+def _resolve_active_authority(
+    payload: dict[str, Any],
+    *,
+    env: str,
+    activate: str | None,
+    connections: Mapping[str, Any],
+) -> bool:
+    """Move or clear ``active_env`` before ``env`` disappears from under it.
+
+    Returns whether the removal leaves the machine with no connections at
+    all, which the config writer has to be told about explicitly.
+    """
+    if str(payload.get("active_env") or "") != env:
+        return False
+    remaining = sorted(str(name) for name in connections if str(name) != env)
+    if activate is not None:
+        if activate not in connections or activate == env:
+            raise MachineConfigWriteError(
+                f"replacement authority {activate!r} has no entry in "
+                f"connections (configured: {remaining})"
+            )
+        payload["active_env"] = activate
+        return False
+    if remaining:
+        raise MachineConfigWriteError(
+            f"{env!r} is this machine's active authority; name the replacement "
+            f"with `--activate ENV` (configured: {remaining}) or select it "
+            "first with `yoke env use ENV`"
+        )
+    payload.pop("active_env", None)
+    return True
 
 
 def _owned_connection_secret(entry: Mapping[str, Any]) -> Path | None:

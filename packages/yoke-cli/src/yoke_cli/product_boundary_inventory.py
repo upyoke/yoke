@@ -53,7 +53,7 @@ def _commands(text: str) -> frozenset[str]:
 
 
 _PRODUCT = _commands(
-    "auth set|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|packs get|packs list|packs relink|packs update|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|self-host upgrade|status|ui|universe export|universe import|universe validate"
+    "auth set|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|packs get|packs list|packs relink|packs update|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|self-host teardown|self-host upgrade|status|ui|universe export|universe import|universe validate"
 )
 _PROJECT_INSTALL = _commands(
     "project install|project refresh|project snapshot sync|project uninstall"

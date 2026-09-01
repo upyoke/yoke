@@ -30,6 +30,10 @@ from yoke_contracts.github_app_public import (
     GITHUB_APP_SLUG_ENV,
     GITHUB_APP_WEB_URL_ENV,
 )
+from yoke_contracts.self_host_bootstrap_output import (
+    API_PUBLISH_ENV,
+    DEFAULT_API_PUBLISH_SPEC,
+)
 
 #: Default bundle directory, created under the invoking directory. The
 #: bundle is an operator-managed working directory (``docker compose``
@@ -235,6 +239,19 @@ def validate_existing_bundle(*, directory: Optional[str] = None) -> Path:
     return target.resolve()
 
 
+def read_publish_spec(target: Path | str) -> str:
+    """Return the bundle's host publish spec, or the default when unset."""
+    try:
+        text = (Path(target) / ENV_FILE_NAME).read_text(encoding="utf-8")
+    except OSError:
+        return DEFAULT_API_PUBLISH_SPEC
+    for line in text.splitlines():
+        key, separator, value = line.strip().partition("=")
+        if separator and key == API_PUBLISH_ENV:
+            return value.strip() or DEFAULT_API_PUBLISH_SPEC
+    return DEFAULT_API_PUBLISH_SPEC
+
+
 def _compose_text() -> str:
     return (
         resources.files("yoke_cli.self_host")
@@ -252,7 +269,7 @@ def _env_text(*, image: str, publish_spec: str) -> str:
         f"YOKE_SERVER_IMAGE={image}\n"
         "# Host publish spec for the API port. The default binds loopback\n"
         "# only; to serve your network set e.g. 0.0.0.0:8765 — behind TLS.\n"
-        f"YOKE_API_PUBLISH={publish_spec}\n"
+        f"{API_PUBLISH_ENV}={publish_spec}\n"
         "\n"
         "# --- Browser sign-in via your OIDC provider (optional) ----------\n"
         "# Uncomment and fill to enable the web sign-in door; leave\n"
@@ -332,6 +349,7 @@ __all__ = [
     "SelfHostBundleError",
     "bundle_file_paths",
     "protect_existing_bundle",
+    "read_publish_spec",
     "validate_existing_bundle",
     "write_bundle",
 ]

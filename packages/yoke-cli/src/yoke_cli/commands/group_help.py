@@ -51,6 +51,13 @@ GUIDANCE_ROUTES: dict[tuple[str, ...], str] = {
 GROUP_TEACHING: dict[tuple[str, ...], str] = {
     ("db",): DB_GROUP_TEACHING,
     ("deployment-runs",): ITEMLESS_RELEASE_RECIPE,
+    ("env",): (
+        "Retirement is a `connection` command: `yoke connection remove ENV` "
+        "deletes the entry and its Yoke-owned credential, taking "
+        "`--activate ENV` when the entry being removed is the active "
+        "authority. There is no `env remove`, and no entry ever needs "
+        "hand-editing out of ~/.yoke/config.json."
+    ),
     ("connection",): (
         "Discovery: `yoke env list` prints every configured connection "
         "(name, active, transport, prod flag, api url). There is no "
