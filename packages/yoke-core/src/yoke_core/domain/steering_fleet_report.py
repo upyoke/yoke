@@ -74,6 +74,7 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     suspected_orphaned_waiters,
     unregistered_launches,
 )
+from yoke_core.domain.steering_message_recipients import awaiting_seat_count
 from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     fingerprint_material,
@@ -124,6 +125,11 @@ class FleetReport:
     suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
+    #: Role-addressed messages in this scope that no live seat is acting on.
+    #: Unowned work used to be invisible precisely here: a report addressed
+    #: to a seat that has ended is not anyone's inbox item until a seat
+    #: acquires the scope and drains it.
+    messages_awaiting_seat: int = 0
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -144,6 +150,7 @@ class FleetReport:
             or self.landed_open
             or self.suspected_orphaned_waiters
             or self.dead_waits
+            or self.messages_awaiting_seat
         )
 
     def fingerprint(self) -> str:
@@ -174,6 +181,7 @@ class FleetReport:
             ),
             "plan_limits": fingerprint_material(self.plan_limits),
             "origin_counts": list(self.origin_counts),
+            "messages_awaiting_seat": self.messages_awaiting_seat,
         }
         encoded = json.dumps(material, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
@@ -268,6 +276,11 @@ def compose_report(
         session_counts=live_session_counts(conn, project_id=project_id),
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
         plan_limits=load_plan_limits(conn, project_id=project_id, now=now),
+        messages_awaiting_seat=awaiting_seat_count(
+            conn,
+            project_id=int(project_id),
+            scope={"project_id": int(project_id)},
+        ),
     )
 
 

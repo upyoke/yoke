@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
@@ -13,8 +14,11 @@ from yoke_core.domain.sessions_claim_lifecycle_lock import (
 from yoke_core.domain.sessions_ended_recovery import session_ended_message
 from yoke_core.domain.sessions_lifecycle_claim_events import emit_steering_claimed
 from yoke_core.domain.sessions_queries import _now_iso
+from yoke_core.domain.steering_scope_coverage import scopes_overlap
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
+    decode_scope,
+    encode_scope,
     from_row as target_from_row,
     make_steering_target,
 )
@@ -41,14 +45,28 @@ def lock_project(conn: Any, project_id: int) -> None:
         raise SessionError("NOT_FOUND", f"Project {project_id} not found.")
 
 
-def _active_rows(conn: Any, project_id: int) -> list[Any]:
-    target = make_steering_target(project_id)
-    return conn.execute(
+def _overlapping_rows(conn: Any, scope: dict[str, Any]) -> list[Any]:
+    """Unreleased steering claims whose scope collides with ``scope``.
+
+    The seat invariant is "no two live steering claims with overlapping
+    scopes", not "one per project": the project is the outer key, and a
+    finer future scope nested inside a held project scope is still the same
+    seat's territory. Liveness is deliberately not consulted here -- an
+    unreleased claim row holds the scope until it is released or the
+    stale-session sweep reclaims it, and letting a second row exist beside
+    it would leave the scope with two holders on record.
+    """
+    rows = conn.execute(
         "SELECT * FROM work_claims "
-        f"WHERE target_kind = {_p(conn)} AND scope = {_p(conn)} "
-        "AND released_at IS NULL ORDER BY claimed_at ASC, id ASC",
-        (TARGET_KIND_STEERING, target.scope_json()),
+        f"WHERE target_kind = {_p(conn)} AND released_at IS NULL "
+        "ORDER BY claimed_at ASC, id ASC",
+        (TARGET_KIND_STEERING,),
     ).fetchall()
+    return [
+        row
+        for row in rows
+        if scopes_overlap(decode_scope(dict(row)["scope"]), scope)
+    ]
 
 
 def acquire(
@@ -69,7 +87,7 @@ def acquire(
         raise SessionError("SESSION_ENDED", session_ended_message(conn, session_id))
     lock_project(conn, int(project_id))
 
-    rows = _active_rows(conn, int(project_id))
+    rows = _overlapping_rows(conn, dict(target.scope))
     for row in rows:
         payload = _claim_payload(row)
         if payload["session_id"] == session_id:
@@ -81,14 +99,20 @@ def acquire(
                 actor_id=actor_id,
                 reason=reason,
             )
+            handoff = _drain_role_addressed_messages(
+                conn, claim=payload, target=target
+            )
+            payload["message_handoff"] = handoff
             conn.commit()
+            _emit_drain(session_id, payload, target, handoff)
             return payload
     if rows:
         conflict = _claim_payload(rows[0])
         raise SessionError(
             "ALREADY_CLAIMED",
-            f"Steering scope for project {int(project_id)} is already held by "
-            f"coordinator session '{conflict['session_id']}' "
+            f"Steering scope {target.scope_json()} overlaps the live scope "
+            f"{encode_scope(conflict['scope'])} already held by "
+            f"{_holder_label(conn, conflict)} "
             f"(claim {conflict['id']}); inspect it with `yoke claims steering "
             f"list --project {int(project_id)} --active-only`.",
         )
@@ -123,9 +147,74 @@ def acquire(
         actor_id=actor_id,
         reason=reason,
     )
+    handoff = _drain_role_addressed_messages(conn, claim=claim, target=target)
+    claim["message_handoff"] = handoff
     conn.commit()
     emit_steering_claimed(session_id, claim_id, target, reason=reason)
+    _emit_drain(session_id, claim, target, handoff)
     return claim
+
+
+def _drain_role_addressed_messages(
+    conn: Any,
+    *,
+    claim: dict[str, Any],
+    target: Any,
+) -> dict[str, Any]:
+    """Hand this seat every role-addressed message its scope covers."""
+    from yoke_core.domain.steering_fleet_report_compose import (
+        steering_scope_descriptor,
+    )
+    from yoke_core.domain.steering_message_drain import drain_to_seat
+
+    scope = dict(claim["scope"])
+    return drain_to_seat(
+        conn,
+        scope=scope,
+        project_id=int(target.project_id),
+        session_id=str(claim["session_id"]),
+        claim_id=int(claim["id"]),
+        descriptor=steering_scope_descriptor(conn, scope),
+        now=datetime.now(timezone.utc),
+    )
+
+
+def _emit_drain(
+    session_id: str,
+    claim: dict[str, Any],
+    target: Any,
+    handoff: dict[str, Any],
+) -> None:
+    """Record the handoff counts once the drain has committed."""
+    if not handoff.get("drained_count"):
+        return
+    from yoke_core.domain.sessions_lifecycle_claim_events import (
+        emit_steering_messages_drained,
+    )
+
+    emit_steering_messages_drained(
+        session_id,
+        int(claim["id"]),
+        target,
+        drained_count=int(handoff.get("drained_count") or 0),
+        parked_count=int(handoff.get("parked_count") or 0),
+        stranded_count=int(handoff.get("stranded_count") or 0),
+    )
+
+
+def _holder_label(conn: Any, claim: dict[str, Any]) -> str:
+    """Name the holder by actor and session, not by an opaque session id.
+
+    The refusal is read by a person deciding whether to ask for the seat or
+    take over, and "session 5ba2fab5" answers neither question.
+    """
+    row = conn.execute(
+        f"SELECT actor_id FROM harness_sessions WHERE session_id = {_p(conn)}",
+        (str(claim["session_id"]),),
+    ).fetchone()
+    actor_id = dict(row).get("actor_id") if row is not None else None
+    actor = f"actor {actor_id}" if actor_id is not None else "an unknown actor"
+    return f"{actor} in session '{claim['session_id']}'"
 
 
 def _acquire_document_pair(

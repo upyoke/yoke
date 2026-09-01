@@ -1,4 +1,12 @@
-"""Actor-aware Fleet message visibility and listing operations."""
+"""Actor-aware Fleet message visibility and listing operations.
+
+Visibility is several separate claims rather than one role check. A sender
+always sees what it sent. An addressed actor and an addressed session always
+see their own mail, and so does the steering seat currently holding a
+role-addressed message -- it was handed that message on acquire and would
+otherwise be unable to read the thing it is expected to answer. Everyone
+else sees a message only when they can read every project it reached.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +20,7 @@ from yoke_core.domain.session_message_reads import (
     recipient_project_ids,
 )
 from yoke_core.domain.session_message_types import SessionMessageError
+from yoke_core.domain.steering_message_recipients import holding_seat_session_id
 
 
 def _visible(
@@ -29,6 +38,10 @@ def _visible(
         return True
     if session_id and any(
         str(row["session_id"]) == session_id for row in details["recipients"]
+    ):
+        return True
+    if session_id and holding_seat_session_id(conn, details["message_id"]) == str(
+        session_id
     ):
         return True
     project_ids = recipient_project_ids(details)

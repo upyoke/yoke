@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.actor_message_recipient_schema import (
+    RECIPIENT_KIND_STATE_CONSTRAINT,
+    RECIPIENT_KIND_STATE_PREDICATE,
+    converge_role_addressed_recipients,
+)
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
@@ -88,14 +93,30 @@ def create_session_control_tables(conn: Any) -> None:
 
         CREATE TABLE IF NOT EXISTS actor_message_recipients (
             message_id TEXT NOT NULL REFERENCES session_messages(message_id),
-            actor_id INTEGER NOT NULL REFERENCES actors(id),
-            state TEXT NOT NULL DEFAULT 'pending'
-                CHECK(state IN ('pending','read','expired')),
+            recipient_kind TEXT NOT NULL DEFAULT 'actor',
+            actor_id INTEGER REFERENCES actors(id),
+            state TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT NOT NULL,
             read_at TEXT,
             expired_at TEXT,
-            UNIQUE(message_id, actor_id)
+            steering_scope TEXT,
+            sender_item_id INTEGER REFERENCES items(id),
+            project_id INTEGER REFERENCES projects(id),
+            seat_session_id TEXT REFERENCES harness_sessions(session_id),
+            seat_claim_id INTEGER REFERENCES work_claims(id),
+            delivered_at TEXT,
+            acknowledged_at TEXT,
+            UNIQUE(message_id, actor_id),
+            CONSTRAINT {RECIPIENT_KIND_STATE_CONSTRAINT} CHECK (
+                {RECIPIENT_KIND_STATE_PREDICATE}
+            )
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_actor_message_recipients_steering
+            ON actor_message_recipients(message_id)
+            WHERE recipient_kind = 'steering';
+        CREATE INDEX IF NOT EXISTS idx_actor_message_recipients_seat
+            ON actor_message_recipients(project_id, state, created_at)
+            WHERE recipient_kind = 'steering';
         CREATE INDEX IF NOT EXISTS idx_actor_message_recipients_actor_state
             ON actor_message_recipients(actor_id, state, created_at);
 
@@ -265,6 +286,7 @@ def create_session_control_tables(conn: Any) -> None:
             "ALTER TABLE session_messages ADD COLUMN sender_surface TEXT "
             f"CHECK(sender_surface IN ({_SENDER_SURFACE_VALUES}))"
         )
+    converge_role_addressed_recipients(conn)
 
 
 def required_tables() -> tuple[str, ...]:

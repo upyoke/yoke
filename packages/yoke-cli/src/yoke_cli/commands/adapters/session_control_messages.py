@@ -30,8 +30,9 @@ from yoke_contracts.session_execution import is_subagent_execution
 
 SAY_USAGE = (
     "yoke say (--preview | --stdin) "
-    "(--actor ACTOR | --item ITEM | --epic-task ITEM:N | --process P | --project P | "
-    "--session S | --universe) [--liveness active|stale|ended|all] "
+    "(--steering | --steering-scope JSON | --actor ACTOR | --item ITEM | "
+    "--epic-task ITEM:N | --process P | --project P | --session S | "
+    "--universe) [--liveness active|stale|ended|all] "
     "[recipient filters] [--json]"
 )
 MESSAGE_PREVIEW_USAGE = "yoke session-control message preview [selector] [--json]"

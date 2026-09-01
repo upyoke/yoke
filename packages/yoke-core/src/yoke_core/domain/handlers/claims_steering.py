@@ -14,6 +14,15 @@ from yoke_contracts.api.function_call import (
 )
 
 
+class SteeringMessageHandoff(BaseModel):
+    """What the acquiring seat inherited from its scope's unattended mail."""
+
+    drained_count: int = 0
+    parked_count: int = 0
+    stranded_count: int = 0
+    digest: str = ""
+
+
 class SteeringClaimRow(BaseModel):
     id: int
     session_id: str
@@ -28,6 +37,7 @@ class SteeringClaimRow(BaseModel):
     reason_intent: Optional[str] = None
     release_reason_intent: Optional[str] = None
     document_claim: Optional[Dict[str, Any]] = None
+    message_handoff: Optional[SteeringMessageHandoff] = None
 
 
 class AcquireRequest(BaseModel):
@@ -186,6 +196,7 @@ __all__ = [
     "ReleaseRequest",
     "ReleaseResponse",
     "SteeringClaimRow",
+    "SteeringMessageHandoff",
     "handle_acquire",
     "handle_list",
     "handle_release",

@@ -12,7 +12,8 @@ from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationScope,
 )
 from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_project_role
-from yoke_core.domain.session_message_service import acknowledge_message, send_message
+from yoke_core.domain.session_message_receipts import acknowledge_message
+from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_private_route_qualification import (
     consume_qualification_grant,
     open_qualification_grant,
@@ -37,7 +38,6 @@ def _setup(monkeypatch):
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn = message_connection()
     add_coordination_claim_schema(conn)
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
         "UPDATE harness_sessions SET actor_id=10,mode='operator' WHERE session_id='s1'"

@@ -16,6 +16,7 @@ from .work_claim_targets import (
 
 EVENT_STEERING_CLAIMED = "SteeringClaimed"
 EVENT_STEERING_RELEASED = "SteeringReleased"
+EVENT_STEERING_MESSAGES_DRAINED = "SteeringMessagesDrained"
 
 
 def emit_work_claimed(
@@ -115,6 +116,32 @@ def emit_steering_released(
     )
 
 
+def emit_steering_messages_drained(
+    session_id: str,
+    claim_id: int,
+    target: WorkClaimTarget,
+    *,
+    drained_count: int,
+    parked_count: int,
+    stranded_count: int,
+) -> None:
+    """Record what an acquiring seat inherited from the scope's parked mail."""
+    context = _steering_context(claim_id, target)
+    context.update(
+        {
+            "holder_session_id": session_id,
+            "drained_count": int(drained_count),
+            "parked_count": int(parked_count),
+            "stranded_count": int(stranded_count),
+        }
+    )
+    _sa._emit_session_event(
+        EVENT_STEERING_MESSAGES_DRAINED,
+        session_id=session_id,
+        context=context,
+    )
+
+
 def emit_reclaimed_work_claim(
     session_id: str,
     claim_row: Mapping[str, Any],
@@ -148,9 +175,11 @@ def emit_reclaimed_work_claim(
 
 __all__ = [
     "EVENT_STEERING_CLAIMED",
+    "EVENT_STEERING_MESSAGES_DRAINED",
     "EVENT_STEERING_RELEASED",
     "emit_reclaimed_work_claim",
     "emit_steering_claimed",
+    "emit_steering_messages_drained",
     "emit_steering_released",
     "emit_work_claimed",
 ]

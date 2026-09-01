@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
-from yoke_contracts.session_control.liveness import LIVENESS_CHOICES
+from yoke_contracts.session_control.recipient_selector import RecipientSelector
 from yoke_contracts.session_control.states import (
     LaunchState,
     MessageListState,
@@ -25,54 +25,6 @@ from yoke_contracts.session_control.relay_models import (
     RelayReportResponse,
 )
 from yoke_contracts.session_control.sender_surface import SenderSurface
-
-
-class RecipientSelector(BaseModel):
-    actors: List[str] = Field(default_factory=list)
-    session_ids: List[str] = Field(default_factory=list)
-    public_refs: List[str] = Field(default_factory=list)
-    epic_tasks: List[str] = Field(default_factory=list)
-    process_keys: List[str] = Field(default_factory=list)
-    projects: List[str] = Field(default_factory=list)
-    universe: bool = False
-    executor_families: List[str] = Field(default_factory=list)
-    executor_surfaces: List[str] = Field(default_factory=list)
-    work_roles: List[str] = Field(default_factory=list)
-    execution_lanes: List[str] = Field(default_factory=list)
-    worktree_lanes: List[str] = Field(default_factory=list)
-    machine_ids: List[str] = Field(default_factory=list)
-    liveness: List[str] = Field(default_factory=list)
-    exclude_session_ids: List[str] = Field(default_factory=list)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_retired_selector_keys(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "item_refs" in data:
-            raise ValueError("replace selector.item_refs with selector.public_refs")
-        return data
-
-    @model_validator(mode="after")
-    def _known_surfaces(self) -> "RecipientSelector":
-        unknown = sorted(set(self.executor_surfaces) - set(KNOWN_SURFACE_LABELS))
-        if unknown:
-            raise ValueError(f"unknown executor surfaces: {', '.join(unknown)}")
-        unknown_liveness = sorted(set(self.liveness) - set(LIVENESS_CHOICES))
-        if unknown_liveness:
-            raise ValueError(
-                f"unknown liveness states: {', '.join(unknown_liveness)}; "
-                f"choose from {', '.join(LIVENESS_CHOICES)}"
-            )
-        if not (
-            self.actors
-            or self.session_ids
-            or self.public_refs
-            or self.epic_tasks
-            or self.process_keys
-            or self.projects
-            or self.universe
-        ):
-            raise ValueError("at least one recipient anchor is required")
-        return self
 
 
 class MessagePreviewRequest(BaseModel):

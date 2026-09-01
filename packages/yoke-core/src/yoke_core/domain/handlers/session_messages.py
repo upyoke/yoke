@@ -51,7 +51,10 @@ def handle_message_preview(request: FunctionCallRequest) -> HandlerOutcome:
         request,
         MessagePreviewRequest,
         lambda conn, body, actor_id: preview_message(
-            conn, actor_id=actor_id, selector=body.selector
+            conn,
+            actor_id=actor_id,
+            selector=body.selector,
+            sender_session_id=request.actor.session_id or None,
         ),
     )
 
@@ -96,7 +99,7 @@ def handle_message_send(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_message_list(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.session_message_service import list_messages
+    from yoke_core.domain.session_message_queries import list_messages
 
     return _handle(
         request,
@@ -118,7 +121,7 @@ def handle_message_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_message_get(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.session_message_service import get_message
+    from yoke_core.domain.session_message_queries import get_message
 
     return _handle(
         request,

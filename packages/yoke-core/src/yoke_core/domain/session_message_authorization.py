@@ -79,13 +79,22 @@ def authorize_recipients(
     actor_id: int,
     recipients: Iterable[ResolvedRecipient],
     permission_key: str = PERM_ITEMS_WRITE,
+    additional_project_ids: Iterable[int] = (),
 ) -> dict[int, MessageProjectPolicy]:
+    """Authorize every project a message reaches, and return their policies.
+
+    ``additional_project_ids`` covers a message that is addressed to a
+    project without currently resolving to a session there: a role-addressed
+    message parks in its scope, and it still has to be authorized and sized
+    by that project's policy rather than by nobody's.
+    """
     project_ids = sorted(
         {
             project_id
             for recipient in recipients
             for project_id in recipient.authorized_project_ids
         }
+        | {int(project_id) for project_id in additional_project_ids}
     )
     policies: dict[int, MessageProjectPolicy] = {}
     denied: list[int] = []

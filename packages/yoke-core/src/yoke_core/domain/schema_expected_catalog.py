@@ -33,7 +33,7 @@ _EXPECTED_SCHEMA_STR = (
     "actor_external_identities:id/INTEGER,actor_id/INTEGER,issuer/TEXT,subject/TEXT,email/TEXT,linked_at/TEXT,created_by_actor_id/INTEGER"
     "|actor_invites:id/INTEGER,email/TEXT,org_id/INTEGER,role_id/INTEGER,actor_id/INTEGER,status/TEXT,invited_by_actor_id/INTEGER,created_at/TEXT,accepted_at/TEXT,accepted_by_actor_id/INTEGER"
     "|actor_labels:id/INTEGER,actor_id/INTEGER,surface/TEXT,label/TEXT,created_at/TEXT"
-    "|actor_message_recipients:message_id/TEXT,actor_id/INTEGER,state/TEXT,created_at/TEXT,read_at/TEXT,expired_at/TEXT"
+    "|actor_message_recipients:message_id/TEXT,actor_id/INTEGER,state/TEXT,created_at/TEXT,read_at/TEXT,expired_at/TEXT,recipient_kind/TEXT,steering_scope/TEXT,sender_item_id/INTEGER,project_id/INTEGER,seat_session_id/TEXT,seat_claim_id/INTEGER,delivered_at/TEXT,acknowledged_at/TEXT"
     "|actor_org_roles:actor_id/INTEGER,org_id/INTEGER,role_id/INTEGER,granted_at/TEXT,granted_by_actor_id/INTEGER"
     "|actor_project_roles:actor_id/INTEGER,project_id/INTEGER,role_id/INTEGER,granted_at/TEXT,granted_by_actor_id/INTEGER"
     "|actor_ui_preferences:id/INTEGER,actor_id/INTEGER,pref_key/TEXT,value/TEXT,updated_at/TEXT"

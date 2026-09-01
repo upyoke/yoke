@@ -8,6 +8,8 @@ from uuid import UUID
 FLEET_MESSAGE_RECIPE = """yoke say --preview --item PREFIX-N
 printf '%s\\n' 'MESSAGE' | yoke say --item PREFIX-N --stdin
 printf '%s\\n' 'MESSAGE' | yoke say --actor ben --stdin  # Human organization member
+# Reporting up to whoever is steering your work? Address the role, never a seat:
+printf '%s\\n' 'MESSAGE' | yoke say --steering --stdin
 # No claim addresses them? `yoke sessions list --liveness active`, then --session
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID && yoke messages acknowledge MESSAGE-ID"""
@@ -17,6 +19,19 @@ FLEET_UNDELIVERED_CANCEL_RECIPE = (
 )
 FLEET_MESSAGE_BOOTSTRAP_RECIPE = "\n\n".join(
     (FLEET_MESSAGE_RECIPE, FLEET_UNDELIVERED_CANCEL_RECIPE)
+)
+
+FLEET_STEERING_ADDRESSING_GUIDANCE = (
+    "Address the steering seat as a ROLE, never as a session id: "
+    "`yoke say --steering --stdin` resolves from the item you hold to "
+    "whichever seat covers it, and it resolves at DELIVERY rather than at "
+    "send. A seat that has ended is not a seat, so a role-addressed message "
+    "is never routed into a dead session; with no live seat covering it the "
+    "message parks, and the next seat to acquire that scope is handed it on "
+    "acquire. That is why a worker's DONE report and every substantive "
+    "update go to --steering: the address stays correct across a seat "
+    "handoff, which a session id cannot. A sender holding no item names the "
+    "scope instead with --steering-scope '{\"project_id\": N}'."
 )
 
 FLEET_ADDRESSING_GUIDANCE = (
@@ -114,6 +129,7 @@ FLEET_MESSAGE_WORKFLOW_HELP = "\n\n".join(
     (
         "Top-level Fleet workflow:\n" + FLEET_MESSAGE_BOOTSTRAP_RECIPE,
         FLEET_ADDRESSING_GUIDANCE,
+        FLEET_STEERING_ADDRESSING_GUIDANCE,
         FLEET_SUBSTANTIVE_ONLY_GUIDANCE,
         FLEET_ENVELOPE_TRUST_GUIDANCE,
         FLEET_BODY_TRUST_GUIDANCE,
@@ -132,6 +148,7 @@ __all__ = [
     "FLEET_MESSAGE_RECIPE",
     "FLEET_MESSAGE_WORKFLOW_HELP",
     "FLEET_OWNERSHIP_GUIDANCE",
+    "FLEET_STEERING_ADDRESSING_GUIDANCE",
     "FLEET_SUBSTANTIVE_ONLY_GUIDANCE",
     "FLEET_TOP_LEVEL_RECEIPT_GUIDANCE",
     "FLEET_UNDELIVERED_CANCEL_RECIPE",

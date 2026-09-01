@@ -16,6 +16,13 @@ silence has some other cause.
 
 Scoped to holders the idle detector already named: a busy session with an
 unanswered message is working, not waiting.
+
+A question addressed to the steering ROLE never appears here. Its answer
+does not depend on the session that happened to hold the seat: the message
+is a durable row that the next seat drains on acquire, so an ended
+answerer is a handoff rather than a dead end. The fleet report counts those
+in its own awaiting-a-seat line instead of reporting them as waits nobody
+can answer.
 """
 
 from __future__ import annotations
@@ -66,12 +73,14 @@ def _last_question(conn: Any, session_id: str) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
-def _already_answered(conn: Any, *, answerer: str, asker: str, asked_at: str) -> bool:
+def answered_after(conn: Any, *, answerer: str, asker: str, asked_at: str) -> bool:
     """Did the intended answerer send this asker anything after the question?
 
     Checked before anything else. An answerer that replied and then ended
     answered the question, and calling that a dead wait would send the
-    steering seat to repeat an answer the asker already has.
+    steering seat to repeat an answer the asker already has. The steering
+    drain asks the same question of a seat that ended holding a
+    role-addressed message.
     """
     p = marker(conn)
     row = conn.execute(
@@ -131,21 +140,38 @@ def dead_waits(
     now: str,
 ) -> tuple[DeadWait, ...]:
     """For each idle holder, what is known about the answer it waits on."""
+    from yoke_core.domain.steering_message_recipients import (
+        role_addressed_message_ids,
+    )
+
+    questions = {
+        holder.session_id: _last_question(conn, holder.session_id) for holder in idle
+    }
+    role_addressed = role_addressed_message_ids(
+        conn,
+        [
+            str(question["message_id"])
+            for question in questions.values()
+            if question is not None
+        ],
+    )
     waits = []
     for holder in idle:
-        question = _last_question(conn, holder.session_id)
+        question = questions.get(holder.session_id)
         if question is None:
             continue
         answerer = str(question.get("answerer_session_id") or "")
         asked_at = str(question.get("created_at") or "")
         if not answerer or answerer == holder.session_id:
             continue
-        if _already_answered(
+        if answered_after(
             conn,
             answerer=answerer,
             asker=holder.session_id,
             asked_at=asked_at,
         ):
+            continue
+        if str(question.get("message_id") or "") in role_addressed:
             continue
         waits.append(
             DeadWait(
@@ -160,4 +186,4 @@ def dead_waits(
     return tuple(waits)
 
 
-__all__ = ["UNRESOLVED", "DeadWait", "dead_waits"]
+__all__ = ["UNRESOLVED", "DeadWait", "answered_after", "dead_waits"]

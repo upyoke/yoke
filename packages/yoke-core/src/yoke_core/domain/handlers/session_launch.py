@@ -176,7 +176,6 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
             request=launch_request_for_create(
                 conn,
                 parsed,
-                request,
                 project_id=project_id,
                 session_name=assignment_session_name(
                     conn, public_ref=parsed.item, project_id=project_id

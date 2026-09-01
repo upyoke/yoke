@@ -11,11 +11,8 @@ from yoke_core.domain.actor_permissions import (
     ROLE_VIEWER,
     grant_actor_org_role,
 )
-from yoke_core.domain.session_message_service import (
-    acknowledge_actor_message,
-    preview_message,
-    send_message,
-)
+from yoke_core.domain.session_message_receipts import acknowledge_actor_message
+from yoke_core.domain.session_message_service import preview_message, send_message
 from yoke_core.domain.session_message_types import SessionMessageError
 from runtime.api.domain.test_session_message_support import (
     NOW,
