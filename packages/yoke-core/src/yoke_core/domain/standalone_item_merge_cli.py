@@ -98,7 +98,7 @@ def _build_parser() -> argparse.ArgumentParser:
         ("--pr", "Merge through a pull request."),
         (
             "--wait",
-            "Wait for queue landing inline. Red entry tickets return "
+            "Wait for queue landing inline. Red required checks return "
             "immediately; the poll budget is for pending checks or trains.",
         ),
     )

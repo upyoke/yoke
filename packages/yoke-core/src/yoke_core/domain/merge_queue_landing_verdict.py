@@ -4,7 +4,7 @@ Merging and ejection look identical from a single read. GitHub clears
 merge-when-ready when the queue merges a pull request and when it drops
 it, and the merged flag becomes visible a moment later, so a poll in
 that window sees an unmerged, unarmed pull request. Nothing here is
-terminal on one read except a red entry ticket: required checks on the
+terminal on one read except red required checks: checks on the
 PR head that have already concluded failed/error/cancelled/timed_out
 with nothing in flight. That cannot merge, so it must not spend the
 poll budget. Other refusals still confirm: merged is re-read after a
@@ -31,9 +31,9 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     read_train_run,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
-from yoke_core.domain.merge_queue_entry_ticket import (
-    ENTRY_TICKET_FAILED,
-    entry_ticket_is_red,
+from yoke_core.domain.merge_queue_entry_checks import (
+    ENTRY_CHECKS_FAILED,
+    entry_checks_are_red,
 )
 
 # Queue ejection is a failed train, not an empty slot. GitHub clears the
@@ -269,9 +269,9 @@ def classify_landing(
         narrative, _entry, _readable, train, checks = _observe(
             ctx, pr_num, state, target, warnings
         )
-        if train is None and entry_ticket_is_red(checks):
+        if train is None and entry_checks_are_red(checks):
             return LandingVerdict(
-                ENTRY_TICKET_FAILED,
+                ENTRY_CHECKS_FAILED,
                 narrative=narrative,
                 warnings=tuple(warnings),
                 head_sha=state.head_sha,
@@ -300,9 +300,9 @@ def classify_landing(
     narrative, entry, entry_readable, train, checks = _observe(
         ctx, pr_num, confirmed, target, warnings
     )
-    if train is None and entry_ticket_is_red(checks):
+    if train is None and entry_checks_are_red(checks):
         return LandingVerdict(
-            ENTRY_TICKET_FAILED,
+            ENTRY_CHECKS_FAILED,
             narrative=narrative,
             warnings=tuple(warnings),
             head_sha=confirmed.head_sha,
@@ -334,7 +334,7 @@ __all__ = [
     "CLOSED_UNMERGED",
     "CONFLICTED",
     "DEFAULT_CONFIRM_SECONDS",
-    "ENTRY_TICKET_FAILED",
+    "ENTRY_CHECKS_FAILED",
     "LANDED",
     "LandingCheck",
     "LandingVerdict",

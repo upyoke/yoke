@@ -1,12 +1,12 @@
-"""Red entry-ticket detection for a merge-queue landing poll.
+"""Red required-check detection for a merge-queue landing poll.
 
-The pull request's own required checks are the entry ticket: GitHub will
-not enqueue until they pass. When those checks have already concluded red
-and nothing is still in flight for that head sha, further polling cannot
-produce a merge. Returning a poll-budget timeout in that state reports a
-terminal verdict as pending.
+The pull request's own required checks are the queue-entry gate: GitHub
+will not enqueue until they pass. When those checks have already
+concluded red and nothing is still in flight for that head sha, further
+polling cannot produce a merge. Returning a poll-budget timeout in that
+state reports a terminal verdict as pending.
 
-A red ticket also disarms merge-when-ready so a later green on the same
+A red set also disarms merge-when-ready so a later green on the same
 pull request cannot auto-merge without this gate recording a new verdict.
 Re-running ``yoke merge item`` after a fix re-arms as usual.
 """
@@ -21,7 +21,7 @@ from yoke_core.engines.merge_worktree_pr_queue import (
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
-ENTRY_TICKET_FAILED = "entry_ticket_failed"
+ENTRY_CHECKS_FAILED = "entry_checks_failed"
 
 RED_CONCLUSIONS = frozenset(
     {
@@ -34,7 +34,7 @@ RED_CONCLUSIONS = frozenset(
 )
 
 
-def entry_ticket_is_red(
+def entry_checks_are_red(
     checks: Optional[Sequence[Any]],
 ) -> bool:
     """True when a completed check set has a red conclusion and none pending."""
@@ -45,7 +45,7 @@ def entry_ticket_is_red(
     return any(check.conclusion in RED_CONCLUSIONS for check in checks)
 
 
-def failed_entry_ticket_names(
+def failed_entry_check_names(
     checks: Optional[Sequence[Any]],
 ) -> tuple[str, ...]:
     """Check names that already concluded red, sorted for stable narrative."""
@@ -81,7 +81,7 @@ def disarm_merge_when_ready(ctx: MergeContext, pr_num: str) -> str:
     )
 
 
-def entry_ticket_refusal(
+def entry_checks_refusal(
     *,
     pr_num: str,
     head_sha: str,
@@ -94,7 +94,7 @@ def entry_ticket_refusal(
     sha = head_sha or "unreported"
     observed = narrative.strip() or f"pull request {pr_num}"
     return (
-        f"entry-ticket-failed: pull request {pr_num} head {sha} has "
+        f"entry-checks-failed: pull request {pr_num} head {sha} has "
         f"required checks that already concluded red with nothing in "
         f"flight ({failed}). GitHub will not enqueue it. Observed "
         f"{observed}. Fix on the lane, commit, and re-run "
@@ -103,10 +103,10 @@ def entry_ticket_refusal(
 
 
 __all__ = [
-    "ENTRY_TICKET_FAILED",
+    "ENTRY_CHECKS_FAILED",
     "RED_CONCLUSIONS",
     "disarm_merge_when_ready",
-    "entry_ticket_is_red",
-    "entry_ticket_refusal",
-    "failed_entry_ticket_names",
+    "entry_checks_are_red",
+    "entry_checks_refusal",
+    "failed_entry_check_names",
 ]

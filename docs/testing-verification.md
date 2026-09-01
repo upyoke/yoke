@@ -286,7 +286,7 @@ and on the merged `main` commit. Local verification stays change-scoped:
 impacted selection to iterate; the QA case run is the one full execution.
 Queue landing (`yoke merge item --wait`) returns immediately when the
 pull request's required checks have already concluded red with nothing in
-flight — that is a terminal entry-ticket failure, not a poll-budget timeout.
+flight — that is a terminal required-check failure, not a poll-budget timeout.
 
 Selection output distinguishes pytest files from collected items as
 `files=N of M items=X of Y`; unavailable values are explicit as `unknown`.

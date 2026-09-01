@@ -37,14 +37,14 @@ from yoke_core.domain.merge_queue_drift_gate import (
 from yoke_core.domain.merge_queue_landing_verdict import (
     CLOSED_UNMERGED,
     CONFLICTED,
-    ENTRY_TICKET_FAILED,
+    ENTRY_CHECKS_FAILED,
     LANDED,
     STALLED,
     classify_landing,
 )
-from yoke_core.domain.merge_queue_entry_ticket import (
+from yoke_core.domain.merge_queue_entry_checks import (
     disarm_merge_when_ready,
-    entry_ticket_refusal,
+    entry_checks_refusal,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.engines.merge_worktree_pr_queue import (
@@ -55,7 +55,7 @@ from yoke_core.engines.merge_worktree_pr_queue import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-# Exit 9 is recoverable; a red entry ticket is terminal (exit 1).
+# Exit 9 is recoverable; red required checks are terminal (exit 1).
 RECOVERABLE_QUEUE_EXIT_CODE = 9
 
 DEFAULT_DEADLINE_SECONDS = 45.0 * 60.0
@@ -258,10 +258,10 @@ def land_item_through_merge_queue(
         if landing.kind == LANDED:
             merged = True
             break
-        if landing.kind == ENTRY_TICKET_FAILED:
+        if landing.kind == ENTRY_CHECKS_FAILED:
             return _fail_landing(
                 pr_num,
-                entry_ticket_refusal(
+                entry_checks_refusal(
                     pr_num=pr_num,
                     head_sha=landing.head_sha,
                     narrative=landing.narrative,

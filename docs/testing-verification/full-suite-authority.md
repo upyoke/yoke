@@ -133,7 +133,7 @@ which is exactly when the integration proof is real.
 Landing then waits for the queue only while that wait can still produce a
 merge. If the pull request's required checks have already concluded red
 and nothing is in flight for that head sha, `yoke merge item --wait`
-returns a terminal entry-ticket failure immediately — it does not spend
+returns a terminal required-check failure immediately — it does not spend
 the poll budget, and it disarms merge-when-ready so a later green cannot
 auto-merge without the gate recording a new verdict.
 

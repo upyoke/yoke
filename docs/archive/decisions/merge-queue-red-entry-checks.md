@@ -1,12 +1,12 @@
-# Red entry-ticket landing is terminal; disarm merge-when-ready
+# Red required checks on a merge-queue landing are terminal
 
 ## The gap
 
 Queue landing armed merge-when-ready and then polled for up to 45 minutes.
-When the pull request's own required checks — the entry ticket — had
-already concluded red with nothing in flight, GitHub would never enqueue
-the pull request. The poll still spent its budget and returned a
-resumable timeout, which reports a terminal verdict as pending.
+When the pull request's own required checks had already concluded red
+with nothing in flight, GitHub would never enqueue the pull request. The
+poll still spent its budget and returned a resumable timeout, which
+reports a terminal verdict as pending.
 
 ## The decision
 

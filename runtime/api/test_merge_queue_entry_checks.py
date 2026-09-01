@@ -1,10 +1,10 @@
-"""Red entry-ticket landing: terminal immediately, pending still uses budget."""
+"""Red entry-check landing: terminal immediately, pending still uses budget."""
 
 from runtime.api.merge_queue_landing_test_helpers import land, wire_happy_path
 from runtime.api.test_merge_queue_landing_verdict import _classify, _wire
 from runtime.api.test_merge_queue_route import stalled_clock
 
-from yoke_core.domain import merge_queue_entry_ticket as ticket_mod
+from yoke_core.domain import merge_queue_entry_checks as checks_mod
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.merge_queue_landing_verdict import LandingCheck
@@ -18,7 +18,7 @@ RED_ARMED = PrLandingState(
 )
 
 
-def test_red_entry_ticket_returns_immediately_without_the_poll_budget(
+def test_red_entry_checks_return_immediately_without_the_poll_budget(
     monkeypatch,
 ):
     wire_happy_path(monkeypatch, landing_states=[RED_ARMED] * 100)
@@ -44,7 +44,7 @@ def test_red_entry_ticket_returns_immediately_without_the_poll_budget(
     )
     assert not outcome.ok
     assert outcome.exit_code == 1
-    assert "entry-ticket-failed" in outcome.error
+    assert "entry-checks-failed" in outcome.error
     assert "concluded-checks=ci=failure" in outcome.error
     assert "merge-when-ready disarmed" in outcome.error
     assert "did not merge within" not in outcome.error
@@ -69,17 +69,17 @@ def test_in_flight_entry_checks_still_spend_the_poll_budget(monkeypatch):
     assert "pending-checks=ci" in outcome.error
 
 
-def test_completed_success_is_not_a_red_entry_ticket():
+def test_completed_success_is_not_red_entry_checks():
     checks = (LandingCheck("ci", "completed", "success"),)
-    assert not ticket_mod.entry_ticket_is_red(checks)
+    assert not checks_mod.entry_checks_are_red(checks)
 
 
-def test_unreadable_or_empty_checks_are_not_a_red_entry_ticket():
-    assert not ticket_mod.entry_ticket_is_red(None)
-    assert not ticket_mod.entry_ticket_is_red(())
+def test_unreadable_or_empty_checks_are_not_red_entry_checks():
+    assert not checks_mod.entry_checks_are_red(None)
+    assert not checks_mod.entry_checks_are_red(())
 
 
-def test_red_entry_ticket_is_terminal_when_nothing_is_in_flight(monkeypatch):
+def test_red_entry_checks_are_terminal_when_nothing_is_in_flight(monkeypatch):
     _wire(monkeypatch, states=[RED_ARMED])
     monkeypatch.setattr(
         verdict_mod,
@@ -91,7 +91,7 @@ def test_red_entry_ticket_is_terminal_when_nothing_is_in_flight(monkeypatch):
         ),
     )
     verdict = _classify()
-    assert verdict.kind == verdict_mod.ENTRY_TICKET_FAILED
+    assert verdict.kind == verdict_mod.ENTRY_CHECKS_FAILED
     assert "concluded-checks=ci=failure" in verdict.narrative
     assert verdict.head_sha == "a" * 40
 
@@ -108,7 +108,7 @@ def test_in_flight_entry_checks_keep_the_poll_budget(monkeypatch):
     assert "pending-checks=ci" in verdict.narrative
 
 
-def test_unarmed_red_entry_ticket_is_terminal_after_confirm(monkeypatch):
+def test_unarmed_red_entry_checks_are_terminal_after_confirm(monkeypatch):
     unarmed = PrLandingState(
         merged=False, closed=False, auto_merge_active=False, head_sha="a" * 40
     )
@@ -123,11 +123,11 @@ def test_unarmed_red_entry_ticket_is_terminal_after_confirm(monkeypatch):
         ),
     )
     verdict = _classify()
-    assert verdict.kind == verdict_mod.ENTRY_TICKET_FAILED
+    assert verdict.kind == verdict_mod.ENTRY_CHECKS_FAILED
     assert verdict.head_sha == "a" * 40
 
 
-def test_red_train_checks_are_not_an_entry_ticket(monkeypatch):
+def test_red_train_checks_are_not_entry_checks(monkeypatch):
     _wire(
         monkeypatch,
         states=[RED_ARMED],

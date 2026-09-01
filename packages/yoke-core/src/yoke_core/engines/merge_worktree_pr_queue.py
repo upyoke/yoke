@@ -1,7 +1,7 @@
 """Merge-queue entry, membership, and landing-state reads for an item PR.
 
 Queue entry is GitHub's merge-when-ready over GraphQL.
-``leave_merge_queue`` disarms it so a red entry ticket cannot auto-merge
+``leave_merge_queue`` disarms it so red required checks cannot auto-merge
 later. Membership reads power train admission; the train run read names
 the ``merge_group`` gate.
 """
