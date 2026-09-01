@@ -76,12 +76,22 @@ def _bind_externalwebapp(*, repository_is_private: bool = True) -> None:
 
 
 def test_authoritative_and_legacy_creates_default_disabled(project_db):
-    result = cmd_upsert(slug="new-safe", name="New Safe", mode="create")
+    result = cmd_upsert(
+        slug="new-safe",
+        name="New Safe",
+        public_item_prefix="NSF",
+        mode="create",
+    )
 
     assert result["created"] is True
     assert result["project"]["github_sync_mode"] == "disabled"
+    assert result["project"]["id"] == int(result["project"]["id"])
 
-    assert cmd_create("legacy-safe", "Legacy Safe") == ("Created project: legacy-safe")
+    assert cmd_create(
+        "legacy-safe",
+        "Legacy Safe",
+        public_item_prefix="LGSF",
+    ) == ("Created project: legacy-safe")
     assert cmd_get("legacy-safe", "github_sync_mode") == "disabled"
 
 
@@ -90,6 +100,7 @@ def test_create_rejects_explicit_enabled_without_binding(project_db):
         cmd_upsert(
             slug="unsafe-create",
             name="Unsafe Create",
+            public_item_prefix="UNSF",
             github_sync_mode="enabled",
             mode="create",
         )

@@ -184,7 +184,7 @@ yoke items structured-field append-addendum PREFIX-N --field shepherd_caveats --
 # Project operations
 yoke projects get --project external-webapp --field github_repo
 yoke projects list
-yoke projects create --slug myapp --name "My App" --github-repo owner/myapp   # register a new project (org admin)
+yoke projects create --slug myapp --name "My App" --public-item-prefix MYAP --github-repo owner/myapp   # register a new project (org admin)
 yoke projects update --slug myapp --name "My App v2" --github-repo owner/myapp # edit an existing project (project admin)
 
 # Deployment flows

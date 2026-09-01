@@ -120,19 +120,14 @@ class TestPushRemoteFile:
             old_reader.close()
         assert target.read_text(encoding="utf-8") == "new-key\n"
         assert target.stat().st_mode & 0o777 == 0o600
-        lock = tmp_path / f".{target.name}.lock"
-        assert {path.name for path in tmp_path.iterdir()} == {
-            target.name,
-            lock.name,
-        }
-        assert lock.stat().st_mode & 0o777 == 0o600
+        assert {path.name for path in tmp_path.iterdir()} == {target.name}
 
     def test_writer_cleans_stranded_temp_without_following_symlink(
         self,
         tmp_path,
     ):
         target = tmp_path / "github-app-private-key.pem"
-        orphan = tmp_path / ".github-app-private-key.pem.crashed.tmp"
+        orphan = tmp_path / "github-app-private-key.pem.crashed.tmp"
         orphan.write_text("stranded-key\n", encoding="utf-8")
         orphan.chmod(0o600)
         sentinel = tmp_path / "sentinel"
@@ -198,12 +193,14 @@ class TestPushRemoteFile:
             )
 
         assert target.read_text(encoding="utf-8") in payloads
+        assert not list(tmp_path.glob(f"{target.name}.*.tmp"))
         assert not list(tmp_path.glob(f".{target.name}.*.tmp"))
+        assert not (tmp_path / f"{target.name}.lock").exists()
 
     def test_remove_cleans_target_and_stranded_writer_temp(self, tmp_path):
         target = tmp_path / "github-app-private-key.pem"
         target.write_text("old-key\n", encoding="utf-8")
-        orphan = tmp_path / ".github-app-private-key.pem.crashed.tmp"
+        orphan = tmp_path / "github-app-private-key.pem.crashed.tmp"
         orphan.write_text("stranded-key\n", encoding="utf-8")
         orphan.chmod(0o600)
         runner = FakeRunner()
@@ -221,7 +218,8 @@ class TestPushRemoteFile:
 
         assert not target.exists()
         assert not orphan.exists()
-        assert (tmp_path / f".{target.name}.lock").exists()
+        assert not (tmp_path / f"{target.name}.lock").exists()
+        assert not (tmp_path / f".{target.name}.lock").exists()
 
     def test_rejects_non_octal_mode_before_running_ssh(self):
         runner = FakeRunner()

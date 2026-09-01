@@ -106,9 +106,12 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   assert.equal(
     allNodes(root).find(
       (node) => node.tagName === "CODE" &&
-        node.textContent === "yoke projects create <slug> <name>",
+        node.textContent ===
+          "yoke projects create --slug <slug> --name <name> " +
+            "--public-item-prefix <PREFIX>",
     ).textContent,
-    "yoke projects create <slug> <name>",
+    "yoke projects create --slug <slug> --name <name> " +
+      "--public-item-prefix <PREFIX>",
   );
 
   documentNode.defaultView.location.hash = "#/project?project=1";

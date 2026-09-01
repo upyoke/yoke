@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain.org_schema import org_id_by_slug, seed_default_org
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.projects_upsert import cmd_upsert
@@ -23,6 +25,7 @@ def test_create_project_in_requested_org(test_db):
         name="Installer Demo",
         org="installer-e2e",
         github_repo="owner/installer-demo",
+        public_item_prefix="IDMO",
         mode="create",
     )
 
@@ -50,6 +53,7 @@ def test_create_project_without_org_uses_default_org(test_db):
         slug="default-org-create",
         name="Default Org Create",
         github_repo="owner/default-org-create",
+        public_item_prefix="DORG",
         mode="create",
     )
 
@@ -67,17 +71,24 @@ def test_create_allows_same_slug_in_different_orgs(test_db):
     seed_project_identities(conn)
     seed_default_org(conn)
     conn.execute(
-        "INSERT INTO organizations (slug, name, created_at) "
-        "VALUES (%s, %s, %s)",
+        "INSERT INTO organizations (slug, name, created_at) VALUES (%s, %s, %s)",
         ("other", "Other Org", "2026-01-01T00:00:00Z"),
     )
     conn.commit()
 
     first = cmd_upsert(
-        slug="shared-create", name="Default Shared", org="default", mode="create",
+        slug="shared-create",
+        name="Default Shared",
+        org="default",
+        public_item_prefix="SHR1",
+        mode="create",
     )
     second = cmd_upsert(
-        slug="shared-create", name="Other Shared", org="other", mode="create",
+        slug="shared-create",
+        name="Other Shared",
+        org="other",
+        public_item_prefix="SHR2",
+        mode="create",
     )
 
     assert first["created"] is True
@@ -103,8 +114,10 @@ def test_update_by_authorized_project_id_uses_that_org_scope(test_db):
         "(310, %s, 'shared-update', 'Default Shared', 'DSH', %s), "
         "(311, %s, 'shared-update', 'Other Shared', 'OSH', %s)",
         (
-            default_org, "2026-01-01T00:00:00Z",
-            other_org, "2026-01-01T00:00:00Z",
+            default_org,
+            "2026-01-01T00:00:00Z",
+            other_org,
+            "2026-01-01T00:00:00Z",
         ),
     )
     conn.commit()
@@ -143,4 +156,21 @@ def test_update_rejects_org_argument(test_db):
     except ValueError as exc:
         assert "org is only valid" in str(exc)
     else:
-        raise AssertionError("projects.update accepted org")
+        raise AssertionError("expected ValueError")
+
+
+def test_create_requires_unique_public_item_prefix(test_db):
+    conn = test_db
+    seed_project_identities(conn)
+    seed_default_org(conn)
+    conn.commit()
+
+    with pytest.raises(ValueError, match="required"):
+        cmd_upsert(slug="needs-prefix", name="Needs Prefix", mode="create")
+    with pytest.raises(ValueError, match="already used"):
+        cmd_upsert(
+            slug="yoke-clone",
+            name="Yoke Clone",
+            public_item_prefix="YOK",
+            mode="create",
+        )

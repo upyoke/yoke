@@ -80,7 +80,7 @@ class TestMainCli:
         assert projects.main(["init"]) == 0
 
     def test_create_returns_0(self, pinned_db: str, capsys):
-        rc = projects.main(["create", "cli-proj", "CLI Project"])
+        rc = projects.main(["create", "cli-proj", "CLI Project", "CLIP"])
         assert rc == 0
         captured = capsys.readouterr()
         assert "cli-proj" in captured.out.lower()
@@ -119,14 +119,16 @@ class TestMainCli:
         assert projects.main(["update", "ghost", "github_repo", "val"]) == 1
 
     def test_has_capability_present_returns_0(self, pinned_db: str):
-        projects.main(["capability-set-settings", "externalwebapp", "deploy", "{}", "--new"])
+        projects.main(
+            ["capability-set-settings", "externalwebapp", "deploy", "{}", "--new"]
+        )
         assert projects.main(["has-capability", "externalwebapp", "deploy"]) == 0
 
     def test_has_capability_absent_returns_1(self, pinned_db: str):
         assert projects.main(["has-capability", "yoke", "nonexistent"]) == 1
 
     def test_capability_list_returns_0(self, pinned_db: str, capsys):
-        projects.main(["capability-set-settings", "yoke", "ssh", '{}', "--new"])
+        projects.main(["capability-set-settings", "yoke", "ssh", "{}", "--new"])
         rc = projects.main(["capability-list", "yoke"])
         assert rc == 0
         captured = capsys.readouterr()
@@ -145,22 +147,26 @@ class TestMainCli:
         assert projects.main(["capability-get-settings", "yoke", "nonexistent"]) == 1
 
     def test_capability_set_settings_new_returns_0(self, pinned_db: str, capsys):
-        assert projects.main(
-            ["capability-set-settings", "yoke", "ssh", '{"k":"v"}', "--new"]
-        ) == 0
+        assert (
+            projects.main(
+                ["capability-set-settings", "yoke", "ssh", '{"k":"v"}', "--new"]
+            )
+            == 0
+        )
 
     def test_capability_set_settings_without_base_returns_2(
         self, pinned_db: str, capsys
     ):
-        assert projects.main(
-            ["capability-set-settings", "yoke", "nope", '{}']
-        ) == 2
+        assert projects.main(["capability-set-settings", "yoke", "nope", "{}"]) == 2
         assert "--base is required" in capsys.readouterr().err
 
     def test_capability_merge_settings_returns_0(self, pinned_db: str, capsys):
-        assert projects.main(
-            ["capability-merge-settings", "yoke", "nope", "--set", "enabled=true"]
-        ) == 0
+        assert (
+            projects.main(
+                ["capability-merge-settings", "yoke", "nope", "--set", "enabled=true"]
+            )
+            == 0
+        )
 
     def test_capability_set_secret_returns_0(self, pinned_db: str, capsys):
         rc = projects.main(["capability-set-secret", "yoke", "deploy", "tok", "abc"])
@@ -175,35 +181,58 @@ class TestMainCli:
         secret_path = tmp_path / "secret.txt"
         secret_path.write_text("file-secret\n", encoding="utf-8")
 
-        rc = projects.main([
-            "capability-set-secret", "yoke", "deploy", "tok",
-            "--value-file", str(secret_path),
-        ])
+        rc = projects.main(
+            [
+                "capability-set-secret",
+                "yoke",
+                "deploy",
+                "tok",
+                "--value-file",
+                str(secret_path),
+            ]
+        )
 
         assert rc == 0
         captured = capsys.readouterr()
         assert "file-secret" not in captured.out
         secret_path.write_text("changed\n", encoding="utf-8")
-        assert projects.cmd_capability_get_secret(
-            "yoke", "deploy", "tok", db_path=pinned_db,
-        ) == "file-secret"
+        assert (
+            projects.cmd_capability_get_secret(
+                "yoke",
+                "deploy",
+                "tok",
+                db_path=pinned_db,
+            )
+            == "file-secret"
+        )
 
     def test_capability_set_secret_value_stdin_imports_literal(
         self, pinned_db: str, monkeypatch: pytest.MonkeyPatch, capsys
     ):
         monkeypatch.setattr("sys.stdin", io.StringIO("stdin-secret\n"))
 
-        rc = projects.main([
-            "capability-set-secret", "yoke", "deploy", "tok",
-            "--value-stdin",
-        ])
+        rc = projects.main(
+            [
+                "capability-set-secret",
+                "yoke",
+                "deploy",
+                "tok",
+                "--value-stdin",
+            ]
+        )
 
         assert rc == 0
         captured = capsys.readouterr()
         assert "stdin-secret" not in captured.out
-        assert projects.cmd_capability_get_secret(
-            "yoke", "deploy", "tok", db_path=pinned_db,
-        ) == "stdin-secret"
+        assert (
+            projects.cmd_capability_get_secret(
+                "yoke",
+                "deploy",
+                "tok",
+                db_path=pinned_db,
+            )
+            == "stdin-secret"
+        )
 
     def test_capability_get_secret_returns_0(self, pinned_db: str, capsys):
         projects.main(["capability-set-secret", "yoke", "deploy", "tok", "abc"])
@@ -234,5 +263,10 @@ class TestMainCli:
         assert "prod" in captured.out
 
     def test_resolve_deploy_envs_not_found_returns_1(self, pinned_db: str):
-        projects.cmd_create("empty2", "Empty2", db_path=pinned_db)
+        projects.cmd_create(
+            "empty2",
+            "Empty2",
+            db_path=pinned_db,
+            public_item_prefix="EMP2",
+        )
         assert projects.main(["resolve-deploy-envs", "empty2"]) == 1

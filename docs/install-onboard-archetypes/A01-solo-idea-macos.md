@@ -165,10 +165,10 @@ Placeholder: `main` (`DEFAULT_NEW_REPO_BRANCH`).
 
 ```
 Pick the issue ID prefix.
-The PROJ in PROJ-123 — Yoke suggests one from your project name.
+The PROJ in PROJ-123 — choose a unique prefix; Yoke does not suggest or derive one.
 ```
 
-Suggested: `NOTE` (`prefix_from_slug("notebook-app")`).
+No suggested value. The public-item prefix is required and never derived from the slug.
 
 **User:** `NOTE`
 

@@ -38,16 +38,24 @@ def initialized_db(tmp_path: Path) -> str:
 # capability-set-secret / capability-get-secret / capability-list-secrets
 # ---------------------------------------------------------------------------
 
+
 class TestCapabilitySecrets:
     def test_set_and_get_literal_secret(self, initialized_db: str):
         msg = projects.cmd_capability_set_secret(
-            "yoke", "deploy", "token", "deploy-secret",
-            source="literal", db_path=initialized_db,
+            "yoke",
+            "deploy",
+            "token",
+            "deploy-secret",
+            source="literal",
+            db_path=initialized_db,
         )
         assert "token" in msg
 
         result = projects.cmd_capability_get_secret(
-            "yoke", "deploy", "token", db_path=initialized_db,
+            "yoke",
+            "deploy",
+            "token",
+            db_path=initialized_db,
         )
         assert result == "deploy-secret"
 
@@ -55,14 +63,20 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "file")
         with pytest.raises(ValueError, match="unsupported source='file'"):
             projects.cmd_capability_get_secret(
-                "yoke", "deploy", "token", conn=conn,
+                "yoke",
+                "deploy",
+                "token",
+                conn=conn,
             )
 
     def test_get_secret_rejects_missing_file_source(self, monkeypatch):
         conn = _fake_secret_row(monkeypatch, "file")
         with pytest.raises(ValueError, match="unsupported source='file'"):
             projects.cmd_capability_get_secret(
-                "yoke", "deploy", "token", conn=conn,
+                "yoke",
+                "deploy",
+                "token",
+                conn=conn,
             )
 
     def test_get_secret_rejects_env_source(self, monkeypatch):
@@ -70,7 +84,10 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "env")
         with pytest.raises(ValueError, match="unsupported source='env'"):
             projects.cmd_capability_get_secret(
-                "yoke", "deploy", "token", conn=conn,
+                "yoke",
+                "deploy",
+                "token",
+                conn=conn,
             )
 
     def test_get_secret_rejects_missing_env_source(self, monkeypatch):
@@ -78,49 +95,82 @@ class TestCapabilitySecrets:
         conn = _fake_secret_row(monkeypatch, "env")
         with pytest.raises(ValueError, match="unsupported source='env'"):
             projects.cmd_capability_get_secret(
-                "yoke", "deploy", "token", conn=conn,
+                "yoke",
+                "deploy",
+                "token",
+                conn=conn,
             )
 
     def test_set_secret_external_source_raises(self, initialized_db: str):
         with pytest.raises(ValueError, match="source='literal'"):
             projects.cmd_capability_set_secret(
-                "yoke", "deploy", "k", "v",
-                source="file", db_path=initialized_db,
+                "yoke",
+                "deploy",
+                "k",
+                "v",
+                source="file",
+                db_path=initialized_db,
             )
 
     def test_get_secret_nonexistent_returns_none(self, initialized_db: str):
         result = projects.cmd_capability_get_secret(
-            "yoke", "nonexistent-cap", "key", db_path=initialized_db,
+            "yoke",
+            "nonexistent-cap",
+            "key",
+            db_path=initialized_db,
         )
         assert result is None
 
     def test_list_secrets(self, initialized_db: str):
         projects.cmd_capability_set_secret(
-            "yoke", "ssh", "key_a", "val_a", db_path=initialized_db,
+            "yoke",
+            "ssh",
+            "key_a",
+            "val_a",
+            db_path=initialized_db,
         )
         projects.cmd_capability_set_secret(
-            "yoke", "ssh", "key_b", "val_b", db_path=initialized_db,
+            "yoke",
+            "ssh",
+            "key_b",
+            "val_b",
+            db_path=initialized_db,
         )
-        output = projects.cmd_capability_list_secrets("yoke", "ssh", db_path=initialized_db)
+        output = projects.cmd_capability_list_secrets(
+            "yoke", "ssh", db_path=initialized_db
+        )
         keys = output.strip().split("\n")
         assert "key_a" in keys
         assert "key_b" in keys
 
     def test_list_secrets_empty(self, initialized_db: str):
         output = projects.cmd_capability_list_secrets(
-            "yoke", "nonexistent", db_path=initialized_db,
+            "yoke",
+            "nonexistent",
+            db_path=initialized_db,
         )
         assert output == ""
 
     def test_upsert_secret_overwrites(self, initialized_db: str):
         projects.cmd_capability_set_secret(
-            "yoke", "deploy", "tok", "old_val", db_path=initialized_db,
+            "yoke",
+            "deploy",
+            "tok",
+            "old_val",
+            db_path=initialized_db,
         )
         projects.cmd_capability_set_secret(
-            "yoke", "deploy", "tok", "new_val", db_path=initialized_db,
+            "yoke",
+            "deploy",
+            "tok",
+            "new_val",
+            db_path=initialized_db,
         )
         result = projects.cmd_capability_get_secret(
-            "yoke", "deploy", "tok", db_path=initialized_db,
+            "yoke",
+            "deploy",
+            "tok",
+            db_path=initialized_db,
         )
         assert result == "new_val"
 
@@ -141,6 +191,7 @@ def _fake_secret_row(monkeypatch, source: str):
 # resolve-deploy-envs
 # ---------------------------------------------------------------------------
 
+
 class TestResolveDeployEnvs:
     def test_resolves_from_environments_table(self, initialized_db: str):
         from yoke_core.domain.project_seed_test_helpers import (
@@ -152,14 +203,17 @@ class TestResolveDeployEnvs:
             seed_externalwebapp_site_environments(conn)
         finally:
             conn.close()
-        result = projects.cmd_resolve_deploy_envs("externalwebapp", db_path=initialized_db)
+        result = projects.cmd_resolve_deploy_envs(
+            "externalwebapp", db_path=initialized_db
+        )
         assert result is not None
         envs = result.strip().split("\n")
         assert "prod" in envs
         assert "stage" in envs
 
     def test_flow_definitions_do_not_widen_the_environment_set(
-        self, initialized_db: str,
+        self,
+        initialized_db: str,
     ):
         conn = connect(initialized_db)
         try:
@@ -223,9 +277,7 @@ class TestResolveDeployEnvs:
                 "(SELECT id FROM sites WHERE project_id=1)"
             )
             if _table_exists(conn, "deployment_flows"):
-                conn.execute(
-                    "DELETE FROM deployment_flows WHERE project_id=1"
-                )
+                conn.execute("DELETE FROM deployment_flows WHERE project_id=1")
             conn.commit()
         finally:
             conn.close()
@@ -237,6 +289,11 @@ class TestResolveDeployEnvs:
         assert "beta" in envs
 
     def test_returns_none_when_no_envs(self, initialized_db: str):
-        projects.cmd_create("empty", "Empty", db_path=initialized_db)
+        projects.cmd_create(
+            "empty",
+            "Empty",
+            db_path=initialized_db,
+            public_item_prefix="EMPT",
+        )
         result = projects.cmd_resolve_deploy_envs("empty", db_path=initialized_db)
         assert result is None

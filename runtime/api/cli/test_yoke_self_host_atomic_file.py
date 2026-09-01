@@ -19,7 +19,7 @@ def _mode(path: Path) -> int:
 
 def test_next_write_cleans_owned_orphan_without_following_symlink(tmp_path):
     target = tmp_path / "github-app-private-key.pem"
-    orphan = tmp_path / ".github-app-private-key.pem.crashed.tmp"
+    orphan = tmp_path / "github-app-private-key.pem.crashed.tmp"
     orphan.write_bytes(b"stranded-key\n")
     orphan.chmod(0o600)
     sentinel = tmp_path / "sentinel"
@@ -28,7 +28,7 @@ def test_next_write_cleans_owned_orphan_without_following_symlink(tmp_path):
     symlink.symlink_to(sentinel)
     unrelated = tmp_path / ".another-key.crashed.tmp"
     unrelated.write_bytes(b"unrelated\n")
-    near_match = tmp_path / ".github-app-private-key.pem.crashed.tmp.keep"
+    near_match = tmp_path / "github-app-private-key.pem.crashed.tmp.keep"
     near_match.write_bytes(b"near-match\n")
 
     atomic_file.atomic_replace_bytes(target, b"current-key\n", mode=0o600)
@@ -40,8 +40,7 @@ def test_next_write_cleans_owned_orphan_without_following_symlink(tmp_path):
     assert unrelated.read_bytes() == b"unrelated\n"
     assert near_match.read_bytes() == b"near-match\n"
     lock_path = atomic_file.target_lock_path(target)
-    assert lock_path.is_file()
-    assert _mode(lock_path) == 0o600
+    assert not lock_path.exists()
 
 
 def test_persistent_lock_serializes_concurrent_writers(tmp_path, monkeypatch):
@@ -81,8 +80,20 @@ def test_persistent_lock_serializes_concurrent_writers(tmp_path, monkeypatch):
     assert maximum_active == 1
     assert target.read_bytes() in payloads
     assert _mode(target) == 0o600
-    assert _mode(atomic_file.target_lock_path(target)) == 0o600
+    assert not atomic_file.target_lock_path(target).exists()
+    assert not list(tmp_path.glob(f"{target.name}.*.tmp"))
     assert not list(tmp_path.glob(f".{target.name}.*.tmp"))
+
+
+def test_dotfile_lock_uses_filename_lock_and_is_removed_after_success(tmp_path):
+    target = tmp_path / ".env"
+    assert atomic_file.target_lock_path(target) == tmp_path / ".env.lock"
+    atomic_file.atomic_replace_bytes(target, b"YOKE=1\n", mode=0o600)
+    assert target.read_bytes() == b"YOKE=1\n"
+    assert not (tmp_path / "..env.lock").exists()
+    assert not (tmp_path / ".env.lock").exists()
+    assert not list(tmp_path.glob(".env.*.tmp"))
+    assert not list(tmp_path.glob("..env.*.tmp"))
 
 
 def test_persistent_lock_refuses_symlink_without_following_it(tmp_path):

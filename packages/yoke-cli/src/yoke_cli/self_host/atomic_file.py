@@ -22,6 +22,7 @@ def atomic_replace_bytes(target: Path, payload: bytes, *, mode: int) -> Path:
     lock_descriptor = -1
     descriptor = -1
     temporary_path: Path | None = None
+    replaced = False
     try:
         directory_descriptor = os.open(
             target.parent,
@@ -52,6 +53,7 @@ def atomic_replace_bytes(target: Path, payload: bytes, *, mode: int) -> Path:
         os.replace(temporary_path, target)
         temporary_path = None
         os.fsync(directory_descriptor)
+        replaced = True
     except AtomicFileError:
         raise
     except OSError as exc:
@@ -68,14 +70,28 @@ def atomic_replace_bytes(target: Path, payload: bytes, *, mode: int) -> Path:
                 pass
         if lock_descriptor >= 0:
             os.close(lock_descriptor)
+            lock_descriptor = -1
+        if replaced and directory_descriptor >= 0:
+            try:
+                os.unlink(
+                    target_lock_path(target).name,
+                    dir_fd=directory_descriptor,
+                )
+            except FileNotFoundError:
+                pass
         if directory_descriptor >= 0:
             os.close(directory_descriptor)
     return target
 
 
 def target_lock_path(target: Path) -> Path:
-    """Return the persistent advisory lock used for ``target``."""
-    return target.with_name(f".{target.name}.lock")
+    """Return the advisory lock used for ``target``.
+
+    Named ``{filename}.lock`` so a dotfile such as ``.env`` becomes
+    ``.env.lock`` rather than ``..env.lock``. Removed after a successful
+    replace so materialization does not leave lock files behind.
+    """
+    return target.with_name(f"{target.name}.lock")
 
 
 def _open_owner_lock(target: Path, *, directory_descriptor: int) -> int:
@@ -163,7 +179,7 @@ def _cleanup_orphaned_temporaries(
 
 
 def _temporary_prefix(target: Path) -> str:
-    return f".{target.name}."
+    return f"{target.name}."
 
 
 __all__ = [

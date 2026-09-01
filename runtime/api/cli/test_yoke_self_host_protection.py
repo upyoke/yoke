@@ -234,13 +234,14 @@ def test_github_app_private_key_rotation_is_atomic_and_preserves_db_secret(
     assert _mode(key_path) == 0o600
     assert _password(target) == password
     assert list((target / "secrets").glob(".*.tmp")) == []
+    assert list((target / "secrets").glob("*.tmp")) == []
     assert len(replacements) == 2
     assert all(
         source.parent == destination.parent for source, destination in replacements
     )
     assert all(destination == key_path for _, destination in replacements)
     assert len(fsync_descriptors) >= 4
-    assert _mode(atomic_file.target_lock_path(key_path)) == 0o600
+    assert not atomic_file.target_lock_path(key_path).exists()
     assert _PRIVATE_KEY_ONE not in output
     assert _PRIVATE_KEY_TWO not in output
 
@@ -286,6 +287,7 @@ def test_github_app_private_key_rejects_invalid_source_without_replacement(
         encoding="utf-8"
     ) == _PRIVATE_KEY_ONE
     assert list((target / "secrets").glob(".*.tmp")) == []
+    assert list((target / "secrets").glob("*.tmp")) == []
 
 
 def test_atomic_replace_failure_preserves_existing_secret(tmp_path, monkeypatch):
@@ -306,6 +308,7 @@ def test_atomic_replace_failure_preserves_existing_secret(tmp_path, monkeypatch)
     assert target.read_bytes() == b"original\n"
     assert _mode(target) == 0o600
     assert list(tmp_path.glob(".*.tmp")) == []
+    assert list(tmp_path.glob("*.tmp")) == []
 
 
 def test_init_refuses_gitignore_symlink_without_touching_target(

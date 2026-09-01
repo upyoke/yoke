@@ -11,8 +11,12 @@ from yoke_core.domain.db_helpers import (
     query_rows,
     query_scalar,
 )
-from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.project_github_binding_payload import normalize_github_repo
+from yoke_core.domain.project_public_prefix import (
+    assert_prefix_available,
+    require_public_item_prefix,
+    typed_project_field,
+)
 from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_DISABLED
 
 
@@ -95,6 +99,8 @@ def cmd_upsert(
             )
         now = iso8601_now()
         if created:
+            selected_prefix = require_public_item_prefix(public_item_prefix)
+            assert_prefix_available(conn, selected_prefix)
             inserted_sync_mode = selected_sync_mode or GITHUB_SYNC_DISABLED
             if inserted_sync_mode != GITHUB_SYNC_DISABLED:
                 raise ValueError(
@@ -110,7 +116,7 @@ def cmd_upsert(
                 selected_name,
                 default_branch,
                 github_repo,
-                public_item_prefix,
+                selected_prefix,
                 emoji,
                 now,
                 inserted_sync_mode,
@@ -169,7 +175,7 @@ def _insert(
     name: str,
     default_branch: Optional[str],
     github_repo: Optional[str],
-    public_item_prefix: Optional[str],
+    public_item_prefix: str,
     emoji: Optional[str],
     now: str,
     github_sync_mode: str,
@@ -189,7 +195,7 @@ def _insert(
             _clean_optional(emoji) or "",
             _clean_optional(default_branch) or "main",
             _clean_optional(github_repo),
-            _clean_optional(public_item_prefix) or DEFAULT_PUBLIC_ITEM_PREFIX,
+            public_item_prefix,
             now,
             org_id,
             github_sync_mode,
@@ -214,6 +220,11 @@ def _update(
         if github_repo is None
         else _binding_guarded_github_repo(conn, numeric_id, github_repo)
     )
+    selected_prefix = _clean_optional(public_item_prefix)
+    if selected_prefix:
+        assert_prefix_available(conn, selected_prefix, excluding_project_id=numeric_id)
+    else:
+        selected_prefix = require_public_item_prefix(existing["public_item_prefix"])
     conn.execute(
         "UPDATE projects SET slug=%s, name=%s, emoji=%s, "
         "default_branch=%s, github_repo=%s, public_item_prefix=%s WHERE id=%s",
@@ -223,9 +234,7 @@ def _update(
             _clean_optional(emoji) if emoji is not None else existing["emoji"],
             _clean_optional(default_branch) or existing["default_branch"] or "main",
             selected_github_repo,
-            _clean_optional(public_item_prefix)
-            or existing["public_item_prefix"]
-            or DEFAULT_PUBLIC_ITEM_PREFIX,
+            selected_prefix,
             numeric_id,
         ),
     )
@@ -304,9 +313,7 @@ def _resolve_org_id(conn: Any, org: str) -> int:
 
 def _default_org_id(conn: Any) -> Optional[int]:
     try:
-        rows = query_rows(
-            conn, "SELECT id FROM organizations ORDER BY id LIMIT 2"
-        )
+        rows = query_rows(conn, "SELECT id FROM organizations ORDER BY id LIMIT 2")
         return int(rows[0]["id"]) if len(rows) == 1 else None
     except Exception:
         return None
@@ -315,7 +322,9 @@ def _default_org_id(conn: Any) -> Optional[int]:
 def _row_dict(row: Any) -> dict[str, Any]:
     from yoke_core.domain import projects as parent
 
-    return {field: row[field] for field in parent.PROJECT_FIELDS}
+    return {
+        field: typed_project_field(field, row[field]) for field in parent.PROJECT_FIELDS
+    }
 
 
 __all__ = ["cmd_upsert"]

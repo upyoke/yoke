@@ -80,8 +80,14 @@ from yoke_core.domain.projects_capabilities import (  # noqa: F401
 # ---------------------------------------------------------------------------
 
 PROJECT_FIELDS = (
-    "id", "slug", "name", "emoji", "default_branch",
-    "github_repo", "public_item_prefix", "github_sync_mode",
+    "id",
+    "slug",
+    "name",
+    "emoji",
+    "default_branch",
+    "github_repo",
+    "public_item_prefix",
+    "github_sync_mode",
     "created_at",
 )
 
@@ -90,13 +96,23 @@ _PROJECT_SELECT = ", ".join(PROJECT_FIELDS)
 
 # Fields returned by ``list`` (stable pipe-delimited output)
 _PROJECT_LIST_FIELDS = (
-    "id", "slug", "name", "default_branch",
+    "id",
+    "slug",
+    "name",
+    "default_branch",
     "created_at",
 )
 _PROJECT_LIST_SELECT = ", ".join(_PROJECT_LIST_FIELDS)
 
 # Secret-key heuristic patterns used by config-split migration
-_SECRET_PATTERNS = ("token", "secret", "password", "api_key", "access_key", "private_key")
+_SECRET_PATTERNS = (
+    "token",
+    "secret",
+    "password",
+    "api_key",
+    "access_key",
+    "private_key",
+)
 
 
 # Project-row CRUD needs the constants above during lazy parent resolution.
@@ -110,6 +126,7 @@ from yoke_core.domain.projects_crud import (  # noqa: F401, E402
     cmd_update,
 )
 from yoke_core.domain.projects_upsert import cmd_upsert  # noqa: F401, E402
+
 
 # ---------------------------------------------------------------------------
 # CLI argument parser
@@ -127,6 +144,7 @@ def _build_parser() -> "argparse.ArgumentParser":
     p = sub.add_parser("create", help="Insert a new project")
     p.add_argument("id")
     p.add_argument("name")
+    p.add_argument("public_item_prefix")
 
     # get
     p = sub.add_parser("get", help="Get project (pipe-delimited or single field)")
@@ -143,11 +161,15 @@ def _build_parser() -> "argparse.ArgumentParser":
     p.add_argument("value", nargs="?", default="")
 
     # has-capability
-    p = sub.add_parser("has-capability", help="Check if project has capability (exit 0/1)")
+    p = sub.add_parser(
+        "has-capability", help="Check if project has capability (exit 0/1)"
+    )
     p.add_argument("project")
     p.add_argument("type")
     p.add_argument(
-        "--json", dest="json_mode", action="store_true",
+        "--json",
+        dest="json_mode",
+        action="store_true",
         help=(
             "Route through the function dispatcher and emit the typed "
             "FunctionCallResponse envelope (avoids "
@@ -165,7 +187,9 @@ def _build_parser() -> "argparse.ArgumentParser":
     register_capability_secret_parsers(sub)
 
     # resolve-deploy-envs
-    p = sub.add_parser("resolve-deploy-envs", help="List valid deployment envs (DB only)")
+    p = sub.add_parser(
+        "resolve-deploy-envs", help="List valid deployment envs (DB only)"
+    )
     p.add_argument("project")
 
     # validate-test-commands
@@ -188,6 +212,7 @@ def _build_parser() -> "argparse.ArgumentParser":
 # main
 # ---------------------------------------------------------------------------
 
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -202,7 +227,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         elif args.command == "create":
-            print(cmd_create(args.id, args.name))
+            print(
+                cmd_create(
+                    args.id, args.name, public_item_prefix=args.public_item_prefix
+                )
+            )
             return 0
 
         elif args.command == "get":
@@ -260,7 +289,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         elif args.command in CAPABILITY_SECRET_COMMANDS:
             return run_capability_secret_command(args)
-
 
         elif args.command == "resolve-deploy-envs":
             result = cmd_resolve_deploy_envs(args.project)

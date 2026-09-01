@@ -36,9 +36,8 @@ from .validate_webapp_pipeline_helpers import (
 )
 
 
-_NO_FLOWS_REMEDIATION = (
-    "Define one with `yoke deployment-flows create FLOW-ID --project P --name NAME --stages-file PATH`."
-)
+_NO_FLOWS_REMEDIATION = "Define one with `yoke deployment-flows create FLOW-ID --project P --name NAME --stages-file PATH`."
+
 
 def _check_database_prerequisites(
     ctx: ValidateContext, counters: Counters
@@ -71,7 +70,8 @@ def _check_database_prerequisites(
             counters,
             f"{project_display} project not found in projects table",
             f"Register the project: yoke projects create --slug {project_key} "
-            f"--name {project_display!r} --github-repo OWNER/REPO "
+            f"--name {project_display!r} --public-item-prefix PREFIX "
+            "--github-repo OWNER/REPO "
             "(or onboard via yoke project install)",
         )
         _check_fail(
@@ -102,7 +102,8 @@ def _check_database_prerequisites(
                 counters,
                 f"{project_display} project not found in projects table",
                 f"Register the project: yoke projects create --slug {project_key} "
-                f"--name {project_display!r} --github-repo OWNER/REPO "
+                f"--name {project_display!r} --public-item-prefix PREFIX "
+                "--github-repo OWNER/REPO "
                 "(or onboard via yoke project install)",
             )
             _check_fail(
@@ -133,15 +134,16 @@ def _check_database_prerequisites(
         _check_pass(counters, f"{project_display} project record exists")
 
         # 1c. github_repo field
-        github_repo = _query_scalar(
-            conn,
-            f"SELECT github_repo FROM projects WHERE id={_p(conn)}",
-            (project_id,),
-        ) or ""
-        if github_repo:
-            _check_pass(
-                counters, f"{project_display} github_repo set: {github_repo}"
+        github_repo = (
+            _query_scalar(
+                conn,
+                f"SELECT github_repo FROM projects WHERE id={_p(conn)}",
+                (project_id,),
             )
+            or ""
+        )
+        if github_repo:
+            _check_pass(counters, f"{project_display} github_repo set: {github_repo}")
         else:
             _check_fail(
                 counters,
@@ -276,9 +278,7 @@ def _check_local_repository(
         return
 
     # 2b. Clean working tree
-    dirty_result = _run(
-        ["git", "-C", str(repo), "status", "--porcelain"]
-    )
+    dirty_result = _run(["git", "-C", str(repo), "status", "--porcelain"])
     dirty = dirty_result.stdout if dirty_result.returncode == 0 else ""
     if not dirty:
         _check_pass(counters, f"{project_display} repo working tree is clean")
@@ -291,7 +291,9 @@ def _check_local_repository(
 
     # 2c. Default branch
     branch_result = _run(["git", "-C", str(repo), "branch", "--show-current"])
-    current_branch = branch_result.stdout.strip() if branch_result.returncode == 0 else ""
+    current_branch = (
+        branch_result.stdout.strip() if branch_result.returncode == 0 else ""
+    )
 
     default_branch = "main"
     if ctx.control_plane_marker.is_file():

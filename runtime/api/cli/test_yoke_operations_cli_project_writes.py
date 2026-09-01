@@ -88,6 +88,18 @@ class TestProjectsCreateAndUpdate:
         )
         assert rc == 2
 
+    def test_missing_prefix_returns_two(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "projects",
+            "create",
+            "--slug",
+            "demo",
+            "--name",
+            "Demo",
+        )
+        assert rc == 2
+
 
 class TestProjectsCapabilitySecretSet:
     def test_registry_maps_tokens_to_function_id(self) -> None:

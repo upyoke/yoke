@@ -36,6 +36,8 @@ class TestProjectsList(unittest.TestCase):
         )
         rows = outcome.result_payload["rows"]
         self.assertEqual(rows[0]["slug"], "yoke")
+        self.assertEqual(rows[0]["id"], 1)
+        self.assertIsInstance(rows[0]["id"], int)
         self.assertEqual(rows[1]["default_branch"], "main")
 
     def test_empty_list_returns_no_rows(self):
