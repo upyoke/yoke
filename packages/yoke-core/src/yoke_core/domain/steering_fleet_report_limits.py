@@ -13,12 +13,6 @@ from yoke_contracts.session_control.plan_limits import (
 from yoke_core.domain import db_backend
 
 
-PLAN_LIMIT_HEADING = (
-    "plan limits — informational remaining/reset; raise approaching walls "
-    "with the operator, do not gate launches"
-)
-
-
 @dataclass(frozen=True)
 class MachinePlanLimit:
     machine_id: str
@@ -121,52 +115,6 @@ def load_plan_limits(
     return tuple(found)
 
 
-def plan_limit_lines(limits: tuple[MachinePlanLimit, ...]) -> list[str]:
-    if not limits:
-        return []
-    by_machine: dict[str, list[MachinePlanLimit]] = {}
-    for row in limits:
-        by_machine.setdefault(row.machine_id, []).append(row)
-    lines = ["", PLAN_LIMIT_HEADING + ":"]
-    for machine in sorted(by_machine):
-        lines.append(f"  {machine}")
-        for row in sorted(by_machine[machine], key=lambda item: item.surface):
-            if row.status != "ok":
-                lines.append(
-                    f"    {row.surface}  unknown  {row.reason or 'unreadable'}"
-                )
-                continue
-            remaining = (
-                f"{int(round(row.remaining_percent))}%"
-                if row.remaining_percent is not None
-                else "?"
-            )
-            tier = row.plan_tier or "unspecified"
-            reset = row.resets_at or "unknown-reset"
-            lines.append(
-                f"    {row.surface}  {tier}  {remaining} remaining  "
-                f"{row.window_kind}  resets {reset}"
-            )
-    return lines
-
-
-def plan_limit_dicts(limits: tuple[MachinePlanLimit, ...]) -> list[dict[str, Any]]:
-    return [
-        {
-            "machine_id": row.machine_id,
-            "hostname": row.hostname,
-            "surface": row.surface,
-            "plan_tier": row.plan_tier,
-            "window_kind": row.window_kind,
-            "remaining_percent": row.remaining_percent,
-            "resets_at": row.resets_at,
-            "status": row.status,
-            "reason": row.reason,
-        }
-        for row in limits
-    ]
-
-
 def fingerprint_material(limits: tuple[MachinePlanLimit, ...]) -> list[tuple[Any, ...]]:
     return sorted(
         (
@@ -183,10 +131,7 @@ def fingerprint_material(limits: tuple[MachinePlanLimit, ...]) -> list[tuple[Any
 
 
 __all__ = [
-    "PLAN_LIMIT_HEADING",
     "MachinePlanLimit",
     "fingerprint_material",
     "load_plan_limits",
-    "plan_limit_dicts",
-    "plan_limit_lines",
 ]
