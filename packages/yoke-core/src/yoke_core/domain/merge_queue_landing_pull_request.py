@@ -10,13 +10,16 @@ on whatever is already there
 Both go through this function so the pull request the gate opened is the
 pull request the landing enqueues, rather than a second one racing it.
 
-Only one of them publishes the branch, though, and it is the gate. Item
-branches stay local until something pushes them, so a landing whose
-verification was satisfied any other way — a waived gate, a case that could
-not run — arrives at a pull request for a branch GitHub has never seen, and
-GitHub refuses that as a bare HTTP 422. The landing therefore owns its own
-precondition: it publishes the branch when origin does not have it, whatever
-satisfied verification.
+The gate is the usual publisher, but the landing owns the precondition that
+origin holds the reported ``lane_head``. Item branches stay local until
+something pushes them, so a landing whose verification was satisfied any
+other way — a waived gate, a case that could not run — arrives at a pull
+request for a branch GitHub has never seen, and GitHub refuses that as a
+bare HTTP 422. A retry after a red train is the same gap with a twist:
+origin already has the branch, just not the new commits, and reporting
+``ok`` with the new SHA while the queue stays armed on the old one is a
+silent divergence. The landing therefore publishes ``lane_head`` whenever
+origin does not already hold it.
 """
 
 from __future__ import annotations
@@ -47,35 +50,71 @@ from yoke_core.engines.merge_worktree_pr_rest import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-def _publish_branch_if_absent(
-    ctx: MergeContext, *, lane_head: str
-) -> Optional[str]:
-    """Put the branch on origin when it is not there yet.
+def _same_commit(left: str, right: str) -> bool:
+    a, b = left.strip().lower(), right.strip().lower()
+    return bool(a) and a == b
+
+
+def _publish_recovery(ctx: MergeContext, *, lane_head: str) -> str:
+    source = lane_head or f"refs/heads/{ctx.args.branch}"
+    root = ctx.repo_root or "."
+    return (
+        f"git -C {root} push --force-with-lease origin "
+        f"{source}:refs/heads/{ctx.args.branch}"
+    )
+
+
+def _publish_lane_head(ctx: MergeContext, *, lane_head: str) -> Optional[str]:
+    """Put ``lane_head`` on origin under the lane branch.
 
     Publishing is the same ``--force-with-lease`` push the verification gate
     performs, reached from here so the landing does not depend on the gate
-    having run. Returns why the branch could not be published, or ``None``
-    when origin has it — including the ordinary case where it always did.
+    having run and so a retry cannot report a SHA origin does not hold.
+    Returns why the head could not be published, or ``None`` when origin
+    already has it — including the ordinary case where the gate just did.
     """
-    if not ctx.repo_root or git.remote_branch_exists(
-        ctx.repo_root, ctx.args.branch
-    ):
+    if not ctx.repo_root:
+        return None
+    remote_sha = git.remote_head_of(ctx.repo_root, ctx.args.branch)
+    if lane_head:
+        already_published = _same_commit(remote_sha, lane_head)
+    else:
+        already_published = bool(remote_sha)
+    if already_published:
         return None
     from yoke_core.domain.qa_case_ci_lane import push_lane
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
+    source = lane_head or f"refs/heads/{ctx.args.branch}"
     try:
         push_lane(
             Path(ctx.repo_root),
             ctx.args.branch,
-            source_ref=lane_head or f"refs/heads/{ctx.args.branch}",
+            source_ref=source,
         )
     except QaCaseExecutionError as exc:
+        if not remote_sha:
+            return (
+                f"branch {ctx.args.branch!r} is absent from origin and could "
+                f"not be published: {exc}"
+            )
         return (
-            f"branch {ctx.args.branch!r} is absent from origin and could not "
-            f"be published: {exc}"
+            f"lane head {source} is not what origin holds for "
+            f"{ctx.args.branch!r} (remote head {remote_sha}); the queue is "
+            f"landing the remote head, not the unpublished local commits. "
+            f"Publishing failed: {exc}. Publish the lane head and re-run: "
+            f"{_publish_recovery(ctx, lane_head=lane_head)}"
         )
     return None
+
+
+def _open_pr_at_lane_head(
+    ctx: MergeContext, pr_num: str, *, lane_head: str
+) -> tuple[str, Optional[str]]:
+    error = _publish_lane_head(ctx, lane_head=lane_head)
+    if error:
+        return "", error
+    return pr_num, None
 
 
 def _create_failure(ctx: MergeContext, created: PrCreateResult) -> str:
@@ -87,9 +126,7 @@ def _create_failure(ctx: MergeContext, created: PrCreateResult) -> str:
     one-command repair instead of the same wall.
     """
     detail = created.error_detail or "pull request create failed"
-    if ctx.repo_root and not git.remote_branch_exists(
-        ctx.repo_root, ctx.args.branch
-    ):
+    if ctx.repo_root and not git.remote_branch_exists(ctx.repo_root, ctx.args.branch):
         return (
             f"{detail} — branch {ctx.args.branch!r} is not on origin, which is "
             "what GitHub refuses to open a pull request for. Publish it and "
@@ -100,7 +137,8 @@ def _create_failure(ctx: MergeContext, created: PrCreateResult) -> str:
 
 
 def reopen_pull_request(
-    ctx: MergeContext, pr_num: str,
+    ctx: MergeContext,
+    pr_num: str,
 ) -> tuple[str, Optional[str]]:
     """Reopen a closed pull request. Returns ``(pr_num, None)`` on success."""
     try:
@@ -122,27 +160,30 @@ def reopen_pull_request(
     body = response.body if isinstance(response.body, dict) else {}
     if str(body.get("state") or "") != "open":
         return "", (
-            f"could not reopen pull request {pr_num}: "
-            f"state={body.get('state')!r}"
+            f"could not reopen pull request {pr_num}: state={body.get('state')!r}"
         )
     return pr_num, None
 
 
 def _usable_existing_pull_request(
-    ctx: MergeContext, pr_num: str,
-) -> tuple[str, Optional[str]]:
-    """Return an open or merged PR, or ``("", reopen_error)`` to replace it."""
+    ctx: MergeContext,
+    pr_num: str,
+) -> tuple[str, Optional[str], bool]:
+    """Return ``(pr_num, None, merged)`` when the PR can be used."""
     state, _error = read_pr_landing_state(ctx, pr_num)
     if state is not None and (state.merged or not state.closed):
-        return pr_num, None
+        return pr_num, None, bool(state.merged)
     reopened, reopen_error = reopen_pull_request(ctx, pr_num)
     if reopened:
-        return reopened, None
-    return "", reopen_error
+        return reopened, None, False
+    return "", reopen_error, False
 
 
 def ensure_landing_pull_request(
-    ctx: MergeContext, public_ref: str, *, lane_head: str = "",
+    ctx: MergeContext,
+    public_ref: str,
+    *,
+    lane_head: str = "",
 ) -> tuple[str, Optional[str]]:
     """Find the pull request this landing may use, or open one.
 
@@ -163,14 +204,20 @@ def ensure_landing_pull_request(
     A closed unmerged pull request is reopened when GitHub permits, and
     replaced by a new one when it does not. The adapter refuses only when
     neither path can produce an open pull request.
+
+    An open pull request is reused only after origin holds ``lane_head``.
+    A merged pull request is left unpublished: those commits already
+    landed.
     """
     _, pr_num, stale = find_landable_pull_request(ctx, lane_head=lane_head)
     reopen_error = None
     if pr_num:
-        usable, reopen_error = _usable_existing_pull_request(ctx, pr_num)
+        usable, reopen_error, merged = _usable_existing_pull_request(ctx, pr_num)
         if usable:
-            return usable, None
-    publish_error = _publish_branch_if_absent(ctx, lane_head=lane_head)
+            if merged:
+                return usable, None
+            return _open_pr_at_lane_head(ctx, usable, lane_head=lane_head)
+    publish_error = _publish_lane_head(ctx, lane_head=lane_head)
     if publish_error:
         return "", publish_error
     created = create_pr(
@@ -186,7 +233,7 @@ def ensure_landing_pull_request(
     if created.already_exists or created.no_commits:
         _, pr_num, stale = find_landable_pull_request(ctx, lane_head=lane_head)
         if pr_num:
-            usable, _ignored = _usable_existing_pull_request(ctx, pr_num)
+            usable, _ignored, _merged = _usable_existing_pull_request(ctx, pr_num)
             if usable:
                 return usable, None
     if stale:

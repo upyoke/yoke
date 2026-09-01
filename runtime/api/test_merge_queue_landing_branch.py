@@ -38,9 +38,11 @@ def test_a_lane_branch_containing_a_slash_lands(monkeypatch):
     wire_happy_path(monkeypatch, landing_states=[MERGED])
     seen: dict = {}
     monkeypatch.setattr(
-        close_out_mod, "read_pr_changed_files",
-        lambda merge_ctx, _pr: seen.update(branch=merge_ctx.args.branch)
-        or (("a.py",), None),
+        close_out_mod,
+        "read_pr_changed_files",
+        lambda merge_ctx, _pr: (
+            seen.update(branch=merge_ctx.args.branch) or (("a.py",), None)
+        ),
     )
     outcome = land(ctx=ctx(branch), public_ref=branch)
     assert outcome.ok
@@ -64,15 +66,17 @@ def test_the_ruleset_branch_is_read_past_the_ref_prefix(include, expected):
 # --- The landing publishes its own precondition -----------------------------
 
 
-def _wire_pull_request_create(monkeypatch, *, on_origin, created) -> list:
+def _wire_pull_request_create(monkeypatch, *, remote_sha, created) -> list:
     """Wire a landing with no existing pull request; return the call order."""
     order: list[str] = []
     monkeypatch.setattr(
-        landing_pr_mod, "find_landable_pull_request",
+        landing_pr_mod,
+        "find_landable_pull_request",
         lambda _ctx, lane_head="": (None, None, ""),
     )
+    monkeypatch.setattr(landing_pr_mod.git, "remote_head_of", lambda *_a: remote_sha)
     monkeypatch.setattr(
-        landing_pr_mod.git, "remote_branch_exists", lambda *_a: on_origin
+        landing_pr_mod.git, "remote_branch_exists", lambda *_a: bool(remote_sha)
     )
 
     def create(_ctx, *, title, body):
@@ -85,7 +89,9 @@ def _wire_pull_request_create(monkeypatch, *, on_origin, created) -> list:
 
 def _ensure():
     return landing_pr_mod.ensure_landing_pull_request(
-        ctx(repo_root=CHECKOUT), "YOK-200", lane_head=LANE_SHA,
+        ctx(repo_root=CHECKOUT),
+        "YOK-200",
+        lane_head=LANE_SHA,
     )
 
 
@@ -93,30 +99,54 @@ def test_landing_publishes_a_branch_origin_has_never_seen(monkeypatch):
     """A waived gate never ran, and it is the gate that publishes the lane."""
     order = _wire_pull_request_create(
         monkeypatch,
-        on_origin=False,
+        remote_sha="",
         created=PrCreateResult(pr_url="url", pr_num="42"),
     )
     pushed: dict = {}
 
     def push(checkout, branch, *, source_ref="HEAD"):
         order.append("push")
-        pushed.update(
-            checkout=str(checkout), branch=branch, source_ref=source_ref
-        )
+        pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
 
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
     assert _ensure() == ("42", None)
     assert order == ["push", "create"]
     assert pushed == {
-        "checkout": CHECKOUT, "branch": "YOK-200", "source_ref": LANE_SHA,
+        "checkout": CHECKOUT,
+        "branch": "YOK-200",
+        "source_ref": LANE_SHA,
     }
 
 
-def test_landing_does_not_republish_a_branch_origin_already_has(monkeypatch):
+def test_landing_publishes_when_origin_holds_a_different_head(monkeypatch):
+    """A retry after a red train has new local commits origin has not seen."""
+    stale = "f" * 40
+    order = _wire_pull_request_create(
+        monkeypatch,
+        remote_sha=stale,
+        created=PrCreateResult(pr_url="url", pr_num="42"),
+    )
+    pushed: dict = {}
+
+    def push(checkout, branch, *, source_ref="HEAD"):
+        order.append("push")
+        pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
+
+    monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
+    assert _ensure() == ("42", None)
+    assert order == ["push", "create"]
+    assert pushed == {
+        "checkout": CHECKOUT,
+        "branch": "YOK-200",
+        "source_ref": LANE_SHA,
+    }
+
+
+def test_landing_does_not_republish_a_head_origin_already_has(monkeypatch):
     """The gate's push is the normal case; this one stays a no-op."""
     _wire_pull_request_create(
         monkeypatch,
-        on_origin=True,
+        remote_sha=LANE_SHA,
         created=PrCreateResult(pr_url="url", pr_num="42"),
     )
 
@@ -133,7 +163,7 @@ def test_a_branch_that_cannot_be_published_is_named_before_the_pull_request(
     """A failed push is the landing's own precondition, not GitHub's refusal."""
     _wire_pull_request_create(
         monkeypatch,
-        on_origin=False,
+        remote_sha="",
         created=PrCreateResult(pr_url="", pr_num="", error_detail="unreached"),
     )
 
@@ -144,7 +174,8 @@ def test_a_branch_that_cannot_be_published_is_named_before_the_pull_request(
 
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", failing_push)
     monkeypatch.setattr(
-        landing_pr_mod, "create_pr",
+        landing_pr_mod,
+        "create_pr",
         lambda *_a, **_kw: pytest.fail("no pull request for an absent branch"),
     )
     pr_num, error = _ensure()
@@ -159,9 +190,10 @@ def test_a_refused_pull_request_names_the_missing_branch_and_the_push(
     """GitHub reports a branch it does not have as an unexplained 422."""
     _wire_pull_request_create(
         monkeypatch,
-        on_origin=False,
+        remote_sha="",
         created=PrCreateResult(
-            pr_url="", pr_num="",
+            pr_url="",
+            pr_num="",
             error_detail="pr create rejected (HTTP 422): Unprocessable Entity",
         ),
     )
@@ -175,11 +207,13 @@ def test_a_refused_pull_request_names_the_missing_branch_and_the_push(
 
 def _existing(monkeypatch, *, state, reopened=None, created=None):
     monkeypatch.setattr(
-        landing_pr_mod, "find_landable_pull_request",
+        landing_pr_mod,
+        "find_landable_pull_request",
         lambda _ctx, lane_head="": ("url", "183", ""),
     )
     monkeypatch.setattr(
-        landing_pr_mod, "read_pr_landing_state",
+        landing_pr_mod,
+        "read_pr_landing_state",
         lambda _ctx, _pr: (state, None),
     )
     reopens: list[str] = []
@@ -197,7 +231,14 @@ def _existing(monkeypatch, *, state, reopened=None, created=None):
 
     monkeypatch.setattr(landing_pr_mod, "create_pr", create)
     monkeypatch.setattr(
-        landing_pr_mod.git, "remote_branch_exists", lambda *_a: True,
+        landing_pr_mod.git,
+        "remote_head_of",
+        lambda *_a: LANE_SHA,
+    )
+    monkeypatch.setattr(
+        landing_pr_mod.git,
+        "remote_branch_exists",
+        lambda *_a: True,
     )
     return reopens, creates
 
@@ -222,9 +263,13 @@ def test_closed_unmerged_refuses_only_when_reopen_and_replace_both_fail(
     monkeypatch,
 ):
     _existing(
-        monkeypatch, state=CLOSED, reopened=False,
+        monkeypatch,
+        state=CLOSED,
+        reopened=False,
         created=PrCreateResult(
-            pr_url="", pr_num="", error_detail="create refused",
+            pr_url="",
+            pr_num="",
+            error_detail="create refused",
         ),
     )
     pr_num, error = _ensure()
@@ -239,3 +284,64 @@ def test_an_open_or_merged_pull_request_is_left_alone(monkeypatch):
         assert _ensure() == ("183", None)
         assert reopens == []
         assert creates == []
+
+
+def test_an_open_pull_request_publishes_a_new_lane_head(monkeypatch):
+    stale = "f" * 40
+    _existing(monkeypatch, state=UNARMED)
+    monkeypatch.setattr(
+        landing_pr_mod.git,
+        "remote_head_of",
+        lambda *_a: stale,
+    )
+    pushed: dict = {}
+
+    def push(checkout, branch, *, source_ref="HEAD"):
+        pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
+
+    monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
+    assert _ensure() == ("183", None)
+    assert pushed == {
+        "checkout": CHECKOUT,
+        "branch": "YOK-200",
+        "source_ref": LANE_SHA,
+    }
+
+
+def test_an_open_pull_request_refuses_when_the_new_head_cannot_be_published(
+    monkeypatch,
+):
+    stale = "f" * 40
+    _existing(monkeypatch, state=UNARMED)
+    monkeypatch.setattr(
+        landing_pr_mod.git,
+        "remote_head_of",
+        lambda *_a: stale,
+    )
+
+    def failing_push(*_a, **_kw):
+        raise QaCaseExecutionError("permission denied")
+
+    monkeypatch.setattr(qa_case_ci_lane, "push_lane", failing_push)
+    pr_num, error = _ensure()
+    assert pr_num == ""
+    assert stale in error
+    assert LANE_SHA in error
+    assert "unpublished local commits" in error
+    assert "push --force-with-lease origin" in error
+    assert f"{LANE_SHA}:refs/heads/YOK-200" in error
+
+
+def test_a_merged_pull_request_is_not_republished(monkeypatch):
+    _existing(monkeypatch, state=MERGED)
+    monkeypatch.setattr(
+        landing_pr_mod.git,
+        "remote_head_of",
+        lambda *_a: "f" * 40,
+    )
+
+    def forbidden(*_a, **_kw):
+        raise AssertionError("a merged pull request must not be pushed")
+
+    monkeypatch.setattr(qa_case_ci_lane, "push_lane", forbidden)
+    assert _ensure() == ("183", None)

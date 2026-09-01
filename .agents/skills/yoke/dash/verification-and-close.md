@@ -166,6 +166,12 @@ Merge-queue projects use a two-call handoff by default. The first call opens /
 rebases / arms the pull request, returns `landing_pending=true`, and leaves the
 claim and item non-terminal; end this execution pass. After the control-plane
 message says landing is complete, re-enter the same command to close out.
+A re-entry while `landing_pending=true` publishes any new local lane commits
+before the queue is (re)armed. `ok:true` means the reported `commit_sha` is
+the head origin holds and the queue will build. If that push cannot happen,
+the command refuses with the remote head, the unpublished local commits, and
+the exact `git push --force-with-lease` recovery — it never reports the new
+SHA while origin still holds the old one.
 Codex and Cursor may add `--wait` to keep both phases inline when their process
 is safe for the full wait. Claude must never pass `--wait`.
 
