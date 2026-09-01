@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.session_context_window_sources import served_facts_settled
 from yoke_contracts.session_model_facts import (
     MODEL_FACT_FIELDS,
     SessionModelFacts,
@@ -129,13 +131,34 @@ def client_model_facts(
     if model_facts_settled(event_name, session_id):
         return {}
     facts = resolve_model_facts(payload, executor)
-    if session_id and facts.model is not None:
+    if session_id and _served_facts_complete(facts, executor):
         _mark_model_shipped(session_id)
     return {
         field: getattr(facts, field)
         for field in MODEL_FACT_FIELDS
         if getattr(facts, field) is not None
     }
+
+
+def _served_facts_complete(facts: SessionModelFacts, executor: str) -> bool:
+    """True when this harness has nothing left to attest for the session.
+
+    Marking a session settled stops every later read, so the question has
+    to be "is the answer complete for THIS harness" rather than "did a
+    model arrive". Claude answers its model from the transcript and its
+    window from the status line recording, and the recording is normally
+    written after the transcript names a model — settling on the model
+    alone would strand the window one event short of the wire, on exactly
+    the harness this channel was built for.
+    """
+    try:
+        harness_id = canonical_harness_id(executor)
+    except ValueError:
+        # An executor no family claims can never be asked again usefully;
+        # treat a served model as the whole answer rather than re-reading
+        # its artifacts on every remaining hook event of the session.
+        return facts.model is not None
+    return served_facts_settled(facts, harness_id=harness_id)
 
 
 def _normalize_config_token(value: str) -> str:

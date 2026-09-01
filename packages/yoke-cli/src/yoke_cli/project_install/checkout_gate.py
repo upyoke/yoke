@@ -256,7 +256,9 @@ def _touched_paths(report: dict[str, Any]) -> list[str]:
         worktrees.get("applied") or worktrees.get("status") == "written"
     ):
         paths.append(_GITIGNORE_REL)
-    if report.get("settings_permissions_actions"):
+    if report.get("settings_permissions_actions") or report.get(
+        "settings_status_line_actions"
+    ):
         paths.append(_HOOK_SETTINGS[0])
     if report.get("cursor_permissions_actions"):
         paths.extend(CURSOR_CONFIG_RELS)

@@ -36,10 +36,11 @@ _CURSOR_SHELL_SOURCE = "CURSOR.md"
 
 
 def managed_bundle_keys(root: Path) -> Dict[str, Any]:
-    """The ``managed_markdown`` + ``claude_settings_permissions`` bundle keys."""
+    """The managed-markdown and managed ``.claude/settings.json`` regions."""
     return {
         "managed_markdown": _managed_markdown(root),
         "claude_settings_permissions": _claude_settings_permissions(),
+        "claude_settings_status_line": _claude_settings_status_line(),
     }
 
 
@@ -130,6 +131,17 @@ def _claude_settings_permissions() -> Dict[str, Any]:
         "allow": list(CLAUDE_PERMISSIONS["allow"]),
         "auto_memory_enabled": False,
     }
+
+
+def _claude_settings_status_line() -> Dict[str, Any]:
+    """The status line an installed project needs to attest served context.
+
+    Single source: the Claude substrate renderer, so the command a customer
+    project runs and the one this repo runs cannot drift.
+    """
+    from yoke_core.domain.agents_render_claude import CLAUDE_STATUS_LINE
+
+    return dict(CLAUDE_STATUS_LINE)
 
 
 __all__ = [

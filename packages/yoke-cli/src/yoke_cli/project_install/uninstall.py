@@ -22,6 +22,7 @@ from yoke_cli.project_install import (
 )
 from yoke_cli.project_install import (
     settings_permissions as settings_permissions_layer,
+    settings_status_line as settings_status_line_layer,
 )
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
@@ -101,6 +102,12 @@ def uninstall(
     # Strip the managed permissions region and Markdown blocks first. Removing
     # our permissions keys before the hook de-merge below lets the de-merge's
     # "delete when only an empty hooks block remains" check fire correctly.
+    settings_status_line_removed = (
+        settings_status_line_layer.remove_settings_status_line(
+            root,
+            manifest.get(settings_status_line_layer.STATUS_LINE_MANIFEST_KEY),
+        )
+    )
     settings_permissions_removed = (
         settings_permissions_layer.remove_settings_permissions(
             root, manifest.get("settings_permissions"),
@@ -167,6 +174,7 @@ def uninstall(
         "hooks_removed": hooks_removed,
         "git_hooks_removed": git_hooks_removed,
         "settings_permissions_removed": settings_permissions_removed,
+        "settings_status_line_removed": settings_status_line_removed,
         "cursor_permissions_removed": cursor_permissions_removed,
         "managed_markdown_removed_files": managed_markdown_removed["removed_files"],
         "managed_markdown_stripped_blocks": (

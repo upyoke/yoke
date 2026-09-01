@@ -19,6 +19,9 @@ from yoke_cli.project_install.files import (
 )
 from yoke_cli.project_install.managed_git_hooks import GIT_HOOK_NAMES
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
+from yoke_cli.project_install.settings_status_line import (
+    STATUS_LINE_MANIFEST_KEY,
+)
 from yoke_contracts.project_contract.install_policy import (
     FORBIDDEN_CONTRACT_RELATIVE_PATHS,
 )
@@ -246,6 +249,11 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
     if not isinstance(settings_permissions, dict):
         raise ProjectInstallError(
             f"{source} settings_permissions must be an object"
+        )
+    status_line = manifest.get(STATUS_LINE_MANIFEST_KEY, {})
+    if not isinstance(status_line, dict):
+        raise ProjectInstallError(
+            f"{source} {STATUS_LINE_MANIFEST_KEY} must be an object"
         )
     cursor_permissions = manifest.get(CURSOR_PERMISSIONS_MANIFEST_KEY, {})
     if not isinstance(cursor_permissions, dict) or not all(

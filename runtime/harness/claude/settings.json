@@ -110,5 +110,9 @@
       "Monitor"
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; yoke hook status-line'"
+  },
   "autoMemoryEnabled": false
 }

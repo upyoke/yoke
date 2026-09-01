@@ -14,6 +14,9 @@ from yoke_cli.project_install import managed_markdown as managed_markdown_layer
 from yoke_cli.project_install import (
     settings_permissions as settings_permissions_layer,
 )
+from yoke_cli.project_install import (
+    settings_status_line as settings_status_line_layer,
+)
 from yoke_cli.project_install import strategy as strategy_layer
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
@@ -44,6 +47,7 @@ _MANIFEST_OWNED_KEYS = frozenset(
         "worktrees_ignore_created_file",
         "managed_markdown",
         "settings_permissions",
+        settings_status_line_layer.STATUS_LINE_MANIFEST_KEY,
         CURSOR_PERMISSIONS_MANIFEST_KEY,
         DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
         DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
@@ -202,6 +206,15 @@ def apply_bundle(
             old_manifest.get("settings_permissions"),
         )
     )
+    # Claude's status line: the only surface stating the served context
+    # window, so a project without one can attest no Claude session's.
+    settings_status_line_record, settings_status_line_report = (
+        settings_status_line_layer.apply_settings_status_line(
+            repo_root,
+            bundle.get(settings_status_line_layer.MANAGED_STATUS_LINE_KEY),
+            old_manifest.get(settings_status_line_layer.STATUS_LINE_MANIFEST_KEY),
+        )
+    )
     # Cursor's command-approval and network-sandbox regions. Their content is
     # resolved from this machine's config rather than the bundle, because the
     # allowed origins name the control plane this machine talks to.
@@ -237,6 +250,9 @@ def apply_bundle(
             "worktrees_ignore_created_file": worktrees_ignore_created_file,
             "managed_markdown": managed_markdown_records,
             "settings_permissions": settings_permissions_record,
+            settings_status_line_layer.STATUS_LINE_MANIFEST_KEY: (
+                settings_status_line_record
+            ),
             CURSOR_PERMISSIONS_MANIFEST_KEY: cursor_permissions_records,
         }
     )
@@ -289,6 +305,7 @@ def apply_bundle(
         "managed_markdown_actions": managed_markdown_report["actions"],
         "managed_markdown_written": managed_markdown_report["written"],
         "settings_permissions_actions": settings_permissions_report["actions"],
+        "settings_status_line_actions": settings_status_line_report["actions"],
         "cursor_permissions_actions": cursor_permissions_report["actions"],
         "created_settings_files": sorted(created_settings),
         "manifest": str(manifest_file),
