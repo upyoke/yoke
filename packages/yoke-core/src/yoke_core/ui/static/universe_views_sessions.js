@@ -173,7 +173,6 @@ function renderSessions(
 export function renderSessionsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const view = el(documentNode, "div", "sessions-view");
-  const localActions = el(documentNode, "div", "session-control-actions");
   const actionStatus = el(documentNode, "p", "sessions-action-status");
   actionStatus.hidden = true;
   actionStatus.setAttribute("role", "status");
@@ -185,6 +184,11 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   );
   messageAll.type = "button";
   messageAll.disabled = true;
+  const reclaim = el(
+    documentNode, "button", "item-button session-filter-action", "Reclaim stale",
+  );
+  reclaim.type = "button";
+  reclaim.disabled = true;
   let filters;
   const currentRows = () => filters.apply(visibleRows);
   const openMessage = (sessionId) => openSessionMessageCompose(
@@ -204,6 +208,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   };
   filters = sessionRosterFilters(documentNode, renderRoster);
   filters.host.appendChild(messageAll);
+  filters.host.appendChild(reclaim);
   messageAll.addEventListener("click", () => {
     const rows = currentRows();
     if (!rows.length) return;
@@ -211,23 +216,17 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       audience: exactSessionAudience(rows, filters.summary()),
     });
   });
-  view.appendChild(localActions);
   view.appendChild(actionStatus);
   view.appendChild(filters.host);
   view.appendChild(content);
   view.appendChild(dialogHost);
   main.replaceChildren(view);
 
-  const reclaim = el(documentNode, "button", "item-button", "Reclaim stale");
-  reclaim.type = "button";
-  reclaim.disabled = true;
-  localActions.appendChild(reclaim);
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Sessions",
       summary:
         "Every harness session running against this universe, and what each one holds.",
-      actions: [reclaim],
     });
   }
 
