@@ -14,18 +14,24 @@ from yoke_cli.self_host import secure_layout
 
 GITIGNORE_MANAGED_BEGIN = "# >>> BEGIN YOKE SELF-HOST SECRET PROTECTION >>>"
 GITIGNORE_MANAGED_END = "# <<< END YOKE SELF-HOST SECRET PROTECTION <<<"
+
+
+def _ignore_materialization_artifacts(*file_names: str) -> str:
+    """Ignore `{filename}.lock` and `{filename}.*.tmp` for each protected file."""
+    return "".join(f"/{name}.lock\n/{name}.*.tmp\n" for name in file_names)
+
+
 GITIGNORE_MANAGED_BLOCK = (
     f"{GITIGNORE_MANAGED_BEGIN}\n"
     "# Managed by Yoke; operator rules outside this block are preserved.\n"
     "/.env\n"
     "/secrets/\n"
-    "/..env.lock\n"
-    "/..env.*.tmp\n"
-    "/.docker-compose.yml.lock\n"
-    "/.docker-compose.yml.*.tmp\n"
-    "/..gitignore.lock\n"
-    "/..gitignore.*.tmp\n"
-    f"{GITIGNORE_MANAGED_END}\n"
+    + _ignore_materialization_artifacts(
+        ".env",
+        "docker-compose.yml",
+        ".gitignore",
+    )
+    + f"{GITIGNORE_MANAGED_END}\n"
 )
 
 GITHUB_APP_PRIVATE_KEY_FILE_NAME = "github-app-private-key.pem"

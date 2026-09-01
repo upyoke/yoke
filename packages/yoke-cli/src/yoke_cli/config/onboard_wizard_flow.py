@@ -455,8 +455,8 @@ class WizardFlow(
         self.result.project_default_branch = value
         self._goto_input(
             STEP_PROJECT,
-            "Pick the issue ID prefix.",
-            "The PROJ in PROJ-123 — Yoke suggests one from your project name.",
+            steps.PREFIX_PROMPT_TITLE,
+            steps.PREFIX_PROMPT_SUBTITLE,
             placeholder=steps.prefix_from_slug(self.result.project_slug),
             on_done=self._after_prefix,
             validate=input_validation.validate_prefix,

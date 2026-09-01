@@ -206,7 +206,7 @@ class TestMergeDispatch:
 class TestDomainDispatch:
     def test_projects_list_returns_rows(self, fresh_db: Path) -> None:
         # Create a project via the projects domain CLI itself
-        rc, _out, err = _run(["projects", "create", "testproj", "Test"])
+        rc, _out, err = _run(["projects", "create", "testproj", "Test", "TSTP"])
         assert rc == 0, err
         rc, out, err = _run(["projects", "list"])
         assert rc == 0
@@ -237,7 +237,7 @@ class TestDomainDispatch:
         assert "context_routing" in out
 
     def test_project_structure_dispatch_get(self, fresh_db: Path) -> None:
-        rc, _out, err = _run(["projects", "create", "fresh", "Fresh"])
+        rc, _out, err = _run(["projects", "create", "fresh", "Fresh", "FRSH"])
         assert rc == 0, err
         rc, out, err = _run(["project-structure", "get", "fresh"])
         assert rc == 0, err

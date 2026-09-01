@@ -27,6 +27,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     complete_board_art,
     make_app,
     skip_hosting,
+    submit_public_item_prefix,
     type_text,
 )
 from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E402
@@ -66,7 +67,7 @@ def test_clone_it_keeps_origin_on_source() -> None:
             # github auth (origin stays the source); reuse-machine then finish.
             # No "default branch" prompt for a clone — it's detected from the
             # source at the URL step, so the name input lands straight on prefix.
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
@@ -107,7 +108,7 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
             await pilot.press("enter")  # owner picker: octocat (first)
             await pilot.press("enter")  # repo name placeholder -> widgets
             # Clone path skips the default-branch prompt (detected at URL step).
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -146,7 +147,7 @@ def test_duplicate_public_visibility_sets_public_publish() -> None:
             await pilot.press("enter")  # owner picker: octocat
             await pilot.press("enter")  # repo name
             # clone skips the default-branch prompt
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -179,7 +180,7 @@ def test_fork_builds_clone_plan_with_app_access() -> None:
             await pilot.press("enter")  # slug
             await pilot.press("enter")  # name
             # clone skips the default-branch prompt
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -218,7 +219,7 @@ def test_back_from_duplicate_to_clone_clears_future_publish_state() -> None:
             await pilot.press("enter")  # outcome: Clone it
             await pilot.press("enter")  # slug
             await pilot.press("enter")  # name
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await select_connected_repository(app, pilot)
             await complete_board_art(pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish
@@ -257,7 +258,7 @@ def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) 
             await pilot.press("enter")  # slug (no keep-upstream screen)
             await pilot.press("enter")  # name -> no App, falls back to just-clone
             # clone skips the default-branch prompt
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply (no project github step)

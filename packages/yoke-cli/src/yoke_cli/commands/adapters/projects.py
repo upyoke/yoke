@@ -34,11 +34,14 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "projects_get", "projects_list", "projects_resolve_by_github_repo",
+    "projects_get",
+    "projects_list",
+    "projects_resolve_by_github_repo",
     "projects_capability_has",
     "projects_checkout_context",
     "project_structure_patch_apply",
-    "PROJECTS_GET_USAGE", "PROJECTS_LIST_USAGE",
+    "PROJECTS_GET_USAGE",
+    "PROJECTS_LIST_USAGE",
     "PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE",
     "PROJECTS_CAPABILITY_HAS_USAGE",
     "PROJECTS_CHECKOUT_CONTEXT_USAGE",
@@ -53,11 +56,13 @@ PROJECTS_GET_USAGE = (
 
 def projects_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke projects get", description=PROJECTS_GET_USAGE,
+        prog="yoke projects get",
+        description=PROJECTS_GET_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project name.")
-    parser.add_argument("--field", default=None,
-                        help="Optional field projection (single column).")
+    parser.add_argument(
+        "--field", default=None, help="Optional field projection (single column)."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECTS_GET_USAGE)
@@ -85,7 +90,8 @@ def projects_get(args: List[str]) -> int:
         function_id="projects.get",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -95,7 +101,8 @@ PROJECTS_LIST_USAGE = "yoke projects list [--session-id S] [--json]"
 
 def projects_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke projects list", description=PROJECTS_LIST_USAGE,
+        prog="yoke projects list",
+        description=PROJECTS_LIST_USAGE,
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -109,6 +116,10 @@ def projects_list(args: List[str]) -> int:
         result = response.result or {}
         fields = result.get("fields") or []
         rows = result.get("rows") or []
+        print("|".join(str(field) for field in fields), file=stdout)
+        if not rows:
+            print("(no projects)", file=stdout)
+            return None
         for row in rows:
             print(
                 "|".join(
@@ -123,7 +134,8 @@ def projects_list(args: List[str]) -> int:
         function_id="projects.list",
         target=TargetRef(kind="global"),
         payload={},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -160,7 +172,8 @@ def projects_resolve_by_github_repo(args: List[str]) -> int:
         function_id="projects.resolve_by_github_repo",
         target=TargetRef(kind="global"),
         payload={"github_repo": parsed.github_repo},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -195,7 +208,9 @@ def projects_checkout_context(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--field", default=None, choices=CHECKOUT_CONTEXT_FIELDS,
+        "--field",
+        default=None,
+        choices=CHECKOUT_CONTEXT_FIELDS,
         help="Print just this field's value (bare, newline-terminated).",
     )
     add_project_arg(parser)
@@ -229,7 +244,8 @@ def projects_checkout_context(args: List[str]) -> int:
             project_id=client_project_context(parsed.project),
         ),
         payload={},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -246,8 +262,12 @@ def projects_capability_has(args: List[str]) -> int:
         description=PROJECTS_CAPABILITY_HAS_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project name.")
-    parser.add_argument("--cap-type", dest="cap_type", required=True,
-                        help="Capability type to test for presence.")
+    parser.add_argument(
+        "--cap-type",
+        dest="cap_type",
+        required=True,
+        help="Capability type to test for presence.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECTS_CAPABILITY_HAS_USAGE)
@@ -257,7 +277,8 @@ def projects_capability_has(args: List[str]) -> int:
         function_id="projects.capability.has",
         target=TargetRef(kind="global"),
         payload={"project": parsed.project, "cap_type": parsed.cap_type},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
@@ -274,10 +295,17 @@ def project_structure_patch_apply(args: List[str]) -> int:
     )
     parser.add_argument("--project", required=True, help="Project id.")
     parser.add_argument("--item", help="Optional work-item provenance.")
-    parser.add_argument("--ops-json", dest="ops_json", required=True,
-                        help="JSON array of patch op dicts.")
-    parser.add_argument("--actor", default=None,
-                        help="Optional actor override (defaults to session actor).")
+    parser.add_argument(
+        "--ops-json",
+        dest="ops_json",
+        required=True,
+        help="JSON array of patch op dicts.",
+    )
+    parser.add_argument(
+        "--actor",
+        default=None,
+        help="Optional actor override (defaults to session actor).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_STRUCTURE_PATCH_APPLY_USAGE)
@@ -301,5 +329,6 @@ def project_structure_patch_apply(args: List[str]) -> int:
         function_id="project_structure.patch.apply",
         target=target,
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )

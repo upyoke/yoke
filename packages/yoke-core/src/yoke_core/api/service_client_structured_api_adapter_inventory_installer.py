@@ -154,8 +154,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="release_pin.record",
         cli_invocation=(
-            "yoke release-pin record --project NAME --environment ENV "
-            "--pin VERSION"
+            "yoke release-pin record --project NAME --environment ENV --pin VERSION"
         ),
         notes=(
             "Deployment-CI-safe mutation of only the environment and scalar "
@@ -187,7 +186,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         function_id="projects.create",
-        cli_invocation="yoke projects create --slug SLUG --name NAME [--project-id N]",
+        cli_invocation="yoke projects create --slug SLUG --name NAME --public-item-prefix PREFIX [--project-id N]",
         notes="Register a new project (org-scoped, org admin). New rows default to disabled; idempotent re-onboarding updates fields without resetting an omitted sync mode.",
     ),
     AdapterEntry(

@@ -33,6 +33,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     skip_hosting,
     stub_path_doctor,
+    submit_public_item_prefix,
     type_text,
 )
 
@@ -156,7 +157,7 @@ def test_local_checkout_collects_project_fields() -> None:
             await pilot.press("down")  # publish prompt: move to No
             await pilot.press("enter")  # publish: No — keep local
             await pilot.press("enter")  # default branch main
-            await pilot.press("enter")  # public item prefix placeholder
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -249,7 +250,7 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
             await pilot.press("down")  # publish prompt: move to No
             await pilot.press("enter")  # publish: No — keep local
             await pilot.press("enter")  # default branch main
-            await pilot.press("enter")  # public item prefix placeholder
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply

@@ -40,6 +40,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     stub_path_doctor,
     stub_source_branch,
+    submit_public_item_prefix,
     type_text,
 )
 
@@ -134,7 +135,7 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
             await pilot.press("enter")  # slug placeholder
             await pilot.press("enter")  # name placeholder
             # clone skips the default-branch prompt (detected at URL step)
-            await pilot.press("enter")  # prefix -> project github picker
+            await submit_public_item_prefix(pilot)
             await pilot.pause()
             values = _row_values(app)
             assert PROJECT_GITHUB_REUSE_MACHINE not in values

@@ -25,15 +25,16 @@ target = Path(sys.argv[2])
 if operation not in {"remove", "write"}:
     raise ValueError("remote file operation must be remove or write")
 mode = int(sys.argv[3], 8) if operation == "write" else None
-temporary_prefix = f".{target.name}."
+temporary_prefix = f"{target.name}."
 temporary_suffix = ".tmp"
-lock_name = f".{target.name}.lock"
+lock_name = f"{target.name}.lock"
 directory_descriptor = os.open(
     target.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
 )
 lock_descriptor = -1
 descriptor = -1
 temporary_name = ""
+completed = False
 try:
     nofollow = getattr(os, "O_NOFOLLOW", None)
     if nofollow is None:
@@ -113,6 +114,7 @@ try:
         os.replace(temporary_name, target)
         temporary_name = ""
     os.fsync(directory_descriptor)
+    completed = True
 finally:
     if descriptor >= 0:
         os.close(descriptor)
@@ -123,6 +125,12 @@ finally:
             pass
     if lock_descriptor >= 0:
         os.close(lock_descriptor)
+        lock_descriptor = -1
+    if completed:
+        try:
+            os.unlink(lock_name, dir_fd=directory_descriptor)
+        except FileNotFoundError:
+            pass
     os.close(directory_descriptor)
 """.strip()
 

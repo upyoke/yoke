@@ -70,11 +70,13 @@ def run_preflight(ctx: BootstrapContext) -> int:
             _print_fail(
                 f"projects table missing {project} record or github_repo not set",
                 "Register the project in Yoke's DB:",
-                f'  yoke projects create --slug {project} --name "<Display Name>" --github-repo <owner>/{project}',
+                f'  yoke projects create --slug {project} --name "<Display Name>" --public-item-prefix PREFIX --github-repo <owner>/{project}',
                 f"Re-run: python3 -m yoke_core.domain.bootstrap_project cli {project}",
             )
             print()
-            print(f"Preflight failed — resolve the above {fail_count} item(s) before proceeding.")
+            print(
+                f"Preflight failed — resolve the above {fail_count} item(s) before proceeding."
+            )
             return 1
         project = ident.slug
         project_id = ident.id
@@ -96,9 +98,12 @@ def run_preflight(ctx: BootstrapContext) -> int:
             )
 
         p = helpers._p(conn)
-        github_repo = _query_scalar(
-            conn, f"SELECT github_repo FROM projects WHERE id={p}", (project_id,)
-        ) or ""
+        github_repo = (
+            _query_scalar(
+                conn, f"SELECT github_repo FROM projects WHERE id={p}", (project_id,)
+            )
+            or ""
+        )
         if github_repo:
             _print_pass(
                 f"projects table has {project} record (github_repo: {github_repo})"
@@ -108,15 +113,13 @@ def run_preflight(ctx: BootstrapContext) -> int:
             _print_fail(
                 f"projects table missing {project} record or github_repo not set",
                 "Register the project in Yoke's DB:",
-                f'  yoke projects create --slug {project} --name "<Display Name>" --github-repo <owner>/{project}',
+                f'  yoke projects create --slug {project} --name "<Display Name>" --public-item-prefix PREFIX --github-repo <owner>/{project}',
                 f"Re-run: python3 -m yoke_core.domain.bootstrap_project cli {project}",
             )
 
         github_settings = _capability_settings(conn, project, "github")
         if github_settings:
-            _print_pass(
-                f"project_capabilities has GitHub App entry for {project}"
-            )
+            _print_pass(f"project_capabilities has GitHub App entry for {project}")
         else:
             fail_count += 1
             _print_fail(
@@ -251,7 +254,9 @@ def run_preflight(ctx: BootstrapContext) -> int:
 
     print()
     if fail_count:
-        print(f"Preflight failed — resolve the above {fail_count} item(s) before proceeding.")
+        print(
+            f"Preflight failed — resolve the above {fail_count} item(s) before proceeding."
+        )
         return 1
 
     print("All preflight checks passed.")

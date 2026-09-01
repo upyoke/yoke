@@ -48,6 +48,7 @@ def _apply_projects_schema() -> None:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def initialized_db(tmp_path: Path) -> Iterator[str]:
     """Disposable DB token after running ``cmd_init`` (tables + seed exist)."""
@@ -59,9 +60,15 @@ def initialized_db(tmp_path: Path) -> Iterator[str]:
 # create
 # ---------------------------------------------------------------------------
 
+
 class TestCreate:
     def test_create_and_get(self, initialized_db: str):
-        msg = projects.cmd_create("acme", "Acme Corp", db_path=initialized_db)
+        msg = projects.cmd_create(
+            "acme",
+            "Acme Corp",
+            db_path=initialized_db,
+            public_item_prefix="ACME",
+        )
         assert "acme" in msg.lower()
 
         result = projects.cmd_get("acme", db_path=initialized_db)
@@ -69,14 +76,48 @@ class TestCreate:
         assert "acme" in result.lower()
 
     def test_create_duplicate_raises(self, initialized_db: str):
-        projects.cmd_create("dup", "Dup", db_path=initialized_db)
+        projects.cmd_create(
+            "dup",
+            "Dup",
+            db_path=initialized_db,
+            public_item_prefix="DUP",
+        )
         with pytest.raises(Exception):
-            projects.cmd_create("dup", "Dup Again", db_path=initialized_db)
+            projects.cmd_create(
+                "dup",
+                "Dup Again",
+                db_path=initialized_db,
+                public_item_prefix="DUP2",
+            )
+
+    def test_create_requires_public_item_prefix(self, initialized_db: str):
+        with pytest.raises(TypeError):
+            projects.cmd_create("needs-prefix", "Needs Prefix", db_path=initialized_db)
+        with pytest.raises(ValueError, match="required"):
+            projects.cmd_create(
+                "needs-prefix",
+                "Needs Prefix",
+                db_path=initialized_db,
+                public_item_prefix="  ",
+            )
+
+    def test_create_rejects_duplicate_prefix_case_insensitive(
+        self,
+        initialized_db: str,
+    ):
+        with pytest.raises(ValueError, match="already used"):
+            projects.cmd_create(
+                "yoke-clone",
+                "Yoke Clone",
+                db_path=initialized_db,
+                public_item_prefix="yok",
+            )
 
 
 # ---------------------------------------------------------------------------
 # get
 # ---------------------------------------------------------------------------
+
 
 class TestGet:
     def test_get_full_row_pipe_delimited(self, initialized_db: str):
@@ -112,26 +153,40 @@ class TestGet:
         # ``cmd_get`` returns "" for NULL columns.  Use a freshly-created
         # project whose github_repo was never set.
         projects.cmd_create(
-            "blank", "Blank", db_path=initialized_db,
+            "blank",
+            "Blank",
+            db_path=initialized_db,
+            public_item_prefix="BLNK",
         )
         result = projects.cmd_get(
-            "blank", field="github_repo", db_path=initialized_db,
+            "blank",
+            field="github_repo",
+            db_path=initialized_db,
         )
         assert result == ""
 
     def test_yoke_has_github_repo_after_init(self, initialized_db: str):
         result = projects.cmd_get(
-            "yoke", field="github_repo", db_path=initialized_db,
+            "yoke",
+            field="github_repo",
+            db_path=initialized_db,
         )
         assert result == "upyoke/yoke"
 
     def test_init_seeds_no_capability_rows(self, initialized_db: str):
         """Per-project capabilities are onboarding data, never init seeds."""
-        assert projects.cmd_has_capability(
-            "yoke", "github", db_path=initialized_db,
-        ) is False
+        assert (
+            projects.cmd_has_capability(
+                "yoke",
+                "github",
+                db_path=initialized_db,
+            )
+            is False
+        )
         settings = projects.cmd_capability_get_settings(
-            "yoke", "github", db_path=initialized_db,
+            "yoke",
+            "github",
+            db_path=initialized_db,
         )
         assert settings is None
 
@@ -139,6 +194,7 @@ class TestGet:
 # ---------------------------------------------------------------------------
 # list
 # ---------------------------------------------------------------------------
+
 
 class TestList:
     def test_list_returns_all(self, initialized_db: str):
@@ -149,7 +205,12 @@ class TestList:
         assert "yoke" in slugs
 
     def test_list_includes_created_project(self, initialized_db: str):
-        projects.cmd_create("zeta", "Zeta", db_path=initialized_db)
+        projects.cmd_create(
+            "zeta",
+            "Zeta",
+            db_path=initialized_db,
+            public_item_prefix="ZETA",
+        )
         output = projects.cmd_list(db_path=initialized_db)
         slugs = [line.split("|")[1] for line in output.strip().split("\n")]
         assert "zeta" in slugs
@@ -158,6 +219,7 @@ class TestList:
 # ---------------------------------------------------------------------------
 # update
 # ---------------------------------------------------------------------------
+
 
 class TestUpdate:
     def test_update_field(self, initialized_db: str):
@@ -182,24 +244,45 @@ class TestUpdate:
 # has-capability
 # ---------------------------------------------------------------------------
 
+
 class TestHasCapability:
     def test_present_returns_true(self, initialized_db: str):
         projects.cmd_capability_set_settings(
-            "externalwebapp", "deploy", "{}",
-            base_settings_json=None, create=True, db_path=initialized_db,
+            "externalwebapp",
+            "deploy",
+            "{}",
+            base_settings_json=None,
+            create=True,
+            db_path=initialized_db,
         )
-        assert projects.cmd_has_capability("externalwebapp", "deploy", db_path=initialized_db) is True
+        assert (
+            projects.cmd_has_capability(
+                "externalwebapp", "deploy", db_path=initialized_db
+            )
+            is True
+        )
 
     def test_absent_returns_false(self, initialized_db: str):
-        assert projects.cmd_has_capability("yoke", "nonexistent-cap", db_path=initialized_db) is False
+        assert (
+            projects.cmd_has_capability(
+                "yoke", "nonexistent-cap", db_path=initialized_db
+            )
+            is False
+        )
 
     def test_absent_project_returns_false(self, initialized_db: str):
-        assert projects.cmd_has_capability("no-such-project", "github", db_path=initialized_db) is False
+        assert (
+            projects.cmd_has_capability(
+                "no-such-project", "github", db_path=initialized_db
+            )
+            is False
+        )
 
 
 # ---------------------------------------------------------------------------
 # capability-get-settings / capability-set-settings
 # ---------------------------------------------------------------------------
+
 
 class TestCapabilitySettings:
     def test_create_and_get_settings(self, initialized_db: str):
@@ -208,13 +291,17 @@ class TestCapabilitySettings:
             "yoke", "ssh", settings, create=True, db_path=initialized_db
         )
 
-        result = projects.cmd_capability_get_settings("yoke", "ssh", db_path=initialized_db)
+        result = projects.cmd_capability_get_settings(
+            "yoke", "ssh", db_path=initialized_db
+        )
         assert result is not None
         parsed = json.loads(result)
         assert parsed["user"] == "deploy"
 
     def test_get_settings_nonexistent_capability(self, initialized_db: str):
-        result = projects.cmd_capability_get_settings("yoke", "nonexistent", db_path=initialized_db)
+        result = projects.cmd_capability_get_settings(
+            "yoke", "nonexistent", db_path=initialized_db
+        )
         assert result is None
 
     def test_merge_settings_creates_missing_capability(self, initialized_db: str):

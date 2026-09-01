@@ -39,7 +39,8 @@ function createProjectNote(documentNode, capabilities) {
         documentNode,
         "code",
         null,
-        "yoke projects create <slug> <name>",
+        "yoke projects create --slug <slug> --name <name> "
+        + "--public-item-prefix <PREFIX>",
       ));
       body.appendChild(line);
     },

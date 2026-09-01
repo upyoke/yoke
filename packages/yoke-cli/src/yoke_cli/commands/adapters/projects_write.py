@@ -45,8 +45,9 @@ __all__ = [
 
 PROJECTS_CREATE_USAGE = (
     "yoke projects create --slug SLUG --name NAME "
+    "--public-item-prefix PREFIX "
     "[--org ORG] [--project-id N] [--default-branch BRANCH] "
-    "[--github-repo OWNER/REPO] [--public-item-prefix PREFIX] "
+    "[--github-repo OWNER/REPO] "
     "[--github-sync-mode enabled|disabled] [--allow-public-github-sync] "
     "[--emoji TEXT] [--session-id S] [--json]"
 )
@@ -81,7 +82,16 @@ def _projects_write(
     parser.add_argument("--project-id", dest="project_id", type=int, default=None)
     parser.add_argument("--default-branch", dest="default_branch", default=None)
     parser.add_argument("--github-repo", dest="github_repo", default=None)
-    parser.add_argument("--public-item-prefix", dest="public_item_prefix", default=None)
+    parser.add_argument(
+        "--public-item-prefix",
+        dest="public_item_prefix",
+        required=(function_id == "projects.create"),
+        default=None,
+        help=(
+            "Required on create: the PREFIX in PREFIX-N. Unique in this universe. "
+            "Optional on update."
+        ),
+    )
     parser.add_argument(
         "--github-sync-mode",
         dest="github_sync_mode",

@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+PREFIX_PROMPT_TITLE = "Pick the issue ID prefix."
+PREFIX_PROMPT_SUBTITLE = (
+    "The PROJ in PROJ-123 — choose a unique prefix; "
+    "Yoke does not suggest or derive one."
+)
+
 
 def reset_project_fields(result: Any) -> None:
     """Clear project fields when the user changes onboarding direction."""
@@ -56,6 +62,6 @@ def slug_from_checkout(checkout: str | None) -> str:
 
 
 def prefix_from_slug(slug: str | None) -> str:
-    """Derive the short public-item prefix from a slug."""
-    letters = [character for character in (slug or "").upper() if character.isalnum()]
-    return "".join(letters[:4]) or "PROJ"
+    """The public-item prefix is an explicit setting, never derived from a slug."""
+    del slug
+    return ""

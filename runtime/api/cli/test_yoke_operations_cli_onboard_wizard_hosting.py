@@ -37,6 +37,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     complete_board_art,
     make_app,
     skip_hosting,
+    submit_public_item_prefix,
     type_text,
 )
 
@@ -63,7 +64,7 @@ def test_skip_reaches_review_and_plans_the_skip() -> None:
             await pilot.press("down")   # publish: No
             await pilot.press("enter")
             await pilot.press("enter")  # default branch
-            await pilot.press("enter")  # prefix
+            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)
             assert "Connect your hosting provider?" in body_text(app)
             await skip_hosting(pilot)

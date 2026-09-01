@@ -19,6 +19,8 @@ from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 from yoke_cli.config.onboard_wizard_project_fields import (
+    PREFIX_PROMPT_SUBTITLE,
+    PREFIX_PROMPT_TITLE,
     prefix_from_slug,
     reset_project_fields,
     reset_project_publish_fields,
@@ -64,8 +66,10 @@ from yoke_cli.config.onboard_wizard_widgets import (
 
 def _github_skip_row(value: str) -> SelectionRow:
     return SelectionRow(
-        value, onboard_github_copy.MACHINE_GITHUB_SKIP_LABEL,
-        onboard_github_copy.MACHINE_GITHUB_SKIP_DESC)
+        value,
+        onboard_github_copy.MACHINE_GITHUB_SKIP_LABEL,
+        onboard_github_copy.MACHINE_GITHUB_SKIP_DESC,
+    )
 
 
 MODE_ROWS = [
@@ -329,6 +333,8 @@ __all__ = [
     "error_body",
     "finish_body",
     "input_body",
+    "PREFIX_PROMPT_SUBTITLE",
+    "PREFIX_PROMPT_TITLE",
     "prefix_from_slug",
     "project_mode_body",
     "render_write_plan",

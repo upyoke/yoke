@@ -17,9 +17,12 @@ from yoke_core.domain.db_helpers import (
     query_scalar,
 )
 from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
     resolve_project,
     resolve_project_id,
+)
+from yoke_core.domain.project_public_prefix import (
+    assert_prefix_available,
+    require_public_item_prefix,
 )
 from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_DISABLED
 
@@ -62,12 +65,16 @@ def cmd_create(
     project_id: str,
     name: str,
     db_path: Optional[str] = None,
+    *,
+    public_item_prefix: str,
 ) -> str:
     """Insert a new project.  Returns confirmation message."""
+    selected_prefix = require_public_item_prefix(public_item_prefix)
     conn = connect(db_path)
     try:
         if resolve_project(conn, project_id, required=False) is not None:
             raise ValueError(f"project {project_id!r} already exists")
+        assert_prefix_available(conn, selected_prefix)
         next_id = int(
             query_scalar(conn, "SELECT COALESCE(MAX(id), 0) + 1 FROM projects") or 1
         )
@@ -79,7 +86,7 @@ def cmd_create(
                 next_id,
                 project_id,
                 name,
-                DEFAULT_PUBLIC_ITEM_PREFIX,
+                selected_prefix,
                 GITHUB_SYNC_DISABLED,
                 iso8601_now(),
             ),

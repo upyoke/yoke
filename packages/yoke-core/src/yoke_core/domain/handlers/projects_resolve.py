@@ -41,6 +41,7 @@ def handle_projects_resolve_by_github_repo(
     """Resolve exactly one repository-bound project visible to the caller."""
     from yoke_core.domain.db_helpers import connect, query_rows
     from yoke_core.domain.project_github_binding import normalize_github_repo
+    from yoke_core.domain.project_public_prefix import typed_project_field
     from yoke_core.domain.projects import PROJECT_FIELDS
 
     try:
@@ -93,7 +94,7 @@ def handle_projects_resolve_by_github_repo(
                 result_payload={
                     "github_repo": wanted,
                     "row": {
-                        field: row[field] if row[field] != "" else None
+                        field: typed_project_field(field, row[field])
                         for field in PROJECT_FIELDS
                     },
                 },

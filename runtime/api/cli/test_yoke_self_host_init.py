@@ -61,12 +61,12 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
         "# Managed by Yoke; operator rules outside this block are preserved.",
         "/.env",
         "/secrets/",
-        "/..env.lock",
-        "/..env.*.tmp",
-        "/.docker-compose.yml.lock",
-        "/.docker-compose.yml.*.tmp",
-        "/..gitignore.lock",
-        "/..gitignore.*.tmp",
+        "/.env.lock",
+        "/.env.*.tmp",
+        "/docker-compose.yml.lock",
+        "/docker-compose.yml.*.tmp",
+        "/.gitignore.lock",
+        "/.gitignore.*.tmp",
         protection.GITIGNORE_MANAGED_END,
     ]
 
@@ -80,6 +80,7 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert "host=db" in dsn
     assert password in dsn
     assert list(secrets_dir.glob(".*.tmp")) == []
+    assert list(secrets_dir.glob("*.tmp")) == []
     for protected_path in (
         target / ".gitignore",
         target / "docker-compose.yml",
@@ -87,7 +88,8 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
         secrets_dir / "db-password",
         secrets_dir / "dsn",
     ):
-        assert _mode(atomic_file.target_lock_path(protected_path)) == 0o600
+        assert not atomic_file.target_lock_path(protected_path).exists()
+    assert not (target / "..env.lock").exists()
 
     out = capsys.readouterr()
     assert password not in out.out

@@ -91,7 +91,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke path check": "yoke path check [--json]",
     "yoke path fix": "yoke path fix [--yes] [--file PATH] [--print-block] [--json]",
     "yoke path verify": "yoke path verify [--json]",
-    "yoke project create": "yoke project create --slug SLUG --name NAME [--org ORG] [--github-repo OWNER/REPO]",
+    "yoke project create": "yoke project create --slug SLUG --name NAME [--org ORG] --public-item-prefix PREFIX [--github-repo OWNER/REPO]",
     "yoke project import": "yoke project import --repo OWNER/REPO --slug SLUG [--checkout PATH]",
     "yoke runner-fleet exec": (
         "yoke runner-fleet exec --project PROJECT "

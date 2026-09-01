@@ -72,6 +72,7 @@ def handle_projects_get(request: FunctionCallRequest) -> HandlerOutcome:
             ),
         )
 
+    from yoke_core.domain.project_public_prefix import typed_project_field
     from yoke_core.domain.projects import PROJECT_FIELDS
     from yoke_core.domain.projects_crud import cmd_get
 
@@ -139,14 +140,18 @@ def handle_projects_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     if field:
         return HandlerOutcome(
-            result_payload={"project": project, "field": field, "value": raw},
+            result_payload={
+                "project": project,
+                "field": field,
+                "value": typed_project_field(field, raw),
+            },
             primary_success=True,
         )
 
     # Full-row mode — cmd_get returns _pipe_row on PROJECT_FIELDS column order.
     parts = raw.split("|")
     row: Dict[str, Any] = {
-        name: (val if val != "" else None) for name, val in zip(PROJECT_FIELDS, parts)
+        name: typed_project_field(name, val) for name, val in zip(PROJECT_FIELDS, parts)
     }
     return HandlerOutcome(
         result_payload={"project": project, "row": row},
@@ -157,6 +162,7 @@ def handle_projects_get(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.projects import PROJECT_FIELDS, _PROJECT_LIST_FIELDS
     from yoke_core.domain.db_helpers import connect, query_rows
+    from yoke_core.domain.project_public_prefix import typed_project_field
     from yoke_core.domain.project_summary_read import (
         PROJECT_SUMMARY_BASE_FIELDS,
         PROJECT_SUMMARY_FIELDS,
@@ -213,7 +219,7 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
                 continue
             raw_rows.append(
                 {
-                    name: (val if val != "" else None)
+                    name: typed_project_field(name, val)
                     for name, val in zip(fields, line.split("|"))
                 }
             )
@@ -221,7 +227,7 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
         conn = connect()
         try:
             raw_rows = [
-                {field: row[field] if row[field] != "" else None for field in fields}
+                {field: typed_project_field(field, row[field]) for field in fields}
                 for row in query_rows(
                     conn,
                     f"SELECT {', '.join(fields)} FROM projects ORDER BY id ASC",

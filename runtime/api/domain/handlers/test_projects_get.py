@@ -44,6 +44,18 @@ class TestProjectsGet(unittest.TestCase):
         self.assertEqual(outcome.result_payload["value"], "main")
         self.assertNotIn("row", outcome.result_payload)
 
+    def test_id_field_value_is_numeric(self):
+        with patch(
+            "yoke_core.domain.projects_crud.cmd_get",
+            return_value="1",
+        ):
+            outcome = projects_get.handle_projects_get(
+                _request({"project": "yoke", "field": "id"}),
+            )
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(outcome.result_payload["value"], 1)
+        self.assertIsInstance(outcome.result_payload["value"], int)
+
     def test_returns_full_row_when_field_absent(self):
         from yoke_core.domain.projects import PROJECT_FIELDS
 
@@ -75,6 +87,8 @@ class TestProjectsGet(unittest.TestCase):
         self.assertEqual(outcome.result_payload["project"], "yoke")
         row = outcome.result_payload["row"]
         self.assertIsInstance(row, dict)
+        self.assertEqual(row["id"], 1)
+        self.assertIsInstance(row["id"], int)
         # Every PROJECT_FIELDS column present in the response row.
         self.assertEqual(set(row.keys()), set(PROJECT_FIELDS))
         # Empty pipe segments surface as None for honest typing.
@@ -153,7 +167,8 @@ class TestProjectsGet(unittest.TestCase):
             outcome = projects_get.handle_projects_get(request)
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["value"], "3")
+        self.assertEqual(outcome.result_payload["value"], 3)
+        self.assertIsInstance(outcome.result_payload["value"], int)
         visible.assert_called_once()
         self.assertEqual(resolve.call_args.kwargs["visible_project_ids"], {3})
         get.assert_called_once_with("3", field="id")
