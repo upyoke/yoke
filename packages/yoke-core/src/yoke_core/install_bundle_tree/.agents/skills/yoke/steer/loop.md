@@ -32,7 +32,8 @@ restate one of these facts on a document's own authority.
 <!-- END GENERATED: harness-wake-capability -->
 
 Stamp `yoke sessions touch --mode steer` at the start of each pass if the
-mode is no longer `steer`.
+mode is no longer `steer`. After any compaction or resume, verify the fleet
+watcher is still armed and re-arm if not.
 
 ## Pass
 
