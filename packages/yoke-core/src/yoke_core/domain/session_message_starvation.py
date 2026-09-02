@@ -37,16 +37,18 @@ test above.
 
 Only a session whose own surface declares ``message_stopped`` may be
 escalated this way, which is every headless CLI surface and no desktop or
-IDE one. A desktop conversation is a person's open window: resuming one
-forks the transcript they are reading, which is why its capability declares
-no stopped route of its own, and why a parked desktop session stays the
-operator's to wake. The surface's own declaration is the gate — never the
-same-machine peer binary that could technically execute the resume.
+IDE one. A desktop conversation is a person's open window, and its
+capability says so outright: ``wake_authority`` is ``operator``, so no
+version and no same-machine peer binary opens a wake route for it. Its
+envelope waits for hook injection on the operator's next turn, and past the
+same grace window used here that operator is told it is waiting — see
+``session_operator_wake_notice``.
 
-Escalating is a wake, not a page: nothing here asks an operator for
-anything. The reason travels on the recipient row and on the wake attempt so
-that an operator reading the message can tell an escalated resume from an
-ordinary one, and which of the two absences authorized it.
+Escalating is a wake, not a page: for the CLI surfaces it covers, nothing
+here asks an operator for anything. The reason travels on the recipient row
+and on the wake attempt so that an operator reading the message can tell an
+escalated resume from an ordinary one, and which of the two absences
+authorized it.
 """
 
 from __future__ import annotations
@@ -156,8 +158,8 @@ def parked_without_idle_wake(
 
     The surface test reads the recipient's own capability rather than the
     same-machine peer that could execute a resume, so a desktop or IDE
-    conversation — which declares no stopped route of its own — is never
-    escalated into a forked transcript.
+    conversation — one declaring ``wake_authority: operator``, or no stopped
+    route of its own — is never escalated into a forked transcript.
     """
     if not _undelivered_since_send(row, now=now):
         return False

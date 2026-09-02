@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain import db_backend
 from yoke_core.domain import json_helper
@@ -18,6 +19,7 @@ from yoke_core.domain.session_message_delivery import (
     _expire_rows,
 )
 from yoke_core.domain.session_message_wake_skip import record_wake_skip
+from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wake
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
     messageability,
@@ -70,6 +72,12 @@ def _native_wake_route_available(
     # operation, so the ban has to read terminated_at — otherwise the private
     # route qualification below would reopen what the kill closed.
     if row.get("terminated_at"):
+        return False
+    # A surface whose wake authority is its operator is never resumed here,
+    # whatever its liveness, parked mode, or stall state says. The stage
+    # qualification below would otherwise reopen exactly the private route
+    # this rules out, which is how a desktop transcript gets forked.
+    if not native_wake_supported(str(row.get("executor_surface") or "")):
         return False
     from yoke_core.domain.session_surface_policy import live_mark
 
@@ -266,6 +274,15 @@ def wake_eligible_recipients(
                     relay_versions=versions,
                     liveness=liveness,
                     now=current,
+                )
+                # A desktop envelope has no other way in, so the absence is
+                # reported to the one party who can end it rather than
+                # retried against a route that will never exist.
+                notify_operator_to_wake(
+                    conn,
+                    row,
+                    now=current,
+                    grace_seconds=policy.wake_ack_grace_seconds,
                 )
                 continue
             eligible.append(

@@ -110,9 +110,9 @@ yours:
   while triaging: at `stale_eligible_at` the reclaim sweep releases its
   claims and the item reads as untouched, so a holder near reclaim is
   revived before anything else in the pass.
-- **Starved delivery** — read the row's escalation. One the sweep already
-  escalated has a wake in flight; one with none takes the registered wake,
-  else the bridge under **Revive starved workers** below.
+- **Starved delivery** — read the row. An escalated one has a wake in flight;
+  one waiting for its operator needs that person to type in the chat; one with
+  neither takes the registered wake, else the bridge under **Revive** below.
 - **Unregistered launches** — list, then reconcile and retry each
   `launch_id`. Never guess a table (`session_control_launches` does
   not exist); the registered read is `session_control.launch.list`
@@ -225,26 +225,26 @@ Send an item-addressed wake first:
 printf '%s' "WAKE PREFIX-N: resume the assigned routed leg and report status" | yoke say --item PREFIX-N --stdin
 ```
 
-Never hand-wake a parked CLI worker: on a harness with no idle wake it
-escalates to a relay wake on the first pass, and the receipt names why. A
-parked desktop one is yours to wake. Read `state='pending'`, `injection_count=0`:
+Never hand-wake a parked CLI worker: with no idle wake it escalates to a relay
+wake on the first pass. A desktop session is nobody's to resume; its operator
+types in that chat to deliver it. Read `state='pending'`, `injection_count=0`:
 
 ```text
 yoke db read "SELECT session_id,state,injection_count,wake_escalation,created_at FROM session_message_recipients WHERE session_id = '{SESSION_ID}' AND state = 'pending' AND injection_count = 0 ORDER BY created_at DESC"
 ```
 
-A row with no `wake_escalation` past the project's grace window is what the
-bridge is still for; resume a stuck Cursor session directly:
+A `cursor-cli` row with no `wake_escalation` past the grace window is what the
+bridge is still for; resume that stuck session directly:
 
 ```text
 cursor-agent --resume <session-id> --print --output-format json --workspace <dir> --trust '<instruction>'
 ```
 
 A run of workers that die or hang within a few tool calls on one otherwise
-installed and signed-in surface may mean vendor quota or credits are
-exhausted, which currently resembles a crash. Verify by running that harness
-CLI interactively, rebalance new lanes onto the other surfaces while it
-recovers, and restore the steady-state balance afterward.
+installed and signed-in surface may mean vendor quota or credits are exhausted,
+which currently resembles a crash. Verify by running that harness CLI
+interactively, rebalance new lanes onto the other surfaces while it recovers,
+and restore the steady-state balance afterward.
 
 ### 3. Write the strategy document itemless
 

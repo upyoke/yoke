@@ -7,6 +7,10 @@ from time import monotonic, sleep
 from typing import Any
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
+from yoke_contracts.session_control.capabilities import (
+    native_wake_supported,
+    operator_wake_instruction,
+)
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
@@ -92,6 +96,15 @@ def _stopped_route(
         raise SessionMessageError(
             "session_terminated",
             "A terminated session cannot be woken; create a new session instead.",
+        )
+    surface = str(target.get("executor_surface") or "")
+    if not native_wake_supported(surface):
+        raise SessionMessageError(
+            "operator_wake_required",
+            operator_wake_instruction(surface)
+            + " Send the message instead — `yoke say --session "
+            f"{recipient.session_id} --stdin` — and it is delivered by hook "
+            "injection on that operator's next turn.",
         )
     if not routing.get("messageable") or routing.get("wake_interface") == "none":
         raise SessionMessageError(

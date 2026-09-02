@@ -148,6 +148,11 @@ export function appendSessionRelay(documentNode, body, row) {
 // surface whose hook can carry the message, and, for a session that is not
 // mid-turn, a wake route to make that surface run; the relay is what carries
 // the wake.
+//
+// A desktop surface has no such route by design: Yoke never resumes the
+// window a person is reading. A message to a quiet one still arrives — on
+// that operator's next turn — so the card says who it is waiting on rather
+// than calling delivery unavailable.
 export function messagingAvailability(row) {
   const routing = row.messageability || {};
   if (routing.reason === "session_terminated") {
@@ -175,6 +180,15 @@ export function messagingAvailability(row) {
     };
   }
   if (String(row.liveness || "") !== "active" && routing.wake_available !== true) {
+    if (String(row.liveness || "") !== "ended"
+      && routing.wake_authority === "operator") {
+      return {
+        available: true,
+        reason: "",
+        note: "Waiting for the operator to wake it: a message is delivered "
+          + "when they next type anything in this chat.",
+      };
+    }
     if (routing.relay_connected === false) {
       return {
         available: false,
@@ -211,6 +225,15 @@ export function sessionMessageButton(documentNode, row, onMessage) {
 
 export function appendSessionMessagingBlocker(documentNode, body, row) {
   const availability = messagingAvailability(row);
+  if (availability.note) {
+    body.appendChild(el(
+      documentNode,
+      "p",
+      "fact-line session-messaging-operator-wake",
+      availability.note,
+    ));
+    return;
+  }
   if (availability.available) return;
   body.appendChild(el(
     documentNode,

@@ -55,7 +55,8 @@
         "message_stopped": "supported",
         "stop_denial_continuation": "supported",
         "relay_stop_denial_continuation": "none",
-        "liveness_process_names": []
+        "liveness_process_names": [],
+        "wake_authority": "native"
       },
       "claude-desktop": {
         "minimum_version": "1.32885.1",
@@ -70,7 +71,8 @@
         "message_stopped": "none",
         "stop_denial_continuation": "supported",
         "relay_stop_denial_continuation": "supported",
-        "liveness_process_names": []
+        "liveness_process_names": [],
+        "wake_authority": "operator"
       },
       "claude-vscode": {
         "minimum_version": "2.1.238",
@@ -85,7 +87,8 @@
         "message_stopped": "none",
         "stop_denial_continuation": "supported",
         "relay_stop_denial_continuation": "supported",
-        "liveness_process_names": []
+        "liveness_process_names": [],
+        "wake_authority": "native"
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",

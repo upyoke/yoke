@@ -57,7 +57,8 @@
         "liveness_process_names": [
           "cursor-agent",
           "cursor"
-        ]
+        ],
+        "wake_authority": "native"
       },
       "cursor-desktop": {
         "minimum_version": "3.17.8",
@@ -71,7 +72,8 @@
         "message_stopped": "none",
         "stop_denial_continuation": "none",
         "relay_stop_denial_continuation": "none",
-        "liveness_process_names": []
+        "liveness_process_names": [],
+        "wake_authority": "operator"
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",

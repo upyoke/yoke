@@ -91,12 +91,23 @@ def _holder_lines(
 
 def _starved_line(entry: StarvedDelivery) -> str:
     # An already-escalated recipient is a wake in flight, not one the seat
-    # still owes by hand, so the line says which absence authorized it.
-    escalated = f", wake escalated ({entry.wake_escalation})"
+    # still owes by hand, so the line says which absence authorized it. A
+    # desktop recipient is neither: Yoke never resumes one, so the line asks
+    # for the only thing that delivers it instead of naming a revive recipe.
+    if entry.operator_wake:
+        suffix = (
+            ", waiting for the operator to wake it — ask them to type "
+            "anything in that chat"
+        )
+    else:
+        suffix = (
+            f", wake escalated ({entry.wake_escalation})"
+            if entry.wake_escalation
+            else ""
+        )
     return (
         f"  session {entry.session_id}  {entry.envelope_count} envelope(s), "
-        f"oldest {_minutes(entry.oldest_seconds)}, never injected"
-        f"{escalated if entry.wake_escalation else ''}"
+        f"oldest {_minutes(entry.oldest_seconds)}, never injected{suffix}"
     )
 
 

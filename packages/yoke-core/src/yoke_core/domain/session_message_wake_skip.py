@@ -15,7 +15,10 @@ from datetime import datetime
 from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
-from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.capabilities import (
+    capability_for_surface,
+    native_wake_supported,
+)
 from yoke_contracts.session_control.surface_versions import (
     machine_wake_executor_surface,
     surface_operation_supported,
@@ -49,6 +52,10 @@ def _wake_skip_result(
     capability = capability_for_surface(surface)
     if capability is None:
         return "skipped_surface", None, "surface_unknown"
+    if not native_wake_supported(surface):
+        # Named ahead of every version and driver rule because it outranks
+        # them: no upgrade and no installed peer binary opens this route.
+        return "skipped_operation", None, "surface_wake_operator_driven"
     if not surface_version_supported(surface, row.get("executor_version")):
         return "skipped_version", None, "surface_version_below_floor"
     if operation is None:

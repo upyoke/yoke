@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
 )
@@ -48,10 +49,15 @@ def authorize_wake_versions(
     surface rather than a bare false, so no caller can carry an authorized
     wake onward under a surface that cannot perform it.
     """
+    surface = str(candidate.get("executor_surface") or "")
+    if not native_wake_supported(surface):
+        # A one-shot stage grant proves a binary, never an authority. The
+        # authority over an operator-driven surface is the person in front
+        # of it, so no grant reopens the route.
+        return None, None
     execution = wake_execution_surface(candidate, surface_versions)
     if execution is not None:
         return execution, None
-    surface = str(candidate.get("executor_surface") or "")
     version = str(candidate.get("executor_version") or "")
     # A one-shot grant proves the exact installed binary that will consume it;
     # a floor here would replay build-specific stage evidence onto another build.

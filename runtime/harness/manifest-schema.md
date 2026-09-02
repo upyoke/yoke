@@ -109,10 +109,20 @@ not author a second capability matrix.
 
 Each surface value carries `minimum_version`, `inject_events`, `create`,
 `message_active`, `message_idle`, `message_stopped`,
-`stop_denial_continuation`, `relay_stop_denial_continuation`, and
-`liveness_process_names`. Route and Stop continuation fields use the closed
-interface vocabulary
-`supported | private | none`. `stop_denial_continuation` says whether a denied
+`stop_denial_continuation`, `relay_stop_denial_continuation`,
+`liveness_process_names`, and `wake_authority`. Route and Stop continuation
+fields use the closed interface vocabulary
+`supported | private | none`. `wake_authority` uses the closed vocabulary
+`native | operator` and names who may resume a session on this surface.
+`native` lets Yoke drive the harness's own resume; `operator` means native
+resume is unsupported and only the person sitting in front of the window may
+wake it, because resuming an open desktop conversation headlessly forks the
+transcript they are reading. Every desktop surface declares `operator`, and
+the wake path reads this field rather than inferring the stance from a route:
+no version and no same-machine peer binary opens a wake route for such a
+surface, `yoke session-control session wake` refuses it with that guidance,
+and its pending message is delivered by hook injection the moment its
+operator types. `stop_denial_continuation` says whether a denied
 Stop is proven to resume the same model turn; a policy that needs continuation
 must allow and durably defer work when this field is `none`.
 `relay_stop_denial_continuation` applies the same proof specifically to a
