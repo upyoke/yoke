@@ -263,7 +263,13 @@ Failures name the stage and exact retry. The pin is unchanged when CLI install
 fails; after the CLI and pin advance, a pull or restart failure leaves both
 durable identities on the target and prints the two Compose recovery commands.
 On every boot the entrypoint converges additive schema before serving;
-data-transforming changes still use Yoke's governed migration runner. Confirm
+data-transforming changes still use Yoke's governed migration runner. Foreign
+keys onto `environments.id` match its live type so a universe still on text
+keys reaches the ordered history that converts them. The boot also declares a
+bounded `idle_in_transaction_session_timeout` for its own session and records
+it as the role's database default; a managed Postgres whose role cannot alter
+its own defaults degrades with an `application_role_default_not_persisted`
+line on stderr rather than refusing to serve. Confirm
 the running source identity through the `build` field on `GET /v1/health`.
 
 ## Take it back off

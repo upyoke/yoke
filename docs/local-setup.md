@@ -58,11 +58,13 @@ install surface.
 Upgrading replaces the engine and nothing else, so the first command served
 after it finishes the job. A machine-local universe is converged to the new
 engine's schema before that command runs — the local counterpart of the boot
-converge a hosted container performs, using the same convergence — and any
-project checkout whose operating layer predates the new engine is named once
-with the exact `yoke project install <checkout>` refresh. Both are skipped
-when nothing changed, and a universe this machine only administers rather than
-serves is never converged from here.
+converge a hosted container performs, using the same convergence. Additive
+foreign keys match the live `environments.id` type so a universe still on text
+keys reaches the ordered history that converts them, instead of failing the
+boot. The convergence also declares a bounded `idle_in_transaction_session_timeout` for the session; recording it as the role's database default is best-effort, so a role that cannot alter its own defaults — or a second boot racing on the same catalog row — degrades with an `application_role_default_not_persisted` diagnostic on stderr instead of refusing every read. Any project checkout whose operating layer predates the new engine is
+named once with the exact `yoke project install <checkout>` refresh. Both are
+skipped when nothing changed, and a universe this machine only administers
+rather than serves is never converged from here.
 
 ### 2. Local Mode: Create a Machine-Local Universe (free, no signup)
 

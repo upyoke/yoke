@@ -10,20 +10,16 @@ from __future__ import annotations
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
+    environment_reference_column_sql,
 )
 
 
 def _ensure_flow_schema(conn) -> None:
     """Create the flow registry and its strictly additive columns."""
-    # The environment reference is a physical FK only when the registry
-    # precedes this step (the converge order guarantees it does); minimal
-    # fixture databases without a registry keep the column unconstrained,
-    # the same stance items.deployment_flow takes.
-    environment_ref = (
-        "INTEGER REFERENCES environments(id)"
-        if _table_exists(conn, "environments")
-        else "INTEGER"
-    )
+    # Match the live environments.id type. Additive converge runs before the
+    # ordered history that converts text keys to integers; declaring INTEGER
+    # onto a text PK fails the boot and leaves that history unapplied.
+    environment_ref = environment_reference_column_sql(conn)
     conn.execute(f"""\
         CREATE TABLE IF NOT EXISTS deployment_flows (
             id TEXT PRIMARY KEY,
