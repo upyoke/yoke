@@ -13,6 +13,7 @@ from runtime.api.cli.onboard_wizard_github_app_test_support import (
     stub_github_app_access,
 )
 from runtime.api.cli.onboard_wizard_test_helpers import (
+    stub_checkout_fetch,
     stub_path_doctor,
     stub_source_branch,
 )
@@ -44,6 +45,7 @@ def configure_clone_flow(monkeypatch: Any) -> None:
     monkeypatch.setattr(
         clone_flow.CloneFlow, "_source_push_access", lambda self: None
     )
+    stub_checkout_fetch(monkeypatch)
 
 
 async def pick_mode(pilot: Any, value: str) -> None:

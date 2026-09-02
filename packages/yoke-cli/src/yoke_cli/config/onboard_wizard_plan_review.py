@@ -16,6 +16,7 @@ from yoke_cli.config import onboard_path_plan
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_reuse_feedback
+from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
 from yoke_cli.config.onboard_plan_labels import friendly_line as _friendly_line
 from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
@@ -62,6 +63,7 @@ _MACHINE_ACTIONS = {
     hosting_posture.HOSTING_POSTURE_ACTION,
 }
 _REPO_ACTIONS = {
+    REMOVE_LAYER_ACTION,
     "project-create-checkout",
     "project-clone-remote",
     "project-import-remote",

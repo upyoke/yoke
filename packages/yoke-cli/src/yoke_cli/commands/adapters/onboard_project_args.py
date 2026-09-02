@@ -6,6 +6,10 @@ import argparse
 
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_github_copy
+from yoke_cli.config.project_installed_layer import (
+    LAYER_DECISIONS,
+    LAYER_DECISION_HELP,
+)
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_INPUT_CHOICES
 
 
@@ -26,6 +30,13 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--public-item-prefix", dest="project_public_item_prefix", default=None,
+    )
+    parser.add_argument(
+        "--existing-yoke-layer",
+        dest="project_existing_yoke_layer",
+        choices=LAYER_DECISIONS,
+        default=None,
+        help=LAYER_DECISION_HELP,
     )
     parser.add_argument(
         "--github-adoption",

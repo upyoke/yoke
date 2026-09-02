@@ -38,6 +38,7 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
+    stub_checkout_fetch,
     stub_path_doctor,
     stub_source_branch,
     submit_public_item_prefix,
@@ -48,6 +49,11 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
 @pytest.fixture(autouse=True)
 def _stub_path_doctor(monkeypatch):
     stub_path_doctor(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def _stub_checkout_fetch(monkeypatch):
+    stub_checkout_fetch(monkeypatch)
 
 
 @pytest.fixture(autouse=True)

@@ -21,6 +21,60 @@ INSTALLED_LAYER_RECEIPT_SCHEMA = 1
 SOURCE_ENGINE_RELEASE_KEY = "source_engine_release"
 SOURCE_BUILD_KEY = "source_build"
 
+# Where the layer lands inside a project checkout: the destinations the
+# install bundle renders into, and the paths a pre-install checkout inspection
+# reports (and on request removes) when a repository already carries a layer.
+# Both surfaces read them here, because a destination the installer writes and
+# the inspection does not know about is residue nothing can see.
+CANONICAL_SKILLS_DEST = ".agents/skills/yoke"
+CLAUDE_SKILLS_DEST = ".claude/skills/yoke"
+CODEX_SKILLS_DEST = ".codex/skills/yoke"
+CURSOR_SKILLS_DEST = ".cursor/skills/yoke"
+CLAUDE_AGENTS_DEST = ".claude/agents"
+CODEX_AGENTS_DEST = ".codex/agents"
+CURSOR_AGENTS_DEST = ".cursor/agents"
+CLAUDE_RULES_DEST = ".claude/rules"
+PROJECT_CONTRACT_DEST = ".yoke"
+
+# Directories the layer owns outright: everything under them arrived with a
+# Yoke install, so a scan counts the whole subtree and a removal takes it.
+INSTALLED_LAYER_DIR_RELS: tuple[str, ...] = (
+    PROJECT_CONTRACT_DEST,
+    CANONICAL_SKILLS_DEST,
+    CLAUDE_SKILLS_DEST,
+    CODEX_SKILLS_DEST,
+    CURSOR_SKILLS_DEST,
+    CLAUDE_RULES_DEST,
+)
+# Directories the layer shares with the harness: only the ``yoke-`` adapters
+# inside them belong to Yoke.
+INSTALLED_LAYER_AGENT_DIR_RELS: tuple[str, ...] = (
+    CLAUDE_AGENTS_DEST,
+    CODEX_AGENTS_DEST,
+    CURSOR_AGENTS_DEST,
+)
+INSTALLED_LAYER_AGENT_PREFIX = "yoke-"
+# Files the layer owns on their own, outside any layer directory.
+INSTALLED_LAYER_FILE_RELS: tuple[str, ...] = (INSTALLED_LAYER_RECEIPT_REL,)
+# Files a project co-owns, where the layer occupies a marked region: the
+# managed Markdown block and the merged harness hook entries.
+INSTALLED_LAYER_MARKDOWN_RELS: tuple[str, ...] = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CODEX.md",
+    "CURSOR.md",
+)
+INSTALLED_LAYER_HOOK_RELS: tuple[str, ...] = (
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    ".cursor/hooks.json",
+)
+# Every hook entry the installer merges runs the same entrypoint, whatever
+# shell preamble the harness needs around it, so its presence in a command
+# identifies the entry as Yoke's without a machine-local install manifest —
+# which a fresh clone never has.
+INSTALLED_LAYER_HOOK_COMMAND_TOKEN = "yoke hook evaluate"
+
 
 @dataclass(frozen=True)
 class InstalledLayerReceipt:
@@ -131,8 +185,24 @@ def read_installed_layer_receipt(start: Path) -> Optional[InstalledLayerReceipt]
 
 
 __all__ = [
+    "CANONICAL_SKILLS_DEST",
+    "CLAUDE_AGENTS_DEST",
+    "CLAUDE_RULES_DEST",
+    "CLAUDE_SKILLS_DEST",
+    "CODEX_AGENTS_DEST",
+    "CODEX_SKILLS_DEST",
+    "CURSOR_AGENTS_DEST",
+    "CURSOR_SKILLS_DEST",
+    "INSTALLED_LAYER_AGENT_DIR_RELS",
+    "INSTALLED_LAYER_AGENT_PREFIX",
+    "INSTALLED_LAYER_DIR_RELS",
+    "INSTALLED_LAYER_FILE_RELS",
+    "INSTALLED_LAYER_HOOK_COMMAND_TOKEN",
+    "INSTALLED_LAYER_HOOK_RELS",
+    "INSTALLED_LAYER_MARKDOWN_RELS",
     "INSTALLED_LAYER_RECEIPT_REL",
     "INSTALLED_LAYER_RECEIPT_SCHEMA",
+    "PROJECT_CONTRACT_DEST",
     "InstalledLayerReceipt",
     "SOURCE_ENGINE_RELEASE_KEY",
     "SOURCE_BUILD_KEY",

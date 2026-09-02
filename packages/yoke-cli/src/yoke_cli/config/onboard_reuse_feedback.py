@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import onboard_project
+from yoke_cli.config import project_installed_layer as installed_layer
 from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
 _GROUP_ORDER = ("machine", "core", "repo", "admin")
@@ -119,6 +120,9 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
         repo_lines.append(
             f"Matching clone already exists{target}; Apply will reuse it."
         )
+    inspection = _inspection_line(reuse.get("project_installed_layer"), project)
+    if inspection:
+        repo_lines.append(inspection)
     _append_default_branch_lines(
         grouped,
         project,
@@ -138,6 +142,38 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
     if reuse.get("project_scaffold"):
         repo_lines.append("Project scaffold is already installed; Apply will refresh it.")
     return grouped
+
+
+def _inspection_line(summary: Any, project: Mapping[str, Any]) -> str:
+    """Say what the inspected checkout holds and what Apply will do with it.
+
+    The review's job here is the repository as it stands on disk, so a clean
+    clone earns a line too — "nothing of Yoke's is in here" is the answer an
+    operator came to this screen for.
+    """
+    if not isinstance(summary, Mapping):
+        return ""
+    if not summary.get("present"):
+        return "No existing Yoke files in the repository; this is a first install."
+    count = int(summary.get("file_count") or 0)
+    release = str(summary.get("source_engine_release") or "").strip()
+    origin = f" installed by Yoke {release}" if release else ""
+    clone = project.get("clone")
+    decision = (
+        str(clone.get("existing_layer_decision") or "")
+        if isinstance(clone, Mapping)
+        else ""
+    )
+    if decision == installed_layer.LAYER_DECISION_REMOVE:
+        outcome = "Apply will remove it first"
+    elif decision == installed_layer.LAYER_DECISION_KEEP:
+        outcome = "Apply will install over it, as you chose"
+    else:
+        outcome = "Apply cannot run until you choose to keep or remove it"
+    return (
+        f"Repository already carries a Yoke operating layer{origin}: "
+        f"{count} files. {outcome}."
+    )
 
 
 def _inner_plan(plan: Mapping[str, Any]) -> Mapping[str, Any]:

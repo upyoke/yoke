@@ -87,14 +87,22 @@ def project_clone(
     use_machine_github: bool = False,
 ) -> ClonePlan | None:
     outcome = str(getattr(parsed, "project_clone_outcome", "") or "").strip()
+    layer_decision = str(
+        getattr(parsed, "project_existing_yoke_layer", "") or ""
+    ).strip()
+    remote_mode = str(getattr(parsed, "project_mode", "") or "") in (
+        "clone-remote",
+        "import-remote",
+    )
     if not outcome:
-        if (github_user_access_token or use_machine_github) and str(
-            getattr(parsed, "project_mode", "") or ""
-        ) in ("clone-remote", "import-remote"):
+        if remote_mode and (
+            github_user_access_token or use_machine_github or layer_decision
+        ):
             return ClonePlan(
                 fallback_token=github_user_access_token,
                 use_machine_github=use_machine_github,
                 fork_web_url=_web_url(getattr(parsed, "config_path", None)),
+                existing_layer_decision=layer_decision,
             )
         return None
     if outcome in (CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE):
@@ -116,6 +124,7 @@ def project_clone(
             or github_origin.DEFAULT_GITHUB_API_URL
         ),
         fork_web_url=_web_url(getattr(parsed, "config_path", None)),
+        existing_layer_decision=layer_decision,
     )
 
 

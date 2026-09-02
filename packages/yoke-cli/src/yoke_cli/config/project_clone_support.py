@@ -67,6 +67,10 @@ class ClonePlan:
     ``publish`` carries the GitHub repo-create inputs for ``make-it-mine``;
     ``fallback_token`` is the refreshed GitHub App user token the clone and the
     fork call authenticate with when one was resolved before Apply.
+    ``existing_layer_decision`` records what the operator decided about a Yoke
+    operating layer the cloned repository already carries — keep it, or remove
+    it before anything is installed. Empty means the checkout was never
+    inspected, which apply refuses rather than installing over.
     """
 
     outcome: str = CLONE_OUTCOME_JUST_CLONE
@@ -77,6 +81,7 @@ class ClonePlan:
     fork_api_url: str = github_origin.DEFAULT_GITHUB_API_URL
     fork_web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL
     fork_allowed: bool = False
+    existing_layer_decision: str = ""
 
 
 class CloneAccessError(ProjectOnboardError):

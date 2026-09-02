@@ -8,17 +8,11 @@ from typing import Any
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_path_plan
+from yoke_cli.config import onboard_post_checkout_plan
 from yoke_cli.config import onboard_project_modes
 from yoke_cli.config import onboard_session_relay
 from yoke_cli.config.onboard_report_render import render_human
-from yoke_cli.config.project_clone_support import (
-    CLONE_OUTCOME_FORK,
-    CLONE_OUTCOME_MAKE_IT_MINE,
-)
 from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT
-from yoke_contracts.project_contract.board_art.config_paths import (
-    board_art_path_for_config,
-)
 
 PROJECT_MODE_MACHINE_ONLY = onboard_project.PROJECT_MODE_MACHINE_ONLY
 PROJECT_MODE_LOCAL_CHECKOUT = onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
@@ -115,12 +109,13 @@ def build_plan(
                 }
             )
         if not reuse.get("project_checkout"):
-            steps.append(
-                {
-                    "action": _PROJECT_ACTION.get(project_mode, "project-onboard"),
-                    "target": str(project_inputs.get("checkout") or ""),
-                }
-            )
+            if not reuse.get("project_clone_checkout"):
+                steps.append(
+                    {
+                        "action": _PROJECT_ACTION.get(project_mode, "project-onboard"),
+                        "target": str(project_inputs.get("checkout") or ""),
+                    }
+                )
             steps.append(
                 {
                     "action": "project-checkout-register",
@@ -133,7 +128,11 @@ def build_plan(
         # write (every mode). These name what onboard does AFTER the
         # clone/create so the review screen's "In your project folder" section
         # is not just the clone line.
-        steps.extend(_post_checkout_steps(project_mode, project_inputs, reuse=reuse))
+        steps.extend(
+            onboard_post_checkout_plan.post_checkout_steps(
+                project_mode, project_inputs, reuse=reuse,
+            )
+        )
         if not reuse.get("project_github_auth"):
             steps.append(
                 {
@@ -197,6 +196,9 @@ def _public_clone(value: Any) -> dict[str, Any] | None:
         return None
     return {
         "outcome": str(getattr(value, "outcome", "") or ""),
+        "existing_layer_decision": str(
+            getattr(value, "existing_layer_decision", "") or ""
+        ),
         "keep_upstream": bool(getattr(value, "keep_upstream", True)),
         "fork_api_url": str(getattr(value, "fork_api_url", "") or ""),
         "publish": _public_publish(getattr(value, "publish", None)),
@@ -217,99 +219,6 @@ def _source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> 
 
 def source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> str:
     return _source_choice_target(project_mode, project_inputs)
-
-
-# The project modes whose apply path lays down the ``.yoke/`` scaffold via
-# ``install_runner.install`` and then writes board art + the initial BOARD.md.
-# Source-dev-admin takes a separate ``yoke dev setup`` path and never reaches
-# the board-art design flow, so it is excluded; machine-only has no checkout.
-_SCAFFOLD_PROJECT_MODES = frozenset(
-    {
-        onboard_project.PROJECT_MODE_CREATE_REPO,
-        onboard_project.PROJECT_MODE_CLONE_REMOTE,
-        onboard_project.PROJECT_MODE_IMPORT_REMOTE,
-        onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-    }
-)
-
-
-def _post_checkout_steps(
-    project_mode: str,
-    project_inputs: dict[str, Any],
-    *,
-    reuse: dict[str, Any],
-) -> list[dict[str, Any]]:
-    """The repo-folder work onboard runs after the checkout exists.
-
-    Mode-scoped so the review screen only lists steps that actually run:
-
-    * ``project-rehome-push`` / ``project-fork-remotes`` — clone mode only, and
-      only for the make-it-mine / fork outcomes (just-clone keeps the source
-      ``origin`` untouched, so no remote step is shown). Mirrors
-      ``project_onboard._apply_clone_outcome``.
-    * ``project-install-scaffold`` — the four scaffold modes run
-      ``install_runner.install``, which lays down the ``.yoke/`` operating
-      layer.
-    * ``project-install-agent-rules`` / ``project-install-tool-permissions`` /
-      ``project-install-harness-hooks`` / ``project-install-git-hooks`` — the
-      same scaffold install (and refresh) writes the Yoke rules blocks into
-      ``AGENTS.md`` / ``CLAUDE.md`` / ``CODEX.md`` / ``CURSOR.md``, unions the
-      managed tool-permission regions into ``.claude/settings.json`` and
-      ``.cursor/cli.json`` / ``.cursor/sandbox.json``, merges harness hooks into
-      ``.claude/settings.json`` / ``.codex/hooks.json`` / ``.cursor/hooks.json``,
-      and installs the git commit-guard hooks, so the review names each file
-      operation instead of hiding it behind the scaffold line.
-    * ``install-cursor-user-lifecycle-hooks`` — machine-local
-      ``~/.cursor/hooks.json`` stop/sessionEnd backstop so Cursor session-end
-      cleanup still runs when a project worktree folder is gone.
-    * ``project-write-board-art`` — checkouts without project-local board art
-      finish by writing the finalized art and rebuilding the initial
-      ``BOARD.md``.
-    """
-    steps: list[dict[str, Any]] = []
-    if project_mode == onboard_project.PROJECT_MODE_CLONE_REMOTE and not reuse.get(
-        "project_checkout"
-    ):
-        clone = project_inputs.get("clone") if project_inputs else None
-        outcome = getattr(clone, "outcome", None)
-        if outcome == CLONE_OUTCOME_MAKE_IT_MINE:
-            steps.append({"action": "project-rehome-push", "target": ""})
-        elif outcome == CLONE_OUTCOME_FORK:
-            steps.append({"action": "project-fork-remotes", "target": ""})
-    if project_mode in _SCAFFOLD_PROJECT_MODES:
-        steps.append(
-            {
-                "action": (
-                    "project-refresh-scaffold"
-                    if reuse.get("project_scaffold")
-                    else "project-install-scaffold"
-                ),
-                "target": "",
-            }
-        )
-        # The scaffold install (and refresh) also writes the Yoke rules blocks,
-        # tool-permission regions, harness hooks, and git commit-guard hooks.
-        # Name each so the review screen is explicit about every path it touches.
-        steps.append({"action": "project-install-agent-rules", "target": ""})
-        steps.append({"action": "project-install-tool-permissions", "target": ""})
-        steps.append({"action": "project-install-harness-hooks", "target": ""})
-        steps.append({"action": "project-install-git-hooks", "target": ""})
-        steps.append(
-            {
-                "action": "install-cursor-user-lifecycle-hooks",
-                "target": "~/.cursor/hooks.json",
-            }
-        )
-        if _needs_board_art(project_inputs):
-            steps.append({"action": "project-write-board-art", "target": ""})
-    return steps
-
-
-def _needs_board_art(project_inputs: dict[str, Any]) -> bool:
-    checkout = str(project_inputs.get("checkout") or "").strip()
-    if not checkout:
-        return True
-    return not board_art_path_for_config(None, repo_root=checkout).is_file()
 
 
 def next_steps(cfg_path: Path, project_mode: str) -> list[str]:

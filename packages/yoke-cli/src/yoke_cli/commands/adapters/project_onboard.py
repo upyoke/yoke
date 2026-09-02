@@ -15,6 +15,11 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import project_onboard
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
+from yoke_cli.config.project_clone_support import ClonePlan
+from yoke_cli.config.project_installed_layer import (
+    LAYER_DECISIONS,
+    LAYER_DECISION_HELP,
+)
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_INPUT_CHOICES,
     ProjectGithubAdoptionError,
@@ -31,7 +36,8 @@ PROJECT_CREATE_USAGE = (
 PROJECT_IMPORT_USAGE = (
     "yoke project import REMOTE_URL CHECKOUT --slug SLUG --name NAME "
     "[--org ORG] --github-repo OWNER/REPO --default-branch BRANCH "
-    f"--public-item-prefix PREFIX {GITHUB_ADOPTION_FLAGS} --config PATH "
+    f"--public-item-prefix PREFIX {GITHUB_ADOPTION_FLAGS} "
+    "[--existing-yoke-layer keep|remove] --config PATH "
     "[--yes | --dry-run] [--json]"
 )
 ONBOARD_PROJECT_USAGE = (
@@ -84,6 +90,12 @@ def project_import(args: List[str]) -> int:
     parser = _project_parser("yoke project import", PROJECT_IMPORT_USAGE)
     parser.add_argument("remote_url")
     parser.add_argument("checkout")
+    parser.add_argument(
+        "--existing-yoke-layer",
+        choices=LAYER_DECISIONS,
+        default=None,
+        help=LAYER_DECISION_HELP,
+    )
     _add_github_adoption_args(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_IMPORT_USAGE)
     if parsed is None:
@@ -92,6 +104,9 @@ def project_import(args: List[str]) -> int:
         report = project_onboard.import_project(
             remote_url=parsed.remote_url,
             checkout=parsed.checkout,
+            clone=ClonePlan(
+                existing_layer_decision=parsed.existing_yoke_layer or "",
+            ),
             slug=parsed.slug,
             name=parsed.name,
             org=parsed.org,

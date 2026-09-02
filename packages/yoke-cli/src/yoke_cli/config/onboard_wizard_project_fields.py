@@ -31,6 +31,7 @@ def reset_project_fields(result: Any) -> None:
     result.project_github_adoption_preserve = False
     reset_project_publish_fields(result)
     result.project_clone_outcome = None
+    result.project_clone_existing_layer_decision = ""
     result.project_clone_keep_upstream = True
     result.project_clone_requires_machine_github = False
     result.project_source_default_branch = None

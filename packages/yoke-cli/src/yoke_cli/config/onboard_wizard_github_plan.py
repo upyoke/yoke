@@ -54,13 +54,19 @@ def build_clone_plan(result: Any) -> Any:
 
     if result.project_mode not in onboard_project.PROJECT_REMOTE_MODES:
         return None
+    decision = str(
+        getattr(result, "project_clone_existing_layer_decision", "") or ""
+    )
     if not result.project_clone_outcome:
         needs_private_access = bool(
             result.project_clone_requires_machine_github
             or (result.existing_project_id and result.project_github_repo)
         )
         if not needs_private_access:
-            return None
+            # What the operator decided about a layer the checkout already
+            # carries still has to reach Apply, even when nothing else about
+            # the clone needs a plan.
+            return ClonePlan(existing_layer_decision=decision) if decision else None
         if not github_state.connected(result):
             raise RuntimeError(
                 "This saved/private repository needs a verified GitHub App "
@@ -73,6 +79,7 @@ def build_clone_plan(result: Any) -> Any:
                 or github_origin.DEFAULT_GITHUB_API_URL
             ),
             fork_web_url=github_state.clone_web_url(result),
+            existing_layer_decision=decision,
         )
     publish = None
     if result.project_clone_outcome == CLONE_OUTCOME_MAKE_IT_MINE:
@@ -98,6 +105,7 @@ def build_clone_plan(result: Any) -> Any:
         fork_allowed=github_state.fork_ready(
             result, result.project_remote_url,
         ),
+        existing_layer_decision=decision,
     )
 
 
