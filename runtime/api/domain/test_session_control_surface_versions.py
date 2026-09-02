@@ -179,34 +179,39 @@ def test_documented_cli_resume_and_idle_routes_use_version_floors() -> None:
     assert ("claude-cli", "message_stopped") not in PRIVATE_ROUTE_VERSION_QUALIFICATIONS
 
 
-def test_installed_cli_wakes_every_stopped_claude_surface_on_its_machine() -> None:
+def test_installed_cli_wakes_every_stopped_claude_surface_it_may_wake() -> None:
     installed = {"claude-cli": "2.1.241"}
 
-    for surface in ("claude-cli", "claude-desktop", "claude-vscode"):
+    for surface in ("claude-cli", "claude-vscode"):
         assert machine_stopped_wake_supported(surface, installed)
     assert not machine_stopped_wake_supported("codex-desktop", installed)
     assert not machine_stopped_wake_supported("cursor-desktop", installed)
 
 
-def test_installed_cursor_cli_wakes_cursor_desktop_idle_and_stopped() -> None:
-    installed = {"cursor-cli": "2026.08.11-e8db854"}
+def test_a_desktop_surface_has_no_peer_wake_route_at_any_installed_version() -> None:
+    """Sharing a transcript store is what makes the fork possible, not allowed.
 
-    assert machine_wake_surface("cursor-desktop", installed, "message_idle") == (
-        "cursor-cli",
-        "2026.08.11-e8db854",
-    )
-    assert machine_stopped_wake_supported("cursor-desktop", installed)
+    The installed CLI can technically resume a desktop conversation, which
+    is exactly why the executor is refused by name: a wake there lands in a
+    copy of the window its operator is reading.
+    """
+    installed = {"claude-cli": "2.1.241", "cursor-cli": "2026.08.11-e8db854"}
+
+    for surface in ("claude-desktop", "codex-desktop", "cursor-desktop"):
+        assert not machine_stopped_wake_supported(surface, installed)
+        assert machine_wake_surface(surface, installed, "message_idle") is None
+        assert machine_wake_surface(surface, installed, "message_stopped") is None
 
 
 def test_machine_wake_reads_the_installed_binary_not_the_registered_surface() -> None:
     assert not machine_stopped_wake_supported(
-        "claude-desktop", {"claude-desktop": "1.34493.1"}
+        "claude-vscode", {"claude-vscode": "2.1.241"}
     )
     assert not machine_stopped_wake_supported(
-        "claude-desktop", {"claude-cli": "2.1.237"}
+        "claude-vscode", {"claude-cli": "2.1.237"}
     )
-    assert not machine_stopped_wake_supported("claude-desktop", {})
-    assert not machine_stopped_wake_supported("claude-desktop", None)
+    assert not machine_stopped_wake_supported("claude-vscode", {})
+    assert not machine_stopped_wake_supported("claude-vscode", None)
     assert not machine_stopped_wake_supported(None, {"claude-cli": "2.1.241"})
 
 

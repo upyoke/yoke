@@ -57,6 +57,7 @@ def _starved_dict(entry: StarvedDelivery) -> dict[str, Any]:
         "envelope_count": entry.envelope_count,
         "oldest_seconds": entry.oldest_seconds,
         "wake_escalation": entry.wake_escalation,
+        "operator_wake": entry.operator_wake,
     }
 
 

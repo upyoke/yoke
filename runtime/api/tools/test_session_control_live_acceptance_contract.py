@@ -44,7 +44,8 @@ def _matrix() -> dict:
                 "mode": mode,
                 "acceptance_role": "surface",
                 "proof_scope": "registered_session_control_surface",
-                "wake_route": "direct",
+                # A desktop surface is its operator's to wake, never ours.
+                "wake_route": "none" if surface == "claude-desktop" else "direct",
                 **(
                     {"session_id": "claude-desktop-session"}
                     if mode == "identify"

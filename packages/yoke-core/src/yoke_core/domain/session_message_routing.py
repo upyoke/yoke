@@ -5,7 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Mapping
 
-from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.capabilities import (
+    capability_for_surface,
+    native_wake_supported,
+    surface_wake_authority,
+)
 from yoke_contracts.session_control.surface_versions import (
     machine_wake_surface,
     surface_operation_supported,
@@ -70,6 +74,11 @@ def _wake_interface(
     capability = capability_for_surface(surface)
     if capability is None or operation is None:
         return "none"
+    if not native_wake_supported(surface):
+        # The surface still carries its messaging capability — hook delivery
+        # is untouched — but nothing here may resume it. Only the operator
+        # whose window it is can end the wait.
+        return "none"
     if surface_operation_supported(surface, version, operation):
         return str(getattr(capability, operation))
     if (
@@ -99,6 +108,12 @@ def messageability(
     A terminated session is refused outright, read from ``terminated_at`` on
     the row rather than from ``liveness`` — a kill presents as an ordinary
     ``ended`` session, and only the column proves the delivery ban.
+
+    ``wake_authority`` rides beside ``wake_interface`` and ``wake_operation``
+    so a reader can tell "no route exists" from "the route belongs to the
+    person whose window this is": an ``operator`` surface is never resumed by
+    Yoke, and its pending message is delivered by hook injection the moment
+    its operator types.
 
     ``force_stopped_route`` is for a caller that has already decided the
     wake is a stopped-session resume, past what posture and liveness would
@@ -136,6 +151,7 @@ def messageability(
             "hook_injection": False,
             "wake_interface": wake_interface,
             "wake_operation": operation,
+            "wake_authority": surface_wake_authority(surface),
             "reason": "version_below_floor_or_unknown",
             "minimum_version": capability.minimum_version,
         }
@@ -146,6 +162,7 @@ def messageability(
         "inject_events": list(capability.inject_events),
         "wake_interface": wake_interface,
         "wake_operation": operation,
+        "wake_authority": surface_wake_authority(surface),
         "minimum_version": capability.minimum_version,
         "reason": "hook_delivery" if hook_injection else "unsupported_surface",
     }

@@ -57,7 +57,8 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         CREATE TABLE actors (
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL DEFAULT 'human',
-            system_component TEXT
+            system_component TEXT,
+            created_at TEXT
         );
         CREATE TABLE actor_labels (
             id INTEGER PRIMARY KEY,

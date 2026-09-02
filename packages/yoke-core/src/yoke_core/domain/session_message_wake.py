@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain import db_backend
 from yoke_core.domain import json_helper
@@ -18,6 +19,7 @@ from yoke_core.domain.session_message_delivery import (
     _expire_rows,
 )
 from yoke_core.domain.session_message_wake_skip import record_wake_skip
+from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wake
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
     messageability,
@@ -70,6 +72,12 @@ def _native_wake_route_available(
     # operation, so the ban has to read terminated_at — otherwise the private
     # route qualification below would reopen what the kill closed.
     if row.get("terminated_at"):
+        return False
+    # A surface whose wake authority is its operator is never resumed here,
+    # whatever its liveness, parked mode, or stall state says. The stage
+    # qualification below would otherwise reopen exactly the private route
+    # this rules out, which is how a desktop transcript gets forked.
+    if not native_wake_supported(str(row.get("executor_surface") or "")):
         return False
     from yoke_core.domain.session_surface_policy import live_mark
 
@@ -193,6 +201,16 @@ def wake_eligible_recipients(
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
+            # A desktop recipient has no wake route to reach, so the sweep
+            # owes it one thing: telling the operator whose chat it is. That
+            # is due on the grace window, not on whichever branch below this
+            # recipient would have taken.
+            notify_operator_to_wake(
+                conn,
+                row,
+                now=current,
+                grace_seconds=policy.wake_ack_grace_seconds,
+            )
             escalation = ""
             if not explicit_wake and liveness == "active":
                 # An active session is served by its own hooks — unless the

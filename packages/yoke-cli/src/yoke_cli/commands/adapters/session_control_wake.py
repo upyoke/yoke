@@ -52,7 +52,12 @@ def session_wake(args: List[str]) -> int:
         usage=SESSION_WAKE_USAGE,
         description=(
             "Request one stopped-session native resume through the ordinary "
-            "message relay, regardless of the target's liveness label."
+            "message relay, regardless of the target's liveness label. A "
+            "desktop target is refused: Yoke never resumes the window a "
+            "person is reading, because that forks their transcript. Send "
+            "the message instead — `yoke say --session SESSION-ID --stdin` "
+            "— and it is delivered by hook injection the moment that "
+            "operator types anything in the chat."
         ),
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID", nargs="?")

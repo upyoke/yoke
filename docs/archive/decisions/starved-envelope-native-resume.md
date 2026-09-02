@@ -72,3 +72,10 @@ it is carrying out.
 page and no approval step; the reason rides on the wake attempt's evidence so
 an escalated resume can be told apart from an ordinary one after the fact,
 and a wake that fails records its failure the way every other wake does.
+
+Zero touch holds wherever a wake exists to fire, which is every headless CLI
+surface. It does not hold for a desktop conversation, which Yoke never
+resumes at all — see
+[`desktop-sessions-are-operator-woken.md`](desktop-sessions-are-operator-woken.md).
+There the only actor who can end the wait is the person reading the window,
+so the escalation becomes a message to them rather than a resume.

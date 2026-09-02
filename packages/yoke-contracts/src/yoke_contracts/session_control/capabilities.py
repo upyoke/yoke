@@ -13,6 +13,13 @@ from yoke_contracts.executor_labels import (
 
 
 InterfaceClass = Literal["supported", "private", "none"]
+#: Who may resume a session on this surface. ``native`` means Yoke may
+#: drive the harness's own resume; ``operator`` means only the person
+#: sitting in front of it may, because resuming an open desktop window
+#: headlessly forks the transcript they are reading — the woken turns
+#: land in a copy of the conversation the app only shows on refresh, and
+#: the next sentence they type continues the branch they can see.
+WakeAuthority = Literal["native", "operator"]
 CURSOR_LIVENESS_PROCESS_NAMES = ("cursor-agent", "cursor")
 
 
@@ -27,6 +34,7 @@ class SessionSurfaceCapability:
     stop_denial_continuation: InterfaceClass = "supported"
     relay_stop_denial_continuation: InterfaceClass = "supported"
     liveness_process_names: tuple[str, ...] = ()
+    wake_authority: WakeAuthority = "native"
 
     def to_json(self) -> dict[str, object]:
         payload = asdict(self)
@@ -52,6 +60,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "private",
         "private",
         "none",
+        wake_authority="operator",
     ),
     "claude-vscode": SessionSurfaceCapability(
         "2.1.238",
@@ -90,6 +99,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "none",
         "none",
         relay_stop_denial_continuation="none",
+        wake_authority="operator",
     ),
     "codex-vscode": SessionSurfaceCapability(
         "0.148.0-alpha.15",
@@ -125,6 +135,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "none",
         stop_denial_continuation="none",
         relay_stop_denial_continuation="none",
+        wake_authority="operator",
     ),
 }
 
@@ -134,6 +145,32 @@ if set(SESSION_SURFACE_CAPABILITIES) != set(KNOWN_SURFACE_LABELS):
 
 def capability_for_surface(surface: str | None) -> SessionSurfaceCapability | None:
     return SESSION_SURFACE_CAPABILITIES.get(str(surface or ""))
+
+
+def surface_wake_authority(surface: str | None) -> WakeAuthority:
+    """Return who may resume one surface: Yoke natively, or its operator.
+
+    A surface nobody has declared reads ``native``, because every other
+    refusal in this contract already covers an unknown surface; this fact
+    exists to name the declared exception, not to invent a second one.
+    """
+    capability = capability_for_surface(surface)
+    return capability.wake_authority if capability is not None else "native"
+
+
+def native_wake_supported(surface: str | None) -> bool:
+    """Whether Yoke may resume this surface without a person in the loop."""
+    return surface_wake_authority(surface) == "native"
+
+
+def operator_wake_instruction(surface: str | None) -> str:
+    """The one sentence every surface teaches about an operator-woken wake."""
+    return (
+        f"Yoke never resumes a {surface or 'desktop'} session: a native resume "
+        "forks the transcript its operator is reading. The message stays "
+        "pending and is delivered the moment the operator types anything in "
+        "that chat, so ask them to open it and type."
+    )
 
 
 def _capabilities_for_executor(
@@ -219,8 +256,12 @@ def capabilities_for_harness(harness_id: str) -> dict[str, dict[str, object]]:
 __all__ = [
     "SESSION_SURFACE_CAPABILITIES",
     "SessionSurfaceCapability",
+    "WakeAuthority",
     "capabilities_for_harness",
     "capability_for_surface",
     "liveness_process_names",
+    "native_wake_supported",
+    "operator_wake_instruction",
     "stop_denial_continuation_supported",
+    "surface_wake_authority",
 ]

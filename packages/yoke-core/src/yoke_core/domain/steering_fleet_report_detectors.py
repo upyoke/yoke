@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Sequence
 
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.item_ref_render import render_item_refs
@@ -102,6 +103,9 @@ class StarvedDelivery:
     oldest_seconds: int
     #: Why the wake sweep already escalated, when it has; empty otherwise.
     wake_escalation: str = ""
+    #: True when the recipient's surface is woken only by its own operator,
+    #: so the finding is an ask to that person rather than work for the seat.
+    operator_wake: bool = False
 
 
 @dataclass(frozen=True)
@@ -150,6 +154,7 @@ def starved_deliveries(
         f"""SELECT r.session_id AS session_id,
                    r.created_at AS created_at,
                    r.wake_escalation AS wake_escalation,
+                   s.executor_surface AS executor_surface,
                    s.last_tool_call_at AS last_tool_call_at
               FROM session_message_recipients r
               JOIN harness_sessions s ON s.session_id = r.session_id
@@ -163,6 +168,7 @@ def starved_deliveries(
     oldest: dict[str, int] = {}
     counts: dict[str, int] = {}
     escalations: dict[str, str] = {}
+    operator_woken: set[str] = set()
     for row in rows:
         record = dict(row)
         sent_at = str(record.get("created_at") or "")
@@ -183,12 +189,17 @@ def starved_deliveries(
         escalation = str(record.get("wake_escalation") or "")
         if escalation:
             escalations[session_id] = escalation
+        # A desktop recipient is never resumed by Yoke, so this row is not
+        # a worker to revive; it names a chat only its operator can open.
+        if not native_wake_supported(str(record.get("executor_surface") or "")):
+            operator_woken.add(session_id)
     return tuple(
         StarvedDelivery(
             session_id=session_id,
             envelope_count=counts[session_id],
             oldest_seconds=oldest[session_id],
             wake_escalation=escalations.get(session_id, ""),
+            operator_wake=session_id in operator_woken,
         )
         for session_id in sorted(oldest, key=lambda key: (-oldest[key], key))
     )

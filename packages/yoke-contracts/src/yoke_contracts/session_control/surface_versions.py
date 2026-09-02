@@ -8,6 +8,7 @@ from typing import Mapping
 from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
+    native_wake_supported,
 )
 from yoke_contracts.session_control.private_route_versions import (
     private_route_version_qualified,
@@ -31,9 +32,6 @@ _VERSION = re.compile(
 )
 _CLAUDE_RESUME_SURFACE = "claude-cli"
 _CLAUDE_FAMILY_SURFACES = frozenset(capabilities_for_harness("claude-code"))
-_CURSOR_RESUME_SURFACE = "cursor-cli"
-_CURSOR_DESKTOP_SURFACE = "cursor-desktop"
-_CURSOR_PEER_WAKE_OPERATIONS = frozenset({"message_idle", "message_stopped"})
 _PRERELEASE_RANK = {
     "a": 0,
     "alpha": 0,
@@ -119,10 +117,14 @@ def machine_wake_executor_surface(
 ) -> str | None:
     """Name the same-machine binary that executes a peer wake."""
     target = str(surface or "")
+    if not native_wake_supported(target):
+        # The peer binary could technically resume this conversation, which
+        # is exactly the failure: the wake would land in a fork of the
+        # transcript its operator is reading. Naming no executor is what
+        # keeps every caller from carrying that wake onward.
+        return None
     if operation == "message_stopped" and target in _CLAUDE_FAMILY_SURFACES:
         return _CLAUDE_RESUME_SURFACE
-    if target == _CURSOR_DESKTOP_SURFACE and operation in _CURSOR_PEER_WAKE_OPERATIONS:
-        return _CURSOR_RESUME_SURFACE
     return None
 
 
@@ -154,8 +156,9 @@ def machine_stopped_wake_surface(
     caller carrying that wake onward names the same executing binary, because
     the surface the session registered under has no resume route of its own.
 
-    Cursor desktop conversations likewise use the installed Cursor CLI's exact
-    session resume operation while the desktop capability itself stays closed.
+    A surface whose wake authority is the operator has no peer route at all:
+    sharing a transcript store is what would let the CLI resume the window a
+    person is reading, which is the fork this refuses rather than enables.
     """
     return machine_wake_surface(surface, machine_surface_versions, "message_stopped")
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import json
 
 import pytest
@@ -301,6 +303,30 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     assert "YOK-3" in waiter_row
     assert "session holder-session" in waiter_row
     assert "yoke say --item YOK-3 --stdin" in waiter_row
+
+
+def test_a_starved_row_says_who_owes_the_next_move():
+    """A CLI row names its escalation; a desktop row names its operator.
+
+    They are different asks: one is a resume already in flight, the other
+    a chat only the person reading it can open.
+    """
+    from yoke_core.domain.steering_fleet_report_detectors import StarvedDelivery
+
+    def row(operator_wake: bool) -> str:
+        entry = StarvedDelivery(
+            session_id="starved-session",
+            envelope_count=2,
+            oldest_seconds=2400,
+            wake_escalation="starved_hook_route",
+            operator_wake=operator_wake,
+        )
+        body = report_body(replace(_populated_report(), starved=(entry,)))
+        return next(line for line in body.splitlines() if "starved-session" in line)
+
+    assert "wake escalated (starved_hook_route)" in row(False)
+    assert "waiting for the operator to wake it" in row(True)
+    assert "wake escalated" not in row(True)
 
 
 def test_the_populated_report_stays_short_enough_to_ride_every_message():
