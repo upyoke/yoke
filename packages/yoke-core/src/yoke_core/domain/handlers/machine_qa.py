@@ -11,6 +11,10 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.machine_qa_execution import (
+    VERIFICATION_BASELINES,
+    VERIFICATION_CHECKS,
+)
 from yoke_core.domain import db_helpers
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 from yoke_core.domain.machine_qa_execution_contract import (
@@ -173,8 +177,8 @@ def handle_verify_begin(request: FunctionCallRequest) -> HandlerOutcome:
             machine=parsed.machine,
             select_any=False,
             operation="verify",
-            checks=("connection", "terminal_bridge"),
-            baselines=("fresh-host", "shell-preconfigured"),
+            checks=VERIFICATION_CHECKS,
+            baselines=VERIFICATION_BASELINES,
         )
     except (MachineQaProtocolError, TestMachineCapabilityError) as exc:
         conn.rollback()
@@ -214,12 +218,16 @@ def _validate_verification_result(
             or parsed.error_code is not None
         ):
             raise ValueError("verified result must pass every issued check")
-    elif (
-        not str(parsed.error_code or "").strip()
-        or not all(observed_ok[:-1])
-        or observed_ok[-1]
-    ):
+    elif not str(parsed.error_code or "").strip() or all(observed_ok):
         raise ValueError("error result must identify its first failed check")
+    elif (
+        observed_names[observed_ok.index(False)] == VERIFICATION_CHECKS[0]
+        and observed_ok.index(False) != len(observed_ok) - 1
+    ):
+        # Only the transport check is a precondition for the rest; a failure
+        # there ends the sequence, while a later failure keeps going so the
+        # host baselines still run.
+        raise ValueError("a failed transport check ends the verification sequence")
     ensure_secret_free_result(parsed.model_dump(mode="json"))
 
 
@@ -251,8 +259,8 @@ def handle_verify_submit(request: FunctionCallRequest) -> HandlerOutcome:
             lease_id=parsed.lease_id,
             contract_digest=parsed.contract_digest,
             operation="verify",
-            checks=("connection", "terminal_bridge"),
-            baselines=("fresh-host", "shell-preconfigured"),
+            checks=VERIFICATION_CHECKS,
+            baselines=VERIFICATION_BASELINES,
             allow_recorded_replay=True,
         )
         _validate_verification_result(parsed, contract)

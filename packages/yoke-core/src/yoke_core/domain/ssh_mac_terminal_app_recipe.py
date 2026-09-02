@@ -15,12 +15,17 @@ from yoke_core.domain.machine_qa_operator_gate import (
 )
 from yoke_core.domain.ssh_mac_browser_approval import approve_machine_in_safari
 from yoke_core.domain.qa_artifact_handle import local_handle
+from yoke_contracts.machine_qa_execution import (
+    TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
+)
 from yoke_core.domain.ssh_mac_terminal_app import (
+    DisplayFrameUnavailable,
     RunRemote,
     capture_terminal_app_screen,
     capture_terminal_app_transcript,
     close_terminal_app_window,
     open_terminal_app_window,
+    resolve_display_frame,
     send_terminal_app_keys,
 )
 from yoke_core.domain.ssh_mac_terminal_readiness import (
@@ -85,10 +90,20 @@ def run_terminal_app_recipe(
     screenshot_registry = TerminalScreenshotRegistry()
     window_id: int | None = None
     try:
+        display_frame = resolve_display_frame(run)
+    except DisplayFrameUnavailable as exc:
+        return _failure(
+            TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
+            captures=captures,
+            staged_files=staged,
+            display_frame_detail=str(exc),
+        )
+    try:
         window_id = open_terminal_app_window(
             run,
             command=wrapped,
             terminal_size=terminal_size,
+            display_frame=display_frame,
         )
         if window_id is None:
             return _failure(
@@ -212,15 +227,20 @@ def run_terminal_app_recipe(
             reached.append(key)
             if action["capture"] and key in config["capture_checkpoints"]:
                 assert window_id is not None
-                screenshot = capture_terminal_app_screen(
+                capture_result = capture_terminal_app_screen(
                     run,
                     session=session,
                     key=f"{len(captures):03d}-{key}",
                     evidence_root=evidence_root,
                     window_id=window_id,
+                    display_frame=display_frame,
                 )
+                screenshot = capture_result.path
                 if screenshot is None:
-                    degraded.append(f"{key}: screenshot capture blocked")
+                    degraded.append(
+                        f"{key}: screenshot capture blocked "
+                        f"({capture_result.error_code})"
+                    )
                 else:
                     duplicate_of = screenshot_registry.duplicate_of(
                         key,

@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
-import base64
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 import json
-from pathlib import Path
 import shlex
 import subprocess
-import time
-from uuid import uuid4
 
-from yoke_contracts.machine_qa_execution import (
-    TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
+from yoke_harness.ssh_mac_display_frame import (
+    DisplayFrame,
+    RunRemote,
+    resolve_display_frame,
+    window_layout,
 )
 
 
-RunRemote = Callable[..., subprocess.CompletedProcess[str]]
-TERMINAL_WINDOW_BOUNDS = (66, 90, 1566, 820)
-_HELPER_WINDOW_BOUNDS = (40, 850, 1540, 900)
-_CAPTURE_TIMEOUT_SECONDS = 10
-_CAPTURE_POLL_SECONDS = 0.1
 _KEY_CODES = {
     "Down": 125,
     "Enter": 36,
@@ -46,20 +40,85 @@ def run_osascript(
     )
 
 
+def place_terminal_app_window(
+    run: RunRemote,
+    *,
+    window_id: int,
+    frame: DisplayFrame,
+    bounds: tuple[int, int, int, int],
+) -> tuple[int, int, int, int] | None:
+    """Move one window onto *frame* and report the bounds it actually took.
+
+    Terminal restores a saved frame for every new window and clamps requested
+    sizes to whole character cells, so the requested rectangle is a proposal.
+    This reads the result back and re-anchors once when the window landed
+    outside the display, which is what defeats a region capture.
+    """
+    observed = _set_window_bounds(run, window_id=window_id, bounds=bounds)
+    if observed is None or frame.contains(observed):
+        return observed
+    return _set_window_bounds(
+        run,
+        window_id=window_id,
+        bounds=frame.anchored(observed),
+    )
+
+
+def _set_window_bounds(
+    run: RunRemote,
+    *,
+    window_id: int,
+    bounds: tuple[int, int, int, int],
+) -> tuple[int, int, int, int] | None:
+    left, top, right, bottom = bounds
+    result = run_osascript(
+        run,
+        [
+            'tell application "Terminal"',
+            f'if not (exists window id {window_id}) then return ""',
+            f"set targetWindow to window id {window_id}",
+            "set miniaturized of targetWindow to false",
+            f"set bounds of targetWindow to {{{left}, {top}, {right}, {bottom}}}",
+            "set observed to bounds of targetWindow",
+            'return ((item 1 of observed) as text) & "," & '
+            '((item 2 of observed) as text) & "," & '
+            '((item 3 of observed) as text) & "," & '
+            "((item 4 of observed) as text)",
+            "end tell",
+        ],
+    )
+    if result.returncode:
+        return None
+    parts = result.stdout.strip().split(",")
+    if len(parts) != 4:
+        return None
+    try:
+        return tuple(int(float(part.strip())) for part in parts)  # type: ignore[return-value]
+    except ValueError:
+        return None
+
+
 def open_terminal_app_window(
     run: RunRemote,
     *,
     command: str,
     terminal_size: tuple[int, int] | None = None,
+    display_frame: DisplayFrame | None = None,
+    bounds: tuple[int, int, int, int] | None = None,
 ) -> int | None:
-    """Start *command* in a new, fully sized Terminal.app window."""
-    left, top, right, bottom = TERMINAL_WINDOW_BOUNDS
+    """Start *command* in a new Terminal.app window placed on the display.
+
+    Placement is derived from the display's own visible frame rather than
+    fixed coordinates, because a restored off-screen frame, a different
+    display size, or a screen-shared session all move where those
+    coordinates land.
+    """
+    frame = display_frame or resolve_display_frame(run)
     lines = [
         'tell application "Terminal"',
         "activate",
         'set targetTab to do script ""',
         "set targetWindow to front window",
-        f"set bounds of targetWindow to {{{left}, {top}, {right}, {bottom}}}",
     ]
     if terminal_size is not None:
         lines.extend(
@@ -81,7 +140,15 @@ def open_terminal_app_window(
         window_id = int(result.stdout.strip())
     except (AttributeError, TypeError, ValueError):
         return None
-    return window_id if result.returncode == 0 and window_id > 0 else None
+    if result.returncode or window_id <= 0:
+        return None
+    place_terminal_app_window(
+        run,
+        window_id=window_id,
+        frame=frame,
+        bounds=bounds if bounds is not None else window_layout(frame).target,
+    )
+    return window_id
 
 
 def close_terminal_app_window(
@@ -165,183 +232,12 @@ def send_terminal_app_keys(
     return result.returncode == 0 and result.stdout.strip().casefold() == "true"
 
 
-def _terminal_app_screenshot_payload(
-    run: RunRemote,
-    *,
-    remote: str,
-    window_id: int,
-) -> str | None:
-    """Capture the target's region through Terminal.app's recording grant."""
-    helper_bounds = ", ".join(str(value) for value in _HELPER_WINDOW_BOUNDS)
-    result = run_osascript(
-        run,
-        [
-            'tell application "Terminal"',
-            f"if not (exists window id {window_id}) then return 0",
-            f"set targetWindow to window id {window_id}",
-            "set b to bounds of targetWindow",
-            "set leftPos to item 1 of b",
-            "set topPos to item 2 of b",
-            "set widthVal to (item 3 of b) - leftPos",
-            "set heightVal to (item 4 of b) - topPos",
-            (
-                'set shotCmd to "/bin/sleep 0.5; '
-                '/usr/sbin/screencapture -x -R" & leftPos & "," & topPos & '
-                '"," & widthVal & "," & heightVal & " -o " & '
-                f"quoted form of {json.dumps(remote)}"
-            ),
-            "do script shotCmd",
-            "set helperWindow to front window",
-            f"set bounds of helperWindow to {{{helper_bounds}}}",
-            "set index of targetWindow to 1",
-            "activate",
-            "return id of helperWindow",
-            "end tell",
-        ],
-    )
-    try:
-        helper_id = int(result.stdout.strip())
-    except (AttributeError, TypeError, ValueError):
-        return None
-    if result.returncode or helper_id <= 0:
-        return None
-    try:
-        deadline = time.monotonic() + _CAPTURE_TIMEOUT_SECONDS
-        while time.monotonic() < deadline:
-            encoded = run(
-                f"/bin/test -s {shlex.quote(remote)} && "
-                f"/usr/bin/base64 < {shlex.quote(remote)}",
-                timeout=10,
-            )
-            if encoded.returncode == 0 and encoded.stdout.strip():
-                return encoded.stdout
-            time.sleep(_CAPTURE_POLL_SECONDS)
-        return None
-    finally:
-        close_terminal_app_window(run, window_id=helper_id)
-
-
-def capture_terminal_app_screen(
-    run: RunRemote,
-    *,
-    session: str,
-    key: str,
-    evidence_root: Path,
-    window_id: int,
-) -> Path | None:
-    """Retain one screenshot of the exact user-visible Terminal.app region."""
-    remote = f"/tmp/{session}-{key}.png"
-    try:
-        encoded = _terminal_app_screenshot_payload(
-            run,
-            remote=remote,
-            window_id=window_id,
-        )
-        if encoded is None:
-            return None
-        try:
-            payload = base64.b64decode(encoded)
-        except ValueError:
-            return None
-    finally:
-        run(f"rm -f {shlex.quote(remote)}", timeout=10)
-    path = evidence_root / f"{key}.png"
-    path.write_bytes(payload)
-    return path
-
-
-def verify_terminal_app_control(
-    run: RunRemote,
-) -> tuple[bool, dict[str, bool], str | None]:
-    """Exercise direct launch, native input, transcript, and region capture."""
-    identity = uuid4().hex[:12]
-    session = f"yoke-terminal-app-{identity}"
-    remote = f"/tmp/{session}.png"
-    received = f"received-{identity}"
-    command = (
-        "printf 'terminal-app-ready\\n'; "
-        "IFS= read -r value; printf 'received-%s\\n' \"$value\"; sleep 15"
-    )
-    checks = {
-        "terminal_app_launch": False,
-        "terminal_app_input": False,
-        "terminal_app_transcript": False,
-        "terminal_app_screenshot": False,
-    }
-    window_id = open_terminal_app_window(run, command=command)
-    try:
-        if window_id is None:
-            return False, checks, "terminal_app_control_unavailable"
-        checks["terminal_app_launch"] = True
-        ready = False
-        ready_deadline = time.monotonic() + 5
-        while time.monotonic() < ready_deadline:
-            transcript = capture_terminal_app_transcript(
-                run,
-                window_id=window_id,
-            )
-            if "terminal-app-ready" in transcript:
-                ready = True
-                break
-            time.sleep(0.1)
-        if not ready:
-            return False, checks, "terminal_app_control_unavailable"
-        # Frame before the window's content changes: only the ready banner
-        # and prompt are on screen.
-        before_frame = _terminal_app_screenshot_payload(
-            run, remote=remote, window_id=window_id
-        )
-        run(f"rm -f {shlex.quote(remote)}", timeout=10)
-        checks["terminal_app_input"] = send_terminal_app_keys(
-            run,
-            window_id=window_id,
-            keys=(identity, "Enter"),
-        )
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
-            transcript = capture_terminal_app_transcript(
-                run,
-                window_id=window_id,
-            )
-            if received in transcript:
-                checks["terminal_app_transcript"] = True
-                break
-            time.sleep(0.1)
-        if not checks["terminal_app_transcript"]:
-            return False, checks, "terminal_app_control_unavailable"
-        # The transcript proved the visible content changed; a capture that
-        # still matches the earlier frame is not seeing this window — on
-        # macOS that is exactly what an ungranted Terminal.app produces
-        # (a valid non-empty PNG of the wallpaper only).
-        after_frame = _terminal_app_screenshot_payload(
-            run, remote=remote, window_id=window_id
-        )
-        if before_frame is None or after_frame is None:
-            return False, checks, "terminal_app_control_unavailable"
-        checks["terminal_app_screenshot"] = after_frame != before_frame
-        if not checks["terminal_app_screenshot"]:
-            return False, checks, TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE
-        ok = all(checks.values())
-        return ok, checks, None if ok else "terminal_app_control_unavailable"
-    finally:
-        run(f"rm -f {shlex.quote(remote)}", timeout=10)
-        if window_id is not None:
-            send_terminal_app_keys(
-                run,
-                window_id=window_id,
-                keys=("C-c",),
-            )
-        close_terminal_app_window(run, window_id=window_id)
-
-
 __all__ = [
     "RunRemote",
-    "TERMINAL_WINDOW_BOUNDS",
-    "capture_terminal_app_screen",
     "capture_terminal_app_transcript",
     "close_terminal_app_window",
     "open_terminal_app_window",
+    "place_terminal_app_window",
     "run_osascript",
     "send_terminal_app_keys",
-    "verify_terminal_app_control",
 ]

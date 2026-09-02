@@ -27,7 +27,7 @@ from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
     run_terminal_app_command,
 )
-from yoke_harness.ssh_mac_terminal_app import (
+from yoke_harness.ssh_mac_terminal_bridge_check import (
     verify_terminal_app_control,
 )
 from yoke_harness.test_machine_types import HostActionResult
@@ -144,7 +144,10 @@ class SshMacTransport:
         )
 
     def check_terminal_bridge(self) -> HostActionResult:
-        ok, evidence, error_code = verify_terminal_app_control(self._run)
+        ok, evidence, error_code = verify_terminal_app_control(
+            self._run,
+            expected_console_user=self._user,
+        )
         return HostActionResult(
             ok=ok,
             error_code=error_code,

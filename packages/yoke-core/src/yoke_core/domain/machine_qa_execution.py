@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections.abc import Callable
+from functools import partial
 from typing import Any, Mapping
+
+from yoke_contracts.machine_qa_execution import (
+    VERIFICATION_BASELINES,
+    VERIFICATION_CHECKS,
+)
+from yoke_harness.test_machine_verification import run_verification_sequence
 
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.coordination_claims import (
@@ -17,7 +24,6 @@ from yoke_core.domain.host_baseline_operations import (
     run_host_baseline,
 )
 from yoke_core.domain.host_control_runner import (
-    HostActionResult,
     HostControl,
     TestMachineMaterial,
     resolve_contract_host_control,
@@ -255,8 +261,6 @@ def verify_test_machine(
     machine: str | None = None,
 ) -> dict[str, Any]:
     """Verify connection, control bridge, and both registered baselines."""
-    checks: list[dict[str, Any]] = []
-    error_code: str | None = None
     with acquire_machine_qa_lease(
         conn,
         project=project,
@@ -264,29 +268,16 @@ def verify_test_machine(
         machine=machine,
         select_any=False,
     ) as execution:
-        for name, action in (
-            ("connection", execution.control.check_connection),
-            ("terminal_bridge", execution.control.check_terminal_bridge),
-        ):
-            try:
-                result: HostActionResult = action()
-            except Exception:
-                checks.append({"name": name, "ok": False})
-                error_code = f"{name}_failed"
-                break
-            checks.append({"name": name, "ok": result.ok, **result.evidence})
-            if not result.ok:
-                error_code = result.error_code or f"{name}_failed"
-                break
-        if error_code is None:
-            for baseline_name in ("fresh-host", "shell-preconfigured"):
-                baseline = execution.reach_baseline(baseline_name)
-                checks.append(
-                    {"name": baseline_name, "ok": baseline.ok, **baseline.evidence}
-                )
-                if not baseline.ok:
-                    error_code = baseline.error_code
-                    break
+        checks, error_code = run_verification_sequence(
+            checks=[
+                (VERIFICATION_CHECKS[0], execution.control.check_connection),
+                (VERIFICATION_CHECKS[1], execution.control.check_terminal_bridge),
+            ],
+            baselines=[
+                (name, partial(execution.reach_baseline, name))
+                for name in VERIFICATION_BASELINES
+            ],
+        )
         status = "verified" if error_code is None else "error"
         safe_checks = redact_machine_qa_value(
             checks,
