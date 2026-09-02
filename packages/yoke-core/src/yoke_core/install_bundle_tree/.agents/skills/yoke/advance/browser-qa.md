@@ -46,6 +46,14 @@ Read the environment URL and deployed SHA. Read the worktree HEAD through
 SHA is stale, run the project's normal deployment path and retry this gate.
 Do not execute Browser cases against an unknown build.
 
+A criterion behind a sign-in needs the project's persistent browser profile.
+The operator authorizes it once, headed, with
+`yoke browser authorize --project "$_item_project"`; every context the daemon
+then hands out for that project is signed in. Agents never complete a sign-in,
+so a case landing on a sign-in page is an operator request, not a defect to
+work around. Confirm what a run here would open with
+`yoke qa browser status --project "$_item_project"`.
+
 ## 3. Execute the ordered plan roster
 
 ```bash

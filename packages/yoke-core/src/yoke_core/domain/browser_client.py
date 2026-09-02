@@ -45,7 +45,7 @@ it silently breaks the patch seam.
 CLI usage::
 
     python3 -m yoke_core.domain.browser_client daemon status
-    python3 -m yoke_core.domain.browser_client daemon start [--port N] [--headed]
+    python3 -m yoke_core.domain.browser_client daemon start [--port N] [--headed] [--project P]
     python3 -m yoke_core.domain.browser_client daemon stop
     python3 -m yoke_core.domain.browser_client daemon health
     python3 -m yoke_core.domain.browser_client snapshot accessibility <url>
@@ -53,13 +53,9 @@ CLI usage::
     python3 -m yoke_core.domain.browser_client snapshot diff <url> --baseline <path> --viewport WxH
     python3 -m yoke_core.domain.browser_client exec step '<json>' --base-url <url>
 
-All output is JSON on stdout.  Errors go to stderr.
-
-Exit codes mirror the shell convention:
-    0 = success
-    1 = failed
-    2 = daemon not running
-    3 = usage error
+All output is JSON on stdout.  Errors go to stderr. Exit codes mirror the
+shell convention: 0 = success, 1 = failed, 2 = daemon not running,
+3 = usage error.
 """
 
 from __future__ import annotations
@@ -121,6 +117,7 @@ class DaemonState:
     started_at: str = ""
     health: str = "unknown"
     port: int = 0
+    profile_dir: str = ""
     raw: Dict[str, Any] = None  # type: ignore[assignment]
 
     @classmethod
@@ -138,6 +135,7 @@ class DaemonState:
             token=str(data.get("token", "")),
             endpoint=str(data.get("endpoint", "")),
             browser_type=str(data.get("browserType", "chromium")),
+            profile_dir=str(data.get("profileDir", "")),
             started_at=str(data.get("startedAt", "")),
             health=str(data.get("health", "unknown")),
             port=int(data.get("port", 0)),
@@ -304,6 +302,7 @@ def main() -> int:
     ds = dsub.add_parser("start")
     ds.add_argument("--port", type=int)
     ds.add_argument("--headed", action="store_true")
+    ds.add_argument("--project", default=None)
     ds.add_argument("--idle-timeout", type=int, dest="idle_timeout")
     dsub.add_parser("stop")
 

@@ -14,6 +14,12 @@ AWS_ADMIN_SECRET_KEYS = frozenset({
 SSH_CAPABILITY = "ssh"
 SSH_PRIVATE_KEY_SECRET_KEY = "private_key"
 SSH_SECRET_KEYS = frozenset({SSH_PRIVATE_KEY_SECRET_KEY})
+BROWSER_CONTROL_CAPABILITY = "browser-control"
+#: Directory name, under the browser-control capability, holding the
+#: operator's signed-in Chromium profile for one project. It is a directory
+#: rather than a secret key file, so it never routes through the
+#: secret-key contract above.
+BROWSER_PROFILE_DIR_NAME = "profile"
 TEST_MACHINE_CAPABILITY = "test-machine"
 TEST_MACHINE_SECRET_KEYS = frozenset({"ssh_private_key"})
 MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
@@ -71,6 +77,22 @@ def capability_secret_directory_relative_path(
     )
 
 
+def browser_profile_relative_path(project_ref: str) -> Path:
+    """Return the path under ``~/.yoke/secrets`` for a project's browser profile.
+
+    The profile carries live signed-in cookies for whatever the operator
+    signed into, so it lives beside the project's other machine-local
+    capability secrets and never in the database, the repository, QA
+    artifacts, or a transcript.
+    """
+    return (
+        Path(CAPABILITY_SECRETS_DIR_NAME)
+        / safe_secret_component(project_ref, "project")
+        / BROWSER_CONTROL_CAPABILITY
+        / BROWSER_PROFILE_DIR_NAME
+    )
+
+
 def safe_secret_component(raw: str, label: str) -> str:
     """Normalize a user/domain label for deterministic secret paths."""
     safe = "".join(
@@ -85,6 +107,8 @@ def safe_secret_component(raw: str, label: str) -> str:
 __all__ = [
     "AWS_ADMIN_CAPABILITY",
     "AWS_ADMIN_SECRET_KEYS",
+    "BROWSER_CONTROL_CAPABILITY",
+    "BROWSER_PROFILE_DIR_NAME",
     "CAPABILITY_SECRETS_DIR_NAME",
     "MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY",
     "SSH_CAPABILITY",
@@ -92,6 +116,7 @@ __all__ = [
     "SSH_SECRET_KEYS",
     "TEST_MACHINE_CAPABILITY",
     "TEST_MACHINE_SECRET_KEYS",
+    "browser_profile_relative_path",
     "capability_secret_directory_relative_path",
     "capability_secret_relative_path",
     "is_machine_local_capability_secret",

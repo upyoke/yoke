@@ -34,6 +34,7 @@ class DaemonState:
     started_at: str = ""
     health: str = "unknown"
     port: int = 0
+    profile_dir: str = ""
     raw: Dict[str, Any] | None = None
 
     @classmethod
@@ -50,6 +51,7 @@ class DaemonState:
             token=str(data.get("token", "")),
             endpoint=str(data.get("endpoint", "")),
             browser_type=str(data.get("browserType", "chromium")),
+            profile_dir=str(data.get("profileDir", "")),
             started_at=str(data.get("startedAt", "")),
             health=str(data.get("health", "unknown")),
             port=int(data.get("port", 0)),
@@ -138,21 +140,40 @@ def daemon_start(
     port: Optional[int] = None,
     headed: bool = False,
     idle_timeout: Optional[int] = None,
+    profile_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Start the daemon, optionally on one project's persistent profile.
+
+    The daemon is a machine singleton, so a live daemon on a different profile
+    is stopped and restarted rather than reused — reusing it would hand this
+    project's workers another project's signed-in session.
+    """
+    requested_profile = str(profile_dir or "")
     state = DaemonState.load()
     if state and daemon_running(state):
+        if state.profile_dir == requested_profile:
+            try:
+                daemon_health(state=state, timeout=1)
+            except RuntimeError as exc:
+                raise RuntimeError(
+                    "browser daemon process is alive but its health endpoint is "
+                    f"not ready (endpoint={state.endpoint}, pid={state.pid}): {exc}"
+                ) from None
+            return {
+                "status": "already_running",
+                "endpoint": state.endpoint,
+                "pid": state.pid,
+            }
+        _log(
+            "Browser daemon is running on a different browser profile "
+            f"({state.profile_dir or 'none'}); restarting it on "
+            f"{requested_profile or 'a throwaway profile'}."
+        )
         try:
-            daemon_health(state=state, timeout=1)
-        except RuntimeError as exc:
-            raise RuntimeError(
-                "browser daemon process is alive but its health endpoint is "
-                f"not ready (endpoint={state.endpoint}, pid={state.pid}): {exc}"
-            ) from None
-        return {
-            "status": "already_running",
-            "endpoint": state.endpoint,
-            "pid": state.pid,
-        }
+            daemon_stop()
+        except RuntimeError:
+            # The daemon exited between the liveness check and the stop.
+            pass
 
     browser = _browser_dir()
     daemon_js = browser / "src" / "daemon.js"
@@ -191,16 +212,8 @@ def daemon_start(
             )
         _log("[browser-auto-bootstrap] npm install completed successfully")
 
-    chromium_check = (
-        "try { var pw = require('./node_modules/playwright'); "
-        "var p = pw.chromium.executablePath(); "
-        "var fs = require('fs'); "
-        "if (fs.existsSync(p)) { process.stdout.write('ok'); } "
-        "else { process.stdout.write('missing'); } "
-        "} catch(e) { process.stdout.write('error:' + e.message); }"
-    )
     result = subprocess.run(
-        ["node", "-e", chromium_check],
+        ["node", "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
         cwd=str(browser),
         capture_output=True,
         text=True,
@@ -250,6 +263,8 @@ def daemon_start(
         command.append("--headed")
     if idle_timeout is not None:
         command.extend(["--idle-timeout", str(idle_timeout)])
+    if requested_profile:
+        command.extend(["--profile-dir", requested_profile])
     command.extend(["--state-file", str(state_path)])
 
     state_path.parent.mkdir(parents=True, exist_ok=True)

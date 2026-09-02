@@ -44,7 +44,8 @@ class TestStatusAdapter:
                 return subprocess.CompletedProcess(command, 0, "v20.0.0\n", "")
             if command[:2] == ["npm", "--version"]:
                 return subprocess.CompletedProcess(command, 0, "10.0.0\n", "")
-            return subprocess.CompletedProcess(command, 0, "ready", "")
+            # The shared Chromium-presence probe answers `ok`.
+            return subprocess.CompletedProcess(command, 0, "ok", "")
 
         with patch(
             "yoke_harness.browser_runtime_home.runtime_dir",
@@ -84,7 +85,8 @@ class TestStatusAdapter:
                 return subprocess.CompletedProcess(command, 0, "v20.0.0\n", "")
             if command[:2] == ["npm", "--version"]:
                 return subprocess.CompletedProcess(command, 0, "10.0.0\n", "")
-            return subprocess.CompletedProcess(command, 0, "ready", "")
+            # The shared Chromium-presence probe answers `ok`.
+            return subprocess.CompletedProcess(command, 0, "ok", "")
 
         with patch(
             "yoke_harness.browser_runtime_home.runtime_dir",
@@ -294,7 +296,7 @@ class TestSetupAdapter:
 
         assert rc == 0
         daemon_start.assert_called_once_with(
-            port=9876, headed=True, idle_timeout=60_000,
+            profile_dir=None, port=9876, headed=True, idle_timeout=60_000,
         )
         payload = json.loads(out.getvalue())
         assert payload["prerequisite_actions"] == [

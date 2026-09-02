@@ -64,6 +64,14 @@ def _ensure_daemon_running(
 ) -> Optional[str]:
     """Ensure browser daemon is running. Returns error message or None.
 
+    The daemon is started on ``project``'s persistent browser profile when the
+    operator has authorized one, so every context it hands out is signed into
+    whatever they signed into. Without a profile the daemon keeps its previous
+    throwaway-context behavior. ``daemon_start`` itself answers
+    ``already_running`` only when the live daemon is already on this profile,
+    so a project switch restarts rather than silently reusing another
+    project's session.
+
     Performs bounded auto-recovery — on startup failure, stops stale
     state, waits briefly, and retries up to ``_DAEMON_MAX_RETRIES`` additional
     times before giving up.
@@ -73,21 +81,22 @@ def _ensure_daemon_running(
     # via mock.patch.object(browser_qa, ...) take effect on this caller.
     from yoke_core.domain import browser_qa as _bqa
     from yoke_core.domain.browser_client import (
-        daemon_running,
         daemon_start,
         daemon_stop,
     )
 
-    # Check if already running
-    if daemon_running():
-        return None
+    from yoke_cli.config.browser_profile import resolve_authorized_profile
+
+    profile_path, profile_note = resolve_authorized_profile(project)
+    _bqa._log(profile_note)
+    profile = str(profile_path) if profile_path else None
 
     # First attempt
     last_err: Optional[str] = None
-    _bqa._log("Browser daemon not running, starting...")
+    _bqa._log("Ensuring the browser daemon is running...")
     try:
-        daemon_start()
-        _bqa._log("Browser daemon started")
+        daemon_start(profile_dir=profile)
+        _bqa._log("Browser daemon ready")
         return None
     except RuntimeError as first_err:
         last_err = str(first_err)
@@ -111,7 +120,7 @@ def _ensure_daemon_running(
             f"Retry {attempt}/{_DAEMON_MAX_RETRIES + 1}: attempting daemon start..."
         )
         try:
-            daemon_start()
+            daemon_start(profile_dir=profile)
             _bqa._log(f"Browser daemon started on retry {attempt}")
             return None
         except RuntimeError as retry_err:

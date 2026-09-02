@@ -171,6 +171,12 @@ into an authored scenario. If the packaged runtime is absent, its setup command
 materializes it on the target as expected for a fresh machine. Treat setup
 friction as an observation and continue when setup succeeds.
 
+You never sign in. The operator authorizes the project's persistent browser
+profile once, headed, with `yoke browser authorize`, and the contexts you
+receive already carry whatever they signed into. A page that asks you to sign
+in is a HUMAN_GATE naming the site and the exact resume state — never a
+credential to find, type, or reuse from anywhere.
+
 Browser screenshots are not a progress diary. Keep one only when it directly
 proves a finding or a human gate.
 
