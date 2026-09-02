@@ -20,6 +20,7 @@ from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     SelectionList,
     Stepper,
 )
+from yoke_cli.self_host import first_boot_token  # noqa: E402
 from yoke_contracts.self_host_bootstrap_output import (  # noqa: E402
     TOKEN_BODY_LENGTH,
     TOKEN_PREFIX,
@@ -133,7 +134,13 @@ def test_success_shows_handoff_and_continue_rejoins_project_setup(
             text = await _wait_for_text(
                 app, pilot, "Your self-hosting Yoke server is ready."
             )
-            assert RAW_TOKEN in text
+            assert RAW_TOKEN not in text
+            token_file = str(
+                first_boot_token.token_drop_path(app._self_host_setup.directory)
+            )
+            assert f"Admin token file: {token_file}" in text
+            assert "reusable administrator identity" in text
+            assert "never printed here" in text
             assert "self-host is active on this machine" in text
             assert "Mint a separate token for each teammate" in text
             assert "Share only a server URL your teammates can actually reach" in text
@@ -205,7 +212,7 @@ def test_prerequisite_refusal_names_docker_and_allows_back(
     asyncio.run(scenario())
 
 
-def test_connect_recovery_displays_token_and_retries_it_in_memory(
+def test_connect_recovery_names_the_token_file_and_retries_it_in_memory(
     tmp_path, monkeypatch
 ) -> None:
     retries: list[str] = []
@@ -234,7 +241,13 @@ def test_connect_recovery_displays_token_and_retries_it_in_memory(
             await _open_preview(pilot)
             await pilot.press("enter")
             text = await _wait_for_text(app, pilot, "Retry connection")
-            assert RAW_TOKEN in text
+            assert RAW_TOKEN not in text
+            token_file = str(
+                first_boot_token.token_drop_path(app._self_host_setup.directory)
+            )
+            assert f"Admin token file: {token_file}" in text
+            assert "reusable administrator identity" in text
+            assert "never printed here" in text
             assert server.LOCAL_SERVER_URL in text
             await pilot.press("enter")
             await _wait_for_text(app, pilot, "Your self-hosting Yoke server is ready.")
@@ -277,6 +290,25 @@ def test_sleep_warning_is_conditional(tmp_path) -> None:
         )
         is False
     )
+
+
+def test_wizard_screen_helpers_never_emit_the_raw_token(tmp_path) -> None:
+    setup = server.new_setup(
+        config_path=str(tmp_path / "config.json"),
+        directory=str(tmp_path / "yoke-server"),
+    )
+    setup.raw_token = RAW_TOKEN
+    rendered = "\n".join(
+        [
+            *flow._preview_lines(setup),
+            *flow._admin_token_file_lines(setup),
+            *flow._complete_lines(setup),
+        ]
+    )
+    assert RAW_TOKEN not in rendered
+    assert TOKEN_PREFIX not in rendered
+    token_file = str(first_boot_token.token_drop_path(setup.directory))
+    assert f"Admin token file: {token_file}" in rendered
 
 
 def test_quit_is_blocked_only_during_bundle_and_compose_provisioning(tmp_path) -> None:

@@ -22,12 +22,13 @@ yoke self-host init
 # 3. Start the server.
 cd yoke-server && docker compose up -d
 
-# 4. First boot writes a one-time initial admin token to an owner-only
+# 4. First boot writes the reusable administrator token to an owner-only
 #    file. The log names the path and never carries the token itself.
 docker compose logs core
 
 # 5. Attach your CLI (verifies the server and token before persisting
-#    anything), then remove the file — it is the only copy.
+#    anything), then remove the file — it is the only raw copy on disk.
+#    The token itself stays valid until you revoke it.
 yoke connect http://127.0.0.1:8765 --token-stdin < secrets/first-boot-admin-token
 rm secrets/first-boot-admin-token
 
