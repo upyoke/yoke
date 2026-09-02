@@ -15,7 +15,9 @@ from yoke_core.hooks.types import HookDecision, Outcome
 
 def _hold() -> HookDecision:
     return HookDecision(
-        outcome=Outcome.DENY, message=DIRECTIVE, block=True,
+        outcome=Outcome.DENY,
+        message=DIRECTIVE,
+        block=True,
     )
 
 
@@ -65,10 +67,10 @@ def test_cursor_stop_allow_stays_empty_object() -> None:
     assert render_cursor_decision([_allow()], "Stop") == ("{}", 0)
 
 
-def test_cursor_stop_hold_uses_followup_message() -> None:
+def test_cursor_stop_deny_cannot_render_a_false_continuation() -> None:
     stdout, code = render_cursor_decision([_hold()], "Stop")
     assert code == 0
-    assert json.loads(stdout) == {"followup_message": DIRECTIVE}
+    assert json.loads(stdout) == {}
 
 
 def test_cursor_session_end_allow_is_unchanged() -> None:

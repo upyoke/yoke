@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from yoke_contracts import session_identity
+from yoke_contracts.process_ancestry import find_nearest_named_process_anchor
+from yoke_contracts.session_control import liveness_process_names
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_core.domain import machine_config
 
@@ -37,7 +39,8 @@ def _liveness_probe() -> Optional[session_identity.ContenderIsLive]:
 
 
 def _emit_contention_observed(
-    record: Dict[str, Any], writer_session_id: str,
+    record: Dict[str, Any],
+    writer_session_id: str,
 ) -> None:
     """Ledger visibility for a contended anchor write. Never raises."""
     try:
@@ -53,9 +56,7 @@ def _emit_contention_observed(
             session_id=writer_session_id,
             context={
                 "anchor_pid": record.get("anchor_pid"),
-                "contending_session_ids": record.get(
-                    "contending_session_ids", []
-                ),
+                "contending_session_ids": record.get("contending_session_ids", []),
                 "last_writer_pid": record.get("last_writer_pid"),
                 "last_writer_argv": record.get("last_writer_argv", ""),
             },
@@ -70,6 +71,7 @@ def record_session_anchor(
     transcript_path: str = "",
     pid: Optional[int] = None,
     anchor: Optional[session_identity.ProcessAnchor] = None,
+    executor_surface: str = "",
 ) -> Optional[Dict[str, Any]]:
     """Record the calling process's nearest harness ancestor for ``session_id``.
 
@@ -79,6 +81,9 @@ def record_session_anchor(
     against session liveness so a marker heals once its co-tenants end; a
     write that stays contended is surfaced on the events ledger.
     """
+    if anchor is None:
+        names = liveness_process_names(executor_surface)
+        anchor = find_nearest_named_process_anchor(names, pid) if names else None
     record = session_identity.record_session_anchor(
         session_id,
         anchors_dir(),
@@ -124,7 +129,8 @@ def prune_stale_anchors(
     Returns the number of records removed; never raises.
     """
     return session_identity.prune_stale_anchors(
-        anchors_dir(), start_time_of=start_time_of,
+        anchors_dir(),
+        start_time_of=start_time_of,
     )
 
 

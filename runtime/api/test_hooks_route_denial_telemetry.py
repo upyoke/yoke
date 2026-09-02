@@ -9,6 +9,7 @@ refusal shapes used to leave no durable ``HarnessToolCallDenied`` row.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest import mock
 
 from yoke_core.api.routes.hooks import (
@@ -16,11 +17,14 @@ from yoke_core.api.routes.hooks import (
     _authorize_project,
     _guard_revision_skew_reason,
     _refuse_conversation_shaped,
+    post_hooks_evaluate,
 )
 from yoke_core.api.routes.hooks_denial_audit import (
     HookDenialAuditRequest,
     post_hooks_denial_audit,
 )
+from yoke_core.hooks.denial import build_denial_payload
+from yoke_core.hooks.remote_entry import RemoteEvaluation
 
 
 def _request(stdin: dict, **overrides) -> HookEvaluateRequest:
@@ -117,6 +121,64 @@ def test_guard_revision_skew_reason_empty_when_revisions_match() -> None:
         return_value={"source_sha": "a" * 12},
     ):
         assert _guard_revision_skew_reason(request) == ""
+
+
+def test_skew_annotation_preserves_the_actual_denying_check() -> None:
+    request = _request(
+        {"session_id": "sid-1", "identity_stamped": True},
+        project_id=1,
+        execution_provenance={"source_sha": "a" * 40},
+    )
+    denial = RemoteEvaluation(
+        stdout="denied",
+        exit_code=2,
+        degraded=(),
+        wait_ms=1,
+        outcome="denied",
+        denial_audit={
+            "hook": "yoke_core.domain.turn_end_promised_work_gate",
+            "check_id": "turn_end_promised_work_gate",
+            "reason": "finish the claimed work",
+        },
+    )
+    with (
+        mock.patch(
+            "yoke_core.api.routes.hooks.require_auth_context",
+            return_value=SimpleNamespace(actor_id=1),
+        ),
+        mock.patch("yoke_core.api.routes.hooks._authorize_project", return_value=None),
+        mock.patch("yoke_core.api.routes.hooks.evaluate_remote", return_value=denial),
+        mock.patch(
+            "yoke_core.api.routes.hooks.collect_execution_provenance",
+            return_value={"source_sha": "b" * 40},
+        ),
+        mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical,
+    ):
+        response = post_hooks_evaluate(_FakeHttpRequest(), request)
+    assert response.status_code == 200
+    kwargs = canonical.call_args.kwargs
+    assert kwargs["check_id"] == "turn_end_promised_work_gate"
+    assert kwargs["hook"] == "yoke_core.domain.turn_end_promised_work_gate"
+    assert kwargs["reason"] == "finish the claimed work"
+    assert "guard-revision skew" in kwargs["guard_version_skew"]
+
+
+def test_guard_skew_is_a_separate_denial_payload_annotation() -> None:
+    payload = build_denial_payload(
+        hook="policy.module",
+        check_id="claimed_work_gate",
+        reason="finish the claimed work",
+        client_revision="client-sha",
+        server_revision="server-sha",
+        guard_version_skew="revisions differ",
+    )
+    assert payload["check_id"] == "claimed_work_gate"
+    assert payload["reason"] == "finish the claimed work"
+    assert payload["guard_version_skew"] == {
+        "reason": "revisions differ",
+        "revision_pair": {"client": "client-sha", "server": "server-sha"},
+    }
+    assert "revision_pair" not in payload
 
 
 class _FakeHttpRequest:

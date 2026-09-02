@@ -16,6 +16,7 @@ from yoke_contracts.process_ancestry import (
     ancestor_pids,
     anchor_candidate_pids,
     find_nearest_harness_anchor,
+    find_nearest_named_process_anchor,
     is_harness_process_name,
     is_multiplexed_process_name,
     parent_map,
@@ -44,7 +45,8 @@ _STARTS = {
 class TestAncestorPids(unittest.TestCase):
     def test_walks_nearest_first_to_root(self):
         self.assertEqual(
-            ancestor_pids(400, parents=_TREE), [300, 200, 100, 1],
+            ancestor_pids(400, parents=_TREE),
+            [300, 200, 100, 1],
         )
 
     def test_stops_on_missing_parent(self):
@@ -96,7 +98,8 @@ class TestAnchorCandidatePids(unittest.TestCase):
     def test_chain_ends_at_the_hosting_process(self):
         names = {300: "zsh", 200: "cursor-agent", 100: "claude"}
         self.assertEqual(
-            anchor_candidate_pids(400, parents=_TREE, name_of=names.get), [300],
+            anchor_candidate_pids(400, parents=_TREE, name_of=names.get),
+            [300],
         )
 
     def test_chain_stops_before_a_claude_above_the_background_pool(self):
@@ -104,14 +107,16 @@ class TestAnchorCandidatePids(unittest.TestCase):
         claude; walking through it would resolve to that session's id."""
         names = {300: "zsh", 200: "claude bg-spare", 100: "claude"}
         self.assertEqual(
-            anchor_candidate_pids(400, parents=_TREE, name_of=names.get), [300],
+            anchor_candidate_pids(400, parents=_TREE, name_of=names.get),
+            [300],
         )
 
     def test_injected_tree_without_names_classifies_nothing(self):
         # ``parents`` and ``name_of`` describe one table; reading live
         # names against a synthetic tree would decide by coincidence.
         self.assertEqual(
-            anchor_candidate_pids(400, parents=_TREE), [300, 200, 100, 1],
+            anchor_candidate_pids(400, parents=_TREE),
+            [300, 200, 100, 1],
         )
 
     def test_both_process_facts_come_from_one_ps_call(self):
@@ -121,7 +126,9 @@ class TestAnchorCandidatePids(unittest.TestCase):
             "  200     1 cursor-agent",
         ]
         with patch.object(
-            process_ancestry, "_ps_lines", return_value=rows,
+            process_ancestry,
+            "_ps_lines",
+            return_value=rows,
         ) as ps_lines:
             self.assertEqual(anchor_candidate_pids(400), [300])
         self.assertEqual(ps_lines.call_count, 1)
@@ -142,10 +149,40 @@ class TestFindNearestHarnessAnchor(unittest.TestCase):
         self.assertEqual(anchor.start_time, _STARTS[200])
         self.assertEqual(anchor.process_name, "claude")
 
+
+class TestFindNearestNamedProcessAnchor(unittest.TestCase):
+    def test_liveness_walk_can_select_an_explicit_multiplexed_host(self):
+        names = {300: "zsh", 200: "cursor-agent", 100: "claude"}
+        anchor = find_nearest_named_process_anchor(
+            ("cursor-agent", "cursor"),
+            400,
+            parents=_TREE,
+            name_of=names.get,
+            start_time_of=_STARTS.get,
+        )
+        assert anchor == ProcessAnchor(
+            pid=200,
+            start_time=_STARTS[200],
+            process_name="cursor-agent",
+        )
+
+    def test_liveness_walk_refuses_a_match_without_start_time(self):
+        anchor = find_nearest_named_process_anchor(
+            ("cursor-agent",),
+            400,
+            parents=_TREE,
+            name_of={300: "zsh", 200: "cursor-agent"}.get,
+            start_time_of=lambda _pid: None,
+        )
+        self.assertIsNone(anchor)
+
     def test_returns_none_for_operator_terminal(self):
         names = {300: "zsh", 200: "Terminal", 100: "launchd"}
         anchor = find_nearest_harness_anchor(
-            400, parents=_TREE, name_of=names.get, start_time_of=_STARTS.get,
+            400,
+            parents=_TREE,
+            name_of=names.get,
+            start_time_of=_STARTS.get,
         )
         self.assertIsNone(anchor)
 
@@ -163,7 +200,10 @@ class TestFindNearestHarnessAnchor(unittest.TestCase):
         # each sibling whichever session wrote the registry record last.
         names = {300: "zsh", 200: "codex", 100: "launchd"}
         anchor = find_nearest_harness_anchor(
-            400, parents=_TREE, name_of=names.get, start_time_of=_STARTS.get,
+            400,
+            parents=_TREE,
+            name_of=names.get,
+            start_time_of=_STARTS.get,
         )
         self.assertIsNone(anchor)
 
@@ -172,7 +212,10 @@ class TestFindNearestHarnessAnchor(unittest.TestCase):
         # the calling process is inside the shared host, not that session.
         names = {300: "zsh", 200: "codex-code-mode-host", 100: "claude"}
         anchor = find_nearest_harness_anchor(
-            400, parents=_TREE, name_of=names.get, start_time_of=_STARTS.get,
+            400,
+            parents=_TREE,
+            name_of=names.get,
+            start_time_of=_STARTS.get,
         )
         self.assertIsNone(anchor)
 
@@ -181,7 +224,10 @@ class TestFindNearestHarnessAnchor(unittest.TestCase):
         # per-session binary sits between it and the caller.
         names = {300: "claude", 200: "codex", 100: "launchd"}
         anchor = find_nearest_harness_anchor(
-            400, parents=_TREE, name_of=names.get, start_time_of=_STARTS.get,
+            400,
+            parents=_TREE,
+            name_of=names.get,
+            start_time_of=_STARTS.get,
         )
         assert anchor is not None
         self.assertEqual(anchor.pid, 300)
@@ -193,11 +239,14 @@ class TestFindNearestHarnessAnchor(unittest.TestCase):
             "2.1.170/claude.app/Contents/MacOS/claude"
         )
         with patch.object(
-            process_ancestry, "process_command_name",
+            process_ancestry,
+            "process_command_name",
             side_effect=lambda pid: names.get(pid),
         ):
             anchor = find_nearest_harness_anchor(
-                400, parents=_TREE, start_time_of=_STARTS.get,
+                400,
+                parents=_TREE,
+                start_time_of=_STARTS.get,
             )
         assert anchor is not None
         self.assertEqual(anchor.pid, 200)
@@ -207,7 +256,8 @@ class TestFindNearestHarnessAnchor(unittest.TestCase):
 class TestPsParsing(unittest.TestCase):
     def test_parent_map_parses_pid_ppid_pairs(self):
         with patch.object(
-            process_ancestry, "_ps_lines",
+            process_ancestry,
+            "_ps_lines",
             return_value=["    1     0", "  338     1", "garbage line x"],
         ):
             parents = parent_map()
@@ -222,7 +272,9 @@ class TestPsParsing(unittest.TestCase):
         # A nameless process must still carry its parent link, or the walk
         # breaks at it and every ancestor above becomes unreachable.
         with patch.object(
-            process_ancestry, "_ps_lines", return_value=["  338     1"],
+            process_ancestry,
+            "_ps_lines",
+            return_value=["  338     1"],
         ):
             self.assertEqual(process_table(), {338: (1, "")})
 

@@ -12,6 +12,7 @@ from yoke_contracts.session_control import (
     SESSION_SURFACE_CAPABILITIES,
     SESSION_CONTROL_FUNCTION_IDS,
     RecipientSelector,
+    stop_denial_continuation_supported,
 )
 from yoke_core.domain.session_control_schema import (
     create_session_control_tables,
@@ -35,11 +36,36 @@ def test_registered_function_vocabulary_uses_product_verbs_only() -> None:
 
 
 @pytest.mark.parametrize(
-    "surface, active, idle, stopped",
+    "surface, active, idle, stopped, stop_continuation, relay_continuation, "
+    "liveness_names",
     [
-        ("claude-cli", "private", "private", "supported"),
-        ("codex-cli", "none", "none", "supported"),
-        ("cursor-cli", "none", "supported", "supported"),
+        (
+            "claude-cli",
+            "private",
+            "private",
+            "supported",
+            "supported",
+            "none",
+            (),
+        ),
+        (
+            "codex-cli",
+            "none",
+            "none",
+            "supported",
+            "supported",
+            "none",
+            (),
+        ),
+        (
+            "cursor-cli",
+            "none",
+            "supported",
+            "supported",
+            "none",
+            "none",
+            ("cursor-agent", "cursor"),
+        ),
     ],
 )
 def test_cli_messageability_matches_pinned_evidence(
@@ -47,11 +73,44 @@ def test_cli_messageability_matches_pinned_evidence(
     active: str,
     idle: str,
     stopped: str,
+    stop_continuation: str,
+    relay_continuation: str,
+    liveness_names: tuple[str, ...],
 ) -> None:
     capability = SESSION_SURFACE_CAPABILITIES[surface]
     assert capability.message_active == active
     assert capability.message_idle == idle
     assert capability.message_stopped == stopped
+    assert capability.stop_denial_continuation == stop_continuation
+    assert capability.relay_stop_denial_continuation == relay_continuation
+    assert capability.liveness_process_names == liveness_names
+
+
+@pytest.mark.parametrize(
+    ("executor", "surface", "relay_launched", "expected"),
+    [
+        ("claude", "cli", True, False),
+        ("claude-code", "cli", False, True),
+        ("codex", "codex-exec", True, False),
+        ("codex", "desktop", True, False),
+        ("codex", "vscode", False, True),
+        ("cursor", "cursor-cli", False, False),
+    ],
+)
+def test_stop_continuation_resolves_relative_and_canonical_surfaces(
+    executor: str,
+    surface: str,
+    relay_launched: bool,
+    expected: bool,
+) -> None:
+    assert (
+        stop_denial_continuation_supported(
+            executor,
+            surface,
+            relay_launched=relay_launched,
+        )
+        is expected
+    )
 
 
 def test_recipient_selector_requires_an_anchor_and_closed_surfaces() -> None:

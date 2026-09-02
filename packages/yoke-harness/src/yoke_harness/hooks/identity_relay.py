@@ -16,6 +16,7 @@ from yoke_contracts.session_model_facts import (
     MODEL_FACT_FIELDS,
     SessionModelFacts,
 )
+from yoke_contracts.session_execution import SUBAGENT_EXECUTION_PAYLOAD_KEY
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -69,13 +70,9 @@ def _mark_model_shipped(session_id: str) -> None:
 def model_facts_settled(event_name: str, session_id: str) -> bool:
     """True when this session's model facts need not be resolved again.
 
-    Resolution is not free — it reads a transcript or a conversation store,
-    and on Claude it shells out for the parent's argv — so once a served
-    model has actually been read the marker stops the work on every later
-    hook event. Registration events always resolve, and a session whose
-    artifact has not answered yet stays unmarked and keeps trying, which is
-    the normal case for the first events of a run: the artifact naming the
-    served model does not exist until the first turn completes.
+    Resolution reads a transcript or conversation store, so a served model
+    marker stops later work. Registration events always resolve; unmarked
+    sessions keep trying until the harness artifact exists.
     """
     if event_name in REGISTRATION_EVENTS:
         return False
@@ -221,15 +218,7 @@ def client_lane(event_name: str, executor: str) -> Optional[str]:
 
 
 def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
-    """Resolve the client's surface alias for the relayed registration.
-
-    On an https machine this is the only entrypoint that reaches the server:
-    the client-side register self-skips and the relayed server-side
-    ensure-register owns the row. The executor argument names the family
-    (the rendered hook command pins it), so Cursor resolves its surface
-    from that rather than from ``detect_entrypoint``, whose Cursor branch
-    needs env the IDE surface has not exported yet at sessionStart.
-    """
+    """Resolve the client surface that relayed registration must preserve."""
     try:
         direct = payload.get("entrypoint")
         if is_claude(executor) and isinstance(direct, str) and direct.strip():
@@ -282,18 +271,25 @@ def client_project_id(payload: dict[str, Any]) -> Optional[int]:
 def client_native_thread_id(
     executor: str,
     yoke_session_id: str = "",
+    payload: Optional[dict[str, Any]] = None,
 ) -> Optional[str]:
-    """Return the harness-native identity for one registered Yoke session.
-
-    Codex exports its thread directly. Cursor's conversation id is trusted
-    only after the client hook map binds it to this Yoke session. Claude's
-    native session is useful only when it differs from the Yoke identity.
-    """
+    """Return the mapped harness-native identity for a Yoke session."""
     if is_codex(executor):
         value = os.environ.get("CODEX_THREAD_ID", "").strip()
         return value or None
     if is_cursor(executor):
-        conversation_id = os.environ.get(CURSOR_CONVERSATION_ENV_VAR, "").strip()
+        source = payload or {}
+        if source.get(SUBAGENT_EXECUTION_PAYLOAD_KEY) is True:
+            return None
+        candidate = source.get("conversation_id")
+        conversation_id = candidate.strip() if isinstance(candidate, str) else ""
+        conversation_id = (
+            conversation_id
+            or os.environ.get(
+                CURSOR_CONVERSATION_ENV_VAR,
+                "",
+            ).strip()
+        )
         if not conversation_id:
             return None
         try:
@@ -331,6 +327,7 @@ def relay_identity_payload(
         "native_thread_id": client_native_thread_id(
             executor,
             resolve_session_id(json.dumps(payload)),
+            payload,
         ),
         **observe_claude_presentation(executor, payload),
     }

@@ -41,11 +41,8 @@ def render_codex_stop(decisions: list[HookDecision]) -> tuple[str, int]:
     return ("", 0)
 
 
-def render_cursor_stop(decisions: list[HookDecision]) -> tuple[str, int]:
-    """Cursor Stop: ``followup_message`` hold; allow is ``{}``."""
-    reason = _hold_reason(decisions)
-    if reason:
-        return json.dumps({"followup_message": reason}), 0
+def render_cursor_stop(_decisions: list[HookDecision]) -> tuple[str, int]:
+    """Cursor Stop cannot continue after a denial, so it always allows."""
     return ("{}", 0)
 
 

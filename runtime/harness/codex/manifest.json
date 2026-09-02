@@ -56,7 +56,10 @@
         "create": "supported",
         "message_active": "none",
         "message_idle": "none",
-        "message_stopped": "supported"
+        "message_stopped": "supported",
+        "stop_denial_continuation": "supported",
+        "relay_stop_denial_continuation": "none",
+        "liveness_process_names": []
       },
       "codex-desktop": {
         "minimum_version": "26.814.41407",
@@ -70,7 +73,10 @@
         "create": "none",
         "message_active": "none",
         "message_idle": "none",
-        "message_stopped": "none"
+        "message_stopped": "none",
+        "stop_denial_continuation": "supported",
+        "relay_stop_denial_continuation": "none",
+        "liveness_process_names": []
       },
       "codex-vscode": {
         "minimum_version": "0.148.0-alpha.15",
@@ -84,7 +90,10 @@
         "create": "none",
         "message_active": "supported",
         "message_idle": "none",
-        "message_stopped": "none"
+        "message_stopped": "none",
+        "stop_denial_continuation": "supported",
+        "relay_stop_denial_continuation": "supported",
+        "liveness_process_names": []
       }
     }
   },

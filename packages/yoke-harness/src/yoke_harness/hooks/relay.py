@@ -187,17 +187,19 @@ def relay_hook_event(
     if stdin_data is None:
         stdin_data = sys.stdin.read()
     payload = parse_hook_payload(stdin_data)
+    anchor_from_payload = isinstance(payload.get("session_id"), str)
     policy_snapshot = _client_lint_config_snapshot(payload)
-    _record_client_anchor(
-        payload,
-        session_start=event_name == SESSION_START_EVENT,
-    )
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     original_stdin = stdin_data
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
+    if anchor_from_payload:
+        _record_client_anchor(
+            payload,
+            session_start=event_name == SESSION_START_EVENT,
+        )
     from yoke_harness.hooks.cursor_lifecycle_hooks import (
         ensure_user_lifecycle_hooks_for_executor,
     )

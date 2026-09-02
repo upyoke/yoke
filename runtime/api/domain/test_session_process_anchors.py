@@ -16,6 +16,7 @@ from yoke_contracts import session_identity
 from yoke_contracts.process_ancestry import ProcessAnchor
 
 from yoke_core.domain import session_process_anchors as anchors
+from yoke_harness.hooks import identity_anchor as client_anchors
 
 
 _START = "Wed Jun 10 14:05:41 2026"
@@ -52,7 +53,9 @@ def _record_for(home, pid):
 class TestRecordSessionAnchor:
     def test_writes_full_record(self, machine_home):
         record = anchors.record_session_anchor(
-            "sess-1", transcript_path="/t/x.jsonl", anchor=_anchor(),
+            "sess-1",
+            transcript_path="/t/x.jsonl",
+            anchor=_anchor(),
         )
         assert record is not None
         on_disk = _record_for(machine_home, 200)
@@ -108,6 +111,25 @@ class TestRecordSessionAnchor:
 
     def test_empty_session_id_refused(self, machine_home):
         assert anchors.record_session_anchor("", anchor=_anchor()) is None
+
+    def test_cursor_surface_records_its_liveness_host(
+        self,
+        machine_home,
+        monkeypatch,
+    ):
+        cursor_anchor = _anchor(pid=210, name="cursor-agent")
+        monkeypatch.setattr(
+            anchors,
+            "find_nearest_named_process_anchor",
+            lambda names, pid=None: cursor_anchor,
+        )
+        record = anchors.record_session_anchor(
+            "cursor-session",
+            executor_surface="cursor-cli",
+        )
+        assert record is not None
+        assert record["anchor_pid"] == 210
+        assert record["anchor_process_name"] == "cursor-agent"
 
     def test_write_failure_returns_none(self, machine_home, monkeypatch):
         def _boom(_path, _data):
@@ -173,7 +195,8 @@ class TestResolveSessionFromAncestry:
         # the hosted session the launching session's identity — and with it
         # authority over the launching session's claims and item.
         anchors.record_session_anchor(
-            "launching-session", anchor=_anchor(pid=100, start="s100"),
+            "launching-session",
+            anchor=_anchor(pid=100, start="s100"),
         )
         tree = {400: 300, 300: 200, 200: 100, 100: 1}
         resolved = anchors.resolve_session_from_ancestry(
@@ -218,9 +241,7 @@ class TestResolveSessionFromAncestry:
         )
         assert resolved is None
 
-    def test_contention_marker_is_not_pruned_while_its_pid_lives(
-        self, machine_home
-    ):
+    def test_contention_marker_is_not_pruned_while_its_pid_lives(self, machine_home):
         anchors.record_session_anchor("sess-a", anchor=_anchor(pid=200))
         anchors.record_session_anchor("sess-b", anchor=_anchor(pid=200))
         anchors.resolve_session_from_ancestry(
@@ -248,10 +269,14 @@ class TestResolveSessionFromAncestry:
         anchors.record_session_anchor("sess-b", anchor=_anchor(pid=202, start="sb"))
         starts = {201: "sa", 202: "sb"}.get
         shell_a = anchors.resolve_session_from_ancestry(
-            401, parents={401: 201, 201: 1}, start_time_of=starts,
+            401,
+            parents={401: 201, 201: 1},
+            start_time_of=starts,
         )
         shell_b = anchors.resolve_session_from_ancestry(
-            402, parents={402: 202, 202: 1}, start_time_of=starts,
+            402,
+            parents={402: 202, 202: 1},
+            start_time_of=starts,
         )
         assert (shell_a, shell_b) == ("sess-a", "sess-b")
 
@@ -294,3 +319,26 @@ class TestPruneStaleAnchors:
             raise RuntimeError("ps exploded")
 
         assert anchors.prune_stale_anchors(start_time_of=_boom) == 0
+
+
+def test_client_cursor_anchor_uses_manifest_liveness_process(monkeypatch) -> None:
+    captured: dict = {}
+    cursor_anchor = _anchor(pid=210, name="cursor-agent")
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_runtime.detect_executor",
+        lambda: "cursor-cli",
+    )
+    monkeypatch.setattr(
+        client_anchors,
+        "find_nearest_named_process_anchor",
+        lambda _names: cursor_anchor,
+    )
+    monkeypatch.setattr(
+        client_anchors,
+        "_record_session_anchor",
+        lambda *args, **kwargs: captured.update(args=args, kwargs=kwargs),
+    )
+
+    client_anchors.record_session_anchor("cursor-session")
+
+    assert captured["kwargs"]["anchor"] == cursor_anchor

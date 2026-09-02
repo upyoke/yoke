@@ -220,15 +220,15 @@ Run the same shepherd proof sequence as wrapper-only mode Step 7, but now with h
 Inside a hook-enhanced Codex session, allow the assistant to finish a turn so Codex emits `Stop`. Then, from the operator shell, capture the most recent lifecycle telemetry for this session:
 
 ```sh
-python3 -m yoke_core.cli.db_router query "SELECT event_name, created_at, event_outcome FROM events WHERE session_id='<session_id>' AND event_name IN ('HarnessSessionEnded','ChainEndDeferred','HarnessSessionHookFailed') ORDER BY created_at DESC LIMIT 10"
+yoke events query --session <session_id> --event-name ChainEndDeferred --json
 ```
 
 **Verify:**
 - [ ] The hook command in `runtime/harness/codex/hooks.json` includes `YOKE_EXECUTOR=codex`, `YOKE_PROVIDER=openai`, and resolves to `python3 -m yoke_core.hooks Stop`
 - [ ] `yoke_core.hooks Stop` exits 0 (no chain failure surfaced back into Codex)
 - [ ] **Codex `Stop` allow stdout is exactly `{}`** — the JSON contract is preserved even when direct cleanup times out or the service client is missing
-- [ ] When the session holds a live mid-lifecycle claim and the turn is not asking the operator, the first Stop holds with `{"decision":"block","reason":...}` and records `ChainEndDeferred` with `reason=promised_work_reinjected`
-- [ ] A second eligible Stop before any completed tool use allows and records `ChainEndDeferred` with `reason=reinjection_cap_reached` and `cap_reached=true`
+- [ ] For a Yoke-relay-launched `codex-cli` (`codex exec`) or `codex-desktop` (app-server) session holding a live mid-lifecycle claim, Stop allows immediately and records `ChainEndDeferred` at WARN with `reason=stop_denial_continuation_unsupported`, the unfinished work, and recovery; no promised-work reinjection/cap pair is emitted
+- [ ] For an operator-opened interactive Codex session with the same claim state, the first Stop can still hold with `{"decision":"block","reason":...}` and record `reason=promised_work_reinjected`; a second eligible Stop before any completed tool use allows with `reason=reinjection_cap_reached`
 - [ ] Exactly one of `HarnessSessionEnded` or `ChainEndDeferred` is present when the session was eligible for cleanup
 - [ ] `HarnessSessionHookFailed` is absent for a clean run and present only when direct cleanup cannot complete or turn evidence is unavailable
 - [ ] Caveat preserved: Codex `Stop` is a **turn-boundary cleanup**, not an archive trigger. The next prompt may legitimately re-register the same stable Codex thread/session id and clear `ended_at`.
@@ -245,6 +245,7 @@ The following test scripts validate the matrix programmatically:
 | `runtime/harness/test_hook_runner.py` | Shared hook runner: dispatch, identity, lifecycle, graceful degradation |
 | `runtime/harness/test_hook_runner_runner.py` | Hook runner chain execution: per-event sub-handler ordering and fanout |
 | `runtime/harness/test_hook_runner_telemetry.py` | Hook runner telemetry: tool-call denial events, latency, payload shaping |
+| `runtime/api/test_headless_stop_continuation.py` | Relay launch correlation, headless Stop deferral, and denying-check audit identity |
 | `runtime/api/domain/test_agents_render_substrate.py` | Codex custom-agent renderer: `.codex/agents/yoke-*.toml` parity with canonical bodies + subdir fragments |
 | `runtime/api/domain/test_agents_render_codex_schema.py` | Codex custom-agent schema: every `yoke-*.toml` parses with `tomllib`, carries required `name`/`description`/`developer_instructions`, omits retired `prompt`/`tools`/`max_turns`, declares role `sandbox_mode` posture |
 

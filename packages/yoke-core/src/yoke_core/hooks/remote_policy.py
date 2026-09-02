@@ -100,5 +100,6 @@ class RunControls:
     actor_id: Optional[int] = None
     flush_tail: bool = True
     degraded: list[str] = field(default_factory=list)
+    denial_audit: dict[str, str] = field(default_factory=dict)
     timed_out: bool = False
     final_outcome: str = ""

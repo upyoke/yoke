@@ -5,6 +5,8 @@ from yoke_contracts.session_control.capabilities import (
     SessionSurfaceCapability,
     capabilities_for_harness,
     capability_for_surface,
+    liveness_process_names,
+    stop_denial_continuation_supported,
 )
 from yoke_contracts.session_control.function_ids import (
     LAUNCH_FUNCTION_IDS,
@@ -73,7 +75,9 @@ __all__ = [
     "capability_for_surface",
     "canonical_fleet_message_id",
     "fleet_acknowledgement_instruction",
+    "liveness_process_names",
     "private_route_version_qualified",
+    "stop_denial_continuation_supported",
     *_models.__all__,
     *_surface_policy.__all__,
     *_termination.__all__,

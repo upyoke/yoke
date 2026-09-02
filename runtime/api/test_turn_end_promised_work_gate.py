@@ -43,6 +43,7 @@ def _question() -> TurnEndEvidence:
 def _patch_db(monkeypatch, *, claim, at_cap=False, emitted=None):
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
     monkeypatch.setattr(gate, "_live_claim", lambda conn, sid: claim)
+    monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: False)
     monkeypatch.setattr(
         gate,
         "_at_reinjection_cap",

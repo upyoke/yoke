@@ -34,7 +34,7 @@ Cursor exports no session-id environment variable. Identity facts:
 
 | Signal | Source | Purpose |
 |--------|--------|---------|
-| `session_id` / `conversation_id` | every hook payload (stdin) | Session identity (identical values) |
+| `session_id` / `conversation_id` | every hook payload (stdin) | Session identity and native-resume conversation (identical values on the top-level session) |
 | `CURSOR_TRANSCRIPT_PATH` | hook process env | Top-level (container) session recovery — points at the main session's transcript even inside subagent hooks |
 | `parent_conversation_id` | `subagentStart`/`subagentStop` payloads | Explicit subagent → container lineage |
 | `CURSOR_CONVERSATION_ID` | agent shell env | The conversation that spawned a shell — a subagent shell carries its OWN id, so this is not a session id until mapped |
@@ -43,7 +43,7 @@ Cursor exports no session-id environment variable. Identity facts:
 
 Yoke's container model applies: only the top-level session registers as a `harness_sessions` row; subagent activity (which arrives under per-subagent session ids) folds into that container. The same fold applies when Cursor remounts a chat onto a linked Yoke worktree (new conversation id under `.worktrees/<lane>`): the new conversation aliases to the session that holds the active work claim for that lane, via `cursor-session-map`, instead of minting competing authority.
 
-Commands the agent runs in a shell resolve identity through that same container. The process-anchor registry cannot help — one `cursor-agent` pid hosts every conversation, so an anchor keyed on it would resolve to whichever sibling wrote last — and `CURSOR_CONVERSATION_ID` alone names a conversation, not a registered session. So every hook records its `conversation_id → container session` pairing under `<machine-home>/cursor-session-map/`, and a shell resolves its own conversation id through that recording. A conversation no hook has recorded resolves to nothing rather than to a guess.
+Commands the agent runs in a shell resolve identity through that same container. Ambient identity never reads a Cursor host anchor — one `cursor-agent` pid may host multiple conversations — and `CURSOR_CONVERSATION_ID` alone names a conversation, not a registered session. So every hook records its `conversation_id → container session` pairing under `<machine-home>/cursor-session-map/`, and a shell resolves its own conversation id through that recording. Cursor CLI registration separately records the worker pid and start time as liveness-only evidence; a shared-pid contention marker identifies no session, while an uncontended record lets the relay prove a terminated worker dead. A conversation no hook has recorded resolves to nothing rather than to a guess.
 
 The conversation map is established on the first client hook (`preToolUse` / `beforeShellExecution` / `sessionStart`), not only `sessionStart`. Stay-on-main with absolute `.worktrees/<lane>/...` paths is the supported posture (same conversation id). Switching back to main with a new conversation id and no transcript / parent / already-mapped alias is a new session — do not guess a unique live claim holder on that repo.
 
@@ -53,7 +53,7 @@ The conversation map is established on the first client hook (`preToolUse` / `be
 
 ## What Cursor does NOT own
 
-Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; Cloud Agent handoff (`&`) — Yoke sessions are local. The `stop` hook's `followup_message` loop channel is reserved for one self-continuation: when the promised-work gate holds a turn open because this session still has uncalled work. That is not operator-to-session steering.
+Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; Cloud Agent handoff (`&`) — Yoke sessions are local. Cursor does not reliably continue a model turn after a denied `stop`, so the manifest declares that limitation and Yoke allows Stop while recording live-claim work durably for recovery.
 
 ## Approvals and the network sandbox
 

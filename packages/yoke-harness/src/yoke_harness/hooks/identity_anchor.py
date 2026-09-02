@@ -22,6 +22,8 @@ from yoke_contracts.session_identity import (
     prune_stale_anchors,
     record_session_anchor as _record_session_anchor,
 )
+from yoke_contracts.process_ancestry import find_nearest_named_process_anchor
+from yoke_contracts.session_control import liveness_process_names
 
 
 def _anchors_dir():
@@ -39,10 +41,20 @@ def _liveness_probe() -> Optional[ContenderIsLive]:
 
 def record_session_anchor(session_id: str, *, transcript_path: str = "") -> None:
     """Best-effort product-side session anchor write."""
+    from yoke_harness.hooks.identity_runtime import (
+        cursor_surface_entrypoint,
+        detect_executor,
+    )
+
+    executor = detect_executor()
+    surface = cursor_surface_entrypoint() if executor == "cursor" else executor
+    names = liveness_process_names(surface)
+    anchor = find_nearest_named_process_anchor(names) if names else None
     _record_session_anchor(
         session_id,
         _anchors_dir(),
         transcript_path=transcript_path,
+        anchor=anchor,
         contender_is_live=_liveness_probe(),
     )
 

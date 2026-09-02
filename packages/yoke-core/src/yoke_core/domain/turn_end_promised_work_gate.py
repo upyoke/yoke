@@ -1,19 +1,4 @@
-"""Stop-hook reminder that a live work claim may still need a next step.
-
-Eligible only for a live work claim on a non-terminal, non-wait item.
-Consumes ``chain_pending_state()`` for audit context and does not recompute
-chain budget. Reinjections are rate-limited and capped independently for
-each claimed item.
-
-Channel: keep that single soft hold. Claude Stop can deliver
-``hookSpecificOutput.additionalContext`` as turn-continuing feedback, but
-Codex Stop continuation is only ``decision/block`` (additionalContext is
-not a Stop field / not model-visible) and Cursor Stop continuation is only
-``followup_message`` (``additional_context`` is not a Stop output). A
-passive additional-context envelope therefore cannot be the cross-harness
-reminder, so the hold channel stays and the reminder lives in the message
-plus the widened allow set.
-"""
+"""Manifest-bounded Stop reminder with durable unsupported-surface deferral."""
 
 from __future__ import annotations
 
@@ -27,6 +12,8 @@ from yoke_contracts.turn_end_evidence import (
     extract_turn_end_evidence,
     read_transcript_tail,
 )
+from yoke_contracts.session_control import stop_denial_continuation_supported
+from yoke_core.domain.session_relay_launch_context import session_was_relay_launched
 from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     ENGINE_WAIT_STAGE_IDS,
@@ -37,9 +24,11 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 REINJECTION_COOLDOWN = timedelta(minutes=30)
 REINJECTION_CEILING = 3
+CHECK_ID = "turn_end_promised_work_gate"
 REASON_REINJECTED = "promised_work_reinjected"
 REASON_CAP_REACHED = "reinjection_cap_reached"
 REASON_MONITOR_ARMED = "monitor_waiter_live"
+REASON_CONTINUATION_UNSUPPORTED = "stop_denial_continuation_unsupported"
 UNFINISHED_CLOSE_OUT = "lifecycle_close_out"
 UNFINISHED_CLAIMED_ITEM = "claimed_item_in_progress"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
@@ -53,9 +42,7 @@ MONITOR_DIRECTIVE = (
     "A Monitor waiter is still armed. Do not end this turn. "
     "Ending it kills the waiter with no wake."
 )
-_HOLD_EXEMPT_STATUSES = (
-    ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | frozenset({"done"})
-)
+_HOLD_EXEMPT_STATUSES = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | {"done"}
 
 
 def _allow() -> HookDecision:
@@ -68,7 +55,11 @@ def _deny_stop(message: str, reason: str) -> HookDecision:
         message=message,
         block=True,
         next=Next.STOP,
-        audit_fields={"reason": reason},
+        audit_fields={
+            "check_id": CHECK_ID,
+            "denial_reason": message,
+            "reason": reason,
+        },
     )
 
 
@@ -243,7 +234,7 @@ def _emit_deferred(
 
     state = chain_pending_state(conn, session_id)
     extras: dict[str, Any] = {}
-    if cap_reached:
+    if cap_reached or reason == REASON_CONTINUATION_UNSUPPORTED:
         held = claim or {"item_id": item_id}
         extras = {
             "unfinished_work": unfinished_work_name(held),
@@ -292,6 +283,21 @@ def evaluate(record: HookContext) -> HookDecision:
             return _allow()
         if _item_blocks_hold(claim["status"]):
             return _allow()
+        surface = record.payload.get("entrypoint") if record.payload else None
+        if not stop_denial_continuation_supported(
+            record.executor_family,
+            surface if isinstance(surface, str) else None,
+            relay_launched=session_was_relay_launched(conn, session_id),
+        ):
+            _emit_deferred(
+                conn=conn,
+                session_id=session_id,
+                item_id=claim["item_id"],
+                reason=REASON_CONTINUATION_UNSUPPORTED,
+                cap_reached=False,
+                claim=claim,
+            )
+            return _allow()
         try:
             monitor_armed = _armed_monitor_blocks_stop(conn, session_id)
         except Exception:
@@ -334,16 +340,9 @@ def evaluate(record: HookContext) -> HookDecision:
             pass
 
 
-__all__ = [
-    "DIRECTIVE",
-    "EVIDENCE_UNAVAILABLE_REASON",
-    "MONITOR_DIRECTIVE",
-    "REASON_CAP_REACHED",
-    "REASON_MONITOR_ARMED",
-    "REASON_REINJECTED",
-    "UNFINISHED_CLAIMED_ITEM",
-    "UNFINISHED_CLOSE_OUT",
-    "evaluate",
-    "recovery_for",
-    "unfinished_work_name",
-]
+__all__ = (
+    "CHECK_ID DIRECTIVE EVIDENCE_UNAVAILABLE_REASON MONITOR_DIRECTIVE "
+    "REASON_CAP_REACHED REASON_CONTINUATION_UNSUPPORTED REASON_MONITOR_ARMED "
+    "REASON_REINJECTED UNFINISHED_CLAIMED_ITEM UNFINISHED_CLOSE_OUT evaluate "
+    "recovery_for unfinished_work_name"
+).split()

@@ -48,6 +48,7 @@ class RemoteEvaluation:
     degraded: tuple[str, ...]
     wait_ms: int
     outcome: str  # completed | timeout | denied
+    denial_audit: dict[str, str]
 
 
 def evaluate_remote(
@@ -62,6 +63,7 @@ def evaluate_remote(
     project_id: Optional[int] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
+    native_thread_id: Optional[str] = None,
     payload_extra: Optional[dict] = None,
     actor_id: Optional[int] = None,
 ) -> RemoteEvaluation:
@@ -96,6 +98,8 @@ def evaluate_remote(
         controls.payload_extra["executor_version"] = executor_version.strip()
     if machine_id and machine_id.strip():
         controls.payload_extra["machine_id"] = machine_id.strip()
+    if native_thread_id and native_thread_id.strip():
+        controls.payload_extra["native_thread_id"] = native_thread_id.strip()
     capability = resolve_capability(executor)
 
     started = time.monotonic()
@@ -122,4 +126,5 @@ def evaluate_remote(
         degraded=tuple(degraded),
         wait_ms=wait_ms,
         outcome=outcome,
+        denial_audit=dict(controls.denial_audit),
     )
