@@ -60,6 +60,15 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "bind the verified item holder across the control-plane authority change",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
+        "yoke_core.domain.close_out_control_plane_authority",
+    ): (
+        "client_local_execution",
+        "name the operator's connection for the engine before the merge "
+        "override replaces it, so close-out semantics stay with the control "
+        "plane rather than with whichever engine build this child imported",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
         "yoke_core.domain.project_github_auth",
     ): (

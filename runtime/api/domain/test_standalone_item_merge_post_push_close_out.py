@@ -138,12 +138,12 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
         ),
     )
     monkeypatch.setattr(
-        merge_cli.evidence,
-        "record",
+        merge_cli.close_out,
+        "record_execution_evidence",
         lambda **_k: (_ for _ in ()).throw(AssertionError("no evidence write")),
     )
     monkeypatch.setattr(
-        merge_cli.terminal,
+        merge_cli.close_out,
         "transition_to_done",
         lambda **_k: (_ for _ in ()).throw(AssertionError("no done transition")),
     )

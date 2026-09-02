@@ -135,7 +135,7 @@ class TestEvidenceWriteRetry:
             transitions.append("done")
             return ""
 
-        monkeypatch.setattr(sim_cli.terminal, "transition_to_done", transition)
+        monkeypatch.setattr(terminal, "transition_to_done", transition)
 
         exit_code = sim_cli.run(
             ["ITEM-1", "--result", "landed", "--verification", "suite green"],
@@ -164,7 +164,7 @@ class TestEvidenceWriteRetry:
             lambda **_k: _section_response(None),
         )
         monkeypatch.setattr(
-            sim_cli.terminal, "transition_to_done",
+            terminal, "transition_to_done",
             lambda **_k: pytest.fail("close-out must not continue"),
         )
 
