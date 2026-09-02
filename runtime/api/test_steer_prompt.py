@@ -278,7 +278,7 @@ class TestSteerWorkerLifecycle:
         assert "claude-cli" in text
         assert "codex-cli" in text
         assert "cursor-cli" in text
-        assert "balanced across all three CLI surfaces" in text
+        assert "Allocate by headroom, not by leveling counts" in text
         assert "preferred_session_models" in text
         assert "yoke sessions terminate" in text
         assert "reserved for an unresponsive worker" in text
@@ -305,9 +305,8 @@ class TestSteerWorkerLifecycle:
         assert "Surfaces are not exclusive" in text
         assert "as many concurrent sessions as the work needs" in text
         assert "one-session-per-surface cap" in text
-        assert "not a quota" in text
+        assert "There is no per-surface session cap" in text
         assert "never withholds a launch" in text
-        assert "it never withholds one" in text
 
     def test_launch_preview_is_mandatory_and_names_surface_refusals(self):
         text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
