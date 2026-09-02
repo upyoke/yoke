@@ -38,16 +38,8 @@ def test_registration_leaf_declares_every_engine_action():
         "decision_requests.resolve",
         "decision_requests.withdraw",
         "decision_requests.dispose_ended",
-        "notifications.read",
-
-        "notifications.read_all",
     ]
     assert all(row[1]["adapter_status"] == "internal" for row in registry.rows)
-    read_all = next(
-        row for row in registry.rows if row[0][0] == "notifications.read_all"
-    )
-    assert read_all[0][2] is inbox_decisions.NotificationsReadAllRequest
-    assert "project_scope_exact" in read_all[1]["guardrails"]
     withdraw = next(
         row for row in registry.rows if row[0][0] == "decision_requests.withdraw"
     )
@@ -118,14 +110,9 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
         "pending_requests_for_actor",
 
         lambda *_args, **_kwargs: [
-            {"kind": "machine_approval", "blocking": True},
-            {"kind": "qa_needs_review", "blocking": True},
+            {"kind": "machine_approval"},
+            {"kind": "qa_needs_review"},
         ],
-    )
-    monkeypatch.setattr(
-        inbox_read,
-        "notification_rows",
-        lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
         inbox_read,
@@ -143,7 +130,7 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
 
     assert outcome.primary_success is True
     assert outcome.result_payload["needs_decision"] == [
-        {"kind": "qa_needs_review", "blocking": True}
+        {"kind": "qa_needs_review"}
     ]
     assert outcome.result_payload["messages"] == []
     assert outcome.result_payload["pending_actor_message_count"] == 0

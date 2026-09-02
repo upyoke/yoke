@@ -22,7 +22,6 @@ def test_boot_converges_supporting_schema_and_code_owned_seeds(
 
     for table in (
         "decision_requests",
-        "addressed_event_deliveries",
         "ouroboros_entry_dispositions",
         "qa_methods",
         "qa_plans",
@@ -33,12 +32,6 @@ def test_boot_converges_supporting_schema_and_code_owned_seeds(
         assert _table_exists(test_db, table), table
 
     for table, column in (
-        ("addressed_event_deliveries", "event_name"),
-        ("addressed_event_deliveries", "project_id"),
-        ("addressed_event_deliveries", "event_outcome"),
-        ("addressed_event_deliveries", "event_actor_id"),
-        ("addressed_event_deliveries", "event_actor_label"),
-        ("addressed_event_deliveries", "event_envelope"),
         ("qa_requirements", "case_position"),
         ("qa_requirements", "baseline_position"),
         ("qa_requirements", "entry_surface"),

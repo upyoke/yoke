@@ -46,7 +46,7 @@ _EXPECTED_SCHEMA_STR = (
     "|caveat_dispositions:id/INTEGER,item/TEXT,transition/TEXT,attempt/INTEGER,caveat_num/INTEGER,caveat_text/TEXT,disposition/TEXT,resolution_details/TEXT,verdict_id/INTEGER,created_at/TEXT"
     "|decision_request_actor_authorities:request_id/INTEGER,actor_id/INTEGER"
     "|decision_request_role_authorities:request_id/INTEGER,scope_kind/TEXT,scope_id/INTEGER,role_name/TEXT"
-    "|decision_requests:id/INTEGER,kind/TEXT,subject_type/TEXT,subject_key/TEXT,subject_context/TEXT,project_id/INTEGER,org_id/INTEGER,originator_actor_id/INTEGER,blocking/INTEGER,status/TEXT,resolution_action/TEXT,resolution_actor_id/INTEGER,resolution_note/TEXT,resolved_at/TEXT,withdrawal_reason/TEXT,withdrawn_at/TEXT,consumed_at/TEXT,consumed_from_stage/TEXT,consumed_to_stage/TEXT,consumed_workflow_version_id/INTEGER,created_at/TEXT"
+    "|decision_requests:id/INTEGER,kind/TEXT,subject_type/TEXT,subject_key/TEXT,subject_context/TEXT,project_id/INTEGER,org_id/INTEGER,originator_actor_id/INTEGER,status/TEXT,resolution_action/TEXT,resolution_actor_id/INTEGER,resolution_note/TEXT,resolved_at/TEXT,withdrawal_reason/TEXT,withdrawn_at/TEXT,consumed_at/TEXT,consumed_from_stage/TEXT,consumed_to_stage/TEXT,consumed_workflow_version_id/INTEGER,created_at/TEXT"
     "|deployment_flows:id/TEXT,project_id/INTEGER,name/TEXT,description/TEXT,stages/TEXT,on_failure/TEXT,created_at/TEXT,target_tier/TEXT,target_environment_id/INTEGER,done_description/TEXT,status/TEXT"
     "|deployment_preview_environments:id/INTEGER,project_id/INTEGER,env_name/TEXT,run_id/TEXT,status/TEXT,env_type/TEXT,url/TEXT,created_at/TEXT"
     "|deployment_run_items:run_id/TEXT,item_id/INTEGER,added_at/TEXT"

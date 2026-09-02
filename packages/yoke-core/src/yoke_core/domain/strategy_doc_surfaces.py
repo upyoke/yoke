@@ -183,14 +183,6 @@ def get_strategy_surface(
     ]
     revisions = list_doc_revisions(conn, int(project_id), slug)
     current_revision = int(revisions[0]["revision"]) if revisions else None
-    review_requests = (
-        list_subject_requests(
-            conn,
-            "strategy_doc_revision",
-            f"{int(project_id)}:{slug}:{current_revision}",
-        )
-        if current_revision is not None else []
-    )
     return {
         **doc,
         "updated_by": actor_render_label(conn, doc["updated_by_actor_id"]),
@@ -199,10 +191,6 @@ def get_strategy_surface(
         "references": references,
         "revisions": revisions,
         "current_revision": current_revision,
-        "review_requests": review_requests,
-        "pending_review_count": sum(
-            1 for request in review_requests if request["status"] == "pending"
-        ),
         "execution_claim": claim,
     }
 

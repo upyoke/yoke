@@ -10,7 +10,6 @@ from yoke_core.domain import universe_portability as portability
 
 def test_additive_work_surfaces_accept_older_archive_shapes():
     additive_tables = {
-        "addressed_event_deliveries",
         "decision_request_actor_authorities",
         "decision_request_role_authorities",
         "decision_requests",
@@ -54,8 +53,7 @@ def test_additive_work_surfaces_accept_older_archive_shapes():
     )
     assert (
         portability._compatible_restore_columns(
-            "addressed_event_deliveries",
-            legacy_delivery_columns,
+                legacy_delivery_columns,
             legacy_delivery_columns
             + (
                 "event_name",

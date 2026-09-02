@@ -73,12 +73,6 @@ def test_postgres_schema_authority_and_transactional_resolution(test_db):
         test_db, request["id"], actor_id=actor_ids[1], action="approve",
     )
     assert resolved["status"] == "resolved"
-    notification = test_db.execute(
-        "SELECT notification_kind FROM addressed_event_deliveries "
-        "WHERE actor_id=%s",
-        (actor_ids[0],),
-    ).fetchone()
-    assert notification[0] == "decision_request_resolved"
     assert [row[0] for row in test_db.execute(
         "SELECT event_name FROM events "
         "WHERE event_name LIKE 'DecisionRequest%' ORDER BY created_at, id"

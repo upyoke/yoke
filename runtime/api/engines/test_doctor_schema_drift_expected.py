@@ -31,21 +31,27 @@ def test_expected_catalog_includes_ordered_migration_ledger() -> None:
 def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
     expected = parse_expected_schema()
 
-    assert expected["addressed_event_deliveries"] == {
+    assert expected["decision_requests"] == {
         "id": "INTEGER",
-        "channel": "TEXT",
-        "event_id": "TEXT",
-        "actor_id": "INTEGER",
-        "notification_kind": "TEXT",
-        "reason": "TEXT",
-        "read_at": "TEXT",
-        "created_at": "TEXT",
-        "event_name": "TEXT",
+        "kind": "TEXT",
+        "subject_type": "TEXT",
+        "subject_key": "TEXT",
+        "subject_context": "TEXT",
         "project_id": "INTEGER",
-        "event_outcome": "TEXT",
-        "event_actor_id": "INTEGER",
-        "event_actor_label": "TEXT",
-        "event_envelope": "TEXT",
+        "org_id": "INTEGER",
+        "originator_actor_id": "INTEGER",
+        "status": "TEXT",
+        "resolution_action": "TEXT",
+        "resolution_actor_id": "INTEGER",
+        "resolution_note": "TEXT",
+        "resolved_at": "TEXT",
+        "withdrawal_reason": "TEXT",
+        "withdrawn_at": "TEXT",
+        "consumed_at": "TEXT",
+        "consumed_from_stage": "TEXT",
+        "consumed_to_stage": "TEXT",
+        "consumed_workflow_version_id": "INTEGER",
+        "created_at": "TEXT",
     }
     assert expected["item_worktrees"]["commit_sha"] == "TEXT"
     assert expected["workflow_versions"]["derived_from_canon_version"] == "INTEGER"
