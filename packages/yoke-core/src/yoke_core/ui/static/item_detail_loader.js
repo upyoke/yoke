@@ -27,7 +27,7 @@ export function renderItemDetailView(
   main.replaceChildren(loading);
   const target = {
     kind: "item",
-    item_ref: String(itemRef),
+    public_ref: String(itemRef),
     project_id: String(projectId),
   };
   (async () => {

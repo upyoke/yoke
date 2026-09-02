@@ -116,7 +116,7 @@ for (const workflowId of ["issue", "dash"]) {
       payload: {},
       target: {
         kind: "item",
-        item_ref: "ACM-22",
+        public_ref: "ACM-22",
         project_id: "7",
       },
     });

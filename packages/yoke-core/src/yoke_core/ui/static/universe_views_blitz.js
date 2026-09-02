@@ -302,7 +302,7 @@ export function renderBlitzItemDetail(context, main, item) {
     },
     {
       kind: "item",
-      item_ref: item.public_ref,
+      public_ref: item.public_ref,
       project_id: String(item.project.id),
     },
   );

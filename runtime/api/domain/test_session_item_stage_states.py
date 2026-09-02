@@ -59,7 +59,7 @@ def test_landed_open_item_activates_closeout_without_a_red_segment(
     assert "failed" not in {stage["state"] for stage in stages}
 
 
-def test_failure_attaches_to_its_named_stage() -> None:
+def test_failure_attaches_to_the_stage_the_item_is_on() -> None:
     runtime = builtin_workflow_runtime("dash")
     failed_stage = "reviewing-implementation"
 
@@ -75,6 +75,41 @@ def test_failure_attaches_to_its_named_stage() -> None:
         "state": "failed",
         "failure": "QA failed",
     }
+
+
+def test_transition_gate_failure_paints_the_stage_being_left() -> None:
+    runtime = builtin_workflow_runtime("dash")
+
+    stages = item_stage_states(
+        runtime,
+        "implementing",
+        failures={"reviewing-implementation": "QA failed"},
+    )
+
+    assert stages[runtime.stage_index("implementing")] == {
+        "name": "implementing",
+        "state": "failed",
+        "failure": "QA failed",
+    }
+    assert stages[runtime.stage_index("reviewing-implementation")] == {
+        "name": "reviewing implementation",
+        "state": "pending",
+        "failure": None,
+    }
+
+
+def test_failure_on_a_passed_stage_stays_behind_the_active_one() -> None:
+    runtime = builtin_workflow_runtime("dash")
+
+    stages = item_stage_states(
+        runtime,
+        "reviewing-implementation",
+        failures={"implementing": "launch failed"},
+    )
+
+    assert stages[runtime.stage_index("implementing")]["state"] == "failed"
+    reviewing = stages[runtime.stage_index("reviewing-implementation")]
+    assert reviewing["state"] == "active"
 
 
 def _connection() -> sqlite3.Connection:
@@ -167,17 +202,16 @@ def _project(conn: sqlite3.Connection) -> list[dict[str, object]]:
 
 
 @pytest.mark.parametrize(
-    ("signal", "expected_stage", "expected_failure"),
+    ("signal", "expected_failure"),
     (
-        ("qa", "reviewing implementation", "QA failed"),
-        ("merge", "reviewing implementation", "CI checks failed"),
-        ("launch", "implementing", "launch failed"),
-        ("blocked", "implementing", "blocked: upstream unavailable"),
+        ("qa", "QA failed"),
+        ("merge", "CI checks failed"),
+        ("launch", "launch failed"),
+        ("blocked", "blocked: upstream unavailable"),
     ),
 )
 def test_projection_marks_only_real_failure_signals_red(
     signal: str,
-    expected_stage: str,
     expected_failure: str,
 ) -> None:
     conn = _connection()
@@ -204,9 +238,12 @@ def test_projection_marks_only_real_failure_signals_red(
 
     failures = [stage for stage in _project(conn) if stage["state"] == "failed"]
 
+    # The item sits at implementing: the QA requirement gates entry to
+    # reviewing-implementation and the merge signal keys the closeout
+    # stage, and the strip never paints a stage the item has not entered.
     assert failures == [
         {
-            "name": expected_stage,
+            "name": "implementing",
             "state": "failed",
             "failure": expected_failure,
         }

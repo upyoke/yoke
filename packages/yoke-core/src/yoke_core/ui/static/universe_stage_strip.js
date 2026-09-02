@@ -4,43 +4,35 @@ const STAGE_STATES = new Set([
   "complete", "active", "pending", "failed", "stopped",
 ]);
 
-function stageState(stage) {
+function stageParts(stage) {
   const state = String(stage?.state || "pending");
-  return STAGE_STATES.has(state) ? state : "pending";
+  return {
+    state: STAGE_STATES.has(state) ? state : "pending",
+    name: String(stage?.name || "unnamed"),
+    failure: String(stage?.failure || "").trim(),
+  };
 }
 
 export function renderStageStrip(documentNode, stageRows) {
-  const stages = Array.isArray(stageRows) ? stageRows : [];
+  const stages = (Array.isArray(stageRows) ? stageRows : []).map(stageParts);
   const strip = el(documentNode, "span", "delivery-run-stages");
   strip.setAttribute("role", "img");
   strip.setAttribute(
     "aria-label",
     stages.length
-      ? `stages: ${stages.map((stage) => {
-        const name = String(stage?.name || "unnamed");
-        const failure = String(stage?.failure || "").trim();
-        return [name, stageState(stage), failure].filter(Boolean).join(" ");
-      }).join(", ")}`
+      ? `stages: ${stages.map(
+        ({ name, state, failure }) => [name, state, failure]
+          .filter(Boolean).join(" "),
+      ).join(", ")}`
       : "no stages published",
   );
-  for (const stage of stages) {
-    const state = stageState(stage);
+  for (const { name, state, failure } of stages) {
     const segment = el(documentNode, "span", "delivery-run-stage");
     segment.setAttribute("data-state", state);
-    segment.setAttribute(
-      "title", `${String(stage?.name || "unnamed")} · ${state}`,
-    );
+    // The segment carries its own failure, so the strip says it in place
+    // rather than under a second line of red text repeating the stage name.
+    segment.setAttribute("title", `${name} · ${failure || state}`);
     strip.appendChild(segment);
   }
   return strip;
-}
-
-export function stageFailureLabel(stageRows) {
-  const failed = (Array.isArray(stageRows) ? stageRows : []).find(
-    (stage) => stageState(stage) === "failed",
-  );
-  if (!failed) return "";
-  const name = String(failed.name || "unnamed");
-  const failure = String(failed.failure || "failed").trim() || "failed";
-  return `${name} · ${failure}`;
 }

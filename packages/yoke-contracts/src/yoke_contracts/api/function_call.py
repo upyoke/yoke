@@ -62,6 +62,15 @@ class ActorContext(BaseModel):
     )
 
 
+#: Target keys a rename retired. Kept as a named constant because more
+#: than the validator needs it: the shipped web client is checked against
+#: this list so a rename cannot strand a JavaScript consumer on a key the
+#: envelope now refuses.
+RETIRED_TARGET_KEYS: Dict[str, str] = {
+    "item_ref": "public_ref",
+}
+
+
 class TargetRef(BaseModel):
     """Discriminated target reference. ``kind`` selects which keys are meaningful.
 
@@ -103,11 +112,14 @@ class TargetRef(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _reject_retired_target_keys(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "item_ref" in data:
-            raise ValueError(
-                "target.public_ref carries the PREFIX-N token; "
-                "replace item_ref with public_ref"
-            )
+        if not isinstance(data, dict):
+            return data
+        for retired, live in RETIRED_TARGET_KEYS.items():
+            if retired in data:
+                raise ValueError(
+                    f"target.{live} carries the PREFIX-N token; "
+                    f"replace {retired} with {live}"
+                )
         return data
 
 
@@ -200,6 +212,7 @@ class HandlerOutcome:
 
 
 __all__ = [
+    "RETIRED_TARGET_KEYS",
     "ActorContext",
     "TargetRef",
     "FunctionCallRequest",

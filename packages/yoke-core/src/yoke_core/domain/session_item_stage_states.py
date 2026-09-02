@@ -278,13 +278,21 @@ def item_stage_states(
     active_index = runtime.stage_index(active_stage)
     if active_index is None:
         active_index = 0
-    stage_failures = dict(failures or {})
+    # A gate recorded against a stage guards entry into it, so its failure
+    # belongs to the stage the item is trying to leave. A failure on a stage
+    # already passed stays there; one it has not entered is never painted.
+    placed: dict[int, str] = {}
+    for stage_id, failure in (failures or {}).items():
+        stage_position = runtime.stage_index(stage_id)
+        if stage_position is None or stage_position > active_index:
+            stage_position = active_index
+        placed[stage_position] = failure
     result = []
     for index, stage_id in enumerate(runtime.stage_ids):
         state = "complete" if index < active_index else "pending"
         if index == active_index:
             state = "active"
-        failure = stage_failures.get(stage_id)
+        failure = placed.get(index)
         if failure:
             state = "failed"
         result.append(
@@ -323,12 +331,7 @@ def primary_item_stages_by_session(
         if item_id in launch:
             failures[active_stage] = launch[item_id]
         if item_id in qa:
-            qa_stage = (
-                qa[item_id]
-                if runtime.stage_index(qa[item_id]) is not None
-                else active_stage
-            )
-            failures[qa_stage] = "QA failed"
+            failures[qa[item_id]] = "QA failed"
         if item_id in merge:
             failures[_closeout_stage(runtime)] = merge[item_id]
         if int(item.get("blocked") or 0):

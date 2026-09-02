@@ -79,8 +79,3 @@
   .session-item-stage-progress .delivery-run-stage[data-state="stopped"] {
   background: var(--yoke-warn);
 }
-
-.universe-app-root .session-item-stage-failure {
-  color: var(--yoke-crit);
-  font-size: 11px;
-}
