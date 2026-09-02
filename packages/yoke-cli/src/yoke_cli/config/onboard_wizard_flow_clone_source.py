@@ -213,7 +213,7 @@ class CloneSourceFlow:
             lambda: steps.verification_body(
                 "Couldn't reach that repo.",
                 str(exc),
-                ["Check the URL and, for private repos, GitHub authorization."],
+                clone_git_copy.UNREACHABLE_RECOVERY_LINES,
                 (
                     clone_git_copy.PRIVATE_REMOTE_ERROR_ROWS
                     if self.result.project_clone_requires_machine_github

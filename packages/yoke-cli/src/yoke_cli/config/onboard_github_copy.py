@@ -61,6 +61,16 @@ CLONE_FROM_GITHUB_SUBTITLE = (
 )
 CLONE_VISIBILITY_PUBLIC_DESC = "paste a GitHub URL"
 
+CLONE_CONNECT_RECOVERY = (
+    "Run `yoke github connect` so `yoke github status` reports ready=true, "
+    "or choose Connect GitHub in this wizard."
+)
+CLONE_MISSING_AUTHORIZATION = (
+    "Yoke couldn't read that GitHub repo because this machine has no usable "
+    "GitHub authorization (`yoke github status` reports ready=false). "
+    + CLONE_CONNECT_RECOVERY
+)
+
 
 __all__ = [
     "MACHINE_GITHUB_TITLE",
@@ -88,4 +98,6 @@ __all__ = [
     "CLONE_FROM_GITHUB_TITLE",
     "CLONE_FROM_GITHUB_SUBTITLE",
     "CLONE_VISIBILITY_PUBLIC_DESC",
+    "CLONE_CONNECT_RECOVERY",
+    "CLONE_MISSING_AUTHORIZATION",
 ]

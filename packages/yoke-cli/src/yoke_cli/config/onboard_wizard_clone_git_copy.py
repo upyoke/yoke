@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import project_git_prerequisite
 from yoke_cli.config.onboard_wizard_widgets import SelectionRow
 
+UNREACHABLE_RECOVERY_LINES = [onboard_github_copy.CLONE_CONNECT_RECOVERY]
 
 CLONE_REMOTE_ERROR_ROWS = [
     SelectionRow("edit", "Change URL", "enter a different repo"),
@@ -55,14 +57,8 @@ def unreachable_source_reason(
             "repo has to be readable without credentials. Check the URL and "
             "network connection."
         )
-    if denied_access:
-        return (
-            "Yoke couldn't read that repo without GitHub access. Connect "
-            "GitHub in the earlier step, then try again."
-        )
-    return (
-        "Yoke couldn't reach that repo. Check the URL and network connection."
-    )
+    del denied_access
+    return onboard_github_copy.CLONE_MISSING_AUTHORIZATION
 
 
 def missing_rows() -> list[SelectionRow]:
@@ -105,6 +101,7 @@ def handoff_rows() -> list[SelectionRow]:
 __all__ = [
     "CLONE_REMOTE_ERROR_ROWS",
     "PRIVATE_REMOTE_ERROR_ROWS",
+    "UNREACHABLE_RECOVERY_LINES",
     "handoff_rows",
     "install_error_rows",
     "missing_rows",

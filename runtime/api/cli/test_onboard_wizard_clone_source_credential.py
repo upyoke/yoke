@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import github_local_user_access
+from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_wizard_clone_git_copy as clone_git_copy
 from yoke_cli.config import onboard_wizard_flow_clone_source as clone_source
 from yoke_cli.config import onboard_wizard_github_state as github_state
@@ -153,7 +154,9 @@ def test_unconnected_run_denied_access_names_the_connection_step(
     with pytest.raises(RuntimeError) as caught:
         clone_source.CloneSourceFlow._probe_clone_remote(_shell(), URL)
 
-    assert "Connect GitHub in the earlier step" in str(caught.value)
+    assert onboard_github_copy.CLONE_CONNECT_RECOVERY in str(caught.value)
+    assert "yoke github connect" in str(caught.value)
+    assert "ready=false" in str(caught.value)
 
 
 def test_credential_refresh_failure_is_named_when_the_repo_stays_unreadable(
@@ -177,6 +180,19 @@ def test_credential_refresh_failure_is_named_when_the_repo_stays_unreadable(
     assert "Reconnect GitHub" in str(caught.value)
 
 
+def test_unconnected_github_origin_network_failure_names_connect(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(github_state, "user_access_token", lambda _result: None)
+    _probes(monkeypatch, anonymous=_unreachable())
+
+    with pytest.raises(RuntimeError) as caught:
+        clone_source.CloneSourceFlow._probe_clone_remote(_shell(), URL)
+
+    assert "yoke github connect" in str(caught.value)
+    assert "ready=false" in str(caught.value)
+
+
 def test_every_unreachable_reason_names_a_recovery_step() -> None:
     reasons = [
         clone_git_copy.unreachable_source_reason(
@@ -190,9 +206,18 @@ def test_every_unreachable_reason_names_a_recovery_step() -> None:
             (True, True, None, True),
             (False, False, None, False),
             (True, False, None, True),
-            (True, False, None, False),
         )
     ]
 
     assert len(set(reasons)) == len(reasons)
     assert all(reason.startswith("Yoke couldn't") for reason in reasons)
+    assert reasons[3] == onboard_github_copy.CLONE_MISSING_AUTHORIZATION
+    assert (
+        clone_git_copy.unreachable_source_reason(
+            configured_origin=True,
+            used_connected_github=False,
+            credential_error=None,
+            denied_access=False,
+        )
+        == reasons[3]
+    )
