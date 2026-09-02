@@ -56,6 +56,7 @@ def _starved_dict(entry: StarvedDelivery) -> dict[str, Any]:
         "session_id": entry.session_id,
         "envelope_count": entry.envelope_count,
         "oldest_seconds": entry.oldest_seconds,
+        "wake_escalation": entry.wake_escalation,
     }
 
 
@@ -130,7 +131,6 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         "origin_counts": list(report.origin_counts),
         "messages_awaiting_seat": report.messages_awaiting_seat,
     }
-
 
 
 __all__ = ["report_dict"]

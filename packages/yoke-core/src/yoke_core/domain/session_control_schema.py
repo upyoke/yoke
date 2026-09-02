@@ -82,6 +82,7 @@ def create_session_control_tables(conn: Any) -> None:
             cancelled_at TEXT,
             wake_attempt_count INTEGER NOT NULL DEFAULT 0,
             last_wake_at TEXT,
+            wake_escalation TEXT,
             PRIMARY KEY (message_id, session_id)
         );
         CREATE INDEX IF NOT EXISTS idx_session_message_recipients_session_state
@@ -275,6 +276,10 @@ def create_session_control_tables(conn: Any) -> None:
         conn.execute("ALTER TABLE session_launches ADD COLUMN session_name TEXT")
     if not _column_exists(conn, "session_relays", "surface_plan_limits"):
         conn.execute("ALTER TABLE session_relays ADD COLUMN surface_plan_limits TEXT")
+    if not _column_exists(conn, "session_message_recipients", "wake_escalation"):
+        conn.execute(
+            "ALTER TABLE session_message_recipients ADD COLUMN wake_escalation TEXT"
+        )
     if not _column_exists(conn, "session_messages", "sender_surface"):
         conn.execute(
             "ALTER TABLE session_messages ADD COLUMN sender_surface TEXT "

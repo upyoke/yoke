@@ -100,6 +100,8 @@ class StarvedDelivery:
     session_id: str
     envelope_count: int
     oldest_seconds: int
+    #: Why the wake sweep already escalated, when it has; empty otherwise.
+    wake_escalation: str = ""
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,7 @@ def starved_deliveries(
     rows = conn.execute(
         f"""SELECT r.session_id AS session_id,
                    r.created_at AS created_at,
+                   r.wake_escalation AS wake_escalation,
                    s.last_tool_call_at AS last_tool_call_at
               FROM session_message_recipients r
               JOIN harness_sessions s ON s.session_id = r.session_id
@@ -159,6 +162,7 @@ def starved_deliveries(
     ).fetchall()
     oldest: dict[str, int] = {}
     counts: dict[str, int] = {}
+    escalations: dict[str, str] = {}
     for row in rows:
         record = dict(row)
         sent_at = str(record.get("created_at") or "")
@@ -173,11 +177,18 @@ def starved_deliveries(
         session_id = str(record["session_id"])
         counts[session_id] = counts.get(session_id, 0) + 1
         oldest[session_id] = max(oldest.get(session_id, 0), waited)
+        # A recipient the sweep already escalated needs no hand resume, so
+        # the finding says which absence authorized that wake rather than
+        # reading like an envelope nothing has acted on.
+        escalation = str(record.get("wake_escalation") or "")
+        if escalation:
+            escalations[session_id] = escalation
     return tuple(
         StarvedDelivery(
             session_id=session_id,
             envelope_count=counts[session_id],
             oldest_seconds=oldest[session_id],
+            wake_escalation=escalations.get(session_id, ""),
         )
         for session_id in sorted(oldest, key=lambda key: (-oldest[key], key))
     )
