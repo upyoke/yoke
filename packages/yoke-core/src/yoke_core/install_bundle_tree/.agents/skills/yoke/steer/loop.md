@@ -131,11 +131,11 @@ yours:
   wake alone parks it on the same question.
 
 - **Plan limits** — informational table, one row per surface window
-  (quota left, time-to-reset, headroom). A vendor publishes several
-  meters at once, so each row names its model scope — `weekly · all
-  models` beside `weekly · Fable` — and `tightest` marks the one
-  binding first. Approaching walls are raised with the operator; these
-  numbers never disable a surface or gate a launch.
+  (quota left, time-to-reset, headroom). Each row names its model
+  scope — `weekly · all models` beside `weekly · Fable`. Compare
+  headroom across every surface and window; under 100% can hit a
+  wall before its reset. Approaching walls are raised with the
+  operator; these numbers never disable a surface or gate a launch.
 
 Two things the report deliberately does not do, so do them yourself:
 

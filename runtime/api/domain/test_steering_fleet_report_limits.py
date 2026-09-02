@@ -1,4 +1,4 @@
-"""Fleet-report plan-limits: one row per window, with headroom and the binding meter."""
+"""Fleet-report plan-limits: one row per window, with headroom."""
 
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
     ROLLING_5H_WINDOW,
     ROLLING_7D_WINDOW,
     TABLE_HEADER,
-    TIGHTEST_NOTE,
     compute_plan_limit,
     format_capacity_duration,
     format_reset_utc,
@@ -104,15 +103,15 @@ def test_plan_limit_lines_match_worked_target_table() -> None:
     assert TABLE_HEADER in lines
     assert (
         f"| {_HOST} | claude-cli | max | weekly · all models | 44% | 2d 11h 40m | "
-        f"124% | Sep 4 01:00 | {TIGHTEST_NOTE} |"
+        f"124% | Sep 4 01:00 |"
     ) in lines
     assert (
         f"| {_HOST} | cursor-cli | Ultra | monthly · all models | 22% | 5d 11h 40m | "
-        f"120% | Sep 7 01:00 | {TIGHTEST_NOTE} |"
+        f"120% | Sep 7 01:00 |"
     ) in lines
     assert (
         f"| {_HOST} | codex-cli | {EMPTY} | unknown | {EMPTY} | {EMPTY} | "
-        f"{EMPTY} | {EMPTY} | usage_unreadable |"
+        f"usage_unreadable | {EMPTY} |"
     ) in lines
     assert HEADROOM_LEGEND in lines
 
@@ -150,7 +149,7 @@ def test_plan_limit_dicts_carry_numeric_headroom() -> None:
     payload = plan_limit_dicts((_row(),), now=_NOW)[0]
     assert payload["scope"] == "all"
     assert payload["window_label"] == f"monthly · {ALL_MODELS_LABEL}"
-    assert payload["tightest"] is True
+    assert "headroom_percent" in payload
     assert payload["window_seconds"] == MONTHLY_WINDOW.total_seconds()
     remaining = remaining_capacity(22.0, MONTHLY_WINDOW)
     assert remaining is not None

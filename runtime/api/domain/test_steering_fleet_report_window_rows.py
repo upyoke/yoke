@@ -1,16 +1,16 @@
-"""One report row per published plan-limit window, scoped and marked."""
+"""One report row per published plan-limit window, scoped by model."""
 
 from __future__ import annotations
 
 from runtime.api.steering_fleet_test_helpers import PLAN_LIMIT_HOST, plan_limit_row
 from yoke_core.domain.steering_fleet_plan_capacity import (
     ALL_MODELS_LABEL,
+    HEADROOM_LEGEND,
     MONTHLY_WINDOW,
     ROLLING_7D_WINDOW,
-    TIGHTEST_NOTE,
+    TABLE_HEADER,
     compute_plan_limit,
     plan_limit_lines,
-    tightest_windows,
     window_label,
 )
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
@@ -79,18 +79,27 @@ def test_every_published_window_gets_its_own_row_naming_its_scope() -> None:
     ]
 
 
-def test_the_binding_window_of_each_surface_is_the_one_marked_tightest() -> None:
+def test_the_table_compares_windows_by_headroom_not_a_note_column() -> None:
     lines = plan_limit_lines(_fleet_windows(), now=_NOW)
-    marked = {
-        (line.split("|")[2].strip(), line.split("|")[4].strip())
-        for line in lines
-        if line.rstrip().endswith(f"{TIGHTEST_NOTE} |")
-    }
-    assert marked == {
-        ("claude-cli", "weekly · Fable"),
-        ("codex-cli", "weekly · all models"),
-        ("cursor-cli", "monthly · all models"),
-    }
+    assert TABLE_HEADER in lines
+    assert TABLE_HEADER.count("|") == 9
+    assert "Note" not in TABLE_HEADER
+    assert "under 100%" in HEADROOM_LEGEND
+    claude_fable = next(
+        compute_plan_limit(row, now=_NOW)
+        for row in _fleet_windows()
+        if row.surface == "claude-cli" and row.scope == "Fable"
+    )
+    claude_weekly = next(
+        compute_plan_limit(row, now=_NOW)
+        for row in _fleet_windows()
+        if row.surface == "claude-cli"
+        and row.window_kind == "rolling_7d"
+        and row.scope != "Fable"
+    )
+    assert claude_fable.headroom_percent is not None
+    assert claude_weekly.headroom_percent is not None
+    assert claude_fable.headroom_percent < claude_weekly.headroom_percent
 
 
 def test_headroom_is_computed_from_each_window_own_length() -> None:
@@ -115,22 +124,6 @@ def test_headroom_is_computed_from_each_window_own_length() -> None:
     assert monthly.headroom_percent is not None
     assert scoped_weekly.headroom_percent is not None
     assert monthly.headroom_percent > scoped_weekly.headroom_percent
-
-
-def test_an_unreadable_surface_is_never_the_tightest_row() -> None:
-    binding = tightest_windows(
-        (
-            _row(
-                surface="codex-cli",
-                window_kind="unknown",
-                remaining_percent=None,
-                resets_at=None,
-                status="unknown",
-                reason="stale_credential",
-            ),
-        )
-    )
-    assert binding == frozenset()
 
 
 def test_an_unreadable_window_names_no_scope_it_could_not_read() -> None:

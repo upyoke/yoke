@@ -8,6 +8,7 @@ noise. The machine-readable projection of the same report lives in
 from __future__ import annotations
 
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
+from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 
@@ -156,45 +157,20 @@ def _section(heading: str, lines: list[str]) -> list[str]:
     return [heading + ":", *lines] if lines else []
 
 
-def _launch_balance_lines(report: FleetReport) -> list[str]:
-    counts = {(machine, surface): n for machine, surface, n in report.session_counts}
-    by_machine: dict[str, list[str]] = {}
-    for ready in report.launchable:
-        by_machine.setdefault(ready.machine_id, []).append(ready.surface)
-    lines: list[str] = []
-    for machine in sorted(by_machine):
-        parts = [
-            f"{surface} {counts.get((machine, surface), 0)}"
-            for surface in sorted(by_machine[machine])
-        ]
-        lines.extend(
-            [
-                f"launch balance  {machine}",
-                f"  {' · '.join(parts)}",
-                f"  {LAUNCH_BALANCE_NOTE}",
-            ]
-        )
-    if report.origin_counts:
-        lines.append(
-            "origin " + " · ".join(f"{name} {n}" for name, n in report.origin_counts)
-        )
-    return lines
-
-
-def report_body(report: FleetReport) -> str:
-    """The steerer-facing text of one report."""
+def _project_header(report: FleetReport) -> str:
     staffing = _minutes(report.staffing_after_seconds)
     idle = _minutes(report.idle_after_seconds)
-    launchable = ", ".join(
-        f"{ready.machine_id}/{ready.surface}" for ready in report.launchable
-    )
-    available = _available_lines(report)
-    lines = [
-        REPORT_BEGIN,
+    return (
         f"project {report.project_id} · composed {report.composed_at} · "
-        f"staffing {staffing} · idle {idle}",
-        REPORT_PREAMBLE,
-        "",
+        f"staffing {staffing} · idle {idle}"
+    )
+
+
+def _scope_work_lines(report: FleetReport) -> list[str]:
+    staffing = _minutes(report.staffing_after_seconds)
+    idle = _minutes(report.idle_after_seconds)
+    available = _available_lines(report)
+    return [
         *(
             [
                 f"available — runnable and unclaimed, staff these "
@@ -234,8 +210,67 @@ def report_body(report: FleetReport) -> str:
         ),
         *_awaiting_seat_lines(report),
         *_section("live item claims", _holder_lines(report.holders)),
-        f"launchable machine/surface pairs: {launchable or 'none'}",
-        *_launch_balance_lines(report),
+    ]
+
+
+def _balances_by_machine(report: FleetReport) -> list[tuple[str, str]]:
+    counts = {(machine, surface): n for machine, surface, n in report.session_counts}
+    by_machine: dict[str, list[str]] = {}
+    for ready in report.launchable:
+        by_machine.setdefault(ready.machine_id, []).append(ready.surface)
+    return [
+        (
+            machine,
+            " · ".join(
+                f"{surface} {counts.get((machine, surface), 0)}"
+                for surface in sorted(by_machine[machine])
+            ),
+        )
+        for machine in sorted(by_machine)
+    ]
+
+
+def _launch_balance_lines(report: FleetReport, *, note: bool) -> list[str]:
+    lines: list[str] = []
+    extra = [f"  {LAUNCH_BALANCE_NOTE}"] if note else []
+    for machine, parts in _balances_by_machine(report):
+        lines.extend([f"launch balance  {machine}", f"  {parts}", *extra])
+    if report.origin_counts:
+        lines.append(
+            "origin " + " · ".join(f"{name} {n}" for name, n in report.origin_counts)
+        )
+    return lines
+
+
+def launchable_line(
+    pairs: tuple[SurfaceReadiness, ...] | list[SurfaceReadiness],
+) -> str:
+    joined = ", ".join(f"{ready.machine_id}/{ready.surface}" for ready in pairs)
+    return f"launchable machine/surface pairs: {joined or 'none'}"
+
+
+def scope_inner_body(report: FleetReport) -> str:
+    """Scope facts under a combined heading: no preamble, no shared machine block."""
+    return "\n".join(
+        [
+            _project_header(report),
+            "",
+            *_scope_work_lines(report),
+            *_launch_balance_lines(report, note=False),
+        ]
+    )
+
+
+def report_body(report: FleetReport) -> str:
+    """The steerer-facing text of one report."""
+    lines = [
+        REPORT_BEGIN,
+        _project_header(report),
+        REPORT_PREAMBLE,
+        "",
+        *_scope_work_lines(report),
+        launchable_line(report.launchable),
+        *_launch_balance_lines(report, note=True),
         *_plan_limits.plan_limit_lines(report.plan_limits, now=report.composed_at),
         REPORT_END,
     ]
@@ -243,10 +278,13 @@ def report_body(report: FleetReport) -> str:
 
 
 __all__ = [
+    "LAUNCH_BALANCE_NOTE",
     "OVERDUE_MARK",
     "REPORT_BEGIN",
     "REPORT_END",
     "REPORT_PREAMBLE",
     "SECTION_LIMIT",
+    "launchable_line",
     "report_body",
+    "scope_inner_body",
 ]
