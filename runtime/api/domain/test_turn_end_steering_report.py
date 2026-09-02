@@ -95,6 +95,50 @@ def test_steering_launched_session_routes_to_steering_holder() -> None:
     assert receipt["state"] == "pending"
 
 
+def test_a_report_after_close_out_released_the_claim_still_routes() -> None:
+    """The DONE turn happens once close-out already released the item claim."""
+    conn = _connection()
+    _record_launch(conn, "s1", LAUNCH_ORIGIN_STEERING)
+    conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (NOW_TEXT,))
+    conn.commit()
+    before = _message_count(conn)
+
+    routed = route_turn_end_report(
+        conn, session_id="s1", report=_report("closed out"), now=NOW
+    )
+
+    assert routed is not None
+    assert routed["recipient_session_id"] == "s2"
+    assert _message_count(conn) == before + 1
+
+
+def test_a_relayed_done_and_a_hand_sent_one_are_the_same_report() -> None:
+    """Two routes carry one terminal report; the seat reads it once."""
+    conn = _connection()
+    _record_launch(conn, "s1", LAUNCH_ORIGIN_STEERING)
+    before = _message_count(conn)
+
+    relayed = route_turn_end_report(
+        conn,
+        session_id="s1",
+        report=TurnEndReport(body="DONE ALP-1 landed.", fingerprint="turn-done"),
+        now=NOW,
+    )
+    hand_sent = send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s1",
+        selector=RecipientSelector(steering=True),
+        body="DONE ALP-1 landed and merged.",
+        now=NOW,
+    )
+
+    assert relayed is not None
+    assert hand_sent["message_id"] == relayed["message_id"]
+    assert hand_sent["deduplicated"] is True
+    assert _message_count(conn) == before + 1
+
+
 def test_no_steering_holder_leaves_a_launched_report_undelivered() -> None:
     conn = _connection()
     _record_launch(conn, "s1", LAUNCH_ORIGIN_STEERING)

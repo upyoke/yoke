@@ -25,6 +25,7 @@ from runtime.api.domain.test_session_message_support import (
 
 
 BODY = "Blocked: the merge gate went red on the schema converge step."
+DONE_BODY = "DONE ALP-1 close-out reporting landed."
 PROJECT_SCOPE = {"project_id": 1}
 
 
@@ -54,6 +55,18 @@ def _say_steering(conn, *, sender="s1", body=BODY, **selector_values):
         body=body,
         now=NOW,
     )
+
+
+def _release_item_claim(conn, claim_id: int = 1) -> None:
+    """Close-out releases the item claim before the report is written."""
+    conn.execute(
+        "UPDATE work_claims SET released_at=? WHERE id=?", (NOW_TEXT, claim_id)
+    )
+    conn.commit()
+
+
+def _message_count(conn) -> int:
+    return int(conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0])
 
 
 def _steering_row(conn, message_id: str) -> dict:
@@ -102,25 +115,58 @@ def test_an_ended_seat_parks_rather_than_routing_into_a_dead_session() -> None:
     assert _steering_row(conn, sent["message_id"])["state"] == STATE_AWAITING_SEAT
 
 
-def test_an_itemless_sender_must_name_the_scope() -> None:
+def test_a_sender_that_never_held_an_item_must_name_the_scope() -> None:
     conn = message_connection()
-    conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (NOW_TEXT,))
-    conn.commit()
 
     with pytest.raises(SessionMessageError) as raised:
-        _say_steering(conn)
+        _say_steering(conn, sender="s2")
 
     assert raised.value.code == ADDRESS_UNRESOLVED_CODE
     assert "--steering-scope" in str(raised.value)
 
 
+def test_close_out_releasing_the_claim_still_addresses_the_seat() -> None:
+    """The DONE report is written once the item claim is already gone."""
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s4")
+    _release_item_claim(conn)
+
+    sent = _say_steering(conn, body=DONE_BODY)
+
+    assert [r["session_id"] for r in sent["recipients"]] == ["s4"]
+    assert _steering_row(conn, sent["message_id"])["sender_item_id"] == 101
+
+
+def test_one_terminal_report_per_item_reaches_the_seat_once() -> None:
+    """A reworded retry of the same DONE is the same report, not a second one."""
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s4")
+    _release_item_claim(conn)
+
+    first = _say_steering(conn, body=DONE_BODY)
+    retry = _say_steering(conn, body=f"{DONE_BODY} Merged and green.")
+
+    assert retry["message_id"] == first["message_id"]
+    assert retry["deduplicated"] is True
+    assert _message_count(conn) == 1
+
+
+def test_a_second_substantive_update_is_not_a_terminal_report() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s4")
+
+    first = _say_steering(conn)
+    second = _say_steering(conn, body="Blocked: the queue rejected the rebase.")
+
+    assert second["message_id"] != first["message_id"]
+    assert _message_count(conn) == 2
+
+
 def test_an_explicit_scope_addresses_a_seat_without_a_held_item() -> None:
     conn = message_connection()
-    conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (NOW_TEXT,))
-    conn.commit()
     _seat(conn, claim_id=10, session_id="s2")
 
-    sent = _say_steering(conn, steering_scope=PROJECT_SCOPE)
+    sent = _say_steering(conn, sender="s4", steering_scope=PROJECT_SCOPE)
 
     assert [r["session_id"] for r in sent["recipients"]] == ["s2"]
     assert _steering_row(conn, sent["message_id"])["sender_item_id"] is None

@@ -54,6 +54,34 @@ def _idempotent_message(
     return message_details(conn, str(row[0])) if row else None
 
 
+def _same_intent(
+    existing: dict[str, Any],
+    *,
+    digest: str,
+    selector_json: str,
+    intent_only: bool,
+) -> dict[str, Any]:
+    """Return the existing message, or refuse a key reused for other intent.
+
+    ``intent_only`` is what a DERIVED key means: the caller composed the key
+    from the intent itself -- this session's terminal report on this item --
+    so a reworded retry or a second route carrying the same report is the
+    same message rather than a conflict.
+    """
+    if intent_only:
+        return existing
+    stored = json.dumps(
+        existing["selector_snapshot"], sort_keys=True, separators=(",", ":")
+    )
+    if existing["body_sha256"] != digest or stored != selector_json:
+        raise SessionMessageError(
+            "idempotency_conflict",
+            "idempotency key already names a different message intent",
+            jsonpath="$.payload.idempotency_key",
+        )
+    return existing
+
+
 def insert_message(
     conn: Any,
     *,
@@ -64,6 +92,7 @@ def insert_message(
     body: str,
     selector_snapshot: dict[str, Any],
     idempotency_key: str | None,
+    idempotency_intent_only: bool = False,
     created_at: datetime,
     expires_at: datetime,
     recipients: list[ResolvedRecipient],
@@ -80,19 +109,15 @@ def insert_message(
             idempotency_key=idempotency_key,
         )
         if existing is not None:
-            if (
-                existing["body_sha256"] != digest
-                or json.dumps(
-                    existing["selector_snapshot"], sort_keys=True, separators=(",", ":")
-                )
-                != selector_json
-            ):
-                raise SessionMessageError(
-                    "idempotency_conflict",
-                    "idempotency key already names a different message intent",
-                    jsonpath="$.payload.idempotency_key",
-                )
-            return existing, False
+            return (
+                _same_intent(
+                    existing,
+                    digest=digest,
+                    selector_json=selector_json,
+                    intent_only=idempotency_intent_only,
+                ),
+                False,
+            )
     marker = _p(conn)
     message_id = message_id or str(uuid.uuid4())
     inserted = conn.execute(
@@ -124,20 +149,15 @@ def insert_message(
         )
         if existing is None:
             raise SessionMessageError("message_conflict", "message insert conflicted")
-        if (
-            existing["body_sha256"] != digest
-            or json.dumps(
-                existing["selector_snapshot"],
-                sort_keys=True,
-                separators=(",", ":"),
-            )
-            != selector_json
-        ):
-            raise SessionMessageError(
-                "idempotency_conflict",
-                "idempotency key already names a different message intent",
-            )
-        return existing, False
+        return (
+            _same_intent(
+                existing,
+                digest=digest,
+                selector_json=selector_json,
+                intent_only=idempotency_intent_only,
+            ),
+            False,
+        )
     created_stamp = timestamp(created_at)
     for recipient in recipients:
         conn.execute(

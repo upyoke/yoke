@@ -8,10 +8,15 @@ DELIVERY time by :mod:`yoke_core.domain.steering_scope_coverage`, not at
 send time, so a message written while one seat was live is still correct
 after that seat ends.
 
+The work a sender holds includes the work it just finished: close-out
+releases the item claim before the DONE report is written, so the address
+comes from :mod:`yoke_core.domain.session_item_scope`, which reads the
+live claim and then the one this session most recently released.
+
 An itemless sender -- a dashboard, an operator shell, a seat writing to a
-peer scope -- has no held work to derive an address from and supplies the
-scope explicitly instead. Both forms produce the same pair: the scope the
-message belongs to, and the sender's item when there is one.
+peer scope -- has never held work to derive an address from and supplies
+the scope explicitly instead. Both forms produce the same pair: the scope
+the message belongs to, and the sender's item when there is one.
 """
 
 from __future__ import annotations
@@ -23,9 +28,8 @@ from yoke_contracts.session_control.recipient_selector import (
     STEERING_SCOPE_PROJECT_KEY,
     RecipientSelector,
 )
-from yoke_core.domain import db_backend
+from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_types import SessionMessageError
-from yoke_core.domain.work_claim_targets import TARGET_KIND_ITEM, decode_scope
 
 
 ADDRESS_UNRESOLVED_CODE = "steering_address_unresolved"
@@ -50,32 +54,6 @@ class SteeringAddress:
         return target
 
 
-def _marker(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _held_item(conn: Any, session_id: str) -> tuple[int, int] | None:
-    """The item this session holds a live work claim on, with its project."""
-    marker = _marker(conn)
-    rows = conn.execute(
-        "SELECT wc.scope AS scope FROM work_claims wc "
-        f"WHERE wc.session_id = {marker} AND wc.target_kind = {marker} "
-        "AND wc.released_at IS NULL "
-        "ORDER BY wc.claimed_at DESC, wc.id DESC",
-        (str(session_id), TARGET_KIND_ITEM),
-    ).fetchall()
-    for row in rows:
-        scope = decode_scope(dict(row)["scope"])
-        item_id = int(scope["item_id"])
-        item = conn.execute(
-            f"SELECT project_id FROM items WHERE id = {marker}",
-            (item_id,),
-        ).fetchone()
-        if item is not None:
-            return item_id, int(dict(item)["project_id"])
-    return None
-
-
 def resolve_steering_address(
     conn: Any,
     selector: RecipientSelector,
@@ -86,37 +64,34 @@ def resolve_steering_address(
     if selector.steering_scope is not None:
         scope = dict(selector.steering_scope)
         try:
-            scope[STEERING_SCOPE_PROJECT_KEY] = int(
-                scope[STEERING_SCOPE_PROJECT_KEY]
-            )
+            scope[STEERING_SCOPE_PROJECT_KEY] = int(scope[STEERING_SCOPE_PROJECT_KEY])
         except (TypeError, ValueError) as exc:
             raise SessionMessageError(
                 "selector_invalid",
-                f"steering scope {STEERING_SCOPE_PROJECT_KEY!r} must be a "
-                "project id",
+                f"steering scope {STEERING_SCOPE_PROJECT_KEY!r} must be a project id",
                 jsonpath="$.payload.selector.steering_scope",
             ) from exc
-        held = (
-            _held_item(conn, sender_session_id) if sender_session_id else None
+        held = session_item_scope(conn, sender_session_id)
+        item_id = (
+            held.item_id
+            if held is not None and held.project_id == scope[STEERING_SCOPE_PROJECT_KEY]
+            else None
         )
-        item_id = held[0] if held and held[1] == scope[
-            STEERING_SCOPE_PROJECT_KEY
-        ] else None
         return SteeringAddress(scope=scope, sender_item_id=item_id)
-    held = _held_item(conn, sender_session_id) if sender_session_id else None
+    held = session_item_scope(conn, sender_session_id)
     if held is None:
         raise SessionMessageError(
             ADDRESS_UNRESOLVED_CODE,
-            "--steering addresses the seat covering the work you hold, and "
-            "this sender holds no live item work claim to derive that from. "
-            "Acquire the item claim first, or name the scope explicitly with "
+            "--steering addresses the seat covering the work you hold or "
+            "most recently held, and this session has held no item work "
+            "claim to derive that from. Acquire the item claim first, or "
+            "name the scope explicitly with "
             "--steering-scope '{\"project_id\": N}'.",
             jsonpath="$.payload.selector.steering",
         )
-    item_id, project_id = held
     return SteeringAddress(
-        scope={STEERING_SCOPE_PROJECT_KEY: project_id},
-        sender_item_id=item_id,
+        scope={STEERING_SCOPE_PROJECT_KEY: held.project_id},
+        sender_item_id=held.item_id,
     )
 
 
