@@ -2,7 +2,7 @@
 
 These reads match the query shapes the board collector already records for
 visible projects and session-owned document locks, so replay can label
-steering seats and ``doc:<SLUG>`` keycaps from a live payload.
+steering seats and uncovered document-lock keycaps from a live payload.
 """
 
 from __future__ import annotations

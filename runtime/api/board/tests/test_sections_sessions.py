@@ -12,11 +12,15 @@ from runtime.api.fixtures.file_test_db import (
     init_test_db,
 )
 from yoke_contracts.board.sections_sessions_holdings import session_holding_labels
+from yoke_contracts.board.sections_sessions_occupancy import (
+    prefetch_session_occupancy,
+)
 from yoke_contracts.board.sections_sessions_rendering import _render_claim_target
 from yoke_core.board.db import BoardDB
 from yoke_core.domain.work_claim_targets import (
     make_item_target,
     make_qa_admission_target,
+    make_steering_target,
 )
 
 
@@ -83,6 +87,7 @@ CREATE TABLE strategy_doc_claims (
     strategy_doc_slug TEXT,
     owner_kind TEXT,
     owner_session_id TEXT,
+    registered_at TEXT,
     released_at TEXT
 );
 """
@@ -97,6 +102,7 @@ def board_db(tmp_path: Path):
         raw = connect_test_db(db_path)
         try:
             raw.execute("INSERT INTO projects VALUES (1,'yoke','YOK')")
+            raw.execute("INSERT INTO projects VALUES (2,'platform','PLAT')")
             for item_id in range(1, 20):
                 raw.execute(
                     "INSERT INTO items VALUES (%s,1,%s,'dash','done')",
@@ -160,6 +166,56 @@ def _insert_lease(
         raw.close()
 
 
+def _insert_steering_claim(
+    db: BoardDB,
+    claim_id: int,
+    project_id: int,
+    *,
+    claimed_at: str = "2026-08-28T12:00:00Z",
+    released_at: str | None = None,
+) -> None:
+    raw = connect_test_db(db.path)
+    try:
+        raw.execute(
+            "INSERT INTO work_claims "
+            "(id,session_id,target_kind,scope,claimed_at,released_at) "
+            "VALUES (%s,'sess-A','steering',%s,%s,%s)",
+            (
+                claim_id,
+                make_steering_target(project_id).scope_json(),
+                claimed_at,
+                released_at,
+            ),
+        )
+        raw.commit()
+    finally:
+        raw.close()
+
+
+def _insert_document_lock(
+    db: BoardDB,
+    project_id: int,
+    slug: str,
+    *,
+    registered_at: str = "2026-08-28T11:55:00Z",
+    released_at: str | None = None,
+) -> None:
+    raw = connect_test_db(db.path)
+    try:
+        raw.execute(
+            "INSERT INTO strategy_doc_claims VALUES (%s,%s,'session','sess-A',%s,%s)",
+            (project_id, slug, registered_at, released_at),
+        )
+        raw.commit()
+    finally:
+        raw.close()
+
+
+def _steering_labels(db: BoardDB) -> list[str]:
+    prefetch_session_occupancy(db, "all")
+    return session_holding_labels(db, "sess-A")
+
+
 def test_current_holding_omits_the_items_present_status(board_db: BoardDB) -> None:
     _insert_item_claim(board_db, 1, 7)
     assert session_holding_labels(board_db, "sess-A") == ["YOK-7"]
@@ -201,3 +257,47 @@ def test_previous_budget_appends_remainder_affordance(board_db: BoardDB) -> None
         "YOK-4",
         "and 3 more",
     ]
+
+
+def test_steering_seat_folds_its_document_lock(board_db: BoardDB) -> None:
+    _insert_steering_claim(board_db, 20, 1)
+    _insert_document_lock(board_db, 1, "CURRENT-PLAN")
+    assert _steering_labels(board_db) == ["🛞 steering yoke · CURRENT-PLAN"]
+
+
+def test_document_lock_without_a_steering_seat_keeps_its_row(
+    board_db: BoardDB,
+) -> None:
+    _insert_document_lock(board_db, 1, "MISSION")
+    assert _steering_labels(board_db) == ["🛞 yoke · MISSION"]
+
+
+def test_same_named_documents_stay_distinct_across_steered_projects(
+    board_db: BoardDB,
+) -> None:
+    _insert_steering_claim(board_db, 20, 1, claimed_at="2026-08-28T12:00:00Z")
+    _insert_steering_claim(board_db, 21, 2, claimed_at="2026-08-28T12:01:00Z")
+    _insert_document_lock(board_db, 1, "CURRENT-PLAN")
+    _insert_document_lock(board_db, 2, "CURRENT-PLAN")
+    assert _steering_labels(board_db) == [
+        "🛞 steering platform · CURRENT-PLAN",
+        "🛞 steering yoke · CURRENT-PLAN",
+    ]
+
+
+def test_released_seat_folds_overlapping_lock_for_recent_rows(
+    board_db: BoardDB,
+) -> None:
+    _insert_steering_claim(
+        board_db,
+        20,
+        1,
+        released_at="2026-08-28T12:30:00Z",
+    )
+    _insert_document_lock(
+        board_db,
+        1,
+        "CURRENT-PLAN",
+        released_at="2026-08-28T12:20:00Z",
+    )
+    assert _steering_labels(board_db) == ["🛞 steering yoke · CURRENT-PLAN"]

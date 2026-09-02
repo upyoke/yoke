@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import contextlib
+import json
 from pathlib import Path
 
+from yoke_contracts.board import sections_sessions
+from yoke_contracts.board.data import BOARD_DATA_VERSION, ReplayBoardDB
 from yoke_contracts.board.renderer import render_board_from_payload
 from yoke_contracts.board.sections_sessions_holdings import session_holding_labels
 from yoke_contracts.board.sections_sessions_occupancy import prefetch_session_occupancy
@@ -13,6 +16,7 @@ from yoke_contracts.board.sections_sessions_rendering import (
     _render_claim_target,
 )
 from yoke_core.board.db import BoardDB
+from yoke_core.board.data import RecordingBoardDB
 from yoke_core.domain.work_claim_targets import make_steering_target
 from runtime.api.fixtures.file_test_db import (
     apply_inline_ddl,
@@ -38,6 +42,7 @@ CREATE TABLE strategy_doc_claims (
     strategy_doc_slug TEXT,
     owner_kind TEXT,
     owner_session_id TEXT,
+    registered_at TEXT,
     released_at TEXT
 );
 CREATE TABLE harness_sessions (
@@ -106,11 +111,11 @@ def _seed(db_path: str) -> None:
         )
         conn.execute(
             "INSERT INTO strategy_doc_claims VALUES "
-            "(1,'MISSION','session','holder-1',NULL)"
+            "(1,'MISSION','session','holder-1','2026-08-26T10:00:00Z',NULL)"
         )
         conn.execute(
             "INSERT INTO strategy_doc_claims VALUES "
-            "(3,'CURRENT-PLAN','session','holder-1',NULL)"
+            "(3,'CURRENT-PLAN','session','holder-1','2026-08-26T10:00:00Z',NULL)"
         )
         conn.commit()
     finally:
@@ -139,7 +144,7 @@ def test_unknown_kind_renders_compact_scope() -> None:
     )
 
 
-def test_steering_claims_and_document_locks_are_each_holdings(
+def test_steering_claims_fold_their_document_locks(
     tmp_path: Path,
 ) -> None:
     """One entry, not a lock row per project plus a separate document row."""
@@ -149,10 +154,8 @@ def test_steering_claims_and_document_locks_are_each_holdings(
         keycaps = session_holding_labels(db, "holder-1")
 
     assert keycaps == [
-        "🛞 steering platform",
-        "🛞 steering yoke",
-        "🛞 yoke · MISSION",
-        "🛞 platform · CURRENT-PLAN",
+        "🛞 steering platform · CURRENT-PLAN",
+        "🛞 steering yoke · MISSION",
     ]
 
 
@@ -180,7 +183,70 @@ def test_a_project_steered_without_a_document_still_names_itself(
         prefetch_session_occupancy(db, "all")
         keycaps = session_holding_labels(db, "holder-2")
 
-    assert keycaps == ["🛞 steering platform"]
+    assert keycaps == ["🛞 steering platform · no doc lock"]
+
+
+def test_recorded_payload_folds_new_pair_read_and_preserves_old_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    active = (
+        "holder-1",
+        "codex",
+        "codex-cli",
+        "model",
+        None,
+        "steer",
+        "ALTMAN",
+        "2026-08-26T11:00:00Z",
+        None,
+        "/tmp",
+        1,
+    )
+    monkeypatch.setattr(
+        sections_sessions,
+        "session_rows",
+        lambda _db, *, scope, active_only: [active] if active_only else [],
+    )
+    monkeypatch.setattr(
+        sections_sessions,
+        "session_common_cells",
+        lambda *_args: ["session", "project", "executor", "model"],
+    )
+    monkeypatch.setattr(
+        sections_sessions, "session_lane_presentation", lambda *_args: None
+    )
+    monkeypatch.setattr(sections_sessions, "_format_session_age", lambda _value: "1m")
+
+    with _board_db(tmp_path) as (db, db_path):
+        _seed(db_path)
+        recorder = RecordingBoardDB(db)
+        prefetch_session_occupancy(recorder, "all")
+        rendered = sections_sessions.render_sessions_section(recorder)
+        payload = {
+            "version": BOARD_DATA_VERSION,
+            "engine_version": "contract-test",
+            "entries": recorder.encoded_entries(),
+        }
+
+    assert "steering platform · CURRENT-PLAN" in rendered
+    replay = ReplayBoardDB.from_payload(json.loads(json.dumps(payload)))
+    prefetch_session_occupancy(replay, "all")
+    assert "steering yoke · MISSION" in sections_sessions.render_sessions_section(
+        replay
+    )
+
+    payload["entries"] = [
+        entry
+        for entry in payload["entries"]
+        if "doc.registered_at" not in str(entry.get("sql") or "")
+    ]
+    old_replay = ReplayBoardDB.from_payload(json.loads(json.dumps(payload)))
+    prefetch_session_occupancy(old_replay, "all")
+    old_rendered = sections_sessions.render_sessions_section(old_replay)
+    assert "steering platform · CURRENT-PLAN" not in old_rendered
+    assert "steering platform" in old_rendered
+    assert "platform · CURRENT-PLAN" in old_rendered
 
 
 def test_board_renderer_omits_the_steering_section() -> None:

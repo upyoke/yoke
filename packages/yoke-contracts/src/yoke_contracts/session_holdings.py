@@ -7,6 +7,7 @@ over previous, one row per target, and a caller-supplied previous-row budget.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping
 
 
@@ -39,6 +40,67 @@ def work_holding_key(
 def strategy_document_holding_key(project_id: Any, document_slug: Any) -> str:
     """Return the canonical identity for one strategy-document lock."""
     return f"strategy_document:{project_id}:{document_slug}"
+
+
+def steering_hold_window_key(
+    project_id: Any,
+    claimed_at: Any,
+    released_at: Any,
+) -> tuple[str, str, str]:
+    """Identify one project's steering hold window across board reads."""
+    return (str(project_id), str(claimed_at or ""), str(released_at or ""))
+
+
+def _timestamp(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    stamp = (
+        value
+        if isinstance(value, datetime)
+        else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    )
+    if stamp.tzinfo is None:
+        return stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)
+
+
+def pair_steering_document_slugs(
+    candidates: Iterable[Mapping[str, Any]],
+) -> dict[Any, list[str]]:
+    """Pair same-session/project document candidates to steering holds.
+
+    Current seats pair with current locks. Released seats pair with released
+    locks whose hold windows overlapped. Callers supply only candidates from
+    the same session and project; this function owns the temporal rule shared
+    by board and dashboard projections.
+    """
+    paired: dict[Any, set[str]] = {}
+    for candidate in candidates:
+        claim_key = candidate.get("claim_key")
+        if claim_key is None:
+            claim_key = candidate.get("claim_id")
+        slug = str(candidate.get("strategy_doc_slug") or "")
+        if claim_key is None or not slug:
+            continue
+        claim_released = candidate.get("claim_released_at")
+        doc_released = candidate.get("doc_released_at")
+        matches = claim_released is None and doc_released is None
+        if claim_released is not None and doc_released is not None:
+            claim_start = _timestamp(candidate.get("claim_claimed_at"))
+            claim_end = _timestamp(claim_released)
+            doc_start = _timestamp(candidate.get("doc_registered_at"))
+            doc_end = _timestamp(doc_released)
+            matches = bool(
+                claim_start
+                and claim_end
+                and doc_start
+                and doc_end
+                and doc_start <= claim_end
+                and doc_end >= claim_start
+            )
+        if matches:
+            paired.setdefault(claim_key, set()).add(slug)
+    return {claim_key: sorted(slugs) for claim_key, slugs in paired.items()}
 
 
 def coordination_holding_key(lease_key: Any) -> str:
@@ -110,6 +172,8 @@ __all__ = [
     "SESSION_PATH_HOLDING_KEY",
     "coordination_holding_key",
     "group_session_holdings",
+    "pair_steering_document_slugs",
+    "steering_hold_window_key",
     "strategy_document_holding_key",
     "work_holding_key",
 ]
