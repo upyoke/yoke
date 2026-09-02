@@ -106,19 +106,24 @@ INBOX_RETIREMENT_LABELS: dict[str, str] = {
     ),
 }
 
-#: Patterns the history entry that strips each surface must still name, because
-#: its subject IS the retirement, plus the generated event catalog's rows.
-INBOX_RETIREMENT_MIGRATION_SUBJECT_PATTERNS: tuple[str, ...] = (
-    _RETIRED_DELIVERY_TABLE,
-    _RETIRED_NOTIFICATION_KIND,
-    _RETIRED_NOTIFICATION_READ_EVENT,
-    _RETIRED_ITEM_BLOCK_EVENT,
-    _RETIRED_STRATEGY_REVIEW_KIND,
-    _RETIRED_DECISION_BLOCKING_COLUMN,
+#: Surfaces whose subject IS this retirement: the history entry that strips
+#: each one, its test, the generated event catalog's rows, and the fixture that
+#: builds the pre-retirement shape so the entry can be proved against it.
+_RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
+    "packages/yoke-core/src/yoke_core/domain/migrations/",
+    "runtime/api/domain/test_migration_drop_inbox_notification_substrate.py",
+    "docs/event-catalog.md",
+    # Proves the retired kind is outside the closed vocabulary, which cannot
+    # be asserted without naming it.
+    "runtime/api/domain/test_decision_requests.py",
 )
 
+INBOX_RETIREMENT_ALLOWLIST: dict[str, tuple[str, ...]] = {
+    pattern: _RETIREMENT_SUBJECT_PATHS for pattern in INBOX_RETIREMENT_PATTERNS
+}
+
 __all__ = [
+    "INBOX_RETIREMENT_ALLOWLIST",
     "INBOX_RETIREMENT_LABELS",
-    "INBOX_RETIREMENT_MIGRATION_SUBJECT_PATTERNS",
     "INBOX_RETIREMENT_PATTERNS",
 ]

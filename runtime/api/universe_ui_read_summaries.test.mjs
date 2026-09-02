@@ -214,10 +214,8 @@ test("Inbox renders its decided empty-state model under one page head", async (t
             success: true,
             result: {
               needs_decision: [],
-              requests: [],
               messages: [],
               pending_actor_message_count: 0,
-              notifications: [],
             },
           },
         };
@@ -232,10 +230,10 @@ test("Inbox renders its decided empty-state model under one page head", async (t
   assert.equal(byClass(head, "title")[0].textContent, "Inbox");
   assert.equal(
     byClass(head, "subtitle")[0].textContent,
-    "Decisions waiting on you, and what happened while you were away.",
+    "The gates waiting on your decision, and the messages sent to you.",
   );
   assert.equal(byClass(root, "stub-panel").length, 0);
-  assert.equal(byClass(root, "inbox-empty").length, 4);
+  assert.equal(byClass(root, "inbox-empty").length, 2);
   assert.equal(byClass(root, "raw-toggle").length, 0);
   mounted.unmount();
 });

@@ -84,6 +84,10 @@ PATH_ALLOWLIST_ALL_PATTERNS: tuple[str, ...] = (
     # This declaration module intentionally names every Pack-era retirement
     # in its labels while keeping the main registry within its line budget.
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms_packs.py",
+    # Same for the Inbox-retirement declarations: the patterns and their
+    # labels cannot describe the retired notification substrate without
+    # spelling every surface it removed.
+    "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms_inbox.py",
     # Recursive-self-call dryrun coverage must keep the retired live-apply
     # CLI spelling so refine still refuses attestation commands that would
     # re-enter migration apply after that surface was removed.

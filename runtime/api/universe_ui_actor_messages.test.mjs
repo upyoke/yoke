@@ -37,8 +37,6 @@ test("Inbox badges human messages and acknowledges through the shared receipt", 
       if (request.function === "inbox.list") {
         return ok({
           needs_decision: [],
-          requests: [],
-          notifications: [],
           messages: structuredClone(messages),
           pending_actor_message_count: messages.length,
         });
@@ -60,7 +58,7 @@ test("Inbox badges human messages and acknowledges through the shared receipt", 
 
   assert.equal(byClass(main, "inbox-message-row").length, 1);
   assert.match(byClass(main, "inbox-message-row")[0].textContent, /ben \(human, dashboard\)/);
-  assert.equal(byClass(main, "panel-count")[2].textContent, "· 1");
+  assert.equal(byClass(main, "panel-count")[1].textContent, "· 1");
   byClass(main, "inbox-read").find(
     (button) => button.textContent === "Acknowledge",
   ).dispatchEvent(new Event("click"));
@@ -70,7 +68,7 @@ test("Inbox badges human messages and acknowledges through the shared receipt", 
     (request) => request.function === "session_control.message.acknowledge",
   ).payload, { message_id: "33333333-3333-4333-8333-333333333333" });
   assert.equal(byClass(main, "inbox-message-row").length, 0);
-  assert.equal(byClass(main, "panel-count")[2].textContent, "· 0");
+  assert.equal(byClass(main, "panel-count")[1].textContent, "· 0");
 });
 
 test("Messages tab badges and acknowledges the signed-in actor receipt", async () => {

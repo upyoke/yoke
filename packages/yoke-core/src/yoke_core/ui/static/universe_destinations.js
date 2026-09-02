@@ -10,7 +10,7 @@ export const NAV = [
   },
   {
     id: "inbox", icon: "✉", label: "Inbox", scope: SCOPE_MULTI,
-    summary: "Decisions waiting on you, and what happened while you were away.",
+    summary: "The gates waiting on your decision, and the messages sent to you.",
   },
   {
     id: "strategy", icon: "❖", label: "Strategy", scope: SCOPE_MULTI,

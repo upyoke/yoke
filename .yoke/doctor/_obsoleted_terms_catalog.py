@@ -21,6 +21,7 @@ from yoke_core.engines import (
     doctor_hc_obsoleted_terms_coordination as _coordination_terms,
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_db_authority as _db_terms
+from yoke_core.engines import doctor_hc_obsoleted_terms_inbox as _inbox_terms
 from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
 from yoke_core.engines import (
     doctor_hc_obsoleted_terms_session_control as _session_terms,
@@ -29,7 +30,6 @@ from yoke_core.engines import (
     doctor_hc_obsoleted_terms_item_dependency as _item_dep_terms,
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_plan_limits as _plan_limit_terms
-from yoke_project_checks import _obsoleted_terms_inbox as _inbox_terms
 from yoke_project_checks._obsoleted_terms_subject_paths import (
     MIGRATION_RETIREMENT_SUBJECT_PATHS,
     QA_PACKET_TEACHING_PATHS,
@@ -320,10 +320,7 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN: MIGRATION_RETIREMENT_SUBJECT_PATHS
     + ("packages/yoke-core/src/yoke_core/domain/populate_registry_data_lifecycle.py",),
-    **{
-        pattern: MIGRATION_RETIREMENT_SUBJECT_PATHS
-        for pattern in _inbox_terms.INBOX_RETIREMENT_MIGRATION_SUBJECT_PATTERNS
-    },
+    **_inbox_terms.INBOX_RETIREMENT_ALLOWLIST,
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,
 }

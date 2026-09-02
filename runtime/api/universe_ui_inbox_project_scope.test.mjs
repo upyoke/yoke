@@ -16,7 +16,7 @@ test("Inbox labels row-owned projects only for merged scope", async () => {
     byClass(merged.main, "inbox-row-project").map(
       (node) => node.textContent,
     ),
-    ["yoke", "yoke", "yoke"],
+    ["yoke"],
   );
 
   const narrowed = renderInbox(["10"]);
