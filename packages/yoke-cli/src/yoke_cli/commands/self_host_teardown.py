@@ -19,8 +19,7 @@ AdapterFn = Callable[[List[str]], int]
 
 TEARDOWN_USAGE = (
     "yoke self-host teardown [--dir D] [--destroy-universe] [--remove-images] "
-    "[--remove-bundle] [--keep-connection | --connection ENV] "
-    "[--activate ENV] [--yes] [--json]"
+    "[--remove-bundle] [--keep-connection | --activate ENV] [--yes] [--json]"
 )
 _CONSENT_WORD = "destroy"
 
@@ -40,27 +39,31 @@ def self_host_teardown(args: List[str]) -> int:
             "what it destroys. Without --destroy-universe the database "
             "volume survives, so `docker compose up -d` from the bundle "
             "brings the same universe back. The machine connection pointing "
-            "at this bundle's server is retired unless --keep-connection, so "
-            "no dead authority is left behind in ~/.yoke/config.json."
+            "at this bundle's server is retired unless --keep-connection. "
+            "Every alias for that server is retired together, so no dead "
+            "authority is left behind in ~/.yoke/config.json."
         ),
     )
     parser.add_argument("--dir", dest="directory", default=None)
     parser.add_argument(
-        "--destroy-universe", action="store_true",
+        "--destroy-universe",
+        action="store_true",
         help=(
             "Also delete the database volume. This destroys the universe the "
             "server held: every item, event, and credential. Requires consent."
         ),
     )
     parser.add_argument(
-        "--remove-images", action="store_true",
+        "--remove-images",
+        action="store_true",
         help=(
             "Remove the images this bundle uses. An image another container "
             "still needs is reported and left in place."
         ),
     )
     parser.add_argument(
-        "--remove-bundle", action="store_true",
+        "--remove-bundle",
+        action="store_true",
         help=(
             "Delete the bundle's own files, including secrets/ and the "
             "first-boot admin token. Files Yoke did not write are reported "
@@ -69,15 +72,14 @@ def self_host_teardown(args: List[str]) -> int:
     )
     connection_choice = parser.add_mutually_exclusive_group()
     connection_choice.add_argument(
-        "--keep-connection", action="store_true",
-        help="Leave this machine's connection entry in place.",
+        "--keep-connection",
+        action="store_true",
+        help="Leave every machine connection for this server in place.",
     )
     connection_choice.add_argument(
-        "--connection", default=None, metavar="ENV",
-        help="Retire this connection instead of matching one by server URL.",
-    )
-    parser.add_argument(
-        "--activate", default=None, metavar="ENV",
+        "--activate",
+        default=None,
+        metavar="ENV",
         help="Connection to make active when retiring the active authority.",
     )
     parser.add_argument("--config", dest="config_path", default=None)
@@ -94,7 +96,6 @@ def self_host_teardown(args: List[str]) -> int:
             remove_images=parsed.remove_images,
             remove_bundle=parsed.remove_bundle,
             keep_connection=parsed.keep_connection,
-            connection=parsed.connection,
             activate=parsed.activate,
             config_path=parsed.config_path,
         )
@@ -141,6 +142,7 @@ def _print_teardown_summary(report: Dict[str, object]) -> None:
         ("images kept (still in use)", "images_retained"),
         ("bundle files removed", "bundle_files_removed"),
         ("bundle files kept (not written by Yoke)", "bundle_files_retained"),
+        ("machine lock files removed", "machine_locks_removed"),
     ):
         values = report.get(key) or []
         if values:
@@ -150,7 +152,10 @@ def _print_teardown_summary(report: Dict[str, object]) -> None:
     connection = report.get("connection")
     if isinstance(connection, dict):
         active = connection.get("active_env") or "<none>"
-        print(f"connection retired: {connection.get('removed_env')}")
+        for env in connection.get("removed_envs") or []:
+            print(f"connection retired: {env}")
+        for env in connection.get("credential_removed_envs") or []:
+            print(f"connection credential removed: {env}")
         print(f"active connection now: {active}")
     else:
         print("connection: unchanged")

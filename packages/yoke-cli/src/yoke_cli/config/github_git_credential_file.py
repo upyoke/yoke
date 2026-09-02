@@ -32,21 +32,22 @@ class CredentialFileBusy(CredentialFileError):
 
 
 def read_json_document(
-    path: str | Path, *, require_private_parent: bool = True,
+    path: str | Path,
+    *,
+    require_private_parent: bool = True,
 ) -> dict[str, Any]:
     selected = Path(path).expanduser()
     _assert_secure_parent(
-        selected.parent, require_private=require_private_parent,
+        selected.parent,
+        require_private=require_private_parent,
     )
-    flags = (
-        os.O_RDONLY
-        | getattr(os, "O_NOFOLLOW", 0)
-        | getattr(os, "O_NONBLOCK", 0)
-    )
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         descriptor = os.open(selected, flags)
     except OSError as exc:
-        raise CredentialFileError(f"GitHub App credential is missing: {selected}") from exc
+        raise CredentialFileError(
+            f"GitHub App credential is missing: {selected}"
+        ) from exc
     try:
         info = os.fstat(descriptor)
         _assert_owner_only_file(info, selected)
@@ -87,9 +88,7 @@ def _read_bounded(descriptor: int, maximum: int) -> bytes:
 
 def write_json_document(path: str | Path, payload: Mapping[str, Any]) -> Path:
     selected = Path(path).expanduser()
-    serialized = (
-        json.dumps(dict(payload), sort_keys=True) + "\n"
-    ).encode("utf-8")
+    serialized = (json.dumps(dict(payload), sort_keys=True) + "\n").encode("utf-8")
     if len(serialized) > MAX_CREDENTIAL_DOCUMENT_BYTES:
         raise CredentialFileError(
             "GitHub App credential document is too large; reconnect GitHub"
@@ -190,30 +189,32 @@ def exclusive_lock(
     monotonic: Any = time.monotonic,
 ) -> Iterator[None]:
     selected = Path(path).expanduser()
-    lock_path = selected.with_name(selected.name + ".lock")
+    selected_lock_path = lock_path(selected)
     try:
         selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         _assert_secure_parent(selected.parent)
         flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(lock_path, flags, 0o600)
+        descriptor = os.open(selected_lock_path, flags, 0o600)
     except OSError as exc:
         raise CredentialFileError(
-            f"GitHub App credential lock could not be opened: {lock_path}"
+            f"GitHub App credential lock could not be opened: {selected_lock_path}"
         ) from exc
     try:
         try:
             os.fchmod(descriptor, 0o600)
-            _assert_owner_only_file(os.fstat(descriptor), lock_path)
+            _assert_owner_only_file(os.fstat(descriptor), selected_lock_path)
             _wait_for_exclusive_lock(
                 descriptor,
-                lock_path,
+                selected_lock_path,
                 wait_seconds=wait_seconds,
                 sleep=sleep,
                 monotonic=monotonic,
             )
+            _assert_stable_lock(descriptor, selected_lock_path)
         except OSError as exc:
             raise CredentialFileError(
-                f"GitHub App credential lock could not be acquired: {lock_path}"
+                "GitHub App credential lock could not be acquired: "
+                f"{selected_lock_path}"
             ) from exc
         body_failed = False
         try:
@@ -237,6 +238,21 @@ def exclusive_lock(
                 raise CredentialFileError(
                     "GitHub App credential lock could not be closed"
                 ) from exc
+
+
+def lock_path(path: str | Path) -> Path:
+    """Return the stable advisory-lock path for a credential target."""
+    selected = Path(path).expanduser()
+    return selected.with_name(selected.name + ".lock")
+
+
+def _assert_stable_lock(descriptor: int, path: Path) -> None:
+    opened = os.fstat(descriptor)
+    current = path.lstat()
+    if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+        raise CredentialFileError(
+            f"GitHub App credential lock changed while being acquired: {path}"
+        )
 
 
 def _wait_for_exclusive_lock(
@@ -268,7 +284,9 @@ def _wait_for_exclusive_lock(
 
 
 def _assert_secure_parent(
-    path: Path, *, require_private: bool = True,
+    path: Path,
+    *,
+    require_private: bool = True,
 ) -> None:
     try:
         info = path.lstat()
@@ -287,8 +305,7 @@ def _assert_secure_parent(
     forbidden_mode = 0o077 if require_private else 0o022
     if stat.S_IMODE(info.st_mode) & forbidden_mode:
         raise CredentialFileError(
-            "GitHub App credential directory permissions are unsafe: "
-            f"{path}"
+            f"GitHub App credential directory permissions are unsafe: {path}"
         )
 
 
@@ -323,6 +340,7 @@ __all__ = [
     "MAX_CREDENTIAL_DOCUMENT_BYTES",
     "delete_json_document",
     "exclusive_lock",
+    "lock_path",
     "quarantine_json_document",
     "read_json_document",
     "restore_quarantined_json_document",
