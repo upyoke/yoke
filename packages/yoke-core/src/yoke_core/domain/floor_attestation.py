@@ -2,8 +2,9 @@
 
 Work that produces no merge commit — a ``--no-changes`` finding, or any
 item whose pinned workflow delivers merge-free — closes on the agent
-account plus the observed changes. That evidence carries the floor rung
-instead of SHAs, and it is a first-class close, not an error bypass.
+account plus the observed changes. The evidence carries that account;
+``item_gate_satisfactions`` carries the canonical ``agent_attested`` rung.
+It is a first-class close, not an error bypass.
 Outward-action approval gating is a future approvals-primitive concern;
 :func:`outward_action_approval_seam` is the named hook and currently
 always passes.
@@ -11,36 +12,31 @@ always passes.
 
 from __future__ import annotations
 
-from typing import Mapping, Optional
+from typing import Optional
 
-FLOOR_RUNG_AGENT_ATTESTED = "agent-attested"
 DIRECT_EVIDENCE_WORKFLOWS = frozenset({"dash", "task"})
 
 
-def resolved_floor_rung(
+def uses_agent_attested_floor(
     *,
     no_changes: bool,
     merge_free_delivery: bool,
     merge_sha: str = "",
-) -> str:
-    """Stamp the agent-attested floor when no merge answers for the work.
+) -> bool:
+    """Whether no merge answers and the done obligation uses its floor rung.
 
     A landed merge is its own satisfier even on a no-changes close, so a
-    recorded merge SHA leaves the record unstamped and the SHA is what
+    recorded merge SHA leaves the evidence commit-bound and the merge is what
     later reads match against.
     """
     if str(merge_sha or "").strip():
-        return ""
-    if no_changes or merge_free_delivery:
-        return FLOOR_RUNG_AGENT_ATTESTED
-    return ""
-
-
-def sha_fields_required(*, no_changes: bool, floor_rung: str = "") -> bool:
-    """Whether commit and merge SHAs are obligatory on this evidence record."""
-    if no_changes:
         return False
-    return str(floor_rung or "").strip() != FLOOR_RUNG_AGENT_ATTESTED
+    return bool(no_changes or merge_free_delivery)
+
+
+def sha_fields_required(*, no_changes: bool, agent_attested: bool) -> bool:
+    """Whether commit and merge SHAs are obligatory on this evidence record."""
+    return not no_changes and not agent_attested
 
 
 def outward_action_approval_seam() -> Optional[dict]:
@@ -53,22 +49,14 @@ def evidence_workflow_mismatch(workflow_id: str, item_id: int) -> Optional[str]:
     if str(workflow_id) in DIRECT_EVIDENCE_WORKFLOWS:
         return None
     return (
-        f"item {item_id} uses workflow {workflow_id!r}, not a "
-        "direct-evidence workflow"
+        f"item {item_id} uses workflow {workflow_id!r}, not a direct-evidence workflow"
     )
-
-
-def floor_rung_missing(evidence: Mapping[str, object]) -> bool:
-    """Whether the recorded floor stamp is absent."""
-    return str(evidence.get("floor_rung") or "").strip() == ""
 
 
 __all__ = [
     "DIRECT_EVIDENCE_WORKFLOWS",
-    "FLOOR_RUNG_AGENT_ATTESTED",
     "evidence_workflow_mismatch",
-    "floor_rung_missing",
     "outward_action_approval_seam",
-    "resolved_floor_rung",
     "sha_fields_required",
+    "uses_agent_attested_floor",
 ]

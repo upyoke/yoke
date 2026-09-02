@@ -19,8 +19,11 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.direct_workflow_activation_gate import (
     evaluate_work_claim_activation,
 )
-from yoke_core.domain.floor_attestation import FLOOR_RUNG_AGENT_ATTESTED
 from yoke_core.domain import floor_attestation_gate
+from yoke_core.domain.gate_satisfier_ladder_catalog import (
+    OBLIGATION_DONE_MERGE_EVIDENCE,
+    RUNG_AGENT_ATTESTED,
+)
 from yoke_core.domain.item_worktree_lane_creation import (
     ItemWorktreeLaneCreationError,
     ensure_default_item_worktree_lane,
@@ -100,9 +103,14 @@ def test_dash_no_changes_closes_without_shas(test_db) -> None:
         no_changes=True,
         actor_id="2",
     )
-    assert payload["floor_rung"] == FLOOR_RUNG_AGENT_ATTESTED
     assert payload["commit_sha"] == ""
     assert payload["merge_sha"] == ""
+    rung = test_db.execute(
+        "SELECT rung_id FROM item_gate_satisfactions "
+        "WHERE item_id = %s AND obligation = %s",
+        (26820, OBLIGATION_DONE_MERGE_EVIDENCE),
+    ).fetchone()
+    assert rung[0] == RUNG_AGENT_ATTESTED
     verdict = evaluate_dash_evidence(test_db, 26820)
     assert verdict.satisfied is True
     assert verdict.missing == ()
@@ -136,10 +144,15 @@ def test_task_floor_attestation_closes_without_shas(test_db, monkeypatch) -> Non
         actor_id="2",
     )
     evidence = evaluate_dash_evidence(test_db, 26821).evidence or {}
-    # Nobody passed the rung: merge-free delivery is what stamps it.
-    assert evidence["floor_rung"] == FLOOR_RUNG_AGENT_ATTESTED
+    # Merge-free delivery selects the canonical item-scoped floor stamp.
     assert evidence["actor_id"] == "2"
     assert evidence["touched_files"] == ["notes/readme.txt"]
+    rung = test_db.execute(
+        "SELECT rung_id FROM item_gate_satisfactions "
+        "WHERE item_id = %s AND obligation = %s",
+        (26821, OBLIGATION_DONE_MERGE_EVIDENCE),
+    ).fetchone()
+    assert rung[0] == RUNG_AGENT_ATTESTED
     monkeypatch.setattr(
         floor_attestation_gate,
         "connect",

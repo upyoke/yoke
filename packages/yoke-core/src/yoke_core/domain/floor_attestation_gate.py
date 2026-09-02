@@ -6,14 +6,12 @@ from typing import Optional
 
 from yoke_core.domain.dash_execution import evaluate_dash_evidence
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.floor_attestation import (
-    floor_rung_missing,
-    outward_action_approval_seam,
-)
+from yoke_core.domain.floor_attestation import outward_action_approval_seam
 
 _REMEDIATION = (
-    "Record the agent account, observed changes, and the agent-attested "
-    "floor rung. Merge SHAs are not required."
+    "Record the agent account and observed changes through direct-workflow "
+    "evidence; that surface stamps the agent_attested done obligation in "
+    "item_gate_satisfactions. Merge SHAs are not required."
 )
 
 
@@ -39,16 +37,12 @@ def evaluate(
     finally:
         conn.close()
     missing = list(verdict.missing)
-    if verdict.evidence is not None and floor_rung_missing(verdict.evidence):
-        missing.append("floor_rung")
     if not missing:
         return None
     return {
         "success": False,
         "error_code": "GATE_FLOOR_ATTESTATION_UNSATISFIED",
-        "error": (
-            "Floor attestation is incomplete; missing: " + ", ".join(missing)
-        ),
+        "error": ("Floor attestation is incomplete; missing: " + ", ".join(missing)),
         "remediation_hint": _REMEDIATION,
     }
 

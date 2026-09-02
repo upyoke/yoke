@@ -28,13 +28,18 @@ from yoke_core.domain.gate_satisfier_item_facts import (
     ITEM_DEPLOYMENT_RUN_SUCCEEDED,
     ITEM_NO_DEPLOYMENT_TARGET,
 )
-from yoke_core.domain.gate_satisfier_ladder import SatisfierLadder, SatisfierRung
+from yoke_core.domain.gate_satisfier_ladder import (
+    SatisfierLadder,
+    SatisfierRecordingScope,
+    SatisfierRung,
+)
 
 
 OBLIGATION_PATH_CLAIM_BOUNDARY = "path_claim_boundary"
 OBLIGATION_DONE_MERGE_EVIDENCE = "done_merge_evidence"
 OBLIGATION_DELIVERY_EVIDENCE = "delivery_evidence"
 OBLIGATION_INTEGRATION_TRUNK = "integration_trunk"
+RUNG_AGENT_ATTESTED = "agent_attested"
 
 
 PATH_CLAIM_BOUNDARY_LADDER = SatisfierLadder(
@@ -75,8 +80,7 @@ PATH_CLAIM_BOUNDARY_LADDER = SatisfierLadder(
 DONE_MERGE_EVIDENCE_LADDER = SatisfierLadder(
     obligation=OBLIGATION_DONE_MERGE_EVIDENCE,
     statement=(
-        "An item reaching done must record how its work became part of "
-        "the trunk."
+        "An item reaching done must record how its work became part of the trunk."
     ),
     rungs=(
         SatisfierRung(
@@ -98,7 +102,7 @@ DONE_MERGE_EVIDENCE_LADDER = SatisfierLadder(
             requires=(OBSERVED_MERGE_RECORDED,),
         ),
         SatisfierRung(
-            rung_id="agent_attested",
+            rung_id=RUNG_AGENT_ATTESTED,
             summary=(
                 "no implementation branch ever existed, so the recorded "
                 "evidence — not a merge — is the whole proof"
@@ -182,6 +186,12 @@ INTEGRATION_TRUNK_LADDER = SatisfierLadder(
         "Assuming 'main' is how work lands on the wrong base and only "
         "fails much later, so the trunk is required rather than guessed."
     ),
+    recording_scope=SatisfierRecordingScope.RESOLUTION_ONLY,
+    recording_reason=(
+        "integration trunk is a project-scoped branch-name lookup with no "
+        "item identity; item-scoped branch gates stamp their own boundary "
+        "obligation after using the resolved trunk"
+    ),
 )
 
 
@@ -206,4 +216,5 @@ __all__ = [
     "OBLIGATION_INTEGRATION_TRUNK",
     "OBLIGATION_PATH_CLAIM_BOUNDARY",
     "PATH_CLAIM_BOUNDARY_LADDER",
+    "RUNG_AGENT_ATTESTED",
 ]

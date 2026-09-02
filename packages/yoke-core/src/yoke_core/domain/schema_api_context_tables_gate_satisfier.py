@@ -32,8 +32,9 @@ GATE_SATISFIER_TABLES: dict[str, dict] = {
             "(remote_integration_ref, local_integration_ref), "
             "'done_merge_evidence' (merged_with_ci, merged_locally, "
             "agent_attested), 'delivery_evidence' "
-            "(deployment_run_succeeded, merge_only), 'integration_trunk' "
-            "(declared_default_branch, derived_default_branch). `facts` is "
+            "(deployment_run_succeeded, merge_only). The project-scoped "
+            "'integration_trunk' lookup has no item identity and declares "
+            "itself resolution-only in the ladder model. `facts` is "
             "a JSON {fact_key: present|absent|unknown} snapshot. Rows are "
             "upserted, never appended. Read via item detail's "
             "`gate_satisfactions` key; writes go through the internal "
@@ -53,15 +54,15 @@ GATE_SATISFIER_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Project truth nobody declared but the control plane observes "
-            "about itself, converged on every `project.snapshot.sync` as "
-            "path-context rows are. `fact_key` values: 'remote_present', "
+            "about itself, converged at every item-scoped ladder resolution "
+            "and `project.snapshot.sync`. `fact_key` values: 'remote_present', "
             "'default_branch', 'test_command_declared', "
             "'environments_present'. Ladders read these under the "
             "`derived:` prefix, alongside `declared:` capability rows, "
             "`item:` per-item control-plane observations, and `observed:` "
-            "facts the calling machine probes. A MISSING row reads as "
-            "UNKNOWN, never false — the ladder refuses and names "
-            "`yoke project snapshot sync` as the recovery."
+            "facts the calling machine probes. A resolution-only lookup can "
+            "observe a missing row live; the next item gate persists it. "
+            "UNKNOWN is reserved for a genuinely unreadable or unowned fact."
         ),
     },
 }

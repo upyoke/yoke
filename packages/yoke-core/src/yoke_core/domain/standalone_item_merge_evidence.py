@@ -27,7 +27,6 @@ from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
-from yoke_core.domain.floor_attestation import floor_rung_missing
 
 # The status a standalone item reaches once its close-out has run. An item
 # short of it has work left, so a claim refusal there is a real refusal.
@@ -79,7 +78,8 @@ def recorded(item_id: int) -> Optional[dict[str, Any]]:
     response = call_dispatcher(
         function_id="items.section.get",
         target=TargetRef(
-            kind="section", item_id=item_id,
+            kind="section",
+            item_id=item_id,
             section_name=DASH_EVIDENCE_SECTION,
         ),
         payload={},
@@ -107,7 +107,7 @@ def recorded_covers_merge(item_id: int, merge_sha: str) -> bool:
     row = recorded(item_id)
     if row is None:
         return False
-    if row.get("no_changes") and not floor_rung_missing(row):
+    if row.get("no_changes"):
         return True
     return str(row.get("merge_sha") or "") == str(merge_sha or "")
 
