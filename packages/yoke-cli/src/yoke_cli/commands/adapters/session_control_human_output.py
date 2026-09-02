@@ -255,6 +255,9 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
 
 
 def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
+    command = message.get("acknowledgement_command")
+    if command:
+        print(command, file=stdout)
     recipients = message.get("recipients") or []
     actor_recipients = message.get("actor_recipients") or []
     sender = message.get("sender_session_id")
@@ -276,11 +279,6 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
     write_summary("MESSAGE", fields, stdout)
     _write_recipients(recipients, stdout, actor_recipients=actor_recipients)
     _write_attempts(message.get("attempts") or [], stdout)
-    if any(recipient.get("state") == "injected" for recipient in recipients):
-        print(
-            f"Recipient next step: yoke messages acknowledge {message.get('message_id')}",
-            file=stdout,
-        )
 
 
 def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
@@ -309,6 +307,11 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             print(f"Track delivery: yoke messages get {message_id}", file=stdout)
         return
     if "messages" in result:
+        messages = result.get("messages") or []
+        for row in messages:
+            command = row.get("acknowledgement_command")
+            if command:
+                print(command, file=stdout)
         columns: tuple[Column, ...] = (
             ("MESSAGE", lambda row: row.get("message_id"), None),
             ("STATE / REASON", _message_state, 28),
@@ -324,7 +327,7 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         write_table(
             "MESSAGES",
             columns,
-            result.get("messages") or [],
+            messages,
             stdout,
             empty="No messages found.",
         )

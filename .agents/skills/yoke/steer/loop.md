@@ -69,11 +69,11 @@ printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke
 
 Positive wake events are not enough. Failures arrive as silence, and the
 fleet report is the detector for them: it is composed server-side and
-appended to the messages this session already receives, so on every
-periodic pass you **read the report you were given** before consuming
-events, messages, or worker reports. The attached body covers every
-steering claim this session holds. Between wakes, pull the current one
-(omit `--project` so a quiet scope's `!` row still rides the pull):
+rides hook context. On every pass **read the report you were given**
+before consuming events, messages, or worker reports. A harness may
+persist that context to a file and show only a preview from the top —
+open the file, not the preview.
+Between wakes, pull (omit `--project`):
 
 ```text
 yoke steering report get
@@ -100,6 +100,10 @@ yours:
 - **Steering messages awaiting a seat** — mail addressed to a scope this
   session does not hold. Acquiring that scope hands it over as one handoff
   digest; until someone does, the reports in it are unread.
+- **Unacked injected (this session)** — your inbox, already shown, still
+  awaiting `yoke messages acknowledge MESSAGE-ID`. Not the seat-awaiting
+  count above. An overflow pointer means the body never injected: read
+  `yoke messages get MESSAGE-ID` and ack; the row stays pending.
 - **Idle holders** — probe and revive. A holder that stamped `--mode
   parked` declared its wait and never appears here. A starved holder is
   also burning down its stale clock, so read `stale_eligible_at` and
@@ -338,9 +342,7 @@ reports, a scope that needs a new project, a lock it cannot release
 without destroying in-flight work, or any decision the operator reserved.
 Present the decision, the evidence, and the recommended option, then
 **wait**. Do not guess. Do not implement. Do not file a substitute item
-to dodge the gate.
-
-Everything else continues autonomously.
+to dodge the gate. Everything else continues autonomously.
 
 ## Stop
 

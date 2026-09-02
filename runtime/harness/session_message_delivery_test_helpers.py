@@ -30,6 +30,7 @@ class FakePort:
     lease_error: Exception | None = None
     empty_lease: bool = False
     body: str = "Please re-run the focused verifier."
+    report: str = ""
     read: list[tuple[str, str, int]] = field(default_factory=list)
     leased: list[tuple[str, str, int]] = field(default_factory=list)
     completed: list[tuple[str, bool, str]] = field(default_factory=list)
@@ -69,7 +70,11 @@ class FakePort:
         lease_id = f"lease-{len(self.leased)}"
         if self.empty_lease:
             return SessionMessageLease(lease_id=lease_id, messages=())
-        return SessionMessageLease(lease_id=lease_id, messages=(self._message(),))
+        return SessionMessageLease(
+            lease_id=lease_id,
+            messages=(self._message(),),
+            report=self.report,
+        )
 
     def complete_hook_lease(
         self,

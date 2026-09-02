@@ -73,7 +73,9 @@
         "relay_stop_denial_continuation": "none",
         "liveness_process_names": []
       }
-    }
+    },
+    "inline_context_source": "yoke_contracts.hook_inline_context",
+    "inline_context_bytes": 8192
   },
   "agent_wake": {
     "source": "yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES",

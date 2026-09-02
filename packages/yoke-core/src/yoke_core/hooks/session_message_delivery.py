@@ -6,14 +6,19 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
-from yoke_contracts.session_control.capabilities import (
-    capabilities_for_harness,
-    capability_for_surface,
+from yoke_contracts.hook_context_compose import (
+    FLEET_REPORT_CONTEXT_FIELD,
+    POINTER_BEGIN,
+    overflow_lease_marker,
 )
 from yoke_contracts.hook_runner.model_context_channel import (
     SESSION_OPENING_STDOUT_EVENTS,
     STDOUT_CHANNEL,
     model_context_channel,
+)
+from yoke_contracts.session_control.capabilities import (
+    capabilities_for_harness,
+    capability_for_surface,
 )
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.domain.session_message_delivery_probe import (
@@ -62,7 +67,10 @@ def _event_is_model_visible(context: HookContext) -> bool:
 
 
 def _context_decision(
-    context: HookContext, rendered: str, audit: dict[str, object]
+    context: HookContext,
+    rendered: str,
+    audit: dict[str, object],
+    extra_fields: dict[str, object] | None = None,
 ) -> HookDecision:
     """Attach one rendered advisory to whichever channel this harness reads."""
     output_field = model_context_channel(
@@ -79,6 +87,8 @@ def _context_decision(
     }
     if output_field != STDOUT_CHANNEL:
         fields[output_field] = rendered
+    if extra_fields:
+        fields.update(extra_fields)
     return HookDecision(
         outcome=Outcome.AUDIT_ONLY,
         audit_fields=fields,
@@ -102,10 +112,14 @@ def _decision_for_event(
         lease,
         session_id=str(context.session_id or ""),
     )
+    extra = {}
+    if lease.report:
+        extra[FLEET_REPORT_CONTEXT_FIELD] = lease.report
     return _context_decision(
         context,
         rendered,
         {"lease_id": lease.lease_id, "render_token": token},
+        extra_fields=extra or None,
     )
 
 
@@ -232,8 +246,16 @@ def settle_after_render(
         if delivery_port is None:
             delivery_port = _delivery_port()
         injected = bool(not denied and token and token in rendered_text)
+        overflow = bool(
+            POINTER_BEGIN in rendered_text
+            and overflow_lease_marker(lease_id) in rendered_text
+        )
+        if overflow:
+            injected = False
         if denied:
             result = "dropped_by_sibling_denial"
+        elif overflow:
+            result = "inline_overflow"
         elif injected:
             result = "injected"
         else:

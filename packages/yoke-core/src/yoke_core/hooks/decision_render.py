@@ -11,11 +11,13 @@ aggregation rule:
   non-deny decision is intentionally dropped: deny text cannot be hidden
   or replaced by advisory text.
 - Otherwise, if one or more decisions carry a non-empty
-  ``audit_fields["additionalContext"]``, render the
+  ``audit_fields["additionalContext"]`` (or a sibling
+  ``fleetReportContext``), render the
   ``hookSpecificOutput.additionalContext`` envelope. Both harnesses already
   accept this wire shape (the same envelope each hint module's subprocess
-  ``__main__`` fallback emits). Multiple advisories join with a blank line
-  between them, preserving chain order.
+  ``__main__`` fallback emits). Composition puts message delivery first,
+  hints next, and the fleet report last, then caps the body to the
+  harness inline threshold in ``yoke_contracts.hook_inline_context``.
 - Otherwise (warn / audit-only / suppression-attempted / allow / noop with
   no advisory), render an empty allow — the harness allows the underlying
   tool call.
@@ -46,6 +48,7 @@ from typing import Iterable
 from yoke_contracts.hook_runner.cursor_response import (
     CURSOR_LIFECYCLE_EVENTS,
 )
+from yoke_core.hooks.hook_context_compose import composed_additional_context
 from yoke_core.hooks.types import HookDecision, Outcome
 
 
@@ -93,6 +96,11 @@ def _collect_additional_contexts(decisions: Iterable[HookDecision]) -> list[str]
     return contexts
 
 
+def _composed_body(decisions: Iterable[HookDecision], harness_id: str) -> str:
+    """Return the capped, reordered advisory body, or empty when none apply."""
+    return composed_additional_context(decisions, harness_id=harness_id)
+
+
 def _join_narratives(narratives: list[str]) -> str:
     """Join multiple deny narratives into a single operator-facing string."""
     if not narratives:
@@ -109,8 +117,7 @@ def _render_additional_context_envelope(
 
     Both harnesses accept this shape; ``event_name`` passes through as the
     declared ``hookEventName`` so the wire-format consumer can route by
-    event. The advisory body joins multi-entry context lists with a blank
-    line between them, preserving chain order.
+    event. Callers pass an already-composed body as a one-element list.
     """
     body = contexts[0] if len(contexts) == 1 else "\n\n".join(contexts)
     envelope = {
@@ -145,9 +152,9 @@ def render_claude_decision(
     narratives = _collect_deny_narratives(decisions)
     if narratives:
         return (_join_narratives(narratives), 2)
-    contexts = _collect_additional_contexts(decisions)
-    if contexts:
-        return (_render_additional_context_envelope(contexts, event_name), 0)
+    body = _composed_body(decisions, "claude-code")
+    if body:
+        return (_render_additional_context_envelope([body], event_name), 0)
     return ("", 0)
 
 
@@ -187,9 +194,9 @@ def render_codex_decision(
             }
         }
         return (json.dumps(envelope), 0)
-    contexts = _collect_additional_contexts(decisions)
-    if contexts:
-        return (_render_additional_context_envelope(contexts, event_name), 0)
+    body = _composed_body(decisions, "codex")
+    if body:
+        return (_render_additional_context_envelope([body], event_name), 0)
     return ("", 0)
 
 
@@ -271,9 +278,8 @@ def render_cursor_decision(
             "agent_message": message,
         }
         return (json.dumps(envelope), 0)
-    contexts = _collect_additional_contexts(decisions)
-    if contexts and event_name in _CURSOR_CONTEXT_EVENTS:
-        body = contexts[0] if len(contexts) == 1 else "\n\n".join(contexts)
+    body = _composed_body(decisions, "cursor")
+    if body and event_name in _CURSOR_CONTEXT_EVENTS:
         return (json.dumps({"additional_context": body}), 0)
     if event_name in _CURSOR_PERMISSION_EVENTS:
         return (json.dumps({"permission": "allow"}), 0)
@@ -299,16 +305,21 @@ def _parse_context_envelope(text: str) -> str | None:
     return body
 
 
-def merge_allow_stdout(first: str, second: str, event_name: str) -> str:
+def merge_allow_stdout(
+    first: str,
+    second: str,
+    event_name: str,
+    *,
+    harness_id: str = "claude-code",
+) -> str:
     """Merge two independently rendered allow-stdouts into one.
 
     The https relay split renders each half's decisions separately; this
     rejoins them for the harness. When both halves are single
-    ``additionalContext`` envelopes, their bodies join into ONE envelope
-    (blank line between, *first* leading) — the same shape the in-chain
-    renderer produces for sibling advisories. Any other non-empty pair
-    concatenates raw, exactly like ``run_event``'s own rendered-text +
-    extra-subprocess-stdout join.
+    ``additionalContext`` envelopes, their bodies are composed (delivery
+    first, then hints, then report, under the harness inline cap) into
+    ONE envelope. Any other non-empty pair concatenates raw, exactly like
+    ``run_event``'s own rendered-text + extra-subprocess-stdout join.
     """
     if not first:
         return second
@@ -317,9 +328,14 @@ def merge_allow_stdout(first: str, second: str, event_name: str) -> str:
     first_body = _parse_context_envelope(first)
     second_body = _parse_context_envelope(second)
     if first_body is not None and second_body is not None:
-        return _render_additional_context_envelope(
-            [first_body, second_body], event_name,
+        from yoke_contracts.hook_context_compose import compose_context_list
+
+        body = compose_context_list(
+            [first_body, second_body], harness_id=harness_id
         )
+        if not body:
+            return ""
+        return _render_additional_context_envelope([body], event_name)
     return f"{first}{second}"
 
 

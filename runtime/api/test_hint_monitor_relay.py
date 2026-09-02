@@ -73,10 +73,13 @@ def test_monitor_payload_emits_pretooluse_hookspecificoutput() -> None:
 
 
 def test_default_reminder_anchored_on_observed_failure_modes() -> None:
-    text = hint_monitor_relay.DEFAULT_REMINDER
+    text = hint_monitor_relay.HELP_REMINDER
     assert "tail" in text.lower(), "must warn against capture-file peeks"
     assert "filler" in text.lower(), "must warn against filler text between wakes"
     assert "matched line" in text.lower(), "must anchor on the relay-the-matched-line rule"
+    injected = hint_monitor_relay.DEFAULT_REMINDER
+    assert "SUBSCRIPTION" in injected
+    assert "hint_monitor_relay --help" in injected
 
 
 @pytest.mark.parametrize(

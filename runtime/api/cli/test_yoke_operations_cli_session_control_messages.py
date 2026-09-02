@@ -257,6 +257,7 @@ def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
                 },
             }
         ],
+        "acknowledgement_command": f"yoke messages acknowledge {FULL_MESSAGE_ID}",
     }
 
     for result, heading in (
@@ -267,7 +268,10 @@ def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
         response = type("Response", (), {"result": result})()
         messages.write_message_result(response, output, io.StringIO())
         rendered = output.getvalue()
-        assert rendered.splitlines()[0] == heading
+        assert rendered.splitlines()[0] == (
+            f"yoke messages acknowledge {FULL_MESSAGE_ID}"
+        )
+        assert heading in rendered
         assert "BODY" in rendered.upper()
         assert "CREATED (UTC)" in rendered.upper()
         assert FULL_MESSAGE_ID in rendered
@@ -278,10 +282,6 @@ def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
         if heading == "MESSAGE":
             assert "DELIVERY ATTEMPTS" in rendered
             assert "skipped surface" in rendered
-            assert (
-                f"Recipient next step: yoke messages acknowledge {FULL_MESSAGE_ID}"
-                in rendered
-            )
 
 
 def test_say_help_teaches_the_complete_top_level_workflow(capsys) -> None:

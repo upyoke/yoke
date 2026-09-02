@@ -27,6 +27,12 @@ from yoke_core.domain.steering_fleet_report import FleetReport
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_projection import report_dict
+from yoke_core.domain.steering_fleet_report_inbox import (
+    UnackedInjectedMessage,
+    load_unacked_injected,
+    unacked_section_lines,
+    wake_ack_grace_seconds,
+)
 from yoke_core.domain.steering_fleet_report_render import (
     LAUNCH_BALANCE_NOTE,
     REPORT_BEGIN,
@@ -76,16 +82,22 @@ class CombinedFleetReport:
 
     composed_at: str
     sections: tuple[ScopedFleetReport, ...]
+    unacked_injected: tuple[UnackedInjectedMessage, ...] = ()
 
     @property
     def actionable(self) -> bool:
-        return any(section.report.actionable for section in self.sections)
+        return any(section.report.actionable for section in self.sections) or bool(
+            self.unacked_injected
+        )
 
     def fingerprint(self) -> str:
         material = [
             (section.descriptor, section.report.fingerprint())
             for section in self.sections
         ]
+        material.append(
+            ("unacked_injected", [row.message_id for row in self.unacked_injected])
+        )
         encoded = json.dumps(material, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
@@ -136,7 +148,19 @@ def compose_held_reports(
     sections.sort(
         key=lambda section: (not section.report.actionable, section.descriptor)
     )
-    return CombinedFleetReport(composed_at=now, sections=tuple(sections))
+    project_ids = [int(section.report.project_id) for section in sections]
+    grace = wake_ack_grace_seconds(conn, project_ids[0] if project_ids else None)
+    unacked = load_unacked_injected(
+        conn,
+        session_id=session_id,
+        now=now,
+        grace_seconds=grace,
+    )
+    return CombinedFleetReport(
+        composed_at=now,
+        sections=tuple(sections),
+        unacked_injected=unacked,
+    )
 
 
 def _distinct_machine_ids(reports: Sequence[FleetReport]) -> list[str]:
@@ -210,7 +234,10 @@ def combined_body(combined: CombinedFleetReport) -> str:
         f"composed {combined.composed_at} · {len(combined.sections)} held scopes",
         COMBINED_PREAMBLE,
         "",
+        *unacked_section_lines(combined.unacked_injected),
     ]
+    if combined.unacked_injected:
+        parts.append("")
     for section in combined.sections:
         parts.extend([f"## {section.descriptor}", scope_inner_body(section.report), ""])
     parts.extend(_machine_shared_lines(reports, now=combined.composed_at))
@@ -226,6 +253,14 @@ def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
         "composed_at": combined.composed_at,
         "actionable": combined.actionable,
         "fingerprint": combined.fingerprint(),
+        "unacked_injected": [
+            {
+                "message_id": row.message_id,
+                "last_injected_at": row.last_injected_at,
+                "age_seconds": row.age_seconds,
+            }
+            for row in combined.unacked_injected
+        ],
         "scopes": [
             {"descriptor": section.descriptor, **report_dict(section.report)}
             for section in combined.sections

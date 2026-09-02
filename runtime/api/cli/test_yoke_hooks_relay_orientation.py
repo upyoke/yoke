@@ -65,6 +65,7 @@ def oriented(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def prompt_submit_payload(monkeypatch):
+    monkeypatch.setenv(EXECUTOR_ENV_VAR, "claude-code")
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s-1"}'))
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.record_session_anchor",

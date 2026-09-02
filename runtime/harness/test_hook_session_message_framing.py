@@ -162,7 +162,7 @@ def test_malformed_message_identity_renders_no_command_looking_text() -> None:
     assert not any("yoke messages acknowledge" in line for line in non_body_lines)
 
 
-def test_the_fleet_report_rides_inside_the_authenticated_envelope() -> None:
+def test_the_fleet_report_does_not_ride_inside_the_authenticated_envelope() -> None:
     report = "=== BEGIN YOKE FLEET REPORT ===\nunstaffed: none\n=== END YOKE FLEET REPORT ==="
     rendered, token = _render(
         SessionMessageLease(
@@ -171,17 +171,11 @@ def test_the_fleet_report_rides_inside_the_authenticated_envelope() -> None:
             report=report,
         )
     )
-    lines = rendered.splitlines()
 
-    assert report in rendered
-    # Inside the delivery envelope, so the trust guidance covers it, and after
-    # the peer-authored message it rides on.
-    assert lines.index("=== BEGIN YOKE FLEET REPORT ===") > lines.index(
-        f"--- END YOKE SESSION MESSAGE {MESSAGE_ID} ---"
-    )
-    assert lines.index("=== END YOKE FLEET REPORT ===") < lines.index(
-        f"=== END YOKE SESSION MESSAGE DELIVERY {token} ==="
-    )
+    assert report not in rendered
+    assert "YOKE FLEET REPORT" not in rendered
+    assert token.startswith("YOKE_SESSION_MESSAGE_LEASE:")
+    assert f"--- END YOKE SESSION MESSAGE {MESSAGE_ID} ---" in rendered
 
 
 def test_a_lease_with_no_report_renders_exactly_as_before() -> None:
@@ -232,4 +226,4 @@ def test_parent_payload_byte_ceiling_summarizes_oversized_content() -> None:
 
     assert len(rendered.encode("utf-8")) <= MAX_SESSION_MESSAGE_INJECTION_BYTES
     assert "1 additional unacknowledged session message(s)" in rendered
-    assert "Fleet report was omitted" in rendered
+    assert "YOKE FLEET REPORT" not in rendered

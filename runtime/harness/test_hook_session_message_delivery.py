@@ -249,6 +249,48 @@ def test_missing_render_token_does_not_claim_injection(
     assert port.completed == [("lease-1", False, "render_output_missing")]
 
 
+def test_inline_overflow_keeps_the_receipt_pending(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from yoke_contracts.hook_context_compose import (
+        POINTER_BEGIN,
+        overflow_lease_marker,
+    )
+
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+    decision = delivery.evaluate(_context())
+    pointer = "\n".join(
+        (
+            POINTER_BEGIN,
+            overflow_lease_marker("lease-1"),
+            f"Read: yoke messages get {MESSAGE_ID} --json",
+            "=== END YOKE SESSION MESSAGE DELIVERY POINTER ===",
+        )
+    )
+    delivery.settle_after_render(
+        [decision], rendered_text=pointer, denied=False, port=port
+    )
+    assert port.completed == [("lease-1", False, "inline_overflow")]
+    assert "YOKE_SESSION_MESSAGE_LEASE:lease-1" not in pointer
+
+
+def test_fleet_report_rides_a_sibling_field_not_the_delivery_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from yoke_contracts.hook_context_compose import FLEET_REPORT_CONTEXT_FIELD
+
+    port = FakePort()
+    port.report = (
+        "=== BEGIN YOKE FLEET REPORT ===\ndigest\n=== END YOKE FLEET REPORT ==="
+    )
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+    decision = delivery.evaluate(_context())
+    rendered = decision.audit_fields["additionalContext"]
+    assert "YOKE FLEET REPORT" not in rendered
+    assert decision.audit_fields[FLEET_REPORT_CONTEXT_FIELD] == port.report
+
+
 def test_message_is_not_reinjected_on_the_post_hook_for_one_tool_call(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

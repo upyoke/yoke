@@ -29,7 +29,7 @@ def _cursor_degradation_stdout(
     if not is_cursor(detect_executor()):
         return preserved_stdout
     preserved_stdout = cursor_lifecycle_allow_stdout(event_name, preserved_stdout)
-    if event_name not in _CURSOR_CONTEXT_EVENTS:
+    if event_name not in _CURSOR_CONTEXT_EVENTS or not preserved_stdout:
         return preserved_stdout
     warning = (
         "WARNING: Yoke hook relay degraded to local-only allow; "

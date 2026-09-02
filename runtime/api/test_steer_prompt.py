@@ -124,6 +124,7 @@ class TestSteerSkillContract:
         assert "the fleet report is the detector" in loop
         assert "yoke steering report get" in loop
         assert "Do not re-run those queries by hand" in loop
+        assert "open the file, not the preview" in loop
         # The hand queries this section used to carry are gone entirely.
         assert "FROM session_message_recipients r JOIN harness_sessions" not in raw
         assert "FROM work_claims c JOIN harness_sessions s" not in raw
@@ -134,6 +135,7 @@ class TestSteerSkillContract:
         loop = _words(_read(_STEER_DIR / "loop.md"))
         for finding in (
             "**Available work**",
+            "**Unacked injected (this session)**",
             "**Idle holders**",
             "**Starved delivery**",
             "**Unregistered launches**",

@@ -258,3 +258,18 @@ def test_cursor_degradation_is_visible_in_context_and_stderr(
     assert "local-only allow" in payload["additional_context"]
     assert "YOKE_HOOK_DEGRADED" in out.err
     assert "network sandbox denied the relay" in out.err
+
+
+def test_cursor_degradation_with_empty_preserved_stays_empty(
+    monkeypatch, capsys,
+) -> None:
+    monkeypatch.setattr(
+        "yoke_harness.hooks.relay_degrade.detect_executor", lambda: "cursor",
+    )
+
+    rc = degrade_to_noop("PostToolUse", "HTTP 500", preserved_stdout="")
+
+    out = capsys.readouterr()
+    assert rc == 0
+    assert out.out == ""
+    assert "YOKE_HOOK_DEGRADED" in out.err
