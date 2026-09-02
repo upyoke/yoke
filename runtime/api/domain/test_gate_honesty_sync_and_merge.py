@@ -102,6 +102,95 @@ def test_a_mirrored_item_stamps_nothing_extra(monkeypatch):
     assert seen == []
 
 
+def test_a_skipped_mirror_on_a_bound_project_stamps_unmirrored(monkeypatch, capsys):
+    seen = _captured_absence_events(monkeypatch)
+    monkeypatch.setattr(
+        backlog_rendering, "_resolve_project_github_repo", lambda conn, p: "org/repo"
+    )
+    recorded: list[tuple] = []
+    monkeypatch.setattr(
+        backlog_rendering,
+        "_record_sync_failure",
+        lambda item_id, operation, reason="unknown": recorded.append(
+            (item_id, operation, reason)
+        ),
+    )
+    state = mirror.record_mirror_state(
+        _FakeConn(None),
+        item_id=7,
+        public_ref="YOK-7",
+        project="yoke",
+        attempt=mirror.MIRROR_ATTEMPT_SKIPPED,
+    )
+    assert state == mirror.MIRROR_STATE_UNMIRRORED
+    assert recorded == []
+    assert seen[0]["attempt"] == mirror.MIRROR_ATTEMPT_SKIPPED
+    assert seen[0]["github_app_bound"] is True
+    err = capsys.readouterr().err
+    assert "unmirrored" in err
+    assert "skipped" in err
+    assert "resync --fix" not in err
+
+
+def test_classify_mirror_attempt_treats_disabled_mode_rc0_as_skipped(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.projects_github_sync_mode.github_sync_enabled",
+        lambda project, conn=None: False,
+    )
+    assert (
+        mirror.classify_mirror_attempt(0, project="yoke")
+        == mirror.MIRROR_ATTEMPT_SKIPPED
+    )
+
+
+def test_classify_mirror_attempt_keeps_enabled_mode_rc0_as_synced(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.projects_github_sync_mode.github_sync_enabled",
+        lambda project, conn=None: True,
+    )
+    assert (
+        mirror.classify_mirror_attempt(0, project="yoke")
+        == mirror.MIRROR_ATTEMPT_SYNCED
+    )
+
+
+def test_classify_mirror_attempt_nonzero_rc_is_failed_even_when_disabled(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "yoke_core.domain.projects_github_sync_mode.github_sync_enabled",
+        lambda project, conn=None: False,
+    )
+    assert (
+        mirror.classify_mirror_attempt(1, project="yoke")
+        == mirror.MIRROR_ATTEMPT_FAILED
+    )
+
+
+def test_sync_and_record_reclassifies_disabled_skip_as_unmirrored(monkeypatch, capsys):
+    seen = _captured_absence_events(monkeypatch)
+    monkeypatch.setattr(
+        backlog_rendering, "_sync_item", lambda *_a, **_k: mirror.MIRROR_ATTEMPT_SYNCED
+    )
+    monkeypatch.setattr(
+        backlog_rendering, "_resolve_project_github_repo", lambda conn, p: "org/repo"
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.projects_github_sync_mode.github_sync_enabled",
+        lambda project, conn=None: False,
+    )
+    state = mirror.sync_and_record_mirror(
+        _FakeConn(None),
+        item_id=7,
+        public_ref="YOK-7",
+        project="yoke",
+    )
+    assert state == mirror.MIRROR_STATE_UNMIRRORED
+    assert seen[0]["attempt"] == mirror.MIRROR_ATTEMPT_SKIPPED
+    assert seen[0]["github_app_bound"] is True
+    assert "resync --fix" not in capsys.readouterr().err
+
+
 def test_a_skipped_drift_check_rides_the_batch_evidence():
     """Never fail-open silently: the batch says the comparison did not run."""
     skipped = LiveDriftReport(
@@ -138,8 +227,7 @@ def test_a_skipped_drift_check_rides_the_batch_evidence():
 
 def test_a_declared_but_unreachable_ci_refusal_offers_undeclaring(monkeypatch):
     monkeypatch.setattr(
-        "yoke_core.domain.github_actions_workflow_inspection"
-        ".inspect_declared_workflow",
+        "yoke_core.domain.github_actions_workflow_inspection.inspect_declared_workflow",
         lambda workflow_file, checkout: SimpleNamespace(
             reason_code="workflow_absent_from_repo",
             message="ci.yml is not in the repository",
