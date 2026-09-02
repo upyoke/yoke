@@ -23,10 +23,7 @@ class MachineConfigContractError(RuntimeError):
 
 def selected_env(payload: Mapping[str, Any], explicit_env: str | None = None) -> str:
     """Resolve env precedence: explicit, ``YOKE_ENV``, then ``active_env``."""
-    requested = (
-        (explicit_env or "").strip()
-        or os.environ.get(ENV_OVERRIDE, "").strip()
-    )
+    requested = (explicit_env or "").strip() or os.environ.get(ENV_OVERRIDE, "").strip()
     configured = str(payload.get("active_env") or "").strip()
     selected = requested or configured
     if not selected:
@@ -48,8 +45,10 @@ def local_postgres_envs(
 ) -> list[str]:
     """Env labels whose connection declares local-postgres.
 
-    Retry teaching defaults to non-prod local Postgres entries only. Callers
-    that need full inventory must pass ``include_prod=True`` explicitly.
+    Recipe *selection* still defaults to non-prod local Postgres entries.
+    Refusal inventory that must agree with ``yoke env list`` passes
+    ``include_prod=True`` so a prod-flagged admin sibling the recipe just
+    named is not omitted from the list.
     """
     if not isinstance(payload, Mapping):
         return []
@@ -57,7 +56,8 @@ def local_postgres_envs(
     if not isinstance(connections, Mapping):
         return []
     return sorted(
-        str(env) for env, entry in connections.items()
+        str(env)
+        for env, entry in connections.items()
         if isinstance(entry, Mapping)
         and str(entry.get("transport") or "").strip() in POSTGRES_TRANSPORTS
         and (include_prod or not connection_is_prod(entry))
@@ -129,8 +129,14 @@ def env_override_teaching(
     """Setup-error text for a local-postgres-only operation under a non-local
     selected env: why it failed, the configured local-postgres envs, and the
     one-line override recipe.
+
+    Recipe *selection* still prefers the selected env's admin sibling, then a
+    non-prod local-postgres fallback — never a random prod database. The
+    parenthetical inventory is the full local-postgres set ``yoke env list``
+    would show, including prod-flagged admin connections the recipe just named.
     """
-    envs = local_postgres_envs(payload)
+    retry_envs = local_postgres_envs(payload)
+    inventory_envs = local_postgres_envs(payload, include_prod=True)
     # The sibling that administers the SELECTED env's own universe outranks
     # the configured inventory: a recipe naming another machine-local
     # database sends the operator somewhere their rows do not exist.
@@ -139,13 +145,13 @@ def env_override_teaching(
         f"connected env {selected_env!r} (transport {transport}) has no local "
         "Postgres; this operation requires a local-postgres env."
     )
-    if not sibling and not envs:
+    if not sibling and not retry_envs:
         return (
             f"{why} No local-postgres env is configured on this machine; add "
             "one under connections in ~/.yoke/config.json "
             "(see `yoke config example`)."
         )
-    recipe_env = sibling or envs[0]
+    recipe_env = sibling or retry_envs[0]
     recipe_cmd = command if command is not None else _invocation_recipe()
     universe = (
         f" {recipe_env!r} administers the same universe as {selected_env!r}."
@@ -153,12 +159,38 @@ def env_override_teaching(
         else ""
     )
     inventory = (
-        f"configured local-postgres envs: {', '.join(envs)}; " if envs else ""
+        f"configured local-postgres envs: {', '.join(inventory_envs)}; "
+        if inventory_envs
+        else ""
     )
     return (
         f"{why}{universe} Run: {ENV_OVERRIDE}={recipe_env} {recipe_cmd} "
         f"({inventory}`yoke` subcommands also accept --env {recipe_env})."
     )
+
+
+def _argv_without_env_override(args: list[str]) -> list[str]:
+    """Drop ``--env NAME`` / ``--env=NAME`` from a reconstructed recipe.
+
+    Recovery teaching already supplies the env via ``YOKE_ENV=``. Echoing
+    the caller's ``--env`` recreates the failed selection on ``yoke``
+    (explicit ``--env`` outranks ``YOKE_ENV``) and is not a flag
+    ``python -m yoke_core.cli.db_router`` accepts — the first positional
+    is a domain, so ``--env`` becomes ``unknown domain``.
+    """
+    out: list[str] = []
+    skip_value = False
+    for arg in args:
+        if skip_value:
+            skip_value = False
+            continue
+        if arg == "--env":
+            skip_value = True
+            continue
+        if arg.startswith("--env="):
+            continue
+        out.append(arg)
+    return out
 
 
 def _invocation_recipe(
@@ -168,10 +200,12 @@ def _invocation_recipe(
 ) -> str:
     """Reconstruct the current invocation for the override recipe line.
 
-    A module-form recipe names the interpreter that is running right now
-    rather than a bare ``python3``: the failing process reached its imports
-    through this interpreter, and the ambient one on ``PATH`` frequently
-    cannot import the packages the recipe would re-enter.
+    The recipe is the accepted command shape, not a replay of caller
+    argv: ``--env`` is stripped because this teaching already prepends
+    ``YOKE_ENV=``. A module-form recipe names the interpreter that is
+    running right now rather than a bare ``python3``: the failing process
+    reached its imports through this interpreter, and the ambient one on
+    ``PATH`` frequently cannot import the packages the recipe would re-enter.
     """
     import shlex
     import sys
@@ -187,7 +221,7 @@ def _invocation_recipe(
         prefix = f"{shlex.quote(python)} -m {module}"
     else:
         prefix = Path(args[0]).name if args and args[0] else "<command>"
-    tail = " ".join(shlex.quote(arg) for arg in args[1:])
+    tail = " ".join(shlex.quote(arg) for arg in _argv_without_env_override(args[1:]))
     return f"{prefix} {tail}".strip()
 
 

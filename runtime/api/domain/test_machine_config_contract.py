@@ -87,8 +87,10 @@ def test_validate_flags_unknown_active_and_requested_env() -> None:
     payload = contract.canonical_example_payload()
     payload["active_env"] = "ghost"
 
-    codes = {issue.code for issue in
-             contract.validate_payload(payload, explicit_env="phantom")}
+    codes = {
+        issue.code
+        for issue in contract.validate_payload(payload, explicit_env="phantom")
+    }
 
     assert "active_env_unknown" in codes
     assert "env_unknown" in codes
@@ -104,8 +106,7 @@ def test_validate_rejects_non_boolean_prod_flag() -> None:
 
 
 def test_validate_requires_connections_and_active_env() -> None:
-    codes = {issue.code for issue in
-             contract.validate_payload({"schema_version": 1})}
+    codes = {issue.code for issue in contract.validate_payload({"schema_version": 1})}
 
     assert "connections_required" in codes
     assert "active_env_required" in codes
@@ -145,10 +146,13 @@ def test_local_postgres_envs_lists_only_local_transports() -> None:
     }
 
     assert contract.local_postgres_envs(payload) == [
-        "cloud-beta", "source-dev-admin",
+        "cloud-beta",
+        "source-dev-admin",
     ]
     assert contract.local_postgres_envs(payload, include_prod=True) == [
-        "cloud-beta", "prod-db-admin", "source-dev-admin",
+        "cloud-beta",
+        "prod-db-admin",
+        "source-dev-admin",
     ]
     assert contract.local_postgres_envs({}) == []
     assert contract.local_postgres_envs(None) == []
@@ -167,16 +171,17 @@ def test_env_override_teaching_names_why_envs_and_recipe() -> None:
     # surface (wrapped `yoke` reads relay over https).
     recipe = 'python3 -m yoke_core.cli.db_router query "SELECT 1"'
     text = contract.env_override_teaching(
-        payload, selected_env="stage", transport="https",
+        payload,
+        selected_env="stage",
+        transport="https",
         command=recipe,
     )
 
     assert "'stage'" in text and "https" in text
     assert "requires a local-postgres env" in text
     assert f"{contract.ENV_OVERRIDE}=source-dev-admin {recipe}" in text
-    assert "configured local-postgres envs: source-dev-admin" in text
+    assert "configured local-postgres envs: prod-db-admin, source-dev-admin" in text
     assert "--env source-dev-admin" in text
-    assert "prod-db-admin" not in text
 
 
 def test_env_override_teaching_without_local_env_teaches_config() -> None:
@@ -189,7 +194,9 @@ def test_env_override_teaching_without_local_env_teaches_config() -> None:
     }
 
     text = contract.env_override_teaching(
-        payload, selected_env="stage", transport="https",
+        payload,
+        selected_env="stage",
+        transport="https",
     )
 
     assert "No local-postgres env is configured" in text
@@ -221,8 +228,7 @@ def test_invocation_recipe_reconstructs_module_and_script_shapes() -> None:
     assert script_form == "yoke status"
 
 
-def test_invocation_recipe_names_the_running_interpreter_not_ambient_python(
-) -> None:
+def test_invocation_recipe_names_the_running_interpreter_not_ambient_python() -> None:
     """A module recipe must be runnable by whoever reads it.
 
     The process that hit the error reached its imports through
@@ -240,8 +246,7 @@ def test_invocation_recipe_names_the_running_interpreter_not_ambient_python(
     assert not recipe.startswith("python3 ")
 
 
-def test_env_override_teaching_prefers_the_selected_universe_admin_sibling(
-) -> None:
+def test_env_override_teaching_prefers_the_selected_universe_admin_sibling() -> None:
     """The recipe must name the env holding the caller's own rows.
 
     A machine can configure several local-postgres connections that reach
@@ -257,11 +262,15 @@ def test_env_override_teaching_prefers_the_selected_universe_admin_sibling(
     payload["active_env"] = "prod"
 
     text = contract.env_override_teaching(
-        payload, selected_env="prod", transport="https", command="yoke merge item X",
+        payload,
+        selected_env="prod",
+        transport="https",
+        command="yoke merge item X",
     )
 
     assert f"{contract.ENV_OVERRIDE}=prod-db-admin yoke merge item X" in text
     assert "administers the same universe as 'prod'" in text
+    assert "configured local-postgres envs: prod-db-admin, source-dev-admin" in text
     # The alphabetically-first non-prod local env must not win over the pair.
     assert f"{contract.ENV_OVERRIDE}=source-dev-admin" not in text
 
