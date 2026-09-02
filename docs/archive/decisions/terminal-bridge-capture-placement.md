@@ -37,7 +37,10 @@ than merely sent behind it, because a capture records whatever the window
 server composited there. Before each capture the window is un-minimized, its
 bounds are set, and the result is read back; a window that still lands outside
 the region is re-anchored once, and a window that will not come inside fails
-with a named code instead of capturing nothing.
+with a named code instead of capturing nothing. Placement handles position and
+minimized state but not Spaces: every window this path captures is opened by the
+same run, so it is already on the Space that was current, and a future path that
+captured a window it did not create would have to establish that itself.
 
 **The geometry question is asked from inside Terminal.app**, for the same
 reason the capture is: screen geometry is a window-server fact, and that is the

@@ -74,10 +74,14 @@ def capture_terminal_app_region(
 ) -> RegionCapture:
     """Place the window on-screen, then capture exactly its region.
 
-    Placement comes first because a region capture of a window the display
-    does not contain returns a valid, useless PNG while launch, input, and
-    transcript all keep working — the signature that sent an operator to the
-    console.
+    Placement comes first because a capture of a window the display does not
+    contain returns a valid, useless PNG while launch, input, and transcript
+    all keep working — the signature that sent an operator to the console.
+
+    Placement covers position and minimized state but not Spaces, because
+    every window this path captures was opened by the same run and so is on
+    the Space that was current: a capture of a window this code did not create
+    would need to establish that too.
     """
     placed = place_terminal_app_window(
         run,
