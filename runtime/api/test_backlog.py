@@ -261,11 +261,11 @@ class _PatchExternals:
             "yoke_core.domain.runtime_settings.get_str",
             side_effect=create_config_value,
         )
-        # Pin the session/auth source-actor ladder to the canonical fixture
+        # Pin the item source-actor ladder to the canonical fixture
         # actor; the real ladder is covered by
         # test_backlog_create_op_actor_resolution.py.
         self._source_actor_patcher = mock.patch(
-            "yoke_core.domain.backlog_create_op._resolve_session_source_actor",
+            "yoke_core.domain.backlog_create_op.resolve_item_source_actor",
             return_value=int(DEFAULT_ITEM_ACTOR_ID),
         )
         self._rendering_patcher = mock.patch.multiple(

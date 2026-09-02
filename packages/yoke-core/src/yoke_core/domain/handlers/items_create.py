@@ -22,6 +22,11 @@ Target is ``kind="global"`` with the project named in the payload
 (``project``); authz classifies ``items.create`` as PROJECT scope and
 resolves the target project from that payload field, so a token actor
 needs ``items.write`` on the target project.
+
+The registry deliberately makes this one create function session-optional.
+Plain-terminal ``yoke dash`` / ``yoke task`` calls bind the verified token
+actor over HTTPS; a local call resolves the universe's operating human in
+``item_source_actor``. Session-bound callers keep their existing attribution.
 """
 
 from __future__ import annotations
@@ -50,17 +55,20 @@ class ItemCreateRequest(BaseModel):
         description="Workflow id selected from the active workflow registry.",
     )
     priority: Optional[str] = Field(
-        None, description="Priority bucket; defaults to the project's configured default."
+        None,
+        description="Priority bucket; defaults to the project's configured default.",
     )
     project: Optional[str] = Field(
-        None, description="Project slug or id; defaults to the caller's checkout project."
+        None,
+        description="Project slug or id; defaults to the caller's checkout project.",
     )
     deployment_flow: Optional[str] = Field(None, description="Deployment flow id.")
     status: Optional[str] = Field(
         None, description="Initial stage; defaults to the workflow's first stage."
     )
     source: Optional[str] = Field(
-        None, description="Numeric source actor id; defaults to the authenticated/session actor."
+        None,
+        description="Numeric source actor id; defaults to the authenticated/session actor.",
     )
     owner: Optional[str] = Field(
         None, description="Numeric owner actor id; defaults to the source actor."
@@ -172,8 +180,7 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         message = str(result.get("error") or "item create failed")
         code = (
             "entry_surface_denied"
-            if message == MISSING_ENTRY_SURFACE_MESSAGE
-            or "does not allow" in message
+            if message == MISSING_ENTRY_SURFACE_MESSAGE or "does not allow" in message
             else "create_failed"
         )
         return _error(code, message)
@@ -186,18 +193,14 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
         with connect() as conn:
-            execution_instructions = resolve_for_item(
-                conn, int(result["item_id"])
-            )
+            execution_instructions = resolve_for_item(conn, int(result["item_id"]))
 
     response = ItemCreateResponse(
         item_id=int(result["item_id"]),
         public_ref=result.get("public_ref"),
         dry_run=bool(result.get("dry_run", False)),
         log=captured.getvalue(),
-        execution_instructions_considered=(
-            payload.execution_instructions_considered
-        ),
+        execution_instructions_considered=(payload.execution_instructions_considered),
         execution_instructions=execution_instructions,
     )
     return HandlerOutcome(
@@ -223,6 +226,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         ],
         "adapter_status": "live",
         "claim_required_kind": None,
+        "ambient_session_required": False,
     },
 ]
 
