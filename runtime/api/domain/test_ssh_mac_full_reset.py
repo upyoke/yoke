@@ -21,6 +21,10 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
 from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 from yoke_harness.ssh_mac_full_reset import is_safe_test_mac_home
 from yoke_harness.ssh_mac_full_reset_contract import (
+    INSTALLER_TEMP_PATH,
+    RESET_ABSENT_KIND_LEFTOVER,
+    RESET_ABSENT_PATH_PREFIX,
+    RESET_ABSENT_RECOVERY,
     RESET_RESTORE_UNRESTORED_PREFIX,
     SELF_HOST_COMPOSE_PROJECT,
 )
@@ -209,6 +213,33 @@ def test_reset_fails_closed_when_matching_processes_survive_the_reap() -> None:
         "surviving_reap_failures": 1,
         "surviving_matches": 2,
         "load_average": 3.5,
+    }
+
+
+def test_reset_names_the_unmet_absent_temp_path_and_its_recovery() -> None:
+    transport = FakeResetTransport(
+        "\n".join(
+            (
+                RESET_FAILURE_PREFIX + RESET_PHASES["verify_restored_home"],
+                RESET_ABSENT_PATH_PREFIX
+                + RESET_ABSENT_KIND_LEFTOVER
+                + " "
+                + INSTALLER_TEMP_PATH,
+            )
+        ),
+        reset_returncode=1,
+    )
+
+    result = _run(transport)
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_verify_restored_home_failed"
+    assert result.evidence["absent_state"] == {
+        "path": INSTALLER_TEMP_PATH,
+        "reason": RESET_ABSENT_KIND_LEFTOVER,
+        "recovery": RESET_ABSENT_RECOVERY[RESET_ABSENT_KIND_LEFTOVER].format(
+            path=INSTALLER_TEMP_PATH
+        ),
     }
 
 

@@ -93,6 +93,26 @@ YOKE_ABSENT_RELATIVE_DIRECTORIES = (
     "Library/Application Support/yoke",
 )
 YOKE_ABSENT_TEMP_FILES = (INSTALLER_TEMP_PATH,)
+# Closed failure detail for a declared-absent temp path the clear or verify
+# still found. Kind plus the exact path ride stdout; the recovery sentence is
+# reconstructed from the same kind so the output contract stays closed.
+RESET_ABSENT_PATH_PREFIX = "YOKE_RESET_ABSENT_"
+RESET_ABSENT_KIND_LEFTOVER = "leftover"
+RESET_ABSENT_KIND_LIVE_PROCESS = "live_process"
+RESET_ABSENT_KINDS = (
+    RESET_ABSENT_KIND_LEFTOVER,
+    RESET_ABSENT_KIND_LIVE_PROCESS,
+)
+RESET_ABSENT_RECOVERY = {
+    RESET_ABSENT_KIND_LEFTOVER: (
+        "Remove the leftover installer file at {path}, then retry the "
+        "Test Machine reset."
+    ),
+    RESET_ABSENT_KIND_LIVE_PROCESS: (
+        "Stop the live installer process holding {path}, then retry the "
+        "Test Machine reset."
+    ),
+}
 RESET_REAP_MARKER_ANCHOR = "/tmp/yoke-qa-"
 RESET_REAP_MARKER_SUFFIX = ".exit"
 RESET_REAP_ONBOARD_ANCHOR = "onboard --post-install"
@@ -247,6 +267,11 @@ __all__ = [
     "GOLDEN_PROBES_SUFFIX",
     "INSTALLER_TEMP_PATH",
     "PRESERVED_HOME_ENTRIES",
+    "RESET_ABSENT_KIND_LEFTOVER",
+    "RESET_ABSENT_KIND_LIVE_PROCESS",
+    "RESET_ABSENT_KINDS",
+    "RESET_ABSENT_PATH_PREFIX",
+    "RESET_ABSENT_RECOVERY",
     "RESET_FAILURE_PREFIX",
     "RESET_LOAD_AVERAGE_PREFIX",
     "RESET_PHASES",

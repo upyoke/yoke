@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from pathlib import PurePosixPath
+
 from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_MARKER,
     FULL_RESET_REMOTE_PATH,
     FullResetPathContract,
     PRESERVED_HOME_ENTRIES,
+    RESET_ABSENT_KINDS,
+    RESET_ABSENT_PATH_PREFIX,
+    RESET_ABSENT_RECOVERY,
     RESET_FAILURE_PREFIX,
     RESET_LOAD_AVERAGE_PREFIX,
     RESET_PHASES,
@@ -50,6 +55,26 @@ def unrestored_detail(detail: str) -> dict[str, object] | None:
     if any(set(entry) - _UNRESTORED_NAME_CHARACTERS for entry in entries):
         return None
     return {"unrestored_entry_count": int(count), "unrestored_entries": list(entries)}
+
+
+def absent_path_detail(detail: str) -> dict[str, str] | None:
+    """Parse the declared-absent temp path a clear or verify still found."""
+    body = detail.removeprefix(RESET_ABSENT_PATH_PREFIX)
+    kind, separator, path = body.partition(" ")
+    selected = PurePosixPath(path)
+    if (
+        not separator
+        or kind not in RESET_ABSENT_KINDS
+        or not selected.is_absolute()
+        or ".." in selected.parts
+        or path != str(selected)
+    ):
+        return None
+    return {
+        "path": path,
+        "reason": kind,
+        "recovery": RESET_ABSENT_RECOVERY[kind].format(path=path),
+    }
 
 
 def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
@@ -104,6 +129,9 @@ def failure_outcome(stdout: str) -> tuple[str, bool, str | None] | None:
     recovery_failed = detail is not None and detail == RESET_RECOVERY_FAILURE_MARKER
     if detail is not None and detail.startswith(RESET_RESTORE_UNRESTORED_PREFIX):
         if unrestored_detail(detail) is None:
+            return None
+    elif detail is not None and detail.startswith(RESET_ABSENT_PATH_PREFIX):
+        if absent_path_detail(detail) is None:
             return None
     elif detail is not None and not recovery_failed:
         parts = tuple(detail.split())
@@ -186,6 +214,7 @@ def success_evidence(
 
 
 __all__ = [
+    "absent_path_detail",
     "closed_outcomes",
     "failure_outcome",
     "success_evidence",
