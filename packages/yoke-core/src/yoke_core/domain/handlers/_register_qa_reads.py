@@ -218,6 +218,7 @@ def register(registry) -> None:
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
+        ambient_session_required=False,
     )
     registry.register(
         "board.data.get",

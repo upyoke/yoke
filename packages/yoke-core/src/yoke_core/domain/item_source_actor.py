@@ -1,8 +1,18 @@
 """Resolve and validate the actor attributed to a newly created item.
 
-Session-bound creation reads ``harness_sessions.actor_id``. A genuine
-plain-terminal call has no session, so it resolves the universe's operating
-human instead. Explicit source and owner values remain numeric actor ids.
+The dispatcher's identity binder resolves the actor before the handler
+runs — from the session when there is one, and from the universe's
+operating human when there is not
+(:mod:`yoke_core.domain.session_less_actor_binding`) — so a bound
+envelope already carries it and creation reads it straight off the
+request.
+
+What is left here is the refusal. A universe that cannot name its
+operating actor at all (no human seeded, or several with none matching
+this machine's login) reaches creation with nothing bound, and the
+recovery belongs to that resolution rather than to item creation, so the
+named binding refusal is what this raises. Explicit source and owner
+values remain numeric actor ids.
 """
 
 from __future__ import annotations
@@ -17,7 +27,12 @@ class ItemSourceActorResolutionError(Exception):
 
 
 def resolve_item_source_actor(conn: Any, session_id: Optional[str]) -> int:
-    """Resolve an item's source from a session or terminal operator."""
+    """Resolve an item's source from a session or terminal operator.
+
+    Reached only when the envelope carried no actor id: on the terminal
+    path that means the operating-actor resolution the binder already
+    attempted found nothing, and its refusal names the recovery.
+    """
     if not session_id:
         from yoke_core.domain.session_actor_binding import resolve_operating_actor
 
