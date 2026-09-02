@@ -270,7 +270,6 @@ def test_private_wake_route_accepts_a_newer_patch_version() -> None:
     assert routing["wake_available"] is True
 
 
-
 @pytest.mark.parametrize(
     ("surface_versions", "project_ids"),
     (
