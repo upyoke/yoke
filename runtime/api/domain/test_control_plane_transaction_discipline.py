@@ -25,12 +25,12 @@ from yoke_core.domain.yoke_function_dispatch_idempotency import (
 from runtime.api.fixtures import pg_testdb
 
 
-def _deny_alter_role(conn, error):
-    """Raise *error* for ALTER ROLE only, passing every other statement through."""
+def _deny_statements_containing(conn, fragment, error):
+    """Raise *error* for statements containing *fragment*, passing others through."""
     real = conn.execute
 
     def execute(statement, *args, **kwargs):
-        if "ALTER ROLE" in str(statement):
+        if fragment in str(statement):
             raise error
         return real(statement, *args, **kwargs)
 
@@ -68,7 +68,9 @@ def test_relay_request_reservation_is_transaction_free_while_handler_waits() -> 
         observer.close()
 
 
-def test_application_role_declares_bounded_idle_transaction_timeout() -> None:
+def test_application_role_declares_bounded_idle_transaction_timeout(
+    cluster_role_authority,
+) -> None:
     database = pg_testdb.create_test_database(pooled=False)
     try:
         dsn = pg_testdb.dsn_for_test_database(database)
@@ -87,6 +89,7 @@ def test_application_role_declares_bounded_idle_transaction_timeout() -> None:
 
 def test_application_role_default_persists_once_and_then_skips_the_catalog(
     capsys,
+    cluster_role_authority,
 ) -> None:
     """The steady state performs no catalog write, so concurrent boots cannot race."""
     database = pg_testdb.create_test_database(pooled=False)
@@ -107,7 +110,9 @@ def test_application_role_default_persists_once_and_then_skips_the_catalog(
         pg_testdb.drop_test_database(database, pooled=False)
 
 
-def test_concurrent_boots_converge_the_role_default_without_refusing() -> None:
+def test_concurrent_boots_converge_the_role_default_without_refusing(
+    cluster_role_authority,
+) -> None:
     """Concurrent ALTER ROLE on one catalog row must not fail a boot.
 
     ``ALTER ROLE ... IN DATABASE ... SET`` updates a shared
@@ -139,6 +144,7 @@ def test_concurrent_boots_converge_the_role_default_without_refusing() -> None:
 
 def test_unpersistable_role_default_degrades_and_leaves_the_session_usable(
     capsys,
+    cluster_role_authority,
 ) -> None:
     """A role that cannot record its default still boots, guarded and diagnosed."""
     database = pg_testdb.create_test_database(pooled=False)
@@ -147,7 +153,9 @@ def test_unpersistable_role_default_degrades_and_leaves_the_session_usable(
         denied = psycopg.errors.InsufficientPrivilege("permission denied to alter role")
         with psycopg.connect(dsn) as conn:
             with patch.object(
-                conn, "execute", side_effect=_deny_alter_role(conn, denied)
+                conn,
+                "execute",
+                side_effect=_deny_statements_containing(conn, "ALTER ROLE", denied),
             ):
                 converge_application_role_settings(conn)
             configured = conn.execute(
