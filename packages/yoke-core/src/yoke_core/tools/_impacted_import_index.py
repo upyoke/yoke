@@ -17,7 +17,7 @@ import ast
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from yoke_core.tools.impacted_project_test_roots import (
     YOKE_SEEDED_TEST_ROOTS,
@@ -158,6 +158,29 @@ def direct_importer_tests(changed: Iterable[str], index: ImportIndex) -> frozens
     )
 
 
+def reachable_tests(changed: Sequence[str], index: ImportIndex) -> set[str] | None:
+    """Test files reachable from *changed*, or None when nothing maps."""
+    reached: set[str] = set(changed)
+    frontier = [
+        module for rel in changed if (module := index.module_of.get(rel)) is not None
+    ]
+    if not frontier:
+        return None
+    seen_modules = set(frontier)
+    while frontier:
+        module = frontier.pop()
+        for importer in index.importers.get(module, ()):
+            if importer in reached:
+                continue
+            reached.add(importer)
+            importer_module = index.module_of.get(importer)
+            if importer_module and importer_module not in seen_modules:
+                seen_modules.add(importer_module)
+                frontier.append(importer_module)
+    # Keep deletions in analysis, but never pass removed tests to pytest.
+    return {rel for rel in reached if rel in index.module_of and is_test_file(rel)}
+
+
 def build_import_index(repo_root: Path) -> ImportIndex:
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
@@ -184,4 +207,5 @@ __all__ = [
     "direct_importer_tests",
     "is_test_file",
     "module_name_for",
+    "reachable_tests",
 ]

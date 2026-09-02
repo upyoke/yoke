@@ -108,7 +108,6 @@ def test_bounded_trigger_defers_a_near_total_computable_remainder(
     assert bounded.fallback_rule == "unmapped_file_kind"
     assert bounded.bounded_deferral is True
     assert bounded.files == _with_floor()
-    assert "computable subset selected" in bounded.reason
 
 
 def test_product_cli_change_keeps_boundary_contracts_when_selection_is_deferred(

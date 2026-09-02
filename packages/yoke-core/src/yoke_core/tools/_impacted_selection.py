@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from yoke_core.tools.impacted_project_test_roots import current_test_roots
@@ -62,9 +63,29 @@ def is_effectively_full(selected_files: int, total_files: int) -> bool:
     )
 
 
+def remainder_paths_for_bounded_reachability(
+    remainder: Sequence[str],
+    *,
+    total_files: int,
+    individually_reached: Callable[[str], int],
+) -> tuple[str, ...]:
+    """Remainder paths whose own reachability is still a bounded subset.
+
+    An unmapped file excludes only itself. Walking every leftover Python
+    path as one query can look near-total even when some of those paths
+    are small; drop the individually near-total paths before the rest.
+    """
+    return tuple(
+        path
+        for path in remainder
+        if not is_effectively_full(individually_reached(path), total_files)
+    )
+
+
 __all__ = [
     "MAX_BOUNDED_FILE_FRACTION",
     "MIN_EFFECTIVELY_FULL_FILE_UNIVERSE",
     "Selection",
     "is_effectively_full",
+    "remainder_paths_for_bounded_reachability",
 ]
