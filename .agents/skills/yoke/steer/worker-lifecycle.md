@@ -66,29 +66,13 @@ Read `launchable`, `rejection_codes`, and `eligible_relays`.
 A refusal names the surface, not the item. Do not skip remaining work
 because one surface refused.
 
-Keep steady-state launches balanced across all three CLI surfaces. Deviate
-only for a named live reason, such as a failing launch path or a capability
-the item specifically needs, and return to balance when that reason expires.
-The spread is diagnostic, not a quota: skew can hide a harness-specific
-regression. The fleet report's launch-balance block shows the live count
-per launchable surface on each machine. A surface absent from that line
-cannot accept a launch — do not read a missing surface as zero.
-Counts are spreading weights only, and there is no per-surface session cap.
-
-Measure balance against live load; never assume it from the batch. Read those
-counts before staffing, then allocate each launch so the counts it leaves
-behind come out as level as they can. Leveling routes a launch onto the
-least-loaded launchable surface; it never withholds one.
-
-Never split a batch evenly across surfaces. An even split preserves whatever
-skew is already there: six items sent two per surface onto a fleet already
-running codex 5, claude 3, cursor 1 leaves codex 7, claude 5, cursor 3 — the
-same skew, one size larger. Leveling that fleet sends most of the six to
-cursor.
-
-Allocation at launch is the only chance to get this right. Rebalancing
-afterwards would mean killing live workers mid-item, so there is no second
-pass that fixes a skewed batch.
+Allocate by headroom, not by leveling counts. Read the headroom table in
+the fleet report: keep one session on every surface above 100% so each
+harness stays exercised, then send the rest to the surface with the most
+headroom and run it down. Level counts only when headrooms are comparable,
+and avoid a surface under 100% for long items. There is no per-surface
+session cap. A surface absent from the launch-balance line cannot accept a
+launch — do not read a missing surface as zero.
 
 ## 4. Route one item through its pinned workflow, never via `/yoke do`
 

@@ -54,10 +54,7 @@ def test_the_body_leads_with_the_work_a_steerer_can_staff(steering_scope):
     assert "launch balance  machine-1" in body
     assert "codex-cli 2" in body
     assert "origin operator 0 · steering 0" in body
-    assert (
-        "counts are spreading weights only, and there is no per-surface session cap"
-        in body
-    )
+    assert "send the rest to the surface with the most headroom and run it down" in body
 
 
 def test_launch_balance_omits_a_surface_that_cannot_accept_a_launch(steering_scope):

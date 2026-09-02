@@ -29,7 +29,12 @@ REPORT_PREAMBLE = (
 
 OVERDUE_MARK = "!"
 
-LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch; counts are spreading weights only, and there is no per-surface session cap"
+LAUNCH_BALANCE_NOTE = (
+    "allocate by headroom: keep one session on every surface above 100% so "
+    "each harness stays exercised, then send the rest to the surface with the "
+    "most headroom and run it down; level counts only when headrooms are "
+    "comparable; no per-surface session cap"
+)
 
 
 def _landed_recovery(public_ref: str) -> str:
