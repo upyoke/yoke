@@ -80,7 +80,11 @@ class ScriptedMacHost:
         if "set bounds of targetWindow to {" in command:
             return self._place(command)
         if command.startswith("if /bin/test -f "):
-            return "0\n" if self.frame_available or not self._pending_frame_probe else "1\n"
+            return (
+                "0\n"
+                if self.frame_available or not self._pending_frame_probe
+                else "1\n"
+            )
         if command.startswith("/usr/bin/base64 < "):
             return self._gui_session_output(command)
         answer = self.reply(command)
