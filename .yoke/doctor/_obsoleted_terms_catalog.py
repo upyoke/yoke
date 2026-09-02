@@ -29,6 +29,12 @@ from yoke_core.engines import (
     doctor_hc_obsoleted_terms_item_dependency as _item_dep_terms,
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_plan_limits as _plan_limit_terms
+from yoke_project_checks import _obsoleted_terms_inbox as _inbox_terms
+from yoke_project_checks._obsoleted_terms_subject_paths import (
+    MIGRATION_RETIREMENT_SUBJECT_PATHS,
+    QA_PACKET_TEACHING_PATHS,
+    QA_RUNNER_RENAME_SUBJECT_PATHS,
+)
 
 _RETIRED_PARENT_EPIC_SYMBOL_PATTERN = r"items" + r"\." + "epic"
 _RETIRED_PARENT_EPIC_CLI_PATTERN = r"items\s+(get|update|set)\s+\S+\s+" + "epic" + r"\b"
@@ -204,6 +210,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
     *_db_terms.DB_AUTHORITY_RETIREMENT_PATTERNS,
+    *_inbox_terms.INBOX_RETIREMENT_PATTERNS,
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
@@ -280,6 +287,7 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     **_browser_terms.BROWSER_RETIREMENT_LABELS,
     **_pack_terms.PACK_RETIREMENT_LABELS,
     **_db_terms.DB_AUTHORITY_RETIREMENT_LABELS,
+    **_inbox_terms.INBOX_RETIREMENT_LABELS,
 }
 
 # Scan scope
@@ -287,46 +295,17 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
 # Per-pattern path allow-list. Each entry is a repo-relative path string;
 # matching is prefix-based so a single entry covers a file family. Audit-
 # infrastructure prefixes live in :mod:`doctor_hc_obsoleted_terms_allowlists`
-# alongside the broader per-file exemption; the dict below composes those
-# tuples with the strategic-prose exemptions defined here.
-#: The history entry that STRIPS the retired stage, its test, and the event
-#: registry row that marks the emitter retired all have to name it: their
-#: subject IS the retirement. Historical ledger rows must keep resolving.
-_MIGRATION_RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
-    "packages/yoke-core/src/yoke_core/domain/migrations/",
-    "runtime/api/domain/test_drop_migration_apply_stages_migration.py",
-    "packages/yoke-core/src/yoke_core/domain/populate_registry_data_authoritative.py",
-    # The generated catalog's RETIRED rows name the emitter they retire, so
-    # historical ledger rows stay attributable.
-    "docs/event-catalog.md",
-)
-
-#: Surfaces that keep the retired QA spelling on purpose. The history entry
-#: that renames the columns names them as its subject, and the immutable
-#: workflow-definition canon plus its tests carry a *different* retired
-#: ``executor_id`` — the skill-binding vocabulary an earlier entry replaced —
-#: which one column-name pattern cannot tell apart from the QA one.
-#: The agent packet warns the next agent off the retired spellings by
-#: name — teaching that cannot be done without writing them down.
-_QA_PACKET_TEACHING_PATHS: tuple[str, ...] = (
-    "packages/yoke-core/src/yoke_core/domain/schema_api_context_tables_qa.py",
-)
-
-_QA_RUNNER_RENAME_SUBJECT_PATHS: tuple[str, ...] = (
-    "packages/yoke-core/src/yoke_core/domain/migrations/",
-    "runtime/api/domain/test_migration_qa_runner_identity_columns.py",
-    "runtime/api/domain/test_builtin_workflow_version_reconvergence.py",
-    "runtime/api/domain/test_workflow_and_deployment_stage_vocabulary_migration.py",
-)
-
+# alongside the broader per-file exemption, and this project's own subject
+# path families in :mod:`_obsoleted_terms_subject_paths`; the dict below
+# composes those tuples per pattern.
 _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     **_coordination_terms.COORDINATION_LEASE_RETIREMENT_ALLOWLIST,
     **_db_terms.DB_AUTHORITY_RETIREMENT_ALLOWLIST,
-    _RETIRED_QA_EXECUTOR_ID_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS
-    + _QA_PACKET_TEACHING_PATHS,
-    _RETIRED_QA_EXECUTOR_TYPE_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS
-    + _QA_PACKET_TEACHING_PATHS,
-    _RETIRED_QA_EXECUTOR_GLOSS_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
+    _RETIRED_QA_EXECUTOR_ID_PATTERN: QA_RUNNER_RENAME_SUBJECT_PATHS
+    + QA_PACKET_TEACHING_PATHS,
+    _RETIRED_QA_EXECUTOR_TYPE_PATTERN: QA_RUNNER_RENAME_SUBJECT_PATHS
+    + QA_PACKET_TEACHING_PATHS,
+    _RETIRED_QA_EXECUTOR_GLOSS_PATTERN: QA_RUNNER_RENAME_SUBJECT_PATHS,
     _RETIRED_QA_EXECUTOR_CLI_PATTERN: (
         # The lifecycle DB-command lint reproduces the retired
         # ``qa-db.sh run-add`` invocation verbatim so it can still
@@ -334,13 +313,17 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
         # spelling is part of the shape it detects.
         "packages/yoke-core/src/yoke_core/domain/lint_db_rules_lifecycle.py",
     ),
-    _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
+    _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN: QA_RUNNER_RENAME_SUBJECT_PATHS,
     **_session_terms.SESSION_CONTROL_RETIREMENT_ALLOWLIST,
     **_item_dep_terms.ITEM_DEPENDENCY_RETIREMENT_ALLOWLIST,
-    _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
-    _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
-    _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS
+    _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: MIGRATION_RETIREMENT_SUBJECT_PATHS,
+    _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: MIGRATION_RETIREMENT_SUBJECT_PATHS,
+    _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN: MIGRATION_RETIREMENT_SUBJECT_PATHS
     + ("packages/yoke-core/src/yoke_core/domain/populate_registry_data_lifecycle.py",),
+    **{
+        pattern: MIGRATION_RETIREMENT_SUBJECT_PATHS
+        for pattern in _inbox_terms.INBOX_RETIREMENT_MIGRATION_SUBJECT_PATTERNS
+    },
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,
 }

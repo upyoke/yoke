@@ -37,4 +37,7 @@ conversation mapping) — operators should not invent session IDs.
 
 - **Overview** — glance sections across strategy, frontier, sessions,
   delivery, events, doctor
-- **Inbox** — decisions waiting on you (approvals, machine connect, …)
+- **Inbox** — two panels, because two kinds of thing reach a person: the
+  gates waiting on your decision (deploy stage, QA review, lifecycle
+  approval) and the messages sent to you. An agent that needs you to know
+  something sends a message, with context and a specific ask
