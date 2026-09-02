@@ -59,7 +59,7 @@ def self_host_init(args: List[str]) -> int:
             "instead preserves an existing bundle and its DB credentials "
             "while repairing secret protection or rotating the GitHub App "
             "key. Then `docker compose up -d` from the bundle directory "
-            "starts the server; first boot writes a one-time initial admin "
+            "starts the server; first boot writes the reusable administrator "
             "token to an owner-only file under the bundle's secrets/ "
             "directory, and prints its path — never the token — to the log."
         ),
@@ -239,7 +239,7 @@ def _print_summary(report: Dict[str, object]) -> None:
     connect_url = connect_url_from_publish_spec(str(report.get("publish") or ""))
     print("next steps:")
     print(f"  1. cd {directory} && docker compose up -d")
-    print("  2. first boot writes a one-time initial admin token to:")
+    print("  2. first boot writes the reusable administrator token to:")
     print(f"       {token_file}")
     print("  3. connect this machine's CLI, then remove that file:")
     print(f"       yoke connect {connect_url} --token-stdin < {token_file}")

@@ -12,6 +12,7 @@ from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.config.onboard_destinations import DESTINATION_SERVER
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT, SelectionRow
+from yoke_cli.self_host import first_boot_token
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
@@ -174,8 +175,7 @@ def _goto_failure(
     if connect_failure:
         details = [
             f"Local server: {setup.url}",
-            f"One-time admin token: {setup.raw_token}",
-            "Store this token safely; it is the server administrator identity.",
+            *_admin_token_file_lines(setup),
             *details,
         ]
     rows = CONNECT_RETRY_ROWS if connect_failure else RETRY_ROWS
@@ -228,15 +228,30 @@ def _goto_complete(shell: _Shell, setup: server.SelfHostSetup) -> None:
     )
 
 
+def _admin_token_file_lines(setup: server.SelfHostSetup) -> list[str]:
+    """Name the token file and its real contract; never the raw credential."""
+    token_file = first_boot_token.token_drop_path(setup.directory)
+    return [
+        f"Admin token file: {token_file}",
+        (
+            "This is the reusable administrator identity for this universe, "
+            "minted at first boot."
+        ),
+        (
+            "It stays valid until you revoke it. Read it from that file; "
+            "it is never printed here."
+        ),
+    ]
+
+
 def _complete_lines(setup: server.SelfHostSetup) -> list[str]:
     lines = [
         f"Local URL: {setup.url}",
         f"Port: {setup.port}",
         f"Bundle directory: {setup.directory}",
-        f"One-time admin token: {setup.raw_token}",
+        *_admin_token_file_lines(setup),
         f"Connection: {setup.env_name} is active on this machine.",
         "Share only a server URL your teammates can actually reach.",
-        "This token is the administrator identity. Store it safely.",
         "Mint a separate token for each teammate; never share this admin token.",
         "Networking stays operator-owned: VPN/tailnet, LAN, or port-forwarding and TLS.",
     ]

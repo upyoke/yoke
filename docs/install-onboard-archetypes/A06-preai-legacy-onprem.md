@@ -38,8 +38,9 @@ Where should this Yoke live?
 On the intended Linux host, IT can pick **Set this machine up as a
 self-hosting server**. The wizard previews `./yoke-server`,
 `http://127.0.0.1:8765`, Docker/Compose, and the fact that IT owns reachable
-networking and TLS. Start creates and launches the bundle, captures the
-one-time admin token, and activates the host's local connection. IT stores the
+networking and TLS. Start creates and launches the bundle, reads the reusable administrator
+token from its owner-only file without printing it, and activates the host's
+local connection. IT stores the
 token, mints separate teammate tokens, configures the intranet URL, then picks
 **Finish with server handoff**. The manual `yoke self-host init` reference in
 `docs/self-host.md` remains available.
