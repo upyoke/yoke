@@ -27,6 +27,9 @@ PRODUCT_AUTHZ_BY_ID = {
     "decision_requests.create": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.resolve": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.withdraw": AuthzSpec(ACTOR_SESSION, None),
+    # Convergence withdraws only what the subject-state contract already
+    # reports ended, so any member may run what reading the Inbox runs anyway.
+    "decision_requests.dispose_ended": AuthzSpec(ACTOR_SESSION, None),
     "notifications.read": AuthzSpec(ACTOR_SESSION, None),
     "notifications.read_all": AuthzSpec(ACTOR_SESSION, None),
     "overview.activation.get": AuthzSpec(ACTOR_SESSION, None),

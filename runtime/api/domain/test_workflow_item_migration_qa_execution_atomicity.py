@@ -73,18 +73,19 @@ def test_stale_execution_replacement_relocks_after_committing_cleanup(
     allow_relock = threading.Event()
     begin_done = threading.Event()
     outcomes: dict[str, Any] = {}
-    original_cleanup = qa_plan_execution_state._release_stale_execution
+    original_cleanup = qa_plan_execution_state.finish_plan_execution
 
-    def pause_after_cleanup(conn: Any, execution: Any, *, now: str) -> None:
-        original_cleanup(conn, execution, now=now)
+    def pause_after_cleanup(conn: Any, execution: Any, **kwargs: Any) -> None:
+        original_cleanup(conn, execution, **kwargs)
         cleanup_committed.set()
         assert allow_relock.wait(timeout=10)
 
     monkeypatch.setattr(
         qa_plan_execution_state,
-        "_release_stale_execution",
+        "finish_plan_execution",
         pause_after_cleanup,
     )
+
 
     def replace_execution() -> None:
         try:

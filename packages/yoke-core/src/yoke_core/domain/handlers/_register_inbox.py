@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers import decision_request_disposition as _disposition
 from yoke_core.domain.handlers import inbox_decisions as _inbox
 from yoke_core.domain.handlers import inbox_decision_models as _models
 from yoke_core.domain import machine_approval_requests as _machine
@@ -110,6 +111,20 @@ def register(registry) -> None:
             "subject_ended",
             "never_silent_expiry",
         ],
+    )
+    _register(
+        registry,
+        "decision_requests.dispose_ended",
+        _disposition.handle_decision_dispose_ended,
+        _models.DecisionDisposeEndedRequest,
+        _models.DecisionDisposeEndedResponse,
+        side_effects=[
+            "qa_plan_executions_update",
+            "decision_requests_withdraw",
+        ],
+        events=["DecisionRequestWithdrawn"],
+        guardrails=["subject_ended", "never_silent_expiry"],
+        owner_module="yoke_core.domain.handlers.decision_request_disposition",
     )
     _register(
         registry,

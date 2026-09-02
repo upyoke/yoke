@@ -45,8 +45,11 @@ class PlanExecutionStateResponse(BaseModel):
     roster_digest: str
     cursor_ordinal: int
     machine_lease_id: int | None = None
-    execution_target: dict[str, Any]
-    execution_target_digest: str
+    # Absent on a row written before executions carried a target: reading and
+    # abandoning such a row are supported, running one is refused by name.
+    execution_target: dict[str, Any] | None = None
+    execution_target_digest: str | None = None
+
     requirements: list[dict[str, Any]]
     results: list[dict[str, Any]]
 
@@ -123,6 +126,8 @@ def handle_plan_execution_begin(
 def _owned_execution(
     request: FunctionCallRequest,
     parsed: PlanExecutionStateRequest,
+    *,
+    abandoning: bool = False,
 ) -> tuple[Any, dict[str, Any]] | HandlerOutcome:
     target = _subject(request, request.function)
     if isinstance(target, HandlerOutcome):
@@ -131,19 +136,26 @@ def _owned_execution(
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_plan_execution_state import (
         lock_plan_execution,
+        require_plan_execution_abandon_authority,
         require_plan_execution_owner,
     )
 
+    authority = (
+        require_plan_execution_abandon_authority
+        if abandoning
+        else require_plan_execution_owner
+    )
     conn = connect()
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
-        require_plan_execution_owner(
+        authority(
             execution,
             item_id=item_id,
             deployment_run_id=deployment_run_id,
             actor_id=request.actor.actor_id,
             session_id=request.actor.session_id,
         )
+
     except ValueError as exc:
         conn.rollback()
         conn.close()
@@ -221,7 +233,7 @@ def _finish_execution(
     if isinstance(parsed, HandlerOutcome):
         return parsed
     assert isinstance(parsed, PlanExecutionStateRequest)
-    owned = _owned_execution(request, parsed)
+    owned = _owned_execution(request, parsed, abandoning=not complete)
     if isinstance(owned, HandlerOutcome):
         return owned
     conn, execution = owned

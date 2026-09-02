@@ -166,10 +166,50 @@ def _qa_review_ended(
         f"AND ({' OR '.join(clauses)}) LIMIT 1",
         (requirement_id,),
     ).fetchone()
-    return conclusive is not None, (
-        f"QA requirement {requirement_id} "
-        f"{'has a conclusive result' if conclusive else 'remains unresolved'}"
+    if conclusive is not None:
+        return True, f"QA requirement {requirement_id} has a conclusive result"
+    return _qa_walk_ended(conn, requirement_id)
+
+
+def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
+    """Report whether every plan execution that walked this case has ended.
+
+    A review request exists because a walk could not determine a verdict. Once
+    every execution that walked the case is terminal, no further evidence is
+    coming and the ask is over -- the requirement itself stays unresolved, and
+    that is the answer. A requirement no execution ever walked is a standing
+    ad-hoc ask with no walk to end, so it is never disposed of this way.
+    """
+    if not (
+        _table_exists(conn, "qa_plan_executions")
+        and _table_exists(conn, "qa_plan_execution_results")
+    ):
+        return False, f"QA requirement {requirement_id} remains unresolved"
+    from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_STATES
+
+    walks = conn.execute(
+        "SELECT e.id, e.state FROM qa_plan_execution_results r "
+        "JOIN qa_plan_executions e ON e.id = r.execution_id "
+        f"WHERE r.requirement_id = {_p(conn)} ORDER BY e.created_at, e.id",
+        (requirement_id,),
+    ).fetchall()
+    if not walks:
+        return False, (
+            f"QA requirement {requirement_id} has no plan execution to end; "
+            "it remains an open ask"
+        )
+    live = [str(row[0]) for row in walks if str(row[1]) in LIVE_PLAN_EXECUTION_STATES]
+    if live:
+        return False, (
+            f"QA requirement {requirement_id} is still being walked by "
+            f"execution {live[0]}"
+        )
+    outcomes = ", ".join(f"{row[0]} {row[1]}" for row in walks)
+    return True, (
+        f"QA requirement {requirement_id} has no live plan execution left "
+        f"({outcomes})"
     )
+
 
 
 def _machine_approval_ended(

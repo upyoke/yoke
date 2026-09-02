@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
 
 class QaPlanExecutionStateError(ValueError):
@@ -103,7 +104,7 @@ def live_plan_execution_id(
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "
-        "AND state IN ('active','waiting','awaiting_agent_review') "
+        f"AND state IN ({LIVE_PLAN_EXECUTION_SQL}) "
         "ORDER BY created_at DESC LIMIT 1",
         params,
     )
@@ -241,40 +242,8 @@ def converge_plan_execution_insert_race(
     return resume_owned_plan_execution(conn, concurrent, digest=digest)
 
 
-def require_plan_execution_owner(
-    execution: Mapping[str, Any],
-    *,
-    item_id: int | None = None,
-    deployment_run_id: str | None = None,
-    actor_id: str | None,
-    session_id: str,
-) -> None:
-    """Bind every execution mutation to its subject, actor, and session."""
-    if (item_id is None) == (deployment_run_id is None):
-        raise QaPlanExecutionStateError(
-            "exactly one QA plan execution subject is required"
-        )
-    if item_id is not None and (
-        execution.get("item_id") is None or int(execution["item_id"]) != int(item_id)
-    ):
-        raise QaPlanExecutionStateError("QA plan execution belongs to a different item")
-    if deployment_run_id is not None and str(
-        execution.get("deployment_run_id") or ""
-    ) != str(deployment_run_id):
-        raise QaPlanExecutionStateError(
-            "QA plan execution belongs to a different deployment run"
-        )
-    if not same_owner(
-        execution,
-        actor_id=actor_id,
-        session_id=session_id,
-    ):
-        raise QaPlanExecutionStateError(
-            "QA plan execution belongs to a different actor or session"
-        )
-
-
 def result_rows(conn: Any, execution_id: str) -> list[dict[str, Any]]:
+
     placeholder = marker(conn)
     cursor = conn.execute(
         "SELECT ordinal,requirement_id,result_json,completed_at "
@@ -332,7 +301,6 @@ __all__ = [
     "lock_plan_execution",
     "marker",
     "plan_execution_view",
-    "require_plan_execution_owner",
     "result_rows",
     "resume_owned_plan_execution",
     "roster_digest",

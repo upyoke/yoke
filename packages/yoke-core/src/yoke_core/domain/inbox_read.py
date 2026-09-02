@@ -6,6 +6,9 @@ from typing import Any
 
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
 from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
+from yoke_core.domain.decision_request_disposition import (
+    dispose_ended_decision_requests,
+)
 from yoke_core.domain.decision_requests import pending_requests_for_actor
 from yoke_core.domain.inbox_notifications import notification_rows
 
@@ -17,6 +20,13 @@ def inbox_for_actor(
     project_ids: list[int] | None,
     include_read: bool,
 ) -> dict[str, Any]:
+    """Converge dead asks, then compose what still needs a person.
+
+    Rendering the Inbox is where a decision whose subject already ended does
+    its damage, so it is also where convergence earns its keep: the reader
+    never sees a blocking row that blocks nothing.
+    """
+    dispose_ended_decision_requests(conn, project_ids=project_ids)
     decisions = pending_requests_for_actor(
         conn,
         actor_id,

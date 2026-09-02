@@ -18,6 +18,11 @@ QA_PLAN_EXECUTION_TABLE = "qa_plan_executions"
 QA_PLAN_EXECUTION_RESULT_TABLE = "qa_plan_execution_results"
 _QA_PLAN_EXECUTION_SUBJECT_CHECK = "qa_plan_executions_subject_check"
 
+LIVE_PLAN_EXECUTION_STATES = frozenset({"active", "waiting", "awaiting_agent_review"})
+TERMINAL_PLAN_EXECUTION_STATES = frozenset({"completed", "aborted", "error"})
+LIVE_PLAN_EXECUTION_SQL = ", ".join(map(repr, sorted(LIVE_PLAN_EXECUTION_STATES)))
+
+
 QA_PLAN_EXECUTION_COLUMNS = (
     "id",
     "item_id",
@@ -281,6 +286,8 @@ def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:
 
 
 __all__ = [
+    "LIVE_PLAN_EXECUTION_SQL",
+    "LIVE_PLAN_EXECUTION_STATES",
     "QA_PLAN_EXECUTION_COLUMNS",
     "QA_PLAN_EXECUTION_INDEXES",
     "QA_PLAN_EXECUTION_RESULT_COLUMNS",
@@ -288,6 +295,7 @@ __all__ = [
     "QA_PLAN_EXECUTION_SCHEMA_SQL",
     "QA_PLAN_EXECUTION_TABLE",
     "QA_PLAN_EXECUTION_TARGET_COLUMNS",
+    "TERMINAL_PLAN_EXECUTION_STATES",
     "assert_qa_plan_execution_schema_invariants",
     "assert_qa_plan_execution_subject_invariants",
     "converge_qa_plan_execution_schema",

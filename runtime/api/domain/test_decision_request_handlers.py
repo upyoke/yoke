@@ -37,7 +37,9 @@ def test_registration_leaf_declares_every_engine_action():
         "decision_requests.create",
         "decision_requests.resolve",
         "decision_requests.withdraw",
+        "decision_requests.dispose_ended",
         "notifications.read",
+
         "notifications.read_all",
     ]
     assert all(row[1]["adapter_status"] == "internal" for row in registry.rows)
@@ -108,7 +110,13 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
     monkeypatch.setattr(db_helpers, "connect", Connection)
     monkeypatch.setattr(
         inbox_read,
+        "dispose_ended_decision_requests",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        inbox_read,
         "pending_requests_for_actor",
+
         lambda *_args, **_kwargs: [
             {"kind": "machine_approval", "blocking": True},
             {"kind": "qa_needs_review", "blocking": True},

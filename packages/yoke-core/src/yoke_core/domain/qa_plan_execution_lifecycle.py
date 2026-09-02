@@ -9,13 +9,29 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_capture_settlement import (
     settle_unreviewed_execution_captures,
 )
+from yoke_core.domain.qa_execution_decision_disposition import (
+    dispose_execution_decisions,
+)
+from yoke_core.domain.qa_plan_execution_authority import (
+    PLAN_EXECUTION_STALE_SECONDS,
+    plan_execution_is_stale,
+)
+from yoke_core.domain.qa_plan_execution_schema import (
+    LIVE_PLAN_EXECUTION_SQL,
+    TERMINAL_PLAN_EXECUTION_STATES,
+)
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
+    lock_plan_execution,
     marker,
 )
+from yoke_core.domain.qa_plan_execution_target_snapshot import (
+    require_execution_target,
+)
+from yoke_core.domain.schema_common import _table_exists
 
 
-_TERMINAL_EXECUTION_STATES = frozenset({"completed", "aborted", "error"})
+STALE_PLAN_EXECUTION_REASON = "stale-heartbeat"
 
 
 def _mission_needs_retained_lease(execution: dict[str, Any]) -> bool:
@@ -32,6 +48,7 @@ def heartbeat_plan_execution(
     """Refresh execution and held-machine liveness together."""
     if execution["state"] not in {"active", "awaiting_agent_review"}:
         raise QaPlanExecutionStateError("QA plan execution cannot heartbeat")
+    require_execution_target(execution)
     placeholder = marker(conn)
     now = iso8601_now()
     conn.execute(
@@ -91,7 +108,7 @@ def finish_plan_execution(
     current_state = str(execution["state"])
     if current_state == state:
         return
-    if current_state in _TERMINAL_EXECUTION_STATES:
+    if current_state in TERMINAL_PLAN_EXECUTION_STATES:
         raise QaPlanExecutionStateError(
             "QA plan execution is already terminal as "
             f"{current_state!r}; transition to {state!r} refused"
@@ -102,7 +119,7 @@ def finish_plan_execution(
         raise QaPlanExecutionStateError(
             "QA plan execution cannot complete before every case advances"
         )
-    terminal_settlement = state in _TERMINAL_EXECUTION_STATES
+    terminal_settlement = state in TERMINAL_PLAN_EXECUTION_STATES
     if terminal_settlement:
         settle_unreviewed_execution_captures(conn, execution)
     retain_lease = (
@@ -133,17 +150,84 @@ def finish_plan_execution(
             str(execution["id"]),
         ),
     )
-    if commit:
-        conn.commit()
     execution["state"] = state
     if not retain_lease:
         execution["machine_lease_id"] = None
     execution["completed_at"] = completed_at
     execution["release_reason"] = reason
+    if terminal_settlement:
+        dispose_execution_decisions(conn, execution, commit=False)
+    if commit:
+        conn.commit()
+
+
+def reap_stale_plan_executions(
+    conn: Any,
+    *,
+    now: Any | None = None,
+) -> list[dict[str, Any]]:
+    """Abandon every execution that has stopped reporting progress.
+
+    Without this, an execution whose owning session died stays live forever,
+    and every human decision it raised waits on a termination that never
+    arrives. Reaping is deliberately vintage-blind: it settles the row from
+    its heartbeat alone, so the oldest strandings -- the ones with the least
+    complete rows -- are exactly the ones it can still clear.
+    """
+    if not _table_exists(conn, "qa_plan_executions"):
+        return []
+    candidates = [
+        {"id": str(row[0]), "heartbeat_at": row[1]}
+        for row in conn.execute(
+            "SELECT id, heartbeat_at FROM qa_plan_executions "
+            f"WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) ORDER BY created_at, id"
+        ).fetchall()
+    ]
+    reaped: list[dict[str, Any]] = []
+    for candidate in candidates:
+        if not plan_execution_is_stale(candidate, now=now):
+            continue
+        try:
+            execution = lock_plan_execution(conn, candidate["id"])
+            if str(execution["state"]) in TERMINAL_PLAN_EXECUTION_STATES:
+                conn.rollback()
+                continue
+            finish_plan_execution(
+                conn,
+                execution,
+                state="aborted",
+                reason=STALE_PLAN_EXECUTION_REASON,
+            )
+        except QaPlanExecutionStateError as exc:
+            conn.rollback()
+            reaped.append(
+                {
+                    "execution_id": candidate["id"],
+                    "reaped": False,
+                    "detail": str(exc),
+                    "heartbeat_at": candidate["heartbeat_at"],
+                }
+            )
+            continue
+        reaped.append(
+            {
+                "execution_id": str(execution["id"]),
+                "reaped": True,
+                "state": str(execution["state"]),
+                "release_reason": STALE_PLAN_EXECUTION_REASON,
+                "heartbeat_at": candidate["heartbeat_at"],
+            }
+        )
+    return reaped
+
 
 
 __all__ = [
+    "PLAN_EXECUTION_STALE_SECONDS",
+    "STALE_PLAN_EXECUTION_REASON",
     "finish_plan_execution",
     "heartbeat_plan_execution",
+    "reap_stale_plan_executions",
     "set_plan_machine_lease",
 ]
+
