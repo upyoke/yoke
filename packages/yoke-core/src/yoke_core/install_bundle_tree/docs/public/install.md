@@ -39,9 +39,11 @@ version for every Yoke product package.
 
 The first command you run after an upgrade brings the rest of the install up
 to the new engine. A machine-local universe has its schema converged before
-the command is served — the same step a hosted container runs on boot — and a
-project checkout whose operating layer predates the new engine is named once,
-with the `yoke project install <checkout>` that refreshes it. Run that when it
+the command is served — the same step a hosted container runs on boot.
+Additive foreign keys match the live `environments.id` type so a universe
+still on text keys reaches the ordered history that converts them. The convergence also declares a bounded `idle_in_transaction_session_timeout` for the session; recording it as the role's database default is best-effort, so a role that cannot alter its own defaults — or a second boot racing on the same catalog row — degrades with an `application_role_default_not_persisted` diagnostic on stderr instead of refusing every read. A project
+checkout whose operating layer predates the new engine is named once, with
+the `yoke project install <checkout>` that refreshes it. Run that when it
 appears; otherwise the checkout keeps teaching the previous release.
 
 ## Project-only install

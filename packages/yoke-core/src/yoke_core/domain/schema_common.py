@@ -49,6 +49,7 @@ Subcommands:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _cli_error(msg: str, code: int = 1) -> None:
     print(f"Error: {msg}", file=sys.stderr)
     sys.exit(code)
@@ -161,9 +162,36 @@ def _get_check_constraint_defs(conn: Any, table: str) -> List[str]:
     return _postgres_check_constraint_defs(conn, table)
 
 
-def _add_column_if_not_exists(
-    conn: Any, table: str, column: str, col_def: str
-) -> None:
+def _add_column_if_not_exists(conn: Any, table: str, column: str, col_def: str) -> None:
     """Add *column* only when named-lookup catalogs do not already see it."""
     if not _column_exists(conn, table, column):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+
+
+_INTEGER_KEY_TYPES = frozenset(
+    {"integer", "int", "int2", "int4", "int8", "smallint", "bigint", "serial"}
+)
+
+
+def environment_reference_column_sql(conn: Any) -> str:
+    """SQL type for a column that references ``environments.id``.
+
+    Additive converge runs before ordered history. A universe still on text
+    environment keys cannot accept ``INTEGER REFERENCES environments(id)`` —
+    that mismatch fails the boot and leaves the numeric-key history unapplied.
+    Match the live primary key so history can convert both sides together.
+    A universe with no ``environments`` table yet gets an unconstrained
+    integer, the same stance minimal fixture databases have always taken.
+    """
+    if not _table_exists(conn, "environments"):
+        return "INTEGER"
+    types = {
+        str(name).lower(): str(typ).lower().split("(", 1)[0].strip()
+        for name, typ in _get_columns_with_types(conn, "environments")
+    }
+    data_type = types.get("id", "")
+    if not data_type:
+        return "INTEGER"
+    if data_type in _INTEGER_KEY_TYPES:
+        return "INTEGER REFERENCES environments(id)"
+    return "TEXT REFERENCES environments(id)"

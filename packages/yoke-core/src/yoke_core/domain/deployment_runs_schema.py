@@ -19,7 +19,10 @@ from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.runs import RunStatus
-from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.schema_common import (
+    _column_exists,
+    environment_reference_column_sql,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -213,11 +216,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
     """Create tables if not exist (idempotent)."""
     conn = connect(db_path)
     try:
-        environment_ref = (
-            "INTEGER REFERENCES environments(id)"
-            if _column_exists(conn, "environments", "id")
-            else "INTEGER"
-        )
+        environment_ref = environment_reference_column_sql(conn)
         for statement in (
             f"""
             CREATE TABLE IF NOT EXISTS deployment_runs (

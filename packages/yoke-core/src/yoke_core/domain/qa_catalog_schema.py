@@ -7,7 +7,10 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.schema_common import _add_column_if_not_exists
+from yoke_core.domain.schema_common import (
+    _add_column_if_not_exists,
+    environment_reference_column_sql,
+)
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 
@@ -55,7 +58,6 @@ CREATE TABLE IF NOT EXISTS qa_plans (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     retired_at TEXT,
-    target_environment_id INTEGER REFERENCES environments(id),
     UNIQUE(project_id, slug)
 );
 
@@ -256,11 +258,14 @@ def create_qa_catalog_tables(
         "required_capability_kinds",
         "TEXT NOT NULL DEFAULT '[]'",
     )
+    # The environment reference is added here rather than declared in the
+    # table above so one call decides its type: a universe still on text
+    # environment keys cannot accept an integer foreign key onto them.
     _add_column_if_not_exists(
         conn,
         "qa_plans",
         "target_environment_id",
-        "INTEGER REFERENCES environments(id)",
+        environment_reference_column_sql(conn),
     )
     for column, definition in _REQUIREMENT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_requirements", column, definition)

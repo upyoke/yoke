@@ -13,6 +13,10 @@ This module is that missing boot step, and it reuses
 convergence implementation, and both the container and the local universe run
 it. Serving-build authority applies for the same reason it applies to the
 container — this process *is* the build about to serve the database it changes.
+Additive foreign keys onto ``environments.id`` match the live primary-key type
+so a universe still on text keys can reach the ordered history that converts
+them, rather than failing the boot on an integer FK the prior shape cannot
+implement.
 
 Two facts are separated on purpose. :func:`serves_own_universe` answers whether
 a DSN names the embedded cluster this machine owns, which is what entitles a
