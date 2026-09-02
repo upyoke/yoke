@@ -201,6 +201,16 @@ def wake_eligible_recipients(
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
+            # A desktop recipient has no wake route to reach, so the sweep
+            # owes it one thing: telling the operator whose chat it is. That
+            # is due on the grace window, not on whichever branch below this
+            # recipient would have taken.
+            notify_operator_to_wake(
+                conn,
+                row,
+                now=current,
+                grace_seconds=policy.wake_ack_grace_seconds,
+            )
             escalation = ""
             if not explicit_wake and liveness == "active":
                 # An active session is served by its own hooks — unless the
@@ -274,15 +284,6 @@ def wake_eligible_recipients(
                     relay_versions=versions,
                     liveness=liveness,
                     now=current,
-                )
-                # A desktop envelope has no other way in, so the absence is
-                # reported to the one party who can end it rather than
-                # retried against a route that will never exist.
-                notify_operator_to_wake(
-                    conn,
-                    row,
-                    now=current,
-                    grace_seconds=policy.wake_ack_grace_seconds,
                 )
                 continue
             eligible.append(

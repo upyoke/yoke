@@ -15,8 +15,7 @@ from yoke_contracts.session_control.private_route_versions import (
 )
 
 
-_WAKE_OPERATIONS = frozenset({"message_active", "message_idle", "message_stopped"})
-_OPERATIONS = frozenset({"create", *_WAKE_OPERATIONS})
+_OPERATIONS = frozenset({"create", "message_active", "message_idle", "message_stopped"})
 _CURSOR_BUILD_VERSION = re.compile(
     r"^(?P<release>\d{4}\.\d{1,2}\.\d{1,2})-[0-9a-fA-F]{7,40}$"
 )
@@ -74,10 +73,6 @@ def surface_operation_supported(
     """Return whether one observed surface is proven for an operation."""
     capability = capability_for_surface(surface)
     if capability is None or operation not in _OPERATIONS:
-        return False
-    if operation in _WAKE_OPERATIONS and not native_wake_supported(surface):
-        # An operator-driven surface has no wake route at any version: the
-        # only thing that resumes it is the person whose window it is.
         return False
     interface = getattr(capability, operation)
     if interface == "none" or not version:

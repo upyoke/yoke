@@ -25,6 +25,7 @@ from yoke_core.domain.actor_message_recipients import ResolvedActorRecipient
 from yoke_core.domain.actor_render import actor_render_label
 from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE, seed_system_actor
 from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_starvation import undelivered_since_send
 from yoke_core.domain.session_message_store import insert_message
 from yoke_core.domain.session_message_types import parse_timestamp
 
@@ -46,18 +47,16 @@ def operator_wake_notice_due(
 ) -> bool:
     """Whether this receipt is a desktop message its operator has not seen.
 
-    The three facts are the surface's declared wake authority, that nothing
-    has attached the envelope, and that it has waited out the same grace
-    window a native escalation would have waited. A session that has ended
-    is excluded: there is no window left for anyone to type into.
+    The three facts are the surface's declared wake authority, the same
+    "no hook has run since the send" evidence a native escalation reads,
+    and the same grace window it waits out. A session that has ended is
+    excluded: there is no window left for anyone to type into.
     """
     if native_wake_supported(str(row.get("executor_surface") or "")):
         return False
     if row.get("ended_at") or row.get("terminated_at"):
         return False
-    if str(row.get("state") or "") != "pending":
-        return False
-    if int(row.get("injection_count") or 0) > 0:
+    if not undelivered_since_send(row, now=now):
         return False
     created = parse_timestamp(row.get("message_created_at"))
     return created is not None and created + timedelta(seconds=grace_seconds) <= now

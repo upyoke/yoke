@@ -97,7 +97,15 @@ def test_matrix_builder_owns_the_exact_five_modes_roles_and_routes() -> None:
     )
     assert cells[1]["session_id"] == "desktop-session"
     assert "session_id" not in cells[2]
-    assert all(cell["wake_route"] == "direct" for cell in cells[:4])
+    # The desktop cell's route is `none` however the machine is equipped:
+    # its installed CLI could perform the resume, and that is precisely the
+    # transcript fork the surface's operator wake authority refuses.
+    assert [cell["wake_route"] for cell in cells[:4]] == [
+        "direct",
+        "none",
+        "direct",
+        "direct",
+    ]
     broker = cells[-1]
     assert broker["surface"] == command.BROKER_ACCEPTANCE_SURFACE
     assert broker["acceptance_role"] == "broker"

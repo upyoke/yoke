@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import (
     capability_for_surface,
+    native_wake_supported,
     surface_wake_authority,
 )
 from yoke_contracts.session_control.surface_versions import (
@@ -72,6 +73,11 @@ def _wake_interface(
 ) -> str:
     capability = capability_for_surface(surface)
     if capability is None or operation is None:
+        return "none"
+    if not native_wake_supported(surface):
+        # The surface still carries its messaging capability — hook delivery
+        # is untouched — but nothing here may resume it. Only the operator
+        # whose window it is can end the wait.
         return "none"
     if surface_operation_supported(surface, version, operation):
         return str(getattr(capability, operation))

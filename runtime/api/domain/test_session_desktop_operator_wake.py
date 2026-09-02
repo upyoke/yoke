@@ -24,6 +24,7 @@ from yoke_contracts.session_control.surface_versions import (
     machine_wake_surface,
     surface_operation_supported,
 )
+from yoke_core.domain.session_relay_versions import wake_versions_supported
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
 from yoke_core.domain.session_manual_wake import request_session_wake
 from yoke_core.domain.session_message_routing import messageability
@@ -110,14 +111,38 @@ def test_cli_surfaces_keep_their_existing_declaration(surface) -> None:
 
 
 @pytest.mark.parametrize("surface", DESKTOP_SURFACES)
-@pytest.mark.parametrize(
-    "operation", ("message_active", "message_idle", "message_stopped")
-)
-def test_no_wake_operation_is_supported_on_a_desktop_surface(
-    surface, operation
+@pytest.mark.parametrize("liveness", ("active", "stale", "ended"))
+@pytest.mark.parametrize("wake_mode", ("idle_timeout", "waiting"))
+def test_no_wake_route_is_version_qualified_on_a_desktop_surface(
+    surface, liveness, wake_mode
 ) -> None:
+    """The relay's version gate refuses before any binary is chosen.
+
+    The refusal is not "this version is too old" — the surface's own
+    version and a fully qualified peer are both supplied here — it is that
+    no version of anything may resume this window.
+    """
     version = SESSION_SURFACE_CAPABILITIES[surface].minimum_version
-    assert not surface_operation_supported(surface, version, operation)
+
+    assert not wake_versions_supported(surface, version, version, wake_mode, liveness)
+
+
+@pytest.mark.parametrize("surface", DESKTOP_SURFACES)
+def test_a_desktop_surface_keeps_its_hook_delivery_capability(surface) -> None:
+    """Only the resume is refused; the operator's next turn still delivers.
+
+    Refusing at the surface's messaging capability instead would also close
+    the hook-route acknowledgement proof the live-acceptance matrix rests
+    on, and hook delivery is exactly the route this ruling preserves. So
+    `claude-desktop`'s private `message_active` stays qualifiable while
+    every wake route above it is shut.
+    """
+    capability = SESSION_SURFACE_CAPABILITIES[surface]
+
+    assert capability.inject_events
+    assert surface_operation_supported(
+        surface, capability.minimum_version, "message_active"
+    ) is (capability.message_active != "none")
 
 
 def test_no_peer_binary_is_named_for_a_desktop_target() -> None:

@@ -70,7 +70,7 @@ STARVED_HOOK_ROUTE = "starved_hook_route"
 PARKED_WITHOUT_IDLE_WAKE = "parked_without_idle_wake"
 
 
-def _undelivered_since_send(row: Mapping[str, Any], *, now: datetime) -> bool:
+def undelivered_since_send(row: Mapping[str, Any], *, now: datetime) -> bool:
     """True when nothing has attached this envelope and no hook has run.
 
     A tool call after the message arrived means a hook ran and declined to
@@ -125,7 +125,7 @@ def starved_hook_route(
     after reserving it, and its own reservation would otherwise read as a
     competing wake and disqualify the escalation it is carrying out.
     """
-    if not _undelivered_since_send(row, now=now):
+    if not undelivered_since_send(row, now=now):
         return False
     window = timedelta(seconds=grace_seconds)
     created = parse_timestamp(row.get("message_created_at"))
@@ -161,7 +161,7 @@ def parked_without_idle_wake(
     conversation — one declaring ``wake_authority: operator``, or no stopped
     route of its own — is never escalated into a forked transcript.
     """
-    if not _undelivered_since_send(row, now=now):
+    if not undelivered_since_send(row, now=now):
         return False
     if not session_is_parked(row.get("mode")):
         return False
@@ -186,4 +186,5 @@ __all__ = [
     "STARVED_HOOK_ROUTE",
     "parked_without_idle_wake",
     "starved_hook_route",
+    "undelivered_since_send",
 ]

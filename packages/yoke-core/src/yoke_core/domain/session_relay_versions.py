@@ -2,6 +2,7 @@
 
 from typing import Mapping
 
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.surface_versions import (
     machine_wake_surface,
     surface_operation_supported,
@@ -38,6 +39,7 @@ def wake_versions_supported(
     operation = wake_operation(wake_mode, liveness)
     return bool(
         operation
+        and native_wake_supported(surface)
         and surface_operation_supported(surface, target_version, operation)
         and surface_operation_supported(surface, relay_version, operation)
     )
