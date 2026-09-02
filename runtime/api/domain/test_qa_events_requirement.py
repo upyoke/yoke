@@ -3,7 +3,10 @@
 Covers emission and the requirement-side best-effort discipline:
 with and without ``extra_detail``, with and without
 ``target_row``, and graceful handling when ``emit_event`` or the
-fallback ``query_one`` raises.
+fallback ``query_one`` raises. Also covers the opposite contract —
+transactional emission, which a caller uses when its row and the event
+must become durable together, and which therefore refuses rather than
+leaving the row silently dark.
 """
 
 from __future__ import annotations
@@ -229,3 +232,102 @@ def test_emit_requirement_event_swallows_query_one_failure(conn, monkeypatch):
 
     # The helper returned cleanly without emitting.
     assert captured.calls == []
+
+
+# ---------------------------------------------------------------------------
+# transactional emission: the row and its event stand or fall together
+# ---------------------------------------------------------------------------
+
+class _EmitOutcome:
+    """The ``EmitResult`` shape the helper reads back from ``emit_event``."""
+
+    def __init__(self, ok: bool, reason: str = "") -> None:
+        self.ok = ok
+        self.reason = reason
+
+
+def _patch_emit_outcome(monkeypatch, outcome, calls):
+    import yoke_core.domain.events as events_module
+
+    def _emit(event_name, **kwargs):
+        calls.append({"event_name": event_name, **kwargs})
+        return outcome
+
+    monkeypatch.setattr(events_module, "emit_event", _emit)
+
+
+def test_transactional_emission_leaves_the_event_on_the_caller_transaction(
+    conn, monkeypatch
+):
+    calls: list[dict] = []
+    _patch_emit_outcome(monkeypatch, _EmitOutcome(True), calls)
+    insert_item_requirement(conn, req_id=1, item_id=42)
+
+    qa_events.emit_qa_requirement_event(
+        conn,
+        db_path=None,
+        event_name="QARequirementCreated",
+        requirement_id=1,
+        qa_kind="plan_case",
+        qa_phase="verification",
+        transactional=True,
+    )
+
+    assert calls[0]["transactional"] is True
+
+
+def test_transactional_emission_refuses_a_silently_dark_requirement(
+    conn, monkeypatch
+):
+    _patch_emit_outcome(monkeypatch, _EmitOutcome(False, "exception"), [])
+    insert_item_requirement(conn, req_id=1, item_id=42)
+
+    with pytest.raises(qa_events.QaRequirementEventNotRecorded) as excinfo:
+        qa_events.emit_qa_requirement_event(
+            conn,
+            db_path=None,
+            event_name="QARequirementCreated",
+            requirement_id=1,
+            qa_kind="plan_case",
+            qa_phase="verification",
+            transactional=True,
+        )
+
+    message = str(excinfo.value)
+    assert "exception" in message
+    assert "yoke events query --event-name QARequirementCreated" in message
+
+
+@pytest.mark.parametrize("reason", sorted(qa_events.DELIBERATE_NON_WRITE_REASONS))
+def test_transactional_emission_accepts_a_deliberate_non_write(
+    conn, monkeypatch, reason
+):
+    """A capture mode, a severity floor, or no ledger is policy, not failure."""
+    _patch_emit_outcome(monkeypatch, _EmitOutcome(False, reason), [])
+    insert_item_requirement(conn, req_id=1, item_id=42)
+
+    qa_events.emit_qa_requirement_event(
+        conn,
+        db_path=None,
+        event_name="QARequirementCreated",
+        requirement_id=1,
+        qa_kind="plan_case",
+        qa_phase="verification",
+        transactional=True,
+    )
+
+
+def test_transactional_emission_refuses_when_emit_event_raises(conn, monkeypatch):
+    patch_emit_event_raising(monkeypatch, RuntimeError("boom"))
+    insert_item_requirement(conn, req_id=1, item_id=42)
+
+    with pytest.raises(qa_events.QaRequirementEventNotRecorded, match="emit_event_raised"):
+        qa_events.emit_qa_requirement_event(
+            conn,
+            db_path=None,
+            event_name="QARequirementCreated",
+            requirement_id=1,
+            qa_kind="plan_case",
+            qa_phase="verification",
+            transactional=True,
+        )

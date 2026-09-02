@@ -24,6 +24,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
 from yoke_core.domain.qa_command_plan_registration import declared_ci_workflow
+from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_command_plans import (
     list_registered_commands_for_project_id,
 )
@@ -144,7 +145,26 @@ def _ensure_merge_gate_ci_requirement(
         ),
     )
     row = cur.fetchone()
-    return int(row["id"] if isinstance(row, dict) else row[0])
+    requirement_id = int(row["id"] if isinstance(row, dict) else row[0])
+    # The merge gate commits this connection after the qa_runs insert below,
+    # so the creation event rides the same transaction as the requirement.
+    emit_qa_requirement_event(
+        conn,
+        db_path=None,
+        event_name="QARequirementCreated",
+        requirement_id=requirement_id,
+        qa_kind="plan_case",
+        qa_phase="verification",
+        source="flow_derived",
+        target_row={
+            "item_id": int(item_id),
+            "epic_id": None,
+            "task_num": None,
+            "deployment_run_id": None,
+        },
+        transactional=True,
+    )
+    return requirement_id
 
 
 def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOutcome:

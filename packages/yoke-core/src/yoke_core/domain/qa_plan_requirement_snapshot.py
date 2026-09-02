@@ -7,6 +7,7 @@ from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
+from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_method_capabilities import encoded_capability_kinds
 from yoke_core.domain.machine_qa_case_machine import materialized_capability_kinds
 from yoke_core.domain.qa_execution_environment_target import (
@@ -186,7 +187,28 @@ def insert_requirement(
     ).fetchone()
     if row is None:
         return None
-    return int(row["id"] if isinstance(row, dict) else row[0])
+    requirement_id = int(row["id"] if isinstance(row, dict) else row[0])
+    # The snapshot rides a transaction its caller commits — the lifecycle
+    # preflight materializes with commit=False so the rows land with the
+    # transition. Transactional emission keeps the creation event on that
+    # same transaction, so no materialized requirement can exist without it.
+    emit_qa_requirement_event(
+        conn,
+        db_path=None,
+        event_name="QARequirementCreated",
+        requirement_id=requirement_id,
+        qa_kind="plan_case",
+        qa_phase=str(attachment["qa_phase"]),
+        source="flow_derived",
+        target_row={
+            "item_id": item_id,
+            "epic_id": None,
+            "task_num": None,
+            "deployment_run_id": deployment_run_id,
+        },
+        transactional=True,
+    )
+    return requirement_id
 
 
 def refresh_requirement(

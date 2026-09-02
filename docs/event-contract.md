@@ -305,8 +305,8 @@ closes. Normal `emit_event(conn=...)` calls commit successful rows themselves,
 so closing or rolling back the caller connection cannot silently discard an
 event. Use `transactional=True` only when the event must ride the caller's
 state transaction, whose owner then commits or rolls back both together.
-`HC-event-family-liveness` compares recent durable activity with expected
-event names strictly as a telemetry audit; no product path reads events as state.
+QA requirement creation is the worked example: the plan-case snapshot, the merge-gate CI requirement, and the seeded no-tests floor each write their row into a transaction a later caller commits, so `QARequirementCreated` rides it too and no requirement is durable while dark; that mode raises rather than returning when it cannot record.
+`HC-event-family-liveness` compares recent durable activity with expected event names strictly as a telemetry audit, and no product path reads events as state. A pair may name the column separating its table's write paths; the check then pairs each row with its own event and groups by that column, so one emitting path cannot answer for a silent sibling sharing the table.
 
 `HookDispatchTelemetry` context additionally carries `driver_pid`,
 `driver_ppid`, and `driver_origin` — the process that DROVE the invocation.

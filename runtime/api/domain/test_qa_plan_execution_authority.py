@@ -25,7 +25,7 @@ from yoke_core.domain.qa_plan_management import (
 )
 
 
-def _materialize_two_cases(conn, *, item_id: int) -> list[int]:
+def _materialize_two_cases(conn, *, item_id: int, commit: bool = True) -> list[int]:
     insert_item(
         conn,
         id=item_id,
@@ -70,6 +70,7 @@ def _materialize_two_cases(conn, *, item_id: int) -> list[int]:
         conn,
         item_id=item_id,
         transition_id="implemented",
+        commit=commit,
     )
     return [int(value) for value in materialized["created_requirement_ids"]]
 

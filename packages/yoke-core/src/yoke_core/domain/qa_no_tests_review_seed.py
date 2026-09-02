@@ -22,6 +22,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_scalar
+from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.project_verification_posture import (
     REGISTERED_COMMAND_PLAN_PREFIX,
     attestation_reason,
@@ -167,7 +168,26 @@ def ensure_no_tests_review_requirement(
             iso8601_now(),
         ),
     ).fetchone()
-    return int(row["id"] if hasattr(row, "keys") else row[0])
+    requirement_id = int(row["id"] if hasattr(row, "keys") else row[0])
+    # Seeded in the transition's own transaction, so the creation event rides
+    # it too and the floor requirement can never be durable while dark.
+    emit_qa_requirement_event(
+        conn,
+        db_path=None,
+        event_name="QARequirementCreated",
+        requirement_id=requirement_id,
+        qa_kind=NO_TESTS_DECLARED_QA_KIND,
+        qa_phase="verification",
+        source="seeded_default",
+        target_row={
+            "item_id": int(item_id),
+            "epic_id": None,
+            "task_num": None,
+            "deployment_run_id": None,
+        },
+        transactional=True,
+    )
+    return requirement_id
 
 
 __all__ = [
