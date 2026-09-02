@@ -17,7 +17,6 @@ left for operator review (never auto-deleted), and there is no authoritative
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
@@ -25,46 +24,19 @@ from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.time_sql import now_sql
 
 import yoke_core.engines.doctor_report as _base
+from yoke_core.engines.doctor_event_family_pairing import (
+    EVENT_FAMILY_JOIN_WINDOW_DAYS,
+    EVENT_FAMILY_LIVENESS_PAIRS,
+    unpaired_write_paths,
+)
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_tree_scan import list_directory
 
 
 __all__ = (
-    "EVENT_FAMILY_LIVENESS_PAIRS",
     "hc_event_family_liveness",
     "hc_stray_db",
     "_find_worktree_stray_dbs",
-)
-
-
-EVENT_FAMILY_JOIN_WINDOW_DAYS = 7
-
-
-@dataclass(frozen=True)
-class EventFamilyLivenessPair:
-    """One durable activity source and the telemetry it should produce."""
-
-    durable_table: str
-    expected_event: str
-    activity_column: str
-    join_window_days: int
-
-
-EVENT_FAMILY_LIVENESS_PAIRS = (
-    EventFamilyLivenessPair(
-        "items", "ItemStatusChanged", "updated_at", EVENT_FAMILY_JOIN_WINDOW_DAYS
-    ),
-    EventFamilyLivenessPair(
-        "qa_requirements", "QARequirementCreated", "created_at",
-        EVENT_FAMILY_JOIN_WINDOW_DAYS,
-    ),
-    EventFamilyLivenessPair(
-        "qa_runs", "QARunCompleted", "completed_at", EVENT_FAMILY_JOIN_WINDOW_DAYS
-    ),
-    EventFamilyLivenessPair(
-        "harness_sessions", "HarnessSessionStarted", "offered_at",
-        EVENT_FAMILY_JOIN_WINDOW_DAYS,
-    ),
 )
 
 
@@ -122,17 +94,24 @@ def hc_event_family_liveness(conn, args: DoctorArgs, rec: RecordCollector) -> No
         if durable_count == 0:
             continue
         active += 1
-        event_count = 0
-        if events_available:
-            event_count = int(
-                query_scalar(
-                    conn,
-                    "SELECT COUNT(*) FROM events WHERE event_name = %s "
-                    f"AND created_at >= {cutoff}",
-                    (pair.expected_event,),
-                )
-                or 0
+        if not events_available:
+            dark_families.append(
+                f"- {pair.durable_table}: {durable_count} recent row(s), "
+                f"0 {pair.expected_event} events"
             )
+            continue
+        if pair.write_path_column and pair.event_row_id_key:
+            dark_families.extend(unpaired_write_paths(conn, pair, cutoff))
+            continue
+        event_count = int(
+            query_scalar(
+                conn,
+                "SELECT COUNT(*) FROM events WHERE event_name = %s "
+                f"AND created_at >= {cutoff}",
+                (pair.expected_event,),
+            )
+            or 0
+        )
         if event_count == 0:
             dark_families.append(
                 f"- {pair.durable_table}: {durable_count} recent row(s), "
@@ -140,8 +119,10 @@ def hc_event_family_liveness(conn, args: DoctorArgs, rec: RecordCollector) -> No
             )
 
     if dark_families:
-        # Initial posture is WARN; the zero-event predicate is deliberately
-        # binary so rare families with no durable activity remain green.
+        # Initial posture is WARN. Families with no declared write-path
+        # partition keep the deliberately binary zero-event predicate, so a
+        # rare family with no durable activity stays green; partitioned
+        # families compare rows to events per write path instead.
         rec.record(
             check_id,
             check_name,
@@ -149,8 +130,12 @@ def hc_event_family_liveness(conn, args: DoctorArgs, rec: RecordCollector) -> No
             "Durable activity has no matching telemetry in the trailing "
             f"{EVENT_FAMILY_JOIN_WINDOW_DAYS}-day join window:\n"
             + "\n".join(dark_families)
-            + "\nRecovery: inspect emit_event durability for each named family. "
-            "Product state remains authoritative in the durable tables.",
+            + "\nRecovery: inspect emit_event durability for each named family "
+            "or write path. Rows written before a silent path began emitting "
+            "stay unpaired until they age out of the window; events are never "
+            "backfilled, because a fabricated event is worse evidence than an "
+            "honest gap. Product state remains authoritative in the durable "
+            "tables.",
         )
         return
 

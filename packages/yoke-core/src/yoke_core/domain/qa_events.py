@@ -9,10 +9,21 @@ the duplicates: it supports an ``extra_detail`` mapping that callers can use
 to merge additional fields into the event detail after the conditional
 ``rationale`` and ``source`` keys.
 
-All helpers are best-effort: if the ``events.emit_event`` import or call
-raises for any reason, the helper returns silently. The gateway commits a
-successful caller-connection write unless explicit transactional emission is
-requested, so these post-state-commit helpers need no local commit discipline.
+Post-state-commit callers emit best-effort: if the ``events.emit_event``
+import or call raises for any reason, the helper returns silently. The
+gateway commits a successful caller-connection write, so those callers need
+no local commit discipline.
+
+A caller that writes its row inside a transaction it has not yet committed
+passes ``transactional=True`` instead. The event then rides that same
+transaction, so a requirement row and its creation event become durable
+together or not at all — the guarantee the plan-case materialization, the
+merge-gate CI requirement, and the no-tests review floor rely on, since each
+writes rows a later caller commits. Transactional emission is not
+best-effort: a write the gateway could not record raises
+:class:`QaRequirementEventNotRecorded` rather than leaving the row silently
+dark, because on Postgres the failed write has already aborted the caller's
+transaction and continuing would report a success the database never kept.
 
 This module imports only ``typing``, ``yoke_core.domain.db_helpers``, and
 lazily imports ``emit_event`` from ``.events`` inside a try/except. It does
@@ -24,6 +35,36 @@ from __future__ import annotations
 from typing import Any, Optional, Tuple
 
 from yoke_core.domain.db_helpers import query_one
+
+
+class QaRequirementEventNotRecorded(RuntimeError):
+    """A transactional requirement write demanded an event that never landed."""
+
+
+#: Emission outcomes that mean the gateway deliberately declined to write a
+#: row: a capture or isolation test mode, an operator severity floor above
+#: the event, or a schema with no ``events`` table. None of them leaves the
+#: caller's transaction aborted, so a transactional caller continues.
+DELIBERATE_NON_WRITE_REASONS = frozenset(
+    {
+        "capture_only",
+        "isolation_gate_refused",
+        "severity_filtered",
+        "events_table_missing",
+    }
+)
+
+
+def _not_recorded(event_name: str, requirement_id: int, reason: str) -> str:
+    """Name the failed emission and the step that recovers it."""
+    return (
+        f"QA requirement {requirement_id} was written but its {event_name} "
+        f"event did not land (reason: {reason}); the requirement write is "
+        "abandoned rather than left silently dark. Recovery: inspect the "
+        "events gateway for that reason, confirm the ledger is writable with "
+        f"`yoke events query --event-name {event_name}`, then re-run the "
+        "operation that created the requirement."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -92,8 +133,9 @@ def emit_qa_requirement_event(
     source: Optional[str] = None,
     target_row: Any = None,
     extra_detail: Optional[dict] = None,
+    transactional: bool = False,
 ) -> None:
-    """Best-effort lifecycle emission for QA requirements.
+    """Lifecycle emission for QA requirements.
 
     Resolves the event target from ``target_row`` when provided; otherwise
     queries ``qa_requirements`` by ``requirement_id`` to recover the
@@ -102,10 +144,20 @@ def emit_qa_requirement_event(
     source_type=``system``, severity=``INFO``) and merges ``extra_detail``
     into the context detail last so callers can override or extend the
     base keys.
+
+    Emission is best-effort by default, for callers that already committed
+    their row. Pass ``transactional=True`` to leave the event on the
+    caller's open transaction so the row and its event commit together; that
+    mode raises :class:`QaRequirementEventNotRecorded` instead of returning
+    when the event could not be recorded.
     """
     try:
         from .events import emit_event
-    except Exception:
+    except Exception as exc:
+        if transactional:
+            raise QaRequirementEventNotRecorded(
+                _not_recorded(event_name, requirement_id, "events_gateway_unavailable")
+            ) from exc
         return
 
     req_row = target_row
@@ -116,7 +168,13 @@ def emit_qa_requirement_event(
                 "SELECT item_id, epic_id, task_num, deployment_run_id FROM qa_requirements WHERE id = %s",
                 (requirement_id,),
             )
-        except Exception:
+        except Exception as exc:
+            if transactional:
+                raise QaRequirementEventNotRecorded(
+                    _not_recorded(
+                        event_name, requirement_id, "requirement_target_unreadable"
+                    )
+                ) from exc
             return
 
     public_ref, task_num_ref = resolve_requirement_event_target(req_row)
@@ -145,13 +203,25 @@ def emit_qa_requirement_event(
             context={"detail": detail},
             db_path=db_path,
             conn=conn,
+            transactional=transactional,
         )
-    except Exception:
+    except Exception as exc:
+        if transactional:
+            raise QaRequirementEventNotRecorded(
+                _not_recorded(event_name, requirement_id, "emit_event_raised")
+            ) from exc
         _safe_rollback(conn)
         return
-    if not getattr(result, "ok", False):
-        _safe_rollback(conn)
+    if getattr(result, "ok", False):
         return
+    if transactional:
+        reason = str(getattr(result, "reason", "") or "unknown")
+        if reason in DELIBERATE_NON_WRITE_REASONS:
+            return
+        raise QaRequirementEventNotRecorded(
+            _not_recorded(event_name, requirement_id, reason)
+        )
+    _safe_rollback(conn)
 
 
 # ---------------------------------------------------------------------------

@@ -91,6 +91,7 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/observe_normalization.py",  # pipeline-internal duration join
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_db_catalog.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_db_events_emission.py",
+    f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_event_family_pairing.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_db_events_ledger.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_db_events_registry.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_event_outcome_drift.py",

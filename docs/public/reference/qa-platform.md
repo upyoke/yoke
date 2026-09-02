@@ -334,7 +334,7 @@ QA-domain writes emit unified events via `yoke_core.domain.events.emit_event` (c
 
 | Event Name | When Emitted |
 |------------|--------------|
-| `QARequirementCreated` | New qa_requirement row inserted |
+| `QARequirementCreated` | Every qa_requirement insert, whatever created it — an operator/function add, a materialized plan case, the merge-gate CI requirement, or the seeded no-tests floor. Paths that write the row inside a transaction their caller commits emit with `transactional=True`, so the row and its event become durable together; `HC-event-family-liveness` pairs rows with events per `requirement_source`, so one emitting path cannot mask a silent one. |
 | `QARequirementWaived` | Requirement waived |
 | `QARunStarted` | New qa_run row inserted (no verdict yet) |
 | `QARunCompleted` | qa_run verdict recorded |
