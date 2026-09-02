@@ -12,7 +12,9 @@ from yoke_harness.session_relay_claude_identity import (
 )
 from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 from yoke_harness.session_relay_claude_native import (
-    CLAUDE_NATIVE_TIMEOUT_SECONDS as CLAUDE_NATIVE_TIMEOUT_SECONDS,
+    CLAUDE_CREATE_TIMEOUT_SECONDS as CLAUDE_CREATE_TIMEOUT_SECONDS,
+    CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS as CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS,
+    CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS as CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
     ClaudeNativeInvocation as ClaudeNativeInvocation,
     ClaudeProcessRunner,
     ClaudeSessionLookup,
@@ -23,6 +25,7 @@ from yoke_harness.session_relay_claude_native import (
     native_invocation,
     run_claude_process,
     spawn_claude_wake,
+    stop_claude_background,
 )
 from yoke_harness.session_relay_claude_result import (
     build_claude_result,
@@ -42,7 +45,7 @@ from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
 
 
-CLAUDE_ADAPTER_REVISION = "claude-native-v5"
+CLAUDE_ADAPTER_REVISION = "claude-native-v6"
 CLAUDE_CLI_SURFACE = "claude-cli"
 _result = partial(
     build_claude_result,
@@ -52,6 +55,21 @@ _result = partial(
 
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
 LaunchAttestationHandoff = Callable[..., bool]
+
+
+def _contain_failed_launch(
+    invocation: ClaudeNativeInvocation,
+    short_id: str | None = None,
+) -> None:
+    """Best-effort containment before a failed create becomes retryable."""
+    if short_id:
+        stop_claude_background(invocation, short_id)
+    try:
+        from yoke_harness.session_launch_containment import contain_launch_native
+
+        contain_launch_native(invocation.session_id, reason="create_failed")
+    except Exception:
+        pass
 
 
 def _contract_version_gate(
@@ -210,6 +228,7 @@ def run_claude_cli_adapter(
     try:
         process = process_runner(invocation)
     except Exception as exc:  # native exceptions stay private on this relay
+        _contain_failed_launch(invocation)
         result = "outcome_unknown" if context.job_kind == "launch" else "failed"
         return _result(
             context,
@@ -222,6 +241,7 @@ def run_claude_cli_adapter(
             ),
         )
     if process.returncode != 0:
+        _contain_failed_launch(invocation)
         result = "outcome_unknown" if context.job_kind == "launch" else "failed"
         return _result(
             context,
@@ -231,6 +251,7 @@ def run_claude_cli_adapter(
         )
     short_id = background_agent_id(process)
     if short_id is None:
+        _contain_failed_launch(invocation)
         return _result(
             context,
             "outcome_unknown",
@@ -243,9 +264,12 @@ def run_claude_cli_adapter(
     combined = ClaudeProcessResult(
         resolution.returncode,
         min(process.duration_ms + resolution.duration_ms, 3_600_000),
+        pid=process.pid,
+        bound_exceeded=process.bound_exceeded,
     )
     actual_id = resolution.session_id
     if actual_id is None:
+        _contain_failed_launch(invocation, short_id)
         return _result(
             context, "outcome_unknown", resolution.result_code, process=combined
         )
@@ -258,6 +282,7 @@ def run_claude_cli_adapter(
     except Exception:  # the secret must never be copied into failure evidence
         staged = False
     if not staged:
+        _contain_failed_launch(invocation, short_id)
         return _result(
             context,
             "outcome_unknown",

@@ -45,7 +45,9 @@ def _prepared_launch(conn):
     launch = assigned_launch(conn, key="safe-launch-result")
     conn.execute(
         "UPDATE session_launches SET native_session_id=?,registered_session_id=?,"
-        "result_code=?,result_evidence=?,attestation_hash=?,deadline_at=? "
+        "result_code=?,result_evidence=?,attestation_hash=?,deadline_at=?,"
+        "native_launch_pid=?,native_launch_phase=?,native_launch_observed_at=?,"
+        "spawn_duration_ms=? "
         "WHERE launch_id=?",
         (
             "caller",
@@ -67,6 +69,10 @@ def _prepared_launch(conn):
             ),
             "sha256:secret-attestation",
             "2099-01-01T00:00:00Z",
+            4242,
+            "spawn_completed_after_bound",
+            "2026-08-22T12:03:10Z",
+            103_000,
             launch.launch_id,
         ),
     )
@@ -94,6 +100,10 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
     assert projected["registered_session_id"] == "caller"
     assert projected["identity_correlation"] == "matched"
     assert projected["instruction_delivery"] == "pending"
+    assert projected["native_launch_pid"] == 4242
+    assert projected["native_launch_phase"] == "spawn_completed_after_bound"
+    assert projected["native_launch_observed_at"] == "2026-08-22T12:03:10Z"
+    assert projected["spawn_duration_ms"] == 103_000
     assert projected["result_evidence"] == {
         "adapter_revision": "adapter-v2",
         "duration_ms": 17,

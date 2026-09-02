@@ -9,6 +9,7 @@ from yoke_core.domain.session_launch_closure_evidence import (
     closure_evidence,
     open_attempt,
 )
+from yoke_core.domain.session_launch_native_progress import native_attempt_pending
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_launch_store import (
     LAUNCH_COLUMNS,
@@ -165,7 +166,10 @@ def settle_launch_deadlines(
                 lease_passed = bool(row) and parse_time(current) >= parse_time(
                     add_seconds(str(value(row, "started_at", 3)), LAUNCH_LEASE_SECONDS)
                 )
-                if deadline_passed or lease_passed:
+                if deadline_passed or (
+                    lease_passed
+                    and not native_attempt_pending(conn, launch, now=current)
+                ):
                     changed.append(
                         _expire_launching(conn, launch, attempt=row, now=current)
                     )

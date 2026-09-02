@@ -85,6 +85,7 @@ def _claim_one_launch(
         requested_model=claim.launch.requested_model,
         presentation=claim.launch.presentation_preference,
         session_name=claim.launch.session_name,
+        deadline_at=claim.launch.deadline_at,
         launch_attestation=claim.attestation,
     )
     return job, claim.lease_expires_at

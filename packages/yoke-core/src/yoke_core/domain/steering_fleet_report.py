@@ -164,7 +164,8 @@ class FleetReport:
             "idle": sorted((holder.session_id, holder.item_id) for holder in self.idle),
             "starved": sorted(entry.session_id for entry in self.starved),
             "unregistered_launches": sorted(
-                entry.launch_id for entry in self.unregistered_launches
+                (entry.launch_id, entry.native_launch_phase, entry.spawn_duration_ms)
+                for entry in self.unregistered_launches
             ),
             "landed_open": sorted(entry.item_id for entry in self.landed_open),
             "suspected_orphaned_waiters": sorted(

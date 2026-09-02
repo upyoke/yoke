@@ -35,11 +35,14 @@ class SessionSurfaceCapability:
     relay_stop_denial_continuation: InterfaceClass = "supported"
     liveness_process_names: tuple[str, ...] = ()
     wake_authority: WakeAuthority = "native"
+    native_create_timeout_seconds: int | None = None
 
     def to_json(self) -> dict[str, object]:
         payload = asdict(self)
         payload["inject_events"] = list(self.inject_events)
         payload["liveness_process_names"] = list(self.liveness_process_names)
+        if self.native_create_timeout_seconds is None:
+            payload.pop("native_create_timeout_seconds")
         return payload
 
 
@@ -52,6 +55,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "private",
         "supported",
         relay_stop_denial_continuation="none",
+        native_create_timeout_seconds=180,
     ),
     "claude-desktop": SessionSurfaceCapability(
         "1.32885.1",
@@ -173,6 +177,12 @@ def operator_wake_instruction(surface: str | None) -> str:
     )
 
 
+def native_create_timeout_seconds(surface: str | None) -> int | None:
+    """Return the manifest-owned soft create bound for one native surface."""
+    capability = capability_for_surface(surface)
+    return capability.native_create_timeout_seconds if capability else None
+
+
 def _capabilities_for_executor(
     executor: str | None,
 ) -> tuple[SessionSurfaceCapability, ...]:
@@ -262,6 +272,7 @@ __all__ = [
     "liveness_process_names",
     "native_wake_supported",
     "operator_wake_instruction",
+    "native_create_timeout_seconds",
     "stop_denial_continuation_supported",
     "surface_wake_authority",
 ]

@@ -154,6 +154,10 @@ class LaunchRecord:
     result_code: str | None
     result_evidence: str | None
     origin: str = LAUNCH_ORIGIN_OPERATOR
+    native_launch_pid: int | None = None
+    native_launch_phase: str | None = None
+    native_launch_observed_at: str | None = None
+    spawn_duration_ms: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

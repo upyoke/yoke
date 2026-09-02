@@ -128,15 +128,25 @@ def test_every_launch_reports_start_and_terminal_phase_before_completion(
             )
         return SimpleNamespace(success=True, result={"state": "outcome_unknown"})
 
+    def run(job):
+        job["_launch_progress_reporter"](
+            {
+                "result_code": "native_spawn_pending",
+                "native_launch_phase": "spawn_alive",
+                "native_launch_pid": 4242,
+            }
+        )
+        return RelayAdapterResult(
+            "outcome_unknown",
+            adapter_revision="claude-native-v3",
+            evidence={"result_code": "native_exit", "surface": "claude-cli"},
+        )
+
     outcome = session_relay.serve_once(
         state_dir=tmp_path,
         inventory_provider=_inventory,
         dispatcher=dispatch,
-        runner=lambda _job: RelayAdapterResult(
-            "outcome_unknown",
-            adapter_revision="claude-native-v3",
-            evidence={"result_code": "native_exit", "surface": "claude-cli"},
-        ),
+        runner=run,
         clock=lambda: 1000.0,
     )
 
@@ -145,11 +155,14 @@ def test_every_launch_reports_start_and_terminal_phase_before_completion(
     assert [report["result"] for report in reports] == [
         "progress",
         "progress",
+        "progress",
         "outcome_unknown",
     ]
     assert reports[0]["evidence"]["native_launch_phase"] == "adapter_start"
-    assert reports[1]["evidence"]["native_launch_phase"] == "adapter_complete"
+    assert reports[1]["evidence"]["native_launch_phase"] == "spawn_alive"
+    assert reports[1]["evidence"]["native_launch_pid"] == 4242
     assert reports[2]["evidence"]["native_launch_phase"] == "adapter_complete"
+    assert reports[3]["evidence"]["native_launch_phase"] == "adapter_complete"
 
 
 def test_next_poll_drains_a_terminal_report_before_claiming_more_work(

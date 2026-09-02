@@ -136,7 +136,7 @@ def _stop_claude_background_agent(
     from yoke_harness.session_relay_claude_native import (
         CLAUDE_AGENT_LIST_ARGUMENTS,
         CLAUDE_BACKGROUND_STOP_COMMAND,
-        CLAUDE_NATIVE_TIMEOUT_SECONDS,
+        CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
         discover_claude_cli,
     )
     from yoke_harness.session_relay_claude_process import run_bounded_claude_process
@@ -152,7 +152,7 @@ def _stop_claude_background_agent(
             arguments,
             cwd=Path.cwd(),
             environment=os.environ,
-            timeout_seconds=CLAUDE_NATIVE_TIMEOUT_SECONDS,
+            timeout_seconds=CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
         )
 
     resolution = resolve_background_agent(

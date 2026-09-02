@@ -22,7 +22,9 @@ LAUNCH_COLUMNS = (
     "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
     "native_session_id, attestation_hash, attestation_consumed_at, "
     "registered_session_id, deadline_at, created_at, assigned_at, launching_at, "
-    "awaiting_registration_at, completed_at, result_code, result_evidence, origin"
+    "awaiting_registration_at, completed_at, result_code, result_evidence, origin, "
+    "native_launch_pid, native_launch_phase, native_launch_observed_at, "
+    "spawn_duration_ms"
 )
 _MUTABLE_LAUNCH_COLUMNS = frozenset(
     {
@@ -41,6 +43,10 @@ _MUTABLE_LAUNCH_COLUMNS = frozenset(
         "completed_at",
         "result_code",
         "result_evidence",
+        "native_launch_pid",
+        "native_launch_phase",
+        "native_launch_observed_at",
+        "spawn_duration_ms",
     }
 )
 
@@ -124,6 +130,10 @@ def row_to_launch(row: Any) -> LaunchRecord:
         result_code=value(row, "result_code", 26),
         result_evidence=value(row, "result_evidence", 27),
         origin=str(value(row, "origin", 28)),
+        native_launch_pid=value(row, "native_launch_pid", 29),
+        native_launch_phase=value(row, "native_launch_phase", 30),
+        native_launch_observed_at=value(row, "native_launch_observed_at", 31),
+        spawn_duration_ms=value(row, "spawn_duration_ms", 32),
     )
 
 
@@ -216,7 +226,7 @@ def update_launch(
                     delivery_changed_at or changes.get("completed_at") or utc_now()
                 ),
             )
-        elif next_state in {"assigned", "awaiting_registration"}:
+        elif next_state in {"assigned", "launching", "awaiting_registration"}:
             reopen_launch_delivery(conn, launch_id=launch_id)
     return get_launch(conn, launch_id)
 

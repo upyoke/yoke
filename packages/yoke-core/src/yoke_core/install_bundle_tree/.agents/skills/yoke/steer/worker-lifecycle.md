@@ -164,7 +164,11 @@ Retain the returned `launch_id` and `deadline_at`. By that deadline, require
 yoke session-control launch get {LAUNCH_ID} --json
 ```
 
-On `outcome_unknown` or a missed registration deadline, reconcile and retry:
+If `native_launch_phase` is `spawn_started` or `spawn_alive`, the first native
+process still owns the launch. Wait through `deadline_at`; reconciliation
+refuses with `native_process_alive`, and retry reattaches to that attempt
+instead of starting a duplicate. After the deadline containment has run, or
+when no live phase is recorded, reconcile and retry:
 
 ```text
 yoke session-control launch reconcile {LAUNCH_ID} --json

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_origin import derived_launch_origin
+from yoke_core.domain import session_launch_native_progress as native_progress
 from yoke_core.domain.session_launch_surface_selection import preview_launch
 from yoke_core.domain.session_launch_validation import validate_launch_request
 from yoke_core.domain import session_relay_managed_presentation as managed_presentation
@@ -198,9 +199,7 @@ def create_launch(
         if not inserted:
             delete_message(conn, message_id)
             existing = get_launch_by_dedupe(
-                conn,
-                auth.actor_id,
-                request.idempotency_key,
+                conn, auth.actor_id, request.idempotency_key
             )
             if existing is None:
                 raise SessionLaunchError("create_conflict", "launch insert conflicted")
@@ -291,6 +290,10 @@ def retry_launch(
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
+        pending = native_progress.retain_pending_native(conn, launch, now=current)
+        if pending:
+            conn.commit()
+            return pending
         if launch.state == "outcome_unknown" or launch.native_session_id:
             raise SessionLaunchError(
                 "reconcile_required",
@@ -335,6 +338,7 @@ def retry_launch(
             completed_at=None,
             result_code=None,
             result_evidence=None,
+            **native_progress.cleared_native_launch_updates(),
         )
         conn.commit()
         return result

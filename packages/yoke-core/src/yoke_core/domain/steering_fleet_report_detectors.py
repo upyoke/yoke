@@ -1,21 +1,11 @@
-"""Four failures that arrive as silence, read from live control-plane state.
+"""Detect steering failures that arrive as silence in live control-plane state.
 
-Each detector answers a question a steering seat used to answer by
-remembering to go and look: did a message reach the worker it was sent to,
-did a launch bind its native session and route the instruction, did a Monitor
-waiter freeze, and did merged work ever close out. A habit is not a guarantee,
-so they are queries. The fifth silence -- an idle
-worker waiting on an answer that cannot arrive -- is a judgment rather than a
-lookup and lives in :mod:`steering_fleet_report_dead_waits`.
+Queries reveal stuck delivery, unregistered launches, frozen Monitor waiters,
+and merged work lacking close-out. Dead waits that need judgment live in
+:mod:`steering_fleet_report_dead_waits`.
 
-Time math lives here rather than in the composing module because every reader
-of these stamps shares it, and a second parser would be a second set of rules
-about what "old" means.
-
-Every query below reads tables the control plane already owns:
-``session_message_recipients`` for delivery, ``session_launches`` for
-launches, and ``items`` for close-out -- its own ``merged_at`` and
-``merge_queue_landed_at`` columns, no new data source.
+Shared timestamp parsing stays here. Data comes from
+``session_message_recipients``, ``session_launches``, and ``items``.
 """
 
 from __future__ import annotations
@@ -120,6 +110,9 @@ class UnregisteredLaunch:
     result_code: str = ""
     native_session_id: str | None = None
     observed_session_id: str | None = None
+    native_launch_pid: int | None = None
+    native_launch_phase: str | None = None
+    spawn_duration_ms: int | None = None
 
 
 @dataclass(frozen=True)
@@ -226,6 +219,7 @@ def unregistered_launches(
         f"""SELECT l.launch_id, l.selected_surface, l.requested_surface,
                    l.assigned_machine_id, l.requested_machine_id, l.state,
                    l.deadline_at, l.result_code, l.native_session_id,
+                   l.native_launch_pid, l.native_launch_phase, l.spawn_duration_ms,
                    s.session_id AS observed_session_id
               FROM session_launches l
               LEFT JOIN harness_sessions s
@@ -270,6 +264,11 @@ def unregistered_launches(
                 result_code=result_code,
                 native_session_id=(str(record.get("native_session_id") or "") or None),
                 observed_session_id=observed_session_id,
+                native_launch_pid=record.get("native_launch_pid"),
+                native_launch_phase=(
+                    str(record.get("native_launch_phase") or "") or None
+                ),
+                spawn_duration_ms=record.get("spawn_duration_ms"),
             )
         )
     return tuple(

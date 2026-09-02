@@ -52,6 +52,14 @@ def _evidence(
     if process is not None:
         evidence["duration_ms"] = max(0, min(process.duration_ms, 3_600_000))
         evidence["exit_code"] = int(process.returncode)
+        if process.pid is not None:
+            evidence["native_launch_pid"] = process.pid
+        if context.job_kind == "launch":
+            evidence["native_launch_phase"] = (
+                "spawn_completed_after_bound"
+                if process.bound_exceeded
+                else "spawn_completed"
+            )
     return evidence
 
 

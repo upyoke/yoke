@@ -116,7 +116,7 @@ def _run_and_report(
     state_dir: Path | None,
 ) -> ServeOnceJobOutcome:
     """Execute one leased job and settle it under its own lease."""
-    checkpoint_launch_start(
+    job = checkpoint_launch_start(
         dispatcher,
         RELAY_REPORT_FUNCTION_ID,
         inventory.relay_id,
