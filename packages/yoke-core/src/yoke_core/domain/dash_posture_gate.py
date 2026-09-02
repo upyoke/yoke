@@ -19,6 +19,7 @@ from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
+from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -107,6 +108,18 @@ def _verification_gate(
         if not bool(row["passed"] if hasattr(row, "keys") else row[1])
     ]
     if unsatisfied:
+        waiting = next(
+            (
+                wait
+                for value in unsatisfied
+                if (wait := requirement_awaits_human_review(conn, value)) is not None
+            ),
+            None,
+        )
+        if waiting is not None:
+            return _failure(
+                "GATE_DASH_QA_REVIEW_REQUIRED", waiting.detail, waiting.recovery
+            )
         return _failure(
             "GATE_DASH_VERIFICATION_UNSATISFIED",
             "Selected Dash QA requirement(s) lack a passing run: "

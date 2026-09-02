@@ -208,8 +208,8 @@ def agent_mission_dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]
             "artifact-read commands. Aggregate each ranked written mission "
             "report, choose every final verdict, and submit exactly one row "
             f"for each of the {len(cases)} bundle cases in one complete batch. "
-            "Undetermined must "
-            "name what could not be established and why."
+            "Undetermined halts the item for owner/operator review, so choose "
+            "it only with attached evidence and name what remains undecidable."
             + _screen_recording_warning(cases)
         )
         submit_command = (

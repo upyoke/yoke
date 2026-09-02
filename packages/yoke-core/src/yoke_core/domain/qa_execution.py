@@ -33,6 +33,7 @@ from yoke_core.domain.qa_run_reads import (  # noqa: F401  (re-exported)
     cmd_run_get,
     cmd_run_list,
 )
+from yoke_core.domain import qa_undetermined_evidence as _qa_review_evidence
 
 _resolve_requirement_event_target = qa_events.resolve_requirement_event_target
 _emit_qa_requirement_event = qa_events.emit_qa_requirement_event
@@ -154,7 +155,12 @@ def cmd_run_add(
                         )
                         sys.exit(2)
 
+        _qa_review_evidence.require_cli_agent_undetermined_evidence(
+            conn, performed_by=performed_by, verdict=verdict,
+            artifact_will_be_attached=artifact_path is not None,
+        )
         from yoke_core.domain.qa_run_commit_binding import bind_cli_raw_result
+
         raw_result = bind_cli_raw_result(
             verdict=verdict, raw_result=raw_result, performed_by=performed_by,
             requirement_id=requirement_id, db_path=db_path, head_sha=head_sha,
@@ -192,23 +198,6 @@ def cmd_run_add(
         from yoke_core.domain.item_activity import touch_for_qa_requirement
 
         touch_for_qa_requirement(conn, requirement_id)  # R1 item activity
-        conn.commit()
-        if verdict is not None:
-            _event_name = "QARunCompleted"
-        elif execution_status is not None:
-            _event_name = "QARunCaptured"
-        else:
-            _event_name = "QARunStarted"
-        qa_events.emit_qa_run_event(
-            conn,
-            db_path=db_path,
-            event_name=_event_name,
-            run_id=inserted_id,
-            requirement_id=requirement_id,
-            qa_kind=qa_kind,
-            verdict=verdict, verdict_reason=verdict_reason,
-        )
-        # optional one-step artifact creation
         if artifact_path is not None:
             _ext = os.path.splitext(artifact_path)[1].lower()
             _content_type = {
@@ -236,7 +225,19 @@ def cmd_run_add(
                     iso8601_now(),
                 ),
             )
-            conn.commit()
+        conn.commit()
+        _event_name = "QARunCompleted" if verdict is not None else (
+            "QARunCaptured" if execution_status is not None else "QARunStarted"
+        )
+        qa_events.emit_qa_run_event(
+            conn,
+            db_path=db_path,
+            event_name=_event_name,
+            run_id=inserted_id,
+            requirement_id=requirement_id,
+            qa_kind=qa_kind,
+            verdict=verdict, verdict_reason=verdict_reason,
+        )
     finally:
         conn.close()
 
@@ -259,8 +260,8 @@ def cmd_run_complete(
     browser capture can finalize with ``execution_status='captured'``
     and ``verdict=None`` — the infra step succeeded but quality has not been
     inspected yet. Inspection is a later ``run-complete`` call that sets
-    ``pass``, ``fail``, or explained ``undetermined`` verdict in place. At least one of
-    ``verdict`` or ``execution_status`` must be provided.
+    ``pass``, ``fail``, or evidence-backed ``undetermined`` in place. Agent
+    undetermined requires a previously attached artifact. At least one result is required.
 
     Event emission: ``QARunCompleted`` fires when a verdict is written,
     ``QARunCaptured`` when only an execution_status is written (capture
@@ -283,7 +284,6 @@ def cmd_run_complete(
 
     conn = connect(path=db_path)
     try:
-        # Verify the run exists
         row = query_one(
             conn,
             "SELECT qa_requirement_id, performed_by, qa_kind FROM qa_runs WHERE id = %s",
@@ -292,6 +292,11 @@ def cmd_run_complete(
         if row is None:
             print(f"Error: run {run_id} not found", file=sys.stderr)
             sys.exit(1)
+
+        _qa_review_evidence.require_cli_agent_undetermined_evidence(
+            conn, performed_by=str(row["performed_by"]), verdict=verdict,
+            run_ids=(run_id,),
+        )
 
         params: list = [iso8601_now()]
         set_parts = ["completed_at = %s"]

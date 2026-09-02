@@ -60,8 +60,8 @@ report.
 |--------|---------------|
 | `browser-check` with `verdict=pass` | Continue. |
 | `verdict=fail` or exit `1` | Report the failed case and product or environment evidence. |
-| `browser-inspection` with `verdict=undetermined` and its required reason | Report the generated review request; the requirement remains unresolved pending approval, rejection, or waiver. |
-| `verdict=error` or exit `2` | Hard-stop on the prerequisite or runner failure and report it to the operator. |
+| `browser-inspection` with evidence-backed `verdict=undetermined` | Report the request: it halts the item until an owner/operator approves, rejects, or waives the evidence. |
+| `blocked_on_precondition`, `verdict=error`, or exit `2` | The case did not run or its runner failed; report failure to the scheduler without asking a person to review missing evidence. |
 
 Re-running the same requirement creates a new evidence run. It does not mutate
 the case snapshot.
@@ -74,7 +74,7 @@ the case snapshot.
   requirement kinds or item metadata.
 - `yoke qa case run` owns the run and its evidence records; never add a second
   run manually.
-- Browser inspection remains undetermined until a reviewer approves, rejects,
-  or waives it; never report that state as a pass.
+- Evidence-backed Browser inspection remains undetermined and halts the item
+  until an owner/operator approves, rejects, or waives it; never report it as pass.
 - The ephemeral URL, deployed branch, and deployed commit are mandatory
   freshness inputs.

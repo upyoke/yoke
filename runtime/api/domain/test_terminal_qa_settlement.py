@@ -15,6 +15,7 @@ from yoke_core.domain.standalone_item_merge_receipt import RECEIPT_EVENT_NAME
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
+from yoke_core.domain.qa_review_requests import QaReviewWait
 
 
 def _row_id(row) -> int:
@@ -138,7 +139,9 @@ def test_terminal_transition_refuses_cancelled_run(test_db):
     _seed_merging_sha(test_db, "b" * 40)
     requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
-        test_db, qa_requirement_id=requirement_id, verdict="error",
+        test_db,
+        qa_requirement_id=requirement_id,
+        verdict="error",
         raw_result='{"ci_conclusion":"cancelled"}',
         completed_at="2026-01-01T00:00:01Z",
     )
@@ -147,12 +150,40 @@ def test_terminal_transition_refuses_cancelled_run(test_db):
     assert f"requirement-id {requirement_id}" in result["error"]
 
 
+def test_terminal_transition_names_pending_human_review(test_db, monkeypatch):
+    insert_item(test_db, id=10, status="release")
+    requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement_id,
+        performed_by="agent",
+        verdict="undetermined",
+        verdict_reason="The evidence conflicts.",
+        completed_at="2026-01-01T00:00:01Z",
+    )
+    waiting = QaReviewWait(
+        requirement_id,
+        73,
+        "The evidence conflicts.",
+        ("project owner",),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_terminal_settlement.requirement_awaits_human_review",
+        lambda *_args: waiting,
+    )
+    result = _terminal_result(test_db)
+    assert "decision request 73" in result["error"]
+    assert "resolve 73 approve|reject|waive" in result["error"]
+
+
 def test_terminal_transition_refuses_pass_from_an_earlier_commit(test_db):
     insert_item(test_db, id=10, status="release")
     _seed_merging_sha(test_db, "b" * 40)
     requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
-        test_db, qa_requirement_id=requirement_id, verdict="pass",
+        test_db,
+        qa_requirement_id=requirement_id,
+        verdict="pass",
         raw_result='{"verification_tree":{"head_sha":"' + "a" * 40 + '"}}',
         completed_at="2026-01-01T00:00:01Z",
     )
@@ -166,7 +197,9 @@ def test_terminal_transition_accepts_pass_for_merging_commit(test_db):
     _seed_merging_sha(test_db, "b" * 40)
     requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
-        test_db, qa_requirement_id=requirement_id, verdict="pass",
+        test_db,
+        qa_requirement_id=requirement_id,
+        verdict="pass",
         raw_result='{"verification_tree":{"head_sha":"' + "b" * 40 + '"}}',
         completed_at="2026-01-01T00:00:01Z",
     )
@@ -202,8 +235,11 @@ def test_terminal_transition_accepts_the_head_the_merge_gate_verified(test_db):
     integrated = "c" * 40
     gate_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
-        test_db, qa_requirement_id=gate_requirement, verdict="pass",
-        performed_by="ci_run", raw_result=_tree_result(integrated),
+        test_db,
+        qa_requirement_id=gate_requirement,
+        verdict="pass",
+        performed_by="ci_run",
+        raw_result=_tree_result(integrated),
         completed_at="2026-01-01T00:00:01Z",
     )
 
@@ -222,13 +258,19 @@ def test_terminal_transition_accepts_lane_and_integrated_heads_together(test_db)
     _seed_merge_receipt(test_db, landing_sha=lane, merge_sha="f" * 40)
     item_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
-        test_db, qa_requirement_id=item_requirement, verdict="pass",
-        raw_result=_tree_result(lane), completed_at="2026-01-01T00:00:01Z",
+        test_db,
+        qa_requirement_id=item_requirement,
+        verdict="pass",
+        raw_result=_tree_result(lane),
+        completed_at="2026-01-01T00:00:01Z",
     )
     gate_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
-        test_db, qa_requirement_id=gate_requirement, verdict="pass",
-        performed_by="ci_run", raw_result=_tree_result(integrated),
+        test_db,
+        qa_requirement_id=gate_requirement,
+        verdict="pass",
+        performed_by="ci_run",
+        raw_result=_tree_result(integrated),
         completed_at="2026-01-01T00:00:02Z",
     )
 
@@ -254,13 +296,15 @@ def test_terminal_transition_accepts_pass_for_recorded_merge_sha(test_db):
 def test_flow_derived_ci_refusal_names_the_evidence_surface(test_db):
     insert_item(test_db, id=10, status="release")
     _seed_merging_sha(test_db, "b" * 40)
-    requirement_id = _row_id(insert_qa_requirement(
-        test_db,
-        item_id=10,
-        requirement_source="flow_derived",
-        method_id="command-ci",
-        method_config='{"command":"","registered_scope":"full"}',
-    ))
+    requirement_id = _row_id(
+        insert_qa_requirement(
+            test_db,
+            item_id=10,
+            requirement_source="flow_derived",
+            method_id="command-ci",
+            method_config='{"command":"","registered_scope":"full"}',
+        )
+    )
     insert_qa_run(
         test_db,
         qa_requirement_id=requirement_id,
@@ -281,8 +325,11 @@ def test_terminal_transition_still_refuses_a_head_no_merge_recorded(test_db):
     _seed_merge_receipt(test_db, landing_sha="d" * 40, merge_sha="f" * 40)
     requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
-        test_db, qa_requirement_id=requirement_id, verdict="pass",
-        raw_result=_tree_result("a" * 40), completed_at="2026-01-01T00:00:01Z",
+        test_db,
+        qa_requirement_id=requirement_id,
+        verdict="pass",
+        raw_result=_tree_result("a" * 40),
+        completed_at="2026-01-01T00:00:01Z",
     )
 
     result = _terminal_result(test_db)

@@ -126,8 +126,9 @@ yoke qa case run \
 ```
 
 `browser-check` produces an automatic verdict from its assertions.
-`browser-inspection` captures evidence and returns an undetermined/review
-outcome until a reviewer resolves it.
+`browser-inspection` captures linked evidence and can return an undetermined
+outcome that halts the item until a project owner/operator resolves its review.
+Without linked evidence, execution fails and no human review is requested.
 
 The runner writes the run and evidence on the materialized Browser
 requirement. Do not create a second requirement or run to mirror that result.

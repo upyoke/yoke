@@ -199,11 +199,13 @@ stdin batch through the exact `submit_command` in the dispatch:
 {"verdicts":[{"requirement_id":123,"verdict":"pass|fail|undetermined","rationale":"non-empty written report"}]}
 ```
 
-Include exactly one row for every bundle case. `undetermined` requires a
-non-empty rationale naming what could not be established and why. That
-rationale is persisted as `qa_runs.verdict_reason`, the verdict never satisfies
-an all-pass aggregate, and the ordinary review/operator-decision path is
-created. Do not map it to pass or fail and do not use retired verdict terms.
+Include exactly one row for every bundle case. `undetermined` is earned by the
+artifacts already attached to that capture and requires a rationale naming what
+remains undecidable. It halts the item until a project owner or operator records
+the canonical evidence decision, so choosing it deliberately spends a human
+interaction. If the case never ran or produced no artifact, record the failed
+or `blocked_on_precondition` execution outcome instead; that asks no person and
+returns failure to the scheduler. Do not map either condition to pass.
 
 ## Decision Disposition
 

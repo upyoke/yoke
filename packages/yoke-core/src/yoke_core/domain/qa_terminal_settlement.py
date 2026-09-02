@@ -12,8 +12,8 @@ from yoke_core.domain.qa_merging_identity import (
     recorded_head_sha,
 )
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
+from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.schema_common import _table_exists
-
 
 
 @dataclass(frozen=True)
@@ -102,6 +102,11 @@ def _issue_for_requirement(
     requirement: dict[str, Any], *, accepted_shas: Sequence[str],
 ) -> BlockingRequirementIssue | None:
     requirement_id = str(requirement.get("id") or "<unknown>")
+    review = requirement.get("human_review")
+    if review:
+        return BlockingRequirementIssue(
+            requirement_id, "human-review", review["detail"], review["recovery"],
+        )
     recovery = _recovery_instruction(requirement)
     run_id = requirement.get("run_id")
     if run_id is None:
@@ -212,6 +217,8 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     ]
     for row in rows:
         row["recorded_head_sha"] = recorded_head_sha(row.pop("raw_result", None))
+        waiting = requirement_awaits_human_review(conn, int(row["id"]))
+        row["human_review"] = waiting.as_dict() if waiting else None
     return rows
 
 

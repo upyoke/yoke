@@ -75,7 +75,9 @@ send the complete verdict batch through the returned `submit_command`. A walker
 `HUMAN_GATE` return is the one exception to the no-operator rule: append its
 exact action and resume state to the Progress Log, ask from the main session,
 then dispatch a fresh walker. Do not waive or recapture evidence merely because
-review is pending. Only an `undetermined` verdict creates a human Inbox request.
+review is pending. Choose `undetermined` only with attached evidence: it halts
+the item until an owner/operator resolves the Inbox request. An unexecuted case
+records failed/`blocked_on_precondition` and returns without human work.
 
 ## a2b. Plan-case failure discipline
 

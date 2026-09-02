@@ -13,6 +13,9 @@ from yoke_core.domain.qa_constants import (
 from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
 from yoke_core.domain.qa_plan_review import QaPlanReviewError, _public_bundle
+from yoke_core.domain.qa_undetermined_evidence import (
+    require_agent_undetermined_evidence,
+)
 
 
 def _validated_verdicts(
@@ -79,6 +82,11 @@ def _record_verdict(
     created_at: str,
 ) -> int:
     p = marker(conn)
+    require_agent_undetermined_evidence(
+        conn, performed_by="agent",
+        verdict=verdict,
+        run_ids=(int(case["capture_run_id"]),),
+    )
     raw_result = canonical(
         {
             "review_bundle_id": bundle_id,

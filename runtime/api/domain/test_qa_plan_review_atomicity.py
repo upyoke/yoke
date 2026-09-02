@@ -10,6 +10,7 @@ from yoke_core.domain import qa_plan_review_submission, qa_review_requests
 from yoke_core.domain.coordination_claims import acquire, get_claim
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.qa_plan_review import begin_plan_review
+from yoke_core.domain.qa_undetermined_evidence import QaUndeterminedEvidenceError
 from yoke_core.domain.schema_init_tables import create_governed_tables
 
 
@@ -127,6 +128,44 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
                 (capture_run_id,),
             ).fetchone()[0]
             is None
+        )
+
+
+def test_undetermined_review_refuses_when_capture_has_no_artifact() -> None:
+    with test_database() as conn:
+        execution, requirement_id, capture_run_id = _review_execution(conn, 4543)
+        bundle = begin_plan_review(conn, execution)
+        conn.execute("DELETE FROM qa_artifacts WHERE qa_run_id=%s", (capture_run_id,))
+        conn.commit()
+
+        with pytest.raises(
+            QaUndeterminedEvidenceError,
+            match="qa_undetermined_evidence_required",
+        ):
+            qa_plan_review_submission.submit_plan_review(
+                conn,
+                execution,
+                bundle_id=bundle["bundle_id"],
+                bundle_digest=bundle["bundle_digest"],
+                verdicts=_undetermined(requirement_id),
+                reviewer_actor_id=None,
+                reviewer_session_id="review-session",
+            )
+
+        assert (
+            conn.execute(
+                "SELECT state FROM qa_plan_review_bundles WHERE id=%s",
+                (bundle["bundle_id"],),
+            ).fetchone()[0]
+            == "pending"
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s "
+                "AND performed_by='agent'",
+                (requirement_id,),
+            ).fetchone()[0]
+            == 0
         )
 
 

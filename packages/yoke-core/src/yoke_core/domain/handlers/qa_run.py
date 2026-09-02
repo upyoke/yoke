@@ -19,6 +19,10 @@ from pydantic import BaseModel
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.handlers.qa import _error
+from yoke_core.domain.qa_undetermined_evidence import (
+    QaUndeterminedEvidenceError,
+    require_agent_undetermined_evidence,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -120,6 +124,15 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
                 "-- use browser_substrate",
                 jsonpath="$.payload.performed_by",
             )
+
+        try:
+            require_agent_undetermined_evidence(
+                conn,
+                performed_by=performed_by,
+                verdict=verdict,
+            )
+        except QaUndeterminedEvidenceError as exc:
+            return _error(exc.code, str(exc), jsonpath="$.payload.verdict")
 
         if _names_no_verified_tree(verdict, row, raw_result):
             return _error(

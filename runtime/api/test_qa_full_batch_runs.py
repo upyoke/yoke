@@ -293,7 +293,10 @@ class TestRunAddBatch:
             qa.cmd_run_add_batch(db_path=db_path, json_file=json_file)
         assert exc.value.code == 2
 
-    def test_with_artifact_path(self, db_path, capsys, tmp_path):
+    @pytest.mark.parametrize("include_artifact", [False, True])
+    def test_undetermined_requires_artifact_path(
+        self, db_path, capsys, tmp_path, include_artifact
+    ):
         req_id = self._seed_requirement(db_path, capsys)
 
         payload = [
@@ -301,15 +304,22 @@ class TestRunAddBatch:
                 "requirement_id": req_id,
                 "performed_by": "agent",
                 "qa_kind": "ac_verification",
-                "verdict": "pass",
-                "raw_result": "Screenshot OK",
-                "artifact_path": "/tmp/screenshot.png",
+                "verdict": "undetermined",
+                "verdict_reason": "The capture shows two overlapping states.",
+                **(
+                    {"artifact_path": "/tmp/screenshot.png"} if include_artifact else {}
+                ),
             },
         ]
         json_file = str(tmp_path / "artifact.json")
         with open(json_file, "w") as f:
             json.dump(payload, f)
 
+        if not include_artifact:
+            with pytest.raises(SystemExit) as exc:
+                qa.cmd_run_add_batch(db_path=db_path, json_file=json_file)
+            assert exc.value.code == 2
+            return
         ids = qa.cmd_run_add_batch(db_path=db_path, json_file=json_file)
         assert len(ids) == 1
 

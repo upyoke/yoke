@@ -5,7 +5,8 @@ same flow executes both built-in methods:
 
 - `browser-check`: assertions produce an automatic verdict.
 - `browser-inspection`: capture produces evidence for the plan's batched agent
-  reviewer. Only an undetermined agent verdict requests a human decision.
+  reviewer. Evidence-backed `undetermined` halts the item and spends an
+  owner/operator decision; an unexecuted case fails without human work.
 - `exploratory-mission`: the main agent owns the report and verdict while a
   case-selected informed or target-naive walker chooses the sequence.
 
@@ -84,9 +85,10 @@ plan run with a manually assembled series of case runs.
   dispatch a fresh walker after the action. The main agent aggregates the
   report and runs the exact `submit_command` with one verdict and rationale per
   case. The parked state alone is never evidence that a human request exists.
-- A submitted `pass` continues and `fail` blocks. Only submitted
-  `undetermined` creates the human Inbox request; approval, rejection, and
-  waiver then use the ordinary review-resolution paths.
+- A submitted `pass` continues and `fail` blocks. Submit `undetermined` only
+  for attached evidence that remains genuinely undecidable: it halts the item
+  until an owner/operator approves, rejects, or waives. If the case did not
+  run, record the failed/`blocked_on_precondition` outcome instead.
 
 ## 4. Confirm the union gate
 

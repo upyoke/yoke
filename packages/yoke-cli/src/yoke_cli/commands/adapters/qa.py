@@ -14,12 +14,15 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_cli.commands.adapters.qa_browser import AGENT_UNDETERMINED_HELP
 
 
 __all__ = [
-    "qa_requirement_update", "qa_requirement_waive",
+    "qa_requirement_update",
+    "qa_requirement_waive",
     "qa_run_record_verdict",
-    "QA_REQUIREMENT_UPDATE_USAGE", "QA_REQUIREMENT_WAIVE_USAGE",
+    "QA_REQUIREMENT_UPDATE_USAGE",
+    "QA_REQUIREMENT_WAIVE_USAGE",
     "QA_RUN_RECORD_VERDICT_USAGE",
     "USAGE_BY_FUNCTION_ID",
 ]
@@ -33,18 +36,22 @@ QA_REQUIREMENT_UPDATE_USAGE = (
 
 def qa_requirement_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke qa requirement update", description=QA_REQUIREMENT_UPDATE_USAGE,
+        prog="yoke qa requirement update",
+        description=QA_REQUIREMENT_UPDATE_USAGE,
     )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="Target qa_requirements.id.")
-    parser.add_argument("--field", required=True,
-                        help="Updatable field name.")
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        required=True,
+        help="Target qa_requirements.id.",
+    )
+    parser.add_argument("--field", required=True, help="Updatable field name.")
     value_group = parser.add_mutually_exclusive_group(required=True)
-    value_group.add_argument("--value", default=None,
-                             help="New value (string).")
-    value_group.add_argument("--null", action="store_true",
-                             help="Set the field to null.")
+    value_group.add_argument("--value", default=None, help="New value (string).")
+    value_group.add_argument(
+        "--null", action="store_true", help="Set the field to null."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_UPDATE_USAGE)
@@ -62,7 +69,8 @@ def qa_requirement_update(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         ),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
@@ -93,16 +101,25 @@ def qa_requirement_waive(args: List[str]) -> int:
         prog="yoke qa requirement waive",
         description=QA_REQUIREMENT_WAIVE_USAGE,
     )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="Target qa_requirements.id.")
-    parser.add_argument("--rationale", required=True,
-                        help="Reason this requirement is waived.")
-    parser.add_argument("--source", choices=("operator", "agent"),
-                        default="agent",
-                        help="Waiver authority source.")
-    parser.add_argument("--force", action="store_true",
-                        help="Required to waive a blocking requirement.")
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        required=True,
+        help="Target qa_requirements.id.",
+    )
+    parser.add_argument(
+        "--rationale", required=True, help="Reason this requirement is waived."
+    )
+    parser.add_argument(
+        "--source",
+        choices=("operator", "agent"),
+        default="agent",
+        help="Waiver authority source.",
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Required to waive a blocking requirement."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_WAIVE_USAGE)
@@ -119,7 +136,8 @@ def qa_requirement_waive(args: List[str]) -> int:
             "source": parsed.source,
             "force": bool(parsed.force),
         },
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_write_waive_result,
     )
 
@@ -136,21 +154,45 @@ def qa_run_record_verdict(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run record-verdict",
         description=QA_RUN_RECORD_VERDICT_USAGE,
+        epilog=(
+            AGENT_UNDETERMINED_HELP + " This one-shot command has no artifact "
+            "surface, so it refuses agent undetermined."
+        ),
     )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="Target qa_requirements.id.")
-    parser.add_argument("--performed-by", dest="performed_by", required=True,
-                        help="Who or what ran the QA check.")
-    parser.add_argument("--verdict", required=True,
-                        help="One of the registered QA verdicts.")
-    parser.add_argument("--verdict-reason", dest="verdict_reason",
-                        help="Required for undetermined: what is unknown and why.")
-    parser.add_argument("--raw-result", dest="raw_result", default=None,
-                        help="Optional raw output snippet.")
-    parser.add_argument("--duration-ms", dest="duration_ms",
-                        type=int, default=None,
-                        help="Optional duration in milliseconds.")
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        required=True,
+        help="Target qa_requirements.id.",
+    )
+    parser.add_argument(
+        "--performed-by",
+        dest="performed_by",
+        required=True,
+        help="Who or what ran the QA check.",
+    )
+    parser.add_argument(
+        "--verdict", required=True, help="One of the registered QA verdicts."
+    )
+    parser.add_argument(
+        "--verdict-reason",
+        dest="verdict_reason",
+        help="Reason for undetermined; see evidence rule below.",
+    )
+    parser.add_argument(
+        "--raw-result",
+        dest="raw_result",
+        default=None,
+        help="Optional raw output snippet.",
+    )
+    parser.add_argument(
+        "--duration-ms",
+        dest="duration_ms",
+        type=int,
+        default=None,
+        help="Optional duration in milliseconds.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_RECORD_VERDICT_USAGE)
@@ -173,7 +215,8 @@ def qa_run_record_verdict(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         ),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 

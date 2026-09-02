@@ -75,7 +75,8 @@ BUILTIN_QA_METHODS = (
         "verdict_path": "agent",
         "verdict_contract": (
             "agent verdict is pass, fail, or undetermined; undetermined "
-            "requires a reason naming what could not be established and why"
+            "requires attached evidence, halts the item for owner/operator "
+            "review, and names what could not be established and why"
         ),
         "evidence_contract": "screenshots · inspection verdict",
         "display_icon": "◉",

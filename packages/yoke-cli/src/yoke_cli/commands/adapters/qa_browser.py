@@ -65,6 +65,13 @@ def qa_browser_context_get(args: List[str]) -> int:
     )
 
 
+AGENT_UNDETERMINED_HELP = (
+    "Agent undetermined halts the item for owner/operator evidence review. "
+    "Start the run, attach evidence with `yoke qa artifact add`, then complete "
+    "it; use error when the attempt produced no evidence."
+)
+
+
 QA_RUN_ADD_USAGE = (
     "yoke qa run add --requirement-id N --performed-by TYPE "
     "[--qa-kind KIND] [--verdict V] [--verdict-reason REASON] [--execution-status S] "
@@ -75,6 +82,7 @@ QA_RUN_ADD_USAGE = (
 def qa_run_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run add", description=QA_RUN_ADD_USAGE,
+        epilog=AGENT_UNDETERMINED_HELP,
     )
     parser.add_argument("--requirement-id", dest="requirement_id",
                         type=int, required=True,
@@ -86,7 +94,7 @@ def qa_run_add(args: List[str]) -> int:
     parser.add_argument("--verdict", default=None,
                         help="Optional verdict (omitted for started runs).")
     parser.add_argument("--verdict-reason", dest="verdict_reason", default=None,
-                        help="Required with an undetermined verdict.")
+                        help="Required with undetermined; see evidence rule below.")
     parser.add_argument("--execution-status", dest="execution_status",
                         default=None, help="Optional execution status.")
     parser.add_argument("--raw-result", dest="raw_result", default=None,
@@ -127,6 +135,7 @@ QA_RUN_COMPLETE_USAGE = (
 def qa_run_complete(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run complete", description=QA_RUN_COMPLETE_USAGE,
+        epilog=AGENT_UNDETERMINED_HELP,
     )
     parser.add_argument("--requirement-id", dest="requirement_id",
                         type=int, required=True,
@@ -136,7 +145,7 @@ def qa_run_complete(args: List[str]) -> int:
     parser.add_argument("--verdict", default=None,
                         help="Verdict to set (at least one of verdict/status).")
     parser.add_argument("--verdict-reason", dest="verdict_reason", default=None,
-                        help="Required with an undetermined verdict.")
+                        help="Required with undetermined; see evidence rule below.")
     parser.add_argument("--execution-status", dest="execution_status",
                         default=None, help="Execution status to set.")
     parser.add_argument("--raw-result", dest="raw_result", default=None,
@@ -274,7 +283,7 @@ def qa_artifact_presign(args: List[str]) -> int:
 
 
 __all__ = [
-    "QA_BROWSER_CONTEXT_GET_USAGE", "QA_RUN_ADD_USAGE",
+    "AGENT_UNDETERMINED_HELP", "QA_BROWSER_CONTEXT_GET_USAGE", "QA_RUN_ADD_USAGE",
     "QA_RUN_COMPLETE_USAGE", "QA_ARTIFACT_ADD_USAGE",
     "QA_ARTIFACT_PRESIGN_USAGE",
     "qa_browser_context_get", "qa_run_add", "qa_run_complete",

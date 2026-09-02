@@ -144,10 +144,7 @@ def _execution_capture_run_id(
 
 
 def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
-    if any(
-        case.get("capture_runner") == "agent_mission"
-        for case in bundle["cases"]
-    ):
+    if any(case.get("capture_runner") == "agent_mission" for case in bundle["cases"]):
         from yoke_core.domain.agent_mission_review import (
             agent_mission_dispatch_contract,
         )
@@ -199,8 +196,9 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
             "and visual artifact against that case's instructions and "
             "expected outcome. Return exactly one independent verdict and "
             f"rationale for each of the {len(cases)} cases. Do not infer a "
-            "verdict from capture status. An undetermined verdict's rationale "
-            "must name what could not be established and why. Use only the "
+            "verdict from capture status. Undetermined spends an owner/operator "
+            "review and halts the item; choose it only for attached evidence, "
+            "and name what could not be established and why. Use only the "
             "supplied artifact-read "
             "commands for bytes that are not directly available "
             "(add --output PATH to land bytes on disk; prefer the result "
