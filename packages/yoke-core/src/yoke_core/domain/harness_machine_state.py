@@ -12,6 +12,12 @@ APPROVAL_STATES = frozenset(
     {"approved", "unapproved", "not_applicable", "unknown"}
 )
 
+#: Whether the reporting machine's harness runs yoke without asking. Mirrors
+#: the states :mod:`yoke_contracts.harness_unattended_posture` reports; a row
+#: that predates the column reads 'absent', which is "not observed", not
+#: "configured".
+POSTURE_STATES = frozenset({"unattended", "prompts", "absent"})
+
 
 def read_harness_machine_reports(conn: Any) -> list[dict[str, Any]]:
     """Return every stored machine report, or empty when the table is absent."""
@@ -20,7 +26,8 @@ def read_harness_machine_reports(conn: Any) -> list[dict[str, Any]]:
     rows = conn.execute(
         "SELECT project_id, harness_id, glue_written, glue_present, "
         "glue_malformed, config_present, project_entry_present, "
-        "approval_state, reported_at FROM harness_machine_reports"
+        "approval_state, unattended_posture, reported_at "
+        "FROM harness_machine_reports"
     ).fetchall()
     return [
         {
@@ -32,7 +39,8 @@ def read_harness_machine_reports(conn: Any) -> list[dict[str, Any]]:
             "config_present": bool(row[5]),
             "project_entry_present": bool(row[6]),
             "approval_state": str(row[7]),
-            "reported_at": row[8],
+            "unattended_posture": str(row[8]),
+            "reported_at": row[9],
         }
         for row in rows
     ]
@@ -57,6 +65,9 @@ def upsert_harness_machine_reports(
         approval = str(raw.get("approval_state") or "unknown")
         if approval not in APPROVAL_STATES:
             raise ValueError(f"unknown approval_state {approval!r}")
+        posture = str(raw.get("unattended_posture") or "absent")
+        if posture not in POSTURE_STATES:
+            raise ValueError(f"unknown unattended_posture {posture!r}")
         row = {
             "project_id": int(project_id),
             "harness_id": harness_id,
@@ -66,14 +77,15 @@ def upsert_harness_machine_reports(
             "config_present": 1 if raw.get("config_present") else 0,
             "project_entry_present": 1 if raw.get("project_entry_present") else 0,
             "approval_state": approval,
+            "unattended_posture": posture,
             "reported_at": now,
         }
         conn.execute(
             "INSERT INTO harness_machine_reports ("
             "project_id, harness_id, glue_written, glue_present, "
             "glue_malformed, config_present, project_entry_present, "
-            "approval_state, reported_at"
-            ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "approval_state, unattended_posture, reported_at"
+            ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (project_id, harness_id) DO UPDATE SET "
             "glue_written=EXCLUDED.glue_written, "
             "glue_present=EXCLUDED.glue_present, "
@@ -81,6 +93,7 @@ def upsert_harness_machine_reports(
             "config_present=EXCLUDED.config_present, "
             "project_entry_present=EXCLUDED.project_entry_present, "
             "approval_state=EXCLUDED.approval_state, "
+            "unattended_posture=EXCLUDED.unattended_posture, "
             "reported_at=EXCLUDED.reported_at",
             (
                 row["project_id"],
@@ -91,6 +104,7 @@ def upsert_harness_machine_reports(
                 row["config_present"],
                 row["project_entry_present"],
                 row["approval_state"],
+                row["unattended_posture"],
                 row["reported_at"],
             ),
         )

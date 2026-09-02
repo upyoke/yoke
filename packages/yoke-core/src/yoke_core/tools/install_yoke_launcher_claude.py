@@ -8,10 +8,13 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-
-CLAUDE_APP_CONFIG_PATH = (
-    Path("~/Library/Application Support/Claude/claude_desktop_config.json").expanduser()
+from yoke_contracts.harness_unattended_posture import (
+    CLAUDE_BYPASS_KEY,
+    claude_config_path as _claude_config_path,
 )
+
+
+CLAUDE_APP_CONFIG_PATH = _claude_config_path()
 
 
 def configure_claude_app_bypass_permissions(
@@ -43,12 +46,12 @@ def configure_claude_app_bypass_permissions(
     prefs = data.setdefault("preferences", {})
     if not isinstance(prefs, dict):
         return False
-    current = prefs.get("bypassPermissionsModeEnabled")
+    current = prefs.get(CLAUDE_BYPASS_KEY)
     if current is True:
         return False
     if current is False:
         return False
-    prefs["bypassPermissionsModeEnabled"] = True
+    prefs[CLAUDE_BYPASS_KEY] = True
     tmp = target.with_suffix(target.suffix + ".yoke-tmp")
     try:
         tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
@@ -62,8 +65,8 @@ def configure_claude_app_bypass_permissions(
         out.write(f"Could not write Claude.app config at {target}: {exc}\n")
         return False
     out.write(
-        f"Enabled Claude.app bypassPermissionsModeEnabled in {target}.\n"
+        f"Enabled Claude.app {CLAUDE_BYPASS_KEY} in {target}.\n"
         f"Quit and relaunch Claude.app to pick up the change.\n"
-        f"(Pass --skip-claude-config on future runs to opt out.)\n\n"
+        f"(Pass --skip-harness-permissions on future runs to opt out.)\n\n"
     )
     return True

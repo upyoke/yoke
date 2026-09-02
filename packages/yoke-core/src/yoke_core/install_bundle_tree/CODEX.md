@@ -15,6 +15,28 @@ Codex loads its Yoke orientation automatically from the auto-loaded rules files 
 
 Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. `.claude/skills/yoke` is a discovery copy — a symlink in this repo, a real byte-identical copy in a managed project, since installs cannot rely on symlink support — and must not be treated as the authoritative location; Codex reads the same `SKILL.md` frontmatter Claude reads, so Yoke keeps no duplicate `.codex/skills` tree or per-skill Codex metadata sidecars.
 
+## Approval and sandbox posture
+
+Codex decides whether to stop and ask before running a command from
+`$CODEX_HOME/config.toml`, and it reads no project-local config, so that
+machine file is the only place the answer can live. Its defaults ask — and
+its default sandbox denies every outbound socket, which is what a local
+Postgres control plane listens on, so an unconfigured machine cannot reach
+Yoke at all and cannot run the field-note command it is told to fall back to.
+
+The launcher install (`python3 -m yoke_core.tools.install_yoke_launcher`,
+first run and `--repair`) writes what Codex needs into that file:
+`approval_policy` and `sandbox_mode` from the same declaration the launch
+plane already passes launched workers, plus a `[projects."<checkout>"]` trust
+entry so Codex does not ask about the directory either. It only writes a key
+that is absent, reports rather than overwrites a value you set yourself, and
+leaves your model choices and hook trust untouched.
+
+If a `yoke` command is refused with `Operation not permitted`, that is this
+posture missing, not a broken database: the CLI says so and names the repair.
+`HC-harness-unattended-posture` reports the standing posture for every
+harness on the machine.
+
 ## Work-item entry surfaces
 
 Every create selects a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`); the pinned immutable workflow version must allow that surface. `/yoke idea` drives the registered `items.create` function through `harness_skill`, while product forms and operator commands use their own typed surfaces. Dry-run and test-isolated DB targets may omit the surface.

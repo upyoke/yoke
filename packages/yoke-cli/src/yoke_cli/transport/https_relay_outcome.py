@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
+from yoke_contracts.harness_unattended_posture import sandbox_recovery
 
 TRANSPORT_FAILED_CODE = "https_transport_failed"
 
@@ -44,6 +45,41 @@ _CONCLUSIVE_HINT = (
 )
 
 
+# The OS refused the connect on policy. Retrying asks the same policy the
+# same question, and the env and credential really are not implicated — but
+# neither is the network, so the unreachable hint would send an operator
+# looking in the wrong place entirely.
+_SANDBOX_HINT = (
+    "The connection was denied by this machine's sandbox policy, not by the "
+    "network, so retrying will not help and the env and credential are not "
+    "implicated."
+)
+# A sandbox denies name resolution as well as connection, and a denied
+# lookup is indistinguishable from a host that is genuinely unreachable —
+# so this cannot be asserted, only raised as the first thing to check. It
+# appears solely under a harness that sandboxes commands, where "retrying is
+# the repair" is the one piece of advice that can never work.
+_SANDBOX_POSSIBLE_HINT = (
+    "The relay did not answer. This session runs under a harness that "
+    "sandboxes commands, and a sandbox denies name resolution exactly as it "
+    "denies connections, which looks identical to an unreachable relay — "
+    "check that first, because no number of retries changes it."
+)
+_REPLAY_SAFE = (
+    "If the sandbox already grants that reach, the relay was simply "
+    "unreachable and re-running is safe: the same request_id replays a "
+    "completed call instead of repeating it."
+)
+
+
+def _unreachable_hint() -> str:
+    """The unreachable hint, naming the sandbox where one is in play."""
+    recovery = sandbox_recovery()
+    if not recovery:
+        return _UNREACHABLE_HINT
+    return f"{_SANDBOX_POSSIBLE_HINT} {recovery} {_REPLAY_SAFE}"
+
+
 def transport_error_response(
     request: FunctionCallRequest,
     api_url: str,
@@ -51,6 +87,7 @@ def transport_error_response(
     *,
     attempts: Optional[int] = None,
     conclusive: bool = False,
+    sandbox_denied: bool = False,
     sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
     """Build the typed refusal, naming attempts when more than one was made."""
@@ -58,10 +95,13 @@ def transport_error_response(
     message = detail
     if attempts is not None and attempts > 1:
         message = f"{detail} after {attempts} attempts"
-    if conclusive:
+    if sandbox_denied:
+        recovery = sandbox_recovery()
+        hint = f"{_SANDBOX_HINT} {recovery}" if recovery else _SANDBOX_HINT
+    elif conclusive:
         hint = _CONCLUSIVE_HINT
     else:
-        hint = _UNREACHABLE_HINT if attempts is not None else _MALFORMED_HINT
+        hint = _unreachable_hint() if attempts is not None else _MALFORMED_HINT
     return FunctionCallResponse(
         success=False,
         function=request.function,

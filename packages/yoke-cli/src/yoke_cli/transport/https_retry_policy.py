@@ -76,14 +76,32 @@ def connection_refusal_is_conclusive(
     api_url: str,
     error: BaseException | None,
 ) -> bool:
-    """Whether a refused connection has already answered for good.
+    """Whether a failed connection has already answered for good.
 
     A hostname can front a fleet where one box is restarting, so a refusal
     there is worth asking again. A loopback endpoint is this machine: the
     kernel refused because no process holds that port, and it will keep
-    refusing until the operator starts one.
+    refusing until the operator starts one. A sandbox denial answers for
+    good wherever it happens — the policy that blocked the connect blocks
+    every retry too, so spending the budget only makes the wait longer
+    before the same verdict.
     """
+    if is_sandbox_denial(error):
+        return True
     return _is_connection_refused(error) and _host_is_loopback(api_url)
+
+
+def is_sandbox_denial(error: BaseException | None) -> bool:
+    """Whether the OS refused the connect on policy rather than on reachability."""
+    return _unwrapped_errno(error) in (errno.EPERM, errno.EACCES)
+
+
+def _unwrapped_errno(error: BaseException | None) -> int | None:
+    candidate = error
+    if isinstance(candidate, urllib.error.URLError):
+        reason = candidate.reason
+        candidate = reason if isinstance(reason, BaseException) else candidate
+    return getattr(candidate, "errno", None)
 
 
 def _is_connection_refused(error: BaseException | None) -> bool:
@@ -93,7 +111,7 @@ def _is_connection_refused(error: BaseException | None) -> bool:
         candidate = reason if isinstance(reason, BaseException) else candidate
     if isinstance(candidate, ConnectionRefusedError):
         return True
-    return getattr(candidate, "errno", None) == errno.ECONNREFUSED
+    return _unwrapped_errno(error) == errno.ECONNREFUSED
 
 
 def _host_is_loopback(api_url: str) -> bool:
@@ -142,6 +160,7 @@ def write_retry_notice(
 __all__ = [
     "CONNECTION_ATTEMPTS",
     "connection_refusal_is_conclusive",
+    "is_sandbox_denial",
     "should_retry_connection",
     "CONNECTION_BACKOFF_SECONDS",
     "RESPONSE_DEADLINE_ATTEMPTS",

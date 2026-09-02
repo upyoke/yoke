@@ -205,6 +205,7 @@ _SHAPES = (
     (
         _LOCAL,
         (
+            "harness-unattended-posture",
             "local-operating-actor-authority",
             "session-relay-orphans",
         ),

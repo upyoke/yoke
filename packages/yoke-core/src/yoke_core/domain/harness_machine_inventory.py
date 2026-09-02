@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+
+from yoke_contracts.harness_unattended_posture import posture_state
 from typing import Any, Optional
 
 from yoke_contracts.codex_hook_trust import (
@@ -72,6 +74,7 @@ def _codex_report(checkout: Path) -> Optional[dict[str, Any]]:
         return None
     return {
         "harness_id": "codex",
+        "unattended_posture": posture_state("codex"),
         "glue_present": glue_present,
         "glue_malformed": malformed,
         "config_present": config_present,
@@ -106,6 +109,7 @@ def _claude_report(checkout: Path) -> Optional[dict[str, Any]]:
         return None
     return {
         "harness_id": "claude-code",
+        "unattended_posture": posture_state("claude-code"),
         "glue_present": glue_present,
         "glue_malformed": malformed,
         "config_present": config_present,
@@ -124,6 +128,7 @@ def _cursor_report() -> Optional[dict[str, Any]]:
         return None
     return {
         "harness_id": "cursor",
+        "unattended_posture": posture_state("cursor"),
         "glue_present": glue_present,
         "glue_malformed": malformed,
         "config_present": config_present,

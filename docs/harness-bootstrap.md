@@ -227,6 +227,49 @@ worktree consumes that receipt before aliasing the new conversation onto
 the holder. A worktree workspace with a live claim holder and no receipt
 is identity-failure, not a folder fold.
 
+## 4c. Unattended permission posture
+
+Every harness decides, from its own persisted machine config, whether to
+stop and ask before running a command — and every one of them ships
+defaults that ask. Yoke's launched workers never see those prompts: the
+launch plane passes each harness a bypass flag, declared once in
+`yoke_contracts.session_control.launch_permission_bypass`. A session a
+*person* opens reads the persisted config instead, so without intervention
+a fresh install has someone approving each `yoke` call by hand — including
+the field-note command Yoke tells them to run when something goes wrong.
+
+`python3 -m yoke_core.tools.install_yoke_launcher` therefore writes the same
+posture into each harness that is actually installed, on both the first
+install and `--repair`. The keys, and the values that satisfy them, are
+declared once in `yoke_contracts.harness_unattended_posture`:
+
+| Harness | Config | Keys |
+|---|---|---|
+| `claude-code` | `claude_desktop_config.json` | `preferences.bypassPermissionsModeEnabled` |
+| `codex` | `$CODEX_HOME/config.toml` | `approval_policy`, `sandbox_mode`, plus a `[projects."<checkout>"]` trust entry |
+| `cursor` | `~/.cursor/cli-config.json` | `approvalMode`, `sandbox.mode` |
+
+All three are machine-level because that is where each harness reads them;
+Codex in particular reads no project-local config at all, so a project file
+could not carry its posture even if one existed.
+
+Three properties hold for every pass, because widening what a harness runs
+without asking is the operator's business:
+
+* **A key you set yourself is never overwritten.** Only an absent key is
+  written. A differing value is reported as a conflict and left alone, and
+  the harness keeps prompting until the operator changes it.
+* **Every unrelated setting survives.** Both files hold far more than these
+  keys — model choice, hook trust, auth cache — so each pass edits in place
+  rather than rewriting.
+* **It says what it did.** Each write is named in the installer's output,
+  `--skip-harness-permissions` opts out, `collect_harness_inventory` reports
+  each harness's `unattended_posture`, and `HC-harness-unattended-posture`
+  fails with the offending key and the repair command when any installed
+  harness still prompts.
+
+A harness that is not installed on the machine is skipped, not created.
+
 ## 5. Repo-local Skill Discovery
 
 Yoke skills live canonically in the **hidden** repo-local directory `.agents/skills/yoke/`. Modern Codex runtimes natively scan repo-local `.agents/skills` locations, so the Yoke skill tree is a first-class Codex skill source when Codex starts in this repository. No `.codex/skills` mirror is required.

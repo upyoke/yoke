@@ -12,7 +12,7 @@ Session/harness substrate:
   ``launcher-authority``, ``session-relay``, ``session-relay-orphans``.
 
 Project harness config:
-  ``project-hook-config-validity``.
+  ``project-hook-config-validity``, ``harness-unattended-posture``.
 
 Ledger audit:
   ``claim-boundary-audit``.
@@ -40,6 +40,11 @@ from yoke_core.engines.doctor_hc_agents_sessions import (
     hc_stale_reclaim_collision,
     hc_stale_session_reclaimer_alive,
     hc_stale_sessions,
+)
+from yoke_core.engines.doctor_hc_harness_unattended_posture import (
+    SLUG as UNATTENDED_POSTURE_SLUG,
+    TITLE as UNATTENDED_POSTURE_TITLE,
+    hc_harness_unattended_posture,
 )
 from yoke_core.engines.doctor_hc_claim_boundary_audit import (
     hc_claim_boundary_audit,
@@ -136,6 +141,11 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
     ),
     HealthCheck("session-relay", RELAY_TITLE, hc_session_relay),
     HealthCheck(RELAY_ORPHANS_SLUG, RELAY_ORPHANS_TITLE, hc_session_relay_orphans),
+    HealthCheck(
+        UNATTENDED_POSTURE_SLUG,
+        UNATTENDED_POSTURE_TITLE,
+        hc_harness_unattended_posture,
+    ),
     HealthCheck(
         "project-hook-config-validity",
         "Project Cursor-scanned hook configs are regular and schema-valid",
