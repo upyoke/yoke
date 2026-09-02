@@ -22,8 +22,13 @@ from yoke_core.domain.progress_log import (
 )
 from yoke_core.domain.floor_attestation import (
     evidence_workflow_mismatch,
-    resolved_floor_rung,
     sha_fields_required,
+    uses_agent_attested_floor,
+)
+from yoke_core.domain.gate_satisfier_ladder_catalog import RUNG_AGENT_ATTESTED
+from yoke_core.domain.gate_satisfier_resolution import (
+    missing_done_evidence_rungs,
+    record_done_evidence_rungs,
 )
 from yoke_core.domain.item_json_sections import (
     read_json_section,
@@ -69,11 +74,13 @@ def _row_dict(cursor: Any) -> Optional[dict[str, Any]]:
 def _require_evidence_workflow(conn: Any, item_id: int) -> dict[str, Any]:
     """Return the item row, refusing a workflow that owns no such record."""
     marker = _p(conn)
-    row = _row_dict(conn.execute(
-        "SELECT id, workflow_id, workflow_posture, status, project_id "
-        f"FROM items WHERE id = {marker}",
-        (int(item_id),),
-    ))
+    row = _row_dict(
+        conn.execute(
+            "SELECT id, workflow_id, workflow_posture, status, project_id "
+            f"FROM items WHERE id = {marker}",
+            (int(item_id),),
+        )
+    )
     if row is None:
         raise LookupError(f"item {item_id} does not exist")
     mismatch = evidence_workflow_mismatch(str(row["workflow_id"]), int(item_id))
@@ -86,9 +93,8 @@ def _delivers_merge_free(conn: Any, item_id: int) -> bool:
     """Whether the item's pinned workflow closes without a merge commit.
 
     An item whose workflow never produces a merge cannot supply merge
-    SHAs, so its close-out records the agent-attested floor instead. An
-    unreadable pin answers no rather than guessing: the closure gate then
-    refuses by name for the missing floor stamp.
+    SHAs, so its close-out uses the agent-attested floor instead. An unreadable
+    pin answers no rather than guessing; the closure gate then requires SHAs.
     """
     try:
         runtime = load_item_workflow_runtime(conn, int(item_id))
@@ -104,13 +110,12 @@ def _append_close_out_progress(
     result_summary: str,
     merge_sha: str,
     recorded_at: str,
-    floor_rung: str = "",
 ) -> None:
     """Append the landed outcome once, before the item becomes terminal."""
     marker = (
         f"Merge SHA: `{merge_sha}`"
         if merge_sha
-        else f"Floor: `{floor_rung}`"
+        else f"Satisfier: `{RUNG_AGENT_ATTESTED}`"
     )
     placeholder = _p(conn)
     row = conn.execute(
@@ -167,9 +172,11 @@ def record_dash_evidence(
     clean_status = str(verification_status).strip().casefold()
     clean_commit = str(commit_sha).strip()
     clean_merge = str(merge_sha).strip()
-    files = list(dict.fromkeys(
-        str(value).strip() for value in touched_files if str(value).strip()
-    ))
+    files = list(
+        dict.fromkeys(
+            str(value).strip() for value in touched_files if str(value).strip()
+        )
+    )
     if not clean_result:
         raise ValueError("result_summary is required")
     if not clean_verification:
@@ -178,13 +185,14 @@ def record_dash_evidence(
         raise ValueError(_status_rejection_message(verification_status))
     clean_tree_root = str(tree_root).strip()
     clean_tree_head = str(tree_head_sha).strip()
-    stamped_rung = resolved_floor_rung(
+    agent_attested = uses_agent_attested_floor(
         no_changes=bool(no_changes),
         merge_free_delivery=_delivers_merge_free(conn, item_id),
         merge_sha=clean_merge,
     )
     require_shas = sha_fields_required(
-        no_changes=bool(no_changes), floor_rung=stamped_rung,
+        no_changes=bool(no_changes),
+        agent_attested=agent_attested,
     )
     sha_fields = (
         ("commit_sha", clean_commit),
@@ -211,6 +219,12 @@ def record_dash_evidence(
         str(key): str(value).strip().casefold()
         for key, value in dict(posture_checks or {}).items()
     }
+    record_done_evidence_rungs(
+        conn,
+        item_id=item_id,
+        merge_recorded=bool(clean_merge),
+        agent_attested=agent_attested,
+    )
     recorded_at = iso8601_now()
     payload = {
         "schema": 1,
@@ -222,7 +236,6 @@ def record_dash_evidence(
         "merge_sha": clean_merge,
         "touched_files": files,
         "no_changes": bool(no_changes),
-        "floor_rung": stamped_rung,
         "actor_id": str(actor_id or "").strip(),
         "posture_checks": checks,
         "verification_tree": {
@@ -244,7 +257,6 @@ def record_dash_evidence(
         result_summary=clean_result,
         merge_sha=clean_merge,
         recorded_at=recorded_at,
-        floor_rung=stamped_rung,
     )
     conn.commit()
     return payload
@@ -254,7 +266,9 @@ def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
     """Validate execution evidence; posture is checked by real authorities."""
     _require_evidence_workflow(conn, item_id)
     evidence = read_json_section(
-        conn, item_id=item_id, section=DASH_EVIDENCE_SECTION,
+        conn,
+        item_id=item_id,
+        section=DASH_EVIDENCE_SECTION,
     )
     if evidence is None:
         return DashEvidenceVerdict(False, ("execution_evidence",), None)
@@ -265,9 +279,14 @@ def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
         missing.append("verification_summary")
     if not _status_is_passing(evidence.get("verification_status") or ""):
         missing.append("passing_verification")
+    agent_attested = uses_agent_attested_floor(
+        no_changes=bool(evidence.get("no_changes")),
+        merge_free_delivery=_delivers_merge_free(conn, item_id),
+        merge_sha=str(evidence.get("merge_sha") or ""),
+    )
     require_shas = sha_fields_required(
         no_changes=bool(evidence.get("no_changes")),
-        floor_rung=str(evidence.get("floor_rung") or ""),
+        agent_attested=agent_attested,
     )
     if require_shas:
         if not _SHA_PATTERN.fullmatch(str(evidence.get("commit_sha") or "")):
@@ -276,6 +295,14 @@ def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
             missing.append("merge_sha")
     if not evidence.get("touched_files") and not evidence.get("no_changes"):
         missing.append("touched_files")
+    missing.extend(
+        missing_done_evidence_rungs(
+            conn,
+            item_id=item_id,
+            merge_recorded=bool(str(evidence.get("merge_sha") or "")),
+            agent_attested=agent_attested,
+        )
+    )
     return DashEvidenceVerdict(not missing, tuple(missing), evidence)
 
 

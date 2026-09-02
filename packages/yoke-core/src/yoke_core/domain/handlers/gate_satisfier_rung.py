@@ -18,7 +18,7 @@ full narrative in ``refusal`` for the gate to print verbatim.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 
@@ -65,25 +65,15 @@ def _connect_rw() -> Any:
     return db_helpers.connect()
 
 
-def _project_id(conn: Any, item_id: int) -> Optional[int]:
-    from yoke_core.domain import db_backend
-
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"SELECT project_id FROM items WHERE id = {marker}", (item_id,)
-    ).fetchone()
-    return int(row[0]) if row else None
-
-
 def handle_resolve(request: FunctionCallRequest) -> HandlerOutcome:
     """Resolve one obligation's ladder for one item and record the outcome."""
-    from yoke_core.domain.gate_satisfier_facts import load_project_facts
-    from yoke_core.domain.gate_satisfier_ladder import (
-        render_refusal,
-        resolve_ladder,
+    from yoke_core.domain.gate_satisfier_resolution import (
+        DerivedFactsNotConverged,
+        ItemResolutionTargetMissing,
+        ResolutionOnlyObligation,
+        UnknownGateObligation,
+        resolve_and_record_item_rung,
     )
-    from yoke_core.domain.gate_satisfier_ladder_catalog import LADDERS
-    from yoke_core.domain.gate_satisfier_stamp import record_refusal, record_rung
 
     if request.target.item_id is None:
         return _err(
@@ -95,70 +85,30 @@ def handle_resolve(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:  # noqa: BLE001 - normalize validation shape
         return _err("payload_invalid", str(exc))
 
-    ladder = LADDERS.get(payload.obligation)
-    if ladder is None:
-        return _err(
-            "obligation_unknown",
-            f"no satisfier ladder is registered for obligation "
-            f"{payload.obligation!r}; known obligations are "
-            f"{', '.join(sorted(LADDERS))}",
-        )
-
     observed = {
-        key: (fact.present, fact.detail)
-        for key, fact in payload.observed.items()
+        key: (fact.present, fact.detail) for key, fact in payload.observed.items()
     }
     try:
         with _connect_rw() as conn:
-            project_id = _project_id(conn, item_id)
-            if project_id is None:
-                return _err(
-                    "item_not_found",
-                    f"item {item_id} has no row in items, so the project "
-                    "whose facts this ladder resolves against is unknown",
-                )
-            facts = load_project_facts(
-                conn, project_id, item_id=item_id, observed=observed
-            )
-            resolution = resolve_ladder(ladder, facts)
-            if not resolution.satisfied:
-                record_refusal(
-                    conn,
-                    item_id=item_id,
-                    ladder=ladder,
-                    resolution=resolution,
-                    target_status=payload.target_status,
-                )
-                return HandlerOutcome(
-                    result_payload={
-                        "obligation": ladder.obligation,
-                        "satisfied": False,
-                        "refusal": render_refusal(ladder, resolution),
-                        "facts": resolution.facts,
-                    },
-                    primary_success=True,
-                )
-            stamped = record_rung(
+            result = resolve_and_record_item_rung(
                 conn,
                 item_id=item_id,
-                ladder=ladder,
-                resolution=resolution,
+                obligation=payload.obligation,
+                observed=observed,
                 target_status=payload.target_status,
             )
+    except UnknownGateObligation as exc:
+        return _err("obligation_unknown", str(exc))
+    except ItemResolutionTargetMissing as exc:
+        return _err("item_not_found", str(exc))
+    except ResolutionOnlyObligation as exc:
+        return _err("obligation_resolution_only", str(exc))
+    except DerivedFactsNotConverged as exc:
+        return _err("derived_facts_not_converged", str(exc))
     except Exception as exc:  # noqa: BLE001 - surfaced so the gate aborts
         return _err("gate_satisfier_resolve_failed", str(exc))
 
-    return HandlerOutcome(
-        result_payload={
-            "obligation": ladder.obligation,
-            "satisfied": True,
-            "rung_id": resolution.rung_id,
-            "detail": ladder.rung(resolution.rung_id).summary,
-            "facts": resolution.facts,
-            "stamp_recorded": stamped,
-        },
-        primary_success=True,
-    )
+    return HandlerOutcome(result_payload=result, primary_success=True)
 
 
 __all__ = [

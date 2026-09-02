@@ -7,11 +7,11 @@ remote call default. Those are observations, not declarations, so they
 get their own provenance and their own refresh cycle rather than being
 smuggled into the capability registry.
 
-Convergence runs from ``project.snapshot.sync``, the same place path
-context refreshes, for the same reason: these facts follow the project's
-actual state, so they should be recomputed exactly when that state is
-being re-read. Each row records what it was observed from, so a reader
-can tell "no remote" from "nobody has looked".
+Convergence runs from ``project.snapshot.sync`` and immediately before an
+item-scoped satisfier ladder resolves. Snapshot sync keeps the cache warm;
+resolution-time convergence guarantees a project that never publishes a
+path snapshot still has a real extended registry. Each row records what it
+was observed from, so a reader can tell "no remote" from "nobody has looked".
 
 Every fact here is derived from control-plane state alone. Facts only a
 checkout can answer — whether a particular ref resolves in a particular
@@ -40,7 +40,10 @@ def _p(conn: Any) -> str:
 
 
 def _scalar(
-    conn: Any, sql: str, params: Tuple[Any, ...], *columns: Tuple[str, str],
+    conn: Any,
+    sql: str,
+    params: Tuple[Any, ...],
+    *columns: Tuple[str, str],
 ) -> Any:
     """Read one value, or ``None`` when a column the read needs is absent.
 
@@ -141,17 +144,14 @@ _OBSERVERS = (
 DERIVED_FACT_KEYS: Tuple[str, ...] = tuple(key for key, _obs in _OBSERVERS)
 
 
-def observe_now(conn: Any, project_id: int, fact_key: str) -> Optional[
-    Tuple[bool, str, str]
-]:
+def observe_now(
+    conn: Any, project_id: int, fact_key: str
+) -> Optional[Tuple[bool, str, str]]:
     """Observe one fact live, without storing it.
 
-    A converged row is the normal source, but a project that has not
-    synced since these facts existed has no rows at all — and treating
-    that as unknown would block correct work behind a refusal the
-    operator did nothing to earn. Every observer is a cheap
-    control-plane read, so a missing row is answered on the spot and the
-    stored convergence stays a warm cache rather than a precondition.
+    A converged row is the normal source. Resolution-only project lookups can
+    still encounter a project before an item-scoped ladder refreshes it, so a
+    missing row is answered on the spot rather than treated as unknown.
     Returns ``None`` for a fact key no observer owns.
     """
     for key, observer in _OBSERVERS:
@@ -197,14 +197,16 @@ def converge_derived_facts(
             warnings.append(
                 "derived project facts were observed but could not be "
                 "stored; the facts still resolve live, but the cache is "
-                "stale until the next `yoke project snapshot sync`"
+                "stale until the next item gate or `yoke project snapshot sync`"
             )
         return {"stored": False, "facts": summary}
     return {"stored": True, "facts": summary}
 
 
 def _write_rows(
-    conn: Any, project_id: int, rows: List[Tuple[str, bool, str, str]],
+    conn: Any,
+    project_id: int,
+    rows: List[Tuple[str, bool, str, str]],
 ) -> bool:
     p = _p(conn)
     now = iso8601_now()

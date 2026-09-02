@@ -12,10 +12,10 @@ instead of being reconstructed by readers:
     down is undeclaring it.
 
 ``derived:``
-    Truth nobody declared but the control plane can observe about
-    itself, converged into ``project_derived_facts`` on every
-    ``project.snapshot.sync``, and observed live when a project has not
-    converged one yet. See
+    Truth nobody declared but the control plane can observe about itself,
+    converged into ``project_derived_facts`` at item-scoped ladder resolution
+    and every ``project.snapshot.sync``. Resolution-only lookups retain a
+    live observation for a project not yet converged. See
     :mod:`yoke_core.domain.project_derived_facts`.
 
 ``item:``
@@ -108,7 +108,8 @@ class CapabilityFacts:
     facts: Dict[str, Fact] = field(default_factory=dict)
 
     def with_observed(
-        self, observed: Mapping[str, Tuple[bool, str]],
+        self,
+        observed: Mapping[str, Tuple[bool, str]],
     ) -> "CapabilityFacts":
         """Return a copy carrying this call's site-probed facts.
 
@@ -150,9 +151,7 @@ class CapabilityFacts:
 
     def snapshot(self) -> Dict[str, str]:
         """Return a flat ``key -> verdict`` map for durable stamping."""
-        return {
-            key: fact.verdict.value for key, fact in sorted(self.facts.items())
-        }
+        return {key: fact.verdict.value for key, fact in sorted(self.facts.items())}
 
 
 def _p(conn: Any) -> str:
@@ -180,17 +179,13 @@ def load_project_facts(
             key=capability_fact(capability_type),
             verdict=FactVerdict.PRESENT,
             value=capability_type,
-            detail=(
-                f"project declares the {capability_type!r} capability"
-            ),
+            detail=(f"project declares the {capability_type!r} capability"),
         )
     declared_branch = _declared_default_branch(conn, project_id)
     if declared_branch is not None:
         facts[DECLARED_DEFAULT_BRANCH] = Fact(
             key=DECLARED_DEFAULT_BRANCH,
-            verdict=(
-                FactVerdict.PRESENT if declared_branch else FactVerdict.ABSENT
-            ),
+            verdict=(FactVerdict.PRESENT if declared_branch else FactVerdict.ABSENT),
             value=declared_branch,
             detail=(
                 f"projects.default_branch is {declared_branch!r}"
@@ -218,8 +213,7 @@ def _declared_capability_types(conn: Any, project_id: int) -> list[str]:
         return []
     p = _p(conn)
     rows = conn.execute(
-        f"SELECT type FROM project_capabilities WHERE project_id = {p} "
-        "ORDER BY type",
+        f"SELECT type FROM project_capabilities WHERE project_id = {p} ORDER BY type",
         (project_id,),
     ).fetchall()
     return [str(row[0]) for row in rows if row and row[0]]
@@ -241,12 +235,10 @@ def _declared_default_branch(conn: Any, project_id: int) -> Optional[str]:
 def _derived_facts(conn: Any, project_id: int) -> Dict[str, Fact]:
     """Read the converged derived facts, observing live where none exist.
 
-    Convergence at snapshot sync is the normal source. A project that
-    has not synced since these facts existed has no rows, and reading
-    that as unknown would refuse correct work for a reason the operator
-    did nothing to cause — so each missing fact is observed on the spot
-    from the same control-plane reads the convergence uses, and the
-    stored rows stay a warm cache rather than a precondition.
+    Item-scoped ladder resolution converges before reaching this reader, while
+    project-scoped resolution-only lookups can arrive first. Each missing fact
+    is therefore still observed on the spot instead of becoming an unknown
+    refusal; the next item-scoped resolution persists the same observation.
     """
     from yoke_core.domain.project_derived_facts import DERIVED_FACT_KEYS, observe_now
 

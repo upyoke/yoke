@@ -11,9 +11,9 @@ So each obligation carries an ordered ladder of rungs, highest first.
 Each rung names the facts it needs. At transition time the ladder
 resolves against the project's extended capability registry (declared
 capability rows, control-plane-derived facts, and facts observed at the
-gate site) and the highest reachable rung is the one that runs. The item
-then records which rung answered — see
-:mod:`yoke_core.domain.gate_satisfier_stamp`.
+gate site) and the highest reachable rung is the one that runs. Item-scoped
+obligations record which rung answered; a project-scoped lookup with no item
+identity must declare itself resolution-only in the ladder model.
 
 Three rules make the mechanism honest, and every consumer inherits them:
 
@@ -33,9 +33,17 @@ Three rules make the mechanism honest, and every consumer inherits them:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from yoke_core.domain.gate_satisfier_facts import CapabilityFacts, FactVerdict
+
+
+class SatisfierRecordingScope(str, Enum):
+    """Where a ladder's resolved rung is durably attributable."""
+
+    ITEM = "item"
+    RESOLUTION_ONLY = "resolution_only"
 
 
 @dataclass(frozen=True)
@@ -61,14 +69,26 @@ class SatisfierLadder:
     #: What an operator does when no rung is reachable and no capability
     #: undeclaration applies.
     remedy: str
+    #: Item-scoped gates stamp their rung. Project-scoped lookups that have no
+    #: item identity must declare why they are resolution-only.
+    recording_scope: SatisfierRecordingScope = SatisfierRecordingScope.ITEM
+    recording_reason: str = ""
+
+    def __post_init__(self) -> None:
+        if (
+            self.recording_scope is SatisfierRecordingScope.RESOLUTION_ONLY
+            and not self.recording_reason.strip()
+        ):
+            raise ValueError(
+                f"resolution-only ladder {self.obligation!r} must explain "
+                "why it has no durable item stamp"
+            )
 
     def rung(self, rung_id: str) -> SatisfierRung:
         for candidate in self.rungs:
             if candidate.rung_id == rung_id:
                 return candidate
-        raise KeyError(
-            f"ladder {self.obligation!r} has no rung {rung_id!r}"
-        )
+        raise KeyError(f"ladder {self.obligation!r} has no rung {rung_id!r}")
 
 
 @dataclass(frozen=True)
@@ -113,7 +133,8 @@ class LadderUnsatisfied(Exception):
 
 
 def resolve_ladder(
-    ladder: SatisfierLadder, facts: CapabilityFacts,
+    ladder: SatisfierLadder,
+    facts: CapabilityFacts,
 ) -> LadderResolution:
     """Return the highest reachable rung, or a resolution with none.
 
@@ -142,7 +163,9 @@ def resolve_ladder(
 
 
 def _first_missing_fact(
-    rung_id: str, requires: Sequence[str], facts: CapabilityFacts,
+    rung_id: str,
+    requires: Sequence[str],
+    facts: CapabilityFacts,
 ) -> Optional[RungRejection]:
     """Return the first fact that puts ``rung_id`` out of reach."""
     for key in requires:
@@ -159,7 +182,8 @@ def _first_missing_fact(
 
 
 def require_rung(
-    ladder: SatisfierLadder, facts: CapabilityFacts,
+    ladder: SatisfierLadder,
+    facts: CapabilityFacts,
 ) -> LadderResolution:
     """Resolve the ladder or raise :class:`LadderUnsatisfied`.
 
@@ -174,7 +198,8 @@ def require_rung(
 
 
 def render_refusal(
-    ladder: SatisfierLadder, resolution: LadderResolution,
+    ladder: SatisfierLadder,
+    resolution: LadderResolution,
 ) -> str:
     """Render the operator-facing narrative for an unsatisfiable ladder."""
     lines = [
@@ -214,6 +239,7 @@ __all__ = [
     "LadderUnsatisfied",
     "RungRejection",
     "SatisfierLadder",
+    "SatisfierRecordingScope",
     "SatisfierRung",
     "render_refusal",
     "require_rung",

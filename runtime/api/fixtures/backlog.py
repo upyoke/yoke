@@ -29,6 +29,9 @@ from typing import Any
 import pytest
 
 from yoke_core.domain.actors import seed_canonical_actors
+from yoke_core.domain.gate_satisfaction_schema import (
+    create_gate_satisfaction_tables,
+)
 from yoke_core.domain.sql_json import JSONB_COLUMNS  # noqa: F401 — imported for cross-reference
 from runtime.api.fixtures.backlog_inserts import (
     insert_deployment_run,
@@ -97,6 +100,7 @@ def test_db():
     from runtime.api.fixtures.pg_testdb import test_database
 
     with test_database() as conn:
+        create_gate_satisfaction_tables(conn)
         seed_test_canonical_actors(conn)
         conn.commit()
         yield conn

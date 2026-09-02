@@ -7,15 +7,14 @@ Two additive tables carry the mechanism described in
     Project-scoped operating truth that nobody declared but the control
     plane can observe — whether a remote is recorded, whether a
     verification command is registered, whether environments exist, and
-    what default branch the remote reports. Rows converge on every
-    ``project.snapshot.sync`` so the facts refresh whenever the file
-    inventory does, and each row names the observation that wrote it.
-    Absence of a row means *unknown*, never *false*: a ladder that needs
-    an unknown fact refuses and names the sync as the recovery.
+    what default branch the remote reports. Rows converge at every item-scoped
+    ladder resolution and ``project.snapshot.sync``; each row names the
+    observation that wrote it. A resolution-only project lookup can observe a
+    missing row live, and the next item gate persists the same fact.
 
 ``item_gate_satisfactions``
-    One row per ``(item_id, obligation)`` recording which rung of the
-    obligation's satisfier ladder actually ran. This is the durable
+    One row per ``(item_id, obligation)`` recording which rung of an
+    item-scoped satisfier ladder actually ran. This is the durable
     answer to "was this done merged with CI, merged locally, or merely
     attested" — the question every fail-open path used to leave
     unanswerable.
@@ -33,7 +32,9 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 def create_gate_satisfaction_tables(conn: Any) -> None:
     """Create the derived-fact and rung-stamp tables (idempotent)."""
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS project_derived_facts (
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -58,7 +59,8 @@ def create_gate_satisfaction_tables(conn: Any) -> None:
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_item_gate_satisfactions_obligation
             ON item_gate_satisfactions(item_id, obligation);
-    """)
+    """,
+    )
 
 
 __all__ = ["create_gate_satisfaction_tables"]

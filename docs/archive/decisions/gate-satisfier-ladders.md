@@ -36,7 +36,9 @@ A gate names an **obligation**. The obligation carries an ordered
 **satisfier ladder**: rungs, highest first, each declaring the facts it
 needs. At transition time the ladder resolves against the project's
 extended capability registry and the highest reachable rung runs. The
-item then records which rung answered.
+item then records which rung answered. A project-scoped lookup with no item
+identity declares itself `resolution_only` in the ladder model and explains
+which downstream item obligation records the actionable proof instead.
 
 Three rules keep it honest, and every consumer inherits them from the
 mechanism rather than re-implementing them:
@@ -60,24 +62,21 @@ kind of claim a fact is:
 | Prefix | Source | Refresh |
 |---|---|---|
 | `declared:` | `project_capabilities` rows and project scalars | operator-authored |
-| `derived:` | `project_derived_facts` | every `project.snapshot.sync` |
+| `derived:` | `project_derived_facts` | item ladder resolution and every `project.snapshot.sync` |
 | `item:` | control-plane state about one item | read at resolution |
 | `observed:` | probed by the calling machine this call | one call |
 
-Derived facts converge at snapshot sync for the same reason path context
-does: they follow the project's live state, so they should be recomputed
-exactly when that state is being re-read. Each row records what it was
-observed from, which is how a reader tells "no remote" from "nobody has
-looked".
+Derived facts converge at snapshot sync and immediately before an item-scoped
+ladder resolves. Snapshot sync keeps the cache warm; resolution-time
+convergence guarantees projects that do not publish path snapshots still have
+a real extended registry. Each row records what it was observed from, which is
+how a reader tells "no remote" from "nobody has looked".
 
-The stored rows are a warm cache, not a precondition. A project that has
-not synced since these facts existed has no rows at all, and reading
-that as unknown would refuse correct work for a reason the operator did
-nothing to cause — the first item to reach done after the release would
-be the one that discovered it. Each observer is a cheap control-plane
-read, so a missing fact is answered on the spot and marked as observed
-live. The `unknown` verdict is reserved for what genuinely cannot be
-answered: an unreadable catalog, or a fact no observer owns.
+Resolution-only project lookups can run before any item gate, so a missing row
+is still answered on the spot and marked as observed live. The next item gate
+persists that same observation. The `unknown` verdict is reserved for what
+genuinely cannot be answered: an unreadable catalog, or a fact no observer
+owns.
 
 The split between `item:` and `observed:` is a transport fact, not a
 taxonomy preference. An https control plane hands the driving machine no
@@ -99,10 +98,16 @@ the rung id, the transition it answered, and the fact snapshot it
 resolved against. It is readable from item detail and paired with
 `GateSatisfierRungStamped` / `GateSatisfierRefused` events.
 
-The stamp is deliberately *not* load-bearing for the verdict: a gate
-proceeds or refuses on the resolution, and a storage failure surfaces as
-a warning. Making the recording a precondition would create a second,
-quieter way to fail.
+Direct-evidence close-out treats that stamp as part of its terminal evidence:
+an unwritable `done_merge_evidence` or `delivery_evidence` row refuses the
+close-out and names schema convergence as the recovery. The evidence blob no
+longer carries a second rung field; merge-free work records `agent_attested`
+only in `item_gate_satisfactions`.
+
+`integration_trunk` is deliberately different. It resolves a project branch
+before an item may exist, so there is no honest `item_id` to stamp. Its ladder
+declares `resolution_only` plus that reason in the model; item-scoped path and
+merge gates record their own obligations after consuming the trunk.
 
 ## What this does not do
 
