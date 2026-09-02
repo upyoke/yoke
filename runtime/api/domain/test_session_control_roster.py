@@ -221,13 +221,13 @@ def test_waiting_posture_uses_stopped_wake_capability() -> None:
     assert row["messageability"]["wake_available"] is True
 
 
-def test_stopped_desktop_session_wakes_through_the_machines_installed_cli() -> None:
+def test_stopped_ide_session_wakes_through_the_machines_installed_cli() -> None:
     conn = _connection()
-    _add_session(conn, surface="claude-desktop", version="1.34493.1")
+    _add_session(conn, surface="claude-vscode", version="2.1.241")
     _add_relay(conn, surface_versions={"claude-cli": "2.1.241"})
 
     routing = session_control_roster_result(
-        [_base_row(surface="claude-desktop", liveness="ended")],
+        [_base_row(surface="claude-vscode", liveness="ended")],
         conn=conn,
         now=NOW,
     )["rows"][0]["messageability"]
@@ -239,11 +239,11 @@ def test_stopped_desktop_session_wakes_through_the_machines_installed_cli() -> N
 
 def test_machine_wake_needs_a_relay_serving_the_sessions_project() -> None:
     conn = _connection()
-    _add_session(conn, surface="claude-desktop", version="1.34493.1")
+    _add_session(conn, surface="claude-vscode", version="2.1.241")
     _add_relay(conn, surface_versions={"claude-cli": "2.1.241"}, project_ids=(11,))
 
     routing = session_control_roster_result(
-        [_base_row(surface="claude-desktop", liveness="ended")],
+        [_base_row(surface="claude-vscode", liveness="ended")],
         conn=conn,
         now=NOW,
     )["rows"][0]["messageability"]
@@ -255,11 +255,11 @@ def test_machine_wake_needs_a_relay_serving_the_sessions_project() -> None:
 
 def test_private_wake_route_accepts_a_newer_patch_version() -> None:
     conn = _connection()
-    _add_session(conn, surface="claude-desktop", version="1.34493.1")
-    _add_relay(conn, surface_versions={"claude-desktop": "1.32885.1"})
+    _add_session(conn, surface="claude-vscode", version="2.1.241")
+    _add_relay(conn, surface_versions={"claude-vscode": "2.1.238"})
 
     routing = session_control_roster_result(
-        [_base_row(surface="claude-desktop", liveness="stale")],
+        [_base_row(surface="claude-vscode", liveness="stale")],
         conn=conn,
         now=NOW,
     )["rows"][0]["messageability"]
@@ -268,6 +268,7 @@ def test_private_wake_route_accepts_a_newer_patch_version() -> None:
     assert routing["wake_operation"] == "message_idle"
     assert routing["wake_interface"] == "private"
     assert routing["wake_available"] is True
+
 
 
 @pytest.mark.parametrize(

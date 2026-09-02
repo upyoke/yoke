@@ -154,7 +154,7 @@ def starved_deliveries(
         f"""SELECT r.session_id AS session_id,
                    r.created_at AS created_at,
                    r.wake_escalation AS wake_escalation,
-                   r.executor_surface AS executor_surface,
+                   s.executor_surface AS executor_surface,
                    s.last_tool_call_at AS last_tool_call_at
               FROM session_message_recipients r
               JOIN harness_sessions s ON s.session_id = r.session_id

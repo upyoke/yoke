@@ -161,8 +161,7 @@ def test_a_starved_desktop_envelope_is_never_woken_and_stays_pending() -> None:
     ).fetchone()[0]
     assert state == "pending"
     skip = conn.execute(
-        "SELECT result_code,evidence FROM session_message_attempts "
-        "WHERE message_id=?",
+        "SELECT result_code,evidence FROM session_message_attempts WHERE message_id=?",
         (message_id,),
     ).fetchone()
     assert skip["result_code"] == "skipped_operation"
@@ -178,9 +177,7 @@ def test_the_operator_is_told_which_chat_holds_the_waiting_message() -> None:
     wake_eligible_recipients(conn, now=STARVED)
 
     notices = [
-        body
-        for body in _operator_notices(conn)
-        if CLAUDE_DESKTOP_SESSION_ID in body
+        body for body in _operator_notices(conn) if CLAUDE_DESKTOP_SESSION_ID in body
     ]
     assert len(notices) == 1
     assert "type anything" in notices[0]
