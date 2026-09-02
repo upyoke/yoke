@@ -3,7 +3,8 @@
 Covers the standalone primitives — :class:`ProgressGate`,
 :func:`annotate_progress_line`, and :func:`load_throttle_policy` —
 without exercising the runner. Runner integration tests live in
-``test_watch_throttle_integration.py``.
+``test_watch_throttle_integration.py``, and the batching that carries
+these decisions to a follower in ``test_watch_progress_digest.py``.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ import pytest
 
 from yoke_core.tools._watch_throttle import (
     Classification,
-    DEFAULT_MIN_INTERVAL_SECONDS,
     DEFAULT_PERCENT_STEP,
     LineClass,
     ProgressGate,
@@ -39,7 +39,7 @@ class TestProgressGate:
     def test_first_progress_line_always_emits(self):
         clock = _FakeClock()
         gate = ProgressGate(
-            ThrottlePolicy(percent_step=5.0, min_interval_seconds=10.0),
+            ThrottlePolicy(percent_step=5.0),
             time_source=clock,
         )
         decision = gate.consider(
@@ -48,14 +48,14 @@ class TestProgressGate:
         assert decision.emit is True
         assert decision.suppressed_count == 0
 
-    def test_below_step_and_within_window_is_suppressed(self):
+    def test_a_tick_below_the_step_is_superseded(self):
         clock = _FakeClock()
         gate = ProgressGate(
-            ThrottlePolicy(percent_step=5.0, min_interval_seconds=10.0),
+            ThrottlePolicy(percent_step=5.0),
             time_source=clock,
         )
         gate.consider(Classification(LineClass.PROGRESS, progress_value=10.0))
-        # +1% within 0s window must suppress.
+        # +1% has not advanced the axis by the step; it is superseded.
         clock.advance(0.5)
         decision = gate.consider(
             Classification(LineClass.PROGRESS, progress_value=11.0)
@@ -66,7 +66,7 @@ class TestProgressGate:
     def test_percent_step_crossed_emits_with_count(self):
         clock = _FakeClock()
         gate = ProgressGate(
-            ThrottlePolicy(percent_step=5.0, min_interval_seconds=999.0),
+            ThrottlePolicy(percent_step=5.0),
             time_source=clock,
         )
         gate.consider(Classification(LineClass.PROGRESS, progress_value=10.0))
@@ -83,26 +83,22 @@ class TestProgressGate:
         assert crossing.emit is True
         assert crossing.suppressed_count == 3
 
-    def test_time_window_emits_for_non_numeric_lines_with_count(self):
+    def test_non_numeric_lines_are_carried_regardless_of_the_step(self):
+        """A database verdict is not superseded by the next one."""
+
         clock = _FakeClock()
         gate = ProgressGate(
-            ThrottlePolicy(percent_step=999.0, min_interval_seconds=10.0),
+            ThrottlePolicy(percent_step=999.0),
             time_source=clock,
         )
-        gate.consider(Classification(LineClass.PROGRESS))
-        clock.advance(2.0)
-        for _ in range(2):
-            d = gate.consider(Classification(LineClass.PROGRESS))
-            assert d.emit is False
-        clock.advance(20.0)
-        decision = gate.consider(Classification(LineClass.PROGRESS))
-        assert decision.emit is True
-        assert decision.suppressed_count == 2
+        for _ in range(4):
+            assert gate.consider(Classification(LineClass.PROGRESS)).emit is True
+        assert gate.total_suppressed == 0
 
     def test_total_suppressed_accumulates_across_emissions(self):
         clock = _FakeClock()
         gate = ProgressGate(
-            ThrottlePolicy(percent_step=10.0, min_interval_seconds=999.0),
+            ThrottlePolicy(percent_step=10.0),
             time_source=clock,
         )
         gate.consider(Classification(LineClass.PROGRESS, progress_value=10.0))
@@ -115,19 +111,19 @@ class TestProgressGate:
         assert gate.total_suppressed == 5
         assert gate.pending_suppressed == 3
 
-    def test_time_window_does_not_short_circuit_inside_percent_step(self):
-        """A tick that crosses ``min_interval_seconds`` but not ``percent_step`` stays suppressed."""
+    def test_elapsed_time_does_not_carry_a_tick_inside_percent_step(self):
+        """Time never carries a numeric tick: only advancing the axis does."""
 
         clock = _FakeClock()
         gate = ProgressGate(
-            ThrottlePolicy(percent_step=10.0, min_interval_seconds=1.0),
+            ThrottlePolicy(percent_step=10.0),
             time_source=clock,
         )
         first = gate.consider(
             Classification(LineClass.PROGRESS, progress_value=1.0)
         )
         assert first.emit is True
-        clock.advance(2.0)
+        clock.advance(600.0)
         second = gate.consider(
             Classification(LineClass.PROGRESS, progress_value=2.0)
         )
@@ -139,7 +135,7 @@ class TestProgressGate:
 
         clock = _FakeClock()
         gate = ProgressGate(
-            ThrottlePolicy(percent_step=10.0, min_interval_seconds=999.0),
+            ThrottlePolicy(percent_step=10.0),
             time_source=clock,
         )
         banner = gate.consider(Classification(LineClass.PROGRESS))
@@ -184,22 +180,17 @@ class TestLoadThrottlePolicy:
         monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "missing.json"))
         policy = load_throttle_policy()
         assert policy.percent_step == DEFAULT_PERCENT_STEP
-        assert policy.min_interval_seconds == DEFAULT_MIN_INTERVAL_SECONDS
 
-    def test_valid_overrides_applied(self, tmp_path, monkeypatch):
+    def test_valid_override_applied(self, tmp_path, monkeypatch):
         config_path = tmp_path / ".yoke" / "config.json"
         config_path.parent.mkdir()
         config_path.write_text(
-            '{"settings": {'
-            '"watcher_progress_percent_step": 12, '
-            '"watcher_progress_min_interval_seconds": 30'
-            '}}\n',
+            '{"settings": {"watcher_progress_percent_step": 12}}\n',
             encoding="utf-8",
         )
         monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config_path))
         policy = load_throttle_policy()
         assert policy.percent_step == 12.0
-        assert policy.min_interval_seconds == 30.0
 
     @pytest.mark.parametrize("bad_value", ["banana", "-1", "0", ""])
     def test_invalid_value_falls_back_to_default(
@@ -208,14 +199,11 @@ class TestLoadThrottlePolicy:
         config_path = tmp_path / ".yoke" / "config.json"
         config_path.parent.mkdir()
         config_path.write_text(
-            '{"settings": {'
-            f'"watcher_progress_percent_step": "{bad_value}", '
-            f'"watcher_progress_min_interval_seconds": "{bad_value}"'
-            '}}\n',
+            '{"settings": '
+            f'{{"watcher_progress_percent_step": "{bad_value}"}}}}\n',
             encoding="utf-8",
         )
         monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config_path))
         policy = load_throttle_policy()
-        # Bad config never silently breaks — defaults take over.
+        # Bad config never silently breaks — the default takes over.
         assert policy.percent_step == DEFAULT_PERCENT_STEP
-        assert policy.min_interval_seconds == DEFAULT_MIN_INTERVAL_SECONDS

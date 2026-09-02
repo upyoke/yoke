@@ -127,7 +127,8 @@ def test_the_platform_control_plane_is_still_excluded(cluster) -> None:
 
 def test_the_watcher_surfaces_the_skip_line(cluster) -> None:
     # A count nobody sees is the silence this exists to end: the preflight
-    # runs for minutes behind a filter, so the line has to classify.
+    # runs for minutes behind a filter, so the line has to classify — as
+    # motion, which reaches the reader inside the run's next digest.
     from yoke_core.tools import watch_preflight
     from yoke_core.tools._watch_throttle import LineClass
 
@@ -137,7 +138,9 @@ def test_the_watcher_surfaces_the_skip_line(cluster) -> None:
         lambda database: f"dbname={database}", emit=emit
     )
 
-    assert watch_preflight.classify_preflight_line(lines[0]).cls is LineClass.SUMMARY
+    assert watch_preflight.classify_preflight_line(lines[0]).cls is (
+        LineClass.PROGRESS
+    )
 
 
 def test_the_janitor_removes_exactly_what_the_fleet_skips() -> None:

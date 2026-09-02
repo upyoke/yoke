@@ -52,7 +52,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_runner
+from yoke_core.tools import _watch_digest, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_session_offer"
@@ -165,6 +165,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Print a ready-to-paste background command + progress-tail pair "
         "and exit. Mints fresh capture paths.",
     )
+    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -219,6 +220,7 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
 def main(argv: Sequence[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
+    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _parse_args(raw)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -236,6 +238,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             wrapper_args=session_offer_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
+            wrapper_options=_watch_digest.streaming_pair_options(
+                flush_seconds
+            ),
         )
         return 0
 
@@ -247,6 +252,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        flush_seconds=_watch_digest.resolve_flush_seconds(
+            ns, flush_seconds
+        ),
     )
 
 

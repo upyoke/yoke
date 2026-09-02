@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 from yoke_core.tools import watch_child_drain, watch_progress_stall
+from yoke_core.tools._watch_digest import ProgressDigest
 from yoke_core.tools._watch_throttle import (
     Classification,
     LineClass,
@@ -92,11 +93,13 @@ def _drain(proc, raw_path: Path, *, settle_child: bool = False):
             kind="probe",
             classifier=_classify,
             gate=ProgressGate(ThrottlePolicy()),
+            # Batching has its own coverage; this drain asserts ordering,
+            # so each carried line comes straight back out.
+            digest=ProgressDigest(kind="probe", flush_seconds=0.0),
             raw_f=raw_f,
             progress_f=raw_f,
             out=raw_f,
             emit_immediate=emitted.append,
-            emit_progress=lambda line, suppressed: emitted.append(line),
             pump_tick=pump_tick,
             clock=time.monotonic,
             deadline=None,

@@ -14,7 +14,7 @@ The classifier maps:
   tree-binding refusal, a stale pending/zero-job dispatch, and the
   degraded-relay retry notice → ``URGENT``.
 - ``Workflow status: <state> (elapsed: Ns, next poll: Ns)`` CI polls →
-  ``SUMMARY`` on the first poll and on every state change, ``NOISE``
+  ``PROGRESS`` on the first poll and on every state change, ``NOISE``
   while the state repeats.
 - The restated outcome (``# qa case run: verdict=...``) and the final
   result envelope → ``SUMMARY``.
@@ -56,7 +56,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain.github_actions_run_stall import STALLED_DISPATCH_TOKEN
-from yoke_core.tools import _watch_runner
+from yoke_core.tools import _watch_digest, _watch_runner
 from yoke_core.tools._watch_pytest_classify import classify_pytest_line
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
@@ -131,15 +131,12 @@ class QaCaseLineClassifier:
     ``queued`` → ``in_progress`` → concluded. A repeat is noise that
     stays in the raw capture and wakes nobody.
 
-    A state change is classified ``SUMMARY`` rather than ``PROGRESS``
-    because it is a status transition, not a repeating tick, and the
-    shared progress gate throttles ticks on a configurable time window —
-    thirty seconds on an installation that has widened it. The gate's
-    early polls are five to twenty seconds apart before the interval
-    settles, so the one transition an operator most wants
-    (``queued`` → ``in_progress``) is exactly the one a time window
-    would swallow. There are at most a handful of transitions in a run;
-    each emits immediately.
+    A state change is ``PROGRESS``: it is motion the reader wants but
+    never has to answer, so it rides the digest with whatever else the
+    window collected. Nothing is lost by batching it — a progress line
+    with no numeric axis is always carried, so every transition reaches
+    the digest in order, and the terminal verdict is ``SUMMARY`` and
+    flushes the digest ahead of itself.
 
     Liveness does not ride on the suppressed ticks: the shared watch
     runner reports its own ``# watch_qa_case no progress for Ns``
@@ -180,7 +177,7 @@ class QaCaseLineClassifier:
             if state == self._last_workflow_state:
                 return Classification(LineClass.NOISE)
             self._last_workflow_state = state
-            return Classification(LineClass.SUMMARY)
+            return Classification(LineClass.PROGRESS)
         return classify_pytest_line(line)
 
 
@@ -265,6 +262,7 @@ def _parse_args(
         help="Print a ready-to-paste background command + progress-tail pair "
         "and exit. Mints fresh capture paths.",
     )
+    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -305,6 +303,7 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
+    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns, case_args = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -321,6 +320,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=case_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
+            wrapper_options=_watch_digest.streaming_pair_options(
+                flush_seconds
+            ),
         )
         return 0
 
@@ -332,6 +334,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        flush_seconds=_watch_digest.resolve_flush_seconds(
+            ns, flush_seconds
+        ),
     )
 
 

@@ -60,14 +60,14 @@ def test_an_unavailable_relay_is_urgent_although_the_pipeline_retries():
         ),
         (
             "  Fleet schema rehearsal: covered for prod (abc); skipping",
-            LineClass.SUMMARY,
+            LineClass.PROGRESS,
         ),
         (
             "  Fleet schema rehearsal: receipt covers release schema shape abc",
-            LineClass.SUMMARY,
+            LineClass.PROGRESS,
         ),
         ("COPY/CONVERGE yoke_alpha: starting rehearsal", LineClass.PROGRESS),
-        ("PASS yoke_alpha: nothing pending -> converged", LineClass.SUMMARY),
+        ("PASS yoke_alpha: nothing pending -> converged", LineClass.PROGRESS),
         ("FAIL yoke_beta: could not copy: pg_dump failed", LineClass.URGENT),
         ("2 passed, 0 failed", LineClass.SUMMARY),
         (
@@ -85,15 +85,29 @@ def test_fleet_schema_rehearsal_phase_reaches_the_deploy_stream(line, expected):
     "line",
     [
         "--- Stage: hosted-release (step_runner: github-actions-workflow) ---",
-        "Pipeline complete for run run-20260805-005",
         "Deployment authority: release_control_plane=prod target_env=stage",
-        "deploy succeeded, finalization pending — re-drive run-20260805-005 to finalize",
         "  Workflow run ID: 30970494088",
         "  Stage 'hosted-release' completed successfully",
+    ],
+)
+def test_stage_boundaries_and_identifiers_ride_the_digest(line):
+    """Motion a release emits a dozen times is batched, not one wake each.
+
+    A seat driving two releases read a dozen one-line turns per pair off
+    these, none of which asked it for anything.
+    """
+    assert _line_class(line) == LineClass.PROGRESS
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Pipeline complete for run run-20260805-005",
+        "deploy succeeded, finalization pending — re-drive run-20260805-005 to finalize",
         "Run run-20260805-005 has no member items (environment-level deploy)",
     ],
 )
-def test_stage_boundaries_and_identifiers_are_summary(line):
+def test_terminal_outcomes_still_wake_immediately(line):
     assert _line_class(line) == LineClass.SUMMARY
 
 

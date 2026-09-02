@@ -17,6 +17,7 @@ from typing import Optional, Sequence, TextIO
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.uv_project import uv_project_root
 from yoke_contracts.watch_cli_forms import cli_form
+from yoke_core.tools._watch_digest import TIER_HELP
 from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
 
 
@@ -151,6 +152,8 @@ def print_streaming_pair(
     stream.write(
         "# Auto-exits when the wrapper writes its exit sentinel.\n"
     )
+    for tier_line in TIER_HELP.rstrip().splitlines():
+        stream.write(f"# {tier_line}\n" if tier_line else "#\n")
     stream.write(
         f"cd {cwd_q} && {_with_connection_env(_invocation(WATCH_TAIL_MODULE))} "
         f"{progress_q}\n"

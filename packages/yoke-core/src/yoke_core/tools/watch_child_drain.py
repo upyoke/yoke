@@ -12,10 +12,12 @@ from pathlib import Path
 from typing import Callable, Mapping, Optional, TextIO
 
 from yoke_core.domain import process_group_reaping
+from yoke_core.tools._watch_digest import ProgressDigest
 from yoke_core.tools._watch_throttle import (
     Classification,
     LineClass,
     ProgressGate,
+    annotate_progress_line,
 )
 from yoke_core.tools.gate_stall_report import handle_quiet_period
 from yoke_core.tools.watch_progress_stall import ProgressEmitWatch
@@ -32,16 +34,31 @@ def quiet_heartbeat_seconds(
     return float(source.get(QUIET_HEARTBEAT_SECONDS_ENV, str(progress_stall_seconds)))
 
 
+def _emit_digest(
+    carried: Optional[str],
+    *,
+    now: float,
+    progress_watch: ProgressEmitWatch,
+    emit_immediate: Callable[[str], None],
+    progress_value: Optional[float] = None,
+) -> None:
+    """Emit one released digest line, when the digest released anything."""
+    if carried is None:
+        return
+    progress_watch.note_progress_emit(now, progress_value)
+    emit_immediate(carried)
+
+
 def _route_line(
     line: str,
     *,
     now: float,
     classifier: Callable[[str], Classification],
     gate: ProgressGate,
+    digest: ProgressDigest,
     raw_f: TextIO,
     progress_watch: ProgressEmitWatch,
     emit_immediate: Callable[[str], None],
-    emit_progress: Callable[[str, int], None],
 ) -> Optional[str]:
     """Record and emit one child line; return it when it is a summary.
 
@@ -55,13 +72,26 @@ def _route_line(
     if cls is LineClass.NOISE:
         return None
     if cls in (LineClass.URGENT, LineClass.SUMMARY, LineClass.METADATA):
+        # An immediate line carries the motion that led to it: flushing
+        # first means a wake never arrives without its own context.
+        _emit_digest(
+            digest.flush(),
+            now=now,
+            progress_watch=progress_watch,
+            emit_immediate=emit_immediate,
+        )
         progress_watch.note_progress_emit(now)
         emit_immediate(line)
         return line if cls is LineClass.SUMMARY else None
     decision = gate.consider(classification)
     if decision.emit:
-        progress_watch.note_progress_emit(now, classification.progress_value)
-        emit_progress(line, decision.suppressed_count)
+        _emit_digest(
+            digest.add(annotate_progress_line(line, decision.suppressed_count)),
+            now=now,
+            progress_watch=progress_watch,
+            emit_immediate=emit_immediate,
+            progress_value=classification.progress_value,
+        )
     return None
 
 
@@ -71,11 +101,11 @@ def drain_watched_child(
     kind: str,
     classifier: Callable[[str], Classification],
     gate: ProgressGate,
+    digest: ProgressDigest,
     raw_f: TextIO,
     progress_f: TextIO,
     out: TextIO,
     emit_immediate: Callable[[str], None],
-    emit_progress: Callable[[str, int], None],
     pump_tick: Callable[[], None],
     clock: Callable[[], float],
     deadline: float | None,
@@ -102,9 +132,21 @@ def drain_watched_child(
             wait_seconds = progress_watch.next_wait_seconds(
                 now, quiet_seconds=quiet_seconds, deadline=deadline
             )
+            # A window that closes while the child is quiet still owes the
+            # follower its digest, so the wait cannot outrun the window.
+            due_in = digest.seconds_until_flush()
+            if due_in is not None:
+                wait_seconds = min(wait_seconds, due_in)
             events = selector.select(timeout=wait_seconds)
             pump_tick()
             now = clock()
+            if digest.seconds_until_flush() == 0.0:
+                _emit_digest(
+                    digest.flush(),
+                    now=now,
+                    progress_watch=progress_watch,
+                    emit_immediate=emit_immediate,
+                )
             if not events:
                 if proc.poll() is not None:
                     # An exited child is not a drained one. Its last write
@@ -124,10 +166,10 @@ def drain_watched_child(
                             now=clock(),
                             classifier=classifier,
                             gate=gate,
+                            digest=digest,
                             raw_f=raw_f,
                             progress_watch=progress_watch,
                             emit_immediate=emit_immediate,
-                            emit_progress=emit_progress,
                         )
                         if summary is not None:
                             last_summary = summary
@@ -168,10 +210,10 @@ def drain_watched_child(
                     now=now,
                     classifier=classifier,
                     gate=gate,
+                    digest=digest,
                     raw_f=raw_f,
                     progress_watch=progress_watch,
                     emit_immediate=emit_immediate,
-                    emit_progress=emit_progress,
                 )
                 if summary is not None:
                     last_summary = summary

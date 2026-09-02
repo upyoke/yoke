@@ -33,9 +33,7 @@ from yoke_core.tools._watch_throttle import (
 SIMPLE_FILTER = re.compile(r"^MATCH")
 # A throttle policy with effectively-no throttling so test fixtures that
 # don't care about cadence emit every progress line they see.
-PASSTHROUGH_POLICY = ThrottlePolicy(
-    percent_step=0.0001, min_interval_seconds=0.0001
-)
+PASSTHROUGH_POLICY = ThrottlePolicy(percent_step=0.0001)
 
 
 def _python_emit_script(tmp_path: Path, lines: list[str], exit_code: int) -> Path:

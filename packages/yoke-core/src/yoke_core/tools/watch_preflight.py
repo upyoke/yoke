@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_runner
+from yoke_core.tools import _watch_digest, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_preflight"
@@ -33,13 +33,18 @@ PREFLIGHT_URGENT_RE = re.compile(
     r"|^(?:[\w.]*Error|[\w.]*Exception):|^fatal:)",
     re.IGNORECASE,
 )
+# Terminal outcomes: what the whole fleet came to, and whether the
+# receipt the release gate reads was written.
 PREFLIGHT_SUMMARY_RE = re.compile(
-    r"(^PASS\b|^\d+ passed,\s+\d+ failed\b|^receipt recorded\b"
-    r"|^scratch databases skipped\b)",
+    r"(^\d+ passed,\s+\d+ failed\b|^receipt recorded\b)",
     re.IGNORECASE,
 )
+# Motion: a fleet rehearsal names its artifact, then passes one database
+# at a time. Every one of those verdicts is distinct content, so the
+# digest carries them all rather than dropping any.
 PREFLIGHT_PROGRESS_RE = re.compile(
-    r"(^engine artifact:|^environment:|^rehearsal cluster:"
+    r"(^PASS\b|^scratch databases skipped\b"
+    r"|^engine artifact:|^environment:|^rehearsal cluster:"
     r"|^\s*(?:copy(?:ing)?|converg(?:e|ing))\b)",
     re.IGNORECASE,
 )
@@ -135,6 +140,7 @@ def _parse_args(
         help="Print a ready-to-paste background command + progress-tail pair "
         "and exit. Mints fresh capture paths.",
     )
+    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -177,6 +183,7 @@ def _strip_separator(passthrough: Sequence[str]) -> list[str]:
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
+    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -190,6 +197,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=passthrough,
             raw_capture=raw_path,
             progress_capture=progress_path,
+            wrapper_options=_watch_digest.streaming_pair_options(
+                flush_seconds
+            ),
         )
         return 0
 
@@ -201,6 +211,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        flush_seconds=_watch_digest.resolve_flush_seconds(
+            ns, flush_seconds
+        ),
     )
 
 
