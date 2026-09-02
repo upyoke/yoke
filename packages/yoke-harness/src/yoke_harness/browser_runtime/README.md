@@ -49,7 +49,8 @@ changes, including pull-request and merge-queue trees.
 ## Runtime Files
 
 - `src/daemon.js`: daemon entry point, state file management, idle timer
-- `src/authorize.js`: headed sign-in window for a project's persistent profile
+- `src/authorize.js`: plain (non-automated) sign-in window for a project's
+  persistent profile
 - `src/server.js`: Express HTTP server with bearer auth middleware
 - `src/browser-manager.js`: Playwright browser lifecycle
 - `src/snapshot.js`: accessibility tree extraction with ref annotation
@@ -65,11 +66,16 @@ file before sending authenticated daemon requests.
 
 ## Persistent Profile
 
-`yoke browser authorize` opens one project's browser profile in a headed
-window so the operator can sign in once; every context the daemon later hands
-out for that project is signed into whatever they signed into. An agent never
-completes a sign-in. The profile lives with the project's machine-local
-capability secrets at
+`yoke browser authorize` opens one project's browser profile in a plain window
+of this runtime's own Chromium so the operator can sign in once; every context
+the daemon later hands out for that project is signed into whatever they signed
+into. An agent never completes a sign-in. The window is a directly spawned
+browser process rather than a Playwright context, because an
+automation-controlled browser is refused by identity providers — Google's
+sign-in answers one with "Couldn't sign you in. This browser or app may not be
+secure" — and it is this runtime's own binary because the profile's cookies are
+encrypted against that binary's OS keychain entry. The profile lives with the
+project's machine-local capability secrets at
 `~/.yoke/secrets/capability-secrets/<project>/browser-control/profile`, and a
 project with no profile still gets a clean throwaway context. Full contract:
 [Persistent Browser Profile](../../../../../docs/browser-substrate/persistent-profile.md).

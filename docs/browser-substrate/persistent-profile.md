@@ -1,8 +1,9 @@
 # Persistent Browser Profile
 
 An agent must never complete a sign-in. So the signed-in state a Browser case
-or an exploratory walker needs comes from the operator, once, in a headed
-window — and every worker context the daemon hands out afterwards inherits it.
+or an exploratory walker needs comes from the operator, once, in a browser
+window they drive themselves — and every worker context the daemon hands out
+afterwards inherits it.
 
 Without this, every context the daemon opened started with an empty cookie
 jar, and any criterion rendered behind a dashboard sign-in stayed
@@ -37,11 +38,31 @@ yoke browser authorize --project yoke
 yoke browser authorize --url https://app.upyoke.com
 ```
 
-The command opens the profile in a headed Chromium window and waits until you
-close it. Sign into as many sites as you like; whatever the window ends up
-holding is what the project's Browser cases and walkers get. There are no
-origin lists, no declarations, no per-site probes, and no exported storage
-state.
+The command opens the profile in a plain window of the daemon's own Chromium
+and waits until you close it. Sign into as many sites as you like; whatever the
+window ends up holding is what the project's Browser cases and walkers get.
+There are no origin lists, no declarations, no per-site probes, and no exported
+storage state.
+
+### Why the window is plain, and why it is that binary
+
+The window is a directly spawned browser process — `--user-data-dir` on the
+profile, plus the first-run and default-browser prompts turned off — and never
+a Playwright context. Playwright's `launchPersistentContext` runs the browser
+under automation control: `--enable-automation`, `navigator.webdriver`, an
+attached debugging session. Google's sign-in refuses exactly that shape with
+"Couldn't sign you in. This browser or app may not be secure", listing browsers
+"being controlled through software automation rather than a human" among what
+it will not accept. So a profile opened through Playwright could not be signed
+into through Google at all, which is the sign-in most operators need. The fix
+is to stop presenting as automation, not to mask the signals; hiding
+`navigator.webdriver` is a losing arms race against a published policy.
+
+It has to be the same binary the daemon drives — Playwright's own Chromium,
+resolved through `chromium.executablePath()`. The profile's cookies are
+encrypted against that binary's OS keychain entry, so a profile signed in with
+the daemon's Chromium is readable by the daemon afterwards, while one signed in
+with Google Chrome or Safari writes cookies the daemon cannot decrypt.
 
 Chromium locks a profile directory and the daemon is a machine singleton, so
 `authorize` stops a running daemon first. The next case run starts it again on
