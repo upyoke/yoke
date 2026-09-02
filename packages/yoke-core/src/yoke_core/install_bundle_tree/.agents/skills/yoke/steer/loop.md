@@ -222,8 +222,9 @@ Send an item-addressed wake first:
 printf '%s' "WAKE PREFIX-N: resume the assigned routed leg and report status" | yoke say --item PREFIX-N --stdin
 ```
 
-Never hand-wake a parked worker: on a harness with no idle wake it escalates
-to a relay wake on the first sweep pass, and the receipt names why. Read it:
+Never hand-wake a parked CLI worker: on a harness with no idle wake it
+escalates to a relay wake on the first sweep pass, and the receipt names why.
+A parked desktop session is never escalated and stays yours to wake. Read it:
 
 ```text
 yoke db read "SELECT session_id,state,injection_count,wake_escalation,created_at FROM session_message_recipients WHERE session_id = '{SESSION_ID}' AND state = 'pending' AND injection_count = 0 ORDER BY created_at DESC"

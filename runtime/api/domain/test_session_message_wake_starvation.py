@@ -9,6 +9,7 @@ from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_starvation import (
     PARKED_WITHOUT_IDLE_WAKE,
     STARVED_HOOK_ROUTE,
+    parked_without_idle_wake,
 )
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_versions import wake_operation
@@ -281,3 +282,43 @@ def test_one_parked_escalation_per_recipient_per_window() -> None:
     next_window = early + GRACE + timedelta(seconds=1)
     _stamp(conn, when=next_window)
     assert len(wake_eligible_recipients(conn, now=next_window)) == 1
+
+
+def _parked_row(surface: str, version: str) -> dict:
+    return {
+        "state": "pending",
+        "injection_count": 0,
+        "message_created_at": NOW_TEXT,
+        "last_tool_call_at": NOW_TEXT,
+        "mode": "parked",
+        "executor": "codex",
+        "executor_surface": surface,
+        "executor_version": version,
+    }
+
+
+def test_only_a_surface_with_its_own_stopped_route_is_escalated() -> None:
+    later = NOW + timedelta(seconds=1)
+    headless = _parked_row("codex-cli", "0.148.0a15")
+    desktop = _parked_row("codex-desktop", "26.814.41407")
+    assert parked_without_idle_wake(headless, grace_seconds=300, now=later)
+    # A desktop conversation is a person's open window. Its capability
+    # declares no stopped route of its own, and resuming it through the
+    # same-machine CLI peer would fork the transcript they are reading.
+    assert not parked_without_idle_wake(desktop, grace_seconds=300, now=later)
+
+
+def test_a_parked_desktop_recipient_is_never_wake_eligible() -> None:
+    conn = message_connection()
+    send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s2",
+        selector=selector(session_ids=["s1"]),
+        body="Never pass this body to a native wake.",
+        now=NOW,
+    )
+    _park(conn, "s1")
+    for when in (NOW + timedelta(seconds=1), STARVED):
+        _stamp(conn, when=when, session_id="s1")
+        assert wake_eligible_recipients(conn, now=when) == []

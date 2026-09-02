@@ -35,6 +35,14 @@ harness does declare an idle wake, the session can still be resumed by its
 own machinery, so a parked recipient there stays with the evidence-bound
 test above.
 
+Only a session whose own surface declares ``message_stopped`` may be
+escalated this way, which is every headless CLI surface and no desktop or
+IDE one. A desktop conversation is a person's open window: resuming one
+forks the transcript they are reading, which is why its capability declares
+no stopped route of its own, and why a parked desktop session stays the
+operator's to wake. The surface's own declaration is the gate — never the
+same-machine peer binary that could technically execute the resume.
+
 Escalating is a wake, not a page: nothing here asks an operator for
 anything. The reason travels on the recipient row and on the wake attempt so
 that an operator reading the message can tell an escalated resume from an
@@ -47,6 +55,9 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
+from yoke_contracts.session_control.surface_versions import (
+    surface_operation_supported,
+)
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_mode import session_is_parked
 
@@ -142,12 +153,23 @@ def parked_without_idle_wake(
     waiting. An unprobed harness declares ``unverified`` rather than
     ``none``, so it is not escalated here — the contract refuses to guess,
     and so does this. The window still spaces repeat wakes apart.
+
+    The surface test reads the recipient's own capability rather than the
+    same-machine peer that could execute a resume, so a desktop or IDE
+    conversation — which declares no stopped route of its own — is never
+    escalated into a forked transcript.
     """
     if not _undelivered_since_send(row, now=now):
         return False
     if not session_is_parked(row.get("mode")):
         return False
     if wake_capability_for_harness(row.get("executor")).idle_wake != "none":
+        return False
+    if not surface_operation_supported(
+        str(row.get("executor_surface") or ""),
+        str(row.get("executor_version") or "") or None,
+        "message_stopped",
+    ):
         return False
     return _escalated_wake_available(
         row,
