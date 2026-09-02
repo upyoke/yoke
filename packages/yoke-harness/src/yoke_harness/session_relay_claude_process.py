@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import threading
 import time
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 
 CLAUDE_STREAM_OUTPUT_LIMIT_BYTES = 64 * 1024
@@ -23,6 +23,8 @@ class ClaudeProcessResult:
     stderr: str = field(default="", repr=False)
     stdout_bytes: bytes = field(default=b"", repr=False)
     stderr_bytes: bytes = field(default=b"", repr=False)
+    pid: int | None = None
+    bound_exceeded: bool = False
 
 
 def _drain(stream, retained: dict[str, bytes], name: str) -> None:
@@ -57,9 +59,15 @@ def run_bounded_claude_process(
     *,
     cwd: Path,
     environment: Mapping[str, str],
-    timeout_seconds: int,
+    timeout_seconds: float,
+    continue_while_alive: bool = False,
+    hard_timeout_seconds: float | None = None,
+    on_started: Callable[[int], None] | None = None,
+    on_bound_exceeded: Callable[[int, int], None] | None = None,
+    on_hard_timeout: Callable[[int], None] | None = None,
+    start_new_session: bool = False,
 ) -> ClaudeProcessResult:
-    """Drain both streams continuously while retaining only their capped prefix."""
+    """Drain both streams while a live slow create continues to its hard deadline."""
     started = time.monotonic()
     process = subprocess.Popen(
         list(argv),
@@ -68,6 +76,7 @@ def run_bounded_claude_process(
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        start_new_session=start_new_session,
     )
     if process.stdout is None or process.stderr is None:
         process.kill()
@@ -85,17 +94,56 @@ def run_bounded_claude_process(
     )
     for thread in threads:
         thread.start()
-    timed_out = False
+    raw_pid = getattr(process, "pid", None)
+    pid = int(raw_pid) if isinstance(raw_pid, int) and raw_pid > 0 else None
     try:
-        returncode = process.wait(timeout=timeout_seconds)
-    except subprocess.TimeoutExpired:
-        timed_out = True
+        if on_started is not None:
+            if pid is None:
+                raise RuntimeError("native process did not expose a pid")
+            on_started(pid)
+    except Exception:
         process.kill()
-        returncode = process.wait()
+        process.wait()
+        _finish_drains(threads, streams)
+        raise
+    timed_out = False
+    bound_exceeded = False
+    try:
+        try:
+            returncode = process.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            if not continue_while_alive:
+                process.kill()
+                returncode = process.wait()
+                timed_out = True
+            else:
+                polled = process.poll()
+                if polled is not None:
+                    returncode = int(polled)
+                else:
+                    bound_exceeded = True
+                    elapsed_ms = max(0, int((time.monotonic() - started) * 1000))
+                    if on_bound_exceeded is not None and pid is not None:
+                        on_bound_exceeded(pid, elapsed_ms)
+                    remaining = None
+                    if hard_timeout_seconds is not None:
+                        elapsed = max(0.0, time.monotonic() - started)
+                        remaining = max(0.0, hard_timeout_seconds - elapsed)
+                    try:
+                        returncode = process.wait(timeout=remaining)
+                    except subprocess.TimeoutExpired:
+                        if on_hard_timeout is not None and pid is not None:
+                            on_hard_timeout(pid)
+                        if process.poll() is None:
+                            process.kill()
+                        returncode = process.wait()
+                        timed_out = True
     finally:
         _finish_drains(threads, streams)
     if timed_out:
-        raise subprocess.TimeoutExpired(list(argv), timeout_seconds)
+        raise subprocess.TimeoutExpired(
+            list(argv), hard_timeout_seconds or timeout_seconds
+        )
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
     stdout_bytes = retained.get("stdout", b"")
     stderr_bytes = retained.get("stderr", b"")
@@ -106,4 +154,6 @@ def run_bounded_claude_process(
         stderr_bytes.decode("utf-8", errors="ignore"),
         stdout_bytes,
         stderr_bytes,
+        pid,
+        bound_exceeded,
     )

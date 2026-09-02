@@ -6,6 +6,10 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
+from yoke_core.domain.session_launch_native_progress import (
+    native_attempt_pending,
+    native_attempt_refusal,
+)
 from yoke_core.domain.session_launch_registered_session_binding import (
     bind_existing_registered_session,
 )
@@ -130,6 +134,10 @@ def reconcile_launch(
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
+        if native_attempt_pending(conn, launch, now=current):
+            raise SessionLaunchError(
+                "native_process_alive", native_attempt_refusal(launch)
+            )
         if launch.state == "succeeded":
             if observed_native_id and observed_native_id != launch.native_session_id:
                 raise SessionLaunchError(

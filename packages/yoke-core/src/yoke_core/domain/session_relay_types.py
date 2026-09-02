@@ -75,6 +75,7 @@ class RelayJob:
     requested_model: str | None = None
     presentation: str | None = None
     session_name: str | None = None
+    deadline_at: str | None = None
     wake_mode: WakeMode | None = None
     target_liveness: str | None = None
     wake_route: str | None = None

@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
+from yoke_core.domain.session_launch_native_progress import native_launch_updates
 from yoke_core.domain.session_launch_registered_session_binding import (
     bind_existing_registered_session,
 )
@@ -279,6 +280,9 @@ def report_launch_attempt(
         result_evidence = merge_redacted_evidence(
             value(attempt, "evidence", 6), evidence
         )
+        telemetry = native_launch_updates(evidence, observed_at=current)
+        if telemetry:
+            launch = update_launch(conn, launch_id, **telemetry)
         if result_code == "native_created":
             if launch.state == "outcome_unknown":
                 result = update_launch(
@@ -337,7 +341,6 @@ def report_launch_attempt(
     except Exception:
         conn.rollback()
         raise
-
 
 __all__ = [
     "claim_assigned_launch",

@@ -76,6 +76,8 @@ def _settle_wake(conn: Any, batch_id: str, *, now: str) -> int:
 def _settle_launches(conn: Any, batch_id: str, *, now: str) -> int:
     """Reconcile every launch this batch leased but never reported."""
     from yoke_core.domain.session_launch_execution import expire_launch_attempt
+    from yoke_core.domain.session_launch_native_progress import native_attempt_pending
+    from yoke_core.domain.session_launch_store import get_launch
 
     p = marker(conn)
     stranded = conn.execute(
@@ -84,7 +86,11 @@ def _settle_launches(conn: Any, batch_id: str, *, now: str) -> int:
         "ORDER BY started_at,launch_id",
         (batch_id,),
     ).fetchall()
+    changed = 0
     for launch_id, lease_id in stranded:
+        launch = get_launch(conn, str(launch_id))
+        if native_attempt_pending(conn, launch, now=now):
+            continue
         expire_launch_attempt(
             conn,
             launch_id=str(launch_id),
@@ -92,7 +98,8 @@ def _settle_launches(conn: Any, batch_id: str, *, now: str) -> int:
             result_code=_LEASE_EXPIRED_CODE,
             now=now,
         )
-    return len(stranded)
+        changed += 1
+    return changed
 
 
 __all__ = ["RELAY_EXPIRY_ADAPTER_REVISION", "settle_expired_relay_leases"]

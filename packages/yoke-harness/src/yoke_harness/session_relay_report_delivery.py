@@ -130,6 +130,32 @@ def report_launch_progress(
     return bool(getattr(response, "success", False))
 
 
+def attach_launch_progress_reporter(
+    dispatcher: Dispatcher,
+    function_id: str,
+    relay_id: str,
+    job: Mapping[str, object],
+    *,
+    timeout_s: int,
+) -> Mapping[str, object]:
+    """Give a local launch adapter a body-free progress callback."""
+    if job.get("job_kind") != "launch":
+        return job
+    runnable = dict(job)
+
+    def report(evidence: Mapping[str, object]) -> bool:
+        progress = RelayAdapterResult("progress", evidence=dict(evidence))
+        return report_launch_progress(
+            dispatcher,
+            function_id,
+            _launch_payload(relay_id, job, progress),
+            timeout_s=timeout_s,
+        )
+
+    runnable["_launch_progress_reporter"] = report
+    return runnable
+
+
 def _launch_payload(
     relay_id: str,
     job: Mapping[str, object],
@@ -154,9 +180,9 @@ def checkpoint_launch_start(
     job: Mapping[str, object],
     *,
     timeout_s: int,
-) -> None:
+) -> Mapping[str, object]:
     if job.get("job_kind") != "launch":
-        return
+        return job
     started = RelayAdapterResult(
         "progress",
         evidence={
@@ -170,6 +196,9 @@ def checkpoint_launch_start(
         function_id,
         _launch_payload(relay_id, job, started),
         timeout_s=timeout_s,
+    )
+    return attach_launch_progress_reporter(
+        dispatcher, function_id, relay_id, job, timeout_s=timeout_s
     )
 
 
@@ -258,6 +287,7 @@ __all__ = [
     "RELAY_REPORT_TIMEOUT_SECONDS",
     "PENDING_REPORT_DIR_NAME",
     "REPORT_RETRY_SECONDS",
+    "attach_launch_progress_reporter",
     "checkpoint_launch_result",
     "checkpoint_launch_start",
     "deliver_terminal_report",

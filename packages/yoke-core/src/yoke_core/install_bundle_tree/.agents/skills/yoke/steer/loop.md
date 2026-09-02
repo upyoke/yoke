@@ -110,13 +110,13 @@ yours:
   while triaging: at `stale_eligible_at` the reclaim sweep releases its
   claims and the item reads as untouched, so a holder near reclaim is
   revived before anything else in the pass.
-- **Starved delivery** — read the row. An escalated one has a wake in flight;
-  one waiting for its operator needs that person to type in the chat; one with
-  neither takes the registered wake, else the bridge under **Revive** below.
-- **Unregistered launches** — list, then reconcile and retry each
-  `launch_id`. Never guess a table (`session_control_launches` does
-  not exist); the registered read is `session_control.launch.list`
-  against `session_launches`:
+- **Starved delivery** — read the row. A wake may be in flight or awaiting its
+  operator; otherwise use the registered wake or **Revive** bridge below.
+- **Unregistered launches** — list each `launch_id`; `spawn_started` or
+  `spawn_alive` in `native_launch_phase` belongs to the first process. Wait
+  through `deadline_at`; reconcile refuses and retry reattaches without
+  duplication. Otherwise reconcile, then retry through the registered commands
+  below; the authority is `session_control.launch.list` over `session_launches`:
 
   ```text
   yoke session-control launch list --project {_project}

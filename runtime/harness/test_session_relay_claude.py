@@ -13,6 +13,8 @@ from yoke_contracts.session_control.wake_instruction import native_wake_instruct
 from yoke_harness import session_relay_claude_native as claude_native_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_claude import (
+    CLAUDE_CREATE_TIMEOUT_SECONDS,
+    CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
     ClaudeNativeInvocation,
     ClaudeProcessResult,
     lookup_claude_session,
@@ -48,6 +50,8 @@ def _context(**overrides):
         "requested_model": "claude-opus-4-1",
         "presentation": "local",
         "session_name": "YOK-2580: Record session presentation",
+        "launch_deadline_at": "2099-08-22T12:15:00Z",
+        "launch_progress_reporter": None,
         "target_liveness": None,
         "wake_mode": None,
     }
@@ -102,8 +106,6 @@ def test_create_reports_and_stages_the_actual_background_session() -> None:
 
     assert invocations[0].argv == (
         CLAUDE,
-        "--session-id",
-        LAUNCH_ID,
         "--dangerously-skip-permissions",
         "--settings",
         CLAUDE_LOCAL_SETTINGS_JSON,
@@ -125,7 +127,6 @@ def test_create_reports_and_stages_the_actual_background_session() -> None:
     assert "private-create-stderr" not in repr(result.evidence)
     assert "private-lookup-stderr" not in repr(result.evidence)
     assert "secret-attestation" not in repr(invocations[0])
-
 
 @pytest.mark.parametrize(
     ("created", "lookup", "code"),
@@ -250,7 +251,10 @@ def test_native_commands_use_private_collector_without_launch_secret(
     assert calls[1][0] == (CLAUDE, "agents", "--all", "--json")
     assert "CODEX_SESSION_ID" not in calls[0][1]["environment"]
     assert LAUNCH_CONTEXT_ENV not in calls[0][1]["environment"]
-    assert calls[0][1]["timeout_seconds"] == 20
+    assert calls[0][1]["timeout_seconds"] == CLAUDE_CREATE_TIMEOUT_SECONDS
+    assert calls[0][1]["continue_while_alive"] is True
+    assert calls[0][1]["start_new_session"] is True
+    assert calls[1][1]["timeout_seconds"] == CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS
     assert "private" not in repr((created, agents))
 
 

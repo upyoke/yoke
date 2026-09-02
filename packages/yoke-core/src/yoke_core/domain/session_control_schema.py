@@ -169,7 +169,11 @@ def create_session_control_tables(conn: Any) -> None:
             completed_at TEXT,
             result_code TEXT,
             result_evidence TEXT,
-            origin {ORIGIN_COLUMN_DDL}
+            origin {ORIGIN_COLUMN_DDL},
+            native_launch_pid INTEGER,
+            native_launch_phase TEXT,
+            native_launch_observed_at TEXT,
+            spawn_duration_ms INTEGER
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_launches_requester_dedupe
             ON session_launches(requester_actor_id, idempotency_key)
@@ -274,6 +278,16 @@ def create_session_control_tables(conn: Any) -> None:
         )
     if not _column_exists(conn, "session_launches", "session_name"):
         conn.execute("ALTER TABLE session_launches ADD COLUMN session_name TEXT")
+    for name, column_type in (
+        ("native_launch_pid", "INTEGER"),
+        ("native_launch_phase", "TEXT"),
+        ("native_launch_observed_at", "TEXT"),
+        ("spawn_duration_ms", "INTEGER"),
+    ):
+        if not _column_exists(conn, "session_launches", name):
+            conn.execute(
+                f"ALTER TABLE session_launches ADD COLUMN {name} {column_type}"
+            )
     if not _column_exists(conn, "session_relays", "surface_plan_limits"):
         conn.execute("ALTER TABLE session_relays ADD COLUMN surface_plan_limits TEXT")
     if not _column_exists(conn, "session_message_recipients", "wake_escalation"):

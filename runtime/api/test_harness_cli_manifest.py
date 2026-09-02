@@ -47,6 +47,7 @@ def test_rendered_harness_manifests_carry_the_canonical_cli_sections() -> None:
             )
         )
         assert payload["cli"] == rendered["cli"]
+        assert payload["session_control"] == rendered["session_control"]
 
 
 def test_new_manifest_entry_is_resolved_without_a_hardcoded_cli_list(

@@ -12,7 +12,11 @@ from yoke_harness.session_relay import (
     RELAY_DISPATCH_TIMEOUT_SECONDS,
     RELAY_REPORT_TIMEOUT_SECONDS,
 )
-from yoke_harness.session_relay_claude import CLAUDE_NATIVE_TIMEOUT_SECONDS
+from yoke_harness.session_relay_claude import (
+    CLAUDE_CREATE_TIMEOUT_SECONDS,
+    CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS,
+    CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
+)
 from yoke_harness.session_relay_claude_identity import (
     CLAUDE_IDENTITY_LOOKUP_ATTEMPTS,
     CLAUDE_IDENTITY_RETRY_SECONDS,
@@ -98,17 +102,12 @@ def test_process_drains_oversized_streams_while_retaining_only_the_cap(
 
 
 def test_claude_create_and_report_budget_fits_launch_lease() -> None:
-    process_count = 1 + CLAUDE_IDENTITY_LOOKUP_ATTEMPTS
-    # stdout/stderr are joined once before and once after close.
-    drain_budget = process_count * 2 * 2 * process_module._DRAIN_JOIN_SECONDS
-    native_budget = process_count * CLAUDE_NATIVE_TIMEOUT_SECONDS
-    retry_budget = (CLAUDE_IDENTITY_LOOKUP_ATTEMPTS - 1) * CLAUDE_IDENTITY_RETRY_SECONDS
-
-    assert (
-        native_budget
-        + drain_budget
-        + retry_budget
-        + RELAY_DISPATCH_TIMEOUT_SECONDS
-        + RELAY_REPORT_TIMEOUT_SECONDS
-        < LAUNCH_LEASE_SECONDS
+    assert CLAUDE_CREATE_TIMEOUT_SECONDS + RELAY_REPORT_TIMEOUT_SECONDS < (
+        LAUNCH_LEASE_SECONDS
     )
+    assert CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS == (
+        CLAUDE_IDENTITY_LOOKUP_ATTEMPTS * CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS
+        + (CLAUDE_IDENTITY_LOOKUP_ATTEMPTS - 1) * CLAUDE_IDENTITY_RETRY_SECONDS
+        + RELAY_REPORT_TIMEOUT_SECONDS
+    )
+    assert RELAY_DISPATCH_TIMEOUT_SECONDS < LAUNCH_LEASE_SECONDS

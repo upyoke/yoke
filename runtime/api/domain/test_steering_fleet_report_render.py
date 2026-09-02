@@ -236,6 +236,9 @@ def _populated_report():
                 state="outcome_unknown",
                 overdue_seconds=0,
                 result_code="identity_parse_failed",
+                native_launch_pid=4242,
+                native_launch_phase="spawn_completed_after_bound",
+                spawn_duration_ms=103_000,
             ),
         ),
         landed_open=(
@@ -298,6 +301,8 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     launch_row = next(line for line in body.splitlines() if "launch-1" in line)
     assert "identity parse failed" in launch_row
     assert "instruction not delivered" in launch_row
+    assert "native pid 4242 spawn_completed_after_bound" in launch_row
+    assert "spawn 103.0s" in launch_row
     assert "reconcile launch-1 --observed-native-id ID" in launch_row
     waiter_row = next(line for line in body.splitlines() if "wake `yoke say" in line)
     assert "YOK-3" in waiter_row

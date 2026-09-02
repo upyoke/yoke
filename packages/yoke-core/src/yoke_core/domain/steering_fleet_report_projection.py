@@ -71,6 +71,9 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
         "result_code": entry.result_code,
         "native_session_id": entry.native_session_id,
         "observed_session_id": entry.observed_session_id,
+        "native_launch_pid": entry.native_launch_pid,
+        "native_launch_phase": entry.native_launch_phase,
+        "spawn_duration_ms": entry.spawn_duration_ms,
     }
 
 

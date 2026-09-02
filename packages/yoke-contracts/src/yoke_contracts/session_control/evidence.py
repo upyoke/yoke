@@ -87,6 +87,7 @@ _INTEGER_FIELDS = frozenset(
         "exit_code",
         "handles_considered",
         "injection_count",
+        "native_launch_bound_seconds",
         "native_launch_pid",
         "native_pid",
     }

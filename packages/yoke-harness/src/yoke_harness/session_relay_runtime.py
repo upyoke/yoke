@@ -56,10 +56,16 @@ class RelayExecutionContext:
     requested_model: str | None = None
     presentation: str | None = None
     session_name: str | None = None
+    launch_deadline_at: str | None = None
     target_liveness: str | None = None
     wake_mode: WakeMode | None = None
     wake_route: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
+    launch_progress_reporter: Callable[[Mapping[str, object]], bool] | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
     private_route_qualification: PrivateRouteQualificationGrant | None = field(
         default=None,
         repr=False,
@@ -160,6 +166,9 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         ),
         presentation=(str(job["presentation"]) if job.get("presentation") else None),
         session_name=(str(job["session_name"]) if job.get("session_name") else None),
+        launch_deadline_at=(
+            str(job["deadline_at"]) if job.get("deadline_at") else None
+        ),
         target_liveness=(
             str(job["target_liveness"]) if job.get("target_liveness") else None
         ),
@@ -167,6 +176,11 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         wake_route=str(job["wake_route"]) if job.get("wake_route") else None,
         launch_attestation=(
             str(job["launch_attestation"]) if job.get("launch_attestation") else None
+        ),
+        launch_progress_reporter=(
+            job.get("_launch_progress_reporter")
+            if callable(job.get("_launch_progress_reporter"))
+            else None
         ),
         private_route_qualification=qualification,
     )

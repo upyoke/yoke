@@ -138,6 +138,12 @@ def _launch_lines(report: FleetReport) -> list[str]:
                 f"{entry.state}, deadline overdue {_minutes(entry.overdue_seconds)}"
             )
             recovery = "inspect registration before retry"
+        if entry.native_launch_pid and entry.native_launch_phase:
+            problem += (
+                f", native pid {entry.native_launch_pid} {entry.native_launch_phase}"
+            )
+        if entry.spawn_duration_ms is not None:
+            problem += f", spawn {entry.spawn_duration_ms / 1000:.1f}s"
         lines.append(
             f"  launch {entry.launch_id}  {entry.surface} on {entry.machine_id}  "
             f"{problem}; instruction not delivered; {recovery}"

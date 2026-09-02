@@ -35,6 +35,10 @@ _PUBLIC_FIELDS = (
     "completed_at",
     "result_code",
     "origin",
+    "native_launch_pid",
+    "native_launch_phase",
+    "native_launch_observed_at",
+    "spawn_duration_ms",
 )
 
 

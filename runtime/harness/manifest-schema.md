@@ -122,7 +122,11 @@ the wake path reads this field rather than inferring the stance from a route:
 no version and no same-machine peer binary opens a wake route for such a
 surface, `yoke session-control session wake` refuses it with that guidance,
 and its pending message is delivered by hook injection the moment its
-operator types. `stop_denial_continuation` says whether a denied
+operator types. A create-capable surface may also declare
+`native_create_timeout_seconds`, the soft bound after which a still-live
+native is reported as slow and continues under the launch deadline rather
+than being killed or classified as failed. `stop_denial_continuation` says
+whether a denied
 Stop is proven to resume the same model turn; a policy that needs continuation
 must allow and durably defer work when this field is `none`.
 `relay_stop_denial_continuation` applies the same proof specifically to a

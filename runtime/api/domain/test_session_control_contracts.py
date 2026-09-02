@@ -181,6 +181,15 @@ def test_session_control_schema_is_additive_and_idempotent() -> None:
     }
     assert relay_columns["actor_id"] is True
     assert relay_columns["hostname"] is True
+    launch_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(session_launches)")
+    }
+    assert {
+        "native_launch_pid",
+        "native_launch_phase",
+        "native_launch_observed_at",
+        "spawn_duration_ms",
+    } <= launch_columns
 
 
 def test_closed_function_vocabulary_is_fully_registered() -> None:
