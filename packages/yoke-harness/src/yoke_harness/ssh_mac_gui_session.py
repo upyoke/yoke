@@ -123,6 +123,7 @@ def run_terminal_app_command(
     *,
     argv: Sequence[str],
     timeout: int = 60,
+    bounds: tuple[int, int, int, int] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Execute argv through Terminal.app and return its output and exit code."""
     normalized = tuple(str(value) for value in argv)
@@ -148,7 +149,11 @@ def run_terminal_app_command(
     )
     window_id: int | None = None
     try:
-        window_id = open_terminal_app_window(run, command=wrapped)
+        window_id = open_terminal_app_window(
+            run,
+            command=wrapped,
+            bounds=bounds,
+        )
         if window_id is None:
             return _bridge_failure(normalized, detail="Terminal.app launch failed")
         deadline = time.monotonic() + timeout

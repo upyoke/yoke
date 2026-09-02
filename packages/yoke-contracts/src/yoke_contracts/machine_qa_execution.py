@@ -25,6 +25,44 @@ VERIFICATION_BASELINES = ("fresh-host", "shell-preconfigured")
 # frames across a proven display change: the host lacks the macOS Screen
 # Recording grant for Terminal.app, so captures hold wallpaper, not windows.
 TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE = "terminal_screen_recording_required"
+# The remaining ways a region capture of a driven Terminal.app window fails.
+# Each names the condition an operator has to change, because one umbrella
+# code sent a person to the console to rule these out by hand.
+TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE = "terminal_window_off_screen"
+TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE = "terminal_console_user_mismatch"
+TERMINAL_DISPLAY_LOCKED_ERROR_CODE = "terminal_display_locked"
+TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE = "terminal_display_frame_unavailable"
+TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE = "terminal_screen_capture_failed"
+TERMINAL_CAPTURE_RECOVERY = {
+    TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE: (
+        "grant Terminal.app access under System Settings > Privacy & Security "
+        "> Screen & System Audio Recording on the host, then re-run the "
+        "verification"
+    ),
+    TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE: (
+        "the driven window would not stay inside the display's visible frame; "
+        "confirm the host's display resolution and that no display "
+        "arrangement places windows off the menu-bar screen, then re-run the "
+        "verification"
+    ),
+    TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE: (
+        "log the host's graphical session in as the automation user; a "
+        "different console user owns the window server and Terminal.app "
+        "cannot draw into it"
+    ),
+    TERMINAL_DISPLAY_LOCKED_ERROR_CODE: (
+        "unlock the host's screen and disable its screen saver and display "
+        "sleep, then re-run the verification"
+    ),
+    TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE: (
+        "confirm the Mac has an attached or virtual display and an active "
+        "graphical login session, then re-run the verification"
+    ),
+    TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE: (
+        "read the recorded screencapture command, exit code, and stderr in "
+        "the check evidence and clear the named condition on the host"
+    ),
+}
 HostControlOperation = Literal[
     "verify",
     "case",
@@ -255,6 +293,13 @@ __all__ = [
     "HostControlOperation",
     "MachineQaCaseContract",
     "REQUIRED_SESSION_CONTEXT_FIELD",
+    "TERMINAL_CAPTURE_RECOVERY",
+    "TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE",
+    "TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE",
+    "TERMINAL_DISPLAY_LOCKED_ERROR_CODE",
+    "TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE",
+    "TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE",
+    "TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE",
     "VERIFICATION_BASELINES",
     "VERIFICATION_CHECKS",
     "execution_contract_digest",

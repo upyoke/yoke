@@ -75,6 +75,67 @@ def test_client_verification_runs_only_the_server_contract_and_redacts() -> None
     assert "[REDACTED]" in encoded
 
 
+class _SequenceControl:
+    """A control whose terminal-bridge check fails after a healthy transport."""
+
+    secret_values = ()
+
+    def __init__(self, calls: list[str], *, connection_ok: bool = True) -> None:
+        self.calls = calls
+        self.connection_ok = connection_ok
+
+    def check_connection(self) -> HostActionResult:
+        self.calls.append(VERIFICATION_CHECKS[0])
+        return HostActionResult(
+            self.connection_ok,
+            {"transport": "ssh"},
+            None if self.connection_ok else "ssh_unavailable",
+        )
+
+    def check_terminal_bridge(self) -> HostActionResult:
+        self.calls.append(VERIFICATION_CHECKS[1])
+        return HostActionResult(
+            False,
+            {"terminal_app_screenshot": False},
+            "terminal_window_off_screen",
+        )
+
+    def reach_baseline(self, name: str) -> HostActionResult:
+        self.calls.append(name)
+        return HostActionResult(True, {"operation": name})
+
+
+def test_capture_failure_still_reaches_every_host_baseline() -> None:
+    calls: list[str] = []
+
+    submission = execute_verification_contract(
+        _verification_contract(),
+        control_factory=lambda _contract: _SequenceControl(calls),
+    )
+
+    assert calls == [*VERIFICATION_CHECKS, *VERIFICATION_BASELINES]
+    assert submission.payload["status"] == "error"
+    assert submission.payload["error_code"] == "terminal_window_off_screen"
+    names = [check["name"] for check in submission.payload["checks"]]
+    assert names == [*VERIFICATION_CHECKS, *VERIFICATION_BASELINES]
+
+
+def test_transport_failure_ends_the_sequence_before_any_baseline() -> None:
+    calls: list[str] = []
+
+    submission = execute_verification_contract(
+        _verification_contract(),
+        control_factory=lambda _contract: _SequenceControl(
+            calls,
+            connection_ok=False,
+        ),
+    )
+
+    assert calls == [VERIFICATION_CHECKS[0]]
+    assert submission.payload["status"] == "error"
+    assert submission.payload["error_code"] == "ssh_unavailable"
+
+
 def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
     commands: list[tuple[str, int]] = []
 

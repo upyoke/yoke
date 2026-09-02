@@ -1088,10 +1088,23 @@ STEP="$STEP"
 TARGET_ID=\$(cat /tmp/yoke-installer-window-id)
 OUT=/tmp/yoke-installer-\${STEP}.png
 rm -f "\$OUT"
+# Derive the placement from this display's visible frame. Terminal restores
+# the last window frame for every new window, so a remembered rectangle can
+# put the window off-screen while AppleScript launch, keystrokes, and
+# transcript reads all keep working and only the capture comes back useless.
+set -- \$(/usr/bin/osascript -l JavaScript -e 'ObjC.import("AppKit"); var s = $.NSScreen.screens.objectAtIndex(0); var f = s.frame, v = s.visibleFrame; [Math.round(v.origin.x), Math.round(f.size.height - (v.origin.y + v.size.height)), Math.round(v.size.width), Math.round(v.size.height)].join(" ")')
+FL=\$1; FT=\$2; FW=\$3; FH=\$4
+WL=\$((FL + 40)); WT=\$((FT + 40))
+WR=\$((WL + (FW - 80 < 1500 ? FW - 80 : 1500)))
+WB=\$((WT + (FH - 200 < 730 ? FH - 200 : 730)))
+# The helper window issuing the capture sits below the captured rectangle,
+# because the region records whatever the window server composited there.
+HL=\$((FL + 40)); HT=\$((FT + FH - 120)); HR=\$((HL + 900)); HB=\$((FT + FH))
 /usr/bin/osascript <<OSA
 tell application "Terminal"
   set targetWindow to window id \$TARGET_ID
-  set bounds of targetWindow to {66, 90, 1566, 820}
+  set miniaturized of targetWindow to false
+  set bounds of targetWindow to {\$WL, \$WT, \$WR, \$WB}
   delay 0.2
   set b to bounds of targetWindow
   set leftPos to item 1 of b
@@ -1100,10 +1113,10 @@ tell application "Terminal"
   set bottomPos to item 4 of b
   set widthVal to rightPos - leftPos
   set heightVal to bottomPos - topPos
-  set shotCmd to "/bin/sleep 0.5; /usr/sbin/screencapture -R" & leftPos & "," & topPos & "," & widthVal & "," & heightVal & " -o " & quoted form of "\$OUT" & "; /usr/bin/sips -Z 1500 " & quoted form of "\$OUT" & " >/dev/null 2>&1; echo YOKE_SCREENSHOT_DONE"
+  set shotCmd to "/bin/sleep 0.5; /usr/sbin/screencapture -x -D 1 -o /tmp/yoke-installer-display.png; /usr/bin/sips -c " & heightVal & " " & widthVal & " --cropOffset " & topPos & " " & (leftPos - (\$FL)) & " /tmp/yoke-installer-display.png --out " & quoted form of "\$OUT" & " >/dev/null 2>&1; /usr/bin/sips -Z 1500 " & quoted form of "\$OUT" & " >/dev/null 2>&1; echo YOKE_SCREENSHOT_DONE"
   do script shotCmd
   set helperWindow to front window
-  set bounds of helperWindow to {40, 850, 1540, 900}
+  set bounds of helperWindow to {\$HL, \$HT, \$HR, \$HB}
   set index of targetWindow to 1
   activate
 end tell
@@ -1224,12 +1237,27 @@ Screenshot rules:
   image`. Wake it with `caffeinate -u -t 1`; a locked Mac needs a human to unlock
   it once.
 - Do not use `screencapture -l <window-id>` with Terminal AppleScript ids.
-  Terminal's AppleScript window id is not a CoreGraphics window number. Capture
-  the Terminal window's region: get `left,top,right,bottom` bounds through
-  AppleScript, calculate width and height, then run
-  `screencapture -R<left>,<top>,<width>,<height> -o /tmp/shot.png` through
-  Terminal.app. Terminal.app holds Screen Recording permission; direct SSH often
-  does not.
+  Terminal's AppleScript window id is not a CoreGraphics window number.
+- Do not use `-R` either. At least one Test Mac answers "could not create image
+  from display with rect" for every rectangle that intersects its display,
+  however small, while the whole-display form succeeds on the same host in the
+  same second. Capture the display and crop instead: run
+  `screencapture -x -D 1 -o /tmp/full.png` through Terminal.app, read the
+  window's `left,top,right,bottom` bounds through AppleScript, subtract that
+  display's own corner from them, and crop with `sips -c <height> <width>
+  --cropOffset <top> <left> /tmp/full.png --out /tmp/shot.png`. Crop numbers are
+  image pixels, so multiply by the display's backing scale factor on a Retina
+  Mac. Run the capture through Terminal.app either way: Terminal.app holds
+  Screen Recording permission; direct SSH often does not.
+- Place the window before capturing its region, and derive the placement from
+  the display rather than from remembered coordinates. Terminal restores the
+  last window frame for every new window, so a window can open wholly outside
+  the visible area while AppleScript launch, keystrokes, and transcript reads
+  all keep working — only the region capture comes back empty or unchanged. Ask
+  the host for its menu-bar display's visible frame, set the window's bounds
+  inside it, un-minimize it, then read the bounds back before computing the
+  capture rectangle. Keep any helper window that issues the capture out of the
+  captured rectangle, because the region records whatever is composited there.
 - Downscale with `sips -Z 1500 /tmp/shot.png`, then `scp` the image back.
 - The bridge log is the authoritative fallback when screenshots are blocked.
   Strip ANSI to read the current screen as text:

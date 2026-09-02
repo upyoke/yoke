@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Protocol, Sequence
 
@@ -55,6 +56,43 @@ def _default_control(
     return SshMacVerificationControl.from_contract(contract)
 
 
+def run_verification_sequence(
+    *,
+    checks: Sequence[tuple[str, Callable[[], HostActionResult]]],
+    baselines: Sequence[tuple[str, Callable[[], HostActionResult]]],
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Run every named step, reporting the first failure as the verdict.
+
+    Only the first check is a precondition for the rest — it proves the
+    transport — so its failure ends the run. A later failure is recorded and
+    the sequence continues, because the host baselines still execute over a
+    working transport and skipping them left a walk's credential residue on
+    the machine while a screenshot problem was being diagnosed.
+    """
+    recorded: list[dict[str, Any]] = []
+    error_code: str | None = None
+    for position, (name, action) in enumerate(checks):
+        try:
+            result = action()
+        except Exception:
+            recorded.append({"name": name, "ok": False})
+            error_code = error_code or f"{name}_failed"
+        else:
+            recorded.append({"name": name, "ok": result.ok, **result.evidence})
+            if result.ok:
+                continue
+            error_code = error_code or result.error_code or f"{name}_failed"
+        if position == 0:
+            return recorded, error_code
+    for name, reach in baselines:
+        baseline = reach()
+        recorded.append({"name": name, "ok": baseline.ok, **baseline.evidence})
+        if not baseline.ok:
+            error_code = error_code or baseline.error_code
+            break
+    return recorded, error_code
+
+
 def execute_verification_contract(
     raw_contract: dict[str, Any],
     *,
@@ -65,36 +103,16 @@ def execute_verification_contract(
     if contract.operation != "verify":
         raise ValueError("expected a test-machine verification contract")
     control = control_factory(contract)
-    checks: list[dict[str, Any]] = []
-    error_code: str | None = None
     actions = {
         VERIFICATION_CHECKS[0]: control.check_connection,
         VERIFICATION_CHECKS[1]: control.check_terminal_bridge,
     }
-    for name in contract.checks:
-        try:
-            result = actions[name]()
-        except Exception:
-            checks.append({"name": name, "ok": False})
-            error_code = f"{name}_failed"
-            break
-        checks.append({"name": name, "ok": result.ok, **result.evidence})
-        if not result.ok:
-            error_code = result.error_code or f"{name}_failed"
-            break
-    if error_code is None:
-        for baseline_name in contract.baselines:
-            baseline = control.reach_baseline(baseline_name)
-            checks.append(
-                {
-                    "name": baseline_name,
-                    "ok": baseline.ok,
-                    **baseline.evidence,
-                }
-            )
-            if not baseline.ok:
-                error_code = baseline.error_code
-                break
+    checks, error_code = run_verification_sequence(
+        checks=[(name, actions[name]) for name in contract.checks],
+        baselines=[
+            (name, partial(control.reach_baseline, name)) for name in contract.baselines
+        ],
+    )
     payload = {
         "lease_id": contract.lease_id,
         "contract_digest": contract.contract_digest,
@@ -114,4 +132,5 @@ __all__ = [
     "VerificationControl",
     "VerificationControlFactory",
     "execute_verification_contract",
+    "run_verification_sequence",
 ]

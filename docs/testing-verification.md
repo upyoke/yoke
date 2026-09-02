@@ -191,6 +191,18 @@ is **destructive** — it performs the full host reset before installing the
 current release. It is a readiness gate, not a reachability probe; answer "can
 I see the machine?" with a plain SSH command.
 
+Only the connection check is a precondition for the rest of the run. A failing
+terminal-bridge check is recorded, names the verdict, and the sequence
+continues into the host baselines, so a screenshot problem never leaves the
+machine unrestored while it is being diagnosed; the recorded status is still
+`error`. A capture failure names the condition to change rather than one
+umbrella code — `terminal_window_off_screen`,
+`terminal_console_user_mismatch`, `terminal_display_locked`,
+`terminal_display_frame_unavailable`, `terminal_screen_capture_failed`, or
+`terminal_screen_recording_required` — and the stored check carries the
+capture command, its exit code and stderr, the window and display bounds, the
+console user, and the recovery step. Read those before going to the console.
+
 Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The runner receives resolved
 secrets only for its subprocess and must redact them from evidence.
