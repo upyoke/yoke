@@ -128,24 +128,6 @@ def deployment_stage_decision(
     return str(action) if action else None
 
 
-def deployment_stage_approver_actor_ids(
-    conn: Any, *, run_id: str,
-) -> tuple[int, ...]:
-    """Return the distinct actors who approved stages in one run."""
-    p = _p(conn)
-    rows = conn.execute(
-        "SELECT DISTINCT resolution_actor_id FROM decision_requests "
-        "WHERE kind = 'deployment_stage_approval' "
-        "AND subject_type = 'deployment_stage' "
-        f"AND subject_key LIKE {p} AND status = 'resolved' "
-        "AND resolution_action = 'approve' "
-        "AND resolution_actor_id IS NOT NULL "
-        "ORDER BY resolution_actor_id",
-        (f"{run_id}:%",),
-    ).fetchall()
-    return tuple(int(row[0]) for row in rows)
-
-
 def emit_deployment_completion(
     conn: Any,
     *,
@@ -209,7 +191,6 @@ def dispatch_deployment_stage_approval(
 
 
 __all__ = [
-    "deployment_stage_approver_actor_ids",
     "deployment_stage_decision",
     "deployment_stage_is_approved",
     "dispatch_deployment_stage_approval",
