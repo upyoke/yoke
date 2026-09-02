@@ -2,39 +2,53 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 import json
-import shlex
-import subprocess
 
 from yoke_contracts.machine_qa_execution import (
     TERMINAL_CAPTURE_RECOVERY,
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
 )
+from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
+from yoke_harness.ssh_mac_terminal_app import (
+    RunRemote,
+    set_terminal_app_window_bounds,
+)
 
-
-RunRemote = Callable[..., subprocess.CompletedProcess[str]]
-
-# Terminal.app accepts and reports window bounds in top-left-origin screen
-# coordinates while NSScreen answers in bottom-left-origin ones, so the script
-# converts before returning and every rectangle in this package is Terminal's.
-# Index 0 is the display that owns the menu bar, which is the origin Terminal
-# measures from; `mainScreen` follows the key window and would move the origin.
+# Terminal.app and the region capture do not share a coordinate space, and on
+# one Mac they are 3584 points apart. Terminal places and reports windows in
+# NSScreen's global space, whose origin need not sit on any attached display:
+# that host's only 1280x1024 screen lives at global x=3584. `screencapture -R`
+# measures from the display's own corner instead, so the same rectangle that
+# puts a window correctly on screen makes the capture answer "could not create
+# image from display with rect". The script therefore reports the usable region
+# in Terminal's space for placement AND that display's corner in the same
+# space, so a placed rectangle can be converted for the capture. On the common
+# single-display Mac the corner is (0, 0) and the two spaces coincide.
 _VISIBLE_FRAME_SCRIPT = """
 ObjC.import('AppKit');
-var display = $.NSScreen.screens.objectAtIndex(0);
-var full = display.frame;
-var visible = display.visibleFrame;
+var screens = $.NSScreen.screens;
+if (screens.count < 1) {
+  throw new Error('no display is attached to this graphical session');
+}
+var main = screens.objectAtIndex(0);
+var full = main.frame;
+var visible = main.visibleFrame;
+var flipHeight = full.size.height;
 JSON.stringify({
   left: Math.round(visible.origin.x),
-  top: Math.round(full.size.height - (visible.origin.y + visible.size.height)),
+  top: Math.round(flipHeight - (visible.origin.y + visible.size.height)),
   width: Math.round(visible.size.width),
   height: Math.round(visible.size.height),
+  capture_origin_x: Math.round(full.origin.x),
+  capture_origin_y: Math.round(flipHeight - (full.origin.y + full.size.height)),
   display_width: Math.round(full.size.width),
-  display_height: Math.round(full.size.height)
+  display_height: Math.round(full.size.height),
+  display_count: Math.round(screens.count),
+  backing_scale: main.backingScaleFactor
 });
 """
+_FRAME_PROBE_TIMEOUT_SECONDS = 30
 _WINDOW_MARGIN = 40
 _TARGET_WINDOW_SIZE = (1500, 730)
 _HELPER_WINDOW_SIZE = (900, 120)
@@ -45,12 +59,12 @@ DISPLAY_FRAME_RECOVERY = TERMINAL_CAPTURE_RECOVERY[
 
 
 class DisplayFrameUnavailable(RuntimeError):
-    """The host could not report the visible frame of its menu-bar display."""
+    """The host could not report a usable region for its main display."""
 
 
 @dataclass(frozen=True)
 class DisplayFrame:
-    """The usable region of the menu-bar display, excluding menu bar and Dock."""
+    """Where windows may go, and where the capture measures that region from."""
 
     left: int
     top: int
@@ -58,6 +72,9 @@ class DisplayFrame:
     height: int
     display_width: int
     display_height: int
+    display_count: int
+    capture_origin: tuple[int, int] = (0, 0)
+    backing_scale: float = 1.0
 
     @property
     def right(self) -> int:
@@ -82,6 +99,15 @@ class DisplayFrame:
             and bottom <= self.bottom
         )
 
+    def capture_rectangle(
+        self,
+        bounds: tuple[int, int, int, int],
+    ) -> tuple[int, int, int, int]:
+        """Convert placed window bounds into the region capture's own space."""
+        origin_x, origin_y = self.capture_origin
+        left, top, right, bottom = bounds
+        return (left - origin_x, top - origin_y, right - origin_x, bottom - origin_y)
+
     def anchored(self, bounds: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
         """Return the same-sized rectangle shifted to fit inside this frame."""
         left, top, right, bottom = bounds
@@ -101,10 +127,18 @@ class WindowLayout:
 
 
 def resolve_display_frame(run: RunRemote) -> DisplayFrame:
-    """Ask the host itself for the region its windows may legally occupy."""
-    result = run(
-        "/usr/bin/osascript -l JavaScript -e " + shlex.quote(_VISIBLE_FRAME_SCRIPT),
-        timeout=20,
+    """Ask the host's own graphical session where its windows may go.
+
+    The question is asked from inside Terminal.app rather than straight over
+    the transport, because a bare SSH process is not attached to the window
+    server: it answers with a screen list that no display on the desk
+    matches, and windows placed in those coordinates produce a rectangle the
+    capture cannot resolve to any display at all.
+    """
+    result = run_terminal_app_command(
+        run,
+        argv=["/usr/bin/osascript", "-l", "JavaScript", "-e", _VISIBLE_FRAME_SCRIPT],
+        timeout=_FRAME_PROBE_TIMEOUT_SECONDS,
     )
     stderr = (getattr(result, "stderr", "") or "").strip()
     if result.returncode:
@@ -122,6 +156,12 @@ def resolve_display_frame(run: RunRemote) -> DisplayFrame:
             height=int(payload["height"]),
             display_width=int(payload["display_width"]),
             display_height=int(payload["display_height"]),
+            display_count=int(payload["display_count"]),
+            capture_origin=(
+                int(payload["capture_origin_x"]),
+                int(payload["capture_origin_y"]),
+            ),
+            backing_scale=float(payload["backing_scale"]),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise DisplayFrameUnavailable(
@@ -168,12 +208,41 @@ def window_layout(frame: DisplayFrame) -> WindowLayout:
     )
 
 
+def place_terminal_app_window(
+    run: RunRemote,
+    *,
+    window_id: int,
+    frame: DisplayFrame,
+    bounds: tuple[int, int, int, int],
+) -> tuple[int, int, int, int] | None:
+    """Move one window onto *frame* and report the bounds it actually took.
+
+    Terminal restores a saved frame for every new window and clamps requested
+    sizes to whole character cells, so the requested rectangle is a proposal.
+    This reads the result back and re-anchors once when the window landed
+    outside the display, which is what defeats a region capture.
+    """
+    observed = set_terminal_app_window_bounds(
+        run,
+        window_id=window_id,
+        bounds=bounds,
+    )
+    if observed is None or frame.contains(observed):
+        return observed
+    return set_terminal_app_window_bounds(
+        run,
+        window_id=window_id,
+        bounds=frame.anchored(observed),
+    )
+
+
 __all__ = [
     "DISPLAY_FRAME_RECOVERY",
     "DisplayFrame",
     "DisplayFrameUnavailable",
     "RunRemote",
     "WindowLayout",
+    "place_terminal_app_window",
     "resolve_display_frame",
     "window_layout",
 ]

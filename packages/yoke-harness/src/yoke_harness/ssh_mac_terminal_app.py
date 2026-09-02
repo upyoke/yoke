@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import json
 import shlex
 import subprocess
 
-from yoke_harness.ssh_mac_display_frame import (
-    DisplayFrame,
-    RunRemote,
-    resolve_display_frame,
-    window_layout,
-)
+
+RunRemote = Callable[..., subprocess.CompletedProcess[str]]
 
 
 _KEY_CODES = {
@@ -40,36 +36,13 @@ def run_osascript(
     )
 
 
-def place_terminal_app_window(
-    run: RunRemote,
-    *,
-    window_id: int,
-    frame: DisplayFrame,
-    bounds: tuple[int, int, int, int],
-) -> tuple[int, int, int, int] | None:
-    """Move one window onto *frame* and report the bounds it actually took.
-
-    Terminal restores a saved frame for every new window and clamps requested
-    sizes to whole character cells, so the requested rectangle is a proposal.
-    This reads the result back and re-anchors once when the window landed
-    outside the display, which is what defeats a region capture.
-    """
-    observed = _set_window_bounds(run, window_id=window_id, bounds=bounds)
-    if observed is None or frame.contains(observed):
-        return observed
-    return _set_window_bounds(
-        run,
-        window_id=window_id,
-        bounds=frame.anchored(observed),
-    )
-
-
-def _set_window_bounds(
+def set_terminal_app_window_bounds(
     run: RunRemote,
     *,
     window_id: int,
     bounds: tuple[int, int, int, int],
 ) -> tuple[int, int, int, int] | None:
+    """Un-minimize one window, request *bounds*, and report what it took."""
     left, top, right, bottom = bounds
     result = run_osascript(
         run,
@@ -103,17 +76,14 @@ def open_terminal_app_window(
     *,
     command: str,
     terminal_size: tuple[int, int] | None = None,
-    display_frame: DisplayFrame | None = None,
     bounds: tuple[int, int, int, int] | None = None,
 ) -> int | None:
-    """Start *command* in a new Terminal.app window placed on the display.
+    """Start *command* in a new Terminal.app window, placed when told where.
 
-    Placement is derived from the display's own visible frame rather than
-    fixed coordinates, because a restored off-screen frame, a different
-    display size, or a screen-shared session all move where those
-    coordinates land.
+    Callers that will capture the window pass bounds derived from the live
+    display; a window opened without them keeps whatever frame Terminal
+    restored, which is only safe when nothing reads its pixels.
     """
-    frame = display_frame or resolve_display_frame(run)
     lines = [
         'tell application "Terminal"',
         "activate",
@@ -142,12 +112,8 @@ def open_terminal_app_window(
         return None
     if result.returncode or window_id <= 0:
         return None
-    place_terminal_app_window(
-        run,
-        window_id=window_id,
-        frame=frame,
-        bounds=bounds if bounds is not None else window_layout(frame).target,
-    )
+    if bounds is not None:
+        set_terminal_app_window_bounds(run, window_id=window_id, bounds=bounds)
     return window_id
 
 
@@ -237,7 +203,7 @@ __all__ = [
     "capture_terminal_app_transcript",
     "close_terminal_app_window",
     "open_terminal_app_window",
-    "place_terminal_app_window",
     "run_osascript",
+    "set_terminal_app_window_bounds",
     "send_terminal_app_keys",
 ]

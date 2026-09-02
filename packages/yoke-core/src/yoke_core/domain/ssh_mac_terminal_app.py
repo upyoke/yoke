@@ -3,6 +3,7 @@
 from yoke_harness.ssh_mac_display_frame import (
     DisplayFrame,
     DisplayFrameUnavailable,
+    place_terminal_app_window,
     resolve_display_frame,
     window_layout,
 )
@@ -11,7 +12,6 @@ from yoke_harness.ssh_mac_terminal_app import (
     capture_terminal_app_transcript,
     close_terminal_app_window,
     open_terminal_app_window,
-    place_terminal_app_window,
     run_osascript,
     send_terminal_app_keys,
 )

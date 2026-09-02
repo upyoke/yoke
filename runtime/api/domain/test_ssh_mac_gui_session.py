@@ -16,10 +16,6 @@ from yoke_core.domain.machine_qa_method_contracts import (
     MachineQaExecutionError,
     validate_machine_method_config,
 )
-from runtime.api.domain.terminal_display_probe_test_support import (
-    DISPLAY_FRAME_PROBE_PREFIX,
-    display_frame_stdout,
-)
 from yoke_harness import ssh_mac_gui_session, ssh_mac_transport
 from yoke_harness.ssh_mac_gui_session import (
     GUI_SESSION_UNAVAILABLE_REASON,
@@ -45,8 +41,6 @@ def test_terminal_app_command_returns_output_and_exit_code(
 
     def run(command: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
         commands.append(command)
-        if command.startswith(DISPLAY_FRAME_PROBE_PREFIX):
-            return _completed(command, stdout=display_frame_stdout())
         if "return id of targetWindow" in command:
             return _completed(command, stdout="445")
         if command.startswith("if /bin/test -f "):
@@ -90,8 +84,6 @@ def test_machine_assertion_declares_gui_session_context(
 
     def run(command: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
         ssh_commands.append(command)
-        if command.startswith(DISPLAY_FRAME_PROBE_PREFIX):
-            return _completed(command, stdout=display_frame_stdout())
         return _completed(command)
 
     def run_gui(

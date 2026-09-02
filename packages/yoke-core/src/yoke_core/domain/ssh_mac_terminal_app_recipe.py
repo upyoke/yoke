@@ -27,6 +27,7 @@ from yoke_core.domain.ssh_mac_terminal_app import (
     open_terminal_app_window,
     resolve_display_frame,
     send_terminal_app_keys,
+    window_layout,
 )
 from yoke_core.domain.ssh_mac_terminal_readiness import (
     DEFAULT_READY_TIMEOUT_SECONDS,
@@ -103,7 +104,7 @@ def run_terminal_app_recipe(
             run,
             command=wrapped,
             terminal_size=terminal_size,
-            display_frame=display_frame,
+            bounds=window_layout(display_frame).target,
         )
         if window_id is None:
             return _failure(

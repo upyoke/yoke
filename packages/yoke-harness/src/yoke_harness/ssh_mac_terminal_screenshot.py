@@ -16,13 +16,14 @@ from yoke_harness.ssh_mac_display_frame import (
     DisplayFrame,
     RunRemote,
     WindowLayout,
+    place_terminal_app_window,
     window_layout,
 )
 from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
-from yoke_harness.ssh_mac_terminal_app import place_terminal_app_window
 
 
 _CAPTURE_TOOL = "/usr/sbin/screencapture"
+_CROP_TOOL = "/usr/bin/sips"
 _CAPTURE_TIMEOUT_SECONDS = 20
 _CAPTURE_SETTLE_SECONDS = "0.5"
 _STDERR_EVIDENCE_LIMIT = 500
@@ -90,6 +91,9 @@ def capture_terminal_app_region(
         "helper_window_bounds": list(layout.helper),
         "display_visible_frame": list(frame.bounds()),
         "display_size": [frame.display_width, frame.display_height],
+        "display_count": frame.display_count,
+        "capture_origin": list(frame.capture_origin),
+        "backing_scale": frame.backing_scale,
     }
     if placed is None or not frame.contains(placed):
         return RegionCapture(
@@ -97,16 +101,31 @@ def capture_terminal_app_region(
             diagnostics,
             TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE,
         )
-    left, top, right, bottom = placed
-    capture_argv = [
-        _CAPTURE_TOOL,
-        "-x",
-        "-R",
-        f"{left},{top},{right - left},{bottom - top}",
-        "-o",
+    left, top, right, bottom = frame.capture_rectangle(placed)
+    diagnostics["capture_rectangle"] = [left, top, right, bottom]
+    scale = frame.backing_scale
+    whole_display = remote + ".display.png"
+    # The whole display is captured and then cropped to the window, rather
+    # than captured by region: on at least one supported Mac the region form
+    # answers "could not create image from display with rect" for every
+    # rectangle that intersects the display, down to 100x100, while the
+    # whole-display form succeeds on that same host in the same second.
+    # Cropping afterwards keeps the artifact exactly the window, in image
+    # pixels rather than points.
+    capture_argv = [_CAPTURE_TOOL, "-x", "-D", "1", "-o", whole_display]
+    crop_argv = [
+        _CROP_TOOL,
+        "-c",
+        str(round((bottom - top) * scale)),
+        str(round((right - left) * scale)),
+        "--cropOffset",
+        str(round(top * scale)),
+        str(round(left * scale)),
+        whole_display,
+        "--out",
         remote,
     ]
-    diagnostics["command"] = shlex.join(capture_argv)
+    diagnostics["command"] = shlex.join(capture_argv) + " && " + shlex.join(crop_argv)
     # The capture runs inside Terminal.app so macOS applies Terminal's Screen
     # Recording grant, and through the command runner so its exit code and
     # stderr survive as evidence. The helper window is laid out clear of the
@@ -117,12 +136,16 @@ def capture_terminal_app_region(
         argv=[
             "/bin/sh",
             "-c",
-            f"/bin/sleep {_CAPTURE_SETTLE_SECONDS}; exec " + shlex.join(capture_argv),
+            f"/bin/sleep {_CAPTURE_SETTLE_SECONDS}; "
+            + shlex.join(capture_argv)
+            + " && "
+            + shlex.join(crop_argv)
+            + " >/dev/null",
         ],
         timeout=_CAPTURE_TIMEOUT_SECONDS,
-        display_frame=frame,
         bounds=layout.helper,
     )
+    run(f"rm -f {shlex.quote(whole_display)}", timeout=10)
     diagnostics["exit_code"] = result.returncode
     diagnostics["stderr"] = (result.stderr or "").strip()[:_STDERR_EVIDENCE_LIMIT]
     if result.returncode:

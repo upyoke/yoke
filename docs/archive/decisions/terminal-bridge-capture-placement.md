@@ -11,27 +11,58 @@ twenty minutes at the physical console ruling out modals, the console user, and
 the Screen Recording grant by hand, because the evidence could not distinguish
 them.
 
-The cause was window placement. The bridge captured a screen *region* computed
-from the driven Terminal window's bounds, and those bounds came from a fixed
-rectangle compiled into the code. A window whose rectangle falls outside the
-display's visible frame still accepts AppleScript launch, keystrokes, and
-transcript reads — only the region capture comes back empty or unchanged.
-Resetting Terminal's saved window position did not fix it: the coordinates
-themselves were wrong for that display, so every run placed the window in the
-same off-screen spot.
+The cause was window placement, and then two things underneath it. The bridge
+captured a screen *region* computed from the driven Terminal window's bounds,
+and those bounds came from a 1500-point-wide rectangle compiled into the code.
+That rectangle does not fit this machine's 1280-point display, so Terminal
+resolved the overflow by sliding the window off the left edge — which is what
+the operator kept watching happen, and why resetting Terminal's saved window
+position changed nothing. A window outside the display still accepts AppleScript
+launch, keystrokes, and transcript reads; only the capture notices, which is why
+three checks stayed green while one failed with no explanation.
+
+Placing the window correctly then uncovered the rest: the coordinate space
+Terminal places windows in and the one the capture measures in are 3584 points
+apart on this machine, and its region capture cannot produce an image for any
+rectangle at all.
 
 ## What the bridge does now
 
 **Placement derives from the display, not from constants.** The host is asked
-for the visible frame of its menu-bar display (`NSScreen` via JavaScript for
+for the usable region of its main display (`NSScreen` via JavaScript for
 Automation, converted from bottom-left to Terminal's top-left origin), and both
 the driven window and the helper window that issues the capture are laid out
-inside that frame. The helper is placed clear of the captured rectangle rather
-than merely sent behind it, because a region capture records whatever the window
+inside that region. The helper is placed clear of the captured rectangle rather
+than merely sent behind it, because a capture records whatever the window
 server composited there. Before each capture the window is un-minimized, its
 bounds are set, and the result is read back; a window that still lands outside
-the frame is re-anchored once, and a window that will not come inside fails with
-a named code instead of capturing nothing.
+the region is re-anchored once, and a window that will not come inside fails
+with a named code instead of capturing nothing.
+
+**The geometry question is asked from inside Terminal.app**, for the same
+reason the capture is. A bare SSH process is not attached to the window server:
+asked directly over the transport it answers with a screen list no display on
+the desk matches, and windows placed in those coordinates produce a rectangle
+the capture cannot resolve at all.
+
+**Terminal and the capture do not share a coordinate space.** Terminal places
+and reports windows in NSScreen's global space, whose origin need not sit on
+any attached display — the Mac this was diagnosed on reports its only
+1280x1024 screen at global x=3584, so the compiled-in 1500-point-wide
+rectangle did not fit that 1280-point display at all, and Terminal resolved the
+overflow by sliding the window off the left edge, which is what the operator
+kept seeing. The capture measures from the display's own corner instead. So the
+host reports both: the usable region for placement, and that display's corner
+in the same space, and a placed rectangle is converted before it is captured.
+
+**The capture takes the whole display and crops.** `screencapture -R` answers
+"could not create image from display with rect" for *every* rectangle that
+intersects the display on that Mac, however small, while the whole-display form
+succeeds on the same host in the same second. So the bridge captures the
+display and crops to the window with `sips`, in image pixels via the display's
+backing scale factor. The artifact is still exactly the window, and the path no
+longer depends on a region form that is not reliable across the supported
+macOS versions.
 
 **Every capture failure names its class and its recovery.** The screenshot leg
 records the capture command line, its exit code and stderr (it runs through the
@@ -44,7 +75,9 @@ unavailable. A capture failure reports one of
 `terminal_display_locked`, `terminal_display_frame_unavailable`,
 `terminal_screen_capture_failed`, or the pre-existing
 `terminal_screen_recording_required`, each paired with the operator step that
-clears it.
+clears it. Those diagnostics are what identified both coordinate-space bugs
+above on their first run against the live machine, from the recorded command,
+its stderr, the window bounds, and the display frame side by side.
 
 ## Why a capture failure no longer skips the host baselines
 

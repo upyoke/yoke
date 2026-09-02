@@ -4,30 +4,41 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-import subprocess
 from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.machine_qa_terminal_recipe_test_support import (
-    completed,
-    recipe,
-)
-from runtime.api.domain.terminal_display_probe_test_support import (
-    DISPLAY_FRAME_PROBE_PREFIX,
-    display_frame_stdout,
-)
+from runtime.api.domain.machine_qa_terminal_recipe_test_support import recipe
+from runtime.api.domain.scripted_mac_host_test_support import ScriptedMacHost
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
 
 
 _PNG = base64.b64encode(b"\x89PNG\r\n\x1a\nuser-visible").decode("ascii")
 
 
+class _RecipeHost(ScriptedMacHost):
+    """A scripted host that also answers the recipe's transcript and status."""
+
+    def __init__(self, *, captured_png: str | None = None) -> None:
+        super().__init__()
+        self.captured_png = captured_png
+
+    def reply(self, command: str) -> str | None:
+        if "return contents of selected tab" in command:
+            return "ready"
+        if 'tell application "System Events"' in command:
+            return "true"
+        if command.startswith("/bin/test -s ") and self.captured_png:
+            return self.captured_png
+        if command.startswith("cat /tmp/yoke-qa-"):
+            return "0\n"
+        return None
+
+
 def test_terminal_mode_launches_and_drives_terminal_app_without_a_multiplexer(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    commands: list[str] = []
     monkeypatch.setattr(
         "yoke_core.domain.ssh_mac_terminal_app_recipe.uuid4",
         lambda: SimpleNamespace(hex="a" * 32),
@@ -45,25 +56,8 @@ def test_terminal_mode_launches_and_drives_terminal_app_without_a_multiplexer(
         }
     ]
 
-    def run(
-        command: str,
-        **_kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        commands.append(command)
-        if command.startswith(DISPLAY_FRAME_PROBE_PREFIX):
-            return completed(command, stdout=display_frame_stdout())
-        if "set bounds of targetWindow to {" in command:
-            requested = command.split("to {")[1].split("}")[0]
-            return completed(command, stdout=requested.replace(" ", ""))
-        if "return id of targetWindow" in command:
-            return completed(command, stdout="445")
-        if "return contents of selected tab" in command:
-            return completed(command, stdout="ready")
-        if 'tell application "System Events"' in command:
-            return completed(command, stdout="true")
-        if command.startswith("cat /tmp/yoke-qa-"):
-            return completed(command, stdout="0\n")
-        return completed(command)
+    run = _RecipeHost()
+    commands = run.commands
 
     result = execute_terminal_recipe(
         run,
@@ -105,7 +99,6 @@ def test_terminal_app_recipe_captures_the_visible_window_region(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    commands: list[str] = []
     monkeypatch.setattr(
         "yoke_core.domain.ssh_mac_terminal_app_recipe.uuid4",
         lambda: SimpleNamespace(hex="b" * 32),
@@ -123,30 +116,9 @@ def test_terminal_app_recipe_captures_the_visible_window_region(
         }
     ]
     config["capture_checkpoints"] = ["done"]
-    window_ids: list[int] = []
-
-    def run(
-        command: str,
-        **_kwargs: object,
-    ) -> subprocess.CompletedProcess[str]:
-        commands.append(command)
-        if command.startswith(DISPLAY_FRAME_PROBE_PREFIX):
-            return completed(command, stdout=display_frame_stdout())
-        if "set bounds of targetWindow to {" in command:
-            requested = command.split("to {")[1].split("}")[0]
-            return completed(command, stdout=requested.replace(" ", ""))
-        if "return id of targetWindow" in command:
-            window_ids.append(445 + len(window_ids))
-            return completed(command, stdout=str(window_ids[-1]))
-        if "return contents of selected tab" in command:
-            return completed(command, stdout="ready")
-        if command.startswith("if /bin/test -f "):
-            return completed(command, stdout="0\n")
-        if command.startswith("/bin/test -s "):
-            return completed(command, stdout=_PNG)
-        if command.startswith("cat /tmp/yoke-qa-"):
-            return completed(command, stdout="0\n")
-        return completed(command)
+    run = _RecipeHost(captured_png=_PNG)
+    commands = run.commands
+    window_ids = run.window_ids
 
     result = execute_terminal_recipe(
         run,
@@ -161,12 +133,12 @@ def test_terminal_app_recipe_captures_the_visible_window_region(
     assert result.ok
     handle = result.evidence["steps"][0]["artifact_handle"]
     assert handle["content_type"] == "image/png"
-    screenshot = next(
-        command for command in commands if "/usr/sbin/screencapture -x -R" in command
-    )
+    screenshot = next(command for command in commands if "--cropOffset" in command)
+    assert "/usr/sbin/screencapture -x -D 1" in screenshot
+    assert " -R " not in screenshot
     assert " -l " not in screenshot
     # The capture window is opened by the GUI-session runner, so both the
     # driven window and its capture helper are closed afterwards.
-    assert window_ids == [445, 446]
+    assert len(window_ids) >= 2
     for window_id in window_ids:
         assert any(f"close window id {window_id}" in command for command in commands)

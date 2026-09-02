@@ -1113,7 +1113,7 @@ tell application "Terminal"
   set bottomPos to item 4 of b
   set widthVal to rightPos - leftPos
   set heightVal to bottomPos - topPos
-  set shotCmd to "/bin/sleep 0.5; /usr/sbin/screencapture -R" & leftPos & "," & topPos & "," & widthVal & "," & heightVal & " -o " & quoted form of "\$OUT" & "; /usr/bin/sips -Z 1500 " & quoted form of "\$OUT" & " >/dev/null 2>&1; echo YOKE_SCREENSHOT_DONE"
+  set shotCmd to "/bin/sleep 0.5; /usr/sbin/screencapture -x -D 1 -o /tmp/yoke-installer-display.png; /usr/bin/sips -c " & heightVal & " " & widthVal & " --cropOffset " & topPos & " " & (leftPos - (\$FL)) & " /tmp/yoke-installer-display.png --out " & quoted form of "\$OUT" & " >/dev/null 2>&1; /usr/bin/sips -Z 1500 " & quoted form of "\$OUT" & " >/dev/null 2>&1; echo YOKE_SCREENSHOT_DONE"
   do script shotCmd
   set helperWindow to front window
   set bounds of helperWindow to {\$HL, \$HT, \$HR, \$HB}
@@ -1237,12 +1237,18 @@ Screenshot rules:
   image`. Wake it with `caffeinate -u -t 1`; a locked Mac needs a human to unlock
   it once.
 - Do not use `screencapture -l <window-id>` with Terminal AppleScript ids.
-  Terminal's AppleScript window id is not a CoreGraphics window number. Capture
-  the Terminal window's region: get `left,top,right,bottom` bounds through
-  AppleScript, calculate width and height, then run
-  `screencapture -R<left>,<top>,<width>,<height> -o /tmp/shot.png` through
-  Terminal.app. Terminal.app holds Screen Recording permission; direct SSH often
-  does not.
+  Terminal's AppleScript window id is not a CoreGraphics window number.
+- Do not use `-R` either. At least one Test Mac answers "could not create image
+  from display with rect" for every rectangle that intersects its display,
+  however small, while the whole-display form succeeds on the same host in the
+  same second. Capture the display and crop instead: run
+  `screencapture -x -D 1 -o /tmp/full.png` through Terminal.app, read the
+  window's `left,top,right,bottom` bounds through AppleScript, subtract that
+  display's own corner from them, and crop with `sips -c <height> <width>
+  --cropOffset <top> <left> /tmp/full.png --out /tmp/shot.png`. Crop numbers are
+  image pixels, so multiply by the display's backing scale factor on a Retina
+  Mac. Run the capture through Terminal.app either way: Terminal.app holds
+  Screen Recording permission; direct SSH often does not.
 - Place the window before capturing its region, and derive the placement from
   the display rather than from remembered coordinates. Terminal restores the
   last window frame for every new window, so a window can open wholly outside

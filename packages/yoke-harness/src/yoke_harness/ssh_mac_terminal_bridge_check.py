@@ -112,7 +112,6 @@ def verify_terminal_app_control(
     window_id = open_terminal_app_window(
         run,
         command=command,
-        display_frame=frame,
         bounds=layout.target,
     )
     try:
