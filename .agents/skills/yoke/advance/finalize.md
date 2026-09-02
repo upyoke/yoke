@@ -209,6 +209,14 @@ This is advisory — a snapshot miss does not block the advance. The next `path-
 
 Show lifecycle position with current status highlighted.
 
+This report may already be the message the seat reads. When a steering seat
+launched this session, the Stop hook delivers the last assistant text of every turn to
+that seat, so write that text as the report — what landed, what is blocked,
+what you need — and never re-send it with `yoke say`; keep `yoke say` for what
+cannot wait for a turn end. A session the operator launched or opened is not
+relayed: it reaches the seat holding its scope with `yoke say --steering` when
+there is something that seat must act on.
+
 If no linked GitHub issue:
 > Tip: GitHub issue creation is normally handled by `/yoke idea` and lifecycle
 > sync side effects. If a manual sync is needed, use

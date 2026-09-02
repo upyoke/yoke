@@ -1,7 +1,11 @@
-"""Turn-end report routing through live steering-scope claims."""
+"""Turn-end report routing for the sessions a steering seat launched."""
 
 from __future__ import annotations
 
+from yoke_contracts.session_control.launch_origin import (
+    LAUNCH_ORIGIN_OPERATOR,
+    LAUNCH_ORIGIN_STEERING,
+)
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.turn_end_evidence import REPORT_PAYLOAD_KEY, TurnEndReport
 from yoke_core.domain.session_message_service import send_message
@@ -40,7 +44,8 @@ def _message_count(conn) -> int:
     return int(conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0])
 
 
-def _record_launch_attempt(conn, session_id: str) -> None:
+def _record_launch(conn, session_id: str, origin: str) -> None:
+    """Bind *session_id* to a completed launch row of the given origin."""
     launch_message = send_message(
         conn,
         actor_id=10,
@@ -52,23 +57,19 @@ def _record_launch_attempt(conn, session_id: str) -> None:
     conn.execute(
         "INSERT INTO session_launches "
         "(launch_id,requester_actor_id,requester_session_id,project_id,"
-        "requested_surface,selected_surface,message_id,state,deadline_at,created_at) "
+        "requested_surface,selected_surface,message_id,state,deadline_at,"
+        "created_at,registered_session_id,origin) "
         "VALUES ('launch-1',10,'s2',1,'codex-desktop','codex-desktop',?,"
-        "'succeeded',?,?)",
-        (launch_message["message_id"], NOW_TEXT, NOW_TEXT),
-    )
-    conn.execute(
-        "INSERT INTO session_launch_attempts "
-        "(attempt_id,launch_id,machine_id,lease_id,attempt_number,started_at,"
-        "completed_at,native_session_id,result_code) "
-        "VALUES ('attempt-1','launch-1','m1','lease-1',1,?,?,?,'native_created')",
-        (NOW_TEXT, NOW_TEXT, session_id),
+        "'succeeded',?,?,?,?)",
+        (launch_message["message_id"], NOW_TEXT, NOW_TEXT, session_id, origin),
     )
     conn.commit()
 
 
-def test_covered_operator_session_routes_to_steering_holder() -> None:
+def test_steering_launched_session_routes_to_steering_holder() -> None:
     conn = _connection()
+    _record_launch(conn, "s1", LAUNCH_ORIGIN_STEERING)
+    before = _message_count(conn)
 
     routed = route_turn_end_report(
         conn, session_id="s1", report=_report("covered"), now=NOW
@@ -81,43 +82,64 @@ def test_covered_operator_session_routes_to_steering_holder() -> None:
     assert routed["recipient_session_id"] == "s2"
     assert duplicate is not None
     assert duplicate["deduplicated"] is True
-    assert _message_count(conn) == 1
-    message = conn.execute("SELECT * FROM session_messages").fetchone()
-    receipt = conn.execute("SELECT * FROM session_message_recipients").fetchone()
-    assert message["sender_session_id"] == "s1"
+    assert _message_count(conn) == before + 1
+    message = conn.execute(
+        "SELECT * FROM session_messages WHERE sender_session_id='s1'"
+    ).fetchone()
+    receipt = conn.execute(
+        "SELECT * FROM session_message_recipients WHERE message_id=?",
+        (message["message_id"],),
+    ).fetchone()
     assert message["body"] == "Report covered."
     assert receipt["session_id"] == "s2"
     assert receipt["state"] == "pending"
 
 
-def test_uncovered_operator_session_keeps_operator_delivery() -> None:
+def test_no_steering_holder_leaves_a_launched_report_undelivered() -> None:
     conn = _connection()
+    _record_launch(conn, "s1", LAUNCH_ORIGIN_STEERING)
     conn.execute("UPDATE work_claims SET released_at=? WHERE id=4", (NOW_TEXT,))
     conn.commit()
+    before = _message_count(conn)
 
     routed = route_turn_end_report(
         conn, session_id="s1", report=_report("uncovered"), now=NOW
     )
 
     assert routed is None
-    assert _message_count(conn) == 0
+    assert _message_count(conn) == before
 
 
-def test_launch_provenance_never_redirects_worker_report() -> None:
+def test_operator_launched_session_is_not_relayed() -> None:
+    """An operator's own worker answers the seat with `yoke say --steering`."""
     conn = _connection()
-    _record_launch_attempt(conn, "s1")
+    _record_launch(conn, "s1", LAUNCH_ORIGIN_OPERATOR)
     before = _message_count(conn)
 
     routed = route_turn_end_report(
-        conn, session_id="s1", report=_report("launched"), now=NOW
+        conn, session_id="s1", report=_report("operator-launched"), now=NOW
     )
 
     assert routed is None
     assert _message_count(conn) == before
 
 
+def test_operator_opened_session_with_an_item_claim_is_not_relayed() -> None:
+    """A person's own conversation is not a worker, whatever it claims."""
+    conn = _connection()
+
+    routed = route_turn_end_report(
+        conn, session_id="s1", report=_report("operator-opened"), now=NOW
+    )
+
+    assert routed is None
+    assert _message_count(conn) == 0
+
+
 def test_released_claim_makes_next_report_fall_back_without_rerouting() -> None:
     conn = _connection()
+    _record_launch(conn, "s1", LAUNCH_ORIGIN_STEERING)
+    before = _message_count(conn)
     first = route_turn_end_report(
         conn, session_id="s1", report=_report("first"), now=NOW
     )
@@ -130,9 +152,7 @@ def test_released_claim_makes_next_report_fall_back_without_rerouting() -> None:
     )
 
     assert second is None
-    assert _message_count(conn) == 1
-    receipt = conn.execute("SELECT state FROM session_message_recipients").fetchone()
-    assert receipt["state"] == "pending"
+    assert _message_count(conn) == before + 1
 
 
 def test_successful_route_ends_stop_chain_without_waiting(monkeypatch) -> None:
