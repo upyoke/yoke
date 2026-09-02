@@ -28,7 +28,6 @@ from yoke_core.domain.qa_plan_execution_state import (
     QaPlanExecutionStateError,
     begin_plan_execution,
     finish_plan_execution,
-    lock_plan_execution,
     select_plan_execution,
 )
 
@@ -108,9 +107,7 @@ def test_a_parked_owner_keeps_its_execution_and_an_unparked_one_loses_it(
     execution_id = str(execution["id"])
     _stop_reporting(test_db, execution_id)
 
-    _set_session_posture(
-        test_db, session_id, "parked", reason="holding for the fix"
-    )
+    _set_session_posture(test_db, session_id, "parked", reason="holding for the fix")
     assert reap_stale_plan_executions(test_db) == []
     assert _state(test_db, execution_id) == "active"
 
@@ -193,9 +190,7 @@ def test_continuation_is_refused_when_the_sweep_did_not_settle_the_prior_walk(
         reason="case-execution-or-recording-error",
     )
 
-    with pytest.raises(
-        QaPlanExecutionStateError, match="not because the stale sweep"
-    ):
+    with pytest.raises(QaPlanExecutionStateError, match="not because the stale sweep"):
         begin_plan_execution(
             test_db,
             item_id=4904,

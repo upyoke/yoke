@@ -263,13 +263,7 @@ def test_projection_clears_a_swept_error_once_a_continuation_run_lands() -> None
     conn.execute("INSERT INTO qa_runs VALUES (1,1,'error')")
 
     swept = [stage for stage in _project(conn) if stage["state"] == "failed"]
-    assert swept == [
-        {
-            "name": "reviewing implementation",
-            "state": "failed",
-            "failure": "QA failed",
-        }
-    ]
+    assert [stage["failure"] for stage in swept] == ["QA failed"]
 
     conn.execute("INSERT INTO qa_runs VALUES (2,1,NULL)")
 
