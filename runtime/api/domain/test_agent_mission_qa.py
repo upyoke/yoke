@@ -19,6 +19,7 @@ from yoke_contracts.machine_qa_execution import (
     AGENT_MISSION_ARTIFACT_LIMIT,
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
 )
+from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
     handle_agent_mission_ready,
@@ -101,8 +102,7 @@ def _materialize_mission(conn: Any, *, item_id: int) -> int:
     create_governed_tables(conn)
     sync_machine_qa_pack_methods(conn)
     conn.execute(
-        "INSERT INTO project_capabilities(project_id,type) "
-        "VALUES(1,'browser-control')"
+        "INSERT INTO project_capabilities(project_id,type) VALUES(1,'browser-control')"
     )
     plan = create_plan(
         conn,
@@ -189,6 +189,8 @@ def test_mission_parks_resumes_and_persists_the_main_report(
         prepared = prepare_agent_mission_contract(contract)
     finally:
         clear_host_control_factory()
+    scratch_path = mission_scratch_path(execution_id)
+    assert prepared["preparation"]["scratch_path"] == scratch_path
     ready = handle_agent_mission_ready(
         _request(
             "test_machine.mission.ready",
@@ -227,10 +229,13 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert walker["subagent_type"] is None
     assert "yoke qa browser setup" in walker["browser_setup_command"]
     assert "yoke qa browser step" in walker["browser_step_command"]
-    assert f"--run-id {ready.result_payload['result']['run_id']}" in (
-        walker["artifact_add_command"]
+    assert (
+        f"--run-id {ready.result_payload['result']['run_id']}"
+        in (walker["artifact_add_command"])
     )
     assert "WALK_STATUS: HUMAN_GATE" in walker["prompt"]
+    assert walker["scratch_path"] == scratch_path
+    assert walker["scratch_teardown_command"] in walker["prompt"]
 
     command_control = _CommandHostControl()
     register_host_control_factory(lambda _material: command_control)
@@ -313,9 +318,7 @@ def test_mixed_bundle_keeps_all_final_verdicts_with_the_main_owner() -> None:
                 "instructions": "Explore the onboarding flow.",
                 "expected_outcome": "Return ranked findings.",
                 "artifacts": [],
-                (
-                    "transcript"
-                ): {
+                ("transcript"): {
                     "preparation": {
                         "ok": False,
                         "error_code": TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,

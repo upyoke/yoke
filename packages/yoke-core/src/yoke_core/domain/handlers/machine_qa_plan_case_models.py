@@ -51,6 +51,7 @@ class AgentMissionPreparation(BaseModel):
     ok: bool
     error_code: str | None = None
     evidence: dict[str, Any] = Field(default_factory=dict)
+    scratch_path: str = Field(min_length=1)
 
 
 class AgentMissionPlanCaseReadyRequest(TestMachinePlanCaseBeginRequest):

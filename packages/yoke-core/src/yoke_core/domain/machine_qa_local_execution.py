@@ -28,6 +28,10 @@ from yoke_core.domain.machine_qa_execution_contract import (
 from yoke_core.domain.machine_qa_fixture_lifecycle import (
     execute_case_with_fixture_lifecycle,
 )
+from yoke_core.domain.machine_qa_mission_scratch import (
+    create_mission_scratch,
+    remove_mission_scratch,
+)
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
@@ -61,9 +65,7 @@ def _execution(
         material=material,
         lease=CoordinationClaim(
             id=contract.lease_id,
-            target=make_qa_admission_target(
-                contract.settings["resource_name"]
-            ),
+            target=make_qa_admission_target(contract.settings["resource_name"]),
             session_id="server-owned",
             claimed_at="server-issued",
         ),
@@ -160,18 +162,25 @@ def execute_machine_case_contract(
     )
 
 
+def _mission_contract(
+    raw_contract: dict[str, Any],
+) -> HostControlExecutionContract:
+    """Validate one server-issued exploratory-mission plan-case contract."""
+    contract = HostControlExecutionContract.model_validate(raw_contract)
+    if contract.operation != "plan_case" or (
+        len(contract.cases) != 1 or contract.cases[0].runner_id != "agent_mission"
+    ):
+        raise ValueError("expected an agent-mission plan-case contract")
+    return contract
+
+
 def prepare_agent_mission_contract(
     raw_contract: dict[str, Any],
     *,
     progress_callback: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
-    """Reach the mission baseline without executing an authored step list."""
-    contract = HostControlExecutionContract.model_validate(raw_contract)
-    if contract.operation != "plan_case" or (
-        len(contract.cases) != 1
-        or contract.cases[0].runner_id != "agent_mission"
-    ):
-        raise ValueError("expected an agent-mission plan-case contract")
+    """Reach the mission baseline and stage its owner-only scratch."""
+    contract = _mission_contract(raw_contract)
     execution = _execution(contract, progress_callback=progress_callback)
     if progress_callback is not None:
         progress_callback()
@@ -182,11 +191,16 @@ def prepare_agent_mission_contract(
     )
     if progress_callback is not None:
         progress_callback()
+    scratch_path = create_mission_scratch(
+        execution.control,
+        execution_id=str(contract.plan_execution_id),
+    )
     preparation = {
         "baseline": baseline.name if baseline else None,
         "ok": baseline.ok if baseline else True,
         "error_code": baseline.error_code if baseline else None,
         "evidence": baseline.evidence if baseline else {},
+        "scratch_path": scratch_path,
     }
     payload = {
         "lease_id": contract.lease_id,
@@ -208,12 +222,7 @@ def execute_agent_mission_host_command(
     timeout_seconds: int,
 ) -> dict[str, Any]:
     """Run one lease-authorized walker command and return redacted output."""
-    contract = HostControlExecutionContract.model_validate(raw_contract)
-    if contract.operation != "plan_case" or (
-        len(contract.cases) != 1
-        or contract.cases[0].runner_id != "agent_mission"
-    ):
-        raise ValueError("expected an agent-mission plan-case contract")
+    contract = _mission_contract(raw_contract)
     execution = _execution(contract)
     completed = execution.control.run_command(
         argv,
@@ -245,10 +254,31 @@ def execute_agent_mission_host_command(
     return redacted
 
 
+def execute_agent_mission_scratch_teardown(
+    raw_contract: dict[str, Any],
+    *,
+    timeout_seconds: int = 60,
+) -> dict[str, Any]:
+    """Remove the mission's secret-staging scratch and prove it is gone."""
+    contract = _mission_contract(raw_contract)
+    execution = _execution(contract)
+    redacted = redact_machine_qa_value(
+        remove_mission_scratch(
+            execution.control,
+            execution_id=str(contract.plan_execution_id),
+            timeout_seconds=timeout_seconds,
+        ),
+        tuple(execution.material.secrets.values()),
+    )
+    ensure_secret_free_result(redacted)
+    return redacted
+
+
 __all__ = [
     "LocalHostControlSubmission",
     "execute_machine_case_contract",
     "execute_agent_mission_host_command",
+    "execute_agent_mission_scratch_teardown",
     "prepare_agent_mission_contract",
     "execute_verification_contract",
 ]

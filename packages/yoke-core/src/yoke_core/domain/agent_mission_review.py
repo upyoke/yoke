@@ -8,6 +8,7 @@ from yoke_contracts.machine_qa_execution import (
     AGENT_MISSION_ARTIFACT_LIMIT,
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
 )
+from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 
 
@@ -26,19 +27,13 @@ def _screen_recording_warning(cases: list[Mapping[str, Any]]) -> str:
         for case in cases
         if case.get("capture_runner") == "agent_mission"
         and (
-            (
-                (case.get("transcript") or {})
-                .get("preparation")
-                or {}
-            ).get("error_code")
+            ((case.get("transcript") or {}).get("preparation") or {}).get("error_code")
         )
         == TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE
     ]
     if not degraded:
         return ""
-    requirement_ids = ", ".join(
-        str(int(case["requirement_id"])) for case in degraded
-    )
+    requirement_ids = ", ".join(str(int(case["requirement_id"])) for case in degraded)
     return (
         f" WARNING: host-control preparation for case(s) {requirement_ids} "
         f"reported {TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE}: this Mac "
@@ -76,6 +71,12 @@ def _walker_dispatch(
         f"--run-id {int(case['capture_run_id'])} --artifact-type TYPE "
         "--artifact-handle HANDLE_JSON [--content-type TYPE] [--metadata JSON]"
     )
+    scratch_path = mission_scratch_path(execution_id)
+    scratch_teardown_command = (
+        f"yoke qa mission scratch-teardown {subject_flag} "
+        f"--execution-id {execution_id} "
+        f"--requirement-id {int(case['requirement_id'])}"
+    )
     prompt = (
         "Walk this mission atomically. Choose the sequence and use every "
         "available declared substrate that helps. Do not issue the verdict; "
@@ -89,7 +90,14 @@ def _walker_dispatch(
         "a bounded timeout long enough for first setup, then "
         f"drive it one chosen step at a time with `{browser_step_command}`. "
         "Add `--gui-session` to the outer host command for macOS "
-        "window-server or login-keychain work. If a permission dialog, "
+        "window-server or login-keychain work. This lease owns one "
+        f"owner-only staging directory on the target, `{scratch_path}`: pipe "
+        "a secret on stdin where the product accepts it, and otherwise stage "
+        "every file carrying a token or password inside that directory, "
+        "never a loose path under /tmp. Before you return, run "
+        f"`{scratch_teardown_command}` and state the scratch path and its "
+        "confirmed removal in your report; returning while it still exists "
+        "is a finding against your own walk. If a permission dialog, "
         "interactive sign-in, or approval needs a person, return immediately "
         "with WALK_STATUS: HUMAN_GATE, the exact needed action, and resume "
         "state. Never wait for the operator inside this turn. On a resumed "
@@ -97,9 +105,7 @@ def _walker_dispatch(
         "main owner before acting. Treat screenshot "
         "display failures, audit-session permission failures, and apparently "
         "expired/unrefreshable OAuth from SSH as wrong-session signals, not "
-        "broken credentials."
-        + _screen_recording_warning([case])
-        + "\n\n"
+        "broken credentials." + _screen_recording_warning([case]) + "\n\n"
         f"Mission:\n{case['instructions']}\n\n"
         f"Good outcome:\n{case['expected_outcome']}"
     )
@@ -120,6 +126,8 @@ def _walker_dispatch(
             else "target-naive-no-checkout"
         ),
         "host_command": host_command,
+        "scratch_path": scratch_path,
+        "scratch_teardown_command": scratch_teardown_command,
         "browser_setup_command": browser_setup_command,
         "browser_step_command": browser_step_command,
         "artifact_add_command": artifact_add_command,

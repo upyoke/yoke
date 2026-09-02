@@ -122,6 +122,18 @@ Add `--gui-session` when a macOS command needs the login keychain or window
 server. The Terminal bridge, not SSH or `launchctl asuser`, is the supported
 route into that session.
 
+### Secret material on the Test Machine
+
+Prefer piping a token or password straight into the command that consumes it
+wherever the product accepts a secret on stdin. When a secret must reach disk,
+it goes in the one owner-only staging directory this lease owns on the target
+host — the dispatch names its exact path — and never in a loose file under
+`/tmp` or a home directory. Before you return, run the dispatch's exact
+scratch-teardown command, and state the scratch path and its confirmed removal
+in your report. Returning while that directory still exists leaves a
+live-looking credential on a shared machine, so it is a finding against your
+own walk.
+
 Treat these failures as one diagnosis—wrong session context:
 
 - `screencapture` cannot create an image from the display;

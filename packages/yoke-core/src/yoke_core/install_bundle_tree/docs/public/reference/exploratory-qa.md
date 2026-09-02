@@ -133,6 +133,27 @@ filesystem, never the calling machine's, so the session-cwd write-authority
 guard exempts it from local write classification — a shell redirect written
 after the argv still runs locally and stays enforced.
 
+Each mission lease owns one secret-staging directory on the Test Machine.
+Preparation creates it `0700` before the walker is dispatched, and the walker
+dispatch carries both its exact path and the teardown command:
+
+```text
+yoke --env <connection> qa mission scratch-teardown \
+  --item-id <id> \
+  --execution-id <execution-id> \
+  --requirement-id <requirement-id>
+```
+
+Where the product reads a secret on stdin, pipe it and touch no disk at all.
+Otherwise every file carrying a token or password is staged inside that
+directory and nowhere else — never a loose path under `/tmp`, which is how a
+first-boot admin token once outlived its walk on a shared machine. The walker
+runs the teardown before returning and states the scratch path and its
+confirmed removal in the report; the command removes the directory, proves it
+is gone, and exits non-zero with `mission_scratch_not_removed` when it is not.
+A walker returning while its scratch still exists is a finding against its own
+walk.
+
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:
 

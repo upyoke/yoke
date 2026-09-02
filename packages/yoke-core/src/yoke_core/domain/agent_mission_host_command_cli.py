@@ -10,6 +10,9 @@ from typing import Optional
 from yoke_contracts.api.function_call import TargetRef
 
 
+PROG = "yoke qa mission host-command"
+
+
 def _target(parsed: argparse.Namespace) -> TargetRef:
     if parsed.item is not None:
         return TargetRef(kind="item", public_ref=parsed.item, project_id=parsed.project)
@@ -22,14 +25,8 @@ def _target(parsed: argparse.Namespace) -> TargetRef:
     )
 
 
-def run(args: list[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa mission host-command",
-        description=(
-            "Run one argv-shaped command through an awaiting mission's "
-            "retained Test Machine lease."
-        ),
-    )
+def add_mission_subject_arguments(parser: argparse.ArgumentParser) -> None:
+    """Declare how every mission client command addresses its lease."""
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item")
     subject.add_argument("--item-id", type=int)
@@ -37,23 +34,15 @@ def run(args: list[str]) -> int:
     parser.add_argument("--project")
     parser.add_argument("--execution-id", required=True)
     parser.add_argument("--requirement-id", type=int, required=True)
-    parser.add_argument("--gui-session", action="store_true")
-    parser.add_argument("--timeout-seconds", type=int, default=60)
     parser.add_argument("--session-id")
-    parser.add_argument("command", nargs=argparse.REMAINDER)
-    parsed = parser.parse_args(args)
-    command = list(parsed.command)
-    if command and command[0] == "--":
-        command = command[1:]
-    if (
-        not command
-        or len(command) > 64
-        or any(not value or len(value) > 4096 for value in command)
-    ):
-        parser.error("ARGV must contain 1..64 non-empty bounded arguments")
-    if not 1 <= parsed.timeout_seconds <= 900:
-        parser.error("--timeout-seconds must be between 1 and 900")
 
+
+def resolve_mission_contract(
+    parsed: argparse.Namespace,
+    *,
+    prog: str,
+) -> Optional[dict]:
+    """Return the awaiting mission's execution contract, or print why not."""
     from yoke_core.api.service_client_structured_api_adapter import build_actor
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 
@@ -69,11 +58,42 @@ def run(args: list[str]) -> int:
     if not response.success:
         code = response.error.code if response.error else "unknown"
         message = response.error.message if response.error else ""
-        print(f"yoke qa mission host-command: {code}: {message}", file=sys.stderr)
-        return 2
+        print(f"{prog}: {code}: {message}", file=sys.stderr)
+        return None
     contract = (response.result or {}).get("execution")
     if not isinstance(contract, dict):
-        print("yoke qa mission host-command: no execution contract", file=sys.stderr)
+        print(f"{prog}: no execution contract", file=sys.stderr)
+        return None
+    return contract
+
+
+def run(args: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog=PROG,
+        description=(
+            "Run one argv-shaped command through an awaiting mission's "
+            "retained Test Machine lease."
+        ),
+    )
+    add_mission_subject_arguments(parser)
+    parser.add_argument("--gui-session", action="store_true")
+    parser.add_argument("--timeout-seconds", type=int, default=60)
+    parser.add_argument("command", nargs=argparse.REMAINDER)
+    parsed = parser.parse_args(args)
+    command = list(parsed.command)
+    if command and command[0] == "--":
+        command = command[1:]
+    if (
+        not command
+        or len(command) > 64
+        or any(not value or len(value) > 4096 for value in command)
+    ):
+        parser.error("ARGV must contain 1..64 non-empty bounded arguments")
+    if not 1 <= parsed.timeout_seconds <= 900:
+        parser.error("--timeout-seconds must be between 1 and 900")
+
+    contract = resolve_mission_contract(parsed, prog=PROG)
+    if contract is None:
         return 2
     try:
         from yoke_core.domain.machine_qa_local_execution import (
@@ -92,8 +112,7 @@ def run(args: list[str]) -> int:
         )
     except Exception as exc:
         print(
-            "yoke qa mission host-command: local execution failed "
-            f"({type(exc).__name__})",
+            f"{PROG}: local execution failed ({type(exc).__name__})",
             file=sys.stderr,
         )
         return 2
@@ -111,7 +130,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     return run(list(sys.argv[1:] if argv is None else argv))
 
 
-__all__ = ["main", "run"]
+__all__ = [
+    "add_mission_subject_arguments",
+    "main",
+    "resolve_mission_contract",
+    "run",
+]
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter
