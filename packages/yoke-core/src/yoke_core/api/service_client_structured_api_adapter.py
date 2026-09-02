@@ -89,7 +89,8 @@ def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
         )
 
         config = machine_config.load_config()
-        local_envs = local_postgres_envs(config)
+        retry_envs = local_postgres_envs(config)
+        inventory_envs = local_postgres_envs(config, include_prod=True)
     except Exception:
         return ""
     try:
@@ -100,16 +101,16 @@ def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
         sibling = same_universe_db_admin_env(config, machine_config.active_env())
     except Exception:  # noqa: BLE001 - no resolvable pairing is not a failure
         sibling = ""
-    if not sibling and not local_envs:
+    if not sibling and not retry_envs:
         return ""
-    env = sibling or local_envs[0]
+    env = sibling or retry_envs[0]
     if cli_invocation.startswith("yoke "):
         recipe = cli_invocation.replace("yoke ", f"yoke --env {env} ", 1)
     else:
         recipe = f"YOKE_ENV={env} {cli_invocation}"
     inventory = (
-        f" (configured local-postgres envs: {', '.join(local_envs)})"
-        if local_envs
+        f" (configured local-postgres envs: {', '.join(inventory_envs)})"
+        if inventory_envs
         else ""
     )
     return (
