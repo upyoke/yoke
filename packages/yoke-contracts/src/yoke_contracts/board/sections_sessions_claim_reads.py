@@ -10,7 +10,7 @@ the engine's key decoder.
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.coordination_claim_keys import (
@@ -18,6 +18,10 @@ from yoke_contracts.coordination_claim_keys import (
     COORDINATION_TARGET_KINDS,
     TARGET_KIND_MIGRATION_SERIALIZATION,
     key_prefix_for_kind,
+)
+from yoke_contracts.session_holdings import (
+    pair_steering_document_slugs,
+    steering_hold_window_key,
 )
 
 _COORDINATION_KINDS_SQL = ", ".join(f"'{kind}'" for kind in COORDINATION_TARGET_KINDS)
@@ -182,9 +186,54 @@ def strategy_doc_claims_for_session(
     return db.query_quiet(sql, params)
 
 
+def steered_document_slugs_for_session(
+    db: BoardDBLike,
+    session_id: str,
+) -> Optional[Dict[tuple[str, str, str], List[str]]]:
+    """Return document slugs paired to this session's steering seats.
+
+    ``None`` means a replay payload predates this read; callers retain the
+    separate seat and document rows until the serving engine converges.
+    """
+    sql = """
+        SELECT CAST(claim.scope::jsonb ->> 'project_id' AS INTEGER),
+               claim.claimed_at, claim.released_at,
+               doc.strategy_doc_slug, doc.registered_at, doc.released_at
+        FROM work_claims claim
+        LEFT JOIN strategy_doc_claims doc
+          ON doc.owner_kind = 'session'
+         AND doc.owner_session_id = claim.session_id
+         AND doc.project_id = CAST(
+             claim.scope::jsonb ->> 'project_id' AS INTEGER
+         )
+        WHERE claim.session_id = %s
+          AND claim.target_kind = 'steering'
+        ORDER BY claim.id, doc.strategy_doc_slug
+        """
+    params = (session_id,)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return None
+    rows = db.query_quiet(sql, params)
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        candidates.append(
+            {
+                "claim_key": steering_hold_window_key(row[0], row[1], row[2]),
+                "claim_claimed_at": row[1],
+                "claim_released_at": row[2],
+                "strategy_doc_slug": row[3],
+                "doc_registered_at": row[4],
+                "doc_released_at": row[5],
+            }
+        )
+    return pair_steering_document_slugs(candidates)
+
+
 __all__ = [
     "coordination_claims_for_session",
     "path_claims_for_session",
     "path_claims_for_items",
+    "steered_document_slugs_for_session",
     "strategy_doc_claims_for_session",
 ]

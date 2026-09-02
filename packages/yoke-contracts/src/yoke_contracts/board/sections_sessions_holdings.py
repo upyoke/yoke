@@ -11,6 +11,7 @@ from yoke_contracts.board.sections_sessions_claim_reads import (
     coordination_claims_for_session,
     path_claims_for_items,
     path_claims_for_session,
+    steered_document_slugs_for_session,
     strategy_doc_claims_for_session,
 )
 from yoke_contracts.board.sections_sessions_occupancy import occupancy_project_slug
@@ -23,6 +24,7 @@ from yoke_contracts.session_holdings import (
     SESSION_PATH_HOLDING_KEY,
     coordination_holding_key,
     group_session_holdings,
+    steering_hold_window_key,
     strategy_document_holding_key,
     work_holding_key,
 )
@@ -77,6 +79,7 @@ def _work_target(db: BoardDBLike, claim: Tuple) -> str:
 def _work_observations(
     db: BoardDBLike,
     claims: List[Tuple],
+    steering_docs: Mapping[Any, list[str]] | None,
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[int]]:
     observations: list[dict[str, Any]] = []
     states: dict[str, dict[str, Any]] = {}
@@ -85,6 +88,11 @@ def _work_observations(
         target = _work_target(db, claim)
         key = _work_key(claim, target)
         released_at = claim[5]
+        scope = claim[9] if isinstance(claim[9], dict) else {}
+        project_id = (
+            scope.get("project_id") if str(claim[7] or "") == "steering" else None
+        )
+        steering_key = steering_hold_window_key(project_id, claim[4], claim[5])
         observations.append(
             {
                 "holding_kind": "work_claim",
@@ -93,6 +101,9 @@ def _work_observations(
                 "target": target,
                 "claimed_at": claim[4],
                 "released_at": released_at,
+                "project_id": project_id,
+                "strategy_docs": list((steering_docs or {}).get(steering_key, [])),
+                "steering_docs_available": steering_docs is not None,
             }
         )
         state = states.setdefault(key, {"current": False, "released_at": None})
@@ -193,12 +204,10 @@ def _path_observations(
 
 def _strategy_observations(
     db: BoardDBLike,
-    session_id: str,
+    claims: List[Tuple],
 ) -> list[dict[str, Any]]:
     observations: list[dict[str, Any]] = []
-    for project_id, doc_slug, released_at in strategy_doc_claims_for_session(
-        db, session_id
-    ):
+    for project_id, doc_slug, released_at in claims:
         slug = occupancy_project_slug(db, int(project_id)) or str(project_id)
         observations.append(
             {
@@ -249,7 +258,9 @@ def _holding_label(entry: Mapping[str, Any]) -> str:
     kind = str(entry.get("holding_kind") or "")
     target = str(entry.get("target") or "?")
     if kind == "coordination":
-        suffix = f" ({entry['owner_public_ref']})" if entry.get("owner_public_ref") else ""
+        suffix = (
+            f" ({entry['owner_public_ref']})" if entry.get("owner_public_ref") else ""
+        )
         return f"{LEASE_GLYPH} {target}{suffix}"
     if kind == "strategy_document":
         return f"{STEERING_GLYPH} {target}"
@@ -261,10 +272,28 @@ def _holding_label(entry: Mapping[str, Any]) -> str:
             else f"{target} {PATH_GLYPH}{count}"
         )
     if entry.get("target_kind") == "steering":
+        docs = [str(slug) for slug in entry.get("strategy_docs") or [] if slug]
         target = f"{STEERING_GLYPH} {target}"
+        if entry.get("steering_docs_available"):
+            target = f"{target} · {', '.join(docs) or 'no doc lock'}"
     if entry.get("path_count") is not None:
         target = f"{target} {PATH_GLYPH}{int(entry['path_count'])}"
     return target
+
+
+def _fold_steering_documents(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    covered = {
+        strategy_document_holding_key(entry.get("project_id"), slug)
+        for entry in entries
+        if entry.get("target_kind") == "steering"
+        for slug in entry.get("strategy_docs") or []
+    }
+    return [
+        entry
+        for entry in entries
+        if entry.get("holding_kind") != "strategy_document"
+        or entry.get("target_key") not in covered
+    ]
 
 
 def session_holding_labels(
@@ -275,16 +304,20 @@ def session_holding_labels(
 ) -> List[str]:
     """Return current-first, globally deduplicated labels for one board row."""
     claims = _claims_for_session(db, session_id)
-    work, states, item_ids = _work_observations(db, claims)
+    document_claims = strategy_doc_claims_for_session(db, session_id)
+    steering_docs = steered_document_slugs_for_session(db, session_id)
+    work, states, item_ids = _work_observations(db, claims, steering_docs)
     observations = [
         *work,
         *_path_observations(db, session_id, states, item_ids),
-        *_strategy_observations(db, session_id),
+        *_strategy_observations(db, document_claims),
         *_coordination_observations(db, session_id, states),
     ]
     grouped = group_session_holdings(observations, previous_limit=previous_limit)
-    labels = [_holding_label(entry) for entry in grouped["current"]]
-    labels.extend(_holding_label(entry) for entry in grouped["previous"])
+    current = _fold_steering_documents(grouped["current"])
+    previous = _fold_steering_documents(grouped["previous"])
+    labels = [_holding_label(entry) for entry in current]
+    labels.extend(_holding_label(entry) for entry in previous)
     if grouped["previous_remainder"]:
         labels.append(f"and {grouped['previous_remainder']} more")
     return labels

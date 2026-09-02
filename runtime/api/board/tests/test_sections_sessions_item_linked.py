@@ -61,6 +61,7 @@ CREATE TABLE strategy_doc_claims (
     strategy_doc_slug TEXT,
     owner_kind TEXT,
     owner_session_id TEXT,
+    registered_at TEXT,
     released_at TEXT
 );
 """

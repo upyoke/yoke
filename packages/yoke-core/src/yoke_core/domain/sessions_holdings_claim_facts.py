@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.session_holdings import pair_steering_document_slugs
 from yoke_core.domain import db_backend
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -96,15 +97,16 @@ def steered_document_slugs(
     project_id = scope_int_sql(conn, "claim.scope", "project_id")
     try:
         rows = conn.execute(
-            "SELECT DISTINCT claim.id AS claim_id, doc.strategy_doc_slug "
-            "FROM work_claims claim JOIN strategy_doc_claims doc "
+            "SELECT claim.id AS claim_id, "
+            "claim.claimed_at AS claim_claimed_at, "
+            "claim.released_at AS claim_released_at, "
+            "doc.strategy_doc_slug AS strategy_doc_slug, "
+            "doc.registered_at AS doc_registered_at, "
+            "doc.released_at AS doc_released_at "
+            "FROM work_claims claim LEFT JOIN strategy_doc_claims doc "
             "ON doc.owner_kind = 'session' "
             "AND doc.owner_session_id = claim.session_id "
             f"AND doc.project_id = {project_id} "
-            "AND ((claim.released_at IS NULL AND doc.released_at IS NULL) "
-            "OR (claim.released_at IS NOT NULL AND doc.released_at IS NOT NULL "
-            "AND doc.registered_at <= claim.released_at "
-            "AND doc.released_at >= claim.claimed_at)) "
             "WHERE claim.target_kind = 'steering' "
             f"AND claim.id IN ({placeholders}) "
             "ORDER BY claim.id, doc.strategy_doc_slug",
@@ -113,12 +115,8 @@ def steered_document_slugs(
     except db_backend.database_error_types(conn):
         clear_failed_read(conn)
         return {}
-    grouped: Dict[int, List[str]] = {}
-    for row in rows:
-        grouped.setdefault(int(row["claim_id"]), []).append(
-            str(row["strategy_doc_slug"])
-        )
-    return grouped
+    paired = pair_steering_document_slugs(dict(row) for row in rows)
+    return {int(claim_id): slugs for claim_id, slugs in paired.items()}
 
 
 __all__ = [
