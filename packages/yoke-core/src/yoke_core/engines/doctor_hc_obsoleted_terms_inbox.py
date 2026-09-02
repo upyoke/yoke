@@ -15,7 +15,7 @@ lifecycle still read them.
 
 from __future__ import annotations
 
-_RETIRED_DELIVERY_TABLE = r"addressed" + r"_event_deliveries"
+_RETIRED_DELIVERY_TABLE = r"\baddressed" + r"_event_deliveries\b"
 _RETIRED_NOTIFICATION_MODULE = r"\binbox" + r"_notifications\b"
 _RETIRED_NOTIFICATION_DISPATCH = (
     r"\b(dispatch_addressed_event|addressed_actor_ids_for_event"
