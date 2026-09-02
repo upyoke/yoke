@@ -88,11 +88,16 @@ that workflow's remaining legs. One worker owns the item across those legs.
 Work arriving in any workflow stays there; never convert or re-file it to make
 it Dash-shaped. Chaining `/yoke do` duplicates the steerer-owned selection.
 
-## 5. Workers self-end after their DONE message
+## 5. Workers self-end after their DONE report
 
-After sending `DONE PREFIX-N <one-line summary>`, the worker must END its own
-session. That non-destructive self-END is the canonical close: no lingering,
-no re-tasking, and no routine termination by the steerer.
+After its `DONE PREFIX-N <one-line summary>` report, the worker must END its
+own session. That non-destructive self-END is the canonical close: no
+lingering, no re-tasking, and no routine termination by the steerer. A worker
+this seat launched writes that report as its last turn-end text and sends
+nothing; a worker outside the relay sends it with `yoke say --steering`,
+before releasing any claim it still holds. Either way one terminal report per
+session and item reaches this seat once — a reworded retry, or the same report
+arriving through both routes, deduplicates instead of arriving twice.
 
 `yoke sessions terminate` is reserved for an unresponsive worker or explicit
 cleanup. In those exceptional cases, resolve the full session id from the
@@ -130,10 +135,12 @@ yoke session-control launch preview --project {_project} --surface {_surface} --
 Preview is mandatory. Do not create until preview returns
 `launchable=true` for the chosen CLI surface. CLI surface only. One item.
 `session_control.launch.create` composes the canonical single-item mandate
-server-side from the item ref, the charge-schedule route, and this session
-id as the DONE target. Do not hand-assemble the worker body. Optional extras
-append after that mandate via `--stdin`. Use `--raw-instructions` only for a
-non-standard full body.
+server-side from the item ref, the charge-schedule route, and this launch's
+origin, which decides whether the worker reports by stopping (relayed) or
+with `yoke say --steering`. The mandate carries no session id: the report is
+addressed to the steering ROLE. Do not hand-assemble the worker body.
+Optional extras append after that mandate via `--stdin`. Use
+`--raw-instructions` only for a non-standard full body.
 
 ```text
 yoke session-control launch create \
@@ -169,9 +176,11 @@ on a different CLI surface and immediately file a field-note with the launch
 ids and result codes.
 
 The server emits this single-item mandate (steering) shape — claim first,
-execute only that item through the routed legs, no deployment run, DONE then
-END. The steerer messages a worker with
-`yoke say --item PREFIX-N --stdin`. The worker reports back with
+execute only that item through the routed legs, no deployment run, report then
+END. A worker this seat launched is relayed, so its shape closes at END and
+its turn-end text carries the report; a worker outside the relay gets the
+`yoke say --steering` DONE step in the same place. The steerer messages a
+worker with `yoke say --item PREFIX-N --stdin`. The worker reports back with
 `yoke say --steering`, which addresses the ROLE rather than this seat: the
 server resolves it at delivery to whichever seat covers the worker's item,
 and parks it for the next seat when none is live. So a worker launched by a
@@ -195,9 +204,10 @@ Stop hook delivers the last assistant text of every turn to the seat holding
 the worker's scope, and it covers exactly the sessions a seat launched:
 `session_launches.registered_session_id` names the session and that launch row
 carries `origin = 'steering'`. So the mandate tells a launched worker to write
-its turn-end text as the report and never re-send it with `yoke say`, and the
-inbox stays a place for the things a turn end cannot carry. A session the
-operator launched, and a session a person opened, are both outside the relay:
+its turn-end text as the report, gives it no manual DONE step at all, and the
+inbox stays a place for the things a turn end cannot carry. Handing a relayed
+worker both routes is what mailed this seat the same report twice. A session
+the operator launched, and a session a person opened, are both outside the relay:
 they reach whichever seat holds their scope with `yoke say --steering` when
 there is something that seat must act on. That boundary is why an operator's
 own conversation no longer mails this seat its design discussion turn by
@@ -206,9 +216,9 @@ turn.
 ```text
 {ROUTED_ENTRYPOINT}
 
-Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
+Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
 
-The last assistant text of each turn you stop on is delivered to the steering seat automatically, so write that text as your report — what landed, what is blocked, what you need — and never re-send it with `yoke say`. Keep `yoke say` for what cannot wait for a turn end.
+Your DONE report IS the last assistant text of the turn you stop on: the Stop hook delivers that text to the steering seat automatically, once, and it still reaches the seat after close-out released your item claim. Write that text as the report — lead with `DONE <item> <one-line summary>`, then what landed, what is blocked, what you need — and never re-send it with `yoke say`. Keep `yoke say` for what cannot wait for a turn end.
 ```
 
 The server parameterizes that shape from the pinned `workflow_id` and

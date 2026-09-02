@@ -9,6 +9,10 @@ from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.session_control.sender_surface import (
     HARNESS_SESSION_SENDER_SURFACE,
 )
+from yoke_contracts.session_control.terminal_report import (
+    is_terminal_done_report,
+    terminal_report_idempotency_key,
+)
 from yoke_core.domain.actor_message_recipients import (
     ResolvedActorRecipient,
     actor_message_limits,
@@ -18,6 +22,7 @@ from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
     authorize_universe,
 )
+from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_liveness import applied_liveness
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
@@ -69,9 +74,29 @@ def _steering_address(
     """Resolve where a role-addressed send belongs, before any seat is known."""
     if not selector.steering:
         return None
-    return resolve_steering_address(
-        conn, selector, sender_session_id=sender_session_id
-    )
+    return resolve_steering_address(conn, selector, sender_session_id=sender_session_id)
+
+
+def _terminal_report_key(
+    conn: Any,
+    *,
+    sender_session_id: str | None,
+    body: str,
+) -> str | None:
+    """The dedupe key a terminal close-out report carries, if it is one.
+
+    A derived key replaces whatever the caller offered, because the routes
+    that carry this one report do not know about each other: the worker's
+    own send and the Stop-hook relay of the same turn-end text are the same
+    report, and a retry after a refusal rewords it. One key per (sender
+    session, item, terminal state) is what makes the seat read it once.
+    """
+    if not sender_session_id or not is_terminal_done_report(body):
+        return None
+    scope = session_item_scope(conn, sender_session_id)
+    if scope is None:
+        return None
+    return terminal_report_idempotency_key(sender_session_id, scope.item_id)
 
 
 def preview_message(
@@ -159,9 +184,7 @@ def send_message(
             conn, selector, sender_actor_id=actor_id
         )
         if address is None:
-            require_recipients(
-                recipients, selector, actor_recipients=actor_recipients
-            )
+            require_recipients(recipients, selector, actor_recipients=actor_recipients)
         policies = authorize_recipients(
             conn,
             actor_id=actor_id,
@@ -201,6 +224,9 @@ def send_message(
             body_limits.append(actor_limits.max_body_bytes)
             expiry_limits.append(actor_limits.expiry_hours)
         validate_body(body, max_body_bytes=min(body_limits))
+        terminal_key = _terminal_report_key(
+            conn, sender_session_id=sender_session_id, body=body
+        )
         expiry_hours = min(expiry_limits)
         expires_at = current + timedelta(hours=expiry_hours)
         wake_after_by_project = {pid: current for pid in policies}
@@ -215,7 +241,8 @@ def send_message(
             ),
             body=body,
             selector_snapshot=_selector_snapshot(selector),
-            idempotency_key=idempotency_key,
+            idempotency_key=terminal_key or idempotency_key,
+            idempotency_intent_only=terminal_key is not None,
             created_at=current,
             expires_at=expires_at,
             recipients=recipients,

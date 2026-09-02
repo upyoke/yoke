@@ -233,6 +233,14 @@ yoke claims work release --item ITEM --reason "Dash completed"
 Skip that call when merge or `done` already released the claim. Do not treat
 an already-released claim as a close-out failure.
 
+When a report to the steering seat is still owed, send it BEFORE that
+release. `yoke say --steering` addresses the seat covering the item you hold,
+and falls back to the item you last held in this session, so the report
+resolves either side of close-out; sending first keeps the live claim as the
+address. One terminal report per session and item reaches the seat once, so a
+reworded retry deduplicates rather than arriving twice. A steering-LAUNCHED
+session sends nothing here at all — its turn-end text is already that report.
+
 **Surface this session's guardrail denials.** After evidence is recorded,
 report this episode's PreToolUse denials. Close-out reports; it does not block.
 An empty result is silence: say nothing extra.

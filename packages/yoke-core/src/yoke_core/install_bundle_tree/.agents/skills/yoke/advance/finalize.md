@@ -211,11 +211,13 @@ Show lifecycle position with current status highlighted.
 
 This report may already be the message the seat reads. When a steering seat
 launched this session, the Stop hook delivers the last assistant text of every turn to
-that seat, so write that text as the report — what landed, what is blocked,
-what you need — and never re-send it with `yoke say`; keep `yoke say` for what
+that seat — including the turn after close-out released the item claim — so write
+that text as the report and never re-send it with `yoke say`; keep `yoke say` for what
 cannot wait for a turn end. A session the operator launched or opened is not
 relayed: it reaches the seat holding its scope with `yoke say --steering` when
-there is something that seat must act on.
+there is something that seat must act on, sent before releasing a claim it
+still holds; after close-out that address falls back to the item it last held,
+and one terminal report per session and item is delivered once.
 
 If no linked GitHub issue:
 > Tip: GitHub issue creation is normally handled by `/yoke idea` and lifecycle

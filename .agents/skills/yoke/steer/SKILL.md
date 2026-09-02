@@ -66,11 +66,13 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   overlap and names the holder by actor and session. The project is the outer
   key, so a project seat and any finer scope inside it are the same seat's
   territory.
-- **Workers address this seat as a role, never by its session id.** Their
-  mandate says `yoke say --steering`; the server resolves that at delivery to
-  whichever seat covers the sending item. Nothing routes to an ended session,
-  so releasing this seat strands no report: unattended mail parks and the next
-  seat inherits it.
+- **Workers address this seat as a role, never by its session id.** An
+  unrelayed worker's mandate says `yoke say --steering`; the server resolves
+  that at delivery to whichever seat covers the sending item — the one the
+  worker holds, or last held, so a DONE resolves after close-out too, once.
+  Nothing routes to an ended session, so releasing this seat strands no
+  report: unattended mail parks and the next seat inherits it. A worker this
+  seat launched sends no DONE at all; its turn-end text is that report.
 - **Strategy doc is both input and output.** There is no doc-less steer mode.
   Read it as the standing-plan source of record for intent, priority, next
   steps, and constraints; write plan-level progress back into the same

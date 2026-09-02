@@ -36,13 +36,11 @@ def _mandate(*, steering_launched: bool, extras: str = "") -> str:
     )
 
 
-def test_composed_mandate_names_item_entrypoint_and_the_steering_role() -> None:
+def test_composed_mandate_names_item_entrypoint_and_the_routed_legs() -> None:
     body = _mandate(steering_launched=True)
     assert body.startswith("/yoke dash YOK-12\n")
     assert "acquire the YOK-12 work claim" in body
     assert "the Dash leg to its merge/evidence close" in body
-    assert "yoke say --stdin --steering" in body
-    assert "DONE YOK-12" in body
     assert "do not chain into other items" in body
     assert "NEVER send progress: no percentages" in body
 
@@ -52,11 +50,23 @@ def test_steering_launched_worker_is_told_its_turn_end_is_the_report() -> None:
     assert TURN_END_RELAY_TEACHING in _mandate(steering_launched=True)
 
 
-def test_operator_launched_worker_is_promised_no_relay() -> None:
+def test_a_relayed_worker_is_given_no_manual_done_step() -> None:
+    """Mandating both routes for one report is what mailed the seat twice."""
+    body = _mandate(steering_launched=True)
+    assert "yoke say --stdin --steering" not in body
+    assert "END your session" in body
+
+
+def test_operator_launched_worker_sends_its_done_before_releasing() -> None:
     """The Stop route covers steering launches, so nothing else may claim one."""
     body = _mandate(steering_launched=False)
     assert TURN_END_RELAY_TEACHING not in body
-    assert "yoke say --stdin --steering" in body
+    assert (
+        'printf %s "DONE YOK-12 <one-line summary>" | yoke say --stdin --steering'
+        in body
+    )
+    assert "before releasing any claim you still hold" in body
+    assert "the item you last held in this session" in body
 
 
 def test_composed_mandate_embeds_no_session_id() -> None:

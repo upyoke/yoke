@@ -12,6 +12,11 @@ records who launched a session — ``entrypoint`` and ``executor_surface`` say
 what it is, not who asked for it. An operator-launched session and an
 operator-opened one both reach the seat deliberately with
 ``yoke say --steering``.
+
+The item a report is addressed within comes from
+:mod:`yoke_core.domain.session_item_scope`, so the last turn a worker stops
+on -- the one after close-out released its item claim, carrying the DONE
+report -- still routes. Requiring a LIVE claim dropped exactly that turn.
 """
 
 from __future__ import annotations
@@ -29,8 +34,9 @@ from yoke_contracts.turn_end_evidence import (
     steering_report_idempotency_key,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_service import send_message
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.steering_scope_coverage import covering_seat
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -42,40 +48,34 @@ def _p(conn: Any) -> str:
 
 
 def _covering_route(conn: Any, session_id: str) -> dict[str, Any] | None:
-    """Resolve steering-launch provenance, item scope, and the holder once."""
-    item_id = scope_int_sql(conn, "current_claim.scope", "item_id")
-    steering_project = scope_int_sql(conn, "steering.scope", "project_id")
+    """Steering-launch provenance plus the seat covering this session's item."""
+    scope = session_item_scope(conn, session_id)
+    if scope is None:
+        return None
     marker = _p(conn)
     row = conn.execute(
-        f"""SELECT origin.actor_id AS sender_actor_id,
-                   steering.session_id AS recipient_session_id,
-                   item.project_id AS project_id
+        f"""SELECT origin.actor_id AS sender_actor_id
               FROM harness_sessions origin
-              JOIN work_claims current_claim
-                ON current_claim.session_id = origin.session_id
-               AND current_claim.target_kind = 'item'
-               AND current_claim.released_at IS NULL
-              JOIN items item ON item.id = {item_id}
-              JOIN work_claims steering
-                ON steering.target_kind = 'steering'
-               AND steering.released_at IS NULL
-               AND {steering_project} = item.project_id
-              JOIN harness_sessions holder
-                ON holder.session_id = steering.session_id
-               AND holder.ended_at IS NULL
              WHERE origin.session_id = {marker}
                AND origin.actor_id IS NOT NULL
-               AND steering.session_id <> origin.session_id
                AND EXISTS (
                    SELECT 1 FROM session_launches launch
                     WHERE launch.registered_session_id = origin.session_id
                       AND launch.origin = {marker}
-               )
-             ORDER BY current_claim.id DESC, steering.id ASC
-             LIMIT 1""",
+               )""",
         (session_id, LAUNCH_ORIGIN_STEERING),
     ).fetchone()
-    return dict(row) if row is not None else None
+    if row is None:
+        return None
+    seat = covering_seat(
+        conn, {"project_id": scope.project_id, "item_id": scope.item_id}
+    )
+    if seat is None or str(seat["session_id"]) == str(session_id):
+        return None
+    return {
+        "sender_actor_id": int(dict(row)["sender_actor_id"]),
+        "recipient_session_id": str(seat["session_id"]),
+    }
 
 
 def route_turn_end_report(

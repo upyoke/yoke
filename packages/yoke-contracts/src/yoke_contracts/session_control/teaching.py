@@ -22,15 +22,21 @@ FLEET_MESSAGE_BOOTSTRAP_RECIPE = "\n\n".join(
 
 FLEET_STEERING_ADDRESSING_GUIDANCE = (
     "Address the steering seat as a ROLE, never as a session id: "
-    "`yoke say --steering --stdin` resolves from the item you hold to "
-    "whichever seat covers it, and it resolves at DELIVERY rather than at "
-    "send. A seat that has ended is not a seat, so a role-addressed message "
-    "is never routed into a dead session; with no live seat covering it the "
-    "message parks, and the next seat to acquire that scope is handed it on "
-    "acquire. That is why a worker's DONE report and every substantive "
-    "update go to --steering: the address stays correct across a seat "
-    "handoff, which a session id cannot. A sender holding no item names the "
-    "scope instead with --steering-scope '{\"project_id\": N}'."
+    "`yoke say --steering --stdin` resolves from the item you hold — or, "
+    "once close-out released that claim, the item you last held in this "
+    "session — to whichever seat covers it, and it resolves at DELIVERY "
+    "rather than at send. A seat that has ended is not a seat, so a "
+    "role-addressed message is never routed into a dead session; with no "
+    "live seat covering it the message parks, and the next seat to acquire "
+    "that scope is handed it on acquire. That is why a worker's DONE report "
+    "and every substantive update go to --steering: the address stays "
+    "correct across a seat handoff, which a session id cannot. Send the "
+    "DONE before releasing a claim you still hold; either way one terminal "
+    "report per session and item reaches the seat once, so a reworded "
+    "retry — or the same report arriving through the turn-end relay — is "
+    "deduplicated rather than delivered twice. A sender that has held no "
+    "item names the scope instead with --steering-scope "
+    "'{\"project_id\": N}'."
 )
 
 FLEET_ADDRESSING_GUIDANCE = (

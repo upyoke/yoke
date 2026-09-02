@@ -270,7 +270,7 @@ class TestSteerWorkerLifecycle:
         assert "Keep the frontier maxed out" in text
         assert "Launch CLI surfaces only" in text
         assert "Route one item through its pinned workflow" in text
-        assert "Workers self-end after their DONE message" in text
+        assert "Workers self-end after their DONE report" in text
         assert "Every new item gets a fresh session" in text
         assert "Choose the model per item at launch" in text
         assert "yoke session-control launch create" in text
@@ -293,7 +293,7 @@ class TestSteerWorkerLifecycle:
         assert "yoke say --item PREFIX-N --stdin" in text
         # The DONE target is the steering ROLE. A session id there would not
         # survive the seat that launched the worker being released.
-        assert "yoke say --stdin --steering" in text
+        assert "yoke say --steering" in text
         assert "--session {STEERER_SESSION_ID}" not in text
         assert "never pad, complete, or expand one by hand" in text
         assert "yoke session-control launch preview" in text
@@ -305,6 +305,9 @@ class TestSteerWorkerLifecycle:
         assert "it covers exactly the sessions a seat launched" in text
         assert "origin = 'steering'" in text
         assert "never re-send it with `yoke say`" in text
+        assert "gives it no manual DONE step at all" in text
+        assert "mailed this seat the same report twice" in text
+        assert "before releasing any claim it still holds" in text
         assert (
             "A session the operator launched, and a session a person opened, "
             "are both outside the relay" in text

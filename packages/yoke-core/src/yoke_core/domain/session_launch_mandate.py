@@ -53,10 +53,28 @@ _REMAINING_LEGS = {
 
 
 TURN_END_RELAY_TEACHING = (
-    "The last assistant text of each turn you stop on is delivered to the "
-    "steering seat automatically, so write that text as your report — what "
-    "landed, what is blocked, what you need — and never re-send it with "
-    "`yoke say`. Keep `yoke say` for what cannot wait for a turn end."
+    "Your DONE report IS the last assistant text of the turn you stop on: "
+    "the Stop hook delivers that text to the steering seat automatically, "
+    "once, and it still reaches the seat after close-out released your item "
+    "claim. Write that text as the report — lead with `DONE <item> "
+    "<one-line summary>`, then what landed, what is blocked, what you need — "
+    "and never re-send it with `yoke say`. Keep `yoke say` for what cannot "
+    "wait for a turn end."
+)
+
+_RELAYED_CLOSE = (
+    "When those legs are complete, END your session — do not pick up further "
+    "work, do not chain into other items."
+)
+
+_SELF_REPORTED_CLOSE = (
+    "When those legs are complete, message the orchestrator "
+    '(printf %s "DONE {ref} <one-line summary>" | yoke say --stdin '
+    "--steering) and END your session — do not pick up further work, do not "
+    "chain into other items. Send that report before releasing any claim you "
+    "still hold; after a close-out that already released it, --steering "
+    "resolves from the item you last held in this session, and a repeat of "
+    "the same DONE is deduplicated rather than delivered twice."
 )
 
 
@@ -80,7 +98,17 @@ def compose_single_item_mandate(
     because only a steering-launched worker gets one: the Stop-hook route
     covers exactly the sessions a seat launched. Teaching it to an
     operator-launched worker would promise a delivery that never happens.
+
+    That worker is also the only one given a manual DONE step. Handing a
+    relayed worker both routes is what delivered the same report twice in
+    one day: its turn-end text reached the seat, and so did the `yoke say`
+    the mandate asked for. A relayed worker stops; an unrelayed one sends.
     """
+    close = (
+        _RELAYED_CLOSE
+        if steering_launched
+        else _SELF_REPORTED_CLOSE.format(ref=public_ref)
+    )
     mandate = (
         f"{entrypoint}\n\n"
         f"Single-item mandate (steering): acquire the {public_ref} work claim "
@@ -91,11 +119,8 @@ def compose_single_item_mandate(
         "with this instruction, a defect outside your scope, a decision you need. "
         "NEVER send progress: no percentages, elapsed-time polls, watcher "
         'heartbeats, or "still green" notes; relay those in your own output '
-        "instead. When those legs are complete, message the orchestrator "
-        f'(printf %s "DONE {public_ref} <one-line summary>" | yoke say --stdin '
-        "--steering) and END your session — do not pick up "
-        "further work, do not chain into other items. If your claim is swept "
-        "mid-work, reacquire and continue."
+        f"instead. {close} If your claim is swept mid-work, reacquire and "
+        "continue."
     )
     if steering_launched:
         mandate = f"{mandate}\n\n{TURN_END_RELAY_TEACHING}"
