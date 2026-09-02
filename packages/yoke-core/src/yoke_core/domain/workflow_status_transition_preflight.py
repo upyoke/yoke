@@ -7,8 +7,8 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.decision_request_subject_context import (
-    APPROVAL_SOURCE_ITEM_POSTURE,
-    APPROVAL_SOURCE_WORKFLOW_DEFAULT,
+    item_posture_approval_source,
+    workflow_default_approval_source,
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_definition_builders import (
@@ -130,10 +130,7 @@ def prepare_status_transition(
         )
     workflow_version_id = int(workflow.workflow_version_id)
     approval = dict(workflow.policies.get("approval_defaults", {})).get(target_status)
-    approval_source = {
-        "kind": APPROVAL_SOURCE_WORKFLOW_DEFAULT,
-        "entry": f"approval_defaults.{target_status}",
-    }
+    approval_source = workflow_default_approval_source(target_status)
     if not approval:
         from yoke_core.domain.dash_posture_gate import (
             approval_policy_for_transition,
@@ -144,10 +141,7 @@ def prepare_status_transition(
             item_id=item_id,
             target_status=target_status,
         )
-        approval_source = {
-            "kind": APPROVAL_SOURCE_ITEM_POSTURE,
-            "entry": "workflow_posture.approval_on_done",
-        }
+        approval_source = item_posture_approval_source()
     if not approval:
         conn.commit()
         return StatusTransitionPreflight(

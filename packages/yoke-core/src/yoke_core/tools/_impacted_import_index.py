@@ -23,6 +23,7 @@ from yoke_core.tools.impacted_project_test_roots import (
     YOKE_SEEDED_TEST_ROOTS,
     current_test_roots,
 )
+from yoke_core.tools._impacted_selection import is_effectively_full
 
 _PACKAGE_SOURCE_MARKER = "/src/"
 _SKIP_DIRECTORIES = frozenset(
@@ -181,6 +182,26 @@ def reachable_tests(changed: Sequence[str], index: ImportIndex) -> set[str] | No
     return {rel for rel in reached if rel in index.module_of and is_test_file(rel)}
 
 
+def bounded_importer_tests(
+    changed: Iterable[str],
+    index: ImportIndex,
+    *,
+    total_files: int,
+) -> frozenset[str]:
+    """Keep tests behind importer branches that remain individually bounded."""
+    paths = tuple(changed)
+    tests = set(direct_importer_tests(paths, index))
+    modules = {index.module_of[path] for path in paths if path in index.module_of}
+    for module in modules:
+        for importer in index.importers.get(module, ()):
+            if is_test_file(importer):
+                continue
+            branch = reachable_tests((importer,), index) or set()
+            if not is_effectively_full(len(branch), total_files):
+                tests.update(branch)
+    return frozenset(tests)
+
+
 def build_import_index(repo_root: Path) -> ImportIndex:
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
@@ -202,6 +223,7 @@ def build_import_index(repo_root: Path) -> ImportIndex:
 __all__ = [
     "ImportIndex",
     "TEST_ANCHORS",
+    "bounded_importer_tests",
     "build_import_index",
     "direct_changed_tests",
     "direct_importer_tests",

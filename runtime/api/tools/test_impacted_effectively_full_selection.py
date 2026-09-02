@@ -59,6 +59,32 @@ def test_bounded_deferral_keeps_small_direct_importer_set(tmp_path: Path) -> Non
     assert selection.files == _with_floor(direct_test)
 
 
+def test_bounded_deferral_keeps_tests_on_a_narrow_importer_branch(
+    tmp_path: Path,
+) -> None:
+    root = _tiny_repo(tmp_path)
+    source = "runtime/api/foundation.py"
+    broad_bridge = "runtime/api/broad_bridge.py"
+    narrow_bridge = "runtime/api/narrow_bridge.py"
+    narrow_test = "runtime/api/test_narrow_bridge.py"
+    _write(root, source, "VALUE = 1\n")
+    _write(root, broad_bridge, "from runtime.api import foundation\n")
+    _write(root, narrow_bridge, "from runtime.api import foundation\n")
+    _write(root, narrow_test, "from runtime.api import narrow_bridge\n")
+    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+        _write(
+            root,
+            f"runtime/api/test_broad_bridge_{number}.py",
+            "from runtime.api import broad_bridge\n",
+        )
+
+    selection = select([source], build_import_index(root), bounded=True)
+
+    assert selection.fallback_rule == "effectively_full_selection"
+    assert selection.bounded_deferral is True
+    assert selection.files == _with_floor(narrow_test)
+
+
 def test_unmapped_file_does_not_drop_python_reachability(tmp_path: Path) -> None:
     root = _tiny_repo(tmp_path)
     broad = "runtime/api/foundation.py"

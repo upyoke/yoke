@@ -12,12 +12,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from yoke_core.domain.approval_gate import (
-    _item_context,
-    _matches_transition_snapshot,
-)
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.decision_request_subject_context import (
+    item_posture_approval_source,
+    workflow_default_approval_source,
+)
 from yoke_core.domain.decision_requests import list_subject_requests
+from yoke_core.domain.lifecycle_approval_context import (
+    lifecycle_transition_matches,
+    load_lifecycle_item,
+)
 from yoke_core.domain.workflow_gate_absence import record_gate_absence
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
@@ -35,6 +39,7 @@ def evaluate(
         configured = dict(workflow.policies.get("approval_defaults", {})).get(
             target_status
         )
+        approval_source = workflow_default_approval_source(target_status)
         if not configured:
             # Same authority resolution the preflight uses when it decides
             # whether to create the decision request at all, so the gate and
@@ -48,6 +53,7 @@ def evaluate(
                 item_id=int(item_id),
                 target_status=target_status,
             )
+            approval_source = item_posture_approval_source()
         if not configured:
             record_gate_absence(
                 gate_id="approval",
@@ -67,7 +73,7 @@ def evaluate(
             "item_transition",
             f"{int(item_id)}:{target_status}",
         )
-        item = _item_context(conn, int(item_id))
+        item = load_lifecycle_item(conn, int(item_id))
     finally:
         conn.close()
     latest = history[0] if history else None
@@ -75,7 +81,12 @@ def evaluate(
         latest is not None
         and latest["status"] == "resolved"
         and latest["resolution_action"] == "approve"
-        and _matches_transition_snapshot(latest, item, target_status)
+        and lifecycle_transition_matches(
+            latest,
+            item,
+            target_status,
+            approval_source,
+        )
     ):
         return None
     request = f" {latest['id']}" if latest is not None else ""

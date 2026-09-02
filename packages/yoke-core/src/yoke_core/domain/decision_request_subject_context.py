@@ -22,6 +22,22 @@ APPROVAL_SOURCE_ITEM_POSTURE = "item_posture"
 APPROVAL_SOURCE_WORKFLOW_DEFAULT = "workflow_approval_default"
 
 
+def workflow_default_approval_source(stage: str) -> dict[str, str]:
+    """Identify the workflow policy entry that selected an approval."""
+    return {
+        "kind": APPROVAL_SOURCE_WORKFLOW_DEFAULT,
+        "entry": f"approval_defaults.{stage}",
+    }
+
+
+def item_posture_approval_source() -> dict[str, str]:
+    """Identify the item posture entry that selected an approval."""
+    return {
+        "kind": APPROVAL_SOURCE_ITEM_POSTURE,
+        "entry": "workflow_posture.approval_on_done",
+    }
+
+
 class DecisionRequestSubjectContextError(ValueError):
     """A gate request omitted or contradicted facts needed for its decision."""
 
@@ -214,5 +230,7 @@ __all__ = [
     "DecisionRequestSubjectContextError",
     "SUBJECT_CONTEXT_INVALID",
     "SUBJECT_CONTEXT_RECOVERY",
+    "item_posture_approval_source",
     "validate_subject_context",
+    "workflow_default_approval_source",
 ]
