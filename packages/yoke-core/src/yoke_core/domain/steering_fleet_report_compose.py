@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from yoke_contracts.project_contract.project_keys import (
     DEFAULT_STEERING_REPORT_IDLE_MINUTES,
@@ -21,13 +21,18 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_claims import list_session_claims
+from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report as fleet_report
 from yoke_core.domain.steering_fleet_report import FleetReport
+from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
+from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import (
+    LAUNCH_BALANCE_NOTE,
     REPORT_BEGIN,
     REPORT_END,
-    report_body,
+    launchable_line,
+    scope_inner_body,
 )
 
 
@@ -134,8 +139,72 @@ def compose_held_reports(
     return CombinedFleetReport(composed_at=now, sections=tuple(sections))
 
 
+def _distinct_machine_ids(reports: Sequence[FleetReport]) -> list[str]:
+    ids: set[str] = set()
+    for report in reports:
+        for ready in report.launchable:
+            ids.add(ready.machine_id)
+        for row in report.plan_limits:
+            ids.add(row.machine_id)
+    return sorted(ids)
+
+
+def _machine_launchable(
+    reports: Sequence[FleetReport], machine_id: str
+) -> list[SurfaceReadiness]:
+    seen: set[str] = set()
+    ready: list[SurfaceReadiness] = []
+    for report in reports:
+        for item in report.launchable:
+            if item.machine_id == machine_id and item.surface not in seen:
+                seen.add(item.surface)
+                ready.append(item)
+    ready.sort(key=lambda item: item.surface)
+    return ready
+
+
+def _machine_plan_limits(
+    reports: Sequence[FleetReport], machine_id: str
+) -> tuple[MachinePlanLimit, ...]:
+    seen: dict[tuple[str, str, str, str], MachinePlanLimit] = {}
+    for report in reports:
+        for row in report.plan_limits:
+            if row.machine_id != machine_id:
+                continue
+            key = (row.hostname, row.surface, row.window_kind, row.scope)
+            seen.setdefault(key, row)
+    return tuple(seen.values())
+
+
+def _machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[str]:
+    """One block per distinct machine_id: launchable pairs, note, plan limits."""
+    machine_ids = _distinct_machine_ids(reports)
+    if not machine_ids:
+        return [launchable_line(())]
+    lines: list[str] = []
+    for index, machine_id in enumerate(machine_ids):
+        if index:
+            lines.append("")
+        ready = _machine_launchable(reports, machine_id)
+        lines.append(launchable_line(ready))
+        if ready:
+            lines.append(f"  {LAUNCH_BALANCE_NOTE}")
+        lines.extend(
+            _plan_limits.plan_limit_lines(
+                _machine_plan_limits(reports, machine_id), now=now
+            )
+        )
+    return lines
+
+
 def combined_body(combined: CombinedFleetReport) -> str:
-    """One envelope whose sections are the held scopes, named by descriptor."""
+    """One envelope: per-scope facts, then one machine block per machine_id.
+
+    Shared machine facts sit after the scope sections so available work
+    still leads. Blocks are keyed by machine_id from the reports, never by
+    comparing rendered text.
+    """
+    reports = tuple(section.report for section in combined.sections)
     parts = [
         REPORT_BEGIN,
         f"composed {combined.composed_at} · {len(combined.sections)} held scopes",
@@ -143,9 +212,10 @@ def combined_body(combined: CombinedFleetReport) -> str:
         "",
     ]
     for section in combined.sections:
-        inner = report_body(section.report)
-        inner = inner.removeprefix(REPORT_BEGIN + "\n").removesuffix("\n" + REPORT_END)
-        parts.extend([f"## {section.descriptor}", inner, ""])
+        parts.extend([f"## {section.descriptor}", scope_inner_body(section.report), ""])
+    parts.extend(_machine_shared_lines(reports, now=combined.composed_at))
+    if parts[-1] != "":
+        parts.append("")
     parts.append(REPORT_END)
     return "\n".join(parts)
 

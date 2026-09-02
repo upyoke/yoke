@@ -17,11 +17,18 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
     YOKE_DB_AUDIT_PATHS,
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_browser as _browser_terms
-from yoke_core.engines import doctor_hc_obsoleted_terms_coordination as _coordination_terms
+from yoke_core.engines import (
+    doctor_hc_obsoleted_terms_coordination as _coordination_terms,
+)
 from yoke_core.engines import doctor_hc_obsoleted_terms_db_authority as _db_terms
 from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
-from yoke_core.engines import doctor_hc_obsoleted_terms_session_control as _session_terms
-from yoke_core.engines import doctor_hc_obsoleted_terms_item_dependency as _item_dep_terms
+from yoke_core.engines import (
+    doctor_hc_obsoleted_terms_session_control as _session_terms,
+)
+from yoke_core.engines import (
+    doctor_hc_obsoleted_terms_item_dependency as _item_dep_terms,
+)
+from yoke_core.engines import doctor_hc_obsoleted_terms_plan_limits as _plan_limit_terms
 
 _RETIRED_PARENT_EPIC_SYMBOL_PATTERN = r"items" + r"\." + "epic"
 _RETIRED_PARENT_EPIC_CLI_PATTERN = r"items\s+(get|update|set)\s+\S+\s+" + "epic" + r"\b"
@@ -120,9 +127,7 @@ _RETIRED_LIVE_APPLY_CLI_PATTERN = r"migration_apply\s+live-apply\b"
 _RETIRED_MODULE_PATH_OVERRIDE_PATTERN = r"--module-path-override\b"
 _RETIRED_MIGRATION_APPLY_STAGE_PATTERN = r'"kind"\s*:\s*"migration_apply"'
 _RETIRED_APPLIED_EVERYWHERE_PATTERN = r"applied\-everywhere evidence"
-_RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN = (
-    "SessionOffer" + r"LaneOverrideIgnored\b"
-)
+_RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN = "SessionOffer" + r"LaneOverrideIgnored\b"
 
 #: The file-driven deployment-flow declaration: a project repository no longer
 #: defines its flows, so the reconcile command, its function id, and the
@@ -132,9 +137,7 @@ _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN = (
 #: the owning project's to keep, retire, or keep reading from its own tests —
 #: so their keys (``retire_if_present`` among them) are data in a file Yoke no
 #: longer owns rather than live Yoke surface names.
-_RETIRED_FLOW_RECONCILE_CLI_PATTERN = (
-    r"deployment-flows\s+" + "reconcile" + r"-project"
-)
+_RETIRED_FLOW_RECONCILE_CLI_PATTERN = r"deployment-flows\s+" + "reconcile" + r"-project"
 _RETIRED_FLOW_RECONCILE_FUNCTION_PATTERN = (
     r"deployment_flows\." + "reconcile" + r"_project\b"
 )
@@ -161,9 +164,6 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_TYPE_ISSUE_EPIC_PARENT_PATTERN,
     r"yoke_core\.domain\.doctor",
     r"yoke-db\.sh",
-    # Hook-runner cutover: the per-harness front-door modules and their
-    # per-event sibling modules were collapsed into the unified
-    # ``runtime.harness.hook_runner`` chain. References must not reappear.
     r"runtime\.harness\.session_hooks\b",
     r"runtime\.harness\.codex\.codex_hooks\b",
     _RETIRED_CODEX_HOOKS_SIBLINGS_PATTERN,
@@ -189,11 +189,8 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN,
     *_session_terms.SESSION_CONTROL_RETIREMENT_PATTERNS,
     *_item_dep_terms.ITEM_DEPENDENCY_RETIREMENT_PATTERNS,
-    # Migrations became permanent ordered history applied by the boot
-    # converge. Everything that existed only to compensate for their being
-    # ephemeral -- auto-retire, install topology, retire records, the
-    # committed manifest and its source digest, the cross-worktree override,
-    # the live-apply CLI, and the migration_apply deployment stage -- is gone.
+    *_plan_limit_terms.PLAN_LIMIT_RETIREMENT_PATTERNS,
+    # Ephemeral-migration compensation is gone; boot converge applies history.
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN,
     _RETIRED_LIVE_APPLY_CLI_PATTERN,
     _RETIRED_MODULE_PATH_OVERRIDE_PATTERN,
@@ -279,6 +276,7 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     ),
     **_session_terms.SESSION_CONTROL_RETIREMENT_LABELS,
     **_item_dep_terms.ITEM_DEPENDENCY_RETIREMENT_LABELS,
+    **_plan_limit_terms.PLAN_LIMIT_RETIREMENT_LABELS,
     **_browser_terms.BROWSER_RETIREMENT_LABELS,
     **_pack_terms.PACK_RETIREMENT_LABELS,
     **_db_terms.DB_AUTHORITY_RETIREMENT_LABELS,
@@ -342,9 +340,7 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS
-    + (
-        "packages/yoke-core/src/yoke_core/domain/populate_registry_data_lifecycle.py",
-    ),
+    + ("packages/yoke-core/src/yoke_core/domain/populate_registry_data_lifecycle.py",),
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,
 }
