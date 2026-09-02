@@ -155,7 +155,11 @@ def _seed(db_path: str) -> None:
         stages_json = json.dumps(
             [
                 {"name": "merged", "step_runner": "auto"},
-                {"name": "approve-deploy", "step_runner": "human-approval"},
+                {
+                    "name": "approve-deploy",
+                    "step_runner": "human-approval",
+                    "approvals": {"roles": ["owner", "operator"], "actors": []},
+                },
                 {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
                 {"name": "complete", "step_runner": "auto"},
             ]

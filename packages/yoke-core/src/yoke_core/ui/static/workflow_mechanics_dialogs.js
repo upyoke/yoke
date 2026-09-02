@@ -56,26 +56,41 @@ function transitionIds(workflow) {
 
 export function openApprovalEditor({
   documentNode, host, workflow, data, close, save,
+  subjects, source, title, impact, requireEverySubject = false,
+  confirmText, subjectLabel,
 }) {
-  const ids = transitionIds(workflow);
-  const source = workflow.definition?.policies?.approval_defaults || {};
+  const usingSubjects = Array.isArray(subjects);
+  const ids = usingSubjects
+    ? subjects.map((subject) => subject.id)
+    : transitionIds(workflow);
+  const labelFor = (id) => {
+    if (usingSubjects) {
+      const match = subjects.find((subject) => subject.id === id);
+      return match?.label || id;
+    }
+    return workflowStageLabel(workflow, id);
+  };
+  const sourceGates = source
+    || workflow?.definition?.policies?.approval_defaults
+    || {};
   const gates = Object.fromEntries(ids.map((transitionId) => {
-    const gate = source[transitionId] || {};
+    const gate = sourceGates[transitionId] || {};
     return [transitionId, {
       roles: [...(gate.roles || [])],
       actors: [...(gate.actors || [])].map(Number),
     }];
   }));
   const state = { transitionId: ids[0], gates };
+  const approvers = data?.approvers || [];
 
   const render = () => {
-    const name = workflow.name || workflow.id;
+    const name = workflow?.name || workflow?.id || "";
     const shell = workflowDialogShell(
-      documentNode, host, `Default approvals — ${name}`, close,
+      documentNode, host, title || `Default approvals — ${name}`, close,
     );
     const { dialog } = shell;
     dialog.classList.add("workflow-approval-dialog");
-    dialog.appendChild(fieldLabel(documentNode, "Transition"));
+    dialog.appendChild(fieldLabel(documentNode, subjectLabel || "Transition"));
     const transition = el(documentNode, "select", "workflow-field");
     for (const transitionId of ids) {
       const configured = (
@@ -84,7 +99,7 @@ export function openApprovalEditor({
       transition.appendChild(option(
         documentNode,
         transitionId,
-        `${workflowStageLabel(workflow, transitionId)}` +
+        `${labelFor(transitionId)}` +
           `${configured ? " ✓" : ""}`,
         state.transitionId,
       ));
@@ -105,7 +120,7 @@ export function openApprovalEditor({
       "Anyone who matches may approve ",
       {
         kind: "strong",
-        text: workflowStageLabel(workflow, state.transitionId),
+        text: labelFor(state.transitionId),
       },
     ]);
     dialog.appendChild(approvalHelp);
@@ -123,7 +138,7 @@ export function openApprovalEditor({
       ));
     }
     dialog.appendChild(fieldLabel(documentNode, "Or any of these people"));
-    for (const actor of data.approvers) {
+    for (const actor of approvers) {
       dialog.appendChild(checkbox(
         documentNode,
         gate.actors.includes(Number(actor.id)),
@@ -137,7 +152,7 @@ export function openApprovalEditor({
         },
       ));
     }
-    if (!data.approvers.length) {
+    if (!approvers.length) {
       dialog.appendChild(el(
         documentNode, "p", "workflow-field-help",
         "No named human actors are available.",
@@ -157,7 +172,7 @@ export function openApprovalEditor({
           {
             kind: "strong",
             className: "workflow-configured-stage",
-            text: workflowStageLabel(workflow, stageId),
+            text: labelFor(stageId),
           },
         ]),
       ]
@@ -166,18 +181,30 @@ export function openApprovalEditor({
       documentNode, configuredSummary, configuredParts,
     );
     dialog.appendChild(configuredSummary);
-    appendWorkflowDialogFooter(documentNode, dialog, {
-      impact:
+    const incomplete = requireEverySubject && ids.some(
+      (id) => !gates[id].roles.length && !gates[id].actors.length,
+    );
+    const impactText = impact !== undefined
+      ? impact
+      : (
         `Saving creates a new version of the ${name} workflow. Items already ` +
-        `underway stay pinned to v${workflow.current_version} and are unaffected.`,
-      confirmText: "Save universe default",
+        `underway stay pinned to v${workflow.current_version} and are unaffected.`
+      );
+    appendWorkflowDialogFooter(documentNode, dialog, {
+      impact: impactText,
+      confirmText: confirmText || "Save universe default",
       dismiss: shell.dismiss,
       activate: shell.activate,
-      save: () => save(Object.fromEntries(
-        Object.entries(gates).filter(
-          ([, value]) => value.roles.length || value.actors.length,
-        ),
-      )),
+      disabled: incomplete,
+      save: () => save(
+        requireEverySubject
+          ? Object.fromEntries(Object.entries(gates))
+          : Object.fromEntries(
+            Object.entries(gates).filter(
+              ([, value]) => value.roles.length || value.actors.length,
+            ),
+          ),
+      ),
     });
   };
   render();

@@ -88,6 +88,34 @@ class TestFlowBasic:
             )
         )
 
+    def test_create_requires_approvers_on_human_approval_stages(self, test_db):
+        import json
+        from yoke_core.domain.flow import cmd_create, validate_stages
+
+        _insert_projects(test_db)
+        missing = json.dumps(
+            [{"name": "approve-prod", "step_runner": "human-approval"}]
+        )
+        validate_stages(missing)
+        with pytest.raises(ValueError, match="has no approvers"):
+            cmd_create(test_db, "f-gate", "yoke", "Gate", "D", missing)
+        cmd_create(
+            test_db,
+            "f-gate",
+            "yoke",
+            "Gate",
+            "D",
+            json.dumps(
+                [
+                    {
+                        "name": "approve-prod",
+                        "step_runner": "human-approval",
+                        "approvals": {"roles": ["owner"], "actors": []},
+                    }
+                ]
+            ),
+        )
+
     def test_validate_stages_rejects_invalid_ci_wait_policy(self, test_db):
         import json
         from yoke_core.domain.flow import validate_stages

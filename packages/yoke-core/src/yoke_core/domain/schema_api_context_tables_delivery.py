@@ -36,8 +36,13 @@ DELIVERY_TABLES: dict[str, dict] = {
             "`ephemeral` (per-run preview substrate), or NULL (merge-only); "
             "there is no `target_env` label column (stale guess). "
             "`stages` is a JSON-array column whose elements define the "
-            "ordered pipeline steps. Canonical lookup: `SELECT id, "
-            "stages FROM deployment_flows WHERE id = ?;` then "
+            "ordered pipeline steps. A `human-approval` stage names who "
+            "may approve with `approvals: {roles, actors}` — the same "
+            "address shape as workflow `policies.approval_defaults` "
+            "(roles `owner`/`operator`/`admin`, optional named actor "
+            "ids). Operator create/update refuses a human-approval "
+            "stage that omits that address. Canonical lookup: `SELECT "
+            "id, stages FROM deployment_flows WHERE id = ?;` then "
             "`json.loads(stages)` to walk the stage list."
         ),
     },

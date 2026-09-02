@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 import json
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
@@ -51,47 +52,31 @@ def _item_context(conn: Any, item_id: int) -> dict[str, Any]:
     return {key: row[key] for key in row.keys()}
 
 
-def _role_authorities(
-    item: dict[str, Any],
+def role_authorities_for(
+    *,
+    project_id: int,
+    org_id: Optional[int],
     role_names: Iterable[str],
 ) -> list[RoleAuthority]:
     result = []
     for role_name in sorted({str(value) for value in role_names}):
         if role_name == "admin":
-            if item["org_id"] is None:
+            if org_id is None:
                 raise ValueError("org admin approval needs the project's org")
-            result.append(RoleAuthority("org", int(item["org_id"]), role_name))
+            result.append(RoleAuthority("org", int(org_id), role_name))
         else:
-            result.append(RoleAuthority("project", int(item["project_id"]), role_name))
+            result.append(RoleAuthority("project", int(project_id), role_name))
     return result
 
 
-def _matches_transition_snapshot(
-    request: dict[str, Any],
-    item: dict[str, Any],
-    target: str,
-) -> bool:
-    context = request.get("subject_context")
-    if not isinstance(context, dict):
-        return False
-    return (
-        str(context.get("from_stage") or "") == str(item["status"])
-        and str(context.get("transition") or "") == target
-        and str(context.get("workflow_id") or "") == str(item["workflow_id"])
-        and int(context.get("workflow_version_id") or 0)
-        == int(item["workflow_version_id"])
-        and request.get("consumed_at") is None
-    )
-
-
-def _withdraw_stale_pending(
+def withdraw_stale_pending_request(
     conn: Any,
     request: dict[str, Any],
     *,
     session_id: str,
+    reason: str,
 ) -> None:
     stamp = iso8601_now()
-    reason = "transition source or pinned workflow changed"
     p = _p(conn)
     conn.execute(
         "UPDATE decision_requests SET status='withdrawn', "
@@ -115,6 +100,83 @@ def _withdraw_stale_pending(
     )
 
 
+def verdict_from_request_history(
+    conn: Any,
+    history: list[dict[str, Any]],
+    *,
+    snapshot_matches: Callable[[dict[str, Any]], bool],
+    session_id: str,
+    stale_reason: str,
+    reraise_after_reject: bool,
+    waiting_reason: str,
+    approved_reason: str,
+    rejected_reason: str,
+) -> Optional[ApprovalGateVerdict]:
+    """Return a verdict from history, or None when a new request is required."""
+    if not history:
+        return None
+    latest = history[0]
+    matches = snapshot_matches(latest)
+    status = str(latest.get("status") or "")
+    action = latest.get("resolution_action")
+    if status == "resolved" and action == "approve" and matches:
+        return ApprovalGateVerdict(
+            True,
+            int(latest["id"]),
+            "resolved",
+            "approve",
+            approved_reason,
+        )
+    if status == "pending" and matches:
+        return ApprovalGateVerdict(
+            False,
+            int(latest["id"]),
+            "pending",
+            None,
+            waiting_reason,
+        )
+    if status == "pending":
+        withdraw_stale_pending_request(
+            conn,
+            latest,
+            session_id=session_id,
+            reason=stale_reason,
+        )
+        return None
+    if (
+        status == "resolved"
+        and action == "reject"
+        and matches
+        and not reraise_after_reject
+    ):
+        return ApprovalGateVerdict(
+            False,
+            int(latest["id"]),
+            "resolved",
+            "reject",
+            rejected_reason,
+        )
+    return None
+
+
+def _matches_transition_snapshot(
+    request: dict[str, Any],
+    item: dict[str, Any],
+    target: str,
+) -> bool:
+    context = request.get("subject_context")
+    if not isinstance(context, dict):
+        return False
+    return (
+        str(context.get("from_stage") or "") == str(item["status"])
+        and str(context.get("transition") or "") == target
+        and str(context.get("workflow_id") or "") == str(item["workflow_id"])
+        and int(context.get("workflow_version_id") or 0)
+        == int(item["workflow_version_id"])
+        and request.get("consumed_at") is None
+    )
+
+
 @rollback_workflow_binding_write_errors
 def evaluate_lifecycle_approval(
     conn: Any,
@@ -133,39 +195,25 @@ def evaluate_lifecycle_approval(
     lock_item_workflow_bindings(conn, (int(item_id),))
     item = _item_context(conn, int(item_id))
     subject_key = f"{int(item_id)}:{target}"
-    history = list_subject_requests(conn, "item_transition", subject_key)
-    if history:
-        latest = history[0]
-        if (
-            latest["status"] == "resolved"
-            and latest["resolution_action"] == "approve"
-            and _matches_transition_snapshot(latest, item, target)
-        ):
-            conn.commit()
-            return ApprovalGateVerdict(
-                True,
-                int(latest["id"]),
-                "resolved",
-                "approve",
-                "the declared approval was resolved",
-            )
-        if latest["status"] == "pending" and _matches_transition_snapshot(
-            latest, item, target
-        ):
-            conn.commit()
-            return ApprovalGateVerdict(
-                False,
-                int(latest["id"]),
-                "pending",
-                None,
-                "the transition is waiting for a human decision",
-            )
-        if latest["status"] == "pending":
-            _withdraw_stale_pending(
-                conn,
-                latest,
-                session_id=session_id,
-            )
+    waiting = "the transition is waiting for a human decision"
+    verdict = verdict_from_request_history(
+        conn,
+        list_subject_requests(conn, "item_transition", subject_key),
+        snapshot_matches=lambda request: _matches_transition_snapshot(
+            request,
+            item,
+            target,
+        ),
+        session_id=session_id,
+        stale_reason="transition source or pinned workflow changed",
+        reraise_after_reject=True,
+        waiting_reason=waiting,
+        approved_reason="the declared approval was resolved",
+        rejected_reason="the transition was rejected",
+    )
+    if verdict is not None:
+        conn.commit()
+        return verdict
 
     public_ref = format_item_ref(
         str(item["project"]),
@@ -179,7 +227,11 @@ def evaluate_lifecycle_approval(
         subject_key=subject_key,
         project_id=int(item["project_id"]),
         originator_actor_id=originator_actor_id,
-        role_authorities=_role_authorities(item, role_names),
+        role_authorities=role_authorities_for(
+            project_id=int(item["project_id"]),
+            org_id=item["org_id"],
+            role_names=role_names,
+        ),
         named_actor_ids=named_actor_ids,
         subject_context={
             "item_id": int(item_id),
@@ -198,7 +250,7 @@ def evaluate_lifecycle_approval(
         int(request["id"]),
         "pending",
         None,
-        "the transition is waiting for a human decision",
+        waiting,
     )
 
 
@@ -286,4 +338,7 @@ __all__ = [
     "ApprovalGateVerdict",
     "consume_lifecycle_approval",
     "evaluate_lifecycle_approval",
+    "role_authorities_for",
+    "verdict_from_request_history",
+    "withdraw_stale_pending_request",
 ]

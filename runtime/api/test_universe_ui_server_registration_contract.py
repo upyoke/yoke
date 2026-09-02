@@ -56,6 +56,7 @@ class TestRegistrationShape:
             "session_control.launch.retry",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
+            "deployment_flows.update_stages",
         }
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST

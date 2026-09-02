@@ -30,6 +30,7 @@ FLOW_FIELDS = (
     "status",
     "on_failure",
     "stage_names",
+    "approval_stages",
     "project",
 )
 
@@ -42,10 +43,7 @@ def _stage_names(raw_stages: Any) -> List[str]:
     than failing the whole read over one malformed row.
     """
     try:
-        stages = (
-            loads_text(raw_stages) if isinstance(raw_stages, str)
-            else raw_stages
-        )
+        stages = loads_text(raw_stages) if isinstance(raw_stages, str) else raw_stages
     except ValueError:
         return []
     if not isinstance(stages, list):
@@ -58,6 +56,43 @@ def _stage_names(raw_stages: Any) -> List[str]:
         if label:
             names.append(str(label))
     return names
+
+
+def _approval_stages(raw_stages: Any) -> List[dict[str, Any]]:
+    """Human-approval stages and their configured addresses, if any."""
+    try:
+        stages = loads_text(raw_stages) if isinstance(raw_stages, str) else raw_stages
+    except ValueError:
+        return []
+    if not isinstance(stages, list):
+        return []
+    result: List[dict[str, Any]] = []
+    for stage in stages:
+        if not isinstance(stage, dict):
+            continue
+        if stage.get("step_runner") != "human-approval":
+            continue
+        name = stage.get("name")
+        if not name:
+            continue
+        approvals = (
+            stage.get("approvals")
+            if isinstance(
+                stage.get("approvals"),
+                dict,
+            )
+            else {"roles": [], "actors": []}
+        )
+        result.append(
+            {
+                "name": str(name),
+                "approvals": {
+                    "roles": list(approvals.get("roles") or []),
+                    "actors": list(approvals.get("actors") or []),
+                },
+            }
+        )
+    return result
 
 
 def get_workflows_definition(
@@ -91,16 +126,19 @@ def get_workflows_definition(
         flows = []
         for raw in rows:
             row = dict(raw)
-            flows.append({
-                "id": row.get("id"),
-                "name": row.get("name"),
-                "target_tier": row.get("target_tier"),
-                "target_environment": row.get("target_environment"),
-                "status": row.get("status"),
-                "on_failure": row.get("on_failure"),
-                "stage_names": _stage_names(row.get("stages")),
-                "project": row.get("project"),
-            })
+            flows.append(
+                {
+                    "id": row.get("id"),
+                    "name": row.get("name"),
+                    "target_tier": row.get("target_tier"),
+                    "target_environment": row.get("target_environment"),
+                    "status": row.get("status"),
+                    "on_failure": row.get("on_failure"),
+                    "stage_names": _stage_names(row.get("stages")),
+                    "approval_stages": _approval_stages(row.get("stages")),
+                    "project": row.get("project"),
+                }
+            )
         workflows = list_current_workflows(conn)
     finally:
         conn.close()

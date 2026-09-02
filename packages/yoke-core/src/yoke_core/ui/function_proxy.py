@@ -48,6 +48,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "ouroboros.entry.list",
         "board.data.get",
         "deployment_runs.list",
+        "deployment_flows.stages",
         "sessions.list",
         "session_control.message.preview",
         "session_control.message.list",
@@ -147,6 +148,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "session_control.launch.retry",
         "strategy.revision.restore",
         "deployment_runs.terminalize",
+        "deployment_flows.update_stages",
     }
 )
 

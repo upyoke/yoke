@@ -151,3 +151,18 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.universe-app-root .delivery-flow-edit-approvals {
+  margin-top: 12px;
+}
+
+.universe-app-root .delivery-flow-stage.is-approval {
+  border-color: var(--yoke-accent-line);
+}
+
+.universe-app-root .delivery-flow-stage-approvers {
+  color: var(--yoke-ink-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

@@ -13,14 +13,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from runtime.api.api_items_test_helpers import (
     _p,
     make_client_fixture,
-    make_test_db_fixture,
+)
+from runtime.api.deployment_stage_approval_fixture import (
+    yield_seeded_api_db_with_default_approvals,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
 @pytest.fixture()
 def test_db():
-    yield from make_test_db_fixture()
+    yield from yield_seeded_api_db_with_default_approvals()
 
 
 @pytest.fixture()
@@ -30,12 +32,17 @@ def client(test_db):
 
 class TestApproveItem:
     def test_approve_routes_to_inbox_without_moving_run_state(
-        self, client, test_db,
+        self,
+        client,
+        test_db,
     ):
         with patch("yoke_core.domain.events.emit_event") as mock_emit:
-            resp = client.post("/v1/items/4/approve", json={
-                "comment": "Looks good",
-            })
+            resp = client.post(
+                "/v1/items/4/approve",
+                json={
+                    "comment": "Looks good",
+                },
+            )
         assert resp.status_code == 409
         data = resp.json()
         assert data["error"]["code"] == "APPROVAL_REQUIRED"
@@ -100,16 +107,22 @@ class TestApproveItem:
             "yoke_core.domain.events.emit_event",
             side_effect=RuntimeError("emitter boom"),
         ) as emit:
-            resp = client.post("/v1/items/4/approve", json={
-                "comment": "LGTM",
-            })
+            resp = client.post(
+                "/v1/items/4/approve",
+                json={
+                    "comment": "LGTM",
+                },
+            )
         assert resp.status_code == 409
         emit.assert_not_called()
 
     def test_approve_comment_too_long(self, client):
-        resp = client.post("/v1/items/4/approve", json={
-            "comment": "x" * 501,
-        })
+        resp = client.post(
+            "/v1/items/4/approve",
+            json={
+                "comment": "x" * 501,
+            },
+        )
         assert resp.status_code == 422
         data = resp.json()
         assert data["error"]["code"] == "VALIDATION_ERROR"

@@ -22,11 +22,14 @@ def _p(conn) -> str:
 
 
 @router.post("/items/{item_id}/approve", response_model=_main.ApproveResponse)
-def approve_item(item_id: int, req: _main.ApproveRequest) -> _main.ApproveResponse | JSONResponse:
+def approve_item(
+    item_id: int, req: _main.ApproveRequest
+) -> _main.ApproveResponse | JSONResponse:
     """Expose the run's Inbox approval without mutating deployment state."""
     if req.comment is not None and len(req.comment) > 500:
         return _main._error_response(
-            422, "VALIDATION_ERROR",
+            422,
+            "VALIDATION_ERROR",
             "Field 'comment' must be at most 500 characters",
         )
 
@@ -38,12 +41,13 @@ def approve_item(item_id: int, req: _main.ApproveRequest) -> _main.ApproveRespon
         ).fetchone()
         if row is None:
             return _main._error_response(
-                404, "NOT_FOUND",
+                404,
+                "NOT_FOUND",
                 f"Item with id {item_id} not found",
             )
 
         active_run = conn.execute(
-            "SELECT dr.id FROM deployment_run_items dri "
+            "SELECT dr.id, dr.current_stage FROM deployment_run_items dri "
             "JOIN deployment_runs dr ON dr.id = dri.run_id "
             f"WHERE dri.item_id = {p} AND dr.status = 'executing' "
             "ORDER BY dr.created_at DESC LIMIT 1",
@@ -51,38 +55,47 @@ def approve_item(item_id: int, req: _main.ApproveRequest) -> _main.ApproveRespon
         ).fetchone()
         if active_run is None:
             return _main._error_response(
-                409, "NO_ACTIVE_RUN",
+                409,
+                "NO_ACTIVE_RUN",
                 "Approval requires an executing deployment run.",
             )
         from yoke_core.domain.deployment_approval_requests import (
-            ensure_deployment_stage_approval,
+            evaluate_deployment_stage_approval,
         )
+
         try:
-            request, _ = ensure_deployment_stage_approval(
+            verdict = evaluate_deployment_stage_approval(
                 conn,
                 run_id=str(active_run["id"]),
             )
         except ValueError as exc:
             return _main._error_response(409, "INVALID_STATE", str(exc))
-        if request["status"] != "resolved":
+        if not verdict.satisfied:
+            if verdict.resolution_action == "reject":
+                return _main._error_response(
+                    409,
+                    "APPROVAL_REJECTED",
+                    f"Inbox decision request {verdict.request_id} was rejected.",
+                )
             return _main._error_response(
-                409, "APPROVAL_REQUIRED",
-                f"Resolve Inbox decision request {request['id']} to continue.",
+                409,
+                "APPROVAL_REQUIRED",
+                f"Resolve Inbox decision request {verdict.request_id} to continue.",
             )
-        if request["resolution_action"] != "approve":
-            return _main._error_response(
-                409, "APPROVAL_REJECTED",
-                f"Inbox decision request {request['id']} was rejected.",
-            )
+        stamp = conn.execute(
+            f"SELECT resolved_at FROM decision_requests WHERE id = {p}",
+            (int(verdict.request_id),),
+        ).fetchone()
         return _main.ApproveResponse(
             id=item_id,
-            approved_at=str(request["resolved_at"]),
+            approved_at=str(stamp[0] if stamp is not None else ""),
             comment=req.comment,
         )
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(
-                503, "DB_BUSY",
+                503,
+                "DB_BUSY",
                 "Database is locked. Retry after a short delay.",
             )
         raise

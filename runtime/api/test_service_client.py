@@ -78,7 +78,9 @@ def test_db():
     """Create a temporary Postgres DB with deployment flow and items."""
     tmp_dir = Path(tempfile.mkdtemp())
     try:
-        with init_test_db(tmp_dir, apply_schema=_apply_service_client_schema) as db_path:
+        with init_test_db(
+            tmp_dir, apply_schema=_apply_service_client_schema
+        ) as db_path:
             yield {"db_path": db_path, "tmp_dir": str(tmp_dir)}
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -99,7 +101,11 @@ def _apply_service_client_schema_on_conn(conn) -> None:
     from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
     from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
 
-    apply_fixture_ddl(conn, PROJECTS_SCHEMA + ITEMS_SCHEMA + """
+    apply_fixture_ddl(
+        conn,
+        PROJECTS_SCHEMA
+        + ITEMS_SCHEMA
+        + """
         CREATE TABLE deployment_flows (
             id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL,
@@ -112,15 +118,22 @@ def _apply_service_client_schema_on_conn(conn) -> None:
             done_description TEXT DEFAULT NULL,
             UNIQUE(project_id, name)
         );
-    """)
+    """,
+    )
 
     # Seed a flow with human-approval stage
-    stages_json = json.dumps([
-        {"name": "merged", "step_runner": "auto"},
-        {"name": "approve-deploy", "step_runner": "human-approval"},
-        {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
-        {"name": "complete", "step_runner": "auto"},
-    ])
+    stages_json = json.dumps(
+        [
+            {"name": "merged", "step_runner": "auto"},
+            {
+                "name": "approve-deploy",
+                "step_runner": "human-approval",
+                "approvals": {"roles": ["owner", "operator"], "actors": []},
+            },
+            {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+            {"name": "complete", "step_runner": "auto"},
+        ]
+    )
     conn.execute(
         """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
            VALUES ('test-flow', 1, 'TestFlow', ?, ?)""",
@@ -218,7 +231,9 @@ def project_structure_db(tmp_path):
 
 
 def test_service_client_project_structure_get(project_structure_db: str):
-    result = _run_client(["project-structure-get", "yoke"], db_path=project_structure_db)
+    result = _run_client(
+        ["project-structure-get", "yoke"], db_path=project_structure_db
+    )
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
     assert data["project_id"] == "yoke"
@@ -228,9 +243,7 @@ def test_service_client_project_structure_get(project_structure_db: str):
 
 def test_service_client_project_structure_seed(project_structure_db: str):
     """Seed succeeds through the service-client Project Structure surface."""
-    seed = _run_client(
-        ["project-structure-seed", "yoke"], db_path=project_structure_db
-    )
+    seed = _run_client(["project-structure-seed", "yoke"], db_path=project_structure_db)
     assert seed.returncode == 0, seed.stderr
     json.loads(seed.stdout)
 
@@ -239,15 +252,21 @@ def test_service_client_project_structure_context_routing_round_trip(
     project_structure_db: str, tmp_path
 ):
     ops_path = tmp_path / "ops.json"
-    ops_path.write_text(json.dumps({
-        "ops": [{
-            "op": "put",
-            "family": "context_routing",
-            "attachment": "project",
-            "entry_key": "always",
-            "payload": {"docs": ["AGENTS.md"]},
-        }],
-    }))
+    ops_path.write_text(
+        json.dumps(
+            {
+                "ops": [
+                    {
+                        "op": "put",
+                        "family": "context_routing",
+                        "attachment": "project",
+                        "entry_key": "always",
+                        "payload": {"docs": ["AGENTS.md"]},
+                    }
+                ],
+            }
+        )
+    )
     result = _run_client(
         ["project-structure-patch", "yoke", "--ops-file", str(ops_path)],
         db_path=project_structure_db,
@@ -261,8 +280,10 @@ def test_service_client_project_structure_context_routing_round_trip(
     )
     assert fetched.returncode == 0
     data = json.loads(fetched.stdout)
-    assert data["entries"] == [{
-        "attachment": "project",
-        "entry_key": "always",
-        "payload": {"docs": ["AGENTS.md"]},
-    }]
+    assert data["entries"] == [
+        {
+            "attachment": "project",
+            "entry_key": "always",
+            "payload": {"docs": ["AGENTS.md"]},
+        }
+    ]
