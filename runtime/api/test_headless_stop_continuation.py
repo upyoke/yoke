@@ -30,6 +30,14 @@ def test_relay_launch_context_uses_durable_session_correlation() -> None:
     assert session_was_relay_launched(conn, "worker")
 
 
+def test_relay_launch_context_fails_safe_against_stop_denial() -> None:
+    class _BrokenConnection:
+        def execute(self, *_args, **_kwargs):
+            raise RuntimeError("launch context unavailable")
+
+    assert session_was_relay_launched(_BrokenConnection(), "worker")
+
+
 def _context(executor: str, entrypoint: str) -> HookContext:
     return HookContext(
         event_name="Stop",

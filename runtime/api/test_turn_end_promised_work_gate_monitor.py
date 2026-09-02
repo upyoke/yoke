@@ -29,6 +29,7 @@ def _present() -> TurnEndEvidence:
 
 def _patch(monkeypatch, *, at_cap: bool, monitor_armed: bool) -> list[dict]:
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
+    monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: False)
     monkeypatch.setattr(
         gate,
         "_live_claim",
@@ -64,6 +65,7 @@ def test_monitor_armed_does_not_call_cap(monkeypatch) -> None:
         raise AssertionError("cap must not run while a Monitor waiter is armed")
 
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
+    monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: False)
     monkeypatch.setattr(
         gate,
         "_live_claim",

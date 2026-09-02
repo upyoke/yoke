@@ -147,6 +147,17 @@ def direct_changed_tests(changed: Iterable[str], index: ImportIndex) -> frozense
     )
 
 
+def direct_importer_tests(changed: Iterable[str], index: ImportIndex) -> frozenset[str]:
+    """Tests that directly import a changed module, without transitive fanout."""
+    modules = {index.module_of[path] for path in changed if path in index.module_of}
+    return frozenset(
+        importer
+        for module in modules
+        for importer in index.importers.get(module, ())
+        if is_test_file(importer)
+    )
+
+
 def build_import_index(repo_root: Path) -> ImportIndex:
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
@@ -170,6 +181,7 @@ __all__ = [
     "TEST_ANCHORS",
     "build_import_index",
     "direct_changed_tests",
+    "direct_importer_tests",
     "is_test_file",
     "module_name_for",
 ]

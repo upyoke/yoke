@@ -1,10 +1,4 @@
-"""Select test files a change could plausibly break by import reachability.
-
-Bounded selection runs the computable subset when a change is unbounded;
-plain selection widens to the full-sweep anchors. Every unbounded verdict
-names the rule and paths that caused it. The always-run floor protects
-cross-cutting wiring that reachability can miss.
-"""
+"""Select tests by import reachability with bounded and full-sweep fallbacks."""
 
 from __future__ import annotations
 
@@ -31,6 +25,7 @@ from yoke_core.tools._impacted_import_index import (
     TEST_ANCHORS,
     build_import_index,
     direct_changed_tests,
+    direct_importer_tests,
     is_test_file,
     module_name_for,
 )
@@ -250,6 +245,9 @@ def select(
     bounded_changed = [path for path in changed if path not in trigger_paths]
     reached = _reachable_tests(bounded_changed, index) or set()
     reached_count = len(reached)
+    direct_importers = direct_importer_tests(bounded_changed, index)
+    if is_effectively_full(len(direct_importers), total_files):
+        direct_importers = frozenset()
     if is_effectively_full(reached_count, total_files):
         reached = set()
         subset_note = (
@@ -265,7 +263,7 @@ def select(
             f"{', '.join(selection.trigger_paths)}) — deferring full "
             f"coverage to the final QA gate{subset_note}"
         ),
-        files=tuple(sorted(reached | contracts.tests | direct)),
+        files=tuple(sorted(reached | contracts.tests | direct | direct_importers)),
         total_files=total_files,
         fallback_rule=selection.fallback_rule,
         trigger_paths=selection.trigger_paths,
