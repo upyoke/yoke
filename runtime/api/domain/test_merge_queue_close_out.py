@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.standalone_item_merge_receipt import MergeReceipt
@@ -10,6 +12,7 @@ from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 LANE_SHA = "1" * 40
 COMBINED_SHA = "h" * 40
 MERGE_SHA = "m" * 40
+RUN_URL = "https://runs/42"
 
 
 def _ctx(repo_root: str = "") -> MergeContext:
@@ -65,7 +68,7 @@ def test_landing_records_the_merge_receipt_the_terminal_gate_reads(monkeypatch):
     """
     batch = BatchReceipt(
         pr_num="42", merge_sha=MERGE_SHA, members=("YOK-200",),
-        head_sha=COMBINED_SHA, run_url="https://runs/1",
+        head_sha=COMBINED_SHA, run_url=RUN_URL,
     )
     recorded = _wire(monkeypatch, batch=batch)
 
@@ -75,6 +78,7 @@ def test_landing_records_the_merge_receipt_the_terminal_gate_reads(monkeypatch):
 
     assert outcome.merge_sha == MERGE_SHA
     assert outcome.batch == batch
+    assert outcome.ci_evidence_error == ""
     assert outcome.warnings == ()
     assert recorded["item_id"] == 7
     assert recorded["project"] == "yoke"
@@ -91,7 +95,10 @@ def test_landing_carries_the_file_set_the_evidence_record_needs(monkeypatch):
     The item's execution evidence is refused without touched files, so a
     landing that resolves none lands the merge and then strands the item.
     """
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
     recorded = _wire(
         monkeypatch, batch=batch, touched=("a.py", "docs/b.md"),
     )
@@ -106,7 +113,10 @@ def test_landing_carries_the_file_set_the_evidence_record_needs(monkeypatch):
 
 
 def test_unresolvable_file_set_warns_without_unwinding_the_landing(monkeypatch):
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
     _wire(
         monkeypatch, batch=batch, touched=None,
         files_error="github pr read failure: 503",
@@ -128,7 +138,10 @@ def test_empty_file_listing_is_reported_rather_than_recorded_silently(
     monkeypatch,
 ):
     """A merged pull request that changed nothing is a fact worth naming."""
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
     _wire(monkeypatch, batch=batch, touched=())
 
     outcome = close_out_mod.record_landing(
@@ -150,12 +163,32 @@ def test_unresolved_batch_still_records_the_lane_head(monkeypatch):
     )
 
     assert outcome.merge_sha == ""
+    assert outcome.ci_evidence_error == "merge_group run lookup failed"
     assert "merge_group run lookup failed" in outcome.warnings
     assert recorded["receipt"].commit_sha == LANE_SHA
 
 
+def test_unidentified_train_cannot_be_recorded_as_passing_ci(monkeypatch):
+    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA)
+    _wire(monkeypatch, batch=batch, batch_warning="train run not identified")
+    monkeypatch.setattr(
+        close_out_mod,
+        "record_batch_evidence",
+        lambda *_a, **_k: pytest.fail("an unidentified run is not passing proof"),
+    )
+
+    outcome = close_out_mod.record_landing(
+        _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
+    )
+
+    assert outcome.ci_evidence_error == "train run not identified"
+
+
 def test_landing_leaves_lane_retirement_to_terminal_close_out(monkeypatch):
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
     _wire(monkeypatch, batch=batch)
 
     outcome = close_out_mod.record_landing(
@@ -168,7 +201,10 @@ def test_landing_leaves_lane_retirement_to_terminal_close_out(monkeypatch):
 
 def test_a_landing_with_no_local_checkout_prunes_nothing(monkeypatch):
     """A caller holding no repository has no lane on disk to retire."""
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
     _wire(monkeypatch, batch=batch)
     outcome = close_out_mod.record_landing(
         _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
@@ -178,7 +214,10 @@ def test_a_landing_with_no_local_checkout_prunes_nothing(monkeypatch):
 
 
 def test_landing_fast_forwards_main_without_removing_the_lane(monkeypatch):
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
     _wire(monkeypatch, batch=batch)
     order: list[str] = []
     monkeypatch.setattr(
@@ -194,9 +233,12 @@ def test_landing_fast_forwards_main_without_removing_the_lane(monkeypatch):
     assert order == ["sync:/tmp/repo:main"]
 
 
-def test_bookkeeping_failures_degrade_to_warnings(monkeypatch):
-    """The merge already landed; refusing the bookkeeping cannot undo it."""
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+def test_ci_recording_failure_keeps_close_out_retriable(monkeypatch):
+    """The merge stays landed, but terminal evidence must wait for CI proof."""
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
     _wire(monkeypatch, batch=batch)
     monkeypatch.setattr(
         close_out_mod, "stamp_merged_at", lambda item_id: "control plane down",
@@ -217,3 +259,7 @@ def test_bookkeeping_failures_degrade_to_warnings(monkeypatch):
     assert "merged_at not recorded: control plane down" in outcome.warnings
     assert "batch evidence not recorded: evidence write refused" in outcome.warnings
     assert "merge receipt not recorded: down" in outcome.warnings
+    assert outcome.ci_evidence_error == "evidence write refused"
+    assert "Re-run yoke merge item YOK-200" in outcome.ci_evidence_refusal(
+        "42", "yoke merge item YOK-200"
+    )

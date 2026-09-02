@@ -98,6 +98,14 @@ the rung id, the transition it answered, and the fact snapshot it
 resolved against. It is readable from item detail and paired with
 `GateSatisfierRungStamped` / `GateSatisfierRefused` events.
 
+For `done_merge_evidence`, `item:ci_verdict` comes from a passing `ci_run`
+joined through the item's QA requirement. A merge-queue close-out creates that
+flow-derived requirement when the item has no verification posture, then
+records the identified merge-group run against it. A two-call queue handoff
+must do this on its landed-lane re-entry before evidence resolution; failure
+keeps the item open, because falling through to `merged_locally` would rename
+a CI-backed landing as one that had no CI.
+
 Direct-evidence close-out treats that stamp as part of its terminal evidence:
 an unwritable `done_merge_evidence` or `delivery_evidence` row refuses the
 close-out and names schema convergence as the recovery. The evidence blob no
@@ -120,8 +128,8 @@ and stamped nothing: the next lane predated it, and the gate that would have
 refused an unstamped close-out was part of the same absent code. Zero rows
 fleet-wide read exactly like a mechanism nobody had exercised yet.
 
-The close-out's evidence write and terminal transition now run on the
-connected control plane
+The close-out's queue CI proof, evidence write, and terminal transition now run
+on the connected control plane
 (`yoke_core.domain.close_out_control_plane_authority`), so the ladder that
 decides an item's done obligations is the one the fleet serves. Rationale:
 [`standalone-item-merge.md`](standalone-item-merge.md).

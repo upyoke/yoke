@@ -14,11 +14,13 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_core.domain import merge_queue_close_out as queue_close_out
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain import standalone_item_merge_verify as verify
+from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -244,6 +246,59 @@ def test_a_landed_lane_never_reaches_the_verification_gate_or_the_queue(
     envelope = capsys.readouterr().out
     assert '"already_merged": true' in envelope
     assert MERGE_SHA in envelope
+
+
+def test_queue_handoff_reentry_runs_only_post_landing_bookkeeping(
+    monkeypatch, capsys,
+):
+    item = {
+        "id": 7,
+        "public_ref": "ITEM-1",
+        "status": "reviewing-implementation",
+        "workflow": {"id": "dash"},
+        "project": {"slug": "yoke"},
+        "merge_queue": {"pr_number": "42", "enqueued_at": "2026-09-02T03:00Z"},
+        "worktrees": [{"branch": "ITEM-1", "state": "active", "path": "/repo/lane"}],
+    }
+    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
+    monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    monkeypatch.setattr(
+        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
+    )
+    monkeypatch.setattr(
+        merge_cli.landed,
+        "landed_lane",
+        lambda **_kw: landed.LandedLane(
+            branch="ITEM-1", target="main", commit_sha=LANE_SHA,
+            merge_sha=MERGE_SHA, touched_files=("feature.py",),
+            source="lane branch",
+        ),
+    )
+    seen: dict = {}
+
+    def record_landing(_ctx, **kwargs):
+        seen.update(kwargs)
+        return queue_close_out.QueueCloseOut(
+            merge_sha=MERGE_SHA,
+            touched_files=("feature.py",),
+            batch=BatchReceipt(
+                pr_num="42", head_sha=MERGE_SHA,
+                run_url="https://github.test/runs/42",
+            ),
+        )
+
+    monkeypatch.setattr(queue_close_out, "record_landing", record_landing)
+    monkeypatch.setattr(
+        verify,
+        "qa_preflight",
+        lambda *_a, **_k: pytest.fail("a landed queue member is not republished"),
+    )
+
+    assert merge_cli.run(["ITEM-1", "--skip-status", "--json"]) == 0
+    envelope = capsys.readouterr().out
+    assert seen["pr_num"] == "42"
+    assert seen["member_snapshot"] == ("ITEM-1",)
+    assert '"already_merged": true' in envelope
 
 
 def test_containing_ref_names_the_remote_when_only_the_remote_has_it(

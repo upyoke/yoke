@@ -95,10 +95,15 @@ A project with merge-queue capability opens and arms a pull request, records a
 durable item marker, and returns immediately. The queue owns the long CI wait;
 no detached local waiter owns item state. A control-plane observer notices the
 merge and messages the live claim holder, whose re-entry records evidence and
-runs the terminal lifecycle transition. The marker makes that handoff visible
-and idempotent. `--wait` retains the inline poll only for harnesses and
-operators whose process lifetime safely spans it. Projects without merge-queue
-capability keep the local merge engine.
+runs the terminal lifecycle transition. That re-entry sees a branch the base
+already contains, but the durable marker keeps it on the queue close-out path:
+it records the identified merge-group run as the item's `ci_run` proof before
+execution evidence is evaluated. It never republishes the lane or re-enters
+the pull request. Missing proof leaves the already-landed item open with a
+retry instruction, rather than silently classifying it as a local merge. The
+marker makes that handoff visible and idempotent. `--wait` retains the inline
+poll only for harnesses and operators whose process lifetime safely spans it.
+Projects without merge-queue capability keep the local merge engine.
 
 ## Portability
 
@@ -142,11 +147,11 @@ contract, and neither the new stamp nor the new refusal ever executed. The
 gate that would have caught the omission was part of the same missing code,
 so the item reached `done` reporting success.
 
-The two steps that carry an item's terminal semantics — the execution
-evidence and the transition it authorizes — therefore go back to the
-connection the operator selected, restoring the portability rule above for
-exactly the calls that decide whether the item is done. Everything the merge
-itself needs keeps the local authority the runtime bound for it.
+The three writes that carry an item's terminal semantics — merge-queue CI
+proof, execution evidence, and the transition it authorizes — therefore go
+back to the connection the operator selected, restoring the portability rule
+above for exactly the calls that decide whether the item is done. Everything
+the merge itself needs keeps the local authority the runtime bound for it.
 
 The connected env is bound by the runtime
 (`close_out_control_plane_authority.bind_connected_control_plane`) rather than
@@ -171,6 +176,7 @@ universe that never switched keep the connection they already had.
   scope — written before the columns existed, or by a caller that could not
   resolve its project — still blocks everything, because "scope unknown" must
   never be read as "scope compatible".
-- Close-out evidence and the terminal transition are decided by the connected
-  control plane's build, so a contract that lands and deploys governs the next
-  close-out instead of waiting for every operator's lane to be rebuilt.
+- Queue CI proof, close-out evidence, and the terminal transition are decided
+  by the connected control plane's build, so a contract that lands and deploys
+  governs the next close-out instead of waiting for every operator's lane to
+  be rebuilt.

@@ -29,8 +29,10 @@ transition. A queue landing records the proof that makes the later shared
 cleanup safe, but it does not remove the retry lane while evidence or status
 gates can still refuse close-out.
 
-Nothing here unwinds a landed merge. Each step degrades to a warning, because
-the merge has already happened and refusing the bookkeeping would not undo it.
+Nothing here unwinds a landed merge. Identity and file-recovery failures stay
+warnings because refusing them cannot undo it. Missing CI proof is different:
+the terminal gate would otherwise call a queue landing ``merged_locally``, so
+the caller keeps the item open and retries this bookkeeping instead.
 """
 
 from __future__ import annotations
@@ -40,10 +42,12 @@ from typing import Mapping, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain.close_out_control_plane_authority import (
+    record_merge_queue_ci_evidence as record_batch_evidence,
+)
 from yoke_core.domain.merge_queue_batch_receipt import (
     BatchReceipt,
     observe_batch,
-    record_batch_evidence,
 )
 from yoke_core.domain.standalone_item_merge import stamp_merged_at
 from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
@@ -58,7 +62,19 @@ class QueueCloseOut:
     merge_sha: str = ""
     touched_files: tuple[str, ...] = field(default=())
     batch: Optional[BatchReceipt] = None
+    ci_evidence_error: str = ""
     warnings: tuple[str, ...] = field(default=())
+
+    def ci_evidence_refusal(self, pr_num: str, resume_command: str = "") -> str:
+        """Teach the retry that records proof for an irreversible landing."""
+        if not self.ci_evidence_error:
+            return ""
+        recovery = resume_command or "the same yoke merge item command"
+        return (
+            f"pull request {pr_num} landed, but merge-group CI evidence was "
+            f"not recorded: {self.ci_evidence_error}. Re-run {recovery}; the "
+            "landing is durable and the retry only closes it out"
+        )
 
 
 def _files_from_merge_commit(
@@ -103,9 +119,20 @@ def record_landing(
     if batch_warning:
         warnings.append(batch_warning)
     merge_sha = batch.merge_sha if batch is not None else ""
-    if batch is not None:
+    ci_evidence_error = ""
+    if batch is None:
+        ci_evidence_error = batch_warning or (
+            f"merge-group CI receipt for pull request {pr_num} was not resolved"
+        )
+    elif not batch.head_sha or not batch.run_url:
+        ci_evidence_error = batch_warning or (
+            f"merge-group CI receipt for pull request {pr_num} omitted its "
+            "verified head or run URL"
+        )
+    else:
         evidence_error = record_batch_evidence(item_id, batch)
         if evidence_error:
+            ci_evidence_error = evidence_error
             warnings.append(f"batch evidence not recorded: {evidence_error}")
 
     touched, files_error = read_pr_changed_files(ctx, pr_num)
@@ -146,6 +173,7 @@ def record_landing(
         merge_sha=merge_sha,
         touched_files=touched_files,
         batch=batch,
+        ci_evidence_error=ci_evidence_error,
         warnings=tuple(warnings),
     )
 

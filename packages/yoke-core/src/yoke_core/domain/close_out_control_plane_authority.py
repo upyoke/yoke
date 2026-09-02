@@ -17,11 +17,11 @@ older contract, and neither the new stamp nor the new refusal ever ran.
 Nothing reported a problem, because the code that would have noticed was
 the code that was missing.
 
-So the two steps that carry an item's terminal semantics — the execution
-evidence and the transition it authorizes — go back to the connected
-control plane, whose build is the one the fleet governs. Everything the
-merge itself needs (admission, git, GitHub) keeps the local authority the
-merge runtime bound for it.
+So the three writes that carry an item's terminal semantics — merge-queue
+CI proof, execution evidence, and the transition it authorizes — go back to
+the connected control plane, whose build is the one the fleet governs.
+Everything the merge itself needs (admission, git, GitHub) keeps the local
+authority the merge runtime bound for it.
 
 The connected env is *bound* by that runtime rather than re-derived here,
 because the override it installs replaces an explicit ``--env`` the
@@ -40,6 +40,7 @@ from contextvars import ContextVar
 from typing import Any, Iterator, Optional, Sequence
 
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_core.domain import merge_queue_batch_receipt as queue_ci
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
@@ -76,6 +77,15 @@ def connected_control_plane() -> Iterator[str]:
             os.environ[ENV_OVERRIDE] = current
         else:
             os.environ.pop(ENV_OVERRIDE, None)
+
+
+def record_merge_queue_ci_evidence(
+    item_id: int,
+    receipt: queue_ci.BatchReceipt,
+) -> Optional[str]:
+    """Record one landed queue run where the terminal gate will read it."""
+    with connected_control_plane():
+        return queue_ci.record_batch_evidence(item_id, receipt)
 
 
 def record_execution_evidence(
@@ -143,5 +153,6 @@ __all__: Sequence[str] = (
     "bound_connected_env",
     "connected_control_plane",
     "record_execution_evidence",
+    "record_merge_queue_ci_evidence",
     "transition_to_done",
 )

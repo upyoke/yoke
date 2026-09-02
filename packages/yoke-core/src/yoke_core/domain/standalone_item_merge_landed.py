@@ -4,12 +4,10 @@ Every close-out step after the merge assumes there is still something to
 land, and three of them are not free when that assumption is wrong. The
 commit-bound QA recovery re-executes a SHA-bound CI case, which publishes the
 lane — and publishing a lane whose pull request is sitting in the merge queue
-is refused by GitHub and drops the pull request out of the train. The queue
-route asks GitHub to take a pull request it has already merged, reading a
-train run that no longer exists. And the pull-request lookup calls a lane that
-was fast-forwarded onto the base after its own merge "commits beyond the pull
-request that merged it", sending close-out off to open a second pull request
-for work that already landed.
+is refused by GitHub and drops the pull request out of the train. Full queue
+admission is wrong after landing too. A durable queue handoff marker is enough
+to run only its post-landing bookkeeping: recover the identified merge-group
+proof and receipt without publishing or re-entering the pull request.
 
 So the merge boundary asks this question once, before any of them, and
 converges when the answer is yes. Skipping the pre-merge QA gate on that path
@@ -133,12 +131,61 @@ def landed_lane(
     return None
 
 
+def _converge_queue_landing(
+    *,
+    item_id: int,
+    project: str,
+    public_ref: str,
+    repo_root: str,
+    lane: LandedLane,
+    queue_pr_number: str,
+):
+    """Finish the bookkeeping a two-call queue handoff deferred."""
+    from yoke_core.domain.merge_queue_close_out import record_landing
+    from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+
+    closed = record_landing(
+        MergeContext(
+            args=MergeArgs(branch=lane.branch, target=lane.target),
+            repo_root=repo_root,
+            project=project,
+        ),
+        item_id=item_id,
+        commit_sha=lane.commit_sha,
+        pr_num=queue_pr_number,
+        member_snapshot=(public_ref,) if public_ref else (),
+    )
+    merge_sha = closed.merge_sha or lane.merge_sha or lane.commit_sha
+    touched_files = closed.touched_files or lane.touched_files
+    warnings = (
+        f"branch {lane.branch!r} already landed on {lane.target!r}; "
+        "queue bookkeeping converged without queue re-entry",
+        *closed.warnings,
+    )
+    refusal = closed.ci_evidence_refusal(queue_pr_number)
+    return StandaloneMergeOutcome(
+        ok=not refusal,
+        exit_code=0 if not refusal else 1,
+        already_merged=True,
+        commit_sha=lane.commit_sha,
+        merge_sha=merge_sha,
+        touched_files=touched_files,
+        pushed=True,
+        pr_num=queue_pr_number,
+        error=refusal,
+        warnings=warnings,
+    )
+
+
 def converge(
     *,
     item_id: int,
     project: str,
     repo_root: str,
     lane: LandedLane,
+    queue_pr_number: str = "",
+    public_ref: str = "",
 ):
     """Record what a lane that already landed still owes to its item.
 
@@ -147,6 +194,16 @@ def converge(
     naming the merge identity, and — when the landing never reached origin
     because the process carrying it died first — the push that publishes it.
     """
+    if queue_pr_number:
+        return _converge_queue_landing(
+            item_id=item_id,
+            project=project,
+            public_ref=public_ref,
+            repo_root=repo_root,
+            lane=lane,
+            queue_pr_number=queue_pr_number,
+        )
+
     from yoke_core.domain.standalone_item_merge import (
         StandaloneMergeOutcome,
         stamp_merged_at,
