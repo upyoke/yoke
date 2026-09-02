@@ -1,7 +1,8 @@
 """Identity-enrichment tests for the HTTPS hook relay client.
 
-``client_lane`` / ``client_model_facts`` live in ``yoke_harness.hooks.identity_relay``
-and surface through ``yoke_harness.hooks.identity``. Lane resolution reads
+``client_lane`` lives in ``yoke_harness.hooks.identity_relay`` and the
+model-facts half in ``yoke_harness.hooks.identity_model_facts``; both
+surface through ``yoke_harness.hooks.identity``. Lane resolution reads
 machine-config ``settings`` keys (``executor_default_lane_<token>``, with
 ``*`` wildcard suffixes and an ``unknown`` default), and answers ``None``
 when nothing matches so the server's project routing policy decides. Model
@@ -18,6 +19,7 @@ from yoke_harness.hooks.identity import (
     client_entrypoint,
     client_lane,
     client_model_facts,
+    record_model_facts_shipped,
 )
 
 _RELAY = "yoke_harness.hooks.identity_relay"
@@ -69,11 +71,16 @@ def _claude_transcript(tmp_path, model: str) -> str:
     return str(path)
 
 
-def test_an_attested_model_ships_once_and_then_stops_resolving(
+def test_an_attested_model_stops_resolving_once_its_write_lands(
     monkeypatch,
     tmp_path,
 ) -> None:
-    """Reading the artifact is not free, so a proven answer ends the work."""
+    """Reading the artifact is not free, so a RECORDED answer ends the work.
+
+    Reading it is not the same as recording it: the hook carrying these
+    facts still has to reach the control plane, so the session keeps
+    reporting them until a caller says one landed.
+    """
     monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
     payload = {
         "session_id": "s-model",
@@ -84,6 +91,12 @@ def test_an_attested_model_ships_once_and_then_stops_resolving(
 
     assert first["model"] == "claude-fable-5"
     assert first["reasoning_effort"] == "high"
+    assert not (tmp_path / "relay-model-shipped" / "s-model").exists()
+    unsent = client_model_facts("PostToolUse", payload, "claude-code")
+    assert unsent["model"] == "claude-fable-5"
+
+    record_model_facts_shipped(payload, first)
+
     assert (tmp_path / "relay-model-shipped" / "s-model").exists()
     assert client_model_facts("PostToolUse", payload, "claude-code") == {}
 

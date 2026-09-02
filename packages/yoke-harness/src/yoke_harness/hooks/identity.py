@@ -11,6 +11,7 @@ from yoke_harness.hooks.identity_relay import (
     client_lane,
     client_machine_id,
     client_model_facts,
+    record_model_facts_shipped,
     relay_identity_payload,
 )
 from yoke_harness.hooks.identity_runtime import (
@@ -52,6 +53,7 @@ __all__ = [
     "is_codex",
     "is_cursor",
     "prune_stale_session_anchors",
+    "record_model_facts_shipped",
     "record_session_anchor",
     "relay_identity_payload",
     "resolve_session_id",

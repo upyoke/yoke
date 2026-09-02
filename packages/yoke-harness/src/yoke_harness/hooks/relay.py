@@ -19,7 +19,6 @@ from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
-from yoke_contracts.hook_runner.cursor_response import cursor_lifecycle_allow_stdout
 from yoke_contracts.hook_runner.failures import render_failure_warning
 
 from yoke_harness.hooks.deadline import start_hook_deadline
@@ -31,6 +30,7 @@ from yoke_harness.hooks.identity import (
     detect_executor,
     is_cursor,
     prune_stale_session_anchors,
+    record_model_facts_shipped,
     record_session_anchor,
     relay_identity_payload,
     write_runtime_cache,
@@ -42,6 +42,7 @@ from yoke_harness.hooks.local_subset import (
     evaluate_local_subset,
     render_dry_run,
 )
+from yoke_harness.hooks.relay_degrade import degrade_to_noop
 from yoke_harness.hooks.relay_identity_guard import (
     capture_codex_session,
     deny_unstamped_relay,
@@ -54,48 +55,6 @@ _record_client_anchor, _codex_capture = record_client_anchor, capture_codex_sess
 
 HOOKS_EVALUATE_PATH = "/v1/hooks/evaluate"
 AGENT_TYPE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
-_CURSOR_CONTEXT_EVENTS = frozenset({SESSION_START_EVENT, "PostToolUse"})
-_DEGRADED_MARKER = "YOKE_HOOK_DEGRADED"
-
-
-def _cursor_degradation_stdout(
-    event_name: str, detail: str, preserved_stdout: str
-) -> str:
-    if not is_cursor(detect_executor()):
-        return preserved_stdout
-    preserved_stdout = cursor_lifecycle_allow_stdout(event_name, preserved_stdout)
-    if event_name not in _CURSOR_CONTEXT_EVENTS:
-        return preserved_stdout
-    warning = (
-        "WARNING: Yoke hook relay degraded to local-only allow; "
-        f"server policy was not evaluated ({detail})"
-    )
-    try:
-        payload = json.loads(preserved_stdout) if preserved_stdout else {}
-    except (json.JSONDecodeError, TypeError):
-        payload = {}
-    if isinstance(payload, dict) and isinstance(payload.get("additional_context"), str):
-        payload["additional_context"] += "\n\n" + warning
-        return json.dumps(payload)
-    return json.dumps({"additional_context": warning})
-
-
-def degrade_to_noop(event_name: str, detail: str, *, preserved_stdout: str = "") -> int:
-    """Fail open for hook transport/local harness failures."""
-    sys.stderr.write(
-        f"WARNING: {_DEGRADED_MARKER}: yoke hook evaluate {event_name}: "
-        "https transport degraded "
-        f"to no-op allow ({detail})\n"
-    )
-    print_execution_provenance(fallback_local=True)
-    visible_stdout = _cursor_degradation_stdout(
-        event_name,
-        detail,
-        preserved_stdout,
-    )
-    if visible_stdout:
-        sys.stdout.write(visible_stdout)
-    return 0
 
 
 def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
@@ -304,6 +263,12 @@ def relay_hook_event(
             "response body is not the hook contract",
             preserved_stdout=allow_stdout,
         )
+    # The served model settles this session only now that the control plane
+    # has accepted the evaluation carrying it. A timeout means the server's
+    # registration tail may never have run, so those facts stay unsettled
+    # and ride the next hook.
+    if outcome != "timeout":
+        record_model_facts_shipped(payload, identity)
     server_fp = response.get("execution_provenance")
     if isinstance(server_fp, dict):
         print_execution_provenance(server_fp)
