@@ -158,27 +158,31 @@ test("primary held item shows its complete workflow stage strip", () => {
   assert.equal(byClass(current, "session-item-title").length, 1);
 });
 
-test("failed segment names the real failure beneath the primary item", () => {
+test("the failed segment carries its failure without a second red line", () => {
   const rendered = card(new FakeDocument(), {
     stages: [
       { name: "idea", state: "complete", failure: null },
-      { name: "implementing", state: "complete", failure: null },
+      { name: "implementing", state: "failed", failure: "QA failed" },
       {
         name: "reviewing implementation",
-        state: "failed",
-        failure: "QA failed",
+        state: "pending",
+        failure: null,
       },
       { name: "done", state: "pending", failure: null },
     ],
   });
 
-  assert.equal(
-    byClass(rendered, "session-item-stage-failure")[0].textContent,
-    "reviewing implementation · QA failed",
-  );
-  assert.equal(
-    byClass(rendered, "delivery-run-stage")[2].getAttribute("data-state"),
-    "failed",
+  // The strip is the whole progress row: no second node repeating the
+  // failure as text underneath it.
+  const progress = byClass(rendered, "session-item-stage-progress")[0];
+  assert.equal(progress.children.length, 1);
+  assert.equal(progress.children[0].className, "delivery-run-stages");
+  const segment = byClass(rendered, "delivery-run-stage")[1];
+  assert.equal(segment.getAttribute("data-state"), "failed");
+  assert.equal(segment.getAttribute("title"), "implementing · QA failed");
+  assert.match(
+    byClass(rendered, "delivery-run-stages")[0].getAttribute("aria-label"),
+    /implementing failed QA failed/,
   );
 });
 

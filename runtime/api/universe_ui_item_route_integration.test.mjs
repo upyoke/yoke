@@ -99,7 +99,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
 
   const epic = await drillInto("epic");
   assert.deepEqual(epic.target, {
-    kind: "item", item_ref: "7", project_id: "1",
+    kind: "item", public_ref: "7", project_id: "1",
   });
   assert.equal(epic.askedForTasks, true);
   assert.deepEqual(epic.tasksTarget, {

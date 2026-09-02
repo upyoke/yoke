@@ -6,10 +6,7 @@ import {
   steeringLeadCovers,
 } from "./universe_sessions_steering.js";
 import { el, statePill } from "./universe_view_support.js";
-import {
-  renderStageStrip,
-  stageFailureLabel,
-} from "./universe_stage_strip.js";
+import { renderStageStrip } from "./universe_stage_strip.js";
 
 const HOLDING_AUTHORITY_KINDS = new Set([
   "work_claim", "path_claim", "strategy_document", "coordination",
@@ -96,12 +93,6 @@ function appendStageProgress(documentNode, work, stages) {
   if (!Array.isArray(stages) || !stages.length) return;
   const progress = el(documentNode, "div", "session-item-stage-progress");
   progress.appendChild(renderStageStrip(documentNode, stages));
-  const failure = stageFailureLabel(stages);
-  if (failure) {
-    progress.appendChild(el(
-      documentNode, "span", "session-item-stage-failure", failure,
-    ));
-  }
   work.appendChild(progress);
 }
 
