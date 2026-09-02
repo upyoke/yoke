@@ -115,8 +115,8 @@ yours:
 - **Unregistered launches** — list each `launch_id`; `spawn_started` or
   `spawn_alive` in `native_launch_phase` belongs to the first process. Wait
   through `deadline_at`; reconcile refuses and retry reattaches without
-  duplication. Otherwise reconcile, then retry through the registered commands
-  below; the authority is `session_control.launch.list` over `session_launches`:
+  duplication. Otherwise use the commands below: `session_control.launch.list`
+  reads `session_launches`; `session_control_launches` does not exist:
 
   ```text
   yoke session-control launch list --project {_project}
