@@ -14,11 +14,13 @@ from yoke_cli.config.path_doctor import (
 
 from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
+    RESET_ABSENT_PATH_PREFIX,
     RESET_RESTORE_UNRESTORED_PREFIX,
     golden_baseline_clears_home,
     resolve_full_reset_path_contract,
 )
 from yoke_harness.ssh_mac_full_reset_receipt import (
+    absent_path_detail,
     closed_outcomes,
     failure_outcome,
     success_evidence,
@@ -204,6 +206,8 @@ def execute_full_test_mac_reset(
             # receipt carried only the phase, and diagnosis meant repeating the
             # whole restore on the host just to watch where it stopped.
             failure_evidence["restore_state"] = unrestored_detail(detail)
+        elif detail is not None and detail.startswith(RESET_ABSENT_PATH_PREFIX):
+            failure_evidence["absent_state"] = absent_path_detail(detail)
         elif detail is not None:
             reap_parts = detail.split()
             failure_evidence["process_state"] = {

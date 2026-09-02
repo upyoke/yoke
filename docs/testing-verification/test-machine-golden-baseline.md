@@ -24,17 +24,18 @@ server walk puts most of its residue there: the bundle directory with its
 owner-only `secrets/`, the minted API tokens, the local universe's Postgres
 cluster, and — on a default macOS install — the container runtime's own data.
 
-Two things are still outside the restore's reach, and the reset handles both
-before it clears anything. The running server is one: containers, volumes, and
-images can only be named by a daemon that is up, and a runtime whose data root
-was moved outside the home would keep them whatever the restore does. So the
-reset removes the bundle's own objects first, selecting them by the Compose
-project label rather than by image name — the bundle shares its database image
-with whatever else a user runs, and a name match would take theirs too. Images
-are removed without force, because a refusal means another container still uses
-the image, which makes it that workload's image rather than residue.
+Three things are still outside the restore's reach, and the reset handles each
+before it reports the home restored. The running server is one: containers,
+volumes, and images can only be named by a daemon that is up, and a runtime
+whose data root was moved outside the home would keep them whatever the restore
+does. So the reset removes the bundle's own objects first, selecting them by
+the Compose project label rather than by image name — the bundle shares its
+database image with whatever else a user runs, and a name match would take
+theirs too. Images are removed without force, because a refusal means another
+container still uses the image, which makes it that workload's image rather
+than residue.
 
-The live writer is the other. A container runtime backend keeps writing into
+The live writer is the second. A container runtime backend keeps writing into
 the very home the clear is replacing, and a local-universe Postgres server
 names its own data directory on its command line while holding it open. Both
 are stopped before the clear: the runtime application by name, the Postgres
@@ -42,6 +43,17 @@ server through the same process reap that already fails the reset when a Yoke
 process survives it. A clear that races a live writer leaves the restore a
 destination it cannot reconcile, which surfaces as a restore failure whose real
 cause was never the restore.
+
+The third is product-owned temp files that never lived in the home. The
+installer writes `/tmp/yoke-install`; the verifier already requires that path
+absent, and the clear removes it from the same declared absence roster rather
+than discovering residue by glob. A live installer process whose command line
+still names the path refuses the clear instead of deleting under it. A leftover
+that survives names the exact path plus the recovery step on the receipt
+(`absent_state`). Walker scratch under `/tmp` that is not on that roster —
+lease-scoped token files, `mktemp` names — is the walker's own teardown
+contract, not a reset enumeration. The home-relative walker client token under
+`.yoke/secrets/` is already inside a directory the restore requires absent.
 
 The receipt reports what the teardown freed — containers, volumes, and images,
 alongside the Compose project it selected — so a walk that left nothing behind

@@ -112,6 +112,8 @@ def test_preserved_and_absent_surfaces_are_reachable_from_the_program() -> None:
     )
     assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES
     assert YOKE_ABSENT_TEMP_FILES == ("/tmp/yoke-install",)
+    assert "clear_absent_temp_files" in FULL_RESET_SCRIPT
+    assert 'for target in "${yoke_absent_temp_files[@]}"' in FULL_RESET_SCRIPT
     for suffix in PRESERVED_HOME_ENTRIES:
         assert suffix in FULL_RESET_SCRIPT
 

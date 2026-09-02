@@ -54,8 +54,40 @@ validate_golden() {
 # cleared. Those reports are cosmetic and a clear that aborted on rm's exit
 # status would fail on a correct run, so the clear phase deliberately ignores
 # them. The restore phase does the opposite and treats any stderr as failure.
+# Declared-absent temp files live outside the home, so the level walk never
+# sees them: they are removed from the same roster the verifier consults.
+installer_process_holds() {
+  local target="$1" holders
+  holders=$(
+    /bin/ps -ww -ax -o pid=,command= 2>/dev/null |
+    while read -r pid command_line; do
+      [[ "$pid" == <-> ]] || continue
+      (( pid != $$ )) || continue
+      case "$command_line" in
+        *"$target"*) print -r -- "$pid" ;;
+      esac
+    done
+  )
+  [[ -n "$holders" ]]
+}
+
+clear_absent_temp_files() {
+  local target
+  for target in "${yoke_absent_temp_files[@]}"; do
+    [[ "$target" == /* ]] || return 1
+    case "$target" in *'/../'*|*'/..') return 1 ;; esac
+    if installer_process_holds "$target"; then
+      failure_detail="$reset_absent_prefix$reset_absent_kind_live_process $target"
+      return 1
+    fi
+    /bin/rm -f -- "$target" 2>/dev/null || true
+  done
+  return 0
+}
+
 clear_home() {
   clear_home_levels
+  clear_absent_temp_files || return 1
   restored_entry_count=0
   return 0
 }
@@ -123,6 +155,7 @@ verify_restored_home() {
   done
   for target in "${yoke_absent_temp_files[@]}"; do
     if lexists "$target"; then
+      failure_detail="$reset_absent_prefix$reset_absent_kind_leftover $target"
       return 1
     fi
   done
