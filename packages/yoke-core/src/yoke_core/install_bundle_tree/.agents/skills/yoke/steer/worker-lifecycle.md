@@ -240,6 +240,16 @@ That write persists until the worker stamps a working mode
 (`yoke sessions touch --mode dash`). Reporting and control-plane reads
 do not unpark.
 
+Parking also shields what the worker holds. A QA plan execution whose owner
+is parked is not reaped as stale, so a walker told to hold keeps its mission
+rather than losing it to the sweep. That shield lasts as long as the session
+does: if the park outlives the session — a sleep, a reload, an end — the
+sweep settles the execution and stamps its capture with an error verdict.
+The Test Machine still holds the walk's state, and the walker re-enters with
+the `yoke qa plan run ... --continue-mission` command its next
+`yoke qa mission host-command` refusal names. Tell a held walker to continue
+rather than to re-run the plan; an ordinary run resets the host.
+
 Use this recipe for every launch, whether the item just became runnable
 or the fleet report named it as available. There is no second staffing
 path: every launch is item-bound and CLI-only, and the server composes it.

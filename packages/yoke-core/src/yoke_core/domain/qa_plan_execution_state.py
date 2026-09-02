@@ -10,9 +10,13 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_plan_execution_authority import (
     PLAN_EXECUTION_STALE_SECONDS,
-    plan_execution_is_stale,
+    plan_execution_is_abandoned,
     require_plan_execution_abandon_authority,
     require_plan_execution_owner,
+)
+from yoke_core.domain.qa_plan_execution_continuation import (
+    resolve_continuation_source,
+    skips_host_baseline,
 )
 from yoke_core.domain.qa_plan_execution_lifecycle import (
     STALE_PLAN_EXECUTION_REASON,
@@ -78,10 +82,19 @@ def begin_plan_execution(
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
     machine: str | None = None,
+    continue_mission: bool = False,
     actor_id: str | None,
     session_id: str,
 ) -> dict[str, Any]:
-    """Create or resume the one live execution for a QA subject."""
+    """Create or resume the one live execution for a QA subject.
+
+    ``continue_mission`` asks for the one variant that is not a plain start:
+    a fresh execution over the same roster that resumes a mission walk the
+    stale sweep settled while its walker was parked. It records its own runs
+    and reaches no host baseline, so the machine keeps the state the settled
+    walk built. :mod:`yoke_core.domain.qa_plan_execution_continuation` owns
+    which prior executions qualify.
+    """
     if not str(session_id or "").strip():
         raise QaPlanExecutionStateError(
             "ordered QA plan execution requires an owning session"
@@ -124,6 +137,17 @@ def begin_plan_execution(
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
     )
+    continues_execution_id = (
+        resolve_continuation_source(
+            conn,
+            live_execution_id=existing_id,
+            item_id=item_id,
+            transition_id=transition_id,
+            deployment_run_id=deployment_run_id,
+        )
+        if continue_mission
+        else None
+    )
     if existing_id is not None:
         existing = lock_plan_execution(conn, existing_id)
         if existing["state"] in {
@@ -134,7 +158,7 @@ def begin_plan_execution(
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
                 require_execution_target(existing)
                 return resume_owned_plan_execution(conn, existing, digest=digest)
-            if not plan_execution_is_stale(existing):
+            if not plan_execution_is_abandoned(conn, existing):
                 conn.rollback()
                 raise QaPlanExecutionStateError(
                     "another actor or session owns the active QA plan execution"
@@ -170,8 +194,9 @@ def begin_plan_execution(
             "id,item_id,deployment_run_id,transition_id,actor_id,session_id,"
             "roster_digest,"
             "roster_json,execution_target_json,execution_target_digest,"
+            "continues_execution_id,"
             "cursor_ordinal,state,created_at,heartbeat_at"
-            f") VALUES ({', '.join([placeholder] * 14)})",
+            f") VALUES ({', '.join([placeholder] * 15)})",
             (
                 execution_id,
                 int(item_id) if item_id is not None else None,
@@ -183,6 +208,7 @@ def begin_plan_execution(
                 canonical(roster),
                 canonical(execution_target),
                 execution_target_digest,
+                continues_execution_id,
                 0,
                 "active",
                 now,
@@ -311,4 +337,5 @@ __all__ = [
     "require_plan_execution_abandon_authority",
     "require_plan_execution_owner",
     "set_plan_machine_lease",
+    "skips_host_baseline",
 ]

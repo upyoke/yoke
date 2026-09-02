@@ -95,11 +95,12 @@ def _contract_args(
     *,
     ordinal: int,
 ) -> dict[str, Any]:
-    baseline = str(case.get("host_baseline") or "")
+    from yoke_core.domain.qa_plan_execution_continuation import contract_baselines
+
     contract_case = {key: value for key, value in case.items() if key != "ordinal"}
     return {
         "operation": "plan_case",
-        "baselines": (baseline,) if baseline else (),
+        "baselines": contract_baselines(execution, case),
         "cases": (contract_case,),
         "plan_execution_id": str(execution["id"]),
         "roster_digest": str(execution["roster_digest"]),

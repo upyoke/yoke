@@ -225,6 +225,9 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.machine_qa_plan_protocol import (
         continue_plan_host_control_execution,
     )
+    from yoke_core.domain.qa_plan_execution_continuation import (
+        mission_access_refusal,
+    )
     from yoke_core.domain.qa_plan_execution_state import (
         heartbeat_plan_execution,
         lock_plan_execution,
@@ -242,7 +245,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             session_id=request.actor.session_id,
         )
         if execution["state"] != "awaiting_agent_review":
-            raise ValueError("mission access requires awaiting_agent_review")
+            raise ValueError(mission_access_refusal(conn, execution))
         matches = [
             (ordinal, case)
             for ordinal, case in enumerate(execution["roster"])

@@ -44,6 +44,13 @@ QA_PLAN_EXECUTION_TARGET_COLUMNS = (
     "execution_target_json",
     "execution_target_digest",
 )
+#: Set on an execution that resumes a walk a prior execution left behind.
+#: Its presence is the whole contract: the host keeps the state the prior
+#: execution built, so no case in this execution reaches a host baseline.
+QA_PLAN_EXECUTION_CONTINUATION_COLUMNS = ("continues_execution_id",)
+QA_PLAN_EXECUTION_ADDITIVE_COLUMNS = (
+    QA_PLAN_EXECUTION_TARGET_COLUMNS + QA_PLAN_EXECUTION_CONTINUATION_COLUMNS
+)
 QA_PLAN_EXECUTION_RESULT_COLUMNS = (
     "execution_id",
     "ordinal",
@@ -79,6 +86,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     roster_json TEXT NOT NULL,
     execution_target_json TEXT,
     execution_target_digest TEXT,
+    continues_execution_id TEXT,
     cursor_ordinal INTEGER NOT NULL DEFAULT 0,
     state TEXT NOT NULL CHECK(state IN (
         'active','waiting','awaiting_agent_review','completed','aborted','error'
@@ -139,7 +147,7 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
                 assert_qa_plan_execution_subject_invariants(conn)
             except AssertionError:
                 converge_qa_plan_execution_subject_schema(conn)
-        for column in QA_PLAN_EXECUTION_TARGET_COLUMNS:
+        for column in QA_PLAN_EXECUTION_ADDITIVE_COLUMNS:
             if not _column_exists(conn, QA_PLAN_EXECUTION_TABLE, column):
                 conn.execute(
                     f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} ADD COLUMN {column} TEXT"
@@ -253,7 +261,7 @@ def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:
     table_columns = (
         (
             QA_PLAN_EXECUTION_TABLE,
-            QA_PLAN_EXECUTION_COLUMNS + QA_PLAN_EXECUTION_TARGET_COLUMNS,
+            QA_PLAN_EXECUTION_COLUMNS + QA_PLAN_EXECUTION_ADDITIVE_COLUMNS,
         ),
         (QA_PLAN_EXECUTION_RESULT_TABLE, QA_PLAN_EXECUTION_RESULT_COLUMNS),
     )
@@ -288,7 +296,9 @@ def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:
 __all__ = [
     "LIVE_PLAN_EXECUTION_SQL",
     "LIVE_PLAN_EXECUTION_STATES",
+    "QA_PLAN_EXECUTION_ADDITIVE_COLUMNS",
     "QA_PLAN_EXECUTION_COLUMNS",
+    "QA_PLAN_EXECUTION_CONTINUATION_COLUMNS",
     "QA_PLAN_EXECUTION_INDEXES",
     "QA_PLAN_EXECUTION_RESULT_COLUMNS",
     "QA_PLAN_EXECUTION_RESULT_TABLE",

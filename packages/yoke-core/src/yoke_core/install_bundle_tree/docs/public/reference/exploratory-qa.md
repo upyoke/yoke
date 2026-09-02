@@ -113,6 +113,41 @@ operator through the main channel, and dispatches a fresh walker after the gate
 is cleared. The next walker reads the Progress Log. The walker never blocks a
 turn waiting for the response and never silently skips the gated area.
 
+## Holding a Walk, and Continuing a Settled One
+
+A walker told to hold is parked (`yoke sessions touch --mode parked --reason
+"..."`), and a parked session stops heartbeating its execution. That silence is
+a declared wait, not an absence, so a live parked owner's execution is exempt
+from the stale sweep below and keeps its mission. The exemption lasts exactly
+as long as the session: if the park outlives it — a sleep, a reload, an
+explicit end — the sweep settles the execution and terminal settlement stamps
+its unreviewed capture with an `error` verdict.
+
+That verdict records the execution, not a judgment on the walk, and the Test
+Machine still holds every bit of state the walk built. The way back in is a
+continuation:
+
+```text
+yoke qa plan run --item PREFIX-N --transition T --continue-mission
+```
+
+A continuation is an ordinary new execution over the same roster, recording
+its own runs, with one difference: it reaches no host baseline, so the host
+keeps the state the settled walk built. Because the projections that paint a
+QA failure read a requirement's latest run, the continuation's own run
+supersedes the swept `error` without rewriting it — the prior run stays as
+history with its `stale-heartbeat` reason.
+
+The flag is refused unless the subject's most recent execution is terminal,
+ended with `release_reason` `stale-heartbeat`, ran at least one
+`agent_mission` case, and runs no `host_control` case whose own host baseline
+would reset the very host a continuation inherits. Each refusal names the
+condition that failed and the command that does apply. `yoke qa mission
+host-command` refuses a settled execution with that exact continuation command
+rather than a bare state mismatch, so a resuming walker is never left to guess
+— and must never start an ordinary plan run to get back in, which resets the
+host.
+
 ## Substrate Access
 
 The review dispatch supplies an exact host command template:
@@ -224,16 +259,18 @@ withdrawn in the same transaction, carrying the execution's state and its
 another live execution is still walking is retained; the subject-state
 contract refuses to withdraw a decision whose subject has not ended.
 
-Termination is guaranteed rather than hoped for. An execution that stops
-reporting progress is reaped into `aborted` with `release_reason`
-`stale-heartbeat` after 30 minutes without a heartbeat, and reaping is
+Termination is guaranteed rather than hoped for. An execution whose owner has
+stopped reporting progress is reaped into `aborted` with `release_reason`
+`stale-heartbeat` after 30 minutes without a heartbeat — unless its owning
+session is live and parked, which is a declared hold rather than an absence
+(see *Holding a Walk, and Continuing a Settled One*). Reaping is
 deliberately blind to row vintage: a stranded execution written before
 executions carried an execution target still settles, because resolving that
 target is a precondition for *running* an execution, not for abandoning one.
 For the same reason abandoning a non-progressing execution is open to any
 session on its subject — the session that owned a stranded execution is by
-definition the one that is no longer there — while a live execution keeps its
-owner-only guard.
+definition the one that is no longer there — while a live execution, or one
+whose owner is parked and still holding it, keeps its owner-only guard.
 
 Reaping and withdrawal run together whenever the Inbox is read, so a reader
 never sees a blocking row that blocks nothing. Run the same convergence

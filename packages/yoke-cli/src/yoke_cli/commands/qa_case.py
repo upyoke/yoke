@@ -26,7 +26,8 @@ QA_PLAN_RUN_USAGE = (
     "--deployment-run-id RUN --plan PLAN --project P) "
     "[--project P] [--base-url URL] [--machine NAME] "
     "[--expected-branch BRANCH --expected-sha SHA] "
-    "[--timeout-seconds N] [--allow-tree-mismatch] [--session-id S]"
+    "[--timeout-seconds N] [--allow-tree-mismatch] [--continue-mission] "
+    "[--session-id S]"
 )
 QA_PLAN_ABORT_USAGE = (
     "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN) "

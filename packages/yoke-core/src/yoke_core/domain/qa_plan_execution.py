@@ -100,6 +100,7 @@ def execute_plan(
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
     allow_tree_mismatch: bool = False,
+    continue_mission: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Resume and execute one server-authorized immutable ordered roster."""
@@ -118,8 +119,9 @@ def execute_plan(
             payload={"plan": plan, "project": project},
             actor=resolved_actor,
         )
-    if machine:
-        begin_payload["machine"] = machine
+    for key, value in (("machine", machine), ("continue_mission", continue_mission)):
+        if value:
+            begin_payload[key] = value
     execution = _call_plan_function(
         function_id="qa.plan_execution.begin",
         target=target,
@@ -169,10 +171,7 @@ def execute_plan(
     for recorded in recorded_results:
         cached = recorded.get(_BASELINE_GROUP_RESULTS)
         if cached is not None:
-            _remember_baseline_group_results(
-                baseline_group_results,
-                cached,
-            )
+            _remember_baseline_group_results(baseline_group_results, cached)
     results = [_public_plan_result(result) for result in recorded_results]
     state = "passed"
     for recorded in recorded_results:

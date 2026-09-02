@@ -97,7 +97,7 @@ run owns its delivery context.
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Refresh corrected plan cases while retaining QA run history |
-| `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine |
+| `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
 | `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
