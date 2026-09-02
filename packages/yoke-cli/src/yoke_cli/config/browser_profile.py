@@ -2,9 +2,12 @@
 
 An agent must never complete a sign-in, so the signed-in state a Browser case
 or an exploratory walker needs has to come from the operator. ``yoke browser
-authorize`` opens one project's profile in a headed window; whatever the
-operator signs into there is signed in for every worker context the browser
-daemon later hands out for that project.
+authorize`` opens one project's profile in a plain window of the browser
+daemon's own Chromium; whatever the operator signs into there is signed in for
+every worker context that daemon later hands out for that project. The window
+is a directly spawned browser process rather than an automated one, because
+identity providers refuse to sign a human into an automation-controlled
+browser.
 
 The profile holds live session cookies, so it lives beside the project's other
 machine-local capability secrets with owner-only permissions -- never in the

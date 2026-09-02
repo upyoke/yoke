@@ -5,14 +5,54 @@
  *
  * Usage: node authorize.js --profile-dir path [--url URL]
  *
- * Opens the profile in a headed Chromium window and blocks until the operator
- * closes it. Whatever they sign into is written into the profile, so every
- * worker context the daemon later opens from it is already signed in. This
- * process never types a credential and never navigates on the operator's
- * behalf beyond the optional starting URL.
+ * Opens the profile in a plain window of the daemon's own Chromium and blocks
+ * until the operator closes it. Whatever they sign into is written into the
+ * profile, so every worker context the daemon later opens from it is already
+ * signed in. This process never types a credential and never navigates on the
+ * operator's behalf beyond the optional starting URL.
+ *
+ * The window is a directly spawned browser process, not a Playwright context.
+ * Playwright's launchPersistentContext runs the browser under automation
+ * control -- `--enable-automation`, `navigator.webdriver`, an attached CDP
+ * session -- and Google's sign-in refuses exactly that shape with "Couldn't
+ * sign you in. This browser or app may not be secure", which made the profile
+ * impossible to sign into through Google. Spawning the executable plainly is
+ * the fix; do not reintroduce a Playwright context here, and do not try to
+ * mask the automation signals instead.
+ *
+ * It has to be the SAME binary the daemon drives. The profile's cookies are
+ * encrypted against that binary's OS keychain entry, so a profile signed in
+ * with the daemon's own Chromium is readable by the daemon afterwards, while
+ * one signed in with a different browser is not.
  */
 
-const { chromium } = require('playwright');
+const { spawn } = require('child_process');
+
+/** Command-line flags for a plain, human-driven browser window. */
+function buildLaunchArgs({ profileDir, url }) {
+  const args = [
+    `--user-data-dir=${profileDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+  ];
+  if (url) {
+    args.push(url);
+  }
+  return args;
+}
+
+/** The Chromium the daemon drives, so the profile's cookies stay readable. */
+function resolveExecutablePath() {
+  const executablePath = require('playwright').chromium.executablePath();
+  if (!executablePath) {
+    throw new Error(
+      'Playwright reported no Chromium executable. Run '
+      + '`npx --no-install playwright install chromium` in the browser '
+      + 'runtime directory, then retry.',
+    );
+  }
+  return executablePath;
+}
 
 function parseArgs(argv) {
   const args = { profileDir: '', url: '' };
@@ -36,27 +76,55 @@ function parseArgs(argv) {
   return args;
 }
 
+/**
+ * Spawn the sign-in window and resolve once the operator closes it.
+ *
+ * `deps` exists so the contract test can observe the spawn without opening a
+ * real browser; production callers pass nothing.
+ */
+function openSignInWindow(
+  { profileDir, url },
+  { spawnProcess = spawn, executablePath = resolveExecutablePath } = {},
+) {
+  const binary = executablePath();
+  const child = spawnProcess(binary, buildLaunchArgs({ profileDir, url }), {
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  let stderr = '';
+  if (child.stderr) {
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+  }
+  return new Promise((resolve, reject) => {
+    child.on('error', (err) => reject(new Error(
+      `could not start ${binary}: ${err.message}. Run `
+      + '`yoke qa browser status` to check the browser runtime, then retry.',
+    )));
+    child.on('exit', (code) => {
+      if (code === 0 || code === null) {
+        resolve();
+        return;
+      }
+      const tail = stderr.trim().split('\n').slice(-5).join('\n');
+      reject(new Error(
+        `the browser exited with status ${code}.`
+        + (tail ? `\n${tail}` : ''),
+      ));
+    });
+  });
+}
+
 async function main() {
   const args = parseArgs(process.argv);
-  const context = await chromium.launchPersistentContext(args.profileDir, {
-    headless: false,
-  });
-  const page = context.pages().find((candidate) => !candidate.isClosed())
-    || (await context.newPage());
-  if (args.url) {
-    try {
-      await page.goto(args.url, { waitUntil: 'domcontentloaded' });
-    } catch (err) {
-      // A starting URL is a convenience; the operator can navigate anywhere.
-      console.error(`Could not open ${args.url}: ${err.message}`);
-    }
-  }
   console.log('Sign in to whatever sites you need, then close the window.');
-  await new Promise((resolve) => context.on('close', resolve));
+  await openSignInWindow(args);
   console.log('Window closed. Profile saved.');
 }
 
-main().catch((err) => {
-  console.error(`Failed to open the sign-in window: ${err.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(`Failed to open the sign-in window: ${err.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { buildLaunchArgs, openSignInWindow, resolveExecutablePath };

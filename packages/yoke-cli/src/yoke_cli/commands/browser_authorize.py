@@ -2,10 +2,13 @@
 
 An agent must never complete a sign-in, so the signed-in state a Browser case
 or an exploratory walker needs comes from the operator. This opens the
-project's persistent browser profile in a headed window; whatever they sign
-into there is signed in for every worker context the daemon later opens for
-that project. There are no origin lists, declarations, per-site probes, or
-exported storage state — just the profile the operator used.
+project's persistent browser profile in a plain window of the browser daemon's
+own Chromium — a directly spawned process, not an automation-controlled one —
+so identity providers that refuse automated browsers still let the operator
+sign in. Whatever they sign into there is signed in for every worker context
+the daemon later opens for that project. There are no origin lists,
+declarations, per-site probes, or exported storage state — just the profile
+the operator used.
 """
 
 from __future__ import annotations
@@ -24,12 +27,23 @@ BROWSER_AUTHORIZE_USAGE = (
 )
 
 _BROWSER_AUTHORIZE_HELP_DEEP = """\
-Open one project's persistent browser profile in a headed Chromium window and
-wait until you close it. Sign into as many sites as you like; every session
-the window ends up holding is a session the project's Browser cases and
-exploratory walkers get. Nothing is exported, and no credential is read,
-stored, or logged by Yoke — the profile is Chromium's own, kept with the
-project's machine-local capability secrets at owner-only permissions.
+Open one project's persistent browser profile in a plain window of the browser
+daemon's own Chromium and wait until you close it. Sign into as many sites as
+you like; every session the window ends up holding is a session the project's
+Browser cases and exploratory walkers get. Nothing is exported, and no
+credential is read, stored, or logged by Yoke — the profile is Chromium's own,
+kept with the project's machine-local capability secrets at owner-only
+permissions.
+
+The window is a directly spawned browser process, never an automated one. An
+automation-controlled browser announces itself — `--enable-automation`,
+`navigator.webdriver`, an attached debugging session — and Google's sign-in
+refuses exactly that shape with "Couldn't sign you in. This browser or app may
+not be secure", so a profile opened under automation could not be signed into
+through Google at all. It is the daemon's own Chromium binary rather than any
+other installed browser because the profile's cookies are encrypted against
+that binary's OS keychain entry; a profile signed in with a different browser
+is unreadable to the daemon afterwards.
 
 Worked examples:
 
@@ -159,7 +173,8 @@ TOOL_SHAPED_SUBCOMMANDS = {
 
 TOOL_SHAPED_USAGE = {
     "yoke browser authorize": (
-        "Sign a project's persistent browser profile in once, headed."
+        "Sign a project's persistent browser profile in once, in a plain "
+        "window of the daemon's own Chromium."
     ),
 }
 
