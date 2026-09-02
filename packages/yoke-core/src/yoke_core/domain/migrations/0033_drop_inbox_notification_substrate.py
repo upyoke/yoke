@@ -21,7 +21,6 @@ import re
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.decision_request_contract import DECISION_REQUEST_KINDS
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
 from yoke_core.domain.schema_common import (
     _column_exists,
@@ -42,6 +41,18 @@ RETIRED_COLUMN = "blocking"
 RETIRED_KIND = "strategy_revision_review"
 KIND_CONSTRAINT = "decision_requests_kind_check"
 RETIRED_EVENT_NAMES = ("InboxNotificationRead", "ItemBlocked", "ItemUnblocked")
+
+#: The kinds this entry leaves behind, written out rather than read from the
+#: live vocabulary. A history entry must produce the same schema whenever it
+#: runs: reading the running build's tuple would let a later release that
+#: adds a kind reach backwards and widen the constraint this entry narrows,
+#: and would let a build that still carries the retired kind re-admit it.
+SURVIVING_KINDS = (
+    "deployment_stage_approval",
+    "qa_needs_review",
+    "lifecycle_transition_approval",
+    "machine_approval",
+)
 
 _QUOTED = re.compile(r"'([^']+)'")
 
@@ -106,7 +117,7 @@ def apply(conn: Any) -> None:
         )
         if db_backend.connection_is_postgres(conn):
             checks = _kind_check_rows(conn)
-            desired = set(DECISION_REQUEST_KINDS)
+            desired = set(SURVIVING_KINDS)
             if not (
                 len(checks) == 1
                 and set(_QUOTED.findall(checks[0][1])) == desired
@@ -116,7 +127,7 @@ def apply(conn: Any) -> None:
                     conn.execute(
                         f'ALTER TABLE "{REQUEST_TABLE}" DROP CONSTRAINT "{escaped}"'
                     )
-                values = ", ".join(f"'{value}'" for value in DECISION_REQUEST_KINDS)
+                values = ", ".join(f"'{value}'" for value in SURVIVING_KINDS)
                 conn.execute(
                     f"ALTER TABLE {REQUEST_TABLE} ADD CONSTRAINT {KIND_CONSTRAINT} "
                     f"CHECK(kind IN ({values}))"
@@ -172,6 +183,7 @@ __all__ = [
     "RETIRED_COLUMN",
     "RETIRED_EVENT_NAMES",
     "RETIRED_KIND",
+    "SURVIVING_KINDS",
     "apply",
     "invariants",
 ]
