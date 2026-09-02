@@ -32,7 +32,8 @@ Run Yoke core and Postgres on your own server.
 - Wizard on the host: pick **Set this machine up as a self-hosting server** to
   preview the loopback URL, bundle directory, port, Docker requirement, and
   networking responsibility before any write. It creates/starts the Compose
-  bundle, captures first boot, and activates the owner-only local connection.
+  bundle, captures first boot, waits until the server answers `/v1/health`,
+  and activates the owner-only local connection.
 - Wizard on another machine: pick **A team server** and enter its reachable URL
   plus a token. The guided host screen teaches the handoff without configuring
   VPN/tailnet, LAN, port-forwarding, or TLS for you.

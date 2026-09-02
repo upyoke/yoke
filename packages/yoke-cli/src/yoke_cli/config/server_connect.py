@@ -159,8 +159,18 @@ def _verify_health(api_url: str, *, timeout_s: float) -> Mapping[str, Any]:
     return payload
 
 
+def verify_server_health(
+    api_url: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S
+) -> Mapping[str, Any]:
+    """Prove ``GET /v1/health`` answers. Does not persist a connection."""
+    return _verify_health(_normalized_api_url(api_url), timeout_s=timeout_s)
+
+
 def verify_server_identity(
-    api_url: str, *, token: str, timeout_s: float = _DEFAULT_TIMEOUT_S,
+    api_url: str,
+    *,
+    token: str,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
 ) -> Mapping[str, Any]:
     """Return the actor identity proved by ``token`` at ``api_url``.
 
@@ -184,9 +194,7 @@ def verify_server_identity(
             f"token verification failed ({safe_identity_url}): {exc}"
         ) from exc
     if not isinstance(payload, Mapping):
-        raise ServerIdentityError(
-            f"{safe_identity_url} did not return a JSON object"
-        )
+        raise ServerIdentityError(f"{safe_identity_url} did not return a JSON object")
     return payload
 
 
@@ -238,5 +246,6 @@ __all__ = [
     "ServerIdentityError",
     "connect_server",
     "server_identity_summary",
+    "verify_server_health",
     "verify_server_identity",
 ]

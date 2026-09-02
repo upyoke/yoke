@@ -140,8 +140,16 @@ def _run_provision(
     shell._run_checking(
         step=STEP_CONNECT,
         title="Starting your Yoke server.",
-        message="Creating the bundle, starting Compose, and capturing first boot.",
-        detail_lines=[f"Bundle: {setup.directory}", f"Local URL: {setup.url}"],
+        message=(
+            "Creating the bundle, starting Compose, capturing first boot, "
+            "and waiting for health."
+        ),
+        detail_lines=[
+            f"Bundle: {setup.directory}",
+            f"Local URL: {setup.url}",
+            f"Waiting up to {server.HEALTH_WAIT_SECONDS:g} seconds after start "
+            "for the server to become healthy.",
+        ],
         work=lambda: server.provision(setup, prerequisites),
         on_success=lambda ready: _goto_complete(shell, ready),
         on_error=lambda exc: _goto_failure(shell, setup, _safe_error(exc)),
@@ -154,7 +162,14 @@ def _run_connect_retry(shell: _Shell, setup: server.SelfHostSetup) -> None:
     shell._run_checking(
         step=STEP_CONNECT,
         title="Saving the local server connection.",
-        message="Rechecking the server and activating its owner-only connection.",
+        message=(
+            "Waiting for the server to become healthy, then activating its "
+            "owner-only connection."
+        ),
+        detail_lines=[
+            f"Waiting up to {server.HEALTH_WAIT_SECONDS:g} seconds for "
+            f"{setup.url} to answer."
+        ],
         work=lambda: server.retry_connection(setup),
         on_success=lambda ready: _goto_complete(shell, ready),
         on_error=lambda exc: _goto_failure(shell, setup, _safe_error(exc)),

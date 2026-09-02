@@ -332,3 +332,7 @@ def test_quit_is_blocked_only_during_bundle_and_compose_provisioning(tmp_path) -
     assert [call["blocks_quit"] for call in calls] == [False, True, False]
     assert "bounded safety wait" in calls[0]["message"]
     assert "20 seconds" in calls[0]["detail_lines"][0]
+    assert "waiting for health" in calls[1]["message"]
+    assert "120 seconds after start" in calls[1]["detail_lines"][2]
+    assert "become healthy" in calls[2]["message"]
+    assert "120 seconds" in calls[2]["detail_lines"][0]

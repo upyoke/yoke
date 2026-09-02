@@ -154,9 +154,10 @@ machine" replaces sign-in with the local universe above; "A team server"
 collects a reachable URL then a token; the guided self-host row previews the
 default bundle directory, loopback URL and port, Docker requirement, Compose
 work, and operator-owned networking before it writes. It starts the bundle,
-reads the reusable administrator token from its owner-only file (never
-prints it), activates an owner-only connection, then either continues into
-GitHub/Project or exits with a server handoff. upyoke.com
+waits until the server answers `/v1/health`, reads the reusable administrator
+token from its owner-only file (never prints it), activates an owner-only
+connection, then either continues into GitHub/Project or exits with a server
+handoff. upyoke.com
 uses hosted sign-in. Remaining persistent writes are still previewed before a
 single confirm. Re-running adds the completed destination's connection beside
 existing ones; `active_env` follows the flow that completed.
