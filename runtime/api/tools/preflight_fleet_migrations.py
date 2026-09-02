@@ -224,7 +224,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             return 2
 
-    from yoke_core.domain import local_universe, migration_fleet_preflight
+    from yoke_core.domain import (
+        connected_env_tunnel_coordination,
+        local_universe,
+        migration_fleet_preflight,
+    )
     from yoke_core.domain.connected_env_readiness import (
         SelectedPostgresError,
         activate_selected_postgres,
@@ -258,15 +262,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     # selector emits reads as a fact about this fleet, not a stray preamble.
     databases = positional[1:] or yoke_migration_fleet.tenant_databases(dsn_for)
 
+    # The copies run for minutes through whatever path reaches the fleet. When
+    # that path is a shared local forward, the lease is what stops another
+    # process's readiness check from replacing it out from under a copy.
+    lease_reason = f"fleet migration rehearsal of {covered_env}"
     with tempfile.TemporaryDirectory(prefix="yoke-migration-rehearsal-") as work:
-        verdicts = migration_fleet_preflight.rehearse_fleet(
-            dsn_for,
-            databases=databases,
-            plan=plan,
-            spec=spec,
-            work_dir=Path(work),
-            emit=print,
-        )
+        with connected_env_tunnel_coordination.use_lease_for_active_tunnel(
+            lease_reason
+        ):
+            verdicts = migration_fleet_preflight.rehearse_fleet(
+                dsn_for,
+                databases=databases,
+                plan=plan,
+                spec=spec,
+                work_dir=Path(work),
+                emit=print,
+            )
 
     failed = [v for v in verdicts if not v.passed]
     print(f"\n{len(verdicts) - len(failed)} passed, {len(failed)} failed")

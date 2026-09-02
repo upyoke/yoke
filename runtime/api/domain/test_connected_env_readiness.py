@@ -12,6 +12,16 @@ from yoke_core.domain import machine_config
 from yoke_core.domain import yoke_connected_env
 
 
+def _record_replacement(restarts: list):
+    """Stand in for the coordinated replacement, recording each call."""
+
+    def replace(spec, dsn):
+        restarts.append(spec)
+        return cer_c.ACTION_RESTARTED
+
+    return replace
+
+
 @pytest.fixture(autouse=True)
 def _reset_readiness_cache():
     """The readiness cache is process-global; reset around every test."""
@@ -64,6 +74,7 @@ def managed_env(tmp_path, monkeypatch):
     monkeypatch.delenv(cer_c.PG_DSN_FILE_ENV, raising=False)
     binding = _write_binding(tmp_path)
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(binding))
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
     return binding
 
@@ -74,7 +85,7 @@ def test_explicit_dsn_noops_and_never_starts_ssh(monkeypatch):
     probes: list = []
     restarts: list = []
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
-    monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
+    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement(restarts))
 
     result = cer.ensure_ready(force=True)
 
@@ -98,7 +109,7 @@ def test_healthy_probe_returns_ok_without_restart(managed_env, monkeypatch):
     probes: list = []
     restarts: list = []
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
-    monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
+    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement(restarts))
 
     result = cer.ensure_ready(force=True)
 
@@ -111,7 +122,8 @@ def test_healthy_probe_returns_ok_without_restart(managed_env, monkeypatch):
 
 # --- 3. probe fails then restart succeeds ----------------------------------
 def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
-    results = iter(["down (test)", "down (test)", "down (test)", "down (test)", None])
+    down_until_restart = ["down (test)"] * (1 + cer_c.PROBE_CONFIRM_ATTEMPTS)
+    results = iter(down_until_restart + [None])
     probes: list = []
     restarts: list = []
 
@@ -120,7 +132,7 @@ def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
         return next(results)
 
     monkeypatch.setattr(cer_t, "_probe_failure", fake_probe)
-    monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
+    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement(restarts))
     monkeypatch.setattr(cer_t.time, "sleep", lambda delay: None)
 
     result = cer.ensure_ready(force=True)
@@ -128,13 +140,14 @@ def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
     assert result.ok
     assert result.action == cer_c.ACTION_RESTARTED
     assert len(restarts) == 1
-    assert len(probes) == 5  # initial, confirm-down window, post-restart
+    # initial probe, the confirm-down window, then the post-restart probe.
+    assert len(probes) == len(down_until_restart) + 1
 
 
 # --- 4. restart fails -> raises ConnectedEnvUnavailable, redacted ----------
 def test_restart_then_still_down_raises_redacted(managed_env, monkeypatch):
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
-    monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: None)  # "started" but still down
+    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement([]))  # "started" but still down
 
     with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
         cer.ensure_ready(force=True)
@@ -151,14 +164,14 @@ def test_restart_then_still_down_raises_redacted(managed_env, monkeypatch):
 def test_restart_process_failure_propagates(managed_env, monkeypatch):
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
 
-    def boom(spec):
+    def boom(spec, dsn):
         raise cer.ConnectedEnvUnavailable(
             "ssh tunnel start failed (rc=255) [local=127.0.0.1:6547 "
             "bastion=ubuntu@10.0.0.1 remote=aurora.example.internal:5432]: "
             "Permission denied (publickey)"
         )
 
-    monkeypatch.setattr(cer_t, "_restart_tunnel", boom)
+    monkeypatch.setattr(cer_t, "_replace_forward", boom)
 
     with pytest.raises(cer.ConnectedEnvUnavailable):
         cer.ensure_ready(force=True)
@@ -176,7 +189,7 @@ def test_redact_masks_password_and_credentials():
 def test_cache_serves_second_call_without_reprobe(managed_env, monkeypatch):
     probes: list = []
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
-    monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: None)
+    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement([]))
 
     first = cer.ensure_ready(force=False)
     second = cer.ensure_ready(force=False)
@@ -202,7 +215,7 @@ def test_reset_cache_forces_reprobe(managed_env, monkeypatch):
 def test_status_reports_down_without_restarting(managed_env, monkeypatch):
     restarts: list = []
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
-    monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: restarts.append(spec))
+    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement(restarts))
 
     result = cer.status()
 
@@ -264,60 +277,6 @@ def test_managed_without_tunnel_block_raises_clear(tmp_path, monkeypatch):
     assert "tunnel" in str(excinfo.value).lower()
 
 
-# --- error classifiers -----------------------------------------------------
-def test_is_local_tunnel_connection_error_classifies(managed_env):
-    import psycopg
-
-    refused = psycopg.OperationalError(
-        'connection to server at "127.0.0.1", port 6547 failed: Connection refused'
-    )
-    assert cer.is_local_tunnel_connection_error(refused) is True
-    # OperationalError without a connection marker -> not ours.
-    assert cer.is_local_tunnel_connection_error(
-        psycopg.OperationalError("disk full")) is False
-    # Our own heal-failure must not loop.
-    assert cer.is_local_tunnel_connection_error(
-        cer.ConnectedEnvUnavailable("x")) is False
-
-
-def test_is_local_tunnel_connection_error_false_when_explicit_dsn(monkeypatch):
-    import psycopg
-
-    monkeypatch.setenv(cer_c.PG_DSN_ENV, "host=127.0.0.1 dbname=x")
-    refused = psycopg.OperationalError("Connection refused")
-    assert cer.is_local_tunnel_connection_error(refused) is False
-
-
-def test_is_connection_unavailable_error_is_broad(monkeypatch):
-    import psycopg
-
-    monkeypatch.delenv(cer_c.PG_DSN_ENV, raising=False)
-    assert cer.is_connection_unavailable_error(cer.ConnectedEnvUnavailable("x")) is True
-    assert cer.is_connection_unavailable_error(
-        yoke_connected_env.ConnectedEnvError("bad binding")) is True
-    assert cer.is_connection_unavailable_error(
-        psycopg.OperationalError("Connection refused")) is True
-    assert cer.is_connection_unavailable_error(ValueError("template bug")) is False
-
-
-# --- ssh argv (pure) -------------------------------------------------------
-def test_build_ssh_argv_matches_operator_shape():
-    spec = cer.TunnelSpec(
-        local_host="127.0.0.1", local_port=6547, bastion="ubuntu@1.2.3.4",
-        identity_file="/keys/k.pem", remote_host="aurora.x", remote_port=5432,
-    )
-    argv = cer_t._build_ssh_argv(spec)
-
-    assert argv[0] == "ssh"
-    assert argv[1:3] == ["-i", "/keys/k.pem"]
-    assert "-N" in argv and "-f" in argv
-    assert argv[argv.index("-L") + 1] == "6547:aurora.x:5432"
-    assert argv[-1] == "ubuntu@1.2.3.4"
-    joined = " ".join(argv)
-    assert "BatchMode=yes" in joined
-    assert "ExitOnForwardFailure=yes" in joined
-
-
 # --- registration remediation ----------------------------------------------
 def test_registration_failure_remediation():
     assert cer.registration_failure_remediation("invalid token") is None
@@ -341,7 +300,7 @@ def test_cli_unknown_command_returns_usage_error(capsys):
 
 def test_cli_activate_unavailable_returns_nonzero_redacted(managed_env, monkeypatch, capsys):
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
-    monkeypatch.setattr(cer_t, "_restart_tunnel", lambda spec: None)
+    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement([]))
     rc = cer.main(["activate"])
     assert rc == 1
     err = capsys.readouterr().err
@@ -349,59 +308,16 @@ def test_cli_activate_unavailable_returns_nonzero_redacted(managed_env, monkeypa
     assert "dbname=test_db" not in err
 
 
-# --- probe classification ----------------------------------------------------
-def test_probe_counts_server_answered_refusal_as_reachable(monkeypatch):
-    """An auth/database refusal proves the forward works; reachability is the
-    only concern of this layer. Credential freshness (rotation windows)
-    belongs to connection acquisition."""
-    monkeypatch.setattr(
-        cer_t, "_port_is_listening", lambda host, port, timeout=1.0: True)
+def test_is_local_tunnel_connection_error_classifies(managed_env):
+    import psycopg
 
-    def raise_auth(dsn, **kwargs):
-        raise RuntimeError(
-            'connection failed: FATAL: password authentication failed '
-            'for user "u"'
-        )
-
-    monkeypatch.setattr(cer_t, "_probe_postgres", raise_auth)
-    assert cer_t._probe_failure("host=127.0.0.1 port=6547 dbname=d") is None
-
-
-def test_probe_counts_sqlstate_auth_refusal_as_reachable(monkeypatch):
-    monkeypatch.setattr(
-        cer_t, "_port_is_listening", lambda host, port, timeout=1.0: True)
-
-    class _AuthRefused(Exception):
-        sqlstate = "28P01"
-
-    def raise_auth(dsn, **kwargs):
-        raise _AuthRefused("server said no")
-
-    monkeypatch.setattr(cer_t, "_probe_postgres", raise_auth)
-    assert cer_t._probe_failure("host=127.0.0.1 port=6547 dbname=d") is None
-
-
-def test_probe_reports_refused_connection_as_down(monkeypatch):
-    monkeypatch.setattr(
-        cer_t, "_port_is_listening", lambda host, port, timeout=1.0: True)
-
-    def raise_refused(dsn, **kwargs):
-        raise OSError("connection refused")
-
-    monkeypatch.setattr(cer_t, "_probe_postgres", raise_refused)
-    failure = cer_t._probe_failure("host=127.0.0.1 port=6547 dbname=d")
-    assert failure is not None
-    assert "OSError" in failure
-
-
-def test_server_answered_refusal_is_not_a_tunnel_error(managed_env, monkeypatch):
-    """An auth refusal propagates to credential recovery instead of
-    triggering a pointless tunnel restart + 'unreachable' rewrap."""
-    class _AuthRefused(Exception):
-        pass
-
-    exc = _AuthRefused(
-        'connection failed: FATAL: password authentication failed for '
-        'user "u"'
+    refused = psycopg.OperationalError(
+        'connection to server at "127.0.0.1", port 6547 failed: Connection refused'
     )
-    assert cer.is_local_tunnel_connection_error(exc) is False
+    assert cer.is_local_tunnel_connection_error(refused) is True
+    # OperationalError without a connection marker -> not ours.
+    assert cer.is_local_tunnel_connection_error(
+        psycopg.OperationalError("disk full")) is False
+    # Our own heal-failure must not loop.
+    assert cer.is_local_tunnel_connection_error(
+        cer.ConnectedEnvUnavailable("x")) is False

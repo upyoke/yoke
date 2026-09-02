@@ -25,15 +25,19 @@ GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV = "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY"
 def _run_cmd(cmd: List[str], timeout: int = 60) -> subprocess.CompletedProcess:
     """Run one deploy-pipeline command, credentialed when it is git.
 
-    The pipeline resolves a release tag and a deployed SHA by asking origin,
-    so those reads carry the machine's stored GitHub credential like every
-    other remote operation; anything else runs as given.
+    The pipeline resolves a release tag and a deployed SHA by asking origin, so
+    those reads carry the machine's stored GitHub credential; anything else runs
+    as given. A timed-out command returns a transport failure rather than
+    raising, so one unanswered read cannot abandon a running deployment.
     """
-    if cmd and cmd[0] == "git":
-        from yoke_cli.config import credentialed_git
+    try:
+        if cmd and cmd[0] == "git":
+            from yoke_cli.config import credentialed_git
 
-        return credentialed_git.run(cmd[1:], timeout=timeout)
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            return credentialed_git.run(cmd[1:], timeout=timeout)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return poll_authority.timed_out_result(cmd, timeout)
 
 
 def _github_actions(
@@ -54,7 +58,7 @@ def _github_actions(
     if explicit_relay_env and local_authority:
         return subprocess.CompletedProcess(
             args=list(args),
-            returncode=4,
+            returncode=poll_authority.TRANSPORT_FAILURE_RETURNCODE,
             stdout="",
             stderr=(
                 "Error: GitHub Actions authority is ambiguous; set either "
@@ -65,7 +69,7 @@ def _github_actions(
     if local_authority not in ("", "1"):
         return subprocess.CompletedProcess(
             args=list(args),
-            returncode=4,
+            returncode=poll_authority.TRANSPORT_FAILURE_RETURNCODE,
             stdout="",
             stderr=(
                 f"Error: {GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV} must be 1 when "
@@ -88,7 +92,7 @@ def _github_actions(
         except TransportError as exc:
             return subprocess.CompletedProcess(
                 args=list(args),
-                returncode=4,
+                returncode=poll_authority.TRANSPORT_FAILURE_RETURNCODE,
                 stdout="",
                 stderr=(
                     "Error: https GitHub Actions relay is misconfigured: "
@@ -98,7 +102,7 @@ def _github_actions(
     if relay_env and https is None:
         return subprocess.CompletedProcess(
             args=list(args),
-            returncode=4,
+            returncode=poll_authority.TRANSPORT_FAILURE_RETURNCODE,
             stdout="",
             stderr=(
                 f"Error: {relay_source} selects "
@@ -124,7 +128,7 @@ def _github_actions(
     if not local_authority:
         return subprocess.CompletedProcess(
             args=list(args),
-            returncode=4,
+            returncode=poll_authority.TRANSPORT_FAILURE_RETURNCODE,
             stdout="",
             stderr=(
                 "Error: no GitHub Actions authority selected; set "
@@ -240,7 +244,7 @@ def _set_deploy_stage(
 
 # A queued GitHub Actions workflow has not yet acquired a runner; a transient
 # transport or subprocess failure can return an exit code not in {0,1,2,3}.
-# Exit code 4 is the Yoke CLI's hosted-transport failure. A release may
+# A read that never answered is reported as that same failure. A release may
 # temporarily replace the same service used to query GitHub, so that condition
 # consumes the stage's existing timeout budget instead of an unrelated short
 # retry cap. Other unexpected subprocess failures remain bounded.
@@ -303,7 +307,7 @@ def _poll_github_actions(
             time.sleep(interval)
             transport_retries = 0
             unclassified_retries = 0
-        elif r.returncode == 4:
+        elif r.returncode == poll_authority.TRANSPORT_FAILURE_RETURNCODE:
             transport_retries += 1
             if transport_retries < poll_authority.ESCALATE_AFTER:
                 print(

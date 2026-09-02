@@ -160,6 +160,7 @@ def rehearse(
     plan: RehearsalPlan,
     spec: ClusterSpec,
     work_dir: Path,
+    emit: Optional[Callable[[str], None]] = None,
 ) -> Verdict:
     """Converge a throwaway copy of one database and report what happened.
 
@@ -182,7 +183,9 @@ def rehearse(
     work_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        migration_fleet_preflight_transfer.dump_database(spec, source_dsn, dump)
+        migration_fleet_preflight_transfer.dump_database(
+            spec, source_dsn, dump, emit=_database_emit(emit, database),
+        )
     except Exception as exc:  # noqa: BLE001 — a verdict, not a crash
         return Verdict(database, False, f"could not copy: {exc}")
 
@@ -194,6 +197,15 @@ def rehearse(
     finally:
         migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
         dump.unlink(missing_ok=True)
+
+
+def _database_emit(
+    emit: Optional[Callable[[str], None]], database: str,
+) -> Optional[Callable[[str], None]]:
+    """Prefix a copy-progress line with the database it belongs to."""
+    if emit is None:
+        return None
+    return lambda message: emit(f"COPY/CONVERGE {database}: {message}")
 
 
 def _converge_copy(
@@ -263,6 +275,7 @@ def rehearse_fleet(
             plan=plan,
             spec=spec,
             work_dir=work_dir,
+            emit=emit,
         )
         verdicts.append(verdict)
         if emit is not None:
