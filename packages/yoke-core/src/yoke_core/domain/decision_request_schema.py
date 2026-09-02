@@ -1,4 +1,4 @@
-"""Idempotent storage hook for decision requests and addressed events."""
+"""Idempotent storage hook for decision requests."""
 
 from __future__ import annotations
 
@@ -8,10 +8,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.decision_request_contract import (
     DECISION_EVENT_ROWS,
     DECISION_REQUEST_KINDS,
-    IN_APP_NOTIFICATION_KINDS,
-)
-from yoke_core.domain.inbox_notification_projection_contract import (
-    DELIVERY_SNAPSHOT_COLUMNS,
 )
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -28,11 +24,6 @@ def create_decision_request_tables(
 ) -> None:
     """Create the Inbox substrate, committing unless the caller owns the transaction."""
     request_kinds = _sql_values(DECISION_REQUEST_KINDS)
-    notification_kinds = _sql_values(IN_APP_NOTIFICATION_KINDS)
-    delivery_snapshot_columns = ",\n            ".join(
-        f"{column} {definition}"
-        for column, definition in DELIVERY_SNAPSHOT_COLUMNS
-    )
     execute_schema_script(
         conn,
         f"""
@@ -45,7 +36,6 @@ def create_decision_request_tables(
             project_id INTEGER REFERENCES projects(id),
             org_id INTEGER REFERENCES organizations(id),
             originator_actor_id INTEGER REFERENCES actors(id),
-            blocking INTEGER NOT NULL CHECK(blocking IN (0, 1)),
             status TEXT NOT NULL DEFAULT 'pending'
                 CHECK(status IN ('pending', 'resolved', 'withdrawn')),
             resolution_action TEXT,
@@ -93,22 +83,6 @@ def create_decision_request_tables(
         );
         CREATE INDEX IF NOT EXISTS idx_decision_request_actors_actor
             ON decision_request_actor_authorities(actor_id, request_id);
-
-        CREATE TABLE IF NOT EXISTS addressed_event_deliveries (
-            id INTEGER PRIMARY KEY,
-            channel TEXT NOT NULL CHECK(channel = 'in_app'),
-            event_id TEXT NOT NULL REFERENCES events(event_id),
-            actor_id INTEGER NOT NULL REFERENCES actors(id),
-            notification_kind TEXT NOT NULL
-                CHECK(notification_kind IN ({notification_kinds})),
-            reason TEXT NOT NULL,
-            read_at TEXT,
-            created_at TEXT NOT NULL,
-            {delivery_snapshot_columns},
-            UNIQUE(channel, event_id, actor_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_addressed_events_actor_unread
-            ON addressed_event_deliveries(actor_id, read_at, created_at);
     """,
     )
     _add_column_if_not_exists(
@@ -135,13 +109,6 @@ def create_decision_request_tables(
         "consumed_workflow_version_id",
         "INTEGER",
     )
-    for column, definition in DELIVERY_SNAPSHOT_COLUMNS:
-        _add_column_if_not_exists(
-            conn,
-            "addressed_event_deliveries",
-            column,
-            definition,
-        )
     seed_decision_request_events(conn)
     if commit:
         conn.commit()

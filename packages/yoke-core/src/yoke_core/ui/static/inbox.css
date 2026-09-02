@@ -124,11 +124,6 @@
   font-size: 11.5px;
 }
 
-.universe-app-root .inbox-panel-error {
-  margin: 0;
-  font-size: 11.5px;
-}
-
 .universe-app-root .inbox-action {
   min-height: 27px;
   padding: 5px 9px;
@@ -156,10 +151,6 @@
 .universe-app-root .inbox-read:disabled {
   cursor: default;
   opacity: .45;
-}
-
-.universe-app-root .inbox-read-all {
-  margin-left: auto;
 }
 
 .universe-app-root .inbox-empty {

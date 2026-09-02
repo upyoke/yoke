@@ -94,14 +94,6 @@ class IngestRequest(BaseModel):
             "teaching only — the handler does no file I/O."
         ),
     )
-    reviewer_actor_id: Optional[int] = Field(
-        None,
-        gt=0,
-        description=(
-            "Optional named reviewer for each written revision; project roles "
-            "remain fallback authority."
-        ),
-    )
 
 
 class IngestResponse(BaseModel):
@@ -187,21 +179,6 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
                 # its display label once (inside the live conn) so the
                 # write-back header matches render_file_map's output.
                 ingest_label = actor_render_label(conn, actor_id)
-                if actor_id is not None:
-                    from yoke_core.domain.strategy_review_requests import (
-                        ensure_current_strategy_revision_review,
-                    )
-
-                    for doc in docs:
-                        if doc["status"] == "written":
-                            ensure_current_strategy_revision_review(
-                                conn,
-                                project_id=project.id,
-                                slug=str(doc["slug"]),
-                                originator_actor_id=actor_id,
-                                reviewer_actor_id=payload.reviewer_actor_id,
-                                session_id=session_id,
-                            )
     except _docs.UnknownStrategyDocError as exc:
         return _err("unknown_slug", str(exc))
     except _docs.StrategyDocMissingError as exc:
@@ -210,8 +187,6 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("empty_content_refused", str(exc))
     except StrategyHeaderError as exc:
         return _err("ingest_header_invalid", str(exc))
-    except LookupError as exc:
-        return _err("reviewer_not_found", str(exc))
 
     bodies = {plan.slug: plan.file_body for plan in plans}
     archived_by_slug = {plan.slug: plan.archived for plan in plans}

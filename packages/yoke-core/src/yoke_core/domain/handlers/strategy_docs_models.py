@@ -58,11 +58,6 @@ class DocReplaceRequest(BaseModel):
     force: bool = Field(
         False, description="Bypass the shrink guard for an intentional rewrite.",
     )
-    reviewer_actor_id: Optional[int] = Field(
-        None,
-        gt=0,
-        description="Optional named reviewer; project roles remain fallback authority.",
-    )
 
 
 class DocReplaceResponse(BaseModel):

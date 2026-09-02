@@ -44,7 +44,6 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
         result["subject_context"] = json.loads(result["subject_context"] or "{}")
     except (TypeError, json.JSONDecodeError):
         result["subject_context"] = {}
-    result["blocking"] = bool(result["blocking"])
     result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
     result["role_authorities"] = [
         dict(value)
@@ -157,8 +156,8 @@ def create_decision_request(
     cursor = conn.execute(
         "INSERT INTO decision_requests "
         "(kind, subject_type, subject_key, subject_context, project_id, org_id, "
-        "originator_actor_id, blocking, status, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
+        "originator_actor_id, status, created_at) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
             kind,
@@ -168,7 +167,6 @@ def create_decision_request(
             project_id,
             org_id,
             originator_actor_id,
-            int(spec.blocking),
             stamp,
         ),
     )

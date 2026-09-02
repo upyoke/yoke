@@ -146,41 +146,19 @@ def deployment_stage_approver_actor_ids(
     return tuple(int(row[0]) for row in rows)
 
 
-def deployment_completion_actor_ids(
-    conn: Any, *, run_id: str,
-) -> tuple[int, ...]:
-    """Resolve a run's initiator and successful stage approvers."""
-    p = _p(conn)
-    run = conn.execute(
-        f"SELECT created_by FROM deployment_runs WHERE id = {p}", (run_id,),
-    ).fetchone()
-    if run is None:
-        raise LookupError(f"deployment run {run_id!r} does not exist")
-    actor_ids = set(deployment_stage_approver_actor_ids(conn, run_id=run_id))
-    initiator = _existing_actor_id(conn, run[0])
-    if initiator is not None:
-        actor_ids.add(initiator)
-    return tuple(sorted(actor_ids))
-
-
 def emit_deployment_completion(
     conn: Any,
     *,
     run_id: str,
     event_name: str,
     outcome: str,
-    reason: str,
     context: Mapping[str, Any],
-) -> tuple[str, int]:
-    """Append and address one terminal run event in the caller's transaction."""
+) -> str:
+    """Append one terminal run event in the caller's transaction."""
     if event_name not in {"DeploymentRunSucceeded", "DeploymentRunFailed"}:
         raise ValueError(f"{event_name!r} is not a deployment completion event")
     run = _run(conn, run_id)
-    from yoke_core.domain.decision_request_contract import (
-        DEPLOYMENT_RUN_COMPLETED,
-    )
     from yoke_core.domain.events import emit_event
-    from yoke_core.domain.inbox_notifications import dispatch_addressed_event
 
     event_context = dict(context)
     event_context["run_id"] = run_id
@@ -200,15 +178,7 @@ def emit_deployment_completion(
         raise RuntimeError(
             f"could not append {event_name}: {event.reason or 'unknown error'}"
         )
-    inserted = dispatch_addressed_event(
-        conn,
-        event_envelope=event.envelope or {},
-        project_id=int(run["project_id"]),
-        notification_kind=DEPLOYMENT_RUN_COMPLETED,
-        reason=reason,
-        created_at=str((event.envelope or {})["created_at"]),
-    )
-    return event.event_id, inserted
+    return event.event_id
 
 
 def dispatch_deployment_stage_approval(
@@ -239,7 +209,6 @@ def dispatch_deployment_stage_approval(
 
 
 __all__ = [
-    "deployment_completion_actor_ids",
     "deployment_stage_approver_actor_ids",
     "deployment_stage_decision",
     "deployment_stage_is_approved",

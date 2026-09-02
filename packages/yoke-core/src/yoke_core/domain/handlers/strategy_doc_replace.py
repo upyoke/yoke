@@ -85,19 +85,6 @@ def handle_doc_replace(request: FunctionCallRequest) -> HandlerOutcome:
                 force=payload.force,
                 session_id=session_id,
             )
-            if actor_id is not None and not result.get("unchanged"):
-                from yoke_core.domain.strategy_review_requests import (
-                    ensure_current_strategy_revision_review,
-                )
-
-                ensure_current_strategy_revision_review(
-                    conn,
-                    project_id=project.id,
-                    slug=payload.slug,
-                    originator_actor_id=actor_id,
-                    reviewer_actor_id=payload.reviewer_actor_id,
-                    session_id=session_id,
-                )
         except _docs.UnknownStrategyDocError as exc:
             return _err("unknown_slug", str(exc))
         except _docs.StrategyDocMissingError as exc:
@@ -110,8 +97,6 @@ def handle_doc_replace(request: FunctionCallRequest) -> HandlerOutcome:
             return _err("shrink_guard_refused", str(exc))
         except _docs.StrategyDocConflictError as exc:
             return _err("replace_conflict", str(exc))
-        except LookupError as exc:
-            return _err("reviewer_not_found", str(exc))
 
     if not result.get("unchanged"):
         emit_doc_replaced(

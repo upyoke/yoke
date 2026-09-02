@@ -11,7 +11,6 @@ from yoke_core.domain.decision_request_contract import (
     LIFECYCLE_TRANSITION_APPROVAL,
     MACHINE_APPROVAL,
     QA_NEEDS_REVIEW,
-    STRATEGY_REVISION_REVIEW,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
@@ -243,63 +242,11 @@ def _machine_approval_ended(
     return False, "machine authorization has not expired or been cancelled"
 
 
-def _strategy_revision_ended(
-    conn: Any,
-    request: Mapping[str, Any],
-    _observed_at: str,
-) -> tuple[bool, str]:
-    request_id = int(request["id"])
-    _require_table(conn, "strategy_docs", request_id)
-    _require_table(conn, "strategy_doc_revisions", request_id)
-    context = _context(request)
-    parts = str(request["subject_key"]).split(":")
-    project_id = int(context.get("project_id") or request.get("project_id") or 0)
-    slug = str(context.get("slug") or ":".join(parts[1:-1])).strip()
-    revision = int(context.get("revision") or (parts[-1] if parts else 0))
-    if not project_id or not slug or not revision:
-        raise ValueError(
-            f"decision request {request_id} has no verifiable strategy revision"
-        )
-    p = _p(conn)
-    revision_row = conn.execute(
-        "SELECT 1 FROM strategy_doc_revisions "
-        f"WHERE project_id = {p} AND slug = {p} AND revision = {p}",
-        (project_id, slug, revision),
-    ).fetchone()
-    if revision_row is None:
-        return True, f"strategy revision {slug}@{revision} no longer exists"
-    archived_select = (
-        "archived_at"
-        if _column_exists(conn, "strategy_docs", "archived_at")
-        else "NULL"
-    )
-    doc = conn.execute(
-        f"SELECT {archived_select} FROM strategy_docs "
-        f"WHERE project_id = {p} AND slug = {p}",
-        (project_id, slug),
-    ).fetchone()
-    if doc is None:
-        return True, f"strategy document {slug} no longer exists"
-    if doc[0] is not None:
-        return True, f"strategy document {slug} is archived"
-    latest = conn.execute(
-        "SELECT MAX(revision) FROM strategy_doc_revisions "
-        f"WHERE project_id = {p} AND slug = {p}",
-        (project_id, slug),
-    ).fetchone()
-    latest_revision = int(latest[0] or 0)
-    return latest_revision > revision, (
-        f"strategy revision {slug}@{revision} "
-        f"{'was superseded' if latest_revision > revision else 'remains current'}"
-    )
-
-
 _SUBJECT_STATE_CHECKS: dict[str, SubjectStateCheck] = {
     DEPLOYMENT_STAGE_APPROVAL: _deployment_stage_ended,
     QA_NEEDS_REVIEW: _qa_review_ended,
     LIFECYCLE_TRANSITION_APPROVAL: _lifecycle_transition_ended,
     MACHINE_APPROVAL: _machine_approval_ended,
-    STRATEGY_REVISION_REVIEW: _strategy_revision_ended,
 }
 
 

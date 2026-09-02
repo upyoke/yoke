@@ -1,4 +1,4 @@
-"""Typed payloads and responses for decision requests and notifications."""
+"""Typed payloads and responses for decision requests and the Inbox."""
 
 from __future__ import annotations
 
@@ -19,8 +19,6 @@ class InboxListRequest(BaseModel):
 
 class InboxListResponse(BaseModel):
     needs_decision: List[Dict[str, Any]]
-    requests: List[Dict[str, Any]]
-    notifications: List[Dict[str, Any]]
     messages: List[Dict[str, Any]] = Field(default_factory=list)
     pending_actor_message_count: int = 0
 
@@ -104,20 +102,6 @@ class DecisionDisposeEndedResponse(BaseModel):
     retained_count: int
 
 
-class NotificationReadRequest(BaseModel):
-    notification_id: int
-
-
-class NotificationsReadAllRequest(BaseModel):
-    project_ids: Optional[List[int]] = None
-
-
-class NotificationReadResponse(BaseModel):
-    read: bool
-    notification_id: Optional[int] = None
-    count: Optional[int] = None
-
-
 __all__ = [
     "DecisionCreateRequest",
     "DecisionDisposeEndedRequest",
@@ -130,7 +114,4 @@ __all__ = [
     "InboxListResponse",
     "MachineApprovalLifecycleRequest",
     "MachineApprovalLifecycleResponse",
-    "NotificationReadRequest",
-    "NotificationReadResponse",
-    "NotificationsReadAllRequest",
 ]

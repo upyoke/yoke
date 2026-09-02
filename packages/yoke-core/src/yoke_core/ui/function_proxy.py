@@ -134,8 +134,6 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "test_machine.settings_replace",
         "test_machine.verify",
         "decision_requests.resolve",
-        "notifications.read",
-        "notifications.read_all",
         "qa.case.waive",
         "items.create",
         "sessions.reclaim_stale",

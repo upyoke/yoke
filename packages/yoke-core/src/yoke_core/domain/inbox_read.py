@@ -1,4 +1,4 @@
-"""Compose the signed-in actor's decision, notification, and message Inbox."""
+"""Compose the signed-in actor's gate and message Inbox."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from yoke_core.domain.decision_request_disposition import (
     dispose_ended_decision_requests,
 )
 from yoke_core.domain.decision_requests import pending_requests_for_actor
-from yoke_core.domain.inbox_notifications import notification_rows
 
 
 def inbox_for_actor(
@@ -22,9 +21,11 @@ def inbox_for_actor(
 ) -> dict[str, Any]:
     """Converge dead asks, then compose what still needs a person.
 
-    Rendering the Inbox is where a decision whose subject already ended does
-    its damage, so it is also where convergence earns its keep: the reader
-    never sees a blocking row that blocks nothing.
+    Two content types reach a person here and they are the only two: a gate
+    waiting on their decision, and a message someone sent them. Rendering
+    the Inbox is where a decision whose subject already ended does its
+    damage, so it is also where convergence earns its keep: the reader never
+    sees a gate that gates nothing.
     """
     dispose_ended_decision_requests(conn, project_ids=project_ids)
     decisions = pending_requests_for_actor(
@@ -32,26 +33,13 @@ def inbox_for_actor(
         actor_id,
         project_ids=project_ids,
     )
-    decisions = [row for row in decisions if row["kind"] != MACHINE_APPROVAL]
-    notifications = notification_rows(
-        conn,
-        actor_id,
-        unread_only=not include_read,
-    )
-    if project_ids is not None:
-        allowed = set(project_ids)
-        notifications = [
-            row
-            for row in notifications
-            if row.get("project_id") is None or int(row["project_id"]) in allowed
-        ]
     actor_messages = inbox_actor_messages(
         conn, actor_id=actor_id, include_read=include_read
     )
     return {
-        "needs_decision": [row for row in decisions if row["blocking"]],
-        "requests": [row for row in decisions if not row["blocking"]],
-        "notifications": notifications,
+        "needs_decision": [
+            row for row in decisions if row["kind"] != MACHINE_APPROVAL
+        ],
         "messages": actor_messages["messages"],
         "pending_actor_message_count": actor_messages["pending_count"],
     }

@@ -6,8 +6,6 @@ import {
   decisionSubtitle,
   decisionTitle,
   KIND_PRESENTATION,
-  notificationHref,
-  notificationPresentation,
   subjectHref,
 } from "./inbox_presentation.js";
 import { senderDescription } from "./universe_session_message_actors.js";
@@ -159,43 +157,6 @@ export function appendDecisionRow(
   }
   wrap.appendChild(actions);
   makeRowNavigable(documentNode, wrap, href, decisionTitle(row));
-  body.appendChild(wrap);
-}
-
-export function appendNotificationRow(
-  context,
-  body,
-  row,
-  markRead,
-  projectLabel = null,
-) {
-  const documentNode = context.document;
-  const wrap = el(documentNode, "article", "inbox-row");
-  const icon = row.notification_kind === "deployment_run_completed"
-    ? "⬈" : row.notification_kind === "item_block_state_changed" ? "≋" : "✓";
-  wrap.appendChild(el(documentNode, "span", "inbox-icon", icon));
-  const main = el(documentNode, "div", "inbox-row-main");
-  const presentation = notificationPresentation(row);
-  const href = notificationHref(row);
-  const title = el(
-    documentNode, "a", "inbox-row-title", presentation.title,
-  );
-  title.href = href;
-  main.appendChild(title);
-  main.appendChild(timedSubtitle(
-    documentNode,
-    presentation.subtitle,
-    row.created_at,
-    "",
-    "",
-    projectLabel,
-  ));
-  wrap.appendChild(main);
-  const button = el(documentNode, "button", "inbox-read", "Mark read");
-  button.type = "button";
-  button.addEventListener("click", () => markRead(row.id, button));
-  wrap.appendChild(button);
-  makeRowNavigable(documentNode, wrap, href, presentation.title);
   body.appendChild(wrap);
 }
 

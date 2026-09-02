@@ -17,9 +17,6 @@ from yoke_core.domain.handlers.inbox_decision_models import (
     DecisionWithdrawRequest,
     InboxListRequest,
     InboxListResponse,
-    NotificationReadRequest,
-    NotificationReadResponse,
-    NotificationsReadAllRequest,
 )
 
 
@@ -228,91 +225,6 @@ def handle_decision_withdraw(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def _mark_read(
-    request: FunctionCallRequest,
-    *,
-    all_rows: bool,
-) -> HandlerOutcome:
-    function_id = "notifications.read_all" if all_rows else "notifications.read"
-    invalid = _require_global(request, function_id)
-    if invalid is not None:
-        return invalid
-    actor_id = _actor_id(request, function_id)
-    if isinstance(actor_id, HandlerOutcome):
-        return actor_id
-    try:
-        if all_rows:
-            model = NotificationsReadAllRequest.model_validate(
-                request.payload or {},
-            )
-        else:
-            model = NotificationReadRequest.model_validate(request.payload or {})
-    except Exception as exc:
-        return _error("payload_invalid", str(exc), jsonpath="$.payload")
-    from yoke_core.domain import db_helpers
-    from yoke_core.domain.decision_request_contract import NOTIFICATION_READ_EVENT
-    from yoke_core.domain.decision_request_events import append_decision_event
-    from yoke_core.domain.inbox_notifications import (
-        mark_all_notifications_read,
-        mark_notification_read,
-    )
-
-    stamp = db_helpers.iso8601_now()
-    conn = db_helpers.connect()
-    try:
-        count = (
-            mark_all_notifications_read(
-                conn,
-                actor_id,
-                stamp,
-                project_ids=model.project_ids,
-            )
-            if all_rows
-            else int(
-                mark_notification_read(
-                    conn,
-                    actor_id,
-                    model.notification_id,
-                    stamp,
-                )
-            )
-        )
-        if count:
-            append_decision_event(
-                conn,
-                NOTIFICATION_READ_EVENT,
-                actor_id=actor_id,
-                session_id=request.actor.session_id,
-                project_id=None,
-                org_id=None,
-                context={
-                    "notification_id": None if all_rows else model.notification_id,
-                    "count": count,
-                    "project_ids": model.project_ids if all_rows else None,
-                },
-                created_at=stamp,
-            )
-        conn.commit()
-    finally:
-        conn.close()
-    return HandlerOutcome(
-        result_payload={
-            "read": bool(count),
-            "notification_id": None if all_rows else model.notification_id,
-            "count": count,
-        },
-        primary_success=True,
-    )
-
-
-def handle_notification_read(request: FunctionCallRequest) -> HandlerOutcome:
-    return _mark_read(request, all_rows=False)
-
-
-def handle_notifications_read_all(request: FunctionCallRequest) -> HandlerOutcome:
-    return _mark_read(request, all_rows=True)
-
-
 __all__ = [
     "DecisionCreateRequest",
     "DecisionMutationResponse",
@@ -321,13 +233,8 @@ __all__ = [
     "DecisionWithdrawRequest",
     "InboxListRequest",
     "InboxListResponse",
-    "NotificationReadRequest",
-    "NotificationsReadAllRequest",
-    "NotificationReadResponse",
     "handle_decision_create",
     "handle_decision_resolve",
     "handle_decision_withdraw",
     "handle_inbox_list",
-    "handle_notification_read",
-    "handle_notifications_read_all",
 ]
