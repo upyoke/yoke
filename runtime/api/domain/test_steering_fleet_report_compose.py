@@ -24,6 +24,7 @@ from yoke_core.domain.steering_fleet_report_compose import (
     compose_held_reports,
     steering_scope_descriptor,
 )
+from yoke_core.domain.steering_fleet_report_inbox import UnackedInjectedMessage
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_render import (
     LAUNCH_BALANCE_NOTE,
@@ -104,6 +105,7 @@ def test_two_held_scopes_become_two_named_sections(test_db, monkeypatch) -> None
     combined = compose_held_reports(test_db, session_id=SESSION_ALPHA, now=NOW)
 
     assert [section.descriptor for section in combined.sections] == ["alpha", "beta"]
+    assert combined.unacked_injected == ()
     body = combined_body(combined)
     assert body.index("## alpha") < body.index("## beta")
     assert "2 held scopes" in body
@@ -259,8 +261,11 @@ def test_combined_fingerprint_is_the_per_scope_hashes_not_the_body() -> None:
     )
     encoded = json.dumps(
         [
-            (section.descriptor, section.report.fingerprint())
-            for section in combined.sections
+            *[
+                (section.descriptor, section.report.fingerprint())
+                for section in combined.sections
+            ],
+            ("unacked_injected", []),
         ],
         separators=(",", ":"),
     )
@@ -282,7 +287,27 @@ def test_combined_dict_keeps_machine_facts_on_each_scope() -> None:
             )
         )
     )
+    assert payload["unacked_injected"] == []
     assert payload["scopes"][0]["launchable"] == [
         {"machine_id": "machine-a", "surface": "codex-cli"}
     ]
     assert payload["scopes"][0]["plan_limits"]
+
+
+def test_unacked_injected_makes_a_quiet_combined_report_actionable() -> None:
+    combined = CombinedFleetReport(
+        composed_at=NOW,
+        sections=(ScopedFleetReport("alpha", _report(1, NOW)),),
+        unacked_injected=(
+            UnackedInjectedMessage(
+                message_id="11111111-2222-4333-8444-555555555555",
+                last_injected_at="2026-08-29T11:00:00Z",
+                age_seconds=3600,
+            ),
+        ),
+    )
+    assert not combined.sections[0].report.actionable
+    assert combined.actionable
+    body = combined_body(combined)
+    assert "unacked injected (this session)" in body
+    assert "yoke messages acknowledge 11111111-2222-4333-8444-555555555555" in body

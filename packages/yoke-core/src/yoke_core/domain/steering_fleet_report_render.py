@@ -265,6 +265,17 @@ def launchable_line(
     return f"launchable machine/surface pairs: {joined or 'none'}"
 
 
+def scope_actionable_digest(report: FleetReport) -> str:
+    """Quiet detectors and available work only — no live claims or balances."""
+    work = _scope_work_lines(report)
+    if work[:1] == ["available: none"]:
+        work = work[2:] if work[1:2] == [""] else work[1:]
+    claims = _section("live item claims", _holder_lines(report.holders))
+    if claims:
+        work = work[: -len(claims)]
+    return "\n".join(work).strip()
+
+
 def scope_inner_body(report: FleetReport) -> str:
     """Scope facts under a combined heading: no preamble, no shared machine block."""
     return "\n".join(
@@ -302,5 +313,6 @@ __all__ = [
     "SECTION_LIMIT",
     "launchable_line",
     "report_body",
+    "scope_actionable_digest",
     "scope_inner_body",
 ]

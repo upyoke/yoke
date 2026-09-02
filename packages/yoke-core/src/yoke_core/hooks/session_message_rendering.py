@@ -21,11 +21,6 @@ from yoke_core.hooks.session_message_delivery_port import (
 
 MAX_FULL_MESSAGES_PER_INJECTION = 3
 MAX_SESSION_MESSAGE_INJECTION_BYTES = 24 * 1024
-_REPORT_OMITTED_NOTICE = (
-    "The accompanying Fleet report was omitted by the hook-context byte ceiling. "
-    "Read it with `yoke steering report get` (covers every steering claim this "
-    "session holds; pass `--project P` only to filter to one scope)."
-)
 
 
 def _render_message(
@@ -101,7 +96,6 @@ def _parent_blocks(
 ) -> list[str]:
     total_count = len(lease.messages) + max(0, lease.remaining_count)
     selected: list[str] = []
-    report_fallback = _REPORT_OMITTED_NOTICE if lease.report else ""
     for message in lease.messages[:MAX_FULL_MESSAGES_PER_INJECTION]:
         proposed = [
             *selected,
@@ -117,8 +111,6 @@ def _parent_blocks(
         fixed_blocks = [*proposed]
         if hidden_count:
             fixed_blocks.append(_parent_overflow_notice(hidden_count, session_id))
-        if report_fallback:
-            fixed_blocks.append(report_fallback)
         if len(_parent_text(token, fixed_blocks).encode("utf-8")) > (
             MAX_SESSION_MESSAGE_INJECTION_BYTES
         ):
@@ -128,14 +120,6 @@ def _parent_blocks(
     blocks = [*selected]
     if hidden_count:
         blocks.append(_parent_overflow_notice(hidden_count, session_id))
-    if lease.report:
-        with_report = [*blocks, lease.report]
-        if len(_parent_text(token, with_report).encode("utf-8")) <= (
-            MAX_SESSION_MESSAGE_INJECTION_BYTES
-        ):
-            blocks = with_report
-        else:
-            blocks.append(_REPORT_OMITTED_NOTICE)
     return blocks
 
 

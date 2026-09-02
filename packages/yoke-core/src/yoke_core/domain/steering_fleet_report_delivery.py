@@ -27,10 +27,8 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_claims import list_session_claims
-from yoke_core.domain.steering_fleet_report_compose import (
-    combined_body,
-    compose_held_reports,
-)
+from yoke_core.domain.steering_fleet_report_compose import compose_held_reports
+from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
 
 
 def _p(conn: Any) -> str:
@@ -166,7 +164,7 @@ def steering_report_for_delivery(
         fingerprint=fingerprint,
     ):
         return None
-    return combined_body(combined)
+    return combined_hook_digest(combined)
 
 
 __all__ = ["steered_project_id", "steering_report_for_delivery"]

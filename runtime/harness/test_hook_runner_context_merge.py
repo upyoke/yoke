@@ -81,6 +81,25 @@ def test_cursor_merge_does_not_absorb_a_non_context_reply() -> None:
     )
 
 
+def test_claude_envelopes_compose_when_cursor_flag_is_set() -> None:
+    first = json.dumps({
+        HOOK_SPECIFIC_OUTPUT_KEY: {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "client hint",
+        }
+    })
+    second = json.dumps({
+        HOOK_SPECIFIC_OUTPUT_KEY: {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "server hint",
+        }
+    })
+    merged = merge_allow_stdout(first, second, "PreToolUse", cursor=True)
+    assert json.loads(merged)[HOOK_SPECIFIC_OUTPUT_KEY]["additionalContext"] == (
+        "client hint\n\nserver hint"
+    )
+
+
 def test_local_cursor_entry_marks_and_merges_client_orientation(
     monkeypatch,
     capsys,

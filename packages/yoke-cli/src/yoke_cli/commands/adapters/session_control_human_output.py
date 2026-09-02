@@ -26,8 +26,7 @@ from yoke_cli.commands.adapters.session_control_recipient_output import (
 
 BODY_EXCERPT_CHARACTERS = 72
 EMPTY_VALUE = "—"
-#: ``(heading, accessor, width)``. Identifier columns pass ``None``: a
-#: width elides the cell, and part of an id is not the id.
+#: ``(heading, accessor, width)``. ``None`` width elides; part of an id is not the id.
 Column = tuple[str, Callable[[Mapping[str, Any]], Any], int | None]
 
 
@@ -236,8 +235,7 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
         ("TARGET", lambda row: row.get("target_session_id"), None),
         ("TYPE", lambda row: humanize(row.get("attempt_kind")), 16),
         ("RESULT", lambda row: humanize(row.get("result_code")), 18),
-        # Why a wake fired against a live-looking session. Without it an
-        # escalated resume reads here as an ordinary one.
+        # Escalation says why a wake fired against a live-looking session.
         ("ESCALATION", lambda row: _attempt_evidence(row).get("wake_escalation"), 24),
         (
             "DIAGNOSTIC",
@@ -255,6 +253,9 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
 
 
 def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
+    command = message.get("acknowledgement_command")
+    if command:
+        print(command, file=stdout)
     recipients = message.get("recipients") or []
     actor_recipients = message.get("actor_recipients") or []
     sender = message.get("sender_session_id")
@@ -276,11 +277,6 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
     write_summary("MESSAGE", fields, stdout)
     _write_recipients(recipients, stdout, actor_recipients=actor_recipients)
     _write_attempts(message.get("attempts") or [], stdout)
-    if any(recipient.get("state") == "injected" for recipient in recipients):
-        print(
-            f"Recipient next step: yoke messages acknowledge {message.get('message_id')}",
-            file=stdout,
-        )
 
 
 def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
@@ -309,6 +305,11 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             print(f"Track delivery: yoke messages get {message_id}", file=stdout)
         return
     if "messages" in result:
+        messages = result.get("messages") or []
+        for row in messages:
+            command = row.get("acknowledgement_command")
+            if command:
+                print(command, file=stdout)
         columns: tuple[Column, ...] = (
             ("MESSAGE", lambda row: row.get("message_id"), None),
             ("STATE / REASON", _message_state, 28),
@@ -324,7 +325,7 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         write_table(
             "MESSAGES",
             columns,
-            result.get("messages") or [],
+            messages,
             stdout,
             empty="No messages found.",
         )

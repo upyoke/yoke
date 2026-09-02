@@ -25,6 +25,7 @@ HOOK_RESULT_CODES = frozenset(
         "dropped_by_sibling_denial",
         "empty_lease",
         "injected",
+        "inline_overflow",
         "render_output_missing",
     }
 )

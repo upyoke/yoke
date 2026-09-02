@@ -27,6 +27,7 @@ from yoke_harness.hooks.decision_render import (
     render_context_stdout,
 )
 from yoke_harness.hooks.identity import (
+    canonical_harness_id,
     detect_executor,
     is_cursor,
     prune_stale_session_anchors,
@@ -72,6 +73,7 @@ def _with_extra_context(
     event_name: str,
     *,
     cursor: bool = False,
+    harness_id: str | None = None,
 ) -> str:
     """Merge caller context into allow-path stdout without obscuring denies."""
     if not extra_context:
@@ -79,7 +81,9 @@ def _with_extra_context(
     rendered = render_context_stdout(extra_context, event_name, cursor=cursor)
     if not rendered:
         return stdout
-    return merge_allow_stdout(stdout, rendered, event_name, cursor=cursor)
+    return merge_allow_stdout(
+        stdout, rendered, event_name, cursor=cursor, harness_id=harness_id,
+    )
 
 
 def evaluate_hook_event(
@@ -123,10 +127,8 @@ def evaluate_hook_event(
         print_execution_provenance()
     if not local.denied:
         stdout = _with_extra_context(
-            stdout,
-            extra_context,
-            event_name,
-            cursor=is_cursor(executor),
+            stdout, extra_context, event_name,
+            cursor=is_cursor(executor), harness_id=canonical_harness_id(executor),
         )
     if stdout:
         sys.stdout.write(stdout)
@@ -151,14 +153,14 @@ def relay_hook_event(
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     original_stdin = stdin_data
-    stdin_data, launch_projection = stamp_hook_input(
-        payload, stdin_data, executor, event_name
-    )
     if anchor_from_payload:
         _record_client_anchor(
             payload,
             session_start=event_name == SESSION_START_EVENT,
         )
+    stdin_data, launch_projection = stamp_hook_input(
+        payload, stdin_data, executor, event_name
+    )
     from yoke_harness.hooks.cursor_lifecycle_hooks import (
         ensure_user_lifecycle_hooks_for_executor,
     )
@@ -183,10 +185,8 @@ def relay_hook_event(
         return local.exit_code
 
     allow_stdout = _with_extra_context(
-        local.stdout,
-        extra_context,
-        event_name,
-        cursor=is_cursor(executor),
+        local.stdout, extra_context, event_name,
+        cursor=is_cursor(executor), harness_id=canonical_harness_id(executor),
     )
 
     denied = deny_unstamped_relay(parse_hook_payload(stdin_data))
@@ -288,10 +288,8 @@ def relay_hook_event(
         return exit_code
 
     merged = merge_allow_stdout(
-        allow_stdout,
-        stdout,
-        event_name,
-        cursor=is_cursor(executor),
+        allow_stdout, stdout, event_name,
+        cursor=is_cursor(executor), harness_id=canonical_harness_id(executor),
     )
     if merged:
         sys.stdout.write(merged)

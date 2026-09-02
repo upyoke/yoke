@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
+from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_contracts.session_control import capabilities_for_harness
 
 
@@ -21,6 +22,8 @@ def _session_control(harness_id: str) -> dict:
     return {
         "source": "yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES",
         "surfaces": capabilities_for_harness(harness_id),
+        "inline_context_source": "yoke_contracts.hook_inline_context",
+        "inline_context_bytes": inline_context_bytes_for_harness(harness_id),
     }
 
 

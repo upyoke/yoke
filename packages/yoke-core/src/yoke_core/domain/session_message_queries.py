@@ -64,6 +64,34 @@ def _actor_receipt(details: dict[str, Any], actor_id: int) -> dict[str, Any]:
     return result
 
 
+_ACK_STATES = frozenset({"injected", "pending"})
+
+
+def _acknowledgement_command(
+    details: dict[str, Any],
+    session_id: str | None,
+) -> str | None:
+    if not session_id:
+        return None
+    for row in details.get("recipients") or []:
+        if str(row.get("session_id")) == session_id and row.get("state") in _ACK_STATES:
+            return f"yoke messages acknowledge {details['message_id']}"
+    return None
+
+
+def _with_ack(
+    details: dict[str, Any],
+    *,
+    actor_id: int,
+    session_id: str | None,
+) -> dict[str, Any]:
+    result = _actor_receipt(details, actor_id)
+    command = _acknowledgement_command(details, session_id)
+    if command:
+        result["acknowledgement_command"] = command
+    return result
+
+
 def _expire(conn: Any) -> None:
     from yoke_core.domain.session_message_delivery import expire_due_recipients
 
@@ -85,7 +113,7 @@ def get_message(
         raise SessionMessageError(
             "message_forbidden", "message is not visible to the calling actor"
         )
-    return _actor_receipt(details, actor_id)
+    return _with_ack(details, actor_id=actor_id, session_id=session_id)
 
 
 def list_messages(
@@ -114,7 +142,13 @@ def list_messages(
             actor_id=actor_id,
             session_id=caller_session_id,
         ):
-            visible.append(_actor_receipt(details, actor_id))
+            visible.append(
+                _with_ack(
+                    details,
+                    actor_id=actor_id,
+                    session_id=caller_session_id,
+                )
+            )
         if len(visible) >= limit:
             break
     return visible

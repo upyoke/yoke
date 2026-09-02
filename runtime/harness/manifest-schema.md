@@ -104,6 +104,8 @@ not author a second capability matrix.
 |-----|------|-------------|
 | `source` | string | Canonical Python contract that owns the facts. |
 | `surfaces` | object | Closed mapping for only this harness family's known surfaces. |
+| `inline_context_source` | string | Canonical Python contract for the inline hook-context ceiling. |
+| `inline_context_bytes` | integer | That ceiling in bytes; runtime composition reads the Python contract, not this JSON. |
 
 Each surface value carries `minimum_version`, `inject_events`, `create`,
 `message_active`, `message_idle`, `message_stopped`,
@@ -124,6 +126,15 @@ contention remains unusable. Private routes fail closed unless the observed
 executor version exactly satisfies their pinned adapter contract.
 `inject_events` names the model-visible hook events that can lease and render a
 pending message; it is independent of native wake/create support.
+
+`inline_context_source` and `inline_context_bytes` are rendered from
+`yoke_contracts.hook_inline_context`. Runtime composition reads that Python
+contract, not this JSON. The integer is the harness's inline
+`additionalContext` (or Cursor `additional_context`) ceiling: composed hook
+context is capped there so a vendor persist-to-file preview cannot hide a
+Fleet delivery behind a hint. Codex's value is the vendor
+`additionalContextLimit` default; Claude Code and Cursor use the shared
+envelope ceiling.
 
 ## Agent wake
 
