@@ -267,50 +267,13 @@ def launchable_line(
 
 def scope_actionable_digest(report: FleetReport) -> str:
     """Quiet detectors and available work only — no live claims or balances."""
-    staffing = _minutes(report.staffing_after_seconds)
-    idle = _minutes(report.idle_after_seconds)
-    available = _available_lines(report)
-    lines = [
-        *(
-            [
-                f"available — runnable and unclaimed, staff these "
-                f"({OVERDUE_MARK} waiting over {staffing}; "
-                f"new = never started, stopped = owner released):",
-                *available,
-                "",
-            ]
-            if available
-            else []
-        ),
-        *_section(
-            f"idle holders — claim held, no tool call in over {idle} "
-            "(parked sessions excluded; they declared their wait)",
-            _holder_lines(report.idle),
-        ),
-        *_section(
-            "suspected orphaned waiter — Monitor completed, waiting past idle",
-            _holder_lines(report.suspected_orphaned_waiters, with_wake=True),
-        ),
-        *_section(
-            "starved delivery — sent, never injected, recipient silent since",
-            _starved_lines(report),
-        ),
-        *_section(
-            "unregistered launches — launch/session binding absent",
-            _launch_lines(report),
-        ),
-        *_section(
-            "landed without close-out — branch merged, item still open",
-            _landed_lines(report),
-        ),
-        *_section(
-            "dead waits — idle holder's last question, and whether an answer "
-            "can still arrive",
-            _dead_wait_lines(report),
-        ),
-        *_awaiting_seat_lines(report),
-    ]
-    return "\n".join(lines).strip()
+    work = _scope_work_lines(report)
+    if work[:1] == ["available: none"]:
+        work = work[2:] if work[1:2] == [""] else work[1:]
+    claims = _section("live item claims", _holder_lines(report.holders))
+    if claims:
+        work = work[: -len(claims)]
+    return "\n".join(work).strip()
 
 
 def scope_inner_body(report: FleetReport) -> str:

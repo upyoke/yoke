@@ -69,11 +69,10 @@ printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke
 
 Positive wake events are not enough. Failures arrive as silence, and the
 fleet report is the detector for them: it is composed server-side and
-rides hook context. On every pass **read the report you were given**
-before consuming events, messages, or worker reports. A harness may
-persist that context to a file and show only a preview from the top —
-open the file, not the preview.
-Between wakes, pull (omit `--project`):
+rides hook context. On every pass **read the report you were given** before
+consuming events, messages, or worker reports. A harness may persist that
+context to a file and show only a preview from the top — open the file, not
+the preview. Between wakes, pull (omit `--project`):
 
 ```text
 yoke steering report get

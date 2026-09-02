@@ -26,8 +26,7 @@ from yoke_cli.commands.adapters.session_control_recipient_output import (
 
 BODY_EXCERPT_CHARACTERS = 72
 EMPTY_VALUE = "—"
-#: ``(heading, accessor, width)``. Identifier columns pass ``None``: a
-#: width elides the cell, and part of an id is not the id.
+#: ``(heading, accessor, width)``. ``None`` width elides; part of an id is not the id.
 Column = tuple[str, Callable[[Mapping[str, Any]], Any], int | None]
 
 
@@ -236,8 +235,7 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
         ("TARGET", lambda row: row.get("target_session_id"), None),
         ("TYPE", lambda row: humanize(row.get("attempt_kind")), 16),
         ("RESULT", lambda row: humanize(row.get("result_code")), 18),
-        # Why a wake fired against a live-looking session. Without it an
-        # escalated resume reads here as an ordinary one.
+        # Escalation says why a wake fired against a live-looking session.
         ("ESCALATION", lambda row: _attempt_evidence(row).get("wake_escalation"), 24),
         (
             "DIAGNOSTIC",
