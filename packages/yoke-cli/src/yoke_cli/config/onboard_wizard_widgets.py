@@ -67,8 +67,9 @@ class SelectionRow:
 class Stepper(Static):
     """Fixed progress rail driven by the active step id.
 
-    The wizard's ordered phases double as the stepper model; ``active`` names
-    the current phase and every earlier phase renders as completed.
+    ``active`` names the current phase. Earlier phases render as completed
+    except GitHub, which stays pending until the shell has proven the same
+    ``ready`` contract as ``yoke github status``.
     """
 
     active: reactive[str] = reactive(STEP_CONNECT)
@@ -78,7 +79,7 @@ class Stepper(Static):
     account_label: reactive[str] = reactive(STEP_CONNECT_LABEL)
 
     def render(self) -> Text:
-        active_index = _step_index(self.active)
+        github_complete = _shell_github_complete(self)
         marks = glyphs()
         line = Text()
         for index, (step_id, label) in enumerate(STEPPER_ORDER):
@@ -86,9 +87,12 @@ class Stepper(Static):
                 label = self.account_label
             if index:
                 line.append(f" {marks.step_connector} ", style="#6e7681")
-            if index < active_index:
+            state = stepper_mark(
+                step_id, active=self.active, github_complete=github_complete,
+            )
+            if state == "done":
                 line.append(f"{marks.step_done} {label}", style="bold #3fb950")
-            elif index == active_index:
+            elif state == "active":
                 line.append(f"{marks.step_active} {label}", style="bold #56d364")
             else:
                 line.append(f"{marks.step_pending} {label}", style="#6e7681")
@@ -219,6 +223,34 @@ def _step_index(step_id: str) -> int:
     return 0
 
 
+def stepper_mark(
+    step_id: str,
+    *,
+    active: str,
+    github_complete: bool,
+) -> str:
+    """Return ``done``, ``active``, or ``pending`` for one rail segment."""
+
+    active_index = _step_index(active)
+    index = _step_index(step_id)
+    if step_id == STEP_GITHUB and not github_complete:
+        return "active" if index == active_index else "pending"
+    if index < active_index:
+        return "done"
+    if index == active_index:
+        return "active"
+    return "pending"
+
+
+def _shell_github_complete(widget: Static) -> bool:
+    result = getattr(widget.app, "result", None)
+    if result is None:
+        return False
+    from yoke_cli.config.onboard_wizard_github_state import connected
+
+    return connected(result)
+
+
 class FocusInput(Input):
     """Input that claims focus inside its own mount turn.
 
@@ -257,4 +289,5 @@ __all__ = [
     "SelectionList",
     "SelectionRow",
     "Stepper",
+    "stepper_mark",
 ]

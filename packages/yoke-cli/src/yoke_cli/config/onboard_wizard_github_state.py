@@ -11,16 +11,28 @@ from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
 
 
+def ready_from_report(report: Any) -> bool:
+    """True when a ``yoke github status`` report (or stored copy) is ready."""
+
+    return isinstance(report, dict) and bool(report.get("ready"))
+
+
 def connected(result: Any) -> bool:
-    """Whether the wizard has verified a machine GitHub App connection."""
+    """Whether this run proved usable machine GitHub authorization.
+
+    Matches ``yoke github status --json`` ``ready``: merge-path user
+    authorization and App installation must both be ok. A later wizard
+    step does not substitute for that proof.
+    """
     verification = getattr(result, "machine_github_verification", None)
+    if not isinstance(verification, dict):
+        return False
     return bool(
         getattr(result, "machine_github_choice", None)
         == onboard_machine_github.CHOICE_CONNECT
-        and
-        isinstance(verification, dict)
+        and ready_from_report(verification)
         and verification.get("ok")
-        and verification.get("ready")
+        and verification.get("configured") is not False
     )
 
 
@@ -204,6 +216,7 @@ __all__ = [
     "endpoint_pair",
     "fork_ready",
     "fork_ready_from_config",
+    "ready_from_report",
     "repository_access_url",
     "user_access_token",
     "web_url",

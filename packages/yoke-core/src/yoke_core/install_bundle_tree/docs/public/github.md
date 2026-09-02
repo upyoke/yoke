@@ -31,7 +31,11 @@ yoke github connect
 yoke github status
 ```
 
-Optional during `yoke onboard` Account/GitHub steps.
+Optional during `yoke onboard` Account/GitHub steps. The onboard GitHub
+rail stays incomplete until that same `ready` contract is true — skipping
+or moving to Project does not mark GitHub done. A private clone after
+connect uses the App authorization; if status is not ready, the clone
+preflight names `yoke github connect`.
 
 Status reports one verdict per binding: user authorization for the merge path
 (`ok` / `busy` / `broken`, proven through the same connection and token read a
