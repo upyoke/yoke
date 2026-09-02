@@ -45,8 +45,11 @@ class PlanExecutionStateResponse(BaseModel):
     roster_digest: str
     cursor_ordinal: int
     machine_lease_id: int | None = None
-    execution_target: dict[str, Any]
-    execution_target_digest: str
+    # Absent on a row written before executions carried a target: reading and
+    # abandoning such a row are supported, running one is refused by name.
+    execution_target: dict[str, Any] | None = None
+    execution_target_digest: str | None = None
+
     requirements: list[dict[str, Any]]
     results: list[dict[str, Any]]
 
