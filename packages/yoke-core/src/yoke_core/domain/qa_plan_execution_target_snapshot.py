@@ -75,8 +75,14 @@ def decode_execution_target(
 def validate_execution_snapshot(
     execution: Mapping[str, Any],
     roster: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Verify the persisted roster and target remain one immutable snapshot."""
+) -> dict[str, Any] | None:
+    """Verify the persisted roster and any stored target are one snapshot.
+
+    A stored target is absent on rows written before executions carried one.
+    Reading such a row is not the failure — running it is — so the target is
+    returned as ``None`` here and demanded by ``require_execution_target`` on
+    the paths that dispatch cases. Abandoning an execution needs neither.
+    """
     from yoke_core.domain.qa_plan_execution_store import (
         QaPlanExecutionStateError,
         canonical,
@@ -89,9 +95,7 @@ def validate_execution_snapshot(
         )
     target = decode_execution_target(execution)
     if target is None:
-        raise QaPlanExecutionStateError(
-            "QA plan execution lacks an execution target"
-        )
+        return None
     roster_target, roster_target_digest = execution_target_for_roster(roster)
     if canonical(roster_target) != canonical(target) or roster_target_digest != str(
         execution.get("execution_target_digest") or ""
@@ -100,6 +104,21 @@ def validate_execution_snapshot(
             "QA plan execution roster target does not match its execution target"
         )
     return target
+
+
+def require_execution_target(execution: Mapping[str, Any]) -> dict[str, Any]:
+    """Demand the target every case-dispatching path aims at."""
+    target = execution.get("execution_target")
+    if isinstance(target, dict):
+        return target
+    from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
+
+    raise QaPlanExecutionStateError(
+        f"QA plan execution {str(execution.get('id') or '<unknown>')!r} lacks an "
+        "execution target and cannot run cases. Abandon it with "
+        "`yoke qa plan abort --execution-id <id> --reason <reason>` and begin a "
+        "new execution, which resolves the target from the materialized roster."
+    )
 
 
 def rebind_unresolvable_targets(
@@ -184,5 +203,6 @@ __all__ = [
     "decode_execution_target",
     "execution_target_for_roster",
     "rebind_unresolvable_targets",
+    "require_execution_target",
     "validate_execution_snapshot",
 ]

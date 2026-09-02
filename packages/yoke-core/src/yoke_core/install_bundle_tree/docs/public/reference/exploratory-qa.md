@@ -183,3 +183,37 @@ non-empty rationale naming what could not be established and why. That
 rationale is persisted as `qa_runs.verdict_reason`, the verdict never satisfies
 an all-pass aggregate, and the ordinary review/operator-decision path is
 created. Do not map it to pass or fail and do not use retired verdict terms.
+
+## Decision Disposition
+
+An `undetermined` verdict raises a `qa_needs_review` decision request against
+its requirement. That request exists because the walk could not determine a
+verdict, so it belongs to the walk: when the plan execution reaches any
+terminal state — completed, aborted, or error — every review it raised is
+withdrawn in the same transaction, carrying the execution's state and its
+`release_reason` onto the decision as the recorded reason. A requirement that
+another live execution is still walking is retained; the subject-state
+contract refuses to withdraw a decision whose subject has not ended.
+
+Termination is guaranteed rather than hoped for. An execution that stops
+reporting progress is reaped into `aborted` with `release_reason`
+`stale-heartbeat` after 30 minutes without a heartbeat, and reaping is
+deliberately blind to row vintage: a stranded execution written before
+executions carried an execution target still settles, because resolving that
+target is a precondition for *running* an execution, not for abandoning one.
+For the same reason abandoning a non-progressing execution is open to any
+session on its subject — the session that owned a stranded execution is by
+definition the one that is no longer there — while a live execution keeps its
+owner-only guard.
+
+Reaping and withdrawal run together whenever the Inbox is read, so a reader
+never sees a blocking row that blocks nothing. Run the same convergence
+deliberately, with a receipt naming what was reaped, withdrawn, and retained:
+
+```text
+yoke decision-requests dispose-ended [--project-id N ...] --json
+```
+
+The pass is kind-blind: it applies each kind's own subject-state contract, so
+it also releases, for example, a strategy-revision review that a later
+revision has superseded.

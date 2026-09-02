@@ -40,7 +40,7 @@ def ensure_strategy_revision_review(
         if reviewer is None:
             raise LookupError(f"reviewer actor {reviewer_actor_id} does not exist")
         named_actor_ids.append(int(reviewer_actor_id))
-    return create_decision_request(
+    created = create_decision_request(
         conn,
         kind="strategy_revision_review",
         subject_type="strategy_doc_revision",
@@ -59,6 +59,59 @@ def ensure_strategy_revision_review(
         },
         session_id=session_id,
     )
+    withdraw_superseded_strategy_reviews(
+        conn,
+        project_id=int(project_id),
+        slug=slug,
+        revision=int(revision),
+        session_id=session_id,
+    )
+    return created
+
+
+def withdraw_superseded_strategy_reviews(
+    conn: Any,
+    *,
+    project_id: int,
+    slug: str,
+    revision: int,
+    session_id: str = "",
+) -> list[int]:
+    """Release the reviews the new revision just made unanswerable.
+
+    Every revision asks for its own review, so without this each edit leaves
+    the previous ask pending on a revision nobody can act on any more.
+    """
+    from yoke_core.domain.decision_request_resolution import (
+        withdraw_for_ended_subject,
+    )
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "decision_requests"):
+        return []
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        "SELECT id, subject_key FROM decision_requests "
+        "WHERE status = 'pending' AND kind = 'strategy_revision_review' "
+        f"AND project_id = {marker} ORDER BY id",
+        (int(project_id),),
+    ).fetchall()
+    withdrawn: list[int] = []
+    for row in rows:
+        parts = str(row[1]).split(":")
+        if len(parts) < 3 or ":".join(parts[1:-1]) != slug:
+            continue
+        if not parts[-1].isdigit() or int(parts[-1]) >= int(revision):
+            continue
+        withdraw_for_ended_subject(
+            conn,
+            int(row[0]),
+            reason=f"superseded by {slug} revision {int(revision)}",
+            session_id=session_id,
+        )
+        withdrawn.append(int(row[0]))
+    return withdrawn
+
 
 
 def ensure_current_strategy_revision_review(
@@ -93,4 +146,5 @@ def ensure_current_strategy_revision_review(
 __all__ = [
     "ensure_current_strategy_revision_review",
     "ensure_strategy_revision_review",
+    "withdraw_superseded_strategy_reviews",
 ]

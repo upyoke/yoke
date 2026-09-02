@@ -2,21 +2,26 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any, Mapping
+
 from uuid import uuid4
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.coordination_claims import release
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.qa_capture_settlement import (
-    settle_unreviewed_execution_captures,
+from yoke_core.domain.qa_plan_execution_authority import (
+    PLAN_EXECUTION_STALE_SECONDS,
+    plan_execution_is_stale,
+    require_plan_execution_abandon_authority,
+    require_plan_execution_owner,
 )
 from yoke_core.domain.qa_plan_execution_lifecycle import (
+    STALE_PLAN_EXECUTION_REASON,
     finish_plan_execution,
     heartbeat_plan_execution,
+    reap_stale_plan_executions,
     set_plan_machine_lease,
 )
+
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     build_execution_roster,
@@ -26,7 +31,6 @@ from yoke_core.domain.qa_plan_execution_store import (
     lock_plan_execution,
     marker,
     plan_execution_view,
-    require_plan_execution_owner,
     resume_owned_plan_execution,
     roster_digest,
     same_owner,
@@ -34,44 +38,13 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
     execution_target_for_roster,
+    require_execution_target,
 )
+
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-
-
-PLAN_EXECUTION_STALE_SECONDS = 30 * 60
-
-
-def _is_stale(value: Any, *, now: datetime) -> bool:
-    try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError:
-        return True
-    return (now - parsed.astimezone(timezone.utc)).total_seconds() > (
-        PLAN_EXECUTION_STALE_SECONDS
-    )
-
-
-def _release_stale_execution(
-    conn: Any,
-    execution: Mapping[str, Any],
-    *,
-    now: str,
-) -> None:
-    settle_unreviewed_execution_captures(conn, execution)
-    lease_id = execution.get("machine_lease_id")
-    if lease_id is not None:
-        release(conn, int(lease_id), "qa-plan-execution-stale")
-    placeholder = marker(conn)
-    conn.execute(
-        "UPDATE qa_plan_executions SET state='aborted',completed_at="
-        f"{placeholder},release_reason='stale-heartbeat',machine_lease_id=NULL "
-        f"WHERE id={placeholder}",
-        (now, str(execution["id"])),
-    )
-    conn.commit()
 
 
 def _validate_roster_machine(
@@ -159,14 +132,20 @@ def begin_plan_execution(
             "awaiting_agent_review",
         }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
+                require_execution_target(existing)
                 return resume_owned_plan_execution(conn, existing, digest=digest)
-            now_dt = datetime.now(timezone.utc)
-            if not _is_stale(existing["heartbeat_at"], now=now_dt):
+            if not plan_execution_is_stale(existing):
                 conn.rollback()
                 raise QaPlanExecutionStateError(
                     "another actor or session owns the active QA plan execution"
                 )
-            _release_stale_execution(conn, existing, now=iso8601_now())
+            finish_plan_execution(
+                conn,
+                existing,
+                state="aborted",
+                reason=STALE_PLAN_EXECUTION_REASON,
+            )
+
             if item_id is not None:
                 lock_item_workflow_bindings(conn, (int(item_id),))
             roster = build_execution_roster(
@@ -296,6 +275,8 @@ def advance_plan_execution(
         return case
     if execution["state"] != "active":
         raise QaPlanExecutionStateError("QA plan execution is not active")
+    require_execution_target(execution)
+
     now = iso8601_now()
     conn.execute(
         "INSERT INTO qa_plan_execution_results("
@@ -326,6 +307,8 @@ __all__ = [
     "heartbeat_plan_execution",
     "lock_plan_execution",
     "plan_execution_view",
+    "reap_stale_plan_executions",
+    "require_plan_execution_abandon_authority",
     "require_plan_execution_owner",
     "set_plan_machine_lease",
 ]

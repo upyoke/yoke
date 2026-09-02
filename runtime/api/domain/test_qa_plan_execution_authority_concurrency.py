@@ -162,7 +162,8 @@ def test_stale_owner_is_aborted_and_held_machine_lease_is_released() -> None:
         assert prior["release_reason"] == "stale-heartbeat"
         assert prior["machine_lease_id"] is None
         assert released.is_active is False
-        assert released.release_reason_intent == "qa-plan-execution-stale"
+        # One termination path settles the row and its lease under one reason.
+        assert released.release_reason_intent == "stale-heartbeat"
 
 
 @pytest.mark.parametrize("terminal_state", ["aborted", "error"])

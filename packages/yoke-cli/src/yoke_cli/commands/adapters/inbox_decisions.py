@@ -21,10 +21,15 @@ DECISION_REQUESTS_RESOLVE_USAGE = (
     "yoke decision-requests resolve REQUEST_ID ACTION [--note TEXT] "
     "[--session-id S] [--json]"
 )
+DECISION_REQUESTS_DISPOSE_ENDED_USAGE = (
+    "yoke decision-requests dispose-ended [--project-id N ...] "
+    "[--session-id S] [--json]"
+)
 
 USAGE_BY_FUNCTION_ID = {
     "inbox.list": INBOX_LIST_USAGE,
     "decision_requests.resolve": DECISION_REQUESTS_RESOLVE_USAGE,
+    "decision_requests.dispose_ended": DECISION_REQUESTS_DISPOSE_ENDED_USAGE,
 }
 
 
@@ -111,10 +116,53 @@ def decision_requests_resolve(args: List[str]) -> int:
     )
 
 
+def decision_requests_dispose_ended(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke decision-requests dispose-ended",
+        description=(
+            "Converge pending decision requests whose subjects have already "
+            "ended. QA plan executions that stopped reporting progress are "
+            "abandoned first, then every pending request whose typed subject "
+            "verifiably ended is withdrawn with that end recorded as evidence. "
+            "A request whose subject is still live is retained untouched. The "
+            "same convergence runs whenever the Inbox is read; this command is "
+            "the deliberate operator-run form that returns a receipt."
+        ),
+    )
+    parser.add_argument(
+        "--project-id",
+        action="append",
+        type=int,
+        default=None,
+        help="Project id to converge; repeat for more than one project.",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser,
+        args,
+        DECISION_REQUESTS_DISPOSE_ENDED_USAGE,
+    )
+    if parsed is None:
+        return 2
+    payload: Dict[str, Any] = {}
+    if parsed.project_id:
+        payload["project_ids"] = parsed.project_id
+    return dispatch_and_emit(
+        function_id="decision_requests.dispose_ended",
+        target=TargetRef(kind="global"),
+        payload=payload,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
+
+
 __all__ = [
+    "DECISION_REQUESTS_DISPOSE_ENDED_USAGE",
     "DECISION_REQUESTS_RESOLVE_USAGE",
     "INBOX_LIST_USAGE",
     "USAGE_BY_FUNCTION_ID",
+    "decision_requests_dispose_ended",
     "decision_requests_resolve",
     "inbox_list",
 ]

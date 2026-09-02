@@ -11,11 +11,9 @@ from yoke_core.domain.qa_merging_identity import (
     accepted_merging_shas,
     recorded_head_sha,
 )
+from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.schema_common import _table_exists
 
-
-_LIVE_PLAN_EXECUTION_STATES = frozenset({"active", "waiting", "awaiting_agent_review"})
-_LIVE_PLAN_EXECUTION_SQL = ", ".join(map(repr, sorted(_LIVE_PLAN_EXECUTION_STATES)))
 
 
 @dataclass(frozen=True)
@@ -252,7 +250,7 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
     execution_rows = conn.execute(
         "SELECT id, state FROM qa_plan_executions "
         f"WHERE item_id = {placeholder} "
-        f"AND state IN ({_LIVE_PLAN_EXECUTION_SQL}) "
+        f"AND state IN ({LIVE_PLAN_EXECUTION_SQL}) "
         "ORDER BY created_at, id",
         (int(item_id),),
     ).fetchall()

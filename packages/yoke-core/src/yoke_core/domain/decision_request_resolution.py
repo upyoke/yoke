@@ -125,6 +125,39 @@ def withdraw_decision_request(
             f"actor {actor_id} is not authorized to withdraw "
             f"decision request {request_id}"
         )
+    return withdraw_for_ended_subject(
+        conn,
+        request_id,
+        reason=reason,
+        actor_id=actor_id,
+        session_id=session_id,
+        withdrawn_at=withdrawn_at,
+    )
+
+
+def withdraw_for_ended_subject(
+    conn: Any,
+    request_id: int,
+    *,
+    reason: str,
+    actor_id: Optional[int] = None,
+    session_id: str = "",
+    withdrawn_at: Optional[str] = None,
+    commit: bool = True,
+) -> dict[str, Any]:
+    """Withdraw a pending request whose typed subject has verifiably ended.
+
+    This is the write every withdrawal lands through. The operator surface
+    adds an authority check on top of it; a system disposition -- the event
+    that ended the subject releasing what it had asked a human -- has no
+    deciding actor and passes none. Neither can withdraw a live subject,
+    because the subject-state contract below is re-evaluated either way.
+    """
+    if not reason.strip() or len(reason) > 1000:
+        raise ValueError("withdrawal reason must contain 1 to 1000 characters")
+    request = _request_row(conn, request_id)
+    if request["status"] != "pending":
+        raise ValueError(f"decision request {request_id} is {request['status']}")
     p = _p(conn)
     stamp = withdrawn_at or iso8601_now()
     subject_end_evidence = require_decision_request_subject_ended(
@@ -155,8 +188,13 @@ def withdraw_decision_request(
         },
         created_at=stamp,
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return _request_row(conn, request_id)
 
 
-__all__ = ["resolve_decision_request", "withdraw_decision_request"]
+__all__ = [
+    "resolve_decision_request",
+    "withdraw_decision_request",
+    "withdraw_for_ended_subject",
+]

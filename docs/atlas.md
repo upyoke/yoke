@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-01T22:31:29Z_
+_Audit generated_at: 2026-09-02T13:40:39Z_
 
 ## 1. Summary
 
-- Function ids registered: **445**
-- Internal dispatch-only functions without CLI adapters: **88**
-- `yoke` CLI subcommands: **371** (371 carry usable `--help`)
-- Operation tracker: **347 wrapped**, 14 tool_cli, 129 permanent, 0 pending
+- Function ids registered: **446**
+- Internal dispatch-only functions without CLI adapters: **89**
+- `yoke` CLI subcommands: **372** (372 carry usable `--help`)
+- Operation tracker: **348 wrapped**, 14 tool_cli, 129 permanent, 0 pending
 - Skill-body recipes: 330 total (277 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **347** (operation tracker confirms 347 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **348** (operation tracker confirms 348 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -48,6 +48,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **347** (operation track
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
 | db_claim | `yoke db-claim prose-check` | `db_claim.prose_check` | ok |
+| decision_requests | `yoke decision-requests dispose-ended` | `decision_requests.dispose_ended` | ok |
 | decision_requests | `yoke decision-requests resolve` | `decision_requests.resolve` | ok |
 | deployment_flows | `yoke deployment-flows create` | `deployment_flows.create` | ok |
 | deployment_flows | `yoke deployment-flows describe` | `deployment_flows.describe` | ok |
@@ -556,9 +557,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 34 |
-| claude-code | 15 |
-| cursor | 1 |
+| codex | 29 |
+| claude-code | 19 |
+| cursor | 2 |
 
 ## 8. Contradictions
 

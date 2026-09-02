@@ -109,7 +109,12 @@ INBOX_DECISION_SUBCOMMAND_REGISTRY = {
         "decision_requests.resolve",
         inbox_decisions.decision_requests_resolve,
     ),
+    ("decision-requests", "dispose-ended"): (
+        "decision_requests.dispose_ended",
+        inbox_decisions.decision_requests_dispose_ended,
+    ),
 }
+
 
 ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
     ("item-worktrees", "create"): (

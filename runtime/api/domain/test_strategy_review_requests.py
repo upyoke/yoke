@@ -10,6 +10,10 @@ class _ExistsConnection:
     def fetchone(self):
         return (1,)
 
+    def fetchall(self):
+        return []
+
+
 
 def test_strategy_review_adds_named_reviewer_with_role_fallback(
     monkeypatch,

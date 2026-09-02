@@ -93,6 +93,17 @@ class DecisionWithdrawRequest(BaseModel):
     reason: str
 
 
+class DecisionDisposeEndedRequest(BaseModel):
+    project_ids: Optional[List[int]] = None
+
+
+class DecisionDisposeEndedResponse(BaseModel):
+    reaped_executions: List[Dict[str, Any]]
+    withdrawn: List[Dict[str, Any]]
+    withdrawn_count: int
+    retained_count: int
+
+
 class NotificationReadRequest(BaseModel):
     notification_id: int
 
@@ -109,6 +120,8 @@ class NotificationReadResponse(BaseModel):
 
 __all__ = [
     "DecisionCreateRequest",
+    "DecisionDisposeEndedRequest",
+    "DecisionDisposeEndedResponse",
     "DecisionMutationResponse",
     "DecisionResolveRequest",
     "DecisionRoleAuthority",
