@@ -87,6 +87,22 @@ class TestScreenshotAdapter:
         }
         assert json.loads(out)["outputPath"] == "/tmp/shot.png"
 
+    def test_project_flag_selects_the_authorized_profile(self):
+        """The daemon opens the same project's profile `authorize` signed in."""
+        with patch(
+            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+            return_value=None,
+        ) as ensure, patch(
+            "yoke_harness.browser_client.snapshot_screenshot",
+            return_value={"ok": True},
+        ):
+            rc, _out, _err = self._run(
+                "https://x.example/route", "--output", "/tmp/shot.png",
+                "--project", "acme",
+            )
+        assert rc == 0
+        ensure.assert_called_once_with("acme")
+
     def test_capture_runtime_error_exits_one(self):
         with patch(
             "yoke_harness.browser_qa_daemon.ensure_daemon_running",

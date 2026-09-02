@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import stat
 import subprocess
 
 import pytest
 
 from yoke_cli.config import browser_profile
+from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 from yoke_cli.commands import browser_authorize as authorize_command
 from yoke_harness import browser_client, browser_qa_daemon
 
@@ -63,6 +65,58 @@ def test_authorized_project_resolves_to_its_profile(machine_home) -> None:
 
     assert resolved == created
     assert str(created) in note
+
+
+def test_an_id_and_a_slug_reference_resolve_to_one_key(
+    machine_home, monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        browser_profile, "resolve_project_slug", lambda ref: "acme",
+    )
+
+    assert browser_profile.profile_project_key("7") == "acme"
+    assert browser_profile.profile_project_key("acme") == "acme"
+
+
+def test_the_checkout_default_finds_the_slug_authorized_profile(
+    machine_home, monkeypatch,
+) -> None:
+    """A slug-authorized profile is the one a checkout-defaulted daemon opens."""
+    created = browser_profile.ensure_profile_dir("acme")
+    monkeypatch.setattr(
+        browser_profile, "default_project_for_directory", lambda _directory: "7",
+    )
+    monkeypatch.setattr(
+        browser_profile, "resolve_project_slug", lambda ref: "acme",
+    )
+
+    resolved, note = browser_profile.resolve_authorized_profile()
+
+    assert resolved == created
+    assert "acme" in note
+
+
+def test_the_no_profile_note_names_the_slug(machine_home, monkeypatch) -> None:
+    monkeypatch.setattr(
+        browser_profile, "resolve_project_slug", lambda ref: "acme",
+    )
+
+    _resolved, note = browser_profile.resolve_authorized_profile("7")
+
+    assert "yoke browser authorize --project acme" in note
+
+
+def test_an_unresolvable_id_reference_refuses_with_its_recovery(
+    machine_home, monkeypatch,
+) -> None:
+    def _refuse(_ref):
+        raise ProjectSlugLookupError("project '7' did not resolve to a slug")
+
+    monkeypatch.setattr(browser_profile, "resolve_project_slug", _refuse)
+
+    assert browser_qa_daemon.ensure_daemon_running(project="7") == (
+        "project '7' did not resolve to a slug"
+    )
 
 
 def _stub_daemon_start(monkeypatch, tmp_path, state_loads):
@@ -192,9 +246,8 @@ def test_ensure_daemon_running_uses_the_projects_profile(
     assert calls == [str(profile)]
 
 
-def test_authorize_creates_the_profile_and_opens_the_window(
-    machine_home, tmp_path, monkeypatch,
-) -> None:
+def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
+    """Stand in for the browser runtime and the window subprocess."""
     runtime_dir = tmp_path / "browser-runtime"
     runtime_dir.joinpath("src").mkdir(parents=True)
     runtime_dir.joinpath("src", "authorize.js").write_text("", encoding="utf-8")
@@ -204,20 +257,71 @@ def test_authorize_creates_the_profile_and_opens_the_window(
     monkeypatch.setattr(
         browser_client.DaemonState, "load", staticmethod(lambda path=None: None),
     )
-    commands: list[list[str]] = []
-    monkeypatch.setattr(
-        authorize_command.subprocess,
-        "run",
-        lambda command, **_kwargs: commands.append(list(command))
-        or subprocess.CompletedProcess(command, 0),
-    )
+    calls: list[dict] = []
+
+    def fake_run(command, **kwargs):
+        calls.append({"command": list(command), **kwargs})
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(authorize_command.subprocess, "run", fake_run)
+    return calls
+
+
+def test_authorize_creates_the_profile_and_opens_the_window(
+    machine_home, tmp_path, monkeypatch,
+) -> None:
+    calls = _stub_authorize_runtime(tmp_path, monkeypatch)
 
     assert authorize_command.browser_authorize(["--project", "acme"]) == 0
 
     profile = browser_profile.profile_dir("acme")
     assert profile.is_dir()
-    assert commands[0][:2] == ["node", str(runtime_dir / "src" / "authorize.js")]
-    assert commands[0][2:4] == ["--profile-dir", str(profile)]
+    command = calls[0]["command"]
+    assert command[:2] == [
+        "node", str(tmp_path / "browser-runtime" / "src" / "authorize.js"),
+    ]
+    assert command[2:4] == ["--profile-dir", str(profile)]
+
+
+def test_authorize_prints_the_sign_in_prompt_once(
+    machine_home, tmp_path, monkeypatch, capsys,
+) -> None:
+    """The window's own prompt is the only one; printing it here duplicated it."""
+    _stub_authorize_runtime(tmp_path, monkeypatch)
+
+    assert authorize_command.browser_authorize(["--project", "acme"]) == 0
+
+    out = capsys.readouterr().out
+    assert "Opening the acme browser profile at " in out
+    assert "Sign in to whatever sites you need" not in out
+
+
+def test_authorize_json_mode_prints_only_its_payload(
+    machine_home, tmp_path, monkeypatch, capsys,
+) -> None:
+    calls = _stub_authorize_runtime(tmp_path, monkeypatch)
+
+    assert authorize_command.browser_authorize(
+        ["--project", "acme", "--json"],
+    ) == 0
+
+    out = capsys.readouterr().out
+    assert json.loads(out)["project"] == "acme"
+    assert calls[0]["stdout"] == subprocess.DEVNULL
+
+
+def test_authorize_reports_an_unresolvable_project(
+    machine_home, tmp_path, monkeypatch, capsys,
+) -> None:
+    _stub_authorize_runtime(tmp_path, monkeypatch)
+
+    def _refuse(_ref):
+        raise ProjectSlugLookupError("project '7' did not resolve to a slug")
+
+    monkeypatch.setattr(browser_profile, "resolve_project_slug", _refuse)
+
+    assert authorize_command.browser_authorize(["--project", "7"]) == 2
+    assert "did not resolve to a slug" in capsys.readouterr().err
 
 
 def test_authorize_reports_a_missing_runtime(machine_home, tmp_path, monkeypatch) -> None:

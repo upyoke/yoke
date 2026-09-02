@@ -86,8 +86,13 @@ def _ensure_daemon_running(
     )
 
     from yoke_cli.config.browser_profile import resolve_authorized_profile
+    from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
-    profile_path, profile_note = resolve_authorized_profile(project)
+    try:
+        profile_path, profile_note = resolve_authorized_profile(project)
+    except ProjectSlugLookupError as exc:
+        _bqa._log(str(exc))
+        return str(exc)
     _bqa._log(profile_note)
     profile = str(profile_path) if profile_path else None
 

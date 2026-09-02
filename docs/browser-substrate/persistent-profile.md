@@ -24,11 +24,22 @@ database, the repository, QA artifacts, or a transcript. The path contract is
 `yoke_contracts.machine_config.capability_secrets.browser_profile_relative_path`;
 `yoke_cli.config.browser_profile` resolves, creates, and reports it.
 
-`<project>` is the project reference, filesystem-normalized. Every caller —
+`<project>` is the project **slug**, filesystem-normalized. Every caller —
 `yoke browser authorize` and each daemon-start path — resolves it through
 `browser_profile.profile_project_key`, so the profile the operator signs into
 is the profile a worker later opens. Omitting `--project` resolves the
 checkout you are standing in, which is the recommended default.
+
+The slug is what makes those two agree. The two sides are handed different
+references for the same project: `--project yoke` is the slug an operator
+typed, while the checkout default answers with the numeric project id. Keyed by
+whatever each was handed, they named two directories for one project — a run
+started from the checkout opened a clean context and captured the signed-out
+page while the operator's signed-in profile sat under the other key. So an
+id-shaped reference is resolved to its slug (through the registered
+`projects.get` read) before it names a directory, and a slug is already
+canonical. Nothing migrates a directory left under a pre-slug key: delete it
+and run `yoke browser authorize` again.
 
 ## Signing in
 
@@ -84,11 +95,18 @@ and when *other* projects do have profiles it lists their references — a
 profile signed in under one reference and looked for under another is
 otherwise a silent miss.
 
-Check what a run here would open:
+`--project` takes the same reference, with the same checkout default, on
+`yoke qa browser screenshot`, `yoke qa browser step`, `yoke qa browser setup`,
+and `yoke qa browser status`. Check what a run here would open:
 
 ```sh
 yoke qa browser status --project yoke
 ```
+
+A reference that cannot be resolved to a slug is a refusal, not a silent clean
+context: the daemon-start paths return the named reason and the recovery
+(`yoke env list`, or name the project by slug), and `status` reports it as the
+profile facet.
 
 ## Expiry
 

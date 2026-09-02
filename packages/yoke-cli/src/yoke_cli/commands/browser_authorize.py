@@ -45,6 +45,9 @@ other installed browser because the profile's cookies are encrypted against
 that binary's OS keychain entry; a profile signed in with a different browser
 is unreadable to the daemon afterwards.
 
+The profile is keyed by the project slug, so a slug, a numeric project id, and
+the checkout default all open the one profile for that project.
+
 Worked examples:
 
   yoke browser authorize                      # the project of this checkout
@@ -95,9 +98,13 @@ def browser_authorize(args: List[str]) -> int:
         return 2
 
     from yoke_cli.config import browser_profile
+    from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
-    profile = browser_profile.ensure_profile_dir(parsed.project)
-    project_key = browser_profile.profile_project_key(parsed.project)
+    try:
+        profile = browser_profile.ensure_profile_dir(parsed.project)
+        project_key = browser_profile.profile_project_key(parsed.project)
+    except ProjectSlugLookupError as exc:
+        return _fail(parsed.json_mode, str(exc), code=2)
     runtime_dir = browser_runtime_home.ensure_materialized()
     authorize_js = runtime_dir / "src" / "authorize.js"
     if not authorize_js.is_file():
@@ -116,10 +123,18 @@ def browser_authorize(args: List[str]) -> int:
     if not parsed.json_mode:
         print(
             f"Opening the {project_key} browser profile at "
-            f"{browser_profile.profile_dir_display(profile)}.\n"
-            "Sign in to whatever sites you need, then close the window."
+            f"{browser_profile.profile_dir_display(profile)}."
         )
-    result = subprocess.run(command, cwd=str(runtime_dir), check=False)
+    # The window itself tells the operator to sign in, once the window exists;
+    # saying it here too printed the same instruction twice. In --json mode
+    # that narration would corrupt the payload, so the child's stdout is
+    # discarded rather than inherited.
+    result = subprocess.run(
+        command,
+        cwd=str(runtime_dir),
+        check=False,
+        stdout=subprocess.DEVNULL if parsed.json_mode else None,
+    )
     if result.returncode != 0:
         return _fail(
             parsed.json_mode,
