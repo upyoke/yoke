@@ -33,6 +33,26 @@ MIRROR_STATE_FAILED = "failed"
 UNMIRRORED_EVENT_NAME = "ItemMirrorAbsent"
 
 
+def classify_mirror_attempt(
+    rc: Any,
+    *,
+    project: str,
+    conn: Any = None,
+) -> str:
+    """Map a sync-helper return code onto a mirror-attempt outcome.
+
+    Disabled-mode skips return 0 the same way a successful create does;
+    the mode switch is what distinguishes them, not the return code.
+    """
+    if int(rc or 0) != 0:
+        return MIRROR_ATTEMPT_FAILED
+    from yoke_core.domain.projects_github_sync_mode import github_sync_enabled
+
+    if not github_sync_enabled(project, conn=conn):
+        return MIRROR_ATTEMPT_SKIPPED
+    return MIRROR_ATTEMPT_SYNCED
+
+
 def _github_issue(conn: Any, item_id: int) -> str:
     from yoke_core.domain import db_backend
 
@@ -116,6 +136,9 @@ def sync_and_record_mirror(
 
     out = out if out is not None else sys.stderr
     attempt = backlog_rendering._sync_item(item_id, out)
+    # sync_item returns 0 for a real create and for a disabled-mode skip.
+    if attempt == MIRROR_ATTEMPT_SYNCED:
+        attempt = classify_mirror_attempt(0, project=project, conn=conn)
     return record_mirror_state(
         conn,
         item_id=item_id,
@@ -151,6 +174,7 @@ __all__ = [
     "MIRROR_STATE_MIRRORED",
     "MIRROR_STATE_UNMIRRORED",
     "UNMIRRORED_EVENT_NAME",
+    "classify_mirror_attempt",
     "record_mirror_state",
     "sync_and_record_mirror",
 ]
