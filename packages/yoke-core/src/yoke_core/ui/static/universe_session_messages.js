@@ -50,6 +50,7 @@ function deliverySummary(message) {
   }
   const acknowledged = counts.get("acknowledged") || 0;
   const expired = counts.get("expired") || 0;
+  const cancelled = counts.get("cancelled") || 0;
   if (acknowledged && !expired) {
     return { state: "acknowledged", label: "Acknowledged", attention: false };
   }
@@ -63,7 +64,10 @@ function deliverySummary(message) {
       attention: false,
     };
   }
-  return { state: "pending", label: "Awaiting delivery", attention: true };
+  if (cancelled) {
+    return { state: "cancelled", label: "Cancelled", attention: false };
+  }
+  return { state: "unknown", label: "Unknown delivery state", attention: false };
 }
 
 function statePill(documentNode, summary) {
@@ -238,11 +242,7 @@ function renderMessages(
     return;
   }
   const list = el(documentNode, "ol", "session-message-list");
-  const ordered = [...messages].sort(
-    (left, right) => Number(deliverySummary(right).attention)
-      - Number(deliverySummary(left).attention),
-  );
-  for (const message of ordered) {
+  for (const message of messages) {
     list.appendChild(messageCard(
       documentNode, message, sessions, cancelMessage, acknowledge,
     ));

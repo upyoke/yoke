@@ -123,14 +123,14 @@ test("message history leads with readable content and accessible receipts", asyn
   });
 
   assert.equal(
-    byClass(root, "session-message-copy")[1].textContent,
+    byClass(root, "session-message-copy")[0].textContent,
     fullBody,
   );
   assert.equal(
     byClass(root, "session-message-card")[0].getAttribute("data-message-id"),
-    "message-needs-attention",
+    "message-opaque-id",
   );
-  assert.equal(byClass(root, "session-message-card")[0].className.includes(
+  assert.equal(byClass(root, "session-message-card")[1].className.includes(
     "is-attention",
   ), true);
   assert.equal(button(root, "Cancel") !== undefined, true);
