@@ -54,7 +54,7 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
     monkeypatch.setattr(merge_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda *_a: None)
     monkeypatch.setattr(
-        merge_cli.terminal,
+        merge_cli.close_out,
         "transition_to_done",
         lambda **_k: timeline.append("done") or "",
     )

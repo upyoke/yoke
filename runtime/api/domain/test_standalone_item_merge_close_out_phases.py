@@ -51,8 +51,10 @@ def test_close_out_emits_a_phase_marker_for_each_step(monkeypatch, capsys):
 
     monkeypatch.setattr(merge_cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(merge_evidence, "call_dispatcher", dispatch)
-    monkeypatch.setattr(merge_cli.terminal, "call_dispatcher", dispatch)
-    monkeypatch.setattr(merge_cli.terminal.recovery, "claim_error", lambda *_a: "")
+    monkeypatch.setattr(merge_cli.close_out.terminal, "call_dispatcher", dispatch)
+    monkeypatch.setattr(
+        merge_cli.close_out.terminal.recovery, "claim_error", lambda *_a: ""
+    )
 
     exit_code = merge_cli.run(
         ["ITEM-1", "--result", "landed", "--verification", "green"],
