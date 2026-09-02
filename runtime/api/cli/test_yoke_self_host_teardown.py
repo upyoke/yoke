@@ -12,7 +12,12 @@ import pytest
 from yoke_cli.commands import self_host as commands
 from yoke_cli.commands import self_host_teardown as teardown_commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
-from yoke_cli.config import writer
+from yoke_cli.config import (
+    github_git_credential_file,
+    github_machine_operation,
+    machine_config_file,
+    writer,
+)
 from yoke_cli.self_host import bundle, first_boot_token, teardown
 
 
@@ -52,7 +57,10 @@ def _seed_connection(tmp_path: Path, *, env: str, api_url: str) -> None:
     token = tmp_path / f"{env}.token"
     token.write_text("tok\n", encoding="utf-8")
     writer.set_connection(
-        env, transport="https", api_url=api_url, token_file=str(token),
+        env,
+        transport="https",
+        api_url=api_url,
+        token_file=str(token),
     )
 
 
@@ -63,6 +71,13 @@ def _payload(machine_home: Path) -> dict:
 def test_teardown_is_registered_as_a_tool_shaped_command() -> None:
     resolved, _extra = resolve_tool_shaped(("self-host", "teardown"))
     assert resolved is teardown_commands.self_host_teardown
+
+
+def test_teardown_has_no_unsafe_single_connection_selector(capsys) -> None:
+    rc = teardown_commands.self_host_teardown(["--connection", "self-host"])
+
+    assert rc == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
 
 
 def test_default_teardown_stops_the_stack_and_keeps_the_data(target, docker):
@@ -77,7 +92,9 @@ def test_default_teardown_stops_the_stack_and_keeps_the_data(target, docker):
 
 def test_destroying_the_universe_takes_its_own_flag(target, docker):
     report = teardown.tear_down(
-        directory=str(target), destroy_universe=True, keep_connection=True,
+        directory=str(target),
+        destroy_universe=True,
+        keep_connection=True,
     )
 
     assert docker == [("/usr/bin/docker", "compose", "down", "-v")]
@@ -85,13 +102,21 @@ def test_destroying_the_universe_takes_its_own_flag(target, docker):
 
 
 def test_destroy_universe_refuses_without_consent_when_not_a_tty(
-    target, docker, monkeypatch, capsys,
+    target,
+    docker,
+    monkeypatch,
+    capsys,
 ):
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
 
-    rc = teardown_commands.self_host_teardown([
-        "--dir", str(target), "--destroy-universe", "--keep-connection",
-    ])
+    rc = teardown_commands.self_host_teardown(
+        [
+            "--dir",
+            str(target),
+            "--destroy-universe",
+            "--keep-connection",
+        ]
+    )
 
     assert rc == 1
     assert "pass --yes to consent" in capsys.readouterr().err
@@ -101,7 +126,9 @@ def test_destroy_universe_refuses_without_consent_when_not_a_tty(
 
 def test_images_are_read_before_the_stack_goes_down(target, docker):
     report = teardown.tear_down(
-        directory=str(target), remove_images=True, keep_connection=True,
+        directory=str(target),
+        remove_images=True,
+        keep_connection=True,
     )
 
     assert docker[0] == ("/usr/bin/docker", "compose", "config", "--images")
@@ -127,7 +154,9 @@ def test_an_image_still_in_use_is_reported_not_forced(target, monkeypatch):
     monkeypatch.setattr(teardown, "_RUN", run)
 
     report = teardown.tear_down(
-        directory=str(target), remove_images=True, keep_connection=True,
+        directory=str(target),
+        remove_images=True,
+        keep_connection=True,
     )
 
     assert report["images_removed"] == []
@@ -138,7 +167,9 @@ def test_remove_bundle_deletes_yoke_files_and_keeps_operator_files(target, docke
     (target / "notes.txt").write_text("mine\n", encoding="utf-8")
 
     report = teardown.tear_down(
-        directory=str(target), remove_bundle=True, keep_connection=True,
+        directory=str(target),
+        remove_bundle=True,
+        keep_connection=True,
     )
 
     token_file = first_boot_token.token_drop_path(target)
@@ -152,21 +183,26 @@ def test_remove_bundle_deletes_yoke_files_and_keeps_operator_files(target, docke
 
 def test_remove_bundle_removes_an_emptied_directory(target, docker):
     teardown.tear_down(
-        directory=str(target), remove_bundle=True, keep_connection=True,
+        directory=str(target),
+        remove_bundle=True,
+        keep_connection=True,
     )
 
     assert not target.exists()
 
 
 def test_teardown_retires_the_connection_pointing_at_this_bundle(
-    target, docker, tmp_path, machine_home,
+    target,
+    docker,
+    tmp_path,
+    machine_home,
 ):
     _seed_connection(tmp_path, env="self-host", api_url="http://127.0.0.1:8765")
     config = machine_home / "config.json"
 
     report = teardown.tear_down(directory=str(target), config_path=str(config))
 
-    assert report["connection"]["removed_env"] == "self-host"
+    assert report["connection"]["removed_envs"] == ["self-host"]
     payload = _payload(machine_home)
     assert payload["connections"] == {}
     # The machine is now honestly unconfigured rather than pointed at a
@@ -174,13 +210,91 @@ def test_teardown_retires_the_connection_pointing_at_this_bundle(
     assert payload.get("active_env", "") == ""
 
 
+def test_teardown_retires_every_bundle_alias_and_cleans_machine_residue(
+    target,
+    docker,
+    tmp_path,
+    machine_home,
+):
+    url = "http://127.0.0.1:8765"
+    _seed_connection(tmp_path, env="self-host", api_url=url)
+    _seed_connection(tmp_path, env="walker-client", api_url=url)
+    config = machine_home / "config.json"
+    token_paths = [
+        machine_home / "secrets" / "self-host.token",
+        machine_home / "secrets" / "walker-client.token",
+    ]
+    config_lock = machine_config_file.config_lock_path(config)
+    operation_lock = github_git_credential_file.lock_path(
+        github_machine_operation.operation_lock_target()
+    )
+    assert all(path.is_file() for path in (*token_paths, config_lock, operation_lock))
+
+    report = teardown.tear_down(directory=str(target), config_path=str(config))
+
+    assert report["connection"]["removed_envs"] == ["self-host", "walker-client"]
+    assert report["connection"]["credential_removed_envs"] == [
+        "self-host",
+        "walker-client",
+    ]
+    assert _payload(machine_home)["connections"] == {}
+    assert not any(
+        path.exists() for path in (*token_paths, config_lock, operation_lock)
+    )
+    assert sorted(report["machine_locks_removed"]) == sorted(
+        [str(config_lock), str(operation_lock)]
+    )
+    assert docker == [("/usr/bin/docker", "compose", "down")]
+
+
+def test_connection_choice_refuses_before_docker_and_excludes_dead_replacements(
+    target,
+    docker,
+    tmp_path,
+    machine_home,
+):
+    url = "http://127.0.0.1:8765"
+    _seed_connection(tmp_path, env="self-host", api_url=url)
+    _seed_connection(tmp_path, env="walker-client", api_url=url)
+    _seed_connection(tmp_path, env="hosted", api_url="https://app.upyoke.com/api")
+    config = machine_home / "config.json"
+
+    with pytest.raises(teardown.SelfHostTeardownError) as missing:
+        teardown.tear_down(directory=str(target), config_path=str(config))
+    assert "configured: ['hosted']" in str(missing.value)
+    assert "walker-client" not in str(missing.value)
+    assert docker == []
+
+    with pytest.raises(teardown.SelfHostTeardownError) as dead:
+        teardown.tear_down(
+            directory=str(target),
+            config_path=str(config),
+            activate="walker-client",
+        )
+    assert "configured: ['hosted']" in str(dead.value)
+    assert docker == []
+
+    report = teardown.tear_down(
+        directory=str(target),
+        config_path=str(config),
+        activate="hosted",
+    )
+    assert report["connection"]["removed_envs"] == ["self-host", "walker-client"]
+    assert report["connection"]["active_env"] == "hosted"
+    assert list(_payload(machine_home)["connections"]) == ["hosted"]
+
+
 def test_a_connection_for_another_server_is_left_alone(
-    target, docker, tmp_path, machine_home,
+    target,
+    docker,
+    tmp_path,
+    machine_home,
 ):
     _seed_connection(tmp_path, env="hosted", api_url="https://yoke.internal")
 
     report = teardown.tear_down(
-        directory=str(target), config_path=str(machine_home / "config.json"),
+        directory=str(target),
+        config_path=str(machine_home / "config.json"),
     )
 
     assert report["connection"] is None
@@ -188,7 +302,8 @@ def test_a_connection_for_another_server_is_left_alone(
 
 
 def test_retiring_the_active_authority_with_peers_names_the_choice(
-    tmp_path, machine_home,
+    tmp_path,
+    machine_home,
 ):
     _seed_connection(tmp_path, env="self-host", api_url="http://127.0.0.1:8765")
     _seed_connection(tmp_path, env="hosted", api_url="https://app.upyoke.com/api")
@@ -220,7 +335,10 @@ def test_a_failed_compose_down_removes_nothing_else(target, monkeypatch):
         teardown,
         "_RUN",
         lambda argv, **kwargs: subprocess.CompletedProcess(
-            tuple(argv), 1, "", "daemon not running",
+            tuple(argv),
+            1,
+            "",
+            "daemon not running",
         ),
     )
 
@@ -228,6 +346,4 @@ def test_a_failed_compose_down_removes_nothing_else(target, monkeypatch):
         teardown.tear_down(directory=str(target), remove_bundle=True)
 
     assert "daemon not running" in str(raised.value)
-    assert stat.S_ISREG(
-        first_boot_token.token_drop_path(target).stat().st_mode
-    )
+    assert stat.S_ISREG(first_boot_token.token_drop_path(target).stat().st_mode)

@@ -45,21 +45,50 @@ def tear_down(
     remove_images: bool = False,
     remove_bundle: bool = False,
     keep_connection: bool = False,
-    connection: str | None = None,
     activate: str | None = None,
     config_path: str | None = None,
-    remove_connection: Callable[..., dict[str, Any]] | None = None,
+    remove_connections: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Stop the stack, then remove exactly what the caller asked for."""
+    """Retire dead authorities, then remove exactly what the caller asked for."""
     target = Path(directory or bundle.DEFAULT_BUNDLE_DIR).expanduser().resolve()
     if not (target / bundle.COMPOSE_FILE_NAME).is_file():
         raise SelfHostTeardownError(
             f"no self-host bundle at {target}: it has no "
             f"{bundle.COMPOSE_FILE_NAME}. Name the bundle with --dir PATH"
         )
+    if keep_connection and activate is not None:
+        raise SelfHostTeardownError(
+            "--keep-connection leaves authority unchanged, so it cannot be "
+            "combined with --activate; choose one and re-run"
+        )
     docker = _require_docker()
     images = _bundle_images(docker, target) if remove_images else ()
-    _compose(docker, target, ("down", "-v") if destroy_universe else ("down",))
+    connection_report = None
+    machine_locks_removed: list[str] = []
+    if not keep_connection:
+        connection_report = _retire_connections(
+            target,
+            activate=activate,
+            config_path=config_path,
+            remove=remove_connections,
+        )
+        if connection_report is not None:
+            machine_locks_removed = _remove_machine_lock_files(config_path)
+    try:
+        _compose(
+            docker,
+            target,
+            ("down", "-v") if destroy_universe else ("down",),
+        )
+    except SelfHostTeardownError as exc:
+        removed = (connection_report or {}).get("removed_envs") or []
+        if removed:
+            raise SelfHostTeardownError(
+                f"{exc} Connections {removed} were retired before Docker "
+                "teardown so none can point at a partially stopped server; "
+                "the bundle credential remains. Fix Docker and re-run teardown"
+            ) from exc
+        raise
     report: dict[str, Any] = {
         "ok": True,
         "directory": str(target),
@@ -68,21 +97,14 @@ def tear_down(
         "images_retained": [],
         "bundle_files_removed": [],
         "bundle_files_retained": [],
-        "connection": None,
+        "connection": connection_report,
+        "machine_locks_removed": machine_locks_removed,
     }
     for image in images:
         removed = _remove_image(docker, target, image)
         report["images_removed" if removed else "images_retained"].append(image)
     if remove_bundle:
         _remove_bundle_files(target, report)
-    if not keep_connection:
-        report["connection"] = _retire_connection(
-            target,
-            connection=connection,
-            activate=activate,
-            config_path=config_path,
-            remove=remove_connection,
-        )
     return report
 
 
@@ -108,7 +130,7 @@ def _compose(executable: str, target: Path, args: Sequence[str]) -> str:
         detail = (result.stderr or result.stdout or "").strip()[-2048:]
         raise SelfHostTeardownError(
             f"`docker compose {' '.join(args)}` failed in {target}: {detail}. "
-            "Nothing else was removed; fix the reported problem and re-run"
+            "No later teardown step ran; fix the reported problem and re-run"
         )
     return result.stdout or ""
 
@@ -116,7 +138,9 @@ def _compose(executable: str, target: Path, args: Sequence[str]) -> str:
 def _bundle_images(executable: str, target: Path) -> tuple[str, ...]:
     """Ask Compose which images this bundle uses, before it is torn down."""
     listing = _compose(executable, target, ("config", "--images"))
-    return tuple(dict.fromkeys(line.strip() for line in listing.splitlines() if line.strip()))
+    return tuple(
+        dict.fromkeys(line.strip() for line in listing.splitlines() if line.strip())
+    )
 
 
 def _remove_image(executable: str, target: Path, image: str) -> bool:
@@ -147,7 +171,9 @@ def _remove_bundle_files(target: Path, report: dict[str, Any]) -> None:
             path.unlink()
             report["bundle_files_removed"].append(str(path))
     for directory in (secrets_dir, target):
-        remaining = sorted(p.name for p in directory.iterdir()) if directory.is_dir() else []
+        remaining = (
+            sorted(p.name for p in directory.iterdir()) if directory.is_dir() else []
+        )
         if not remaining:
             directory.rmdir()
         else:
@@ -157,49 +183,66 @@ def _remove_bundle_files(target: Path, report: dict[str, Any]) -> None:
             break
 
 
-def _retire_connection(
+def _retire_connections(
     target: Path,
     *,
-    connection: str | None,
     activate: str | None,
     config_path: str | None,
     remove: Callable[..., dict[str, Any]] | None,
 ) -> dict[str, Any] | None:
-    """Remove the machine connection that pointed at this bundle's server."""
+    """Atomically remove every connection that points at this bundle."""
     from yoke_cli.config import machine_config, writer
 
-    retire = remove or writer.remove_connection
+    retire = remove or writer.remove_connections
     payload = machine_config.load_config(config_path)
     connections = payload.get("connections")
     connections = connections if isinstance(connections, dict) else {}
-    if connection is not None:
-        selected = [connection] if connection in connections else []
-        if not selected:
-            raise SelfHostTeardownError(
-                f"connection {connection!r} has no entry in "
-                f"{sorted(map(str, connections))}"
-            )
-    else:
-        url = bundle_connect_url(target)
-        selected = sorted(
-            str(name) for name, entry in connections.items()
-            if isinstance(entry, dict)
-            and str(entry.get("api_url") or "").rstrip("/") == url
-        )
+    url = bundle_connect_url(target)
+    selected = sorted(
+        str(name)
+        for name, entry in connections.items()
+        if isinstance(entry, dict)
+        and str(entry.get("api_url") or "").rstrip("/") == url
+    )
     if not selected:
+        if activate is not None:
+            raise SelfHostTeardownError(
+                f"--activate {activate} has no effect because no machine "
+                f"connection points at {url}; omit --activate and re-run"
+            )
         return None
-    if len(selected) > 1:
-        raise SelfHostTeardownError(
-            f"several connections point at this bundle's server ({selected}); "
-            "name the one to retire with --connection ENV, or keep them all "
-            "with --keep-connection"
-        )
     try:
-        return retire(selected[0], activate=activate, path=config_path)
+        return retire(selected, activate=activate, path=config_path)
     except Exception as exc:  # noqa: BLE001 - reported as a teardown refusal
         raise SelfHostTeardownError(
-            f"the stack is down, but its connection was kept: {exc}"
+            f"connection retirement refused before the stack was touched: {exc}. "
+            "Correct the connection choice or machine-config state, then re-run"
         ) from exc
+
+
+def _remove_machine_lock_files(config_path: str | None) -> list[str]:
+    """Remove the idle lock artifacts created by connection retirement."""
+    from yoke_cli.config import (
+        github_git_credential_file,
+        github_machine_operation,
+        machine_config,
+        machine_config_file,
+    )
+
+    targets = (
+        machine_config_file.config_lock_path(machine_config.config_path(config_path)),
+        github_git_credential_file.lock_path(
+            github_machine_operation.operation_lock_target()
+        ),
+    )
+    removed: list[str] = []
+    try:
+        for target in targets:
+            if machine_config_file.remove_idle_lock_file(target):
+                removed.append(str(target))
+    except machine_config_file.MachineConfigFileError as exc:
+        raise SelfHostTeardownError(str(exc)) from exc
+    return removed
 
 
 def _run(

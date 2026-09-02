@@ -30,7 +30,9 @@ def _seed_https(home: Path, tmp_path: Path, env: str = "stage") -> Path:
     token_file = tmp_path / f"{env}.token"
     token_file.write_text("tok\n")
     writer.set_connection(
-        env, transport="https", api_url="https://api.example",
+        env,
+        transport="https",
+        api_url="https://api.example",
         token_file=str(token_file),
     )
     return token_file
@@ -38,7 +40,9 @@ def _seed_https(home: Path, tmp_path: Path, env: str = "stage") -> Path:
 
 class TestSetConnection:
     def test_create_writes_valid_config_and_activates_first_env(
-        self, home, tmp_path,
+        self,
+        home,
+        tmp_path,
     ):
         _seed_https(home, tmp_path)
 
@@ -80,18 +84,25 @@ class TestSetConnection:
     def test_credential_flags_are_mutually_exclusive(self, home):
         with pytest.raises(MachineConfigWriteError, match="mutually exclusive"):
             writer.set_connection(
-                "stage", transport="https", api_url="https://api.example",
-                token_file="/a", dsn_file="/b",
+                "stage",
+                transport="https",
+                api_url="https://api.example",
+                token_file="/a",
+                dsn_file="/b",
             )
 
     def test_local_postgres_defaults_to_explicit_non_prod(
-        self, home, tmp_path,
+        self,
+        home,
+        tmp_path,
     ):
         dsn = tmp_path / "prod-named.dsn"
         dsn.write_text("postgresql://admin@localhost/yoke_prod\n")
 
         writer.set_connection(
-            "prod", transport="local-postgres", dsn_file=str(dsn),
+            "prod",
+            transport="local-postgres",
+            dsn_file=str(dsn),
         )
 
         entry = _config(home)["connections"]["prod"]
@@ -126,6 +137,30 @@ class TestSetActiveEnv:
 
 
 class TestRemoveConnection:
+    def test_batch_retirement_refuses_then_removes_all_aliases_atomically(
+        self,
+        home,
+        tmp_path,
+    ):
+        _seed_https(home, tmp_path, env="prod")
+        _seed_https(home, tmp_path, env="client")
+        _seed_https(home, tmp_path, env="spare")
+
+        with pytest.raises(MachineConfigWriteError, match=r"configured: \['spare'\]"):
+            writer.remove_connections(("prod", "client"))
+        assert set(_config(home)["connections"]) == {"prod", "client", "spare"}
+
+        report = writer.remove_connections(
+            ("prod", "client"),
+            activate="spare",
+        )
+
+        assert report["removed_envs"] == ["prod", "client"]
+        assert report["credential_removed_envs"] == ["client", "prod"]
+        assert list(_config(home)["connections"]) == ["spare"]
+        assert not (home / "secrets" / "prod.token").exists()
+        assert not (home / "secrets" / "client.token").exists()
+
     def test_removes_inactive_alias_owned_secret_and_mappings(self, home, tmp_path):
         _seed_https(home, tmp_path, env="prod")
         _seed_https(home, tmp_path, env="hosted-prod")
@@ -159,7 +194,9 @@ class TestRemoveConnection:
             writer.remove_connection("prod")
 
     def test_named_replacement_takes_over_the_active_authority(
-        self, home, tmp_path,
+        self,
+        home,
+        tmp_path,
     ):
         _seed_https(home, tmp_path, env="prod")
         _seed_https(home, tmp_path, env="spare")
@@ -170,7 +207,9 @@ class TestRemoveConnection:
         assert _config(home)["active_env"] == "spare"
 
     def test_retiring_the_last_connection_leaves_the_machine_unconfigured(
-        self, home, tmp_path,
+        self,
+        home,
+        tmp_path,
     ):
         """Removing the only server is the end state of a teardown.
 
@@ -188,7 +227,9 @@ class TestRemoveConnection:
         assert payload.get("active_env", "") == ""
 
     def test_keeps_credential_referenced_by_canonical_connection(
-        self, home, tmp_path,
+        self,
+        home,
+        tmp_path,
     ):
         _seed_https(home, tmp_path, env="prod")
         _seed_https(home, tmp_path, env="canonical")
@@ -207,7 +248,9 @@ class TestRemoveConnection:
         assert "canonical" in _config(home)["connections"]
 
     def test_recovers_legacy_retiring_tombstone_before_config_write(
-        self, home, tmp_path,
+        self,
+        home,
+        tmp_path,
     ):
         _seed_https(home, tmp_path, env="prod")
         _seed_https(home, tmp_path, env="canonical")
@@ -245,7 +288,10 @@ class TestRemoveConnection:
 
 class TestSetCredential:
     def test_token_stdin_stores_secret_owner_only(
-        self, home, tmp_path, monkeypatch,
+        self,
+        home,
+        tmp_path,
+        monkeypatch,
     ):
         _seed_https(home, tmp_path)
         monkeypatch.setattr("sys.stdin", io.StringIO("s3cret-token\n"))
@@ -283,8 +329,7 @@ class TestSetCredential:
     def test_dsn_rotation_on_local_postgres(self, home, tmp_path):
         dsn = tmp_path / "prod.dsn"
         dsn.write_text("postgresql://x\n")
-        writer.set_connection("prod", transport="local-postgres",
-                              dsn_file=str(dsn))
+        writer.set_connection("prod", transport="local-postgres", dsn_file=str(dsn))
 
         new_dsn = tmp_path / "prod2.dsn"
         new_dsn.write_text("postgresql://y\n")
@@ -292,6 +337,7 @@ class TestSetCredential:
 
         entry = _config(home)["connections"]["prod"]
         assert entry["credential_source"] == {
-            "kind": "dsn_file", "path": str(home / "secrets" / "prod.dsn"),
+            "kind": "dsn_file",
+            "path": str(home / "secrets" / "prod.dsn"),
         }
         assert (home / "secrets" / "prod.dsn").read_text() == "postgresql://y\n"

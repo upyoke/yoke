@@ -26,7 +26,10 @@ from yoke_cli.config.writer_credentials import (
     CredentialWriteError,
     credential_from_inputs,
 )
-from yoke_cli.config.writer_connection_remove import remove_connection
+from yoke_cli.config.writer_connection_remove import (
+    remove_connection,
+    remove_connections,
+)
 from yoke_contracts.machine_config import schema as contract
 
 
@@ -79,7 +82,9 @@ def set_connection(
     payload, cfg_path = _load_payload(path)
     connections = payload.setdefault("connections", {})
     if not isinstance(connections, dict):
-        raise MachineConfigWriteError("connections must be an object; repair the file first (`yoke status`)")
+        raise MachineConfigWriteError(
+            "connections must be an object; repair the file first (`yoke status`)"
+        )
     if replace:
         connections.pop(env, None)
     entry = connections.get(env)
@@ -99,10 +104,9 @@ def set_connection(
         entry["api_url"] = api_url
     if prod is not None:
         entry[contract.PROD_FLAG_KEY] = prod
-    elif (
-        (is_new or contract.PROD_FLAG_KEY not in entry)
-        and str(entry.get("transport") or "").strip() in contract.POSTGRES_TRANSPORTS
-    ):
+    elif (is_new or contract.PROD_FLAG_KEY not in entry) and str(
+        entry.get("transport") or ""
+    ).strip() in contract.POSTGRES_TRANSPORTS:
         entry[contract.PROD_FLAG_KEY] = False
     try:
         source = credential_from_inputs(
@@ -122,8 +126,12 @@ def set_connection(
     if activate or not str(payload.get("active_env") or "").strip():
         payload["active_env"] = env
     _write_payload(payload, cfg_path)
-    return {"env": env, "connection": dict(entry),
-            "active_env": payload["active_env"], "config": str(cfg_path)}
+    return {
+        "env": env,
+        "connection": dict(entry),
+        "active_env": payload["active_env"],
+        "config": str(cfg_path),
+    }
 
 
 @github_machine_operation.serialized_operation(MachineConfigWriteError)
@@ -169,8 +177,11 @@ def set_credential(
     except CredentialWriteError as exc:
         raise MachineConfigWriteError(str(exc)) from exc
     _write_payload(payload, cfg_path)
-    return {"env": env, "credential_source": dict(entry["credential_source"]),
-            "config": str(cfg_path)}
+    return {
+        "env": env,
+        "credential_source": dict(entry["credential_source"]),
+        "config": str(cfg_path),
+    }
 
 
 @_serialized_mutation
@@ -204,13 +215,19 @@ def register_project(
     # (checkout, env) row is upserted, leaving the checkout's rows for other
     # envs intact.
     payload["projects"] = contract.upsert_project_entry(
-        payload.get("projects"), checkout=str(root),
-        project_id=normalized, env=env, board=None,
+        payload.get("projects"),
+        checkout=str(root),
+        project_id=normalized,
+        env=env,
+        board=None,
     )
     _write_payload(payload, cfg_path)
     written = next(
-        (e for e in payload["projects"]
-         if e.get("checkout") == str(root) and e.get("env") == env),
+        (
+            e
+            for e in payload["projects"]
+            if e.get("checkout") == str(root) and e.get("env") == env
+        ),
         {},
     )
     return {"checkout": str(root), "entry": written, "config": str(cfg_path)}
@@ -249,14 +266,16 @@ def stamp_untagged_project_envs(
             skipped.append({"checkout": entry["checkout"], "env": entry["env"]})
             continue
         entry["env"] = env
-        stamped.append({
-            "checkout": entry["checkout"], "env": env,
-            "project_id": entry["project_id"],
-        })
+        stamped.append(
+            {
+                "checkout": entry["checkout"],
+                "env": env,
+                "project_id": entry["project_id"],
+            }
+        )
     payload["projects"] = entries
     _write_payload(payload, cfg_path)
-    return {"env": env, "stamped": stamped, "skipped": skipped,
-            "config": str(cfg_path)}
+    return {"env": env, "stamped": stamped, "skipped": skipped, "config": str(cfg_path)}
 
 
 def _registration_env(payload: Mapping[str, Any]) -> str:
@@ -293,7 +312,16 @@ def set_runtime_paths(
     }
 
 
-__all__ = ["MachineConfigWriteError", "clear_github", "register_project",
-           "stamp_untagged_project_envs", "set_github",
-           "remove_connection", "set_runtime_paths", "set_active_env", "set_connection",
-           "set_credential"]
+__all__ = [
+    "MachineConfigWriteError",
+    "clear_github",
+    "register_project",
+    "stamp_untagged_project_envs",
+    "set_github",
+    "remove_connection",
+    "remove_connections",
+    "set_runtime_paths",
+    "set_active_env",
+    "set_connection",
+    "set_credential",
+]

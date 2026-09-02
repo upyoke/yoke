@@ -56,6 +56,12 @@ def ensure_owner_only_directory(path: str | Path) -> Path:
     return selected
 
 
+def config_lock_path(config_path: str | Path) -> Path:
+    """Return the stable advisory-lock path for one machine config."""
+    selected = Path(config_path).expanduser()
+    return selected.with_name(selected.name + ".lock")
+
+
 @contextmanager
 def exclusive_lock(config_path: str | Path) -> Iterator[None]:
     """Hold the stable owner-only lock associated with ``config_path``."""
@@ -63,7 +69,7 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
     try:
         selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         _assert_secure_parent(selected.parent)
-        lock_path = selected.with_name(selected.name + ".lock")
+        lock_path = config_lock_path(selected)
         flags = (
             os.O_RDWR
             | os.O_CREAT
@@ -93,6 +99,54 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
         finally:
             os.close(descriptor)
+
+
+def remove_idle_lock_file(lock_path: str | Path) -> bool:
+    """Remove an idle stable lock without allowing split lock ownership.
+
+    The path is unlinked while its inode is exclusively locked. A waiter that
+    opened the old inode must pass the normal stable-inode check before it can
+    mutate state, so a newly created lock can never authorize two writers.
+    """
+    selected = Path(lock_path).expanduser()
+    descriptor = -1
+    locked = False
+    try:
+        _assert_secure_parent(selected.parent)
+        flags = os.O_RDWR | getattr(os, "O_CLOEXEC", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(selected, flags)
+        except FileNotFoundError:
+            return False
+        _assert_owned_regular_file(os.fstat(descriptor), selected)
+        os.fchmod(descriptor, 0o600)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise MachineConfigFileError(
+                f"machine-state lock is busy: {selected}; wait for the "
+                "other Yoke operation to finish, then re-run teardown"
+            ) from exc
+        locked = True
+        _assert_stable_lock(descriptor, selected)
+        selected.unlink()
+        _fsync_directory(selected.parent)
+        return True
+    except MachineConfigFileError:
+        raise
+    except OSError as exc:
+        raise MachineConfigFileError(
+            f"machine-state lock could not be removed: {selected}; repair "
+            "its ownership or permissions, then re-run teardown"
+        ) from exc
+    finally:
+        if descriptor >= 0:
+            try:
+                if locked:
+                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
 
 
 def atomic_write_text(path: str | Path, content: str) -> None:
@@ -218,7 +272,9 @@ def _fsync_directory(path: Path) -> None:
 __all__ = [
     "MachineConfigFileError",
     "atomic_write_text",
+    "config_lock_path",
     "ensure_owner_only_directory",
     "exclusive_lock",
+    "remove_idle_lock_file",
     "remove_file",
 ]
