@@ -68,8 +68,9 @@ def post_checkout_steps(
       and chose to strip, which happens after the clone's remote choreography
       and before anything is installed into the folder.
     * ``project-write-board-art`` — checkouts without project-local board art
-      finish by writing the finalized art and rebuilding the initial
-      ``BOARD.md``.
+      finish by writing the finalized art, rebuilding the initial
+      ``BOARD.md``, and committing the art, so the checkout is handed over
+      clean rather than dirty with the installer's own output.
     """
     steps: list[dict[str, Any]] = []
     if project_mode == onboard_project.PROJECT_MODE_CLONE_REMOTE and not reuse.get(

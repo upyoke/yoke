@@ -257,7 +257,7 @@ def test_finish_applying() -> None:
              "status": "pending"},
             {"step_id": "04-project-write-board-art",
              "action": "project-write-board-art", "target": "",
-             "label": "Write your board art and initial BOARD.md",
+             "label": "Write your board art, rebuild BOARD.md, and commit the art",
              "status": "pending"},
         ]
         a._goto_applying()

@@ -1,13 +1,13 @@
-"""Pure board-art helpers for the onboard wizard's :class:`BoardArtFlow`.
+"""Pure board-art preview helpers for the wizard's :class:`BoardArtFlow`.
 
 No Textual, no app state — variant generation, the simulated-progress render,
-the apply-time ``.yoke/board-art`` write, and the small presentational helpers
-live here so the flow mixin stays a thin navigation layer.
+and the small presentational helpers live here so the flow mixin stays a thin
+navigation layer. Everything the apply does to the checkout lives in
+:mod:`onboard_wizard_board_art_apply`.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +17,6 @@ from yoke_contracts.project_contract.board_art import (
     generate_random_ascii_variant_detail,
     generate_random_image_mixed_variant_detail,
     generate_random_mixed_variant_detail,
-)
-from yoke_contracts.project_contract.board_art.config_paths import (
-    board_art_path_for_config,
 )
 
 # A representative mid-flight board. A freshly onboarded project has no items
@@ -171,80 +168,12 @@ def render_master_map(word: str) -> str:
     )
 
 
-def repo_root_from_report(report: Any, fallback_checkout: str | None) -> Path | None:
-    checkout = None
-    if isinstance(report, dict):
-        onboarding = report.get("project_onboarding")
-        if isinstance(onboarding, dict):
-            checkout = onboarding.get("checkout")
-            if isinstance(checkout, Mapping):
-                checkout = checkout.get("path")
-    checkout = checkout or fallback_checkout
-    if not checkout:
-        return None
-    return Path(str(checkout)).expanduser()
-
-
-def board_art_exists(repo_root: str | Path | None) -> bool:
-    """Return whether the checkout already has project-local board art."""
-    if not repo_root:
-        return False
-    return board_art_path_for_config(None, repo_root=str(repo_root)).is_file()
-
-
-def write_board_art(repo_root: Path, word: str, variants: list[Any]) -> None:
-    """Write the chosen master map + header variants to ``.yoke/board-art``."""
-    from yoke_contracts.project_contract.board_art.config import BLACK, WHITE
-    from yoke_contracts.project_contract.board_art.config_paths import (
-        board_art_path_for_config,
-    )
-    from yoke_contracts.project_contract.board_art.render_seed import (
-        _ART_HEADER,
-        _master_map_lines,
-    )
-
-    art_path = board_art_path_for_config(None, repo_root=str(repo_root))
-    parts = [
-        _ART_HEADER.format(white=WHITE, black=BLACK),
-        "## Master Map",
-        "",
-        "\n".join(_master_map_lines(word)),
-    ]
-    for variant in variants:
-        parts.extend(("", f"## {variant.kind}", "", variant.text.rstrip()))
-    art_path.parent.mkdir(parents=True, exist_ok=True)
-    art_path.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8")
-
-
-def rebuild_board(repo_root: Path) -> Path:
-    """Rebuild the project's initial BOARD.md and return the written path."""
-    from yoke_cli.board import rebuild as board_rebuild_flow
-
-    resolved_repo_root = board_rebuild_flow.resolve_main_repo_root(str(repo_root))
-    board_path = board_rebuild_flow.resolve_board_path(resolved_repo_root, None)
-    result = board_rebuild_flow.rebuild(
-        repo_arg=str(resolved_repo_root),
-        force=True,
-        emit=False,
-    )
-    if int(result.exit_code) != 0:
-        detail = result.message or f"board rebuild exited with {result.exit_code}"
-        raise RuntimeError(detail)
-    if not board_path.is_file():
-        raise RuntimeError(f"board rebuild did not write {board_path}")
-    return board_path
-
-
 __all__ = [
     "build_image",
-    "board_art_exists",
     "friendly_image_error",
     "generate_variant",
     "preview_meta",
     "preview_rows",
     "preview_title",
-    "rebuild_board",
     "render_master_map",
-    "repo_root_from_report",
-    "write_board_art",
 ]

@@ -277,3 +277,47 @@ def test_install_refuses_off_branch_when_bundle_names_default_branch(
     root = _git_repo(tmp_path / "repo", branch="trunk")
     with pytest.raises(ProjectInstallError, match="default_branch is 'main'"):
         runner.install(root, project_id=7)
+
+
+def test_commit_paths_commits_an_explicit_set_under_its_own_message(
+    tmp_path: Path,
+) -> None:
+    root = _git_repo(tmp_path / "repo")
+    art = root / ".yoke" / "board-art"
+    art.parent.mkdir(parents=True)
+    art.write_text("## Master Map\n", encoding="utf-8")
+
+    result = checkout_gate.commit_paths(
+        root, [".yoke/board-art"], message="Set project board art",
+    )
+
+    assert result["status"] == "created"
+    assert result["paths"] == [".yoke/board-art"]
+    assert result["message"] == "Set project board art"
+    assert _git(root, "status", "--porcelain").stdout.strip() == ""
+
+
+def test_assert_paths_committed_returns_the_paths_it_verified(
+    tmp_path: Path,
+) -> None:
+    root = _git_repo(tmp_path / "repo")
+
+    assert checkout_gate.assert_paths_committed(
+        root, [".yoke/board-art", "./.yoke/board-art", ""],
+    ) == [".yoke/board-art"]
+
+
+def test_assert_paths_committed_names_the_path_left_uncommitted(
+    tmp_path: Path,
+) -> None:
+    root = _git_repo(tmp_path / "repo")
+    art = root / ".yoke" / "board-art"
+    art.parent.mkdir(parents=True)
+    art.write_text("## Master Map\n", encoding="utf-8")
+
+    with pytest.raises(ProjectInstallError) as raised:
+        checkout_gate.assert_paths_committed(root, [".yoke/board-art"])
+
+    message = str(raised.value)
+    assert ".yoke/board-art" in message
+    assert "git add -A && git commit" in message

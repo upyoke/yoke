@@ -22,7 +22,7 @@ from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_local_checkout_identity
 from yoke_cli.config import onboard_project
-from yoke_cli.config import onboard_wizard_board_art
+from yoke_cli.config import onboard_wizard_board_art_apply
 from yoke_cli.config import onboard_wizard_github_state
 from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
@@ -434,7 +434,7 @@ class WizardFlow(
         ):
             self._after_prefix(self.result.project_public_item_prefix)
             return
-        if onboard_wizard_board_art.board_art_exists(self.result.project_checkout):
+        if onboard_wizard_board_art_apply.board_art_exists(self.result.project_checkout):
             self._goto_hosting()
             return
         self._goto_board_art_intro()

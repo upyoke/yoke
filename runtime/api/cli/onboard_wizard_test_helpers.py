@@ -85,13 +85,15 @@ def stub_path_doctor(monkeypatch) -> None:
 
 def stub_board_art(monkeypatch) -> None:
     """Keep the board-art step's apply side-effects offline: the real run writes
-    ``.yoke/board-art`` into the checkout and rebuilds the board, but flow
-    scenarios apply against a spy report with no real checkout, so the write and
-    rebuild are no-ops here."""
-    from yoke_cli.config import onboard_wizard_board_art
+    ``.yoke/board-art`` into the checkout, rebuilds the board, and commits the
+    art, but flow scenarios apply against a spy report with no real checkout, so
+    all three are no-ops here."""
+    from yoke_cli.config import onboard_wizard_board_art_apply as art_apply
 
-    monkeypatch.setattr(onboard_wizard_board_art, "write_board_art", lambda *a, **k: None)
-    monkeypatch.setattr(onboard_wizard_board_art, "rebuild_board", lambda *a, **k: None)
+    monkeypatch.setattr(art_apply, "write_board_art", lambda *a, **k: None)
+    monkeypatch.setattr(art_apply, "rebuild_board", lambda *a, **k: None)
+    monkeypatch.setattr(art_apply, "commit_board_art", lambda *a, **k: {})
+    monkeypatch.setattr(art_apply, "record_board_art_done", lambda *a, **k: {})
 
 
 def stub_token_verifiers(monkeypatch) -> None:

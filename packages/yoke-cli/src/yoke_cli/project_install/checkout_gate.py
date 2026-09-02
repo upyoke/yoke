@@ -12,6 +12,12 @@ renders under ``.yoke/strategy/``, backups, and the install manifest itself.
 Those are written to the checkout and never staged. Classification asks git
 which outputs its ignore rules cover rather than naming paths here, so any
 output that lands on an ignored path inherits the same treatment.
+
+A caller that generates more repository content after the install commit —
+the onboard wizard writes the operator's ``.yoke/board-art`` once the
+checkout exists — commits it through :func:`commit_paths` and then proves
+the handoff with :func:`assert_paths_committed`, which refuses to report a
+clean install while any of those paths is still uncommitted.
 """
 
 from __future__ import annotations
@@ -20,19 +26,13 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.project_install.files import MANIFEST_REL, ProjectInstallError
-from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
-from yoke_contracts.project_contract.file_line_policy import PROJECT_CONFIG_REL
+from yoke_cli.project_install.files import ProjectInstallError
+from yoke_cli.project_install.installed_output_paths import (
+    normalized,
+    owned_paths,
+)
 
 FALLBACK_DEFAULT_BRANCH = "main"
-_GITIGNORE_REL = ".gitignore"
-_YOKE_GITIGNORE_REL = ".yoke/.gitignore"
-_RETIRED_EXCEPTIONS_REL = ".yoke/file-line-exceptions"
-_HOOK_SETTINGS = (
-    ".claude/settings.json",
-    ".codex/hooks.json",
-    ".cursor/hooks.json",
-)
 
 
 def assert_ready_for_write(
@@ -84,7 +84,24 @@ def commit_touched_paths(
     skip: bool = False,
     operation: str = "install",
 ) -> dict[str, Any]:
-    """Commit manifest-owned paths this run touched.
+    """Commit manifest-owned paths this run touched."""
+    version = str(report.get("yoke_version") or "current bundle")
+    return commit_paths(
+        repo_root,
+        owned_paths(report),
+        message=_commit_message(operation, version),
+        skip=skip,
+    )
+
+
+def commit_paths(
+    repo_root: Path,
+    paths: list[str],
+    *,
+    message: str,
+    skip: bool = False,
+) -> dict[str, Any]:
+    """Commit the given repo-relative paths under the installer identity.
 
     Outputs the ignore policy covers are generated local views: they stay on
     disk, are never staged and never force-added, and are dropped from the
@@ -94,7 +111,7 @@ def commit_touched_paths(
         return {"status": "skipped", "reason": "no-commit"}
     if not _is_git_checkout(repo_root):
         return {"status": "skipped", "reason": "not a git checkout"}
-    owned = _touched_paths(report)
+    owned = normalized(paths)
     local_views = _ignored_outputs(repo_root, owned)
     untracked_from_index = _untrack_local_views(repo_root, local_views)
     views = {
@@ -117,8 +134,6 @@ def commit_touched_paths(
     cached = _run_git(repo_root, "diff", "--cached", "--quiet")
     if cached.returncode == 0:
         return {"status": "nothing_to_commit", "paths": to_stage, **views}
-    version = str(report.get("yoke_version") or "current bundle")
-    message = _commit_message(operation, version)
     committed = _run_git(
         repo_root,
         *commit_identity_args(repo_root),
@@ -144,6 +159,32 @@ def commit_touched_paths(
         "hooks": "skipped",
         **views,
     }
+
+
+def assert_paths_committed(repo_root: Path, paths: list[str]) -> list[str]:
+    """Refuse a handoff that leaves installer-written paths uncommitted.
+
+    A generated write that lands after the commit leaves the checkout dirty
+    before its owner has done anything, and a run that reports success while
+    that is true teaches the operator to expect it. Name the exact paths and
+    the recovery instead. Returns the paths it verified.
+    """
+    wanted = normalized(paths)
+    if not wanted or not _is_git_checkout(repo_root):
+        return wanted
+    dirty = {_porcelain_path(line) for line in _porcelain(repo_root)}
+    left = [path for path in wanted if path in dirty]
+    if left:
+        listed = "\n".join(f"  {path}" for path in left)
+        raise ProjectInstallError(
+            "install wrote these paths after its commit, so the checkout is "
+            "dirty before you have touched it:\n"
+            f"{listed}\n"
+            "recipe: `git add -A && git commit` in that checkout, then "
+            "report this — the install owns the commit and should not have "
+            "left the write behind"
+        )
+    return wanted
 
 
 def _ignored_outputs(repo_root: Path, paths: list[str]) -> set[str]:
@@ -233,63 +274,6 @@ def _porcelain_path(line: str) -> str:
     return rest
 
 
-def _touched_paths(report: dict[str, Any]) -> list[str]:
-    paths: list[str] = []
-    for key in (
-        "files_written",
-        "files_pruned",
-        "contract_files_written",
-        "contract_files_adopted",
-        "strategy_files_written",
-        "managed_markdown_written",
-        "created_settings_files",
-    ):
-        paths.extend(_string_list(report.get(key)))
-    for mapping_key in ("hooks_added", "hooks_removed"):
-        mapping = report.get(mapping_key) or {}
-        if isinstance(mapping, dict):
-            paths.extend(str(key) for key in mapping if key)
-    if report.get("gitignore_ignores_backfilled"):
-        paths.append(_YOKE_GITIGNORE_REL)
-    worktrees = report.get("worktrees_ignore") or {}
-    if isinstance(worktrees, dict) and (
-        worktrees.get("applied") or worktrees.get("status") == "written"
-    ):
-        paths.append(_GITIGNORE_REL)
-    if report.get("settings_permissions_actions") or report.get(
-        "settings_status_line_actions"
-    ):
-        paths.append(_HOOK_SETTINGS[0])
-    if report.get("cursor_permissions_actions"):
-        paths.extend(CURSOR_CONFIG_RELS)
-    exceptions = report.get("file_line_managed_exceptions") or {}
-    if isinstance(exceptions, dict) and exceptions.get("status") == "ok":
-        paths.append(PROJECT_CONFIG_REL)
-    migration = report.get("file_line_config_migration") or {}
-    if isinstance(migration, dict) and migration.get("status") == "ok":
-        paths.append(PROJECT_CONFIG_REL)
-        paths.append(_RETIRED_EXCEPTIONS_REL)
-    paths.append(MANIFEST_REL)
-    paths.extend(_HOOK_SETTINGS)
-    ordered: list[str] = []
-    seen: set[str] = set()
-    for path in paths:
-        rel = str(path).replace("\\", "/")
-        if rel.startswith("./"):
-            rel = rel[2:]
-        if not rel or rel.startswith(".git/") or rel in seen:
-            continue
-        seen.add(rel)
-        ordered.append(rel)
-    return ordered
-
-
-def _string_list(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [str(item) for item in value if isinstance(item, str) and item]
-
-
 def commit_identity_args(repo_root: Path) -> list[str]:
     """Fill user.name/email only when the checkout has none."""
     args: list[str] = []
@@ -329,7 +313,9 @@ def _run_git_input(
 
 __all__ = [
     "FALLBACK_DEFAULT_BRANCH",
+    "assert_paths_committed",
     "assert_ready_for_write",
     "commit_identity_args",
+    "commit_paths",
     "commit_touched_paths",
 ]
