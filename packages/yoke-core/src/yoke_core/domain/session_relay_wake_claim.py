@@ -132,8 +132,13 @@ def claim_wake_attempt(
         session_clauses.append(clause)
         session_params.extend(values)
     updated = conn.execute(
+        # The reason lands on the receipt as well as the attempt: the fleet
+        # report reads receipts, so an escalated resume is otherwise
+        # indistinguishable there from a delivery nobody has acted on.
         "UPDATE session_message_recipients SET wake_attempt_count="
-        "wake_attempt_count+1,last_wake_at="
+        "wake_attempt_count+1,wake_escalation="
+        + p
+        + ",last_wake_at="
         + p
         + f" WHERE message_id={p} AND session_id={p} AND state={p} "
         + f"AND wake_attempt_count={p} AND {last_clause} "
@@ -151,6 +156,7 @@ def claim_wake_attempt(
         "AND a.completed_at IS NULL)",
         tuple(
             (
+                escalation or None,
                 *params,
                 *injection_params,
                 now,

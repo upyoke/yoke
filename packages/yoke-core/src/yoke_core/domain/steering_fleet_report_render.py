@@ -7,7 +7,11 @@ noise. The machine-readable projection of the same report lives in
 
 from __future__ import annotations
 
-from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
+from yoke_core.domain.steering_fleet_report import (
+    ClaimHolder,
+    FleetReport,
+    StarvedDelivery,
+)
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
@@ -80,12 +84,19 @@ def _holder_lines(
     return _capped(lines, len(holders))
 
 
-def _starved_lines(report: FleetReport) -> list[str]:
-    lines = [
+def _starved_line(entry: StarvedDelivery) -> str:
+    # An already-escalated recipient is a wake in flight, not one the seat
+    # still owes by hand, so the line says which absence authorized it.
+    escalated = f", wake escalated ({entry.wake_escalation})"
+    return (
         f"  session {entry.session_id}  {entry.envelope_count} envelope(s), "
         f"oldest {_minutes(entry.oldest_seconds)}, never injected"
-        for entry in report.starved[:SECTION_LIMIT]
-    ]
+        f"{escalated if entry.wake_escalation else ''}"
+    )
+
+
+def _starved_lines(report: FleetReport) -> list[str]:
+    lines = [_starved_line(entry) for entry in report.starved[:SECTION_LIMIT]]
     return _capped(lines, len(report.starved))
 
 

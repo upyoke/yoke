@@ -78,6 +78,11 @@ def episode_column_present(conn: Any) -> bool:
     return "episode_started_at" in _columns(conn, "harness_sessions")
 
 
+def session_mode_column_present(conn: Any) -> bool:
+    """True when the connected schema carries the declared session posture."""
+    return "mode" in _columns(conn, "harness_sessions")
+
+
 def native_thread_id_column_present(conn: Any) -> bool:
     """True when the connected schema carries the Codex native-thread mapping.
 
@@ -275,6 +280,7 @@ __all__ = [
     "episode_column_present",
     "has_session_tool_calls_table",
     "native_thread_id_column_present",
+    "session_mode_column_present",
     "record_tool_call_finished",
     "record_tool_call_started",
     "session_activity_columns_present",

@@ -107,9 +107,9 @@ yours:
   while triaging: at `stale_eligible_at` the reclaim sweep releases its
   claims and the item reads as untouched, so a holder near reclaim is
   revived before anything else in the pass.
-- **Starved delivery** — revive the named recipient immediately: the
-  registered wake where available, otherwise the manual native-resume
-  bridge under **Revive starved workers** below.
+- **Starved delivery** — read the row's escalation. One the sweep already
+  escalated has a wake in flight; one with none takes the registered wake,
+  else the bridge under **Revive starved workers** below.
 - **Unregistered launches** — list, then reconcile and retry each
   `launch_id`. Never guess a table (`session_control_launches` does
   not exist); the registered read is `session_control.launch.list`
@@ -222,15 +222,15 @@ Send an item-addressed wake first:
 printf '%s' "WAKE PREFIX-N: resume the assigned routed leg and report status" | yoke say --item PREFIX-N --stdin
 ```
 
-For an idle Cursor or Codex recipient, check for a message stuck past the
-project's grace window with `state='pending'` and `injection_count=0`:
+Never hand-wake a parked worker: on a harness with no idle wake it escalates
+to a relay wake on the first sweep pass, and the receipt names why. Read it:
 
 ```text
-yoke db read "SELECT session_id,state,injection_count,created_at,wake_after FROM session_message_recipients WHERE session_id = '{SESSION_ID}' AND state = 'pending' AND injection_count = 0 ORDER BY created_at DESC"
+yoke db read "SELECT session_id,state,injection_count,wake_escalation,created_at FROM session_message_recipients WHERE session_id = '{SESSION_ID}' AND state = 'pending' AND injection_count = 0 ORDER BY created_at DESC"
 ```
 
-Until automatic wake escalation replaces the manual bridge, resume a stuck
-Cursor session directly:
+A row with no `wake_escalation` past the project's grace window is what the
+bridge is still for; resume a stuck Cursor session directly:
 
 ```text
 cursor-agent --resume <session-id> --print --output-format json --workspace <dir> --trust '<instruction>'

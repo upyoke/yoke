@@ -236,6 +236,9 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
         ("TARGET", lambda row: row.get("target_session_id"), None),
         ("TYPE", lambda row: humanize(row.get("attempt_kind")), 16),
         ("RESULT", lambda row: humanize(row.get("result_code")), 18),
+        # Why a wake fired against a live-looking session. Without it an
+        # escalated resume reads here as an ordinary one.
+        ("ESCALATION", lambda row: _attempt_evidence(row).get("wake_escalation"), 24),
         (
             "DIAGNOSTIC",
             lambda row: _attempt_evidence(row).get("native_diagnostic_ref"),

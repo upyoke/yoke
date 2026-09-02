@@ -244,12 +244,15 @@ def _reserve_candidate(
             return None
         attempt_id = str(uuid4())
         lease_id = str(uuid4())
+        escalation = str(candidate.get("wake_escalation") or "")
         conn.execute(
             "UPDATE session_message_recipients SET wake_attempt_count="
-            "wake_attempt_count+1,last_wake_at="
+            "wake_attempt_count+1,wake_escalation="
+            + p
+            + ",last_wake_at="
             + p
             + f" WHERE message_id={p} AND session_id={p}",
-            (now, candidate["message_id"], candidate["session_id"]),
+            (escalation or None, now, candidate["message_id"], candidate["session_id"]),
         )
         conn.execute(
             "INSERT INTO session_message_attempts "
@@ -272,7 +275,7 @@ def _reserve_candidate(
                         # Carried from eligibility so a broker-routed resume
                         # of a live-looking session says why, exactly as the
                         # direct route's attempt does.
-                        "wake_escalation": str(candidate.get("wake_escalation") or ""),
+                        "wake_escalation": escalation,
                     }
                 ),
             ),

@@ -8,7 +8,10 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain import db_backend
 from yoke_core.domain import json_helper
-from yoke_core.domain.session_activity_state import native_thread_id_column_present
+from yoke_core.domain.session_activity_state import (
+    native_thread_id_column_present,
+    session_mode_column_present,
+)
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_delivery import (
     _begin_mutation,
@@ -21,7 +24,9 @@ from yoke_core.domain.session_message_routing import (
     session_liveness,
 )
 from yoke_core.domain.session_message_starvation import (
+    PARKED_WITHOUT_IDLE_WAKE,
     STARVED_HOOK_ROUTE,
+    parked_without_idle_wake,
     starved_hook_route,
 )
 from yoke_core.domain.session_message_types import (
@@ -36,6 +41,15 @@ from yoke_core.domain.session_relay_machine_versions import (
 )
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_operation
+
+
+#: The two absences that override deferring to a live session's own hooks,
+#: in the order they are tested. The parked test is cheaper and needs no
+#: waiting window, so it answers first for the recipients it covers.
+_HOOK_ROUTE_ABSENCES = (
+    (PARKED_WITHOUT_IDLE_WAKE, parked_without_idle_wake),
+    (STARVED_HOOK_ROUTE, starved_hook_route),
+)
 
 
 def _p(conn: Any) -> str:
@@ -128,11 +142,14 @@ def wake_eligible_recipients(
         thread_select = (
             ",hs.native_thread_id" if native_thread_id_column_present(conn) else ""
         )
+        # A fixture composed by hand carries no declared posture, so no
+        # recipient there reads as parked and the parked absence self-skips.
+        mode_select = ",hs.mode" if session_mode_column_present(conn) else ""
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
-            f"hs.turn_posture_at{thread_select} "
+            f"hs.turn_posture_at{thread_select}{mode_select} "
             "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
@@ -179,16 +196,20 @@ def wake_eligible_recipients(
             escalation = ""
             if not explicit_wake and liveness == "active":
                 # An active session is served by its own hooks — unless the
-                # envelope proves that route stopped running, in which case
-                # deferring to it forever is what starves the message.
-                if not starved_hook_route(
-                    row,
-                    grace_seconds=policy.wake_ack_grace_seconds,
-                    now=current,
-                    ignore_wake_cooldown=bypass_waiting_retry_cooldown,
-                ):
+                # envelope proves that route stopped running, or the session
+                # declared a wait its harness has no way to end, in which
+                # case deferring to it forever is what starves the message.
+                for reason, absent in _HOOK_ROUTE_ABSENCES:
+                    if absent(
+                        row,
+                        grace_seconds=policy.wake_ack_grace_seconds,
+                        now=current,
+                        ignore_wake_cooldown=bypass_waiting_retry_cooldown,
+                    ):
+                        escalation = reason
+                        break
+                if not escalation:
                     continue
-                escalation = STARVED_HOOK_ROUTE
             idle_window = timedelta(seconds=policy.wake_after_idle_seconds)
             waiting_pending = row["state"] == "pending" and (
                 explicit_wake or row.get("turn_posture") == "waiting"

@@ -6,7 +6,10 @@ import json
 from datetime import timedelta
 
 from yoke_core.domain.session_message_service import send_message
-from yoke_core.domain.session_message_starvation import STARVED_HOOK_ROUTE
+from yoke_core.domain.session_message_starvation import (
+    PARKED_WITHOUT_IDLE_WAKE,
+    STARVED_HOOK_ROUTE,
+)
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_versions import wake_operation
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
@@ -35,7 +38,13 @@ def _send(conn) -> str:
     )["message_id"]
 
 
-def _stamp(conn, *, when, tool_call: str = NOW_TEXT) -> None:
+def _stamp(
+    conn,
+    *,
+    when,
+    tool_call: str = NOW_TEXT,
+    session_id: str = NATIVE_WAKE_SESSION_ID,
+) -> None:
     """Keep the recipient's heartbeat fresh while its turn stops ticking.
 
     This is the observed shape: liveness reads ``active`` off the heartbeat
@@ -45,7 +54,23 @@ def _stamp(conn, *, when, tool_call: str = NOW_TEXT) -> None:
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
         "WHERE session_id=?",
-        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, NATIVE_WAKE_SESSION_ID),
+        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, session_id),
+    )
+    conn.commit()
+
+
+def _park(conn, session_id: str = NATIVE_WAKE_SESSION_ID) -> None:
+    """Stamp the posture the session declared about itself.
+
+    The shared fixture composes ``harness_sessions`` by hand, so the posture
+    column arrives with the test that needs it, as it does in its siblings.
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(harness_sessions)")}
+    if "mode" not in columns:
+        conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
+    conn.execute(
+        "UPDATE harness_sessions SET mode='parked' WHERE session_id=?",
+        (session_id,),
     )
     conn.commit()
 
@@ -164,3 +189,95 @@ def test_the_broker_re_read_keeps_the_escalation_it_already_stamped() -> None:
         ignore_attempt_id=claim.attempt_id,
     )
     assert [row["wake_escalation"] for row in adopted] == [STARVED_HOOK_ROUTE]
+
+
+def test_a_parked_recipient_without_idle_wake_needs_no_grace_window() -> None:
+    conn = message_connection()
+    _send(conn)
+    _park(conn)
+    # A codex worker declares idle wake none, so nothing is coming that would
+    # run a hook: waiting out the window only postpones the one way in.
+    early = NOW + timedelta(seconds=1)
+    _stamp(conn, when=early)
+    eligible = wake_eligible_recipients(conn, now=early)
+    assert len(eligible) == 1
+    candidate = eligible[0]
+    assert candidate["liveness"] == "active"
+    assert candidate["wake_escalation"] == PARKED_WITHOUT_IDLE_WAKE
+    assert (
+        wake_operation(candidate["wake_mode"], candidate["liveness"])
+        == "message_stopped"
+    )
+
+
+def test_a_parked_recipient_that_can_wake_itself_keeps_the_grace_window() -> None:
+    conn = message_connection()
+    send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s1",
+        selector=selector(session_ids=["s2"]),
+        body="Never pass this body to a native wake.",
+        now=NOW,
+    )
+    _park(conn, "s2")
+    early = NOW + timedelta(seconds=1)
+    _stamp(conn, when=early, session_id="s2")
+    # claude-code declares an idle wake, so a parked session there can still
+    # be resumed by its own machinery until its route proves starved.
+    assert wake_eligible_recipients(conn, now=early) == []
+    _stamp(conn, when=STARVED, session_id="s2")
+    eligible = wake_eligible_recipients(conn, now=STARVED)
+    assert [row["wake_escalation"] for row in eligible] == [STARVED_HOOK_ROUTE]
+
+
+def test_the_parked_escalation_is_recorded_on_the_receipt_and_attempt() -> None:
+    conn = message_connection()
+    message_id = _send(conn)
+    _park(conn)
+    early = NOW + timedelta(seconds=1)
+    _stamp(conn, when=early)
+    candidate = wake_eligible_recipients(conn, now=early)[0]
+    claim = claim_wake_attempt(
+        conn, candidate=candidate, now=early.strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
+    assert claim is not None
+    receipt = conn.execute(
+        "SELECT wake_escalation,wake_attempt_count FROM session_message_recipients "
+        "WHERE message_id=?",
+        (message_id,),
+    ).fetchone()
+    assert receipt["wake_escalation"] == PARKED_WITHOUT_IDLE_WAKE
+    assert receipt["wake_attempt_count"] == 1
+    evidence = json.loads(
+        conn.execute(
+            "SELECT evidence FROM session_message_attempts WHERE attempt_id=?",
+            (claim.attempt_id,),
+        ).fetchone()[0]
+    )
+    assert evidence["wake_escalation"] == PARKED_WITHOUT_IDLE_WAKE
+
+
+def test_one_parked_escalation_per_recipient_per_window() -> None:
+    conn = message_connection()
+    _send(conn)
+    _park(conn)
+    early = NOW + timedelta(seconds=1)
+    _stamp(conn, when=early)
+    candidate = wake_eligible_recipients(conn, now=early)[0]
+    stamp = early.strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert claim_wake_attempt(conn, candidate=candidate, now=stamp) is not None
+    conn.execute(
+        "UPDATE session_message_attempts SET completed_at=?,result_code='failed' "
+        "WHERE completed_at IS NULL",
+        (stamp,),
+    )
+    conn.commit()
+    # The resume spawns a real process, so the recorded wake holds the parked
+    # recipient for the rest of the window exactly as a starved one.
+    later = early + timedelta(seconds=1)
+    _stamp(conn, when=later)
+    assert wake_eligible_recipients(conn, now=later) == []
+    next_window = early + GRACE + timedelta(seconds=1)
+    _stamp(conn, when=next_window)
+    assert len(wake_eligible_recipients(conn, now=next_window)) == 1
