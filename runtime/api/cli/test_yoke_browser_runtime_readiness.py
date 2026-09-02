@@ -187,7 +187,7 @@ def test_itemless_capture_recovers_pid_without_healthy_endpoint() -> None:
 
     health.assert_called_once_with(state=state, timeout=1)
     stop.assert_called_once_with()
-    start.assert_called_once_with()
+    start.assert_called_once_with(profile_dir=None)
 
 
 def test_itemless_capture_reuses_daemon_only_after_health_check() -> None:
