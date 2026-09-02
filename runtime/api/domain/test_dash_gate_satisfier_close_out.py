@@ -196,3 +196,80 @@ def test_registered_rung_resolver_uses_the_shared_server_path(
         )
         == 1
     )
+
+
+def test_merge_close_out_stamps_through_the_dispatched_evidence_call(
+    test_db,
+    monkeypatch,
+) -> None:
+    """The close-out the merge runs must stamp, not only the handler alone.
+
+    The regression this covers passed every handler-level test while the
+    product outcome stayed at zero rows: the close-out reached the
+    handler through a dispatched call, and only that whole path answers
+    whether a merged Dash records how it proved delivery.
+    """
+    from types import SimpleNamespace
+
+    from yoke_core.domain import close_out_control_plane_authority as close_out
+    from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
+
+    _isolate_status_effects(monkeypatch)
+    item_id = 27312
+    insert_item(
+        test_db,
+        id=item_id,
+        workflow_id="dash",
+        status="reviewing-implementation",
+    )
+    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(test_db))
+
+    def dispatch(*, function_id, target, payload=None, **_kwargs):
+        assert function_id == "direct_workflow.dash.evidence"
+        outcome = handle_dash_evidence(
+            FunctionCallRequest(
+                function=function_id,
+                actor=ActorContext(actor_id="2", session_id="merge-close-out"),
+                target=target,
+                payload=dict(payload or {}),
+            )
+        )
+        return SimpleNamespace(
+            success=outcome.primary_success,
+            result=outcome.result_payload,
+            error=outcome.error,
+        )
+
+    monkeypatch.setattr(merge_evidence, "call_dispatcher", dispatch)
+
+    refusal, warning = close_out.record_execution_evidence(
+        item_id=item_id,
+        outcome=SimpleNamespace(
+            commit_sha="c" * 40,
+            merge_sha="d" * 40,
+            touched_files=("src/close_out.py",),
+        ),
+        result_summary="Landed the standalone change.",
+        verification_summary="Registered verification passed.",
+        verification_status="passed",
+        no_changes=False,
+        tree_root="/repo/.worktrees/close-out",
+    )
+
+    assert (refusal, warning) == ("", "")
+    assert {
+        str(row[0])
+        for row in test_db.execute(
+            "SELECT obligation FROM item_gate_satisfactions WHERE item_id = %s",
+            (item_id,),
+        ).fetchall()
+    } == {OBLIGATION_DONE_MERGE_EVIDENCE, OBLIGATION_DELIVERY_EVIDENCE}
+    assert (
+        int(
+            test_db.execute(
+                "SELECT COUNT(*) FROM events WHERE event_name = %s AND item_id = %s",
+                (EVENT_STAMPED, str(item_id)),
+            ).fetchone()[0]
+        )
+        == 2
+    )

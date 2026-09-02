@@ -51,7 +51,7 @@ def test_pending_landing_exits_without_evidence_or_terminal_transition(
         ),
     )
     monkeypatch.setattr(
-        merge_cli.terminal,
+        merge_cli.close_out,
         "transition_to_done",
         lambda **_kw: (_ for _ in ()).throw(
             AssertionError("pending landing must not transition")

@@ -13,11 +13,11 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
 )
+from yoke_core.domain import close_out_control_plane_authority as close_out
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_pending as pending
-from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.standalone_item_merge_checkout import (
@@ -267,7 +267,7 @@ def run(argv: List[str]) -> int:
 
     if needs_evidence:
         _announce_close_out("recording evidence")
-        write_error = evidence.record(
+        write_error, write_warning = close_out.record_execution_evidence(
             item_id=item_id,
             outcome=outcome,
             result_summary=str(args.result),
@@ -276,22 +276,13 @@ def run(argv: List[str]) -> int:
             no_changes=bool(args.no_changes),
             tree_root=lane_path(item) or str(repo_root),
         )
-        # A refused attempt may still have landed the row — a relayed write
-        # that succeeds on retry reports the failed try. The record's own
-        # state answers for this merge, not the attempt's return.
-        if write_error and not evidence.recorded_covers_merge(
-            item_id,
-            outcome.merge_sha,
-        ):
+        if write_error:
             envelope["ok"] = False
             envelope["error"] = f"merge landed, evidence refused: {write_error}"
             print(json.dumps(envelope, indent=2, sort_keys=True))
             return 1
-        if write_error:
-            envelope["warnings"].append(
-                f"evidence write reported '{write_error}', but the record "
-                "covers this merge; close-out continued"
-            )
+        if write_warning:
+            envelope["warnings"].append(write_warning)
         envelope["evidence_recorded"] = True
 
     from yoke_core.domain.standalone_item_merge import sync_item_to_github
@@ -303,7 +294,7 @@ def run(argv: List[str]) -> int:
 
     if not args.skip_status:
         _announce_close_out("terminal transition")
-        transition_error = terminal.transition_to_done(
+        transition_error = close_out.transition_to_done(
             item_id=item_id,
             source_status=status,
             repo_root=str(repo_root),
