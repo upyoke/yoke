@@ -103,8 +103,15 @@ def _register_from_hook(
 
     executor = executor_hint or detect_executor()
     provider = detect_provider(executor)
-    model_facts = _resolve_model_facts(
-        executor, payload_json, facts.model_facts, facts.transcript_path
+    model_facts = (
+        facts.model_facts
+        if register_in_process
+        else _resolve_model_facts(
+            executor,
+            payload_json,
+            facts.model_facts,
+            facts.transcript_path,
+        )
     )
     # Relayed payloads carry the CLIENT's entrypoint (merged from the wire);
     # local payloads never carry one, so local detection is unchanged.
@@ -122,7 +129,11 @@ def _register_from_hook(
     # evaluation passes record_anchor=False: the server's process tree is
     # not the caller's, so the hook relay writes the anchor client-side.
     if record_anchor:
-        _record_process_anchor(session_id, facts.transcript_path)
+        _record_process_anchor(
+            session_id,
+            facts.transcript_path,
+            entrypoint or executor,
+        )
 
     if register_in_process:
         # Server runtime: the checkout-layout subprocess wrapper cannot
@@ -142,7 +153,8 @@ def _register_from_hook(
             project_id=facts.project_id,
             executor_version=executor_version or None,
             machine_id=machine_id or None,
-            native_thread_id=facts.native_thread_id or detect_native_thread_id(),
+            native_thread_id=facts.native_thread_id
+            or detect_native_thread_id(executor, session_id, payload_json),
             driver=facts.driver,
         )
         return (err, executor, provider, model_facts, entrypoint)
@@ -159,7 +171,8 @@ def _register_from_hook(
         entrypoint=entrypoint,
         executor_version=executor_version or None,
         machine_id=machine_id or None,
-        native_thread_id=facts.native_thread_id or detect_native_thread_id(),
+        native_thread_id=facts.native_thread_id
+        or detect_native_thread_id(executor, session_id, payload_json),
     )
     return (err, executor, provider, model_facts, entrypoint)
 
@@ -193,16 +206,24 @@ def _resolve_model_facts(
         return wire
 
 
-def _record_process_anchor(session_id: str, transcript_path: str) -> None:
+def _record_process_anchor(
+    session_id: str,
+    transcript_path: str,
+    executor_surface: str,
+) -> None:
     """Best-effort anchor write; never raises into the hook path."""
     try:
         from yoke_core.domain.session_process_anchors import (
             prune_stale_anchors,
             record_session_anchor,
         )
+        from yoke_contracts.session_control import liveness_process_names
 
         prune_stale_anchors()
-        record_session_anchor(session_id, transcript_path=transcript_path)
+        kwargs = {"transcript_path": transcript_path}
+        if liveness_process_names(executor_surface):
+            kwargs["executor_surface"] = executor_surface
+        record_session_anchor(session_id, **kwargs)
     except Exception:  # noqa: BLE001 — anchor recording must never break hooks
         return
 

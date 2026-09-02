@@ -46,7 +46,7 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
@@ -234,9 +234,7 @@ def anchor_candidate_pids(
         if parents is None:
             table = process_table()
             parents = {ancestor: entry[0] for ancestor, entry in table.items()}
-            resolve_name = {
-                ancestor: entry[1] for ancestor, entry in table.items()
-            }.get
+            resolve_name = {ancestor: entry[1] for ancestor, entry in table.items()}.get
         else:
             resolve_name = _unknown_name
     chain: List[int] = []
@@ -267,7 +265,9 @@ def find_nearest_harness_anchor(
     resolve_name = process_command_name if name_of is None else name_of
     resolve_start = process_start_time if start_time_of is None else start_time_of
     for ancestor in anchor_candidate_pids(
-        pid, parents=parents, name_of=resolve_name,
+        pid,
+        parents=parents,
+        name_of=resolve_name,
     ):
         name = resolve_name(ancestor)
         basename = os.path.basename(name) if name else ""
@@ -277,8 +277,48 @@ def find_nearest_harness_anchor(
         if not start_time:
             return None
         return ProcessAnchor(
-            pid=ancestor, start_time=start_time, process_name=basename,
+            pid=ancestor,
+            start_time=start_time,
+            process_name=basename,
         )
+    return None
+
+
+def find_nearest_named_process_anchor(
+    process_names: Iterable[str],
+    pid: Optional[int] = None,
+    *,
+    parents: Optional[Dict[int, int]] = None,
+    name_of: Optional[Callable[[int], Optional[str]]] = None,
+    start_time_of: Optional[Callable[[int], Optional[str]]] = None,
+) -> Optional[ProcessAnchor]:
+    """Return the nearest ancestor explicitly named by a surface contract.
+
+    Unlike ambient identity, this walk may select a multiplexed host. Callers
+    use the result only for process liveness; the anchor registry's tenancy
+    marker still refuses a pid shared by multiple sessions.
+    """
+    targets = {os.path.basename(name).lower() for name in process_names if name}
+    if not targets:
+        return None
+    resolve_name = name_of
+    if resolve_name is None:
+        if parents is None:
+            table = process_table()
+            parents = {process: entry[0] for process, entry in table.items()}
+            resolve_name = {process: entry[1] for process, entry in table.items()}.get
+        else:
+            resolve_name = _unknown_name
+    resolve_start = process_start_time if start_time_of is None else start_time_of
+    for ancestor in ancestor_pids(pid, parents=parents):
+        name = resolve_name(ancestor)
+        basename = os.path.basename(name).lower() if name else ""
+        if basename not in targets:
+            continue
+        start_time = resolve_start(ancestor)
+        if not start_time:
+            return None
+        return ProcessAnchor(ancestor, start_time, basename)
     return None
 
 
@@ -289,6 +329,7 @@ __all__ = [
     "anchor_candidate_pids",
     "ancestor_pids",
     "find_nearest_harness_anchor",
+    "find_nearest_named_process_anchor",
     "is_harness_process_name",
     "is_multiplexed_process_name",
     "parent_map",

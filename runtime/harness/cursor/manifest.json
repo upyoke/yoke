@@ -51,7 +51,13 @@
         "create": "supported",
         "message_active": "none",
         "message_idle": "supported",
-        "message_stopped": "supported"
+        "message_stopped": "supported",
+        "stop_denial_continuation": "none",
+        "relay_stop_denial_continuation": "none",
+        "liveness_process_names": [
+          "cursor-agent",
+          "cursor"
+        ]
       },
       "cursor-desktop": {
         "minimum_version": "3.17.8",
@@ -62,7 +68,10 @@
         "create": "none",
         "message_active": "none",
         "message_idle": "none",
-        "message_stopped": "none"
+        "message_stopped": "none",
+        "stop_denial_continuation": "none",
+        "relay_stop_denial_continuation": "none",
+        "liveness_process_names": []
       }
     }
   },

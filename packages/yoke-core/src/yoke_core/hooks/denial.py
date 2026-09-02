@@ -1,4 +1,4 @@
-"""Denial event payload construction + emission for PreToolUse guards.
+"""Denial event payload construction and emission for hook guards.
 
 Builds the ``HarnessToolCallDenied`` context payload from a hook /
 check / reason tuple and pushes it through the native
@@ -26,6 +26,7 @@ def build_denial_payload(
     mode: str = "",
     client_revision: str = "",
     server_revision: str = "",
+    guard_version_skew: str = "",
 ) -> dict[str, Any]:
     """Build the context payload for a HarnessToolCallDenied event.
 
@@ -48,7 +49,15 @@ def build_denial_payload(
         payload["guard_key"] = guard_key
     if mode:
         payload["mode"] = mode
-    if client_revision or server_revision:
+    if guard_version_skew:
+        payload["guard_version_skew"] = {
+            "reason": guard_version_skew.replace("\n", " ")[:500],
+            "revision_pair": {
+                "client": client_revision,
+                "server": server_revision,
+            },
+        }
+    elif client_revision or server_revision:
         payload["revision_pair"] = {
             "client": client_revision,
             "server": server_revision,
@@ -65,6 +74,7 @@ def build_denial_context(
     mode: str = "",
     client_revision: str = "",
     server_revision: str = "",
+    guard_version_skew: str = "",
 ) -> str:
     """Build the compact JSON context for a HarnessToolCallDenied event."""
     return json.dumps(
@@ -77,6 +87,7 @@ def build_denial_context(
             mode=mode,
             client_revision=client_revision,
             server_revision=server_revision,
+            guard_version_skew=guard_version_skew,
         ),
         separators=(",", ":"),
     )
@@ -96,6 +107,7 @@ def emit_denial_event(
     mode: str = "",
     client_revision: str = "",
     server_revision: str = "",
+    guard_version_skew: str = "",
 ) -> None:
     """Emit HarnessToolCallDenied via the Python emit-event owner.
 
@@ -114,6 +126,7 @@ def emit_denial_event(
         mode=mode,
         client_revision=client_revision,
         server_revision=server_revision,
+        guard_version_skew=guard_version_skew,
     )
     if tool_use_id:
         payload["tool_use_id"] = tool_use_id

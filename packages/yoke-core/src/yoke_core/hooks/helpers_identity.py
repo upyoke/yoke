@@ -8,6 +8,7 @@ hooks and the service client lean on for telemetry attribution.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Optional
@@ -167,9 +168,13 @@ def detect_executor() -> str:
         from yoke_core.hooks.codex_model import resolve_entrypoint
 
         return _compose_executor(_CODEX_COARSE, _CODEX_COARSE, resolve_entrypoint())
-    if os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+    if os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get(
+        "CLAUDE_CODE_ENTRYPOINT"
+    ):
         return _compose_executor(
-            "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
+            "claude",
+            _CLAUDE_COARSE,
+            os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
         )
     # Hook/CLI markers, then CURSOR_CONVERSATION_ID as the IDE-shell fallback.
     # Conversation id is last so a nested Claude/Codex terminal keeps its family.
@@ -177,19 +182,27 @@ def detect_executor() -> str:
         return cursor_surface_entrypoint()
     if os.environ.get(_CURSOR_CONVERSATION_ENV):
         return cursor_surface_entrypoint()
-    return _compose_executor("claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
+    return _compose_executor(
+        "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT")
+    )
 
 
 def detect_native_thread_id(
     executor: Optional[str] = None,
     yoke_session_id: str = "",
+    payload_json: str = "",
 ) -> Optional[str]:
     """Return this harness's native thread, session, or conversation id."""
     from yoke_harness.hooks.identity_relay import client_native_thread_id
 
+    try:
+        payload = json.loads(payload_json) if payload_json else {}
+    except (json.JSONDecodeError, TypeError):
+        payload = {}
     return client_native_thread_id(
         executor or detect_executor(),
         yoke_session_id or os.environ.get("YOKE_SESSION_ID", "").strip(),
+        payload if isinstance(payload, dict) else {},
     )
 
 

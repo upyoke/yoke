@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from unittest import mock
@@ -60,6 +61,53 @@ def test_cursor_uses_the_hook_written_conversation_map(
         "SessionStart", {"session_id": "yoke-session"}, "cursor-desktop"
     )
     assert relayed["native_thread_id"] == "cursor-conversation"
+
+
+def test_cursor_uses_payload_conversation_when_environment_is_absent(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    map_dir = tmp_path / CURSOR_SESSION_MAP_DIR_NAME
+    record_conversation_session("cursor-conversation", "yoke-session", map_dir)
+    monkeypatch.setattr(machine_config, "yoke_home", lambda: tmp_path)
+    monkeypatch.delenv("CURSOR_CONVERSATION_ID", raising=False)
+
+    assert (
+        client_native_thread_id(
+            "cursor-cli",
+            "yoke-session",
+            {"conversation_id": "cursor-conversation"},
+        )
+        == "cursor-conversation"
+    )
+    assert (
+        client_native_thread_id(
+            "cursor-cli",
+            "yoke-session",
+            {"conversation_id": "cursor-conversation", "subagent_execution": True},
+        )
+        is None
+    )
+
+
+def test_local_detection_reads_cursor_conversation_from_hook_payload(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from yoke_core.hooks.helpers_identity import detect_native_thread_id
+
+    map_dir = tmp_path / CURSOR_SESSION_MAP_DIR_NAME
+    record_conversation_session("cursor-conversation", "yoke-session", map_dir)
+    monkeypatch.setattr(machine_config, "yoke_home", lambda: tmp_path)
+    monkeypatch.delenv("CURSOR_CONVERSATION_ID", raising=False)
+
+    native = detect_native_thread_id(
+        "cursor-cli",
+        "yoke-session",
+        json.dumps({"conversation_id": "cursor-conversation"}),
+    )
+
+    assert native == "cursor-conversation"
 
 
 def test_claude_uses_a_distinct_native_session(monkeypatch) -> None:

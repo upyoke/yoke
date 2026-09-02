@@ -34,6 +34,9 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
      records `unknown` and heals on a later hook event.
    - A launch naming a model puts `--model` on the resume it drives; confirm
      with `ps` on the live native and against the store's `modelName`.
+   - The registered row's `native_thread_id` equals the hook payload's
+     top-level `conversation_id`, and its machine anchor records the
+     `cursor-agent` pid plus start time for relay liveness.
    - **The run itself must exit 0**, and `.cursor/hooks.json` must carry no
      `afterAgentThought` entry at all. That event fires inside the token
      stream, and a hook there breaks the stream whatever it replies:
@@ -79,12 +82,12 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    `beforeSubmitPrompt` (with `attachments` naming `AGENTS.md`), `stop`,
    and `afterFileEdit` (via a Write-tool edit) all fire. The session
    registers with display name `cursor-desktop`.
-   On an allow-path Stop the reply is `{}`. When the session holds a live
-   mid-lifecycle claim and the turn is not asking the operator, the first
-   Stop holds via `followup_message` (self-continuation only) and records
-   `ChainEndDeferred` with `reason=promised_work_reinjected`. A second
-   eligible Stop before completed tool use allows with `{}` and records
-   `cap_reached=true`.
+   Every Stop reply is `{}` because the manifest declares
+   `stop_denial_continuation=none`. With a live mid-lifecycle claim and no
+   operator question, confirm the Stop allows and records `ChainEndDeferred`
+   at WARN with `reason=stop_denial_continuation_unsupported`, the unfinished
+   work, and recovery. Confirm the registered row's `native_thread_id` equals
+   the hook payload's top-level `conversation_id`.
 8. Dispatch a project subagent and confirm `subagentStart`/`subagentStop`
    carry `parent_conversation_id` equal to the top-level session id, and
    that the subagent's own tool calls arrive under the subagent session id

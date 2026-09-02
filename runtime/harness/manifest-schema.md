@@ -106,12 +106,24 @@ not author a second capability matrix.
 | `surfaces` | object | Closed mapping for only this harness family's known surfaces. |
 
 Each surface value carries `minimum_version`, `inject_events`, `create`,
-`message_active`, `message_idle`, and `message_stopped`. Route fields use the
-closed interface vocabulary `supported | private | none`. Private routes fail
-closed unless the observed executor version exactly satisfies their pinned
-adapter contract. `inject_events` names the model-visible hook events that can
-lease and render a pending message; it is independent of native wake/create
-support.
+`message_active`, `message_idle`, `message_stopped`,
+`stop_denial_continuation`, `relay_stop_denial_continuation`, and
+`liveness_process_names`. Route and Stop continuation fields use the closed
+interface vocabulary
+`supported | private | none`. `stop_denial_continuation` says whether a denied
+Stop is proven to resume the same model turn; a policy that needs continuation
+must allow and durably defer work when this field is `none`.
+`relay_stop_denial_continuation` applies the same proof specifically to a
+session correlated with a Yoke relay launch. The Stop gate requires both facts
+to be `supported` for a relay worker, because an interactive CLI may honor a
+block while its headless launch command cannot accept a later prompt.
+`liveness_process_names` is a list of process basenames the surface permits as
+liveness-only anchors. These anchors can prove a registered session's process
+dead but never participate in ambient session identity, and shared-pid
+contention remains unusable. Private routes fail closed unless the observed
+executor version exactly satisfies their pinned adapter contract.
+`inject_events` names the model-visible hook events that can lease and render a
+pending message; it is independent of native wake/create support.
 
 ## Agent wake
 

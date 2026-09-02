@@ -29,22 +29,18 @@ from yoke_core.domain.hook_runner_deadline import (
     resolve_module_timeout_ms,
     start_hook_deadline,
 )
+from yoke_core.hooks import telemetry as _telemetry  # noqa: F401
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks import mode_gate as _mode_gate
 from yoke_core.hooks.context import build_context
 from yoke_core.hooks.remote_policy import RunControls
-
-# The telemetry patch seam: the flush itself happens in run_tail, but the
-# module attribute patched here is the same object run_tail resolves.
-from yoke_core.hooks import telemetry as _telemetry  # noqa: F401
 from yoke_core.hooks.skipped_guards import record_skipped_guards
 from yoke_core.hooks.subprocess_policy import run_subprocess_policy
 from yoke_core.hooks.typed_dispatch import audit_only_synthetic, dispatch_typed
-from yoke_core.hooks.types import HookContext, HookDecision, Next
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 __all__ = ["run_event"]
-
 
 _resolve_timeout_ms = resolve_module_timeout_ms
 
@@ -276,6 +272,22 @@ def run_event(
         # Central mode gate (before the STOP check): downgrade block->noop when
         # the guard is configured warn in .yoke/lint-config.
         decision = _mode_gate.apply_mode(decision, module_id, context=context)
+        if (
+            controls is not None
+            and decision.outcome is Outcome.DENY
+            and not controls.denial_audit
+        ):
+            audit = decision.audit_fields
+            controls.denial_audit = {
+                "hook": module_id,
+                "check_id": str(audit.get("check_id") or module_id),
+                "reason": str(
+                    audit.get("denial_reason")
+                    or decision.message
+                    or audit.get("reason")
+                    or "Hook policy denied."
+                ),
+            }
         decisions.append(decision)
         telem_records.append(record)
         if failure is not None and controls is not None:

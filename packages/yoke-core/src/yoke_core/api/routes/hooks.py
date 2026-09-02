@@ -60,6 +60,7 @@ class HookEvaluateRequest(BaseModel):
     project_id: Optional[int] = None
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
+    native_thread_id: Optional[str] = None
     payload_extra: dict[str, Any] = Field(default_factory=dict)
     deadline_ms: Optional[int] = None
     execution_provenance: dict[str, Any] = Field(default_factory=dict)
@@ -80,7 +81,8 @@ class HookEvaluateResponse(BaseModel):
 
 @router.post("/hooks/evaluate")
 def post_hooks_evaluate(
-    http_request: Request, request: HookEvaluateRequest,
+    http_request: Request,
+    request: HookEvaluateRequest,
 ) -> JSONResponse:
     """Evaluate one hook event server-side and relay the rendered decision."""
     stamped = _refuse_conversation_shaped(request)
@@ -121,6 +123,7 @@ def post_hooks_evaluate(
         project_id=request.project_id,
         executor_version=request.executor_version,
         machine_id=request.machine_id,
+        native_thread_id=request.native_thread_id,
         payload_extra=request.payload_extra,
         deadline_ms=deadline_ms,
         actor_id=auth.actor_id,
@@ -128,7 +131,14 @@ def post_hooks_evaluate(
     if result.outcome == "denied":
         skew_reason = _guard_revision_skew_reason(request)
         if skew_reason:
-            _emit_route_denial("guard_version_skew", skew_reason, request)
+            audit = result.denial_audit
+            _emit_route_denial(
+                audit.get("check_id") or "hook_policy_denial",
+                audit.get("reason") or "Hook policy denied.",
+                request,
+                hook=audit.get("hook") or "yoke_core.api.routes.hooks",
+                guard_version_skew=skew_reason,
+            )
     attributes = {"event": request.event_name, "outcome": result.outcome}
     record_histogram("yoke.hook.wait_ms", result.wait_ms, attributes=attributes)
     record_counter("yoke.hook.requests", attributes=attributes)
@@ -170,13 +180,19 @@ def _guard_revision_skew_reason(request: HookEvaluateRequest) -> str:
     (or postdates) the guard that produced it, so this comparison — not any
     single guard's own emission — is what makes the mismatch itself durable.
     """
-    client_revision = str(request.execution_provenance.get("source_sha") or "").strip().lower()
-    server_revision = str(collect_execution_provenance().get("source_sha") or "").strip().lower()
+    client_revision = (
+        str(request.execution_provenance.get("source_sha") or "").strip().lower()
+    )
+    server_revision = (
+        str(collect_execution_provenance().get("source_sha") or "").strip().lower()
+    )
     if client_revision in _UNKNOWN_REVISIONS or server_revision in _UNKNOWN_REVISIONS:
         return ""
-    if client_revision == server_revision or client_revision.startswith(
-        server_revision
-    ) or server_revision.startswith(client_revision):
+    if (
+        client_revision == server_revision
+        or client_revision.startswith(server_revision)
+        or server_revision.startswith(client_revision)
+    ):
         return ""
     return (
         f"Denial rendered during guard-revision skew: server revision "
@@ -188,14 +204,14 @@ def _emit_route_denial(
     check_id: str,
     reason: str,
     request: HookEvaluateRequest,
+    *,
+    hook: str = "yoke_core.api.routes.hooks",
+    guard_version_skew: str = "",
 ) -> None:
-    """Record HarnessToolCallDenied for a pre-dispatch route refusal.
+    """Record a route refusal or annotate a chain denial during skew.
 
-    Both refusals below return ``outcome="denied"`` before the guard chain
-    (``evaluate_remote``) ever runs, so no guard module gets a chance to
-    emit — this is the only place that can. Revision pair is the requesting
-    client's own reported provenance against this server's, so a denial
-    recorded during guard-revision skew still carries both sides.
+    Pre-dispatch refusals have no guard emitter. A skew annotation after
+    dispatch preserves the runner-reported hook/check/reason as the denial.
     """
     try:
         from yoke_core.hooks.denial import emit_denial_event
@@ -209,7 +225,7 @@ def _emit_route_denial(
     client_revision = request.execution_provenance.get("source_sha") or ""
     try:
         emit_denial_event(
-            hook="yoke_core.api.routes.hooks",
+            hook=hook,
             check_id=check_id,
             reason=reason,
             session_id=session_id if isinstance(session_id, str) else "",
@@ -219,6 +235,7 @@ def _emit_route_denial(
             mode="deny",
             client_revision=str(client_revision),
             server_revision=str(server_revision),
+            guard_version_skew=guard_version_skew,
         )
     except Exception:
         pass
