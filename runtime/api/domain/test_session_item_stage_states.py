@@ -215,15 +215,16 @@ def test_projection_marks_only_real_failure_signals_red(
 
 def test_projection_keeps_landed_open_item_blue_at_closeout() -> None:
     conn = _connection()
-    conn.execute(
-        "UPDATE items SET merged_at='2026-09-01T12:02:00Z' WHERE id=7"
-    )
+    conn.execute("UPDATE items SET merged_at='2026-09-01T12:02:00Z' WHERE id=7")
 
     stages = _project(conn)
 
-    assert next(
-        stage for stage in stages if stage["name"] == "reviewing implementation"
-    )["state"] == "active"
+    assert (
+        next(stage for stage in stages if stage["name"] == "reviewing implementation")[
+            "state"
+        ]
+        == "active"
+    )
     assert "failed" not in {stage["state"] for stage in stages}
 
 
@@ -248,9 +249,36 @@ def test_projection_uses_focus_then_the_newest_held_item() -> None:
     assert focused[1]["state"] == "active"
 
 
+def test_projection_clears_a_swept_error_once_a_continuation_run_lands() -> None:
+    """A settled walk's error verdict stops painting the strip red.
+
+    Terminal settlement stamps an unreviewed mission capture with an error
+    verdict, which is a truthful record of that execution and not a verdict
+    on the walk. A continuation records its own run for the same
+    requirement, and the projection reads the latest run, so the newer row
+    is what the strip shows.
+    """
+    conn = _connection()
+    conn.execute("INSERT INTO qa_requirements VALUES (1,7,'reviewing-implementation')")
+    conn.execute("INSERT INTO qa_runs VALUES (1,1,'error')")
+
+    swept = [stage for stage in _project(conn) if stage["state"] == "failed"]
+    assert swept == [
+        {
+            "name": "reviewing implementation",
+            "state": "failed",
+            "failure": "QA failed",
+        }
+    ]
+
+    conn.execute("INSERT INTO qa_runs VALUES (2,1,NULL)")
+
+    assert "failed" not in {stage["state"] for stage in _project(conn)}
+
+
 def test_projection_omits_a_session_without_an_item() -> None:
     conn = _connection()
 
-    assert primary_item_stages_by_session(
-        conn, [{"session_id": "steering-session"}]
-    ) == {}
+    assert (
+        primary_item_stages_by_session(conn, [{"session_id": "steering-session"}]) == {}
+    )

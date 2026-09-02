@@ -18,6 +18,9 @@ class PlanExecutionBeginRequest(BaseModel):
 
     transition_id: str | None = Field(default=None, min_length=1)
     machine: str | None = Field(default=None, min_length=1)
+    #: Resume a mission walk the stale sweep settled while its walker was
+    #: parked: same roster, own runs, and no case reaches a host baseline.
+    continue_mission: bool = False
 
 
 class PlanExecutionStateRequest(BaseModel):
@@ -45,6 +48,7 @@ class PlanExecutionStateResponse(BaseModel):
     roster_digest: str
     cursor_ordinal: int
     machine_lease_id: int | None = None
+    continues_execution_id: str | None = None
     # Absent on a row written before executions carried a target: reading and
     # abandoning such a row are supported, running one is refused by name.
     execution_target: dict[str, Any] | None = None
@@ -111,6 +115,7 @@ def handle_plan_execution_begin(
             deployment_run_id=deployment_run_id,
             transition_id=parsed.transition_id,
             machine=parsed.machine,
+            continue_mission=parsed.continue_mission,
             actor_id=request.actor.actor_id,
             session_id=request.actor.session_id,
         )
@@ -140,21 +145,19 @@ def _owned_execution(
         require_plan_execution_owner,
     )
 
-    authority = (
-        require_plan_execution_abandon_authority
-        if abandoning
-        else require_plan_execution_owner
-    )
+    subject = {
+        "item_id": item_id,
+        "deployment_run_id": deployment_run_id,
+        "actor_id": request.actor.actor_id,
+        "session_id": request.actor.session_id,
+    }
     conn = connect()
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
-        authority(
-            execution,
-            item_id=item_id,
-            deployment_run_id=deployment_run_id,
-            actor_id=request.actor.actor_id,
-            session_id=request.actor.session_id,
-        )
+        if abandoning:
+            require_plan_execution_abandon_authority(conn, execution, **subject)
+        else:
+            require_plan_execution_owner(execution, **subject)
 
     except ValueError as exc:
         conn.rollback()

@@ -285,6 +285,7 @@ def plan_execution_view(
         "roster_digest": str(execution["roster_digest"]),
         "cursor_ordinal": int(execution["cursor_ordinal"]),
         "machine_lease_id": execution.get("machine_lease_id"),
+        "continues_execution_id": execution.get("continues_execution_id"),
         "execution_target": execution.get("execution_target"),
         "execution_target_digest": execution.get("execution_target_digest"),
         "requirements": list(execution["roster"]),

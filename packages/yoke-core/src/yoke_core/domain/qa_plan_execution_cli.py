@@ -201,6 +201,17 @@ def run(args: List[str]) -> int:
             "it sits outside this session's claim-bound worktree."
         ),
     )
+    parser.add_argument(
+        "--continue-mission",
+        action="store_true",
+        help=(
+            "Resume a mission walk the stale sweep settled while its walker "
+            "was parked. Runs the same roster as a new execution recording "
+            "its own runs, and reaches no host baseline, so the Test Machine "
+            "keeps the state the settled walk built. Refused unless the "
+            "subject's most recent execution ended that way."
+        ),
+    )
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
     if bool(parsed.expected_branch) != bool(parsed.expected_sha):
@@ -232,6 +243,7 @@ def run(args: List[str]) -> int:
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,
             allow_tree_mismatch=parsed.allow_tree_mismatch,
+            continue_mission=parsed.continue_mission,
             actor=actor,
         )
     except QaPlanExecutionError as exc:

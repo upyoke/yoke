@@ -14,7 +14,7 @@ from yoke_core.domain.qa_execution_decision_disposition import (
 )
 from yoke_core.domain.qa_plan_execution_authority import (
     PLAN_EXECUTION_STALE_SECONDS,
-    plan_execution_is_stale,
+    plan_execution_is_abandoned,
 )
 from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_SQL,
@@ -122,9 +122,8 @@ def finish_plan_execution(
     terminal_settlement = state in TERMINAL_PLAN_EXECUTION_STATES
     if terminal_settlement:
         settle_unreviewed_execution_captures(conn, execution)
-    retain_lease = (
-        state == "awaiting_agent_review"
-        and _mission_needs_retained_lease(execution)
+    retain_lease = state == "awaiting_agent_review" and _mission_needs_retained_lease(
+        execution
     )
     if execution.get("machine_lease_id") is not None and not retain_lease:
         release(
@@ -166,26 +165,33 @@ def reap_stale_plan_executions(
     *,
     now: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """Abandon every execution that has stopped reporting progress.
+    """Abandon every execution whose owner has stopped reporting progress.
 
     Without this, an execution whose owning session died stays live forever,
     and every human decision it raised waits on a termination that never
     arrives. Reaping is deliberately vintage-blind: it settles the row from
     its heartbeat alone, so the oldest strandings -- the ones with the least
     complete rows -- are exactly the ones it can still clear.
+
+    Silence is not always absence, so the heartbeat is read beside the owning
+    session's declared posture: a session parked on instruction is present
+    and holding, and its execution is skipped. That test lives here rather
+    than in a park-time heartbeat stamp because a stamped heartbeat would
+    claim progress that is not happening -- and would go stale again minutes
+    later anyway, while the walker is still legitimately holding.
     """
     if not _table_exists(conn, "qa_plan_executions"):
         return []
     candidates = [
-        {"id": str(row[0]), "heartbeat_at": row[1]}
+        {"id": str(row[0]), "heartbeat_at": row[1], "session_id": row[2]}
         for row in conn.execute(
-            "SELECT id, heartbeat_at FROM qa_plan_executions "
+            "SELECT id, heartbeat_at, session_id FROM qa_plan_executions "
             f"WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) ORDER BY created_at, id"
         ).fetchall()
     ]
     reaped: list[dict[str, Any]] = []
     for candidate in candidates:
-        if not plan_execution_is_stale(candidate, now=now):
+        if not plan_execution_is_abandoned(conn, candidate, now=now):
             continue
         try:
             execution = lock_plan_execution(conn, candidate["id"])
@@ -221,7 +227,6 @@ def reap_stale_plan_executions(
     return reaped
 
 
-
 __all__ = [
     "PLAN_EXECUTION_STALE_SECONDS",
     "STALE_PLAN_EXECUTION_REASON",
@@ -230,4 +235,3 @@ __all__ = [
     "reap_stale_plan_executions",
     "set_plan_machine_lease",
 ]
-

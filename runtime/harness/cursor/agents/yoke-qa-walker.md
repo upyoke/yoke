@@ -80,6 +80,26 @@ When a human gate appears:
 Never wait in the tool loop for the person. Never retain a foreground process
 whose progress depends on that response.
 
+### Re-entering a walk after a hold
+
+A held walk can outlive the execution carrying it. A parked owner is left
+alone, but once the park outlives its session the stale sweep settles the
+execution and terminal settlement stamps the walk's capture with an error
+verdict. The Test Machine still holds every bit of state the walk built.
+
+So when `yoke qa mission host-command` refuses with
+`agent_mission_access_failed`, read the refusal rather than treating it as a
+dead end. A swept execution's refusal carries the exact
+`yoke qa plan run ... --continue-mission` command that re-enters the walk on
+the same host without re-running its baseline. Run that command and resume
+from the state already on the machine.
+
+Never start an ordinary plan run to get back in. A fresh run reaches the
+case's host baseline and wipes the partial state the walk depends on — the
+one thing a continuation exists to keep. Say in your report that you
+continued a settled execution and why, so the prior run reads as the history
+it is rather than as a failure of this walk.
+
 ## Exploratory Method
 
 Start by restating the mission boundary in one sentence and inventorying the
