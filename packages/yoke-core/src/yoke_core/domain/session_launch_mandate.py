@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_STEERING
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.project_identity import resolve_item_id
+from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain.session_launch_store import marker, value
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
 from yoke_core.domain.session_workflow_routing import live_next_step
@@ -50,11 +52,20 @@ _REMAINING_LEGS = {
 }
 
 
+TURN_END_RELAY_TEACHING = (
+    "The last assistant text of each turn you stop on is delivered to the "
+    "steering seat automatically, so write that text as your report — what "
+    "landed, what is blocked, what you need — and never re-send it with "
+    "`yoke say`. Keep `yoke say` for what cannot wait for a turn end."
+)
+
+
 def compose_single_item_mandate(
     *,
     public_ref: str,
     entrypoint: str,
     remaining_legs: str,
+    steering_launched: bool,
     extras: str = "",
 ) -> str:
     """Return the canonical item-bound worker mandate, with optional extras.
@@ -64,6 +75,11 @@ def compose_single_item_mandate(
     the operator stopped that seat, each later report drove a headless
     resume of a dead session that acknowledged and never answered, and the
     successor seat had to redirect every live worker by hand.
+
+    Only a steering-launched worker is told about the turn-end relay,
+    because only a steering-launched worker gets one: the Stop-hook route
+    covers exactly the sessions a seat launched. Teaching it to an
+    operator-launched worker would promise a delivery that never happens.
     """
     mandate = (
         f"{entrypoint}\n\n"
@@ -81,6 +97,8 @@ def compose_single_item_mandate(
         "further work, do not chain into other items. If your claim is swept "
         "mid-work, reacquire and continue."
     )
+    if steering_launched:
+        mandate = f"{mandate}\n\n{TURN_END_RELAY_TEACHING}"
     extra = extras.strip()
     return f"{mandate}\n\n{extra}" if extra else mandate
 
@@ -126,8 +144,15 @@ def compose_item_launch_instructions(
     conn: Any,
     parsed: LaunchCreateRequest,
     project_id: int,
+    *,
+    requester_session_id: str | None = None,
 ) -> str:
-    """Compose the persisted launch body, or keep an explicit full body."""
+    """Compose the persisted launch body, or keep an explicit full body.
+
+    The origin is derived here the same way the inserted row derives it, so
+    the mandate and ``session_launches.origin`` cannot disagree about
+    whether this worker is relayed.
+    """
     if not parsed.compose_mandate:
         body = parsed.instructions
         if not str(body or "").strip():
@@ -137,10 +162,14 @@ def compose_item_launch_instructions(
             )
         return body
     entrypoint, remaining_legs = _route_for_item(conn, parsed.item, project_id)
+    origin = derived_launch_origin(
+        conn, session_id=requester_session_id, project_id=project_id
+    )
     return compose_single_item_mandate(
         public_ref=parsed.item,
         entrypoint=entrypoint,
         remaining_legs=remaining_legs,
+        steering_launched=origin == LAUNCH_ORIGIN_STEERING,
         extras=parsed.instructions,
     )
 
@@ -152,12 +181,15 @@ def launch_request_for_create(
     project_id: int,
     session_name: str,
     deadline_seconds: int,
+    requester_session_id: str | None = None,
 ) -> LaunchRequest:
     """Build the domain launch request, composing the mandate when requested."""
     return LaunchRequest(
         project_id=project_id,
         executor_surface=parsed.executor_surface,
-        instructions=compose_item_launch_instructions(conn, parsed, project_id),
+        instructions=compose_item_launch_instructions(
+            conn, parsed, project_id, requester_session_id=requester_session_id
+        ),
         idempotency_key=parsed.idempotency_key,
         sender_surface=parsed.sender_surface,
         machine_id=parsed.machine_id,
@@ -170,6 +202,7 @@ def launch_request_for_create(
 
 
 __all__ = [
+    "TURN_END_RELAY_TEACHING",
     "compose_item_launch_instructions",
     "compose_single_item_mandate",
     "launch_request_for_create",

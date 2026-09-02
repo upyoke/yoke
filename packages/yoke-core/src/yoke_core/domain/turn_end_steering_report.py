@@ -1,10 +1,25 @@
-"""Route covered operator-session Stop reports to the steering holder."""
+"""Route a steering-launched session's Stop reports to the steering holder.
+
+The relay saves a worker the step of re-sending what it just said, so it
+belongs to the sessions a steering seat launched and to nothing else. The
+covering route once selected the inverse — any claim-holding session with no
+launch row — which made an operator's own conversation a worker the moment
+it claimed an item in a steered project: one desktop session mailed 23 whole
+design-discussion replies to the seat, none of them a report. Provenance is
+the launch row (``session_launches.registered_session_id`` naming the origin
+session, with ``origin = 'steering'``), because no ``harness_sessions`` column
+records who launched a session — ``entrypoint`` and ``executor_surface`` say
+what it is, not who asked for it. An operator-launched session and an
+operator-opened one both reach the seat deliberately with
+``yoke say --steering``.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
 
+from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_STEERING
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.turn_end_evidence import (
     REPORT_PAYLOAD_KEY,
@@ -27,7 +42,7 @@ def _p(conn: Any) -> str:
 
 
 def _covering_route(conn: Any, session_id: str) -> dict[str, Any] | None:
-    """Resolve launch provenance, claimed-item scope, and steering holder once."""
+    """Resolve steering-launch provenance, item scope, and the holder once."""
     item_id = scope_int_sql(conn, "current_claim.scope", "item_id")
     steering_project = scope_int_sql(conn, "steering.scope", "project_id")
     marker = _p(conn)
@@ -51,13 +66,14 @@ def _covering_route(conn: Any, session_id: str) -> dict[str, Any] | None:
              WHERE origin.session_id = {marker}
                AND origin.actor_id IS NOT NULL
                AND steering.session_id <> origin.session_id
-               AND NOT EXISTS (
-                   SELECT 1 FROM session_launch_attempts launch_attempt
-                    WHERE launch_attempt.native_session_id = origin.session_id
+               AND EXISTS (
+                   SELECT 1 FROM session_launches launch
+                    WHERE launch.registered_session_id = origin.session_id
+                      AND launch.origin = {marker}
                )
              ORDER BY current_claim.id DESC, steering.id ASC
              LIMIT 1""",
-        (session_id,),
+        (session_id, LAUNCH_ORIGIN_STEERING),
     ).fetchone()
     return dict(row) if row is not None else None
 

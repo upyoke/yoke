@@ -25,10 +25,13 @@ registered worktree. Ending a session releases claims it still holds.
 An active steering scope appears on the generated board with its holder,
 project and held strategy documents, claim age, liveness, steering-launched
 worker count, and unacknowledged report count. In Workbench, Steering badges
-show the same scope, steering-launched workers group under their holder, and a
-covered operator session shows whether its latest turn-end report was sent or
-acknowledged. These views derive from existing claims, document locks, launch
-provenance, and message-recipient receipts; they do not create separate state.
+show the same scope, steering-launched workers group under their holder, and
+each of those workers shows whether its latest turn-end report was sent or
+acknowledged. Only a steering-launched session is relayed that way: a session
+the operator launched or opened keeps its turns to itself and reaches the seat
+deliberately with `yoke say --steering`. These views derive from existing
+claims, document locks, launch provenance, and message-recipient receipts;
+they do not create separate state.
 
 Ambient session identity comes from the harness (env / process anchor /
 conversation mapping) — operators should not invent session IDs.

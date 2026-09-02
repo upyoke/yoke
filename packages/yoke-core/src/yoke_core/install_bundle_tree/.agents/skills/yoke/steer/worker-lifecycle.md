@@ -190,10 +190,25 @@ the worker's own visible output; this seat reads liveness from
 `yoke watch fleet`, and the send path refuses a progress tick as
 `body_not_substantive`.
 
+Most of what this seat reads arrives without a worker sending anything. The
+Stop hook delivers the last assistant text of every turn to the seat holding
+the worker's scope, and it covers exactly the sessions a seat launched:
+`session_launches.registered_session_id` names the session and that launch row
+carries `origin = 'steering'`. So the mandate tells a launched worker to write
+its turn-end text as the report and never re-send it with `yoke say`, and the
+inbox stays a place for the things a turn end cannot carry. A session the
+operator launched, and a session a person opened, are both outside the relay:
+they reach whichever seat holds their scope with `yoke say --steering` when
+there is something that seat must act on. That boundary is why an operator's
+own conversation no longer mails this seat its design discussion turn by
+turn.
+
 ```text
 {ROUTED_ENTRYPOINT}
 
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
+
+The last assistant text of each turn you stop on is delivered to the steering seat automatically, so write that text as your report — what landed, what is blocked, what you need — and never re-send it with `yoke say`. Keep `yoke say` for what cannot wait for a turn end.
 ```
 
 The server parameterizes that shape from the pinned `workflow_id` and

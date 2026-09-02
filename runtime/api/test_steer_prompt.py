@@ -299,6 +299,16 @@ class TestSteerWorkerLifecycle:
         assert "yoke session-control launch preview" in text
         assert "Do not hand-assemble" in text
         assert "the server composes it" in text
+
+    def test_turn_end_relay_is_taught_as_steering_launched_only(self):
+        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        assert "it covers exactly the sessions a seat launched" in text
+        assert "origin = 'steering'" in text
+        assert "never re-send it with `yoke say`" in text
+        assert (
+            "A session the operator launched, and a session a person opened, "
+            "are both outside the relay" in text
+        )
         assert "session_control.launch.preview" in _read(_STEER_DIR / "SKILL.md")
         assert "session_control.launch.list" in _read(_STEER_DIR / "SKILL.md")
 

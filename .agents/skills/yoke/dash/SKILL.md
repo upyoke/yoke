@@ -176,6 +176,14 @@ reading the codebase, was auto-ended claim-free, and left its item looking
 untouched. Claim before the first read, and that reaping becomes structurally
 impossible.
 
+Your turn-end text may already be the report. When a steering seat launched
+this session, the Stop hook delivers the last assistant text of every turn to
+that seat, so write that text as the report — what landed, what is blocked,
+what you need — and never re-send it with `yoke say`; keep `yoke say` for what
+cannot wait for a turn end. A session the operator launched or opened is not
+relayed: it reaches the seat holding its scope with `yoke say --steering` when
+there is something that seat must act on.
+
 Then read the item detail and workflow-effective projections:
 
 ```text

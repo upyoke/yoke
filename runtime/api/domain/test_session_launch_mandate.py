@@ -7,19 +7,37 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.session_control.models import LaunchCreateRequest
+from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_STEERING
 from yoke_core.domain.session_launch_mandate import (
+    TURN_END_RELAY_TEACHING,
     compose_item_launch_instructions,
     compose_single_item_mandate,
 )
 from yoke_core.domain.session_launch_types import SessionLaunchError
 
 
-def test_composed_mandate_names_item_entrypoint_and_the_steering_role() -> None:
-    body = compose_single_item_mandate(
+def _stub_route(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "yoke_core.domain.session_launch_mandate._route_for_item",
+        lambda *_args, **_kwargs: (
+            "/yoke dash YOK-12",
+            "the Dash leg to its merge/evidence close",
+        ),
+    )
+
+
+def _mandate(*, steering_launched: bool, extras: str = "") -> str:
+    return compose_single_item_mandate(
         public_ref="YOK-12",
         entrypoint="/yoke dash YOK-12",
         remaining_legs="the Dash leg to its merge/evidence close",
+        steering_launched=steering_launched,
+        extras=extras,
     )
+
+
+def test_composed_mandate_names_item_entrypoint_and_the_steering_role() -> None:
+    body = _mandate(steering_launched=True)
     assert body.startswith("/yoke dash YOK-12\n")
     assert "acquire the YOK-12 work claim" in body
     assert "the Dash leg to its merge/evidence close" in body
@@ -29,37 +47,35 @@ def test_composed_mandate_names_item_entrypoint_and_the_steering_role() -> None:
     assert "NEVER send progress: no percentages" in body
 
 
+def test_steering_launched_worker_is_told_its_turn_end_is_the_report() -> None:
+    """Only a relayed worker is taught to stop re-sending what it just said."""
+    assert TURN_END_RELAY_TEACHING in _mandate(steering_launched=True)
+
+
+def test_operator_launched_worker_is_promised_no_relay() -> None:
+    """The Stop route covers steering launches, so nothing else may claim one."""
+    body = _mandate(steering_launched=False)
+    assert TURN_END_RELAY_TEACHING not in body
+    assert "yoke say --stdin --steering" in body
+
+
 def test_composed_mandate_embeds_no_session_id() -> None:
     """The address must survive the seat that launched the worker ending."""
-    body = compose_single_item_mandate(
-        public_ref="YOK-12",
-        entrypoint="/yoke dash YOK-12",
-        remaining_legs="the Dash leg to its merge/evidence close",
-    )
+    body = _mandate(steering_launched=True)
     assert "--session " not in body
     assert "steerer-session" not in body
 
 
 def test_extras_append_after_the_canonical_mandate() -> None:
-    body = compose_single_item_mandate(
-        public_ref="YOK-12",
-        entrypoint="/yoke dash YOK-12",
-        remaining_legs="the Dash leg to its merge/evidence close",
-        extras="Also reopen the failed QA case.",
-    )
+    body = _mandate(steering_launched=True, extras="Also reopen the failed QA case.")
     mandate, extras = body.split("\n\nAlso reopen", 1)
     assert "/yoke dash YOK-12" in mandate
+    assert TURN_END_RELAY_TEACHING in mandate
     assert extras.startswith(" the failed QA case.")
 
 
 def test_composed_create_uses_live_route_and_appends_extras(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "yoke_core.domain.session_launch_mandate._route_for_item",
-        lambda *_args, **_kwargs: (
-            "/yoke dash YOK-12",
-            "the Dash leg to its merge/evidence close",
-        ),
-    )
+    _stub_route(monkeypatch)
     parsed = LaunchCreateRequest(
         project="yoke",
         executor_surface="cursor-cli",
@@ -101,15 +117,11 @@ def test_raw_instructions_refuse_an_empty_body() -> None:
     assert raised.value.code == "payload_invalid"
 
 
-def test_composition_needs_no_creator_session(monkeypatch) -> None:
-    """A role-addressed mandate has nothing to learn from who launched it."""
-    monkeypatch.setattr(
-        "yoke_core.domain.session_launch_mandate._route_for_item",
-        lambda *_args, **_kwargs: (
-            "/yoke dash YOK-12",
-            "the Dash leg to its merge/evidence close",
-        ),
-    )
+def test_composition_without_a_creator_session_promises_no_relay(
+    monkeypatch,
+) -> None:
+    """No creator session means no steering claim to derive an origin from."""
+    _stub_route(monkeypatch)
     parsed = LaunchCreateRequest(
         project="yoke",
         executor_surface="cursor-cli",
@@ -118,6 +130,28 @@ def test_composition_needs_no_creator_session(monkeypatch) -> None:
     )
     body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
     assert "yoke say --stdin --steering" in body
+    assert TURN_END_RELAY_TEACHING not in body
+
+
+def test_a_seat_launching_the_worker_composes_the_relay_teaching(
+    monkeypatch,
+) -> None:
+    """The mandate reads the same origin the inserted launch row records."""
+    monkeypatch.setattr(
+        "yoke_core.domain.session_launch_mandate.derived_launch_origin",
+        lambda *_args, **_kwargs: LAUNCH_ORIGIN_STEERING,
+    )
+    _stub_route(monkeypatch)
+    parsed = LaunchCreateRequest(
+        project="yoke",
+        executor_surface="cursor-cli",
+        item="YOK-12",
+        idempotency_key="seat-launch",
+    )
+    body = compose_item_launch_instructions(
+        SimpleNamespace(), parsed, 1, requester_session_id="seat-1"
+    )
+    assert TURN_END_RELAY_TEACHING in body
 
 
 def test_unroutable_live_step_refuses_composition(monkeypatch) -> None:

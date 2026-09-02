@@ -170,9 +170,10 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
             int(_fleet_policy(conn, project_id, "fleet.launch_deadline_minutes")) * 60
         )
         max_body_bytes = int(_fleet_policy(conn, project_id, "fleet.max_body_bytes"))
+        auth = _authorization(conn, request, project_id)
         outcome = create_launch(
             conn,
-            auth=_authorization(conn, request, project_id),
+            auth=auth,
             request=launch_request_for_create(
                 conn,
                 parsed,
@@ -181,6 +182,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                     conn, public_ref=parsed.item, project_id=project_id
                 ),
                 deadline_seconds=deadline_seconds,
+                requester_session_id=auth.session_id,
             ),
             max_body_bytes=max_body_bytes,
             surface_fallback_enabled=bool(
