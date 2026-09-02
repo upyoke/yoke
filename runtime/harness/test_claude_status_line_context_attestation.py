@@ -27,7 +27,10 @@ from yoke_contracts.session_context_window_sources import (
     records_window_separately,
 )
 from yoke_harness import claude_status_line
-from yoke_harness.hooks.identity import client_model_facts
+from yoke_harness.hooks.identity import (
+    client_model_facts,
+    record_model_facts_shipped,
+)
 from yoke_harness.model_attestation import attest_served_facts
 
 
@@ -152,8 +155,8 @@ def test_a_window_recorded_after_the_model_still_reaches_the_wire(
 ) -> None:
     """The regression: the status line normally writes after the model.
 
-    A session settles once its model is proven, which is what stops the
-    transcript being re-scanned forever. The window arrives later, from a
+    A session settles once its model has been recorded, which is what
+    stops the transcript being re-scanned forever. The window arrives later, from a
     different process, so it has to keep being reported past that point or
     it never lands at all.
     """
@@ -165,6 +168,7 @@ def test_a_window_recorded_after_the_model_still_reaches_the_wire(
     first = client_model_facts("PreToolUse", payload, "claude-code")
     assert first["model"] == "claude-opus-5"
     assert "context_window_tokens" not in first
+    record_model_facts_shipped(payload, first)
 
     claude_status_line.record_context_window(_payload(1_000_000))
     later = client_model_facts("PostToolUse", payload, "claude-code")
@@ -181,7 +185,9 @@ def test_a_settled_session_with_no_recording_reports_nothing(
         "transcript_path": str(_transcript(tmp_path / "session.jsonl")),
     }
 
-    client_model_facts("PreToolUse", payload, "claude-code")
+    record_model_facts_shipped(
+        payload, client_model_facts("PreToolUse", payload, "claude-code")
+    )
 
     assert client_model_facts("PostToolUse", payload, "claude-code") == {}
 

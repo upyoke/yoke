@@ -242,7 +242,7 @@ def test_cursor_degradation_is_visible_in_context_and_stderr(
 ) -> None:
     """Cursor surfaces relay degradation instead of hiding a sandbox failure."""
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay.detect_executor", lambda: "cursor",
+        "yoke_harness.hooks.relay_degrade.detect_executor", lambda: "cursor",
     )
 
     rc = degrade_to_noop(

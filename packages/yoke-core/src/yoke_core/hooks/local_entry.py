@@ -20,7 +20,10 @@ from yoke_harness.hooks.cursor_lifecycle_hooks import (
 )
 from yoke_harness.hooks.decision_render import merge_allow_stdout
 from yoke_harness.hooks.identity import detect_executor, is_cursor
-from yoke_harness.hooks.identity_relay import relay_identity_payload
+from yoke_harness.hooks.identity_relay import (
+    record_model_facts_shipped,
+    relay_identity_payload,
+)
 from yoke_harness.hooks.identity_stamp import record_then_stamp
 from yoke_harness.hooks.relay import AGENT_TYPE_ENV_VAR
 from yoke_harness.hooks.relay_identity_guard import (
@@ -64,6 +67,13 @@ def evaluate_local_hook(
         stdin_data=stdin_data,
         controls=controls,
     )
+
+    # In-process evaluation is the write: a run that finished its chain
+    # inside the budget carried these facts to the row, which is what
+    # settles the session. A timed-out run may have skipped that tail, so
+    # its model facts ride the next hook instead.
+    if not controls.timed_out:
+        record_model_facts_shipped(payload, identity)
 
     failure_warning = render_failure_warning(controls.degraded)
     if failure_warning:
