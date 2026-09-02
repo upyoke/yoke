@@ -58,6 +58,7 @@ def test_boot_notice_names_the_token_file_and_never_the_token() -> None:
         "< ./secrets/first-boot-admin-token"
     ) in notice
 
+
 def test_docker_preflight_export_delegates_to_shared_probe(monkeypatch) -> None:
     receipt = docker.DockerPrerequisites("/usr/bin/docker")
     monkeypatch.setattr(subject, "_check_docker_prerequisites", lambda: receipt)
@@ -84,6 +85,7 @@ def test_docker_preflight_export_preserves_setup_error_contract(monkeypatch) -> 
     assert str(raised.value) == str(refusal)
     assert raised.value.detail_lines == refusal.detail_lines
 
+
 @pytest.mark.parametrize(
     ("publish_spec", "expected"),
     [
@@ -95,7 +97,8 @@ def test_docker_preflight_export_preserves_setup_error_contract(monkeypatch) -> 
     ],
 )
 def test_publish_spec_becomes_a_pasteable_connect_url(
-    publish_spec: str, expected: str,
+    publish_spec: str,
+    expected: str,
 ) -> None:
     assert connect_url_from_publish_spec(publish_spec) == expected
 
@@ -143,7 +146,9 @@ def test_success_uses_safe_compose_argv_and_connects_loopback(
         directory=str(tmp_path / "server"),
     )
 
-    result = subject.provision(setup, _prerequisites(), token_wait_seconds=0)
+    result = subject.provision(
+        setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=0
+    )
 
     assert result.raw_token == RAW_TOKEN
     assert repr(result).find(RAW_TOKEN) == -1
@@ -219,10 +224,14 @@ def test_token_timeout_retry_reuses_only_this_wizards_bundle(
     )
 
     with pytest.raises(subject.SelfHostSetupError, match="did not write") as raised:
-        subject.provision(setup, _prerequisites(), token_wait_seconds=0)
+        subject.provision(
+            setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=0
+        )
     assert raised.value.code == "token-timeout"
 
-    ready = subject.provision(setup, _prerequisites(), token_wait_seconds=0)
+    ready = subject.provision(
+        setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=0
+    )
 
     assert ready.raw_token == RAW_TOKEN
     assert len(writes) == 1
@@ -252,14 +261,84 @@ def test_connect_failure_retains_token_for_in_memory_retry(
     )
 
     with pytest.raises(subject.SelfHostSetupError) as raised:
-        subject.provision(setup, _prerequisites(), token_wait_seconds=0)
+        subject.provision(
+            setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=0
+        )
 
     assert raised.value.code == "connect"
     assert setup.raw_token == RAW_TOKEN
     assert RAW_TOKEN not in f"{raised.value} {raised.value.detail_lines}"
     assert raised.value.__cause__ is None
-    assert subject.retry_connection(setup).connection == {
+    assert subject.retry_connection(setup, health_wait_seconds=0).connection == {
         "ok": True,
         "api_url": subject.LOCAL_SERVER_URL,
     }
     assert attempts == [RAW_TOKEN, RAW_TOKEN]
+
+
+def test_post_start_health_wait_retries_until_the_server_answers(
+    tmp_path, monkeypatch
+) -> None:
+    clock, probes, connected = [0.0], [False, True], []
+
+    def run(argv, **kwargs):
+        if "up" in argv:
+            _deliver_token(kwargs["cwd"])
+        return _completed(tuple(argv))
+
+    def health(_url, *, timeout_s=0):
+        if not probes.pop(0):
+            raise server_connect.ServerConnectError("unreachable")
+        return {"status": "ok"}
+
+    monkeypatch.setattr(subject, "_RUN", run)
+    monkeypatch.setattr(subject, "_MONOTONIC", lambda: clock[0])
+    monkeypatch.setattr(subject, "_SLEEP", lambda s: clock.__setitem__(0, clock[0] + s))
+    monkeypatch.setattr(server_connect, "verify_server_health", health)
+    monkeypatch.setattr(
+        server_connect,
+        "connect_server",
+        lambda url, **kwargs: connected.append(url) or {"ok": True, "api_url": url},
+    )
+    setup = subject.new_setup(
+        config_path=str(tmp_path / "config.json"), directory=str(tmp_path / "server")
+    )
+    result = subject.provision(
+        setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=2
+    )
+    assert result.connection == {"ok": True, "api_url": subject.LOCAL_SERVER_URL}
+    assert probes == []
+    assert connected == [subject.LOCAL_SERVER_URL]
+
+
+def test_post_start_health_wait_times_out_before_connect(tmp_path, monkeypatch) -> None:
+    clock, connected = [0.0], []
+
+    def run(argv, **kwargs):
+        if "up" in argv:
+            _deliver_token(kwargs["cwd"])
+        return _completed(tuple(argv))
+
+    def health(*_a, **_k):
+        raise server_connect.ServerConnectError("JSON request endpoint is unreachable")
+
+    monkeypatch.setattr(subject, "_RUN", run)
+    monkeypatch.setattr(subject, "_MONOTONIC", lambda: clock[0])
+    monkeypatch.setattr(subject, "_SLEEP", lambda s: clock.__setitem__(0, clock[0] + s))
+    monkeypatch.setattr(server_connect, "verify_server_health", health)
+    monkeypatch.setattr(
+        server_connect, "connect_server", lambda url, **kwargs: connected.append(url)
+    )
+    setup = subject.new_setup(
+        config_path=str(tmp_path / "config.json"), directory=str(tmp_path / "server")
+    )
+    with pytest.raises(subject.SelfHostSetupError) as raised:
+        subject.provision(
+            setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=2
+        )
+    evidence = f"{raised.value} {' '.join(raised.value.detail_lines)}"
+    assert raised.value.code == "connect"
+    assert "JSON request endpoint is unreachable" in evidence
+    assert "2 seconds" in evidence
+    assert setup.raw_token == RAW_TOKEN
+    assert connected == []

@@ -24,6 +24,9 @@ _LOOPBACK_HOST = "127.0.0.1"
 LOCAL_SERVER_URL = f"http://{_LOOPBACK_HOST}:{bundle.DEFAULT_API_PORT}"
 COMPOSE_LOG_TAIL = 200
 TOKEN_WAIT_SECONDS = 120.0
+HEALTH_WAIT_SECONDS = 120.0
+HEALTH_PROBE_TIMEOUT_SECONDS = 2.0
+HEALTH_RETRY_INTERVAL_SECONDS = 1.0
 
 _RUN = subprocess.run
 _SLEEP = time.sleep
@@ -80,10 +83,11 @@ def provision(
     prerequisites: DockerPrerequisites,
     *,
     token_wait_seconds: float = TOKEN_WAIT_SECONDS,
+    health_wait_seconds: float = HEALTH_WAIT_SECONDS,
 ) -> SelfHostSetup:
     """Create/start this run's bundle, capture its token, and connect locally."""
     if setup.raw_token:
-        return retry_connection(setup)
+        return retry_connection(setup, health_wait_seconds=health_wait_seconds)
     _ensure_wizard_bundle(setup)
     started = _compose(
         prerequisites.executable,
@@ -103,12 +107,17 @@ def provision(
             detail,
         )
     setup.raw_token = _wait_for_first_boot_token(
-        setup, timeout_s=token_wait_seconds,
+        setup,
+        timeout_s=token_wait_seconds,
     )
-    return retry_connection(setup)
+    return retry_connection(setup, health_wait_seconds=health_wait_seconds)
 
 
-def retry_connection(setup: SelfHostSetup) -> SelfHostSetup:
+def retry_connection(
+    setup: SelfHostSetup,
+    *,
+    health_wait_seconds: float = HEALTH_WAIT_SECONDS,
+) -> SelfHostSetup:
     """Retry only the local connection using the token retained in memory."""
     if not setup.raw_token:
         raise SelfHostSetupError(
@@ -116,6 +125,7 @@ def retry_connection(setup: SelfHostSetup) -> SelfHostSetup:
             "The first-boot admin token has not been captured yet.",
             recovery_commands(setup),
         )
+    _wait_for_server_health(setup, timeout_s=health_wait_seconds)
     try:
         setup.connection = server_connect.connect_server(
             setup.url,
@@ -202,6 +212,43 @@ def _wait_for_first_boot_token(setup: SelfHostSetup, *, timeout_s: float) -> str
         _SLEEP(min(1.0, max(0.0, deadline - _MONOTONIC())))
 
 
+def _wait_for_server_health(setup: SelfHostSetup, *, timeout_s: float) -> None:
+    """Poll loopback health until the just-started server answers.
+
+    ``yoke connect`` still fails fast on a refused loopback port; this wait
+    is only for the wizard, which knows it just started the container.
+    """
+    if timeout_s <= 0:
+        return
+    deadline = _MONOTONIC() + timeout_s
+    last_error = "the health check did not succeed"
+    while True:
+        remaining = max(0.0, deadline - _MONOTONIC())
+        probe_timeout = max(
+            0.1,
+            min(HEALTH_PROBE_TIMEOUT_SECONDS, remaining or 0.1),
+        )
+        try:
+            server_connect.verify_server_health(setup.url, timeout_s=probe_timeout)
+            return
+        except server_connect.ServerConnectError as exc:
+            last_error = redact_api_tokens(str(exc))
+        remaining = deadline - _MONOTONIC()
+        if remaining <= 0:
+            break
+        _SLEEP(min(HEALTH_RETRY_INTERVAL_SECONDS, remaining))
+    raise SelfHostSetupError(
+        "connect",
+        "The server started, but this machine could not save the connection.",
+        (
+            f"Local server: {setup.url}",
+            last_error,
+            f"The server did not become healthy within {timeout_s:g} seconds.",
+            "The token is still held in this wizard; choose Retry connection.",
+        ),
+    )
+
+
 def _compose(
     executable: str,
     directory: Path,
@@ -252,6 +299,7 @@ def _diagnostic(value: str | bytes | None) -> str:
 __all__ = [
     "COMPOSE_LOG_TAIL",
     "DockerPrerequisites",
+    "HEALTH_WAIT_SECONDS",
     "LOCAL_SERVER_URL",
     "SelfHostSetup",
     "SelfHostSetupError",

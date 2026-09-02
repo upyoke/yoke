@@ -42,7 +42,8 @@ this machine (the free local universe, no account), an existing team server
 (your own reachable URL plus a token), guided self-host setup on this machine,
 or upyoke.com (hosted sign-in). The guided route previews Docker, the default
 bundle directory, loopback URL/port, Compose work, and operator-owned networking
-before writing. It captures first boot, activates the owner-only connection,
+before writing. It captures first boot, waits until the server answers
+`/v1/health`, activates the owner-only connection,
 then either continues into GitHub/Project or exits with a server handoff. Every
 other step is destination-independent, and the wizard previews remaining
 persistent writes before applying. Re-running
