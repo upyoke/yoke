@@ -8,6 +8,9 @@ from runtime.api.fixtures.backlog import insert_deployment_run, insert_item, ins
 from yoke_core.domain.approval_gate import evaluate_lifecycle_approval
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.decision_request_subject_context import (
+    APPROVAL_SOURCE_WORKFLOW_DEFAULT,
+)
 from yoke_core.domain.qa_plan_management import create_plan
 from yoke_core.domain.workflow_definition_builders import with_generated_epic_tasks
 from yoke_core.domain.workflow_definition_codec import WorkflowRegistryError
@@ -103,7 +106,16 @@ def _seed_path_claim(test_db) -> None:
 
 
 def _seed_approval(test_db) -> None:
-    verdict = evaluate_lifecycle_approval(test_db, item_id=ITEM_ID, to_stage_id="reviewing-implementation", role_names=("owner",))
+    verdict = evaluate_lifecycle_approval(
+        test_db,
+        item_id=ITEM_ID,
+        to_stage_id="reviewing-implementation",
+        role_names=("owner",),
+        approval_source={
+            "kind": APPROVAL_SOURCE_WORKFLOW_DEFAULT,
+            "entry": "approval_defaults.reviewing-implementation",
+        },
+    )
     assert verdict.request_status == "pending"
     test_db.execute(
         "UPDATE decision_requests SET status = 'resolved', resolution_action = 'approve', resolved_at = %s WHERE id = %s", (iso8601_now(), verdict.request_id)

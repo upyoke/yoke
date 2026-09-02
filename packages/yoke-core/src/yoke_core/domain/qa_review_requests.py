@@ -126,7 +126,8 @@ def _requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
         "SELECT id, item_id, epic_id, deployment_run_id, plan_id, "
-        "plan_case_key, method_id, method_name, qa_kind, success_policy "
+        "plan_case_key, method_id, method_name, expected_outcome, qa_kind, "
+        "success_policy "
         "FROM qa_requirements "
         f"WHERE id = {p}",
         (int(requirement_id),),
@@ -197,6 +198,29 @@ def ensure_qa_review_request(
     verdict_reason = str(reason_row[0] if reason_row else "").strip()
     if not verdict_reason:
         raise ValueError("undetermined QA run is missing its required reason")
+    artifact_rows = (
+        conn.execute(
+            "SELECT id, artifact_type, content_type FROM qa_artifacts "
+            f"WHERE qa_run_id={p} ORDER BY id",
+            (int(run_id),),
+        ).fetchall()
+        if _table_exists(conn, "qa_artifacts")
+        else []
+    )
+    artifacts = [
+        {
+            "artifact_id": int(row[0]),
+            "artifact_type": str(row[1]),
+            "content_type": row[2],
+        }
+        for row in artifact_rows
+    ]
+    artifact_kinds = sorted({artifact["artifact_type"] for artifact in artifacts})
+    evidence_summary = (
+        f"{len(artifacts)} attached artifact(s): {', '.join(artifact_kinds)}"
+        if artifacts
+        else "No evidence artifacts are attached to this run."
+    )
     return create_decision_request(
         conn,
         kind="qa_needs_review",
@@ -221,7 +245,12 @@ def ensure_qa_review_request(
             "case_name": requirement.get("plan_case_key"),
             "method_name": requirement.get("method_name"),
             "title": "QA evidence needs your review",
-            "evidence_summary": verdict_reason,
+            "expected_outcome": str(requirement.get("expected_outcome") or ""),
+            "verdict_reason": verdict_reason,
+            "artifacts": artifacts,
+            "artifact_count": len(artifacts),
+            "evidence_state": "attached" if artifacts else "missing",
+            "evidence_summary": evidence_summary,
         },
         session_id=session_id,
         commit=commit,

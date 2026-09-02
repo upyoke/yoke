@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.decision_requests import (
     create_decision_request,
@@ -21,7 +22,8 @@ def _run(conn: Any, run_id: str, *, for_update: bool = False) -> dict[str, Any]:
     if for_update and db_backend.connection_is_postgres(conn):
         suffix = " FOR UPDATE OF dr"
     row = conn.execute(
-        "SELECT dr.id, dr.project_id, dr.flow, dr.target_tier, "
+        "SELECT dr.id, dr.project_id, dr.flow, df.name AS flow_name, "
+        "dr.target_tier, dr.release_lineage, "
         "e.name AS target_environment, dr.status, "
         "dr.current_stage, dr.created_by, p.slug AS project, p.org_id, "
         "df.stages "
@@ -38,20 +40,61 @@ def _run(conn: Any, run_id: str, *, for_update: bool = False) -> dict[str, Any]:
 
 def _matches_deployment_snapshot(
     request: dict[str, Any],
-    run: dict[str, Any],
-    stage: str,
+    expected: dict[str, Any],
 ) -> bool:
     context = request.get("subject_context")
     if not isinstance(context, dict):
         return False
     return (
-        str(context.get("run_id") or "") == str(run["id"])
-        and str(context.get("stage") or "") == stage
-        and str(context.get("flow_id") or "") == str(run["flow"])
-        and str(context.get("target_environment") or "")
-        == str(run["target_environment"] or "")
+        all(context.get(field) == expected[field] for field in expected)
         and request.get("consumed_at") is None
     )
+
+
+def _batch_items(conn: Any, run_id: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT i.id, i.project_sequence, i.title, p.slug AS project, "
+        "p.public_item_prefix FROM deployment_run_items dri "
+        "JOIN items i ON i.id=dri.item_id "
+        "JOIN projects p ON p.id=i.project_id "
+        f"WHERE dri.run_id={_p(conn)} ORDER BY i.id",
+        (run_id,),
+    ).fetchall()
+    return [
+        {
+            "item_id": int(row["id"]),
+            "item_ref": format_item_ref(
+                row["project"],
+                row["public_item_prefix"],
+                row["project_sequence"],
+            ),
+            "title": str(row["title"]),
+        }
+        for row in rows
+    ]
+
+
+def _deployment_subject_context(
+    conn: Any,
+    run: dict[str, Any],
+    stage: str,
+    target: str,
+) -> dict[str, Any]:
+    items = _batch_items(conn, str(run["id"]))
+    lineage = str(run["release_lineage"] or "").strip() or None
+    lineage_summary = f" under release lineage {lineage}" if lineage else ""
+    return {
+        "run_id": str(run["id"]),
+        "flow": {"id": str(run["flow"]), "name": str(run["flow_name"])},
+        "stage": stage,
+        "batch": {"item_count": len(items), "items": items},
+        "shipping": {
+            "release_lineage": lineage,
+            "target_environment": target,
+            "summary": (f"{len(items)} item(s) ship to {target}{lineage_summary}."),
+        },
+        "title": f"Deploy to {target} — approve the stage",
+    }
 
 
 def _existing_actor_id(conn: Any, value: Any) -> Optional[int]:
@@ -102,14 +145,18 @@ def evaluate_deployment_stage_approval(
         stage_def.config.get("approvals"),
         path=f"stage {stage!r} approvals",
     )
+    target = str(run["target_environment"] or run["target_tier"] or "merge-only")
+    subject_context = _deployment_subject_context(conn, run, stage, target)
     waiting = "the stage is waiting for a human decision"
     verdict = verdict_from_request_history(
         conn,
         list_subject_requests(conn, "deployment_stage", f"{run_id}:{stage}"),
         snapshot_matches=lambda request: _matches_deployment_snapshot(
             request,
-            run,
-            stage,
+            {
+                field: subject_context[field]
+                for field in ("run_id", "flow", "stage", "batch", "shipping")
+            },
         ),
         session_id=session_id,
         stale_reason="deployment run flow or target changed",
@@ -121,9 +168,6 @@ def evaluate_deployment_stage_approval(
     if verdict is not None:
         conn.commit()
         return verdict
-    target = str(
-        run["target_environment"] or run["target_tier"] or "the target environment"
-    )
     originator = _existing_actor_id(
         conn,
         originator_actor_id if originator_actor_id is not None else run["created_by"],
@@ -141,13 +185,7 @@ def evaluate_deployment_stage_approval(
             role_names=roles,
         ),
         named_actor_ids=actors,
-        subject_context={
-            "run_id": run_id,
-            "stage": stage,
-            "target_environment": run["target_environment"],
-            "flow_id": str(run["flow"]),
-            "title": f"Deploy to {target} — approve the stage",
-        },
+        subject_context=subject_context,
         session_id=session_id,
     )
     return ApprovalGateVerdict(

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
@@ -84,10 +87,34 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     test_db.execute(
         "INSERT INTO deployment_runs "
         "(id, project_id, flow, target_tier, target_environment_id, "
-        "status, current_stage, created_at) "
+        "release_lineage, status, current_stage, created_at) "
         "VALUES ('run-approval-proof', 1, 'approval-proof', 'persistent', "
-        "%s, 'executing', 'approve-prod', '2026-07-26T00:00:00Z')",
+        "%s, 'release-proof-lineage', 'executing', 'approve-prod', "
+        "'2026-07-26T00:00:00Z')",
         (environment_id,),
+    )
+    workflow = test_db.execute(
+        "SELECT current_version_id FROM workflows WHERE id='issue'"
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO items "
+        "(id, title, status, priority, created_at, updated_at, source, owner, "
+        "project_id, project_sequence, workflow_id, workflow_version_id) "
+        "VALUES (9601, 'Deployment batch member', 'implemented', 'medium', "
+        "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z', %s, %s, "
+        "1, 9601, 'issue', %s)",
+        (str(originator), str(owner), workflow),
+    )
+    member = test_db.execute(
+        "SELECT i.id, i.project_sequence, i.title, p.slug, p.public_item_prefix "
+        "FROM items i JOIN projects p ON p.id=i.project_id "
+        "WHERE i.id=9601"
+    ).fetchone()
+    assert member is not None
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
+        "VALUES ('run-approval-proof', %s, '2026-07-26T00:00:00Z')",
+        (int(member[0]),),
     )
     test_db.commit()
 
@@ -105,6 +132,36 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     assert first.request_status == "pending"
     assert repeated.request_id == first.request_id
     request_id = first.request_id
+    context = json.loads(
+        test_db.execute(
+            "SELECT subject_context FROM decision_requests WHERE id=%s",
+            (request_id,),
+        ).fetchone()[0]
+    )
+    member_ref = format_item_ref(member[3], member[4], member[1])
+    assert context == {
+        "run_id": "run-approval-proof",
+        "flow": {"id": "approval-proof", "name": "Approval proof"},
+        "stage": "approve-prod",
+        "batch": {
+            "item_count": 1,
+            "items": [
+                {
+                    "item_id": int(member[0]),
+                    "item_ref": member_ref,
+                    "title": str(member[2]),
+                }
+            ],
+        },
+        "shipping": {
+            "release_lineage": "release-proof-lineage",
+            "target_environment": "prod",
+            "summary": (
+                "1 item(s) ship to prod under release lineage release-proof-lineage."
+            ),
+        },
+        "title": "Deploy to prod — approve the stage",
+    }
     assert (
         deployment_stage_is_approved(
             test_db,

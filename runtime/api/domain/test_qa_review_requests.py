@@ -63,10 +63,11 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
     requirement_id = test_db.execute(
         "INSERT INTO qa_requirements "
         "(item_id, plan_id, plan_case_key, method_id, method_name, "
-        "runner_id, capability_requirements, verdict_path, qa_kind, "
+        "expected_outcome, runner_id, capability_requirements, verdict_path, qa_kind, "
         "qa_phase, blocking_mode, created_at) "
         "VALUES (%s, %s, 'checkout-flow', 'browser-inspection', "
-        "'Browser inspection', 'browser_substrate', '[\"browser-control\"]', "
+        "'Browser inspection', 'The saved state is visible.', "
+        "'browser_substrate', '[\"browser-control\"]', "
         "'agent', 'plan_case', 'verification', 'blocking', "
         "'2026-07-26T00:00:00Z') RETURNING id",
         (9501, plan_id),
@@ -81,12 +82,12 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z') RETURNING id",
         (requirement_id,),
     ).fetchone()[0]
-    test_db.execute(
+    artifact_id = test_db.execute(
         "INSERT INTO qa_artifacts "
         "(qa_run_id, artifact_type, artifact_handle, created_at) "
-        "VALUES (%s, 'screenshot', %s, '2026-07-26T00:00:00Z')",
+        "VALUES (%s, 'screenshot', %s, '2026-07-26T00:00:00Z') RETURNING id",
         (run_id, '{"backend":"local","path":"/tmp/review.png"}'),
-    )
+    ).fetchone()[0]
     test_db.commit()
 
     request, created = ensure_qa_review_request(
@@ -106,7 +107,18 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         "case_name": "checkout-flow",
         "method_name": "Browser inspection",
         "title": "QA evidence needs your review",
-        "evidence_summary": "The screenshot does not show the saved state.",
+        "expected_outcome": "The saved state is visible.",
+        "verdict_reason": "The screenshot does not show the saved state.",
+        "artifacts": [
+            {
+                "artifact_id": int(artifact_id),
+                "artifact_type": "screenshot",
+                "content_type": None,
+            }
+        ],
+        "artifact_count": 1,
+        "evidence_state": "attached",
+        "evidence_summary": "1 attached artifact(s): screenshot",
     }
     waiting = requirement_awaits_human_review(test_db, int(requirement_id))
     assert waiting is not None
@@ -131,3 +143,28 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         ("human_review", "pass"),
     ]
     assert requirement_awaits_human_review(test_db, int(requirement_id)) is None
+
+    empty_run_id = test_db.execute(
+        "INSERT INTO qa_runs "
+        "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
+        "started_at, completed_at, created_at) VALUES "
+        "(%s, 'agent', 'manual_acceptance', 'undetermined', "
+        "'The attempt ended before producing reviewable proof.', "
+        "'2026-07-26T00:01:00Z', '2026-07-26T00:01:00Z', "
+        "'2026-07-26T00:01:00Z') RETURNING id",
+        (requirement_id,),
+    ).fetchone()[0]
+    empty_request, empty_created = ensure_qa_review_request(
+        test_db,
+        requirement_id=int(requirement_id),
+        run_id=int(empty_run_id),
+        originator_actor_id=int(originator),
+    )
+    assert empty_created is True
+    assert empty_request is not None
+    assert empty_request["subject_context"]["artifacts"] == []
+    assert empty_request["subject_context"]["artifact_count"] == 0
+    assert empty_request["subject_context"]["evidence_state"] == "missing"
+    assert empty_request["subject_context"]["evidence_summary"] == (
+        "No evidence artifacts are attached to this run."
+    )

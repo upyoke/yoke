@@ -67,10 +67,22 @@ def _lifecycle_request(conn, *, actor_id: int = 2):
         subject_key="42:reviewing-implementation",
         subject_context={
             "item_id": 42,
+            "item_ref": "YOK-42",
+            "item_title": "Item",
             "from_stage": "implementing",
-            "transition": "reviewing-implementation",
+            "to_stage": "reviewing-implementation",
             "workflow_id": "issue",
             "workflow_version_id": 1,
+            "branch_changes": {
+                "branch": None,
+                "commit_sha": None,
+                "touched_files": [],
+                "summary": "No implementation branch is recorded.",
+            },
+            "approval_source": {
+                "kind": "workflow_approval_default",
+                "entry": "approval_defaults.reviewing-implementation",
+            },
         },
         actor_id=actor_id,
     )
@@ -179,7 +191,17 @@ def test_deployment_withdraw_requires_run_stage_to_end(conn) -> None:
         kind="deployment_stage_approval",
         subject_type="deployment_stage",
         subject_key="run-1:production",
-        subject_context={"run_id": "run-1", "stage": "production"},
+        subject_context={
+            "run_id": "run-1",
+            "flow": {"id": "release", "name": "Release"},
+            "stage": "production",
+            "batch": {"item_count": 0, "items": []},
+            "shipping": {
+                "release_lineage": None,
+                "target_environment": "prod",
+                "summary": "No backlog items are attached to this run.",
+            },
+        },
     )
     with pytest.raises(ValueError, match="subject has not ended"):
         withdraw_decision_request(
@@ -220,7 +242,16 @@ def test_qa_withdraw_requires_conclusive_or_waived_requirement(conn) -> None:
         kind="qa_needs_review",
         subject_type="qa_requirement",
         subject_key="7",
-        subject_context={"requirement_id": 7, "run_id": 70},
+        subject_context={
+            "requirement_id": 7,
+            "run_id": 70,
+            "expected_outcome": "The requirement passes.",
+            "verdict_reason": "The result needs human review.",
+            "artifacts": [],
+            "artifact_count": 0,
+            "evidence_state": "missing",
+            "evidence_summary": "No evidence artifacts are attached.",
+        },
     )
     with pytest.raises(ValueError, match="subject has not ended"):
         withdraw_decision_request(
