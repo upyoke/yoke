@@ -62,7 +62,7 @@ function card(documentNode, extras = {}) {
   );
 }
 
-test("Previously held uses the same boxed structure as Steering, in grey", () => {
+test("Currently held boxes in green while Previously held stays grey", () => {
   const rendered = card(new FakeDocument());
   const previous = byClass(rendered, "session-holdings-previous")[0];
   const current = byClass(rendered, "session-holdings-current")[0];
@@ -86,9 +86,43 @@ test("Previously held uses the same boxed structure as Steering, in grey", () =>
     import.meta.url,
   ), "utf8");
   assert.match(steering, /border-left: 3px solid var\(--yoke-accent\)/);
-  assert.match(css, /border-left: 3px solid var\(--yoke-idle\)/);
+  assert.match(
+    css,
+    /\.session-holdings-current \{\n  border-left: 3px solid var\(--yoke-good\)/,
+  );
+  assert.match(
+    css,
+    /\.session-holdings-idle \{\n  border-left: 3px solid var\(--yoke-idle\)/,
+  );
   assert.match(css, /padding: 7px 9px/);
   assert.match(css, /border-radius: 4px/);
+});
+
+test("the stage strip starts at the box edge with session-scoped contrast", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_holdings.css",
+    import.meta.url,
+  ), "utf8");
+  const strip = css.slice(css.indexOf(".session-item-stage-progress {"));
+  assert.ok(
+    !/padding-left/.test(strip.slice(0, strip.indexOf("}"))),
+    "the strip is flush with the rest of the box, not indented",
+  );
+  // Pending segments carry a fill and an outline of their own here: the
+  // shared inventory rule is left alone so that view is not retuned blind.
+  assert.match(
+    css,
+    /\.session-item-stage-progress \.delivery-run-stage \{[\s\S]*?box-shadow: inset/,
+  );
+  for (const state of ["complete", "active", "failed", "stopped"]) {
+    assert.match(
+      css,
+      new RegExp(
+        `\\.session-item-stage-progress \\.delivery-run-stage\\[data-state="${state}"\\]`,
+      ),
+      `${state} segments are scoped to the session card`,
+    );
+  }
 });
 
 test("primary held item shows its complete workflow stage strip", () => {
@@ -194,4 +228,20 @@ test("Previously held does not nest a Steering box for a released seat", () => {
       .includes("🛞"),
     true,
   );
+});
+
+
+test("an idle session boxes its empty state without a label", () => {
+  const rendered = card(new FakeDocument(), {
+    currentItem: null,
+    holdings: { current: [], previous: [], previous_remainder: 0 },
+  });
+  const idle = byClass(rendered, "session-holdings-idle")[0];
+  assert.equal(
+    byClass(idle, "session-unassigned")[0].textContent,
+    "No active work claims",
+  );
+  // Boxed like the held groups, but the line inside is the whole message.
+  assert.equal(byClass(idle, "session-holdings-label").length, 0);
+  assert.equal(byClass(rendered, "session-holdings-current").length, 0);
 });

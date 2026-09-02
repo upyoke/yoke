@@ -102,7 +102,7 @@ test("the session's own claim outranks any holder reading", () => {
   });
   assert.equal(focusAttribution(row), "claim");
   const body = bodyFor(row);
-  assert.equal(byClass(body, "session-lock")[0].textContent, "🔒");
+  assert.equal(byClass(body, "session-lock")[0].textContent, "💼");
   assert.equal(byClass(body, "session-attached").length, 0);
 });
 

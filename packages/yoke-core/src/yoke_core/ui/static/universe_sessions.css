@@ -10,10 +10,23 @@
   font-size: 12px;
 }
 
-/* Sessions carries three stat tiles, not the shared row's four. */
+/* Sessions carries three stat tiles, not the shared row's four, and each
+   is one line: three numbers do not need the Overview tile's height. */
 .universe-app-root .sessions-stats {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
 }
+
+.universe-app-root .sessions-stats .stat {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 11px;
+}
+
+.universe-app-root .sessions-stats .stat .n { font-size: 15px; }
+.universe-app-root .sessions-stats .stat .l { margin-top: 0; font-size: 11px; }
 
 .universe-app-root .sessions-empty {
   margin: 0;
@@ -111,7 +124,7 @@
 }
 
 /* Attached rows hold no claim. The muted glyph distinguishes a worktree-lane
-   hold and a filing attribution from the lock a claim earns. */
+   hold and a filing attribution from the marker a real hold earns. */
 .universe-app-root .session-attached {
   flex: 0 0 auto;
   color: var(--yoke-muted);

@@ -1,5 +1,11 @@
 import { el } from "./universe_view_support.js";
 
+// The wheel marks a steering seat wherever one is shown: the corner of the
+// lead box on the seat's own card, and the marker on a steering holding
+// row. One wording, so both read as the same fact.
+export const STEERING_MARKER_TITLE =
+  "steering seat — this session steered this project";
+
 function projectSlug(projects, projectId) {
   const found = (Array.isArray(projects) ? projects : []).find(
     (candidate) => String(candidate.id) === String(projectId),
@@ -9,22 +15,6 @@ function projectSlug(projects, projectId) {
 
 function currentHoldings(row) {
   return Array.isArray(row?.holdings?.current) ? row.holdings.current : [];
-}
-
-function previousHoldings(row) {
-  return Array.isArray(row?.holdings?.previous) ? row.holdings.previous : [];
-}
-
-// Live seat or released seat in history: the card sheet is a faint
-// lavender either way. The holdings model also stamps `steered` so a
-// truncated previous list cannot hide a released seat. Released seats
-// list as ordinary previously-held rows; they do not keep this lead.
-export function sessionHasSteeringHistory(row) {
-  const holdings = row?.holdings || {};
-  if (holdings.steered) return true;
-  return [...currentHoldings(row), ...previousHoldings(row)].some(
-    (holding) => holding.target_kind === "steering",
-  );
 }
 
 function steeringClaims(row) {
@@ -112,6 +102,11 @@ export function appendSteeringHoldings(documentNode, body, row, projects = []) {
   const scopes = steeringScopes(row, projects);
   if (!scopes.length) return false;
   const lead = el(documentNode, "div", "session-steering-lead");
+  const wheel = el(documentNode, "span", "session-steering-wheel", "\u{1F6DE}");
+  wheel.title = STEERING_MARKER_TITLE;
+  wheel.setAttribute("role", "img");
+  wheel.setAttribute("aria-label", STEERING_MARKER_TITLE);
+  lead.appendChild(wheel);
   lead.appendChild(el(
     documentNode, "div", "session-steering-lead-label", "Steering",
   ));

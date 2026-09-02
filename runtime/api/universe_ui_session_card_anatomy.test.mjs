@@ -193,7 +193,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "session-lock").map(
       (marker) => [marker.textContent, marker.className, marker.title],
     ),
-    [["🔒", "session-lock", "work claim — this session holds it"]],
+    [["💼", "session-lock", "work claim — this session holds it"]],
   );
   assert.deepEqual(
     byClass(root, "session-attached").map(

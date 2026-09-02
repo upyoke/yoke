@@ -1,5 +1,6 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
+  STEERING_MARKER_TITLE,
   steeringDocCovers,
   steeringHoldingText,
   steeringLeadCovers,
@@ -110,23 +111,37 @@ function titleHolding(entries, row) {
   return items.find((entry) => entry.target === row.current_item) || items[0];
 }
 
+// The marker names WHICH KIND of hold the row is, so one glyph per kind:
+// the same glyph everywhere would say only "held", which the box heading
+// already says. Ordinary work carries a briefcase; the padlock is reserved
+// for a genuine lock — a coordination lease over a shared operation, the
+// hold that stops other work from running.
 function holdingMarker(holding) {
   if (holding.target_kind === "steering") {
-    return {
-      text: "🛞",
-      title: "steering seat — this session steered this project",
-    };
+    return { text: "🛞", title: STEERING_MARKER_TITLE };
   }
   if (holding.holding_kind === "path_claim") {
     return { text: "📁", title: "file claim — this session holds it" };
   }
   if (holding.holding_kind === "strategy_document") {
-    return { text: "🛞", title: "strategy-document hold" };
+    return {
+      text: "📜",
+      title: "strategy-document lock — this session holds it",
+    };
   }
   if (holding.holding_kind === "coordination") {
-    return { text: "🔒", title: "coordination lease — shared-operation hold" };
+    return {
+      text: "🔒",
+      title: "coordination lease — shared-operation hold",
+    };
   }
-  return { text: "🔒", title: "work claim — this session holds it" };
+  if (holding.holding_kind === "worktree_lane") {
+    return {
+      text: "🌿",
+      title: "worktree lane — this session holds the lane",
+    };
+  }
+  return { text: "💼", title: "work claim — this session holds it" };
 }
 
 function holdingTarget(holding, projects) {
@@ -313,10 +328,17 @@ export function appendHoldings(documentNode, body, row, projects = []) {
     rendered = true;
   }
   if (!rendered && !holdsAnything(groups) && row.liveness !== "ended") {
+    // Boxed like every other work region so an idle card reads as idle
+    // rather than as a card whose work region failed to render. No label
+    // heading: the line inside already says there is nothing held.
+    const group = el(
+      documentNode, "div", "session-holdings-group session-holdings-idle",
+    );
     const work = el(documentNode, "div", "session-work");
     work.appendChild(el(
       documentNode, "span", "session-unassigned", "No active work claims",
     ));
-    body.appendChild(work);
+    group.appendChild(work);
+    body.appendChild(group);
   }
 }
