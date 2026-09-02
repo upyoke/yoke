@@ -28,11 +28,6 @@ STRATEGY_DOC_CREATED_EVENT_NAME = "StrategyDocCreated"
 class DocCreateRequest(BaseModel):
     slug: str = Field(..., min_length=1, description="New strategy doc slug.")
     content: str = Field(..., description="Initial full doc content.")
-    reviewer_actor_id: int | None = Field(
-        None,
-        gt=0,
-        description="Optional named reviewer; project roles remain fallback authority.",
-    )
 
 
 class DocCreateResponse(BaseModel):
@@ -95,20 +90,6 @@ def handle_doc_create(request: FunctionCallRequest) -> HandlerOutcome:
                 payload.content,
                 _numeric_actor_id(request.actor.actor_id),
             )
-            actor_id = _numeric_actor_id(request.actor.actor_id)
-            if actor_id is not None:
-                from yoke_core.domain.strategy_review_requests import (
-                    ensure_current_strategy_revision_review,
-                )
-
-                ensure_current_strategy_revision_review(
-                    conn,
-                    project_id=project.id,
-                    slug=payload.slug,
-                    originator_actor_id=actor_id,
-                    reviewer_actor_id=payload.reviewer_actor_id,
-                    session_id=session_id,
-                )
         except _docs.UnknownStrategyDocError as exc:
             return _err("unknown_slug", str(exc))
         except _docs.EmptyStrategyDocError as exc:

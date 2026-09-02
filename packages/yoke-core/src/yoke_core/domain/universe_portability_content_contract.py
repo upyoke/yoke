@@ -4,7 +4,6 @@ from __future__ import annotations
 
 ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
     {
-        "addressed_event_deliveries",
         "actor_message_recipients",
         "capability_secrets",
         "decision_request_actor_authorities",
@@ -40,16 +39,6 @@ ARCHIVE_FORBIDDEN_TABLE_DATA = frozenset({"capability_secrets"})
 ARCHIVE_FORBIDDEN_SEQUENCE_DATA = frozenset({"capability_secrets_id_seq"})
 ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
     "applied_migrations": frozenset({"content_sha256"}),
-    "addressed_event_deliveries": frozenset(
-        {
-            "event_actor_id",
-            "event_actor_label",
-            "event_envelope",
-            "event_name",
-            "event_outcome",
-            "project_id",
-        }
-    ),
     "project_github_repo_bindings": frozenset(
         {
             "last_sync_at",
@@ -163,7 +152,6 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "decision_requests",
     "decision_request_actor_authorities",
     "decision_request_role_authorities",
-    "addressed_event_deliveries",
     "ouroboros_entry_dispositions",
     "test_machine_verifications",
 )

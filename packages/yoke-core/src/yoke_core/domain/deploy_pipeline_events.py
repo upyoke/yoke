@@ -47,7 +47,7 @@ def emit_run_event(
     project: str = "yoke",
     sd: Optional[str] = None,
 ) -> None:
-    """Emit stage events per item and one canonical addressed terminal event."""
+    """Emit stage events per item and one canonical terminal run event."""
     if name in {"DeploymentRunSucceeded", "DeploymentRunFailed"}:
         from yoke_core.domain.deploy_pipeline_completion import emit_completion
 

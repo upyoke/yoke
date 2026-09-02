@@ -8,28 +8,22 @@ def emit_completion(
     event_name: str,
     outcome: str,
     context: Mapping[str, Any],
-) -> tuple[str, int]:
-    """Commit a terminal event and its addressed deliveries atomically."""
+) -> str:
+    """Commit one terminal deployment-run event atomically."""
     from yoke_core.domain import deployment_approval_requests
     from yoke_core.domain.db_helpers import connect
 
-    reason = (
-        "Deployment run completed"
-        if event_name == "DeploymentRunSucceeded"
-        else "Deployment run failed"
-    )
     conn = connect()
     try:
-        result = deployment_approval_requests.emit_deployment_completion(
+        event_id = deployment_approval_requests.emit_deployment_completion(
             conn,
             run_id=run_id,
             event_name=event_name,
             outcome=outcome,
-            reason=reason,
             context=context,
         )
         conn.commit()
-        return result
+        return event_id
     except Exception:
         conn.rollback()
         raise

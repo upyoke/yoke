@@ -1,4 +1,11 @@
-"""Stable storage contract for inbox notification delivery snapshots."""
+"""Column shape a permanent history entry still names.
+
+The surface these columns belonged to is gone, and no live code path reads
+them. The ordered migration history is permanent, though, and the entry that
+once added and backfilled them loads this module by name — a database born
+before that entry still has to be able to apply it. Nothing new should import
+this.
+"""
 
 from __future__ import annotations
 

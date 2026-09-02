@@ -61,8 +61,6 @@ function strategyDocument() {
     parent_slug: "MASTER-PLAN",
     references: ["MASTER-PLAN"],
     current_revision: 2,
-    pending_review_count: 1,
-    review_requests: [{ id: 7, status: "pending" }],
     execution_claim: {
       owner_kind: "item", owner_item_id: 2262, project_id: 1,
       item_ref: "YOK-2001",
@@ -167,7 +165,7 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   assert.ok(allNodes(main).some((node) => node.tagName === "TIME"));
 });
 
-test("Strategy detail exposes document, history, diff, restore, and review", async () => {
+test("Strategy detail exposes document, history, diff, and restore", async () => {
   const documentNode = new FakeDocument();
   const main = documentNode.createElement("main");
   const requests = [];
@@ -206,7 +204,6 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   let rendered = text(main);
   assert.equal(byClass(main, "page-head").length, 1);
   assert.match(rendered, /State & actions/);
-  assert.match(rendered, /Approve revision 2/);
   assert.match(rendered, /Author through a harness/);
   assert.match(rendered, /Inspect documents, compare revisions/);
   assert.doesNotMatch(rendered, /\bcomments?\b/i);
@@ -227,9 +224,6 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   assert.ok(allNodes(documentBody).some((node) => node.tagName === "CODE"));
   assert.ok(allNodes(documentBody).some((node) => node.tagName === "OL"));
   assert.match(rendered, /revision 2/);
-  assert.ok(allNodes(main).some(
-    (node) => node.attributes.get("data-state") === "pending",
-  ));
   assert.ok(allNodes(main).some(
     (node) => node.attributes.get("data-state") === "item-owned",
   ));

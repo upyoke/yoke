@@ -12,7 +12,6 @@ from runtime.api.domain.strategy_execution_test_support import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import strategy_docs, strategy_docs_ingest
-from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.strategy_doc_history import (
     diff_doc_revisions,
     list_doc_revisions,
@@ -24,9 +23,6 @@ from yoke_core.domain.strategy_doc_surfaces import (
     set_strategy_doc_parent,
 )
 from yoke_core.domain.strategy_execution import StrategyExecutionLinkError
-from yoke_core.domain.strategy_review_requests import (
-    ensure_current_strategy_revision_review,
-)
 
 
 @pytest.fixture
@@ -114,26 +110,6 @@ def test_history_describes_title_only_create_and_full_plan_ingest(
     assert revisions[1]["byte_length"] == 16
 
 
-def test_current_revision_review_is_nonblocking_and_visible(tmp_db: str) -> None:
-    conn = connect_test_db(tmp_db)
-    try:
-        _seed_doc(conn, "REVIEW-PLAN", "# Review plan\n")
-        request, created = ensure_current_strategy_revision_review(
-            conn,
-            project_id=1,
-            slug="REVIEW-PLAN",
-            originator_actor_id=1,
-            session_id="strategy-review",
-        )
-        detail = get_strategy_surface(conn, 1, "REVIEW-PLAN")
-    finally:
-        conn.close()
-    assert created is True
-    assert request["blocking"] is False
-    assert request["subject_key"] == "1:REVIEW-PLAN:1"
-    assert detail["pending_review_count"] == 1
-
-
 def test_single_parent_rejects_cycles_and_surfaces_ancestry(tmp_db: str) -> None:
     conn = connect_test_db(tmp_db)
     try:
@@ -145,15 +121,6 @@ def test_single_parent_rejects_cycles_and_surfaces_ancestry(tmp_db: str) -> None
             slug="CHILD",
             parent_slug="PARENT",
         )
-        conn.execute(
-            "INSERT INTO decision_requests "
-            "(kind, subject_type, subject_key, project_id, blocking, "
-            "status, created_at) "
-            "VALUES ('strategy_revision_review', 'strategy_doc_revision', "
-            "'1:CHILD:1', 1, 0, 'pending', %s)",
-            (iso8601_now(),),
-        )
-        conn.commit()
         detail = get_strategy_surface(conn, 1, "CHILD")
         corpus = list_strategy_surfaces(conn, 1)
         with pytest.raises(StrategyExecutionLinkError, match="cycle"):
@@ -168,8 +135,6 @@ def test_single_parent_rejects_cycles_and_surfaces_ancestry(tmp_db: str) -> None
 
     assert detail["parent_slug"] == "PARENT"
     assert detail["references"] == ["PARENT"]
-    assert detail["pending_review_count"] == 1
-    assert detail["review_requests"][0]["kind"] == "strategy_revision_review"
     child = next(row for row in corpus if row["slug"] == "CHILD")
     assert child["parent_slug"] == "PARENT"
     assert child["revisions"] == 1

@@ -14,26 +14,24 @@ import {
 } from "./universe_ui_dom_test_support.mjs";
 
 import {
-  notificationRow,
+  messageRow,
   ok,
   renderInbox,
   requestRow,
 } from "./universe_ui_inbox_test_support.mjs";
 
-test("Inbox matches the three-class prototype and renders served counts", async () => {
+test("Inbox renders the two content types and their served counts", async () => {
   const { client, main } = renderInbox(["10"]);
   await settle();
 
   const headings = allNodes(main)
     .filter((node) => node.tagName === "H2")
     .map(ownTextContent);
-  assert.deepEqual(headings, [
-    "Needs your decision", "Requests", "Messages", "Notifications",
-  ]);
-  assert.equal(byClass(main, "inbox-row").length, 3);
+  assert.deepEqual(headings, ["Needs your decision", "Messages"]);
+  assert.equal(byClass(main, "inbox-row").length, 2);
   assert.deepEqual(
     byClass(main, "panel-count").map((node) => node.textContent),
-    ["· 1", "· 1", "· 0", "· 1"],
+    ["· 1", "· 1"],
   );
   assert.equal(
     byClass(main, "inbox-panel-hint")[0].textContent,
@@ -42,12 +40,6 @@ test("Inbox matches the three-class prototype and renders served counts", async 
   assert.deepEqual(client.requests[0], {
     function: "inbox.list", payload: { project_ids: [10] },
   });
-  assert.equal(byClass(main, "inbox-addressed").length, 0);
-  assert.match(
-    allNodes(main).map((node) => node.textContent || "").join(" "),
-    /asked of you/,
-  );
-  assert.equal(allNodes(main).filter((node) => node.tagName === "TIME").length, 3);
   assert.deepEqual(
     byClass(main, "inbox-row-subtitle")[0].children
       .filter((node) => node.tagName === "SPAN")
@@ -60,17 +52,6 @@ test("Inbox matches the three-class prototype and renders served counts", async 
       "you: project owner",
     ],
   );
-  assert.deepEqual(
-    byClass(main, "inbox-row-subtitle")[1].children
-      .filter((node) => node.tagName === "SPAN")
-      .map((node) => node.textContent),
-    [
-      "revision by Dana",
-      " · ",
-      " · ",
-      "the doc stays live while this waits · asked of you",
-    ],
-  );
   assert.ok(byClass(main, "inbox-action").every(
     (node) => node.classList.contains("item-button"),
   ));
@@ -78,12 +59,6 @@ test("Inbox matches the three-class prototype and renders served counts", async 
   assert.deepEqual(
     byClass(firstRow, "inbox-action").map((node) => node.textContent),
     ["Reject", "Approve"],
-  );
-  assert.deepEqual(
-    byClass(main, "inbox-row")[1].children.at(-1).children.map(
-      (node) => node.textContent,
-    ),
-    ["Request changes", "Approve"],
   );
   assert.equal(firstRow.attributes.get("role"), "link");
   firstRow.dispatchEvent(new Event("click"));
@@ -107,14 +82,37 @@ test("decision buttons call engine actions and refresh the instance lists", asyn
     (request) => request.function === "decision_requests.resolve",
   );
   assert.deepEqual(resolve.payload, { request_id: 7, action: "approve" });
-  assert.equal(byClass(main, "inbox-row").length, 2);
+  assert.equal(byClass(main, "inbox-row").length, 1);
   assert.equal(byClass(main, "inbox-empty")[0].textContent,
     "Nothing is waiting on you.");
 });
 
 test("request changes collects the required note before resolving", async () => {
-  const { client, main } = renderInbox();
+  const documentNode = new FakeDocument();
+  const main = documentNode.createElement("main");
+  const requests = [];
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "inbox.list") {
+        return ok({
+          needs_decision: [requestRow({
+            actions: ["approve", "request_changes"],
+          })],
+          messages: [],
+          pending_actor_message_count: 0,
+        });
+      }
+      return ok({ request: { id: request.payload.request_id } });
+    },
+  };
+  renderInboxView({
+    document: documentNode,
+    client,
+    isMounted: () => true,
+  }, main, "all");
   await settle();
+
   const requestChanges = allNodes(main).find(
     (node) => node.attributes.get("data-action") === "request_changes",
   );
@@ -124,18 +122,18 @@ test("request changes collects the required note before resolving", async () => 
   const send = byClass(main, "inbox-note-composer")[0].children[2];
   send.dispatchEvent(new Event("click"));
   assert.ok(note.classList.contains("invalid"));
-  assert.equal(client.requests.filter(
+  assert.equal(requests.filter(
     (request) => request.function === "decision_requests.resolve",
   ).length, 0);
 
   note.value = "Name the missing evidence.";
   send.dispatchEvent(new Event("click"));
   await settle();
-  const resolve = client.requests.find(
+  const resolve = requests.find(
     (request) => request.function === "decision_requests.resolve",
   );
   assert.deepEqual(resolve.payload, {
-    request_id: 8,
+    request_id: 7,
     action: "request_changes",
     note: "Name the missing evidence.",
   });
@@ -150,8 +148,8 @@ test("resolving a decision disables every action on that row", async () => {
       if (request.function === "inbox.list") {
         return ok({
           needs_decision: [requestRow()],
-          requests: [],
-          notifications: [],
+          messages: [],
+          pending_actor_message_count: 0,
         });
       }
       if (request.function === "decision_requests.resolve") {
@@ -179,41 +177,23 @@ test("resolving a decision disables every action on that row", async () => {
   assert.equal(byClass(main, "inbox-row-error")[0].textContent, "try again");
 });
 
-test("notification actions are actor-read mutations, including mark all", async () => {
-  const first = renderInbox();
+test("acknowledging a message clears it from the served list", async () => {
+  const { client, main } = renderInbox();
   await settle();
-  byClass(first.main, "inbox-read")
-    .find((node) => node.textContent === "Mark read")
+  byClass(main, "inbox-read")
+    .find((node) => node.textContent === "Acknowledge")
     .dispatchEvent(new Event("click"));
   await settle();
-  assert.ok(first.client.requests.some(
-    (request) => request.function === "notifications.read"
-      && request.payload.notification_id === 19,
+
+  assert.ok(client.requests.some(
+    (request) => request.function === "session_control.message.acknowledge"
+      && request.payload.message_id === "msg-19",
   ));
-  assert.equal(byClass(first.main, "inbox-empty").at(-1).textContent,
-    "Nothing new.");
-
-  const second = renderInbox(["10"]);
-  await settle();
-  byClass(second.main, "inbox-read-all")[0].dispatchEvent(new Event("click"));
-  await settle();
-  assert.deepEqual(second.client.requests.find(
-    (request) => request.function === "notifications.read_all",
-  ), {
-    function: "notifications.read_all",
-    payload: { project_ids: [10] },
-  });
-
-  const global = renderInbox();
-  await settle();
-  byClass(global.main, "inbox-read-all")[0].dispatchEvent(new Event("click"));
-  await settle();
-  assert.deepEqual(global.client.requests.find(
-    (request) => request.function === "notifications.read_all",
-  ), { function: "notifications.read_all", payload: {} });
+  assert.equal(byClass(main, "inbox-empty").at(-1).textContent,
+    "No unread messages.");
 });
 
-test("notification mutation failures stay visible and retryable", async () => {
+test("message acknowledgement failures stay visible and retryable", async () => {
   const documentNode = new FakeDocument();
   const main = documentNode.createElement("main");
   const client = {
@@ -221,8 +201,8 @@ test("notification mutation failures stay visible and retryable", async () => {
       if (request.function === "inbox.list") {
         return ok({
           needs_decision: [],
-          requests: [],
-          notifications: [notificationRow()],
+          messages: [messageRow()],
+          pending_actor_message_count: 1,
         });
       }
       return {
@@ -241,31 +221,19 @@ test("notification mutation failures stay visible and retryable", async () => {
   }, main, "all");
   await settle();
 
-  byClass(main, "inbox-read").find(
-    (node) => node.textContent === "Mark read",
-  ).dispatchEvent(new Event("click"));
+  const acknowledge = byClass(main, "inbox-read").find(
+    (node) => node.textContent === "Acknowledge",
+  );
+  acknowledge.dispatchEvent(new Event("click"));
   await settle();
   assert.match(
     byClass(main, "inbox-row-error")[0].textContent,
-    /notifications\.read unavailable/,
+    /session_control\.message\.acknowledge unavailable/,
   );
-  assert.equal(
-    byClass(main, "inbox-read").find(
-      (node) => node.textContent === "Mark read",
-    ).disabled,
-    false,
-  );
-
-  byClass(main, "inbox-read-all")[0].dispatchEvent(new Event("click"));
-  await settle();
-  assert.match(
-    byClass(main, "inbox-panel-error")[0].textContent,
-    /notifications\.read_all unavailable/,
-  );
-  assert.equal(byClass(main, "inbox-read-all")[0].disabled, false);
+  assert.equal(acknowledge.disabled, false);
 });
 
-test("all five request kinds link to their one subject home", () => {
+test("all four request kinds link to their one subject home", () => {
   const cases = [
     ["deployment_stage_approval", "deployment_stage", {}, "#/delivery/runs?project=10"],
     [
@@ -276,7 +244,6 @@ test("all five request kinds link to their one subject home", () => {
     ],
     ["lifecycle_transition_approval", "item_transition", { item_ref: "YOK-7" }, "#/items/7?project=10"],
     ["machine_approval", "machine_auth_request", {}, "#/access"],
-    ["strategy_revision_review", "strategy_doc_revision", { slug: "PLAN" }, "#/strategy/PLAN?project=10"],
   ];
   for (const [kind, subjectType, subjectContext, expected] of cases) {
     assert.equal(inboxPresentation.subjectHref(requestRow({
@@ -291,56 +258,4 @@ test("all five request kinds link to their one subject home", () => {
   assert.equal(inboxPresentation.subjectHref(requestRow({
     subject_context: { item_id: 2262 },
   })), "#/items?project=10");
-});
-
-test("notifications link their full row to the subject home", () => {
-  assert.equal(
-    inboxPresentation.notificationHref(notificationRow()),
-    "#/delivery/runs?project=10",
-  );
-  assert.equal(
-    inboxPresentation.notificationHref(notificationRow({
-      notification_kind: "item_block_state_changed",
-      event: { context: { item_ref: "YOK-1907" } },
-    })),
-    "#/items/1907?project=10",
-  );
-});
-
-test("decision notifications use the served kind and action without inventing subject facts", () => {
-  assert.deepEqual(
-    inboxPresentation.notificationPresentation(notificationRow({
-      notification_kind: "decision_request_resolved",
-      reason: "deployment_stage_approval approve",
-      event: {
-        context: {
-          request_id: 12,
-          kind: "deployment_stage_approval",
-          action: "approve",
-          resolution_actor_label: "ben",
-        },
-      },
-    })),
-    {
-      title: "Your stage approval was resolved",
-      subtitle: "approved by ben",
-    },
-  );
-  assert.deepEqual(
-    inboxPresentation.notificationPresentation(notificationRow({
-      notification_kind: "decision_request_resolved",
-      reason: "strategy_revision_review request_changes",
-      event: {
-        context: {
-          request_id: 13,
-          kind: "strategy_revision_review",
-          action: "request_changes",
-        },
-      },
-    })),
-    {
-      title: "Your decision request was resolved",
-      subtitle: "changes requested",
-    },
-  );
 });

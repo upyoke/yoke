@@ -79,8 +79,6 @@ test("a strategy doc drill-in reads the body through strategy.surface.get", asyn
                 revisions: [],
                 archived: false,
                 execution_claim: null,
-                review_requests: [],
-                pending_review_count: 0,
               },
             },
           },

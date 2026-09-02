@@ -111,10 +111,6 @@
   flex-wrap: wrap;
 }
 
-.universe-app-root .strategy-approval-feedback {
-  font-size: 11.5px;
-}
-
 .universe-app-root .strategy-tabs {
   display: flex;
   gap: 2px;

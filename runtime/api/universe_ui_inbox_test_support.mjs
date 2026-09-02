@@ -19,7 +19,6 @@ export function requestRow(overrides = {}) {
       title: "YOK-1907 — approve the reviewing-implementation transition",
     },
     project_id: 10,
-    blocking: true,
     created_at: "2026-07-26T12:00:00Z",
     asked_of_you: false,
     authority_reason: "project owner",
@@ -28,22 +27,13 @@ export function requestRow(overrides = {}) {
   };
 }
 
-export function notificationRow(overrides = {}) {
+export function messageRow(overrides = {}) {
   return {
-    id: 19,
-    event_id: "event-19",
-    notification_kind: "deployment_run_completed",
-    reason: "run completed",
+    message_id: "msg-19",
+    body: "Stage deploy is red on the release gate.",
     created_at: "2026-07-26T13:00:00Z",
-    event_name: "DeploymentRunSucceeded",
     project_id: 10,
-    event_outcome: "completed",
-    event: {
-      context: {
-        target_environment: "Production",
-        run_id: "run-20260726-019",
-      },
-    },
+    actor_receipt: { state: "pending" },
     ...overrides,
   };
 }
@@ -51,22 +41,7 @@ export function notificationRow(overrides = {}) {
 export function inboxClient() {
   const requests = [];
   let needs = [requestRow()];
-  let reviews = [requestRow({
-    id: 8,
-    kind: "strategy_revision_review",
-    subject_type: "strategy_doc_revision",
-    subject_key: "10:WORKFLOW-TYPES:7",
-    subject_context: {
-      slug: "WORKFLOW-TYPES",
-      revision: 7,
-      author_label: "Dana",
-    },
-    blocking: false,
-    asked_of_you: true,
-    authority_reason: "asked of you",
-    actions: ["approve", "request_changes"],
-  })];
-  let notifications = [notificationRow()];
+  let messages = [messageRow()];
   return {
     requests,
     async call(request) {
@@ -74,25 +49,19 @@ export function inboxClient() {
       if (request.function === "inbox.list") {
         return ok({
           needs_decision: structuredClone(needs),
-          requests: structuredClone(reviews),
-          notifications: structuredClone(notifications),
+          messages: structuredClone(messages),
+          pending_actor_message_count: messages.length,
         });
       }
       if (request.function === "decision_requests.resolve") {
         needs = needs.filter((row) => row.id !== request.payload.request_id);
-        reviews = reviews.filter((row) => row.id !== request.payload.request_id);
         return ok({ request: { id: request.payload.request_id, status: "resolved" } });
       }
-      if (request.function === "notifications.read") {
-        notifications = notifications.filter(
-          (row) => row.id !== request.payload.notification_id,
+      if (request.function === "session_control.message.acknowledge") {
+        messages = messages.filter(
+          (row) => row.message_id !== request.payload.message_id,
         );
-        return ok({ read: true, notification_id: request.payload.notification_id });
-      }
-      if (request.function === "notifications.read_all") {
-        const count = notifications.length;
-        notifications = [];
-        return ok({ read: count > 0, count });
+        return ok({ acknowledged: true, message_id: request.payload.message_id });
       }
       throw new Error(`unexpected function ${request.function}`);
     },

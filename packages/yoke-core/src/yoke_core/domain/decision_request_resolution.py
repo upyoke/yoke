@@ -6,14 +6,10 @@ from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import (
-    DECISION_RESOLVED,
     REQUEST_RESOLVED_EVENT,
     REQUEST_WITHDRAWN_EVENT,
 )
-from yoke_core.domain.decision_request_events import (
-    append_decision_event,
-    append_decision_event_envelope,
-)
+from yoke_core.domain.decision_request_events import append_decision_event
 from yoke_core.domain.decision_request_subject_state import (
     require_decision_request_subject_ended,
 )
@@ -22,7 +18,6 @@ from yoke_core.domain.decision_requests import (
     _p,
     _request_row,
 )
-from yoke_core.domain.inbox_notifications import dispatch_addressed_event
 
 
 def resolve_decision_request(
@@ -77,7 +72,7 @@ def resolve_decision_request(
                 note=note,
                 resolved_at=stamp,
             )
-    event_envelope = append_decision_event_envelope(
+    append_decision_event(
         conn,
         REQUEST_RESOLVED_EVENT,
         actor_id=actor_id,
@@ -92,15 +87,6 @@ def resolve_decision_request(
         },
         created_at=stamp,
     )
-    if request["originator_actor_id"] is not None:
-        dispatch_addressed_event(
-            conn,
-            event_envelope=event_envelope,
-            project_id=request["project_id"],
-            notification_kind=DECISION_RESOLVED,
-            reason=f"{request['kind']} {action}",
-            created_at=stamp,
-        )
     conn.commit()
     return _request_row(conn, request_id)
 

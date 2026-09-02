@@ -32,9 +32,6 @@ from yoke_core.domain.deployment_flow_validator import (
     normalize_deployment_flow_value,
     validate_and_lookup_flow_project,
 )
-from yoke_core.domain.item_block_notifications import (
-    emit_item_block_state_change_if_needed,
-)
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
@@ -306,7 +303,6 @@ def _execute_update_once(
             receipt=effect_receipt,
             out=out,
         )
-        emit_item_block_state_change_if_needed(conn, item=item_dict, field=field, value=value, session_id=session_id)
     finally:
         conn.close()
 

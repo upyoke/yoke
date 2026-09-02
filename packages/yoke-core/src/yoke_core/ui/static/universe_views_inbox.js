@@ -1,4 +1,4 @@
-// Per-actor needs-you surface: governed decisions, requests, and notifications.
+// Per-actor needs-you surface: the gates on you, and messages sent to you.
 
 import {
   callFunction,
@@ -10,7 +10,6 @@ import {
 import {
   appendDecisionRow,
   appendActorMessageRow,
-  appendNotificationRow,
   appendPanelHint,
   appendRowError,
   emptyRow,
@@ -37,26 +36,14 @@ export function renderInboxView(context, main, scope) {
   const needs = section(
     documentNode, "Needs your decision", { showRaw: false },
   );
-  const requests = section(documentNode, "Requests", { showRaw: false });
-  const notifications = section(
-    documentNode, "Notifications", { showRaw: false },
-  );
   const messages = section(documentNode, "Messages", { showRaw: false });
   appendPanelHint(documentNode, needs, "the gate waits until you resolve");
-  appendPanelHint(documentNode, requests, "waiting, but nothing is halted");
-  const markAll = el(
-    documentNode, "button", "inbox-read inbox-read-all", "Mark all read",
-  );
-  markAll.type = "button";
-  notifications.children[0].appendChild(markAll);
-  for (const panel of [needs, requests, messages, notifications]) {
+  for (const panel of [needs, messages]) {
     panel.children[1].className += " inbox-stack";
   }
   const host = el(documentNode, "div", "inbox-panels");
   host.appendChild(needs);
-  host.appendChild(requests);
   host.appendChild(messages);
-  host.appendChild(notifications);
   main.replaceChildren(host);
 
   const rowColumns = withProjectColumn([
@@ -79,14 +66,6 @@ export function renderInboxView(context, main, scope) {
         appendDecisionRow(context, body, row, resolve, rowProject(row));
       }
     }],
-    [requests, (body, calls) => {
-      const rows = calls[0].envelope.result.requests || [];
-      requests.setCount(rows.length);
-      if (!rows.length) emptyRow(documentNode, body, "No open requests.");
-      for (const row of rows) {
-        appendDecisionRow(context, body, row, resolve, rowProject(row));
-      }
-    }],
     [messages, (body, calls) => {
       const rows = calls[0].envelope.result.messages || [];
       messages.setCount(
@@ -95,15 +74,6 @@ export function renderInboxView(context, main, scope) {
       if (!rows.length) emptyRow(documentNode, body, "No unread messages.");
       for (const row of rows) {
         appendActorMessageRow(context, body, row, acknowledgeMessage);
-      }
-    }],
-    [notifications, (body, calls) => {
-      const rows = calls[0].envelope.result.notifications || [];
-      notifications.setCount(rows.length);
-      markAll.disabled = rows.length === 0;
-      if (!rows.length) emptyRow(documentNode, body, "Nothing new.");
-      for (const row of rows) {
-        appendNotificationRow(context, body, row, readOne, rowProject(row));
       }
     }],
   ], [{ functionId: "inbox.list", payload }]);
@@ -141,32 +111,6 @@ export function renderInboxView(context, main, scope) {
     );
   };
 
-  const readOne = async (notificationId, button) => {
-    button.disabled = true;
-    let result;
-    try {
-      result = await callFunction(context.client, "notifications.read", {
-        notification_id: notificationId,
-      });
-    } catch (error) {
-      result = {
-        status: 0,
-        envelope: { success: false, error: { message: String(error) } },
-      };
-    }
-    if (result.status === 200 && result.envelope.success) {
-      await load();
-      return;
-    }
-    button.disabled = false;
-    appendRowError(
-      documentNode,
-      button.parentNode,
-      result.envelope.error?.message ||
-        "The notification could not be marked read.",
-    );
-  };
-
   const acknowledgeMessage = async (messageId, button) => {
     button.disabled = true;
     let result;
@@ -194,37 +138,5 @@ export function renderInboxView(context, main, scope) {
     );
   };
 
-  markAll.addEventListener("click", async () => {
-    markAll.disabled = true;
-    const oldError = Array.from(notifications.children[1].children || []).find(
-      (child) => child.classList?.contains("inbox-panel-error"),
-    );
-    if (oldError) notifications.children[1].removeChild(oldError);
-    let result;
-    try {
-      result = await callFunction(
-        context.client, "notifications.read_all", payload,
-      );
-    } catch (error) {
-      result = {
-        status: 0,
-        envelope: { success: false, error: { message: String(error) } },
-      };
-    }
-    if (result.status === 200 && result.envelope.success) {
-      await load();
-      return;
-    }
-    markAll.disabled = false;
-    const error = el(
-      documentNode,
-      "p",
-      "inbox-panel-error error",
-      result.envelope.error?.message ||
-        "Notifications could not be marked read.",
-    );
-    error.setAttribute("role", "alert");
-    notifications.children[1].appendChild(error);
-  });
   load();
 }

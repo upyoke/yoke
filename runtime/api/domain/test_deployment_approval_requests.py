@@ -144,31 +144,9 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "WHERE id='run-approval-proof'"
     ).fetchone()[0] == "approve-prod"
 
-    test_db.execute(
-        "UPDATE deployment_runs SET created_by=%s "
-        "WHERE id='run-approval-proof'",
-        (str(originator),),
-    )
-    event_id, inserted = emit_deployment_completion(
-        test_db,
-        run_id="run-approval-proof",
-        event_name="DeploymentRunSucceeded",
-        outcome="completed",
-        reason="Deployment run completed",
-        context={"flow": "approval-proof"},
-    )
-    assert inserted == len({int(originator), int(owner)})
-    recipients = test_db.execute(
-        "SELECT actor_id FROM addressed_event_deliveries "
-        "WHERE event_id=%s ORDER BY actor_id",
-        (event_id,),
-    ).fetchall()
-    assert [int(row[0]) for row in recipients] == sorted(
-        {int(originator), int(owner)}
-    )
 
 
-def test_deployment_completion_event_and_deliveries_share_transaction(
+def test_deployment_completion_event_shares_the_caller_transaction(
     test_db,
 ):
     create_decision_request_tables(test_db)
@@ -192,24 +170,17 @@ def test_deployment_completion_event_and_deliveries_share_transaction(
     )
     test_db.commit()
 
-    event_id, inserted = emit_deployment_completion(
+    event_id = emit_deployment_completion(
         test_db,
         run_id="run-completion-proof",
         event_name="DeploymentRunSucceeded",
         outcome="completed",
-        reason="Deployment run completed",
         context={"flow": "completion-proof"},
     )
-    assert inserted == 1
     assert test_db.execute(
-        "SELECT COUNT(*) FROM addressed_event_deliveries WHERE event_id=%s",
-        (event_id,),
+        "SELECT COUNT(*) FROM events WHERE event_id=%s", (event_id,),
     ).fetchone()[0] == 1
     test_db.rollback()
     assert test_db.execute(
         "SELECT COUNT(*) FROM events WHERE event_id=%s", (event_id,),
-    ).fetchone()[0] == 0
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM addressed_event_deliveries WHERE event_id=%s",
-        (event_id,),
     ).fetchone()[0] == 0

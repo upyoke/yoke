@@ -1,14 +1,10 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
-  callFunction,
   el,
   statePill,
 } from "./universe_view_support.js";
-import {
-  button,
-  workflowPanel,
-} from "./workflow_view_primitives.js";
+import { workflowPanel } from "./workflow_view_primitives.js";
 
 function stat(documentNode, value, label) {
   const node = el(documentNode, "div", "stat");
@@ -219,12 +215,7 @@ function sessionLockFact(documentNode, claim) {
   return host;
 }
 
-export function stateActionsPanel(
-  context,
-  projectId,
-  doc,
-  refresh,
-) {
+export function stateActionsPanel(context, projectId, doc) {
   const documentNode = context.document;
   const { panel, body } = workflowPanel(documentNode, "State & actions");
   const table = el(documentNode, "table", "items kv strategy-state");
@@ -234,63 +225,6 @@ export function stateActionsPanel(
     executionFact(documentNode, doc.execution_claim),
   ));
 
-  const pending = (doc.review_requests || []).find(
-    (request) => request.status === "pending",
-  );
-  const pendingCount = Number(
-    doc.pending_review_count ??
-      (doc.review_requests || []).filter(
-        (request) => request.status === "pending",
-      ).length,
-  );
-  const approval = el(documentNode, "span", "strategy-inline");
-  const reviewPill = statePill(
-    documentNode,
-    pending ? "pending" : "idle",
-    pending
-      ? `${pendingCount} ${
-        pendingCount === 1 ? "review" : "reviews"
-      } requested`
-      : "no review requested",
-  );
-  if (reviewPill) approval.appendChild(reviewPill);
-  if (pending) {
-    const feedback = el(
-      documentNode, "span", "strategy-approval-feedback error",
-    );
-    feedback.setAttribute("role", "alert");
-    feedback.hidden = true;
-    const approve = button(
-      documentNode,
-      `Approve revision ${doc.current_revision}`,
-      "item-action primary",
-    );
-    approve.addEventListener("click", async () => {
-      approve.disabled = true;
-      feedback.hidden = true;
-      try {
-        const result = await callFunction(
-          context.client,
-          "decision_requests.resolve",
-          { request_id: Number(pending.id), action: "approve" },
-          { kind: "global", project_id: String(projectId) },
-        );
-        if (result.status === 200 && result.envelope.success) {
-          refresh();
-          return;
-        }
-        feedback.textContent =
-          result.envelope.error?.message || "Approval failed.";
-      } catch (error) {
-        feedback.textContent = `Approval failed: ${String(error)}`;
-      }
-      feedback.hidden = false;
-      approve.disabled = false;
-    });
-    approval.appendChild(approve);
-    approval.appendChild(feedback);
-  }
-  table.appendChild(factRow(documentNode, "Approval", approval));
   table.appendChild(factRow(
     documentNode,
     "Parent",

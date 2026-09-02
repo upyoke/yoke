@@ -225,14 +225,7 @@ function renderDetail(context, main, projectId, doc) {
   );
   headingCopy.appendChild(el(documentNode, "h1", "title", doc.slug));
   heading.appendChild(headingCopy);
-  const actions = stateActionsPanel(
-    context,
-    projectId,
-    doc,
-    () => renderStrategyDocDetailView(
-      context, main, projectId, doc.slug,
-    ),
-  );
+  const actions = stateActionsPanel(context, projectId, doc);
   const tabs = el(documentNode, "div", "strategy-tabs");
   tabs.setAttribute("role", "tablist");
   const content = el(documentNode, "div", "strategy-tab-content");

@@ -58,7 +58,6 @@ def register(registry) -> None:
             "decision_requests_insert",
             "decision_requests_resolve",
             "decision_requests_withdraw",
-            "addressed_event_deliveries_insert",
         ],
         events=[
             "DecisionRequestCreated",
@@ -90,10 +89,7 @@ def register(registry) -> None:
         _inbox.handle_decision_resolve,
         _inbox.DecisionResolveRequest,
         _inbox.DecisionMutationResponse,
-        side_effects=[
-            "decision_requests_resolve",
-            "addressed_event_deliveries_insert",
-        ],
+        side_effects=["decision_requests_resolve"],
         events=["DecisionRequestResolved"],
         guardrails=["actor_required", "live_authority_union", "closed_action"],
     )
@@ -125,30 +121,6 @@ def register(registry) -> None:
         events=["DecisionRequestWithdrawn"],
         guardrails=["subject_ended", "never_silent_expiry"],
         owner_module="yoke_core.domain.handlers.decision_request_disposition",
-    )
-    _register(
-        registry,
-        "notifications.read",
-        _inbox.handle_notification_read,
-        _inbox.NotificationReadRequest,
-        _inbox.NotificationReadResponse,
-        side_effects=["addressed_event_deliveries_update"],
-        events=["InboxNotificationRead"],
-        guardrails=["actor_required", "own_notification_only"],
-    )
-    _register(
-        registry,
-        "notifications.read_all",
-        _inbox.handle_notifications_read_all,
-        _inbox.NotificationsReadAllRequest,
-        _inbox.NotificationReadResponse,
-        side_effects=["addressed_event_deliveries_update"],
-        events=["InboxNotificationRead"],
-        guardrails=[
-            "actor_required",
-            "own_notifications_only",
-            "project_scope_exact",
-        ],
     )
 
 
