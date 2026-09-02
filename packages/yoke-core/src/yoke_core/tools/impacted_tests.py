@@ -23,9 +23,9 @@ from yoke_core.tools._impacted_contract_tests_session_control import (
 from yoke_core.tools._impacted_import_index import (
     ImportIndex,
     TEST_ANCHORS,
+    bounded_importer_tests,
     build_import_index,
     direct_changed_tests,
-    direct_importer_tests,
     is_test_file,
     module_name_for,
     reachable_tests,
@@ -236,9 +236,18 @@ def select(
         or set()
     )
     reached_count = len(reached)
-    direct_importers = direct_importer_tests(bounded_changed, index)
-    if is_effectively_full(len(direct_importers), total_files):
-        direct_importers = frozenset()
+    importer_sources = (
+        changed
+        if selection.fallback_rule == "effectively_full_selection"
+        else bounded_changed
+    )
+    bounded_importers = bounded_importer_tests(
+        importer_sources,
+        index,
+        total_files=total_files,
+    )
+    if is_effectively_full(len(bounded_importers), total_files):
+        bounded_importers = frozenset()
     if is_effectively_full(reached_count, total_files):
         reached = set()
         subset_note = (
@@ -254,7 +263,7 @@ def select(
             f"{', '.join(selection.trigger_paths)}) — deferring full "
             f"coverage to the final QA gate{subset_note}"
         ),
-        files=tuple(sorted(reached | contracts.tests | direct | direct_importers)),
+        files=tuple(sorted(reached | contracts.tests | direct | bounded_importers)),
         total_files=total_files,
         fallback_rule=selection.fallback_rule,
         trigger_paths=selection.trigger_paths,

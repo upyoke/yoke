@@ -182,3 +182,52 @@ def test_approval_gate_is_absent_until_an_authority_is_declared(monkeypatch):
     )
     assert recorded[0]["gate_id"] == "approval"
     assert recorded[0]["reason"] == "approval_authority_undeclared"
+
+
+def test_approval_gate_matches_the_workflow_policy_source(monkeypatch):
+    monkeypatch.setattr(
+        approval_status_gate,
+        "connect",
+        lambda db_path: SimpleNamespace(close=lambda: None),
+    )
+    monkeypatch.setattr(
+        approval_status_gate,
+        "load_item_workflow_runtime",
+        lambda conn, item_id: SimpleNamespace(
+            policies={"approval_defaults": {"done": {"roles": ["owner"]}}}
+        ),
+    )
+    item = {
+        "status": "reviewing-implementation",
+        "workflow_id": "dash",
+        "workflow_version_id": 7,
+    }
+    context = {
+        "from_stage": "reviewing-implementation",
+        "to_stage": "done",
+        "workflow_id": "dash",
+        "workflow_version_id": 7,
+        "approval_source": {
+            "kind": "workflow_approval_default",
+            "entry": "approval_defaults.done",
+        },
+    }
+    monkeypatch.setattr(approval_status_gate, "load_lifecycle_item", lambda *a: item)
+    monkeypatch.setattr(
+        approval_status_gate,
+        "list_subject_requests",
+        lambda *a: [
+            {
+                "id": 17,
+                "status": "resolved",
+                "resolution_action": "approve",
+                "subject_context": context,
+                "consumed_at": None,
+            }
+        ],
+    )
+
+    assert (
+        approval_status_gate.evaluate(item_id=7, target_status="done", db_path="")
+        is None
+    )

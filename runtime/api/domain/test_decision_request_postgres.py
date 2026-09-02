@@ -59,21 +59,46 @@ def test_postgres_schema_authority_and_transactional_resolution(test_db):
     test_db.commit()
 
     request, created = create_decision_request(
-        test_db, kind="lifecycle_transition_approval",
-        subject_type="item_transition", subject_key="17:done",
-        project_id=project_id, originator_actor_id=actor_ids[0],
+        test_db,
+        kind="lifecycle_transition_approval",
+        subject_type="item_transition",
+        subject_key="17:done",
+        project_id=project_id,
+        originator_actor_id=actor_ids[0],
         role_authorities=[RoleAuthority("project", project_id, "owner")],
-        subject_context={"public_ref": "IBX-17", "transition": "done"},
+        subject_context={
+            "item_id": 17,
+            "item_ref": "IBX-17",
+            "item_title": "Transactional resolution proof",
+            "from_stage": "reviewing-implementation",
+            "to_stage": "done",
+            "workflow_id": "issue",
+            "workflow_version_id": 1,
+            "branch_changes": {
+                "branch": "IBX-17",
+                "commit_sha": None,
+                "touched_files": [],
+                "summary": "No changed files are recorded.",
+            },
+            "approval_source": {
+                "kind": "workflow_approval_default",
+                "entry": "approval_defaults.done",
+            },
+        },
     )
     assert created is True
-    assert pending_requests_for_actor(test_db, actor_ids[1])[0]["id"] == (
-        request["id"]
-    )
+    assert pending_requests_for_actor(test_db, actor_ids[1])[0]["id"] == (request["id"])
     resolved = resolve_decision_request(
-        test_db, request["id"], actor_id=actor_ids[1], action="approve",
+        test_db,
+        request["id"],
+        actor_id=actor_ids[1],
+        action="approve",
     )
     assert resolved["status"] == "resolved"
-    assert [row[0] for row in test_db.execute(
-        "SELECT event_name FROM events "
-        "WHERE event_name LIKE 'DecisionRequest%' ORDER BY created_at, id"
-    ).fetchall()] == ["DecisionRequestCreated", "DecisionRequestResolved"]
+    assert [
+        row[0]
+        for row in test_db.execute(
+            "SELECT event_name FROM events "
+            "WHERE event_name LIKE 'DecisionRequest%' ORDER BY created_at, id"
+        ).fetchall()
+    ] == ["DecisionRequestCreated", "DecisionRequestResolved"]

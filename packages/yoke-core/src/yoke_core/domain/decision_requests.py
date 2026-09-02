@@ -14,6 +14,7 @@ from yoke_core.domain.decision_request_contract import (
     REQUEST_CREATED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.decision_request_subject_context import validate_subject_context
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -163,7 +164,7 @@ def create_decision_request(
             kind,
             subject_type,
             subject_key,
-            json.dumps(dict(subject_context or {}), separators=(",", ":")),
+            json.dumps(validate_subject_context(kind, subject_context), separators=(",", ":")),
             project_id,
             org_id,
             originator_actor_id,

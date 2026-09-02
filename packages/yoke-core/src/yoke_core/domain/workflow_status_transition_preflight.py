@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.decision_request_subject_context import (
+    item_posture_approval_source,
+    workflow_default_approval_source,
+)
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_QA_OPTIONAL,
@@ -93,9 +97,7 @@ def prepare_status_transition(
         )
     # A workflow whose QA policy is optional attaches no plans, so there is
     # nothing to materialize and the project defaults do not apply to it.
-    qa_attaches_plans = (
-        str(workflow.policies.get("qa") or "") != WORKFLOW_QA_OPTIONAL
-    )
+    qa_attaches_plans = str(workflow.policies.get("qa") or "") != WORKFLOW_QA_OPTIONAL
     if qa_attaches_plans and _table_exists(conn, "qa_plan_project_defaults"):
         from yoke_core.domain.qa_plan_attachments import (
             has_attached_plans,
@@ -128,6 +130,7 @@ def prepare_status_transition(
         )
     workflow_version_id = int(workflow.workflow_version_id)
     approval = dict(workflow.policies.get("approval_defaults", {})).get(target_status)
+    approval_source = workflow_default_approval_source(target_status)
     if not approval:
         from yoke_core.domain.dash_posture_gate import (
             approval_policy_for_transition,
@@ -138,6 +141,7 @@ def prepare_status_transition(
             item_id=item_id,
             target_status=target_status,
         )
+        approval_source = item_posture_approval_source()
     if not approval:
         conn.commit()
         return StatusTransitionPreflight(
@@ -153,6 +157,7 @@ def prepare_status_transition(
         to_stage_id=target_status,
         role_names=approval.get("roles", ()),
         named_actor_ids=approval.get("actors", ()),
+        approval_source=approval_source,
         originator_actor_id=originator_actor_id,
         session_id=session_id,
     )

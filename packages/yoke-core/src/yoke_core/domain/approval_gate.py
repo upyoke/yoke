@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 import json
 from typing import Any, Optional
 
-from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import REQUEST_WITHDRAWN_EVENT
@@ -16,6 +15,11 @@ from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
     list_subject_requests,
+)
+from yoke_core.domain.lifecycle_approval_context import (
+    build_lifecycle_subject_context,
+    lifecycle_transition_matches,
+    load_lifecycle_item,
 )
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -34,22 +38,6 @@ class ApprovalGateVerdict:
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _item_context(conn: Any, item_id: int) -> dict[str, Any]:
-    p = _p(conn)
-    row = conn.execute(
-        "SELECT i.id, i.project_sequence, i.title, i.status, i.project_id, "
-        "i.workflow_id, "
-        "i.workflow_version_id, p.slug AS project, p.public_item_prefix, "
-        "p.org_id "
-        "FROM items i JOIN projects p ON p.id = i.project_id "
-        f"WHERE i.id = {p}",
-        (item_id,),
-    ).fetchone()
-    if row is None:
-        raise LookupError(f"item {item_id} does not exist")
-    return {key: row[key] for key in row.keys()}
 
 
 def role_authorities_for(
@@ -159,24 +147,6 @@ def verdict_from_request_history(
     return None
 
 
-def _matches_transition_snapshot(
-    request: dict[str, Any],
-    item: dict[str, Any],
-    target: str,
-) -> bool:
-    context = request.get("subject_context")
-    if not isinstance(context, dict):
-        return False
-    return (
-        str(context.get("from_stage") or "") == str(item["status"])
-        and str(context.get("transition") or "") == target
-        and str(context.get("workflow_id") or "") == str(item["workflow_id"])
-        and int(context.get("workflow_version_id") or 0)
-        == int(item["workflow_version_id"])
-        and request.get("consumed_at") is None
-    )
-
-
 @rollback_workflow_binding_write_errors
 def evaluate_lifecycle_approval(
     conn: Any,
@@ -185,6 +155,7 @@ def evaluate_lifecycle_approval(
     to_stage_id: str,
     role_names: Iterable[str] = (),
     named_actor_ids: Iterable[int] = (),
+    approval_source: Mapping[str, str],
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
 ) -> ApprovalGateVerdict:
@@ -193,16 +164,17 @@ def evaluate_lifecycle_approval(
     if not target:
         raise ValueError("to_stage_id is required")
     lock_item_workflow_bindings(conn, (int(item_id),))
-    item = _item_context(conn, int(item_id))
+    item = load_lifecycle_item(conn, int(item_id))
     subject_key = f"{int(item_id)}:{target}"
     waiting = "the transition is waiting for a human decision"
     verdict = verdict_from_request_history(
         conn,
         list_subject_requests(conn, "item_transition", subject_key),
-        snapshot_matches=lambda request: _matches_transition_snapshot(
+        snapshot_matches=lambda request: lifecycle_transition_matches(
             request,
             item,
             target,
+            approval_source,
         ),
         session_id=session_id,
         stale_reason="transition source or pinned workflow changed",
@@ -215,11 +187,6 @@ def evaluate_lifecycle_approval(
         conn.commit()
         return verdict
 
-    public_ref = format_item_ref(
-        str(item["project"]),
-        str(item["public_item_prefix"] or ""),
-        int(item["project_sequence"]),
-    )
     request, _ = create_decision_request(
         conn,
         kind="lifecycle_transition_approval",
@@ -233,16 +200,12 @@ def evaluate_lifecycle_approval(
             role_names=role_names,
         ),
         named_actor_ids=named_actor_ids,
-        subject_context={
-            "item_id": int(item_id),
-            "public_ref": public_ref,
-            "title": f"{public_ref} — approve the {target} transition",
-            "item_title": str(item["title"]),
-            "from_stage": str(item["status"]),
-            "transition": target,
-            "workflow_id": str(item["workflow_id"]),
-            "workflow_version_id": int(item["workflow_version_id"]),
-        },
+        subject_context=build_lifecycle_subject_context(
+            conn,
+            item,
+            target,
+            approval_source,
+        ),
         session_id=session_id,
     )
     return ApprovalGateVerdict(
@@ -301,7 +264,7 @@ def consume_lifecycle_approval(
     actual = {
         "item_id": int(context.get("item_id") or 0),
         "from_stage": str(context.get("from_stage") or ""),
-        "transition": str(context.get("transition") or ""),
+        "transition": str(context.get("to_stage") or ""),
         "workflow_version_id": int(context.get("workflow_version_id") or 0),
     }
     if (
