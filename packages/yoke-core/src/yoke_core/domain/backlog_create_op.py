@@ -11,7 +11,6 @@ import time
 from typing import Any, Mapping, Optional, TextIO
 
 from . import db_backend
-from yoke_core.domain.actors import validate_actor_id
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.backlog_queries import (
     _assert_write_db_ready,
@@ -33,66 +32,11 @@ from yoke_core.domain.backlog_session_attribution import (
     record_touched_item,
 )
 from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
-
-
-class SourceActorResolutionError(Exception):
-    """Raised when the writer cannot resolve a valid actor id for ``items.source``.
-
-    Three failure modes share this class so callers see one rejection
-    surface: (a) an explicit ``source`` argument that is not a numeric
-    actor-id token (a mechanism label such as ``user`` / ``bug`` /
-    ``simulation``), (b) an explicit ``source`` whose numeric id does
-    not exist in ``actors``, and (c) no source given and the calling
-    session has no bound actor. Each carries a one-line message naming
-    the offending value so the operator's first move is to pass the
-    right actor or fix session registration, not chase the helper.
-    """
-
-
-def _resolve_session_source_actor(conn: Any, session_id: Optional[str]) -> int:
-    """Resolve ``items.source`` from the calling session's bound actor.
-
-    Actor identity is session/auth-bound: the explicit ``session_id``
-    argument (else the ambient session) maps to
-    ``harness_sessions.actor_id``. Fails closed with
-    :class:`SourceActorResolutionError` when no actor resolves — the
-    writer contract is that the legacy text default ``'user'`` must
-    never fire on the production INSERT path.
-    """
-    from yoke_core.domain.path_claims_actor_resolution import (
-        ActorResolutionUnavailable,
-        resolve_actor_for_caller,
-    )
-
-    try:
-        return resolve_actor_for_caller(conn, None, session_id=session_id)
-    except ActorResolutionUnavailable as exc:
-        raise SourceActorResolutionError(
-            f"cannot resolve a source actor for the new item: {exc}. "
-            "Pass an explicit numeric --source actor id or create the "
-            "item from a registered harness session."
-        ) from exc
-
-
-def _coerce_explicit_source(conn: Any, source: str) -> int:
-    """Validate an operator-supplied ``source`` argument as an actor id.
-
-    Returns the integer actor id. Raises
-    :class:`SourceActorResolutionError` for non-numeric values
-    (mechanism labels such as ``user`` / ``bug`` / ``simulation``) and
-    for numeric values that do not match any ``actors`` row.
-    """
-    text = source.strip()
-    try:
-        actor_id = int(text)
-    except ValueError as exc:
-        raise SourceActorResolutionError(
-            f"items.source must be a numeric actor id, got {source!r}; "
-            "mechanism labels are no longer accepted on the write path"
-        ) from exc
-    if not validate_actor_id(conn, actor_id):
-        raise SourceActorResolutionError(f"items.source={actor_id} does not match any actors row")
-    return actor_id
+from yoke_core.domain.item_source_actor import (
+    ItemSourceActorResolutionError,
+    coerce_explicit_item_source,
+    resolve_item_source_actor,
+)
 
 
 def execute_create(
@@ -136,14 +80,14 @@ def execute_create(
     try:
         try:
             if source is None:
-                source_actor_id = _resolve_session_source_actor(conn, session_id)
+                source_actor_id = resolve_item_source_actor(conn, session_id)
             else:
-                source_actor_id = _coerce_explicit_source(conn, source)
+                source_actor_id = coerce_explicit_item_source(conn, source)
             if owner is None:
                 owner_actor_id = source_actor_id
             else:
-                owner_actor_id = _coerce_explicit_source(conn, owner)
-        except SourceActorResolutionError as exc:
+                owner_actor_id = coerce_explicit_item_source(conn, owner)
+        except ItemSourceActorResolutionError as exc:
             return {"success": False, "error": str(exc)}
 
         source_token = str(source_actor_id)
@@ -157,7 +101,9 @@ def execute_create(
         deployment_flow = normalize_deployment_flow_value(deployment_flow)
         project_identity = resolve_project(conn, project)
         assert project_identity is not None
-        flow_project, flow_err = validate_and_lookup_flow_project(conn, deployment_flow, project)
+        flow_project, flow_err = validate_and_lookup_flow_project(
+            conn, deployment_flow, project
+        )
         if flow_err:
             return {"success": False, "error": flow_err}
 
@@ -319,15 +265,21 @@ def execute_create(
         print(f"Created: {public_ref}", file=out)
 
         warn_when_body_is_empty(
-            public_ref=public_ref, title=title, body=body,
-            instruction=clean_instruction, out=out,
+            public_ref=public_ref,
+            title=title,
+            body=body,
+            instruction=clean_instruction,
+            out=out,
         )
         # A create is authoritative on its own; the mirror is a second write
         # that can fail, so record what the mirror became instead of
         # reporting success over an issue that was never opened.
         github_mirror = sync_and_record_mirror(
-            conn, item_id=current_id, public_ref=public_ref,
-            project=project, out=out,
+            conn,
+            item_id=current_id,
+            public_ref=public_ref,
+            project=project,
+            out=out,
         )
 
     finally:
@@ -344,6 +296,5 @@ def execute_create(
 
 
 __all__ = [
-    "SourceActorResolutionError",
     "execute_create",
 ]

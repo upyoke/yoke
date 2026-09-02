@@ -189,9 +189,10 @@ Resolution runs one canonical chain, owned by
 2. Ancestry walk: each ancestor pid of the calling process is tested
    against the registry; a record is trusted only when the live start
    time matches (stale records are pruned best-effort).
-3. `None` → mutating dispatch rejects with `actor_session_missing`, an
-   infrastructure-bug signal to report — never a prompt to export env
-   vars.
+3. `None` → mutations whose registry entry requires a session reject with
+   `actor_session_missing`, an infrastructure-bug signal to report — never a
+   prompt to export env vars. Explicitly session-optional terminal operations
+   continue through their own actor-binding contract.
 
 Step 2 reads the hook-written process-anchor registry: its record
 format, the two rules that keep a pid shared by several conversations
@@ -199,13 +200,13 @@ from answering, and how a contention marker heals are documented at
 [`process-anchor-registry.md`](session-identity-contract/process-anchor-registry.md).
 
 The `actor_session_missing` rejection is the default for mutating dispatch,
-but a bounded **bootstrap/config class** opts out with
+but a bounded **terminal/bootstrap/config class** opts out with
 `ambient_session_required=False` on its registry entry. These are the
 surfaces a brand-new user or the public installer runs in a plain terminal
-before any harness session exists: project install / refresh / register /
-uninstall, onboarding, and the project-config writes they drive —
-create/update, capability and environment settings, github binding, and
-a new project's first deployment flows
+before any harness session exists: direct-work filing through `items.create`
+(`yoke dash` / `yoke task`), project install / refresh / register / uninstall,
+onboarding, and the project-config writes they drive — create/update,
+capability and environment settings, github binding, and a new project's first deployment flows
 (`deployment_flows.create`). A session is still bound and audited
 when one is present, https callers stay project-scoped through the dispatch
 permission gate (which enforces only once a numeric actor id is bound), and
