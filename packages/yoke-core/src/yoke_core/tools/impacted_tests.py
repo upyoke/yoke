@@ -28,11 +28,13 @@ from yoke_core.tools._impacted_import_index import (
     direct_importer_tests,
     is_test_file,
     module_name_for,
+    reachable_tests,
 )
 from yoke_core.tools._impacted_selection import (
     MIN_EFFECTIVELY_FULL_FILE_UNIVERSE,
     Selection,
     is_effectively_full,
+    remainder_paths_for_bounded_reachability,
 )
 
 #: Shared pytest infrastructure: reachable from every test by construction
@@ -121,29 +123,6 @@ def _unbounded_trigger(
     return None
 
 
-def _reachable_tests(changed: Sequence[str], index: ImportIndex) -> "set[str] | None":
-    """Test files reachable from *changed*, or None when nothing maps."""
-    reached: set[str] = set(changed)
-    frontier = [
-        module for rel in changed if (module := index.module_of.get(rel)) is not None
-    ]
-    if not frontier:
-        return None
-    seen_modules = set(frontier)
-    while frontier:
-        module = frontier.pop()
-        for importer in index.importers.get(module, ()):
-            if importer in reached:
-                continue
-            reached.add(importer)
-            importer_module = index.module_of.get(importer)
-            if importer_module and importer_module not in seen_modules:
-                seen_modules.add(importer_module)
-                frontier.append(importer_module)
-    # Keep deletions in analysis, but never pass removed tests to pytest.
-    return {rel for rel in reached if rel in index.module_of and is_test_file(rel)}
-
-
 def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
     """Tests reachable from *changed*, widening when nothing bounds it."""
     if not changed:
@@ -159,7 +138,7 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
             trigger_paths=paths,
         )
 
-    reached_tests = _reachable_tests(changed, index)
+    reached_tests = reachable_tests(changed, index)
     if reached_tests is None:
         return Selection(
             full_sweep=True,
@@ -229,7 +208,7 @@ def select(
             path
             for path in changed
             if is_effectively_full(
-                len(_reachable_tests((path,), index) or ()), total_files
+                len(reachable_tests((path,), index) or ()), total_files
             )
         )
         selection = Selection(
@@ -243,7 +222,19 @@ def select(
         return selection
     trigger_paths = set(selection.trigger_paths)
     bounded_changed = [path for path in changed if path not in trigger_paths]
-    reached = _reachable_tests(bounded_changed, index) or set()
+    reached = (
+        reachable_tests(
+            remainder_paths_for_bounded_reachability(
+                bounded_changed,
+                total_files=total_files,
+                individually_reached=lambda path: len(
+                    reachable_tests((path,), index) or ()
+                ),
+            ),
+            index,
+        )
+        or set()
+    )
     reached_count = len(reached)
     direct_importers = direct_importer_tests(bounded_changed, index)
     if is_effectively_full(len(direct_importers), total_files):

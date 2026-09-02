@@ -57,3 +57,35 @@ def test_bounded_deferral_keeps_small_direct_importer_set(tmp_path: Path) -> Non
     assert selection.bounded_deferral is True
     assert selection.fallback_rule == "unmapped_file_kind"
     assert selection.files == _with_floor(direct_test)
+
+
+def test_unmapped_file_does_not_drop_python_reachability(tmp_path: Path) -> None:
+    root = _tiny_repo(tmp_path)
+    broad = "runtime/api/foundation.py"
+    _write(root, broad, "VALUE = 1\n")
+    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+        _write(
+            root,
+            f"runtime/api/test_foundation_{number}.py",
+            "from runtime.api import foundation\n",
+        )
+
+    python_only = select(
+        [broad, "runtime/api/leaf.py"],
+        build_import_index(root),
+        bounded=True,
+    )
+    with_docs = select(
+        ["docs/lifecycle.md", broad, "runtime/api/leaf.py"],
+        build_import_index(root),
+        bounded=True,
+    )
+
+    assert "runtime/api/test_middle.py" in python_only.files
+    assert with_docs.fallback_rule == "unmapped_file_kind"
+    assert with_docs.trigger_paths == ("docs/lifecycle.md",)
+    assert "runtime/api/test_middle.py" in with_docs.files
+    assert with_docs.telemetry().startswith(
+        "impacted-selection scope=bounded_deferral rule=unmapped_file_kind "
+        "triggers=docs/lifecycle.md "
+    )

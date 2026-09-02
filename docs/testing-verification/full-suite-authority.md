@@ -216,7 +216,10 @@ exact changed files that fired it. The identifiers are stable because
 they are the grouping key: sweeping a period of run captures for
 `impacted-selection ` answers whether widening is legitimate core churn
 or a file kind reachability never modelled. A docs- or skills-only edit
-widening to 21,000 tests is the second kind. Tune the selector against
+widening to 21,000 tests is the second kind. A docs file sitting beside
+Python in the same diff excludes only itself: bounded selection still
+walks the Python remainder, and a near-total Python path in that remainder
+does not empty reachability computed from the others. Tune the selector against
 what that data indicts rather than against intuition — a rule that fires
 constantly on genuinely central files is working correctly.
 
