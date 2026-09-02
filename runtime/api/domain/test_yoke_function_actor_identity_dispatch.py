@@ -3,8 +3,10 @@
 Asserts the transport-symmetric rules end-to-end: the explicit payload
 session binds (operator-debug override, recorded in dispatcher event
 context with the divergent ambient), a session-less mutating call is
-rejected with the infrastructure-framed ``actor_session_missing``, and
-calls whose bound session has no ``harness_sessions`` row carry
+rejected with ``actor_session_missing`` framed for the caller its
+process tree names — the infrastructure gap inside a harness, the
+supported path in a plain terminal — and calls whose bound session has
+no ``harness_sessions`` row carry
 ``provenance_unverified`` on every dispatcher event. Helper-level tests
 live in the sibling module :mod:`test_yoke_function_actor_identity`.
 """
@@ -167,20 +169,32 @@ class TestDispatcherMutatingIdentity(_IntegrationBase):
         self.assertIs(ctx["session_override"], True)
         self.assertEqual(ctx["ambient_session_id"], "ambient-real")
 
-    def test_missing_everything_blocks_mutating_with_reframed_message(self):
-        self._register("intg.mut.miss", side_effects=["rows_insert"])
-
-        resp = dispatch(
-            _make_request(function="intg.mut.miss", payload_session=""),
-            ambient_session_id="",
-        )
-
+    def _blocked_message(self, function_id: str, harness_family: str) -> str:
+        """Dispatch a session-less mutating call under a pinned process tree."""
+        self._register(function_id, side_effects=["rows_insert"])
+        with patch(
+            "yoke_core.domain.session_ambient_identity.nearest_harness_family",
+            return_value=harness_family,
+        ):
+            resp = dispatch(
+                _make_request(function=function_id, payload_session=""),
+                ambient_session_id="",
+            )
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "actor_session_missing")
-        self.assertIn("infrastructure gap", resp.error.message)
         self.assertNotIn("YOKE_SESSION_ID", resp.error.message)
         self.assertEqual(self._called_events(), [])
+        return resp.error.message
+
+    def test_missing_everything_blocks_mutating_with_reframed_message(self):
+        message = self._blocked_message("intg.mut.miss", "claude")
+        self.assertIn("infrastructure gap", message)
+
+    def test_missing_everything_outside_a_harness_names_the_terminal_path(self):
+        message = self._blocked_message("intg.mut.term", "")
+        self.assertIn("harness session", message)
+        self.assertNotIn("field-note", message)
 
     def test_session_optional_mutating_runs_and_audits_without_session(self):
         # Bootstrap/config functions (project install / refresh / onboard,

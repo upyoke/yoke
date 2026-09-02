@@ -11,6 +11,8 @@ from __future__ import annotations
 from unittest import mock
 
 from yoke_core.domain import session_ambient_identity
+from yoke_core.domain.yoke_function_actor_identity import bind_actor_identity
+from yoke_core.domain.yoke_function_registry import RegistryEntry
 from yoke_core.domain.session_missing_refusal import (
     TERMINAL_SUPPORTED_PATH,
     format_session_missing,
@@ -70,3 +72,49 @@ def test_the_live_formatter_picks_the_branch_from_the_process_tree():
         text = session_ambient_identity.format_actor_session_missing("a.b.c")
     assert TERMINAL_SUPPORTED_PATH in text
     assert "field-note" not in text
+
+
+def _mutating_entry() -> RegistryEntry:
+    from pydantic import BaseModel
+
+    class _Model(BaseModel):
+        pass
+
+    return RegistryEntry(
+        function_id="items.freeze.run",
+        handler=lambda request: None,
+        request_model=_Model,
+        response_model=_Model,
+        stability="stable",
+        owner_module="test",
+        target_kinds=("item",),
+        side_effects=("write",),
+        emitted_event_names=(),
+        guardrails=(),
+        adapter_status="live",
+    )
+
+
+def test_the_binder_denial_carries_the_terminal_path_outside_a_harness():
+    """The refusal a person actually receives comes through the binder."""
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+
+    request = FunctionCallRequest(
+        function="items.freeze.run",
+        actor=ActorContext(actor_id=None, session_id=""),
+        target=TargetRef(kind="item", item_id=1),
+    )
+    with mock.patch.object(
+        session_ambient_identity, "nearest_harness_family", return_value="",
+    ):
+        result = bind_actor_identity(
+            _mutating_entry(), request, ambient_session_id="",
+        )
+    assert result.error is not None and result.error.error is not None
+    message = result.error.error.message
+    assert TERMINAL_SUPPORTED_PATH in message
+    assert "field-note" not in message

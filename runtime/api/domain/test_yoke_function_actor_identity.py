@@ -12,6 +12,7 @@ coverage lives in the sibling module
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 from typing import Optional
 
 from pydantic import BaseModel
@@ -186,10 +187,17 @@ class TestMutatingBindings(unittest.TestCase):
         override; it must not teach env-var self-bootstrap."""
         entry = _make_entry(side_effects=("rows_insert",))
         request = _make_request(payload_session="")
-        result = bind_actor_identity(
-            entry, request, ambient_session_id="",
-            actor_id_resolver=_PASSTHROUGH,
-        )
+        # Pinned, not inherited from the runner: the branch turns on the
+        # process tree, so leaving it to the environment asserts one thing
+        # locally and the other in CI.
+        with patch(
+            "yoke_core.domain.session_ambient_identity.nearest_harness_family",
+            return_value="claude",
+        ):
+            result = bind_actor_identity(
+                entry, request, ambient_session_id="",
+                actor_id_resolver=_PASSTHROUGH,
+            )
 
         assert result.error is not None
         message = result.error.error.message
