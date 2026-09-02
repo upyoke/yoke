@@ -3,16 +3,36 @@
    diagnostics instead of tinting the holding itself. */
 
 .universe-app-root .session-holdings-previous,
-.universe-app-root .session-holdings-current {
+.universe-app-root .session-holdings-current,
+.universe-app-root .session-holdings-idle {
   gap: 4px;
   padding: 7px 9px;
-  border-left: 3px solid var(--yoke-idle);
   border-radius: 4px;
+}
+
+/* A live hold is green and a released one is grey, so which of the two a
+   box states reads before any word in it does. Flat and unconditional:
+   claim age, staleness, item status, and holding kind are diagnostics
+   elsewhere and never tint this box. */
+.universe-app-root .session-holdings-current {
+  border-left: 3px solid var(--yoke-good);
+  background: color-mix(in srgb, var(--yoke-good) 8%, transparent);
+}
+
+.universe-app-root .session-holdings-current .session-holdings-label {
+  color: var(--yoke-good);
+}
+
+/* Released holds and the empty state share the neutral box: an idle
+   session is holding nothing, so it must not wear the live green, but it
+   still gets the work region's shape instead of a bare line. */
+.universe-app-root .session-holdings-previous,
+.universe-app-root .session-holdings-idle {
+  border-left: 3px solid var(--yoke-idle);
   background: color-mix(in srgb, var(--yoke-idle) 8%, transparent);
 }
 
-.universe-app-root .session-holdings-previous .session-holdings-label,
-.universe-app-root .session-holdings-current .session-holdings-label {
+.universe-app-root .session-holdings-previous .session-holdings-label {
   color: var(--yoke-idle);
 }
 
@@ -21,11 +41,43 @@
   flex: 1 0 100%;
   align-items: center;
   gap: 7px;
-  padding-left: 24px;
 }
 
 .universe-app-root .session-item-stage-progress .delivery-run-stages {
   width: min(160px, 100%);
+  gap: 3px;
+}
+
+/* The delivery inventory's strip sits on a plain surface where a faint
+   fill still reads; on a session card it sits inside a tinted holdings
+   box and disappears. These session-scoped rules give every segment a
+   solid fill plus an outline that separates it from its neighbours in
+   both themes, and leave the inventory strip on its own treatment. */
+.universe-app-root .session-item-stage-progress .delivery-run-stage {
+  height: 8px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--yoke-idle) 40%, var(--yoke-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yoke-ink) 45%, transparent);
+}
+
+.universe-app-root
+  .session-item-stage-progress .delivery-run-stage[data-state="complete"] {
+  background: var(--yoke-good);
+}
+
+.universe-app-root
+  .session-item-stage-progress .delivery-run-stage[data-state="active"] {
+  background: var(--yoke-accent);
+}
+
+.universe-app-root
+  .session-item-stage-progress .delivery-run-stage[data-state="failed"] {
+  background: var(--yoke-crit);
+}
+
+.universe-app-root
+  .session-item-stage-progress .delivery-run-stage[data-state="stopped"] {
+  background: var(--yoke-warn);
 }
 
 .universe-app-root .session-item-stage-failure {

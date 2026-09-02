@@ -155,7 +155,6 @@ test("released steering seats list as ordinary previously-held rows beside items
     previous_remainder: 0,
   }, { projects: PROJECTS });
 
-  assert.equal(rendered.getAttribute("data-steering-history"), "");
   assert.equal(byClass(rendered, "session-steering-lead").length, 0);
   const previous = byClass(rendered, "session-holdings-previous")[0];
   assert.equal(byClass(previous, "session-steering-lead").length, 0);
@@ -170,7 +169,7 @@ test("released steering seats list as ordinary previously-held rows beside items
   assert.deepEqual(
     byClass(previous, "session-lock").map((node) => [node.textContent, node.title]),
     [
-      ["🔒", "work claim — this session holds it"],
+      ["💼", "work claim — this session holds it"],
       ["🛞", "steering seat — this session steered this project"],
       ["🛞", "steering seat — this session steered this project"],
     ],
@@ -188,7 +187,6 @@ test("steering-only history lists released seats without a live lead", () => {
     previous_remainder: 0,
   }, { current_item: null, projects: PROJECTS });
 
-  assert.equal(rendered.getAttribute("data-steering-history"), "");
   assert.equal(byClass(rendered, "session-steering-lead").length, 0);
   assert.equal(byClass(rendered, "session-holdings-current").length, 0);
   assert.deepEqual(
@@ -212,7 +210,6 @@ test("terminated seat still lists previously held steering rows", () => {
     steered: true,
   }, { current_item: null, projects: PROJECTS });
 
-  assert.equal(rendered.getAttribute("data-steering-history"), "");
   assert.equal(byClass(rendered, "session-age").length, 0);
   assert.equal(byClass(rendered, "session-steering-lead").length, 0);
   assert.deepEqual(

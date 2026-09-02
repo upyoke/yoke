@@ -277,7 +277,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
 
   assert.deepEqual(
     byClass(root, "session-lock").map((node) => node.textContent),
-    ["🔒"],
+    ["💼"],
   );
   const attributed = byClass(root, "session-attached");
   assert.deepEqual(attributed.map((node) => node.textContent), ["↳"]);
