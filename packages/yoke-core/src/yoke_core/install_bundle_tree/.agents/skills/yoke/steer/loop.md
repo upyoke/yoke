@@ -223,8 +223,8 @@ printf '%s' "WAKE PREFIX-N: resume the assigned routed leg and report status" | 
 ```
 
 Never hand-wake a parked CLI worker: on a harness with no idle wake it
-escalates to a relay wake on the first sweep pass, and the receipt names why.
-A parked desktop session is never escalated and stays yours to wake. Read it:
+escalates to a relay wake on the first pass, and the receipt names why. A
+parked desktop one is yours to wake. Read `state='pending'`, `injection_count=0`:
 
 ```text
 yoke db read "SELECT session_id,state,injection_count,wake_escalation,created_at FROM session_message_recipients WHERE session_id = '{SESSION_ID}' AND state = 'pending' AND injection_count = 0 ORDER BY created_at DESC"

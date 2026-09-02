@@ -48,6 +48,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_strategize.py",
     "runtime/api/test_skill_doc_regressions_usher_collect.py",
     "runtime/api/test_skill_prose_schema_drift.py",
+    "runtime/api/test_steer_prompt.py",
     "runtime/api/domain/test_db_claim_prose_check_buckets.py",
     "runtime/api/domain/test_idea_db_claim_buckets.py",
     "runtime/api/domain/test_install_bundle_tree_sync.py",
