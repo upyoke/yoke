@@ -1,11 +1,4 @@
-"""Unit tests for the Browser method-case function family.
-
-``qa.browser_context.get`` + ``qa.run.add`` + ``qa.run.complete`` +
-``qa.artifact.add`` — the DB legs of the per-requirement case runner.
-Handlers run against the isolated Postgres fixture (the runner-side seam test
-asserting the dispatcher wiring lives in
-``runtime/api/domain/test_browser_qa_transport.py``).
-"""
+"""Function-handler tests for Browser context, runs, and artifacts."""
 
 from __future__ import annotations
 
@@ -101,9 +94,7 @@ class TestQaBrowserContextGet(unittest.TestCase):
         self.assertEqual(result["item_id"], 42)
         self.assertEqual([r["id"] for r in result["requirements"]], [10])
         self.assertEqual(result["requirements"][0]["qa_kind"], "plan_case")
-        self.assertEqual(
-            result["requirements"][0]["method_id"], "browser-check",
-        )
+        self.assertEqual(result["requirements"][0]["method_id"], "browser-check")
         self.assertFalse(result["deployment_recorded"])
         self.assertIsNone(result["deployed_sha"])
 
@@ -153,9 +144,7 @@ class TestQaBrowserContextGet(unittest.TestCase):
         self.assertTrue(outcome.primary_success, outcome.error)
         result = outcome.result_payload
         self.assertEqual(result["deployed_sha"], "abc123")
-        self.assertEqual(
-            result["ephemeral_url"], "https://feature-x.preview.example.com",
-        )
+        self.assertEqual(result["ephemeral_url"], "https://feature-x.preview.example.com")
 
     def test_empty_string_url_reads_as_no_ephemeral_url(self):
         # Provisioned-but-undeployed rows carry url='' — the gate must
@@ -237,9 +226,7 @@ class TestQaRunAdd(unittest.TestCase):
         self.assertEqual(row[1], "plan_case")
         self.assertIsNone(row[2])
         self.assertIsNone(row[3])
-        self.assertEqual(
-            emit.call_args.kwargs["event_name"], "QARunStarted",
-        )
+        self.assertEqual(emit.call_args.kwargs["event_name"], "QARunStarted")
 
 
 class TestQaRunComplete(unittest.TestCase):
@@ -276,8 +263,7 @@ class TestQaRunComplete(unittest.TestCase):
             outcome = qa_browser_writes.handle_qa_run_complete(
                 _request("qa.run.complete",
                          TargetRef(kind="qa_requirement", qa_requirement_id=11),
-                         payload={"run_id": run_id,
-                                  "execution_status": "captured"}),
+                         payload={"run_id": run_id, "execution_status": "captured"}),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
@@ -307,9 +293,55 @@ class TestQaRunComplete(unittest.TestCase):
         self.assertIsNone(row[0])
         self.assertEqual(row[1], "captured")
         self.assertIsNotNone(row[2])
-        self.assertEqual(
-            emit.call_args.kwargs["event_name"], "QARunCaptured",
-        )
+        self.assertEqual(emit.call_args.kwargs["event_name"], "QARunCaptured")
+
+    def test_agent_undetermined_requires_artifact_before_completion(self):
+        with test_database() as conn:
+            _seed_browser_requirement(conn)
+            insert_qa_requirement(
+                conn,
+                id=11,
+                item_id=42,
+                qa_kind="ac_verification",
+                qa_phase="verification",
+                blocking_mode="blocking",
+                success_policy="",
+            )
+            started = qa_browser_writes.handle_qa_run_add(
+                _request(
+                    "qa.run.add",
+                    TargetRef(kind="qa_requirement", qa_requirement_id=11),
+                    payload={"performed_by": "agent"},
+                )
+            )
+            run_id = int(started.result_payload["qa_run_id"])
+            payload = {
+                "run_id": run_id,
+                "verdict": "undetermined",
+                "verdict_reason": "The capture shows conflicting states.",
+            }
+            refused = qa_browser_writes.handle_qa_run_complete(
+                _request(
+                    "qa.run.complete",
+                    TargetRef(kind="qa_requirement", qa_requirement_id=11),
+                    payload=payload,
+                )
+            )
+            self.assertEqual(refused.error.code, "qa_undetermined_evidence_required")
+            conn.execute(
+                "INSERT INTO qa_artifacts "
+                "(qa_run_id,artifact_type,created_at) VALUES (%s,'log',NOW())",
+                (run_id,),
+            )
+            conn.commit()
+            accepted = qa_browser_writes.handle_qa_run_complete(
+                _request(
+                    "qa.run.complete",
+                    TargetRef(kind="qa_requirement", qa_requirement_id=11),
+                    payload=payload,
+                )
+            )
+            self.assertTrue(accepted.primary_success, accepted.error)
 
 
 if __name__ == "__main__":

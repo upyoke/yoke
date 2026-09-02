@@ -8,6 +8,7 @@ from yoke_core.domain.qa_gate_preconditions import (
     QA_CORE_TABLES,
     qa_gate_precondition_result,
 )
+from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 
 
 def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
@@ -46,6 +47,10 @@ def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
             """,
             (item_id,),
         )
+        review_waits = {
+            int(row["id"]): requirement_awaits_human_review(conn, int(row["id"]))
+            for row in unsatisfied
+        }
     finally:
         conn.close()
 
@@ -59,7 +64,10 @@ def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
         "or waive the requirement with explicit operator authorization.",
     ]
     for row in unsatisfied:
-        errors.append(
-            f"  - Requirement #{row['id']} ({row['qa_kind']}): no passing run"
+        waiting = review_waits[int(row["id"])]
+        errors.extend(
+            [f"  - {waiting.detail}", f"    {waiting.recovery}"]
+            if waiting
+            else [f"  - Requirement #{row['id']} ({row['qa_kind']}): no passing run"]
         )
     return GateResult(passed=False, errors=errors)

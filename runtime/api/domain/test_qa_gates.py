@@ -22,6 +22,7 @@ from yoke_core.domain.qa_gates import (
     check_verification_entry,
     check_verification_gate,
 )
+from yoke_core.domain.qa_review_requests import QaReviewWait
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -111,6 +112,23 @@ class TestCheckDoneGate:
         result = check_done_gate(target, qa_db)
         assert not result.passed
         assert any("done" in e for e in result.errors)
+
+    def test_tc_names_pending_human_evidence_review(self, qa_db):
+        req_id = _add_requirement(qa_db, qa_phase="post_deploy")
+        waiting = QaReviewWait(
+            req_id,
+            77,
+            "The screenshots conflict.",
+            ("project operator", "project owner"),
+        )
+        with mock.patch(
+            "yoke_core.domain.qa_gates.requirement_awaits_human_review",
+            return_value=waiting,
+        ):
+            result = check_done_gate(GateTarget(item_id=42), qa_db)
+        joined = "\n".join(result.errors)
+        assert "decision request 77" in joined
+        assert "resolve 77 approve|reject|waive" in joined
 
     def test_tc_bypass_flag(self, qa_db, monkeypatch):
         monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")

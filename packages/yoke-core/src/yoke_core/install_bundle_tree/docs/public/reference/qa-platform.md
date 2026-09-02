@@ -108,7 +108,7 @@ qa_requirement_id INTEGER NOT NULL -- FK to qa_requirements(id)
 performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
 qa_kind TEXT NOT NULL -- denormalized from requirement for query convenience
 verdict TEXT -- CHECK: pass | fail | undetermined | error (nullable: started but not completed)
-verdict_reason TEXT -- required when verdict is undetermined
+verdict_reason TEXT -- required when undetermined; agent outcomes also require linked evidence
 score REAL -- nullable numeric score
 confidence REAL -- nullable confidence level (0.0-1.0)
 raw_result TEXT -- → JSONB on Postgres; JSON: full execution output; browser_substrate runs also record code_identity.branch / code_identity.sha
@@ -271,8 +271,8 @@ Browser execution is method-backed and case-scoped. The built-in methods are:
 
 - **Browser check** (`browser-check`) — runs declared browser assertions and
   produces an automatic verdict.
-- **Browser inspection** (`browser-inspection`) — captures evidence for the
-  declared expected outcome and remains undetermined until review resolves it.
+- **Browser inspection** (`browser-inspection`) — captures evidence before agent
+  `undetermined`, which halts for owner/operator review; an unexecuted case records `blocked_on_precondition` and fails its scheduler without human work.
 
 Each materialized requirement carries an immutable `method_config` snapshot.
 Routes, assertions, screenshots, and any baseline-specific settings belong in

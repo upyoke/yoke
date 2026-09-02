@@ -72,8 +72,10 @@ immutable bundle. A `main_agent_mission` dispatch stays with the main agent,
 which sends each typed walker dispatch to an informed subagent or a separate
 target-machine session, handles `HUMAN_GATE` returns through the Progress Log
 and operator channel, aggregates the written report, and runs the exact
-`submit_command`. Never treat missing or pending dispatch as human review. Only
-a submitted `undetermined` verdict creates an Inbox request.
+`submit_command`. Never treat missing or pending dispatch as human review.
+Submit `undetermined` only with attached evidence; it halts the item until an
+owner/operator resolves the Inbox request. An unexecuted case records
+failed/`blocked_on_precondition` and asks no human to review missing evidence.
 
 ### 3. Changed files and diff
 

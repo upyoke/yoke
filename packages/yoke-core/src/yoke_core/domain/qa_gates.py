@@ -32,6 +32,7 @@ from yoke_core.domain.qa_gate_preconditions import (
     target_gate_precondition_result,
 )
 from yoke_core.domain.qa_plan_gate import check_plan_simulation_satisfied  # noqa: F401
+from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
     check_epic_simulation_gate,
 )
@@ -111,8 +112,13 @@ def check_verification_gate(
                 f"  Remediation: run `/yoke advance {name} {transition_name}` which executes browser QA and project E2E phases automatically before updating status.",
             ]
             for row in rows:
-                errors.append(
-                    f"  - Requirement #{row['id']} ({row['qa_kind']}): no passing run"
+                waiting = requirement_awaits_human_review(conn, int(row["id"]))
+                errors.extend(
+                    [f"  - {waiting.detail}", f"    {waiting.recovery}"]
+                    if waiting
+                    else [
+                        f"  - Requirement #{row['id']} ({row['qa_kind']}): no passing run"
+                    ]
                 )
             return GateResult(passed=False, errors=errors)
 
@@ -221,8 +227,13 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                 "surface with explicit authorization.",
             ]
             for row in rows:
-                errors.append(
-                    f"  - Requirement #{row['id']} ({row['qa_kind']}, phase={row['qa_phase']}): no passing run"
+                waiting = requirement_awaits_human_review(conn, int(row["id"]))
+                errors.extend(
+                    [f"  - {waiting.detail}", f"    {waiting.recovery}"]
+                    if waiting
+                    else [
+                        f"  - Requirement #{row['id']} ({row['qa_kind']}, phase={row['qa_phase']}): no passing run"
+                    ]
                 )
             return GateResult(passed=False, errors=errors)
 

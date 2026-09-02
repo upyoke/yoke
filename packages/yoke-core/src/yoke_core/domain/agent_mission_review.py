@@ -26,19 +26,13 @@ def _screen_recording_warning(cases: list[Mapping[str, Any]]) -> str:
         for case in cases
         if case.get("capture_runner") == "agent_mission"
         and (
-            (
-                (case.get("transcript") or {})
-                .get("preparation")
-                or {}
-            ).get("error_code")
+            ((case.get("transcript") or {}).get("preparation") or {}).get("error_code")
         )
         == TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE
     ]
     if not degraded:
         return ""
-    requirement_ids = ", ".join(
-        str(int(case["requirement_id"])) for case in degraded
-    )
+    requirement_ids = ", ".join(str(int(case["requirement_id"])) for case in degraded)
     return (
         f" WARNING: host-control preparation for case(s) {requirement_ids} "
         f"reported {TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE}: this Mac "
@@ -97,9 +91,7 @@ def _walker_dispatch(
         "main owner before acting. Treat screenshot "
         "display failures, audit-session permission failures, and apparently "
         "expired/unrefreshable OAuth from SSH as wrong-session signals, not "
-        "broken credentials."
-        + _screen_recording_warning([case])
-        + "\n\n"
+        "broken credentials." + _screen_recording_warning([case]) + "\n\n"
         f"Mission:\n{case['instructions']}\n\n"
         f"Good outcome:\n{case['expected_outcome']}"
     )
@@ -200,8 +192,8 @@ def agent_mission_dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]
             "artifact-read commands. Aggregate each ranked written mission "
             "report, choose every final verdict, and submit exactly one row "
             f"for each of the {len(cases)} bundle cases in one complete batch. "
-            "Undetermined must "
-            "name what could not be established and why."
+            "Undetermined halts the item for owner/operator review, so choose "
+            "it only with attached evidence and name what remains undecidable."
             + _screen_recording_warning(cases)
         )
         submit_command = (

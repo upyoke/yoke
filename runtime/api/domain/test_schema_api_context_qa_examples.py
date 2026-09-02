@@ -152,8 +152,9 @@ def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
     assert "qa.case_execution.begin" in body
     assert "executes only requirement R" in body
     assert "browser-check decides automatically" in body
-    assert "browser-inspection records an undetermined verdict" in body
-    assert "required reason" in body
+    assert "browser-inspection attaches evidence before an undetermined verdict" in body
+    assert "halts the item and creates an owner/operator review request" in body
+    assert "records blocked_on_precondition instead" in body
 
 
 def test_qa_packet_carries_ordered_plan_run_example() -> None:

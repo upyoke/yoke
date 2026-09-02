@@ -8,6 +8,7 @@ from yoke_core.domain.qa_gate_summary import (
     register_subparser as _register_gate_summary,
 )
 from yoke_core.domain import qa_requirement_policy_validation as _qap
+from yoke_core.domain.qa_undetermined_evidence import UNDETERMINED_VERDICT_HELP
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -96,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     rw.add_argument("--source", default="agent")
     rw.add_argument("--force", action="store_true")
 
-    rna = sub.add_parser("run-add")
+    rna = sub.add_parser("run-add", epilog=UNDETERMINED_VERDICT_HELP)
     rna.add_argument("--requirement-id", type=int, required=True)
     rna.add_argument("--performed-by", required=True)
     rna.add_argument(
@@ -107,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     rna.add_argument("--verdict")
-    rna.add_argument("--verdict-reason")
+    rna.add_argument("--verdict-reason", help=UNDETERMINED_VERDICT_HELP)
     rna.add_argument(
         "--execution-status",
         choices=("captured", "capture_failed"),
@@ -133,15 +134,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    rnab = sub.add_parser("run-add-batch")
+    rnab = sub.add_parser("run-add-batch", epilog=UNDETERMINED_VERDICT_HELP)
     rnab.add_argument(
         "--json-file", required=True, help="Path to JSON array of run objects"
     )
 
-    rc = sub.add_parser("run-complete")
+    rc = sub.add_parser("run-complete", epilog=UNDETERMINED_VERDICT_HELP)
     rc.add_argument("--run-id", type=int, required=True)
     rc.add_argument("--verdict")
-    rc.add_argument("--verdict-reason")
+    rc.add_argument("--verdict-reason", help=UNDETERMINED_VERDICT_HELP)
     rc.add_argument(
         "--execution-status",
         choices=("captured", "capture_failed"),

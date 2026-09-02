@@ -11,6 +11,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_gate import check_plan_simulation_satisfied
+from yoke_core.domain.qa_review_requests import QaReviewWait
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
@@ -154,6 +155,18 @@ class TestCheckPlanSimulationSatisfied:
         assert "no passing run" in joined
         assert f"#{req_id}" in joined
         assert "simulation" in joined
+
+    def test_names_pending_human_evidence_review(self, qa_db: str) -> None:
+        req_id = _add_requirement(qa_db)
+        waiting = QaReviewWait(req_id, 88, "Evidence conflicts.", ("project owner",))
+        with mock.patch(
+            "yoke_core.domain.qa_plan_gate.requirement_awaits_human_review",
+            return_value=waiting,
+        ):
+            result = check_plan_simulation_satisfied(TEST_ITEM_ID, qa_db)
+        joined = "\n".join(result.errors)
+        assert "decision request 88" in joined
+        assert "resolve 88 approve|reject|waive" in joined
 
     def test_fails_when_blocking_req_has_no_runs(self, qa_db: str) -> None:
         req_id = _add_requirement(qa_db)

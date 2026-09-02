@@ -22,8 +22,10 @@ import pytest
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_summary import (
     VALID_TARGETS,
+    _format_text,
     render_gate_summary,
 )
+from yoke_core.domain.qa_review_requests import QaReviewWait
 from runtime.api.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
     add_artifact,
     add_requirement,
@@ -195,6 +197,20 @@ def test_undetermined_latest_run_surfaces_its_reason(qa_db):
     latest = summary["requirements"][0]["latest_run"]
     assert latest["verdict"] == "undetermined"
     assert "final assertion" in latest["verdict_reason"]
+
+
+def test_pending_human_review_is_structured_and_rendered(qa_db, monkeypatch):
+    rid = add_requirement(qa_db, qa_kind="e2e")
+    waiting = QaReviewWait(rid, 99, "The traces conflict.", ("project operator",))
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_gate_summary.requirement_awaits_human_review",
+        lambda *_args: waiting,
+    )
+    summary = render_gate_summary(
+        GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
+    )
+    assert summary["requirements"][0]["human_review"]["request_id"] == 99
+    assert "resolve 99 approve|reject|waive" in _format_text(summary)
 
 
 def test_waived_requirement_treated_as_satisfied(qa_db):

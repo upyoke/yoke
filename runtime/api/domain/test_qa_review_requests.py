@@ -8,7 +8,10 @@ from yoke_core.domain.decision_request_resolution import (
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
-from yoke_core.domain.qa_review_requests import ensure_qa_review_request
+from yoke_core.domain.qa_review_requests import (
+    ensure_qa_review_request,
+    requirement_awaits_human_review,
+)
 from yoke_core.domain.qa_catalog_schema import (
     create_qa_catalog_tables,
     seed_builtin_qa_methods,
@@ -72,12 +75,18 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         "INSERT INTO qa_runs "
         "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
         "started_at, completed_at, created_at) "
-        "VALUES (%s, 'browser_substrate', 'manual_acceptance', "
+        "VALUES (%s, 'agent', 'manual_acceptance', "
         "'undetermined', 'The screenshot does not show the saved state.', "
         "'2026-07-26T00:00:00Z', "
         "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z') RETURNING id",
         (requirement_id,),
     ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO qa_artifacts "
+        "(qa_run_id, artifact_type, artifact_handle, created_at) "
+        "VALUES (%s, 'screenshot', %s, '2026-07-26T00:00:00Z')",
+        (run_id, '{"backend":"local","path":"/tmp/review.png"}'),
+    )
     test_db.commit()
 
     request, created = ensure_qa_review_request(
@@ -99,6 +108,12 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         "title": "QA evidence needs your review",
         "evidence_summary": "The screenshot does not show the saved state.",
     }
+    waiting = requirement_awaits_human_review(test_db, int(requirement_id))
+    assert waiting is not None
+    assert waiting.request_id == int(request["id"])
+    assert waiting.authorities == ("project operator", "project owner")
+    assert "awaits human evidence review" in waiting.detail
+    assert f"resolve {request['id']} approve|reject|waive" in waiting.recovery
     resolve_decision_request(
         test_db,
         int(request["id"]),
@@ -112,6 +127,7 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         (requirement_id,),
     ).fetchall()
     assert [(row[0], row[1]) for row in verdicts] == [
-        ("browser_substrate", "undetermined"),
+        ("agent", "undetermined"),
         ("human_review", "pass"),
     ]
+    assert requirement_awaits_human_review(test_db, int(requirement_id)) is None

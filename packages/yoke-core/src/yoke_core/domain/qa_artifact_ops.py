@@ -107,22 +107,22 @@ def linked_artifact_handle(
     if not source_path.is_file():
         return serialize_handle(local_handle(artifact_path))
 
+    savepoint = "qa_linked_artifact_handle"
+    conn.execute(f"SAVEPOINT {savepoint}")
     try:
         req_row = query_one(
             conn,
             "SELECT item_id,deployment_run_id FROM qa_requirements WHERE id = %s",
             (requirement_id,),
         )
-        if req_row is None:
-            return serialize_handle(local_handle(str(source_path)))
-        if req_row["item_id"] is not None:
+        if req_row is not None and req_row["item_id"] is not None:
             project_row = query_one(
                 conn,
                 "SELECT p.slug AS project FROM items i "
                 "JOIN projects p ON p.id=i.project_id WHERE i.id=%s",
                 (int(req_row["item_id"]),),
             )
-        elif req_row["deployment_run_id"] is not None:
+        elif req_row is not None and req_row["deployment_run_id"] is not None:
             project_row = query_one(
                 conn,
                 "SELECT p.slug AS project FROM deployment_runs dr "
@@ -131,33 +131,29 @@ def linked_artifact_handle(
             )
         else:
             project_row = None
-        if project_row is None or not project_row["project"]:
-            return serialize_handle(local_handle(str(source_path)))
+        if project_row is not None and project_row["project"]:
+            from yoke_core.domain.qa_artifacts import (
+                artifact_file_path,
+                case_artifact_subject,
+            )
 
-        from yoke_core.domain.qa_artifacts import (
-            artifact_file_path,
-            case_artifact_subject,
-        )
-
-        target_path = artifact_file_path(
-            str(project_row["project"]),
-            case_artifact_subject(dict(req_row)),
-            run_id,
-            source_path.name,
-        )
-        if source_path.resolve() != target_path.resolve():
-            shutil.copy2(source_path, target_path)
-        return serialize_handle(local_handle(str(target_path)))
+            target_path = artifact_file_path(
+                str(project_row["project"]),
+                case_artifact_subject(dict(req_row)),
+                run_id,
+                source_path.name,
+            )
+            if source_path.resolve() != target_path.resolve():
+                shutil.copy2(source_path, target_path)
+            handle = serialize_handle(local_handle(str(target_path)))
+        else:
+            handle = serialize_handle(local_handle(str(source_path)))
     except Exception:
-        # Best-effort canonicalization. On Postgres a failed read (e.g. the
-        # items table is absent in a minimal qa test DB) aborts the shared
-        # transaction; roll back so the caller's artifact INSERT is not blocked
-        # by InFailedSqlTransaction. The caller committed its run row first.
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        return serialize_handle(local_handle(str(source_path)))
+        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+        handle = serialize_handle(local_handle(str(source_path)))
+    finally:
+        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+    return handle
 
 
 def cmd_artifact_add(

@@ -12,6 +12,7 @@ from yoke_core.domain.handlers.qa_browser_write_models import (
     QaRunCompleteRequest,
     QaRunCompleteResponse,
 )
+from yoke_core.domain import qa_undetermined_evidence as _review_evidence
 
 
 def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
@@ -52,7 +53,6 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
-
     conn = connect()
     try:
         p = _p(conn)
@@ -79,17 +79,17 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 "-- use browser_substrate",
                 jsonpath="$.payload.performed_by",
             )
-
+        if issue := _review_evidence.agent_undetermined_evidence_error(conn, performed_by=performed_by, verdict=verdict):
+            return _error(issue.code, str(issue), jsonpath="$.payload.verdict")
         from yoke_core.domain.qa_run_commit_binding import bind_recorded_raw_result
+
         raw_result, bind_error = bind_recorded_raw_result(
             verdict=verdict, raw_result=raw_result, performed_by=performed_by,
             blocking_mode=row["blocking_mode"], waived_at=row["waived_at"],
             head_sha=payload.get("head_sha"), item_id=row["item_id"], conn=conn,
         )
         if bind_error:
-            return _error(
-                "payload_invalid", bind_error, jsonpath="$.payload.raw_result",
-            )
+            return _error("payload_invalid", bind_error, jsonpath="$.payload.raw_result")
         now_iso = iso8601_now()
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None
@@ -135,7 +135,6 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         )
     finally:
         conn.close()
-
     return HandlerOutcome(
         result_payload={"qa_run_id": run_id, "requirement_id": int(req_id)},
         primary_success=True,
@@ -184,13 +183,13 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
-
     conn = connect()
     try:
         p = _p(conn)
         row = query_one(
             conn,
-            f"SELECT qa_requirement_id, qa_kind FROM qa_runs WHERE id = {p}",
+            f"SELECT qa_requirement_id, qa_kind, performed_by FROM qa_runs "
+            f"WHERE id = {p}",
             (int(run_id),),
         )
         if row is None:
@@ -201,7 +200,11 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 f"run {run_id} belongs to requirement "
                 f"{row['qa_requirement_id']}, not {req_id}",
             )
-
+        if issue := _review_evidence.agent_undetermined_evidence_error(
+            conn, performed_by=str(row["performed_by"]), verdict=verdict,
+            run_ids=(int(run_id),),
+        ):
+            return _error(issue.code, str(issue), jsonpath="$.payload.verdict")
         params: list = [iso8601_now()]
         set_parts = [f"completed_at = {p}"]
         if verdict is not None:
@@ -238,7 +241,6 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         )
     finally:
         conn.close()
-
     return HandlerOutcome(
         result_payload={"qa_run_id": int(run_id)},
         primary_success=True,
@@ -328,7 +330,6 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
         conn.commit()
     finally:
         conn.close()
-
     return HandlerOutcome(
         result_payload={"qa_artifact_id": artifact_id},
         primary_success=True,

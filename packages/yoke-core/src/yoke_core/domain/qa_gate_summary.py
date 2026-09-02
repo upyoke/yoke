@@ -1,21 +1,7 @@
-"""Typed read-only QA gate diagnostic for advance/polish handoff.
+"""Typed read-only QA gate diagnostic for advance and polish handoff.
 
-Computes target-aware unsatisfied counts and latest-run evidence without raw
-QA SQL. It never mutates state or satisfies a gate; the verdict still belongs
-to ``yoke_core.domain.qa_gates``.
-
-Target semantics mirror the corresponding gate:
-
-- ``reviewed-implementation``: verification-phase blocking requirements.
-  Browser method cases
-  require a substrate-executed passing run with at least one artifact
-  (matches :func:`yoke_core.domain.qa_browser_evidence_check.\
-check_browser_evidence_present`); other kinds satisfy on any passing
-  run.
-- ``implemented``: same per-requirement satisfaction rule, but no
-  ``qa_phase`` filter — blocking requirements from any phase contribute.
-  This matches the post-review polish handoff that re-runs browser and
-  E2E gates over all blocking phases.
+The summary mirrors the target gate's blocking, phase, Browser-evidence, and
+human-review semantics without mutating QA state.
 """
 
 from __future__ import annotations
@@ -29,6 +15,7 @@ from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.qa_constants import is_browser_method_requirement
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
+from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 
 
 VALID_TARGETS = ("reviewed-implementation", "implemented")
@@ -168,6 +155,7 @@ def render_gate_summary(
                 """,
                 (req_id,),
             )
+            waiting = requirement_awaits_human_review(conn, req_id)
 
             satisfied = _is_satisfied(
                 method_id=method_id,
@@ -191,6 +179,7 @@ def render_gate_summary(
                     "waived_at": str(waived_at) if waived_at else None,
                     "satisfied": satisfied,
                     "latest_run": _format_run(evidence),
+                    "human_review": waiting.as_dict() if waiting else None,
                 }
             )
 
@@ -205,11 +194,6 @@ def render_gate_summary(
 
     summary["satisfied"] = summary["blocking_unsatisfied_count"] == 0
     return summary
-
-
-# ---------------------------------------------------------------------------
-# CLI surface
-# ---------------------------------------------------------------------------
 
 
 def _format_text(summary: Dict[str, Any]) -> str:
@@ -244,6 +228,9 @@ def _format_text(summary: Dict[str, Any]) -> str:
                 f"        latest run #{latest['id']}: verdict={latest['verdict']} "
                 f"runner={latest['performed_by']} at {latest['created_at']}"
             )
+        if req["human_review"]:
+            lines.append(f"        {req['human_review']['detail']}")
+            lines.append(f"        {req['human_review']['recovery']}")
     return "\n".join(lines)
 
 

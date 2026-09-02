@@ -35,6 +35,9 @@ from yoke_core.domain.qa_constants import (
     normalized_verdict_reason,
 )
 from yoke_core.domain.qa_events import emit_qa_run_event
+from yoke_core.domain.qa_undetermined_evidence import (
+    require_cli_agent_undetermined_evidence,
+)
 
 
 def cmd_run_add_batch(
@@ -142,6 +145,13 @@ def cmd_run_add_batch(
                     file=sys.stderr,
                 )
                 sys.exit(2)
+            require_cli_agent_undetermined_evidence(
+                conn,
+                performed_by=row["performed_by"],
+                verdict=row.get("verdict"),
+                artifact_will_be_attached=row.get("artifact_path") is not None,
+                context=f"row {idx}: ",
+            )
 
         # Pre-validate screenshot evidence and epic review constraints using DB lookups
         for idx, row in enumerate(payload):

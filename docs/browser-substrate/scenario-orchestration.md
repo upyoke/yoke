@@ -39,9 +39,9 @@ named requirement.
 Browser cases use one of two method IDs:
 
 - `browser-check` runs declared assertions and produces an automatic verdict.
-- `browser-inspection` captures evidence and produces an undetermined verdict
-  with a reason naming what could not be established and why,
-  which creates a review request for approval, rejection, or waiver.
+- `browser-inspection` captures linked evidence and can produce an undetermined
+  verdict with a reason naming what could not be established and why. That
+  halts the item until a project owner/operator resolves its review request.
 
 The case's `method_config` is a JSON object with a non-empty `steps` array and
 an optional `base_url`. Execution consumes this snapshot as-is. Tester and
@@ -74,9 +74,10 @@ parallel run or self-report Browser evidence as an agent verdict.
 | `1` | The case verdict is `fail`. |
 | `2` | A prerequisite, case-contract, freshness, or runner error prevented valid completion. |
 
-A successful `browser-check` is immediately satisfied. A successful
-`browser-inspection` capture remains unresolved until its generated review
-request is approved, rejected, or waived.
+A successful `browser-check` is immediately satisfied. An evidence-backed
+`browser-inspection` can remain unresolved until its generated review request
+is approved, rejected, or waived. Missing evidence is an execution failure
+and creates no human review request.
 
 ## Re-entrancy
 

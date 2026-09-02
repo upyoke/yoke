@@ -66,7 +66,7 @@ qa_requirement_id INTEGER NOT NULL -- FK to qa_requirements(id)
 performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
 qa_kind TEXT NOT NULL -- what was tested (denormalized from requirement for query convenience)
 verdict TEXT -- CHECK: pass | fail | undetermined | error (nullable until inspection writes it)
-verdict_reason TEXT -- required when verdict is undetermined
+verdict_reason TEXT -- required when undetermined; agent outcomes also require linked evidence
 execution_status TEXT -- CHECK: captured | capture_failed (nullable for non-browser runs)
 score REAL -- nullable numeric score
 confidence REAL -- nullable confidence level (0.0-1.0)
@@ -86,8 +86,9 @@ concerns:
 - `execution_status='capture_failed'` means the daemon errored, an artifact path was missing, a step failed, or completeness check failed.
 - `verdict` is set **only after screenshot inspection** (LLM or human evaluation of the screenshot content). Infrastructure success alone never writes `verdict='pass'`.
 - Typical lifecycle: `yoke qa case run --requirement-id <id>` records the
-  method's execution result. Browser inspection cases remain undetermined
-  until their review request is approved, rejected, or waived.
+  method's execution result. An evidence-backed Browser inspection can remain
+  undetermined, halting the item until a project owner/operator resolves its
+  `qa_needs_review` request. Missing evidence is an execution failure and asks no human.
 
 Every downstream gate that filters `verdict='pass'` (status-transition, pre-merge, pre-deploy, flow-gate updates) therefore gates on inspection outcome, not capture.
 

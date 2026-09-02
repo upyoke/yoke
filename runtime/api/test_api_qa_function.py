@@ -102,7 +102,8 @@ class TestQaRunRecordVerdict(unittest.TestCase):
         self.assertEqual(outcome.error.code, "policy_violation")
 
     def test_happy_path_inserts_row(self):
-        existing = {"qa_kind": "ac_verification", "method_id": None}
+        existing = {"qa_kind": "ac_verification", "method_id": None,
+                    "blocking_mode": "non_blocking", "waived_at": None}
 
         class _Cursor:
             # record_verdict reads the inserted id via ``RETURNING id`` +
@@ -128,17 +129,41 @@ class TestQaRunRecordVerdict(unittest.TestCase):
                         TargetRef(kind="qa_requirement", qa_requirement_id=7),
                         payload={
                             "performed_by": "agent",
-                            "verdict": "undetermined",
-                            "verdict_reason": "The log omits the final assertion.",
+                            "verdict": "pass",
                             "raw_result": "all good",
                         },
                     )
                     outcome = qa_run.handle_qa_run_record_verdict(req)
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["qa_run_id"], 99)
-        self.assertEqual(outcome.result_payload["verdict"], "undetermined")
-        self.assertIn("final assertion", outcome.result_payload["verdict_reason"])
+        self.assertEqual(outcome.result_payload["verdict"], "pass")
         emit.assert_called_once()
+
+    def test_agent_undetermined_refuses_without_artifact_surface(self):
+        existing = {"qa_kind": "ac_verification", "method_id": None}
+
+        class _Conn:
+            def execute(self, _sql, _params=()):
+                raise AssertionError("refusal must precede the verdict insert")
+
+            def close(self):
+                pass
+
+        with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
+            with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
+                req = _request(
+                    "qa.run.record_verdict",
+                    TargetRef(kind="qa_requirement", qa_requirement_id=7),
+                    payload={
+                        "performed_by": "agent",
+                        "verdict": "undetermined",
+                        "verdict_reason": "The log omits the final assertion.",
+                    },
+                )
+                outcome = qa_run.handle_qa_run_record_verdict(req)
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "qa_undetermined_evidence_required")
+        self.assertIn("Attach at least one qa_artifacts row", outcome.error.message)
 
 
 class TestQaRequirementClaimDispatch(unittest.TestCase):
