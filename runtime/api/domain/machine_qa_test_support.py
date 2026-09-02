@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
 
 from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_type,
 )
+from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
     FakeRemote,
@@ -61,6 +63,7 @@ class FakeHostControl:
         self.refuse_user_equivalence = refuse_user_equivalence
         self.case_calls = 0
         self.full_reset_calls = 0
+        self.commands: list[list[str]] = []
         self.fixture_remotes: list[FakeRemote] = []
         self.existing_paths = {
             "/Users/tester/.yoke/config.json",
@@ -166,6 +169,35 @@ class FakeHostControl:
         return HostActionResult(
             True,
             {"probes": [{"name": "harness cli signed in", "ok": True}]},
+        )
+
+    def run_command(
+        self,
+        argv,
+        *,
+        required_session_context: str | None = None,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        """Model the host filesystem well enough for scratch staging."""
+        command = list(argv)
+        self.commands.append(command)
+        returncode = 0
+        if command[:2] == ["/bin/mkdir", "-p"]:
+            self.existing_paths.add(command[-1])
+        elif command[:2] == ["/bin/rm", "-rf"]:
+            target = command[-1]
+            self.existing_paths = {
+                path
+                for path in self.existing_paths
+                if path != target and not path.startswith(f"{target}/")
+            }
+        elif command[:2] == [HOST_TEST_COMMAND, "-e"]:
+            returncode = 0 if command[-1] in self.existing_paths else 1
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=returncode,
+            stdout="",
+            stderr="",
         )
 
     def probe_path(self, surface: str) -> list[str]:

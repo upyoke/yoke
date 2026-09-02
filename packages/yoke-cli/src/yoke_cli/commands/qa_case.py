@@ -12,6 +12,7 @@ from yoke_cli.transport.dispatcher import build_actor
 
 
 _QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
+_QA_MISSION_SCRATCH_MODULE = "yoke_core.domain.agent_mission_scratch_cli"
 
 
 QA_CASE_RUN_USAGE = (
@@ -41,6 +42,11 @@ QA_MISSION_HOST_COMMAND_USAGE = (
     "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
     "--execution-id ID --requirement-id N [--gui-session] "
     "[--timeout-seconds N] -- ARGV..."
+)
+QA_MISSION_SCRATCH_TEARDOWN_USAGE = (
+    "yoke qa mission scratch-teardown "
+    "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
+    "--execution-id ID --requirement-id N [--timeout-seconds N]"
 )
 
 
@@ -75,6 +81,13 @@ def qa_plan_review_submit(args: List[str]) -> int:
 def qa_mission_host_command(args: List[str]) -> int:
     return _run_execution_module(
         _QA_MISSION_HOST_COMMAND_MODULE,
+        args,
+    )
+
+
+def qa_mission_scratch_teardown(args: List[str]) -> int:
+    return _run_execution_module(
+        _QA_MISSION_SCRATCH_MODULE,
         args,
     )
 
@@ -159,6 +172,7 @@ TOOL_COMMANDS = {
     ("qa", "plan", "review-submit"): qa_plan_review_submit,
     ("qa", "plan", "run"): qa_plan_run,
     ("qa", "mission", "host-command"): qa_mission_host_command,
+    ("qa", "mission", "scratch-teardown"): qa_mission_scratch_teardown,
 }
 
 USAGE = {
@@ -167,6 +181,7 @@ USAGE = {
     "yoke qa plan review-submit": QA_PLAN_REVIEW_SUBMIT_USAGE,
     "yoke qa plan run": QA_PLAN_RUN_USAGE,
     "yoke qa mission host-command": QA_MISSION_HOST_COMMAND_USAGE,
+    "yoke qa mission scratch-teardown": QA_MISSION_SCRATCH_TEARDOWN_USAGE,
 }
 
 
@@ -176,10 +191,12 @@ __all__ = [
     "QA_PLAN_RUN_USAGE",
     "QA_PLAN_REVIEW_SUBMIT_USAGE",
     "QA_MISSION_HOST_COMMAND_USAGE",
+    "QA_MISSION_SCRATCH_TEARDOWN_USAGE",
     "TOOL_COMMANDS",
     "USAGE",
     "qa_case_run",
     "qa_mission_host_command",
+    "qa_mission_scratch_teardown",
     "qa_plan_abort",
     "qa_plan_review_submit",
     "qa_plan_run",
