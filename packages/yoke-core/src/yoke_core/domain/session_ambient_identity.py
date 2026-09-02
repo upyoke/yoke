@@ -308,21 +308,17 @@ def _public_channel(channel: str) -> str:
 
 def format_actor_session_missing(function_id: str) -> str:
     """Error text for actor_session_missing naming every consulted channel."""
+    from yoke_core.domain.session_missing_refusal import format_session_missing
+
     named = ", ".join(
         f"{_public_channel(row['channel'])}={row['resolved'] or row['raw'] or 'empty'}"
         for row in consult_identity_channels()
     )
-    contested = contested_anchor_session_ids()
-    extra = f" contested_anchors={contested}" if contested else ""
-    return (
-        f"mutating function {function_id!r} could not resolve an ambient "
-        "harness session for this process. "
-        f"Consulted: {named}.{extra} "
-        "This is a Yoke infrastructure gap (session registration or "
-        "process-anchor resolution failed), not something to work around "
-        "— file a field-note if you can, otherwise report it to the "
-        "operator. Operator-debug only: an explicit session id "
-        "(--session-id) overrides ambient resolution."
+    return format_session_missing(
+        function_id,
+        channels=named,
+        contested=contested_anchor_session_ids() or None,
+        harness_family=nearest_harness_family() or "",
     )
 
 

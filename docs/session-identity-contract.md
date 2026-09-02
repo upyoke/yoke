@@ -190,9 +190,12 @@ Resolution runs one canonical chain, owned by
    against the registry; a record is trusted only when the live start
    time matches (stale records are pruned best-effort).
 3. `None` → mutations whose registry entry requires a session reject with
-   `actor_session_missing`, an infrastructure-bug signal to report — never a
-   prompt to export env vars. Explicitly session-optional terminal operations
-   continue through their own actor-binding contract.
+   `actor_session_missing`: inside a harness an infrastructure-bug signal
+   to report, never a prompt to export env vars; in a plain terminal an
+   expected absence, so the refusal names the supported path instead (run
+   it from a harness session). One renderer decides which
+   (`session_missing_refusal`); session-optional operations never reach
+   this step.
 
 Step 2 reads the hook-written process-anchor registry: its record
 format, the two rules that keep a pid shared by several conversations
@@ -206,14 +209,31 @@ surfaces a brand-new user or the public installer runs in a plain terminal
 before any harness session exists: direct-work filing through `items.create`
 (`yoke dash` / `yoke task`), project install / refresh / register / uninstall,
 onboarding, and the project-config writes they drive — create/update,
-capability and environment settings, github binding, and a new project's first deployment flows
-(`deployment_flows.create`). A session is still bound and audited
+capability and environment settings, github binding, project-structure patches
+(the wizard's hosting-posture stage), the install's harness machine report, and
+a new project's first deployment flows. A session is still bound and audited
 when one is present, https callers stay project-scoped through the dispatch
 permission gate (which enforces only once a numeric actor id is bound), and
 the call is still recorded via `YokeFunctionCalled` — session-less, not
 audit-less. Operator-only mutations outside the bootstrap path, including
 flow-definition edits (`deployment_flows.set_status` / `update_stages`),
 keep the session requirement.
+
+**Membership is a declaration, so something checks it.** Nothing in the
+registry knows which functions a person without a session actually reaches — an
+onboarding Apply once stopped at its final stage because one write never carried
+the flag, and told the operator to file a field-note about their own first
+command. `terminal_reachable_functions` enumerates what the wizard's Apply stages
+and the plain-terminal recipes reach; its contract test fails on the registry.
+
+**Session-less is not author-less.** A session-optional mutating call that
+resolves no session binds this universe's operating actor — the machine owner
+seeded at birth — in the identity binder (`session_less_actor_binding`), so the
+whole class is attributed rather than the handlers that remembered; that path
+also converges the operating actor's org grant, which registration alone never
+reaches on a machine whose first write is onboarding's. An actor the envelope
+already names wins untouched (the https bearer-token actor). Resolution that
+names none leaves the call unbound and unchanged.
 
 Every consumer resolves through this one chain: the CLI chokepoint
 (`service_client_shared_session_resolver._resolve_session_id`), the

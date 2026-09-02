@@ -22,6 +22,10 @@ ambient because the caller's environment lives client-side):
   yields a session. That state is a Yoke infrastructure gap (hook
   registration / process-anchor resolution failed), not something for
   agents to work around with env exports.
+- A mutating function whose entry declares the session optional binds
+  this universe's operating actor instead
+  (:mod:`yoke_core.domain.session_less_actor_binding`), so a write from
+  a plain terminal is attributed rather than anonymous.
 - ``actor_id`` is resolved server-side from ``harness_sessions`` keyed
   on the bound session; a contradicting payload ``actor_id`` still
   denies mutating calls (``actor_id_mismatch``). The same lookup also
@@ -51,6 +55,7 @@ from yoke_core.domain.session_ambient_identity import (
     format_actor_session_missing,
     resolve_ambient_session_id,
 )
+from yoke_core.domain.session_less_actor_binding import bind_operating_actor
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -236,7 +241,9 @@ def bind_actor_identity(
 
     if not bound_session:
         return BoundIdentity(
-            bound_request=request,
+            bound_request=(
+                request if read_only else bind_operating_actor(request)
+            ),
             payload_session_id=payload_session,
             ambient_session_id=ambient_session_id,
             error=None,

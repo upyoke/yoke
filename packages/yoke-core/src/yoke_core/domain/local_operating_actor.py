@@ -21,10 +21,16 @@ the local-universe path only.
 
 Birth is not the only moment that has to converge this. A universe born
 by an engine that predates the grant keeps operating after that engine
-is upgraded in place, and nothing re-enters birth on that path — so the
-first session to register on the upgraded universe converges the grant
-through :func:`converge_operating_actor_grant`, which writes nothing the
-moment the grant exists. Until that landed, the only writer was the
+is upgraded in place, and nothing re-enters birth on that path — so
+:func:`converge_operating_actor_grant` runs wherever the engine first
+names that actor, and writes nothing the moment the grant exists. There
+are two such moments, because there are two ways to name the actor: a
+session registering (:mod:`yoke_core.domain.sessions_lifecycle_identity`)
+and a terminal write binding it with no session at all
+(:mod:`yoke_core.domain.session_less_actor_binding`). Onboarding is
+entirely the second, and it runs before any session exists, so a
+convergence that only followed registration would never reach the
+person who needs it most. Until that landed, the only writer was the
 doctor fix, and the denial an agent actually hit never named it; both
 the doctor check and the permission denial now render that recovery from
 :data:`OPERATING_ACTOR_GRANT_REPAIR`, so there is one command to teach.

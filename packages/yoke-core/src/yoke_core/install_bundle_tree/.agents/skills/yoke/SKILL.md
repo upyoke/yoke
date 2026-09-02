@@ -65,11 +65,20 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 | `yoke dash TITLE INSTRUCTION` / `yoke task TITLE INSTRUCTION` | File direct work: Dash owns repository lanes and optional gates; Task is laneless and merge-free. Resolve execution instructions first and pass `--execution-instructions-considered`. |
 | `yoke board art variant create --ascii\|--mixed\|--image PATH` | Generate, preview, and optionally apply `.yoke/board-art` variants |
 | `yoke project snapshot sync [CHECKOUT]` | Scan committed git tree state and sync authoritative path snapshots |
+| `yoke git pre-commit` | Run the installed pre-commit gate entrypoint. |
+| `yoke git post-commit` | Run the installed post-commit path snapshot sync entrypoint. |
+
+### Item Commands That Need a Harness Session
+
+These take the item's work claim, and a claim belongs to a session, so run
+them from a harness session rather than a plain shell. A plain terminal gets
+a refusal that says the same thing.
+
+| Command | Description |
+|---|---|
 | `yoke items freeze PREFIX-N` / `yoke items thaw PREFIX-N` | Park an item off the active board, or return it (keeps its lifecycle status). Work that will never resume is `yoke items cancel`. |
 | `yoke items cancel PREFIX-N --reason TEXT [--ref PREFIX-M]` | Cancel an item that will never resume (takes the claim; frozen items cancel in one step) |
 | `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N` | Set or clear the blocked flag and reason (keeps its lifecycle status) |
-| `yoke git pre-commit` | Run the installed pre-commit gate entrypoint. |
-| `yoke git post-commit` | Run the installed post-commit path snapshot sync entrypoint. |
 
 ### Internal Sub-skills
 `/yoke advance` is dual-classified: `implementation` is operator-facing for issues; other targets remain internal lifecycle transitions.

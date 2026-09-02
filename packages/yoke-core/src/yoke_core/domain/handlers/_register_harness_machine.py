@@ -16,10 +16,13 @@ def register(registry) -> None:
         target_kinds=["global"],
         side_effects=["harness_machine_reports_upsert"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["actor_session_bound"],
+        guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
-        ambient_session_required=True,
+        # Project install writes the harness glue and reports it here, in
+        # the terminal process that ran the install. The handler reads no
+        # actor and no session, so requiring one only cost the report.
+        ambient_session_required=False,
     )
 
 
