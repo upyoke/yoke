@@ -16,6 +16,11 @@ modules below for source-development diagnostics.
 
 - [Browser Scenario Schema](../.yoke/docs/reference/browser-scenarios.md) —
   immutable `method_config` for `browser-check` and `browser-inspection`
+- [Persistent Browser Profile](browser-substrate/persistent-profile.md) — one
+  profile per project, signed in once by the operator with
+  `yoke browser authorize`
+- [Snapshot Primitives](browser-substrate/snapshot-primitives.md) —
+  accessibility, screenshot, and diff diagnostics
 
 ## Architecture
 
@@ -66,9 +71,15 @@ On startup, the daemon writes `~/.yoke/browser-runtime/.daemon-state.json` (perm
  "browserType": "chromium",
  "startedAt": "2026-01-01T00:00:00.000Z",
  "health": "healthy",
- "port": 9222
+ "port": 9222,
+ "profileDir": "/Users/you/.yoke/secrets/capability-secrets/yoke/browser-control/profile"
 }
 ```
+
+`profileDir` is the project's persistent browser profile, empty when the
+daemon runs on a throwaway context. A daemon live on a different profile is
+restarted rather than reused; see
+[Persistent Browser Profile](browser-substrate/persistent-profile.md).
 
 The Python client (`yoke_core.domain.browser_client`) reads this file to discover the daemon endpoint and bearer token.
 
@@ -98,40 +109,13 @@ If the daemon crashes, the state file remains with a stale PID. On next `start`,
 
 ### Security
 
-A bearer token is generated at daemon startup and written to the state file. Every API request must include `Authorization: Bearer {token}`. The state file is owner-readable only (0600).
+A bearer token is generated at daemon startup and written to the state file. Every API request must include `Authorization: Bearer {token}`. The state file is owner-readable only (0600). The persistent profile the daemon may open is owner-only too, and Yoke never reads, stores, or logs a credential the operator typed into it.
 
 ## Snapshot Primitives
 
-### Accessibility Snapshot
-
-Produces a structured accessibility tree (Playwright's `page.accessibility.snapshot()`) with stable ref IDs on each element.
-
-```sh
-python3 -m yoke_core.domain.browser_client snapshot accessibility <url>
-```
-
-Output: JSON with `{ tree, refs, url, timestamp }`.
-
-### Annotated Screenshot
-
-Captures a page screenshot with numbered ref badges overlaid on interactive elements.
-
-```sh
-python3 -m yoke_core.domain.browser_client snapshot screenshot <url> [--annotate] [--output <path>] [--viewport <WxH>]
-```
-
-Output: JSON with `{ imagePath, refs }`. The `refs` map associates integer ref IDs with Playwright locator strings.
-
-### Diff Snapshot
-
-Captures a screenshot and compares it against a baseline image using pixel-level diff (pixelmatch).
-
-```sh
-python3 -m yoke_core.domain.browser_client snapshot diff <url> --baseline <path> --viewport <WxH> \
- [--output-dir <dir>] [--threshold <N>]
-```
-
-Output: JSON with `{ diff_pct, diff_image_path, candidate_path, baseline_path, viewport }`. When no baseline exists: `{ diff_pct: null, missing_baseline: true, candidate_path }`.
+Accessibility snapshot, annotated screenshot, and pixel diff — their
+commands and output shapes live in
+[Snapshot Primitives](browser-substrate/snapshot-primitives.md).
 
 ## Ref System
 

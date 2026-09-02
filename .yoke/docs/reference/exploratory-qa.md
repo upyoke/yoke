@@ -173,6 +173,12 @@ and a lease-routed `yoke qa browser step --base-url URL --step-json JSON`
 template. The walker chooses and submits one step at a time; no scenario is
 authored in advance.
 
+A walker never signs in. The operator authorizes the project's persistent
+browser profile once, headed, with `yoke browser authorize`, so the contexts
+the walker receives already carry those sessions. An expired session lands the
+walker on a sign-in page, which it raises as a human gate naming the site — it
+never finds, types, or reuses a credential.
+
 ## Evidence Discipline
 
 Perception is disposable. A walker may inspect hundreds of screens, DOM states,

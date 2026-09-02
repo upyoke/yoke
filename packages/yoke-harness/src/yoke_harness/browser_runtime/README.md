@@ -13,6 +13,7 @@ The product entry points are:
 yoke qa case run --requirement-id N --base-url URL \
   --expected-branch BRANCH --expected-sha SHA
 yoke qa browser screenshot URL --output /tmp/capture.png
+yoke browser authorize [--project P] [--url URL]
 ```
 
 `yoke-harness` owns the local daemon/client substrate. The core case runner
@@ -48,6 +49,7 @@ changes, including pull-request and merge-queue trees.
 ## Runtime Files
 
 - `src/daemon.js`: daemon entry point, state file management, idle timer
+- `src/authorize.js`: headed sign-in window for a project's persistent profile
 - `src/server.js`: Express HTTP server with bearer auth middleware
 - `src/browser-manager.js`: Playwright browser lifecycle
 - `src/snapshot.js`: accessibility tree extraction with ref annotation
@@ -57,5 +59,17 @@ changes, including pull-request and merge-queue trees.
 - `src/routes/*.js`: snapshot and step execution HTTP routes
 
 The daemon writes `~/.yoke/browser-runtime/.daemon-state.json` with the local
-endpoint, PID, bearer token, browser type, and health state. The product Python
-client reads that state file before sending authenticated daemon requests.
+endpoint, PID, bearer token, browser type, health state, and the persistent
+profile directory it launched on. The product Python client reads that state
+file before sending authenticated daemon requests.
+
+## Persistent Profile
+
+`yoke browser authorize` opens one project's browser profile in a headed
+window so the operator can sign in once; every context the daemon later hands
+out for that project is signed into whatever they signed into. An agent never
+completes a sign-in. The profile lives with the project's machine-local
+capability secrets at
+`~/.yoke/secrets/capability-secrets/<project>/browser-control/profile`, and a
+project with no profile still gets a clean throwaway context. Full contract:
+[Persistent Browser Profile](../../../../../docs/browser-substrate/persistent-profile.md).

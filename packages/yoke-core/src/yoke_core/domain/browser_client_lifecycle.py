@@ -33,17 +33,36 @@ def daemon_start(
     port: Optional[int] = None,
     headed: bool = False,
     idle_timeout: Optional[int] = None,
+    profile_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Start the browser daemon.
+
+    ``profile_dir`` is one project's persistent browser profile. A daemon
+    already running on a different profile is stopped and restarted on the
+    requested one, because the daemon is a machine singleton and reusing it
+    would hand this project's workers another project's signed-in session.
 
     Returns JSON status dict.
     """
     from yoke_core.domain import browser_client as _bc
     from yoke_core.domain.worktree import resolve_playwright_cache
+    from yoke_harness import browser_runtime_home
 
+    requested_profile = str(profile_dir or "")
     state = _bc.DaemonState.load()
     if state and _bc.daemon_running(state):
-        return {"status": "already_running", "endpoint": state.endpoint}
+        if state.profile_dir == requested_profile:
+            return {"status": "already_running", "endpoint": state.endpoint}
+        _bc._log(
+            "Browser daemon is running on a different browser profile "
+            f"({state.profile_dir or 'none'}); restarting it on "
+            f"{requested_profile or 'a throwaway profile'}."
+        )
+        try:
+            daemon_stop()
+        except RuntimeError:
+            # The daemon exited between the liveness check and the stop.
+            pass
 
     browser = _bc._browser_dir()
     daemon_js = browser / "src" / "daemon.js"
@@ -88,16 +107,8 @@ def daemon_start(
         _bc._log("[browser-auto-bootstrap] npm install completed successfully")
 
     # Auto-bootstrap Chromium
-    chromium_check_code = (
-        "try { var pw = require('./node_modules/playwright'); "
-        "var p = pw.chromium.executablePath(); "
-        "var fs = require('fs'); "
-        "if (fs.existsSync(p)) { process.stdout.write('ok'); } "
-        "else { process.stdout.write('missing'); } "
-        "} catch(e) { process.stdout.write('error:' + e.message); }"
-    )
     r = subprocess.run(
-        ["node", "-e", chromium_check_code], cwd=str(browser),
+        ["node", "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS], cwd=str(browser),
         capture_output=True, text=True, env=env,
     )
     chromium_status = r.stdout.strip() if r.returncode == 0 else "error"
@@ -122,6 +133,8 @@ def daemon_start(
         cmd.append("--headed")
     if idle_timeout is not None:
         cmd.extend(["--idle-timeout", str(idle_timeout)])
+    if requested_profile:
+        cmd.extend(["--profile-dir", requested_profile])
     cmd.extend(["--state-file", str(state_path)])
 
     # Launch

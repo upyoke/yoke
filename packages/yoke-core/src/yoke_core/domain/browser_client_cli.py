@@ -42,11 +42,16 @@ def _cli_daemon(args: argparse.Namespace) -> int:
             return 2
 
     elif args.daemon_cmd == "start":
+        from yoke_cli.config.browser_profile import resolve_authorized_profile
+
+        profile, note = resolve_authorized_profile(getattr(args, "project", None))
+        _bc._log(note)
         try:
             result = _bc.daemon_start(
                 port=getattr(args, "port", None),
                 headed=getattr(args, "headed", False),
                 idle_timeout=getattr(args, "idle_timeout", None),
+                profile_dir=str(profile) if profile else None,
             )
             print(json.dumps(result))
             return 0

@@ -78,10 +78,21 @@ def list_machine_capability_secret_keys(project_slug: str, cap_type: str) -> lis
     )
 
 
+def ensure_private_capability_dir(directory: Path) -> Path:
+    """Create a directory under the secrets root with owner-only permissions.
+
+    Every ancestor up to the secrets root is tightened to ``0700`` too, so a
+    directory created before this rule existed does not leave the new one
+    readable through a loose parent.
+    """
+    _refuse_unisolated_test_write(directory)
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _chmod_private_dirs(directory)
+    return directory
+
+
 def _write_secret(path: Path, secret: str) -> None:
-    _refuse_unisolated_test_write(path)
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    _chmod_private_dirs(path.parent)
+    ensure_private_capability_dir(path.parent)
     tmp_path = path.with_name(path.name + ".tmp")
     tmp_path.write_text(secret + "\n", encoding="utf-8")
     tmp_path.chmod(0o600)
@@ -121,6 +132,7 @@ def _refuse_unisolated_test_write(path: Path) -> None:
 
 __all__ = [
     "MachineCapabilitySecretError",
+    "ensure_private_capability_dir",
     "list_machine_capability_secret_keys",
     "machine_capability_secret_path",
     "read_machine_capability_secret",

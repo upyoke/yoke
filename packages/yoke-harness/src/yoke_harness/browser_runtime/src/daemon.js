@@ -4,6 +4,7 @@
  * Browser daemon -- CLI entry point.
  *
  * Usage: node daemon.js [--port N] [--headed] [--idle-timeout N] [--state-file path]
+ *        [--profile-dir path]
  *
  * Starts an Express server, launches Chromium via Playwright, writes a state file,
  * and manages idle shutdown and graceful stop.
@@ -27,6 +28,7 @@ function parseArgs(argv) {
     headed: false,
     idleTimeoutMs: 10 * 60 * 1000, // 10 minutes
     stateFile: path.join(__dirname, '..', '.daemon-state.json'),
+    profileDir: '',
   };
 
   for (let i = 2; i < argv.length; i++) {
@@ -45,6 +47,9 @@ function parseArgs(argv) {
         break;
       case '--state-file':
         args.stateFile = argv[++i];
+        break;
+      case '--profile-dir':
+        args.profileDir = argv[++i];
         break;
       default:
         console.error(`Unknown argument: ${argv[i]}`);
@@ -126,10 +131,14 @@ async function main() {
   const browserManager = createBrowserManager({
     browserType: 'chromium',
     headless: !args.headed,
+    profileDir: args.profileDir,
   });
 
   // Launch the browser
-  console.log(`Launching Chromium (${args.headed ? 'headed' : 'headless'})...`);
+  const profileNote = args.profileDir
+    ? `persistent profile ${args.profileDir}`
+    : 'throwaway profile';
+  console.log(`Launching Chromium (${args.headed ? 'headed' : 'headless'}, ${profileNote})...`);
   await browserManager.launch();
   console.log('Browser launched.');
 
@@ -201,6 +210,7 @@ async function main() {
       startedAt: new Date().toISOString(),
       health: 'healthy',
       port: args.port,
+      profileDir: args.profileDir,
     };
 
     writeStateFile(args.stateFile, state);

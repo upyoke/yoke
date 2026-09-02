@@ -13,10 +13,10 @@ from typing import List
 from yoke_cli.commands._helpers import parse_or_usage_error
 
 
-QA_BROWSER_STATUS_USAGE = "yoke qa browser status [--json]"
+QA_BROWSER_STATUS_USAGE = "yoke qa browser status [--project PROJECT] [--json]"
 QA_BROWSER_SETUP_USAGE = (
-    "yoke qa browser setup [--dry-run] [--port PORT] [--headed] "
-    "[--idle-timeout SECONDS] [--json]"
+    "yoke qa browser setup [--dry-run] [--project PROJECT] [--port PORT] "
+    "[--headed] [--idle-timeout SECONDS] [--json]"
 )
 MILLISECONDS_PER_SECOND = 1000
 
@@ -26,6 +26,7 @@ def qa_browser_status(args: List[str]) -> int:
         prog="yoke qa browser status",
         description=QA_BROWSER_STATUS_USAGE,
     )
+    parser.add_argument("--project", default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STATUS_USAGE)
     if parsed is None:
@@ -41,7 +42,9 @@ def qa_browser_status(args: List[str]) -> int:
         )
         return 2
 
-    payload = _browser_readiness(browser_client, browser_runtime_home)
+    payload = _browser_readiness(
+        browser_client, browser_runtime_home, project=parsed.project,
+    )
     if parsed.json_mode:
         print(json.dumps(payload))
     else:
@@ -61,6 +64,7 @@ def _format_status_human(payload: dict[str, object]) -> str:
     deps = payload.get("npm_dependencies", {})
     chromium = payload.get("chromium", {})
     daemon = payload.get("daemon", {})
+    profile = payload.get("profile", {})
     lines = [
         f"runtime dir:      {payload.get('runtime_dir', 'unknown')}",
         f"materialized:     {'yes' if payload.get('materialized') else 'no'}",
@@ -69,6 +73,8 @@ def _format_status_human(payload: dict[str, object]) -> str:
         f"npm dependencies: {deps.get('status', 'unknown')}",
         f"chromium:         {chromium.get('status', 'unknown')}",
         f"daemon:           {daemon.get('status', 'unknown')}",
+        f"profile:          {profile.get('status', 'unknown')} "
+        f"({profile.get('project', 'unknown')}) {profile.get('path', '')}",
     ]
     repairs = payload.get("repairs") or []
     if repairs:
@@ -89,6 +95,7 @@ def qa_browser_setup(args: List[str]) -> int:
         description=QA_BROWSER_SETUP_USAGE,
     )
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--project", default=None)
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--idle-timeout", type=int, default=None)
@@ -112,7 +119,9 @@ def qa_browser_setup(args: List[str]) -> int:
         prerequisite_actions: list[dict[str, str]] = []
         if not parsed.dry_run:
             prerequisite_actions = _ensure_node_prerequisites()
-        readiness = _browser_readiness(browser_client, browser_runtime_home)
+        readiness = _browser_readiness(
+            browser_client, browser_runtime_home, project=parsed.project,
+        )
         if parsed.dry_run:
             result = {
                 "ok": True,
@@ -128,6 +137,7 @@ def qa_browser_setup(args: List[str]) -> int:
                 "runtime_dir": str(runtime_dir),
                 "prerequisite_actions": prerequisite_actions,
                 "daemon": browser_client.daemon_start(
+                    profile_dir=_profile_dir_arg(parsed.project),
                     port=parsed.port,
                     headed=parsed.headed,
                     idle_timeout=(
@@ -152,7 +162,29 @@ def qa_browser_setup(args: List[str]) -> int:
     return 0
 
 
-def _browser_readiness(browser_client, browser_runtime_home) -> dict[str, object]:
+def _profile_dir_arg(project: str | None) -> str | None:
+    """The authorized profile the daemon should launch, or ``None`` for clean."""
+    from yoke_cli.config.browser_profile import authorized_profile_dir
+
+    authorized = authorized_profile_dir(project)
+    return str(authorized) if authorized is not None else None
+
+
+def _profile_readiness(project: str | None) -> dict[str, object]:
+    """Report which project profile a daemon started here would open."""
+    from yoke_cli.config import browser_profile
+
+    directory = browser_profile.profile_dir(project)
+    return {
+        "project": browser_profile.profile_project_key(project),
+        "path": str(directory),
+        "status": "authorized" if directory.is_dir() else "not authorized",
+    }
+
+
+def _browser_readiness(
+    browser_client, browser_runtime_home, project: str | None = None,
+) -> dict[str, object]:
     runtime_dir = browser_runtime_home.runtime_dir()
     expected_hash = browser_runtime_home.source_hash()
     marker = runtime_dir / browser_runtime_home.HASH_MARKER_NAME
@@ -171,6 +203,7 @@ def _browser_readiness(browser_client, browser_runtime_home) -> dict[str, object
         "npm_dependencies": {"status": "ready" if deps_ready else "missing"},
         "chromium": {"status": chromium},
         "daemon": browser_client.daemon_status(),
+        "profile": _profile_readiness(project),
         "repairs": repairs,
     }
 
@@ -196,14 +229,14 @@ def _command_version(command: list[str], minimum_major: int | None = None) -> di
 
 
 def _chromium_status(runtime_dir: Path) -> str:
-    script = (
-        "try { var pw = require('./node_modules/playwright'); "
-        "var fs = require('fs'); process.stdout.write(fs.existsSync("
-        "pw.chromium.executablePath()) ? 'ready' : 'missing'); } "
-        "catch(e) { process.stdout.write('missing'); }"
+    from yoke_harness import browser_runtime_home
+
+    result = subprocess.run(
+        ["node", "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
+        cwd=runtime_dir, capture_output=True, text=True, check=False,
     )
-    result = subprocess.run(["node", "-e", script], cwd=runtime_dir, capture_output=True, text=True, check=False)
-    return result.stdout.strip() if result.returncode == 0 else "missing"
+    probe = result.stdout.strip() if result.returncode == 0 else "missing"
+    return "ready" if probe == "ok" else "missing"
 
 
 def _ensure_node_prerequisites() -> list[dict[str, str]]:

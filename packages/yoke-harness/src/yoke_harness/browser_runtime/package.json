@@ -4,7 +4,7 @@
   "private": true,
   "description": "Browser automation substrate for Yoke -- daemon, snapshots, refs",
   "scripts": {
-    "test": "node tests/daemon.test.js && node tests/daemon-lifecycle.test.js && node tests/snapshot.test.js && node tests/screenshot.test.js && node tests/diff.test.js && node tests/step-runner.test.js && node tests/step-runner-assertions.test.js && node tests/step-runner-body-text.test.js && node tests/step-runner-actions.test.js && node tests/step-runner-stale-schema.test.js",
+    "test": "node tests/daemon.test.js && node tests/daemon-lifecycle.test.js && node tests/browser-profile.test.js && node tests/snapshot.test.js && node tests/screenshot.test.js && node tests/diff.test.js && node tests/step-runner.test.js && node tests/step-runner-assertions.test.js && node tests/step-runner-body-text.test.js && node tests/step-runner-actions.test.js && node tests/step-runner-stale-schema.test.js",
     "start": "node src/daemon.js"
   },
   "dependencies": {

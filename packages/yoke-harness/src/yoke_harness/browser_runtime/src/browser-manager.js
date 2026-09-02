@@ -1,9 +1,14 @@
 'use strict';
 
 /**
- * Browser manager -- wraps a single Playwright browser instance.
+ * Browser manager -- wraps a single Playwright browser context.
  *
- * Exports: createBrowserManager(options) -> { getBrowser, getPage, newPage, closeBrowser, isConnected }
+ * With a profile directory the context is persistent: it opens the operator's
+ * signed-in Chromium profile for one project, so every page handed out is
+ * signed into whatever the operator signed into. Without one the context is a
+ * throwaway with an empty cookie jar.
+ *
+ * Exports: createBrowserManager(options) -> { launch, getBrowser, getPage, newPage, closeBrowser, isConnected, getProfileDir }
  */
 
 const { chromium } = require('playwright');
@@ -12,11 +17,13 @@ const { chromium } = require('playwright');
  * @param {Object} options
  * @param {string} [options.browserType='chromium'] - Browser type (only chromium supported today)
  * @param {boolean} [options.headless=true] - Run headless
+ * @param {string} [options.profileDir] - Persistent profile directory, or empty for a throwaway context
  * @returns {Object} Browser manager interface
  */
 function createBrowserManager(options = {}) {
   const browserType = options.browserType || 'chromium';
   const headless = options.headless !== false;
+  const profileDir = options.profileDir || '';
 
   let browser = null;
   let context = null;
@@ -25,6 +32,12 @@ function createBrowserManager(options = {}) {
   async function launch() {
     if (browserType !== 'chromium') {
       throw new Error(`Unsupported browser type: ${browserType}. Only chromium is supported.`);
+    }
+    if (profileDir) {
+      // A persistent context owns its own browser process; Playwright returns
+      // no Browser handle for it, so `context` is the lifecycle authority.
+      context = await chromium.launchPersistentContext(profileDir, { headless });
+      return context;
     }
     browser = await chromium.launch({ headless });
     context = await browser.newContext();
@@ -35,6 +48,10 @@ function createBrowserManager(options = {}) {
     return browser;
   }
 
+  function getProfileDir() {
+    return profileDir;
+  }
+
   /**
    * Get the current page, creating one if needed. Navigates to url if provided.
    */
@@ -43,7 +60,7 @@ function createBrowserManager(options = {}) {
       throw new Error('Browser not launched. Call launch() first.');
     }
     if (!currentPage || currentPage.isClosed()) {
-      currentPage = await context.newPage();
+      currentPage = context.pages().find((page) => !page.isClosed()) || (await context.newPage());
     }
     if (url) {
       await currentPage.goto(url, { waitUntil: 'domcontentloaded' });
@@ -66,9 +83,10 @@ function createBrowserManager(options = {}) {
   }
 
   async function closeBrowser() {
-    if (browser) {
+    const closable = browser || context;
+    if (closable) {
       try {
-        await browser.close();
+        await closable.close();
       } catch (_) {
         // Browser may already be disconnected
       }
@@ -79,12 +97,16 @@ function createBrowserManager(options = {}) {
   }
 
   function isConnected() {
-    return browser !== null && browser.isConnected();
+    if (browser) {
+      return browser.isConnected();
+    }
+    return context !== null;
   }
 
   return {
     launch,
     getBrowser,
+    getProfileDir,
     getPage,
     newPage,
     closeBrowser,
