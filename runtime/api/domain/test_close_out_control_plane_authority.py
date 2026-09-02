@@ -16,6 +16,7 @@ from types import SimpleNamespace
 
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_core.domain import close_out_control_plane_authority as close_out
+from yoke_core.domain import merge_queue_batch_receipt as queue_ci
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_terminal as terminal
@@ -97,6 +98,29 @@ def test_terminal_transition_dispatches_on_the_connected_control_plane(
         )
 
     assert seen == [CONNECTED]
+    assert os.environ[ENV_OVERRIDE] == ADMISSION
+
+
+def test_queue_ci_proof_dispatches_on_the_connected_control_plane(monkeypatch):
+    _under_admission_override(monkeypatch)
+    seen: list = []
+
+    def record(item_id, receipt):
+        seen.append((item_id, receipt, os.environ.get(ENV_OVERRIDE, "")))
+        return None
+
+    monkeypatch.setattr(queue_ci, "record_batch_evidence", record)
+    receipt = queue_ci.BatchReceipt(
+        pr_num="42",
+        head_sha="3" * 40,
+        run_url="https://github.test/runs/42",
+    )
+
+    with close_out.bind_connected_control_plane(CONNECTED):
+        error = close_out.record_merge_queue_ci_evidence(7, receipt)
+
+    assert error is None
+    assert seen == [(7, receipt, CONNECTED)]
     assert os.environ[ENV_OVERRIDE] == ADMISSION
 
 

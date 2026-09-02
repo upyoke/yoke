@@ -200,6 +200,8 @@ def run(argv: List[str]) -> int:
             project=project,
             repo_root=str(repo_root),
             lane=landed_lane,
+            queue_pr_number=str((item.get("merge_queue") or {}).get("pr_number") or ""),
+            public_ref=public_ref,
         )
     else:
         outcome, refusal = verify.verify_and_land(

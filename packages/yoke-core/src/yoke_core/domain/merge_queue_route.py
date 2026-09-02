@@ -1,6 +1,4 @@
-"""Queue-routed landing for a verified item branch. Wait mode polls; default
-mode records a durable handoff. Failures never silently downgrade to local merge.
-"""
+"""Queue landing with a durable handoff and no silent local fallback."""
 
 from __future__ import annotations
 
@@ -111,9 +109,7 @@ def land_item_through_merge_queue(
     """Land one verified item branch through the merge queue."""
     warnings: list[str] = []
 
-    # The queue enforces whatever the live ruleset requires, so landing
-    # into a drifted one is gated on a set main already disowned. A
-    # comparison that could not run rides the batch evidence instead.
+    # A comparison that could not run rides the batch evidence instead.
     drift = drift_check_before_landing(
         ctx.project or "",
         checkout=ctx.repo_root,
@@ -153,8 +149,7 @@ def land_item_through_merge_queue(
             warnings=tuple(warnings),
         )
 
-    # The verification gate already opened this pull request for a project
-    # routed through the queue, so this call normally converges on it.
+    # The verification gate normally opened this pull request already.
     pr_num, pr_err = ensure_landing_pull_request(
         ctx,
         public_ref,
@@ -162,8 +157,7 @@ def land_item_through_merge_queue(
     )
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
-    # Convergent re-entry: skip queue entry when the PR already merged or
-    # is already armed — GitHub refuses re-enabling merge-when-ready.
+    # GitHub refuses re-enabling an armed or already-merged pull request.
     pre_state, pre_err = read_pr_landing_state(ctx, pr_num)
     if pre_err:
         warnings.append(pre_err)
@@ -326,6 +320,12 @@ def land_item_through_merge_queue(
         drift_check=drift_receipt(drift),
     )
     warnings.extend(close_out.warnings)
+    ci_refusal = close_out.ci_evidence_refusal(pr_num, resume_command)
+    if ci_refusal:
+        return _fail_landing(
+            pr_num, ci_refusal,
+            tuple(warnings), exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
+        )
     return QueueLandingOutcome(
         ok=True,
         exit_code=0,
