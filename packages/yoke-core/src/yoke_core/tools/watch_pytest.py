@@ -44,6 +44,7 @@ from yoke_core.domain import (
 )
 from yoke_core.tools import (
     _source_pythonpath,
+    _watch_digest,
     _watch_pytest_args,
     _watch_pytest_rootdir,
     _watch_runner,
@@ -148,6 +149,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     )
     raw, widen_flag = _extract_wrapper_flag(raw, _watch_pytest_args.WIDEN_FLAG)
     raw, bounded_flag = _extract_wrapper_flag(raw, _watch_pytest_args.BOUNDED_FLAG)
+    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _watch_pytest_args.parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -248,7 +250,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        wrapper_options: list[str] = []
+        wrapper_options = _watch_digest.streaming_pair_options(flush_seconds)
         if ns.impacted is not None:
             wrapper_options.extend(("--impacted", ns.impacted))
             wrapper_options.append(
@@ -308,6 +310,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             raw_capture=raw_path,
             progress_capture=progress_path,
             kind=KIND,
+            flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
             cwd=str(run_root),
             env=gate_admission.admitted_environment(pytest_env),
             timeout_seconds=execution_timeout,

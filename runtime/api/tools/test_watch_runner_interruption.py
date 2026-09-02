@@ -24,9 +24,7 @@ from yoke_core.tools._watch_throttle import (
     ThrottlePolicy,
 )
 
-PASSTHROUGH_POLICY = ThrottlePolicy(
-    percent_step=0.0001, min_interval_seconds=0.0001
-)
+PASSTHROUGH_POLICY = ThrottlePolicy(percent_step=0.0001)
 
 
 def _python_emit_script(tmp_path: Path, lines: list[str], exit_code: int) -> Path:

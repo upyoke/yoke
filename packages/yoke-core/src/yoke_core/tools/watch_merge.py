@@ -1,26 +1,13 @@
 """Command-shaped watcher for Yoke's merge engines.
 
 Owns the merge line classifier so callers do not author a Monitor
-filter per invocation. The classifier covers the step headers, status
-transitions, errors, hard stops, and merge test substream lines emitted
-by ``yoke_core.engines.done_transition`` and
-``yoke_core.engines.merge_worktree``.
-
-Class assignments:
-
-- Errors / warnings / hard stops / fatals, including failures inside
-  merge test substreams → ``URGENT``.
-- Section banners (``=== ... ===``), result emissions
-  (``RESULT_FILE=``, ``YOKE_REPO_ROOT=``), and high-level merge state
-  transitions (``Merging branch:``, ``Worktree:``,
-  ``Branch already merged``, ``Resuming from step``, ``Pre-flight:``,
-  ``Merge already completed``) → ``SUMMARY``.
-- Step headers (``Step N``), merge-time test substream lines
-  (``[tests] ...``, ``[phase:tests] ...``, generic ``[phase:...] ...``),
-  and the queue landing's per-poll observations (``Queue landing: ...``)
-  → ``PROGRESS`` (time-window throttled).
-
-Every other line is ``NOISE`` (raw capture only).
+filter per invocation. It covers what
+``yoke_core.engines.done_transition`` and
+``yoke_core.engines.merge_worktree`` emit; the class constants below
+carry the per-shape assignments, and every other line is ``NOISE``
+(raw capture only). Errors, hard stops, and the result emissions a
+caller reads back reach a follower at once; the banners, step headers,
+test substream, and queue-landing polls ride the digest.
 
 Usage::
 
@@ -43,7 +30,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_runner
+from yoke_core.tools import _watch_digest, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_merge"
@@ -79,16 +66,23 @@ MERGE_URGENT_PREFIXES: tuple[str, ...] = (
     "Merge lock error:",
     "fatal:",
 )
+# Terminal outcomes: the machine-readable result emissions a caller reads
+# back, and the verdicts that end the merge before it starts.
 MERGE_SUMMARY_PREFIXES: tuple[str, ...] = (
-    "===",
-    "Merging branch:",
-    "Worktree:",
     "Branch already merged",
-    "Resuming from step",
-    "Pre-flight:",
     "Merge already completed",
     "RESULT_FILE=",
     "YOKE_REPO_ROOT=",
+)
+# Motion: which branch, which worktree, which section — real content, but
+# a reader needs it as one summary of where the merge got to, not as a
+# wake apiece.
+MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
+    "===",
+    "Merging branch:",
+    "Worktree:",
+    "Resuming from step",
+    "Pre-flight:",
 )
 MERGE_STEP_RE = re.compile(r"^Step \d")
 # The queue-routed landing announces every poll observation under this
@@ -124,6 +118,9 @@ def classify_merge_line(line: str) -> Classification:
     for prefix in MERGE_SUMMARY_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.SUMMARY)
+    for prefix in MERGE_PROGRESS_PREFIXES:
+        if line.startswith(prefix):
+            return Classification(LineClass.PROGRESS)
     if MERGE_STEP_RE.search(line) or MERGE_QUEUE_POLL_RE.search(line):
         return Classification(LineClass.PROGRESS)
     payload = _test_substream_payload(line)
@@ -152,6 +149,7 @@ def _build_merge_progress_pattern() -> re.Pattern[str]:
     parts: list[str] = []
     parts.extend("^" + re.escape(p) for p in MERGE_URGENT_PREFIXES)
     parts.extend("^" + re.escape(p) for p in MERGE_SUMMARY_PREFIXES)
+    parts.extend("^" + re.escape(p) for p in MERGE_PROGRESS_PREFIXES)
     parts.append(MERGE_STEP_RE.pattern)
     parts.append(MERGE_QUEUE_POLL_RE.pattern)
     parts.append(MERGE_TEST_SUBSTREAM_RE.pattern)
@@ -224,6 +222,7 @@ def _parse_args(
         help="Print a ready-to-paste background command + progress-tail pair "
         "and exit. Mints fresh capture paths.",
     )
+    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -291,6 +290,7 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
+    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -315,6 +315,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=sub_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
+            wrapper_options=_watch_digest.streaming_pair_options(
+                flush_seconds
+            ),
         )
         return 0
 
@@ -328,6 +331,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        flush_seconds=_watch_digest.resolve_flush_seconds(
+            ns, flush_seconds
+        ),
     )
 
 

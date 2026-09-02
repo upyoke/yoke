@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import verification_tree_binding
-from yoke_core.tools import _watch_runner
+from yoke_core.tools import _watch_digest, _watch_runner
 
 NESTED_PYTEST_REJECTION_MESSAGE = (
     "watch_pytest expects bare pytest args after --; "
@@ -75,6 +75,7 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         help="Print a ready-to-paste background command + progress-tail pair "
         "and exit. Mints fresh capture paths.",
     )
+    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,

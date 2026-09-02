@@ -96,11 +96,7 @@ MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
     ),
     "watcher_progress_percent_step": (
         "5",
-        "percent delta a watcher requires before emitting a progress line",
-    ),
-    "watcher_progress_min_interval_seconds": (
-        "10",
-        "seconds between watcher progress lines that carry no percentage",
+        "percent delta a watcher requires before carrying a progress tick",
     ),
     "test_timeout": (
         "300",

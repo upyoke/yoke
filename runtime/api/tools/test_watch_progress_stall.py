@@ -76,7 +76,7 @@ def test_watcher_reports_progress_throttle_while_child_keeps_printing(
         kind="pytest",
         stdout_stream=out,
         # Large percent step so 90% is the only emit until 100%.
-        policy=ThrottlePolicy(percent_step=50.0, min_interval_seconds=60.0),
+        policy=ThrottlePolicy(percent_step=50.0),
     )
     assert rc == 0
     text = progress.read_text(encoding="utf-8")

@@ -31,7 +31,7 @@ from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
     WATCH_DEPLOY_DESCRIPTION,
 )
-from yoke_core.tools import _watch_runner, watch_preflight
+from yoke_core.tools import _watch_digest, _watch_runner, watch_preflight
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
@@ -50,23 +50,28 @@ DEPLOY_URGENT_PREFIXES: tuple[str, ...] = (
     "Step runner diagnostic:",
     "fatal:",
 )
+# Terminal outcomes: the run's verdict, and what a reader must act on.
 DEPLOY_SUMMARY_PREFIXES: tuple[str, ...] = (
-    "--- Stage:",
     "Pipeline complete",
-    "Deployment authority:",
     FINALIZATION_PENDING_PREFIX,
+)
+DEPLOY_SUMMARY_RE = re.compile(r"has no member items")
+# Motion: a release opens stages, names the workflow it dispatched, and
+# closes them again. Each line is real, none of it is a question for the
+# reader, and a release emits a dozen — so they ride the digest.
+DEPLOY_PROGRESS_PREFIXES: tuple[str, ...] = (
+    "--- Stage:",
+    "Deployment authority:",
 )
 # Indented by the pipeline, so these match anywhere on the line rather
 # than at its start.
-DEPLOY_SUMMARY_RE = re.compile(
-    r"(Workflow run ID:|completed successfully|has no member items)"
-)
+DEPLOY_PROGRESS_RE = re.compile(r"(Workflow run ID:|completed successfully)")
 # A relay that cannot answer is the failure mode that cost a release most
 # of its wall clock, so it is urgent rather than progress even though the
 # pipeline keeps retrying past it.
 DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(r"status relay is temporarily unavailable")
 FLEET_SCHEMA_REHEARSAL_START_RE = re.compile(r"^\s*Fleet schema rehearsal: uncovered\b")
-FLEET_SCHEMA_REHEARSAL_SUMMARY_RE = re.compile(
+FLEET_SCHEMA_REHEARSAL_COVERED_RE = re.compile(
     r"^\s*Fleet schema rehearsal: (?:covered\b|receipt covers\b)"
 )
 
@@ -88,15 +93,20 @@ def classify_deploy_line(line: str) -> Classification:
             return Classification(LineClass.URGENT)
     if DEPLOY_RELAY_UNAVAILABLE_RE.search(line):
         return Classification(LineClass.URGENT)
-    if FLEET_SCHEMA_REHEARSAL_START_RE.search(line):
-        return Classification(LineClass.PROGRESS)
-    if FLEET_SCHEMA_REHEARSAL_SUMMARY_RE.search(line):
-        return Classification(LineClass.SUMMARY)
     for prefix in DEPLOY_SUMMARY_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.SUMMARY)
     if DEPLOY_SUMMARY_RE.search(line):
         return Classification(LineClass.SUMMARY)
+    if FLEET_SCHEMA_REHEARSAL_START_RE.search(line):
+        return Classification(LineClass.PROGRESS)
+    if FLEET_SCHEMA_REHEARSAL_COVERED_RE.search(line):
+        return Classification(LineClass.PROGRESS)
+    for prefix in DEPLOY_PROGRESS_PREFIXES:
+        if line.startswith(prefix):
+            return Classification(LineClass.PROGRESS)
+    if DEPLOY_PROGRESS_RE.search(line):
+        return Classification(LineClass.PROGRESS)
     preflight_classification = watch_preflight.classify_preflight_line(line)
     if preflight_classification.cls != LineClass.NOISE:
         return preflight_classification
@@ -112,10 +122,12 @@ def _build_deploy_progress_pattern() -> re.Pattern[str]:
     parts: list[str] = []
     parts.extend("^" + re.escape(p) for p in DEPLOY_URGENT_PREFIXES)
     parts.extend("^" + re.escape(p) for p in DEPLOY_SUMMARY_PREFIXES)
+    parts.extend("^" + re.escape(p) for p in DEPLOY_PROGRESS_PREFIXES)
     parts.append(DEPLOY_SUMMARY_RE.pattern)
+    parts.append(DEPLOY_PROGRESS_RE.pattern)
     parts.append(DEPLOY_RELAY_UNAVAILABLE_RE.pattern)
     parts.append(FLEET_SCHEMA_REHEARSAL_START_RE.pattern)
-    parts.append(FLEET_SCHEMA_REHEARSAL_SUMMARY_RE.pattern)
+    parts.append(FLEET_SCHEMA_REHEARSAL_COVERED_RE.pattern)
     parts.append(f"(?i:{watch_preflight.PREFLIGHT_PROGRESS_PATTERN.pattern})")
     return re.compile("|".join(parts))
 
@@ -164,6 +176,7 @@ def _parse_args(
         help="Print a ready-to-paste background command + progress-tail pair "
         "and exit. Mints fresh capture paths.",
     )
+    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -215,6 +228,7 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
+    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -228,6 +242,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=passthrough,
             raw_capture=raw_path,
             progress_capture=progress_path,
+            wrapper_options=_watch_digest.streaming_pair_options(
+                flush_seconds
+            ),
         )
         return 0
 
@@ -248,6 +265,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        flush_seconds=_watch_digest.resolve_flush_seconds(
+            ns, flush_seconds
+        ),
+        # A seat driving two releases reads one transcript, so each
+        # digest names the run it summarises.
+        digest_label=passthrough[0],
     )
 
 

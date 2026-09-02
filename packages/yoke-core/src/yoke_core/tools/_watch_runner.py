@@ -6,17 +6,17 @@ Watchers maintain two distinct output artifacts:
    underlying command. Every line lands here for post-failure
    inspection. Annotations and wrapper headers/footers are NEVER
    written to the raw capture — its contract is forensic fidelity.
-2. Progress capture file — emitted lines (URGENT, SUMMARY, METADATA, and
-   throttled PROGRESS), plus the wrapper's own metadata banner
-   (header + footer) and any progress-line suppression annotations.
-   This is the file Claude Monitor follows with ``watch_tail`` because
-   the wrapper has already filtered, and it is also streamed to the
-   wrapper's own stdout so direct (Codex / shell) callers see the same
-   filtered progress.
+2. Progress capture file — the immediate tier (URGENT, SUMMARY,
+   METADATA) line by line, PROGRESS batched into digest lines, plus the
+   wrapper's own metadata banner (header + footer). This is the file
+   Claude Monitor follows with ``watch_tail`` because the wrapper has
+   already filtered, and it is also streamed to the wrapper's own stdout
+   so direct (Codex / shell) callers see the same filtered progress.
 
 Each command-shaped wrapper (``watch_pytest``, ``watch_merge``, ...)
 ships only its line classifier — see
-:mod:`yoke_core.tools._watch_throttle` for the class taxonomy.
+:mod:`yoke_core.tools._watch_throttle` for the class taxonomy and
+:mod:`yoke_core.tools._watch_digest` for the batching window.
 
 Watched children inherit ``PYTHONUNBUFFERED=1``. Python otherwise block-
 buffers stdout when the watcher replaces its terminal with a pipe, hiding
@@ -44,13 +44,20 @@ from yoke_core.tools._watch_capture_binding import (  # noqa: F401
     mint_capture_paths,
 )
 from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
-from yoke_core.tools._watch_throttle import (
+from yoke_core.tools._watch_digest import (  # noqa: F401
+    DEFAULT_FLUSH_SECONDS,
+    ProgressDigest,
+)
+from yoke_core.tools._watch_throttle import (  # noqa: F401
     Classification,
+    Classifier,
     LineClass,
     ProgressGate,
     ThrottlePolicy,
     annotate_progress_line,
+    filter_match,
     load_throttle_policy,
+    regex_classifier,
 )
 from yoke_core.tools.watch_child_drain import (
     QUIET_HEARTBEAT_SECONDS_ENV,  # noqa: F401 - watcher test/config surface
@@ -71,7 +78,6 @@ STALL_ABORT_EXIT = 125  # nested-admission deadlock; capture names the reason
 PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 
 
-Classifier = Callable[[str], Classification]
 _JSON_ERROR_FIELD_RE = re.compile(r'^\s*"error"\s*:\s*(.+)\s*$')
 
 
@@ -81,33 +87,6 @@ def _unbuffered_child_environment(
     """Return an isolated child environment with immediate Python output."""
     source = os.environ if env is None else env
     return {**source, "PYTHONUNBUFFERED": "1"}
-
-
-def filter_match(pattern: re.Pattern[str], line: str) -> bool:
-    """Return True when *line* matches *pattern*.
-
-    Retained for classifier authors that want to compose a class
-    decision out of a regex pre-check. Line-oriented; callers compose
-    the regex without ``re.MULTILINE``.
-    """
-    return bool(pattern.search(line))
-
-
-def regex_classifier(pattern: re.Pattern[str]) -> Classifier:
-    """Adapt a single regex into a classifier.
-
-    Matching lines are classified as ``PROGRESS`` with no numeric value
-    (time-window throttling only); non-matching lines are ``NOISE``.
-    Provided so callers without a richer taxonomy can still benefit
-    from the shared throttle gate.
-    """
-
-    def _classify(line: str) -> Classification:
-        if pattern.search(line):
-            return Classification(LineClass.PROGRESS)
-        return Classification(LineClass.NOISE)
-
-    return _classify
 
 
 def _emit_immediate(
@@ -120,21 +99,6 @@ def _emit_immediate(
     progress_f.write(line)
     progress_f.flush()
     out.write(line)
-    out.flush()
-
-
-def _emit_progress(
-    line: str,
-    *,
-    suppressed: int,
-    progress_f: TextIO,
-    out: TextIO,
-) -> None:
-    """Write a progress line, optionally annotated with suppression count."""
-    rendered = annotate_progress_line(line, suppressed)
-    progress_f.write(rendered)
-    progress_f.flush()
-    out.write(rendered)
     out.flush()
 
 
@@ -172,13 +136,22 @@ def run_watcher(
     liveness: Optional[SessionLivenessPump] = None,
     header_metadata: str | None = None,
     footer_metadata: Callable[[], str | None] | None = None,
+    flush_seconds: float = DEFAULT_FLUSH_SECONDS,
+    digest_label: str | None = None,
 ) -> int:
-    """Run *argv* under the shared raw + throttled-progress contract.
+    """Run *argv* under the shared raw + digested-progress contract.
 
     The classifier owns the per-line class decision. ``URGENT``,
-    ``SUMMARY``, and ``METADATA`` lines emit immediately. ``PROGRESS``
-    lines are routed through :class:`ProgressGate` for percent-step or
-    time-window throttling. ``NOISE`` lines are written to raw only.
+    ``SUMMARY``, and ``METADATA`` lines emit immediately, each flushing
+    whatever progress was buffered before it. ``PROGRESS`` lines pass
+    through :class:`ProgressGate` — which carries a numeric tick only
+    once it has stepped past the last one — and accumulate in
+    :class:`ProgressDigest`, leaving as one digest line per
+    ``flush_seconds`` window and once more at completion. ``NOISE`` lines
+    are written to raw only.
+
+    ``digest_label`` names the run inside its digest lines, so a seat
+    driving two of them can tell the two apart in one transcript.
 
     ``stdout_stream`` is primarily a test seam — production callers leave it
     unset so the wrapper writes filtered progress to its own ``sys.stdout``.
@@ -206,6 +179,12 @@ def run_watcher(
         else ProgressGate(policy)
     )
     clock = time_source or time.monotonic
+    digest = ProgressDigest(
+        kind=kind,
+        label=digest_label,
+        flush_seconds=flush_seconds,
+        time_source=clock,
+    )
     deadline = clock() + timeout_seconds if timeout_seconds is not None else None
 
     header = (
@@ -220,6 +199,12 @@ def run_watcher(
     # follower may already be reading past it. Truncating here would both
     # drop the marker and strand that reader beyond a shortened file.
     progress_f = progress_capture.open("a", encoding="utf-8", buffering=1)
+
+    def flush_digest() -> None:
+        """Release buffered progress ahead of whatever is written next."""
+        carried = digest.flush()
+        if carried is not None:
+            _emit_immediate(carried, progress_f=progress_f, out=out)
 
     try:
         # Wrapper metadata is class METADATA: emit immediately, never to raw.
@@ -261,17 +246,12 @@ def run_watcher(
                     kind=kind,
                     classifier=classifier,
                     gate=gate,
+                    digest=digest,
                     raw_f=raw_f,
                     progress_f=progress_f,
                     out=out,
                     emit_immediate=lambda line: _emit_immediate(
                         line, progress_f=progress_f, out=out
-                    ),
-                    emit_progress=lambda line, suppressed: _emit_progress(
-                        line,
-                        suppressed=suppressed,
-                        progress_f=progress_f,
-                        out=out,
                     ),
                     pump_tick=pump.tick,
                     clock=clock,
@@ -289,6 +269,7 @@ def run_watcher(
             # so on every surface: an armed follower exits on the sentinel, and
             # a run that died silently is indistinguishable from one still going.
             rc = _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
+            flush_digest()
             reaped = (
                 f"# watch_{kind} interrupted by signal "
                 f"{interruption.signal_number}; child process group reaped\n"
@@ -298,6 +279,9 @@ def run_watcher(
             footer = f"# watch_{kind} exit={rc} raw={raw_capture}\n"
             _emit_immediate(footer, progress_f=progress_f, out=out)
             return rc
+        # Completion always flushes: a run that ended mid-window still
+        # owes the follower the motion it accumulated.
+        flush_digest()
         if rc:
             raw_f.flush()
             terminal_error = _terminal_error_from_raw_capture(raw_capture)

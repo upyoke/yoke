@@ -54,10 +54,13 @@ What you DO do during a Monitor-armed background command:
   with what you see, you found a defect outside your scope, the item
   reached a terminal state, or you need a decision. A steering seat
   watches liveness with its own fleet watcher.
-- The watcher wrappers (`watch_pytest`, `watch_merge`) coalesce
-  repetitive ticks at the wrapper layer. An emitted line may carry
-  a `(suppressed N ticks)` suffix; relay the line including the
-  suffix, do not strip it.
+- A `# watch_<kind> digest ...` line is ONE wake covering every
+  signal in it, joined by middle dots in the order they happened.
+  Relay it as it stands - do not unpack it into a turn per signal,
+  and do not report only its last signal. Urgent lines still arrive
+  the moment they happen. An emitted line may also carry a
+  `(suppressed N ticks)` suffix, meaning N numeric ticks were
+  superseded by that one; relay the suffix, do not strip it.
 - Parallel work in other tools (Read, Edit, unrelated Bash) is fine
   and encouraged between wakes.
 - Do not emit no-op Bash calls to hold the turn while waiting

@@ -50,8 +50,15 @@ def _run_against_lines(
     lines: list[str],
     policy: ThrottlePolicy,
     classifier=None,
+    flush_seconds: float = 0.0,
 ) -> tuple[str, str, str]:
-    """Run the watcher against a synthetic stream and return all surfaces."""
+    """Run the watcher against a synthetic stream and return all surfaces.
+
+    ``flush_seconds`` defaults to 0 — one emission per carried progress
+    line — because these cases are about which ticks the gate carries.
+    Batching those carried lines into digests is covered in
+    ``test_watch_progress_digest.py``.
+    """
     script = _emit_lines_script(tmp_path, lines)
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"
@@ -65,6 +72,7 @@ def _run_against_lines(
         stdout_stream=stdout,
         policy=policy,
         time_source=_FakeClock(),
+        flush_seconds=flush_seconds,
     )
     assert rc == 0
     return (
@@ -82,7 +90,7 @@ class TestRunnerProgressFlood:
         lines = [
             f"runtime/api/test_x.py ...      [{p:>3}%]" for p in range(1, 31)
         ]
-        policy = ThrottlePolicy(percent_step=5.0, min_interval_seconds=999.0)
+        policy = ThrottlePolicy(percent_step=5.0)
         raw_text, progress_text, stdout_text = _run_against_lines(
             tmp_path=tmp_path, lines=lines, policy=policy
         )
@@ -106,7 +114,7 @@ class TestRunnerProgressFlood:
         lines = [
             f"runtime/api/test_x.py ...    [{p:>3}%]" for p in range(1, 11)
         ]
-        policy = ThrottlePolicy(percent_step=5.0, min_interval_seconds=999.0)
+        policy = ThrottlePolicy(percent_step=5.0)
         raw_text, progress_text, _ = _run_against_lines(
             tmp_path=tmp_path, lines=lines, policy=policy
         )
@@ -124,7 +132,7 @@ class TestRunnerProgressFlood:
         lines = [
             f"runtime/api/test_x.py ...      [{p:>3}%]" for p in (1, 2, 3, 4)
         ]
-        policy = ThrottlePolicy(percent_step=50.0, min_interval_seconds=999.0)
+        policy = ThrottlePolicy(percent_step=50.0)
         raw_text, progress_text, _ = _run_against_lines(
             tmp_path=tmp_path, lines=lines, policy=policy
         )
@@ -147,7 +155,7 @@ class TestRunnerInterleavedUrgent:
             "runtime/api/test_x.py ...      [  4%]",
             "runtime/api/test_x.py ...      [  5%]",
         ]
-        policy = ThrottlePolicy(percent_step=10.0, min_interval_seconds=999.0)
+        policy = ThrottlePolicy(percent_step=10.0)
         _, progress_text, stdout_text = _run_against_lines(
             tmp_path=tmp_path, lines=lines, policy=policy
         )
@@ -170,7 +178,7 @@ class TestRunnerSlowProgressNoThrottleNeeded:
             f"runtime/api/test_x.py ...    [{p:>3}%]"
             for p in (10, 40, 70, 100)
         ]
-        policy = ThrottlePolicy(percent_step=5.0, min_interval_seconds=999.0)
+        policy = ThrottlePolicy(percent_step=5.0)
         _, progress_text, _ = _run_against_lines(
             tmp_path=tmp_path, lines=lines, policy=policy
         )
@@ -213,12 +221,12 @@ class TestMergeClassifier:
     @pytest.mark.parametrize(
         "line, expected_cls",
         [
-            ("=== Done transition: YOK-1 ===", LineClass.SUMMARY),
-            ("Pre-flight: merge already completed", LineClass.SUMMARY),
+            ("=== Done transition: YOK-1 ===", LineClass.PROGRESS),
+            ("Pre-flight: merge already completed", LineClass.PROGRESS),
             ("Branch already merged — skipping", LineClass.SUMMARY),
-            ("Resuming from step 6", LineClass.SUMMARY),
-            ("Merging branch: YOK-1 -> main", LineClass.SUMMARY),
-            ("Worktree: /repo/.worktrees/YOK-1", LineClass.SUMMARY),
+            ("Resuming from step 6", LineClass.PROGRESS),
+            ("Merging branch: YOK-1 -> main", LineClass.PROGRESS),
+            ("Worktree: /repo/.worktrees/YOK-1", LineClass.PROGRESS),
             ("Merge already completed; skipping", LineClass.SUMMARY),
             ("RESULT_FILE=/tmp/result.json", LineClass.SUMMARY),
             ("YOKE_REPO_ROOT=/repo", LineClass.SUMMARY),
@@ -286,10 +294,10 @@ class TestMergeClassifier:
             progress_capture=progress,
             kind="merge",
             stdout_stream=io.StringIO(),
-            policy=ThrottlePolicy(
-                percent_step=5.0, min_interval_seconds=999.0
-            ),
+            policy=ThrottlePolicy(percent_step=5.0),
             time_source=_FakeClock(),
+            # Which ticks the gate carries, not how they are batched.
+            flush_seconds=0.0,
         )
         assert rc == 0
         progress_lines = [
@@ -320,9 +328,7 @@ class TestMergeClassifier:
             progress_capture=progress,
             kind="merge",
             stdout_stream=stdout,
-            policy=ThrottlePolicy(
-                percent_step=50.0, min_interval_seconds=999.0
-            ),
+            policy=ThrottlePolicy(percent_step=50.0),
             time_source=_FakeClock(),
         )
         assert rc == 0
