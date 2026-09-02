@@ -13,7 +13,10 @@ from yoke_core.domain.db_helpers import (
     query_rows,
     query_scalar,
 )
-from yoke_core.domain.flow_validation import validate_stages
+from yoke_core.domain.flow_validation import (
+    require_human_approval_addresses,
+    validate_stages,
+)
 from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
     assert_flow_definition_mutable,
@@ -163,6 +166,7 @@ def cmd_update_stages(
     live flow row can never hold an undispatchable stage shape.
     """
     validate_stages(stages_json)
+    require_human_approval_addresses(stages_json)
     locked = lock_deployment_flow_rows(
         conn,
         (flow_id,),

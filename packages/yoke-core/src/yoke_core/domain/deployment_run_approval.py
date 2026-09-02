@@ -40,7 +40,7 @@ def approve_run(
         resolve_decision_request,
     )
     from yoke_core.domain.deployment_approval_requests import (
-        ensure_deployment_stage_approval,
+        evaluate_deployment_stage_approval,
     )
 
     conn = connect()
@@ -64,9 +64,7 @@ def approve_run(
             )
         approved_stage = str(run["current_stage"] or "")
         if not approved_stage:
-            raise RunApprovalRejected(
-                f"deployment run '{run_id}' has no current stage"
-            )
+            raise RunApprovalRejected(f"deployment run '{run_id}' has no current stage")
         try:
             stages = parse_flow_stages(str(run["stages"]))
         except (TypeError, ValueError) as exc:
@@ -81,19 +79,24 @@ def approve_run(
         approved_at = iso8601_now()
         rows = query_rows(
             conn,
-            "SELECT item_id FROM deployment_run_items "
-            "WHERE run_id=%s ORDER BY item_id",
+            "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
             (run_id,),
         )
         member_item_ids = tuple(int(row["item_id"]) for row in rows)
-        request, _ = ensure_deployment_stage_approval(
+        verdict = evaluate_deployment_stage_approval(
             conn,
             run_id=run_id,
             session_id=session_id,
         )
+        if verdict.request_status != "pending":
+            raise RunApprovalRejected(
+                f"deployment run '{run_id}' stage "
+                f"{approved_stage!r} is {verdict.reason} "
+                f"(decision request {verdict.request_id})"
+            )
         resolve_decision_request(
             conn,
-            int(request["id"]),
+            int(verdict.request_id),
             actor_id=actor_id,
             action="approve",
             note=note,
@@ -107,7 +110,7 @@ def approve_run(
             next_stage=next_stage,
             approved_at=approved_at,
             member_item_ids=member_item_ids,
-            decision_request_id=int(request["id"]),
+            decision_request_id=int(verdict.request_id),
         )
     except Exception:
         conn.rollback()

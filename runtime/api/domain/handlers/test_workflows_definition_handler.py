@@ -37,15 +37,15 @@ def _request(payload: dict | None = None) -> FunctionCallRequest:
 
 def _project_id(conn, slug: str) -> int:
     row = conn.execute(
-        "SELECT id FROM projects WHERE slug = %s", (slug,),
+        "SELECT id FROM projects WHERE slug = %s",
+        (slug,),
     ).fetchone()
     return int(dict(row)["id"])
 
 
 def _insert_project(conn, project_id: int, slug: str) -> None:
     conn.execute(
-        "INSERT INTO projects (id, slug, name, created_at) "
-        "VALUES (%s, %s, %s, %s)",
+        "INSERT INTO projects (id, slug, name, created_at) VALUES (%s, %s, %s, %s)",
         (project_id, slug, slug.title(), _iso()),
     )
     conn.commit()
@@ -93,8 +93,16 @@ def _insert_flow(
         "(id, project_id, name, stages, on_failure, target_tier, "
         "target_environment_id, created_at) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (flow_id, project_id, name, stages, on_failure, target_tier,
-         target_environment_id, _iso()),
+        (
+            flow_id,
+            project_id,
+            name,
+            stages,
+            on_failure,
+            target_tier,
+            target_environment_id,
+            _iso(),
+        ),
     )
     conn.commit()
 
@@ -126,15 +134,15 @@ class TestWorkflowRegistry:
         assert issue_stages[0]["gates"] == []
 
     def test_definition_owns_gate_placement_and_catalog_owns_strings(
-        self, test_db,
+        self,
+        test_db,
     ):
         definition = get_workflows_definition()
         assert definition["gate_catalog"] == workflow_gate_catalog()
         by_id = {row["id"]: row for row in definition["workflows"]}
         issue = by_id["issue"]["definition"]
         implementing = next(
-            stage for stage in issue["stages"]
-            if stage["id"] == "implementing"
+            stage for stage in issue["stages"] if stage["id"] == "implementing"
         )
         assert implementing["gates"] == [
             {"id": "check_hard_blocks"},
@@ -142,13 +150,13 @@ class TestWorkflowRegistry:
             {"id": "architecture_impact"},
         ]
         refining = next(
-            stage for stage in issue["stages"]
-            if stage["id"] == "refining-idea"
+            stage for stage in issue["stages"] if stage["id"] == "refining-idea"
         )
         assert {"id": "db_mutation", "mode": "joint"} in refining["gates"]
 
     def test_registry_half_is_identical_under_a_project_filter(
-        self, test_db,
+        self,
+        test_db,
     ):
         unfiltered = get_workflows_definition()
         filtered = get_workflows_definition(project="yoke")
@@ -162,23 +170,31 @@ class TestFlows:
         yoke_id = _project_id(test_db, "yoke")
         _insert_project(test_db, 88, "otherproj")
         _insert_flow(
-            test_db, "alpha-release", yoke_id,
-            name="Alpha Release", target_tier="persistent",
+            test_db,
+            "alpha-release",
+            yoke_id,
+            name="Alpha Release",
+            target_tier="persistent",
             target_environment="prod",
-            stages=dumps_compact([
-                {"name": "merged", "step_runner": "auto"},
-                {"name": "complete", "step_runner": "auto"},
-            ]),
+            stages=dumps_compact(
+                [
+                    {"name": "merged", "step_runner": "auto"},
+                    {"name": "complete", "step_runner": "auto"},
+                ]
+            ),
         )
         _insert_flow(
-            test_db, "beta-ship", 88,
+            test_db,
+            "beta-ship",
+            88,
             name="Beta Ship",
             stages=dumps_compact([{"name": "ship", "step_runner": "auto"}]),
         )
 
         everything = get_workflows_definition()
         assert [flow["id"] for flow in everything["flows"]] == [
-            "alpha-release", "beta-ship",
+            "alpha-release",
+            "beta-ship",
         ]
 
         scoped = get_workflows_definition(project="yoke")["flows"]
@@ -190,6 +206,7 @@ class TestFlows:
         assert scoped[0]["on_failure"] == "halt"
         assert scoped[0]["project"] == "yoke"
         assert scoped[0]["stage_names"] == ["merged", "complete"]
+        assert scoped[0]["approval_stages"] == []
 
         by_id = get_workflows_definition(project=str(yoke_id))["flows"]
         assert [flow["id"] for flow in by_id] == ["alpha-release"]
@@ -197,12 +214,42 @@ class TestFlows:
     def test_unparseable_stages_serve_an_empty_name_list(self, test_db):
         yoke_id = _project_id(test_db, "yoke")
         _insert_flow(
-            test_db, "broken-stages", yoke_id,
-            name="Broken", stages="not-json",
+            test_db,
+            "broken-stages",
+            yoke_id,
+            name="Broken",
+            stages="not-json",
         )
         flows = get_workflows_definition(project="yoke")["flows"]
         assert flows[0]["id"] == "broken-stages"
         assert flows[0]["stage_names"] == []
+        assert flows[0]["approval_stages"] == []
+
+    def test_human_approval_stages_include_configured_addresses(self, test_db):
+        yoke_id = _project_id(test_db, "yoke")
+        _insert_flow(
+            test_db,
+            "gated-release",
+            yoke_id,
+            name="Gated",
+            stages=dumps_compact(
+                [
+                    {"name": "build", "step_runner": "auto"},
+                    {
+                        "name": "approve-prod",
+                        "step_runner": "human-approval",
+                        "approvals": {"roles": ["owner"], "actors": [2]},
+                    },
+                ]
+            ),
+        )
+        flows = get_workflows_definition(project="yoke")["flows"]
+        assert flows[0]["approval_stages"] == [
+            {
+                "name": "approve-prod",
+                "approvals": {"roles": ["owner"], "actors": [2]},
+            }
+        ]
 
 
 class TestHandler:
@@ -211,9 +258,7 @@ class TestHandler:
         assert outcome.primary_success
         payload = outcome.result_payload
         assert payload["family"] == "work-items"
-        assert {row["id"] for row in payload["workflows"]} == set(
-            BUILTIN_WORKFLOW_IDS
-        )
+        assert {row["id"] for row in payload["workflows"]} == set(BUILTIN_WORKFLOW_IDS)
         assert payload["gate_catalog"] == workflow_gate_catalog()
         assert payload["flows"] == []
 

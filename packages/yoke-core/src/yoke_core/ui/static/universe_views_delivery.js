@@ -172,7 +172,10 @@ export function renderDeliveryFlowsView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.flows);
-      renderDeliveryFlowExplorer(body, panel, rows);
+      renderDeliveryFlowExplorer(body, panel, rows, {
+        client: context.client,
+        reload: () => renderDeliveryFlowsView(context, main, scope),
+      });
     },
   );
 }

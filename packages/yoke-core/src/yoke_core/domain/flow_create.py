@@ -17,7 +17,10 @@ from yoke_core.domain.deployment_flow_state import (
     validate_flow_status,
 )
 from yoke_core.domain.flow_target import resolve_flow_target
-from yoke_core.domain.flow_validation import validate_stages
+from yoke_core.domain.flow_validation import (
+    require_human_approval_addresses,
+    validate_stages,
+)
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -42,9 +45,13 @@ def cmd_create(
     declares neither.
     """
     validate_stages(stages_json)
+    require_human_approval_addresses(stages_json)
     validate_flow_status(status)
     target_environment_id = resolve_flow_target(
-        conn, project=project, target_tier=target_tier, environment=environment,
+        conn,
+        project=project,
+        target_tier=target_tier,
+        environment=environment,
     )
     ident = resolve_project(conn, project)
     assert ident is not None
@@ -57,9 +64,17 @@ def cmd_create(
         "target_tier, target_environment_id, done_description, status) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
-            flow_id, ident.id, name, description, stages_json, on_failure,
-            iso8601_now(), target_tier, target_environment_id,
-            done_description, status,
+            flow_id,
+            ident.id,
+            name,
+            description,
+            stages_json,
+            on_failure,
+            iso8601_now(),
+            target_tier,
+            target_environment_id,
+            done_description,
+            status,
         ),
     )
     conn.commit()
@@ -77,7 +92,10 @@ def _flow_exists(conn, flow_id: str) -> bool:
 
 
 def _assert_display_name_available(
-    conn, project_id: int, flow_id: str, name: str,
+    conn,
+    project_id: int,
+    flow_id: str,
+    name: str,
 ) -> None:
     """Keep one display name per project pointing at one flow id."""
     owner = query_scalar(

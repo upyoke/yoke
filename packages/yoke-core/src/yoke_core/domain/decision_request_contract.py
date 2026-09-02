@@ -34,19 +34,28 @@ class DecisionKind:
 
 DECISION_KINDS = {
     DEPLOYMENT_STAGE_APPROVAL: DecisionKind(
-        ("approve", "reject"), "project", ("owner", "operator"),
+        ("approve", "reject"),
+        "project",
+        ("owner", "operator", "admin"),
         "deployment_stage",
     ),
     QA_NEEDS_REVIEW: DecisionKind(
-        ("approve", "reject", "waive"), "project",
-        ("owner", "operator"), "qa_requirement",
+        ("approve", "reject", "waive"),
+        "project",
+        ("owner", "operator"),
+        "qa_requirement",
     ),
     LIFECYCLE_TRANSITION_APPROVAL: DecisionKind(
-        ("approve", "reject"), "project",
-        ("owner", "operator", "admin"), "item_transition",
+        ("approve", "reject"),
+        "project",
+        ("owner", "operator", "admin"),
+        "item_transition",
     ),
     MACHINE_APPROVAL: DecisionKind(
-        ("approve", "deny"), "org", ("admin",), "machine_auth_request",
+        ("approve", "deny"),
+        "org",
+        ("admin",),
+        "machine_auth_request",
     ),
 }
 
@@ -56,15 +65,21 @@ REQUEST_WITHDRAWN_EVENT = "DecisionRequestWithdrawn"
 
 DECISION_EVENT_ROWS = (
     (
-        REQUEST_CREATED_EVENT, "lifecycle", "decision_request",
+        REQUEST_CREATED_EVENT,
+        "lifecycle",
+        "decision_request",
         "A typed human decision request was created for a governed subject.",
     ),
     (
-        REQUEST_RESOLVED_EVENT, "lifecycle", "decision_request",
+        REQUEST_RESOLVED_EVENT,
+        "lifecycle",
+        "decision_request",
         "An authorized actor resolved a typed human decision request.",
     ),
     (
-        REQUEST_WITHDRAWN_EVENT, "lifecycle", "decision_request",
+        REQUEST_WITHDRAWN_EVENT,
+        "lifecycle",
+        "decision_request",
         "A pending decision request was withdrawn because its subject ended.",
     ),
 )

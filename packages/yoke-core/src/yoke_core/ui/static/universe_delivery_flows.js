@@ -1,4 +1,5 @@
 import { el, statePill } from "./universe_view_support.js";
+import { renderDeliveryFlowDetail } from "./universe_delivery_flow_approvals.js";
 
 function flowName(row) {
   return row.name || row.id || "Unnamed flow";
@@ -51,97 +52,6 @@ function stageShape(documentNode, row) {
   for (const stage of stages) shape.appendChild(el(documentNode, "i"));
   return shape;
 }
-function metadataFact(documentNode, label, value) {
-  const fact = el(documentNode, "div", "delivery-flow-fact");
-  fact.appendChild(el(documentNode, "dt", null, label));
-  fact.appendChild(el(documentNode, "dd", null, value || "Not set"));
-  return fact;
-}
-function renderPipeline(documentNode, row) {
-  const stages = stagesFor(row);
-  const region = el(documentNode, "section", "delivery-flow-pipeline-region");
-  region.appendChild(el(documentNode, "h4", null, "Pipeline"));
-  if (!stages.length) {
-    region.appendChild(el(
-      documentNode,
-      "p",
-      "delivery-flow-no-stages",
-      "No stages are published for this flow.",
-    ));
-    return region;
-  }
-  const pipeline = el(documentNode, "ol", "delivery-flow-pipeline");
-  pipeline.setAttribute("aria-label", `Flow stages: ${stages.join(", ")}`);
-  for (const [index, stage] of stages.entries()) {
-    const item = el(documentNode, "li", "delivery-flow-stage");
-    item.appendChild(el(
-      documentNode,
-      "span",
-      "delivery-flow-stage-index",
-      String(index + 1).padStart(2, "0"),
-    ));
-    item.appendChild(el(
-      documentNode,
-      "span",
-      "delivery-flow-stage-name",
-      stage,
-    ));
-    pipeline.appendChild(item);
-  }
-  region.appendChild(pipeline);
-  return region;
-}
-function renderDetail(documentNode, detail, row) {
-  detail.replaceChildren();
-  if (!row) {
-    detail.classList.add("is-empty");
-    detail.removeAttribute("aria-labelledby");
-    detail.appendChild(el(
-      documentNode,
-      "p",
-      "delivery-flow-detail-empty",
-      "Choose a visible flow to inspect its pipeline.",
-    ));
-    return;
-  }
-  detail.classList.remove("is-empty");
-  const header = el(documentNode, "header", "delivery-flow-detail-header");
-  header.appendChild(el(
-    documentNode, "p", "delivery-flow-eyebrow", "Selected flow",
-  ));
-  const titleRow = el(documentNode, "div", "delivery-flow-detail-title");
-  const heading = el(documentNode, "h3", null, flowName(row));
-  heading.setAttribute("id", "delivery-flow-detail-heading");
-  titleRow.appendChild(heading);
-  const pill = statePill(documentNode, flowStatus(row), flowStatus(row));
-  if (pill) titleRow.appendChild(pill);
-  header.appendChild(titleRow);
-  header.appendChild(el(
-    documentNode,
-    "code",
-    "delivery-flow-id",
-    row.id || "identity unavailable",
-  ));
-  detail.appendChild(header);
-  detail.setAttribute("aria-labelledby", "delivery-flow-detail-heading");
-
-  const facts = el(documentNode, "dl", "delivery-flow-facts");
-  facts.appendChild(metadataFact(documentNode, "Project", row.project));
-  facts.appendChild(metadataFact(
-    documentNode, "Environment", row.target_environment || "Ephemeral",
-  ));
-  facts.appendChild(metadataFact(documentNode, "Target tier", row.target_tier));
-  facts.appendChild(metadataFact(
-    documentNode, "On failure", row.on_failure || "halt",
-  ));
-  facts.appendChild(metadataFact(
-    documentNode,
-    "Stage count",
-    `${stagesFor(row).length} stage${stagesFor(row).length === 1 ? "" : "s"}`,
-  ));
-  detail.appendChild(facts);
-  detail.appendChild(renderPipeline(documentNode, row));
-}
 function flowCard(documentNode, row, selected, index) {
   const card = el(documentNode, "button", "delivery-flow-card");
   card.type = "button";
@@ -186,7 +96,7 @@ function zeroState(documentNode, title, copy, className = "") {
   empty.appendChild(el(documentNode, "p", null, copy));
   return empty;
 }
-export function renderDeliveryFlowExplorer(body, panel, sourceRows) {
+export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}) {
   const documentNode = body.ownerDocument;
   const rows = sortedRows(sourceRows);
   panel.classList.add("delivery-flow-panel");
@@ -241,7 +151,9 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows) {
   workspace.appendChild(browser);
   workspace.appendChild(detail);
   explorer.appendChild(workspace);
+  const dialogHost = el(documentNode, "div", "workflow-dialog-host");
   body.appendChild(explorer);
+  body.appendChild(dialogHost);
 
   let cardByRow = new Map();
   const visibleRows = () => rows.filter((row) => {
@@ -287,7 +199,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows) {
         empty.appendChild(clear);
       }
       list.appendChild(empty);
-      renderDetail(documentNode, detail, null);
+      renderDeliveryFlowDetail(documentNode, detail, null);
       return;
     }
 
@@ -333,7 +245,11 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows) {
       }
       list.appendChild(group);
     }
-    renderDetail(documentNode, detail, state.selected);
+    renderDeliveryFlowDetail(documentNode, detail, state.selected, {
+      client: options.client,
+      reload: options.reload,
+      host: dialogHost,
+    });
   };
 
   search.addEventListener("input", () => {

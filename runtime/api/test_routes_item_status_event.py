@@ -17,14 +17,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from runtime.api.api_items_test_helpers import (
     make_client_fixture,
-    make_test_db_fixture,
+)
+from runtime.api.deployment_stage_approval_fixture import (
+    yield_seeded_api_db_with_default_approvals,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
 @pytest.fixture()
 def test_db():
-    yield from make_test_db_fixture()
+    yield from yield_seeded_api_db_with_default_approvals()
 
 
 @pytest.fixture()

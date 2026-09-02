@@ -11,7 +11,7 @@ from yoke_core.domain.deployment_approval_requests import (
     deployment_stage_decision,
     deployment_stage_is_approved,
     dispatch_deployment_stage_approval,
-    ensure_deployment_stage_approval,
+    evaluate_deployment_stage_approval,
 )
 
 
@@ -48,7 +48,8 @@ def _prod_environment_id(conn) -> int:
 
 
 def test_deployment_stage_request_is_idempotent_and_runner_consumable(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ):
     create_decision_request_tables(test_db)
     environment_id = _prod_environment_id(test_db)
@@ -75,8 +76,9 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, created_at) "
         "VALUES ('approval-proof', 1, 'Approval proof', "
-        "'[{\"name\":\"approve-prod\",\"step_runner\":\"human-approval\"},"
-        "{\"name\":\"release\",\"step_runner\":\"auto\"}]', "
+        '\'[{"name":"approve-prod","step_runner":"human-approval",'
+        '"approvals":{"roles":["owner","operator"],"actors":[]}},'
+        '{"name":"release","step_runner":"auto"}]\', '
         "'2026-07-26T00:00:00Z')"
     )
     test_db.execute(
@@ -89,38 +91,56 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     )
     test_db.commit()
 
-    request, created = ensure_deployment_stage_approval(
-        test_db, run_id="run-approval-proof",
+    first = evaluate_deployment_stage_approval(
+        test_db,
+        run_id="run-approval-proof",
         originator_actor_id=originator,
     )
-    repeated, created_again = ensure_deployment_stage_approval(
-        test_db, run_id="run-approval-proof",
+    repeated = evaluate_deployment_stage_approval(
+        test_db,
+        run_id="run-approval-proof",
         originator_actor_id=originator,
     )
-    assert created is True
-    assert created_again is False
-    assert repeated["id"] == request["id"]
-    assert deployment_stage_is_approved(
-        test_db, run_id="run-approval-proof", stage_id="approve-prod",
-    ) is False
-    assert deployment_stage_decision(
-        test_db, run_id="run-approval-proof", stage_id="approve-prod",
-    ) is None
-    assert test_db.execute(
-        "SELECT current_stage FROM deployment_runs "
-        "WHERE id='run-approval-proof'"
-    ).fetchone()[0] == "approve-prod"
+    assert first.satisfied is False
+    assert first.request_status == "pending"
+    assert repeated.request_id == first.request_id
+    request_id = first.request_id
+    assert (
+        deployment_stage_is_approved(
+            test_db,
+            run_id="run-approval-proof",
+            stage_id="approve-prod",
+        )
+        is False
+    )
+    assert (
+        deployment_stage_decision(
+            test_db,
+            run_id="run-approval-proof",
+            stage_id="approve-prod",
+        )
+        is None
+    )
+    assert (
+        test_db.execute(
+            "SELECT current_stage FROM deployment_runs WHERE id='run-approval-proof'"
+        ).fetchone()[0]
+        == "approve-prod"
+    )
 
     open_conn = _OpenConnection(test_db)
     import yoke_core.domain.db_helpers as db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", lambda: open_conn)
     assert dispatch_deployment_stage_approval(
-        "run-approval-proof", "approve-prod",
+        "run-approval-proof",
+        "approve-prod",
     ) == (-2, "")
 
     monkeypatch.setattr(
-        deployment_run_approval, "connect", lambda: open_conn,
+        deployment_run_approval,
+        "connect",
+        lambda: open_conn,
     )
     approval = deployment_run_approval.approve_run(
         "run-approval-proof",
@@ -128,22 +148,34 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         session_id="approval-session",
         note="prod checks passed",
     )
-    assert approval.decision_request_id == request["id"]
+    assert approval.decision_request_id == request_id
     assert approval.next_stage == "release"
-    assert deployment_stage_is_approved(
-        test_db, run_id="run-approval-proof", stage_id="approve-prod",
-    ) is True
-    assert deployment_stage_decision(
-        test_db, run_id="run-approval-proof", stage_id="approve-prod",
-    ) == "approve"
+    assert (
+        deployment_stage_is_approved(
+            test_db,
+            run_id="run-approval-proof",
+            stage_id="approve-prod",
+        )
+        is True
+    )
+    assert (
+        deployment_stage_decision(
+            test_db,
+            run_id="run-approval-proof",
+            stage_id="approve-prod",
+        )
+        == "approve"
+    )
     assert dispatch_deployment_stage_approval(
-        "run-approval-proof", "approve-prod",
+        "run-approval-proof",
+        "approve-prod",
     ) == (0, "")
-    assert test_db.execute(
-        "SELECT current_stage FROM deployment_runs "
-        "WHERE id='run-approval-proof'"
-    ).fetchone()[0] == "approve-prod"
-
+    assert (
+        test_db.execute(
+            "SELECT current_stage FROM deployment_runs WHERE id='run-approval-proof'"
+        ).fetchone()[0]
+        == "approve-prod"
+    )
 
 
 def test_deployment_completion_event_shares_the_caller_transaction(
@@ -151,9 +183,9 @@ def test_deployment_completion_event_shares_the_caller_transaction(
 ):
     create_decision_request_tables(test_db)
     environment_id = _prod_environment_id(test_db)
-    initiator = int(test_db.execute(
-        "SELECT id FROM actors ORDER BY id LIMIT 1"
-    ).fetchone()[0])
+    initiator = int(
+        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
     test_db.execute(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, created_at) "
@@ -177,10 +209,18 @@ def test_deployment_completion_event_shares_the_caller_transaction(
         outcome="completed",
         context={"flow": "completion-proof"},
     )
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM events WHERE event_id=%s", (event_id,),
-    ).fetchone()[0] == 1
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM events WHERE event_id=%s",
+            (event_id,),
+        ).fetchone()[0]
+        == 1
+    )
     test_db.rollback()
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM events WHERE event_id=%s", (event_id,),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM events WHERE event_id=%s",
+            (event_id,),
+        ).fetchone()[0]
+        == 0
+    )
