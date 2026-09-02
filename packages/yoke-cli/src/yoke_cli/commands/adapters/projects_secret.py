@@ -11,15 +11,11 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
-    ensure_handlers_loaded,
     parse_or_usage_error,
     usage_error,
 )
 from yoke_cli.config import secrets as machine_secrets
-from yoke_cli.transport.dispatcher import (
-    build_actor,
-    call_dispatcher,
-)
+from yoke_cli.config.project_slug_lookup import resolve_project_slug
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 from yoke_contracts.machine_config.capability_secrets import (
@@ -107,7 +103,9 @@ def _project_secret_value(parsed: argparse.Namespace) -> str:
 
 def _store_machine_local_secret(parsed: argparse.Namespace, value: str) -> int:
     try:
-        project_slug = _resolve_project_slug(parsed.project, parsed.session_id)
+        project_slug = resolve_project_slug(
+            parsed.project, session_id=parsed.session_id,
+        )
         local_secrets = importlib.import_module(
             "yoke_core.domain.capability_machine_secrets"
         )
@@ -136,26 +134,6 @@ def _store_machine_local_secret(parsed: argparse.Namespace, value: str) -> int:
         json_mode=parsed.json_mode,
         human_writer=_machine_local_human_writer,
     )
-
-
-def _resolve_project_slug(project: str, session_id: str | None) -> str:
-    ensure_handlers_loaded()
-    response = call_dispatcher(
-        function_id="projects.get",
-        target=TargetRef(kind="global"),
-        payload={"project": project, "field": "slug"},
-        actor=build_actor(session_id=session_id),
-    )
-    if response.success:
-        value = (response.result or {}).get("value")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    message = (
-        response.error.message
-        if response.error is not None
-        else f"project {project!r} did not resolve to a slug"
-    )
-    raise machine_secrets.MachineSecretError(message)
 
 
 def _machine_local_human_writer(response, stdout, stderr) -> None:

@@ -22,8 +22,12 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
     is live on a different project's profile rather than reusing it.
     """
     from yoke_cli.config.browser_profile import resolve_authorized_profile
+    from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
-    profile_path, profile_note = resolve_authorized_profile(project)
+    try:
+        profile_path, profile_note = resolve_authorized_profile(project)
+    except ProjectSlugLookupError as exc:
+        return str(exc)
     _log(profile_note)
     profile = str(profile_path) if profile_path else None
 

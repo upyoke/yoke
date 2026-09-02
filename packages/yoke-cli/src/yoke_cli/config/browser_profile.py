@@ -28,6 +28,7 @@ from yoke_contracts.project_defaults import default_project_for_directory
 
 from yoke_cli.config import machine_config
 from yoke_cli.config.capability_secrets import ensure_private_capability_dir
+from yoke_cli.config.project_slug_lookup import resolve_project_slug
 
 
 def profile_project_key(
@@ -42,10 +43,21 @@ def profile_project_key(
     signs into is the profile a worker context later opens. An explicit
     project reference wins; otherwise the checkout answers, the same way every
     other project-accepting surface defaults.
+
+    The reference is canonicalized to the project slug before it names a
+    directory, because the two sides are handed different references for the
+    same project: ``yoke browser authorize --project yoke`` gets the slug an
+    operator typed, while a daemon started from the checkout default gets the
+    numeric project id. Keyed by whatever each was handed, they named two
+    directories for one project and a signed-in run silently opened a clean
+    context. A slug is already canonical; an id-shaped reference resolves
+    through the control plane.
     """
     ref = str(project or "").strip()
     if not ref:
         ref = default_project_for_directory(directory or Path.cwd())
+    if ref.isdigit():
+        ref = resolve_project_slug(ref)
     return contract.safe_secret_component(ref, "project")
 
 
@@ -84,12 +96,13 @@ def ensure_profile_dir(
 
 
 def authorized_project_keys() -> list[str]:
-    """List the project keys that already carry an authorized profile.
+    """List the project slugs that already carry an authorized profile.
 
     A profile signed in under one project key and looked for under another is
     otherwise a silent miss -- the run proceeds signed out and grades the
     dashboard untestable. Callers name these keys when the profile they wanted
-    is absent, so the operator sees which reference to pass.
+    is absent, so the operator sees which reference to pass. A key that is not
+    a slug is a directory no live reference resolves to any more.
     """
     root = (
         machine_config.yoke_home()
@@ -133,6 +146,9 @@ def resolve_authorized_profile(
             f" Authorized profiles exist for: {', '.join(others)}."
             " Pass the project reference whose profile you meant, or run"
             f" `yoke browser authorize --project {key}` to sign in for this one."
+            " Every profile is keyed by the project slug, so a key that is not"
+            " one belongs to no project any more; nothing migrates it — delete"
+            " that directory and authorize again."
         )
     else:
         detail = (

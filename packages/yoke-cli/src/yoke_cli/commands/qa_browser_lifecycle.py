@@ -171,12 +171,23 @@ def _profile_dir_arg(project: str | None) -> str | None:
 
 
 def _profile_readiness(project: str | None) -> dict[str, object]:
-    """Report which project profile a daemon started here would open."""
-    from yoke_cli.config import browser_profile
+    """Report which project profile a daemon started here would open.
 
-    directory = browser_profile.profile_dir(project)
+    Status is a diagnostic surface, so a project reference that does not
+    resolve to a slug is reported as the unresolved facet it is rather than
+    raised — the operator asked what this machine would open, and "the project
+    could not be named" is that answer.
+    """
+    from yoke_cli.config import browser_profile
+    from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
+
+    try:
+        directory = browser_profile.profile_dir(project)
+        key = browser_profile.profile_project_key(project)
+    except ProjectSlugLookupError as exc:
+        return {"project": "unresolved", "path": "", "status": str(exc)}
     return {
-        "project": browser_profile.profile_project_key(project),
+        "project": key,
         "path": str(directory),
         "status": "authorized" if directory.is_dir() else "not authorized",
     }

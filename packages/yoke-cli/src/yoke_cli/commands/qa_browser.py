@@ -19,11 +19,17 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 
 QA_BROWSER_SCREENSHOT_USAGE = (
     "yoke qa browser screenshot <url> --output PATH "
-    "[--viewport WxH] [--annotate]"
+    "[--viewport WxH] [--annotate] [--project PROJECT]"
 )
 QA_BROWSER_STEP_USAGE = (
     "yoke qa browser step --base-url URL --step-json JSON "
-    "[--output-dir PATH]"
+    "[--output-dir PATH] [--project PROJECT]"
+)
+
+_PROJECT_FLAG_HELP = (
+    "Project whose authorized browser profile the daemon opens "
+    "(default: this checkout's, the same default as "
+    "`yoke browser authorize`)."
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
@@ -66,6 +72,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
         "--annotate", action="store_true",
         help="Annotate interactive elements in the capture.",
     )
+    parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_SCREENSHOT_USAGE)
     if parsed is None:
         return 2
@@ -81,7 +88,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
         )
         return 2
 
-    daemon_error = ensure_daemon_running()
+    daemon_error = ensure_daemon_running(parsed.project)
     if daemon_error:
         print(
             f"yoke qa browser screenshot: browser daemon unavailable: "
@@ -116,6 +123,7 @@ def qa_browser_step(args: List[str]) -> int:
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--step-json", required=True)
     parser.add_argument("--output-dir")
+    parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STEP_USAGE)
     if parsed is None:
         return 2
@@ -137,7 +145,7 @@ def qa_browser_step(args: List[str]) -> int:
             file=sys.stderr,
         )
         return 2
-    daemon_error = ensure_daemon_running()
+    daemon_error = ensure_daemon_running(parsed.project)
     if daemon_error:
         print(
             f"yoke qa browser step: browser daemon unavailable: {daemon_error}",
