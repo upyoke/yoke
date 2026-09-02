@@ -110,8 +110,9 @@ def capture_terminal_app_region(
     # answers "could not create image from display with rect" for every
     # rectangle that intersects the display, down to 100x100, while the
     # whole-display form succeeds on that same host in the same second.
-    # Cropping afterwards keeps the artifact exactly the window, in image
-    # pixels rather than points.
+    # Cropping afterwards keeps the artifact exactly the window, and the crop
+    # is expressed in the captured image's own pixels -- the placed rectangle
+    # converted to the display's corner, times its backing scale factor.
     capture_argv = [_CAPTURE_TOOL, "-x", "-D", "1", "-o", whole_display]
     crop_argv = [
         _CROP_TOOL,

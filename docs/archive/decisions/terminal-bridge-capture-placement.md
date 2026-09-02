@@ -40,29 +40,32 @@ the region is re-anchored once, and a window that will not come inside fails
 with a named code instead of capturing nothing.
 
 **The geometry question is asked from inside Terminal.app**, for the same
-reason the capture is. A bare SSH process is not attached to the window server:
-asked directly over the transport it answers with a screen list no display on
-the desk matches, and windows placed in those coordinates produce a rectangle
-the capture cannot resolve at all.
+reason the capture is: screen geometry is a window-server fact, and that is the
+session whose windows get placed and whose pixels get captured. This host
+answered the same over the transport, so it is a consistency choice rather than
+a fix for an observed difference — but a process outside the graphical session
+can be answered for a desktop it is not part of, and every rectangle in this
+path is computed from that answer.
 
-**Terminal and the capture do not share a coordinate space.** Terminal places
-and reports windows in NSScreen's global space, whose origin need not sit on
-any attached display — the Mac this was diagnosed on reports its only
-1280x1024 screen at global x=3584, so the compiled-in 1500-point-wide
-rectangle did not fit that 1280-point display at all, and Terminal resolved the
-overflow by sliding the window off the left edge, which is what the operator
-kept seeing. The capture measures from the display's own corner instead. So the
-host reports both: the usable region for placement, and that display's corner
-in the same space, and a placed rectangle is converted before it is captured.
+**The display's coordinate origin is not the desktop's.** Window bounds live in
+NSScreen's global space, and the Mac this was diagnosed on reports its only
+1280x1024 screen at global x=3584. Both consequences bit. The compiled-in
+1500-point-wide rectangle did not fit that 1280-point display at all, and
+Terminal resolved the overflow by sliding the window off the left edge — what
+the operator kept seeing. And a rectangle written as if the display began at
+the origin lands nowhere near it: the capture reported that a rectangle at
+x=40 "does not intersect any displays" while the same size at x=3624 did.
 
-**The capture takes the whole display and crops.** `screencapture -R` answers
-"could not create image from display with rect" for *every* rectangle that
-intersects the display on that Mac, however small, while the whole-display form
-succeeds on the same host in the same second. So the bridge captures the
-display and crops to the window with `sips`, in image pixels via the display's
-backing scale factor. The artifact is still exactly the window, and the path no
-longer depends on a region form that is not reliable across the supported
-macOS versions.
+**The capture takes the whole display and crops.** `screencapture -R` produces no
+image on that Mac for *any* rectangle that intersects the display — tested down
+to 100x100 — while the whole-display form succeeds on the same host in the same
+second. So the bridge captures the display and crops to the window with `sips`.
+That crop is what needs the second coordinate: a whole-display image's own
+top-left pixel is the display's corner, so the host reports both the usable
+region for placement and that corner in the same space, and a placed rectangle
+is converted into image pixels — times the backing scale factor — before it is
+cropped. The artifact is still exactly the window, and the path no longer
+depends on a region form that is not reliable across supported macOS versions.
 
 **Every capture failure names its class and its recovery.** The screenshot leg
 records the capture command line, its exit code and stderr (it runs through the

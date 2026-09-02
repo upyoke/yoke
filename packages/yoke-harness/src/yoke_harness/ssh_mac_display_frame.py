@@ -15,16 +15,15 @@ from yoke_harness.ssh_mac_terminal_app import (
     set_terminal_app_window_bounds,
 )
 
-# Terminal.app and the region capture do not share a coordinate space, and on
-# one Mac they are 3584 points apart. Terminal places and reports windows in
-# NSScreen's global space, whose origin need not sit on any attached display:
-# that host's only 1280x1024 screen lives at global x=3584. `screencapture -R`
-# measures from the display's own corner instead, so the same rectangle that
-# puts a window correctly on screen makes the capture answer "could not create
-# image from display with rect". The script therefore reports the usable region
-# in Terminal's space for placement AND that display's corner in the same
-# space, so a placed rectangle can be converted for the capture. On the common
-# single-display Mac the corner is (0, 0) and the two spaces coincide.
+# Window bounds live in NSScreen's global space, whose origin need not sit on
+# any attached display: one Mac's only 1280x1024 screen lives at global x=3584,
+# so a rectangle written as if the display started at the origin lands nowhere
+# near it. A whole-display capture, though, produces an image whose own top-left
+# pixel IS that display's corner. The script therefore reports two things in one
+# space: the usable region, for placing windows, and that display's corner, so a
+# placed rectangle can be converted into the captured image's pixels before it
+# is cropped. On the common single-display Mac the corner is (0, 0) and the
+# conversion is the identity.
 _VISIBLE_FRAME_SCRIPT = """
 ObjC.import('AppKit');
 var screens = $.NSScreen.screens;
@@ -103,7 +102,7 @@ class DisplayFrame:
         self,
         bounds: tuple[int, int, int, int],
     ) -> tuple[int, int, int, int]:
-        """Convert placed window bounds into the region capture's own space."""
+        """Convert placed window bounds into a display image's own pixels."""
         origin_x, origin_y = self.capture_origin
         left, top, right, bottom = bounds
         return (left - origin_x, top - origin_y, right - origin_x, bottom - origin_y)
@@ -129,11 +128,11 @@ class WindowLayout:
 def resolve_display_frame(run: RunRemote) -> DisplayFrame:
     """Ask the host's own graphical session where its windows may go.
 
-    The question is asked from inside Terminal.app rather than straight over
-    the transport, because a bare SSH process is not attached to the window
-    server: it answers with a screen list that no display on the desk
-    matches, and windows placed in those coordinates produce a rectangle the
-    capture cannot resolve to any display at all.
+    The question is asked from inside Terminal.app rather than over the
+    transport because screen geometry is a window-server fact, and this is the
+    session whose windows are placed and whose pixels are captured. A process
+    outside it can be answered for a desktop it is not part of, and the answer
+    only has to be wrong once for every rectangle computed from it to be wrong.
     """
     result = run_terminal_app_command(
         run,

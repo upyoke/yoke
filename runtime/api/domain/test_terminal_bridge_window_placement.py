@@ -279,8 +279,8 @@ def test_bridge_reports_generic_failure_without_input_delivery(
 def test_bridge_asks_the_graphical_session_for_the_display_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # A bare SSH process is not attached to the window server, so the geometry
-    # question is asked from inside Terminal.app exactly as the capture is.
+    # Geometry is a window-server fact, so it is read from the same session
+    # whose windows are placed and whose pixels are captured.
     mac = FakeMac()
 
     _check(mac, monkeypatch)
