@@ -17,6 +17,7 @@ from yoke_core.domain.connected_env_readiness import (
 from yoke_core.domain.connected_env_readiness_connector import (
     ACTION_PROBE_OK,
     ACTION_RESTARTED,
+    PROBE_CONFIRM_ATTEMPTS,
 )
 
 
@@ -75,6 +76,9 @@ def selected_connections(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dic
         encoding="utf-8",
     )
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(config))
+    # Replacing a forward takes machine-wide coordination state; keep it in
+    # tmp_path rather than the operator's own machine home.
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
     monkeypatch.setenv("YOKE_ENV", "preexisting-control-plane")
     monkeypatch.setenv(
@@ -94,8 +98,8 @@ def test_exact_label_uses_declared_dsn_and_restores_ambient_selection(
     monkeypatch.setattr(tunnel, "_probe_failure", lambda dsn: probes.append(dsn))
     monkeypatch.setattr(
         tunnel,
-        "_restart_tunnel",
-        lambda _spec: pytest.fail("a live tunnel must not restart"),
+        "_replace_forward",
+        lambda _spec, _dsn: pytest.fail("a live tunnel must not be replaced"),
     )
 
     authority = activate_selected_postgres(environment)
@@ -113,10 +117,15 @@ def test_dead_selected_tunnel_is_restarted(
     selected_connections: dict,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    outcomes = iter(["down", "down", "down", "down", None])
+    outcomes = iter(["down"] * (1 + PROBE_CONFIRM_ATTEMPTS) + [None])
     restarts: list[object] = []
+
+    def replace(spec: object, _dsn: str) -> str:
+        restarts.append(spec)
+        return ACTION_RESTARTED
+
     monkeypatch.setattr(tunnel, "_probe_failure", lambda _dsn: next(outcomes))
-    monkeypatch.setattr(tunnel, "_restart_tunnel", restarts.append)
+    monkeypatch.setattr(tunnel, "_replace_forward", replace)
     monkeypatch.setattr(tunnel.time, "sleep", lambda _delay: None)
 
     authority = activate_selected_postgres("stage")

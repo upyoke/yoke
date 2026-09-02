@@ -5,22 +5,26 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Mapping, Optional, Sequence
+from typing import Callable, Mapping, Optional, Sequence
 
 from yoke_core.domain import postgres_cluster
+from yoke_core.domain.connected_env_readiness_connector import (
+    CONNECTION_FAILURE_MARKERS,
+)
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
 DUMP_TIMEOUT_SECONDS = 3600
 RESTORE_TIMEOUT_SECONDS = 900
 DUMP_ATTEMPTS = 3
 
-DUMP_RETRY_MARKERS = (
+#: Copy failures worth another attempt: every connect-class marker the
+#: readiness layer recognizes (a forward that died mid-copy refuses the next
+#: connection exactly like one that was never up), plus the mid-stream
+#: signatures a transfer produces when the channel drops under it.
+DUMP_RETRY_MARKERS = CONNECTION_FAILURE_MARKERS + (
     "ssl syscall error",
     "eof detected",
     "connection reset",
-    "server closed the connection",
-    "could not receive data",
-    "could not send data",
 )
 
 _DUMP_KEEPALIVE_ENV = {
@@ -70,7 +74,25 @@ def run_transfer(
     raise RuntimeError(f"{Path(argv[0]).name} failed ({result.returncode}): {stderr}")
 
 
-def dump_database(spec: ClusterSpec, source_dsn: str, dump: Path) -> None:
+def restore_source_path() -> None:
+    """Re-establish the managed forward before another copy attempt.
+
+    A dropped forward is what most transient copy failures are, and the next
+    attempt would reach the same dead local port unless it comes back first.
+    A noop when this machine reaches the source directly.
+    """
+    from yoke_core.domain import connected_env_readiness
+
+    connected_env_readiness.ensure_ready(force=True)
+
+
+def dump_database(
+    spec: ClusterSpec,
+    source_dsn: str,
+    dump: Path,
+    *,
+    emit: Optional[Callable[[str], None]] = None,
+) -> None:
     argv = [
         postgres_cluster.binary(spec, "pg_dump"),
         "--no-owner",
@@ -96,6 +118,18 @@ def dump_database(spec: ClusterSpec, source_dsn: str, dump: Path) -> None:
             dump.unlink(missing_ok=True)
             if attempt == DUMP_ATTEMPTS or not is_transient_dump_error(str(exc)):
                 raise
+            if emit is not None:
+                emit(
+                    f"copy attempt {attempt}/{DUMP_ATTEMPTS} lost the source "
+                    f"connection ({exc}); restoring it and copying again"
+                )
+            try:
+                restore_source_path()
+            except Exception as heal_exc:  # noqa: BLE001 -- name both failures
+                raise RuntimeError(
+                    f"{exc}; and the path to the source could not be restored "
+                    f"for another attempt: {heal_exc}"
+                ) from heal_exc
     raise last_error  # pragma: no cover
 
 

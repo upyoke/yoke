@@ -13,7 +13,8 @@ UI while the plane is coming back.
 from __future__ import annotations
 
 import os
-from typing import Tuple
+import subprocess
+from typing import List, Tuple
 
 from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
@@ -23,6 +24,9 @@ from yoke_contracts.machine_config.schema import (
 GITHUB_ACTIONS_RELAY_ENV = "YOKE_GITHUB_ACTIONS_RELAY_ENV"
 GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV = "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY"
 
+#: Exit code meaning the authority did not answer: the Yoke CLI's hosted
+#: transport failure, and what a read that never returned is reported as.
+TRANSPORT_FAILURE_RETURNCODE = 4
 #: Consecutive transport failures before the log stops repeating itself.
 ESCALATE_AFTER = 3
 #: How often to restate afterwards, so a long wait still shows progress.
@@ -47,6 +51,25 @@ def resolve_status_relay_env() -> Tuple[str | None, str]:
         if base:
             return base, f"owning plane of {active}"
     return None, ""
+
+
+def timed_out_result(
+    cmd: List[str], timeout: int,
+) -> subprocess.CompletedProcess:
+    """Report a read that hung as a transport failure, not a dead deployment.
+
+    A status read that exceeds its own subprocess timeout says nothing about
+    the workflow it was asking about: that run is still going. Raising here
+    abandoned a live deployment mid-pipeline, so the read is reported the way
+    an unreachable relay already is and the caller retries it inside its own
+    budget.
+    """
+    return subprocess.CompletedProcess(
+        args=list(cmd),
+        returncode=TRANSPORT_FAILURE_RETURNCODE,
+        stdout="",
+        stderr=f"Error: {' '.join(cmd[:2])} did not answer within {timeout}s",
+    )
 
 
 def authority_label() -> str:

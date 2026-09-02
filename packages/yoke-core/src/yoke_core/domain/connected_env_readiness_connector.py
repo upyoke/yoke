@@ -34,17 +34,33 @@ ACTION_NOOP_UNMANAGED = "noop_unmanaged"
 ACTION_NOOP_UNSUPPORTED = "noop_unsupported"
 ACTION_PROBE_OK = "probe_ok"
 ACTION_RESTARTED = "restarted"
+ACTION_ADOPTED = "adopted"
 ACTION_CACHED = "cached"
 ACTION_PROBE_FAILED = "probe_failed"
 
 # Tunables (referenced only within the readiness layer; one source each).
 CACHE_TTL_SECONDS = 15.0
-PROBE_TIMEOUT_SECONDS = 5
-PROBE_CONFIRM_ATTEMPTS = 3
-PROBE_CONFIRM_DELAY_SECONDS = 0.75
+# Probe tolerance is sized for a forward under bulk load. A multi-minute
+# pg_dump saturates the channel, and a connect that queues behind it is slow,
+# not dead: a 5s timeout confirmed over ~1.5s once declared a healthy forward
+# down and terminated it out from under the copy using it. A forward that is
+# actually gone fails on the cheap port check instead, so the longer window
+# costs nothing in the case it is meant to catch.
+PROBE_TIMEOUT_SECONDS = 15
+PROBE_CONFIRM_ATTEMPTS = 4
+PROBE_CONFIRM_DELAY_SECONDS = 2.0
 SSH_CONNECT_TIMEOUT_SECONDS = 10
 TUNNEL_START_TIMEOUT_SECONDS = 25
 TUNNEL_STOP_GRACE_SECONDS = 2.0
+# Keepalive tolerance for the same reason, on ssh's side of the forward.
+# ``ServerAliveInterval`` x ``ServerAliveCountMax`` is how long ssh waits for
+# a keepalive reply before exiting, and the reply queues behind bulk data
+# like everything else: the default 30s x 3 window killed a forward mid-dump
+# and the copy died with it. The readiness probe is the authority on
+# liveness, so ssh's own window only has to be generous enough not to
+# pre-empt it.
+SSH_KEEPALIVE_INTERVAL_SECONDS = 30
+SSH_KEEPALIVE_COUNT_MAX = 20
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "0.0.0.0"})
 
@@ -67,12 +83,13 @@ CONNECTION_FAILURE_MARKERS = (
 # SSH options proven from the live operator tunnel. BatchMode keeps it
 # non-interactive (fail fast, no prompt); ExitOnForwardFailure makes ssh return
 # non-zero if the -L forward cannot bind (so a failed restart is detectable);
-# the keepalives drop a half-dead forward instead of wedging.
+# the keepalives drop a half-dead forward instead of wedging, on the
+# bulk-transfer-tolerant window declared above.
 SSH_OPTIONS = (
     ("BatchMode", "yes"),
     ("ExitOnForwardFailure", "yes"),
-    ("ServerAliveInterval", "30"),
-    ("ServerAliveCountMax", "3"),
+    ("ServerAliveInterval", str(SSH_KEEPALIVE_INTERVAL_SECONDS)),
+    ("ServerAliveCountMax", str(SSH_KEEPALIVE_COUNT_MAX)),
     ("StrictHostKeyChecking", "accept-new"),
     ("ConnectTimeout", str(SSH_CONNECT_TIMEOUT_SECONDS)),
 )

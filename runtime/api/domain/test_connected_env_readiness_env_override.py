@@ -77,6 +77,7 @@ def https_default_env(tmp_path, monkeypatch):
     monkeypatch.delenv(cer_c.PG_DSN_FILE_ENV, raising=False)
     binding = _write_https_default_binding(tmp_path)
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(binding))
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
     return binding
 
@@ -95,12 +96,17 @@ def test_yoke_env_override_selects_managed_tunnel_connector(
 
 def test_yoke_env_override_self_heals_dead_tunnel(
         https_default_env, monkeypatch):
-    results = iter(["down (test)", "down (test)", "down (test)", "down (test)", None])
+    down_until_restart = ["down (test)"] * (1 + cer_c.PROBE_CONFIRM_ATTEMPTS)
+    results = iter(down_until_restart + [None])
     restarts: list = []
+
+    def replace(spec, dsn):
+        restarts.append(spec)
+        return cer_c.ACTION_RESTARTED
+
     monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: next(results))
-    monkeypatch.setattr(cer_t, "_restart_tunnel",
-                        lambda spec: restarts.append(spec))
+    monkeypatch.setattr(cer_t, "_replace_forward", replace)
     monkeypatch.setattr(cer_t.time, "sleep", lambda delay: None)
 
     result = cer.ensure_ready(force=True)
@@ -118,8 +124,8 @@ def test_https_active_env_without_override_is_unmanaged(
     probes: list = []
     restarts: list = []
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: probes.append(dsn))
-    monkeypatch.setattr(cer_t, "_restart_tunnel",
-                        lambda spec: restarts.append(spec))
+    monkeypatch.setattr(cer_t, "_replace_forward",
+                        lambda spec, dsn: restarts.append(spec))
 
     result = cer.ensure_ready(force=True)
 
