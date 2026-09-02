@@ -226,13 +226,20 @@ def run(argv: List[str]) -> int:
             merge_cli = importlib.import_module(
                 "yoke_core.domain.standalone_item_merge_cli"
             )
-            if claim_lookup is None:
-                return int(merge_cli.main(argv))
-            recovery = importlib.import_module(
-                "yoke_core.domain.standalone_item_merge_recovery"
+            # The override above governs merge admission. Close-out
+            # semantics belong to the connection the operator selected,
+            # so name it for the engine before the merge starts.
+            close_out = importlib.import_module(
+                "yoke_core.domain.close_out_control_plane_authority"
             )
-            with recovery.bind_work_claim_lookup(claim_lookup):
-                return int(merge_cli.main(argv))
+            with close_out.bind_connected_control_plane(selected):
+                if claim_lookup is None:
+                    return int(merge_cli.main(argv))
+                recovery = importlib.import_module(
+                    "yoke_core.domain.standalone_item_merge_recovery"
+                )
+                with recovery.bind_work_claim_lookup(claim_lookup):
+                    return int(merge_cli.main(argv))
 
 
 def main(argv: Optional[List[str]] = None) -> int:

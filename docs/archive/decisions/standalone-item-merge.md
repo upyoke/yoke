@@ -125,6 +125,37 @@ operations relay through the dispatcher, while holder liveness stays on the
 client, because the process holding a merge lock is the local merging
 process and the server's process table says nothing about it.
 
+### Why close-out runs on the connected control plane
+
+Merge admission needs a database this process can lock, so the local merge
+runtime selects the same-universe local Postgres connection before it loads
+the engine. That selection is also, silently, a choice of *which build*
+executes the control-plane writes the close-out then makes: a non-https
+connection dispatches in-process, so the evidence record and the terminal
+transition are resolved by whatever engine the merging process imported.
+
+For a source lane that engine is the code as of the branch's base commit.
+A tightened done obligation therefore landed on trunk, deployed to the whole
+fleet, and changed nothing about the close-out every Dash actually runs — the
+next lane had branched before it, closed its item out under the older
+contract, and neither the new stamp nor the new refusal ever executed. The
+gate that would have caught the omission was part of the same missing code,
+so the item reached `done` reporting success.
+
+The two steps that carry an item's terminal semantics — the execution
+evidence and the transition it authorizes — therefore go back to the
+connection the operator selected, restoring the portability rule above for
+exactly the calls that decide whether the item is done. Everything the merge
+itself needs keeps the local authority the runtime bound for it.
+
+The connected env is bound by the runtime
+(`close_out_control_plane_authority.bind_connected_control_plane`) rather than
+re-derived in the engine, because the override replaces an explicit `--env`
+the operator may have passed; re-reading the machine config would answer with
+the default connection and close the item out in the wrong universe. With no
+binding the context managers do nothing, so a direct engine call and a
+universe that never switched keep the connection they already had.
+
 ## Consequences
 
 - The refusal message in the merge engine now names a command rather than a
@@ -140,3 +171,6 @@ process and the server's process table says nothing about it.
   scope — written before the columns existed, or by a caller that could not
   resolve its project — still blocks everything, because "scope unknown" must
   never be read as "scope compatible".
+- Close-out evidence and the terminal transition are decided by the connected
+  control plane's build, so a contract that lands and deploys governs the next
+  close-out instead of waiting for every operator's lane to be rebuilt.

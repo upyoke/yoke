@@ -109,6 +109,23 @@ before an item may exist, so there is no honest `item_id` to stamp. Its ladder
 declares `resolution_only` plus that reason in the model; item-scoped path and
 merge gates record their own obligations after consuming the trunk.
 
+## Where the ladder actually runs
+
+A ladder is only as live as the build that executes it. The standalone merge
+that closes every Dash selects local Postgres for merge admission, and under a
+non-https connection the evidence write dispatches in-process — so the ladder
+was resolved by the merging machine's engine, which for a source lane is the
+code as of the branch's base commit. Stamping shipped, deployed fleet-wide,
+and stamped nothing: the next lane predated it, and the gate that would have
+refused an unstamped close-out was part of the same absent code. Zero rows
+fleet-wide read exactly like a mechanism nobody had exercised yet.
+
+The close-out's evidence write and terminal transition now run on the
+connected control plane
+(`yoke_core.domain.close_out_control_plane_authority`), so the ladder that
+decides an item's done obligations is the one the fleet serves. Rationale:
+[`standalone-item-merge.md`](standalone-item-merge.md).
+
 ## What this does not do
 
 The mechanism does not decide policy. Which gates a workflow lists, and
