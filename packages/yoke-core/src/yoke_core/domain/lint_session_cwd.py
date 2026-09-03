@@ -140,8 +140,7 @@ def evaluate_pre_tool_use(
         return Verdict(
             allow=False,
             reason=append_field_note_footer(
-                build_identity_failure_message(),
-                rule_id="lint-session-cwd",
+                build_identity_failure_message(), rule_id="lint-session-cwd",
             ),
             failure_class=IDENTITY_FAILURE_CLASS,
         )
@@ -171,10 +170,8 @@ def evaluate_pre_tool_use(
 
     if outcome.allow:
         return Verdict(
-            allow=True,
-            session_id=outcome.session_id,
-            claims=outcome.claims,
-            repo_roots=outcome.repo_roots,
+            allow=True, session_id=outcome.session_id,
+            claims=outcome.claims, repo_roots=outcome.repo_roots,
         )
 
     if outcome.failure_class == PRE_IMPL_FAILURE_CLASS:
@@ -193,10 +190,8 @@ def evaluate_pre_tool_use(
                 claim_count=len(outcome.claims),
             )
             return Verdict(
-                allow=True,
-                session_id=outcome.session_id,
-                claims=outcome.claims,
-                repo_roots=outcome.repo_roots,
+                allow=True, session_id=outcome.session_id,
+                claims=outcome.claims, repo_roots=outcome.repo_roots,
             )
 
     if outcome.failure_class == FOREIGN_LANE_FAILURE_CLASS and outcome.occupant:
