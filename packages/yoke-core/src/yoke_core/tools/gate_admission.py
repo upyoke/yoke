@@ -134,8 +134,11 @@ def _resolve_cap() -> int:
         return DEFAULT_MAX_CONCURRENT_GATES
 
 
-def _maintenance_dsn() -> Optional[str]:
-    """DSN for the shared cluster's maintenance database, or None."""
+def maintenance_dsn() -> Optional[str]:
+    """DSN for the shared cluster's maintenance database, or None.
+
+    Shared with the worker budget, which arbitrates on the same cluster.
+    """
     try:
         from yoke_core.domain import db_backend
 
@@ -153,6 +156,9 @@ def _maintenance_dsn() -> Optional[str]:
         return None
     # libpq key/value DSN: a later dbname= key wins, so appending overrides.
     return f"{base} dbname=postgres"
+
+
+_maintenance_dsn = maintenance_dsn
 
 
 def _lock_base() -> int:
@@ -324,6 +330,7 @@ __all__ = [
     "SLOT_WAIT_APP_PREFIX",
     "admitted_gate",
     "is_heavy_invocation",
+    "maintenance_dsn",
     "slot_identity",
     "slot_occupancy",
     "slot_parties",

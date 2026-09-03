@@ -5,29 +5,26 @@ summaries while preserving all other output in the raw capture.
 
 Usage::
 
-    # Direct execution (Codex / shell): streams filtered progress to stdout
-    # while preserving full output in the raw capture. Pass BARE pytest
-    # args after ``--``; the wrapper supplies the pytest command prefix.
-    yoke watch pytest -- runtime/api/
+    # The change-scoped check. For a project that declares its CI workflow
+    # this pushes the lane commit and runs the selection on CI; the machine
+    # runs sessions, not tests.
+    yoke watch pytest --impacted main --bounded
 
-    # Full suite — pass the three anchors, never bare ``runtime/``
-    # (which demotes runtime/api/conftest.py from initial-conftest status
-    # and fails collection; the wrapper refuses it):
-    yoke watch pytest -- runtime/api/ runtime/harness/ tests/
+    # Run on this machine instead (order-sensitive debugging, an uncommitted
+    # tree, an unreachable CI); local runs share one machine-wide worker
+    # budget.
+    yoke watch pytest --local --impacted main --bounded
+    yoke watch pytest --local -- -n 0 runtime/api/test_x.py
 
-    # Print the ready-to-paste streaming pair:
-    yoke watch pytest --print-streaming-pair -- runtime/api/
+    # Full suite — the three anchors, never bare ``runtime/`` (the wrapper
+    # refuses it); CI's job, local only as the CI-outage fallback:
+    yoke watch pytest --local -- runtime/api/ runtime/harness/ tests/
 
-    # Serial mode (debug order-sensitive failures):
-    yoke watch pytest -- -n 0 runtime/api/
-
-Parallel-by-default: ``-n auto`` (pytest-xdist) is injected unless the caller
-passes its own ``-n``/``--numprocesses`` in the pass-through. Use ``-n 0`` for
-sequential debugging. The wrapper preserves the underlying ``pytest`` exit
-code so callers can still branch on success/failure.
-
-Do NOT pass a full pytest command-shape after ``--``. The wrapper rejects
-``-- python3 -m pytest …`` variants before invoking the underlying runner.
+Pass BARE pytest args after ``--``; the wrapper supplies the pytest command
+prefix and rejects ``-- python3 -m pytest …``. Local runs inject ``-n auto``
+(pytest-xdist) unless the pass-through names ``-n``; use ``-n 0`` for
+sequential debugging. The wrapper preserves the underlying exit code — a
+remote run's mirrors the CI conclusion.
 """
 
 from __future__ import annotations
@@ -49,6 +46,9 @@ from yoke_core.tools import (
     _watch_pytest_rootdir,
     _watch_runner,
     gate_admission,
+    pytest_remote_selection,
+    pytest_worker_budget,
+    watch_pytest_remote,
 )
 from yoke_core.tools._pytest_parallel import (
     apply_postgres_xdist_auto_env,
@@ -90,23 +90,6 @@ def _strip_separator(passthrough: list[str]) -> list[str]:
     return passthrough
 
 
-def _extract_wrapper_flag(argv: list[str], flag: str) -> tuple[list[str], bool]:
-    """Pull a bare wrapper *flag* out of any position in ``argv``.
-
-    ``passthrough`` uses ``nargs=argparse.REMAINDER``, which means the
-    flag would otherwise reach pytest verbatim if placed after the
-    ``--`` separator. Pre-extracting makes every position equivalent.
-    """
-    filtered: list[str] = []
-    found = False
-    for arg in argv:
-        if arg == flag:
-            found = True
-            continue
-        filtered.append(arg)
-    return filtered, found
-
-
 def _impacted_selection(
     base: str,
     *,
@@ -137,28 +120,33 @@ def _selection_banner(selection) -> str:
     return selection_progress_banner(selection)
 
 
+def _route(ns, pytest_args: Sequence[str], run_root: Path):
+    """Where this run executes. ``--widen`` is a local full sweep by definition."""
+    return pytest_remote_selection.resolve_route(
+        run_root,
+        pytest_args=pytest_args,
+        impacted_base=ns.impacted,
+        local=ns.local or ns.widen,
+    )
+
+
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
-    raw, print_streaming_pair_flag = _extract_wrapper_flag(
-        raw,
-        _watch_runner.PRINT_STREAMING_PAIR_FLAG,
+    extract = _watch_pytest_args.extract_wrapper_flag
+    raw, print_streaming_pair_flag = extract(raw, _watch_runner.PRINT_STREAMING_PAIR_FLAG)
+    raw, allow_tree_mismatch_flag = extract(
+        raw, verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG
     )
-    raw, allow_tree_mismatch_flag = _extract_wrapper_flag(
-        raw,
-        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
-    )
-    raw, widen_flag = _extract_wrapper_flag(raw, _watch_pytest_args.WIDEN_FLAG)
-    raw, bounded_flag = _extract_wrapper_flag(raw, _watch_pytest_args.BOUNDED_FLAG)
+    raw, widen_flag = extract(raw, _watch_pytest_args.WIDEN_FLAG)
+    raw, bounded_flag = extract(raw, _watch_pytest_args.BOUNDED_FLAG)
+    raw, local_flag = extract(raw, pytest_remote_selection.LOCAL_FLAG)
     raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _watch_pytest_args.parse_args(raw, prog)
-    if print_streaming_pair_flag:
-        ns.print_streaming_pair = True
-    if allow_tree_mismatch_flag:
-        ns.allow_tree_mismatch = True
-    if widen_flag:
-        ns.widen = True
-    if bounded_flag:
-        ns.bounded = True
+    ns.print_streaming_pair = ns.print_streaming_pair or print_streaming_pair_flag
+    ns.allow_tree_mismatch = ns.allow_tree_mismatch or allow_tree_mismatch_flag
+    ns.widen = ns.widen or widen_flag
+    ns.bounded = ns.bounded or bounded_flag
+    ns.local = ns.local or local_flag
     pytest_args = _strip_separator(list(ns.passthrough))
 
     # Claim the capture pair before preflight. The impacted selection,
@@ -185,12 +173,26 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     selection = None
     run_root = Path.cwd().resolve()
     if ns.impacted is not None:
+        run_root = _impacted_tree()
+    elif ns.widen:
+        return refuse(_watch_pytest_args.WIDEN_WITHOUT_IMPACTED, 2)
+    elif ns.bounded:
+        return refuse(_watch_pytest_args.BOUNDED_WITHOUT_IMPACTED, 2)
+
+    route = _route(ns, pytest_args, run_root)
+    if isinstance(route, pytest_remote_selection.Refusal):
+        return refuse(route.message, route.exit_code)
+    remote = isinstance(route, pytest_remote_selection.RemoteRoute)
+    if not remote:
+        _watch_runner.note_claimed_capture(
+            progress_path, f"# watch_{KIND} local-run: {route.reason}"
+        )
+    if ns.impacted is not None and not remote:
         _watch_runner.note_claimed_capture(
             progress_path,
             f"# watch_{KIND} impacted-selection: resolving the change against "
             f"{ns.impacted}; this runs before pytest starts",
         )
-        run_root = _impacted_tree()
         selection = _impacted_selection(
             ns.impacted,
             bounded=not ns.widen,
@@ -208,10 +210,6 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             )
         if not ns.print_streaming_pair:
             pytest_args = [*selection.pytest_paths(), *pytest_args]
-    elif ns.widen:
-        return refuse(_watch_pytest_args.WIDEN_WITHOUT_IMPACTED, 2)
-    elif ns.bounded:
-        return refuse(_watch_pytest_args.BOUNDED_WITHOUT_IMPACTED, 2)
 
     shape_refusal = _watch_pytest_args.argument_shape_refusal(pytest_args, run_root)
     if shape_refusal is not None:
@@ -227,6 +225,21 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     if binding.refusal is not None:
         return refuse(
             binding.refusal, _tree_binding_startup.TREE_BINDING_REFUSED_EXIT_STATUS
+        )
+
+    try:
+        execution_timeout = qa_gate_timeout.execution_timeout_from_env()
+    except ValueError as exc:
+        return refuse(f"watch_pytest: {exc}", 2)
+
+    if remote and not ns.print_streaming_pair:
+        return watch_pytest_remote.run(
+            route,
+            kind=KIND,
+            raw_capture=raw_path,
+            progress_capture=progress_path,
+            flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
+            timeout_seconds=execution_timeout,
         )
 
     # Parallel-by-default: inject ``-n auto`` unless caller passed
@@ -262,6 +275,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 if ns.widen
                 else _watch_pytest_args.BOUNDED_FLAG
             )
+        if ns.local:
+            wrapper_options.append(pytest_remote_selection.LOCAL_FLAG)
         if ns.allow_tree_mismatch:
             wrapper_options.append(verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG)
         _watch_runner.print_streaming_pair(
@@ -280,11 +295,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         sys.stdout.write(warning)
         sys.stdout.flush()
 
-    with gate_admission.admitted_gate(pytest_args, stream=sys.stdout):
-        try:
-            execution_timeout = qa_gate_timeout.execution_timeout_from_env()
-        except ValueError as exc:
-            return refuse(f"watch_pytest: {exc}", 2)
+    with gate_admission.admitted_gate(pytest_args, stream=sys.stdout), (
+        pytest_worker_budget.granted_workers(pytest_args, pytest_env, stream=sys.stdout)
+    ) as grant:
+        pytest_args = grant.apply(pytest_args)
         started = time.monotonic()
         collected_items = None
 
@@ -314,7 +328,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             kind=KIND,
             flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
             cwd=str(run_root),
-            env=gate_admission.admitted_environment(pytest_env),
+            env=grant.environment(gate_admission.admitted_environment(pytest_env)),
             timeout_seconds=execution_timeout,
             header_metadata=(
                 _selection_banner(selection) if selection is not None else None

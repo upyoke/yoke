@@ -68,6 +68,36 @@ def has_explicit_workers(args: Sequence[str]) -> bool:
     return False
 
 
+def explicit_workers(args: Sequence[str]) -> str | None:
+    """The worker count ``args`` name (``"auto"``, ``"4"``, …), or None."""
+    for index, arg in enumerate(args):
+        if arg in _PYTEST_WORKERS_FLAGS:
+            return args[index + 1] if index + 1 < len(args) else None
+        for flag in _PYTEST_WORKERS_FLAGS:
+            if arg.startswith(f"{flag}="):
+                return arg[len(flag) + 1 :]
+    return None
+
+
+def with_workers(args: Sequence[str], workers: int) -> list[str]:
+    """``args`` with its named worker count replaced by *workers*."""
+    rewritten: list[str] = []
+    skip_next = False
+    for arg in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg in _PYTEST_WORKERS_FLAGS:
+            rewritten.extend(["-n", str(workers)])
+            skip_next = True
+            continue
+        if any(arg.startswith(f"{flag}=") for flag in _PYTEST_WORKERS_FLAGS):
+            rewritten.extend(["-n", str(workers)])
+            continue
+        rewritten.append(arg)
+    return rewritten
+
+
 def uses_xdist_auto_workers(args: Sequence[str]) -> bool:
     """Return True when ``args`` request pytest-xdist's ``auto`` worker count."""
     for index, arg in enumerate(args):

@@ -5,6 +5,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+#: The ref a change is measured against when the caller names none.
+DEFAULT_BASE_REF = "main"
+
 
 def normalize_changed_path(rel: str) -> str:
     """Repo-relative posix path from one ``git`` name-only line."""
@@ -63,6 +66,7 @@ def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:
 
 
 __all__ = [
+    "DEFAULT_BASE_REF",
     "changed_paths",
     "normalize_changed_path",
 ]

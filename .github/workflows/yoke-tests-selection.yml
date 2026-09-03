@@ -1,0 +1,148 @@
+name: yoke-tests-selection
+
+# One change-scoped pytest selection on one runner, dispatched by
+# `yoke watch pytest` (yoke_core.tools.pytest_remote_selection_run) for a
+# project that declares its CI workflow. The runner recomputes the impacted
+# selection from (base_sha, head_sha) with the same code the wrapper uses
+# locally, so the test list is a function of the two commits, not of a
+# working tree. Its concurrency group is keyed by dispatch id and never
+# cancels: yoke-ci cancels in-progress runs per ref, and a selection
+# dispatched on a lane branch must never take that lane's gate down.
+run-name: >-
+  ${{ inputs.yoke_dispatch_id
+      && format('yoke-tests-selection {0} [yoke-dispatch:{1}]', inputs.head_sha, inputs.yoke_dispatch_id)
+      || format('yoke-tests-selection {0}', inputs.head_sha) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      head_sha:
+        description: Commit under test; the job checks this out and refuses any other tree.
+        required: true
+      base_sha:
+        description: Merge base the impacted selection is computed against; empty runs pytest_args as given.
+        required: false
+        default: ""
+      pytest_args:
+        description: Shell-quoted bare pytest arguments appended to the selection.
+        required: false
+        default: ""
+      yoke_dispatch_id:
+        description: Correlation id echoed into run-name; empty for hand triggers.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.yoke_dispatch_id || github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  selection:
+    name: selection
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    env:
+      # Hand-launched Postgres (not services:) so durability can be disabled;
+      # the name is run-scoped so shared self-hosted hosts never collide.
+      PG_CONTAINER: yoke-selection-pg-${{ github.run_id }}
+    steps:
+      - name: Checkout the commit under test
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.head_sha }}
+          # Full history: the selection diffs against base_sha, and every
+          # package derives its version from git via setuptools_scm.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: uv.lock
+
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+
+      - name: Install dependencies
+        run: uv sync --all-packages --all-groups --locked
+
+      - name: Register libpython with the system loader cache
+        # Tests spawn python3 with a cleaned env (merge engine, installer
+        # shim, product-boundary probes); those subprocesses find libpython
+        # through the system loader cache, not LD_LIBRARY_PATH.
+        run: |
+          lib_dir="${pythonLocation}/lib"
+          if ! compgen -G "${lib_dir}/libpython*.so*" >/dev/null; then
+            echo "No libpython shared library found under ${pythonLocation}/lib" >&2
+            exit 1
+          fi
+          conf_path="/etc/ld.so.conf.d/yoke-setup-python-selection.conf"
+          sudo flock /var/lock/yoke-ci-ldconfig.lock bash -euo pipefail -c '
+            printf "%s\n" "$1" > "$2"
+            ldconfig
+          ' _ "$lib_dir" "$conf_path"
+          env -i .venv/bin/python3 -c "import sys; print('clean-env venv python OK', sys.version.split()[0])"
+
+      - name: Configure git identity (CI runners have no ~/.gitconfig)
+        run: |
+          git config --global user.email "ci@yoke.local"
+          git config --global user.name "Yoke CI"
+          git config --global init.defaultBranch main
+
+      - name: Start Postgres (durability off, dynamic host port)
+        run: |
+          docker run -d \
+            --name "$PG_CONTAINER" \
+            -e POSTGRES_USER=yoke \
+            -e POSTGRES_PASSWORD=yoke \
+            -e POSTGRES_DB=postgres \
+            -p 5432 \
+            postgres:16 \
+            -c fsync=off \
+            -c synchronous_commit=off \
+            -c full_page_writes=off \
+            -c wal_level=minimal \
+            -c max_wal_senders=0
+
+      - name: Resolve Postgres DSN (dynamic host port)
+        run: |
+          set -o pipefail
+          host_port="$(docker port "$PG_CONTAINER" 5432 | head -n1 | sed 's/.*://')"
+          if [ -z "$host_port" ]; then
+            echo "Postgres host port did not resolve" >&2
+            exit 1
+          fi
+          echo "Resolved Postgres host port: ${host_port}"
+          echo "YOKE_PG_DSN=host=localhost port=${host_port} user=yoke password=yoke dbname=postgres" >> "$GITHUB_ENV"
+
+      - name: Wait for Postgres
+        run: uv run python -m yoke_core.tools.wait_for_pg
+
+      - name: Run the selection
+        env:
+          SELECTION_BASE_SHA: ${{ inputs.base_sha }}
+          SELECTION_HEAD_SHA: ${{ inputs.head_sha }}
+          SELECTION_PYTEST_ARGS: ${{ inputs.pytest_args }}
+        run: >-
+          uv run python -m yoke_core.tools.ci_selection_run
+          --base-sha "$SELECTION_BASE_SHA"
+          --head-sha "$SELECTION_HEAD_SHA"
+          --pytest-args "$SELECTION_PYTEST_ARGS"
+
+      - name: Upload pytest output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-output-selection
+          path: pytest-output.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Stop Postgres
+        if: always()
+        run: docker rm -f "$PG_CONTAINER" || true
