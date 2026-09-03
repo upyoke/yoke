@@ -13,6 +13,9 @@ is caught by the doctor check ``HC-harness-substrate-drift`` (lane R / task 10).
 from __future__ import annotations
 
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+from yoke_contracts.harness_turn_record_capability import (
+    turn_record_capability_for_harness,
+)
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_contracts.session_control import capabilities_for_harness
@@ -35,6 +38,17 @@ def _agent_wake(harness_id: str) -> dict:
         ),
     }
     payload.update(wake_capability_for_harness(harness_id).to_json())
+    return payload
+
+
+def _turn_record(harness_id: str) -> dict:
+    payload: dict = {
+        "source": (
+            "yoke_contracts.harness_turn_record_capability."
+            "HARNESS_TURN_RECORD_CAPABILITIES"
+        ),
+    }
+    payload.update(turn_record_capability_for_harness(harness_id).to_json())
     return payload
 
 
@@ -79,6 +93,7 @@ CLAUDE_MANIFEST: dict = {
     },
     "session_control": _session_control(_CLAUDE_CLI.harness_id),
     "agent_wake": _agent_wake(_CLAUDE_CLI.harness_id),
+    "turn_record": _turn_record(_CLAUDE_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".claude/settings.json",
         "operations": [
@@ -142,6 +157,7 @@ CODEX_MANIFEST: dict = {
     },
     "session_control": _session_control(_CODEX_CLI.harness_id),
     "agent_wake": _agent_wake(_CODEX_CLI.harness_id),
+    "turn_record": _turn_record(_CODEX_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".codex/hooks.json",
         "operations": [
@@ -212,6 +228,7 @@ CURSOR_MANIFEST: dict = {
     },
     "session_control": _session_control(_CURSOR_CLI.harness_id),
     "agent_wake": _agent_wake(_CURSOR_CLI.harness_id),
+    "turn_record": _turn_record(_CURSOR_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".cursor/hooks.json",
         "operations": [

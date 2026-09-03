@@ -19,12 +19,14 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from yoke_contracts.harness_turn_record_capability import turn_record_surfaces
 
-#: Surfaces whose native keeps a turn record a machine can read back, and
-#: whose turn end has been observed not to fire its hook. Every other
-#: surface's turn end reports itself, so nothing is stuck for them and
-#: reading a transcript would buy nothing.
-NATIVE_TURN_RECORD_SURFACES = ("codex-cli",)
+
+#: Surfaces whose native keeps a turn record a machine can read back.
+#: Derived from the per-harness turn-record capability rather than listed
+#: here, so a harness that declares a record — and the one that declares
+#: why it needs none — is described in exactly one place.
+NATIVE_TURN_RECORD_SURFACES = turn_record_surfaces()
 
 #: What an observed turn end stamps: exactly the posture the missing hook
 #: would have stamped, so the wake router needs no branch of its own.

@@ -180,6 +180,32 @@ a harness nobody has probed says so rather than inheriting a neighbour's
 answer. Adding a harness adapter means adding its measured entry to the
 contract before any surface states what it can do.
 
+## Turn record
+
+The object is rendered from
+`yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES`.
+A **turn record** is the native's own durable account of how its last turn
+ended, written by the harness rather than by Yoke. It answers one question: a
+turn that ends without firing its turn-end hook stamps no posture, so every
+wake for that session resolves an operation its surface does not support, and
+the record is the only remaining evidence that the turn is over.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `source` | string | Canonical Python contract that owns the facts. |
+| `turn_record` | string | `readable` \| `none` \| `unverified`. |
+| `turn_record_mechanism` | string | Where the record lives and what its terminal entry looks like. Empty when the class is not `readable`. |
+| `verified_on_surface` | string | Session surface the probe ran against, and the only surface a reader is derived for. Empty when unverified. |
+| `evidence` | string | How the answer was established — for `none`, why no reader is needed and under what observation that would change. |
+
+`none` is a designed deferral rather than an omission, and its `evidence`
+must say so: a harness whose turn end always fires its hook reports itself,
+so a transcript read would answer a question the hook already answered.
+`unverified` is deliberately not `none` — a harness nobody has looked at is
+not a harness known to need no reader, and the probe path derives its surface
+set from `readable` entries alone, so an unprobed harness is never read and
+never silently assumed healthy.
+
 ## Worktree hook enablement
 
 This object is the harness adapter's contribution to linked-lane preparation.
@@ -235,4 +261,4 @@ The schema in this file is the contract. When new fields are added:
 - Update the manifest source dicts (or note the new field is optional and document the default).
 - Update doctor checks that read the affected field.
 
-All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. The `session_control` and `agent_wake` objects are composed from `yoke_contracts.session_control` and `yoke_contracts.harness_wake_capability` respectively, so those facts are authored in their contracts rather than in the manifest dicts. Author changes in the source dicts or the contract they read, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.
+All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. The `session_control`, `agent_wake`, and `turn_record` objects are composed from `yoke_contracts.session_control`, `yoke_contracts.harness_wake_capability`, and `yoke_contracts.harness_turn_record_capability` respectively, so those facts are authored in their contracts rather than in the manifest dicts. Author changes in the source dicts or the contract they read, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.

@@ -88,6 +88,13 @@
     "verified_on_surface": "cursor-cli",
     "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed."
   },
+  "turn_record": {
+    "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
+    "turn_record": "none",
+    "turn_record_mechanism": "",
+    "verified_on_surface": "cursor-cli",
+    "evidence": "No reader is needed and none is built. Cursor fires its turn-end hook on every ending observed so far, so the same reasoning as claude-code applies: the hook stamps posture and a transcript read would answer nothing further. Designed deferral on the same terms."
+  },
   "worktree_hook_enablement": {
     "config_path": ".cursor/hooks.json",
     "operations": [
