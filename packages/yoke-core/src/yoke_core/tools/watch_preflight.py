@@ -7,8 +7,8 @@ that cannot observe the watcher exit sentinel.
 
 Use ``yoke watch preflight -- <preflight args>``. The wrapper preserves the
 preflight's exit code, forces immediate Python output through the shared
-runner, and emits database verdicts, the fleet summary, the receipt, and
-failure signatures to its progress capture.
+runner, and emits the fleet roster, database verdicts, the fleet summary,
+the receipt, and failure signatures to its progress capture.
 """
 
 from __future__ import annotations
@@ -39,11 +39,14 @@ PREFLIGHT_SUMMARY_RE = re.compile(
     r"(^\d+ passed,\s+\d+ failed\b|^receipt recorded\b)",
     re.IGNORECASE,
 )
-# Motion: a fleet rehearsal names its artifact, then passes one database
-# at a time. Every one of those verdicts is distinct content, so the
-# digest carries them all rather than dropping any.
+# Motion: a fleet rehearsal names its artifact, rosters the cluster it
+# selected from, then passes one database at a time. Every one of those
+# lines is distinct content, so the digest carries them all rather than
+# dropping any -- the roster in particular is the only place a reader can
+# see which neighbours were left out of the fleet and why.
 PREFLIGHT_PROGRESS_RE = re.compile(
-    r"(^PASS\b|^scratch databases skipped\b"
+    r"(^PASS\b|^scratch databases skipped\b|^fleet roster:"
+    r"|^\s*(?:member|not a member)\s"
     r"|^engine artifact:|^environment:|^rehearsal cluster:"
     r"|^\s*(?:copy(?:ing)?|converg(?:e|ing))\b)",
     re.IGNORECASE,
@@ -197,9 +200,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=passthrough,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(
-                flush_seconds
-            ),
+            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
         return 0
 
@@ -211,9 +212,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
-        flush_seconds=_watch_digest.resolve_flush_seconds(
-            ns, flush_seconds
-        ),
+        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 
 
