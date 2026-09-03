@@ -205,30 +205,6 @@ class TestPrintStreamingPair:
         assert str(tmp_path) in out
 
 
-def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
-    captured = {}
-
-    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-    monkeypatch.delenv("CI", raising=False)
-    monkeypatch.delenv("PYTEST_XDIST_AUTO_NUM_WORKERS", raising=False)
-    monkeypatch.setattr(watch_pytest.verification_tree_binding, "evaluate_run", lambda **_: watch_pytest.verification_tree_binding.TreeBindingVerdict())
-    monkeypatch.setattr(
-        watch_pytest._source_pythonpath,
-        "import_origin_refusal",
-        lambda *args, **kwargs: None,
-    )
-    monkeypatch.setattr(
-        watch_pytest._watch_runner,
-        "run_watcher",
-        lambda **kwargs: captured.update(kwargs) or 0,
-    )
-    assert watch_pytest.main(["--", "-n", "auto", "runtime/api/tools"]) == 0
-    assert captured["env"]["PYTEST_XDIST_AUTO_NUM_WORKERS"] == "10"
-    assert "packages/yoke-core/src" in captured["env"]["PYTHONPATH"]
-    assert "-n" in captured["argv"]
-    assert "auto" in captured["argv"]
-
-
 class TestNestedPytestRejection:
     """Guard against `-- python3 -m pytest …` pass-through.
 

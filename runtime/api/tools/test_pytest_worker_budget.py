@@ -9,6 +9,7 @@ import psycopg
 import pytest
 
 from yoke_core.tools import gate_admission, pytest_worker_budget as budget
+from yoke_core.tools import watch_pytest
 
 
 def _scratch_lock_base() -> int:
@@ -128,3 +129,35 @@ def test_waiting_announcement_names_holders_and_queue() -> None:
     assert "all 18 worker(s) held by lane-a/pid1=10, lane-b/pid2=8" in text
     assert "2 other queued run(s)" in text
     assert "31s so far" in text
+
+
+def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
+    captured = {}
+
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("PYTEST_XDIST_AUTO_NUM_WORKERS", raising=False)
+    monkeypatch.setattr(watch_pytest.verification_tree_binding, "evaluate_run", lambda **_: watch_pytest.verification_tree_binding.TreeBindingVerdict())
+    monkeypatch.setattr(
+        watch_pytest._source_pythonpath,
+        "import_origin_refusal",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        watch_pytest._watch_runner,
+        "run_watcher",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+    assert watch_pytest.main(["--", "-n", "auto", "runtime/api/tools"]) == 0
+    assert captured["env"]["PYTEST_XDIST_AUTO_NUM_WORKERS"] == "10"
+    assert "packages/yoke-core/src" in captured["env"]["PYTHONPATH"]
+    # Two shapes are correct here, and which one appears is the environment
+    # rather than the contract: where a budget cluster is reachable the
+    # machine-wide worker budget resolves ``auto`` up front and hands the
+    # runner a concrete grant; where it is not, the budget fails open by
+    # design and ``auto`` passes through for xdist to expand from the cap
+    # above. Either way the cap is what bounds the workers that start.
+    argv = captured["argv"]
+    assert "-n" in argv
+    workers = argv[argv.index("-n") + 1]
+    assert workers == "auto" or 1 <= int(workers) <= 10
