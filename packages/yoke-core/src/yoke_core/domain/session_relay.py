@@ -22,7 +22,7 @@ from yoke_core.domain.session_relay_jobs import (
     report_launch_job,
     report_wake_job,
 )
-from yoke_core.domain.session_relay_launch_batch import claim_launch_batch
+from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_policy import effective_relay_policy
 from yoke_core.domain.session_relay_storage import (
     heartbeat_relay,
@@ -62,11 +62,11 @@ def claim_relay_job(
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
-    """Heartbeat, long-poll, lease one batch of work, and return server cadence.
+    """Heartbeat, long-poll, lease one job, and return server cadence.
 
-    Launches are independent native creates, so a poll leases up to the
-    organization's batch cap of them together. Wakes touch shared session
-    state, so a poll leases at most one.
+    A poll leases at most one job of any kind. Native creates on one machine
+    are spaced apart by the launch lease, and wakes touch shared session
+    state, so neither is ever handed out in bulk.
     """
     heartbeat = validate_heartbeat(heartbeat)
     if broker_only != bool(broker_lease_id):
@@ -133,7 +133,6 @@ def claim_relay_job(
             state="active",
             connected_until=connected,
             next_poll_seconds=policy.poll_seconds,
-            launch_stagger_seconds=policy.launch_stagger_seconds,
         )
 
     started = monotonic()
@@ -155,14 +154,7 @@ def claim_relay_job(
             jobs = (
                 ()
                 if broker_only
-                else tuple(
-                    claim_launch_batch(
-                        conn,
-                        heartbeat,
-                        now=current,
-                        cap=policy.launch_batch,
-                    )
-                )
+                else tuple(claim_next_launch(conn, heartbeat, now=current))
             )
         if not jobs:
             wake = claim_wake_job(
@@ -188,7 +180,6 @@ def claim_relay_job(
                 state="active",
                 connected_until=connected,
                 next_poll_seconds=policy.poll_seconds,
-                launch_stagger_seconds=policy.launch_stagger_seconds,
                 jobs=jobs,
             )
         # Never hold a read transaction open across the long-poll sleep.
@@ -225,7 +216,6 @@ def claim_relay_job(
         state=state,
         connected_until=connected,
         next_poll_seconds=next_poll,
-        launch_stagger_seconds=policy.launch_stagger_seconds,
     )
 
 

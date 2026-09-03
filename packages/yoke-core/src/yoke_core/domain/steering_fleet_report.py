@@ -61,11 +61,13 @@ from yoke_core.domain.steering_fleet_report_available import (
     FrontierEntry,
     scope_candidates,
 )
+from yoke_core.domain.session_launch_capacity import MachineCapacity
 from yoke_core.domain.steering_fleet_report_capacity import (
     SurfaceReadiness,
     launchable_surfaces,
     live_launch_origin_counts,
     live_session_counts,
+    machine_capacities,
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
 from yoke_core.domain.steering_fleet_report_in_flight import (
@@ -126,6 +128,8 @@ class FleetReport:
     in_flight: tuple[InFlightCall, ...] = ()
     abandoned_launches: tuple[AbandonedLaunch, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
+    #: Every connected machine's lanes against its cap, full ones included.
+    machine_capacity: tuple[MachineCapacity, ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.
     #: Unowned work used to be invisible precisely here: a report addressed
@@ -189,6 +193,10 @@ class FleetReport:
                 for r in self.launchable
             ),
             "plan_limits": fingerprint_material(self.plan_limits),
+            "machine_capacity": sorted(
+                (c.machine_id, c.live_lanes, c.max_worker_lanes, c.at_capacity)
+                for c in self.machine_capacity
+            ),
             "origin_counts": list(self.origin_counts),
             "messages_awaiting_seat": self.messages_awaiting_seat,
         }
@@ -257,6 +265,7 @@ def compose_report(
         session_counts=live_session_counts(conn, project_id=project_id),
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
         plan_limits=load_plan_limits(conn, project_id=project_id, now=now),
+        machine_capacity=machine_capacities(conn, project_id=project_id, now=now),
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),

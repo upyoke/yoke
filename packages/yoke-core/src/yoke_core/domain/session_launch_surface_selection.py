@@ -53,6 +53,7 @@ def _fallback_snapshot(
     selected_by_machine: dict[str, EligibleRelay] = {}
     considered: set[str] = set()
     rejected: set[str] = set()
+    capacities: dict[str, Any] = {}
     for surface in _fallback_surfaces(requested_surface):
         snapshot = eligibility(
             conn,
@@ -63,6 +64,8 @@ def _fallback_snapshot(
         )
         considered.update(snapshot.considered_machine_ids)
         rejected.update(snapshot.rejection_codes)
+        for entry in snapshot.machine_capacity:
+            capacities.setdefault(entry.machine_id, entry)
         for relay in snapshot.relays:
             selected_by_machine.setdefault(relay.machine_id, relay)
     return EligibilitySnapshot(
@@ -74,6 +77,7 @@ def _fallback_snapshot(
         ),
         tuple(sorted(considered)),
         tuple(sorted(rejected)),
+        tuple(capacities[machine] for machine in sorted(capacities)),
     )
 
 

@@ -13,7 +13,7 @@ from yoke_core.domain.session_launch_requests import (
 )
 from yoke_core.domain.session_launch_store import update_launch
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
-from yoke_core.domain.session_relay_launch_batch import claim_launch_batch
+from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from runtime.api.domain.session_launch_test_support import (
     NOW,
@@ -174,7 +174,7 @@ def test_selected_surface_drives_native_job_and_registration() -> None:
         project_ids=(10,),
     )
 
-    (job,) = claim_launch_batch(conn, heartbeat, now=NOW, cap=1)
+    (job,) = claim_next_launch(conn, heartbeat, now=NOW)
 
     assert launch.requested_surface == "codex-vscode"
     assert launch.selected_surface == "codex-cli"

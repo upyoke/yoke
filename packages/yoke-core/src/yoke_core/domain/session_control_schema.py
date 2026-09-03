@@ -174,7 +174,8 @@ def create_session_control_tables(conn: Any) -> None:
             native_launch_pid INTEGER,
             native_launch_phase TEXT,
             native_launch_observed_at TEXT,
-            spawn_duration_ms INTEGER
+            spawn_duration_ms INTEGER,
+            spawn_hold_reason TEXT
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_launches_requester_dedupe
             ON session_launches(requester_actor_id, idempotency_key)
@@ -222,7 +223,8 @@ def create_session_control_tables(conn: Any) -> None:
                 CHECK(state IN ('active','idle','revoked')),
             lease_id TEXT,
             lease_expires_at TEXT,
-            surface_plan_limits TEXT
+            surface_plan_limits TEXT,
+            machine_capacity TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_session_relays_machine_connected
             ON session_relays(machine_id, connected_until);
@@ -314,13 +316,15 @@ def create_session_control_tables(conn: Any) -> None:
         ("native_launch_phase", "TEXT"),
         ("native_launch_observed_at", "TEXT"),
         ("spawn_duration_ms", "INTEGER"),
+        ("spawn_hold_reason", "TEXT"),
     ):
         if not _column_exists(conn, "session_launches", name):
             conn.execute(
                 f"ALTER TABLE session_launches ADD COLUMN {name} {column_type}"
             )
-    if not _column_exists(conn, "session_relays", "surface_plan_limits"):
-        conn.execute("ALTER TABLE session_relays ADD COLUMN surface_plan_limits TEXT")
+    for name in ("surface_plan_limits", "machine_capacity"):
+        if not _column_exists(conn, "session_relays", name):
+            conn.execute(f"ALTER TABLE session_relays ADD COLUMN {name} TEXT")
     if not _column_exists(conn, "session_message_recipients", "wake_escalation"):
         conn.execute(
             "ALTER TABLE session_message_recipients ADD COLUMN wake_escalation TEXT"

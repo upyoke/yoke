@@ -39,6 +39,7 @@ _PUBLIC_FIELDS = (
     "native_launch_phase",
     "native_launch_observed_at",
     "spawn_duration_ms",
+    "spawn_hold_reason",
 )
 
 

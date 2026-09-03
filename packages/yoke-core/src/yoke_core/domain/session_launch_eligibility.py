@@ -10,6 +10,11 @@ from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_launch_capacity import (
+    MACHINE_AT_CAPACITY,
+    MachineCapacity,
+    machine_capacity,
+)
 from yoke_core.domain.session_launch_types import (
     EligibilitySnapshot,
     EligibleRelay,
@@ -75,8 +80,9 @@ def derive_launch_eligibility(
     """Return one freshest eligible relay per machine.
 
     Eligibility is never accepted from the create request. It is recomputed
-    from connected relay rows, their advertised surface versions, and their
-    registered project checkout identifiers.
+    from connected relay rows, their advertised surface versions, their
+    registered project checkout identifiers, and the lanes already running
+    or in flight on each machine against the cap its relay published.
     """
     capability = capability_for_surface(surface)
     if capability is None or capability.create == "none":
@@ -90,13 +96,15 @@ def derive_launch_eligibility(
         params.append(machine_id)
     rows = conn.execute(
         "SELECT relay_id, machine_id, surface_versions, project_checkouts, "
-        "last_seen_at, state, connected_until FROM session_relays"
+        "last_seen_at, state, connected_until, machine_capacity "
+        "FROM session_relays"
         f"{machine_clause} ORDER BY last_seen_at DESC, relay_id ASC",
         tuple(params),
     ).fetchall()
     project_keys = _project_keys(conn, project_id)
     considered: set[str] = set()
     selected_by_machine: dict[str, EligibleRelay] = {}
+    capacities: dict[str, MachineCapacity] = {}
     rejected: set[str] = set()
     for row in rows:
         relay_machine = str(_value(row, "machine_id", 1))
@@ -125,6 +133,16 @@ def derive_launch_eligibility(
             continue
         if relay_machine in selected_by_machine:
             continue
+        if relay_machine not in capacities:
+            capacities[relay_machine] = machine_capacity(
+                conn,
+                machine_id=relay_machine,
+                capacity_document=_value(row, "machine_capacity", 7),
+                now=now,
+            )
+        if capacities[relay_machine].at_capacity:
+            rejected.add(MACHINE_AT_CAPACITY)
+            continue
         selected_by_machine[relay_machine] = EligibleRelay(
             relay_id=str(_value(row, "relay_id", 0)),
             machine_id=relay_machine,
@@ -138,6 +156,7 @@ def derive_launch_eligibility(
         tuple(selected_by_machine.values()),
         tuple(sorted(considered)),
         tuple(sorted(rejected)),
+        tuple(capacities[machine] for machine in sorted(capacities)),
     )
 
 

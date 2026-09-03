@@ -29,13 +29,12 @@ through untouched.
 from __future__ import annotations
 
 import os
-import re
-import subprocess
 import sys
 import tempfile
 from typing import Optional, Sequence
 
 from yoke_contracts.machine_config import runtime as machine_config_runtime
+from yoke_contracts.machine_config.machine_capacity import free_memory_bytes
 
 
 DEFAULT_PARALLEL_WORKERS = "auto"
@@ -203,57 +202,9 @@ def split_no_parallel(args: Sequence[str]) -> tuple[bool, list[str]]:
 
 
 def _read_free_ram_mb() -> Optional[int]:
-    """Return reclaimable free RAM in MB, or None when unknowable.
-
-    macOS uses ``vm_stat`` (sum of free, inactive, speculative, and
-    purgeable pages — all reclaimable without disk I/O). Linux reads
-    ``MemAvailable`` from ``/proc/meminfo``. Other platforms return
-    ``None`` so callers fall back to the high-capacity default.
-    """
-    if sys.platform == "darwin":
-        try:
-            result = subprocess.run(
-                ["vm_stat"], capture_output=True, text=True, timeout=2
-            )
-        except (FileNotFoundError, subprocess.TimeoutExpired, TypeError):
-            # TypeError surfaces when subprocess.run has been monkeypatched
-            # by a test fixture whose signature does not accept the kwargs
-            # passed here. Treat as "unknowable RAM" and fall back to the
-            # high-capacity default — same outcome as the other branches.
-            return None
-        if result.returncode != 0:
-            return None
-        page_size = 4096
-        page_size_match = re.search(
-            r"page size of (\d+) bytes", result.stdout
-        )
-        if page_size_match:
-            page_size = int(page_size_match.group(1))
-        pages = 0
-        for key in (
-            "Pages free",
-            "Pages inactive",
-            "Pages speculative",
-            "Pages purgeable",
-        ):
-            match = re.search(rf"{re.escape(key)}:\s+(\d+)", result.stdout)
-            if match:
-                pages += int(match.group(1))
-        if pages == 0:
-            return None
-        return (pages * page_size) // (1024 * 1024)
-    if sys.platform.startswith("linux"):
-        try:
-            with open("/proc/meminfo") as f:
-                for line in f:
-                    if line.startswith("MemAvailable:"):
-                        parts = line.split()
-                        if len(parts) >= 2 and parts[1].isdigit():
-                            return int(parts[1]) // 1024
-        except OSError:
-            return None
-        return None
-    return None
+    """Reclaimable free RAM in MB from the shared machine probe, or None."""
+    free_bytes = free_memory_bytes()
+    return None if free_bytes is None else free_bytes // (1024 * 1024)
 
 
 def choose_default_workers() -> str:
@@ -273,9 +224,7 @@ def choose_default_workers() -> str:
         return DEFAULT_PARALLEL_WORKERS
     threshold_env = os.environ.get("YOKE_PYTEST_RAM_THRESHOLD_MB")
     try:
-        threshold = (
-            int(threshold_env) if threshold_env else DEFAULT_RAM_THRESHOLD_MB
-        )
+        threshold = int(threshold_env) if threshold_env else DEFAULT_RAM_THRESHOLD_MB
     except ValueError:
         threshold = DEFAULT_RAM_THRESHOLD_MB
     if free_mb >= threshold:

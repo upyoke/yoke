@@ -7,6 +7,10 @@ from typing import Any, Protocol, Sequence
 
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_OPERATOR
+from yoke_core.domain.session_launch_capacity import (
+    MACHINE_AT_CAPACITY,
+    MachineCapacity,
+)
 
 
 MAX_LAUNCH_LEASE_SECONDS = 300
@@ -53,6 +57,9 @@ class EligibilitySnapshot:
     relays: tuple[EligibleRelay, ...]
     considered_machine_ids: tuple[str, ...] = ()
     rejection_codes: tuple[str, ...] = ()
+    #: Every considered machine's lanes against its cap, full ones included,
+    #: so a refusal can print the numbers rather than just the code.
+    machine_capacity: tuple[MachineCapacity, ...] = ()
 
 
 class LaunchEligibilityPort(Protocol):
@@ -92,6 +99,7 @@ class LaunchPreview:
     selected_relay: EligibleRelay | None = None
     considered_machine_ids: tuple[str, ...] = ()
     rejection_codes: tuple[str, ...] = ()
+    machine_capacity: tuple[MachineCapacity, ...] = ()
 
     @property
     def launchable(self) -> bool:
@@ -116,6 +124,7 @@ class LaunchPreview:
             "launchable": self.launchable,
             "considered_machine_ids": list(self.considered_machine_ids),
             "rejection_codes": list(self.rejection_codes),
+            "machine_capacity": [entry.to_dict() for entry in self.machine_capacity],
             "eligible_relays": [relay.to_dict() for relay in self.eligible_relays],
             "selected_relay": (
                 self.selected_relay.to_dict() if self.selected_relay else None
@@ -158,6 +167,9 @@ class LaunchRecord:
     native_launch_phase: str | None = None
     native_launch_observed_at: str | None = None
     spawn_duration_ms: int | None = None
+    #: Set while the launch waits in ``assigned`` for its machine's spawn
+    #: spacing window; cleared the moment a relay leases it.
+    spawn_hold_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -209,17 +221,19 @@ def choose_relay(
 ) -> LaunchPreview:
     relays: Sequence[EligibleRelay] = snapshot.relays
     if not relays:
-        outcome = (
-            "unsupported_surface"
-            if "unsupported_surface" in snapshot.rejection_codes
-            else "no_eligible_relay"
-        )
+        if "unsupported_surface" in snapshot.rejection_codes:
+            outcome = "unsupported_surface"
+        elif MACHINE_AT_CAPACITY in snapshot.rejection_codes:
+            outcome = MACHINE_AT_CAPACITY
+        else:
+            outcome = "no_eligible_relay"
         return LaunchPreview(
             outcome,
             surface,
             tuple(relays),
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=snapshot.rejection_codes,
+            machine_capacity=snapshot.machine_capacity,
         )
     if len(relays) == 1:
         outcome = "assigned_fallback" if fallback else "assigned"
@@ -230,6 +244,7 @@ def choose_relay(
             relays[0],
             snapshot.considered_machine_ids,
             snapshot.rejection_codes,
+            snapshot.machine_capacity,
         )
     if not machine_id and auto_select_machine:
         selected = min(
@@ -244,6 +259,7 @@ def choose_relay(
             selected,
             snapshot.considered_machine_ids,
             snapshot.rejection_codes,
+            snapshot.machine_capacity,
         )
     outcome = "relay_ambiguous" if machine_id else "machine_required"
     return LaunchPreview(
@@ -252,6 +268,7 @@ def choose_relay(
         tuple(relays),
         considered_machine_ids=snapshot.considered_machine_ids,
         rejection_codes=snapshot.rejection_codes,
+        machine_capacity=snapshot.machine_capacity,
     )
 
 

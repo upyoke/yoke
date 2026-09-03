@@ -161,6 +161,12 @@ yours:
   all models` beside `weekly · Fable`. Compare headroom across every surface
   and window; under 100% can hit a wall before its reset. Approaching walls
   go to the operator; these numbers never disable a surface or gate a launch.
+- **Capacity** — unlike plan limits, the line under each machine's launch
+  balance does gate launches. `AT CAP, launches refuse` means the plane
+  refuses there: wait for a landing to free a lane, raise
+  `max_worker_lanes` in that machine's `~/.yoke/config.json` settings, or
+  place the launch elsewhere with `--machine`. `capacity unreported` is an
+  older relay, not a roomy machine.
 
 Two things the report deliberately does not do, so do them yourself:
 
