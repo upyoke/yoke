@@ -43,6 +43,22 @@ export function harnessTargets(hits = {}, health = {}, trustSurfaces = {}) {
   }));
 }
 
+// The engine's live onboarding-run facts, defaulted to a run that produced
+// nothing: every outcome a card claims has to be set on purpose.
+export function onboardFacts(facts = {}) {
+  return {
+    run_status: "open",
+    steps_done: 0,
+    steps_total: 0,
+    next: null,
+    blocker: null,
+    scaffold_installed: false,
+    strategy_docs: false,
+    environments: [],
+    ...facts,
+  };
+}
+
 export function activationAnswer({
   states = {}, extras = {}, dismissed = [], dismissAvailable = false,
 } = {}) {
@@ -55,6 +71,7 @@ export function activationAnswer({
         (states[key] || "not_started") === "activated" ? "2026-07-20T00:00:00Z" : null,
       dismissed: dismissed.includes(key),
       submodules: [],
+      ...(key === "run_onboard" ? { onboard: null } : {}),
       ...(key === "connect_harness"
         ? { targets: harnessTargets(), projects: [], connected: null } : {}),
       ...(key === "finish_installation_wizard"

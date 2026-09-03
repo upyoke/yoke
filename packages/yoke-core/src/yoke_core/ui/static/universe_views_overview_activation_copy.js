@@ -50,14 +50,6 @@ export const MODULE_COPY = {
   connect_harness: {
     in_progress: "Open a supported harness in a project directory:",
   },
-  run_onboard: {
-    in_progress:
-      "In your harness: strategy → execution profile → Packs → envs → " +
-      "domain → infra.",
-    activated:
-      "Execution-ready — strategy filled, webapp-scaffold installed, " +
-      "stage + prod provisioned.",
-  },
   first_deploy: {
     in_progress:
       "Approve the gated infra apply + first deploy in your harness — " +
@@ -65,6 +57,34 @@ export const MODULE_COPY = {
     activated: "Live — onboarding is done.",
   },
 };
+
+// The /yoke onboard module speaks from its own checklist run, so its copy
+// is a set of sentence builders rather than one line per state. Before a
+// run exists there is nothing to report but the route; once one exists,
+// every line below names something that run actually did.
+export const ONBOARD_NO_RUN =
+  "In your harness: strategy → execution profile → Packs → envs → " +
+  "domain → infra.";
+export const onboardBlockedLine = (step, title, detail) =>
+  `Blocked at ${step} ${title}${detail ? ` — ${detail}` : ""}.`;
+export const onboardNextLine = (step, title) => `Next: ${step} ${title}.`;
+export const onboardStepsLine = (done, total) =>
+  `${done} of ${total} steps done.`;
+
+// A finished run claims only the outcomes the universe can show. A mapped
+// existing app finishes with no scaffold installed, and a run may finish
+// having deferred its environments, so each clause is earned separately.
+export const ONBOARD_OUTCOMES = {
+  strategy: "strategy filled",
+  scaffold: "webapp-scaffold installed",
+};
+export const onboardEnvironmentsOutcome = (names) =>
+  `${names.join(" + ")} provisioned`;
+export const onboardCompleteLine = (outcomes) => (
+  outcomes.length
+    ? `Execution-ready — ${outcomes.join(", ")}.`
+    : "Onboarding checklist complete."
+);
 
 // Day-zero ghost panels: hint line per section, keyed to the module whose
 // activation retires the ghost.

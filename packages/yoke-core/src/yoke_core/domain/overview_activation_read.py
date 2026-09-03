@@ -14,7 +14,10 @@ hosted machine connection, forwarded verbatim in ``host_facts``):
   (an ``aws-admin`` ``project_capabilities`` row — declared, no verifier
   writes ``verified_at`` today) are the recommended tail.
 * ``connect_harness`` — any ``harness_sessions`` row.
-* ``run_onboard`` — any ``project_onboarding_runs`` row.
+* ``run_onboard`` — an onboarding checklist run with no open rows
+  (:mod:`yoke_core.domain.overview_onboard_progress`). A run row exists
+  from the checklist's first write, so existence alone once activated the
+  module over a run blocked at its first hosting step.
 * ``first_deploy`` — any ``deployment_runs`` row with status succeeded.
 
 Latched activation is monotone: once a module's signal has been observed
@@ -38,6 +41,10 @@ from yoke_core.domain.harness_machine_state import read_harness_machine_reports
 from yoke_core.domain.overview_harness_hook_health import (
     harness_targets,
     session_identities,
+)
+from yoke_core.domain.overview_onboard_progress import (
+    read_onboard_progress,
+    run_is_complete,
 )
 from yoke_core.domain.schema_common import _table_exists
 
@@ -122,10 +129,7 @@ def read_signals(conn: Any) -> Dict[str, Any]:
             if latest is not None else None
         ),
         "project_directories": directories,
-        "onboard_run_exists": _guarded_exists(
-            conn, "project_onboarding_runs",
-            "SELECT 1 FROM project_onboarding_runs",
-        ),
+        "onboard_progress": read_onboard_progress(conn),
         "deploy_succeeded": _guarded_exists(
             conn, "deployment_runs",
             "SELECT 1 FROM deployment_runs WHERE status = 'succeeded'",
@@ -216,7 +220,7 @@ def compute_activation(
             machine_connected is True and signals["projects_exist"]
         ),
         MODULE_CONNECT_HARNESS: signals["sessions_exist"],
-        MODULE_RUN_ONBOARD: signals["onboard_run_exists"],
+        MODULE_RUN_ONBOARD: run_is_complete(signals["onboard_progress"]),
         MODULE_FIRST_DEPLOY: signals["deploy_succeeded"],
     }
     latched = latch_activations(conn, satisfied)
@@ -244,6 +248,8 @@ def compute_activation(
             module["fully_complete"] = all(
                 row["done"] for row in submodules
             )
+        if key == MODULE_RUN_ONBOARD:
+            module["onboard"] = signals["onboard_progress"]
         if key == MODULE_CONNECT_HARNESS:
             module["targets"] = harness_targets(
                 signals["harness_identities"],

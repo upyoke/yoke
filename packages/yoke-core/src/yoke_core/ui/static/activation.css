@@ -96,6 +96,12 @@
   margin: 7px 0 0;
   font-size: 13px;
 }
+/* The onboarding run's step count, under the line naming what it is on. */
+.universe-app-root .activation-progress {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--yoke-muted);
+}
 .universe-app-root .activation-cta {
   margin: 7px 0 0;
   font-size: 13.5px;

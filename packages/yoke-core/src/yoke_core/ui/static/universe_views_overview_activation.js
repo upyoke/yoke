@@ -31,6 +31,7 @@ import {
   WIZARD_TAIL_KEYS,
 } from "./universe_views_overview_activation_copy.js";
 import { renderHarnessTargets } from "./universe_views_overview_activation_health.js";
+import { onboardBody } from "./universe_views_overview_activation_onboard.js";
 
 // Minimal relative formatter for "connected <x> ago": the app has no shared
 // clock helper yet and this copy needs only a coarse honest magnitude.
@@ -219,6 +220,8 @@ function renderModule(context, module, position, result, draw, viewState) {
     wizardBody(documentNode, module, viewState.mode, body);
   } else if (module.key === "connect_harness") {
     harnessBody(documentNode, module, body);
+  } else if (module.key === "run_onboard") {
+    onboardBody(documentNode, module, body);
   } else {
     const copy = (MODULE_COPY[module.key] || {})[module.state];
     if (copy) body.appendChild(el(documentNode, "p", "activation-copy", copy));
