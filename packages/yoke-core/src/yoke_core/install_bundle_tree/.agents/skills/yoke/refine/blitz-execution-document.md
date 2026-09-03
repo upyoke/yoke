@@ -14,7 +14,7 @@ CLI adapters:
 | `strategy.doc.list` | Project target; empty payload | `yoke strategy doc list --project PROJECT --json` |
 | `strategy.doc.get` | Project target; `slug` | `yoke strategy doc get SLUG --project PROJECT --json` |
 | `strategy.execution.get` | Blitz item target; empty payload | `yoke strategy execution get ITEM --project PROJECT --json` |
-| `strategy.execution.link` | Blitz item target; `slug` | `yoke strategy execution link ITEM --slug SLUG --project PROJECT --json` |
+| `strategy.execution.link` | Item target; `slug` (for a Blitz this document is also its execution plan) | `yoke strategy execution link ITEM --slug SLUG --project PROJECT --json` |
 
 The link is item metadata. It does not acquire the item-owned document claim.
 `/yoke blitz` acquires that claim atomically at activation through the
