@@ -2,14 +2,14 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-03T03:49:58Z_
+_Audit generated_at: 2026-09-03T04:13:28Z_
 
 ## 1. Summary
 
 - Function ids registered: **444**
 - Internal dispatch-only functions without CLI adapters: **87**
 - `yoke` CLI subcommands: **372** (372 carry usable `--help`)
-- Operation tracker: **348 wrapped**, 14 tool_cli, 132 permanent, 0 pending
+- Operation tracker: **348 wrapped**, 14 tool_cli, 136 permanent, 0 pending
 - Skill-body recipes: 336 total (283 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
@@ -450,6 +450,10 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | local_universe.postgres | `yoke local-postgres start` | tool_shaped | — |
 | local_universe.postgres | `yoke local-postgres status` | tool_shaped | — |
 | local_universe.postgres | `yoke local-postgres stop` | tool_shaped | — |
+| local_universe.ui | `yoke ui down` | tool_shaped | — |
+| local_universe.ui | `yoke ui serve-process` | tool_shaped | — |
+| local_universe.ui | `yoke ui status` | tool_shaped | — |
+| local_universe.ui | `yoke ui up` | tool_shaped | — |
 | local_universe.ui | `yoke ui` | tool_shaped | — |
 | local_universe.validate | `yoke universe validate` | tool_shaped | — |
 | merge | `yoke merge audit` | tool_shaped | — |
@@ -560,8 +564,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| claude-code | 29 |
-| codex | 21 |
+| claude-code | 30 |
+| codex | 20 |
 
 ## 8. Contradictions
 
