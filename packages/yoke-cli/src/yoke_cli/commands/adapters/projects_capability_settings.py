@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -36,7 +36,41 @@ PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE = (
 )
 
 
+# ``--key``/``--value`` belong to the machine-local secret surface, not to
+# settings: a settings document is one JSON object per capability, so there is
+# no scalar flag pair to take. Two separate runs guessed the secret surface's
+# flags here and read argparse's "unrecognized arguments" as a typo rather than
+# a wrong command, so the refusal names the real scalar write, the aggregate
+# read, and the secret surface those flags actually belong to.
+_SCALAR_FLAGS = ("--key", "--value")
+
+
+def _refuse_scalar_key_value(args: List[str]) -> Optional[int]:
+    """Refuse ``--key``/``--value``, naming what each of them is for."""
+    used = [
+        flag
+        for flag in _SCALAR_FLAGS
+        if any(arg == flag or arg.startswith(f"{flag}=") for arg in args)
+    ]
+    if not used:
+        return None
+    return usage_error(
+        f"capability-settings takes no {' or '.join(used)}: a capability's "
+        "settings are one JSON document. Write one key with `yoke projects "
+        "capability-settings merge --project NAME --cap-type TYPE --set "
+        "key.path=value` (it creates the row when absent and CAS-updates it "
+        "otherwise); read the whole document with `yoke projects "
+        "capability-settings get --project NAME --cap-type TYPE`. Secret "
+        "material is a different surface and is where --key belongs: `yoke "
+        "projects capability secret set --project NAME --cap-type TYPE --key "
+        "KEY --value-stdin`."
+    )
+
+
 def projects_capability_settings_get(args: List[str]) -> int:
+    refusal = _refuse_scalar_key_value(args)
+    if refusal is not None:
+        return refusal
     parser = argparse.ArgumentParser(
         prog="yoke projects capability-settings get",
         description=(
@@ -71,6 +105,9 @@ def projects_capability_settings_get(args: List[str]) -> int:
 
 
 def projects_capability_settings_set(args: List[str]) -> int:
+    refusal = _refuse_scalar_key_value(args)
+    if refusal is not None:
+        return refusal
     parser = argparse.ArgumentParser(
         prog="yoke projects capability-settings set",
         description=(

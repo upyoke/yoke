@@ -35,7 +35,7 @@ Later, when AWS arrives: re-run `/yoke onboard`. Step 4 connect:
 ```
 yoke projects capability secret set --project {p} --cap-type aws-admin --key access_key_id --value-stdin
 yoke projects capability secret set --project {p} --cap-type aws-admin --key secret_access_key --value-stdin
-yoke projects capability-settings set --project {p} --cap-type aws-admin --key region --value {region}
+yoke projects capability-settings merge --project {p} --cap-type aws-admin --set region={region}
 yoke aws exec --project {p} -- sts get-caller-identity --output json
 ```
 

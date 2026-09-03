@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-from yoke_cli.config import install_binding
+from yoke_cli.config import capability_secrets, install_binding
 from yoke_contracts.api_urls import (
     AWS_BOOTSTRAP_TEMPLATE_PROD_URL,
     AWS_BOOTSTRAP_TEMPLATE_STAGE_URL,
@@ -39,6 +39,8 @@ from yoke_contracts.machine_config import schema as machine_schema
 CAPABILITY_TYPE = secret_contract.AWS_ADMIN_CAPABILITY
 ACCESS_KEY_ID_KEY = "access_key_id"
 SECRET_ACCESS_KEY_KEY = "secret_access_key"
+#: Both halves a deploy needs, in the order the credential resolver reads them.
+REQUIRED_CREDENTIAL_KEYS = (ACCESS_KEY_ID_KEY, SECRET_ACCESS_KEY_KEY)
 
 # CloudFormation stack the one-click link creates, and the region the console
 # opens in when the shell names none.
@@ -187,19 +189,39 @@ def credential_dir_display(project_slug: str) -> str:
         return f"{directory}/"
 
 
-def credential_saved(project_slug: str) -> bool:
-    """Whether both halves of the pair are already on this machine."""
+def present_credential_keys(project_slug: str) -> tuple[str, ...]:
+    """Which halves of the pair this machine holds, resolver order.
+
+    Presence is read through the same path function the credential resolver
+    reads the value with, so "Yoke can find it" and "the file is there" can
+    never disagree — the whole point of asking is to tell a missing row apart
+    from missing secret material.
+    """
     slug = str(project_slug or "").strip()
     if not slug:
-        return False
-    try:
-        directory = credential_dir(slug)
-    except (OSError, ValueError):
-        return False
-    return all(
-        (directory / key).is_file()
-        for key in (ACCESS_KEY_ID_KEY, SECRET_ACCESS_KEY_KEY)
-    )
+        return ()
+    present: list[str] = []
+    for key in REQUIRED_CREDENTIAL_KEYS:
+        try:
+            path = capability_secrets.machine_capability_secret_path(
+                slug, CAPABILITY_TYPE, key,
+            )
+        except (OSError, ValueError):
+            continue
+        if path.is_file():
+            present.append(key)
+    return tuple(present)
+
+
+def missing_credential_keys(project_slug: str) -> tuple[str, ...]:
+    """Which halves of the pair are absent from this machine."""
+    present = set(present_credential_keys(project_slug))
+    return tuple(key for key in REQUIRED_CREDENTIAL_KEYS if key not in present)
+
+
+def credential_saved(project_slug: str) -> bool:
+    """Whether both halves of the pair are already on this machine."""
+    return not missing_credential_keys(project_slug)
 
 
 def store_credential(
@@ -254,12 +276,15 @@ __all__ = [
     "DEFAULT_REGION",
     "HostingCredentialError",
     "HostingVerificationError",
+    "REQUIRED_CREDENTIAL_KEYS",
     "SECRET_ACCESS_KEY_KEY",
     "build_version",
     "credential_dir",
     "credential_dir_display",
     "credential_saved",
     "default_region",
+    "missing_credential_keys",
+    "present_credential_keys",
     "bootstrap_template_base_url",
     "quick_create_url",
     "store_credential",

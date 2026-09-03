@@ -15,7 +15,7 @@ from yoke_cli.config import local_universe_setup
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_path
 from yoke_cli.config import onboard_apply_connection
-from yoke_cli.config import onboard_apply_hosting_posture
+from yoke_cli.config import onboard_apply_project_handoff
 from yoke_cli.config import onboard_bridge
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
@@ -57,6 +57,7 @@ def build_report(
     machine_github_api_url: str | None = None,
     hosting_choice: str = hosting_posture.POSTURE_UNDECIDED,
     hosting_provider_note: str | None = None,
+    hosting_verification: dict[str, Any] | None = None,
     path_repair: dict[str, Any] | None = None,
     project_mode: str = PROJECT_MODE_MACHINE_ONLY,
     project_remote_url: str | None = None,
@@ -294,30 +295,21 @@ def build_report(
     report["applied"] = True
     report["message"] = "machine config written"
     if normalized_project_mode != PROJECT_MODE_MACHINE_ONLY:
-        source_target = onboard_report.source_choice_target(
-            normalized_project_mode, project_inputs
-        )
-        if not reuse.get("project_identity"):
-            onboard_apply_progress.emit(
-                progress, "project-source-choice", source_target, "done"
-            )
-        report["project_onboarding"] = onboard_bridge.project_report(
+        onboard_apply_project_handoff.apply(
+            report,
             error_cls=OnboardError,
             config_path=cfg_path,
-            apply=True,
+            project_mode=normalized_project_mode,
             project_inputs=project_inputs,
             reuse=reuse,
             progress=progress,
             service_api_url=api_url or None,
             local_connection_selected=local_destination,
+            project_slug=project_slug,
+            hosting_choice=hosting_choice,
+            hosting_provider_note=hosting_provider_note,
+            hosting_verification=hosting_verification,
         )
-        report["hosting_posture"] = onboard_apply_hosting_posture.record(
-            project=str(project_slug or ""),
-            posture=hosting_choice,
-            provider_note=hosting_provider_note,
-            config_path=cfg_path,
-        )
-        report["message"] = "machine config and project handoff written"
     return report
 
 

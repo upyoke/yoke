@@ -52,12 +52,19 @@ yoke onboard checklist --run-id {run_id} \
 
 The operator's hosting answer survives that block: it is a missing prerequisite, not a change of mind, so do not rewrite the posture row or propose the no-managed-host branch instead.
 
-### Skip probe
+### Read both halves before asking for anything
 
-With the prerequisite established, check the capability row, then prove it live. The probe runs the AWS CLI with the project's `aws-admin` credentials materialized by the capability resolver into the subprocess env only — nothing is exported into the shell and no secret value is ever printed:
+`aws-admin` is two facts, not one. The capability row lives in the connected control plane and carries the non-secret settings (`region`, and `account_id` once an identity probe has named it); the access-key pair lives only on this machine under the capability secret store. A deploy needs both, each is filled by a different command, and **either can be present without the other** — a wizard run that stored the pair on a machine whose project row was never registered leaves the credential on disk and the row absent. Asking for the two secret values again would be asking the operator to re-enter what is already saved.
+
+With the prerequisite established, read both halves in one call. It names the missing half and only the command that fills that half:
 
 ```bash
-yoke projects capability has --project {project} --cap-type aws-admin --json
+yoke aws admin-status --project {project} --json
+```
+
+`ready: true` → prove it live. The probe runs the AWS CLI with the project's `aws-admin` credentials materialized by the capability resolver into the subprocess env only — nothing is exported into the shell and no secret value is ever printed:
+
+```bash
 yoke aws exec --project {project} -- sts get-caller-identity --output json
 ```
 
@@ -66,28 +73,37 @@ Both pass → mark and skip:
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status hosting-setup=verified \
-  --evidence hosting-setup="aws-admin present; identity probe passed (account {redacted_account}, arn type only)"
+  --evidence hosting-setup="aws-admin row + machine credential pair present; identity probe passed (account {redacted_account}, arn type only)"
 ```
 
-Capability row present but the probe fails → the stored credentials are stale or wrong. Surface as blocked with the re-set recipe; do not guess or retry with ambient shell credentials:
+Ready but the probe fails → the stored credentials are stale or wrong (not missing). Surface as blocked with the re-set recipe; do not guess or retry with ambient shell credentials:
 
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status hosting-setup=blocked \
-  --blocker hosting-setup="aws-admin present but identity probe failed; re-set via: yoke projects capability secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin (and --key secret_access_key), then re-run /yoke onboard --run-id {run_id}"
+  --blocker hosting-setup="aws-admin row + credential pair present but identity probe failed; re-set via: yoke projects capability secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin (and --key secret_access_key), then re-run /yoke onboard --run-id {run_id}"
 ```
 
-### Connect (only when the capability is absent)
+### Fill only the missing half
 
-Creating cloud credentials is always user-action plus explicit approval, and the AWS CLI preflight above has to pass first — a key created for a machine that cannot run the CLI is an unusable credential the operator has to rotate later. Guide the operator to create the access key pair in their own provider console; the two values go into the terminal `--value-stdin` prompts — **never into the chat**:
+`ready: false` names `missing` as `capability_row`, `machine_secrets`, or both, and `remedy` carries the exact command per missing half. Run only those; never a command for a half the report says is present.
 
-```bash
-yoke projects capability secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin
-yoke projects capability secret set --project {project} --cap-type aws-admin --key secret_access_key --value-stdin
-yoke projects capability-settings set --project {project} --cap-type aws-admin --key region --value {region}
-```
+- `missing: ["capability_row"]` — the pair is already on this machine and the project simply has no row. Register it with the settings merge, which creates an absent capability and CAS-updates an existing one, so re-running converges:
 
-Non-secret settings live on the project capability; secret material lands only in the machine-local capability secret store. Verify with the same identity probe above, then mark `hosting-setup=configured` with redacted evidence and record the matching posture (`"posture": "aws-admin"`) so later runs skip the question. The operator may instead defer hosting entirely (`hosting-setup=deferred` with the reason, writing no posture row); step 7 then stays unreachable and step 8 still runs.
+  ```bash
+  yoke projects capability-settings merge --project {project} --cap-type aws-admin --set region={region}
+  ```
+
+  Do not ask for the access key again, and do not reach for `capability-settings set --key ... --value ...` — settings are one JSON document per capability and that flag pair does not exist there. `--key` belongs to the secret surface below.
+
+- `missing: ["machine_secrets"]` (or both halves) — creating cloud credentials is always user-action plus explicit approval, and the AWS CLI preflight above has to pass first — a key created for a machine that cannot run the CLI is an unusable credential the operator has to rotate later. Guide the operator to create the access key pair in their own provider console; the two values go into the terminal `--value-stdin` prompts — **never into the chat**. Import only the keys the report listed as missing:
+
+  ```bash
+  yoke projects capability secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin
+  yoke projects capability secret set --project {project} --cap-type aws-admin --key secret_access_key --value-stdin
+  ```
+
+Non-secret settings live on the project capability; secret material lands only in the machine-local capability secret store. Re-run `yoke aws admin-status` until `ready: true`, verify with the same identity probe above, then mark `hosting-setup=configured` with redacted evidence and record the matching posture (`"posture": "aws-admin"`) so later runs skip the question. The operator may instead defer hosting entirely (`hosting-setup=deferred` with the reason, writing no posture row); step 7 then stays unreachable and step 8 still runs.
 
 ### Remaining capabilities
 

@@ -15,6 +15,7 @@ from typing import Dict, Tuple
 
 from yoke_cli.commands.adapters.aws import (
     aws_admin_link,
+    aws_admin_status,
     aws_exec,
     aws_preflight,
 )
@@ -44,6 +45,7 @@ from yoke_cli.commands.flag_adapters import (
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("aws", "admin-link"): aws_admin_link,
+    ("aws", "admin-status"): aws_admin_status,
     ("aws", "exec"): aws_exec,
     ("aws", "preflight"): aws_preflight,
     ("github", "connect"): github_connect,
@@ -80,6 +82,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "yoke vps start --stack STACK [--project PROJECT] [--region REGION]"
     ),
     "yoke aws admin-link": "yoke aws admin-link [--project PROJECT] [--region REGION]",
+    "yoke aws admin-status": "yoke aws admin-status [--project PROJECT] [--json]",
     "yoke aws exec": "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>",
     "yoke aws preflight": "yoke aws preflight",
     "yoke github connect": "yoke github connect [--replace] [--add-installation] [--config PATH] [--json]",

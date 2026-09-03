@@ -247,9 +247,10 @@ def test_onboard_binds_the_confirmed_test_setup_to_the_gate():
 
 def test_onboard_teaches_hosting_probe_and_stdin_secrets():
     text = _read(ONBOARD_DIR / "hosting-and-environments.md")
-    assert (
-        "yoke projects capability has --project {project} --cap-type aws-admin" in text
-    )
+    # The row and the machine credential pair are separate halves, and the
+    # step reads both before asking for anything: an operator whose pair is
+    # already on disk must never be asked to paste it again.
+    assert "yoke aws admin-status --project {project} --json" in text
     assert "yoke aws exec --project {project} -- sts get-caller-identity" in text
     assert "yoke projects capability secret set" in text
     assert "--value-stdin" in text
@@ -257,6 +258,18 @@ def test_onboard_teaches_hosting_probe_and_stdin_secrets():
     assert "disabled" in text
     bundle = _onboard_bundle()
     assert "never printed" in bundle or "never print" in bundle.lower()
+
+
+def test_onboard_fills_only_the_missing_aws_admin_half():
+    """Each half has its own command; neither is taught for the other."""
+    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
+    assert (
+        "yoke projects capability-settings merge --project {project} "
+        "--cap-type aws-admin --set region={region}" in text
+    )
+    # The scalar flag pair does not exist on the settings surface.
+    assert "capability-settings set --project {project}" not in text
+    assert "capability_row" in text and "machine_secrets" in text
 
 
 def test_onboard_teaches_environment_and_flow_registration():
