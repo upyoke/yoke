@@ -22,13 +22,16 @@ daemon; screenshot remains diagnostic tooling and records no QA verdict.
 
 ## Prerequisites
 
-- Node.js 18+
-- npm
+Network access. Nothing else.
 
 On first use, Yoke copies these packaged sources to the machine runtime,
-runs `npm install` there when dependencies are missing, and installs Chromium
-when Playwright cannot find a browser binary. Set `YOKE_BROWSER_AUTOINSTALL=0`
-to refuse automatic npm/browser installation and report the missing dependency.
+resolves a Node 18+ toolchain — one already on `PATH`, or a pinned release it
+downloads into `~/.yoke/node/<version>/` when the host has none — runs
+`npm install` there when dependencies are missing, and installs Chromium when
+Playwright cannot find a browser binary. Set `YOKE_BROWSER_AUTOINSTALL=0` to
+refuse automatic npm/browser installation and report the missing dependency;
+the Node toolchain is resolved before that switch is consulted, because the
+daemon cannot start without one.
 
 ## Development Lanes
 

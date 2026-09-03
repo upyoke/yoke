@@ -8,6 +8,9 @@ import subprocess
 
 import pytest
 
+from runtime.api.cli.browser_toolchain_test_support import (
+    install_fake_toolchain,
+)
 from yoke_cli.config import browser_profile
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 from yoke_cli.commands import browser_authorize as authorize_command
@@ -147,7 +150,7 @@ def _stub_daemon_start(monkeypatch, tmp_path, state_loads):
         browser_client.subprocess,
         "run",
         lambda command, **_kwargs: subprocess.CompletedProcess(
-            command, 0, "ok" if command[:2] == ["node", "-e"] else "", "",
+            command, 0, "ok" if command[1:2] == ["-e"] else "", "",
         ),
     )
 
@@ -167,6 +170,7 @@ def _stub_daemon_start(monkeypatch, tmp_path, state_loads):
         return FakeProcess()
 
     monkeypatch.setattr(browser_client.subprocess, "Popen", fake_popen)
+    install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return launched
 
 
@@ -264,6 +268,7 @@ def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(authorize_command.subprocess, "run", fake_run)
+    install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return calls
 
 
@@ -278,7 +283,8 @@ def test_authorize_creates_the_profile_and_opens_the_window(
     assert profile.is_dir()
     command = calls[0]["command"]
     assert command[:2] == [
-        "node", str(tmp_path / "browser-runtime" / "src" / "authorize.js"),
+        str(tmp_path / "node-bin" / "node"),
+        str(tmp_path / "browser-runtime" / "src" / "authorize.js"),
     ]
     assert command[2:4] == ["--profile-dir", str(profile)]
 

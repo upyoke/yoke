@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import subprocess
 
+import pytest
+
+from runtime.api.cli.browser_toolchain_test_support import (
+    install_fake_toolchain,
+)
+from yoke_cli.browser_node_toolchain import NodeToolchainError
 from yoke_harness import browser_client
 from yoke_harness import browser_linux_deps
 from yoke_harness.browser_linux_deps import AMAZON_LINUX_CHROMIUM_DEPS
@@ -33,9 +39,9 @@ def _prepare_browser_start(tmp_path, monkeypatch):
         )
 
     def fake_run(command, **_kwargs):
-        if command[:2] == ["which", "node"]:
-            return subprocess.CompletedProcess(command, 0, "", "")
-        if command[:2] == ["node", "-e"]:
+        # The Chromium-presence probe is the only command whose output the
+        # launch path reads; it answers "missing" so the install runs.
+        if command[1:2] == ["-e"]:
             return subprocess.CompletedProcess(command, 0, "missing", "")
         return subprocess.CompletedProcess(command, 0, "", "")
 
@@ -58,11 +64,12 @@ def _prepare_browser_start(tmp_path, monkeypatch):
         },
     )
     monkeypatch.setattr(browser_client.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
-    return browser, fake_run
+    toolchain = install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
+    return browser, fake_run, toolchain
 
 
 def test_linux_chromium_install_asks_playwright_for_os_deps(tmp_path, monkeypatch) -> None:
-    _browser, base_fake_run = _prepare_browser_start(tmp_path, monkeypatch)
+    _browser, base_fake_run, toolchain = _prepare_browser_start(tmp_path, monkeypatch)
     commands: list[list[str]] = []
     monkeypatch.setattr(browser_client, "is_amazon_linux", lambda: False)
     monkeypatch.setattr(browser_client, "amazon_linux_chromium_deps_command", lambda: [])
@@ -78,11 +85,13 @@ def test_linux_chromium_install_asks_playwright_for_os_deps(tmp_path, monkeypatc
         "endpoint": "http://127.0.0.1:9000",
         "pid": 123,
     }
-    assert ["npx", "playwright", "install", "--with-deps", "chromium"] in commands
+    assert [
+        str(toolchain.npx), "playwright", "install", "--with-deps", "chromium",
+    ] in commands
 
 
 def test_amazon_linux_installs_dnf_deps_before_chromium(tmp_path, monkeypatch) -> None:
-    _browser, base_fake_run = _prepare_browser_start(tmp_path, monkeypatch)
+    _browser, base_fake_run, toolchain = _prepare_browser_start(tmp_path, monkeypatch)
     commands: list[list[str]] = []
     deps = ["sudo", "dnf", "install", "-y", *AMAZON_LINUX_CHROMIUM_DEPS]
     monkeypatch.setattr(browser_client, "is_amazon_linux", lambda: True)
@@ -96,11 +105,14 @@ def test_amazon_linux_installs_dnf_deps_before_chromium(tmp_path, monkeypatch) -
 
     assert browser_client.daemon_start()["status"] == "started"
     assert deps in commands
-    assert ["npx", "playwright", "install", "chromium"] in commands
-    assert ["npx", "playwright", "install", "--with-deps", "chromium"] not in commands
+    assert [str(toolchain.npx), "playwright", "install", "chromium"] in commands
+    assert [
+        str(toolchain.npx), "playwright", "install", "--with-deps", "chromium",
+    ] not in commands
 
 
-def test_daemon_start_missing_node_points_to_browser_setup(tmp_path, monkeypatch) -> None:
+def test_daemon_start_surfaces_the_toolchain_refusal(tmp_path, monkeypatch) -> None:
+    """An unprovisionable Node reaches the caller as a named, actionable refusal."""
     browser = tmp_path / "browser"
     browser.joinpath("src").mkdir(parents=True)
     browser.joinpath("src", "daemon.js").write_text("", encoding="utf-8")
@@ -111,21 +123,24 @@ def test_daemon_start_missing_node_points_to_browser_setup(tmp_path, monkeypatch
     monkeypatch.setattr(
         browser_client.DaemonState, "load", staticmethod(lambda path=None: None),
     )
-    monkeypatch.setattr(
-        browser_client.subprocess,
-        "run",
-        lambda command, **_kwargs: subprocess.CompletedProcess(command, 1, "", ""),
+    refusal = NodeToolchainError(
+        "the pinned Node.js release could not be fetched.",
+        code="node_download_failed",
+        recovery="confirm this host can reach nodejs.org/dist",
     )
 
-    try:
-        browser_client.daemon_start()
-    except RuntimeError as exc:
-        message = str(exc)
-    else:
-        raise AssertionError("daemon_start should require Node.js")
+    def refuse(*_args, **_kwargs):
+        raise refusal
 
-    assert "Node.js 18+" in message
-    assert "yoke qa browser setup" in message
+    monkeypatch.setattr(
+        browser_client.browser_node_toolchain, "ensure_node_toolchain", refuse
+    )
+
+    with pytest.raises(NodeToolchainError) as raised:
+        browser_client.daemon_start()
+
+    assert raised.value.code == "node_download_failed"
+    assert "nodejs.org/dist" in str(raised.value)
 
 
 def test_amazon_linux_deps_command_uses_sudo_dnf_when_packages_missing(monkeypatch) -> None:

@@ -10,6 +10,9 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.cli.browser_toolchain_test_support import (
+    install_fake_toolchain,
+)
 from yoke_cli.config import browser_profile
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,
@@ -118,6 +121,7 @@ def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(authorize_command.subprocess, "run", fake_run)
+    install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return calls
 
 
@@ -245,7 +249,7 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
         browser_client.subprocess,
         "run",
         lambda command, **_kwargs: subprocess.CompletedProcess(
-            command, 0, "ok" if command[:2] == ["node", "-e"] else "", "",
+            command, 0, "ok" if command[1:2] == ["-e"] else "", "",
         ),
     )
 
@@ -260,3 +264,4 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
         return FakeProcess()
 
     monkeypatch.setattr(browser_client.subprocess, "Popen", fake_popen)
+    install_fake_toolchain(monkeypatch, tmp_path / "node-bin")

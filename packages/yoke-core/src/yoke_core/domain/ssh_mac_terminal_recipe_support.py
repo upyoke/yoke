@@ -11,7 +11,7 @@ from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_recipe_contracts import (
     REGISTERED_STAGE_URLS,
 )
-from yoke_core.resilient_fetch import FetchError, fetch_bytes
+from yoke_cli.resilient_fetch import FetchError, fetch_bytes
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 
 

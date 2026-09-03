@@ -34,9 +34,11 @@ on consent when missing). Everything else is deferred until it is needed:
   no git.
 - Optional: a Yoke GitHub App connection for GitHub product commands.
 
-Python is uv-provisioned, not a user prerequisite. Node.js, npm, and the
-Playwright browser runtime are deferred to first `yoke qa browser` use — see
-[docs/browser-substrate.md](browser-substrate.md).
+Python is uv-provisioned, not a user prerequisite, and neither is Node.js:
+Node, npm, and the Playwright browser runtime are provisioned on first
+`yoke qa browser` use — a pinned Node release is downloaded and checksum-
+verified when the host has none, so a clean machine needs no package manager
+of its own. See [docs/browser-substrate.md](browser-substrate.md).
 
 ### 1. Install the CLI
 

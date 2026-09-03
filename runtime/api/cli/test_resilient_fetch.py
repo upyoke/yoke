@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core import resilient_fetch
+from yoke_cli import resilient_fetch
 
 
 URL = "https://artifacts.example.test/release.tar.gz"
@@ -20,10 +20,10 @@ URL = "https://artifacts.example.test/release.tar.gz"
 def test_gateway_imports_before_project_dependencies_are_installed() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(repo_root / "packages/yoke-core/src")
+    env["PYTHONPATH"] = str(repo_root / "packages/yoke-cli/src")
 
     completed = subprocess.run(
-        [sys.executable, "-S", "-m", "yoke_core.resilient_fetch"],
+        [sys.executable, "-S", "-m", "yoke_cli.resilient_fetch"],
         cwd=repo_root,
         env=env,
         capture_output=True,
