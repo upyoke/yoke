@@ -309,11 +309,9 @@ test("fully deployed: every module reads activated with its copy", async (t) => 
     cards.map((card) => byClass(card, "pill")[0].textContent),
     ["activated", "activated", "activated", "activated"],
   );
-  assert.ok(textOf(cards[2]).includes(
-    "Execution-ready — strategy filled, webapp-scaffold installed, " +
-    "stage + prod provisioned.",
-  ));
   assert.ok(textOf(cards[3]).includes("Live — onboarding is done."));
+  // The onboarding card draws its own copy from the run's checklist facts;
+  // universe_ui_overview_activation_onboard.test.mjs owns those derivations.
   mounted.unmount();
 });
 

@@ -161,24 +161,17 @@ def test_activation_is_monotone_across_signal_disappearance(test_db):
     assert _modules_by_key(_get())["run_onboard"]["state"] == "not_started"
 
 
-def test_onboard_and_deploy_signals_activate_their_modules(test_db):
-    now = iso8601_now()
-    test_db.execute(
-        "INSERT INTO project_onboarding_runs (run_id, schema_version, "
-        "project_id, branch, status, metadata_json, created_at, updated_at) "
-        "VALUES ('run-abc', 1, 1, 'main', 'running', '{}', %s, %s)",
-        (now, now),
-    )
+def test_deploy_signal_activates_only_on_a_succeeded_run(test_db):
+    # The onboarding signal and the facts its card draws from live in
+    # test_overview_activation_onboard_signal.py.
     test_db.execute(
         "INSERT INTO deployment_runs (id, project_id, flow, status, "
         "created_at) VALUES ('run-20260101-001', 1, 'flow-x', 'failed', %s)",
-        (now,),
+        (iso8601_now(),),
     )
     test_db.commit()
-    modules = _modules_by_key(_get())
-    assert modules["run_onboard"]["state"] == "activated"
     # A failed run is not a first deploy.
-    assert modules["first_deploy"]["state"] == "not_started"
+    assert _modules_by_key(_get())["first_deploy"]["state"] == "not_started"
 
     test_db.execute(
         "UPDATE deployment_runs SET status = 'succeeded' "
