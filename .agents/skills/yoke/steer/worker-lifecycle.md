@@ -215,8 +215,12 @@ carries only a turn that names something to act on: a stop body with no
 failure, blocker, conflict, decision, question, or terminal outcome in it is
 recorded as `SteeringReportSkipped` and never delivered, because a worker
 that stops every few minutes while its gate runs was costing this seat a hand
-acknowledgement per wait note. Read those stops from the events ledger when
-you want them; the inbox holds the reports. A session
+acknowledgement per wait note. The inbox holds the reports; read the stops it
+did not carry from the events ledger:
+
+```text
+yoke events query --event-name SteeringReportSkipped --session WORKER-SESSION-ID
+``` A session
 the operator launched, and a session a person opened, are both outside the relay:
 they reach whichever seat holds their scope with `yoke say --steering` when
 there is something that seat must act on. That boundary is why an operator's
