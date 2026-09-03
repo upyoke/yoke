@@ -26,7 +26,7 @@ def test_relay_diagnostic_emits_exact_private_capture_to_operator(
     monkeypatch.setattr(relay, "_read_diagnostic", lambda _reference: b"raw\x00error")
     monkeypatch.setattr(relay.sys, "stdout", output)
 
-    assert relay.relay_diagnostic(["nd-" + "a" * 32]) == 0
+    assert relay.relay_diagnostic(["nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]) == 0
     assert output.buffer.getvalue() == b"raw\x00error\n"
 
 
@@ -38,7 +38,7 @@ def test_relay_diagnostic_allows_same_machine_user_read_from_subagent_context(
     monkeypatch.setattr(relay, "_read_diagnostic", lambda _reference: b"details")
     monkeypatch.setattr(relay.sys, "stdout", output)
 
-    assert relay.relay_diagnostic(["nd-" + "a" * 32]) == 0
+    assert relay.relay_diagnostic(["nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]) == 0
     assert output.buffer.getvalue() == b"details\n"
 
 
@@ -83,13 +83,13 @@ def test_relay_diagnostic_reports_safe_unavailable_error(
 
     monkeypatch.setattr(relay, "_read_diagnostic", unavailable)
 
-    assert relay.relay_diagnostic(["nd-" + "a" * 32]) == 1
+    assert relay.relay_diagnostic(["nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]) == 1
     assert "relay_diagnostic_unavailable" in capsys.readouterr().err
 
 
 def test_relay_poll_human_output_names_location_and_retrieval_recipe() -> None:
     output = StringIO()
-    reference = "nd-" + "a" * 32
+    reference = "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
     relay.write_relay_summary(
         {
@@ -147,7 +147,7 @@ def test_relay_poll_human_output_keeps_typed_failure_when_capture_unavailable() 
 
 def test_message_attempt_output_names_diagnostic_without_raw_stderr() -> None:
     output = StringIO()
-    reference = "nd-" + "b" * 32
+    reference = "nd-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
     write_message_result(
         {
             "message": {

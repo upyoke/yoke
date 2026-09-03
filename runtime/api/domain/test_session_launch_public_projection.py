@@ -59,7 +59,7 @@ def _prepared_launch(conn):
                     "duration_ms": 17,
                     "machine_id": "machine-1",
                     "relay_id": "machine:machine-1",
-                    "native_diagnostic_ref": "nd-" + "a" * 32,
+                    "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
                     "stdout": "secret output",
                     "stderr": "secret error",
                     "argv": ["secret", "argument"],
@@ -108,8 +108,8 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
         "adapter_revision": "adapter-v2",
         "duration_ms": 17,
         "machine_id": "machine-1",
-        "native_diagnostic_command": ("yoke relay diagnostic nd-" + "a" * 32),
-        "native_diagnostic_ref": "nd-" + "a" * 32,
+        "native_diagnostic_command": ("yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+        "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "relay_id": "machine:machine-1",
     }
     assert {
@@ -143,8 +143,8 @@ def test_get_and_list_return_the_safe_projection_after_operator_auth(
             "adapter_revision": "adapter-v2",
             "duration_ms": 17,
             "machine_id": "machine-1",
-            "native_diagnostic_command": ("yoke relay diagnostic nd-" + "a" * 32),
-            "native_diagnostic_ref": "nd-" + "a" * 32,
+            "native_diagnostic_command": ("yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "relay_id": "machine:machine-1",
         }
         assert "message_id" not in row

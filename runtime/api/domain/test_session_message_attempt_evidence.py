@@ -50,7 +50,7 @@ def test_message_get_projects_safe_attempt_facts_without_lease_or_native_payload
                 {
                     "machine_id": "machine-1",
                     "relay_id": "machine:machine-1",
-                    "native_diagnostic_ref": "nd-" + "a" * 32,
+                    "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
                     "native_instruction_sha256": digest,
                     "surface": "codex-desktop",
                     "body": secret,
@@ -82,8 +82,8 @@ def test_message_get_projects_safe_attempt_facts_without_lease_or_native_payload
             "result_code": "accepted",
             "evidence": {
                 "machine_id": "machine-1",
-                "native_diagnostic_command": ("yoke relay diagnostic nd-" + "a" * 32),
-                "native_diagnostic_ref": "nd-" + "a" * 32,
+                "native_diagnostic_command": ("yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+                "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
                 "native_instruction_sha256": digest,
                 "relay_id": "machine:machine-1",
                 "surface": "codex-desktop",

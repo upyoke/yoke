@@ -25,7 +25,7 @@ from runtime.api.domain.session_launch_test_support import (
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
 RELAY_ID = f"machine:{MACHINE_ID}"
-DIAGNOSTIC_REF = "nd-" + "a" * 32
+DIAGNOSTIC_REF = "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
 
 def _heartbeat() -> RelayHeartbeat:
