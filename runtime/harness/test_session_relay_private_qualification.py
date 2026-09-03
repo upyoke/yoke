@@ -21,7 +21,7 @@ from yoke_core.tools.session_relay_plist import (
 )
 from yoke_harness import session_relay_private_qualification as qualification
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
-from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
     require_exact_cli_idle_policy,
@@ -288,11 +288,12 @@ def test_claude_adapter_keeps_canonical_first_and_fallback_exact(
     monkeypatch.setattr(qualification, "_clean_source_sha", lambda: RELEASE_SHA)
 
     def spawner(_context, invocation):
-        return ClaudeResumeProcess(
+        return SupervisedNative(
             41,
             invocation.executable,
             "path",
             tmp_path / "resume.capture",
+            "nd-00000000-0000-4000-8000-000000000041",
             "2026-08-25T12:00:00Z",
         )
 

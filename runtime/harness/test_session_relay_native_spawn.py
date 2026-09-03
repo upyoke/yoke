@@ -1,4 +1,4 @@
-"""Detached Claude resume process ownership and capture tests."""
+"""Supervised detached-native spawn ownership and capture tests."""
 
 from __future__ import annotations
 
@@ -8,17 +8,18 @@ import sys
 
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness import session_relay_claude_native as native_module
-from yoke_harness import session_relay_claude_resume as resume_module
+from yoke_harness import session_relay_native_spawn as spawn_module
 from yoke_harness.session_relay_claude_native import (
     ClaudeNativeInvocation,
     spawn_claude_wake,
 )
 from yoke_harness.session_relay_claude_process import ClaudeProcessResult
-from yoke_harness.session_relay_claude_resume import (
-    spawn_detached_claude_resume,
+from yoke_harness import session_relay_native_supervisor as supervisor
+from yoke_harness.session_relay_native_capture_format import (
+    CAPTURE_HEADER,
+    STATE_RUNNING,
 )
-from yoke_harness import session_relay_resume_watch as resume_watch
-from yoke_harness.session_relay_resume_watch import resume_outcome_path
+from yoke_harness.session_relay_native_spawn import spawn_supervised_native
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
@@ -58,11 +59,11 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
         return process
 
     monkeypatch.setattr(
-        resume_module,
+        spawn_module,
         "record_supervised_native",
         lambda *args, **kwargs: custody.append((args, kwargs)) or True,
     )
-    result = spawn_detached_claude_resume(
+    result = spawn_supervised_native(
         ["/opt/claude", "-p", "--resume", SESSION_ID],
         checkout=tmp_path,
         environment={"SAFE": "1"},
@@ -79,20 +80,20 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
     argv, kwargs = calls[0]
     # The relay starts the supervisor, which starts the native and stays to
     # collect the exit status the relay poll will never be around to see.
-    assert argv[:3] == [sys.executable, "-m", resume_watch.__name__]
-    assert argv[3:5] == ["--outcome", str(resume_outcome_path(result.capture_path))]
+    assert argv[:3] == [sys.executable, "-m", supervisor.__name__]
+    assert argv[3:5] == ["--capture", str(result.capture_path)]
     assert argv[5:] == ["--", "/opt/claude", "-p", "--resume", SESSION_ID]
     assert kwargs["cwd"] == tmp_path
     assert kwargs["env"] == {"SAFE": "1"}
-    assert kwargs["stdin"] is not None
     assert kwargs["start_new_session"] is True
-    assert kwargs["stderr"] == -2
-    assert kwargs["stdout"].closed
-    assert result.capture_path.exists()
-    assert result.capture_path.stat().st_mode & 0o777 == 0o600
+    # The capture is the supervisor's to write, and it is named after the
+    # attempt so any reader holding that id can find it again.
+    assert result.diagnostic_ref == f"nd-{ATTEMPT_ID}"
+    assert result.capture_path.name == f"nd-{ATTEMPT_ID}.capture"
     assert custody[0][0] == (ATTEMPT_ID, process.pid)
     assert custody[0][1]["supervision_kind"] == "resume"
     assert custody[0][1]["capture_path"] == result.capture_path
+    assert custody[0][1]["diagnostic_ref"] == result.diagnostic_ref
     assert custody[0][1]["lease_id"] == LEASE_ID
 
 
@@ -103,17 +104,17 @@ def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
     process = _Process()
     group_signals = []
     monkeypatch.setattr(
-        resume_module,
+        spawn_module,
         "record_supervised_native",
         lambda *args, **kwargs: False,
     )
     monkeypatch.setattr(
-        resume_module.os,
+        spawn_module.os,
         "killpg",
         lambda pid, sent: group_signals.append((pid, sent)),
     )
 
-    result = spawn_detached_claude_resume(
+    result = spawn_supervised_native(
         ["/opt/claude"],
         checkout=tmp_path,
         environment={},
@@ -127,12 +128,12 @@ def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
     assert result is None
     assert group_signals == [(process.pid, signal.SIGTERM)]
     assert not process.terminated
-    assert not tuple((tmp_path / "claude-resume-captures").glob("*.capture"))
+    assert not tuple((tmp_path / "native-diagnostics").glob("*.capture"))
 
 
 def test_resume_spawn_refuses_an_untrusted_attempt_filename(tmp_path: Path) -> None:
     calls = []
-    result = spawn_detached_claude_resume(
+    result = spawn_supervised_native(
         ["/opt/claude"],
         checkout=tmp_path,
         environment={},
@@ -147,6 +148,36 @@ def test_resume_spawn_refuses_an_untrusted_attempt_filename(tmp_path: Path) -> N
     assert calls == []
 
 
+def test_supervisor_records_a_running_capture_and_then_the_exit_status(
+    tmp_path: Path,
+) -> None:
+    capture = tmp_path / "nd-capture.capture"
+    exit_code = supervisor.supervise(
+        capture,
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('out'); print('bad', file=sys.stderr); sys.exit(3)",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = capture.read_bytes()
+    assert payload.startswith(CAPTURE_HEADER)
+    assert STATE_RUNNING.encode() not in payload.splitlines()[1]
+    assert b"exit-code: 3" in payload
+    assert b"out" in payload and b"bad" in payload
+
+
+def test_supervisor_records_a_native_that_never_started(tmp_path: Path) -> None:
+    capture = tmp_path / "nd-missing.capture"
+
+    assert supervisor.supervise(capture, ["/nonexistent/native"]) == 1
+    payload = capture.read_bytes()
+    assert b"exit-code: unknown" in payload
+    assert b"native did not start" in payload
+
+
 def test_native_wake_environment_carries_only_its_resume_attempt(
     tmp_path: Path,
     monkeypatch,
@@ -155,7 +186,7 @@ def test_native_wake_environment_carries_only_its_resume_attempt(
     monkeypatch.setenv("YOKE_SESSION_ID", "parent-session")
     monkeypatch.setattr(
         native_module,
-        "spawn_detached_claude_resume",
+        "spawn_supervised_native",
         lambda *args, **kwargs: captured.update(kwargs),
     )
     context = RelayExecutionContext(

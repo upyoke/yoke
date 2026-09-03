@@ -1,4 +1,10 @@
-"""Machine-user-local retention for bounded native relay failure output."""
+"""Machine-user-local retention for every native spawn and resume capture.
+
+One capture per attempt, named by the launch id that spawned the native or the
+wake attempt id that resumed it, in one directory shared by every harness. The
+name is the join key: a seat that knows either identifier knows the file, and
+nothing has to record a second mapping to find it again.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +12,9 @@ from dataclasses import dataclass
 import hashlib
 import os
 from pathlib import Path
-import secrets
 import stat
 import time
+from uuid import UUID
 
 from yoke_contracts.session_control.evidence import (
     NATIVE_DIAGNOSTIC_REFERENCE_PATTERN,
@@ -16,13 +22,22 @@ from yoke_contracts.session_control.evidence import (
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_BYPASS_DISCLAIMER_REFUSAL,
 )
+from yoke_harness.session_relay_native_capture_format import (
+    CAPTURE_MAX_BYTES,
+    NativeCapture,
+    compose_capture,
+    parse_capture,
+    utc_stamp,
+)
 from yoke_harness.session_relay_schedule import relay_state_dir
 
 
 NATIVE_DIAGNOSTIC_DIR_NAME = "native-diagnostics"
-# Two independently capped 64-KiB native streams plus the human-readable envelope.
-NATIVE_DIAGNOSTIC_MAX_BYTES = 132 * 1024
-NATIVE_DIAGNOSTIC_MAX_FILES = 32
+NATIVE_DIAGNOSTIC_MAX_BYTES = CAPTURE_MAX_BYTES
+#: Enough captures that a burst of launches cannot evict the one being read.
+#: Six launches a minute is an ordinary fleet moment, and a cap of a few dozen
+#: discarded the failures an operator went looking for minutes later.
+NATIVE_DIAGNOSTIC_MAX_FILES = 256
 NATIVE_DIAGNOSTIC_TTL_SECONDS = 7 * 24 * 60 * 60
 _FILE_SUFFIX = ".capture"
 PERMISSION_BYPASS_UNACCEPTED = "permission_bypass_unaccepted"
@@ -43,6 +58,16 @@ class NativeDiagnosticReceipt:
     reference: str
     fingerprint_sha256: str
     expires_at: int
+
+
+def diagnostic_reference(identifier: str) -> str:
+    """Return the capture reference for one launch id or wake attempt id."""
+    try:
+        return f"nd-{UUID(str(identifier).strip())}"
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise NativeDiagnosticError(
+            "diagnostic reference needs a launch id or wake attempt id"
+        ) from exc
 
 
 def classify_native_failure(stderr: bytes) -> str:
@@ -103,16 +128,6 @@ def _require_private_file(details: os.stat_result) -> None:
         raise NativeDiagnosticError("diagnostic permissions are not private")
 
 
-def _retained_payload(stdout: bytes, stderr: bytes) -> bytes:
-    prefix = b"YOKE NATIVE RELAY DIAGNOSTIC v1\n--- stdout ---\n"
-    separator = b"\n--- stderr ---\n"
-    budget = NATIVE_DIAGNOSTIC_MAX_BYTES - len(prefix) - len(separator)
-    stdout_budget = budget // 2
-    return (
-        prefix + stdout[:stdout_budget] + separator + stderr[: budget - stdout_budget]
-    )
-
-
 def _known_files(directory: Path) -> list[tuple[Path, os.stat_result]]:
     retained: list[tuple[Path, os.stat_result]] = []
     try:
@@ -164,47 +179,69 @@ def cleanup_native_diagnostics(
             pass
 
 
+def native_diagnostic_path(
+    reference: str,
+    *,
+    state_dir: Path | None = None,
+    create: bool = True,
+) -> Path:
+    """Return where the capture named ``reference`` lives on this machine."""
+    return _reference_path(
+        _diagnostic_directory(state_dir, create=create),
+        reference,
+    )
+
+
+def write_native_capture(
+    path: Path,
+    payload: bytes,
+) -> None:
+    """Replace one capture's bytes owner-only, refusing an unsafe target."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise NativeDiagnosticError("diagnostic could not be created") from exc
+    try:
+        details = os.fstat(descriptor)
+        if not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid():
+            raise NativeDiagnosticError("diagnostic target is unsafe")
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb", closefd=True) as stream:
+            descriptor = -1
+            stream.write(payload[:NATIVE_DIAGNOSTIC_MAX_BYTES])
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
 def store_native_diagnostic(
     stdout: bytes,
     stderr: bytes,
     *,
+    reference: str,
+    exit_code: int | None = None,
     state_dir: Path | None = None,
     now: float | None = None,
 ) -> NativeDiagnosticReceipt:
-    """Persist bounded private streams and return only opaque safe metadata."""
+    """Persist one finished native's bounded streams under its own identifier."""
     current = time.time() if now is None else now
     directory = _diagnostic_directory(state_dir, create=True)
+    payload = compose_capture(
+        stdout=bytes(stdout),
+        stderr=bytes(stderr),
+        exit_code=exit_code,
+        exit_at=utc_stamp(current),
+    )
+    write_native_capture(_reference_path(directory, reference), payload)
+    # After the write, so this capture counts against the retention cap
+    # rather than pushing the directory one file past it every time.
     cleanup_native_diagnostics(state_dir, now=current)
-    payload = _retained_payload(bytes(stdout), bytes(stderr))
-    for _attempt in range(4):
-        reference = f"nd-{secrets.token_hex(16)}"
-        path = _reference_path(directory, reference)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        flags |= getattr(os, "O_NOFOLLOW", 0)
-        try:
-            descriptor = os.open(path, flags, 0o600)
-        except FileExistsError:
-            continue
-        except OSError as exc:
-            raise NativeDiagnosticError("diagnostic could not be created") from exc
-        try:
-            details = os.fstat(descriptor)
-            if not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid():
-                raise NativeDiagnosticError("diagnostic target is unsafe")
-            os.fchmod(descriptor, 0o600)
-            with os.fdopen(descriptor, "wb", closefd=True) as stream:
-                descriptor = -1
-                stream.write(payload)
-        finally:
-            if descriptor >= 0:
-                os.close(descriptor)
-        cleanup_native_diagnostics(state_dir, now=current)
-        return NativeDiagnosticReceipt(
-            reference,
-            hashlib.sha256(payload).hexdigest(),
-            int(current) + NATIVE_DIAGNOSTIC_TTL_SECONDS,
-        )
-    raise NativeDiagnosticError("diagnostic reference allocation was exhausted")
+    return NativeDiagnosticReceipt(
+        reference,
+        hashlib.sha256(payload).hexdigest(),
+        int(current) + NATIVE_DIAGNOSTIC_TTL_SECONDS,
+    )
 
 
 def read_native_diagnostic(
@@ -237,6 +274,17 @@ def read_native_diagnostic(
             os.close(descriptor)
 
 
+def read_native_capture(path: Path | None) -> NativeCapture | None:
+    """Read one capture by path, or ``None`` when it is absent or not one."""
+    if path is None:
+        return None
+    try:
+        payload = path.read_bytes()
+    except OSError:
+        return None
+    return parse_capture(payload[: NATIVE_DIAGNOSTIC_MAX_BYTES + 1])
+
+
 __all__ = [
     "NATIVE_DIAGNOSTIC_DIR_NAME",
     "NATIVE_DIAGNOSTIC_MAX_BYTES",
@@ -247,6 +295,10 @@ __all__ = [
     "PERMISSION_BYPASS_UNACCEPTED",
     "classify_native_failure",
     "cleanup_native_diagnostics",
+    "diagnostic_reference",
+    "native_diagnostic_path",
+    "read_native_capture",
     "read_native_diagnostic",
     "store_native_diagnostic",
+    "write_native_capture",
 ]

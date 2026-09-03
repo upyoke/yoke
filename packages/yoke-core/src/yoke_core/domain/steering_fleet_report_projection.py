@@ -75,6 +75,8 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
         "observed_session_id": entry.observed_session_id,
         "native_launch_pid": entry.native_launch_pid,
         "native_launch_phase": entry.native_launch_phase,
+        "native_stderr_tail": entry.native_stderr_tail,
+        "exit_code": entry.exit_code,
         "spawn_duration_ms": entry.spawn_duration_ms,
     }
 
@@ -121,6 +123,20 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         "starved": [_starved_dict(entry) for entry in report.starved],
         "unregistered_launches": [
             _launch_dict(entry) for entry in report.unregistered_launches
+        ],
+        "abandoned_launches": [
+            {
+                "launch_id": entry.launch_id,
+                "surface": entry.surface,
+                "machine_id": entry.machine_id,
+                "session_id": entry.session_id,
+                "closed_seconds": entry.closed_seconds,
+                "closure_reason": entry.closure_reason,
+                "native_stderr_tail": entry.native_stderr_tail,
+                "native_diagnostic_ref": entry.native_diagnostic_ref,
+                "exit_code": entry.exit_code,
+            }
+            for entry in report.abandoned_launches
         ],
         "landed_open": [_landed_dict(entry) for entry in report.landed_open],
         "suspected_orphaned_waiters": [

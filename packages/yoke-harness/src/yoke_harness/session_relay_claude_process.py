@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import subprocess
 import threading
@@ -25,6 +25,16 @@ class ClaudeProcessResult:
     stderr_bytes: bytes = field(default=b"", repr=False)
     pid: int | None = None
     bound_exceeded: bool = False
+
+    def with_outcome(self, returncode: int, duration_ms: int) -> "ClaudeProcessResult":
+        """Restate this run's outcome while keeping what the native said.
+
+        A create whose identity is resolved by a second step reports that
+        step's outcome, and rebuilding the result from scratch is how the
+        streams behind it were lost — leaving a native that came up and
+        vanished with no reason on record.
+        """
+        return replace(self, returncode=returncode, duration_ms=duration_ms)
 
 
 def _drain(stream, retained: dict[str, bytes], name: str) -> None:

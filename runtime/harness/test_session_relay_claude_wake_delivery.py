@@ -28,7 +28,7 @@ from yoke_harness import session_relay_claude_native as native_module
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_claude_native import spawn_claude_wake
 from yoke_harness.session_relay_claude_process import ClaudeProcessResult
-from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 
 
 @pytest.fixture(autouse=True)
@@ -60,17 +60,18 @@ def _background_wake(monkeypatch, *, stop_returncode: int = 0):
 
     def spawn(argv, **kwargs):
         detached.append((argv, kwargs))
-        return ClaudeResumeProcess(
+        return SupervisedNative(
             4321,
             CLAUDE,
             "path",
             Path("/private/captures/background-resume.capture"),
+            "nd-00000000-0000-4000-8000-000000004321",
             "2026-08-26T12:00:00Z",
-            kwargs.get("background_job") or {},
+            kwargs.get("extra_evidence") or {},
         )
 
     monkeypatch.setattr(native_module, "_run_claude_command", run_command)
-    monkeypatch.setattr(native_module, "spawn_detached_claude_resume", spawn)
+    monkeypatch.setattr(native_module, "spawn_supervised_native", spawn)
     wake = run_claude_cli_adapter(
         _context(
             job_kind="wake",
@@ -139,13 +140,14 @@ def test_wake_without_a_background_job_skips_the_stop(monkeypatch) -> None:
 
     def spawn(argv, **kwargs):
         detached.append((argv, kwargs))
-        return ClaudeResumeProcess(
+        return SupervisedNative(
             4321,
             CLAUDE,
             "path",
             Path("/private/captures/plain-resume.capture"),
+            "nd-00000000-0000-4000-8000-000000004321",
             "2026-08-26T12:00:00Z",
-            kwargs.get("background_job") or {},
+            kwargs.get("extra_evidence") or {},
         )
 
     monkeypatch.setattr(
@@ -153,7 +155,7 @@ def test_wake_without_a_background_job_skips_the_stop(monkeypatch) -> None:
         "_run_claude_command",
         lambda _invocation, argv: commands.append(argv),
     )
-    monkeypatch.setattr(native_module, "spawn_detached_claude_resume", spawn)
+    monkeypatch.setattr(native_module, "spawn_supervised_native", spawn)
     wake = run_claude_cli_adapter(
         _context(
             job_kind="wake",

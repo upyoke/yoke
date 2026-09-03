@@ -53,7 +53,7 @@ def _contain_stranded_natives() -> None:
     The relay owns machine-local custody, so the sweep runs on its cadence
     rather than waiting for an operator to notice an uncontrolled native.
     """
-    from yoke_harness.session_launch_containment import (
+    from yoke_harness.session_launch_containment_sweep import (
         contain_stranded_launch_natives,
     )
 

@@ -10,7 +10,6 @@ from yoke_harness.session_relay_claude_identity import (
     background_agent_id,
     resolve_background_session,
 )
-from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 from yoke_harness.session_relay_claude_registration import (
     resolve_registered_session,
 )
@@ -78,7 +77,7 @@ def _contain_failed_launch(
     if short_id:
         stop_claude_background(invocation, short_id)
     try:
-        from yoke_harness.session_launch_containment import contain_launch_native
+        from yoke_harness.session_launch_containment_sweep import contain_launch_native
 
         contain_launch_native(invocation.session_id, reason="create_failed")
     except Exception:
@@ -280,12 +279,7 @@ def run_claude_cli_adapter(
             "native_created",
             REGISTERED_BUT_UNBOUND_CODE,
             native_session_id=registered.session_id,
-            process=ClaudeProcessResult(
-                0,
-                process.duration_ms,
-                pid=process.pid,
-                bound_exceeded=process.bound_exceeded,
-            ),
+            process=process.with_outcome(0, process.duration_ms),
         )
     actual_id = None
     failure_code = BACKGROUND_IDENTITY_MISSING_CODE
@@ -294,11 +288,9 @@ def run_claude_cli_adapter(
         resolution = resolve_background_session(
             short_id, lambda: session_lookup(invocation)
         )
-        combined = ClaudeProcessResult(
+        combined = process.with_outcome(
             resolution.returncode,
             min(process.duration_ms + resolution.duration_ms, 3_600_000),
-            pid=process.pid,
-            bound_exceeded=process.bound_exceeded,
         )
         actual_id = resolution.session_id
         failure_code = (

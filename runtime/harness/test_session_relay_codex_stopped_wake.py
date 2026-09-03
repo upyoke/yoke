@@ -100,7 +100,7 @@ def test_cli_waiting_wake_resumes_active_labeled_session(
     monkeypatch.setattr(
         transport,
         "_spawn",
-        lambda request, *, resume: (
+        lambda request, *, resume, streams: (
             calls.append((request, resume)) or (process, "bundled")
         ),
     )

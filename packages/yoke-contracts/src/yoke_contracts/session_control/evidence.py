@@ -49,10 +49,16 @@ _TEXT_FIELDS = frozenset(
         "native_error_class",
         "native_error_sha256",
         "native_error_step",
+        "native_exit_at",
         "native_instruction_sha256",
         "native_launch_phase",
         NATIVE_LAUNCH_WORKSPACE_FIELD,
         "native_started_at",
+        # The last line the native itself said before it ended. The opaque
+        # capture reference beside it is retrievable only from the machine
+        # that produced it, and an operator reading a fleet row on another
+        # machine needs the reason in the row or they read nothing at all.
+        "native_stderr_tail",
         "relay_id",
         # Which session the launch was talking about, why the control plane
         # turned it away, and the model labels the two sides carried. A native
@@ -100,7 +106,12 @@ _INTEGER_FIELDS = frozenset(
 _MAX_TEXT_LENGTH = 128
 _MAX_CAPTURE_PATH_LENGTH = 512
 _NATIVE_DIAGNOSTIC_COMMAND = "yoke relay diagnostic"
-NATIVE_DIAGNOSTIC_REFERENCE_PATTERN = re.compile(r"nd-[0-9a-f]{32}")
+#: One capture per attempt, named by the launch id that spawned the native or
+#: the wake attempt id that resumed it. The identifier IS the join key, so a
+#: reader holding either one can name the file without a second mapping.
+NATIVE_DIAGNOSTIC_REFERENCE_PATTERN = re.compile(
+    r"nd-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+)
 
 
 def valid_native_diagnostic_reference(value: object) -> str | None:

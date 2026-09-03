@@ -1,7 +1,8 @@
 """Detect steering failures that arrive as silence in live control-plane state.
 
 Queries reveal unregistered launches, frozen Monitor waiters, and merged
-work lacking close-out. Stuck delivery lives in
+work lacking close-out. Launches corrected after delivery live in
+:mod:`steering_fleet_report_abandoned`. Stuck delivery lives in
 :mod:`steering_fleet_report_starvation`; dead waits that need judgment live
 in :mod:`steering_fleet_report_dead_waits`.
 
@@ -19,6 +20,10 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
+from yoke_core.domain.steering_fleet_report_evidence import (
+    evidence_int,
+    evidence_text,
+)
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 
 
@@ -92,6 +97,11 @@ class UnregisteredLaunch:
     native_launch_pid: int | None = None
     native_launch_phase: str | None = None
     spawn_duration_ms: int | None = None
+    #: The last line the native itself said. A capture lives only on the
+    #: machine that produced it, so a seat elsewhere reads the reason here
+    #: or reads nothing.
+    native_stderr_tail: str = ""
+    exit_code: int | None = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +144,7 @@ def unregistered_launches(
                    l.assigned_machine_id, l.requested_machine_id, l.state,
                    l.deadline_at, l.result_code, l.native_session_id,
                    l.native_launch_pid, l.native_launch_phase, l.spawn_duration_ms,
+                   l.result_evidence,
                    s.session_id AS observed_session_id
               FROM session_launches l
               LEFT JOIN harness_sessions s
@@ -183,6 +194,10 @@ def unregistered_launches(
                     str(record.get("native_launch_phase") or "") or None
                 ),
                 spawn_duration_ms=record.get("spawn_duration_ms"),
+                native_stderr_tail=evidence_text(
+                    record.get("result_evidence"), "native_stderr_tail"
+                ),
+                exit_code=evidence_int(record.get("result_evidence"), "exit_code"),
             )
         )
     return tuple(

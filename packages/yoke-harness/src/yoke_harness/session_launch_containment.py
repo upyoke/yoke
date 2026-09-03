@@ -1,4 +1,4 @@
-"""Machine-local containment for unregistered launches and detached resumes.
+"""Machine-local custody records for launched natives and detached resumes.
 
 Creating a native and registering it are two separate events, and the gap
 between them is where an unattended agent does damage. Natives that never
@@ -7,61 +7,34 @@ and written into the shared checkout with no claim and no lane — nothing was
 holding them, because the launch that started them had already been written
 off by the time anyone noticed.
 
-Containment closes that gap without a control-plane round trip. The relay
-records the process it started; registration itself clears the record, since
-the launch handoff is delivered only once a native has registered and pulled
-its message. A record that outlives the registration deadline therefore names
-a process that is running without authority, and the sweep terminates it.
-
-Detached resumes use the same owner-only record family. Hook activity refreshes
-their custody timestamp; the sweep reaps only sustained inactivity or an
-absolute runaway, never a healthy turn merely because one relay cycle ended.
+This module owns the record itself: the relay writes one for every native it
+starts, hooks refresh it, and delivering the launch instruction removes it,
+because a native that read its mandate has registered and is no longer running
+without authority. What is done with a live record belongs elsewhere —
+:mod:`session_launch_containment_sweep` terminates the ones naming a process
+that never registered, and :mod:`session_relay_resume_settlement` settles the
+resumes among them. Watching a launched native after it registers is the
+launch handle's job, in :mod:`session_relay_termination`.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
-import signal
 import time
 from typing import Iterator, Mapping
 from uuid import UUID
 
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.process_ancestry import process_start_time
-from yoke_contracts.session_control.resume import (
-    RESUME_ATTEMPT_ENV,
-    RESUME_INACTIVITY_SECONDS,
-    RESUME_RUNAWAY_SECONDS,
-)
+from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_cli.config import machine_config
 
 
 SUPERVISION_DIRECTORY_NAME = "session-launch-supervision"
 
-# A native is contained only after the launch could no longer register, plus
-# a margin so the sweep never races the deadline it is backing up.
-CONTAINMENT_GRACE_SECONDS = 120
-CONTAINMENT_TTL_SECONDS = (
-    int(FLEET_KEY_SPECS["fleet.launch_deadline_minutes"].default) * 60
-    + CONTAINMENT_GRACE_SECONDS
-)
-_TERMINATE_WAIT_SECONDS = 2.0
-_MAX_RECORD_BYTES = 4096
 
-
-@dataclass(frozen=True)
-class ContainmentOutcome:
-    """What the sweep did with one supervised native."""
-
-    launch_id: str
-    pid: int
-    result: str
-    native_session_id: str | None = None
-    supervision_kind: str = "launch"
-    reason: str = "registration_timeout"
+MAX_RECORD_BYTES = 4096
 
 
 def _directory(state_dir: Path | None = None) -> Path:
@@ -71,7 +44,7 @@ def _directory(state_dir: Path | None = None) -> Path:
     return directory
 
 
-def _record_path(launch_id: str, state_dir: Path | None = None) -> Path:
+def supervision_record_path(launch_id: str, state_dir: Path | None = None) -> Path:
     return _directory(state_dir) / f"{launch_id}.json"
 
 
@@ -82,6 +55,7 @@ def record_supervised_native(
     native_session_id: str | None = None,
     supervision_kind: str = "launch",
     capture_path: Path | None = None,
+    diagnostic_ref: str | None = None,
     lease_id: str | None = None,
     state_dir: Path | None = None,
     now: float | None = None,
@@ -104,6 +78,9 @@ def record_supervised_native(
         "supervision_kind": supervision_kind,
         "last_activity_at": int(time.time() if now is None else now),
         "capture_path": str(capture_path) if capture_path is not None else None,
+        # The capture's own name, so a reader that has the record can name the
+        # native's account without reconstructing where the file went.
+        "diagnostic_ref": diagnostic_ref or None,
         # The attempt lease the relay leased this resume under. Settling the
         # attempt happens after the batch that started it has drained, so the
         # lease has to survive on disk or the outcome has nowhere to land.
@@ -111,7 +88,7 @@ def record_supervised_native(
         "recorded_at": int(time.time() if now is None else now),
     }
     try:
-        path = _record_path(launch_id, state_dir)
+        path = supervision_record_path(launch_id, state_dir)
         temporary = path.with_suffix(f".{os.getpid()}.tmp")
         temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
         temporary.chmod(0o600)
@@ -130,8 +107,8 @@ def touch_supervised_resume(
     """Refresh local custody after one hook from a detached resume."""
     try:
         UUID(attempt_id)
-        path = _record_path(attempt_id, state_dir)
-        if path.stat().st_size > _MAX_RECORD_BYTES:
+        path = supervision_record_path(attempt_id, state_dir)
+        if path.stat().st_size > MAX_RECORD_BYTES:
             return False
         payload = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict) or payload.get("supervision_kind") != "resume":
@@ -169,7 +146,7 @@ def release_supervised_native(
     if not launch_id:
         return
     try:
-        _record_path(launch_id, state_dir).unlink(missing_ok=True)
+        supervision_record_path(launch_id, state_dir).unlink(missing_ok=True)
     except OSError:
         return
 
@@ -184,7 +161,7 @@ def supervised_records(
         return
     for path in entries:
         try:
-            if path.stat().st_size > _MAX_RECORD_BYTES:
+            if path.stat().st_size > MAX_RECORD_BYTES:
                 continue
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -193,139 +170,10 @@ def supervised_records(
             yield path, payload
 
 
-def _terminate(pid: int) -> str:
-    """Signal the native's whole process group, escalating only if it stays."""
-    try:
-        group = os.getpgid(pid)
-    except OSError:
-        return "already_exited"
-    try:
-        os.killpg(group, signal.SIGTERM)
-    except OSError:
-        return "already_exited"
-    deadline = time.monotonic() + _TERMINATE_WAIT_SECONDS
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(group, 0)
-        except OSError:
-            return "terminated"
-        time.sleep(0.1)
-    try:
-        os.killpg(group, signal.SIGKILL)
-    except OSError:
-        return "terminated"
-    return "killed"
-
-
-def contain_stranded_launch_natives(
-    *,
-    state_dir: Path | None = None,
-    now: float | None = None,
-    ttl_seconds: int = CONTAINMENT_TTL_SECONDS,
-) -> list[ContainmentOutcome]:
-    """Contain launches past registration and resumes past custody limits."""
-    current = time.time() if now is None else now
-    outcomes: list[ContainmentOutcome] = []
-    for path, payload in supervised_records(state_dir):
-        recorded_at = payload.get("recorded_at")
-        if not isinstance(recorded_at, int):
-            continue
-        kind = str(payload.get("supervision_kind") or "launch")
-        if kind not in {"launch", "resume"}:
-            kind = "launch"
-        reason = "registration_timeout"
-        if kind == "resume":
-            activity_at = payload.get("last_activity_at")
-            last_activity = float(activity_at) if isinstance(activity_at, int) else 0.0
-            capture_path = payload.get("capture_path")
-            if isinstance(capture_path, str) and capture_path:
-                try:
-                    last_activity = max(
-                        last_activity, Path(capture_path).stat().st_mtime
-                    )
-                except OSError:
-                    pass
-            runaway = current - recorded_at >= RESUME_RUNAWAY_SECONDS
-            inactive = current - last_activity >= RESUME_INACTIVITY_SECONDS
-            if not runaway and not inactive:
-                continue
-            reason = "runaway" if runaway else "inactivity"
-        elif current - recorded_at < ttl_seconds:
-            continue
-        outcome = _contain_payload(path, payload, kind=kind, reason=reason)
-        if outcome is not None:
-            outcomes.append(outcome)
-    return outcomes
-
-
-def contain_launch_native(
-    launch_id: str,
-    *,
-    state_dir: Path | None = None,
-    reason: str = "create_failed",
-) -> ContainmentOutcome | None:
-    """Reap one supervised launch now — the create already failed to register."""
-    if not launch_id:
-        return None
-    path = _record_path(launch_id, state_dir)
-    try:
-        if not path.is_file() or path.stat().st_size > _MAX_RECORD_BYTES:
-            return None
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    kind = str(payload.get("supervision_kind") or "launch")
-    if kind != "launch":
-        return None
-    return _contain_payload(path, payload, kind=kind, reason=reason)
-
-
-def _contain_payload(
-    path: Path,
-    payload: dict[str, object],
-    *,
-    kind: str,
-    reason: str,
-) -> ContainmentOutcome | None:
-    launch_id = str(payload.get("launch_id") or path.stem)
-    pid = payload.get("pid")
-    native_session_id = payload.get("native_session_id")
-    if not isinstance(pid, int) or pid <= 0:
-        _drop(path)
-        return None
-    # A reused pid names a different process entirely; the native this
-    # record was written for is already gone.
-    if process_start_time(pid) != payload.get("process_start_time"):
-        result = "already_exited"
-    else:
-        result = _terminate(pid)
-    _drop(path)
-    return ContainmentOutcome(
-        launch_id=launch_id,
-        pid=pid,
-        result=result,
-        native_session_id=str(native_session_id) if native_session_id else None,
-        supervision_kind=kind,
-        reason=reason,
-    )
-
-
-def _drop(path: Path) -> None:
-    try:
-        path.unlink(missing_ok=True)
-    except OSError:
-        return
-
-
 __all__ = [
-    "CONTAINMENT_GRACE_SECONDS",
-    "CONTAINMENT_TTL_SECONDS",
+    "MAX_RECORD_BYTES",
+    "supervision_record_path",
     "SUPERVISION_DIRECTORY_NAME",
-    "ContainmentOutcome",
-    "contain_launch_native",
-    "contain_stranded_launch_natives",
     "record_supervised_native",
     "release_supervised_native",
     "supervised_records",

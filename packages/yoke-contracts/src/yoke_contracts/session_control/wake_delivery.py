@@ -157,14 +157,23 @@ def delivery_attempt_diagnostic(
         return ""
     document = evidence if isinstance(evidence, Mapping) else {}
     coarse = str(result_code)
+    named = ""
     for key in _DIAGNOSTIC_EVIDENCE_KEYS:
         value = document.get(key)
         if isinstance(value, str) and value.strip() and value.strip() != coarse:
-            return value.strip()
+            named = value.strip()
+            break
     reference = document.get("native_diagnostic_ref")
-    if isinstance(reference, str) and reference.strip():
-        return reference.strip()
-    return UNREPORTED_DELIVERY_DIAGNOSTIC
+    if not named and isinstance(reference, str) and reference.strip():
+        named = reference.strip()
+    # The native's own last line, beside the coded reason rather than instead
+    # of it. The capture behind the reference is readable only on the machine
+    # that produced it, so a reader anywhere else has this line or nothing.
+    tail = document.get("native_stderr_tail")
+    said = tail.strip() if isinstance(tail, str) else ""
+    if named and said:
+        return f"{named}: {said}"
+    return named or said or UNREPORTED_DELIVERY_DIAGNOSTIC
 
 
 #: What an operator reading an undelivered wake should do about it.

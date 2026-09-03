@@ -1,4 +1,10 @@
-"""Closed native error classification without durable stderr leakage."""
+"""Closed native error classification, and what of stderr is allowed to travel.
+
+Exactly one bounded line does: the last thing the native said, because the
+capture holding the rest is readable only on the machine that produced it and
+a seat reading a fleet row elsewhere would otherwise have no reason at all.
+Everything before that line stays local.
+"""
 
 from __future__ import annotations
 
@@ -40,11 +46,13 @@ def test_classifier_emits_only_closed_non_secret_classes(stderr, expected) -> No
     assert classify_native_failure(stderr) == expected
 
 
-def test_claude_failure_class_and_reference_are_safe_durable_evidence(
+def test_claude_failure_evidence_carries_the_last_line_and_nothing_before_it(
     tmp_path: Path,
 ) -> None:
     private_uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
-    stderr = f"No conversation found with session ID: {private_uuid}"
+    earlier = f"resolved workspace for {private_uuid}"
+    diagnosis = "No conversation found with session ID"
+    stderr = f"{earlier}\n{diagnosis}"
     result = run_claude_cli_adapter(
         _context(),
         process_runner=lambda _invocation: ClaudeProcessResult(
@@ -58,7 +66,11 @@ def test_claude_failure_class_and_reference_are_safe_durable_evidence(
         attestation_handoff=lambda *args, **kwargs: True,
     )
 
-    retained = retain_private_diagnostic(result, state_dir=tmp_path)
+    retained = retain_private_diagnostic(
+        result,
+        attempt_id="11111111-1111-4111-8111-111111111111",
+        state_dir=tmp_path,
+    )
     durable = redacted_evidence_document(retained.evidence)
 
     assert durable["native_error_class"] == "no_conversation_found"
@@ -68,14 +80,15 @@ def test_claude_failure_class_and_reference_are_safe_durable_evidence(
     assert durable["native_diagnostic_command"] == (
         f"yoke relay diagnostic {durable['native_diagnostic_ref']}"
     )
+    assert durable["native_stderr_tail"] == diagnosis
     assert private_uuid not in repr(durable)
-    assert stderr not in repr(durable)
+    assert earlier not in repr(durable)
     assert "private body" not in repr(durable)
     assert retained.private_diagnostic is None
 
 
 def test_malicious_diagnostic_reference_never_becomes_a_copyable_command() -> None:
-    malicious = "nd-" + "a" * 32 + "; open /tmp/private"
+    malicious = "nd-11111111-1111-4111-8111-111111111111; open /tmp/private"
 
     durable = redacted_evidence_document(
         {

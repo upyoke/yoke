@@ -25,6 +25,12 @@ A record whose process is gone is spent only after the control plane ends
 the session. A claim-holding session is deliberately spared, so its local
 records remain and the relay reports the fact again after its claims are
 released. That later report can then end the claimless session.
+
+A launch handle names the launch that started the native as well as the
+session, so the report carries the launch id and the last line the native
+said. That is what lets the control plane correct a launch still reading
+``succeeded`` for a worker that died before it ever worked, in the same poll
+that observed the death rather than whenever someone next notices.
 """
 
 from __future__ import annotations
@@ -39,6 +45,12 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_control.function_ids import RELAY_LIVENESS_FUNCTION_ID
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+from yoke_harness.session_relay_native_diagnostics import (
+    NativeDiagnosticError,
+    diagnostic_reference,
+    native_diagnostic_path,
+    read_native_capture,
+)
 from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECONDS
 from yoke_harness.session_relay_termination import (
     NATIVE_HANDLE_DIRECTORY_NAME,
@@ -63,6 +75,7 @@ class SessionProcessRecord:
     source: str
     running: bool
     path: Path
+    launch_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -98,6 +111,7 @@ def _observed(
     recorded_start: Any,
     source: str,
     start_time_of: StartTimeOf,
+    launch_id: Any = None,
 ) -> SessionProcessRecord | None:
     session = str(session_id or "").strip()
     if not session or not isinstance(pid, int) or pid <= 0 or not recorded_start:
@@ -110,6 +124,7 @@ def _observed(
         # was written for is gone either way.
         running=start_time_of(pid) == recorded_start,
         path=path,
+        launch_id=str(launch_id).strip() or None if launch_id else None,
     )
 
 
@@ -130,6 +145,7 @@ def session_process_records(
             record.get("process_start_time"),
             LAUNCH_HANDLE_SOURCE,
             start_time_of,
+            record.get("launch_id"),
         )
         if entry is not None:
             observed.append(entry)
@@ -169,18 +185,52 @@ def verified_dead_sessions(
     for session_id, records in sorted(by_session.items()):
         if any(record.running for record in records):
             continue
+        evidence: dict[str, Any] = {
+            "records_considered": len(records),
+            "sources": sorted({record.source for record in records}),
+            "pids": sorted({record.pid for record in records}),
+        }
+        launch_id = next(
+            (record.launch_id for record in records if record.launch_id), None
+        )
+        if launch_id:
+            evidence["launch_id"] = launch_id
+            evidence.update(native_account(launch_id, state_dir=state_dir))
         dead.append(
             VerifiedDeadSession(
                 session_id,
-                {
-                    "records_considered": len(records),
-                    "sources": sorted({record.source for record in records}),
-                    "pids": sorted({record.pid for record in records}),
-                },
+                evidence,
                 tuple(record.path for record in records),
             )
         )
     return tuple(dead)
+
+
+def native_account(launch_id: str, *, state_dir: Path | None) -> dict[str, Any]:
+    """Read what this launch's native said, for a report that must explain itself.
+
+    The capture is machine-local and the seat reading the report may be on
+    another machine entirely, so the reference travels for anyone who can
+    fetch it and the last line travels for everyone who cannot.
+    """
+    try:
+        reference = diagnostic_reference(launch_id)
+        capture = read_native_capture(
+            native_diagnostic_path(reference, state_dir=state_dir, create=False)
+        )
+    except NativeDiagnosticError:
+        return {}
+    if capture is None:
+        return {}
+    account: dict[str, Any] = {"native_diagnostic_ref": reference}
+    if capture.exit_code is not None:
+        account["exit_code"] = capture.exit_code
+    if capture.exit_at:
+        account["native_exit_at"] = capture.exit_at
+    tail = capture.tail
+    if tail:
+        account["native_stderr_tail"] = tail
+    return account
 
 
 def _prune(dead: tuple[VerifiedDeadSession, ...]) -> None:
@@ -249,6 +299,7 @@ def report_verified_dead_sessions(
 
 __all__ = [
     "LAUNCH_HANDLE_SOURCE",
+    "native_account",
     "PROCESS_ANCHOR_SOURCE",
     "SessionProcessRecord",
     "VerifiedDeadSession",

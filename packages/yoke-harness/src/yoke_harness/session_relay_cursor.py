@@ -14,18 +14,21 @@ from pathlib import Path
 import time
 from typing import Callable, Protocol
 
+from yoke_harness.session_relay_cursor_evidence import (
+    CURSOR_CLI_SURFACE,
+    cursor_evidence,
+    cursor_private_diagnostic,
+)
 from yoke_harness.session_relay_cursor_identity import (
     ConversationLookup,
     LaunchAttestationHandoff,
     conversation_map_lookup,
 )
-from yoke_harness.session_relay_native_diagnostics import classify_native_failure
 from yoke_harness.session_relay_runtime import (
     native_instruction_targets_job,
     RelayAdapter,
     RelayAdapterResult,
     RelayExecutionContext,
-    RelayPrivateDiagnostic,
     WakeMode,
     normalize_wake_mode,
     wake_operation,
@@ -33,7 +36,6 @@ from yoke_harness.session_relay_runtime import (
 
 
 CURSOR_ADAPTER_REVISION = "cursor-native-v2"
-CURSOR_CLI_SURFACE = "cursor-cli"
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
 
 _LAUNCH_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
@@ -77,6 +79,11 @@ class CursorWakeRequest:
     wake_mode: WakeMode
     native_instruction: str = field(repr=False)
     requested_model: str | None = None
+    # The wake attempt this turn belongs to, and the lease it was claimed
+    # under. The supervisor names the turn's capture after the attempt, and
+    # the settlement that reports how it ended needs the lease to do so.
+    attempt_id: str = ""
+    lease_id: str = ""
 
     def __post_init__(self) -> None:
         if normalize_wake_mode(self.wake_mode) is None:
@@ -102,6 +109,11 @@ class CursorNativeResult:
     # the relay wire; the serve loop retains it machine-locally and reports
     # only an opaque reference.
     native_stderr: bytes = field(default=b"", repr=False)
+    # Where a supervised turn's own account is being written, and the name it
+    # is written under. A detached resume ends after the relay poll does, so
+    # the reference is what lets any later reader find what it said.
+    diagnostic_ref: str | None = None
+    capture_path: str | None = None
 
 
 class CursorSubprocessPort(Protocol):
@@ -118,49 +130,6 @@ class CursorAcpPort(Protocol):
     def prompt_session(self, request: CursorWakeRequest) -> CursorNativeResult: ...
 
 
-def _evidence(
-    result_code: str,
-    native: CursorNativeResult | None = None,
-) -> dict[str, str | int]:
-    evidence: dict[str, str | int] = {
-        "surface": CURSOR_CLI_SURFACE,
-        "result_code": result_code,
-    }
-    if native is None:
-        return evidence
-    if native.exit_code is not None:
-        evidence["exit_code"] = native.exit_code
-    if native.duration_ms is not None:
-        evidence["duration_ms"] = max(0, native.duration_ms)
-    snippet = getattr(native, "identity_output_snippet", None)
-    expectation = getattr(native, "identity_parse_expectation", None)
-    if snippet:
-        evidence["identity_output_snippet"] = snippet
-    if expectation:
-        evidence["identity_parse_expectation"] = expectation
-    phase = getattr(native, "phase", None)
-    if phase:
-        evidence["native_launch_phase"] = phase
-    store = getattr(native, "conversation_store", None)
-    if store:
-        evidence["conversation_store"] = store
-    return evidence
-
-
-def _private_diagnostic(
-    native: CursorNativeResult | None,
-) -> RelayPrivateDiagnostic | None:
-    """Carry the native's own words to the machine-local retention layer."""
-    stderr = bytes(getattr(native, "native_stderr", b"") or b"")
-    if not stderr:
-        return None
-    return RelayPrivateDiagnostic(
-        classify_native_failure(stderr),
-        error_step="native_command",
-        stderr=stderr,
-    )
-
-
 def _result(
     result_code: str,
     *,
@@ -172,8 +141,8 @@ def _result(
         result_code,
         native_session_id=native_session_id,
         adapter_revision=CURSOR_ADAPTER_REVISION,
-        evidence=_evidence(evidence_code or result_code, native),
-        private_diagnostic=_private_diagnostic(native),
+        evidence=cursor_evidence(evidence_code or result_code, native),
+        private_diagnostic=cursor_private_diagnostic(native),
     )
 
 
@@ -303,6 +272,8 @@ def build_cursor_adapter(
             wake_mode=wake_mode,
             native_instruction=context.native_instruction,
             requested_model=context.requested_model,
+            attempt_id=str(context.job_id),
+            lease_id=str(context.lease_id),
         )
         operation = wake_operation(request.wake_mode, request.target_liveness)
         if operation == "message_idle":
