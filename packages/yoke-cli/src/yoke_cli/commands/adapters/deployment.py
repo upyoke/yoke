@@ -12,6 +12,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.commands.adapters.deployment_approval_output import (
+    APPROVE_COMMAND_DESCRIPTION,
     write_run_approval,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -43,10 +44,7 @@ DEPLOYMENT_RUNS_UPDATE_USAGE = (
 )
 DEPLOYMENT_RUNS_APPROVE_USAGE = (
     "yoke deployment-runs approve RUN-ID [--note TEXT] "
-    "[--session-id S] [--json] "
-    "(records your decision; under an every-approver stage policy the "
-    "stage stays gated until the rest decide \u2014 read stage_approved "
-    "and approval_progress)"
+    "[--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE = (
     "yoke deployment-runs resolve-target PROJECT FLOW "
@@ -264,7 +262,7 @@ def deployment_runs_update(args: List[str]) -> int:
 def deployment_runs_approve(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs approve",
-        description=DEPLOYMENT_RUNS_APPROVE_USAGE,
+        description=APPROVE_COMMAND_DESCRIPTION,
     )
     parser.add_argument("run_id")
     parser.add_argument("--note", default=None)

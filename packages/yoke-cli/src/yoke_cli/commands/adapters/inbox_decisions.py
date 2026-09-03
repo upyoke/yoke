@@ -19,9 +19,7 @@ INBOX_LIST_USAGE = (
 )
 DECISION_REQUESTS_RESOLVE_USAGE = (
     "yoke decision-requests resolve REQUEST_ID ACTION [--note TEXT] "
-    "[--session-id S] [--json] "
-    "(records one decision; an every-approver request stays pending until "
-    "every checked role or person has decided)"
+    "[--session-id S] [--json]"
 )
 DECISION_REQUESTS_DISPOSE_ENDED_USAGE = (
     "yoke decision-requests dispose-ended [--project-id N ...] "

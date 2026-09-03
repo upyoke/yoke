@@ -226,10 +226,11 @@ def test_terminal_resolution_replay_and_contradiction(
     ).fetchall()
     assert [row[0] for row in events] == [
         "DecisionRequestCreated",
+        "DecisionRecorded",
         "DecisionRequestResolved",
     ]
-    assert [row[1] for row in events] == [5, 5]
-    assert events[1][2] == "2026-07-28T12:02:00Z"
+    assert [row[1] for row in events] == [5, 5, 5]
+    assert events[2][2] == "2026-07-28T12:02:00Z"
 
 
 @pytest.mark.parametrize("status", ("expired", "withdrawn"))

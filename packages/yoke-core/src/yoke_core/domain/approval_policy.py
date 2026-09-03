@@ -58,36 +58,13 @@ class ApprovalPolicy:
     def requires_every_approver(self) -> bool:
         return self.mode == APPROVAL_MODE_ALL
 
-    @property
-    def box_count(self) -> int:
-        """Count the checked boxes ``all`` mode needs one decision for each."""
-        return len(self.roles) + len(self.actors)
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "roles": list(self.roles),
-            "actors": list(self.actors),
-            "mode": self.mode,
-        }
-
-    def describe(self) -> str:
-        """Render the addressees the way a gate message names them."""
-        who = [APPROVAL_ROLE_LABELS.get(role, role) for role in self.roles]
-        who.extend(f"actor {actor_id}" for actor_id in self.actors)
-        if not who:
-            return "no one"
-        joiner = " and " if self.requires_every_approver else " or "
-        return joiner.join(who)
-
 
 def parse_approval_mode(raw: Any, *, path: str) -> str:
     """Return a validated mode, defaulting to ``any`` when none is declared."""
     if raw is None:
         return DEFAULT_APPROVAL_MODE
     if not isinstance(raw, str) or raw not in APPROVAL_MODES:
-        raise ValueError(
-            f"{path}.mode must be one of: {', '.join(APPROVAL_MODES)}"
-        )
+        raise ValueError(f"{path}.mode must be one of: {', '.join(APPROVAL_MODES)}")
     return raw
 
 

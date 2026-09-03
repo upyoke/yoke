@@ -10,6 +10,16 @@ from __future__ import annotations
 
 from typing import Any, Mapping, TextIO
 
+APPROVE_COMMAND_DESCRIPTION = (
+    "Record your approval on the run's current human-approval stage. The "
+    "stage declares the same approval policy every Yoke gate declares: under "
+    'mode "any" your approval settles it, under mode "all" it is recorded and '
+    "the stage keeps waiting for the rest. Read stage_approved and "
+    "approval_progress in the result — the stage cleared only when "
+    "stage_approved is true, and DeploymentApprovalGranted is emitted only "
+    "then."
+)
+
 
 def write_run_approval(result: Mapping[str, Any], stdout: TextIO) -> None:
     """Print whether the stage cleared, or who it is still waiting on."""

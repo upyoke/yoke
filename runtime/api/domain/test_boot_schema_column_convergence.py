@@ -35,9 +35,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # a governed migration retires a born-with column; a new column on an existing
 # table must instead restore through boot convergence and leave this digest
 # unchanged. Current value drops the addressed-delivery table and the
-# decision-request blocking flag, both retired by an ordered history entry.
+# decision-request blocking flag, both retired by an ordered history entry, and
+# adds the decision-record table each approval decision lands in.
 _BORN_WITH_COLUMN_DIGEST = (
-    "86b19d2fe5de0d050d0392cae8e7ee4d8198dc16d4d02c1abff17fff68c0fc22"
+    "617ccdde7bbbefdbf99cc211fe593b901cef31deec38d41001387e0822dc8416"
 )
 
 

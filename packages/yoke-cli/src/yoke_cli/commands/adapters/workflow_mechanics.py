@@ -28,11 +28,7 @@ DELIVERY_SET_USAGE = (
 )
 APPROVAL_PUBLISH_USAGE = (
     "yoke workflows approval-defaults publish --workflow W "
-    "--expected-current-version N --defaults-file FILE [--json] "
-    "(FILE maps each gated transition id to "
-    '{"roles": [...], "actors": [...], "mode": "any"|"all"}; "mode" '
-    "defaults to \"any\", where the first approval settles the gate, while "
-    '"all" needs one decision per checked role or person)'
+    "--expected-current-version N --defaults-file FILE [--json]"
 )
 
 
@@ -116,7 +112,19 @@ def workflows_approval_defaults_publish(args: List[str]) -> int:
     parser = _parser("yoke workflows approval-defaults publish")
     parser.add_argument("--workflow", required=True)
     parser.add_argument("--expected-current-version", required=True, type=int)
-    parser.add_argument("--defaults-file", required=True)
+    parser.add_argument(
+        "--defaults-file",
+        required=True,
+        help=(
+            "JSON file mapping each gated transition id to its approval "
+            'policy: {"roles": [...], "actors": [...], "mode": '
+            '"any"|"all"}. "mode" defaults to "any", where the first '
+            'approval from anyone listed settles the gate; "all" needs '
+            "one decision per checked role or named person, and any "
+            "rejection by a listed party rejects. A transition with "
+            "nothing checked has no approval gate."
+        ),
+    )
     parsed = parse_or_usage_error(parser, args, APPROVAL_PUBLISH_USAGE)
     if parsed is None:
         return 2

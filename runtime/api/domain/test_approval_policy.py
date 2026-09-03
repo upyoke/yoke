@@ -18,17 +18,16 @@ def test_policy_without_a_mode_keeps_the_meaning_it_was_written_with():
     )
     assert policy == ApprovalPolicy(roles=("owner",), actors=(7,), mode="any")
     assert policy.requires_every_approver is False
-    assert policy.box_count == 2
-    assert policy.describe() == "project owner or actor 7"
+    assert policy.gates is True
 
 
-def test_all_mode_is_declared_and_described_as_every_approver():
+def test_all_mode_is_declared_as_every_approver():
     policy = parse_approval_policy(
         {"roles": ["operator", "owner"], "actors": [], "mode": "all"},
         path="stage 'approve-prod' approvals",
     )
     assert policy.requires_every_approver is True
-    assert policy.describe() == "project operator and project owner"
+    assert policy.roles == ("operator", "owner")
 
 
 @pytest.mark.parametrize(
