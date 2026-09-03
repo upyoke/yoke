@@ -198,6 +198,30 @@ def test_a_landed_report_prunes_the_spent_records(tmp_path: Path) -> None:
     assert (anchors / "4001.json").exists(), "a live session keeps its record"
 
 
+def test_a_spared_claim_holder_keeps_records_for_a_later_report(
+    tmp_path: Path,
+) -> None:
+    anchors = tmp_path / ANCHORS_DIR_NAME
+    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    dispatcher = _Dispatcher(
+        _Response(
+            True,
+            {
+                "ended": [],
+                "skipped": [{"session_id": DEAD_SESSION, "status": "claims_held"}],
+            },
+        )
+    )
+    report_verified_dead_sessions(
+        dispatcher,
+        _Inventory(),
+        state_dir=tmp_path,
+        anchors_dir=anchors,
+        start_time_of=_start_time_of(set()),
+    )
+    assert (tmp_path / NATIVE_HANDLE_DIRECTORY_NAME / "launch-dead.json").exists()
+
+
 def test_a_refused_report_keeps_the_records_for_the_next_poll(
     tmp_path: Path,
 ) -> None:

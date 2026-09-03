@@ -80,4 +80,5 @@ quiet, and the recorded attempt could not answer it.
 
 - [`relay-verified-process-death.md`](relay-verified-process-death.md) — the
   same machine-reports/control-plane-applies shape for a dead process, and
-  the reason it is evidence-bound rather than TTL-bound.
+  the evidence boundary refined by
+  [`relay-process-death-respects-session-holdings.md`](relay-process-death-respects-session-holdings.md).

@@ -66,6 +66,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("last_tool_call_at", "TEXT"),
             ("tool_call_count", "INTEGER"),
             ("episode_started_at", "TEXT"),
+            ("native_process_gone_at", "TEXT"),
+            ("native_process_gone_evidence", "TEXT"),
             ("pending_resume_notice", "TEXT"),
             ("last_chain_step", "INTEGER"),
             ("last_checkpoint_at", "TEXT"),

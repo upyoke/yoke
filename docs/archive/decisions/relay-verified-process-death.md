@@ -1,16 +1,20 @@
-# The machine ends a session whose native process it can prove is gone
+# The machine reports a session whose native process it can prove is gone
 
 Decision recorded 2026-08-27.
+
+The holdings boundary was refined by
+[`relay-process-death-respects-session-holdings.md`](relay-process-death-respects-session-holdings.md).
 
 ## Decision
 
 Each poll cycle, a machine's relay scans its own session process records
 and reports to the control plane every session whose recorded pid is no
-longer the recorded process. The control plane ends a reported session —
-through `end_session` with `end_reason="process_verified_dead"` — but only
-when the session belongs to the reporting machine, sits in a project that
-relay is authorized for, and is already past the short stale TTL. Every
-other report is answered with a named status and left alone.
+longer the recorded process. The control plane applies a report only when
+the session belongs to the reporting machine, sits in a project that relay
+is authorized for, and is already past the short stale TTL. It ends an empty
+session through `end_session` with `end_reason="process_verified_dead"`.
+A session with any current holding returns `claims_held`, records the
+observation, and stays live.
 
 A session with no local record at all proves nothing and is never
 reported. The stale-session cleanup sweep remains the backstop for
@@ -25,8 +29,8 @@ actually died, both readings are wrong in a way that costs real work:
 - `stale` maps to the `message_idle` wake operation, which injects into a
   live process. There is no process, so every wake for that session fails
   and re-fails until the sweep's much longer holdings TTL expires.
-- The row keeps holding its work claims the whole time, so the item is
-  claimed by nobody and unavailable to anyone.
+- The row can keep holding work while no native process can answer a wake,
+  so the fleet needs an explicit operator-facing observation.
 
 The observed instance: a cursor worker process died at 12:46Z and its row
 stayed running, holding claims, for hours.
@@ -35,10 +39,10 @@ The control plane cannot distinguish a long-thinking agent from a dead one
 — quiet looks identical either way, which is exactly why the TTL exists.
 The machine that started the native does not have to guess. It already
 kept the pid, in records written for other reasons, and comparing that pid
-against the live process table is cheap. Ending the row moves it to the
-`ended` liveness whose wake operation is a fresh native resume — the
-recovery a dead process actually needs — and the reactivation path
-restores its claims when a resume lands inside the reacquire window.
+against the live process table is cheap. For an empty ghost, ending the row
+makes a later wake a fresh native resume. For a holder, recording the fact
+without releasing authority lets the operator terminate deliberately or
+lets the holdings TTL settle abandonment.
 
 ## The evidence rule
 
@@ -57,25 +61,24 @@ record and every one of them is dead. An anchor marked
 `shared_by_multiple_sessions` is skipped — a pid that cannot name one
 session cannot testify about one session's death either.
 
-## A death is reported once
+## Local records follow the control-plane outcome
 
-A record whose process is gone is spent — it exists to reach a running
-native and can never do that again — so a report that lands takes its
-records with it. Without that, a single death would be re-reported on
-every poll for the life of the machine, and the launch handles (which
-nothing else removes once the process is gone) would grow without bound.
-A refused report prunes nothing, so a server that starts serving this
-function later still hears about every death observed while it could not.
+A record whose process is gone is spent only when the control plane ends the
+session, so only IDs returned in `ended` have their records pruned. A
+`claims_held` response retains the records and is re-reported; after claims
+are released, a later report can end the empty ghost. A refused report also
+prunes nothing, so a server that starts serving this function later still
+hears about every death observed while it could not.
 
 ## Why the report is not authority
 
 The relay says what it observed; the control plane decides. Machine
-ownership, project authorization, and the stale-TTL check all run
-server-side against the row itself, so a relay cannot end a session it
-does not run, one in a project it does not serve, or one that has been
-touched since the process died. A session that fails any of those checks
-comes back with a named status rather than silence, because a silent no-op
-here is indistinguishable from the ghost this path exists to remove.
+ownership, project authorization, stale TTL, and the complete shared
+holdings projection all run server-side. A relay cannot end a session it
+does not run, one in a project it does not serve, one touched since the
+process died, or one that still holds authority. A session that fails any
+check comes back with a named status rather than silence, because a silent
+no-op here is indistinguishable from the ghost this path exists to remove.
 
 ## Rollout
 

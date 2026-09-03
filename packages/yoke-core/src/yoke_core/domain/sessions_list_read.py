@@ -61,6 +61,9 @@ from yoke_core.domain.sessions_holdings_projection import session_holdings_by_se
 from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
 from yoke_core.domain.session_presentation_read import session_presentation
+from yoke_core.domain.session_native_process_observation import (
+    current_native_process_observation,
+)
 
 
 DEFAULT_SESSIONS_LIST_LIMIT = 100
@@ -281,6 +284,7 @@ def list_sessions(
                     "requested_model": row.get("requested_model"),
                     "workspace": row.get("workspace"),
                     "offered_at": row.get("offered_at"),
+                    "native_process": current_native_process_observation(row),
                     "ended_at": row.get("ended_at"),
                     "terminated_at": row.get("terminated_at"),
                     "terminated_by_actor_id": row.get("terminated_by_actor_id"),

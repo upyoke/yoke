@@ -139,6 +139,31 @@ test("an open probe replaces possibly-stale, which needs no declaration at all",
   assert.equal(both.state, "waiting");
 });
 
+test("process-gone evidence outranks age and tells the operator how to act", () => {
+  const row = quietHolder({
+    liveness: "active",
+    claims: [],
+    holdings: { current: [{ holding_kind: "strategy_document" }] },
+    native_process: {
+      state: "gone",
+      observed_at: "2026-08-22T11:59:00Z",
+    },
+    stale_eligible_at: "2026-08-22T12:30:00Z",
+  });
+  const health = sessionHealthState(row, Date.parse("2026-08-22T12:00:00Z"));
+  assert.deepEqual(health, {
+    state: "process-gone",
+    label: "process gone",
+    detail: "claims held — terminate deliberately if dead",
+  });
+  const rendered = card(row);
+  assert.equal(byClass(rendered, "session-health-pill")[0].textContent, "process gone");
+  assert.equal(
+    byClass(rendered, "session-health-detail")[0].textContent,
+    "claims held — terminate deliberately if dead",
+  );
+});
+
 test("health stays silent for active, claim-free, and ended sessions", () => {
   const now = Date.parse("2026-08-22T12:00:00Z");
   assert.equal(

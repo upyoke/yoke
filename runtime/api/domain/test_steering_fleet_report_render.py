@@ -57,6 +57,29 @@ def test_the_body_leads_with_the_work_a_steerer_can_staff(steering_scope):
     assert "send the rest to the surface with the most headroom and run it down" in body
 
 
+def test_process_gone_holder_is_actionable_without_offering_a_wake(steering_scope):
+    claim_work(
+        steering_scope,
+        session_id=WORKER_SESSION,
+        target=make_item_target(1),
+    )
+    steering_scope.execute(
+        "UPDATE harness_sessions SET mode='parked', "
+        "native_process_gone_at='2026-08-26T12:01:00Z', "
+        "native_process_gone_evidence='{}' WHERE session_id=%s",
+        (WORKER_SESSION,),
+    )
+    steering_scope.commit()
+
+    report = _compose(steering_scope)
+    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+    assert holder.native_process_gone is True
+    body = report_body(report)
+    assert "process gone, claims held — terminate deliberately if dead" in body
+    holder_line = next(line for line in body.splitlines() if WORKER_SESSION in line)
+    assert "wake `" not in holder_line
+
+
 def test_launch_balance_omits_a_surface_that_cannot_accept_a_launch(steering_scope):
     seed_session(
         steering_scope,

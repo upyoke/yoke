@@ -15,8 +15,8 @@ the parked mode a session declares about itself and its next tool call takes
 back: a broker must survive precisely the turns the run makes it take. The
 hold bounds itself, so a forgotten one costs a lease window rather than a
 session that never leaves the roster. And it guards only *idle* reaping — an
-explicit termination, and a machine that proves the process is gone, still end
-the session, because a lease states an intent and those state a fact.
+explicit termination still ends the session. Machine proof that the process
+is gone ends a claimless session, but never revokes an open claim or lock.
 """
 
 from __future__ import annotations

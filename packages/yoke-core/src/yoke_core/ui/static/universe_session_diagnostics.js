@@ -59,7 +59,18 @@ function declaredWaitDetail(wait) {
 // calling possibly stale.
 export function sessionHealthState(row, now = Date.now()) {
   if (String(row.liveness || "") === "ended") return null;
-  if (!(Array.isArray(row.claims) && row.claims.length)) return null;
+  const holdings = row.holdings && Array.isArray(row.holdings.current)
+    ? row.holdings.current : [];
+  if (!(holdings.length || (Array.isArray(row.claims) && row.claims.length))) {
+    return null;
+  }
+  if (row.native_process && row.native_process.state === "gone") {
+    return {
+      state: "process-gone",
+      label: "process gone",
+      detail: "claims held — terminate deliberately if dead",
+    };
+  }
   if (!pastStalenessWindow(row, now)) return null;
   const wait = row.declared_wait;
   if (wait) {
