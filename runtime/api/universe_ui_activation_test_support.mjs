@@ -43,11 +43,30 @@ export function harnessTargets(hits = {}, health = {}, trustSurfaces = {}) {
   }));
 }
 
+// One registered machine under the harness module: the engine's row shape,
+// defaulted to a relay-only machine that has connected nothing yet.
+export function machineRow(facts = {}) {
+  return {
+    machine_id: "11111111-1111-4111-8111-111111111111",
+    name: "alpha-box",
+    surfaces: [],
+    relay_state: "active",
+    last_seen_at: null,
+    state: "in_progress",
+    activated_at: null,
+    connected: null,
+    harnesses: [],
+    targets: [],
+    ...facts,
+  };
+}
+
 // The engine's live onboarding-run facts, defaulted to a run that produced
 // nothing: every outcome a card claims has to be set on purpose.
 export function onboardFacts(facts = {}) {
   return {
     run_status: "open",
+    superseded_by: null,
     steps_done: 0,
     steps_total: 0,
     next: null,
@@ -72,8 +91,7 @@ export function activationAnswer({
       dismissed: dismissed.includes(key),
       submodules: [],
       ...(key === "run_onboard" ? { onboard: null } : {}),
-      ...(key === "connect_harness"
-        ? { targets: harnessTargets(), projects: [], connected: null } : {}),
+      ...(key === "connect_harness" ? { machines: [], projects: [] } : {}),
       ...(key === "finish_installation_wizard"
         ? { submodules: wizardSubmodules(), fully_complete: false } : {}),
       ...(extras[key] || {}),

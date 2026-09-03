@@ -14,9 +14,11 @@ import {
   onboardEnvironmentsOutcome,
   onboardNextLine,
   onboardStepsLine,
+  onboardSupersededLine,
 } from "./universe_views_overview_activation_copy.js";
 
 const COMPLETE = "complete";
+const SUPERSEDED = "superseded";
 
 function completedOutcomes(onboard) {
   const outcomes = [];
@@ -58,6 +60,14 @@ export function onboardBody(documentNode, module, body) {
     body.appendChild(el(
       documentNode, "p", "activation-copy",
       onboardCompleteLine(completedOutcomes(onboard)),
+    ));
+    return;
+  }
+  if (onboard.run_status === SUPERSEDED) {
+    const by = onboard.superseded_by || {};
+    body.appendChild(el(
+      documentNode, "p", "activation-copy",
+      onboardSupersededLine(by.deployment_run_id, by.at),
     ));
     return;
   }

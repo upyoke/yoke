@@ -4,7 +4,8 @@ Drives the handlers directly with synthetic envelopes against the
 ``test_db`` fixture (which repoints the ambient authority, so the
 handlers' own ``db_helpers.connect()`` lands in the same database):
 derivation across each submodule signal, ordering/locking, monotone
-latching, and actor-scoped dismissal.
+latching, and actor-scoped dismissal. The per-machine harness module lives
+in test_overview_activation_machines.py.
 """
 
 from __future__ import annotations
@@ -45,20 +46,14 @@ def _modules_by_key(result):
     return {module["key"]: module for module in result["modules"]}
 
 
-def _targets(harness_module):
-    return {target["key"]: target for target in harness_module["targets"]}
-
-
-def _seed_session(conn, session_id, *, executor="claude-code", display=None,
-                  workspace="/tmp/ws", project_id=1, at=None):
+def _seed_session(conn, session_id, *, workspace="/tmp/ws", at=None):
     at = at or iso8601_now()
     conn.execute(
-        "INSERT INTO harness_sessions (session_id, executor, "
-        "executor_surface, provider, model, workspace, project_id, "
-        "mode, offered_at, last_heartbeat) "
-        "VALUES (%s, %s, %s, 'anthropic', 'test-model', %s, %s, 'wait', "
+        "INSERT INTO harness_sessions (session_id, executor, provider, model, "
+        "workspace, project_id, mode, offered_at, last_heartbeat) "
+        "VALUES (%s, 'claude-code', 'anthropic', 'test-model', %s, 1, 'wait', "
         "%s, %s)",
-        (session_id, executor, display, workspace, project_id, at, at),
+        (session_id, workspace, at, at),
     )
     conn.commit()
 
@@ -93,6 +88,7 @@ def test_absent_host_facts_leaves_machine_pending_never_done(test_db):
     machine = wizard["submodules"][0]
     assert machine["key"] == "machine_universe"
     assert machine["done"] is False
+    assert machine["machines"] == []
     assert machine["detail"] == "no host machine fact supplied"
     # Projects exist in the fixture, but the required pair is not complete.
     assert wizard["state"] == "in_progress"
@@ -147,20 +143,6 @@ def test_tail_signals_fill_submodules_and_fully_complete(test_db):
     assert wizard["fully_complete"] is True
 
 
-def test_activation_is_monotone_across_signal_disappearance(test_db):
-    _seed_session(test_db, "s-1")
-    first = _modules_by_key(_get())["connect_harness"]
-    assert first["state"] == "activated"
-    activated_at = first["activated_at"]
-    test_db.execute("DELETE FROM harness_sessions")
-    test_db.commit()
-    again = _modules_by_key(_get())["connect_harness"]
-    assert again["state"] == "activated"
-    assert again["activated_at"] == activated_at
-    # A later module activates out of order; earlier ones stay honest.
-    assert _modules_by_key(_get())["run_onboard"]["state"] == "not_started"
-
-
 def test_deploy_signal_activates_only_on_a_succeeded_run(test_db):
     # The onboarding signal and the facts its card draws from live in
     # test_overview_activation_onboard_signal.py.
@@ -179,58 +161,6 @@ def test_deploy_signal_activates_only_on_a_succeeded_run(test_db):
     )
     test_db.commit()
     assert _modules_by_key(_get())["first_deploy"]["state"] == "activated"
-
-
-def test_harness_targets_hit_from_executor_and_surface_values(test_db):
-    _seed_session(test_db, "s-cli", executor="claude-code", display=None)
-    _seed_session(
-        test_db, "s-vsc", executor="claude-code", display="claude-vscode",
-    )
-    _seed_session(
-        test_db, "s-cdx", executor="codex", display="codex-desktop",
-    )
-    _seed_session(
-        test_db, "s-cur", executor="cursor", display="cursor-desktop",
-    )
-    harness = _modules_by_key(_get())["connect_harness"]
-    hits = {t["key"]: t["hit"] for t in harness["targets"]}
-    assert hits == {
-        "claude-code": True,
-        "codex": True,
-        "cursor": True,
-        "claude-cli": True,
-        "claude-vscode": True,
-        "cursor-desktop": True,
-    }
-    labels = [t["label"] for t in harness["targets"]]
-    assert labels == [
-        "Claude Code", "Codex", "Cursor",
-        "Claude CLI", "Claude in VS Code", "Cursor IDE",
-    ]
-    assert harness["connected"]["executor"] in {
-        "claude-code", "codex", "cursor",
-    }
-    assert harness["connected"]["at"]
-
-
-def test_latch_holds_activated_while_hook_health_regresses(test_db):
-    _seed_session(test_db, "s-cdx", executor="codex", display="codex-desktop")
-    test_db.execute(
-        "UPDATE harness_sessions SET tool_call_count = 4 "
-        "WHERE session_id = 's-cdx'"
-    )
-    test_db.commit()
-    harness = _modules_by_key(_get())["connect_harness"]
-    assert harness["state"] == "activated"
-    assert _targets(harness)["codex"]["hook_health"] == "green"
-
-    # A glue update re-keys the harness's approval, so the sessions that
-    # follow run hookless. The latch is monotone; health is not.
-    test_db.execute("UPDATE harness_sessions SET tool_call_count = 0")
-    test_db.commit()
-    harness = _modules_by_key(_get())["connect_harness"]
-    assert harness["state"] == "activated"
-    assert _targets(harness)["codex"]["hook_health"] == "red"
 
 
 def test_project_rows_carry_most_recent_workspace_or_none(test_db):

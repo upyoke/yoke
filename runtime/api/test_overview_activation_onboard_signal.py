@@ -4,7 +4,9 @@ A run row appears with the checklist's first write, so the module once
 activated — and printed its execution-ready sentence — over a run blocked at
 its first hosting step. These drive the handler against real checklist runs:
 only a checklist with nothing open activates, and the reported facts name the
-blocker, the next step, and the outcomes the universe can actually show.
+blocker, the next step, and the outcomes the universe can actually show. A
+project that deployed is past onboarding whatever its checklist says: its run
+is closed as superseded on the row itself, naming the deployment.
 """
 
 from __future__ import annotations
@@ -25,7 +27,10 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers.overview_activation import (
     handle_overview_activation_get,
 )
-from yoke_core.domain.project_onboarding_runs import init_run
+from yoke_core.domain.project_onboarding_run_supersede import (
+    SUPERSEDED_BY_KEY,
+)
+from yoke_core.domain.project_onboarding_runs import get_run, init_run
 
 HOSTING_ROW_ID = "hosting-setup"
 SCAFFOLD_ROW_ID = "scaffold-install"
@@ -175,3 +180,64 @@ def test_a_universe_with_no_onboarding_run_reports_no_facts(test_db):
 
     assert module["state"] != "activated"
     assert module["onboard"] is None
+
+
+def _seed_deployment(conn, run_id, *, status, at):
+    conn.execute(
+        "INSERT INTO deployment_runs (id, project_id, flow, status, created_at, "
+        "completed_at) VALUES (%s, 1, 'flow-x', %s, %s, %s)",
+        (run_id, status, at, at),
+    )
+    conn.commit()
+
+
+def test_a_project_that_deployed_reads_its_stalled_checklist_as_done(test_db):
+    _seed_run(
+        test_db, "run-stalled",
+        row_status={HOSTING_ROW_ID: STATUS_BLOCKED},
+        blocker={HOSTING_ROW_ID: BLOCKER_TEXT},
+    )
+    _seed_deployment(test_db, "run-20260101-001", status="succeeded",
+                     at="2026-01-01T00:00:00Z")
+
+    module = _onboard()
+
+    assert module["state"] == "activated"
+    onboard = module["onboard"]
+    assert onboard["run_status"] == "superseded"
+    assert onboard["superseded_by"]["deployment_run_id"] == "run-20260101-001"
+    assert onboard["superseded_by"]["status"] == "succeeded"
+    assert onboard["next"] is None and onboard["blocker"] is None
+    # Reconciled on the row, not hidden by the read: the run record says why.
+    stored = get_run("run-stalled", conn=test_db)
+    assert stored["status"] == "superseded"
+    assert stored["metadata"][SUPERSEDED_BY_KEY]["deployment_run_id"] == "run-20260101-001"
+    # The checklist rows keep their own truth.
+    assert stored["summary"]["status"] == "blocked"
+
+
+def test_a_failed_deployment_newer_than_the_checklist_also_closes_it(test_db):
+    _seed_run(test_db, "run-open", row_status=_finished_statuses(**{
+        HOSTING_ROW_ID: "needed",
+    }))
+    _seed_deployment(test_db, "run-20990101-001", status="failed",
+                     at="2099-01-01T00:00:00Z")
+
+    onboard = _onboard()["onboard"]
+
+    assert onboard["run_status"] == "superseded"
+    assert onboard["superseded_by"]["deployment_run_id"] == "run-20990101-001"
+
+
+def test_a_failed_deployment_older_than_the_checklist_leaves_it_open(test_db):
+    _seed_run(test_db, "run-open", row_status=_finished_statuses(**{
+        HOSTING_ROW_ID: "needed",
+    }))
+    _seed_deployment(test_db, "run-20000101-001", status="failed",
+                     at="2000-01-01T00:00:00Z")
+
+    module = _onboard()
+
+    assert module["state"] != "activated"
+    assert module["onboard"]["run_status"] == "open"
+    assert module["onboard"]["superseded_by"] is None

@@ -1,7 +1,8 @@
 // The Overview activation-module stack: module states across the signal
 // matrix, the drawn copy for each state, the wizard checklist, and the
-// harness target row. Dismissal, ghosts, and payload forwarding live in
-// universe_ui_overview_activation_dismiss.test.mjs.
+// harness module's lead copy. Per-machine rows live in
+// universe_ui_overview_activation_machines.test.mjs; dismissal, ghosts, and
+// payload forwarding in universe_ui_overview_activation_dismiss.test.mjs.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -16,6 +17,7 @@ import {
   activationAnswer,
   activationClient,
   harnessTargets,
+  machineRow,
   mountOverview,
   wizardSubmodules,
 } from "./universe_ui_activation_test_support.mjs";
@@ -172,7 +174,7 @@ test("hosted with the machine pending reads the web-first copy", async (t) => {
   mounted.unmount();
 });
 
-test("the harness module lights hit targets and names the connection", async (t) => {
+test("the harness module answers per machine, never for the universe", async (t) => {
   stubFetch(t);
   const connectedAt = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const answer = activationAnswer({
@@ -182,11 +184,17 @@ test("the harness module lights hit targets and names the connection", async (t)
     },
     extras: {
       connect_harness: {
-        targets: harnessTargets({
-          "claude-code": true, "claude-cli": true, "claude-vscode": true,
-        }),
+        machines: [machineRow({
+          state: "activated",
+          activated_at: connectedAt,
+          surfaces: ["claude-cli"],
+          last_seen_at: connectedAt,
+          connected: { executor: "claude-code", at: connectedAt },
+          targets: harnessTargets({
+            "claude-code": true, "claude-cli": true, "claude-vscode": true,
+          }),
+        })],
         projects: [{ slug: "yoke", workspace: "/Users/dev/yoke" }],
-        connected: { executor: "claude-code", at: connectedAt },
       },
     },
   });
@@ -203,8 +211,12 @@ test("the harness module lights hit targets and names the connection", async (t)
     ["✓", "✓"],
   );
   const harness = cards[1];
-  assert.match(textOf(harness), /claude-code connected 5m ago\./);
-  const chips = byClass(harness, "activation-target");
+  const machines = byClass(harness, "activation-machine");
+  assert.equal(machines.length, 1);
+  assert.equal(machines[0].attributes.get("data-state"), "activated");
+  assert.equal(byClass(machines[0], "activation-machine-name")[0].textContent, "alpha-box");
+  assert.match(textOf(machines[0]), /claude-code connected 5m ago\./);
+  const chips = byClass(machines[0], "activation-target");
   assert.deepEqual(chips.map((chip) => chip.textContent), [
     "Claude Code ✓", "Codex", "Cursor",
     "Claude CLI ✓", "Codex CLI", "Cursor CLI",
@@ -217,6 +229,8 @@ test("the harness module lights hit targets and names the connection", async (t)
   // Why the unlit targets are not blockers explains the activation model;
   // the chips carry that themselves without a note beneath them.
   assert.equal(byClass(harness, "activation-note").length, 0);
+  // An activated module lists no project directories to open.
+  assert.equal(byClass(harness, "activation-project").length, 0);
   // The unlocked third module carries its next-action copy.
   assert.ok(textOf(cards[2]).includes(
     "In your harness: strategy → execution profile → Packs → envs → " +
@@ -235,13 +249,16 @@ test("a registered but hookless harness reads warn with its remediation", async 
     },
     extras: {
       connect_harness: {
-        targets: harnessTargets(
-          { codex: true, "codex-cli": true },
-          { codex: "orange", "codex-cli": "orange" },
-          { codex: surface, "codex-cli": surface },
-        ),
+        machines: [machineRow({
+          state: "activated",
+          connected: { executor: "codex", at: new Date().toISOString() },
+          targets: harnessTargets(
+            { codex: true, "codex-cli": true },
+            { codex: "orange", "codex-cli": "orange" },
+            { codex: surface, "codex-cli": surface },
+          ),
+        })],
         projects: [],
-        connected: { executor: "codex", at: new Date().toISOString() },
       },
     },
   });
@@ -260,37 +277,6 @@ test("a registered but hookless harness reads warn with its remediation", async 
     remediation[0].textContent,
     "Waiting on you — trust this project's hooks in " + `${surface}.`,
   );
-  mounted.unmount();
-});
-
-test("the in-progress harness module lists project directories", async (t) => {
-  stubFetch(t);
-  const answer = activationAnswer({
-    states: {
-      finish_installation_wizard: "activated", connect_harness: "in_progress",
-    },
-    extras: {
-      connect_harness: {
-        targets: harnessTargets(),
-        projects: [
-          { slug: "yoke", workspace: "/Users/dev/yoke" },
-          { slug: "quiet", workspace: null },
-        ],
-        connected: null,
-      },
-    },
-  });
-  const { root, mounted } = await mountOverview(activationClient(answer));
-
-  const harness = moduleCards(root)[1];
-  assert.ok(textOf(harness).includes(
-    "Open a supported harness in a project directory:",
-  ));
-  const rows = byClass(harness, "activation-project");
-  assert.equal(rows.length, 2);
-  assert.equal(textOf(rows[0]), "yoke · /Users/dev/yoke · cd /Users/dev/yoke");
-  // A project with no known directory lists without one.
-  assert.equal(textOf(rows[1]), "quiet");
   mounted.unmount();
 });
 

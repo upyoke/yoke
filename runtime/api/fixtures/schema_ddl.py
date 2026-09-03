@@ -48,6 +48,7 @@ def _schema_ddl() -> str:
         from yoke_core.domain.ui_preferences_schema import (
             ACTOR_UI_PREFERENCES_CREATE_SQL,
             OVERVIEW_ACTIVATION_FACTS_CREATE_SQL,
+            OVERVIEW_MACHINE_ACTIVATION_FACTS_CREATE_SQL,
         )
         from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
         from yoke_core.domain.health_runs_schema import DOCTOR_RUNS_SCHEMA_SQL
@@ -114,6 +115,8 @@ def _schema_ddl() -> str:
             + ui_preferences_without_fk
             + ";"
             + OVERVIEW_ACTIVATION_FACTS_CREATE_SQL
+            + ";"
+            + OVERVIEW_MACHINE_ACTIVATION_FACTS_CREATE_SQL
             + ";"
             + _MERGE_LOCKS_DDL
         )

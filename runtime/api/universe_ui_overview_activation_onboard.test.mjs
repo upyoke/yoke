@@ -189,3 +189,27 @@ test("a later blocked run reports itself under an activated card", async (t) => 
   );
   mounted.unmount();
 });
+
+test("a run a deployment overtook reads done and names the deployment", async (t) => {
+  const { card, mounted } = await mountOnboard(t, {
+    state: "activated",
+    onboard: onboardFacts({
+      run_status: "superseded",
+      superseded_by: {
+        deployment_run_id: "run-20260903-001",
+        status: "succeeded",
+        at: "2026-09-03T16:22:30Z",
+      },
+      steps_done: 10,
+      steps_total: 22,
+    }),
+  });
+
+  assert.equal(
+    byClass(card, "activation-copy")[0].textContent,
+    "Onboarding done — superseded by deployment run-20260903-001 on 2026-09-03.",
+  );
+  assert.equal(byClass(card, "activation-progress").length, 0);
+  assert.ok(!visibleText(card).includes("Blocked"));
+  mounted.unmount();
+});

@@ -1,9 +1,10 @@
 // The Overview's pinned activation-module stack: four getting-started
 // modules rendered from one overview.activation.get read. The engine owns
-// every fact — module states, submodule signals, harness targets, per-actor
-// dismissals — and this module owns only the drawn chrome: number/✓
-// medallions, waits / next up / activated pills, the wizard checklist, the
-// harness target row, hover dismiss, and the restore line. Honesty rules
+// every fact — module states, submodule signals, registered machines and
+// their harness targets, per-actor dismissals — and this module owns only
+// the drawn chrome: number/✓ medallions, waits / next up / activated pills,
+// the wizard checklist, hover dismiss, and the restore line (the per-machine
+// harness rows live in universe_views_overview_activation_machines.js). Honesty rules
 // hold throughout: an unresolved read renders a pending line (never
 // fabricated module states), a pending submodule stays ○, and the day-zero
 // ghost panels replace a section only when its read served nothing AND its
@@ -29,21 +30,10 @@ import {
   WIZARD_MACHINE_ROWS,
   WIZARD_ROWS,
   WIZARD_TAIL_KEYS,
+  machineNamesLine,
 } from "./universe_views_overview_activation_copy.js";
-import { renderHarnessTargets } from "./universe_views_overview_activation_health.js";
+import { harnessBody } from "./universe_views_overview_activation_machines.js";
 import { onboardBody } from "./universe_views_overview_activation_onboard.js";
-
-// Minimal relative formatter for "connected <x> ago": the app has no shared
-// clock helper yet and this copy needs only a coarse honest magnitude.
-function relativeTime(iso) {
-  const then = Date.parse(String(iso || ""));
-  if (Number.isNaN(then)) return null;
-  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86400)}d`;
-}
 
 // The host-supplied machine fact rides the capability bag into the read's
 // payload verbatim; absent or non-boolean shapes forward nothing, so the
@@ -102,6 +92,14 @@ function wizardChecklist(documentNode, module, mode) {
       submodule.done ? "✓" : "○",
     ));
     row.appendChild(el(documentNode, "span", "activation-check-label", label));
+    if (submodule.key === "machine_universe" && (submodule.machines || []).length) {
+      // The row names every registered machine, so a second box sees itself
+      // listed rather than reading the first box's connection as its own.
+      row.appendChild(el(
+        documentNode, "span", "activation-check-machines",
+        machineNamesLine(submodule.machines),
+      ));
+    }
     if (!submodule.done && WIZARD_TAIL_KEYS.has(submodule.key)) {
       row.appendChild(el(
         documentNode, "span", "activation-check-optional", "· finish any time",
@@ -143,35 +141,6 @@ function wizardBody(documentNode, module, mode, body) {
     body.appendChild(webFirst);
   }
   body.appendChild(wizardChecklist(documentNode, module, mode));
-}
-
-function harnessBody(documentNode, module, body) {
-  if (module.state === "activated" && module.connected) {
-    const relative = relativeTime(module.connected.at);
-    body.appendChild(el(
-      documentNode, "p", "activation-copy",
-      relative === null
-        ? `${module.connected.executor} connected.`
-        : `${module.connected.executor} connected ${relative} ago.`,
-    ));
-  }
-  if (module.state === "in_progress") {
-    body.appendChild(el(
-      documentNode, "p", "activation-copy", MODULE_COPY.connect_harness.in_progress,
-    ));
-    for (const project of module.projects || []) {
-      const row = el(documentNode, "p", "activation-project");
-      row.appendChild(el(documentNode, "span", "mono", project.slug));
-      if (project.workspace) {
-        row.appendChild(el(documentNode, "span", null, ` · ${project.workspace} · `));
-        row.appendChild(el(
-          documentNode, "code", null, `cd ${project.workspace}`,
-        ));
-      }
-      body.appendChild(row);
-    }
-  }
-  renderHarnessTargets(documentNode, module, body);
 }
 
 function renderModule(context, module, position, result, draw, viewState) {

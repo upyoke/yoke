@@ -96,6 +96,34 @@
   margin: 7px 0 0;
   font-size: 13px;
 }
+/* One registered machine under the harness module: its own ✓/○, name,
+   surfaces, last-seen, and target chips. */
+.universe-app-root .activation-machine {
+  margin: 8px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--yoke-border);
+}
+.universe-app-root .activation-machine-head {
+  margin: 0;
+  font-size: 12.5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: baseline;
+}
+.universe-app-root .activation-machine[data-state="activated"]
+  .activation-machine-mark {
+  color: var(--yoke-good);
+}
+.universe-app-root .activation-machine-name {
+  font-family: var(--yoke-font-mono);
+  font-weight: 640;
+}
+.universe-app-root .activation-machine-meta,
+.universe-app-root .activation-check-machines {
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
 /* The onboarding run's step count, under the line naming what it is on. */
 .universe-app-root .activation-progress {
   margin: 4px 0 0;
