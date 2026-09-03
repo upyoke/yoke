@@ -140,6 +140,15 @@ def wire_happy_path(
         lambda _ctx, _sha: ((), None),
     )
     monkeypatch.setattr(
+        verdict_mod, "read_required_checks",
+        lambda _ctx, _pr: ((), None),
+    )
+    # Nothing red before the arm is the default; the ordering cases say so
+    # for themselves.
+    monkeypatch.setattr(
+        route_mod, "red_entry_checks_refusal", lambda *_a, **_k: "",
+    )
+    monkeypatch.setattr(
         landing_pr_mod, "find_landable_pull_request",
         lambda _ctx, lane_head="": ("url", "42", ""),
     )

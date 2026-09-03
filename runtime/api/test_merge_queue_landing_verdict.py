@@ -50,9 +50,10 @@ def _wire(monkeypatch, *, states, entries=(), train=None, train_note=None):
         verdict_mod, "read_train_run", lambda _ctx, pr_num: (train, train_note)
     )
     monkeypatch.setattr(
-        verdict_mod,
-        "read_landing_checks",
-        lambda _ctx, _sha: ((), None),
+        verdict_mod, "read_landing_checks", lambda _ctx, _sha: ((), None)
+    )
+    monkeypatch.setattr(
+        verdict_mod, "read_required_checks", lambda _ctx, _pr: ((), None)
     )
     return reads
 

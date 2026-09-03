@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from yoke_core.domain.merge_queue_enqueue_verification import (
     ADMISSION_CONFIRM_SECONDS,
+    red_entry_checks_refusal,
     verify_landing_admitted,
 )
+from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
@@ -16,6 +18,16 @@ CTX = MergeContext(args=MergeArgs(branch="ALP-1"), repo_root="", project="alpha"
 QUEUED = PrQueueMembership(in_queue=True, entry_state="QUEUED", mergeable="MERGEABLE")
 NOT_QUEUED = PrQueueMembership(in_queue=False, mergeable="MERGEABLE")
 CONFLICTING = PrQueueMembership(in_queue=False, mergeable="CONFLICTING")
+
+RUN_URL = "https://github.com/o/r/actions/runs/1/job/2"
+FAILED_REQUIRED = LandingCheck(
+    name="repo-contracts",
+    status="completed",
+    conclusion="failure",
+    required=True,
+    url=RUN_URL,
+)
+PENDING_REQUIRED = LandingCheck(name="test-shard", status="in_progress", required=True)
 
 #: Armed, eligible, and waiting on its own required checks. GitHub creates
 #: the queue entry only once those pass, so this is the ordinary landing.
@@ -52,7 +64,14 @@ def _scripted(*results):
     return read
 
 
-def _verify(*, membership, state, sleep=lambda _s: None, target="main"):
+def _verify(
+    *,
+    membership,
+    state,
+    checks=(PENDING_REQUIRED,),
+    sleep=lambda _s: None,
+    target="main",
+):
     return verify_landing_admitted(
         CTX,
         "42",
@@ -60,6 +79,7 @@ def _verify(*, membership, state, sleep=lambda _s: None, target="main"):
         sleep=sleep,
         read_membership=membership,
         read_state=state if callable(state) else _scripted((state, None)),
+        read_checks=checks if callable(checks) else _scripted((checks, None)),
     )
 
 
@@ -114,6 +134,42 @@ def test_a_dirty_pull_request_is_refused_even_while_armed():
     assert "mergeStateStatus=DIRTY" in refusal
 
 
+def test_an_armed_pull_request_with_a_red_required_check_is_refused():
+    """BLOCKED plus a red required check is an ejection, not the wait."""
+    refusal = _verify(
+        membership=_scripted((NOT_QUEUED, None)),
+        state=ARMED_AWAITING_CHECKS,
+        checks=(FAILED_REQUIRED, PENDING_REQUIRED),
+    )
+
+    assert "was not taken by the merge queue" in refusal
+    assert "repo-contracts=failure" in refusal
+    assert RUN_URL in refusal
+    assert "re-run the verification gate" in refusal
+    assert "failed-required-checks=repo-contracts=failure" in refusal
+
+
+def test_a_queue_entry_outranks_a_red_required_check():
+    """GitHub is driving a pull request it has already taken."""
+    refusal = _verify(
+        membership=_scripted((QUEUED, None)),
+        state=ARMED_AWAITING_CHECKS,
+        checks=(FAILED_REQUIRED,),
+    )
+
+    assert refusal == ""
+
+
+def test_an_unreadable_rollup_does_not_refuse_an_otherwise_held_landing():
+    refusal = _verify(
+        membership=_scripted((NOT_QUEUED, None)),
+        state=ARMED_AWAITING_CHECKS,
+        checks=_scripted((None, "required-checks read failed: transport")),
+    )
+
+    assert refusal == ""
+
+
 def test_a_merge_between_the_reads_is_not_a_refusal():
     refusal = _verify(membership=_scripted((NOT_QUEUED, None)), state=MERGED)
 
@@ -128,3 +184,35 @@ def test_an_unreadable_membership_refuses_rather_than_reporting_enqueued():
 
     assert "could not be read" in refusal
     assert "github graphql transport failure" in refusal
+
+
+def test_the_arm_refuses_when_a_required_check_has_already_failed():
+    """Ordering: nothing is armed onto a pull request GitHub has refused."""
+    refusal = red_entry_checks_refusal(
+        CTX,
+        "42",
+        read_checks=lambda _ctx, _pr: ((FAILED_REQUIRED, PENDING_REQUIRED), None),
+    )
+
+    assert "was not armed for the merge queue" in refusal
+    assert "repo-contracts=failure" in refusal
+    assert RUN_URL in refusal
+
+
+def test_the_arm_proceeds_while_the_required_checks_are_still_running():
+    assert (
+        red_entry_checks_refusal(
+            CTX, "42", read_checks=lambda _ctx, _pr: ((PENDING_REQUIRED,), None)
+        )
+        == ""
+    )
+
+
+def test_an_unreadable_rollup_does_not_block_the_arm():
+    """The read-back after arming asks again; a transport blip is not a verdict."""
+    assert (
+        red_entry_checks_refusal(
+            CTX, "42", read_checks=lambda _ctx, _pr: (None, "transport failure")
+        )
+        == ""
+    )

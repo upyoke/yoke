@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from runtime.api.domain.test_session_message_support import NOW, message_connection
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.merge_queue_landing_pending import observe_pending_landings
+from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 
@@ -191,6 +192,44 @@ def _not_queued(_ctx, _pr_number):
     return NOT_QUEUED, None
 
 
+RUN_URL = "https://github.com/o/r/actions/runs/1/job/2"
+PENDING_REQUIRED = LandingCheck(name="test-shard", status="in_progress", required=True)
+FAILED_REQUIRED = LandingCheck(
+    name="repo-contracts",
+    status="completed",
+    conclusion="failure",
+    required=True,
+    url=RUN_URL,
+)
+
+
+def _checks_running(_ctx, _pr_number):
+    return (PENDING_REQUIRED,), None
+
+
+def _check_failed(_ctx, _pr_number):
+    return (FAILED_REQUIRED,), None
+
+
+def _observe(
+    conn,
+    *,
+    now=NOW,
+    read_state=_dirty,
+    read_membership=_out_of_queue,
+    read_checks=_checks_running,
+):
+    """One observation pass with every GitHub read answered locally."""
+    return observe_pending_landings(
+        conn,
+        [1],
+        now=now,
+        read_state=read_state,
+        read_membership=read_membership,
+        read_checks=read_checks,
+    )
+
+
 def _ejected_message_id(conn) -> str:
     row = conn.execute(
         "SELECT message_id FROM session_messages "
@@ -203,9 +242,7 @@ def _ejected_message_id(conn) -> str:
 def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     conn = _connection()
 
-    observed = observe_pending_landings(
-        conn, [1], now=NOW, read_state=_dirty, read_membership=_out_of_queue
-    )
+    observed = _observe(conn, now=NOW)
     assert observed["landed"] == 0
     assert observed["ejected"] == 0  # not yet delivered to the holder
 
@@ -218,9 +255,7 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     assert "isInMergeQueue=false" in body
 
     _inject(conn, message_id)
-    delivered = observe_pending_landings(
-        conn, [1], now=INJECTED_AT, read_state=_dirty, read_membership=_out_of_queue
-    )
+    delivered = _observe(conn, now=INJECTED_AT)
     assert delivered["ejected"] == 1
     # The queue admission is cleared, so the item is no longer reported as a
     # pending landing and a fresh `yoke merge item` re-arms it. The pull
@@ -231,22 +266,15 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     ).fetchone()
     assert marker[0] == "42"
     assert marker[1] is None
-    assert (
-        observe_pending_landings(
-            conn, [1], now=INJECTED_AT, read_state=_dirty, read_membership=_out_of_queue
-        )["checked"]
-        == 0
-    )
+    assert _observe(conn, now=INJECTED_AT)["checked"] == 0
 
 
 def test_an_armed_pull_request_awaiting_its_checks_stays_silent():
     """The queue entry appears only after the checks pass; that is the wait."""
     conn = _connection()
 
-    observed = observe_pending_landings(
+    observed = _observe(
         conn,
-        [1],
-        now=NOW,
         read_state=_armed_awaiting_checks,
         read_membership=_not_queued,
     )
@@ -264,9 +292,7 @@ def test_a_queue_entry_outranks_a_stale_mergeability_read():
     """GitHub removes an entry it cannot merge, so an entry is still landing."""
     conn = _connection()
 
-    observed = observe_pending_landings(
-        conn, [1], now=NOW, read_state=_dirty, read_membership=_in_queue
-    )
+    observed = _observe(conn, read_membership=_in_queue)
 
     assert observed["ejected"] == 0
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
@@ -275,12 +301,34 @@ def test_a_queue_entry_outranks_a_stale_mergeability_read():
 def test_an_unreadable_membership_cannot_prove_an_ejection():
     conn = _connection()
 
-    observed = observe_pending_landings(
+    observed = _observe(
         conn,
-        [1],
-        now=NOW,
-        read_state=_dirty,
-        read_membership=lambda _ctx, _pr: (None, "github graphql transport failure"),
+        read_membership=lambda _ctx, _pr: (
+            None,
+            "github graphql transport failure",
+        ),
     )
     assert observed["ejected"] == 0
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+
+
+def test_an_armed_pull_request_with_a_red_required_check_is_an_ejection():
+    """BLOCKED plus a red required check is a landing that cannot happen."""
+    conn = _connection()
+
+    observed = _observe(
+        conn,
+        read_state=_armed_awaiting_checks,
+        read_membership=_not_queued,
+        read_checks=_check_failed,
+    )
+    assert observed["landed"] == 0
+
+    body = conn.execute(
+        "SELECT body FROM session_messages WHERE message_id=?",
+        (_ejected_message_id(conn),),
+    ).fetchone()[0]
+    assert "Landing stopped for ALP-1" in body
+    assert "repo-contracts=failure" in body
+    assert RUN_URL in body
+    assert "re-run the verification gate" in body
