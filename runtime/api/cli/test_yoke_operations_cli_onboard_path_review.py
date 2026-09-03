@@ -78,8 +78,9 @@ def test_review_names_exact_files_directories_clis_and_ssh_reason(tmp_path) -> N
     ):
         assert expected in login
         assert expected in ssh
-    assert "non-login/SSH" in ssh
-    assert f"never reads {tmp_path / '.zprofile'}" in ssh
+    assert "to PATH for login shells" in login
+    assert "to PATH for SSH and non-login shells" in ssh
+    assert f"which never read {tmp_path / '.zprofile'}" in ssh
 
 
 def test_apply_writes_both_surfaces_and_reports_them_independently(
