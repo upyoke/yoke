@@ -6,7 +6,10 @@ from datetime import timedelta
 import json
 
 from runtime.api.steering_fleet_test_helpers import (
+    ACTOR_ID,
+    NOW,
     PLAN_LIMIT_HOST,
+    PROJECT_ID,
     compose,
     plan_limit_row,
     seed_steering_scope,
@@ -28,6 +31,7 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
     plan_window_length,
     remaining_capacity,
 )
+from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 from yoke_core.domain.steering_fleet_report_render import report_body
 
 _NOW = "2026-09-01T13:20:00Z"
@@ -220,3 +224,66 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
     assert "stale_credential" in body
     assert "do not gate launches" in body
     assert HEADROOM_LEGEND in body
+
+
+_READING = {
+    "claude-cli": {
+        "surface": "claude-cli",
+        "plan_tier": "max",
+        "observed_at": "2026-08-30T01:00:00Z",
+        "windows": [
+            {
+                "window_kind": "rolling_5h",
+                "scope": "all",
+                "remaining_percent": 89.0,
+                "resets_at": "2026-08-30T03:00:00Z",
+                "status": "ok",
+                "reason": None,
+            }
+        ],
+    }
+}
+
+
+def _seed_reading(test_db) -> None:
+    test_db.execute(
+        "UPDATE session_relays SET surface_plan_limits = %s WHERE relay_id = 'relay-1'",
+        (json.dumps(_READING),),
+    )
+    test_db.commit()
+
+
+def test_plan_limit_rows_name_the_registered_machine(test_db) -> None:
+    """A steerer reads names, not UUIDs; the relay host name is the fallback."""
+    seed_steering_scope(test_db)
+    _seed_reading(test_db)
+
+    named = load_plan_limits(
+        test_db,
+        project_id=PROJECT_ID,
+        now=NOW,
+        registered_names={"machine-1": "workshop-mac"},
+    )
+    assert {row.machine_name for row in named} == {"workshop-mac"}
+
+    unregistered = load_plan_limits(
+        test_db, project_id=PROJECT_ID, now=NOW, registered_names={}
+    )
+    assert {row.machine_name for row in unregistered} == {PLAN_LIMIT_HOST}
+
+
+def test_the_report_names_machines_it_registered(test_db) -> None:
+    scope = seed_steering_scope(test_db)
+    _seed_reading(test_db)
+    test_db.execute(
+        "INSERT INTO machines (machine_id, name, owner_actor_id, proof_public_key, "
+        "access, registered_at, last_seen_at) "
+        "VALUES ('machine-1', 'workshop-mac', %s, 'seeded-public-key', '{}', %s, %s)",
+        (ACTOR_ID, NOW, NOW),
+    )
+    test_db.commit()
+
+    body = report_body(compose(scope))
+
+    assert "workshop-mac" in body
+    assert "machine-1/" not in body
