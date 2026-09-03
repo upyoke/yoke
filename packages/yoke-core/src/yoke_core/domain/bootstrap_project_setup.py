@@ -229,7 +229,21 @@ def run_setup(ctx: BootstrapContext) -> int:
             print(" FAILED", file=sys.stderr)
             print(f"Error: Pack get failed: {exc}", file=sys.stderr)
             return 2
-        if report.get("refused") or not report.get("applied"):
+        if report.get("refused"):
+            refusal = report.get("refusal") or {}
+            code = refusal.get("code") or "pack-operation-refused"
+            print(" REFUSED", file=sys.stderr)
+            print(f"Error: {code}: {refusal.get('message') or code}", file=sys.stderr)
+            for row in report.get("prerequisites", []):
+                if row.get("status") == "ready":
+                    continue
+                print(
+                    f"  {row.get('tool')}: {row.get('detail')}; "
+                    f"install: {row.get('install_recipe')}",
+                    file=sys.stderr,
+                )
+            return 2
+        if not report.get("applied"):
             print(" CONFLICT", file=sys.stderr)
             print(
                 "Error: Pack get requires manual conflict resolution; "

@@ -37,6 +37,12 @@ Present the whole profile in one block — a smart proposal, never a blank inter
   - any documentation/context Packs the plan needs (provider-neutral)
 
   Every infra and deploy Pack above targets AWS. Under a `no-yoke-managed-host` posture, propose none of them and say why — Yoke has no apply path for Render, Fly, DigitalOcean, dokku, or an on-prem box, and offering an AWS Pack to a project hosted elsewhere is offering something that cannot run. Drop what strategy does not justify; an existing app maps instead of installing a scaffold.
+  Before asking for confirmation, include every proposed Pack's declared local
+  tool prerequisites from `yoke packs list --project {project} --json`: name
+  the tool, minimum version, version probe, and this operating system's install
+  recipe. Say `none` for a Pack with an empty list. This is part of the profile,
+  not an apply-time surprise; a missing tool may change what the operator is
+  ready to confirm.
 - **Capabilities** — `aws-admin` (hosting; omit entirely under `no-yoke-managed-host`), the project GitHub binding mode, product-specific keys named by the plan.
 - **Delivery** — exactly one named outcome from the delivery box below.
 - **Domain posture** — start on the default subdomain; bring-your-own later.
@@ -205,6 +211,14 @@ Pack installs are preview-first. Preview against the target checkout, inspect th
 yoke packs get webapp-scaffold {checkout} --project {project}
 yoke packs get webapp-scaffold {checkout} --project {project} --apply
 ```
+
+The preview includes a read-only probe row for every prerequisite declared by
+the selected Pack and any dependency Pack. Every row must say `ready` before
+the unattended apply. A missing, unusable, or outdated tool names its refusal
+code and operating-system install recipe; mark `scaffold-install=blocked` with
+that recovery and stop. Use `--allow-missing-tools` only when the operator
+explicitly requested that override during confirmation — onboarding never adds
+it merely to make an apply proceed.
 
 Pack output becomes ordinary project-owned source — customization is expected — and `.yoke/packs.json` records the applied baseline for independent future updates. Do not force conflicts; a preview conflict against existing files means existing-repo mapping, not overwrite. Commit the applied files in the project repo.
 

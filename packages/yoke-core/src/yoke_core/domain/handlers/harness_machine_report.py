@@ -26,11 +26,13 @@ class HarnessMachineReportRow(BaseModel):
 class HarnessMachineReportUpsertRequest(BaseModel):
     project_id: int
     reports: List[HarnessMachineReportRow] = Field(default_factory=list)
+    pack_prerequisites: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class HarnessMachineReportUpsertResponse(BaseModel):
     project_id: int
     reports: List[Dict[str, Any]]
+    pack_prerequisites: List[Dict[str, Any]]
 
 
 def handle_harness_machine_report_upsert(
@@ -79,7 +81,11 @@ def handle_harness_machine_report_upsert(
         conn.close()
     return HandlerOutcome(
         primary_success=True,
-        result_payload={"project_id": parsed.project_id, "reports": stored},
+        result_payload={
+            "project_id": parsed.project_id,
+            "reports": stored,
+            "pack_prerequisites": parsed.pack_prerequisites,
+        },
     )
 
 

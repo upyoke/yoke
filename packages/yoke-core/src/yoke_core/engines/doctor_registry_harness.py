@@ -12,7 +12,8 @@ Session/harness substrate:
   ``launcher-authority``, ``session-relay``, ``session-relay-orphans``.
 
 Project harness config:
-  ``project-hook-config-validity``, ``harness-unattended-posture``.
+  ``project-hook-config-validity``, ``harness-unattended-posture``,
+  ``pack-prerequisites``.
 
 Ledger audit:
   ``claim-boundary-audit``.
@@ -57,6 +58,11 @@ from yoke_core.engines.doctor_hc_reflection_capture_persist_failed import (
 )
 from yoke_core.engines.doctor_hc_project_hook_config import (
     hc_project_hook_config_validity,
+)
+from yoke_core.engines.doctor_hc_pack_prerequisites import (
+    SLUG as PACK_PREREQUISITES_SLUG,
+    TITLE as PACK_PREREQUISITES_TITLE,
+    hc_pack_prerequisites,
 )
 from yoke_core.engines.doctor_hc_session_actor_binding import (
     AUTHORITY_SLUG as OPERATING_ACTOR_AUTHORITY_SLUG,
@@ -150,6 +156,11 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "project-hook-config-validity",
         "Project Cursor-scanned hook configs are regular and schema-valid",
         hc_project_hook_config_validity,
+    ),
+    HealthCheck(
+        PACK_PREREQUISITES_SLUG,
+        PACK_PREREQUISITES_TITLE,
+        hc_pack_prerequisites,
     ),
     # Group B — harness substrate parity HCs (task 10)
     HealthCheck(

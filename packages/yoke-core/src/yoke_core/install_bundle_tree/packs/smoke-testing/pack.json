@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "smoke-testing",
   "name": "Smoke Testing",
   "description": "Adds a GitHub Actions check that confirms a deployed application is reachable and returns the expected health response.",
@@ -66,7 +66,8 @@
           "name": "source-check",
           "command": "git diff --check -- .github/workflows"
         }
-      ]
+      ],
+      "prerequisites": []
     },
     "1.0.1": {
       "source": "versions/1.0.1/files",
@@ -129,7 +130,8 @@
           "name": "source-check",
           "command": "git diff --check -- .github/workflows"
         }
-      ]
+      ],
+      "prerequisites": []
     },
     "1.1.0": {
       "source": "versions/1.1.0/files",
@@ -192,7 +194,8 @@
           "name": "source-check",
           "command": "git diff --check -- .github/workflows"
         }
-      ]
+      ],
+      "prerequisites": []
     },
     "1.1.1": {
       "source": "versions/1.1.1/files",
@@ -255,7 +258,8 @@
           "name": "source-check",
           "command": "git diff --check -- .github/workflows"
         }
-      ]
+      ],
+      "prerequisites": []
     }
   }
 }

@@ -70,7 +70,26 @@ def test_load_receipt_upgrades_original_paths_to_explicit_project_paths(
     loaded = load_receipt(tmp_path)
 
     assert loaded is not None
-    assert loaded["schema"] == 2
+    assert loaded["schema"] == 3
+    assert loaded["packs"]["sample"]["files"]["app.py"]["path"] == "app.py"
+    assert loaded["packs"]["sample"]["prerequisites"] == []
+
+
+def test_load_receipt_upgrades_previous_explicit_paths_with_prerequisites(
+    tmp_path: Path,
+) -> None:
+    receipt = _receipt()
+    receipt["schema"] = 2
+    del receipt["packs"]["sample"]["prerequisites"]
+    authority = tmp_path / ".yoke" / "packs.json"
+    authority.parent.mkdir()
+    authority.write_text(json.dumps(receipt), encoding="utf-8")
+
+    loaded = load_receipt(tmp_path)
+
+    assert loaded is not None
+    assert loaded["schema"] == 3
+    assert loaded["packs"]["sample"]["prerequisites"] == []
     assert loaded["packs"]["sample"]["files"]["app.py"]["path"] == "app.py"
 
 
@@ -80,7 +99,7 @@ def _receipt() -> dict[str, object]:
     return json.loads(
         json.dumps(
             {
-                "schema": 2,
+                "schema": 3,
                 "project_id": 9,
                 "project_slug": "sample",
                 "packs": {
@@ -88,6 +107,7 @@ def _receipt() -> dict[str, object]:
                         "version": "1.0.0",
                         "content_digest": digest,
                         "render_values": {"project_name": "sample"},
+                        "prerequisites": [],
                         "files": {
                             "app.py": {
                                 "path": "app.py",

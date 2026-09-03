@@ -27,6 +27,7 @@ from yoke_core.domain.pack_render import render_pack_text
 from yoke_core.domain.project_renderer_pulumi import gather_pulumi_values
 from yoke_core.domain.project_renderer_settings import _load_project_renderer_settings
 
+
 def packs_root() -> Path:
     root = server_tree_root() / PACKS_SOURCE
     if not root.is_dir():
@@ -80,6 +81,7 @@ def catalog_rows() -> list[dict[str, Any]]:
                 "description": descriptor["description"],
                 "latest_version": version,
                 "dependencies": list(version_record.get("dependencies") or []),
+                "prerequisites": list(version_record["prerequisites"]),
                 "documentation": version_record["documentation"],
                 "settings_schema": dict(version_record["settings_schema"]),
                 "verification": list(version_record["verification"]),
@@ -140,6 +142,7 @@ def build_pack_bundle(
         "version": selected,
         "latest_version": descriptor["latest_version"],
         "dependencies": list(version_record.get("dependencies") or []),
+        "prerequisites": list(version_record["prerequisites"]),
         "documentation": version_record["documentation"],
         "settings_schema": dict(version_record["settings_schema"]),
         "verification": list(version_record["verification"]),
@@ -147,7 +150,6 @@ def build_pack_bundle(
         "files": entries,
         "content_digest": _content_digest(entries),
     }
-
 
 
 def _version_record(descriptor: Mapping[str, Any], version: str) -> dict[str, Any]:
@@ -204,12 +206,17 @@ def _render_version_files(
             if encoding == "utf-8"
             else content
         )
-        if should_render and (_PLACEHOLDER.search(target) or (
-            encoding == "utf-8" and _PLACEHOLDER.search(rendered)
-        )):
-            raise PackError(f"Pack {descriptor['slug']!r} retains placeholders in {source_rel}")
+        if should_render and (
+            _PLACEHOLDER.search(target)
+            or (encoding == "utf-8" and _PLACEHOLDER.search(rendered))
+        ):
+            raise PackError(
+                f"Pack {descriptor['slug']!r} retains placeholders in {source_rel}"
+            )
         if target in targets:
-            raise PackError(f"Pack {descriptor['slug']!r} renders duplicate target {target!r}")
+            raise PackError(
+                f"Pack {descriptor['slug']!r} renders duplicate target {target!r}"
+            )
         targets.add(target)
         mode = int(file_record["mode"], 8)
         rendered_bytes = (
@@ -229,7 +236,6 @@ def _render_version_files(
     return entries
 
 
-
 def _content_digest(entries: list[dict[str, Any]]) -> str:
     material = [
         {
@@ -240,7 +246,9 @@ def _content_digest(entries: list[dict[str, Any]]) -> str:
         }
         for row in entries
     ]
-    return hashlib.sha256(json_helper.dumps_compact(material).encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        json_helper.dumps_compact(material).encode("utf-8")
+    ).hexdigest()
 
 
 __all__ = [

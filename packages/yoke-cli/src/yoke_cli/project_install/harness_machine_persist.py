@@ -15,7 +15,10 @@ def persist_install_glue(
     from yoke_cli.commands._helpers import call_dispatcher, ensure_handlers_loaded
     from yoke_cli.project_install.hook_trust_report import harness_ids_written
     from yoke_cli.transport.dispatcher import build_actor
-    from yoke_cli.project_install.harness_inventory import collect_harness_inventory
+    from yoke_cli.project_install.harness_inventory import (
+        collect_harness_inventory,
+        collect_pack_prerequisite_inventory,
+    )
     from yoke_contracts.api.function_call import TargetRef
 
     reports = collect_harness_inventory(repo_root)
@@ -41,7 +44,11 @@ def persist_install_glue(
     response = call_dispatcher(
         function_id="harness.machine_report.upsert",
         target=TargetRef(kind="global"),
-        payload={"project_id": int(project_id), "reports": payload_reports},
+        payload={
+            "project_id": int(project_id),
+            "reports": payload_reports,
+            "pack_prerequisites": collect_pack_prerequisite_inventory(repo_root),
+        },
         actor=build_actor(session_id=None),
     )
     if not response.success:

@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "branch-preview-hosting",
   "name": "Branch Preview Hosting",
   "description": "Adds reusable host-side routing and cleanup for temporary branch previews without choosing how an application's previews are built or deployed.",
@@ -81,6 +81,38 @@
         {
           "name": "source-check",
           "command": "git diff --check -- ops docs/packs/branch-preview-hosting"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
+        },
+        {
+          "tool": "node",
+          "minimum_version": "20.0.0",
+          "probe": {
+            "executable": "node",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install node",
+            "linux": "curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs",
+            "windows": "winget install OpenJS.NodeJS.LTS"
+          }
         }
       ]
     },
@@ -164,6 +196,38 @@
         {
           "name": "source-check",
           "command": "git diff --check -- ops docs/packs/branch-preview-hosting"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
+        },
+        {
+          "tool": "node",
+          "minimum_version": "20.0.0",
+          "probe": {
+            "executable": "node",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install node",
+            "linux": "curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs",
+            "windows": "winget install OpenJS.NodeJS.LTS"
+          }
         }
       ]
     }

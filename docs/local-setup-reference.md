@@ -145,6 +145,17 @@ yoke packs update <pack> /path/to/project --project <slug>
 yoke packs update <pack> /path/to/project --project <slug> --apply
 ```
 
+Each Pack version declares the operator-machine tools it needs, including a
+minimum version, a read-only version probe, and install recipes for macOS,
+Linux, and Windows. `packs list --json` exposes those declarations. Every
+`packs get` or `packs update` preview runs the relevant probes for the selected
+Pack and its dependencies; apply refuses with
+`pack-prerequisites-unsatisfied` and the host-specific recipe while any tool is
+missing, unusable, or too old. `--allow-missing-tools` is an explicit operator
+override for cases where the installed source will be used on another machine;
+the receipt still records the declarations, and subsequent harness inventory
+and Doctor runs reprobe and report every unsatisfied row.
+
 If a project moves an installed Pack file, preview and apply `packs relink` to
 record its new project path. Relink changes only `.yoke/packs.json`; it never
 moves, overwrites, or deletes project-owned source.

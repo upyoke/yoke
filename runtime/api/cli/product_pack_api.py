@@ -34,7 +34,7 @@ def _pack_bundle(version: str) -> dict:
         json.dumps(material, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     return {
-        "bundle_schema": 1,
+        "bundle_schema": 2,
         "project_id": 41,
         "project_slug": "sample",
         "pack": "sample-pack",
@@ -43,6 +43,7 @@ def _pack_bundle(version: str) -> dict:
         "version": version,
         "latest_version": "1.1.0",
         "dependencies": [],
+        "prerequisites": [],
         "render_values": {
             "configure_aws_credentials_action": credentials_action,
         },
@@ -100,6 +101,7 @@ class PackApi:
                                 "description": "Packaged HTTPS transport fixture.",
                                 "latest_version": "1.1.0",
                                 "dependencies": [],
+                                "prerequisites": [],
                                 "documentation": "docs/packs/sample-pack/README.md",
                                 "settings_schema": {},
                                 "verification": [],

@@ -36,13 +36,21 @@ def harness_machine_report_upsert(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, HARNESS_MACHINE_REPORT_UPSERT_USAGE)
     if parsed is None:
         return 2
-    from yoke_cli.project_install.harness_inventory import collect_harness_inventory
+    from yoke_cli.project_install.harness_inventory import (
+        collect_harness_inventory,
+        collect_pack_prerequisite_inventory,
+    )
 
     reports = collect_harness_inventory(Path(parsed.repo_root))
+    pack_prerequisites = collect_pack_prerequisite_inventory(Path(parsed.repo_root))
     return dispatch_and_emit(
         function_id="harness.machine_report.upsert",
         target=TargetRef(kind="global"),
-        payload={"project_id": parsed.project_id, "reports": reports},
+        payload={
+            "project_id": parsed.project_id,
+            "reports": reports,
+            "pack_prerequisites": pack_prerequisites,
+        },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )

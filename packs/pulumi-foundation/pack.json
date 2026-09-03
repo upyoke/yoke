@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "pulumi-foundation",
   "name": "Pulumi Foundation",
   "description": "Provides the basic Pulumi project, shared configuration helpers, component aliases, and GitHub repository connection used by infrastructure Packs.",
@@ -100,6 +100,23 @@
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
+        }
       ]
     },
     "1.1.0": {
@@ -172,6 +189,23 @@
         {
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
         }
       ]
     },
@@ -246,6 +280,23 @@
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
+        }
       ]
     },
     "1.3.0": {
@@ -319,6 +370,23 @@
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
+        }
       ]
     },
     "1.4.0": {
@@ -391,6 +459,23 @@
         {
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
         }
       ]
     }

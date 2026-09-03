@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "container-runtime",
   "name": "Container Runtime",
   "description": "Adds the Docker images, startup scripts, Compose configuration, and nginx settings needed to run a FastAPI API and Next.js web app.",
@@ -108,6 +108,23 @@
           "name": "python-check",
           "command": "python3 -m compileall -q app"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
+        }
       ]
     },
     "1.1.0": {
@@ -200,6 +217,23 @@
         {
           "name": "python-check",
           "command": "python3 -m compileall -q app"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
         }
       ]
     }

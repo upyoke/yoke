@@ -6,6 +6,30 @@ import json
 from yoke_cli.commands.adapters import packs
 
 
+def test_list_prints_declared_tool_names(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(packs, "machine_config_path", lambda path: nullcontext())
+    monkeypatch.setattr(
+        packs,
+        "list_packs",
+        lambda **kwargs: {
+            "packs": [
+                {
+                    "slug": "pulumi-foundation",
+                    "status": "available",
+                    "installed_version": None,
+                    "latest_version": "1.0.0",
+                    "description": "Pulumi project foundation.",
+                    "prerequisites": [{"tool": "pulumi"}],
+                }
+            ]
+        },
+    )
+
+    assert packs.packs_list(["--project", "sample"]) == 0
+
+    assert "tools=pulumi" in capsys.readouterr().out
+
+
 def test_update_forwards_repeated_accepted_current_paths(
     monkeypatch,
     capsys,
@@ -30,6 +54,7 @@ def test_update_forwards_repeated_accepted_current_paths(
             "--accept-current",
             "docs/setup.md",
             "--apply",
+            "--allow-missing-tools",
             "--json",
         ]
     )
@@ -45,6 +70,7 @@ def test_update_forwards_repeated_accepted_current_paths(
         "pack": "webapp-scaffold",
         "operation": "update",
         "apply": True,
+        "allow_missing_tools": True,
         "version": None,
         "session_id": None,
         "accepted_current_paths": [

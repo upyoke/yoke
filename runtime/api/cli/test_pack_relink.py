@@ -16,7 +16,7 @@ def _digest(content: str) -> str:
 def _receipt(content: str = "baseline\n") -> dict:
     digest = _digest(content)
     return {
-        "schema": 2,
+        "schema": 3,
         "project_id": 9,
         "project_slug": "sample",
         "packs": {
@@ -24,6 +24,7 @@ def _receipt(content: str = "baseline\n") -> dict:
                 "version": "1.0.0",
                 "content_digest": digest,
                 "render_values": {},
+                "prerequisites": [],
                 "files": {
                     "feature.txt": {
                         "path": "feature.txt",

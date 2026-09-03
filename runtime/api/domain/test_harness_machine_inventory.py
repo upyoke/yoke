@@ -10,14 +10,20 @@ import pytest
 
 from yoke_cli.project_install.harness_inventory import (
     collect_harness_inventory as collect_cli_inventory,
+    collect_pack_prerequisite_inventory as collect_cli_pack_prerequisites,
 )
 from yoke_contracts.codex_hook_trust import normalized_codex_hook_hashes
 from yoke_core.domain.harness_machine_inventory import (
     collect_harness_inventory as collect_core_inventory,
+    collect_pack_prerequisite_inventory as collect_core_pack_prerequisites,
 )
 
 
 COLLECTORS = (collect_core_inventory, collect_cli_inventory)
+PACK_COLLECTORS = (
+    collect_core_pack_prerequisites,
+    collect_cli_pack_prerequisites,
+)
 
 
 def _payload(command: str = "echo hello") -> dict:
@@ -188,3 +194,58 @@ def test_trust_for_another_literal_path_is_unapproved(
     monkeypatch.setenv("CODEX_HOME", str(home))
 
     assert _report(collector, checkout)["approval_state"] == "unapproved"
+
+
+@pytest.mark.parametrize("pack_collector", PACK_COLLECTORS, ids=("core", "cli"))
+def test_machine_inventory_reports_an_installed_pack_missing_its_tool(
+    pack_collector,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from yoke_cli.packs import prerequisites
+
+    checkout = tmp_path / "project"
+    receipt = checkout / ".yoke" / "packs.json"
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(
+        json.dumps(
+            {
+                "schema": 3,
+                "project_id": 7,
+                "project_slug": "sample",
+                "packs": {
+                    "pulumi-foundation": {
+                        "version": "1.0.0",
+                        "content_digest": "a" * 64,
+                        "render_values": {},
+                        "prerequisites": [
+                            {
+                                "tool": "pulumi",
+                                "minimum_version": "3.0.0",
+                                "probe": {
+                                    "executable": "pulumi",
+                                    "version_args": ["version"],
+                                },
+                                "install": {
+                                    "darwin": "brew install pulumi/tap/pulumi",
+                                    "linux": "install pulumi on linux",
+                                    "windows": "winget install Pulumi.Pulumi",
+                                },
+                            }
+                        ],
+                        "files": {},
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(prerequisites, "_WHICH", lambda executable: None)
+    monkeypatch.setattr(prerequisites, "_SYSTEM", lambda: "Darwin")
+
+    [row] = pack_collector(checkout)
+
+    assert row["pack"] == "pulumi-foundation"
+    assert row["tool"] == "pulumi"
+    assert row["code"] == "pack-prerequisite-missing"
+    assert row["install_recipe"] == "brew install pulumi/tap/pulumi"

@@ -79,14 +79,17 @@ Checklist init `--project acme-app`.
 Survey sees `.github/workflows/deploy.yml`, Terraform or CDK, `package.json`.
 Strategy docs from the running product.
 
-Profile (stop 1): scaffold mapped `not-needed`; infra Packs; `aws-admin`
-already verified (`yoke aws admin-status --project acme-app --json` reports
-`ready: true` with redacted caller-identity evidence).
+Profile (stop 1): scaffold mapped `not-needed`; infra Packs with their declared
+operator-machine prerequisites, including the Pulumi version floor, probe, and
+host install recipe; `aws-admin` already verified (`yoke aws admin-status
+--project acme-app --json` reports `ready: true` with redacted caller-identity
+evidence).
 Environments stage+prod. Domain default subdomain
 `yoke projects environment-settings merge … --set domain.mode=default-subdomain`.
 
 Step 5: `yoke packs get registry-oidc {checkout} --project acme-app` then
-`--apply`. `yoke deployment-flows create {flow_id} --stages-file … --target-tier
+`--apply`. The preview's Pulumi row must be `ready`; otherwise its named code
+and install recipe block the apply. `yoke deployment-flows create {flow_id} --stages-file … --target-tier
 persistent --environment stage`. `yoke project-structure patch apply` for
 `deploy_defaults`.
 

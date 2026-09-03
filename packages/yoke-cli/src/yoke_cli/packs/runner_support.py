@@ -16,7 +16,7 @@ from yoke_cli.packs.errors import PackClientError
 from yoke_cli.packs.receipt import assert_pack_targets_safe
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.packs import PACK_BUNDLE_SCHEMA
+from yoke_contracts.packs import PACK_BUNDLE_SCHEMA, validate_pack_prerequisites
 
 
 def _fetch_bundle(
@@ -73,6 +73,10 @@ def _validate_bundle(bundle: Mapping[str, Any]) -> None:
         raise PackClientError("Pack bundle project_id is invalid")
     if not isinstance(bundle.get("dependencies"), list):
         raise PackClientError("Pack bundle dependencies are invalid")
+    try:
+        validate_pack_prerequisites(bundle.get("prerequisites"))
+    except ValueError as exc:
+        raise PackClientError(f"Pack bundle prerequisites are invalid: {exc}") from exc
     render_values = bundle.get("render_values")
     if not isinstance(render_values, dict) or any(
         not isinstance(key, str) or not isinstance(value, str)
@@ -189,6 +193,7 @@ def _receipt_record(
         "version": bundle["version"],
         "content_digest": bundle["content_digest"],
         "render_values": dict(bundle["render_values"]),
+        "prerequisites": list(bundle["prerequisites"]),
         "files": {
             entry["path"]: {
                 "path": (

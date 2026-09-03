@@ -147,4 +147,13 @@ def collect_harness_inventory(checkout: str | Path) -> list[dict[str, Any]]:
     return reports
 
 
-__all__ = ["collect_harness_inventory"]
+def collect_pack_prerequisite_inventory(
+    checkout: str | Path,
+) -> list[dict[str, Any]]:
+    """Return installed Pack tool readiness for this machine and checkout."""
+    from yoke_cli.packs.prerequisites import collect_installed_pack_prerequisites
+
+    return collect_installed_pack_prerequisites(checkout)
+
+
+__all__ = ["collect_harness_inventory", "collect_pack_prerequisite_inventory"]

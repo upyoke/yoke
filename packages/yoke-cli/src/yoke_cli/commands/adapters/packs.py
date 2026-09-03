@@ -20,11 +20,12 @@ from yoke_cli.packs import (
 PACKS_LIST_USAGE = "yoke packs list --project NAME [--config PATH] [--json]"
 PACKS_GET_USAGE = (
     "yoke packs get PACK [REPO_ROOT] --project NAME [--version VERSION] "
-    "[--config PATH] [--apply] [--json]"
+    "[--config PATH] [--apply] [--allow-missing-tools] [--json]"
 )
 PACKS_UPDATE_USAGE = (
     "yoke packs update PACK [REPO_ROOT] --project NAME [--version VERSION] "
-    "[--accept-current PATH ...] [--config PATH] [--apply] [--json]"
+    "[--accept-current PATH ...] [--config PATH] [--apply] "
+    "[--allow-missing-tools] [--json]"
 )
 PACKS_RELINK_USAGE = (
     "yoke packs relink PACK [REPO_ROOT] --project NAME --from OLD_PATH "
@@ -55,9 +56,15 @@ def packs_list(args: List[str]) -> int:
         return 0
     for row in report["packs"]:
         installed = row.get("installed_version") or "—"
+        tools = (
+            ",".join(
+                prerequisite["tool"] for prerequisite in row.get("prerequisites", [])
+            )
+            or "none"
+        )
         print(
             f"{row['slug']}\t{row['status']}\tinstalled={installed}\t"
-            f"latest={row['latest_version']}\t{row['description']}"
+            f"latest={row['latest_version']}\ttools={tools}\t{row['description']}"
         )
     return 0
 
@@ -142,6 +149,11 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
     parser.add_argument(
         "--apply", action="store_true", help="Apply a conflict-free preview."
     )
+    parser.add_argument(
+        "--allow-missing-tools",
+        action="store_true",
+        help="Apply despite unsatisfied declared tool prerequisites.",
+    )
     add_session_arg(parser)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, usage)
@@ -155,6 +167,7 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
                 pack=parsed.pack,
                 operation=operation,
                 apply=parsed.apply,
+                allow_missing_tools=parsed.allow_missing_tools,
                 version=parsed.version,
                 session_id=parsed.session_id,
                 accepted_current_paths=getattr(parsed, "accepted_current_paths", None),

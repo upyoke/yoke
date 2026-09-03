@@ -13,6 +13,7 @@ from yoke_contracts.packs import (
     PACK_RECEIPT_PREVIOUS_SCHEMAS,
     PACK_RECEIPT_REL,
     PACK_RECEIPT_SCHEMA,
+    validate_pack_prerequisites,
 )
 
 
@@ -51,15 +52,18 @@ def load_receipt(repo_root: Path) -> dict[str, Any] | None:
 
 
 def _upgrade_receipt(payload: Any) -> dict[str, Any]:
-    """Upgrade an earlier path-keyed receipt to explicit project paths.
+    """Upgrade prior receipt schemas to explicit paths and prerequisites.
 
     Version-one receipts already identify every Pack file by its original
     rendered target.  The current shape preserves that key as the stable Pack
-    identity and records the project's current location separately.
+    identity and records the project's current location separately. Receipts
+    written before prerequisite declarations receive an empty list because no
+    machine-tool contract was recorded when those versions were installed.
     """
     if not isinstance(payload, dict):
         raise PackReceiptError("Pack receipt has an unsupported shape")
-    if payload.get("schema") not in PACK_RECEIPT_PREVIOUS_SCHEMAS:
+    previous_schema = payload.get("schema")
+    if previous_schema not in PACK_RECEIPT_PREVIOUS_SCHEMAS:
         return dict(payload)
     upgraded = dict(payload)
     upgraded["schema"] = PACK_RECEIPT_SCHEMA
@@ -73,13 +77,14 @@ def _upgrade_receipt(payload: Any) -> dict[str, Any]:
             continue
         record = dict(raw_record)
         files = record.get("files")
-        if isinstance(files, dict):
+        if previous_schema == 1 and isinstance(files, dict):
             record["files"] = {
                 pack_path: {**file_record, "path": pack_path}
                 if isinstance(file_record, dict)
                 else file_record
                 for pack_path, file_record in files.items()
             }
+        record["prerequisites"] = []
         upgraded_packs[slug] = record
     upgraded["packs"] = upgraded_packs
     return upgraded
@@ -105,7 +110,13 @@ def validate_receipt(payload: Any) -> None:
     for slug, record in packs.items():
         if not isinstance(slug, str) or not isinstance(record, dict):
             raise PackReceiptError("Pack receipt contains an invalid Pack record")
-        if set(record) != {"version", "content_digest", "render_values", "files"}:
+        if set(record) != {
+            "version",
+            "content_digest",
+            "render_values",
+            "prerequisites",
+            "files",
+        }:
             raise PackReceiptError(f"Pack receipt record {slug!r} is invalid")
         if not isinstance(record["version"], str) or not record["version"]:
             raise PackReceiptError(f"Pack receipt version {slug!r} is invalid")
@@ -118,6 +129,12 @@ def validate_receipt(payload: Any) -> None:
             for key, value in record["render_values"].items()
         ):
             raise PackReceiptError(f"Pack receipt render values {slug!r} are invalid")
+        try:
+            validate_pack_prerequisites(record["prerequisites"])
+        except ValueError as exc:
+            raise PackReceiptError(
+                f"Pack receipt prerequisites {slug!r} are invalid: {exc}"
+            ) from exc
         if not isinstance(record["files"], dict):
             raise PackReceiptError(f"Pack receipt files {slug!r} are invalid")
         project_paths: set[str] = set()

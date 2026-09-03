@@ -53,6 +53,7 @@ class PacksBundleGetResponse(BaseModel):
     version: str
     latest_version: str
     dependencies: list[str]
+    prerequisites: list[dict[str, Any]]
     documentation: str
     settings_schema: dict[str, Any]
     verification: list[dict[str, str]]
@@ -94,6 +95,7 @@ class PacksOperationRequest(BaseModel):
     pack: str
     repo_root: str | None = None
     apply: bool = False
+    allow_missing_tools: bool = False
     version: str | None = None
     accepted_current_paths: list[str] = Field(default_factory=list)
 
@@ -107,10 +109,14 @@ class PacksOperationResponse(BaseModel):
     repo_root: str
     requested_pack: str
     plans: list[dict[str, Any]]
+    prerequisites: list[dict[str, Any]]
+    unsatisfied_prerequisite_count: int
     conflict_count: int
+    allow_missing_tools: bool
     applied: bool
     receipt: str
     refused: bool = False
+    refusal: dict[str, Any] | None = None
     projection: dict[str, Any] | None = None
     projection_warning: str | None = None
 
@@ -253,6 +259,7 @@ def _handle_pack_operation(
             pack=parsed.pack,
             operation=operation,
             apply=parsed.apply,
+            allow_missing_tools=parsed.allow_missing_tools,
             version=parsed.version,
             session_id=request.actor.session_id or None,
             accepted_current_paths=parsed.accepted_current_paths,

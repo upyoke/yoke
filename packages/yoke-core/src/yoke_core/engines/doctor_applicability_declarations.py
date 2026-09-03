@@ -194,6 +194,7 @@ _SHAPES = (
             "main-checkout",
             "orphaned-stashes",
             "orphaned-temp-files",
+            "pack-prerequisites",
             "path-claim-symlink-coverage",
             "path-confabulation",
             "project-hook-config-validity",

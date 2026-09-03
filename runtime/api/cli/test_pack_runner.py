@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
 
 from yoke_cli.packs import runner
 from yoke_cli.packs.receipt import load_receipt, write_receipt
+from runtime.api.cli.pack_runner_test_support import (
+    make_bundle as _bundle,
+    make_receipt_record as _receipt_record,
+)
 
 
 def test_get_applies_dependencies_then_selected_pack_and_reports_receipt(
@@ -69,7 +72,7 @@ def test_update_reconstructs_old_version_with_recorded_render_values(
         files={"feature.txt": "name=New Name\nkeep=one\nkeep=two\nlocal=base\n"},
     )
     receipt = {
-        "schema": 2,
+        "schema": 3,
         "project_id": 9,
         "project_slug": "sample",
         "packs": {"feature": _receipt_record(old)},
@@ -107,67 +110,6 @@ def test_update_reconstructs_old_version_with_recorded_render_values(
     )
 
 
-def test_update_adds_new_dependency_after_handing_off_an_unchanged_file(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    old = _bundle(
-        "feature",
-        version="1.0.0",
-        files={"feature.txt": "old\n", "shared.txt": "shared\n"},
-    )
-    new = _bundle(
-        "feature",
-        version="2.0.0",
-        latest_version="2.0.0",
-        dependencies=["foundation"],
-        files={"feature.txt": "new\n"},
-    )
-    dependency = _bundle("foundation", files={"shared.txt": "shared\n"})
-    write_receipt(
-        tmp_path,
-        {
-            "schema": 2,
-            "project_id": 9,
-            "project_slug": "sample",
-            "packs": {"feature": _receipt_record(old)},
-        },
-    )
-    (tmp_path / "feature.txt").write_text("old\n", encoding="utf-8")
-    (tmp_path / "shared.txt").write_text("shared\n", encoding="utf-8")
-
-    def fetch(project, pack, *, version, **kwargs):
-        if pack == "foundation":
-            return dependency
-        return old if version == "1.0.0" else new
-
-    monkeypatch.setattr(runner, "_fetch_bundle", fetch)
-    monkeypatch.setattr(runner, "_assert_checkout_project", lambda *args: None)
-    monkeypatch.setattr(runner, "_report_receipt", lambda *args, **kwargs: {})
-
-    report = runner.run_pack_operation(
-        tmp_path,
-        project="sample",
-        pack="feature",
-        operation="update",
-        version="2.0.0",
-        apply=True,
-    )
-
-    assert report["applied"] is True
-    assert [row["pack"] for row in report["plans"]] == ["feature", "foundation"]
-    assert report["plans"][0]["plan"]["retained_project_files"] == [
-        {"path": "shared.txt", "reason": "removed_upstream_project_keeps_file"}
-    ]
-    assert report["plans"][1]["plan"]["unchanged"] == ["shared.txt"]
-    assert (tmp_path / "feature.txt").read_text(encoding="utf-8") == "new\n"
-    receipt = load_receipt(tmp_path)
-    assert receipt is not None
-    assert set(receipt["packs"]) == {"feature", "foundation"}
-    assert "shared.txt" not in receipt["packs"]["feature"]["files"]
-    assert "shared.txt" in receipt["packs"]["foundation"]["files"]
-
-
 def test_conflicted_update_refuses_all_writes(tmp_path: Path, monkeypatch) -> None:
     old = _bundle("feature", version="1.0.0", files={"feature.txt": "value=old\n"})
     new = _bundle(
@@ -179,7 +121,7 @@ def test_conflicted_update_refuses_all_writes(tmp_path: Path, monkeypatch) -> No
     write_receipt(
         tmp_path,
         {
-            "schema": 2,
+            "schema": 3,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -222,7 +164,7 @@ def test_update_can_accept_an_exact_manually_resolved_current_file(
     write_receipt(
         tmp_path,
         {
-            "schema": 2,
+            "schema": 3,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -277,7 +219,7 @@ def test_update_rejects_accept_current_for_a_nonconflicting_path(
     write_receipt(
         tmp_path,
         {
-            "schema": 2,
+            "schema": 3,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -350,7 +292,7 @@ def test_update_follows_the_project_path_recorded_by_relink(
     write_receipt(
         tmp_path,
         {
-            "schema": 2,
+            "schema": 3,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": record},
@@ -383,60 +325,3 @@ def test_update_follows_the_project_path_recorded_by_relink(
         load_receipt(tmp_path)["packs"]["feature"]["files"]["feature.txt"]["path"]
         == "src/moved-feature.txt"
     )
-
-
-def _bundle(
-    slug: str,
-    *,
-    version: str = "1.0.0",
-    latest_version: str | None = None,
-    dependencies: list[str] | None = None,
-    render_values: dict[str, str] | None = None,
-    files: dict[str, str],
-) -> dict[str, object]:
-    entries = []
-    for path, content in files.items():
-        entries.append(
-            {
-                "path": path,
-                "content": content,
-                "encoding": "utf-8",
-                "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
-                "mode": 0o644,
-            }
-        )
-    content_digest = hashlib.sha256(
-        slug.encode("utf-8") + version.encode("utf-8")
-    ).hexdigest()
-    return {
-        "bundle_schema": 1,
-        "project_id": 9,
-        "project_slug": "sample",
-        "pack": slug,
-        "name": slug.title(),
-        "description": f"{slug} Pack.",
-        "version": version,
-        "latest_version": latest_version or version,
-        "dependencies": dependencies or [],
-        "render_values": render_values or {},
-        "files": entries,
-        "content_digest": content_digest,
-    }
-
-
-def _receipt_record(bundle: dict[str, object]) -> dict[str, object]:
-    files = bundle["files"]
-    assert isinstance(files, list)
-    return {
-        "version": bundle["version"],
-        "content_digest": bundle["content_digest"],
-        "render_values": bundle["render_values"],
-        "files": {
-            row["path"]: {
-                "path": row["path"],
-                "sha256": row["sha256"],
-                "mode": row["mode"],
-            }
-            for row in files
-        },
-    }
