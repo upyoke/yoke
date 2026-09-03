@@ -13,7 +13,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.commands.adapters.dash import DASH_PRIORITY_CHOICES
+from yoke_cli.commands.adapters.dash_file import DASH_PRIORITY_CHOICES
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -22,7 +22,7 @@ TASK_FILE_USAGE = (
     "[--project P] [--priority P] "
     "[--verification-plan ID_OR_SLUG | --verification-method ID] "
     "[--path-claims] [--approval-on-done] [--deployment] "
-    "[--session-id S] [--json]"
+    "[--strategy-doc SLUG] [--session-id S] [--json]"
 )
 
 TASK_HELP = """File one laneless, merge-free Task through items.create.
@@ -93,6 +93,14 @@ def task_file(args: List[str]) -> int:
     verification = parser.add_mutually_exclusive_group()
     verification.add_argument("--verification-plan", metavar="ID_OR_SLUG")
     verification.add_argument("--verification-method")
+    parser.add_argument(
+        "--strategy-doc",
+        metavar="SLUG",
+        help=(
+            "Strategy document this Task belongs to; makes it a member of "
+            "that document's steering scope from the moment it is filed."
+        ),
+    )
     parser.add_argument("--path-claims", action="store_true")
     parser.add_argument("--approval-on-done", action="store_true")
     parser.add_argument("--deployment", action="store_true")
@@ -129,6 +137,8 @@ def task_file(args: List[str]) -> int:
         payload["project"] = project
     if parsed.priority:
         payload["priority"] = parsed.priority
+    if parsed.strategy_doc:
+        payload["strategy_doc"] = parsed.strategy_doc
     return dispatch_and_emit(
         function_id="items.create",
         target=TargetRef(kind="global", project_id=project),

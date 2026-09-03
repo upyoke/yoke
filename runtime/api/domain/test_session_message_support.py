@@ -98,6 +98,10 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
             project_sequence INTEGER NOT NULL
         );
+        CREATE TABLE item_strategy_docs (
+            item_id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
+            strategy_doc_slug TEXT NOT NULL, linked_at TEXT NOT NULL
+        );
         CREATE TABLE item_worktrees (
             id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
             lane_role TEXT, state TEXT, branch TEXT, path TEXT

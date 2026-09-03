@@ -62,15 +62,17 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     assert "no new skill" in body.lower()
 
 
-def test_claims_packet_teaches_project_steering_claim_lifecycle() -> None:
+def test_claims_packet_teaches_scoped_steering_claim_lifecycle() -> None:
     body = sac.render_topic_packet("claims")
     assert 'steering={"project_id":N}' in body
-    assert "one live session-owned seat per project" in body
-    assert "strategy-document locks remain in strategy_doc_claims" in body
+    assert '{"project_id":N,"document":SLUG}' in body
+    assert "two live seats may not have overlapping scopes" in body
+    assert "items linked to that document in item_strategy_docs" in body
+    assert "Strategy-document locks remain in strategy_doc_claims" in body
     assert (
         "yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT]" in body
     )
-    assert "Acquire atomically pairs the seat" in body
+    assert "the seat covers exactly that document's linked items" in body
     assert "releases the paired document too" in body
     assert "yoke claims steering list --project P --active-only" in body
     assert "yoke claims steering release CLAIM_ID --reason TEXT" in body

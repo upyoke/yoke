@@ -58,8 +58,8 @@ ITEMS_CREATE_USAGE = (
     "yoke items create TITLE [WORKFLOW] --execution-instructions-considered "
     "[--priority P] [--project NAME] "
     "[--deployment-flow FLOW] [--status STATUS] [--source ACTOR] "
-    "[--owner ACTOR] [--entry-surface SURFACE] [--dry-run] "
-    "[--session-id S] [--json]"
+    "[--owner ACTOR] [--entry-surface SURFACE] [--strategy-doc SLUG] "
+    "[--dry-run] [--session-id S] [--json]"
 )
 
 
@@ -180,6 +180,15 @@ def items_create(args: List[str]) -> int:
         help="Typed creation surface allowed by the workflow.",
     )
     parser.add_argument(
+        "--strategy-doc",
+        metavar="SLUG",
+        default=None,
+        help=(
+            "Strategy document this item belongs to; makes it a member of "
+            "that document's steering scope from the moment it is filed."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         dest="dry_run",
         action="store_true",
@@ -231,6 +240,8 @@ def items_create(args: List[str]) -> int:
         payload["owner"] = parsed.owner
     if parsed.entry_surface is not None:
         payload["entry_surface"] = parsed.entry_surface
+    if parsed.strategy_doc is not None:
+        payload["strategy_doc"] = parsed.strategy_doc
 
     return dispatch_and_emit(
         function_id="items.create",

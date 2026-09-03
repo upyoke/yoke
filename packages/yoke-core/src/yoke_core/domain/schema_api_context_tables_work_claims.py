@@ -23,13 +23,20 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             "Every typed target uses target_kind plus one canonical JSON "
             'object in scope: item={"item_id":N}, epic_task={"epic_id":N,'
             '"task_num":N}, process={"process_key":K,"conflict_group":G}, '
-            'steering={"project_id":N}, migration_serialization='
+            'steering={"project_id":N} or {"project_id":N,'
+            '"document":SLUG}, migration_serialization='
             '{"project_id":N,"model":M,"item_id":N}, qa_admission='
             '{"machine_id":ID}, or route_qualification={"project_id":N,'
             '"grant_key":K}. Domain validation requires '
-            "exactly the keys for the named kind. Steering has one live "
-            "session-owned seat per project; strategy-document locks remain "
-            "in strategy_doc_claims. The last three kinds are the "
+            "exactly the required keys for the named kind; steering also "
+            "accepts the optional document key. A steering seat covers "
+            "either a whole project or one strategy document inside it, and "
+            "two live seats may not have overlapping scopes: a project seat "
+            "and any document seat inside it overlap, two different "
+            "documents do not. A document seat covers exactly the items "
+            "linked to that document in item_strategy_docs. "
+            "Strategy-document locks remain in strategy_doc_claims. "
+            "The last three kinds are the "
             "shared-operation claims that replaced the retired "
             "lease table it replaced: migration territory per model, one "
             "physical test machine, one private-route qualification grant. "

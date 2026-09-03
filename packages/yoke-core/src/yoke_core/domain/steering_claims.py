@@ -1,11 +1,16 @@
-"""Project-serialized steering claims backed by typed work claims."""
+"""Scope-serialized steering claims backed by typed work claims.
+
+A seat covers either a whole project or one strategy document inside it.
+Non-overlapping seats coexist -- two documents in the same project are two
+seats -- while a project seat and any document seat inside it are the same
+territory and refuse each other.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_claim_lifecycle_lock import (
@@ -15,6 +20,8 @@ from yoke_core.domain.sessions_ended_recovery import session_ended_message
 from yoke_core.domain.sessions_lifecycle_claim_events import emit_steering_claimed
 from yoke_core.domain.sessions_queries import _now_iso
 from yoke_core.domain.steering_scope_coverage import scopes_overlap
+from yoke_core.domain.steering_seat_holder import holder_facts, holder_label
+from yoke_core.domain.work_claim_target_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
     decode_scope,
@@ -75,11 +82,17 @@ def acquire(
     session_id: str,
     project_id: int,
     reason: Optional[str] = None,
-    doc_slug: str = DEFAULT_STEERING_DOC_SLUG,
+    document: Optional[str] = None,
     actor_id: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Atomically acquire one project's steering seat and document lock."""
-    target = make_steering_target(project_id)
+    """Acquire one steering seat, and its document lock when it has a document.
+
+    Naming a document does two things in one transaction: it narrows the
+    seat's scope to that document's items, and it takes the document lock
+    so the seat is the only writer of the plan it steers. A seat with no
+    document covers the whole project and locks nothing.
+    """
+    target = make_steering_target(project_id, document)
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
@@ -91,11 +104,20 @@ def acquire(
     for row in rows:
         payload = _claim_payload(row)
         if payload["session_id"] == session_id:
+            if payload["scope"] != dict(target.scope):
+                raise SessionError(
+                    "SCOPE_MISMATCH",
+                    f"This session already holds steering scope "
+                    f"{encode_scope(payload['scope'])} (claim {payload['id']}), "
+                    f"which overlaps {target.scope_json()}; release it with "
+                    f"`yoke claims steering release {payload['id']} --reason "
+                    "TEXT` before taking the other scope.",
+                )
             payload["document_claim"] = _acquire_document_pair(
                 conn,
                 claim=payload,
                 project_id=int(project_id),
-                doc_slug=doc_slug,
+                document=document,
                 actor_id=actor_id,
                 reason=reason,
             )
@@ -112,9 +134,12 @@ def acquire(
             "ALREADY_CLAIMED",
             f"Steering scope {target.scope_json()} overlaps the live scope "
             f"{encode_scope(conflict['scope'])} already held by "
-            f"{_holder_label(conn, conflict)} "
-            f"(claim {conflict['id']}); inspect it with `yoke claims steering "
-            f"list --project {int(project_id)} --active-only`.",
+            f"{holder_label(conn, conflict)} "
+            f"(claim {conflict['id']}); ask that holder for the seat, or take "
+            "a seat on a different strategy document with `yoke claims "
+            f"steering acquire --project {int(project_id)} --doc SLUG`. "
+            f"Inspect live seats with `yoke claims steering list --project "
+            f"{int(project_id)} --active-only`.",
         )
 
     now = _now_iso()
@@ -143,7 +168,7 @@ def acquire(
         conn,
         claim=claim,
         project_id=int(project_id),
-        doc_slug=doc_slug,
+        document=document,
         actor_id=actor_id,
         reason=reason,
     )
@@ -202,31 +227,21 @@ def _emit_drain(
     )
 
 
-def _holder_label(conn: Any, claim: dict[str, Any]) -> str:
-    """Name the holder by actor and session, not by an opaque session id.
-
-    The refusal is read by a person deciding whether to ask for the seat or
-    take over, and "session 5ba2fab5" answers neither question.
-    """
-    row = conn.execute(
-        f"SELECT actor_id FROM harness_sessions WHERE session_id = {_p(conn)}",
-        (str(claim["session_id"]),),
-    ).fetchone()
-    actor_id = dict(row).get("actor_id") if row is not None else None
-    actor = f"actor {actor_id}" if actor_id is not None else "an unknown actor"
-    return f"{actor} in session '{claim['session_id']}'"
-
-
 def _acquire_document_pair(
     conn: Any,
     *,
     claim: dict[str, Any],
     project_id: int,
-    doc_slug: str,
+    document: Optional[str],
     actor_id: Optional[int],
     reason: Optional[str],
-) -> dict[str, Any]:
-    from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
+) -> Optional[dict[str, Any]]:
+    """Take the document lock a document-scoped seat comes with.
+
+    A seat's scope names its document, so re-acquiring the same seat asks
+    for the same lock it already holds and the acquire is idempotent. A
+    project-wide seat names no document and locks nothing.
+    """
     from yoke_core.domain.strategy_docs import StrategyDocMissingError
     from yoke_core.domain.strategy_execution import (
         StrategyDocClaimAuthorizationError,
@@ -235,23 +250,13 @@ def _acquire_document_pair(
         acquire_session_doc_claim,
     )
 
-    held_slugs = steered_document_slugs(conn, (int(claim["id"]),)).get(
-        int(claim["id"]), []
-    )
-    if held_slugs and set(held_slugs) != {doc_slug}:
-        shown = held_slugs[0] if len(held_slugs) == 1 else ", ".join(held_slugs)
-        conn.rollback()
-        raise SessionError(
-            "DOCUMENT_MISMATCH",
-            f"Steering claim {claim['id']} is already associated with strategy "
-            f"document {shown!r}; release the claim "
-            f"before acquiring it with --doc {doc_slug}.",
-        )
+    if document is None:
+        return None
     try:
         return acquire_session_doc_claim(
             conn,
             project_id=project_id,
-            slug=doc_slug,
+            slug=document,
             session_id=str(claim["session_id"]),
             actor_id=actor_id,
             reason=reason,
@@ -275,11 +280,17 @@ def list_claims(
     session_id: Optional[str] = None,
     active_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """List steering claims for one project, optionally narrowed by holder."""
-    target = make_steering_target(project_id)
+    """List every steering seat in one project, whatever each seat's scope.
+
+    Project-wide and document seats are both this project's seats, so the
+    listing matches on the project inside the scope rather than on one exact
+    scope object -- otherwise a document seat would be invisible to the
+    listing a refusal points at.
+    """
     p = _p(conn)
-    clauses = [f"target_kind = {p}", f"scope = {p}"]
-    params: list[Any] = [TARGET_KIND_STEERING, target.scope_json()]
+    project_scope = scope_int_sql(conn, "scope", "project_id")
+    clauses = [f"target_kind = {p}", f"{project_scope} = {p}"]
+    params: list[Any] = [TARGET_KIND_STEERING, int(project_id)]
     if session_id:
         clauses.append(f"session_id = {p}")
         params.append(str(session_id))
@@ -291,7 +302,13 @@ def list_claims(
         + " ORDER BY claimed_at DESC, id DESC",
         tuple(params),
     ).fetchall()
-    return [_claim_payload(row) for row in rows]
+    return [_with_holder_facts(conn, _claim_payload(row)) for row in rows]
+
+
+def _with_holder_facts(conn: Any, claim: dict[str, Any]) -> dict[str, Any]:
+    """Name the person and machine holding a listed seat, not just its session."""
+    claim.update(holder_facts(conn, str(claim["session_id"])))
+    return claim
 
 
 def list_session_claims(

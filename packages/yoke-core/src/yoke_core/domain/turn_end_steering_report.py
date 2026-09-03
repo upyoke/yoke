@@ -51,6 +51,7 @@ from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_substance import carries_actionable_signal
 from yoke_core.domain.steering_scope_coverage import covering_seat
+from yoke_core.domain.steering_scope_membership import item_coverage_target
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -86,7 +87,12 @@ def _covering_route(conn: Any, session_id: str) -> dict[str, Any] | None:
     if row is None:
         return None
     seat = covering_seat(
-        conn, {"project_id": scope.project_id, "item_id": scope.item_id}
+        conn,
+        item_coverage_target(
+            conn,
+            project_id=scope.project_id,
+            item_id=scope.item_id,
+        ),
     )
     if seat is None or str(seat["session_id"]) == str(session_id):
         return None

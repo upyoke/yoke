@@ -11,7 +11,7 @@ import pytest
 
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
+from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
 
 
 _CAPTURED: list[FunctionCallRequest] = []
@@ -34,9 +34,11 @@ def _claim(
         "released_at": released_at,
         "release_reason": "completed" if released_at else None,
         "document_claim": {
-            "strategy_doc_slug": DEFAULT_STEERING_DOC_SLUG,
-            "slug": DEFAULT_STEERING_DOC_SLUG,
+            "strategy_doc_slug": NEAR_TERM_PLAN_SLUG,
+            "slug": NEAR_TERM_PLAN_SLUG,
         },
+        "holder_actor_label": "ben",
+        "holder_machine": "studio",
     }
 
 
@@ -104,12 +106,12 @@ def test_acquire_dispatches_project_target_and_reason() -> None:
     assert request.target.kind == "global"
     assert request.target.project_id == "alpha"
     assert request.payload == {
-        "doc_slug": "AREA-PLAN",
+        "document": "AREA-PLAN",
         "reason": "guide planning",
     }
 
 
-def test_acquire_omitted_doc_uses_current_plan() -> None:
+def test_acquire_without_doc_takes_the_whole_project_seat() -> None:
     rc, out, err = _run(
         "claims",
         "steering",
@@ -118,9 +120,8 @@ def test_acquire_omitted_doc_uses_current_plan() -> None:
         "alpha",
     )
     assert rc == 0, err
-    assert _CAPTURED[-1].payload == {"doc_slug": DEFAULT_STEERING_DOC_SLUG}
-    assert "project=7" in out
-    assert f"doc={DEFAULT_STEERING_DOC_SLUG}" in out
+    assert _CAPTURED[-1].payload == {}
+    assert "scope=7 (whole project)" in out
     assert "holder=steering-session" in out
     assert "inherited 0 steering message(s)" in out
 
@@ -179,12 +180,12 @@ def test_list_dispatches_project_and_filters() -> None:
     }
 
 
-def test_human_list_names_project_and_holders() -> None:
+def test_human_list_names_scope_holder_and_machine() -> None:
     rc, out, err = _run("claims", "steering", "list", "--project", "alpha")
     assert rc == 0, err
-    assert "claim_id\tproject\tholder\tstate" in out
-    assert "41\t7\tsteering-session\tactive" in out
-    assert "42\t7\tother-session\tactive" in out
+    assert "claim_id\tscope\tholder\tmachine\tsession\tstate" in out
+    assert "41\t7 (whole project)\tben\tstudio\tsteering-session\tactive" in out
+    assert "42\t7 (whole project)\tben\tstudio\tother-session\tactive" in out
 
 
 def test_json_list_emits_response_envelope() -> None:

@@ -68,7 +68,10 @@ def test_an_overlapping_scope_is_refused_and_names_the_holder(steering_scope):
 
     assert raised.value.code == "ALREADY_CLAIMED"
     message = str(raised.value)
-    assert f"actor {ACTOR_ID}" in message
+    # The holder is named as a person on a machine, not as an opaque id:
+    # that is what the reader of a refusal needs in order to go ask for it.
+    assert "ben" in message
+    assert "on relay-host" in message
     assert STEERING_SESSION in message
 
 

@@ -6,8 +6,8 @@ argument-hint: "<STRATEGY-DOC-SLUG> [--project P]"
 
 # /yoke steer {STRATEGY-DOC-SLUG} [--project P]
 
-Itemless steering loop. A harness session claims one project's steering
-scope, holds one required strategy document, and keeps that scope moving:
+Itemless steering loop. A harness session claims the steering scope of one
+strategy document, holds that document, and keeps that scope moving:
 read the standing plan, reconcile it with the live frontier, consume worker
 reports, write plan-level state back into the doc, hand work to executors,
 staff unpicked runnable items, and escalate only decisions that need a human.
@@ -35,6 +35,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `strategy.doc.get` | `yoke strategy doc get SLUG [--project P]` |
 | `strategy.doc.create` | `yoke strategy doc create SLUG --stdin [--project P]` |
 | `strategy.execution.link` | `yoke strategy execution link ITEM --slug SLUG --project P` |
+| `items.create` (Dash) | `yoke dash "TITLE" "INSTRUCTION" --strategy-doc SLUG --execution-instructions-considered` |
 | `items.detail.get` | `yoke items detail get PREFIX-N --json` |
 | `workflows.item.get` | `yoke workflows item get PREFIX-N --json` |
 | `claims.work.acquire` | `yoke claims work acquire --item PREFIX-N --reason TEXT` |
@@ -61,11 +62,21 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 
 - **Itemless.** This session holds no work item. One atomic steering acquire
   pairs the steering-scope claim with its strategy-doc lock; together they
-  are its authority. The doc and the project's items ARE the surviving state.
+  are its authority. The doc and its linked items ARE the surviving state.
+- **A seat covers a scope, not a project.** `--doc SLUG` takes the seat for
+  that document, covering exactly the items linked to it; `--project` alone
+  takes the whole project and locks no document. Two people steer two
+  documents in one project at once, neither owning the whole project.
 - **No two live steering claims with overlapping scopes.** Acquire refuses on
-  overlap and names the holder by actor and session. The project is the outer
-  key, so a project seat and any finer scope inside it are the same seat's
-  territory.
+  overlap and names the holder by actor, machine, and session. The project is
+  the outer key, so a project seat and any document seat inside it are the
+  same territory; two different documents are not.
+- **The link is the membership.** An item belongs to this seat's scope when
+  it is linked to this document — `yoke strategy execution link ITEM --slug
+  {SLUG}`, or `--strategy-doc {SLUG}` at filing time. Work this seat files
+  names the document at intake; work it adopts from the frontier gets linked
+  before it is staffed, or it stays invisible to this seat's report and its
+  worker's `--steering` reports route to the project seat instead.
 - **Workers address this seat as a role, never by its session id.** An
   unrelayed worker's mandate says `yoke say --steering`; the server resolves
   that at delivery to whichever seat covers the sending item — the one the
@@ -90,6 +101,8 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   the steerer uses Dash unless it is genuinely laneless, merge-free Task work
   (`yoke task TITLE INSTRUCTION --execution-instructions-considered`), needs
   Issue, Epic, or Blitz structure, or the operator directs another workflow.
+  Pass `--strategy-doc {SLUG}` on either so the filed item lands inside this
+  seat's scope.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.
@@ -150,10 +163,13 @@ continue as if the doc already existed. On no, stop.
 yoke claims steering acquire --project {_project} --doc {SLUG} --reason "steer {SLUG}"
 ```
 
-This one function call acquires the project seat and document lock in the
-same transaction. A live seat or document holder refuses the call and leaves
-neither half behind. Do not proceed without both. Keep the returned
-`claim_id` for wrapup release.
+This one function call acquires the document's seat and its document lock in
+the same transaction. The seat's scope is `{"project_id": N, "document":
+"{SLUG}"}`, so it covers exactly the items linked to {SLUG}. An overlapping
+seat or a document holder refuses the call and leaves neither half behind —
+the refusal names the holding actor, machine, and session, and a seat on a
+different document in the same project is always available. Do not proceed
+without both halves. Keep the returned `claim_id` for wrapup release.
 
 Acquire also hands over every role-addressed message this scope covers that
 no live seat was acting on and no previous seat acknowledged — the ones that

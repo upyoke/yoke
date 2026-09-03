@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 from typing import Any, Dict, List
 
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_cli.commands._helpers import (
     add_json_arg,
     client_project_context,
@@ -25,9 +24,21 @@ STEERING_LIST_USAGE = (
 )
 
 
-def _project_id(claim: Dict[str, Any]) -> Any:
+def _scope(claim: Dict[str, Any]) -> Dict[str, Any]:
     scope = claim.get("scope") or {}
-    return scope.get("project_id", "") if isinstance(scope, dict) else ""
+    return scope if isinstance(scope, dict) else {}
+
+
+def _project_id(claim: Dict[str, Any]) -> Any:
+    return _scope(claim).get("project_id", "")
+
+
+def _scope_text(claim: Dict[str, Any]) -> str:
+    """Render one seat's coverage: a project, or a document inside it."""
+    scope = _scope(claim)
+    project = scope.get("project_id", "")
+    document = scope.get("document")
+    return f"{project}/{document}" if document else f"{project} (whole project)"
 
 
 def _print_acquired(response: Any, stdout, _stderr) -> None:
@@ -35,7 +46,7 @@ def _print_acquired(response: Any, stdout, _stderr) -> None:
     document_claim = claim.get("document_claim") or {}
     print(
         f"acquired steering claim {claim.get('id', '')}: "
-        f"project={_project_id(claim)} "
+        f"scope={_scope_text(claim)} "
         f"doc={document_claim.get('strategy_doc_slug', '')} "
         f"holder={claim.get('session_id', '')}",
         file=stdout,
@@ -63,7 +74,7 @@ def _print_released(response: Any, stdout, _stderr) -> None:
     document_claim = claim.get("document_claim") or {}
     print(
         f"released steering claim {claim.get('id', '')}: "
-        f"project={_project_id(claim)} "
+        f"scope={_scope_text(claim)} "
         f"doc={document_claim.get('slug', '')} "
         f"holder={claim.get('session_id', '')}",
         file=stdout,
@@ -75,11 +86,16 @@ def _print_claims(response: Any, stdout, _stderr) -> None:
     if not claims:
         print("no steering claims", file=stdout)
         return
-    print("claim_id\tproject\tholder\tstate\tclaimed_at", file=stdout)
+    print(
+        "claim_id\tscope\tholder\tmachine\tsession\tstate\tclaimed_at",
+        file=stdout,
+    )
     for claim in claims:
         print(
             f"{claim.get('id', '')}\t"
-            f"{_project_id(claim)}\t"
+            f"{_scope_text(claim)}\t"
+            f"{claim.get('holder_actor_label') or ''}\t"
+            f"{claim.get('holder_machine') or ''}\t"
             f"{claim.get('session_id', '')}\t"
             f"{'released' if claim.get('released_at') else 'active'}\t"
             f"{claim.get('claimed_at', '')}",
@@ -95,15 +111,21 @@ def claims_steering_acquire(args: List[str]) -> int:
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument(
         "--doc",
-        default=DEFAULT_STEERING_DOC_SLUG,
-        help=f"Strategy document to pair (default: {DEFAULT_STEERING_DOC_SLUG}).",
+        default=None,
+        help=(
+            "Strategy document this seat steers: narrows the seat to that "
+            "document's linked items and takes its lock. Omit for a seat "
+            "covering the whole project."
+        ),
     )
     parser.add_argument("--reason", default=None, help="Optional acquire rationale.")
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_ACQUIRE_USAGE)
     if parsed is None:
         return 2
-    payload: Dict[str, Any] = {"doc_slug": parsed.doc}
+    payload: Dict[str, Any] = {}
+    if parsed.doc:
+        payload["document"] = parsed.doc
     if parsed.reason:
         payload["reason"] = parsed.reason
     return dispatch_and_emit(

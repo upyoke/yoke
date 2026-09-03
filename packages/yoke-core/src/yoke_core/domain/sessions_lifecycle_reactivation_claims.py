@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
-
 from .runtime_settings import get_seconds
 from .sessions_analytics import SessionError
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
@@ -209,10 +207,13 @@ def auto_reacquire_session_ended_claims(
                 acquire_session_doc_claim,
             )
 
-            doc_slug = (
-                paired_document_slug_for_history(conn, int(row["id"]))
-                or DEFAULT_STEERING_DOC_SLUG
-            )
+            doc_slug = paired_document_slug_for_history(conn, int(row["id"]))
+            if doc_slug is None:
+                # A project-wide seat held no document lock, so there is
+                # none to restore; inventing one would take a lock the
+                # ended session never had.
+                reacquired.append({**target, "new_claim_id": new_id})
+                continue
             try:
                 acquire_session_doc_claim(
                     conn,

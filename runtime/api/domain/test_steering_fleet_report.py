@@ -35,6 +35,26 @@ def test_work_nobody_ever_picked_up_is_available_and_marked_never_started(
     assert report.actionable is True
 
 
+def test_a_document_seat_sees_only_the_items_linked_to_its_document(
+    steering_scope,
+):
+    steering_scope.execute(
+        "INSERT INTO item_strategy_docs "
+        "(item_id, project_id, strategy_doc_slug, linked_at) "
+        "VALUES (2, 1, 'CURRENT-PLAN', %s)",
+        (NOW,),
+    )
+    steering_scope.commit()
+
+    narrowed = _compose(
+        steering_scope, scope={"project_id": 1, "document": "CURRENT-PLAN"}
+    )
+    whole_project = _compose(steering_scope, scope={"project_id": 1})
+
+    assert {entry.item_id for entry in narrowed.available} == {2}
+    assert {entry.item_id for entry in whole_project.available} == {1, 2, 3}
+
+
 def test_work_whose_owner_was_released_stays_in_one_list_marked_stopped(
     steering_scope,
 ):

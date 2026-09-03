@@ -1,4 +1,10 @@
-"""Registered handlers for session-owned project steering claims."""
+"""Registered handlers for session-owned steering claims.
+
+A seat covers a whole project, or one strategy document inside it. The
+document is the payload's ``document``: naming it narrows the seat and
+takes that document's lock in the same transaction; omitting it takes the
+project-wide seat and no lock.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +12,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -27,7 +32,7 @@ class SteeringClaimRow(BaseModel):
     id: int
     session_id: str
     target_kind: str
-    scope: Dict[str, int]
+    scope: Dict[str, Any]
     claim_type: str = "exclusive"
     claimed_at: str
     last_heartbeat: str
@@ -37,12 +42,20 @@ class SteeringClaimRow(BaseModel):
     reason_intent: Optional[str] = None
     release_reason_intent: Optional[str] = None
     document_claim: Optional[Dict[str, Any]] = None
+    holder_actor_label: Optional[str] = None
+    holder_machine: Optional[str] = None
     message_handoff: Optional[SteeringMessageHandoff] = None
 
 
 class AcquireRequest(BaseModel):
     reason: Optional[str] = None
-    doc_slug: str = Field(DEFAULT_STEERING_DOC_SLUG, min_length=1)
+    document: Optional[str] = Field(
+        None,
+        min_length=1,
+        description=(
+            "Strategy document this seat steers; omit for the whole project."
+        ),
+    )
 
 
 class AcquireResponse(BaseModel):
@@ -112,7 +125,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=request.actor.session_id,
                 project_id=project_id,
                 reason=body.reason,
-                doc_slug=body.doc_slug,
+                document=body.document,
                 actor_id=(
                     int(request.actor.actor_id)
                     if request.actor.actor_id is not None
@@ -124,7 +137,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 "ALREADY_CLAIMED": "already_claimed",
                 "DOCUMENT_ALREADY_CLAIMED": "document_already_claimed",
                 "DOCUMENT_NOT_FOUND": "unknown_document",
-                "DOCUMENT_MISMATCH": "document_mismatch",
+                "SCOPE_MISMATCH": "scope_mismatch",
             }.get(exc.code, "claim_failed")
             return _error(code, f"{exc.code}: {exc}")
     return HandlerOutcome(result_payload={"claim": _claim_payload(row)})

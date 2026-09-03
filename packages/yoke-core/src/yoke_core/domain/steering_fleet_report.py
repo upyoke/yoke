@@ -55,15 +55,8 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
-from yoke_contracts.session_holdings import work_holding_key
-from yoke_core.domain import db_backend
-from yoke_core.domain.session_mode import session_is_parked
-from yoke_core.domain.session_native_process_observation import (
-    current_native_process_observation,
-)
-from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.steering_fleet_report_available import (
     FrontierEntry,
     scope_candidates,
@@ -90,39 +83,25 @@ from yoke_core.domain.steering_fleet_report_abandoned import (
 from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
     UnregisteredLaunch,
-    age_seconds,
     landed_without_closeout,
     suspected_orphaned_waiters,
     unregistered_launches,
 )
 from yoke_core.domain.steering_message_recipients import awaiting_seat_count
+from yoke_core.domain.steering_fleet_report_scope import (
+    members_only,
+    seat_members,
+    sessions_only,
+)
+from yoke_core.domain.steering_fleet_report_holders import (
+    ClaimHolder,
+    claim_holders,
+)
 from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     fingerprint_material,
     load_plan_limits,
 )
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-@dataclass(frozen=True)
-class ClaimHolder:
-    """One live session holding one item's work claim."""
-
-    session_id: str
-    item_id: int
-    public_ref: str
-    mode: str
-    parked: bool
-    last_activity_at: str
-    idle_seconds: int
-    native_process_gone_at: str = ""
-
-    @property
-    def native_process_gone(self) -> bool:
-        return bool(self.native_process_gone_at)
 
 
 @dataclass(frozen=True)
@@ -217,77 +196,6 @@ class FleetReport:
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def claim_holders(
-    conn: Any,
-    *,
-    project_id: int,
-    now: str,
-) -> tuple[ClaimHolder, ...]:
-    """Live sessions holding an item work claim in one project.
-
-    Ended and terminated sessions are excluded: their claims are the
-    stale-session sweep's business, and reporting a session that is already
-    gone as an idle worker re-fires the same false alarm on every pass.
-    """
-    holdings = session_holdings_by_session(conn, previous_limit=0)
-    item_prefix = work_holding_key("item", item_id="")
-    candidates = []
-    for session_id, grouped in holdings.items():
-        for entry in grouped.get("current") or []:
-            target_key = str(entry.get("target_key") or "")
-            if (
-                entry.get("holding_kind") != "work_claim"
-                or entry.get("target_kind") != "item"
-                or int(entry.get("item_project_id") or 0) != int(project_id)
-                or not target_key.startswith(item_prefix)
-            ):
-                continue
-            item_id = target_key.removeprefix(item_prefix)
-            if item_id.isdigit():
-                candidates.append((session_id, int(item_id), entry))
-    if not candidates:
-        return ()
-    marker = _p(conn)
-    session_ids = sorted({session_id for session_id, _item_id, _entry in candidates})
-    placeholders = ",".join(marker for _ in session_ids)
-    rows = conn.execute(
-        "SELECT session_id,mode,last_tool_call_at,last_heartbeat,episode_started_at,"
-        "native_process_gone_at,native_process_gone_evidence "
-        "FROM harness_sessions "
-        f"WHERE session_id IN ({placeholders}) AND ended_at IS NULL "
-        "AND terminated_at IS NULL",
-        tuple(session_ids),
-    ).fetchall()
-    sessions = {str(row["session_id"]): dict(row) for row in rows}
-    holders = []
-    for session_id, item_id, entry in sorted(
-        candidates, key=lambda value: (str(value[2].get("claimed_at") or ""), value[1])
-    ):
-        record = sessions.get(session_id)
-        if record is None:
-            continue
-        last_activity = str(
-            record.get("last_tool_call_at") or entry.get("claimed_at") or ""
-        )
-        mode = str(record.get("mode") or "")
-        process = current_native_process_observation(record) or {}
-        holders.append(
-            ClaimHolder(
-                session_id=session_id,
-                item_id=item_id,
-                public_ref=str(
-                    entry.get("public_ref") or entry.get("target") or item_id
-                ),
-                mode=mode,
-                parked=session_is_parked(mode),
-                last_activity_at=last_activity,
-                idle_seconds=age_seconds(last_activity, now) or 0,
-                native_process_gone_at=str(process.get("observed_at") or ""),
-            )
-        )
-    return tuple(holders)
-
-
 def compose_report(
     conn: Any,
     *,
@@ -296,9 +204,21 @@ def compose_report(
     staffing_after_seconds: int,
     idle_after_seconds: int,
     now: str,
+    scope: Mapping[str, Any] | None = None,
 ) -> FleetReport:
-    """Assemble one steering scope's report from live control-plane state."""
-    holders = claim_holders(conn, project_id=project_id, now=now)
+    """Assemble one steering scope's report from live control-plane state.
+
+    ``scope`` is the seat's own scope object. A seat narrowed to a strategy
+    document sees only that document's items, so every item-keyed section is
+    filtered to its members. Delivery-plane and machine facts stay
+    project-wide: a launch that never bound a session has no item to
+    attribute, and machines are shared by every seat on them.
+    """
+    seat_scope = dict(scope) if scope else {"project_id": int(project_id)}
+    members = seat_members(conn, seat_scope)
+    holders = members_only(
+        claim_holders(conn, project_id=project_id, now=now), members
+    )
     quiet = tuple(
         holder
         for holder in holders
@@ -312,15 +232,24 @@ def compose_report(
         composed_at=now,
         staffing_after_seconds=int(staffing_after_seconds),
         idle_after_seconds=int(idle_after_seconds),
-        available=scope_candidates(conn, project_id=project_id, session_id=session_id),
+        available=members_only(
+            scope_candidates(conn, project_id=project_id, session_id=session_id),
+            members,
+        ),
         holders=holders,
         idle=split.idle,
-        starved=starved_deliveries(conn, project_id=project_id, now=now),
+        starved=sessions_only(
+            starved_deliveries(conn, project_id=project_id, now=now),
+            session_ids=(holder.session_id for holder in holders),
+            members=members,
+        ),
         unregistered_launches=unregistered_launches(
             conn, project_id=project_id, now=now
         ),
         abandoned_launches=abandoned_launches(conn, project_id=project_id, now=now),
-        landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
+        landed_open=members_only(
+            landed_without_closeout(conn, project_id=project_id, now=now), members
+        ),
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
@@ -331,7 +260,7 @@ def compose_report(
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),
-            scope={"project_id": int(project_id)},
+            scope=seat_scope,
         ),
     )
 

@@ -7,9 +7,9 @@ from yoke_cli.commands.adapters.conflict_survey_status import (
 from yoke_cli.commands.adapters.dash import (
     dash_escalate,
     dash_evidence,
-    dash_file,
     dash_survey,
 )
+from yoke_cli.commands.adapters.dash_file import dash_file
 from yoke_cli.commands.adapters.field_note_promote import field_note_promote
 from yoke_cli.commands.adapters.task import task_file
 

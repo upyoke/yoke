@@ -2,8 +2,8 @@
 
 ``yoke say --steering`` carries no address. The server derives one from the
 work the SENDER holds: the item's project is the scope the message is
-addressed within, and the item itself is the finest fact a future seat
-refinement could key on. Whether a session receives it is then decided at
+addressed within, and the item -- with the strategy document it is linked
+to -- is what a narrowed seat keys on. Whether a session receives it is then decided at
 DELIVERY time by :mod:`yoke_core.domain.steering_scope_coverage`, not at
 send time, so a message written while one seat was live is still correct
 after that seat ends.
@@ -30,6 +30,8 @@ from yoke_contracts.session_control.recipient_selector import (
 )
 from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_types import SessionMessageError
+from yoke_core.domain.steering_scope_membership import item_document_slug
+from yoke_core.domain.work_claim_scope_shape import STEERING_DOCUMENT_KEY
 
 
 ADDRESS_UNRESOLVED_CODE = "steering_address_unresolved"
@@ -41,6 +43,7 @@ class SteeringAddress:
 
     scope: dict[str, Any]
     sender_item_id: Optional[int]
+    sender_document: Optional[str] = None
 
     @property
     def project_id(self) -> int:
@@ -51,6 +54,8 @@ class SteeringAddress:
         target = dict(self.scope)
         if self.sender_item_id is not None:
             target["item_id"] = int(self.sender_item_id)
+        if self.sender_document is not None:
+            target[STEERING_DOCUMENT_KEY] = self.sender_document
         return target
 
 
@@ -77,7 +82,11 @@ def resolve_steering_address(
             if held is not None and held.project_id == scope[STEERING_SCOPE_PROJECT_KEY]
             else None
         )
-        return SteeringAddress(scope=scope, sender_item_id=item_id)
+        return SteeringAddress(
+            scope=scope,
+            sender_item_id=item_id,
+            sender_document=_document_for(conn, item_id),
+        )
     held = session_item_scope(conn, sender_session_id)
     if held is None:
         raise SessionMessageError(
@@ -92,7 +101,13 @@ def resolve_steering_address(
     return SteeringAddress(
         scope={STEERING_SCOPE_PROJECT_KEY: held.project_id},
         sender_item_id=held.item_id,
+        sender_document=_document_for(conn, held.item_id),
     )
+
+
+def _document_for(conn: Any, item_id: Optional[int]) -> Optional[str]:
+    """The strategy document the addressed item belongs to, if any."""
+    return None if item_id is None else item_document_slug(conn, int(item_id))
 
 
 def seat_session_id(

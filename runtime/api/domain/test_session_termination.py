@@ -230,7 +230,7 @@ def test_steering_claim_authorizes_termination_and_unrelated_session_does_not(
     )
     conn.commit()
 
-    with pytest.raises(SessionError, match="operator mode or the active steering"):
+    with pytest.raises(SessionError, match="operator mode or a live steering seat"):
         terminate_session(
             conn,
             target_session_id="worker",

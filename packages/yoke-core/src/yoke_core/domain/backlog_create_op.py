@@ -54,6 +54,7 @@ def execute_create(
     entry_surface: Optional[str] = None,
     instruction: Optional[str] = None,
     workflow_posture: Optional[Mapping[str, Any]] = None,
+    strategy_doc: Optional[str] = None,
     out: TextIO = sys.stdout,
 ) -> dict:
     """Full item creation: validate → INSERT → md gen → GitHub sync.
@@ -63,6 +64,11 @@ def execute_create(
     ``workflow`` is required because the registry has no implicit selection.
     Persistent production creates require a typed entry surface allowed by
     the selected workflow version.
+
+    ``strategy_doc`` names the strategy document the new item belongs to.
+    It is written in the same transaction as the item, so work filed under
+    a plan is a member of that plan's steering scope from its first moment
+    rather than from a second call that may never happen.
     """
     from yoke_core.domain import mutations
 
@@ -159,6 +165,25 @@ def execute_create(
         except (ItemPostureError, LookupError) as exc:
             return {"success": False, "error": str(exc)}
 
+        if strategy_doc:
+            from yoke_core.domain.strategy_docs import (
+                StrategyDocMissingError,
+                get_doc,
+            )
+
+            try:
+                get_doc(conn, project_identity.id, strategy_doc)
+            except StrategyDocMissingError as exc:
+                return {
+                    "success": False,
+                    "error": (
+                        f"{exc}; list this project's documents with "
+                        f"`yoke strategy doc list --project {project}` or "
+                        "file without --strategy-doc and link the item later "
+                        "with `yoke strategy execution link`"
+                    ),
+                }
+
         result = mutations.prepare_create(
             title=title,
             workflow=workflow_runtime,
@@ -247,6 +272,20 @@ def execute_create(
                     actor_id=source_actor_id,
                     commit=False,
                 )
+                if strategy_doc:
+                    from yoke_core.domain.strategy_execution_linking import (
+                        link_execution_document,
+                    )
+
+                    link_execution_document(
+                        conn,
+                        item_id=current_id,
+                        project_id=project_identity.id,
+                        slug=strategy_doc,
+                        actor_id=source_actor_id,
+                        session_id=session_id,
+                        commit=False,
+                    )
                 conn.commit()
                 break
             except db_backend.integrity_error_types(conn) as exc:

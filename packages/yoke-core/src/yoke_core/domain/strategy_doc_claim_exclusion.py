@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.steering_scope_membership import LINK_TABLE as LINK_TABLE_NAME
 from yoke_core.domain.strategy_execution_state import (
     BLITZ_WORKFLOW_ID,
     _marker,
@@ -27,6 +28,16 @@ from yoke_core.domain.strategy_execution_state import (
 )
 
 
+def _is_blitz(conn: Any, item_id: int) -> bool:
+    row = _row(
+        conn.execute(
+            f"SELECT workflow_id FROM items WHERE id = {_marker(conn)}",
+            (int(item_id),),
+        )
+    )
+    return row is not None and str(row["workflow_id"]) == BLITZ_WORKFLOW_ID
+
+
 def linked_document(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
     """Return the execution document an item is bound to, if any.
 
@@ -34,7 +45,7 @@ def linked_document(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
     every work-item claim consults this, and a database without the link
     table simply has no item bound to a document.
     """
-    if not _table_exists(conn, "item_strategy_docs"):
+    if not _table_exists(conn, LINK_TABLE_NAME):
         return None
     marker = _marker(conn)
     return _row(
@@ -49,9 +60,14 @@ def linked_document(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
 def document_lock_holding_item(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
     """Return the session-owned lock standing between an item and its document.
 
-    Answers for any item: a work item with no execution document, or one
-    whose document nobody holds directly, is not blocked by this rule.
+    Only a Blitz is blocked. A Blitz executes the document's prose, so a
+    coordinator still rewriting that prose must finish first. Every other
+    item merely belongs to the document -- that is steering membership, and
+    a seat holding the plan it steers must not thereby freeze the work the
+    plan is about.
     """
+    if not _is_blitz(conn, int(item_id)):
+        return None
     link = linked_document(conn, int(item_id))
     if link is None:
         return None

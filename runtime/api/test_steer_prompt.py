@@ -343,7 +343,7 @@ class TestSteerDiscoveryAndPacket:
         assert "/yoke steer SLUG" in notes
         assert "offer to create if absent" in notes
         assert "--doc SLUG" in notes
-        assert "Acquire atomically" in notes
+        assert "covers exactly that document's linked items" in notes
         assert "yoke steering report get" in notes
         assert "optional `--project P`" in notes
         assert "never `/yoke do`" in notes

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.commands import _helpers, direct_workflow_worktree
-from yoke_cli.commands.adapters import blitz, dash, lane_tree
+from yoke_cli.commands.adapters import blitz, dash, dash_file, lane_tree
 from yoke_cli.commands.adapters import (
     field_note_promote as field_note_promote_adapter,
 )
@@ -35,9 +35,9 @@ def _capture(monkeypatch, module):
 
 
 def test_dash_filing_uses_cli_provenance_and_tightening_posture(monkeypatch):
-    captured = _capture(monkeypatch, dash)
+    captured = _capture(monkeypatch, dash_file)
 
-    assert dash.dash_file([
+    assert dash_file.dash_file([
         "Tighten footer",
         "Fix the footer copy.",
         "--project",
@@ -65,9 +65,9 @@ def test_dash_filing_uses_cli_provenance_and_tightening_posture(monkeypatch):
 
 
 def test_dash_filing_never_attests_for_the_caller(monkeypatch):
-    captured = _capture(monkeypatch, dash)
+    captured = _capture(monkeypatch, dash_file)
 
-    assert dash.dash_file(["Tighten footer", "Fix the footer copy."]) == 0
+    assert dash_file.dash_file(["Tighten footer", "Fix the footer copy."]) == 0
 
     # The flag records what the filer did before authoring; an adapter
     # that defaulted it to true would attest a read that never happened.
@@ -76,7 +76,7 @@ def test_dash_filing_never_attests_for_the_caller(monkeypatch):
 
 def test_dash_filing_help_lists_priority_choices(capsys):
     with pytest.raises(SystemExit) as raised:
-        dash.dash_file(["--help"])
+        dash_file.dash_file(["--help"])
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
     assert "{high,medium,low}" in help_text
@@ -84,9 +84,9 @@ def test_dash_filing_help_lists_priority_choices(capsys):
 
 
 def test_dash_filing_accepts_named_priority(monkeypatch):
-    captured = _capture(monkeypatch, dash)
+    captured = _capture(monkeypatch, dash_file)
 
-    assert dash.dash_file([
+    assert dash_file.dash_file([
         "Tighten footer",
         "Fix the footer copy.",
         "--priority",
@@ -96,7 +96,7 @@ def test_dash_filing_accepts_named_priority(monkeypatch):
 
 
 def test_dash_filing_rejects_unknown_priority(capsys):
-    assert dash.dash_file([
+    assert dash_file.dash_file([
         "Tighten footer",
         "Fix the footer copy.",
         "--priority",

@@ -30,6 +30,27 @@ yoke strategy render --target-root <checkout> [--project P]
 yoke strategy ingest <SLUG> --target-root <checkout> [--project P] --dry-run
 ```
 
+## Link to items, and to a steering seat
+
+An item belongs to one strategy document. That link is what a steering seat
+covers: `yoke claims steering acquire --project P --doc SLUG` takes the seat
+for one document and steers exactly the items linked to it, so two people
+steer two documents in one project at once without either owning the whole
+project. Acquiring with `--project` alone takes the whole-project seat
+instead and locks no document.
+
+Write the link either at intake or afterwards:
+
+```bash
+yoke dash "TITLE" "INSTRUCTION" --strategy-doc <SLUG> \
+  --execution-instructions-considered
+yoke strategy execution link PREFIX-N --slug <SLUG> --project P
+```
+
+For a Blitz the same link also names the document the item executes, and that
+document's lock and the Blitz exclude each other. For every other workflow it
+is membership only and gates nothing.
+
 ## Link to frontier
 
 `/yoke feed` maintains frontier dependency facts and can materialize new ideas

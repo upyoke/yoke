@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
+from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.migration_history import (
@@ -56,7 +56,7 @@ def test_existing_session_document_becomes_the_active_pair(test_db) -> None:
     document = acquire_session_doc_claim(
         test_db,
         project_id=PROJECT_ALPHA,
-        slug=DEFAULT_STEERING_DOC_SLUG,
+        slug=NEAR_TERM_PLAN_SLUG,
         session_id=SESSION_ALPHA,
         actor_id=2,
     )
@@ -85,5 +85,5 @@ def test_missing_document_lock_is_created_from_the_default_doc(test_db) -> None:
         "WHERE paired_work_claim_id = %s AND released_at IS NULL",
         (claim_id,),
     ).fetchone()
-    assert row["strategy_doc_slug"] == DEFAULT_STEERING_DOC_SLUG
+    assert row["strategy_doc_slug"] == NEAR_TERM_PLAN_SLUG
     assert row["owner_session_id"] == SESSION_ALPHA

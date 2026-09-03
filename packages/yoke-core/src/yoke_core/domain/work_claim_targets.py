@@ -2,8 +2,9 @@
 
 Every work_claims row uses the same storage pair: target_kind names the
 target vocabulary and scope contains the kind-specific JSON object. This
-module is the sole shape authority for construction, validation, SQL
-matching, rendering, and row decoding.
+module is the sole shape authority for construction, SQL matching,
+rendering, and row decoding; the per-kind key contract and its validation
+live in :mod:`yoke_core.domain.work_claim_scope_shape`.
 """
 
 from __future__ import annotations
@@ -12,24 +13,20 @@ from dataclasses import dataclass
 import json
 from typing import Any, Dict, Mapping, Optional
 
-from yoke_core.domain.work_processes import conflict_group_for
-
-TARGET_KIND_ITEM = "item"
-TARGET_KIND_EPIC_TASK = "epic_task"
-TARGET_KIND_PROCESS = "process"
-TARGET_KIND_STEERING = "steering"
-TARGET_KIND_MIGRATION_SERIALIZATION = "migration_serialization"
-TARGET_KIND_QA_ADMISSION = "qa_admission"
-TARGET_KIND_ROUTE_QUALIFICATION = "route_qualification"
-ALL_TARGET_KINDS = (
-    TARGET_KIND_ITEM,
+from yoke_core.domain.work_claim_scope_shape import (
+    ALL_TARGET_KINDS,
+    STEERING_DOCUMENT_KEY,
     TARGET_KIND_EPIC_TASK,
-    TARGET_KIND_PROCESS,
-    TARGET_KIND_STEERING,
+    TARGET_KIND_ITEM,
     TARGET_KIND_MIGRATION_SERIALIZATION,
+    TARGET_KIND_PROCESS,
     TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_ROUTE_QUALIFICATION,
+    TARGET_KIND_STEERING,
+    TargetValidationError,
+    normalize_scope,
 )
+from yoke_core.domain.work_processes import conflict_group_for
 
 #: Sticky kinds outlive the taking session (a migration or host suite in
 #: flight); reclaim is the audited operator release, never an auto-sweep.
@@ -37,86 +34,10 @@ STICKY_TARGET_KINDS = frozenset(
     {TARGET_KIND_MIGRATION_SERIALIZATION, TARGET_KIND_QA_ADMISSION}
 )
 
-_SCOPE_KEYS = {
-    TARGET_KIND_ITEM: frozenset({"item_id"}),
-    TARGET_KIND_EPIC_TASK: frozenset({"epic_id", "task_num"}),
-    TARGET_KIND_PROCESS: frozenset({"process_key", "conflict_group"}),
-    TARGET_KIND_STEERING: frozenset({"project_id"}),
-    TARGET_KIND_MIGRATION_SERIALIZATION: frozenset(
-        {"project_id", "model", "item_id"}
-    ),
-    TARGET_KIND_QA_ADMISSION: frozenset({"machine_id"}),
-    TARGET_KIND_ROUTE_QUALIFICATION: frozenset({"project_id", "grant_key"}),
-}
 
 def is_sticky(kind: str) -> bool:
     """Return True when this kind survives session end and the sweep."""
     return kind in STICKY_TARGET_KINDS
-
-
-class TargetValidationError(ValueError):
-    """Raised when a typed-target scope fails its kind contract."""
-
-
-def _positive_integer(value: Any, label: str) -> int:
-    if isinstance(value, bool):
-        raise TargetValidationError(f"{label} must be a positive integer")
-    try:
-        normalized = int(value)
-    except (TypeError, ValueError) as exc:
-        raise TargetValidationError(f"{label} must be a positive integer") from exc
-    if normalized <= 0:
-        raise TargetValidationError(f"{label} must be a positive integer")
-    return normalized
-
-
-def _nonempty_text(value: Any, label: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise TargetValidationError(f"{label} must be non-empty text")
-    return value
-
-
-def normalize_scope(kind: str, scope: Mapping[str, Any]) -> Dict[str, Any]:
-    """Validate and canonicalize one kind-specific scope object."""
-    if kind not in ALL_TARGET_KINDS:
-        raise TargetValidationError(
-            f"target_kind must be one of {ALL_TARGET_KINDS}; got {kind!r}"
-        )
-    if not isinstance(scope, Mapping):
-        raise TargetValidationError("work-claim scope must be a JSON object")
-    raw = dict(scope)
-    expected = _SCOPE_KEYS[kind]
-    if frozenset(raw) != expected:
-        raise TargetValidationError(
-            f"{kind} scope requires exactly {sorted(expected)}; "
-            f"got {sorted(str(key) for key in raw)}"
-        )
-    if kind == TARGET_KIND_ITEM:
-        return {"item_id": _positive_integer(raw["item_id"], "item_id")}
-    if kind == TARGET_KIND_EPIC_TASK:
-        return {
-            "epic_id": _positive_integer(raw["epic_id"], "epic_id"),
-            "task_num": _positive_integer(raw["task_num"], "task_num"),
-        }
-    if kind == TARGET_KIND_PROCESS:
-        return {
-            "process_key": _nonempty_text(raw["process_key"], "process_key"),
-            "conflict_group": _nonempty_text(raw["conflict_group"], "conflict_group"),
-        }
-    if kind == TARGET_KIND_MIGRATION_SERIALIZATION:
-        return {
-            "project_id": _positive_integer(raw["project_id"], "project_id"),
-            "model": _nonempty_text(raw["model"], "model"),
-            "item_id": _positive_integer(raw["item_id"], "item_id"),
-        }
-    if kind == TARGET_KIND_QA_ADMISSION:
-        return {"machine_id": _nonempty_text(raw["machine_id"], "machine_id")}
-    if kind == TARGET_KIND_ROUTE_QUALIFICATION:
-        return {
-            "project_id": _positive_integer(raw["project_id"], "project_id"),
-            "grant_key": _nonempty_text(raw["grant_key"], "grant_key"),
-        }
-    return {"project_id": _positive_integer(raw["project_id"], "project_id")}
 
 
 def decode_scope(raw: Any) -> Dict[str, Any]:
@@ -190,6 +111,11 @@ class WorkClaimTarget:
         return str(value) if value is not None else None
 
     @property
+    def document(self) -> Optional[str]:
+        value = self.scope.get(STEERING_DOCUMENT_KEY)
+        return str(value) if value is not None else None
+
+    @property
     def grant_key(self) -> Optional[str]:
         value = self.scope.get("grant_key")
         return str(value) if value is not None else None
@@ -212,6 +138,10 @@ class WorkClaimTarget:
         if self.kind == TARGET_KIND_EPIC_TASK:
             return f"{item_ref_for_id(int(self.epic_id))} task {self.task_num}"
         if self.kind == TARGET_KIND_STEERING:
+            if self.document:
+                return (
+                    f"steering for {self.document} in project {self.project_id}"
+                )
             return f"steering for project {self.project_id}"
         if self.kind == TARGET_KIND_MIGRATION_SERIALIZATION:
             return (
@@ -249,8 +179,15 @@ def make_process_target(process_key: str, project: str) -> WorkClaimTarget:
     )
 
 
-def make_steering_target(project_id: int) -> WorkClaimTarget:
-    return WorkClaimTarget(TARGET_KIND_STEERING, {"project_id": int(project_id)})
+def make_steering_target(
+    project_id: int,
+    document: Optional[str] = None,
+) -> WorkClaimTarget:
+    """Build a steering seat's scope: a project, optionally narrowed to a doc."""
+    scope: Dict[str, Any] = {"project_id": int(project_id)}
+    if document is not None:
+        scope[STEERING_DOCUMENT_KEY] = str(document)
+    return WorkClaimTarget(TARGET_KIND_STEERING, scope)
 
 
 def make_migration_serialization_target(
@@ -318,6 +255,7 @@ def __getattr__(name: str):
 
 __all__ = [
     "ALL_TARGET_KINDS",
+    "STEERING_DOCUMENT_KEY",
     "STICKY_TARGET_KINDS",
     "TARGET_KIND_EPIC_TASK",
     "TARGET_KIND_ITEM",
