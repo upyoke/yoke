@@ -157,6 +157,31 @@ test("Sessions styles use theme tokens and collapse stats and cards on narrow sc
   );
 });
 
+test("The session card identity line wraps instead of truncating its labels", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
+    import.meta.url,
+  ), "utf8");
+  // A card whose harness, lane, and operator each render as an initial plus an
+  // ellipsis names nothing; the row breaks to a second line instead.
+  assert.match(
+    css,
+    /\.session-top \{[^}]*flex-wrap: wrap;[^}]*gap: 6px 9px;/s,
+  );
+  assert.match(
+    css,
+    /\.session-top > \* \{[^}]*max-width: 100%;[^}]*overflow-wrap: anywhere;/,
+  );
+  for (const rule of ["session-executor", "session-operator"]) {
+    const block = css.match(
+      new RegExp(`\\n\\.universe-app-root \\.${rule} \\{([^}]*)\\}`),
+    )[1];
+    assert.doesNotMatch(block, /text-overflow: ellipsis;/);
+    assert.doesNotMatch(block, /white-space: nowrap;/);
+    assert.doesNotMatch(block, /overflow: hidden;/);
+  }
+});
+
 test("Sessions sizes its stats and keeps the message row to one text line", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",

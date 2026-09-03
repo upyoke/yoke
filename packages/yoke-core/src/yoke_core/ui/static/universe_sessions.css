@@ -46,12 +46,21 @@
 }
 .universe-app-root .session-card.is-stale { background: var(--yoke-crit-bg); }
 
+/* The identity line wraps rather than truncating: at the grid's narrow column
+   a harness name, lane, and operator that do not fit on one line move to the
+   next one whole, because an initial and an ellipsis name nothing. */
 .universe-app-root .session-top {
   display: flex;
   align-items: center;
-  gap: 9px;
+  flex-wrap: wrap;
+  gap: 6px 9px;
   min-width: 0;
   margin-bottom: 10px;
+}
+.universe-app-root .session-top > * {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .universe-app-root .session-parked-badge {
@@ -91,12 +100,9 @@
 
 .universe-app-root .session-executor {
   min-width: 0;
-  overflow: hidden;
   color: var(--yoke-ink);
   font-size: 12.5px;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .universe-app-root .session-card-body {
@@ -171,13 +177,6 @@
   border: 1px dashed color-mix(in srgb, var(--yoke-muted) 55%, transparent);
   font-weight: 500;
 }
-.universe-app-root .session-lane {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .universe-app-root .session-age .ago {
   color: inherit;
@@ -243,11 +242,8 @@
 
 .universe-app-root .session-operator {
   min-width: 0;
-  overflow: hidden;
   color: var(--yoke-muted);
   font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .universe-app-root .session-id {
@@ -257,9 +253,10 @@
   white-space: nowrap;
 }
 
-/* Identity reads left to right on one line: who is running, then the lane the
-   fleet gave them, then who owns the session. Health and reachability each get
-   their own row below the work so a glance separates them. */
+/* Identity reads left to right, wrapping when it must: who is running, then
+   the lane the fleet gave them, then who owns the session, held to the far end
+   of whichever row it lands on. Health and reachability each get their own row
+   below the work so a glance separates them. */
 .universe-app-root .session-top .session-operator {
   margin-left: auto;
 }
