@@ -94,6 +94,10 @@ class CursorNativeResult:
     identity_output_snippet: str | None = field(default=None, repr=False)
     identity_parse_expectation: str | None = field(default=None, repr=False)
     phase: str | None = None
+    # Which store the conversation lives in ("acp" — the only transport a
+    # launch creates through). Recorded so a later resume knows what to
+    # look for instead of guessing across transports.
+    conversation_store: str | None = None
     # What the native wrote to stderr before it failed. Never reported over
     # the relay wire; the serve loop retains it machine-locally and reports
     # only an opaque reference.
@@ -137,6 +141,9 @@ def _evidence(
     phase = getattr(native, "phase", None)
     if phase:
         evidence["native_launch_phase"] = phase
+    store = getattr(native, "conversation_store", None)
+    if store:
+        evidence["conversation_store"] = store
     return evidence
 
 
@@ -283,7 +290,6 @@ def build_cursor_adapter(
                 identity_lookup or conversation_map_lookup,
                 attestation_handoff,
                 sleeper,
-                registration_turn=subprocess_port,
             )
 
         wake_mode = normalize_wake_mode(context.wake_mode)
@@ -299,17 +305,19 @@ def build_cursor_adapter(
             requested_model=context.requested_model,
         )
         operation = wake_operation(request.wake_mode, request.target_liveness)
-        if operation == "message_idle" and acp_port is None:
-            return _result(
-                "failed", native=CursorNativeResult("native_framing_unavailable")
-            )
-        if operation == "message_idle" and acp_port is not None:
+        if operation == "message_idle":
+            if acp_port is None:
+                return _result(
+                    "failed", native=CursorNativeResult("native_framing_unavailable")
+                )
             try:
                 idle = acp_port.prompt_session(request)
             except Exception:
                 return _result("outcome_unknown")
-            if idle.result_code != "not_found":
-                return _wake_result(idle)
+            # ACP session/load is authoritative here: "not_found" means the
+            # store is gone, not a cue to let another transport recreate a
+            # competing conversation under the same id.
+            return _wake_result(idle)
         if subprocess_port is None:
             return _result(
                 "failed", native=CursorNativeResult("native_framing_unavailable")

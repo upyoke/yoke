@@ -297,6 +297,7 @@ class CursorAcpTransport:
                 "native_created",
                 native_session_id=session_id,
                 duration_ms=max(0, int((time.monotonic() - started) * 1000)),
+                conversation_store="acp",
             )
         except CursorAcpError:
             diagnostic = native_diagnostic_fields(client)

@@ -8,7 +8,6 @@ from typing import Callable
 from yoke_harness.session_launch_containment import contain_launch_native
 from yoke_harness.session_relay_cursor_identity import (
     ACP_SESSION_PARSE_EXPECTATION,
-    CURSOR_REGISTRATION_TURN_WAIT_SECONDS,
     CURSOR_REGISTRATION_WAIT_SECONDS,
     ConversationLookup,
     LaunchAttestationHandoff,
@@ -30,19 +29,18 @@ def complete_bound_launch(
     attestation_handoff: LaunchAttestationHandoff | None,
     sleeper: Callable[[float], None],
     *,
-    registration_turn: object | None = None,
     wait_seconds: float = CURSOR_REGISTRATION_WAIT_SECONDS,
-    turn_wait_seconds: float = CURSOR_REGISTRATION_TURN_WAIT_SECONDS,
     state_dir: Path | None = None,
 ) -> RelayAdapterResult:
     """Bind only after the conversation map proves hooks fired.
 
     ACP ``session/new`` can return a UUID while the spawned agent has not yet
-    run a hook-firing turn. Wait for the map, drive the documented prompt-mode
-    resume once, and wait again — all inside a window shorter than the relay
-    lease. A map that still misses is reported as a created native with its
-    registration outstanding rather than as a failed create: see
-    :func:`_registration_pending`.
+    run a hook-firing turn. Wait for the map — the launch's one bootstrap
+    prompt is already running inside that same ACP conversation, so a map
+    that still misses gets no second turn on a second transport (that forked
+    a competing print-mode conversation against the still-running ACP one).
+    It is reported as a created native with its registration outstanding
+    instead: see :func:`_registration_pending`.
     """
     from yoke_harness.session_relay_cursor import (
         CursorNativeResult,
@@ -64,15 +62,6 @@ def complete_bound_launch(
         wait_seconds=wait_seconds,
         sleeper=sleeper,
     )
-    if resolution.session_id is None and registration_turn is not None:
-        _drive_registration_turn(registration_turn, context, conversation_id)
-        phase = "turn_start"
-        resolution = wait_for_conversation_session(
-            conversation_id,
-            identity_lookup,
-            wait_seconds=turn_wait_seconds,
-            sleeper=sleeper,
-        )
     if resolution.session_id is None:
         if uuid_session_id(conversation_id) is None:
             contain_launch_native(str(context.job_id), state_dir=state_dir)
@@ -108,6 +97,7 @@ def complete_bound_launch(
         identity_output_snippet=binding.output_snippet,
         identity_parse_expectation=binding.parse_expectation,
         phase="native_running" if binding.result_code == "native_created" else phase,
+        conversation_store=typed.conversation_store,
     )
     if binding.result_code != "native_created":
         contain_launch_native(str(context.job_id), state_dir=state_dir)
@@ -164,6 +154,7 @@ def _registration_pending(
         getattr(typed, "exit_code", None),
         getattr(typed, "duration_ms", None),
         phase="registration_pending",
+        conversation_store=getattr(typed, "conversation_store", None),
     )
     return _result(
         "native_created",
@@ -183,6 +174,7 @@ def _as_native(native: object, cls: type) -> object:
         identity_output_snippet=getattr(native, "identity_output_snippet", None),
         identity_parse_expectation=getattr(native, "identity_parse_expectation", None),
         phase=getattr(native, "phase", None),
+        conversation_store=getattr(native, "conversation_store", None),
     )
 
 
@@ -196,39 +188,6 @@ def _phased(launched: RelayAdapterResult, phase: str) -> RelayAdapterResult:
         evidence=evidence,
         private_diagnostic=launched.private_diagnostic,
     )
-
-
-def _drive_registration_turn(
-    port: object,
-    context: RelayExecutionContext,
-    session_id: str,
-) -> None:
-    """Resume the created session once, at the model the launch asked for.
-
-    This is the turn the worker actually runs its instruction on whenever
-    ACP create did not fire a hook in time, and it is the first place in a
-    launch where cursor-agent honors a model at all, so the requested
-    variant rides here rather than being dropped.
-    """
-    from yoke_harness.session_relay_cursor import CursorWakeRequest
-
-    resume = getattr(port, "resume_chat", None)
-    if not callable(resume):
-        return
-    try:
-        resume(
-            CursorWakeRequest(
-                checkout=context.checkout,
-                target_session_id=session_id,
-                surface_version=str(context.surface_version),
-                target_liveness="ended",
-                wake_mode="waiting",
-                native_instruction=context.native_instruction,
-                requested_model=context.requested_model,
-            )
-        )
-    except Exception:
-        return
 
 
 __all__ = ["complete_bound_launch"]

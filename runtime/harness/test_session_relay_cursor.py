@@ -172,7 +172,10 @@ def test_waiting_wake_resumes_active_labeled_stopped_chat(tmp_path, scenario):
     assert cli.resume_requests[0].target_session_id == "cursor-session-existing"
 
 
-def test_idle_timeout_resumes_only_after_acp_reports_not_found(tmp_path):
+def test_idle_timeout_refuses_by_name_when_acp_cannot_find_the_session(tmp_path):
+    """ACP session/load is authoritative for a session ACP created: a
+    not_found there refuses instead of letting a second transport start a
+    competing conversation under the same id."""
     cli = FakeSubprocess()
     acp = FakeAcp()
     acp.prompt_result = CursorNativeResult("not_found")
@@ -181,9 +184,9 @@ def test_idle_timeout_resumes_only_after_acp_reports_not_found(tmp_path):
         _wake(tmp_path, liveness="stale", wake_mode="idle_timeout")
     )
 
-    assert result.result_code == "accepted"
+    assert result.result_code == "not_found"
     assert len(acp.prompt_requests) == 1
-    assert len(cli.resume_requests) == 1
+    assert cli.resume_requests == []
 
 
 @pytest.mark.parametrize("wake_mode", [None, "invented"])
