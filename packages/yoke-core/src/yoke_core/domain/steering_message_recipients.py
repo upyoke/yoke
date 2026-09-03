@@ -9,10 +9,10 @@ business, and nothing has to be redirected by hand.
 The row moves through three states. ``awaiting_seat`` means no live seat
 covered it -- the message is parked, not lost, and no session was asked to
 receive it. ``delivered`` names the seat that holds it now. ``acknowledged``
-records that seat acting on it. A seat that ends without answering leaves
-its row drainable again, which is the whole point: the message outlives the
-session, so the successor picks it up rather than the operator re-sending
-it.
+records that seat acting on it and settles the row for every later handoff.
+A seat that ends without acknowledging or answering leaves its delivered
+row drainable again: the message outlives the session, so the successor
+picks it up rather than the operator re-sending it.
 """
 
 from __future__ import annotations
@@ -152,9 +152,9 @@ def drainable_rows(
 ) -> list[dict[str, Any]]:
     """Role-addressed rows in this scope that no live seat is acting on.
 
-    Parked rows are the obvious case. The other is a row whose seat has
-    ended without answering: today that reads to the fleet report as a dead
-    wait, and the sender is waiting on a reply that can never arrive.
+    Parked rows are the obvious case. The other is an unacknowledged row
+    whose seat ended without answering: the sender is waiting on a reply
+    that can no longer arrive. Acknowledgement settles the row permanently.
     """
     drainable: list[dict[str, Any]] = []
     for row in _rows_for_project(conn, project_id):
@@ -164,6 +164,8 @@ def drainable_rows(
             continue
         if row["state"] == STATE_AWAITING_SEAT:
             drainable.append(row)
+            continue
+        if row["state"] == STATE_ACKNOWLEDGED:
             continue
         if _seat_still_live(row) or _seat_answered(conn, row):
             continue

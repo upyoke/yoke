@@ -50,7 +50,13 @@ def _stub_response(request: FunctionCallRequest) -> FunctionCallResponse:
             ]
         }
     else:
-        result = {"claim": _claim(41)}
+        claim = _claim(41)
+        claim["message_handoff"] = {
+            "drained_count": 0,
+            "parked_count": 0,
+            "digest": "",
+        }
+        result = {"claim": claim}
     return FunctionCallResponse(
         success=True,
         function=request.function,
@@ -116,6 +122,7 @@ def test_acquire_omitted_doc_uses_current_plan() -> None:
     assert "project=7" in out
     assert f"doc={DEFAULT_STEERING_DOC_SLUG}" in out
     assert "holder=steering-session" in out
+    assert "inherited 0 steering message(s)" in out
 
 
 def test_release_dispatches_claim_target_and_reason() -> None:

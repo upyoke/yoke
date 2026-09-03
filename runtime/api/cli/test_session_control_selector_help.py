@@ -96,6 +96,9 @@ def test_the_steering_anchor_takes_no_address() -> None:
 def test_the_steering_rule_says_the_address_outlives_the_seat() -> None:
     assert "never as a session id" in FLEET_STEERING_ADDRESSING_GUIDANCE
     assert "at DELIVERY rather than at send" in FLEET_STEERING_ADDRESSING_GUIDANCE
+    assert (
+        "no successor inherits acknowledged mail" in FLEET_STEERING_ADDRESSING_GUIDANCE
+    )
     assert "--steering-scope" in FLEET_STEERING_ADDRESSING_GUIDANCE
 
 

@@ -183,7 +183,7 @@ def _dead_wait_lines(report: FleetReport) -> list[str]:
 
 
 def _awaiting_seat_lines(report: FleetReport) -> list[str]:
-    """One line for mail this scope holds that no seat has taken.
+    """One line for unacknowledged mail no live seat holds.
 
     Rendered only when there is some: a zero line would be noise on every
     healthy report, and the point of the line is that work addressed to the
@@ -193,7 +193,7 @@ def _awaiting_seat_lines(report: FleetReport) -> list[str]:
         return []
     return [
         f"{report.messages_awaiting_seat} steering message(s) awaiting a seat"
-        " — acquiring this scope hands them over as one handoff digest"
+        " — acknowledged reports stay settled; acquiring this scope hands the rest over"
     ]
 
 

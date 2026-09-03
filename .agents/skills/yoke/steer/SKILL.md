@@ -156,12 +156,12 @@ neither half behind. Do not proceed without both. Keep the returned
 `claim_id` for wrapup release.
 
 Acquire also hands over every role-addressed message this scope covers that
-no live seat was acting on — the ones that parked with no seat at all, and
-the ones a previous seat took and then ended without answering. They arrive
-as one handoff digest, grouped by the item that sent them, newest first.
-Read it before the first loop pass: it is the backlog of reports the fleet
-sent while the scope was unowned. Answer what still needs answering with
-`yoke say --item PREFIX-N --stdin`.
+no live seat was acting on and no previous seat acknowledged — the ones that
+parked with no seat at all, and unacknowledged ones left by an ended seat.
+Acknowledgement settles a report: successors never inherit it or count it as
+awaiting a seat. The remaining mail arrives as one handoff digest, grouped by
+the sending item, newest first. Read it before the first loop pass, then answer
+what still needs answering with `yoke say --item PREFIX-N --stdin`.
 
 ## 4. Run the standing loop
 

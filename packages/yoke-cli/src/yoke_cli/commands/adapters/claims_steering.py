@@ -44,15 +44,13 @@ def _print_acquired(response: Any, stdout, _stderr) -> None:
 
 
 def _print_message_handoff(claim: Dict[str, Any], stdout) -> None:
-    """Show the mail this seat inherited; silence when there was none."""
+    """Show the exact settled/unacknowledged handoff result."""
     handoff = claim.get("message_handoff") or {}
     drained = int(handoff.get("drained_count") or 0)
-    if not drained:
-        return
     print(
         f"inherited {drained} steering message(s): "
         f"{int(handoff.get('parked_count') or 0)} parked, "
-        f"{int(handoff.get('stranded_count') or 0)} held by an ended seat",
+        f"{int(handoff.get('stranded_count') or 0)} unacknowledged from an ended seat",
         file=stdout,
     )
     digest = str(handoff.get("digest") or "")

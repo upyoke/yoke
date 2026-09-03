@@ -77,6 +77,7 @@ def test_acquiring_the_seat_hands_over_the_scope_parked_mail(steering_scope):
     _park_role_message(steering_scope, "msg-parked")
     _release_the_seat(steering_scope)
 
+    report = _compose(steering_scope, session_id="successor-seat")
     claim = acquire_steering(
         steering_scope,
         session_id="successor-seat",
@@ -85,6 +86,7 @@ def test_acquiring_the_seat_hands_over_the_scope_parked_mail(steering_scope):
     )
 
     handoff = claim["message_handoff"]
+    assert handoff["drained_count"] == report.messages_awaiting_seat
     assert handoff["drained_count"] == 1
     assert handoff["parked_count"] == 1
     assert handoff["digest"].startswith(DIGEST_BEGIN)
@@ -121,7 +123,9 @@ def test_the_report_counts_mail_no_seat_has_taken(steering_scope):
 
     assert report.messages_awaiting_seat == 1
     assert report.actionable is True
-    assert "1 steering message(s) awaiting a seat" in report_body(report)
+    rendered = report_body(report)
+    assert "1 steering message(s) awaiting a seat" in rendered
+    assert "acknowledged reports stay settled" in rendered
 
 
 def test_the_report_stays_quiet_when_every_message_has_a_seat(steering_scope):
@@ -129,3 +133,39 @@ def test_the_report_stays_quiet_when_every_message_has_a_seat(steering_scope):
 
     assert report.messages_awaiting_seat == 0
     assert "awaiting a seat" not in report_body(report)
+
+
+def test_acknowledged_mail_is_absent_from_report_and_successor_handoff(
+    steering_scope,
+):
+    seed_session(steering_scope, "successor-seat")
+    _park_role_message(steering_scope, "msg-acknowledged")
+    held = list_claims(steering_scope, project_id=PROJECT_ID, active_only=True)
+    steering_scope.execute(
+        "UPDATE actor_message_recipients SET state='acknowledged', "
+        "seat_session_id=%s, seat_claim_id=%s, delivered_at=%s, acknowledged_at=%s "
+        "WHERE message_id='msg-acknowledged'",
+        (STEERING_SESSION, int(held[0]["id"]), LONG_AGO, LONG_AGO),
+    )
+    _release_the_seat(steering_scope)
+    steering_scope.execute(
+        "UPDATE harness_sessions SET ended_at=%s WHERE session_id=%s",
+        (NOW, STEERING_SESSION),
+    )
+    steering_scope.commit()
+
+    report = _compose(steering_scope, session_id="successor-seat")
+    assert report.messages_awaiting_seat == 0
+    assert "awaiting a seat" not in report_body(report)
+
+    claim = acquire_steering(
+        steering_scope,
+        session_id="successor-seat",
+        project_id=PROJECT_ID,
+        reason="successor seat",
+    )
+    assert claim["message_handoff"] == {
+        "drained_count": 0,
+        "parked_count": 0,
+        "digest": "",
+    }
