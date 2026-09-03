@@ -108,12 +108,6 @@ def screen_compat_terminal(env: Mapping[str, str] | None = None) -> bool:
     return bool(values.get("STY")) or term == "screen" or term.startswith("screen-")
 
 
-def native_text_selection_terminal(env: Mapping[str, str] | None = None) -> bool:
-    """Return whether terminal-native selection should replace mouse input."""
-    values = os.environ if env is None else env
-    return str(values.get("TERM_PROGRAM") or "").casefold() == "apple_terminal"
-
-
 def plain_glyphs(env: Mapping[str, str] | None = None) -> bool:
     values = env or os.environ
     forced = str(values.get("YOKE_ONBOARD_FORCE_PLAIN") or "").strip().lower()
@@ -143,6 +137,5 @@ __all__ = [
     "glyphs",
     "plain_glyphs",
     "plain_text",
-    "native_text_selection_terminal",
     "screen_compat_terminal",
 ]

@@ -22,6 +22,7 @@ from yoke_cli.commands import connect as commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.config import server_connect
 from yoke_cli.config import hosted_machine_authorization
+from yoke_cli.config import hosted_machine_browser
 
 _TOKEN = "yk-test-token-0123456789abcdefghijklmnop"
 
@@ -120,7 +121,9 @@ def test_connect_without_token_uses_hosted_browser_org_authority(
                     expires_in=600,
                     interval=2,
                 ),
-                True,
+                hosted_machine_browser.BrowserOpenResult(
+                    opened=True, method="webbrowser",
+                ),
             )
             or hosted_machine_authorization.HostedMachineCredential(
                 api_url="https://app.upyoke.com/api/orgs/acme",

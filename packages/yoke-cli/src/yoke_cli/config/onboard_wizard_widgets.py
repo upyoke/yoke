@@ -61,7 +61,11 @@ class SelectionRow:
     value: str
     label: str
     hint: str
-    hint_on_new_line: bool = False
+
+
+# A hint that cannot fit beside its label keeps at least this many cells (the
+# ellipsis included) before it is dropped rather than shown as a stub.
+_MIN_TRUNCATED_HINT_CELLS = 4
 
 
 class Stepper(Static):
@@ -105,49 +109,43 @@ class _OptionRow(Static):
     def __init__(self, row: SelectionRow) -> None:
         super().__init__()
         self._row = row
-        if row.hint_on_new_line:
-            self.add_class("-hint-continuation")
 
     def render(self) -> Text:
         selected = self.has_class("-selected")
         width = max(self.size.width, 40)
-        if self._row.hint_on_new_line:
-            return _option_row_text(self._row, selected=selected, width=width)
-        marks = glyphs()
-        marker = marks.selected if selected else marks.unselected
-        prefix = f"{marker}  "
-        label = plain_text(self._row.label) if plain_glyphs() else self._row.label
-        hint = plain_text(self._row.hint) if plain_glyphs() else self._row.hint
-        gap = max(width - len(prefix) - len(label) - len(hint), 1)
-        line = Text()
-        line.append(prefix)
-        line.append(label)
-        line.append(" " * gap)
-        line.append(hint, style="dim" if not selected else "")
-        return line
+        return _option_row_text(self._row, selected=selected, width=width)
 
 
 def _option_row_text(row: SelectionRow, *, selected: bool, width: int) -> Text:
-    """Keep an overflowing hint intact on a right-aligned continuation line."""
+    """Lay one row out on exactly one line of ``width`` cells.
+
+    The hint is right-aligned after at least one cell of gap. A hint that does
+    not fit is cut to the room left and ends in an ellipsis; with fewer than
+    a few cells left it is dropped, so no row ever wraps or leaves its label
+    line half blank.
+    """
     marks = glyphs()
+    plain = plain_glyphs()
     marker = marks.selected if selected else marks.unselected
     prefix = f"{marker}  "
-    label = plain_text(row.label) if plain_glyphs() else row.label
-    hint = plain_text(row.hint) if plain_glyphs() else row.hint
-    hint_style = "" if selected else "dim"
+    label = plain_text(row.label) if plain else row.label
+    hint = plain_text(row.hint) if plain else row.hint
     line = Text()
     line.append(prefix)
     line.append(label)
-    if not hint:
+    room = width - cell_len(prefix) - cell_len(label) - 1
+    if not hint or room < _MIN_TRUNCATED_HINT_CELLS:
+        # Pad to the row width either way so the selected row's tint is one
+        # span; a hint with no room is dropped rather than shown as a stub.
+        line.append(" " * max(room + 1, 1))
         return line
-    if not row.hint_on_new_line:
-        gap = max(width - len(prefix) - len(label) - len(hint), 1)
-        line.append(" " * gap)
-        line.append(hint, style=hint_style)
-        return line
-    line.append("\n")
-    line.append(" " * max(width - cell_len(hint), 0))
-    line.append(hint, style=hint_style)
+    hint_text = Text(hint)
+    if cell_len(hint) > room:
+        hint_text.truncate(room, overflow="ellipsis")
+        if plain:
+            hint_text = Text(plain_text(hint_text.plain))
+    line.append(" " * (width - cell_len(prefix) - cell_len(label) - cell_len(hint_text.plain)))
+    line.append(hint_text.plain, style="" if selected else "dim")
     return line
 
 
@@ -214,6 +212,9 @@ class SelectionList(Vertical, can_focus=True):
     def _sync_selection(self) -> None:
         for index, option in enumerate(self.query(_OptionRow)):
             option.set_class(index == self.cursor, "-selected")
+            if index == self.cursor:
+                # A list taller than the body follows its cursor.
+                option.scroll_visible(animate=False)
 
 
 def _step_index(step_id: str) -> int:

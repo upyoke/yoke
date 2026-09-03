@@ -5,17 +5,14 @@ Per-step bodies and decision transitions live in focused sibling modules.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Any, Callable
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Vertical, VerticalScroll
+from textual.containers import VerticalScroll
 from textual.widgets import Input, Rule, Static
 
 from yoke_cli.config.onboard_terminal import (
-    glyphs,
     plain_glyphs,
     plain_text,
     screen_compat_terminal,
@@ -23,16 +20,14 @@ from yoke_cli.config.onboard_terminal import (
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_project
-from yoke_cli.config import onboard_wizard_stored_github
+from yoke_cli.config import onboard_wizard_chrome as chrome
 from yoke_cli.config.onboard_wizard import (
     WizardDefaults,
     WizardResult,
     default_config_path,
 )
-from yoke_cli.config import onboard_wizard_steps as steps
-from yoke_cli.config.onboard_destinations import matches_stored_hosted_authority as _matches_hosted
+from yoke_cli.config.onboard_wizard_body_scroll import BODY_ID, BodyScrollFlow
 from yoke_cli.config.onboard_wizard_checking import CheckingFlow
-from yoke_cli.config.onboard_wizard_palette import ACCENT, DIM, TEXT
 from yoke_cli.config.onboard_wizard_flow import WizardFlow
 from yoke_cli.config.onboard_wizard_flow_apply import ApplyFlow
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow
@@ -48,6 +43,8 @@ from yoke_cli.config.onboard_wizard_flow_publish_manual import ManualPublishFlow
 from yoke_cli.config.onboard_wizard_path import PathFlow
 from yoke_cli.config.onboard_wizard_input_entry import InputEntry
 from yoke_cli.config.onboard_wizard_state import _PendingForm, _PendingInput, _View
+from yoke_cli.config.onboard_wizard_stored_connection import StoredConnectionHydration
+from yoke_cli.config.onboard_wizard_view_helpers import ViewHelpers
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_CONNECT_LABEL,
     SelectionList,
@@ -55,53 +52,25 @@ from yoke_cli.config.onboard_wizard_widgets import (
 )
 
 
-def _footer_hint(glyph: str, label: str) -> str:
-    """One footer hint: a bright key glyph and its dim label."""
-    return f"[{TEXT}]{glyph}[/] [{DIM}]{label}[/]"
-
-
-# Key glyphs render bright, their labels dim, so the keys read at a glance while
-# the labels recede.
-_MOUSE_REPORTING_OFF = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l"
-
-
-def _header() -> str:
-    marks = glyphs()
-    return (
-        f"[bold {ACCENT}]{marks.header_mark} Yoke[/]  "
-        f"[#7d8590]{marks.header_sep} "
-        "Set up your machine and onboard your projects[/]"
-    )
-
-
-def _footer() -> str:
-    marks = glyphs()
-    return "     ".join(
-        _footer_hint(glyph, label)
-        for glyph, label in (
-            (marks.footer_navigate, "navigate"),
-            (marks.footer_select, "select"),
-            ("esc", "back"),
-            ("^c", "quit"),
-        )
-    )
-
-
-def _disable_mouse_reporting() -> None:
-    sys.stdout.write(_MOUSE_REPORTING_OFF)
-    sys.stdout.flush()
-
-
 class OnboardWizardApp(
     CheckingFlow, PathFlow, DestinationFlow, HostedMachineConnectFlow, ConnectFlow, MachineGithubFlow,
     ProjectGitFlow, WizardFlow, ApplyFlow, CloneFlow, DevFlow, ManualPublishFlow,
-    PublishFlow, HostingFlow, BoardArtFlow, InputEntry, App[None],
+    PublishFlow, HostingFlow, BoardArtFlow, InputEntry, BodyScrollFlow,
+    StoredConnectionHydration, ViewHelpers, App[None],
 ):
     CSS_PATH = "onboard_wizard.tcss"
+    # The arrow bindings only reach the body when no list or input is focused:
+    # a focused SelectionList sits earlier on the binding chain and keeps them.
     BINDINGS = [
         Binding("escape", "back", "back", show=False),
         Binding("ctrl+[", "back", "back", show=False),
         Binding("ctrl+c", "quit_wizard", "quit", show=False, priority=True),
+        Binding("pageup", "body_page_up", "scroll up", show=False),
+        Binding("pagedown", "body_page_down", "scroll down", show=False),
+        Binding("up", "body_line_up", "scroll up", show=False),
+        Binding("down", "body_line_down", "scroll down", show=False),
+        Binding("home", "body_home", "top", show=False),
+        Binding("end", "body_end", "bottom", show=False),
     ]
 
     def __init__(
@@ -181,94 +150,28 @@ class OnboardWizardApp(
         self._plain_glyphs = plain_glyphs()
 
     def compose(self) -> ComposeResult:
-        yield Static(_header(), id="onboard-header", markup=True)
+        yield Static(chrome.header(), id="onboard-header", markup=True)
         yield Stepper(id="onboard-stepper")
         yield self._divider()
         # Non-focusable: a scroll container that can take focus would steal it
         # from the active SelectionList/Input on a body click and leave Enter
         # dead. on_click then refocuses the active control for header/footer/
-        # label clicks too.
-        if self._plain_glyphs:
-            body = Vertical(id="onboard-body")
-        else:
-            body = VerticalScroll(id="onboard-body", can_focus=False)
-        yield body
+        # label clicks too. Plain-glyph terminals hide the scrollbar in the
+        # stylesheet and keep the keyboard scroll keys.
+        yield VerticalScroll(id=BODY_ID, can_focus=False)
         yield self._divider()
-        yield Static(_footer(), id="onboard-footer", markup=True)
+        yield Static(chrome.footer(), id="onboard-footer", markup=True)
 
     def _divider(self) -> Rule | Static:
         if self._screen_compat or self._plain_glyphs:
             return Static("", classes="onboard-divider")
         return Rule(classes="onboard-divider")
 
-    def _hydrate_stored_credentials(self, defaults: WizardDefaults) -> None:
-        """Preload reusable token-file references from machine config.
-
-        The wizard still verifies every secret before using it. This only saves
-        the operator from re-entering file paths already recorded in the machine
-        config. Project checkouts are also only preloaded here; the Project step
-        verifies the stored project id with the API before reusing one.
-        """
-
-        self._hydrate_stored_yoke_connection(defaults)
-        self._hydrate_stored_github_connection()
-        self._hydrate_stored_project_checkouts()
-
-    def _hydrate_stored_yoke_connection(self, defaults: WizardDefaults) -> None:
-        if defaults.token or defaults.token_file:
-            return
-        try:
-            connection = machine_config.active_connection(
-                self.result.config_path,
-                explicit_env=defaults.env_name,
-            )
-        except (OSError, RuntimeError, ValueError):
-            return
-        if str(connection.get("transport") or "") != "https":
-            return
-        api_url = str(connection.get("api_url") or "").strip()
-        if not api_url:
-            return
-        if defaults.api_url and not _matches_hosted(defaults.api_url, api_url):
-            return
-        source = connection.get("credential_source")
-        if not isinstance(source, dict) or source.get("kind") != "token_file":
-            return
-        token_file = str(source.get("path") or "").strip()
-        if not token_file:
-            return
-        token_path = Path(token_file).expanduser()
-        if not token_path.is_file():
-            return
-        self.result.env_name = str(connection.get("env") or self.result.env_name)
-        self.result.api_url = api_url
-        self.result.token_file = str(token_path)
-        self.result.token_source_kind = "token_file"
-        self._stored_yoke_token_available = True
-
-    def _hydrate_stored_github_connection(self) -> None:
-        api_url = onboard_wizard_stored_github.stored_api_url(
-            self.result.config_path
-        )
-        if api_url is None:
-            return
-        self.result.machine_github_saved = True
-        self._stored_machine_github_api_url = api_url
-
-    def _hydrate_stored_project_checkouts(self) -> None:
-        try:
-            self._stored_project_checkouts = machine_config.configured_projects(
-                self.result.config_path,
-                existing_only=True,
-            )
-        except (OSError, RuntimeError, ValueError):
-            self._stored_project_checkouts = []
-
     async def on_mount(self) -> None:
         if self._plain_glyphs:
             self.screen.add_class("plain-glyphs")
         if self._screen_compat:
-            _disable_mouse_reporting()
+            chrome.disable_mouse_reporting()
         self._start_front()
         await self._apply_pending_swap()
 
@@ -296,7 +199,7 @@ class OnboardWizardApp(
         self._pending_input = None
         self._pending_form = None
         self._swap_pending = True
-        body = self.query_one("#onboard-body")
+        body = self.query_one(f"#{BODY_ID}")
         for widget in body.children:
             if isinstance(widget, Input):
                 widget.disabled = True
@@ -324,22 +227,29 @@ class OnboardWizardApp(
 
     async def _swap_body(self) -> None:
         view = self._history[-1]
-        body = self.query_one("#onboard-body")
-        await body.remove_children()
-        # Build before labeling the rail: a view builder may adjust
-        # ``_account_step_label`` (the destination picker resets it on every
-        # visit, including Esc-back re-renders of the stored view).
-        widgets = list(view.builder())
-        stepper = self.query_one(Stepper)
-        stepper.active = view.step
-        stepper.account_label = self._account_step_label
-        if self._plain_glyphs:
-            self._plainify_widgets(widgets)
-        await body.mount(*widgets)
-        # A FocusInput claims focus inside its own on_mount (so the first key
-        # after the swap always lands); this re-asserts focus for the
-        # SelectionList case and is idempotent for the input case.
-        self._focus_first(widgets)
+        body = self.query_one(f"#{BODY_ID}")
+        # One frame for the whole swap: painting the emptied body and then the
+        # new view as two frames lets the outgoing view's glyphs survive beside
+        # the incoming ones on terminals without synchronized output. The new
+        # view also starts at the top — a scroll offset carried over from a
+        # taller view would draw a shorter one from its middle.
+        with self.batch_update():
+            await body.remove_children()
+            body.scroll_home(animate=False)
+            # Build before labeling the rail: a view builder may adjust
+            # ``_account_step_label`` (the destination picker resets it on every
+            # visit, including Esc-back re-renders of the stored view).
+            widgets = list(view.builder())
+            stepper = self.query_one(Stepper)
+            stepper.active = view.step
+            stepper.account_label = self._account_step_label
+            if self._plain_glyphs:
+                self._plainify_widgets(widgets)
+            await body.mount(*widgets)
+            # A FocusInput claims focus inside its own on_mount (so the first
+            # key after the swap always lands); this re-asserts focus for the
+            # SelectionList case and is idempotent for the input case.
+            self._focus_first(widgets)
 
     def _plainify_widgets(self, widgets: list[Static]) -> None:
         for widget in widgets:
@@ -363,7 +273,7 @@ class OnboardWizardApp(
         leaving the highlighted row while Enter silently no-ops. Re-running
         the body mount focus rule keeps Enter live after any click.
         """
-        body = self.query_one("#onboard-body")
+        body = self.query_one(f"#{BODY_ID}")
         self._focus_first(list(body.children))
 
     def on_click(self, event: Any) -> None:
@@ -376,6 +286,10 @@ class OnboardWizardApp(
 
     async def action_back(self) -> None:
         if self._checking:
+            # A check that named a cancel route (the browser-approval wait)
+            # is abandoned and routes itself; any other check keeps Esc idle.
+            if self._cancel_checking():
+                await self._apply_pending_swap()
             return
         if len(self._history) > 1:
             self._pending_input = None
@@ -402,46 +316,5 @@ class OnboardWizardApp(
         if handler is not None:
             handler(message.value)
         await self._apply_pending_swap()
-
-    # ── view helpers ────────────────────────────────────────
-
-    def _selection_view(self, step, title, subtitle, rows, on_select,
-                        *, initial: int = 0) -> _View:
-        return _View(
-            step,
-            lambda: steps.selection_body(title, subtitle, rows, initial=initial),
-            on_select,
-        )
-
-    def _input_view(
-        self, step, title, subtitle, *, placeholder, on_done,
-        password=False, allow_placeholder=True, validate=None,
-        initial_value: str = "",
-    ) -> _View:
-        def builder() -> list[Static]:
-            self._pending_input = _PendingInput(
-                on_done=on_done,
-                placeholder=placeholder,
-                allow_placeholder=allow_placeholder,
-                validate=validate,
-            )
-            return steps.input_body(
-                title,
-                subtitle,
-                placeholder,
-                password,
-                initial_value=initial_value,
-            )
-        return _View(step, builder)
-
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password=False, allow_placeholder=True, validate=None,
-                    initial_value: str = "") -> None:
-        self._goto(self._input_view(
-            step, title, subtitle, placeholder=placeholder,
-            on_done=on_done, password=password,
-            allow_placeholder=allow_placeholder, validate=validate,
-            initial_value=initial_value,
-        ))
 
 __all__ = ["OnboardWizardApp"]

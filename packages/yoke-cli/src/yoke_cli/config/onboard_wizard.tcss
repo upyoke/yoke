@@ -47,6 +47,12 @@ Screen {
     padding: 1 0 0 3;
 }
 
+/* The scrollbar is drawn with partial-block glyphs, which a screen/dumb
+   terminal cannot show; the body still scrolls from the keyboard there. */
+Screen.plain-glyphs #onboard-body {
+    scrollbar-size-vertical: 0;
+}
+
 .onboard-title {
     height: 1;
     text-style: bold;
@@ -113,12 +119,6 @@ _OptionRow {
     color: $onboard-dim;
     border-left: blank;
     padding: 0 0 0 1;
-}
-
-/* Explicit continuation rows reserve one line for the complete hint; every
-   ordinary row retains its byte-stable one-line geometry. */
-_OptionRow.-hint-continuation {
-    height: 2;
 }
 
 _OptionRow.-selected {

@@ -121,7 +121,7 @@ def test_screen_terminal_uses_ascii_visible_glyphs(monkeypatch, stub_path) -> No
             await pilot.pause()
             assert app.screen.has_class("plain-glyphs")
             body = app.query_one("#onboard-body")
-            assert not isinstance(body, VerticalScroll)
+            assert isinstance(body, VerticalScroll)
             text = _visible_static_text(app)
             assert "* Yoke" in text
             assert "up/down navigate" in text
@@ -185,30 +185,6 @@ def test_wizard_opens_on_path_diagnosis(stub_path) -> None:
     asyncio.run(scenario())
 
 
-def test_preview_queues_exact_managed_block_for_review(stub_path) -> None:
-    app = _app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            await pilot.press("down")  # path diagnosis: "Show the exact change first"
-            await pilot.press("enter")  # -> preview + consent
-            await pilot.pause()
-            text = _visible_static_text(app)
-            assert "/home/u/.zprofile" in text
-            assert "/home/u/.zshenv" in text
-            assert "non-login/SSH" in text
-            assert "/home/u/.local/bin" in text
-            await pilot.press("enter")  # preview: add the writes to Review
-            await pilot.pause()
-
-    asyncio.run(scenario())
-    assert app.result.path_repair["targets"] == [
-        {"surface": "login", "path": "/home/u/.zprofile"},
-        {"surface": "ssh", "path": "/home/u/.zshenv"},
-    ]
-
-
 def test_preview_choose_different_returns_to_path_diagnosis(stub_path) -> None:
     app = _app()
 
@@ -221,7 +197,8 @@ def test_preview_choose_different_returns_to_path_diagnosis(stub_path) -> None:
                 await pilot.press("down")
                 await pilot.press("enter")
                 await pilot.pause()
-                await pilot.press("down")
+                await pilot.press("down")  # preview: Apply -> Show details
+                await pilot.press("down")  # preview: Show details -> Back
                 await pilot.press("enter")
                 await pilot.pause()
 

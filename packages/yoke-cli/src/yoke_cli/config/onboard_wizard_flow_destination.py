@@ -34,6 +34,10 @@ from yoke_cli.config.onboard_destination_rows import (
     HOSTED_ROW_ENVS,
     SELF_HOST_SERVER_ROW,
 )
+from yoke_cli.config.onboard_wizard_local_universe_summary import (
+    local_universe_summary_lines,
+    local_universe_summary_rows,
+)
 from yoke_cli.config.onboard_wizard_self_host import (
     NO_SERVER_GUIDANCE,
     goto_self_host_server,
@@ -133,20 +137,21 @@ class DestinationFlow:
             if stored_destination == DESTINATION_HOSTED
             else f"Use existing {env} server connection"
         )
+        # The URL names the connection in the subtitle, where it can wrap; a
+        # row hint is cut to the room beside its label, which would hide the
+        # organization at the end of a hosted URL on an 80-column terminal.
         rows = [
-            SelectionRow(
-                _STORED_DESTINATION,
-                label,
-                self.result.api_url,
-            ),
+            SelectionRow(_STORED_DESTINATION, label, "saved in machine config"),
             *DESTINATION_ROWS,
         ]
+        api_url = self.result.api_url
 
         def builder() -> list:
             self._account_step_label = STEP_CONNECT_LABEL
             return steps.selection_body(
                 "Use this saved Yoke connection?",
-                "Yoke found a connection in machine config. Reuse it, or choose another home.",
+                f"Yoke found {api_url} in machine config. Reuse it, or choose "
+                "another home.",
                 rows,
             )
 
@@ -253,7 +258,7 @@ class DestinationFlow:
         from yoke_cli.config.onboard_wizard_app import _View
 
         state = local_universe_setup.inspect_local_state(self.result.config_path)
-        rows = _local_universe_summary_rows(state)
+        rows = local_universe_summary_rows(state)
 
         self._goto(
             _View(
@@ -261,7 +266,7 @@ class DestinationFlow:
                 lambda: steps.verification_body(
                     "Your Yoke lives on this machine.",
                     "Free, no account — everything stays on this computer.",
-                    _local_universe_summary_lines(state),
+                    local_universe_summary_lines(state),
                     rows,
                     ok=state.get("state")
                     != local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE,
@@ -274,13 +279,26 @@ class DestinationFlow:
         if choice != "back":
             self._goto_machine_github()
             return
+        self._return_to_destination_picker()
+
+    def _return_to_destination_picker(
+        self: _Shell, *, drop_current: bool = True,
+    ) -> None:
+        """Land on the picker this run showed, or open one when none was shown.
+
+        A lane that passed through the picker unwinds history back to it, so
+        the rail and the picker's own re-render rules apply. A preset run
+        never showed one; ``drop_current`` removes the view asking to leave
+        (a summary or error view) before a fresh picker is pushed, and is
+        False when the caller already popped its view (a cancelled check).
+        """
         target = getattr(self, "_destination_picker_view", None)
         for index in range(len(self._history) - 1, -1, -1):
             if self._history[index] is target:
                 del self._history[index + 1 :]
                 self._render_current()
                 return
-        if self._history:
+        if drop_current and self._history:
             self._history.pop()
         self._goto_destination_picker()
 
@@ -302,49 +320,3 @@ __all__ = [
     "DESTINATION_ROWS",
     "DestinationFlow",
 ]
-
-
-def _local_universe_summary_lines(state: dict[str, Any]) -> list[str]:
-    status = str(state.get("state") or local_universe_setup.LOCAL_UNIVERSE_CREATE)
-    lines: list[str]
-    if status == local_universe_setup.LOCAL_UNIVERSE_VERIFY:
-        lines = [
-            "Yoke found an existing local universe connection in ~/.yoke.",
-            "Apply verifies the existing database and preserves its projects, "
-            "items, settings, and secrets.",
-        ]
-        if not state.get("active"):
-            lines.append("Apply also makes the local universe your active environment.")
-    elif status == local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE:
-        reason = str(state.get("reason") or "the saved local connection is incomplete")
-        lines = [
-            f"Yoke found a local connection record, but it is not usable: {reason}.",
-            "Apply will not replace that record without an explicit force repair.",
-            "Back up first, then run `yoke init --local --force` if this machine "
-            "should point at a different local universe.",
-        ]
-    else:
-        lines = [
-            "Apply creates a private local universe under ~/.yoke "
-            "(embedded Postgres, the full Yoke schema).",
-            "Future reinstalls preserve this database by default; starting "
-            "fresh is an explicit export/reset decision.",
-        ]
-    lines.append(
-        "Same engine as a team server or upyoke.com — move later with a dump "
-        "and restore."
-    )
-    return lines
-
-
-def _local_universe_summary_rows(state: dict[str, Any]) -> list[SelectionRow]:
-    if state.get("state") == local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE:
-        return [
-            SelectionRow("back", "Back", "choose another Yoke home"),
-        ]
-    if state.get("state") == local_universe_setup.LOCAL_UNIVERSE_VERIFY:
-        return [
-            SelectionRow("continue", "Use existing", "preserve this database"),
-            SelectionRow("back", "Back", "choose another Yoke home"),
-        ]
-    return steps.VERIFY_OK_ROWS

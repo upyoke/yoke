@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import onboard_destinations
+from yoke_cli.config import onboard_wizard_diagnostics
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import writer
 from yoke_cli.config import yoke_token_verify
@@ -44,6 +46,19 @@ def platform_url_for_connection(api_url: object, env_name: object) -> str:
     return platform_url_for_env(selected_env or named_env)
 
 
+def browser_status_line(
+    browser: hosted_machine_authorization.BrowserOpenResult,
+    log_path: object,
+) -> str:
+    """One line every approval view carries: opened, or why not and where that is logged."""
+    if browser.opened:
+        return "The browser was opened for you."
+    line = f"The browser did not open ({browser.reason}); open the URL above yourself."
+    if log_path:
+        line += f" Logged to {log_path}."
+    return line
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from yoke_cli.config.onboard_wizard_app import _View
 
@@ -56,7 +71,7 @@ class _Shell(Protocol):  # pragma: no cover
     _hosted_machine_denial_retry_used: bool
 
     def _goto(self, view: "_View") -> None: ...
-    def _goto_destination_picker(self) -> None: ...
+    def _return_to_destination_picker(self, *, drop_current: bool = True) -> None: ...
     def _selection_view(self, *args, **kwargs) -> "_View": ...
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_yoke_verify_success(self, verification: dict[str, Any]) -> None: ...
@@ -64,16 +79,35 @@ class _Shell(Protocol):  # pragma: no cover
 
 class HostedMachineConnectFlow:
     def _start_hosted_machine_authorization(
-        self: _Shell, *, after_denial: bool = False,
+        self: _Shell,
+        *,
+        after_denial: bool = False,
+        replace_current: bool = False,
     ) -> None:
+        """Mint a one-time code and open the browser on it.
+
+        ``replace_current`` drops the view that asked (a retry row on an error
+        view); the destination picker stays in history otherwise, so Esc from
+        any later approval view returns to it.
+        """
         self._hosted_machine_denial_retry_used = after_denial
 
         def _success(
             pending: hosted_machine_authorization.PendingMachineAuthorization,
         ) -> None:
             self._hosted_machine_authorization = pending
-            opened = hosted_machine_authorization.open_browser(pending)
-            self._goto_hosted_machine_approval(pending, opened)
+            browser = hosted_machine_authorization.open_browser(pending)
+            log_path = onboard_wizard_diagnostics.record(
+                self.result.config_path,
+                "browser-open",
+                platform=pending.platform_url,
+                opened=browser.opened,
+                method=browser.method,
+                reason=browser.reason,
+            )
+            self._goto_hosted_machine_approval(
+                pending, browser_status_line(browser, log_path),
+            )
 
         title = (
             "This machine was denied in the browser."
@@ -97,49 +131,71 @@ class HostedMachineConnectFlow:
             ),
             on_success=_success,
             on_error=lambda exc: self._goto_hosted_machine_error(str(exc)),
+            on_cancel=self._abandon_hosted_machine_authorization,
             group="onboard-hosted-machine-start",
-            replace_current=True,
+            replace_current=replace_current,
         )
+
+    def _abandon_hosted_machine_authorization(self: _Shell) -> None:
+        """Esc during a hosted check: nothing to release, the code expires on its own."""
+        self._hosted_machine_authorization = None
+        onboard_wizard_diagnostics.record(
+            self.result.config_path, "browser-approval-cancelled",
+        )
+        self._return_to_destination_picker(drop_current=False)
+
+    def _approval_detail_lines(
+        self: _Shell,
+        pending: hosted_machine_authorization.PendingMachineAuthorization,
+        browser_line: str,
+    ) -> list[str]:
+        # The complete URL carries the code, so it is the one to open; the bare
+        # /connect page asks for the code again or shows an unrelated screen.
+        return [
+            f"One-time code: {pending.user_code}",
+            f"Open: {pending.verification_uri_complete}",
+            browser_line,
+        ]
 
     def _goto_hosted_machine_approval(
         self: _Shell,
         pending: hosted_machine_authorization.PendingMachineAuthorization,
-        browser_opened: bool,
+        browser_line: str,
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        browser_line = (
-            "The browser was opened for you."
-            if browser_opened
-            else f"Copy this URL: {pending.verification_uri_complete}"
-        )
         self._goto(_View(
             STEP_CONNECT,
             lambda: steps.verification_body(
                 "Sign in and choose an organization.",
                 "Approve this machine in your browser, then continue here.",
                 [
-                    f"One-time code: {pending.user_code}",
-                    f"Open: {pending.verification_uri}",
-                    browser_line,
+                    *self._approval_detail_lines(pending, browser_line),
                     "One organization is connected at a time; run onboarding again to add another.",
                 ],
                 steps.VERIFY_OK_ROWS,
                 ok=True,
             ),
-            lambda _choice: self._poll_hosted_machine_authorization(pending),
+            lambda _choice: self._poll_hosted_machine_authorization(
+                pending, browser_line,
+            ),
         ))
 
     def _poll_hosted_machine_authorization(
         self: _Shell,
         pending: hosted_machine_authorization.PendingMachineAuthorization,
+        browser_line: str,
     ) -> None:
+        stop = threading.Event()
+
         def _work() -> tuple[
             hosted_machine_authorization.HostedMachineCredential,
             dict[str, Any],
             str,
         ]:
-            credential = hosted_machine_authorization.complete(pending)
+            credential = hosted_machine_authorization.complete(
+                pending, sleep=stop.wait, cancelled=stop.is_set,
+            )
             verification = yoke_token_verify.verify(
                 credential.api_url,
                 credential.token,
@@ -175,17 +231,22 @@ class HostedMachineConnectFlow:
             else:
                 self._goto_hosted_machine_error(str(exc))
 
+        def _cancel() -> None:
+            stop.set()
+            self._abandon_hosted_machine_authorization()
+
         self._run_checking(
             step=STEP_CONNECT,
             title="Waiting for browser approval.",
-            message="Yoke will continue as soon as you approve this machine.",
-            detail_lines=[
-                f"One-time code: {pending.user_code}",
-                f"Open: {pending.verification_uri}",
-            ],
+            message=(
+                "Yoke will continue as soon as you approve this machine. "
+                "Press esc to stop waiting and choose another home."
+            ),
+            detail_lines=self._approval_detail_lines(pending, browser_line),
             work=_work,
             on_success=_success,
             on_error=_error,
+            on_cancel=_cancel,
             group="onboard-hosted-machine-poll",
             replace_current=True,
         )
@@ -216,15 +277,16 @@ class HostedMachineConnectFlow:
                 ok=False,
             ),
             lambda choice: (
-                self._start_hosted_machine_authorization()
+                self._start_hosted_machine_authorization(replace_current=True)
                 if choice == "retry"
-                else self._goto_destination_picker()
+                else self._return_to_destination_picker()
             ),
         ))
 
 
 __all__ = [
     "HostedMachineConnectFlow",
+    "browser_status_line",
     "platform_url_for_connection",
     "platform_url_for_env",
 ]

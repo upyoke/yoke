@@ -22,6 +22,13 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
 )
 
+BROWSER_OPENED = hosted_machine_authorization.BrowserOpenResult(
+    opened=True, method="webbrowser",
+)
+BROWSER_CLOSED = hosted_machine_authorization.BrowserOpenResult(
+    opened=False, reason="webbrowser.open returned False",
+)
+
 
 @pytest.fixture(autouse=True)
 def _stub_path_doctor(monkeypatch):
@@ -82,7 +89,7 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
         "start",
         lambda url: starts.append(url) or pending,
     )
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: False)
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_CLOSED)
     app, _spy = make_app(
         WizardDefaults(
             config_path="/tmp/cfg.json",
@@ -124,11 +131,11 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
         interval=2,
     )
     monkeypatch.setattr(hosted_machine_authorization, "start", lambda _url: pending)
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: True)
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED)
     monkeypatch.setattr(
         hosted_machine_authorization,
         "complete",
-        lambda _: hosted_machine_authorization.HostedMachineCredential(
+        lambda _pending, **_kwargs: hosted_machine_authorization.HostedMachineCredential(
             api_url="https://app.upyoke.com/api/orgs/acme",
             org="acme",
             token="tenant-actor-token",
@@ -272,9 +279,9 @@ def test_browser_denial_reports_and_mints_one_fresh_authorization(
         "start",
         lambda url: starts.append(url) or pending,
     )
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: True)
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED)
 
-    def deny_complete(_pending) -> None:
+    def deny_complete(_pending, **_kwargs) -> None:
         raise hosted_machine_authorization.HostedMachineAuthorizationDenied(
             "authorization denied in the browser"
         )
@@ -318,7 +325,7 @@ def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(
         interval=2,
     )
     monkeypatch.setattr(hosted_machine_authorization, "start", lambda _url: pending)
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: True)
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED)
 
     def fail_complete(_pending) -> None:
         raise hosted_machine_authorization.HostedMachineAuthorizationError(
