@@ -77,12 +77,11 @@ Then verified continue: "choose where your Yoke lives".
 ```
 Where should this Yoke live?
 Every home runs the full engine — you can add another later.
-  This machine          free · no account · stays here
-  A team server         the URL of your team's self-hosted Yoke server
-  Set this machine up as a self-hosting server
-                        Docker Compose · guided first boot
-  upyoke.com            hosted by Yoke · private beta
-  stage.upyoke.com      staging environment · for testing
+  This machine                                   free · no account · stays here
+  A team server                    the URL of your team's self-hosted Yoke server
+  Set this machine up as a self-hosting server   Docker Compose · guided first boot
+  upyoke.com                                          hosted by Yoke · private beta
+  stage.upyoke.com                                 staging environment · for testing
 ```
 
 **User:** This machine.

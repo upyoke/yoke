@@ -83,15 +83,16 @@ def directory_summary(plan: dict[str, Any]) -> str:
 
 
 def target_description(target: dict[str, Any], plan: dict[str, Any]) -> str:
+    """One line per file: the file, then its effect in plain words."""
     path = str(target.get("path") or "")
     directories = directory_summary(plan)
     if target.get("surface") == SSH_SURFACE:
         login_file = str(plan.get("login_file") or "the login startup file")
         return (
-            f"Write {path} for non-login/SSH shells: prepend {directories}. "
-            f"SSH is separate because it never reads {login_file}."
+            f"Write {path}: prepend {directories} to PATH for SSH and non-login "
+            f"shells, which never read {login_file}."
         )
-    return f"Write {path} for login shells: prepend {directories}."
+    return f"Write {path}: prepend {directories} to PATH for login shells."
 
 
 def description_lines(plan: dict[str, Any]) -> list[str]:

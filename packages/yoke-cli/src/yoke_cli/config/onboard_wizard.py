@@ -24,7 +24,6 @@ from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_github_plan
-from yoke_cli.config.onboard_terminal import native_text_selection_terminal
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
     GITHUB_ADOPTION_DISABLED,
@@ -298,10 +297,10 @@ def run_wizard(
         ) from exc
 
     app = OnboardWizardApp(defaults=defaults, apply_report=apply_report)
-    # Apple Terminal cannot copy Textual's internal selection through its
-    # native Command-C/Edit menu. Leaving mouse reporting off lets operators
-    # drag a normal terminal selection while preserving the rich TUI styles.
-    app.run(mouse=not native_text_selection_terminal())
+    # Mouse reporting stays on in every terminal so the wheel and the scrollbar
+    # move an overflowing step. Apple Terminal users who want a native drag
+    # selection toggle View > Allow Mouse Reporting for the moment they need it.
+    app.run()
     if app.cancelled:
         return WizardRunResult(
             exit_code=130,

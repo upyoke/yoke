@@ -48,7 +48,6 @@ DESTINATION_ROWS = [
         SELF_HOST_SERVER_ROW,
         "Set this machine up as a self-hosting server",
         "Docker Compose · guided first boot",
-        hint_on_new_line=True,
     ),
     SelectionRow(DESTINATION_HOSTED, "upyoke.com", "hosted by Yoke · private beta"),
     SelectionRow(

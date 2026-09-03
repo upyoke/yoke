@@ -258,8 +258,9 @@ def test_browser_authorization_opens_complete_url_without_exposing_device_code(
         interval=2,
     )
     opened = []
-    assert auth.open_browser(
+    result = auth.open_browser(
         pending, browser_open=lambda url: opened.append(url) or True
     )
+    assert result.opened is True
     assert opened == [pending.verification_uri_complete]
     assert "device-secret" not in repr(pending)

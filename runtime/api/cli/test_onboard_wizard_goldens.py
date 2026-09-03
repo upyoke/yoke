@@ -39,7 +39,8 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     make_app,
     render,
 )
-from yoke_cli.config import onboard_wizard_path  # noqa: E402
+from yoke_cli.config import onboard_wizard_path_screens  # noqa: E402
+from yoke_cli.config.onboard_wizard_path_screens import PATH_PREVIEW_DETAILS_ROW  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config import path_doctor  # noqa: E402
 from yoke_cli.config.onboard_destinations import (  # noqa: E402
@@ -63,7 +64,7 @@ def test_path_install_summary(monkeypatch: pytest.MonkeyPatch) -> None:
     # co-located product-boundary test (simulating a missing package) can make
     # raise — yielding a different-length fallback string that shifts the SVG
     # layout coordinates even though the version text normalizes to {{VERSION}}.
-    monkeypatch.setattr(onboard_wizard_path, "_yoke_version", lambda: "0.1.0")
+    monkeypatch.setattr(onboard_wizard_path_screens, "_yoke_version", lambda: "0.1.0")
     app = make_app(post_install=True)
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
@@ -112,6 +113,29 @@ def test_path_preview(monkeypatch: pytest.MonkeyPatch) -> None:
         a._goto_path_preview()
 
     assert_golden("path_preview", render(app, drive, title="yoke onboard · Install"))
+
+
+def test_path_preview_details(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The same preview with the exact managed block unfolded by its toggle.
+    diagnosis = replace(
+        DIAGNOSIS_NEEDS_FIX,
+        tool_bin_dir=_BIN_DIR,
+        startup_file=STARTUP,
+        ssh_startup_file="~/.zshenv",
+        ssh_needs_fix=True,
+        login_needs_fix=True,
+        managed_path_dirs=(_BIN_DIR,),
+    )
+    monkeypatch.setattr(path_doctor, "diagnose", lambda **_: diagnosis)
+    app = make_app()
+
+    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        a._goto_path_preview()
+        a._on_path_preview(PATH_PREVIEW_DETAILS_ROW)
+
+    assert_golden(
+        "path_preview_details", render(app, drive, title="yoke onboard · Install"),
+    )
 
 # --------------------------------------------------------------------------- #
 # Account step: destination picker + per-destination sign-in lanes

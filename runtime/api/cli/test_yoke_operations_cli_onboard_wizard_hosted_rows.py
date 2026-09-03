@@ -68,7 +68,13 @@ def _stub_browser_approval(monkeypatch) -> list[str]:
         )
 
     monkeypatch.setattr(hosted_machine_authorization, "start", _start)
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: False)
+    monkeypatch.setattr(
+        hosted_machine_authorization,
+        "open_browser",
+        lambda _: hosted_machine_authorization.BrowserOpenResult(
+            opened=False, reason="webbrowser.open returned False",
+        ),
+    )
     return started
 
 

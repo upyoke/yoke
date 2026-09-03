@@ -152,13 +152,17 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
 
     def _notify(
         pending: hosted_machine_authorization.PendingMachineAuthorization,
-        opened: bool,
+        browser: hosted_machine_authorization.BrowserOpenResult,
     ) -> None:
         stream = sys.stderr if parsed.json_mode else sys.stdout
-        print(f"Open {pending.verification_uri}", file=stream)
-        print(f"Enter code: {pending.user_code}", file=stream)
-        if not opened:
-            print(f"Browser URL: {pending.verification_uri_complete}", file=stream)
+        print(f"Open {pending.verification_uri_complete}", file=stream)
+        print(f"One-time code: {pending.user_code}", file=stream)
+        if not browser.opened:
+            print(
+                f"The browser did not open ({browser.reason}); open the URL above "
+                "yourself.",
+                file=stream,
+            )
         print("Waiting for browser approval…", file=stream)
 
     try:

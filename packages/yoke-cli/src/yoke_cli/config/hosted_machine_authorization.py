@@ -8,8 +8,8 @@ import time
 from typing import Any, Callable, Mapping
 import urllib.parse
 import urllib.request
-import webbrowser
 
+from yoke_cli.config.hosted_machine_browser import BrowserOpenResult, open_browser
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
@@ -23,6 +23,10 @@ class HostedMachineAuthorizationError(RuntimeError):
 
 class HostedMachineAuthorizationDenied(HostedMachineAuthorizationError):
     """The user explicitly denied this machine in the browser."""
+
+
+class HostedMachineAuthorizationCancelled(HostedMachineAuthorizationError):
+    """The caller abandoned the approval wait; the pending code simply expires."""
 
 
 # Hosted pages that may present the one-time code approval: the dedicated
@@ -96,32 +100,29 @@ def start(
     )
 
 
-def open_browser(
-    authorization: PendingMachineAuthorization,
-    *,
-    browser_open: Callable[[str], Any] | None = None,
-) -> bool:
-    try:
-        return bool(
-            (browser_open or webbrowser.open)(authorization.verification_uri_complete)
-        )
-    except Exception:  # noqa: BLE001 - the visible URL remains the fallback
-        return False
-
-
 def complete(
     authorization: PendingMachineAuthorization,
     *,
     opener: Callable[..., Any] | None = None,
-    sleep: Callable[[float], None] = time.sleep,
+    sleep: Callable[[float], Any] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
     timeout_seconds: float = 15.0,
+    cancelled: Callable[[], bool] | None = None,
 ) -> HostedMachineCredential:
-    """Poll until a browser-approved org credential is delivered exactly once."""
+    """Poll until a browser-approved org credential is delivered exactly once.
+
+    ``cancelled`` is consulted after every wait; pair it with a ``sleep`` that
+    wakes early (``threading.Event.wait``) so an abandoned wait ends at once
+    rather than at the next poll tick.
+    """
     deadline = monotonic() + authorization.expires_in
     token_url = f"{authorization.platform_url}/api/machine/authorizations/token"
     while monotonic() < deadline:
         sleep(min(authorization.interval, max(0.0, deadline - monotonic())))
+        if cancelled is not None and cancelled():
+            raise HostedMachineAuthorizationCancelled(
+                "browser approval wait cancelled; the one-time code expires on its own"
+            )
         if monotonic() >= deadline:
             break
         try:
@@ -189,14 +190,14 @@ def authorize(
     *,
     opener: Callable[..., Any] | None = None,
     browser_open: Callable[[str], Any] | None = None,
-    notify: Callable[[PendingMachineAuthorization, bool], None] | None = None,
-    sleep: Callable[[float], None] = time.sleep,
+    notify: Callable[[PendingMachineAuthorization, BrowserOpenResult], None] | None = None,
+    sleep: Callable[[float], Any] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> HostedMachineCredential:
     pending = start(platform_url, opener=opener)
-    opened = open_browser(pending, browser_open=browser_open)
+    browser = open_browser(pending, browser_open=browser_open)
     if notify is not None:
-        notify(pending, opened)
+        notify(pending, browser)
     return complete(pending, opener=opener, sleep=sleep, monotonic=monotonic)
 
 
@@ -310,6 +311,8 @@ def _bounded_integer(value: Any, minimum: int, maximum: int, label: str) -> int:
 
 
 __all__ = [
+    "BrowserOpenResult",
+    "HostedMachineAuthorizationCancelled",
     "HostedMachineAuthorizationDenied",
     "HostedMachineAuthorizationError",
     "HostedMachineCredential",

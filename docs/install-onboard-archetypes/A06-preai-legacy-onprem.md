@@ -28,9 +28,8 @@ PATH Continue. Account:
 ```
 Where should this Yoke live?
   This machine
-  A team server     the URL of your team's self-hosted Yoke server
-  Set this machine up as a self-hosting server
-                    Docker Compose · guided first boot
+  A team server                    the URL of your team's self-hosted Yoke server
+  Set this machine up as a self-hosting server   Docker Compose · guided first boot
   upyoke.com
   stage.upyoke.com
 ```
