@@ -65,7 +65,7 @@ def build_plan(
         )
     if not reuse.get("active_env"):
         steps.append({"action": "set-active-env", "target": env_name})
-    steps.append({"action": machine_registration.REGISTER_ACTION, "target": ""})
+    steps.append({"action": machine_registration.PREPARE_IDENTITY_ACTION, "target": ""})
     if not local_destination and not reuse.get("connection"):
         steps.append({"action": "set-https-api-url", "target": api_url})
     if not local_destination and not reuse.get("token_reference"):

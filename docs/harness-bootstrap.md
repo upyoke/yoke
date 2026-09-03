@@ -203,7 +203,7 @@ No adapter declares `supported_paths` at offer time — the offer surface has no
 
 ## 4b. Machine identity and launcher authority
 
-The machine itself is registered before any of this matters: the connect flow (`yoke onboard` apply and `yoke status`) registers this host's `machine_id` with the public half of a key kept at `~/.yoke/machine-key.json`, every relay poll signs a fresh proof against it, and an unregistered or unproved poll is refused by name with the recovery — `yoke machine register`. The `machines` row's `access` document also decides which same-universe actors may spend that machine's launch capacity. `HC-machine-registry` checks the local id and key against the row; the full contract is [`machine-registry.md`](machine-registry.md).
+The machine itself is registered before any of this matters: the `yoke onboard` apply mints this host's identity key at `~/.yoke/machine-key.json` and `yoke status` registers its public half against the machine id, every relay poll signs a fresh proof, and an unregistered or unproved poll is refused by name with the recovery — `yoke machine register`. The `machines` row's `access` document also decides which same-universe actors may spend that machine's launch capacity. `HC-machine-registry` checks the local id and key against the row; the full contract is [`machine-registry.md`](machine-registry.md).
 
 The login-shell `yoke` on PATH must be the canonical shim (`$XDG_BIN_HOME/yoke`
 or `~/.local/bin/yoke`) pointing at the registered checkout editable install.

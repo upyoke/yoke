@@ -40,9 +40,12 @@ along.
 
 ## Registering
 
-Registration happens at connect time on both doors — the `yoke onboard` apply
-and `yoke status` — so an operator does not have to know it is a step. Run it
-by hand with:
+Connect time has two halves, split across the two doors. The `yoke onboard`
+apply mints the key, which is offline and cannot fail on a network — onboarding
+has to finish against a control plane that can only be inventoried, so it never
+posts a function call. `yoke status`, which already knows whether the plane
+answered, makes the registration call. An operator does not have to know either
+is a step. Run it by hand with:
 
 ```bash
 yoke machine register [--name NAME]

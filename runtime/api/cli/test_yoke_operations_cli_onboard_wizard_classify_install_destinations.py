@@ -127,7 +127,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
     reuse_lines = onboard_reuse_feedback.lines_for_plan(plan)
 
     assert actions == [
-        "register-machine",
+        "prepare-machine-identity",
         "harness-unattended-posture",
         "project-refresh-scaffold",
         "project-install-agent-rules",
@@ -140,7 +140,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
     # The posture step is a machine-level write, so it groups beside the
     # Cursor lifecycle hooks rather than with the project's own writes.
     assert grouped["machine"] == [
-        friendly_line(machine_registration.REGISTER_ACTION, ""),
+        friendly_line(machine_registration.PREPARE_IDENTITY_ACTION, ""),
         friendly_line(harness_unattended_posture.POSTURE_PLAN_ACTION, "detected"),
         CURSOR_USER_LIFECYCLE_LINE,
     ]

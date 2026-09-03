@@ -55,7 +55,7 @@ _MACHINE_ACTIONS = {
     "local-universe-init",
     "store-token-reference",
     "machine-github-connection",
-    machine_registration.REGISTER_ACTION,
+    machine_registration.PREPARE_IDENTITY_ACTION,
     "create-runtime-dir",
     "project-checkout-register",
     "install-cursor-user-lifecycle-hooks",

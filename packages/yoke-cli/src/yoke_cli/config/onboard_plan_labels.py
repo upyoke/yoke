@@ -55,8 +55,8 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return f"Connect to {target}"
     if action == "local-universe-init":
         return _LOCAL_UNIVERSE_LABELS.get(target, _LOCAL_UNIVERSE_LABELS["create"])
-    if action == "register-machine":
-        return "Register this machine so the control plane can prove its identity"
+    if action == "prepare-machine-identity":
+        return "Create this machine's identity key so its relay can prove who it is"
     if action == "store-token-reference":
         return "Save your API token (owner-only)"
     if action == "machine-github-connection":
