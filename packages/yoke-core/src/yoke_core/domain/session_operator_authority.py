@@ -7,7 +7,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_queries import _row_to_dict
-from yoke_core.domain.work_claim_targets import make_steering_target
+from yoke_core.domain.work_claim_target_sql import scope_int_sql
 
 
 def _p(conn: Any) -> str:
@@ -35,7 +35,12 @@ def require_operator_or_steering_authority(
     action: str = "Session control",
     error_code: str = "SESSION_CONTROL_AUTHORITY_REQUIRED",
 ) -> str:
-    """Require a live actor-owned operator session or project steering claim."""
+    """Require a live actor-owned operator session or a steering seat here.
+
+    Any live seat in the project carries this authority: a seat narrowed to
+    one strategy document steers real work on real machines and needs the
+    same session control a project-wide seat needs.
+    """
     caller = conn.execute(
         f"SELECT actor_id,mode,ended_at,terminated_at FROM harness_sessions "
         f"WHERE session_id = {_p(conn)}",
@@ -53,23 +58,23 @@ def require_operator_or_steering_authority(
         )
     if str(caller["mode"] or "") == "operator":
         return "operator"
-    target = make_steering_target(int(project_id))
+    project_scope = scope_int_sql(conn, "scope", "project_id")
     steering = conn.execute(
         "SELECT id FROM work_claims WHERE session_id = "
         + _p(conn)
         + " AND target_kind = "
         + _p(conn)
-        + " AND scope = "
+        + f" AND {project_scope} = "
         + _p(conn)
         + " AND released_at IS NULL",
-        (caller_session_id, "steering", target.scope_json()),
+        (caller_session_id, "steering", int(project_id)),
     ).fetchone()
     if steering is not None:
         return "steering"
     raise SessionError(
         error_code,
-        f"{action} requires operator mode or the active steering claim "
-        f"for project {project_id}.",
+        f"{action} requires operator mode or a live steering seat in "
+        f"project {project_id}.",
     )
 
 

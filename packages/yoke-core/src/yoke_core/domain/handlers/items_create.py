@@ -79,6 +79,13 @@ class ItemCreateRequest(BaseModel):
     instruction: Optional[str] = Field(
         None, description="Initial executable instruction stored with the item."
     )
+    strategy_doc: Optional[str] = Field(
+        None,
+        description=(
+            "Strategy document this item belongs to; recorded as the "
+            "item-to-document link that decides which steering seat covers it."
+        ),
+    )
     workflow_posture: Dict[str, Any] = Field(
         default_factory=dict,
         description="Definition-bounded verification, gate, and delivery choices.",
@@ -173,6 +180,7 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         entry_surface=payload.entry_surface,
         instruction=payload.instruction,
         workflow_posture=payload.workflow_posture,
+        strategy_doc=payload.strategy_doc,
         out=captured,
     )
 

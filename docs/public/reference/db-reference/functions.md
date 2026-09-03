@@ -271,7 +271,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 |---|---|---|
 | `claims.work.acquire` | `None` (chicken-and-egg — handler asserts no active claim) | `yoke_core.domain.handlers.claims_work.acquire` |
 | `claims.work.release` | `"self_only"` | `yoke_core.domain.handlers.claims_work.release` |
-| `claims.steering.acquire` | `None` (handler atomically pairs the project seat with `CURRENT-PLAN`, or `doc_slug`) | `yoke_core.domain.handlers.claims_steering.handle_acquire`; a seat or document conflict rolls back both |
+| `claims.steering.acquire` | `None` (payload `document` narrows the seat to one strategy document and atomically pairs its lock; omit it for the whole project) | `yoke_core.domain.handlers.claims_steering.handle_acquire`; a seat or document conflict rolls back both |
 | `claims.steering.release` | `"self_only"` | same handler; releases the steering claim and its paired document lock together |
 | `claims.steering.list` | `None` (project-scoped read) | same handler; project/holder/active filters |
 | `steering.report.get` | `None` (handler requires the caller's live steering claim) | `yoke_core.domain.handlers.steering_report.handle_get` — composes one report covering every held steering claim, or a single scope when `--project` is set; see [steering-fleet-report.md](steering-fleet-report.md). |

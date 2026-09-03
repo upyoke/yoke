@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.steering_claims import acquire
 from yoke_core.domain.strategy_docs_create import create_doc
+from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
 
 PROJECT_ALPHA = 71
 PROJECT_BETA = 72
@@ -22,7 +22,7 @@ def seed_project(conn: Any, project_id: int, slug: str) -> None:
         (project_id, slug, slug.title(), iso8601_now()),
     )
     conn.commit()
-    seed_strategy_doc(conn, project_id, DEFAULT_STEERING_DOC_SLUG)
+    seed_strategy_doc(conn, project_id, NEAR_TERM_PLAN_SLUG)
 
 
 def seed_strategy_doc(conn: Any, project_id: int, slug: str) -> None:
@@ -47,14 +47,14 @@ def acquire_steering(
     session_id: str,
     project_id: int,
     *,
-    doc_slug: str = DEFAULT_STEERING_DOC_SLUG,
+    document: str | None = None,
 ):
     return acquire(
         conn,
         session_id=session_id,
         project_id=project_id,
         reason="steering work",
-        doc_slug=doc_slug,
+        document=document,
         actor_id=2,
     )
 

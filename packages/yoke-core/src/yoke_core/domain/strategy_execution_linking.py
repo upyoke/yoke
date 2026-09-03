@@ -1,4 +1,11 @@
-"""Atomic linking of Blitz items to their execution strategy documents."""
+"""Atomic linking of items to the strategy document they belong to.
+
+One link carries two meanings, and both read off the same row. For a Blitz
+the document is the execution plan the item runs, so replacing it while the
+Blitz holds its document claim is refused. For every other item the link is
+membership: it says which strategy document -- and so which steering seat --
+the item belongs to.
+"""
 
 from __future__ import annotations
 
@@ -7,9 +14,10 @@ from typing import Any, Optional
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.strategy_docs import get_doc
 from yoke_core.domain.strategy_execution_state import (
+    BLITZ_WORKFLOW_ID,
     StrategyExecutionLinkError,
+    _item_row,
     _marker,
-    _require_blitz_item,
     active_strategy_doc_claim,
 )
 from yoke_core.domain.workflow_item_binding_lock import (
@@ -32,18 +40,22 @@ def link_execution_document(
     session_id: Optional[str],
     commit: bool = True,
 ) -> dict[str, Any]:
-    """Link exactly one execution document to one active Blitz item."""
+    """Link exactly one strategy document to one item."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     item_binding_runtime_state(conn, int(item_id))
-    item = _require_blitz_item(conn, item_id)
+    item = _item_row(conn, item_id)
     if int(item["project_id"]) != int(project_id):
         raise StrategyExecutionLinkError(
-            "the execution document must belong to the Blitz project"
+            "the strategy document must belong to the item's project"
         )
     get_doc(conn, int(project_id), slug)
     marker = _marker(conn)
     active = active_strategy_doc_claim(conn, item_id=int(item_id))
-    if active is not None and str(active["strategy_doc_slug"]) != slug:
+    if (
+        str(item["workflow_id"]) == BLITZ_WORKFLOW_ID
+        and active is not None
+        and str(active["strategy_doc_slug"]) != slug
+    ):
         raise StrategyExecutionLinkError(
             "an active Blitz cannot replace its claimed execution document"
         )

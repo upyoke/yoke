@@ -94,6 +94,61 @@ def test_a_held_item_addresses_the_seat_covering_its_project() -> None:
     assert row["project_id"] == 1
 
 
+def _link_document(conn, item_id: int, slug: str) -> None:
+    conn.execute(
+        "INSERT INTO item_strategy_docs "
+        "(item_id, project_id, strategy_doc_slug, linked_at) VALUES (?,1,?,?)",
+        (item_id, slug, NOW_TEXT),
+    )
+    conn.commit()
+
+
+def test_a_linked_item_addresses_the_seat_steering_its_document() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    _seat(
+        conn,
+        claim_id=11,
+        session_id="s3",
+        scope='{"document":"AREA-PLAN","project_id":1}',
+    )
+    _link_document(conn, 101, "AREA-PLAN")
+
+    sent = _say_steering(conn)
+
+    assert [r["session_id"] for r in sent["recipients"]] == ["s3"]
+    assert _steering_row(conn, sent["message_id"])["seat_claim_id"] == 11
+
+
+def test_an_unlinked_item_falls_back_to_the_project_seat() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    _seat(
+        conn,
+        claim_id=11,
+        session_id="s3",
+        scope='{"document":"AREA-PLAN","project_id":1}',
+    )
+
+    sent = _say_steering(conn)
+
+    assert [r["session_id"] for r in sent["recipients"]] == ["s2"]
+
+
+def test_a_link_written_after_the_send_moves_the_parked_message() -> None:
+    """Membership is read live, so a later link decides who inherits it."""
+    conn = message_connection()
+
+    sent = _say_steering(conn)
+    assert _steering_row(conn, sent["message_id"])["state"] == STATE_AWAITING_SEAT
+
+    _link_document(conn, 101, "AREA-PLAN")
+    area = {"project_id": 1, "document": "AREA-PLAN"}
+    other = {"project_id": 1, "document": "CURRENT-PLAN"}
+    assert awaiting_seat_count(conn, project_id=1, scope=area) == 1
+    assert awaiting_seat_count(conn, project_id=1, scope=other) == 0
+
+
 def test_no_live_seat_parks_the_message_instead_of_refusing() -> None:
     conn = message_connection()
 

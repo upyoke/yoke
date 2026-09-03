@@ -1,10 +1,11 @@
 """Compose one fleet report from every steering claim a session holds.
 
 The no-argument pull and the wake-attached copy iterate the caller's live
-steering claims, not the projects table. Today's claims happen to carry a
-project scope, so section headings are project slugs; the loop, the heading,
-and the combined fingerprint key on each claim's own scope descriptor so a
-finer claim kind becomes another section rather than a new code path.
+steering claims, not the projects table. A claim scoped to a whole project
+heads its section with the project slug; one narrowed to a strategy document
+heads it with the document inside that project. The loop, the heading, and
+the combined fingerprint all key on each claim's own scope descriptor, so a
+further refinement becomes another section rather than a new code path.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_claims import list_session_claims
+from yoke_core.domain.steering_scope_membership import scope_document
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report as fleet_report
 from yoke_core.domain.steering_fleet_report import FleetReport
@@ -62,9 +64,12 @@ def steering_scope_descriptor(conn: Any, scope: Mapping[str, Any]) -> str:
     raw = scope.get("project_id")
     if raw is not None:
         try:
-            return resolve_project_slug(conn, int(raw))
+            slug = resolve_project_slug(conn, int(raw))
         except (LookupError, TypeError, ValueError):
-            pass
+            slug = None
+        if slug is not None:
+            document = scope_document(scope)
+            return f"{slug} · {document}" if document else slug
     return json.dumps(dict(scope), sort_keys=True, separators=(",", ":"))
 
 
@@ -138,6 +143,7 @@ def compose_held_reports(
                 DEFAULT_STEERING_REPORT_IDLE_MINUTES,
             ),
             now=now,
+            scope=scope,
         )
         sections.append(
             ScopedFleetReport(

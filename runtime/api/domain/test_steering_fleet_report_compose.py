@@ -12,6 +12,7 @@ from runtime.api.domain.steering_claim_test_support import (
     SESSION_ALPHA,
     acquire_steering,
     seed_standard_steering_world,
+    seed_strategy_doc,
 )
 from yoke_core.domain.steering_fleet_plan_capacity import PLAN_LIMIT_HEADING
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
@@ -90,6 +91,36 @@ def test_descriptor_uses_project_slug_today_and_canonical_json_otherwise(
 
     assert steering_scope_descriptor(test_db, {"project_id": PROJECT_ALPHA}) == "alpha"
     assert steering_scope_descriptor(test_db, {"area": "qa"}) == '{"area":"qa"}'
+    assert (
+        steering_scope_descriptor(
+            test_db, {"project_id": PROJECT_ALPHA, "document": "AREA-PLAN"}
+        )
+        == "alpha · AREA-PLAN"
+    )
+
+
+def test_a_document_seat_composes_its_own_scope_section(test_db, monkeypatch) -> None:
+    """The seat's own scope reaches the report, so it can narrow the rows."""
+    seed_standard_steering_world(test_db)
+    seed_strategy_doc(test_db, PROJECT_ALPHA, "AREA-PLAN")
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        acquire_steering(
+            test_db, SESSION_ALPHA, PROJECT_ALPHA, document="AREA-PLAN"
+        )
+    seen: list[dict] = []
+
+    def factory(conn, **kwargs):
+        seen.append(dict(kwargs.get("scope") or {}))
+        return _report(kwargs["project_id"], kwargs["now"])
+
+    _patch_compose(monkeypatch, factory)
+
+    combined = compose_held_reports(test_db, session_id=SESSION_ALPHA, now=NOW)
+
+    assert seen == [{"project_id": PROJECT_ALPHA, "document": "AREA-PLAN"}]
+    assert [section.descriptor for section in combined.sections] == [
+        "alpha · AREA-PLAN"
+    ]
 
 
 def test_two_held_scopes_become_two_named_sections(test_db, monkeypatch) -> None:

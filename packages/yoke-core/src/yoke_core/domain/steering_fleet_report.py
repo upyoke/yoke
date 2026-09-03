@@ -55,7 +55,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from yoke_contracts.session_holdings import work_holding_key
 from yoke_core.domain import db_backend
@@ -96,6 +96,11 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     unregistered_launches,
 )
 from yoke_core.domain.steering_message_recipients import awaiting_seat_count
+from yoke_core.domain.steering_fleet_report_scope import (
+    members_only,
+    seat_members,
+    sessions_only,
+)
 from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     fingerprint_material,
@@ -296,9 +301,21 @@ def compose_report(
     staffing_after_seconds: int,
     idle_after_seconds: int,
     now: str,
+    scope: Mapping[str, Any] | None = None,
 ) -> FleetReport:
-    """Assemble one steering scope's report from live control-plane state."""
-    holders = claim_holders(conn, project_id=project_id, now=now)
+    """Assemble one steering scope's report from live control-plane state.
+
+    ``scope`` is the seat's own scope object. A seat narrowed to a strategy
+    document sees only that document's items, so every item-keyed section is
+    filtered to its members. Delivery-plane and machine facts stay
+    project-wide: a launch that never bound a session has no item to
+    attribute, and machines are shared by every seat on them.
+    """
+    seat_scope = dict(scope) if scope else {"project_id": int(project_id)}
+    members = seat_members(conn, seat_scope)
+    holders = members_only(
+        claim_holders(conn, project_id=project_id, now=now), members
+    )
     quiet = tuple(
         holder
         for holder in holders
@@ -312,15 +329,24 @@ def compose_report(
         composed_at=now,
         staffing_after_seconds=int(staffing_after_seconds),
         idle_after_seconds=int(idle_after_seconds),
-        available=scope_candidates(conn, project_id=project_id, session_id=session_id),
+        available=members_only(
+            scope_candidates(conn, project_id=project_id, session_id=session_id),
+            members,
+        ),
         holders=holders,
         idle=split.idle,
-        starved=starved_deliveries(conn, project_id=project_id, now=now),
+        starved=sessions_only(
+            starved_deliveries(conn, project_id=project_id, now=now),
+            session_ids=(holder.session_id for holder in holders),
+            members=members,
+        ),
         unregistered_launches=unregistered_launches(
             conn, project_id=project_id, now=now
         ),
         abandoned_launches=abandoned_launches(conn, project_id=project_id, now=now),
-        landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
+        landed_open=members_only(
+            landed_without_closeout(conn, project_id=project_id, now=now), members
+        ),
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
@@ -331,7 +357,7 @@ def compose_report(
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),
-            scope={"project_id": int(project_id)},
+            scope=seat_scope,
         ),
     )
 

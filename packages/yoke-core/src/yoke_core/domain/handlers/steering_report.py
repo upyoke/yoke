@@ -16,7 +16,6 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 
 
 class SteeringReportGetRequest(BaseModel):
@@ -62,10 +61,8 @@ def _requested_project_ref(request: FunctionCallRequest) -> Any:
 
 
 def _claim_required(project_id: int | None) -> HandlerOutcome:
-    if project_id is None:
-        hint = f"--project P --doc {DEFAULT_STEERING_DOC_SLUG}"
-    else:
-        hint = f"--project {project_id} --doc {DEFAULT_STEERING_DOC_SLUG}"
+    project = "P" if project_id is None else str(project_id)
+    hint = f"--project {project} [--doc SLUG]"
     return _error(
         "steering_claim_required",
         "the fleet report reads from the live steering claim holder; "

@@ -19,10 +19,10 @@ from yoke_core.domain.strategy_execution_state import (
     active_strategy_doc_claim,
     claim_holder_label,
 )
+from yoke_core.domain.work_claim_target_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
     from_row as work_claim_target_from_row,
-    make_steering_target,
 )
 
 
@@ -32,15 +32,20 @@ def active_steering_claim_id(
     session_id: str,
     project_id: int,
 ) -> Optional[int]:
-    """Return this session's live steering seat for the project, if any."""
+    """Return this session's live steering seat in the project, if any.
+
+    Whole-project and document seats both answer here: the caller is asking
+    whether this session already steers something in the project, and a
+    document seat does.
+    """
     marker = _marker(conn)
-    target = make_steering_target(int(project_id))
+    project_scope = scope_int_sql(conn, "scope", "project_id")
     row = _row(
         conn.execute(
             "SELECT id FROM work_claims "
-            f"WHERE target_kind = {marker} AND scope = {marker} "
+            f"WHERE target_kind = {marker} AND {project_scope} = {marker} "
             f"AND session_id = {marker} AND released_at IS NULL",
-            (TARGET_KIND_STEERING, target.scope_json(), str(session_id)),
+            (TARGET_KIND_STEERING, int(project_id), str(session_id)),
         )
     )
     return None if row is None else int(row["id"])

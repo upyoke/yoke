@@ -7,12 +7,18 @@ stored column: the answer changes the moment a seat is taken or released,
 and a precomputed copy would be stale exactly during the handoff the role
 addressing exists to survive.
 
-Today every steering claim is scoped ``{"project_id": N}`` and coverage is
-"the same project". The scope object is validated by
-:mod:`yoke_core.domain.work_claim_targets`, so a finer future scope -- a
-strategy document, an epic, a path domain, a workflow, an environment --
-is a refinement INSIDE a project expressed in that same object. Adding one
-is a validator change plus a rule change here, never a schema change.
+A steering claim is scoped ``{"project_id": N}`` for a whole project, or
+``{"project_id": N, "document": "SLUG"}`` for one strategy document inside
+it. The scope object is validated by
+:mod:`yoke_core.domain.work_claim_scope_shape`, so a further refinement --
+an epic, a path domain, a workflow, an environment -- is another key in
+that same object. Adding one is a validator change plus a coverage-target
+change where the addressed work is described, never a schema change.
+
+Which items a document scope covers is not this module's decision: the
+addressed work arrives already described, and
+:mod:`yoke_core.domain.steering_scope_membership` is what turns an item
+into the facts described here.
 
 The rule reads in one direction: every refinement key a scope carries must
 appear on the addressed target with the same value, and the target may
@@ -27,6 +33,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
+from yoke_core.domain.work_claim_scope_shape import STEERING_DOCUMENT_KEY
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
     decode_scope,
@@ -35,6 +42,10 @@ from yoke_core.domain.work_claim_targets import (
 
 #: The outer key every steering scope carries. Refinements sit beside it.
 PROJECT_KEY = "project_id"
+
+#: The one refinement a seat carries today; re-exported for readers of the
+#: rule so scope keys are named in one place.
+DOCUMENT_KEY = STEERING_DOCUMENT_KEY
 
 
 def scope_specificity(scope: Mapping[str, Any]) -> int:
@@ -168,6 +179,7 @@ def overlapping_claims(
 
 
 __all__ = [
+    "DOCUMENT_KEY",
     "PROJECT_KEY",
     "covering_claims",
     "covering_seat",

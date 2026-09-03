@@ -119,8 +119,13 @@ def seed_relay(conn) -> None:
     )
 
 
-def compose(conn, session_id: str = STEERING_SESSION, now: str = NOW):
-    """One report at the project's default thresholds."""
+def compose(
+    conn,
+    session_id: str = STEERING_SESSION,
+    now: str = NOW,
+    scope: dict | None = None,
+):
+    """One report at the project's default thresholds, for one seat's scope."""
     return compose_report(
         conn,
         project_id=PROJECT_ID,
@@ -128,6 +133,7 @@ def compose(conn, session_id: str = STEERING_SESSION, now: str = NOW):
         staffing_after_seconds=STAFFING_SECONDS,
         idle_after_seconds=IDLE_SECONDS,
         now=now,
+        scope=scope,
     )
 
 

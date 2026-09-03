@@ -126,7 +126,7 @@ def test_paired_document_refuses_direct_release_while_seat_is_active(
             conn,
             session_id=COORDINATOR,
             project_id=1,
-            doc_slug=DOC,
+            document=DOC,
             actor_id=1,
         )
         with pytest.raises(

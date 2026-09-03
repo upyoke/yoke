@@ -16,7 +16,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
 from yoke_core.domain.handlers.steering_report import handle_get
 from yoke_core.domain.steering_fleet_report import FleetReport
 
@@ -113,7 +112,7 @@ def test_report_refuses_without_the_requested_project_claim(
     assert outcome.error.code == "steering_claim_required"
     assert (
         f"yoke claims steering acquire --project {PROJECT_BETA} "
-        f"--doc {DEFAULT_STEERING_DOC_SLUG}" in outcome.error.message
+        "[--doc SLUG]" in outcome.error.message
     )
 
 

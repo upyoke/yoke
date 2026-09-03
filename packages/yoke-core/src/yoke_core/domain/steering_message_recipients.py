@@ -27,6 +27,7 @@ from yoke_core.domain.actor_message_recipient_schema import (
 )
 from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.steering_scope_coverage import steering_scope_covers
+from yoke_core.domain.work_claim_scope_shape import STEERING_DOCUMENT_KEY
 
 
 TABLE = RECIPIENT_TABLE
@@ -53,12 +54,23 @@ def _decode(raw: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, dict) else {}
 
 
-def row_coverage_target(row: Mapping[str, Any]) -> dict[str, Any]:
-    """The addressed work one stored row represents, for the coverage rule."""
+def row_coverage_target(conn: Any, row: Mapping[str, Any]) -> dict[str, Any]:
+    """The addressed work one stored row represents, for the coverage rule.
+
+    The sender's item is stored; the document that item belongs to is read
+    live, because a link written after the message was sent still decides
+    which seat the message is now the business of.
+    """
+    from yoke_core.domain.steering_scope_membership import item_document_slug
+
     target = _decode(row.get("steering_scope"))
     item_id = row.get("sender_item_id")
-    if item_id is not None:
-        target["item_id"] = int(item_id)
+    if item_id is None:
+        return target
+    target["item_id"] = int(item_id)
+    document = item_document_slug(conn, int(item_id))
+    if document is not None:
+        target[STEERING_DOCUMENT_KEY] = document
     return target
 
 
@@ -160,7 +172,7 @@ def drainable_rows(
     for row in _rows_for_project(conn, project_id):
         if row.get("cancelled_at"):
             continue
-        if not steering_scope_covers(scope, row_coverage_target(row)):
+        if not steering_scope_covers(scope, row_coverage_target(conn, row)):
             continue
         if row["state"] == STATE_AWAITING_SEAT:
             drainable.append(row)

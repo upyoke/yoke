@@ -20,14 +20,16 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from yoke_contracts.steering_claims import DEFAULT_STEERING_DOC_SLUG
+#: The near-term plan every project seeds; steering seats commonly narrow
+#: to it, and the seed corpus and placeholder renderer both key on it.
+NEAR_TERM_PLAN_SLUG = "CURRENT-PLAN"
 
 DEFAULT_STRATEGY_DOC_SLUGS = (
     "MISSION",
     "VISION",
     "MASTER-PLAN",
     "LANDSCAPE",
-    DEFAULT_STEERING_DOC_SLUG,
+    NEAR_TERM_PLAN_SLUG,
 )
 
 
@@ -120,7 +122,7 @@ _PLACEHOLDER_RENDERERS = {
     "VISION": render_vision_placeholder,
     "MASTER-PLAN": render_master_plan_placeholder,
     "LANDSCAPE": render_landscape_placeholder,
-    DEFAULT_STEERING_DOC_SLUG: render_current_plan_placeholder,
+    NEAR_TERM_PLAN_SLUG: render_current_plan_placeholder,
 }
 
 

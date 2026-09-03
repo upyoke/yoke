@@ -142,7 +142,7 @@ def handle_execution_link(request: FunctionCallRequest) -> HandlerOutcome:
         if project_id is None:
             return _error("unknown_item", f"item {item_id} does not exist")
         try:
-            link_execution_document(
+            link = link_execution_document(
                 conn,
                 item_id=item_id,
                 project_id=int(project_id[0]),
@@ -150,10 +150,26 @@ def handle_execution_link(request: FunctionCallRequest) -> HandlerOutcome:
                 actor_id=_actor_id(request),
                 session_id=_session_id(request) or None,
             )
-            execution = get_blitz_surface(conn, item_id)
+            # A Blitz answers with the shell it executes; every other item
+            # answers with the link itself, because membership in a strategy
+            # document is the whole fact it just recorded.
+            execution = (
+                get_blitz_surface(conn, item_id)
+                if _is_blitz_item(conn, item_id)
+                else {"link": link}
+            )
         except (StrategyExecutionError, StrategyDocMissingError) as exc:
             return _error("execution_link_refused", str(exc))
     return _execution_outcome(item_id, execution)
+
+
+def _is_blitz_item(conn: Any, item_id: int) -> bool:
+    from yoke_core.domain.strategy_execution_state import BLITZ_WORKFLOW_ID
+
+    row = conn.execute(
+        "SELECT workflow_id FROM items WHERE id = %s", (int(item_id),),
+    ).fetchone()
+    return row is not None and str(row[0]) == BLITZ_WORKFLOW_ID
 
 
 def handle_claim_acquire(request: FunctionCallRequest) -> HandlerOutcome:
