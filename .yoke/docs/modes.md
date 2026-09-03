@@ -8,7 +8,7 @@ Private on your machine. No signup. One human, as many agents as you want.
 
 - Wizard: pick **This machine**, or run `yoke init --local`
 - Data under `~/.yoke/`
-- Open the workbench with `yoke ui`
+- Open the workbench with `yoke ui up` (detached; `yoke ui` reports it, `yoke ui down` stops it)
 - Members and Billing tabs do not apply (Cloud-only platform features)
 
 Portable: `yoke universe export` dumps the universe; import it later into

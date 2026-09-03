@@ -37,7 +37,7 @@ Organization / universe level: export/import portability, founding new orgs
 
 | Concern | Local | Cloud |
 |---|---|---|
-| Workbench | `yoke ui` | app.upyoke.com |
+| Workbench | `yoke ui up` | app.upyoke.com |
 | Members / Billing | N/A | Platform sections |
 | Machine approval | N/A (you are the machine) | Access / connect |
 | Universe export | Yes | Yes (portability) |

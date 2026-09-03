@@ -11,7 +11,7 @@ Common operators:
 ```bash
 yoke status
 yoke onboard
-yoke ui
+yoke ui up
 yoke items get PREFIX-N
 yoke items get PREFIX-N body
 yoke board rebuild --print-only
@@ -78,11 +78,20 @@ A connection is how this machine reaches a universe:
 ## Local UI
 
 ```bash
-yoke ui
+yoke ui up       # start it detached, print the tokened URL
+yoke ui          # same as `yoke ui status` — running or stopped, plus the URL
+yoke ui down     # stop it
 ```
 
 Serves the same universe workbench used on Cloud, against your active
-connection (typically `http://127.0.0.1:8688`).
+connection (typically `http://127.0.0.1:8688`). `yoke ui up` runs the
+server as a machine daemon rather than a terminal job: closing the window
+leaves it serving, and on macOS a launch agent brings it back after a
+reboot until you run `yoke ui down`.
+
+The URL carries a session token — treat it like a password. The token is
+stable per machine, so the URL you bookmark keeps working across up/down
+cycles. The server binds loopback only and refuses remote-facing hosts.
 
 ## Project-local `.yoke/`
 

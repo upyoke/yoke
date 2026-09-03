@@ -1,24 +1,31 @@
-"""Tests for the tool-shaped ``yoke ui`` door.
+"""Connection gating, status reads, and registration for ``yoke ui``.
 
 The engine half is stubbed at the dynamic-import seam
-(``universe_ui._ui_server``); the server's own behavior is covered by
-``runtime/api/test_universe_ui_server.py``. These tests pin the client
-half: connection-mode gating (an allowlist — only non-prod local-postgres
-serves; https, prod-postgres, and unrecognized modes refuse in mode
-language; missing vs malformed machine config get distinct guidance),
-JSON/human output including the ``private_url`` field, and tool-shaped
-command resolution.
+(``universe_ui_connection.ui_server``); the server's own behavior is
+covered by ``runtime/api/test_universe_ui_server.py``, the daemon's by
+``test_yoke_universe_ui_daemon.py``, and the start/stop commands by
+``test_yoke_universe_ui_up_down_commands.py``. These tests pin the
+allowlist — only non-prod local-postgres serves; https, prod-postgres,
+and unrecognized modes refuse in mode language; missing vs malformed
+machine config get distinct guidance — plus the fact that bare
+``yoke ui`` reads status instead of serving.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.cli.universe_ui_command_test_support import (
+    running_report,
+    stub_server,
+    write_local_connection,
+)
 from yoke_cli.commands import universe_ui as commands
+from yoke_cli.commands import universe_ui_connection as connection
+from yoke_cli.commands import universe_ui_serve as serve
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 
 
@@ -29,52 +36,9 @@ def machine_home(monkeypatch, tmp_path) -> Path:
     return home
 
 
-def _stub_server(record: dict, *, busy_port: bool = False):
-    def resolve_ui_host(requested=None):
-        host = requested or "127.0.0.1"
-        if host not in {"127.0.0.1", "localhost"}:
-            raise RuntimeError("host must be loopback-only")
-        return host
-
-    def resolve_ui_port(requested=None, *, host="127.0.0.1"):
-        if busy_port:
-            raise RuntimeError(
-                "port 9999 is already in use; pick another with --port"
-            )
-        return int(requested or 9999)
-
-    def serve_ui(*, host, port, token, open_browser):
-        record["served"] = {
-            "host": host,
-            "port": port,
-            "token": token,
-            "open_browser": open_browser,
-        }
-
-    return SimpleNamespace(
-        resolve_ui_host=resolve_ui_host,
-        resolve_ui_port=resolve_ui_port,
-        mint_session_token=lambda: "stub-token",
-        private_url=lambda port, token, *, host="127.0.0.1": (
-            f"http://{host}:{port}/?token={token}"
-        ),
-        serve_ui=serve_ui,
-    )
-
-
-def _write_local_connection(env: str = "local", *, prod: bool = False) -> None:
-    from yoke_cli.config import writer
-
-    writer.set_connection(
-        env, transport="local-postgres",
-        dsn="host=/sock user=yoke dbname=yoke", prod=prod,
-    )
-    writer.set_active_env(env)
-
-
 class TestConnectionModeGate:
     def test_no_active_connection_points_to_init(self, machine_home, capsys):
-        assert commands.ui(["--no-browser"]) == 1
+        assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
         assert "yoke init --local" in err
 
@@ -89,7 +53,7 @@ class TestConnectionModeGate:
         )
         writer.set_active_env("stage")
 
-        assert commands.ui(["--no-browser"]) == 1
+        assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
         assert "hosted/self-host" in err
         assert "machine-local universe" in err
@@ -97,9 +61,9 @@ class TestConnectionModeGate:
     def test_prod_postgres_connection_stays_operator_only(
         self, machine_home, capsys,
     ):
-        _write_local_connection("prod-pg", prod=True)
+        write_local_connection("prod-pg", prod=True)
 
-        assert commands.ui(["--no-browser"]) == 1
+        assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
         assert "prod-flagged" in err
         assert "operator-only" in err
@@ -111,7 +75,7 @@ class TestConnectionModeGate:
         config_file.parent.mkdir(parents=True, exist_ok=True)
         config_file.write_text("{not json", encoding="utf-8")
 
-        assert commands.ui(["--no-browser"]) == 1
+        assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
         # An existing-but-broken config is a repair problem, not a
         # missing-universe problem — no init guidance.
@@ -129,7 +93,7 @@ class TestConnectionModeGate:
             "connections": {"local": {"transport": "carrier-pigeon"}},
         }), encoding="utf-8")
 
-        assert commands.ui(["--no-browser"]) == 1
+        assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
         assert str(config_file) in err
         assert "transport" in err
@@ -141,165 +105,109 @@ class TestConnectionModeGate:
         # The allowlist admits only non-prod local-postgres; a transport
         # this adapter has never heard of must refuse, not serve.
         monkeypatch.setattr(
-            commands.machine_config, "active_connection",
+            connection.machine_config, "active_connection",
             lambda: {"env": "future", "transport": "quantum-relay"},
         )
 
-        assert commands.ui(["--no-browser"]) == 1
+        assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
         assert "non-prod local-postgres" in err
         assert "quantum-relay" in err
 
-
-class TestLocalServe:
-    @pytest.fixture(autouse=True)
-    def converge_calls(self, monkeypatch) -> list:
-        calls: list = []
-        monkeypatch.setattr(
-            commands, "_converge_universe_schema",
-            lambda: calls.append("converged"),
-        )
-        return calls
-
-    def test_schema_converges_before_the_server_starts(
-        self, monkeypatch, machine_home, capsys, converge_calls,
+    def test_the_serving_child_re_checks_the_connection(
+        self, machine_home, capsys,
     ):
-        _write_local_connection()
-        record: dict = {}
-        sequence: list = []
-        monkeypatch.setattr(
-            commands, "_converge_universe_schema",
-            lambda: sequence.append("converge"),
+        # A launch agent registered while local can be brought back after
+        # the machine switched to a hosted connection; the process that
+        # actually opens the universe refuses on its own.
+        from yoke_cli.config import writer
+
+        writer.set_connection(
+            "stage", transport="https", api_url="https://api.example",
+            token="t" * 40,
         )
-        server = _stub_server(record)
-        original_serve = server.serve_ui
+        writer.set_active_env("stage")
 
-        def serve_and_mark(**kwargs):
-            sequence.append("serve")
-            original_serve(**kwargs)
+        assert serve.ui_serve_process([]) == 1
+        assert "hosted/self-host" in capsys.readouterr().err
 
-        server.serve_ui = serve_and_mark
-        monkeypatch.setattr(commands, "_ui_server", lambda: server)
-
-        assert commands.ui(["--no-browser", "--json"]) == 0
-        assert sequence == ["converge", "serve"]
-
-    def test_converge_failure_refuses_and_never_serves(
+    def test_status_and_down_carry_no_connection_gate(
         self, monkeypatch, machine_home, capsys,
     ):
-        _write_local_connection()
-        record: dict = {}
-
-        def broken_converge():
-            raise ValueError("relation catalog is unreachable")
-
+        # Nothing is configured at all; reporting on and stopping a
+        # process still answers, because neither opens a universe.
+        monkeypatch.setattr(commands.daemon, "status", lambda: {"running": False})
         monkeypatch.setattr(
-            commands, "_converge_universe_schema", broken_converge,
+            commands.daemon, "down",
+            lambda: {"running": False, "stopped": False},
         )
-        monkeypatch.setattr(
-            commands, "_ui_server", lambda: _stub_server(record),
-        )
+        assert commands.ui_status([]) == 0
+        assert commands.ui_down([]) == 0
+        assert capsys.readouterr().err == ""
 
-        assert commands.ui(["--no-browser"]) == 1
-        err = capsys.readouterr().err
-        assert "schema could not converge" in err
-        assert "served" not in record
 
-    def test_json_reports_private_url_and_serves(
+class TestStatusSurface:
+    def test_bare_ui_reports_status_and_never_serves(
         self, monkeypatch, machine_home, capsys,
     ):
-        _write_local_connection()
-        record: dict = {}
-        monkeypatch.setattr(
-            commands, "_ui_server", lambda: _stub_server(record),
-        )
+        served: dict = {}
+        monkeypatch.setattr(connection, "ui_server", lambda: stub_server(served))
+        monkeypatch.setattr(commands.daemon, "status", lambda: {"running": False})
 
-        assert commands.ui(["--no-browser", "--json"]) == 0
+        assert commands.ui([]) == 0
+        out = capsys.readouterr().out
+        assert "yoke ui: stopped" in out
+        assert "yoke ui up" in out
+        assert served == {}
 
+    def test_status_json_reports_the_door_when_running(
+        self, monkeypatch, machine_home, capsys,
+    ):
+        monkeypatch.setattr(commands.daemon, "status", running_report)
+
+        assert commands.ui_status(["--json"]) == 0
         report = json.loads(capsys.readouterr().out)
         assert report["ok"] is True
-        assert report["host"] == "127.0.0.1"
-        assert report["port"] == 9999
+        assert report["running"] is True
         assert report["private_url"] == "http://127.0.0.1:9999/?token=stub-token"
-        assert report["browser_opened"] is False
-        assert record["served"] == {
-            "host": "127.0.0.1",
-            "port": 9999,
-            "token": "stub-token",
-            "open_browser": False,
-        }
 
-    def test_human_output_prints_the_door(
+    def test_human_status_prints_the_door(
         self, monkeypatch, machine_home, capsys,
     ):
-        _write_local_connection()
-        record: dict = {}
-        monkeypatch.setattr(
-            commands, "_ui_server", lambda: _stub_server(record),
-        )
+        monkeypatch.setattr(commands.daemon, "status", running_report)
 
-        assert commands.ui(["--no-browser"]) == 0
+        assert commands.ui([]) == 0
         out = capsys.readouterr().out
         assert "http://127.0.0.1:9999/?token=stub-token" in out
         assert "treat it like a password" in out
-
-    def test_explicit_port_passes_through(
-        self, monkeypatch, machine_home, capsys,
-    ):
-        _write_local_connection()
-        record: dict = {}
-        monkeypatch.setattr(
-            commands, "_ui_server", lambda: _stub_server(record),
-        )
-
-        assert commands.ui(["--port", "8123", "--no-browser", "--json"]) == 0
-        assert json.loads(capsys.readouterr().out)["port"] == 8123
-        assert record["served"]["port"] == 8123
-
-    def test_explicit_host_passes_through(
-        self, monkeypatch, machine_home, capsys,
-    ):
-        _write_local_connection()
-        record: dict = {}
-        monkeypatch.setattr(
-            commands, "_ui_server", lambda: _stub_server(record),
-        )
-
-        assert commands.ui([
-            "--host", "localhost", "--port", "8123", "--no-browser", "--json",
-        ]) == 0
-        report = json.loads(capsys.readouterr().out)
-        assert report["host"] == "localhost"
-        assert report["private_url"] == "http://localhost:8123/?token=stub-token"
-        assert record["served"]["host"] == "localhost"
-
-    def test_busy_port_refusal_names_the_flag(
-        self, monkeypatch, machine_home, capsys,
-    ):
-        _write_local_connection()
-        monkeypatch.setattr(
-            commands, "_ui_server", lambda: _stub_server({}, busy_port=True),
-        )
-
-        assert commands.ui(["--no-browser"]) == 1
-        assert "--port" in capsys.readouterr().err
+        assert "yoke ui down" in out
 
 
 class TestRegistration:
-    def test_tool_shaped_resolution_covers_ui(self):
-        resolved = resolve_tool_shaped(["ui", "--no-browser"])
+    @pytest.mark.parametrize("tokens,adapter", [
+        (["ui"], "ui"),
+        (["ui", "up"], "ui_up"),
+        (["ui", "down"], "ui_down"),
+        (["ui", "status"], "ui_status"),
+        (["ui", "serve-process"], "ui_serve_process"),
+    ])
+    def test_tool_shaped_resolution_covers_every_ui_verb(self, tokens, adapter):
+        resolved = resolve_tool_shaped([*tokens, "--json"])
         assert resolved is not None
-        adapter, remaining = resolved
-        assert adapter is commands.ui
-        assert remaining == ["--no-browser"]
+        assert resolved[0] is getattr(commands, adapter)
+        assert resolved[1] == ["--json"]
 
     def test_operation_inventory_rows(self):
         from yoke_cli import operation_inventory as inv
 
-        ui_row = inv.lookup("yoke ui")
-        assert ui_row is not None
-        assert ui_row.status == inv.PERMANENT
-        assert ui_row.reason == inv.REASON_TOOL_SHAPED
+        for command in (
+            "yoke ui", "yoke ui up", "yoke ui down",
+            "yoke ui status", "yoke ui serve-process",
+        ):
+            row = inv.lookup(command)
+            assert row is not None, command
+            assert row.status == inv.PERMANENT
+            assert row.reason == inv.REASON_TOOL_SHAPED
 
         org_row = inv.lookup("yoke organizations get")
         assert org_row is not None
