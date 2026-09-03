@@ -16,6 +16,7 @@ from runtime.api.fixtures.session_holdings import (
     insert_steering_claim,
     iso,
 )
+from yoke_contracts.session_holdings import steering_holding_key
 from yoke_core.domain.sessions_holdings_projection import WEB_PREVIOUS_HOLDINGS_LIMIT
 from yoke_core.domain.sessions_list_read import list_sessions
 
@@ -182,6 +183,7 @@ def test_steering_holding_reuses_the_claims_document_pairing(test_db):
 
     assert holding["project_id"] == claim["project_id"] == 1
     assert holding["strategy_docs"] == claim["strategy_docs"] == ["CURRENT-PLAN"]
+    assert holding["target_key"] == steering_holding_key(1, ["CURRENT-PLAN"])
 
 
 def test_previous_steering_holding_pairs_only_overlapping_released_doc(test_db):
@@ -245,8 +247,9 @@ def test_holdings_keep_current_target_out_of_previous_history(test_db):
     insert_item(test_db, id=92, title="previous item")
     insert_session(test_db, "s-history", current_item_id="91")
     insert_item_claim(test_db, "s-history", 91, released_at=iso(20))
+    latest_release = iso(10)
+    insert_item_claim(test_db, "s-history", 92, released_at=latest_release)
     insert_item_claim(test_db, "s-history", 92, released_at=iso(15))
-    insert_item_claim(test_db, "s-history", 92, released_at=iso(10))
     insert_item_claim(test_db, "s-history", 91)
 
     holdings = list_sessions()[0]["holdings"]
@@ -254,6 +257,8 @@ def test_holdings_keep_current_target_out_of_previous_history(test_db):
     assert [row["target"] for row in holdings["current"]] == ["YOK-91"]
     assert [row["target"] for row in holdings["previous"]] == ["YOK-92"]
     assert holdings["previous"][0]["item_title"] == "previous item"
+    assert holdings["previous"][0]["released_at"] == latest_release
+    assert holdings["previous"][0]["occurrence_count"] == 2
     assert "item_status" not in holdings["current"][0]
     assert "item_workflow_id" not in holdings["previous"][0]
 

@@ -34,7 +34,9 @@ def _row_dicts(rows: Iterable[Any]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
-def _claim_target_key(claim: Mapping[str, Any], rendered: str) -> str:
+def _claim_target_key(
+    claim: Mapping[str, Any], rendered: str, document_slugs: Iterable[Any] = ()
+) -> str:
     kind = str(claim.get("target_kind") or "")
     project_id = None
     if kind == "steering":
@@ -46,6 +48,7 @@ def _claim_target_key(claim: Mapping[str, Any], rendered: str) -> str:
         task_num=claim.get("task_num"),
         process_key=claim.get("process_key"),
         project_id=project_id,
+        steering_docs=document_slugs,
         rendered_target=rendered,
     )
 
@@ -87,13 +90,15 @@ def _work_observations(
         target, facts = render_claim_target(claim, dict(item_facts))
         facts.pop("item_status", None)
         facts.pop("item_workflow_id", None)
+        document_slugs: list[str] = []
         if kind == "steering" and facts.get("project_id") is not None:
-            facts["strategy_docs"] = list(steering_docs.get(int(claim["id"]), []))
+            document_slugs = list(steering_docs.get(int(claim["id"]), []))
+            facts["strategy_docs"] = document_slugs
         grouped.setdefault(session_id, []).append(
             {
                 "holding_kind": "work_claim",
                 "target_kind": kind,
-                "target_key": _claim_target_key(claim, target),
+                "target_key": _claim_target_key(claim, target, document_slugs),
                 "target": target,
                 "claimed_at": claim.get("claimed_at"),
                 "released_at": claim.get("released_at"),

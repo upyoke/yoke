@@ -33,6 +33,55 @@ function steeringDocs(claim) {
     .filter(Boolean);
 }
 
+function releasedHoldingKey(holding) {
+  if (holding.target_kind === "steering") {
+    const documents = [...new Set(steeringDocs(holding))].sort();
+    return ["steering", claimProjectId(holding), ...documents].join("\u0000");
+  }
+  return String(
+    holding.target_key
+      || `${holding.target_kind || holding.holding_kind}\u0000${holding.target || ""}`,
+  );
+}
+
+function occurrenceCount(holding) {
+  const count = Number(holding.occurrence_count || 1);
+  return Number.isFinite(count) && count > 1 ? Math.floor(count) : 1;
+}
+
+function releasedAtMillis(holding) {
+  const timestamp = Date.parse(String(holding.released_at || ""));
+  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+}
+
+// Keep the card's visible ordering and identity semantics at its render
+// boundary, so every caller counts distinct holds rather than claim events.
+export function releasedHoldingHistory(entries) {
+  const grouped = new Map();
+  for (const holding of (Array.isArray(entries) ? entries : [])) {
+    const key = releasedHoldingKey(holding);
+    const prior = grouped.get(key);
+    if (!prior) {
+      grouped.set(key, { ...holding, occurrence_count: occurrenceCount(holding) });
+      continue;
+    }
+    const count = occurrenceCount(prior) + occurrenceCount(holding);
+    const latest = releasedAtMillis(holding) > releasedAtMillis(prior)
+      ? { ...prior, ...holding }
+      : { ...prior };
+    grouped.set(key, { ...latest, occurrence_count: count });
+  }
+  return [...grouped.values()]
+    .sort((left, right) => Number(right.target_kind === "steering")
+      - Number(left.target_kind === "steering"))
+    .map((holding) => {
+      if (holding.occurrence_count > 1) return holding;
+      const single = { ...holding };
+      delete single.occurrence_count;
+      return single;
+    });
+}
+
 function steeringScope(claim, projects) {
   const docs = steeringDocs(claim);
   return {

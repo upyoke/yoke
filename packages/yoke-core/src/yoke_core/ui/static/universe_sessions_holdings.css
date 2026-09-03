@@ -36,6 +36,23 @@
   color: var(--yoke-idle);
 }
 
+.universe-app-root .session-holding-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-holding-repeat {
+  padding: 1px 4px;
+  border: 1px solid color-mix(in srgb, var(--yoke-idle) 55%, transparent);
+  border-radius: 999px;
+  font-weight: 700;
+}
+
 .universe-app-root .session-item-stage-progress {
   display: flex;
   flex: 1 0 100%;

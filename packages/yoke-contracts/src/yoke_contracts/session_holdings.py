@@ -2,7 +2,8 @@
 
 Readers contribute display-shaped observations in their intended display order. This
 module owns the semantics that both session surfaces must share: current wins
-over previous, one row per target, and a caller-supplied previous-row budget.
+over previous, released steering seats lead history, repeated claim targets retain
+their latest release and count, and callers supply the previous-row budget.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ def work_holding_key(
     task_num: Any = None,
     process_key: Any = None,
     project_id: Any = None,
+    steering_docs: Iterable[Any] = (),
     rendered_target: str = "",
 ) -> str:
     """Return the canonical identity for one work-claim target."""
@@ -33,8 +35,15 @@ def work_holding_key(
     if kind == "process":
         return f"work:process:{process_key}"
     if kind == "steering":
-        return f"work:steering:{project_id}"
+        return steering_holding_key(project_id, steering_docs)
     return f"work:{kind}:{rendered_target}"
+
+
+def steering_holding_key(project_id: Any, document_slugs: Iterable[Any]) -> str:
+    """Identify a steering seat by project and the documents it covered."""
+    documents = sorted({text for slug in document_slugs if (text := str(slug or ""))})
+    suffix = f":{','.join(documents)}" if documents else ""
+    return f"work:steering:{project_id}{suffix}"
 
 
 def strategy_document_holding_key(project_id: Any, document_slug: Any) -> str:
@@ -62,6 +71,13 @@ def _timestamp(value: Any) -> datetime | None:
     if stamp.tzinfo is None:
         return stamp.replace(tzinfo=timezone.utc)
     return stamp.astimezone(timezone.utc)
+
+
+def _release_timestamp(value: Any) -> datetime | None:
+    try:
+        return _timestamp(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def pair_steering_document_slugs(
@@ -110,6 +126,21 @@ def coordination_holding_key(lease_key: Any) -> str:
 
 def _merge_target_entry(retained: dict[str, Any], incoming: Mapping[str, Any]) -> None:
     """Fold another authority facet into the target row already retained."""
+    repeated_claim = (
+        retained.get("released_at") is not None
+        and incoming.get("released_at") is not None
+        and retained.get("holding_kind") == incoming.get("holding_kind") == "work_claim"
+    )
+    if repeated_claim:
+        retained["occurrence_count"] = int(retained.get("occurrence_count") or 1) + int(
+            incoming.get("occurrence_count") or 1
+        )
+    retained_release = _release_timestamp(retained.get("released_at"))
+    incoming_release = _release_timestamp(incoming.get("released_at"))
+    if incoming_release and (
+        retained_release is None or incoming_release > retained_release
+    ):
+        retained["released_at"] = incoming["released_at"]
     if incoming.get("path_count") is not None:
         retained["path_count"] = int(retained.get("path_count") or 0) + int(
             incoming["path_count"]
@@ -128,9 +159,11 @@ def group_session_holdings(
 
     Each observation must carry a stable ``target_key`` and a ``released_at``
     value.  ``released_at is None`` means the target is currently held. The
-    first row for a target is the display row retained within its partition. A
-    current row always removes the same target from previous history,
-    regardless of input order.
+    first row for a target is the display row retained within its partition,
+    enriched with the latest release and repeated-claim count. A current row
+    always removes the same target from previous history, regardless of input
+    order. Released steering targets sort ahead of the remaining history before
+    the caller's row budget is applied.
     """
     if isinstance(previous_limit, bool) or previous_limit < 0:
         raise ValueError(
@@ -159,7 +192,10 @@ def group_session_holdings(
             if retained is not entry:
                 _merge_target_entry(retained, entry)
 
-    previous_rows = list(previous.values())
+    previous_rows = sorted(
+        previous.values(),
+        key=lambda entry: entry.get("target_kind") != "steering",
+    )
     shown_previous = previous_rows[:previous_limit]
     return {
         "current": list(current.values()),
@@ -174,6 +210,7 @@ __all__ = [
     "group_session_holdings",
     "pair_steering_document_slugs",
     "steering_hold_window_key",
+    "steering_holding_key",
     "strategy_document_holding_key",
     "work_holding_key",
 ]
