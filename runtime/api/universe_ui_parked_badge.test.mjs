@@ -41,8 +41,11 @@ test("parked and sibling pills stay within the shared session palette and row", 
     css,
     /\.session-parked-badge\[data-reason\]:focus::after \{[^}]*content: attr\(data-reason\);/s,
   );
+  // The lane keeps the shared pill's non-shrinking box so a long lane name
+  // moves to the next row of the wrapping identity line instead of squeezing.
   assert.match(
     css,
-    /\.session-lane \{[^}]*flex: 0 1 auto;[^}]*text-overflow: ellipsis;/s,
+    /\.session-lane,[\s\S]*?\.session-model-tag \{[^}]*flex: 0 0 auto;/,
   );
+  assert.doesNotMatch(css, /\.session-lane \{/);
 });
