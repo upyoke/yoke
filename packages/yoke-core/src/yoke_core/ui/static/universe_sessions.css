@@ -302,8 +302,7 @@
 
 .universe-app-root .session-health-detail,
 .universe-app-root .session-relay-warning,
-.universe-app-root .session-messaging-blocked,
-.universe-app-root .session-messaging-operator-wake {
+.universe-app-root .session-messaging-blocked {
   min-width: 0;
   color: var(--yoke-muted);
   font-size: 11px;
