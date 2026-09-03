@@ -21,8 +21,9 @@ from yoke_cli.commands.adapters.onboard_github_requests import (
 )
 from yoke_cli.config import machine_config
 from yoke_contracts import harness_unattended_posture
-from yoke_cli.commands.adapters import (
-    onboard_build_report as _build_report_module,
+# A module global, so a test can still patch `onboard._build_report`.
+from yoke_cli.commands.adapters.onboard_build_report import (
+    build_report as _build_report,
 )
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_destinations
@@ -213,7 +214,7 @@ def onboard(args: List[str]) -> int:
         )
         return 2
     source_dev_defaults = _source_dev_project_defaults(parsed.project_mode)
-    report = _build_report_module.build_report(
+    report = _build_report(
         config_path=config_path,
         env_name=env_name,
         api_url=parsed.api_url or "",
@@ -423,7 +424,6 @@ def _finish_pending_dev_install(config_path: str | None, *, stream=None) -> None
             f"  Finish it with: yoke dev setup {root} --editable-install --yes",
             file=stream,
         )
-
 
 _apply_with_durable_report = onboard_apply.apply_with_durable_report
 _print_failure_summary = onboard_apply.print_failure_summary

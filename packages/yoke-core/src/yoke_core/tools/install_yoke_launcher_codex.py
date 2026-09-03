@@ -1,7 +1,7 @@
 """Write the unattended posture into Codex's own ``config.toml``.
 
 The TOML surgery lives in
-:mod:`yoke_core.tools.install_yoke_launcher_codex_config`; this module is the
+:mod:`yoke_contracts.codex_config_posture`; this module is the
 IO around it. It reports and never prints — the one pass that drives all
 three harnesses owns the output, so no line can be reported twice. Codex reads no project-local config, so the
 machine file is the only place its posture can live — including the
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from yoke_contracts.harness_unattended_posture import codex_config_path
-from yoke_core.tools.install_yoke_launcher_codex_config import (
+from yoke_contracts.codex_config_posture import (
     CodexConfigUnreadable,
     changed,
     plan,

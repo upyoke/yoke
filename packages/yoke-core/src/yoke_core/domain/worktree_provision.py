@@ -153,7 +153,7 @@ def provision_worktree_folder_trust(worktree_path: str) -> None:
     too, so one created before this step existed is trusted next time.
     """
     try:
-        from yoke_core.domain.harness_folder_trust_grant import grant_folder_trust
+        from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 
         granted = grant_folder_trust(worktree_path)
     except Exception as exc:  # noqa: BLE001 — best-effort lane provisioning

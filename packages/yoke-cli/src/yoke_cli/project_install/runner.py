@@ -146,7 +146,7 @@ def install(
     # folder trust is per path, so the checkout being installed is trusted
     # here. Without it a harness still stops to ask about the directory.
     try:
-        from yoke_core.domain.harness_folder_trust_grant import grant_folder_trust
+        from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 
         report["harness_folder_trust"] = grant_folder_trust(root)
     except Exception as exc:  # noqa: BLE001 — install must not fail on this

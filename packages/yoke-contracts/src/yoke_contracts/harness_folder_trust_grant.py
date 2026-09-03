@@ -81,7 +81,7 @@ def _grant_claude(path: str, state_path: Optional[Path]) -> List[str]:
 
 def _grant_codex(path: str, config_path: Optional[Path]) -> List[str]:
     from yoke_contracts.harness_unattended_posture import codex_config_path
-    from yoke_core.tools.install_yoke_launcher_codex_config import (
+    from yoke_contracts.codex_config_posture import (
         CodexConfigUnreadable,
         changed,
         plan,

@@ -31,7 +31,7 @@ from yoke_contracts.harness_unattended_posture import (
 from yoke_core.tools.install_yoke_launcher_codex import (
     configure_codex_unattended_posture,
 )
-from yoke_core.tools.install_yoke_launcher_codex_config import (
+from yoke_contracts.codex_config_posture import (
     CodexConfigUnreadable,
     changed,
     parse_config,

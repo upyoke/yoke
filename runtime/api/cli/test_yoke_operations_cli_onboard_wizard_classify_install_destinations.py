@@ -124,6 +124,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
     reuse_lines = onboard_reuse_feedback.lines_for_plan(plan)
 
     assert actions == [
+        "harness-unattended-posture",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",

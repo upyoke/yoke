@@ -143,6 +143,7 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
         # No hosting credential on this machine for the project, so the plan
         # still names the (skipped) hosting answer alongside the reused state.
         "hosting-posture",
+        "harness-unattended-posture",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",

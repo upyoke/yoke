@@ -16,8 +16,8 @@ from yoke_contracts.harness_folder_trust import (
     CURSOR_TRUST_FILENAME,
     cursor_project_slug,
 )
-from yoke_core.domain.harness_folder_trust_grant import grant_folder_trust
-from yoke_core.tools.install_yoke_launcher_codex_config import parse_config
+from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
+from yoke_contracts.codex_config_posture import parse_config
 
 CHECKOUT = "/repos/example"
 
