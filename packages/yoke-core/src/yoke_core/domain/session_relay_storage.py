@@ -75,7 +75,7 @@ def heartbeat_relay(
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
         "machine_capacity,preferred_session_models) "
-        f"VALUES ({','.join(p for _ in range(13))}) "
+        f"VALUES ({','.join(p for _ in range(14))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
