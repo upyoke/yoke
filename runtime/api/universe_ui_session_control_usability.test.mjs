@@ -258,7 +258,7 @@ test("roster State uses accepted liveness values while kill cause stays on the c
   const state = stateFields[0].children[1];
   assert.deepEqual(
     state.children.map((option) => option.value),
-    ["", "active", "stale", "ended"],
+    ["", "active", "ended"],
   );
   assert.equal(byClass(root, "session-card").length, 0);
   state.value = "ended";

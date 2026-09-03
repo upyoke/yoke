@@ -44,6 +44,7 @@
   );
   box-shadow: var(--yoke-shadow);
 }
+.universe-app-root .session-card.is-stale { background: var(--yoke-crit-bg); }
 
 .universe-app-root .session-top {
   display: flex;

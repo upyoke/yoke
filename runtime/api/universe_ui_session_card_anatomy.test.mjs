@@ -62,7 +62,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         },
       },
       {
-        session_id: "v8c2qa", liveness: "stale",
+        session_id: "v8c2qa", liveness: reclaimed ? "ended" : "stale",
         execution_lane: "DARIUS", mode: "wait",
         executor: "codex", model: "gpt-5.6-sol",
         executor_mark: "X", executor_class_name: "h-codex",
@@ -87,7 +87,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         },
       },
     ];
-    return reclaimed ? result.slice(0, 1) : result;
+    return result;
   };
   const client = sessionsClient(rows, requests, (request) => {
     assert.deepEqual(request, {
@@ -129,8 +129,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   const state = byClass(root, "session-roster-filter").find(
     (field) => field.children[0].textContent === "State",
   ).children[1];
-  state.value = "";
-  state.dispatchEvent(new Event("change"));
+  assert.equal(state.value, "active");
   assert.equal(byClass(root, "title")[0].textContent, "Sessions");
   assert.equal(
     byClass(root, "subtitle")[0].textContent,
@@ -181,6 +180,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "pill").map((pill) => [pill.textContent, pill.className]),
     [
       ["test-mac", "pill good session-relay-pill"],
+      ["stale", "pill crit session-stale-pill"],
       ["machine-2", "pill crit session-relay-pill"],
     ],
   );
@@ -278,6 +278,14 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "sessions-action-status")[0].textContent,
     "1 stale session reclaimed",
   );
+  state.value = "";
+  state.dispatchEvent(new Event("change"));
+  const reclaimedCard = byClass(root, "session-card").find(
+    (card) => card.getAttribute("data-session-id") === "v8c2qa",
+  );
+  assert.equal(reclaimedCard.getAttribute("data-liveness"), "ended");
+  assert.equal(reclaimedCard.classList.contains("is-stale"), false);
+  assert.equal(byClass(reclaimedCard, "session-stale-pill").length, 0);
   mounted.unmount();
 });
 

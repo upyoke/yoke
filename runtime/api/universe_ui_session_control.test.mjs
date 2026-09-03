@@ -332,8 +332,8 @@ test("roster includes ended sessions with exact message actions", async (t) => {
     ).payload.selector,
     { session_ids: ["ended-wakeable"] },
   );
-  state.value = "stale";
+  state.value = "active";
   state.dispatchEvent(new Event("change"));
-  assert.deepEqual(cardIds(), ["wakeable"]);
+  assert.deepEqual(cardIds(), ["messageable", "wakeable"]);
   mounted.unmount();
 });
