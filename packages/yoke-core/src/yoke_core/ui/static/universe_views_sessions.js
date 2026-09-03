@@ -106,9 +106,13 @@ function appendModel(documentNode, body, row) {
 export function sessionCard(
   documentNode, row, onMessage, projects = [],
 ) {
-  const card = el(documentNode, "article", "session-card");
+  const liveness = String(row.liveness || "").toLowerCase();
+  const card = el(
+    documentNode, "article", liveness === "stale"
+      ? "session-card is-stale" : "session-card",
+  );
   card.setAttribute("data-session-id", String(row.session_id || ""));
-  card.setAttribute("data-liveness", row.liveness || "unknown");
+  card.setAttribute("data-liveness", liveness || "unknown");
 
   const top = el(documentNode, "div", "session-top");
   const harness = harnessIdentity(row);
@@ -119,6 +123,11 @@ export function sessionCard(
     harness.mark,
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
+  if (liveness === "stale") {
+    top.appendChild(el(
+      documentNode, "span", "pill crit session-stale-pill", "stale",
+    ));
+  }
   top.appendChild(laneChip(documentNode, row));
   top.appendChild(parkedBadge(documentNode, row.mode, row.parked_reason));
   const operator = operatorLabel(documentNode, row);

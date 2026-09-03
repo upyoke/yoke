@@ -19,6 +19,14 @@ function includes(value, query) {
 }
 
 const DEFAULT_STATE = "active";
+const ACTIVE_LIVENESS = new Set([DEFAULT_STATE, "stale"]);
+
+function matchesState(liveness, selected) {
+  const value = String(liveness || "").toLowerCase();
+  if (!selected) return true;
+  if (selected === DEFAULT_STATE) return ACTIVE_LIVENESS.has(value);
+  return selected === "ended" && value === "ended";
+}
 
 export function sessionRosterFilters(documentNode, onChange) {
   const host = el(documentNode, "div", "session-roster-filters");
@@ -37,7 +45,7 @@ export function sessionRosterFilters(documentNode, onChange) {
   }
   const state = input(documentNode, "State", "select");
   for (const [value, label] of [
-    ["", "Any state"], ["active", "Active"], ["stale", "Stale"], ["ended", "Ended"],
+    ["", "Any state"], ["active", "Active"], ["ended", "Ended"],
   ]) {
     state.control.appendChild(option(documentNode, value, label));
   }
@@ -103,7 +111,7 @@ export function sessionRosterFilters(documentNode, onChange) {
             includes(row.machine_id, String(controls.machine.value || "").toLowerCase())
             || includes(row.machine_name, String(controls.machine.value || "").toLowerCase())
           )
-          && (!controls.state.value || row.liveness === controls.state.value);
+          && matchesState(row.liveness, controls.state.value);
       });
     },
   };

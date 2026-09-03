@@ -99,16 +99,39 @@ test("roster defaults to active and exposes only the supported filters", async (
   const state = fields.at(-1).children[1];
   assert.equal(state.value, "active");
   assert.deepEqual(
-    state.children.map((entry) => entry.value),
-    ["", "active", "stale", "ended"],
+    state.children.map((entry) => [entry.value, entry.textContent]),
+    [["", "Any state"], ["active", "Active"], ["ended", "Ended"]],
   );
-  assert.deepEqual(cardIds(root), ["active-codex"]);
+  assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
+  const staleCard = byClass(root, "session-card").find(
+    (card) => card.getAttribute("data-session-id") === "stale-cursor",
+  );
+  assert.equal(staleCard.classList.contains("is-stale"), true);
+  assert.deepEqual(
+    byClass(staleCard, "session-stale-pill").map(
+      (pill) => [pill.textContent, pill.className],
+    ),
+    [["stale", "pill crit session-stale-pill"]],
+  );
   assert.deepEqual(
     requests.filter((request) => request.function === "sessions.list")
       .map((request) => request.payload.liveness),
     ["active", "stale", "ended"],
   );
 
+  state.value = "";
+  state.dispatchEvent(new Event("change"));
+  assert.deepEqual(
+    cardIds(root), ["active-codex", "stale-cursor", "ended-cursor"],
+  );
+  const anyStaleCard = byClass(root, "session-card").find(
+    (card) => card.getAttribute("data-session-id") === "stale-cursor",
+  );
+  assert.equal(anyStaleCard.classList.contains("is-stale"), true);
+  assert.equal(byClass(anyStaleCard, "session-stale-pill").length, 1);
+  state.value = "ended";
+  state.dispatchEvent(new Event("change"));
+  assert.deepEqual(cardIds(root), ["ended-cursor"]);
   state.value = "";
   state.dispatchEvent(new Event("change"));
   const harness = fields.find(
@@ -122,7 +145,7 @@ test("roster defaults to active and exposes only the supported filters", async (
   button(root, "Clear filters").dispatchEvent(new Event("click"));
   assert.equal(state.value, "active");
   assert.equal(harness.value, "");
-  assert.deepEqual(cardIds(root), ["active-codex"]);
+  assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   assert.equal(
     allNodes(root).some((node) => node.textContent === "Blitz worktree lanes"),
     false,
