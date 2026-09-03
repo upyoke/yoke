@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from yoke_contracts.public_ref import format_item_ref, parse_public_item_ref
 from yoke_core.domain import control_plane_transport, db_backend
 from yoke_core.domain.db_helpers import connect
 
@@ -53,18 +54,22 @@ def load_work_item_statuses(
 
 
 def _normalise_ref(value: object) -> str:
-    text = str(value or "").strip().upper()
-    prefix = f"{_PUBLIC_ITEM_PREFIX}-"
-    if not text.startswith(prefix) or not text[len(prefix) :].isdigit():
+    prefix, sequence = parse_public_item_ref(value)
+    if prefix != _PUBLIC_ITEM_PREFIX or sequence is None:
         return ""
-    return text
+    return format_item_ref(_PROJECT_SLUG, prefix, sequence)
 
 
 def _load_over_connection(
     conn: Any,
     statuses: dict[str, str],
 ) -> dict[str, str]:
-    sequences = [int(ref.split("-", 1)[1]) for ref in statuses]
+    sequences = [
+        sequence
+        for ref in statuses
+        for prefix, sequence in [parse_public_item_ref(ref)]
+        if prefix == _PUBLIC_ITEM_PREFIX and sequence is not None
+    ]
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(marker for _ in sequences)
     rows = conn.execute(
@@ -78,7 +83,7 @@ def _load_over_connection(
     for row in rows:
         sequence = _row_value(row, "project_sequence", 0)
         status = _row_value(row, "status", 1)
-        ref = f"{_PUBLIC_ITEM_PREFIX}-{int(sequence)}"
+        ref = format_item_ref(_PROJECT_SLUG, _PUBLIC_ITEM_PREFIX, sequence)
         if ref in statuses:
             statuses[ref] = str(status or "unknown")
     return statuses
