@@ -38,11 +38,13 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # decision-request blocking flag, both retired by an ordered history entry,
 # adds the decision-record table each approval decision lands in, the
 # per-machine Overview activation latch table (overview_machine_activation_facts),
-# and the machine-local evidence fetch table, whose every column ships with the
+# the machine-local evidence fetch table, whose every column ships with the
 # table itself: the request, the lease the owning relay takes on it, and the
-# bounded answer that comes back.
+# bounded answer that comes back, and the per-operation test-machine receipt
+# table (test_machine_operation_receipts), which records what was last done to
+# a machine beside the verification row that decides its readiness.
 _BORN_WITH_COLUMN_DIGEST = (
-    "406af972f5df6791ef4f2415f8b5206fb0a96bee95dd118ef907a31522ef977b"
+    "fe6b239d1e5553f4c6ebe41d5785f4ad9b361dee5d39daf020d7cc1685e28b65"
 )
 
 

@@ -22,11 +22,16 @@ from runtime.api.domain.machine_qa_test_support import (
     make_conn,
 )
 from yoke_contracts.machine_config.test_machine import (
+    TestMachineCapabilityError,
     validate_test_machine_settings,
 )
 from yoke_core.domain.handlers.machine_qa_operation import handle_operation_begin
 from yoke_core.domain.machine_qa_capability import (
     test_machine_detail as machine_detail,
+)
+from yoke_core.domain.machine_qa_capability_rows import TestMachineCapabilityRow
+from yoke_core.domain.machine_qa_golden_destination import (
+    resolve_golden_capture_destination,
 )
 
 
@@ -119,4 +124,44 @@ def test_a_refused_capture_leaves_the_declared_baseline_alone(
     assert receipt["checks"][0]["refusal"]["recovery"]
     assert execution["golden_destination"] == (
         "/Users/Shared/yoke-golden/tester-home-new"
+    )
+
+
+def _row(golden_baseline_path: str) -> TestMachineCapabilityRow:
+    settings = validate_test_machine_settings(
+        {**TEST_MACHINE_SETTINGS, "golden_baseline_path": golden_baseline_path}
+    )
+    return TestMachineCapabilityRow(
+        project_id=1,
+        project="yoke",
+        capability_type=f"test-machine:{MACHINE}",
+        machine=MACHINE,
+        settings=settings,
+        settings_token=json.dumps(settings, separators=(",", ":"), sort_keys=True),
+        verified_at=None,
+        created_at="2026-01-01T00:00:00Z",
+    )
+
+
+def test_a_second_capture_on_one_day_asks_where_to_put_it() -> None:
+    # The dated default already names today's directory, so continuing would
+    # mean overwriting the baseline captured hours earlier.
+    today = resolve_golden_capture_destination(_row(GOLDEN_BASELINE_PATH))
+
+    with pytest.raises(TestMachineCapabilityError) as refused:
+        resolve_golden_capture_destination(_row(today))
+
+    assert "already today's capture destination" in str(refused.value)
+    assert "--destination" in str(refused.value)
+
+
+def test_an_explicit_destination_is_taken_as_given() -> None:
+    chosen = "/Users/Shared/yoke-golden/tester-home-rebuilt"
+
+    assert (
+        resolve_golden_capture_destination(
+            _row(GOLDEN_BASELINE_PATH),
+            requested=chosen,
+        )
+        == chosen
     )
