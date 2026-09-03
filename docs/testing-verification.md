@@ -237,7 +237,9 @@ be reached or verified.
 
 Run a direct command against the current session's claimed lane with
 `yoke dev run -- <command>`. It reports every checkout-owned import origin
-before execution. Ruff and changed-test fallback recipes live in
+before execution. The child receives the same non-administering machine
+environment as the sanctioned pytest runners, so a source command cannot
+inherit a `*-db-admin` selection. Ruff and changed-test fallback recipes live in
 [source-development.md](testing-verification/source-development.md).
 
 ## Which tree a run verified
@@ -323,3 +325,7 @@ machine-wide admission slot, how the orphan sweep reclaims what an
 interrupted run left, and why a run that named no cluster of its own may
 not borrow an administered one all live in
 [`testing-verification/concurrent-local-runs.md`](testing-verification/concurrent-local-runs.md).
+Doctor checks every prod-flagged local-Postgres connection this machine knows
+for leftover `yoke_test_run*` databases. A finding stays manual: its report
+prints a dry-run review command and the explicit removal command for that
+connection; Doctor never drops a database itself.

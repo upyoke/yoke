@@ -48,6 +48,8 @@ from yoke_contracts.machine_config.schema import (
     connection_is_prod,
     same_universe_https_env,
 )
+
+
 class SchemaAuthorityRefused(BaseException):
     """A schema change was attempted where this process holds no authority.
 
@@ -66,7 +68,8 @@ class SchemaAuthorityRefused(BaseException):
 #: ordinary command: only a build that serves the database, or a tool holding
 #: a database of its own, has anything to declare.
 _serving_build: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "serving_build_authority", default=False,
+    "serving_build_authority",
+    default=False,
 )
 
 
@@ -107,16 +110,24 @@ def prod_flagged_connection(explicit_env: Optional[str] = None) -> str:
     return env if connection_is_prod(connection) else ""
 
 
-def refuse_without_serving_build_authority(operation: str) -> None:
+def refuse_without_serving_build_authority(
+    operation: str,
+    *,
+    administering_env: Optional[str] = None,
+) -> None:
     """Raise when *operation* would change a schema this process does not serve.
 
-    A no-op wherever the selected connection is not prod-flagged, which is
-    every local universe, every self-hosted universe converging its own
-    database, and every container.
+    A core caller that knows the concrete target passes its administering
+    environment (or the empty safe answer); otherwise the selected connection
+    remains the backstop. The serving-build context is the only override on an
+    administered target.
     """
     if _serving_build.get():
         return
-    env = prod_flagged_connection()
+    # A core caller that already resolved the concrete database target passes
+    # its answer, including the empty safe answer. Callers that have no target
+    # yet retain the selected-connection backstop.
+    env = prod_flagged_connection() if administering_env is None else administering_env
     if not env:
         return
     raise SchemaAuthorityRefused(

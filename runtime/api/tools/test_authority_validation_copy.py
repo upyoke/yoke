@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.tools import authority_validation_copy as copy_tool
+from yoke_core.domain.scratch_database_authority import ScratchDatabaseRefused
 from yoke_core.domain.migration_validation_binding import read_binding
 
 
@@ -151,8 +152,36 @@ def test_provisioning_does_not_create_a_database_an_operator_bound(
         "create_database_if_absent",
         lambda _dsn: pytest.fail("created a database the operator already chose"),
     )
-    monkeypatch.setattr(
-        copy_tool, "_copy", lambda _a, _v: ("yoke", "chosen_scratch")
-    )
+    monkeypatch.setattr(copy_tool, "_copy", lambda _a, _v: ("yoke", "chosen_scratch"))
 
     assert copy_tool.main([]) == 0
+
+
+def test_derived_validation_creator_names_its_exact_target_to_the_guard(
+    monkeypatch,
+) -> None:
+    validation_dsn = "host=127.0.0.1 port=6547 dbname=yoke_validation"
+    observed = {}
+
+    def refuse(name: str, *, target_dsn: str) -> None:
+        observed.update(name=name, target_dsn=target_dsn)
+        raise ScratchDatabaseRefused("administered target")
+
+    monkeypatch.setattr(
+        copy_tool,
+        "refuse_scratch_database_on_administered_cluster",
+        refuse,
+    )
+    monkeypatch.setattr(
+        copy_tool.psycopg,
+        "connect",
+        lambda *_args, **_kwargs: pytest.fail("connected before target refusal"),
+    )
+
+    with pytest.raises(ScratchDatabaseRefused):
+        copy_tool.create_database_if_absent(validation_dsn)
+
+    assert observed == {
+        "name": "yoke_validation",
+        "target_dsn": validation_dsn,
+    }

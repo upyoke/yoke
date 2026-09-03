@@ -17,6 +17,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_contracts import schema_authority
+from yoke_core.domain import administered_postgres
 from yoke_core.domain import pg_test_db_namespace as namespace
 from yoke_core.domain import scratch_database_authority as authority
 from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
@@ -28,7 +29,7 @@ LOCAL_ENV = "local"
 def _select(monkeypatch: pytest.MonkeyPatch, env: str, connection: dict) -> None:
     """Make one connection the selected one for both readers of the config."""
     runtime = schema_authority.machine_config_runtime
-    assert runtime is authority.machine_config_runtime
+    assert runtime is administered_postgres.machine_config_runtime
     monkeypatch.setattr(runtime, "active_env", lambda **_kwargs: env)
     monkeypatch.setattr(runtime, "active_connection", lambda **_kwargs: connection)
 

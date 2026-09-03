@@ -17,6 +17,7 @@ from yoke_contracts.schema_authority import (
     refuse_without_serving_build_authority,
 )
 from yoke_core.domain import (
+    administered_postgres,
     db_backend,
     migration_restore_point,
     migration_serving_version,
@@ -77,7 +78,10 @@ def stamp_history(
     empty ledger here — a pre-ledger database that predates this mechanism
     also has no rows, and stamping *that* one would skip real work.
     """
-    refuse_without_serving_build_authority("recording a migration history as applied")
+    refuse_without_serving_build_authority(
+        "recording a migration history as applied",
+        administering_env=administered_postgres.administering_target(connection=conn),
+    )
     require_matching_content_identity(conn, history, ledger)
     stamped: list[str] = []
     try:
@@ -100,7 +104,8 @@ def stamp_history(
                 applied_by=applied_by,
                 content_sha256=raw_content_sha256(source_bytes),
                 minimum_serving_version=migration_serving_version.recorded_floor(
-                    module, running_version="",
+                    module,
+                    running_version="",
                 ),
             )
             stamped.append(entry.name)
@@ -150,7 +155,10 @@ def apply_pending(
     build old enough to be in danger does not ship the entry that would tell
     it so.
     """
-    refuse_without_serving_build_authority("applying a migration history")
+    refuse_without_serving_build_authority(
+        "applying a migration history",
+        administering_env=administered_postgres.administering_target(connection=conn),
+    )
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
 
@@ -248,7 +256,8 @@ def _apply_one(
             applied_by=applied_by,
             content_sha256=source_sha256,
             minimum_serving_version=migration_serving_version.recorded_floor(
-                module, running_version=running_version,
+                module,
+                running_version=running_version,
             ),
         )
         invariants = getattr(module, "invariants", None)

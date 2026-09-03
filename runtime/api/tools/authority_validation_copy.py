@@ -28,6 +28,9 @@ from yoke_core.domain.migration_validation_binding import (
     read_binding,
     write_binding,
 )
+from yoke_core.domain.scratch_database_authority import (
+    refuse_scratch_database_on_administered_cluster,
+)
 
 
 #: The binding module owns both names: the fleet selector recognizes this
@@ -106,6 +109,10 @@ def create_database_if_absent(validation_dsn: str) -> None:
 
     parameters = psycopg.conninfo.conninfo_to_dict(validation_dsn)
     dbname = str(parameters.get("dbname") or "")
+    refuse_scratch_database_on_administered_cluster(
+        dbname,
+        target_dsn=validation_dsn,
+    )
     parameters["dbname"] = MAINTENANCE_DB
     maintenance = psycopg.conninfo.make_conninfo(**parameters)
     try:
