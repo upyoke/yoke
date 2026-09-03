@@ -22,6 +22,11 @@ def test_false_na_local_runtime_slugs_selects_machine_checks() -> None:
             "severity": "N/A",
             "detail": "unrelated",
         },
+        {
+            "hc": "HC-local-operating-actor-authority",
+            "severity": "N/A",
+            "detail": "declared for the local runtime; this run is hosted",
+        },
     ]
 
     assert false_na_local_runtime_slugs(rows) == ["session-relay"]
