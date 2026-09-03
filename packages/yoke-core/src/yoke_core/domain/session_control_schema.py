@@ -9,6 +9,7 @@ from yoke_core.domain.actor_message_recipient_schema import (
     RECIPIENT_KIND_STATE_PREDICATE,
     converge_role_addressed_recipients,
 )
+from yoke_core.domain.machine_registry_schema import ensure_machine_registry_schema
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
@@ -35,7 +36,14 @@ _SENDER_SURFACE_VALUES = ",".join(f"'{value}'" for value in SENDER_SURFACES)
 
 
 def create_session_control_tables(conn: Any) -> None:
-    """Create additive fleet-control tables and lookup indexes."""
+    """Create additive fleet-control tables and lookup indexes.
+
+    Every table here names a machine — relays, launches, termination reaps,
+    surface policies, message recipients — so the registry that owns those ids
+    converges first. Doing it here rather than at each call site means a
+    universe, a fixture, and a focused test all get the same ordering.
+    """
+    ensure_machine_registry_schema(conn, commit=False)
     execute_schema_script(
         conn,
         f"""

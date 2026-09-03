@@ -138,8 +138,9 @@ restores it. Nothing else about the machine changes.
 `yoke machine list` shows every registered machine with its owner, access
 mode, and last proved poll. The fleet report's launch-balance rows, launchable
 machine/surface pairs, and plan-limit rows all name machines by their
-registered name, falling back to the relay's reported host name for a machine
-with no registry row.
+registered name. A machine with no registry row falls back to whatever that
+row can offer: the plan-limit rows still have the host name its relay
+reported, while the balance and pair rows have only the id.
 
 ## Related surfaces
 

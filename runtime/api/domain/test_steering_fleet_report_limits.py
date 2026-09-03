@@ -10,6 +10,7 @@ from runtime.api.steering_fleet_test_helpers import (
     NOW,
     PLAN_LIMIT_HOST,
     PROJECT_ID,
+    RELAY_HOSTNAME,
     compose,
     plan_limit_row,
     seed_steering_scope,
@@ -269,7 +270,7 @@ def test_plan_limit_rows_name_the_registered_machine(test_db) -> None:
     unregistered = load_plan_limits(
         test_db, project_id=PROJECT_ID, now=NOW, registered_names={}
     )
-    assert {row.machine_name for row in unregistered} == {PLAN_LIMIT_HOST}
+    assert {row.machine_name for row in unregistered} == {RELAY_HOSTNAME}
 
 
 def test_the_report_names_machines_it_registered(test_db) -> None:

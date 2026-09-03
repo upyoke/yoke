@@ -7,7 +7,6 @@ import sqlite3
 from typing import Any
 
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
-from yoke_core.domain.machine_registry_schema import ensure_machine_registry_schema
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchAuthorization, LaunchRequest
@@ -62,7 +61,6 @@ def launch_connection() -> sqlite3.Connection:
         );
         """
     )
-    ensure_machine_registry_schema(conn, commit=False)
     create_session_control_tables(conn)
     conn.commit()
     return conn

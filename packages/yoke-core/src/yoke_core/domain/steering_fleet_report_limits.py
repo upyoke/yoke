@@ -85,7 +85,7 @@ def load_plan_limits(
     ``registered_names`` lets a caller that already read the registry pass it
     in rather than paying for a second scan of the same rows.
     """
-    from yoke_core.domain.machine_registry import display_name, machine_names
+    from yoke_core.domain.machine_registry import machine_names
 
     names = machine_names(conn) if registered_names is None else registered_names
     marker = _p(conn)
@@ -103,7 +103,11 @@ def load_plan_limits(
             _document(_cell(row, "surface_plan_limits", 3))
         )
         machine_id = str(_cell(row, "machine_id", 0))
-        machine_name = display_name(names, machine_id) or str(_cell(row, "hostname", 1))
+        # An unregistered machine still has the host name its relay reported,
+        # which tells a reader more than the raw id does.
+        machine_name = (
+            names.get(machine_id) or str(_cell(row, "hostname", 1)) or machine_id
+        )
         for surface in CLI_PLAN_LIMIT_SURFACES:
             row_data = remaining_source.get(surface)
             if row_data is None:
