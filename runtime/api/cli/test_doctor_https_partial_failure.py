@@ -36,6 +36,15 @@ def test_failed_relay_local_scope_respects_applicability() -> None:
             runtimes=frozenset({RUNTIME_LOCAL}),
         ),
     )
+    local_database = HealthCheck(
+        "local-database",
+        "Local database",
+        _no_op_check,
+        applicability=CheckApplicability(
+            runtimes=frozenset({RUNTIME_LOCAL}),
+            requires_local_control_plane=True,
+        ),
+    )
     source = HealthCheck(
         "source-check",
         "Source check",
@@ -53,8 +62,11 @@ def test_failed_relay_local_scope_respects_applicability() -> None:
     )
     module = "yoke_core.engines.doctor_https_local_scope"
     with (
-        patch(f"{module}.HEALTH_CHECKS", [local, source, gated]),
-        patch(f"{module}.local_runtime_slugs", return_value={"local-fix"}),
+        patch(f"{module}.HEALTH_CHECKS", [local, local_database, source, gated]),
+        patch(
+            f"{module}.local_runtime_slugs",
+            return_value={"local-fix", "local-database"},
+        ),
         patch(
             f"{module}.source_checkout_slugs",
             return_value={"source-check", "capability-check"},
@@ -65,7 +77,10 @@ def test_failed_relay_local_scope_respects_applicability() -> None:
         runtime, source_tree = requested_local_machine_slugs(
             {
                 "project": "external",
-                "only": "HC-local-fix,HC-source-check,HC-capability-check",
+                "only": (
+                    "HC-local-fix,HC-local-database,HC-source-check,"
+                    "HC-capability-check"
+                ),
                 "fix": True,
             }
         )

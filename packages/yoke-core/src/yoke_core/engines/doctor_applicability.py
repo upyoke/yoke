@@ -14,7 +14,7 @@ applicable set from the live context, and anything outside that set is
 reported as :data:`NOT_APPLICABLE` with the reason — never silently passed
 and never silently dropped.
 
-Four axes:
+Five axes:
 
 ``project_scope``
     Whether the check targets this installation's own project
@@ -35,6 +35,11 @@ Four axes:
 ``required_capabilities``
     Capability types the target project must declare for the check to have a
     subject at all (``migration_model``, ``health-endpoint``, ``ssh``, ...).
+
+``requires_https_control_plane`` / ``requires_local_control_plane``
+    Whether the check needs the active control-plane transport to be HTTPS or
+    machine-local. A local-runtime check may still be composed around an HTTPS
+    control plane, so runtime alone cannot answer this question.
 """
 
 from __future__ import annotations
@@ -88,6 +93,7 @@ class CheckApplicability:
     runtimes: frozenset = RUNTIMES
     required_capabilities: tuple = ()
     requires_https_control_plane: bool = False
+    requires_local_control_plane: bool = False
 
     def __post_init__(self) -> None:
         if self.project_scope not in PROJECT_SCOPES:
@@ -103,6 +109,10 @@ class CheckApplicability:
             )
         if not self.runtimes:
             raise ValueError("a check must declare at least one runtime")
+        if self.requires_https_control_plane and self.requires_local_control_plane:
+            raise ValueError(
+                "a check cannot require both HTTPS and a local control plane"
+            )
 
 
 #: Declaration for a check that reads only the control-plane database: it
@@ -154,6 +164,12 @@ def not_applicable_reason(
     if applicability.requires_https_control_plane and not context.https_control_plane:
         return (
             "needs an HTTPS control-plane connection; this run is local-postgres only"
+        )
+
+    if applicability.requires_local_control_plane and context.https_control_plane:
+        return (
+            "needs the machine-local control-plane database; this run is relayed "
+            "over HTTPS"
         )
 
     if applicability.project_scope == PROJECT_SCOPE_SELF:

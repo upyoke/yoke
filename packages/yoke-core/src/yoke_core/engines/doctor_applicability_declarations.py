@@ -46,6 +46,10 @@ _LOCAL_HTTPS = CheckApplicability(
     runtimes=frozenset({RUNTIME_LOCAL}),
     requires_https_control_plane=True,
 )
+_LOCAL_CONTROL_PLANE = CheckApplicability(
+    runtimes=frozenset({RUNTIME_LOCAL}),
+    requires_local_control_plane=True,
+)
 _SELF = CheckApplicability(project_scope=PROJECT_SCOPE_SELF)
 _SRC = CheckApplicability(requires_source_checkout=True)
 _EXT = CheckApplicability(project_scope=PROJECT_SCOPE_EXTERNAL)
@@ -206,9 +210,12 @@ _SHAPES = (
         _LOCAL,
         (
             "harness-unattended-posture",
-            "local-operating-actor-authority",
             "session-relay-orphans",
         ),
+    ),
+    (
+        _LOCAL_CONTROL_PLANE,
+        ("local-operating-actor-authority",),
     ),
     (
         _LOCAL_HTTPS,

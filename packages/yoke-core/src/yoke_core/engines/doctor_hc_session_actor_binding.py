@@ -135,7 +135,14 @@ def hc_session_actor_binding(
 def hc_local_operating_actor_authority(
     conn: Any, args: DoctorArgs, rec: RecordCollector
 ) -> None:
-    """Flag — and under ``--fix`` grant — the local operator's org admin role."""
+    """Flag — and under ``--fix`` grant — the local operator's org admin role.
+
+    This question belongs to the machine-local universe whose database stores
+    the operating actor and its grant. An HTTPS-connected local runner acts on
+    a remote universe instead, so the check's applicability declaration marks
+    that run N/A rather than inventing a local actor or dereferencing the
+    absent local connection.
+    """
     for table in ("actors", "actor_org_roles", "organizations"):
         if not _base._table_exists(conn, table):
             rec.record(
