@@ -47,8 +47,18 @@ else:  # pragma: no cover - exercised on the older interpreter only
 
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_contracts.session_control.launch_permission_bypass import (
+    CLAUDE_APP_BYPASS_KEY,
+    CLAUDE_SETTINGS_PERMISSION_MODE,
+    CLAUDE_SETTINGS_PERMISSION_MODE_KEY,
     CODEX_APPROVAL_POLICY,
+    CODEX_APPROVAL_POLICY_KEY,
     CODEX_SANDBOX_MODE,
+    CODEX_SANDBOX_MODE_KEY,
+    CURSOR_APPROVAL_MODE,
+    CURSOR_APPROVAL_MODE_KEY,
+    CURSOR_SANDBOX_CONTAINER,
+    CURSOR_SANDBOX_MODE,
+    CURSOR_SANDBOX_MODE_KEY,
 )
 
 CLAUDE_FAMILY, CODEX_FAMILY, CURSOR_FAMILY = CANONICAL_HARNESS_IDS
@@ -56,9 +66,11 @@ CLAUDE_FAMILY, CODEX_FAMILY, CURSOR_FAMILY = CANONICAL_HARNESS_IDS
 #: Environment variable naming the Codex configuration home.
 CODEX_HOME_ENV = "CODEX_HOME"
 
+#: How Codex's config file is written when naming it to a person, whose
+#: machine almost always has the default home rather than an override.
+CODEX_CONFIG_DISPLAY_PATH = "~/.codex/config.toml"
+
 #: Codex config keys carrying the unattended posture, with the values it needs.
-CODEX_APPROVAL_POLICY_KEY = "approval_policy"
-CODEX_SANDBOX_MODE_KEY = "sandbox_mode"
 CODEX_POSTURE_KEYS: Tuple[Tuple[str, str], ...] = (
     (CODEX_APPROVAL_POLICY_KEY, CODEX_APPROVAL_POLICY),
     (CODEX_SANDBOX_MODE_KEY, CODEX_SANDBOX_MODE),
@@ -69,19 +81,17 @@ CODEX_PROJECTS_TABLE = "projects"
 CODEX_TRUST_LEVEL_KEY = "trust_level"
 CODEX_TRUST_LEVEL = "trusted"
 
-#: Cursor's machine config and the two keys that decide whether it prompts.
+#: Cursor's machine config; its two posture keys come from the one contract.
 CURSOR_CLI_CONFIG_PATH = "~/.cursor/cli-config.json"
-CURSOR_APPROVAL_MODE_KEY = "approvalMode"
-CURSOR_APPROVAL_MODE = "unrestricted"
-CURSOR_SANDBOX_CONTAINER = "sandbox"
-CURSOR_SANDBOX_MODE_KEY = "mode"
-CURSOR_SANDBOX_MODE = "disabled"
 
-#: Claude's app config and the preference that decides whether it prompts.
+#: Claude gates in two places: the desktop app's preference and the CLI's own
+#: user-level settings. Both must say bypass or one surface still prompts.
 CLAUDE_APP_CONFIG_PATH = (
     "~/Library/Application Support/Claude/claude_desktop_config.json"
 )
-CLAUDE_BYPASS_KEY = "bypassPermissionsModeEnabled"
+CLAUDE_SETTINGS_PATH = "~/.claude/settings.json"
+CLAUDE_PERMISSIONS_CONTAINER = "permissions"
+CLAUDE_BYPASS_KEY = CLAUDE_APP_BYPASS_KEY
 
 
 def codex_config_path() -> Path:
@@ -141,7 +151,7 @@ def cursor_posture_problems(config: Mapping[str, Any]) -> Tuple[str, ...]:
 
 
 def claude_posture_problems(config: Mapping[str, Any]) -> Tuple[str, ...]:
-    """Name the Claude preference that still leaves the harness prompting."""
+    """Name the Claude app preference that still leaves the harness prompting."""
     prefs = config.get("preferences")
     prefs = prefs if isinstance(prefs, dict) else {}
     if prefs.get(CLAUDE_BYPASS_KEY) is not True:
@@ -150,6 +160,25 @@ def claude_posture_problems(config: Mapping[str, Any]) -> Tuple[str, ...]:
             f"{prefs.get(CLAUDE_BYPASS_KEY)!r}, not True",
         )
     return ()
+
+
+def claude_settings_problems(config: Mapping[str, Any]) -> Tuple[str, ...]:
+    """Name the Claude CLI setting that still leaves the harness prompting."""
+    permissions = config.get(CLAUDE_PERMISSIONS_CONTAINER)
+    permissions = permissions if isinstance(permissions, dict) else {}
+    current = permissions.get(CLAUDE_SETTINGS_PERMISSION_MODE_KEY)
+    if current != CLAUDE_SETTINGS_PERMISSION_MODE:
+        return (
+            f"{CLAUDE_PERMISSIONS_CONTAINER}."
+            f"{CLAUDE_SETTINGS_PERMISSION_MODE_KEY} is {current!r}, not "
+            f"{CLAUDE_SETTINGS_PERMISSION_MODE!r}",
+        )
+    return ()
+
+
+def claude_settings_path() -> Path:
+    """Resolve the Claude CLI user settings file this machine reads."""
+    return Path(CLAUDE_SETTINGS_PATH).expanduser()
 
 
 #: What one harness's standing posture reads as. ``ABSENT`` is not a pass:
@@ -194,10 +223,51 @@ def posture_state(harness_id: str, path: Optional[Path] = None) -> str:
     )
 
 
-#: Harnesses that run commands inside an OS sandbox, where a refused socket
-#: or write is the sandbox and not the system. Claude is deliberately absent:
-#: its gate is an approval prompt, so its commands run unsandboxed either way.
-OS_SANDBOXING_HARNESSES: Tuple[str, ...] = (CODEX_FAMILY, CURSOR_FAMILY)
+#: The onboarding plan step that writes this posture. Named as a step so the
+#: operator sees it in Review beside every other write, and can decline it.
+POSTURE_PLAN_ACTION = "harness-unattended-posture"
+
+#: Help for the flag that declines the step, on both commands that offer it.
+POSTURE_DECLINE_HELP = (
+    "Decline the unattended harness posture step. Without it every harness "
+    "you open asks you to approve each yoke command; the step names each "
+    "file and key before it writes anything."
+)
+
+#: How to undo it, stated in the step itself: an operator agreeing to widen
+#: what a harness runs without asking is owed the reversal in the same breath.
+POSTURE_REVERSAL = (
+    "To undo: delete those keys from the files named above, or rerun the "
+    "installer with --skip-harness-permissions to leave them alone."
+)
+
+
+def posture_plan_step() -> Dict[str, str]:
+    """The onboarding write-plan entry for this step."""
+    return {"action": POSTURE_PLAN_ACTION, "target": "detected"}
+
+
+def posture_plan_summary() -> str:
+    """One review line naming each harness, its file, and the keys written."""
+    return "; ".join(
+        [
+            (
+                f"claude-code: {CLAUDE_APP_CONFIG_PATH} "
+                f"preferences.{CLAUDE_BYPASS_KEY} and {CLAUDE_SETTINGS_PATH} "
+                f"{CLAUDE_PERMISSIONS_CONTAINER}."
+                f"{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}"
+            ),
+            (
+                f"codex: {CODEX_CONFIG_DISPLAY_PATH} "
+                f"{CODEX_APPROVAL_POLICY_KEY} and {CODEX_SANDBOX_MODE_KEY}"
+            ),
+            (
+                f"cursor: {CURSOR_CLI_CONFIG_PATH} {CURSOR_APPROVAL_MODE_KEY} "
+                f"and {CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}"
+            ),
+        ]
+    )
+
 
 #: One recovery line, shared by every surface that reports a prompting harness.
 POSTURE_RECOVERY = (
@@ -220,60 +290,6 @@ def posture_problems(harness_id: str, config: Mapping[str, Any]) -> Tuple[str, .
         raise ValueError(f"unknown harness id: {harness_id!r}") from exc
 
 
-def running_harness_family() -> Optional[str]:
-    """Family of the harness running this process, or ``None``.
-
-    The process walk answers first and is the trustworthy channel, but it
-    reads the process table — which is one of the things a sandbox denies,
-    exactly when this question is being asked. So the session env vars are
-    the fallback, and only when a single family's vars are present: every
-    harness exports its own into whatever it starts, so a harness opened
-    from inside another one's shell carries both, and picking either would
-    name the launcher as often as the launcher's child. Ambiguous evidence
-    yields ``None`` — a missing hint costs nothing, while a hint naming the
-    wrong harness sends someone to repair a config that was never involved.
-    """
-    from yoke_contracts.harness_family_identity import (
-        family_env_session_id,
-        nearest_harness_family,
-    )
-
-    try:
-        family = nearest_harness_family()
-        if family:
-            return family
-        stamped = [
-            candidate
-            for candidate in CANONICAL_HARNESS_IDS
-            if family_env_session_id(candidate)
-        ]
-        return stamped[0] if len(stamped) == 1 else None
-    except Exception:  # noqa: BLE001 — identity must never raise here
-        return None
-
-
-def sandbox_recovery(harness_id: Optional[str] = None) -> Optional[str]:
-    """Recovery for a command a harness *sandbox* refused, or ``None``.
-
-    Narrower than the posture as a whole: Claude's prompting is an approval
-    gate, not an OS sandbox, so a refused socket in a Claude session is an
-    ordinary system problem and saying otherwise would send someone to
-    repair a setting that was never involved. ``None`` therefore covers
-    "not under a harness", "under Claude", and "under one Yoke does not
-    manage" alike, so a caller can append this without first having to know
-    which harness it is.
-    """
-    if harness_id is None:
-        harness_id = running_harness_family()
-    if str(harness_id or "").strip() not in OS_SANDBOXING_HARNESSES:
-        return None
-    return (
-        f"A {harness_id} session runs commands under its own approval and "
-        f"sandbox policy, which blocks Yoke's control plane until the "
-        f"unattended posture is written. {POSTURE_RECOVERY}"
-    )
-
-
 def managed_config_paths() -> Dict[str, Path]:
     """Machine config file each managed harness reads its posture from."""
     return {
@@ -286,6 +302,8 @@ def managed_config_paths() -> Dict[str, Path]:
 __all__ = [
     "CLAUDE_APP_CONFIG_PATH",
     "CLAUDE_BYPASS_KEY",
+    "CLAUDE_PERMISSIONS_CONTAINER",
+    "CLAUDE_SETTINGS_PATH",
     "CODEX_APPROVAL_POLICY_KEY",
     "CODEX_HOME_ENV",
     "CODEX_POSTURE_KEYS",
@@ -299,22 +317,27 @@ __all__ = [
     "CURSOR_SANDBOX_CONTAINER",
     "CURSOR_SANDBOX_MODE",
     "CURSOR_SANDBOX_MODE_KEY",
-    "OS_SANDBOXING_HARNESSES",
+    "CODEX_CONFIG_DISPLAY_PATH",
     "POSTURE_ABSENT",
     "POSTURE_PROMPTS",
+    "POSTURE_DECLINE_HELP",
+    "POSTURE_PLAN_ACTION",
     "POSTURE_RECOVERY",
+    "POSTURE_REVERSAL",
     "POSTURE_UNATTENDED",
     "claude_config_path",
     "claude_posture_problems",
+    "claude_settings_path",
+    "claude_settings_problems",
     "managed_config_paths",
     "codex_config_path",
     "codex_posture_problems",
     "codex_project_trust_key",
     "cursor_config_path",
     "cursor_posture_problems",
+    "posture_plan_step",
+    "posture_plan_summary",
     "posture_problems",
     "posture_state",
     "read_posture_config",
-    "running_harness_family",
-    "sandbox_recovery",
 ]

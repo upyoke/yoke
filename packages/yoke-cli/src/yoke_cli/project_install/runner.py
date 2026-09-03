@@ -142,6 +142,17 @@ def install(
         integration_target=None,
         session_id=None,
     )
+    # Approval posture is machine-wide and the launcher install owns it;
+    # folder trust is per path, so the checkout being installed is trusted
+    # here. Without it a harness still stops to ask about the directory.
+    try:
+        from yoke_core.domain.harness_folder_trust_grant import grant_folder_trust
+
+        report["harness_folder_trust"] = grant_folder_trust(root)
+    except Exception as exc:  # noqa: BLE001 — install must not fail on this
+        report.setdefault("warnings", []).append(
+            f"harness folder trust was not granted: {exc}"
+        )
     report["machine_config_newly_registered"] = registered
     try:
         from yoke_cli.project_install.harness_machine_persist import (

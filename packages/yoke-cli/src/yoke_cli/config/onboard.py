@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+from yoke_cli.config import harness_posture_install
+from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_contracts.machine_config import schema as machine_schema
 
@@ -77,6 +79,7 @@ def build_report(
     project_clone: onboard_project.ClonePlan | None = None,
     project_keep_existing_remote: bool = False,
     progress: onboard_apply_progress.ProgressCallback | None = None,
+    harness_posture: bool = True,
 ) -> Dict[str, Any]:
     """Return the onboarding report, applying the write plan when requested."""
     cfg_path = machine_config.config_path(config_path)
@@ -169,6 +172,7 @@ def build_report(
         path_repair=path_repair,
         reuse=reuse,
         local_destination=local_destination,
+        harness_posture=harness_posture,
     )
     report: Dict[str, Any] = {
         "operation": "onboard",
@@ -250,6 +254,16 @@ def build_report(
         )
         _ensure_runtime_dirs(cfg_path)
         onboard_apply_progress.emit_many(progress, runtime_steps, "done")
+    if harness_posture:
+        posture_step = (
+            harness_unattended_posture.POSTURE_PLAN_ACTION,
+            "detected",
+        )
+        onboard_apply_progress.emit(progress, *posture_step, "running")
+        report["harness_unattended_posture"] = (
+            harness_posture_install.apply_reported()
+        )
+        onboard_apply_progress.emit(progress, *posture_step, "done")
     relay_steps = tuple(onboard_session_relay.RELAY_PLAN_STEPS)
     if onboard_session_relay.is_supported(local_destination=local_destination):
         onboard_apply_progress.emit_many(progress, relay_steps, "running")

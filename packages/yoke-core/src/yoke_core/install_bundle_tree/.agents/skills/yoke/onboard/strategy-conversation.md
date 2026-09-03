@@ -22,8 +22,19 @@ The result names seeded vs already-present slugs. After this, every default slug
 
 ```bash
 yoke strategy doc list --project {project} --json
-yoke strategy doc get {SLUG} --project {project}
+yoke strategy doc get MISSION --project {project}
+yoke strategy doc get VISION --project {project}
+yoke strategy doc get MASTER-PLAN --project {project}
+yoke strategy doc get LANDSCAPE --project {project}
+yoke strategy doc get CURRENT-PLAN --project {project}
 ```
+
+Five plain calls, spelled out on purpose. Do not fold them into a shell
+loop: a harness that has been told to allow commands starting with `yoke`
+matches the command's first word, and a `for` loop presents `for` — so the
+composed form asks the operator for permission again even though every call
+inside it was already allowed. The list carries metadata only, so the five
+reads are real; the loop is not.
 
 Record each row's `updated_at` from the list output — the replace write below needs it as the compare-and-swap base. Classify each doc as **placeholder** (still the seeded template text, no project-specific content) or **accepted** (operator-authored content). If all five are accepted, apply the skip: report and move to step 2 of this skill.
 
@@ -70,8 +81,12 @@ In existing-repo mode, weave surveyed reality into the drafts (what the repo alr
 `strategy.doc.replace` is authorized by the `STRATEGIZE` process work claim on the target project — the server bounces replace without it. Acquire it before writing, exactly as `/yoke strategize` does (operator/debug adapter shown; the function id family is `claims.work.acquire` with a process target):
 
 ```bash
-yoke claims work acquire --process STRATEGIZE
+yoke claims work acquire --process STRATEGIZE --project {project}
 ```
+
+Name the project explicitly. Every other command in this step already does,
+and onboarding is exactly when the checkout's mapping may not yet resolve one
+for you — the claim refuses without project context rather than guessing.
 
 If acquisition reports `claim_conflict`, another session is running `/yoke strategize` or `/yoke feed` for this project. Do not wait silently: record the block and stop this step.
 

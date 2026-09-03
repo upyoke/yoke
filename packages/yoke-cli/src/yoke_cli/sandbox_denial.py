@@ -17,7 +17,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable, List, Optional, Sequence
 
-from yoke_contracts.harness_unattended_posture import sandbox_recovery
+from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
 
 # Substrings an OS-level refusal carries once it surfaces as a connection or
 # write failure. Deliberately narrow: a permission error is the signal, and a

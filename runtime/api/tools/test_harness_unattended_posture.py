@@ -141,6 +141,10 @@ def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
         claude_module, "configure_claude_app_bypass_permissions",
         lambda **_kwargs: False,
     )
+    monkeypatch.setattr(
+        claude_module, "configure_claude_cli_permission_mode",
+        lambda **_kwargs: [],
+    )
     stream = io.StringIO()
     actions = pass_module.configure_harness_unattended_posture(
         checkout=Path(CHECKOUT), stream=stream
@@ -212,7 +216,7 @@ def test_claude_reader_names_a_prompting_preference():
 
 def test_running_family_prefers_the_process_walk(monkeypatch) -> None:
     import yoke_contracts.harness_family_identity as identity
-    from yoke_contracts import harness_unattended_posture as posture
+    from yoke_contracts import harness_sandbox_recovery as posture
 
     monkeypatch.setattr(identity, "nearest_harness_family", lambda: "codex")
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "inherited")
@@ -222,7 +226,7 @@ def test_running_family_prefers_the_process_walk(monkeypatch) -> None:
 def test_claude_gets_no_sandbox_recovery(monkeypatch) -> None:
     """Claude's gate is an approval prompt; a refused socket is not its doing."""
     import yoke_contracts.harness_family_identity as identity
-    from yoke_contracts import harness_unattended_posture as posture
+    from yoke_contracts import harness_sandbox_recovery as posture
 
     monkeypatch.setattr(identity, "nearest_harness_family", lambda: "claude-code")
     assert posture.running_harness_family() == "claude-code"
@@ -232,7 +236,7 @@ def test_claude_gets_no_sandbox_recovery(monkeypatch) -> None:
 def test_running_family_falls_back_to_one_stamped_harness(monkeypatch) -> None:
     """A sandbox denies the process table, so the env stamp is what is left."""
     import yoke_contracts.harness_family_identity as identity
-    from yoke_contracts import harness_unattended_posture as posture
+    from yoke_contracts import harness_sandbox_recovery as posture
 
     monkeypatch.setattr(identity, "nearest_harness_family", lambda: None)
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
@@ -244,7 +248,7 @@ def test_running_family_falls_back_to_one_stamped_harness(monkeypatch) -> None:
 def test_running_family_refuses_to_guess_between_two_stamps(monkeypatch) -> None:
     """A harness opened inside another's shell carries both harnesses' vars."""
     import yoke_contracts.harness_family_identity as identity
-    from yoke_contracts import harness_unattended_posture as posture
+    from yoke_contracts import harness_sandbox_recovery as posture
 
     monkeypatch.setattr(identity, "nearest_harness_family", lambda: None)
     monkeypatch.setenv("CODEX_SESSION_ID", "a-codex-session")
@@ -266,3 +270,47 @@ def test_posture_state_reports_each_outcome(tmp_path: Path) -> None:
     assert posture_state("codex", configured) == POSTURE_UNATTENDED
     assert posture_state("codex", prompting) == POSTURE_PROMPTS
     assert posture_state("codex", tmp_path / "gone" / "config.toml") == POSTURE_ABSENT
+
+
+def test_the_wizard_step_names_every_harness_file_and_key():
+    """The operator sees what will be written before agreeing to it."""
+    from yoke_cli.config.onboard_plan_labels import friendly_line
+    from yoke_contracts.harness_unattended_posture import (
+        CLAUDE_SETTINGS_PATH,
+        CODEX_CONFIG_DISPLAY_PATH,
+        CURSOR_CLI_CONFIG_PATH,
+        POSTURE_PLAN_ACTION,
+    )
+
+    line = friendly_line(POSTURE_PLAN_ACTION, "detected")
+    assert "Unattended harness posture" in line
+    for named in (CLAUDE_SETTINGS_PATH, CODEX_CONFIG_DISPLAY_PATH,
+                  CURSOR_CLI_CONFIG_PATH):
+        assert named in line
+    for key in ("permissions.defaultMode", "approval_policy", "approvalMode"):
+        assert key in line
+    assert "--skip-harness-permissions" in line
+
+
+def test_the_wizard_plans_the_step_for_every_destination():
+    from yoke_cli.config import onboard_report
+    from yoke_contracts.harness_unattended_posture import POSTURE_PLAN_ACTION
+
+    def _actions(**kwargs):
+        plan = onboard_report.build_plan(
+            Path("/tmp/machine-config.json"),
+            "local",
+            "",
+            {"kind": "dsn_file"},
+            {"kind": "local-universe"},
+            "quick",
+            project_mode="machine-only",
+            project_inputs={},
+            machine_github={"choice": "disabled"},
+            **kwargs,
+        )
+        return [step["action"] for step in plan["steps"]]
+
+    for local_destination in (True, False):
+        assert POSTURE_PLAN_ACTION in _actions(local_destination=local_destination)
+    assert POSTURE_PLAN_ACTION not in _actions(harness_posture=False)

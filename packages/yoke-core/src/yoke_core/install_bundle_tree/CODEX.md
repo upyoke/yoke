@@ -37,6 +37,12 @@ posture missing, not a broken database: the CLI says so and names the repair.
 `HC-harness-unattended-posture` reports the standing posture for every
 harness on the machine.
 
+**Never wrap `yoke` in a shell loop or command substitution.** An operator
+who allows commands starting with `yoke` is allowing a first word, so
+`for slug in A B C; do yoke ...; done` presents `for` and asks again — every
+call inside it was already permitted, and the composition is what re-prompts.
+Run repeated calls as separate plain invocations.
+
 ## Work-item entry surfaces
 
 Every create selects a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`); the pinned immutable workflow version must allow that surface. `/yoke idea` drives the registered `items.create` function through `harness_skill`, while product forms and operator commands use their own typed surfaces. Dry-run and test-isolated DB targets may omit the surface.

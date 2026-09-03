@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import argparse
+
+from yoke_contracts.harness_unattended_posture import (
+    POSTURE_DECLINE_HELP,
+)
 import os
 import subprocess
 import sys
@@ -205,14 +209,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--skip-harness-permissions",
         action="store_true",
-        help=(
-            "Skip the unattended-permission posture written into each "
-            "detected harness's own config (Claude.app preferences, Codex "
-            "config.toml, Cursor cli-config.json). Without it a session you "
-            "open yourself asks you to approve every yoke command. The pass "
-            "only sets a key that is absent; a value you set yourself is "
-            "reported and left alone."
-        ),
+        help=POSTURE_DECLINE_HELP,
     )
     parser.add_argument(
         "--repair",

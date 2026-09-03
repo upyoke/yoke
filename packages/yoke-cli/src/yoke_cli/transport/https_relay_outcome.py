@@ -24,7 +24,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
-from yoke_contracts.harness_unattended_posture import sandbox_recovery
+from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
 
 TRANSPORT_FAILED_CODE = "https_transport_failed"
 

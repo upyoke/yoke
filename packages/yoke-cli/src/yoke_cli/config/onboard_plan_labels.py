@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_project
@@ -64,6 +65,14 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == hosting_posture.HOSTING_POSTURE_ACTION:
         return _HOSTING_POSTURE_LABELS.get(
             target, _HOSTING_POSTURE_LABELS[hosting_posture.POSTURE_UNDECIDED]
+        )
+    if action == harness_unattended_posture.POSTURE_PLAN_ACTION:
+        return (
+            "Unattended harness posture — let every harness you open run "
+            "yoke without asking, by writing "
+            f"{harness_unattended_posture.posture_plan_summary()}. Only a key "
+            "that is absent is written; anything you set yourself is left "
+            f"alone. {harness_unattended_posture.POSTURE_REVERSAL}"
         )
     if action == "create-runtime-dir":
         return f"Set up the {_RUNTIME_DIR_LABELS.get(target, target)} directory"

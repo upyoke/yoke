@@ -47,6 +47,21 @@ def _relay_install_noop(monkeypatch):
     monkeypatch.setattr(isl, "configure_session_relay", lambda **_kwargs: False)
 
 
+@pytest.fixture(autouse=True)
+def _harness_posture_noop(monkeypatch):
+    """Never let an install test write this machine's real harness configs.
+
+    ``install`` writes the unattended posture into Claude's, Codex's, and
+    Cursor's own machine-level files. That is the point of the step, and it
+    is exactly why no test may run it for real: a suite that did would
+    rewrite the config of whoever ran it. Tests asserting on the step patch
+    it with their own spy, which replaces this one.
+    """
+    monkeypatch.setattr(
+        isl, "configure_harness_unattended_posture", lambda **_kwargs: []
+    )
+
+
 def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env):
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))

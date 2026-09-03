@@ -33,6 +33,7 @@ def configure_harness_unattended_posture(
     """
     from yoke_core.tools.install_yoke_launcher_claude import (
         configure_claude_app_bypass_permissions,
+        configure_claude_cli_permission_mode,
     )
     from yoke_core.tools.install_yoke_launcher_codex import (
         configure_codex_unattended_posture,
@@ -48,9 +49,11 @@ def configure_harness_unattended_posture(
     # one-line summary; the other two report only, and are printed here.
     if configure_claude_app_bypass_permissions(stream=out):
         actions.append("claude-code: enabled bypass permissions in Claude.app")
-    reported = list(
-        configure_codex_unattended_posture(checkout=checkout)
-    ) + list(configure_cursor_unattended_posture())
+    reported = (
+        list(configure_claude_cli_permission_mode(stream=out))
+        + list(configure_codex_unattended_posture(checkout=checkout))
+        + list(configure_cursor_unattended_posture())
+    )
     for line in reported:
         out.write(f"{line}\n")
     actions.extend(reported)
