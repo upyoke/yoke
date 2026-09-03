@@ -52,8 +52,6 @@ teaching the report to infer a hold from age would hide real unstaffed work.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -99,9 +97,9 @@ from yoke_core.domain.steering_fleet_report_holders import (
     ClaimHolder,
     claim_holders,
 )
+from yoke_core.domain.steering_fleet_report_fingerprint import report_fingerprint
 from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
-    fingerprint_material,
     load_plan_limits,
 )
 
@@ -162,46 +160,7 @@ class FleetReport:
 
     def fingerprint(self) -> str:
         """Content identity, blind to ages so the report is not noise."""
-        counts = {(machine, surface): n for machine, surface, n in self.session_counts}
-        material = {
-            "available": sorted(entry.item_id for entry in self.available),
-            "holders": sorted(
-                (holder.session_id, holder.item_id, holder.native_process_gone)
-                for holder in self.holders
-            ),
-            "idle": sorted((holder.session_id, holder.item_id) for holder in self.idle),
-            "starved": sorted(entry.session_id for entry in self.starved),
-            "unregistered_launches": sorted(
-                (entry.launch_id, entry.native_launch_phase, entry.spawn_duration_ms)
-                for entry in self.unregistered_launches
-            ),
-            "abandoned_launches": sorted(
-                entry.launch_id for entry in self.abandoned_launches
-            ),
-            "landed_open": sorted(entry.item_id for entry in self.landed_open),
-            "suspected_orphaned_waiters": sorted(
-                (holder.session_id, holder.item_id)
-                for holder in self.suspected_orphaned_waiters
-            ),
-            "in_flight": sorted((c.session_id, c.command) for c in self.in_flight),
-            "dead_waits": sorted(
-                (entry.session_id, entry.answerer_session_id, entry.reason)
-                for entry in self.dead_waits
-            ),
-            "launch_balance": sorted(
-                (r.machine_id, r.surface, counts.get((r.machine_id, r.surface), 0))
-                for r in self.launchable
-            ),
-            "plan_limits": fingerprint_material(self.plan_limits),
-            "machine_capacity": sorted(
-                (c.machine_id, c.live_lanes, c.max_worker_lanes, c.at_capacity)
-                for c in self.machine_capacity
-            ),
-            "origin_counts": list(self.origin_counts),
-            "messages_awaiting_seat": self.messages_awaiting_seat,
-        }
-        encoded = json.dumps(material, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+        return report_fingerprint(self)
 
 
 def compose_report(
@@ -224,9 +183,7 @@ def compose_report(
     """
     seat_scope = dict(scope) if scope else {"project_id": int(project_id)}
     members = seat_members(conn, seat_scope)
-    holders = members_only(
-        claim_holders(conn, project_id=project_id, now=now), members
-    )
+    holders = members_only(claim_holders(conn, project_id=project_id, now=now), members)
     quiet = tuple(
         holder
         for holder in holders
