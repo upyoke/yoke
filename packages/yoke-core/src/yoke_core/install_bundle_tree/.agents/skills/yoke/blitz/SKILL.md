@@ -206,7 +206,10 @@ For each slice:
 3. Run focused verification with capture-first output — the individual
    failing tests, the changed module's paths, or the project's impacted
    selection (`yoke watch pytest --impacted main --bounded` here, which
-   reports an unbounded selection instead of widening). When a slice has an
+   reports an unbounded selection instead of widening; for a project
+   declaring `ci_workflow_file` it runs on that CI against the pushed
+   lane commit, so commit before running it, and `--local` runs it on
+   this machine instead). When a slice has an
    attached Command case, that case run is the slice's one full execution:
    do not run the project's full sweep by hand and then hand the same tree to
    `yoke qa case run`, which re-runs the identical registered command. It

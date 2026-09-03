@@ -236,7 +236,7 @@ After every advance, emit this structured block. It survives context compaction 
 - **Transition:** `{_status}` → `{_target}`
 - **Worktree:** {WORKTREE_PATH or "none (main branch)"}
 - **Project:** {_item_project}
-- **Test command:** {_cmd_full or "yoke watch pytest --impacted main --bounded" (yoke default — impacted selection, bounded so an unbounded verdict is reported rather than widened; CI on the merge path owns the full sweep, see docs/testing-verification.md)}
+- **Test command:** {_cmd_full or "yoke watch pytest --impacted main --bounded" (yoke default — impacted selection, bounded so an unbounded verdict is reported rather than widened; it executes on the project CI against the pushed lane commit, so commit before running it, and `--local` runs it on this machine under the machine-wide worker budget; CI on the merge path owns the full sweep, see docs/testing-verification.md)}
 - **Advance to reviewed-implementation:** `/yoke advance PREFIX-{N} reviewed-implementation`
 - **Phase docs already loaded:** preflight, worktree, environment, finalize, implementing
 - **Do-loop context (if inside /yoke do):** step {step}/{MAX_CHAIN_STEPS}, chainable={chainable}. Whether this advance is a completed handler depends on `{_target}` — do NOT treat every advance as a finished chain step.

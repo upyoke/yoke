@@ -20,7 +20,12 @@ project) plus the individual failing tests — as often as the work needs.
 it reports `selection unbounded (<rule>) — deferring full coverage to the
 final QA gate` and runs the subset it could still compute. Read that as
 *keep testing what you judge relevant*, not as a signal to run everything
-now. The full-suite authority is CI on the protected merge path, which
+now. Where the project declares a `ci_workflow_file` capability, that
+selection runs on its CI rather than on this machine: commit first,
+because it pushes the lane commit and dispatches the selection
+workflow against it, and it refuses an uncommitted tree. `--local`
+runs it here instead, under one machine-wide xdist worker budget.
+The full-suite authority is CI on the protected merge path, which
 runs on the pull request and again on the merged commit. Fall back to a
 local full sweep only when CI is unavailable, and record that
 substitution in the verification evidence. If CI fails a test the

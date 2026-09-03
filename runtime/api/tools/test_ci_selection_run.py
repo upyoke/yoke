@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.tools import ci_selection_run as runner
-from yoke_core.tools import impacted_tests
+from yoke_core.tools._impacted_changed_paths import changed_paths
 from yoke_core.tools._impacted_selection import Selection
 from yoke_core.tools._source_pythonpath import repo_root
 from yoke_core.tools._watch_pytest_args import NO_SELECTED_TESTS
@@ -108,10 +108,14 @@ def test_selection_paths_is_bounded_and_prints_the_advisory(monkeypatch, capsys,
 
 
 def test_selection_is_reproducible_from_the_merge_base_sha() -> None:
-    """The remote runner selects from ``base_sha``; the local run from ``main``.
+    """The remote runner measures from ``base_sha``; the local run from ``main``.
 
-    Both must name the same test files for the same tree, or the remote run
-    would test something other than what the developer asked about.
+    Both must name the same changed paths for the same tree, or the remote
+    run would select tests for something other than what the developer
+    asked about. Selection is a pure function of those paths and the import
+    index, so comparing the paths settles the selections without building
+    the index twice — and without a working-tree edit between two long
+    builds turning the equality into a coin flip.
     """
     root = repo_root(Path(__file__).resolve())
     merge_base = subprocess.run(
@@ -127,12 +131,10 @@ def test_selection_is_reproducible_from_the_merge_base_sha() -> None:
         pytest.skip("no main to measure this tree against")
     base_sha = merge_base.stdout.strip()
 
-    by_name = impacted_tests.selection_for(root, "main", bounded=True)
-    by_sha = impacted_tests.selection_for(root, base_sha, bounded=True)
+    by_name = changed_paths(root, "main")
+    by_sha = changed_paths(root, base_sha)
 
-    assert by_sha.files == by_name.files
-    assert by_sha.bounded_deferral == by_name.bounded_deferral
-    assert by_sha.fallback_rule == by_name.fallback_rule
+    assert by_sha == by_name
 
 
 def test_main_parses_shell_quoted_pytest_args(monkeypatch, tmp_path) -> None:

@@ -245,7 +245,7 @@ def test_widen_is_a_local_run_by_definition(monkeypatch) -> None:
     ],
 )
 def test_remote_line_classification(line: str, expected: LineClass) -> None:
-    assert watch_pytest_remote.classify_remote_line(line).line_class == expected
+    assert watch_pytest_remote.classify_remote_line(line).cls == expected
 
 
 def test_remote_header_names_the_run_and_the_opt_out(tmp_path) -> None:

@@ -117,7 +117,14 @@ class RemoteRoute:
         ]
 
 
-def _git(root: Path, *args: str) -> str | None:
+def _git(root: Path, *args: str, keep_leading_space: bool = False) -> str | None:
+    """Run one git command; ``None`` when it fails or cannot start.
+
+    ``keep_leading_space`` preserves column alignment for output whose
+    first column is meaningful — porcelain status codes pad an unstaged
+    change to a leading blank, and stripping it eats the first character
+    of that file's path.
+    """
     try:
         completed = subprocess.run(
             ["git", "-C", str(root), *args],
@@ -128,7 +135,9 @@ def _git(root: Path, *args: str) -> str | None:
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-    return completed.stdout.strip() if completed.returncode == 0 else None
+    if completed.returncode != 0:
+        return None
+    return completed.stdout if keep_leading_space else completed.stdout.strip()
 
 
 def strip_machine_local_args(
@@ -154,7 +163,13 @@ def strip_machine_local_args(
 
 def dirty_paths(root: Path) -> list[str]:
     """Tracked modifications and untracked files: both feed the local selection."""
-    status = _git(root, "status", "--porcelain", "--untracked-files=normal")
+    status = _git(
+        root,
+        "status",
+        "--porcelain",
+        "--untracked-files=normal",
+        keep_leading_space=True,
+    )
     if not status:
         return []
     return [line[3:] for line in status.splitlines() if line.strip()]
