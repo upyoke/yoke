@@ -8,12 +8,21 @@ its argument parsing.
 
 from __future__ import annotations
 
+import sys
+
 from yoke_cli.commands.adapters import onboard_apply
+from yoke_cli.config import onboard as onboard_config
+from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_destinations
+from yoke_cli.config import onboard_wizard
+from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_publish_support import PublishRequest
+from yoke_cli.config.writer import MachineConfigWriteError
+from yoke_contracts.machine_config.schema import MachineConfigContractError
 
 _apply_with_durable_report = onboard_apply.apply_with_durable_report
+_print_failure_summary = onboard_apply.print_failure_summary
 
 
 def build_report(
