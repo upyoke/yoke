@@ -103,9 +103,17 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
         normalized["projects"] = []
     normalized["settings"] = dict(settings) if isinstance(settings, Mapping) else {}
     from yoke_contracts.machine_config.preferred_session_models import (
-        PREFERRED_SESSION_MODELS_KEY, preferred_session_models)
+        PREFERRED_SESSION_MODELS_KEY,
+        PREFERRED_SESSION_REASONING_EFFORTS_KEY,
+        preferred_session_models,
+        preferred_session_reasoning_efforts,
+    )
     if PREFERRED_SESSION_MODELS_KEY in raw:
         normalized[PREFERRED_SESSION_MODELS_KEY] = preferred_session_models(raw)
+    if PREFERRED_SESSION_REASONING_EFFORTS_KEY in raw:
+        normalized[PREFERRED_SESSION_REASONING_EFFORTS_KEY] = (
+            preferred_session_reasoning_efforts(raw)
+        )
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
         normalized["connections"] = {

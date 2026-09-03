@@ -8,6 +8,7 @@ import sys
 from yoke_cli.commands.adapters import session_control_launches as launches
 from yoke_contracts.machine_config.preferred_session_models import (
     PREFERRED_SESSION_MODELS_KEY,
+    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
 )
 
 
@@ -24,8 +25,9 @@ def _create(monkeypatch, *extra_args: str) -> dict:
         "yoke_contracts.machine_config.runtime.load_config",
         lambda path=None: {
             PREFERRED_SESSION_MODELS_KEY: {
-                "cursor-cli": "cursor-grok-4.6-high-fast",
-            }
+                "cursor-cli": "cursor-grok-4.6[context=1m]",
+            },
+            PREFERRED_SESSION_REASONING_EFFORTS_KEY: {"cursor-cli": "high"},
         },
     )
 
@@ -88,8 +90,9 @@ def test_launch_create_list_models_names_source_without_dispatch(
         "yoke_contracts.machine_config.runtime.load_config",
         lambda path=None: {
             PREFERRED_SESSION_MODELS_KEY: {
-                "claude-cli": "claude-opus-4-8",
-            }
+                "claude-cli": "claude-opus-4-8[1m]",
+            },
+            PREFERRED_SESSION_REASONING_EFFORTS_KEY: {"claude-cli": "max"},
         },
     )
     monkeypatch.setattr(
