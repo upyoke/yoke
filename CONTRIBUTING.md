@@ -37,6 +37,7 @@ inside the checkout-local venv — your installed `yoke` is not involved:
 
 ```bash
 uv sync --all-packages --all-groups --locked
+npm ci --prefix packages/yoke-core/src/yoke_core/ui
 yoke watch pytest -- runtime/api/ runtime/harness/ tests/
 ```
 
