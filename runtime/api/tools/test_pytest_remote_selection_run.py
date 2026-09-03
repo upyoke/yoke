@@ -169,3 +169,39 @@ def test_main_splits_pytest_args_after_the_separator(monkeypatch) -> None:
     assert code == 0
     assert seen["pytest_args"] == ["-q", "-k", "x"]
     assert seen["base_sha"] == ""
+
+
+class TestFailureDetail:
+    """A dispatch refusal must name what refused it, not the transport's hints."""
+
+    def test_advisory_lines_do_not_become_the_reason(self) -> None:
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr=(
+                "yoke: this checkout and the server's build have diverged\n"
+                "HTTP 404: Not Found\n"
+            ),
+        )
+
+        assert engine.failure_detail(result) == "HTTP 404: Not Found"
+
+    def test_stdout_answers_when_stderr_is_only_advisory(self) -> None:
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="workflow not found on the default branch\n",
+            stderr="yoke: this checkout is 3 commits ahead\n",
+        )
+
+        assert engine.failure_detail(result) == (
+            "workflow not found on the default branch"
+        )
+
+    def test_advisory_only_output_says_there_was_no_diagnostic(self) -> None:
+        result = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="yoke: a hint\n",
+        )
+
+        assert "no diagnostic" in engine.failure_detail(result)

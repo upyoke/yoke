@@ -77,6 +77,30 @@ def publish(root: Path, branch: str, head_sha: str) -> bool:
     return True
 
 
+#: The client transport prefixes its advisory hints with this and prints them
+#: to stderr on any invocation. They are never the reason a call failed.
+ADVISORY_LINE_PREFIX = "yoke: "
+
+
+def failure_detail(result) -> str:
+    """Why a dispatch failed, with the transport's advisory chatter removed.
+
+    A build-skew hint shares stderr with the real diagnostic, and taking
+    stderr whole reported "this checkout and the server's build have
+    diverged" as the reason GitHub refused a dispatch — sending the reader
+    after a version mismatch that had nothing to do with it.
+    """
+    for stream in (result.stderr, result.stdout):
+        kept = [
+            line
+            for line in (stream or "").splitlines()
+            if line.strip() and not line.startswith(ADVISORY_LINE_PREFIX)
+        ]
+        if kept:
+            return "\n".join(kept).strip()
+    return "no run id returned and no diagnostic on either stream"
+
+
 def dispatch(
     *,
     project: str,
@@ -118,7 +142,7 @@ def dispatch(
     )
     run_id, dispatched = decode_trigger_result(result)
     if result.returncode != 0 or not run_id:
-        detail = (result.stderr or result.stdout or "").strip() or "no run id returned"
+        detail = failure_detail(result)
         _error(
             f"dispatch of {workflow} on {repo}@{branch} refused: {detail}. "
             f"Re-run with {LOCAL_FLAG} to test on this machine."
@@ -258,6 +282,7 @@ __all__ = [
     "REJOINED",
     "await_conclusion",
     "dispatch",
+    "failure_detail",
     "main",
     "publish",
     "relay_failed_log",
