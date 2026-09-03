@@ -143,9 +143,7 @@ def validate_name(value: Any) -> str:
 
 def get_machine(conn: Any, machine_id: str) -> MachineRecord | None:
     p = marker(conn)
-    row = conn.execute(
-        f"{_SELECT} WHERE machine_id={p}", (str(machine_id),)
-    ).fetchone()
+    row = conn.execute(f"{_SELECT} WHERE machine_id={p}", (str(machine_id),)).fetchone()
     return _record(row) if row is not None else None
 
 
@@ -235,7 +233,9 @@ def register_machine(
             "register this host as its own machine.",
         )
     document = normalize_access(
-        access if access is not None else (existing.access if existing else DEFAULT_ACCESS)
+        access
+        if access is not None
+        else (existing.access if existing else DEFAULT_ACCESS)
     )
     issues = validate_access(document)
     if issues:

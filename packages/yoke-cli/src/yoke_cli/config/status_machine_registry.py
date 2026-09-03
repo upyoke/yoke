@@ -48,9 +48,7 @@ def _control_plane_ready(report: Mapping[str, Any]) -> bool:
         return True
     db = report.get("db") or {}
     return (
-        isinstance(db, Mapping)
-        and db.get("relevant") is True
-        and db.get("ok") is True
+        isinstance(db, Mapping) and db.get("relevant") is True and db.get("ok") is True
     )
 
 

@@ -80,7 +80,9 @@ def proof_material(machine_id: str, issued_at: str) -> bytes:
 
     Version-prefixed so a later proof shape cannot be replayed as this one.
     """
-    return f"yoke-machine-proof:{PROOF_VERSION}:{machine_id}:{issued_at}".encode("utf-8")
+    return f"yoke-machine-proof:{PROOF_VERSION}:{machine_id}:{issued_at}".encode(
+        "utf-8"
+    )
 
 
 def _signing_key(private_key: bytes) -> Any:
@@ -206,7 +208,9 @@ def sign_machine_proof(
     document = _read_key_document(path)
     private = _decode(document.get("private_key"), field="private_key", path=path)
     stamped = issued_at or utc_now()
-    signature = _signing_key(private).sign(proof_material(machine_id, stamped)).signature
+    signature = (
+        _signing_key(private).sign(proof_material(machine_id, stamped)).signature
+    )
     return MachineProof(
         machine_id=machine_id,
         issued_at=stamped,

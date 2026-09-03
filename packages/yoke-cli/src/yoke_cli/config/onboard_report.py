@@ -92,9 +92,7 @@ def build_plan(
         steps.append(
             {
                 "action": hosting_posture.HOSTING_POSTURE_ACTION,
-                "target": str(
-                    hosting_choice or hosting_posture.POSTURE_UNDECIDED
-                ),
+                "target": str(hosting_choice or hosting_posture.POSTURE_UNDECIDED),
             }
         )
     # Every destination, because the harness a person opens prompts the same
@@ -138,7 +136,9 @@ def build_plan(
         # is not just the clone line.
         steps.extend(
             onboard_post_checkout_plan.post_checkout_steps(
-                project_mode, project_inputs, reuse=reuse,
+                project_mode,
+                project_inputs,
+                reuse=reuse,
             )
         )
         if not reuse.get("project_github_auth"):

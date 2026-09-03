@@ -20,7 +20,9 @@ from yoke_core.domain.machine_registry import get_machine, marker
 REGISTRY_SETTING = "machines.registration"
 
 
-def _project_role_names(conn: Any, *, actor_id: int, project_id: int) -> tuple[str, ...]:
+def _project_role_names(
+    conn: Any, *, actor_id: int, project_id: int
+) -> tuple[str, ...]:
     """Role names this actor holds on one project, org-granted or direct."""
     p = marker(conn)
     org_rows = conn.execute(

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from yoke_cli.commands.adapters import machine
@@ -72,9 +70,14 @@ def test_show_defaults_to_this_machine(dispatched, local_machine):
 def test_settings_set_parses_a_json_value_and_accepts_a_bare_word(
     dispatched, local_machine
 ):
-    assert machine.machine_settings_set(["--path", "use.actor_ids", "--value", "[2,3]"]) == 0
+    assert (
+        machine.machine_settings_set(["--path", "use.actor_ids", "--value", "[2,3]"])
+        == 0
+    )
     assert dispatched[0]["payload"]["value"] == [2, 3]
-    assert machine.machine_settings_set(["--path", "use.mode", "--value", "universe"]) == 0
+    assert (
+        machine.machine_settings_set(["--path", "use.mode", "--value", "universe"]) == 0
+    )
     assert dispatched[1]["payload"]["value"] == "universe"
 
 

@@ -39,12 +39,9 @@ _LOCAL_UNIVERSE_LABELS = {
 # One line per hosting posture. Only the managed-AWS answer writes a
 # credential, so only that line promises one.
 _HOSTING_POSTURE_LABELS = {
-    hosting_posture.POSTURE_YOKE_MANAGED_AWS:
-        "Save your AWS hosting credential (owner-only)",
-    hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST:
-        "Record that Yoke manages no host for this project",
-    hosting_posture.POSTURE_UNDECIDED:
-        "Decide hosting later",
+    hosting_posture.POSTURE_YOKE_MANAGED_AWS: "Save your AWS hosting credential (owner-only)",
+    hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST: "Record that Yoke manages no host for this project",
+    hosting_posture.POSTURE_UNDECIDED: "Decide hosting later",
 }
 
 
@@ -63,8 +60,11 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == "store-token-reference":
         return "Save your API token (owner-only)"
     if action == "machine-github-connection":
-        return (onboard_github_copy.MACHINE_GITHUB_REVIEW if target == "connect"
-                else onboard_github_copy.MACHINE_GITHUB_SKIP_REVIEW)
+        return (
+            onboard_github_copy.MACHINE_GITHUB_REVIEW
+            if target == "connect"
+            else onboard_github_copy.MACHINE_GITHUB_SKIP_REVIEW
+        )
     if action == hosting_posture.HOSTING_POSTURE_ACTION:
         return _HOSTING_POSTURE_LABELS.get(
             target, _HOSTING_POSTURE_LABELS[hosting_posture.POSTURE_UNDECIDED]
@@ -114,8 +114,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Point origin at your fork and track the source as upstream"
     if action == REMOVE_LAYER_ACTION:
         return (
-            "Remove the Yoke files this repository already carries, before "
-            "installing"
+            "Remove the Yoke files this repository already carries, before installing"
         )
     if action == "project-install-scaffold":
         return "Install the Yoke project scaffold (.yoke/)"
@@ -157,10 +156,12 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         if target == "keep-existing-remote":
             return "Keep this folder's existing GitHub remote"
         if target == "source-dev":
-            return "Use Yoke's GitHub \"origin\" remote from the clone"
-        return (onboard_github_copy.PROJECT_GITHUB_SKIP_REVIEW
-                if target in ("skip", "")
-                else onboard_github_copy.PROJECT_GITHUB_REVIEW)
+            return 'Use Yoke\'s GitHub "origin" remote from the clone'
+        return (
+            onboard_github_copy.PROJECT_GITHUB_SKIP_REVIEW
+            if target in ("skip", "")
+            else onboard_github_copy.PROJECT_GITHUB_REVIEW
+        )
     humanized = action.replace("-", " ").replace("_", " ").strip().capitalize()
     return f"{humanized}: {target}" if target else humanized
 

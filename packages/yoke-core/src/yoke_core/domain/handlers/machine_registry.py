@@ -132,8 +132,10 @@ def _project(document: Any, path: str) -> Any:
 def _assigned(document: Dict[str, Any], path: str, value: Any) -> Dict[str, Any]:
     """Return the document with one dotted leaf replaced."""
     segments = path.split(".")
-    updated = {key: dict(inner) if isinstance(inner, dict) else inner
-               for key, inner in document.items()}
+    updated = {
+        key: dict(inner) if isinstance(inner, dict) else inner
+        for key, inner in document.items()
+    }
     cursor: Any = updated
     for segment in segments[:-1]:
         if not isinstance(cursor, dict) or segment not in cursor:

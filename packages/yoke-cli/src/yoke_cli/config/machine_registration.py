@@ -82,4 +82,9 @@ def error_text(error: Any) -> str:
     return "machine registration was refused"
 
 
-__all__ = ["REGISTER_ACTION", "REGISTER_TIMEOUT_S", "error_text", "register_this_machine"]
+__all__ = [
+    "REGISTER_ACTION",
+    "REGISTER_TIMEOUT_S",
+    "error_text",
+    "register_this_machine",
+]
