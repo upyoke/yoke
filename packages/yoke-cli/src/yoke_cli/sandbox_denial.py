@@ -17,7 +17,6 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable, List, Optional, Sequence
 
-from yoke_contracts.harness_family_identity import nearest_harness_family
 from yoke_contracts.harness_unattended_posture import sandbox_recovery
 
 # Substrings an OS-level refusal carries once it surfaces as a connection or
@@ -38,7 +37,7 @@ def diagnose(exc: BaseException, argv: Sequence[str]) -> Optional[str]:
         detail = str(exc)
         if not any(marker in detail.lower() for marker in DENIAL_MARKERS):
             return None
-        recovery = sandbox_recovery(nearest_harness_family())
+        recovery = sandbox_recovery()
         if not recovery:
             return None
         return f"yoke: {_operation(argv)} was refused: {detail.strip()}\n{recovery}"

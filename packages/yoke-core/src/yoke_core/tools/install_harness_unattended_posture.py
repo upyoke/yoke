@@ -43,12 +43,17 @@ def configure_harness_unattended_posture(
 
     out = stream if stream is not None else sys.stdout
     actions: List[str] = []
+    # Claude's module prints its own multi-line notice (relaunch instructions
+    # the other two have no equivalent of), so it reports and this adds the
+    # one-line summary; the other two report only, and are printed here.
     if configure_claude_app_bypass_permissions(stream=out):
         actions.append("claude-code: enabled bypass permissions in Claude.app")
-    actions.extend(
-        configure_codex_unattended_posture(checkout=checkout, stream=out)
-    )
-    actions.extend(configure_cursor_unattended_posture(stream=out))
+    reported = list(
+        configure_codex_unattended_posture(checkout=checkout)
+    ) + list(configure_cursor_unattended_posture())
+    for line in reported:
+        out.write(f"{line}\n")
+    actions.extend(reported)
     if not actions:
         out.write(
             "Harness approval posture: no change needed "

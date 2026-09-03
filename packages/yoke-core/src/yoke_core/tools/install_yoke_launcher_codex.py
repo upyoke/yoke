@@ -2,7 +2,8 @@
 
 The TOML surgery lives in
 :mod:`yoke_core.tools.install_yoke_launcher_codex_config`; this module is the
-IO and the reporting around it. Codex reads no project-local config, so the
+IO around it. It reports and never prints — the one pass that drives all
+three harnesses owns the output, so no line can be reported twice. Codex reads no project-local config, so the
 machine file is the only place its posture can live — including the
 directory-trust entry for the checkout being installed, without which Codex
 asks about the folder itself before it asks about anything in it.
@@ -11,7 +12,6 @@ asks about the folder itself before it asks about anything in it.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -28,7 +28,6 @@ def configure_codex_unattended_posture(
     *,
     checkout: Optional[Path] = None,
     config_path: Optional[Path] = None,
-    stream=None,
 ) -> List[str]:
     """Set Codex's approval, sandbox, and trust keys; return what it reports.
 
@@ -36,20 +35,17 @@ def configure_codex_unattended_posture(
     unattended.
     """
     target = config_path if config_path is not None else codex_config_path()
-    out = stream if stream is not None else sys.stdout
     text = read_config_text(target)
     if text is None:
         return []
     try:
         updated, record = plan(text, str(checkout) if checkout else None)
     except CodexConfigUnreadable as exc:
-        line = (
+        return [
             f"codex: {target} is not valid TOML ({exc}); Codex reads no "
             "posture from it and will keep asking. Repair the file, then "
             "rerun the installer."
-        )
-        out.write(f"{line}\n")
-        return [line]
+        ]
     actions: List[str] = []
     if changed(record):
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -58,9 +54,7 @@ def configure_codex_unattended_posture(
             tmp.write_text(updated, encoding="utf-8")
             os.replace(str(tmp), str(target))
         except OSError as exc:
-            line = f"codex: {target} could not be updated ({exc})"
-            out.write(f"{line}\n")
-            return [line]
+            return [f"codex: {target} could not be updated ({exc})"]
         granted = list(record["set_keys"])
         if record["trusted_checkout"]:
             granted.append(f"trusted {record['trusted_checkout']}")
@@ -72,8 +66,6 @@ def configure_codex_unattended_posture(
             f"codex: left your own setting in place — {conflict}; "
             "Codex will keep asking until you change it"
         )
-    for line in actions:
-        out.write(f"{line}\n")
     return actions
 
 

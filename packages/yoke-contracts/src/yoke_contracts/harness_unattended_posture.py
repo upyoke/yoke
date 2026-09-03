@@ -37,7 +37,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple
 
@@ -83,25 +82,6 @@ CLAUDE_APP_CONFIG_PATH = (
     "~/Library/Application Support/Claude/claude_desktop_config.json"
 )
 CLAUDE_BYPASS_KEY = "bypassPermissionsModeEnabled"
-
-
-@dataclass(frozen=True)
-class PostureFinding:
-    """One harness's standing posture, as a reader can report it."""
-
-    harness_id: str
-    config_path: str
-    #: ``None`` when the harness is not set up on this machine at all.
-    present: bool
-    unattended: bool
-    problems: Tuple[str, ...] = ()
-
-    def summary(self) -> str:
-        if not self.present:
-            return f"{self.harness_id}: not set up on this machine"
-        if self.unattended:
-            return f"{self.harness_id}: unattended ({self.config_path})"
-        return f"{self.harness_id}: prompts — {'; '.join(self.problems)}"
 
 
 def codex_config_path() -> Path:
@@ -214,6 +194,11 @@ def posture_state(harness_id: str, path: Optional[Path] = None) -> str:
     )
 
 
+#: Harnesses that run commands inside an OS sandbox, where a refused socket
+#: or write is the sandbox and not the system. Claude is deliberately absent:
+#: its gate is an approval prompt, so its commands run unsandboxed either way.
+OS_SANDBOXING_HARNESSES: Tuple[str, ...] = (CODEX_FAMILY, CURSOR_FAMILY)
+
 #: One recovery line, shared by every surface that reports a prompting harness.
 POSTURE_RECOVERY = (
     "Repair: `python3 -m yoke_core.tools.install_yoke_launcher --repair` "
@@ -235,21 +220,52 @@ def posture_problems(harness_id: str, config: Mapping[str, Any]) -> Tuple[str, .
         raise ValueError(f"unknown harness id: {harness_id!r}") from exc
 
 
-def sandbox_recovery(harness_id: Optional[str] = None) -> Optional[str]:
-    """Recovery for a command a harness sandbox refused, or ``None``.
+def running_harness_family() -> Optional[str]:
+    """Family of the harness running this process, or ``None``.
 
-    ``None`` covers both "not running under a harness" and "under one whose
-    posture Yoke does not manage", so a caller can append this without first
-    having to know which harness it is.
+    The process walk answers first and is the trustworthy channel, but it
+    reads the process table — which is one of the things a sandbox denies,
+    exactly when this question is being asked. So the session env vars are
+    the fallback, and only when a single family's vars are present: every
+    harness exports its own into whatever it starts, so a harness opened
+    from inside another one's shell carries both, and picking either would
+    name the launcher as often as the launcher's child. Ambiguous evidence
+    yields ``None`` — a missing hint costs nothing, while a hint naming the
+    wrong harness sends someone to repair a config that was never involved.
+    """
+    from yoke_contracts.harness_family_identity import (
+        family_env_session_id,
+        nearest_harness_family,
+    )
+
+    try:
+        family = nearest_harness_family()
+        if family:
+            return family
+        stamped = [
+            candidate
+            for candidate in CANONICAL_HARNESS_IDS
+            if family_env_session_id(candidate)
+        ]
+        return stamped[0] if len(stamped) == 1 else None
+    except Exception:  # noqa: BLE001 — identity must never raise here
+        return None
+
+
+def sandbox_recovery(harness_id: Optional[str] = None) -> Optional[str]:
+    """Recovery for a command a harness *sandbox* refused, or ``None``.
+
+    Narrower than the posture as a whole: Claude's prompting is an approval
+    gate, not an OS sandbox, so a refused socket in a Claude session is an
+    ordinary system problem and saying otherwise would send someone to
+    repair a setting that was never involved. ``None`` therefore covers
+    "not under a harness", "under Claude", and "under one Yoke does not
+    manage" alike, so a caller can append this without first having to know
+    which harness it is.
     """
     if harness_id is None:
-        from yoke_contracts.harness_family_identity import nearest_harness_family
-
-        try:
-            harness_id = nearest_harness_family()
-        except Exception:  # noqa: BLE001 — identity must never raise here
-            return None
-    if str(harness_id or "").strip() not in CANONICAL_HARNESS_IDS:
+        harness_id = running_harness_family()
+    if str(harness_id or "").strip() not in OS_SANDBOXING_HARNESSES:
         return None
     return (
         f"A {harness_id} session runs commands under its own approval and "
@@ -283,11 +299,11 @@ __all__ = [
     "CURSOR_SANDBOX_CONTAINER",
     "CURSOR_SANDBOX_MODE",
     "CURSOR_SANDBOX_MODE_KEY",
+    "OS_SANDBOXING_HARNESSES",
     "POSTURE_ABSENT",
     "POSTURE_PROMPTS",
     "POSTURE_RECOVERY",
     "POSTURE_UNATTENDED",
-    "PostureFinding",
     "claude_config_path",
     "claude_posture_problems",
     "managed_config_paths",
@@ -299,5 +315,6 @@ __all__ = [
     "posture_problems",
     "posture_state",
     "read_posture_config",
+    "running_harness_family",
     "sandbox_recovery",
 ]

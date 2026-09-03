@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -72,7 +71,6 @@ def plan(config: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 def configure_cursor_unattended_posture(
     *,
     config_path: Optional[Path] = None,
-    stream=None,
 ) -> List[str]:
     """Set Cursor's approval and sandbox keys; return what it reports.
 
@@ -80,7 +78,6 @@ def configure_cursor_unattended_posture(
     unattended.
     """
     target = config_path if config_path is not None else cursor_config_path()
-    out = stream if stream is not None else sys.stdout
     config = _load(target)
     if config is None:
         return []
@@ -92,7 +89,6 @@ def configure_cursor_unattended_posture(
             tmp.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8")
             os.replace(str(tmp), str(target))
         except OSError as exc:
-            out.write(f"Could not write Cursor config at {target}: {exc}\n")
             return [f"cursor: {target} could not be updated ({exc})"]
         actions.append(
             f"cursor: enabled unattended mode in {target} "
@@ -103,8 +99,6 @@ def configure_cursor_unattended_posture(
             f"cursor: left your own setting in place — {conflict}; "
             "Cursor will keep asking until you change it"
         )
-    for line in actions:
-        out.write(f"{line}\n")
     return actions
 
 

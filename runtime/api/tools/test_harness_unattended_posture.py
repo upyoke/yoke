@@ -42,11 +42,14 @@ from yoke_core.tools.install_yoke_launcher_cursor import (
 )
 
 CHECKOUT = "/repos/example"
+UNATTENDED_CODEX_TEXT = (
+    'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
+)
 
 
 def _codex_home(tmp_path: Path, text: str = "") -> Path:
     home = tmp_path / ".codex"
-    home.mkdir()
+    home.mkdir(parents=True)
     target = home / "config.toml"
     if text:
         target.write_text(text, encoding="utf-8")
@@ -108,37 +111,54 @@ def test_codex_plan_refuses_a_config_it_cannot_parse():
 
 def test_codex_pass_skips_a_machine_with_no_codex(tmp_path: Path):
     absent = tmp_path / "nothing" / "config.toml"
-    assert configure_codex_unattended_posture(
-        config_path=absent, stream=io.StringIO()
-    ) == []
+    assert configure_codex_unattended_posture(config_path=absent) == []
 
 
 def test_codex_pass_writes_and_names_what_it_granted(tmp_path: Path):
     target = _codex_home(tmp_path)
-    stream = io.StringIO()
     actions = configure_codex_unattended_posture(
-        checkout=Path(CHECKOUT), config_path=target, stream=stream
+        checkout=Path(CHECKOUT), config_path=target
     )
     assert len(actions) == 1
     assert "enabled unattended mode" in actions[0]
     assert codex_posture_problems(parse_config(target.read_text())) == ()
-    assert actions[0] in stream.getvalue()
+
+
+def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
+    """The writers report and the pass prints, so nothing is double-reported."""
+    import yoke_core.tools.install_yoke_launcher_claude as claude_module
+    import yoke_core.tools.install_yoke_launcher_codex as codex_module
+    from yoke_core.tools import install_harness_unattended_posture as pass_module
+    import yoke_core.tools.install_yoke_launcher_cursor as cursor_module
+
+    monkeypatch.setattr(
+        codex_module, "codex_config_path", lambda: _codex_home(tmp_path)
+    )
+    monkeypatch.setattr(
+        cursor_module, "cursor_config_path", lambda: tmp_path / "gone" / "x.json"
+    )
+    monkeypatch.setattr(
+        claude_module, "configure_claude_app_bypass_permissions",
+        lambda **_kwargs: False,
+    )
+    stream = io.StringIO()
+    actions = pass_module.configure_harness_unattended_posture(
+        checkout=Path(CHECKOUT), stream=stream
+    )
+    assert len(actions) == 1
+    assert stream.getvalue().count(actions[0]) == 1
 
 
 def test_codex_pass_reports_a_conflict_without_writing(tmp_path: Path):
     target = _codex_home(tmp_path, 'approval_policy = "untrusted"\n')
-    actions = configure_codex_unattended_posture(
-        config_path=target, stream=io.StringIO()
-    )
+    actions = configure_codex_unattended_posture(config_path=target)
     assert any("left your own setting in place" in line for line in actions)
     assert parse_config(target.read_text())[CODEX_APPROVAL_POLICY_KEY] == "untrusted"
 
 
 def test_cursor_pass_sets_both_keys_and_keeps_the_rest(tmp_path: Path):
     target = _cursor_home(tmp_path, {"model": {"modelId": "grok"}, "hints": True})
-    actions = configure_cursor_unattended_posture(
-        config_path=target, stream=io.StringIO()
-    )
+    actions = configure_cursor_unattended_posture(config_path=target)
     payload = json.loads(target.read_text())
     assert payload[CURSOR_APPROVAL_MODE_KEY] == CURSOR_APPROVAL_MODE
     assert payload[CURSOR_SANDBOX_CONTAINER][CURSOR_SANDBOX_MODE_KEY] == (
@@ -158,9 +178,7 @@ def test_cursor_pass_never_overwrites_an_operator_choice(tmp_path: Path):
             CURSOR_SANDBOX_CONTAINER: {CURSOR_SANDBOX_MODE_KEY: "enabled"},
         },
     )
-    actions = configure_cursor_unattended_posture(
-        config_path=target, stream=io.StringIO()
-    )
+    actions = configure_cursor_unattended_posture(config_path=target)
     payload = json.loads(target.read_text())
     assert payload[CURSOR_APPROVAL_MODE_KEY] == "allowlist"
     assert len(actions) == 2
@@ -169,9 +187,7 @@ def test_cursor_pass_never_overwrites_an_operator_choice(tmp_path: Path):
 
 def test_cursor_pass_skips_a_machine_with_no_cursor(tmp_path: Path):
     absent = tmp_path / "nothing" / "cli-config.json"
-    assert configure_cursor_unattended_posture(
-        config_path=absent, stream=io.StringIO()
-    ) == []
+    assert configure_cursor_unattended_posture(config_path=absent) == []
 
 
 def test_posture_readers_agree_with_the_dispatcher():
@@ -192,3 +208,61 @@ def test_claude_reader_names_a_prompting_preference():
     problems = claude_posture_problems({"preferences": {}})
     assert len(problems) == 1
     assert "bypassPermissionsModeEnabled" in problems[0]
+
+
+def test_running_family_prefers_the_process_walk(monkeypatch) -> None:
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_unattended_posture as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: "codex")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "inherited")
+    assert posture.running_harness_family() == "codex"
+
+
+def test_claude_gets_no_sandbox_recovery(monkeypatch) -> None:
+    """Claude's gate is an approval prompt; a refused socket is not its doing."""
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_unattended_posture as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: "claude-code")
+    assert posture.running_harness_family() == "claude-code"
+    assert posture.sandbox_recovery() is None
+
+
+def test_running_family_falls_back_to_one_stamped_harness(monkeypatch) -> None:
+    """A sandbox denies the process table, so the env stamp is what is left."""
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_unattended_posture as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: None)
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    monkeypatch.setenv("CODEX_SESSION_ID", "a-codex-session")
+    assert posture.running_harness_family() == "codex"
+    assert "codex session" in (posture.sandbox_recovery() or "")
+
+
+def test_running_family_refuses_to_guess_between_two_stamps(monkeypatch) -> None:
+    """A harness opened inside another's shell carries both harnesses' vars."""
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_unattended_posture as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: None)
+    monkeypatch.setenv("CODEX_SESSION_ID", "a-codex-session")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "a-claude-session")
+    assert posture.running_harness_family() is None
+    assert posture.sandbox_recovery() is None
+
+
+def test_posture_state_reports_each_outcome(tmp_path: Path) -> None:
+    configured = _codex_home(tmp_path / "yes", UNATTENDED_CODEX_TEXT)
+    prompting = _codex_home(tmp_path / "no", 'approval_policy = "on-request"\n')
+    from yoke_contracts.harness_unattended_posture import (
+        POSTURE_ABSENT,
+        POSTURE_PROMPTS,
+        POSTURE_UNATTENDED,
+        posture_state,
+    )
+
+    assert posture_state("codex", configured) == POSTURE_UNATTENDED
+    assert posture_state("codex", prompting) == POSTURE_PROMPTS
+    assert posture_state("codex", tmp_path / "gone" / "config.toml") == POSTURE_ABSENT

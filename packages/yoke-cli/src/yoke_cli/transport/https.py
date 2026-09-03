@@ -25,8 +25,6 @@ from yoke_cli.transport.https_retry_policy import (
     CONNECTION_ATTEMPTS,
     RESPONSE_DEADLINE_ATTEMPTS,
     connection_backoff_seconds,
-    connection_refusal_is_conclusive,
-    is_sandbox_denial,
     http_status_is_transient,
     should_retry_connection,
     write_retry_notice,
@@ -335,8 +333,7 @@ def _refuse(
         connection.api_url,
         detail,
         attempts=attempts,
-        conclusive=connection_refusal_is_conclusive(connection.api_url, error),
-        sandbox_denied=is_sandbox_denial(error),
+        error=error,
         sensitive_values=sensitive_values,
     )
 

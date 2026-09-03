@@ -15,6 +15,10 @@ from typing import Optional
 from yoke_cli.api_urls import HEALTH_PATH, join_api_url
 from yoke_cli.transport import relay_telemetry
 from yoke_cli.transport.https_response_policy import redact_text
+from yoke_cli.transport.https_retry_policy import (
+    connection_refusal_is_conclusive,
+    is_sandbox_denial,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -86,19 +90,23 @@ def transport_error_response(
     detail: str,
     *,
     attempts: Optional[int] = None,
-    conclusive: bool = False,
-    sandbox_denied: bool = False,
+    error: BaseException | None = None,
     sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
-    """Build the typed refusal, naming attempts when more than one was made."""
+    """Build the typed refusal, naming attempts when more than one was made.
+
+    What the failure *means* is decided here rather than by the caller, so
+    the hint and the retry decision cannot end up reading the same error two
+    different ways.
+    """
     health_url = join_api_url(api_url, HEALTH_PATH)
     message = detail
     if attempts is not None and attempts > 1:
         message = f"{detail} after {attempts} attempts"
-    if sandbox_denied:
+    if is_sandbox_denial(error):
         recovery = sandbox_recovery()
         hint = f"{_SANDBOX_HINT} {recovery}" if recovery else _SANDBOX_HINT
-    elif conclusive:
+    elif connection_refusal_is_conclusive(api_url, error):
         hint = _CONCLUSIVE_HINT
     else:
         hint = _unreachable_hint() if attempts is not None else _MALFORMED_HINT

@@ -45,7 +45,7 @@ def _paths(tmp_path: Path, monkeypatch, *, codex=None, cursor=None, claude=None)
     return resolved
 
 
-def _run() -> tuple:
+def _run():
     records = RecordCollector()
     hc_harness_unattended_posture(None, DoctorArgs(), records)
     assert len(records.results) == 1
@@ -53,13 +53,11 @@ def _run() -> tuple:
 
 
 def _status(result) -> str:
-    return next(
-        value for value in result if value in ("PASS", "FAIL", "WARN", "SKIP")
-    )
+    return result.result
 
 
 def _detail(result) -> str:
-    return " ".join(str(value) for value in result)
+    return f"{result.check_id} {result.check_name} {result.detail}"
 
 
 def test_no_harness_on_the_machine_skips(tmp_path: Path, monkeypatch) -> None:
