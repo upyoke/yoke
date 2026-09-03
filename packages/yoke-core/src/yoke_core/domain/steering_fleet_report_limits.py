@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from typing import Any
+from typing import Any, Mapping
 
 from yoke_contracts.session_control.plan_limits import (
     ALL_MODELS_SCOPE,
@@ -74,12 +74,20 @@ def _cell(row: Any, key: str, index: int) -> Any:
 
 
 def load_plan_limits(
-    conn: Any, *, project_id: int, now: str
+    conn: Any,
+    *,
+    project_id: int,
+    now: str,
+    registered_names: Mapping[str, str] | None = None,
 ) -> tuple[MachinePlanLimit, ...]:
-    """Connected relays' cached readings for machines serving this project."""
+    """Connected relays' cached readings for machines serving this project.
+
+    ``registered_names`` lets a caller that already read the registry pass it
+    in rather than paying for a second scan of the same rows.
+    """
     from yoke_core.domain.machine_registry import display_name, machine_names
 
-    names = machine_names(conn)
+    names = machine_names(conn) if registered_names is None else registered_names
     marker = _p(conn)
     rows = conn.execute(
         "SELECT machine_id, hostname, project_checkouts, surface_plan_limits "

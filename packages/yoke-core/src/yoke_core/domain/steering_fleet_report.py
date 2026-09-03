@@ -241,6 +241,7 @@ def compose_report(
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     alive_idle = split.alive_idle
+    names = registered_machine_names(conn)
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
@@ -271,7 +272,9 @@ def compose_report(
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
-        plan_limits=load_plan_limits(conn, project_id=project_id, now=now),
+        plan_limits=load_plan_limits(
+            conn, project_id=project_id, now=now, registered_names=names
+        ),
         machine_capacity=machine_capacities(conn, project_id=project_id, now=now),
         landings=landing_readbacks(
             conn,
@@ -281,7 +284,7 @@ def compose_report(
                 call.item_id for call in split.in_flight if "merge" in call.command
             ),
         ),
-        machine_names=tuple(sorted(registered_machine_names(conn).items())),
+        machine_names=tuple(sorted(names.items())),
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),
