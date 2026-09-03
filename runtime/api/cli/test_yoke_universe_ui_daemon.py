@@ -212,6 +212,36 @@ class TestLaunchdSupervision:
         assert installs[0]["env"] == "local"
         assert installs[0]["log_path"] == state.log_path()
 
+    def test_a_refused_launchd_domain_falls_back_to_a_detached_child(
+        self, monkeypatch, machine_home,
+    ):
+        # An SSH login has no reachable GUI launchd domain; the view must
+        # still outlive the terminal, and say which supervisor it got.
+        port = _free_port()
+        monkeypatch.setattr(launchd, "supported", lambda: True)
+        monkeypatch.setattr(launchd, "agent_installed", lambda: False)
+
+        def refuse_bootstrap(**_kwargs):
+            raise launchd.UiLaunchdError("Bootstrap failed: 5: Input/output error")
+
+        monkeypatch.setattr(launchd, "install_agent", refuse_bootstrap)
+        monkeypatch.setattr(
+            launchd, "child_command",
+            lambda *, host, port, env: [
+                sys.executable, "-c", CHILD_SCRIPT, host, str(port), env,
+            ],
+        )
+
+        report = daemon.up(host="127.0.0.1", port=port, env="local")
+        try:
+            assert report["started"] is True
+            assert report["serving"] is True
+            assert report["supervised_by_launchd"] is False
+            assert "Input/output error" in report["supervisor_note"]
+            assert "not a reboot" in report["supervisor_note"]
+        finally:
+            daemon.down()
+
     def test_down_removes_the_agent_before_stopping(
         self, monkeypatch, machine_home,
     ):

@@ -147,6 +147,9 @@ def ui_up(args: List[str]) -> int:
         ), flush=True)
     else:
         _print_status(report)
+        note = str(report.get("supervisor_note") or "")
+        if note:
+            print(note, flush=True)
     if opened:
         webbrowser.open(url)
     return 0

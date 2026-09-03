@@ -25,6 +25,7 @@ import sys
 from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_cli.config import machine_config
+from yoke_cli.config.local_universe_setup import ENGINE_MISSING_MESSAGE
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 
 #: launchd job name for the machine's UI view. One per machine home; the
@@ -34,12 +35,6 @@ UI_LAUNCHD_LABEL = "com.upyoke.ui"
 #: The view is custody, not scheduling: keep the one server alive across
 #: login and restart it if it exits.
 UI_KEEP_ALIVE = True
-
-_ENGINE_MISSING_MESSAGE = (
-    "the yoke-core engine package is not importable on this machine; "
-    "reinstall Yoke (the engine ships in every product install)"
-)
-
 
 class UiLaunchdError(RuntimeError):
     """The UI launch agent could not be registered or removed."""
@@ -54,7 +49,7 @@ def _boundary():
     try:
         return importlib.import_module("yoke_core.tools.launchctl_boundary")
     except ModuleNotFoundError as exc:
-        raise UiLaunchdError(_ENGINE_MISSING_MESSAGE) from exc
+        raise UiLaunchdError(ENGINE_MISSING_MESSAGE) from exc
 
 
 def _shim_path(environ: Optional[Mapping[str, str]] = None) -> Path:
@@ -63,7 +58,7 @@ def _shim_path(environ: Optional[Mapping[str, str]] = None) -> Path:
             "yoke_core.tools.install_yoke_launcher_sweep",
         )
     except ModuleNotFoundError as exc:
-        raise UiLaunchdError(_ENGINE_MISSING_MESSAGE) from exc
+        raise UiLaunchdError(ENGINE_MISSING_MESSAGE) from exc
     return Path(sweep.canonical_shim_path(
         os.environ if environ is None else environ,
     ))
@@ -82,7 +77,9 @@ def agent_installed() -> bool:
         return False
     try:
         return plist_path().is_file()
-    except (UiLaunchdError, OSError):
+    except (RuntimeError, OSError):
+        # Reporting on a view must not crash on a launchd boundary
+        # refusal; an unreadable agents directory means no agent here.
         return False
 
 

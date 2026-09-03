@@ -19,18 +19,13 @@ import importlib
 from typing import Optional, Tuple
 
 from yoke_cli.config import machine_config
+from yoke_cli.config.local_universe_setup import ENGINE_MISSING_MESSAGE
 from yoke_contracts.machine_config.schema import (
     MachineConfigContractError,
     POSTGRES_TRANSPORTS,
     TRANSPORT_HTTPS,
     connection_is_prod,
 )
-
-ENGINE_MISSING_MESSAGE = (
-    "the yoke-core engine package is not importable on this machine; "
-    "reinstall Yoke (the engine ships in every product install)"
-)
-
 
 class UniverseUiError(RuntimeError):
     """The UI server could not be started for the active connection."""
@@ -113,7 +108,6 @@ def servable_connection() -> Tuple[str, Optional[str]]:
 
 
 __all__ = [
-    "ENGINE_MISSING_MESSAGE",
     "UniverseUiError",
     "converge_universe_schema",
     "servable_connection",

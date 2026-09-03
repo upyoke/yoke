@@ -226,7 +226,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "local demo seeding writes demo rows through the embedded engine",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
+        "packages/yoke-cli/src/yoke_cli/commands/universe_ui_connection.py",
         "yoke_core.api.server_entrypoint",
     ): (
         "local_engine_activation",
@@ -234,7 +234,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "before serving",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/universe_ui.py",
+        "packages/yoke-cli/src/yoke_cli/commands/universe_ui_connection.py",
         "yoke_core.ui.server",
     ): (
         "local_engine_activation",

@@ -19,12 +19,14 @@ in :mod:`yoke_cli.config.universe_ui_launchd`.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import signal
 import subprocess
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from yoke_cli.config import universe_ui_launchd as launchd
+from yoke_cli.config.universe_ui_launchd import UiLaunchdError
 from yoke_cli.config.universe_ui_daemon_state import (
     UiDaemonError,
     UiDaemonRecord,
@@ -86,11 +88,7 @@ def up(*, host: str, port: int, env: str) -> Dict[str, Any]:
 
     stable_session_token()
     log = log_path()
-    supervised = launchd.supported()
-    if supervised:
-        launchd.install_agent(host=host, port=port, env=env, log_path=log)
-    else:
-        _spawn_detached(host=host, port=port, env=env)
+    supervised, note = _start_supervisor(host=host, port=port, env=env, log=log)
 
     if _await_ready(host=host, port=port) is None:
         _tear_down(supervised=supervised)
@@ -100,7 +98,10 @@ def up(*, host: str, port: int, env: str) -> Dict[str, Any]:
             f"{READY_TIMEOUT_S:.0f}s, so nothing is left running. Its log "
             f"is {log}" + (f"; last lines:\n{tail}" if tail else "")
         )
-    return {**status(), "started": True}
+    report = {**status(), "started": True}
+    if note:
+        report["supervisor_note"] = note
+    return report
 
 
 def down() -> Dict[str, Any]:
@@ -139,6 +140,32 @@ def retract_serving_identity() -> None:
     record = read_record()
     if record is not None and record.pid == os.getpid():
         clear_record()
+
+
+def _start_supervisor(
+    *, host: str, port: int, env: str, log: Path,
+) -> Tuple[bool, str]:
+    """Bring the serving child up, and report who is supervising it.
+
+    The launch agent is preferred on macOS because it is what survives a
+    reboot, but it is not a requirement: a session with no reachable GUI
+    launchd domain — an SSH login, most commonly — still gets a view that
+    outlives its terminal, and is told which supervisor it got.
+    """
+    if launchd.supported():
+        try:
+            launchd.install_agent(host=host, port=port, env=env, log_path=log)
+        except UiLaunchdError as exc:
+            _spawn_detached(host=host, port=port, env=env)
+            return False, (
+                f"launchd would not supervise this view ({exc}), so it is "
+                "running as a detached process instead: it survives this "
+                "terminal, but not a reboot. Run `yoke ui up` again from a "
+                "logged-in desktop session to register the launch agent."
+            )
+        return True, ""
+    _spawn_detached(host=host, port=port, env=env)
+    return False, ""
 
 
 def _stopped_report() -> Dict[str, Any]:

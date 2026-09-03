@@ -10,6 +10,23 @@ from __future__ import annotations
 
 CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     (
+        "packages/yoke-cli/src/yoke_cli/config/universe_ui_launchd.py",
+        "yoke_core.tools.launchctl_boundary",
+    ): (
+        "local_engine_activation",
+        "the local-universe UI daemon registers its launch agent through "
+        "the engine's one launchd boundary rather than calling launchctl "
+        "itself",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/universe_ui_launchd.py",
+        "yoke_core.tools.install_yoke_launcher_sweep",
+    ): (
+        "local_engine_activation",
+        "the launch agent runs this machine's canonical yoke shim, which "
+        "the engine's launcher install resolves",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/engine_upgrade_convergence.py",
         "yoke_core.domain.local_universe_convergence",
     ): (
