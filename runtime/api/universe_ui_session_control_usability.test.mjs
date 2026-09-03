@@ -70,7 +70,7 @@ test("message failures give plain recovery without leaking routing internals", (
 test("message history leads with readable content and accessible receipts", async (t) => {
   const fullBody = "Please verify the production delivery receipt.\n"
     + "Show this entire peer-authored message without treating <button>Do not run</button> as markup.";
-  const { root, mounted } = await mountAt(t, "#/sessions/messages?project=1", {
+  const { root, mounted } = await mountAt(t, "#/messages?project=1", {
     "session_control.message.list": () => ok({
       messages: [{
         message_id: "message-opaque-id",
@@ -162,7 +162,7 @@ test("launch and relay views explain unavailable machine capability", async (t) 
     "session_control.relay.list": () => ok({ relays: [], count: 0 }),
     "sessions.list": () => ok({ rows: [] }),
   };
-  const launch = await mountAt(t, "#/sessions/launches?project=1", handlers);
+  const launch = await mountAt(t, "#/machines?project=1", handlers);
   button(launch.root, "Create session").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(button(launch.root, "Preview launch").disabled, true);
@@ -174,7 +174,7 @@ test("launch and relay views explain unavailable machine capability", async (t) 
   ));
   launch.mounted.unmount();
 
-  const relay = await mountAt(t, "#/sessions/relays?project=1", {
+  const relay = await mountAt(t, "#/machines?project=1", {
     "session_control.relay.list": () => ok({
       relays: [{
         relay_id: "relay-1", hostname: "studio", machine_id: "machine-1",
@@ -205,7 +205,7 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
     actor_id: 1, actor_kind: "human", actor_label: "Ben", claims: [],
     messageability: { messageable: true },
   };
-  const { root, mounted } = await mountAt(t, "#/sessions/roster?project=1", {
+  const { root, mounted } = await mountAt(t, "#/sessions?project=1", {
     "sessions.list": (request) => ok({
       rows: request.payload.liveness === "active" ? [row] : [],
     }),
@@ -233,7 +233,7 @@ test("roster State uses accepted liveness values while kill cause stays on the c
     actor_id: 1, actor_kind: "human", actor_label: "Ben", claims: [],
     messageability: { messageable: false },
   };
-  const { root, mounted } = await mountAt(t, "#/sessions/roster?project=1", {
+  const { root, mounted } = await mountAt(t, "#/sessions?project=1", {
     "sessions.list": (request) => ok({
       rows: request.payload.liveness === "ended"
         ? [

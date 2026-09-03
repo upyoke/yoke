@@ -22,9 +22,13 @@ export function renderOverviewView(context, main, scope, options = {}) {
   const masthead = signalMasthead(documentNode);
 
   const strategy = summaryPanel(documentNode, "Strategy", "strategy", scope, "Strategy");
-  const frontier = summaryPanel(documentNode, "Frontier", "frontier", scope, "Frontier");
+  // The frontier panel keeps its place and its content; what changed is where
+  // its "open" link goes. Frontier is no longer a destination — this section
+  // IS what that destination was — so the link opens Items, which is the view
+  // that answers the follow-up question the section raises.
+  const frontier = summaryPanel(documentNode, "Frontier", "items", scope, "Frontier");
   const sessions = summaryPanel(documentNode, "Sessions", "sessions", scope, "Sessions");
-  const delivery = summaryPanel(documentNode, "Delivery", "delivery", scope, "Delivery");
+  const delivery = summaryPanel(documentNode, "Deployments", "deployments", scope, "Delivery");
   const events = summaryPanel(documentNode, "Events", "events", scope, "Events");
   const doctor = summaryPanel(documentNode, "Doctor", "doctor", scope, "Doctor");
   const panels = new Map([

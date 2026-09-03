@@ -83,7 +83,7 @@ async function mountFlows(t, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/delivery/flows";
+  documentNode.defaultView.location.hash = "#/flows";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();

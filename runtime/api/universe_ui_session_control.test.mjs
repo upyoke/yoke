@@ -59,7 +59,7 @@ test("message history directs new composition to the roster", async (t) => {
     "session_control.message.list": () => ok({ messages: [], count: 0 }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/sessions/messages?project=1", client,
+    t, "#/messages?project=1", client,
   );
   assert.equal(button(root, "Compose message"), undefined);
   assert.ok(allNodes(root).some(
@@ -101,7 +101,7 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/sessions/launches?project=1", client,
+    t, "#/machines?project=1", client,
   );
   const timelineText = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(timelineText.includes(
@@ -185,7 +185,7 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
     "session_control.message.cancel": () => ok({ message: {} }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/sessions/messages?project=1", client,
+    t, "#/messages?project=1", client,
   );
   assert.equal(byClass(root, "session-message-card")[0].getAttribute(
     "data-message-state",
@@ -229,7 +229,7 @@ test("relay tab renders public machine facts without native controls", async (t)
     }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/sessions/relays?project=1", client,
+    t, "#/machines?project=1", client,
   );
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("studio"));
@@ -304,7 +304,7 @@ test("roster includes ended sessions with exact message actions", async (t) => {
     }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/sessions/roster?project=1", client,
+    t, "#/sessions?project=1", client,
   );
   const filters = byClass(root, "session-roster-filter");
   const state = filters.find((field) => field.children[0].textContent === "State")

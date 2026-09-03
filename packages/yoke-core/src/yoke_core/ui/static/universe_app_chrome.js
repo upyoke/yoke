@@ -4,6 +4,7 @@ import { appendSlot } from "./mount-options.js";
 import {
   buildUniverseRoute,
   NAV,
+  NAV_GROUPS,
 } from "./universe_navigation.js";
 import { createShellControls } from "./universe_shell_controls.js";
 import { section } from "./universe_views.js";
@@ -186,14 +187,26 @@ export function createWorkbenchChrome({
   shell.appendChild(body);
   shell.appendChild(controls.footer);
 
+  // Grouped, and the heading is drawn only when the group has a destination
+  // left after host-fed filtering — a local universe has no Members or
+  // Billing, and a heading over nothing is a heading that lies.
   const navLinks = new Map();
-  for (const entry of NAV) {
-    if (entry.hostFed && !resolvedSections[entry.id]) continue;
-    const link = el(documentNode, "a", "nav-link");
-    link.appendChild(el(documentNode, "span", "ico", entry.icon));
-    link.appendChild(el(documentNode, "span", "txt", entry.label));
-    navLinks.set(entry.id, link);
-    navEl.appendChild(link);
+  for (const group of NAV_GROUPS) {
+    const entries = NAV.filter((entry) => (
+      entry.group === group.id
+      && !(entry.hostFed && !resolvedSections[entry.id])
+    ));
+    if (!entries.length) continue;
+    if (group.label) {
+      navEl.appendChild(el(documentNode, "div", "nav-group", group.label));
+    }
+    for (const entry of entries) {
+      const link = el(documentNode, "a", "nav-link");
+      link.appendChild(el(documentNode, "span", "ico", entry.icon));
+      link.appendChild(el(documentNode, "span", "txt", entry.label));
+      navLinks.set(entry.id, link);
+      navEl.appendChild(link);
+    }
   }
   appendSlot(navEl, resolvedSlots.navigationEnd, mountedSlotNodes);
 

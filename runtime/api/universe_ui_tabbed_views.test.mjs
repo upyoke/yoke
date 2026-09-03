@@ -92,12 +92,12 @@ test("a view declares its second segment — tabs or drill-in, never both", () =
 });
 
 test("tab routes round-trip; absent and unknown segments resolve to the first tab", () => {
-  assert.deepEqual(parseUniverseRoute("#/delivery/flows?project=3"), {
+  assert.deepEqual(parseUniverseRoute("#/flows?project=3"), {
     view: "delivery", tab: "flows", detail: null, project: "3",
   });
   assert.equal(
     buildUniverseRoute("delivery", "3", "flows"),
-    "#/delivery/flows?project=3",
+    "#/flows?project=3",
   );
   assert.deepEqual(parseUniverseRoute("#/delivery"), {
     view: "delivery", tab: "runs", detail: null, project: null,
@@ -105,13 +105,13 @@ test("tab routes round-trip; absent and unknown segments resolve to the first ta
   assert.equal(parseUniverseRoute("#/delivery/nonsense?project=2").tab, "runs");
   // A tabbed view's segment is a facet, never a drill-in detail — so an
   // unknown segment resolves instead of surviving as a detail.
-  assert.equal(parseUniverseRoute("#/delivery/flows").detail, null);
+  assert.equal(parseUniverseRoute("#/flows").detail, null);
 });
 
 test("a deep-linked Delivery facet stays under the active nav item and keeps scope", async (t) => {
   const client = deliveryClient();
   const { documentNode, root, mounted } = await mountAt(
-    t, "#/delivery/environments?project=1", client,
+    t, "#/environments?project=1", client,
   );
 
   // Delivery stays the active destination; the tab never becomes one.
@@ -134,7 +134,7 @@ test("a deep-linked Delivery facet stays under the active nav item and keeps sco
   assert.equal(activeTabs.length, 1);
   assert.equal(activeTabs[0].textContent, "Environments");
   // Tabs are real links that carry the view's scope.
-  assert.equal(activeTabs[0].href, "#/delivery/environments?project=1");
+  assert.equal(activeTabs[0].href, "#/environments?project=1");
 
   assert.equal(byClass(root, "stub-panel").length, 0);
   assert.equal(byClass(root, "scope-bar").length, 1);
@@ -157,7 +157,7 @@ test("a deep-linked Delivery facet stays under the active nav item and keeps sco
   );
   // The deep link survives untouched.
   assert.equal(
-    documentNode.defaultView.location.hash, "#/delivery/environments?project=1",
+    documentNode.defaultView.location.hash, "#/environments?project=1",
   );
   mounted.unmount();
 });
@@ -165,7 +165,7 @@ test("a deep-linked Delivery facet stays under the active nav item and keeps sco
 test("a tabbed view's page head names the view and holds still across facets", async (t) => {
   const client = deliveryClient();
   const { documentNode, root, mounted } = await mountAt(
-    t, "#/delivery/runs?project=1", client,
+    t, "#/deployments?project=1", client,
   );
 
   const headOf = (node) => {
@@ -191,7 +191,7 @@ test("a tabbed view's page head names the view and holds still across facets", a
 
   // Switching to another live facet re-renders the same head: one concept,
   // one name, whatever the strip below shows.
-  documentNode.defaultView.location.hash = "#/delivery/environments?project=1";
+  documentNode.defaultView.location.hash = "#/environments?project=1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.equal(byClass(root, "stub-panel").length, 0);
@@ -267,7 +267,7 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/delivery/runs?project=1", client);
+  const { root, mounted } = await mountAt(t, "#/deployments?project=1", client);
 
   // The read carries the view's scope in the payload and keeps the proxy's
   // server-side global target default.

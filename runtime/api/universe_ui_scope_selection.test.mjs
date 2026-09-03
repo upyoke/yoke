@@ -234,7 +234,7 @@ test("an explicit QA Activity All route overrides its remembered project scope",
     scopeForEntry(entry, "buzz", projects, selections),
     ["buzz"],
   );
-  const route = parseUniverseRoute("#/qa/activity?project=all");
+  const route = parseUniverseRoute("#/qa-activity?project=all");
   assert.equal(route.tab, "activity");
   assert.equal(route.project, "all");
   assert.equal(

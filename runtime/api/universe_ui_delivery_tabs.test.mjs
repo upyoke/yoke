@@ -105,7 +105,7 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/delivery/runs", client);
+  const { root, mounted } = await mountAt(t, "#/deployments", client);
 
   // "all" is one unfiltered call over the whole universe.
   assert.deepEqual(
@@ -177,7 +177,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   };
   const { root, mounted } = await mountAt(
     t,
-    "#/delivery/runs?project=1",
+    "#/deployments?project=1",
     client,
   );
 

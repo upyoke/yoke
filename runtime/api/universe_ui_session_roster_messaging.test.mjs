@@ -49,7 +49,7 @@ async function mountRoster(t, rows, requests, handlers = {}) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions/roster?project=1";
+  documentNode.defaultView.location.hash = "#/sessions?project=1";
   const root = documentNode.createElement("div");
   const client = {
     async call(request) {

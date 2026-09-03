@@ -89,7 +89,7 @@ test("Evidence view actions expose local and stranded dispositions honestly", as
 
 test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
   const { root, client, mounted } = await mountAt(
-    t, "#/qa/activity?project=1",
+    t, "#/qa-activity?project=1",
   );
 
   assert.equal(byClass(root, "qa-stat").length, 4);
@@ -212,6 +212,6 @@ test("Activity labels every merged row with its owning project", async () => {
   );
   assert.deepEqual(
     byClass(root, "qa-activity-link").map((node) => node.href),
-    ["#/qa/plans/2?project=2", "#/qa/plans/1?project=1"],
+    ["#/qa-plans/2?project=2", "#/qa-plans/1?project=1"],
   );
 });

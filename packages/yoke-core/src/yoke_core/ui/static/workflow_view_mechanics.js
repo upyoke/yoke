@@ -151,7 +151,7 @@ export function renderMechanics(documentNode, workflow, actions = {}) {
     documentNode,
     "Testing",
     testingMechanicSummary(mechanics, workflow),
-    "qa",
+    "qa-plans",
     actions.editTesting
       ? {
         label: `Edit ${workflowName} defaults for each project`,
@@ -177,7 +177,7 @@ export function renderMechanics(documentNode, workflow, actions = {}) {
     documentNode,
     "Delivery",
     deliveryMechanicSummary(mechanics, workflow),
-    "delivery",
+    "deployments",
     actions.editDelivery
       ? {
         label: `Edit ${workflowName} defaults for each project`,

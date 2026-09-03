@@ -93,7 +93,7 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
   // Every section links out to its full screen, carrying the held scope.
   const openLinks = byClass(root, "overview-open").map((link) => link.href);
   assert.deepEqual(openLinks, [
-    "#/strategy?project=1", "#/frontier?project=1", "#/sessions?project=1",
+    "#/strategy?project=1", "#/items?project=1", "#/sessions?project=1",
     "#/delivery?project=1", "#/events?project=1", "#/doctor?project=1",
   ]);
   mounted.unmount();
@@ -235,7 +235,7 @@ test("Strategy and Frontier preserve the prototype anatomy with truthful facts",
   const readyRow = byClass(root, "overview-ready-row")[0];
   assert.equal(readyRow.attributes.get("role"), "link");
   readyRow.dispatchEvent(new Event("click"));
-  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=1");
+  assert.equal(documentNode.defaultView.location.hash, "#/items?project=1");
   assert.deepEqual(
     byClass(root, "overview-command").map((node) => node.textContent),
     ["yoke advance YOK-9", "yoke conduct YOK-8"],

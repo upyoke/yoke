@@ -105,7 +105,7 @@ async function mountAt(t, hash, client) {
 test("Environments joins branch and latest-run reads without inventing policy", async (t) => {
   const client = deliveryClient();
   const { root, mounted } = await mountAt(
-    t, "#/delivery/environments?project=1", client,
+    t, "#/environments?project=1", client,
   );
 
   assert.equal(byClass(root, "stub-panel").length, 0);
@@ -194,7 +194,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/delivery/environments", client,
+    t, "#/environments", client,
   );
 
   assert.deepEqual(
@@ -263,7 +263,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
 test("Databases renders declared models and labels every unserved steering fact", async (t) => {
   const client = deliveryClient();
   const { root, mounted } = await mountAt(
-    t, "#/delivery/databases?project=1", client,
+    t, "#/databases?project=1", client,
   );
 
   assert.deepEqual(
@@ -293,7 +293,7 @@ test("Databases renders declared models and labels every unserved steering fact"
 test("Infrastructure is structurally complete but does not claim provider parity", async (t) => {
   const client = deliveryClient();
   const { root, mounted } = await mountAt(
-    t, "#/delivery/infrastructure?project=1", client,
+    t, "#/infrastructure?project=1", client,
   );
 
   assert.deepEqual(

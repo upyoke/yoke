@@ -19,7 +19,6 @@ import {
 } from "./universe_views_delivery_inventory.js";
 import { renderDoctorView } from "./universe_views_doctor.js";
 import { renderEventsView } from "./universe_views_events.js";
-import { renderFrontierView } from "./universe_views_frontier.js";
 import { renderGithubView } from "./universe_views_github.js";
 import { renderInboxView } from "./universe_views_inbox.js";
 import {
@@ -46,9 +45,8 @@ import {
 } from "./universe_views_qa.js";
 import { renderSessionsView } from "./universe_views_sessions.js";
 import { renderSessionMessagesView } from "./universe_session_messages.js";
-import { renderSessionLaunchesView } from "./universe_session_launches.js";
 import { renderRegisteredSessionDetail } from "./universe_session_detail.js";
-import { renderSessionRelaysView } from "./universe_session_relays.js";
+import { renderMachinesView } from "./universe_views_machines.js";
 import {
   renderStrategyDocDetailView,
   renderStrategyView,
@@ -57,68 +55,60 @@ import { renderWorkflowsView } from "./universe_views_workflows.js";
 
 export { section } from "./universe_view_support.js";
 
+// A view drill-in is handed ONE project id; the facets that used to be tabs
+// were handed the whole scope, because a facet sat under a scoped view. Their
+// renderers still read a scope, so the id becomes the one-project scope it
+// describes rather than every one of them changing shape.
+const fromDrillInProject = (render) => (
+  (context, main, project, detail, navigation) => render(
+    context, main, project === null ? null : [String(project)], detail, navigation,
+  )
+);
+
 // Drill-ins remain children of the view whose row opened them.
 export const DETAIL_RENDERERS = {
   items: renderItemDetailView,
   strategy: renderStrategyDocDetailView,
   capabilities: renderCapabilityDetail,
   ouroboros: renderOuroborosEntryDetailView,
-};
-
-// Tab renderers, keyed view id → tab id. A tab is live exactly when it has a
-// renderer here; a declared tab without one renders the honest stub. A view
-// appears here only when its NAV entry declares tabs — the same second route
-// segment cannot also be a drill-in.
-export const TAB_RENDERERS = {
-  sessions: {
-    roster: renderSessionsView,
-    messages: renderSessionMessagesView,
-    launches: renderSessionLaunchesView,
-    relays: renderSessionRelaysView,
-  },
-  delivery: {
-    runs: renderDeliveryRunsView,
-    environments: renderDeliveryEnvironmentsView,
-    flows: renderDeliveryFlowsView,
-    databases: renderDeliveryDatabasesView,
-    infrastructure: renderDeliveryInfrastructureView,
-  },
-  qa: {
-    methods: renderQaMethods,
-    plans: renderQaPlans,
-    activity: renderQaActivity,
-  },
-};
-
-// Third-segment drill-ins owned by a tab. They remain children of the
-// selected facet and replace that facet's list chrome with their own page
-// heading, exactly like non-tabbed detail views.
-export const TAB_DETAIL_RENDERERS = {
-  sessions: {
-    roster: renderRegisteredSessionDetail,
-  },
-  qa: {
-    methods: renderQaMethodDetail,
-    plans: renderQaPlanDetail,
-  },
+  // Projects and Project settings were a list and a form for one thing:
+  // opening a project row IS opening its settings.
+  projects: renderProjectView,
+  sessions: fromDrillInProject(renderRegisteredSessionDetail),
+  "qa-methods": fromDrillInProject(renderQaMethodDetail),
+  "qa-plans": fromDrillInProject(renderQaPlanDetail),
 };
 
 // A destination is live exactly when it has a renderer here.
+// Every facet that earned a name is a destination. A tab was one facet of a
+// view's single concept; a facet an operator navigates to is a destination,
+// and calling it a tab only hid it one level down.
 export const VIEW_RENDERERS = {
   overview: renderOverviewView,
+  sessions: renderSessionsView,
   inbox: renderInboxView,
-  frontier: renderFrontierView,
-  items: renderItemsView,
+
+  organization: renderOrganizationView,
+  workflows: renderWorkflowsView,
+  projects: renderProjectsView,
+  github: renderGithubView,
+
   strategy: renderStrategyView,
+  items: renderItemsView,
+  deployments: renderDeliveryRunsView,
+  environments: renderDeliveryEnvironmentsView,
+  flows: renderDeliveryFlowsView,
+  databases: renderDeliveryDatabasesView,
+  infrastructure: renderDeliveryInfrastructureView,
+  "qa-methods": renderQaMethods,
+  "qa-plans": renderQaPlans,
+  "qa-activity": renderQaActivity,
   capabilities: renderCapabilitiesView,
+  packs: renderPacksView,
+  architecture: renderArchitectureView,
+  messages: renderSessionMessagesView,
   events: renderEventsView,
   doctor: renderDoctorView,
-  architecture: renderArchitectureView,
   ouroboros: renderOuroborosView,
-  projects: renderProjectsView,
-  project: renderProjectView,
-  packs: renderPacksView,
-  workflows: renderWorkflowsView,
-  github: renderGithubView,
-  organization: renderOrganizationView,
+  machines: renderMachinesView,
 };

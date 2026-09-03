@@ -179,7 +179,7 @@ export function appendActorMessageRow(context, body, message, acknowledge) {
   wrap.setAttribute("data-message-id", String(message.message_id || ""));
   wrap.appendChild(el(documentNode, "span", "inbox-icon", "✉"));
   const main = el(documentNode, "div", "inbox-row-main");
-  const href = "#/sessions/messages";
+  const href = "#/messages";
   const title = el(
     documentNode,
     "a",

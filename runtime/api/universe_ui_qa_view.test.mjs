@@ -89,14 +89,19 @@ test("Pack sources and Test Mac capability relations keep their prototype routes
   );
 });
 
-test("QA defaults to the prototype Methods roster and opens contract detail", async (t) => {
+test("QA methods is its own destination and opens contract detail", async (t) => {
   const { root, client, mounted } = await mountAt(
-    t, "#/qa?project=1",
+    t, "#/qa-methods?project=1",
   );
 
+  // No facet strip: each QA facet is a destination in the sidebar, so the
+  // three of them are nav links rather than tabs under one view.
+  assert.deepEqual(byClass(root, "tab-link"), []);
   assert.deepEqual(
-    byClass(root, "tab-link").map((node) => node.textContent),
-    ["Methods", "Plans", "Activity"],
+    byClass(root, "nav-link")
+      .flatMap((node) => byClass(node, "txt").map((span) => span.textContent))
+      .filter((label) => label.startsWith("QA ")),
+    ["QA methods", "QA plans", "QA activity"],
   );
   assert.equal(byClass(root, "qa-method-card").length, 2);
   assert.deepEqual(
@@ -114,7 +119,7 @@ test("QA defaults to the prototype Methods roster and opens contract detail", as
   const text = allNodes(root).map((node) => node.textContent).join(" ");
   assert.match(
     text,
-    /Test plans prove the work; methods say how; capabilities make it possible/,
+    /The registered contracts each case uses to prove its claim/,
   );
   assert.match(text, /requires nothing — a checkout is enough/);
   assert.deepEqual(
@@ -134,7 +139,7 @@ test("QA defaults to the prototype Methods roster and opens contract detail", as
 
   const methodLink = byClass(root, "qa-method-card")[0];
   assert.equal(methodLink.tagName, "A");
-  assert.equal(methodLink.href, "#/qa/methods/command?project=1");
+  assert.equal(methodLink.href, "#/qa-methods/command?project=1");
   root.ownerDocument.defaultView.location.hash = methodLink.href;
   root.ownerDocument.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
@@ -142,7 +147,7 @@ test("QA defaults to the prototype Methods roster and opens contract detail", as
   assert.equal(byClass(root, "breadcrumb").length, 1);
   assert.deepEqual(
     byClass(root, "breadcrumb")[0].children.map((node) => node.textContent),
-    ["QA", "›", "Methods", "›", "Command"],
+    ["QA methods", "›", "Command"],
   );
   assert.equal(byClass(root, "page-head").length, 1);
   assert.equal(byClass(root, "tab-bar").length, 0);
@@ -160,7 +165,7 @@ test("QA defaults to the prototype Methods roster and opens contract detail", as
 
 test("Plans renders the durable objects and the full case-detail composition", async (t) => {
   const { root, client, mounted } = await mountAt(
-    t, "#/qa/plans?project=1",
+    t, "#/qa-plans?project=1",
   );
 
   assert.equal(byClass(root, "qa-plans-table").length, 1);
@@ -190,7 +195,7 @@ test("Plans renders the durable objects and the full case-detail composition", a
 
   const planLink = byClass(root, "qa-plan-button")[0];
   assert.equal(planLink.tagName, "A");
-  assert.equal(planLink.href, "#/qa/plans/7?project=1");
+  assert.equal(planLink.href, "#/qa-plans/7?project=1");
   root.ownerDocument.defaultView.location.hash = planLink.href;
   root.ownerDocument.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
@@ -198,7 +203,7 @@ test("Plans renders the durable objects and the full case-detail composition", a
   assert.equal(byClass(root, "breadcrumb").length, 1);
   assert.deepEqual(
     byClass(root, "breadcrumb")[0].children.map((node) => node.textContent),
-    ["QA", "›", "Plans", "›", "release-readiness"],
+    ["QA plans", "›", "release-readiness"],
   );
   assert.equal(byClass(root, "page-head").length, 1);
   assert.match(

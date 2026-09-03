@@ -61,7 +61,7 @@ function flowClient(flows = FLOWS) {
   };
 }
 
-async function mountFlows(t, client, hash = "#/delivery/flows") {
+async function mountFlows(t, client, hash = "#/flows") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -194,7 +194,7 @@ test("search covers project, target, and stage text with a recoverable no-result
 test("project scoping stays server-side while each browse item names its project", async (t) => {
   const client = flowClient();
   const { root, mounted } = await mountFlows(
-    t, client, "#/delivery/flows?project=2",
+    t, client, "#/flows?project=2",
   );
   assert.deepEqual(
     client.requests.filter((request) => request.function === "workflows.definition.get"),

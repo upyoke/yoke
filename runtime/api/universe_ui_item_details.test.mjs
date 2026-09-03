@@ -148,8 +148,8 @@ for (const workflowId of ["issue", "dash"]) {
     assert.deepEqual(
       byClass(root, "item-proof-plan").map((node) => node.href),
       [
-        "#/qa/plans/3?project=7",
-        "#/qa/plans/4?project=7",
+        "#/qa-plans/3?project=7",
+        "#/qa-plans/4?project=7",
       ],
     );
     assert.match(
@@ -230,8 +230,8 @@ for (const workflowId of ["issue", "dash"]) {
     assert.equal(
       byClass(root, "item-proof-row")[0].href,
       workflowId === "dash"
-        ? "#/qa/methods/browser-inspection?project=7"
-        : "#/qa/activity?project=7",
+        ? "#/qa-methods/browser-inspection?project=7"
+        : "#/qa-activity?project=7",
     );
     assert.equal(
       byClass(byClass(root, "item-proof-row")[0], "pill")[0].textContent,

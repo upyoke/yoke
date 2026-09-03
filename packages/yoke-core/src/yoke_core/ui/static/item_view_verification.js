@@ -85,9 +85,8 @@ function derivedPlanAttachments(rows) {
 function planCard(documentNode, item, attachment, workflowId) {
   const plan = el(documentNode, "a", "item-proof-plan");
   plan.href = buildUniverseRoute(
-    "qa",
+    "qa-plans",
     String(item.project.id),
-    "plans",
     attachment.plan_id ? String(attachment.plan_id) : null,
   );
   plan.appendChild(el(documentNode, "span", "item-proof-icon", "⌥"));
@@ -170,9 +169,9 @@ function requirementCard(documentNode, item, row, workflowId) {
   );
   card.href = linked && row.method_id
     ? buildUniverseRoute(
-      "qa", String(item.project.id), "methods", String(row.method_id),
+      "qa-methods", String(item.project.id), String(row.method_id),
     )
-    : buildUniverseRoute("qa", String(item.project.id), "activity");
+    : buildUniverseRoute("qa-activity", String(item.project.id));
   if (linked) {
     card.appendChild(el(
       documentNode, "span", "item-proof-icon", proofMethodIcon(row),

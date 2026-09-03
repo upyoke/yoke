@@ -20,7 +20,7 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.hash = "#/items?project=1";
   const root = documentNode.createElement("div");
   const client = frontierClient();
 
@@ -167,7 +167,7 @@ test("an empty frontier states both halves honestly", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier";
+  documentNode.defaultView.location.hash = "#/items";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -251,7 +251,7 @@ test("a failed Frontier read keeps both facets honest", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier";
+  documentNode.defaultView.location.hash = "#/items";
   const root = documentNode.createElement("div");
   const client = {
     async call(request) {
