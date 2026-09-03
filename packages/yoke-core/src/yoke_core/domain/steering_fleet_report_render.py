@@ -24,6 +24,9 @@ from yoke_core.domain.steering_fleet_report_render_text import (
     capped,
     minutes,
 )
+from yoke_core.domain.steering_fleet_report_render_vendor_errors import (
+    vendor_error_lines,
+)
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 from yoke_core.domain.steering_fleet_report_sections import (
@@ -159,6 +162,11 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         *_section(
             "starved delivery — sent, never injected, recipient silent since",
             starved_lines(report),
+        ),
+        *_section(
+            "vendor-stopped sessions — turn ended by the model provider, not "
+            "by the worker; the relay resumes what a retry can move",
+            vendor_error_lines(report),
         ),
         *_section(
             "unregistered launches — launch/session binding absent",

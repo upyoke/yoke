@@ -20,6 +20,7 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     landed_recovery,
 )
+from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 
@@ -108,6 +109,26 @@ def _dead_wait_dict(entry: DeadWait) -> dict[str, Any]:
     }
 
 
+def _vendor_error_dict(entry: VendorErrorSession) -> dict[str, Any]:
+    return {
+        "session_id": entry.session_id,
+        "item_id": entry.item_id,
+        "public_ref": entry.public_ref,
+        "signature_id": entry.signature_id,
+        "error_message": entry.error_message,
+        "observed_at": entry.observed_at,
+        "stopped_seconds": entry.stopped_seconds,
+        "status": entry.status,
+        "reason": entry.reason,
+        "due_at": entry.due_at,
+        "attempts": entry.attempts,
+        "budget": entry.budget,
+        "executor_surface": entry.executor_surface,
+        "executor_version": entry.executor_version,
+        "seat_owed": entry.seat_owed,
+    }
+
+
 def report_dict(report: FleetReport) -> dict[str, Any]:
     """The machine-readable projection of one report."""
     now = report.composed_at
@@ -148,6 +169,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         ],
         "in_flight": _in_flight.in_flight_dicts(report.in_flight),
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
+        "vendor_errors": [_vendor_error_dict(entry) for entry in report.vendor_errors],
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}
             for ready in report.launchable

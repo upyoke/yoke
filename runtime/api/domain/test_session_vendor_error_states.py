@@ -95,9 +95,7 @@ def test_a_resume_that_produced_real_work_starts_the_budget_over():
     """Work done between failures is progress, not the same stuck session."""
     conn = worker_connection()
     observe_turn_end(conn)
-    record_resume(
-        conn, at=TURN_ENDED_AT + timedelta(seconds=61), event_id="resume-0"
-    )
+    record_resume(conn, at=TURN_ENDED_AT + timedelta(seconds=61), event_id="resume-0")
     worked_at = TURN_ENDED_AT + timedelta(minutes=5)
     conn.execute(
         "UPDATE harness_sessions SET last_tool_call_at=? WHERE session_id=?",

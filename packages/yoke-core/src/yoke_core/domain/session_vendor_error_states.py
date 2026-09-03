@@ -144,10 +144,15 @@ def _resumes_since(conn: Any, session_id: str, *, since: str) -> int:
 def _candidate_sessions(
     conn: Any,
     *,
-    machine_id: str,
+    machine_id: str | None,
     projects: Sequence[int],
 ) -> List[Dict[str, Any]]:
-    """This machine's live sessions that have a turn end worth examining.
+    """Live sessions in scope that have a turn end worth examining.
+
+    The relay names its own machine, because it may only resume sessions
+    it hosts. The fleet report names none: a steerer's scope is a project,
+    and a worker stopped on some other machine is exactly the one whose
+    silence would otherwise go unexplained.
 
     The ``EXISTS`` clause is what keeps this cheap on a healthy machine:
     a session with no recorded turn-end observation newer than its own
@@ -160,18 +165,23 @@ def _candidate_sessions(
     marker = _p(conn)
     project_slots = ",".join(marker for _ in projects)
     open_call = open_tool_call_select(conn, session_alias="hs")
+    on_machine = f"hs.machine_id={marker} AND " if machine_id else ""
     rows = conn.execute(
-        "SELECT hs.session_id,hs.project_id,hs.executor_surface,"
+        "SELECT hs.session_id,hs.project_id,hs.machine_id,hs.executor_surface,"
         "hs.executor_version,hs.last_tool_call_at,hs.turn_posture"
         f"{open_call} "
         "FROM harness_sessions hs "
-        f"WHERE hs.machine_id={marker} AND hs.ended_at IS NULL "
+        f"WHERE {on_machine}hs.ended_at IS NULL "
         f"AND hs.terminated_at IS NULL AND hs.project_id IN ({project_slots}) "
         "AND EXISTS (SELECT 1 FROM events e "
         f"WHERE e.session_id=hs.session_id AND e.event_name={marker} "
         "AND e.created_at>COALESCE(hs.last_tool_call_at,'')) "
         "ORDER BY hs.session_id",
-        (machine_id, *projects, EVENT_SESSION_TURN_END_OBSERVED),
+        (
+            *((machine_id,) if machine_id else ()),
+            *projects,
+            EVENT_SESSION_TURN_END_OBSERVED,
+        ),
     ).fetchall()
     return [row_dict(raw) for raw in rows]
 
@@ -206,6 +216,7 @@ def _decision(
     state: Dict[str, Any] = {
         "session_id": str(row.get("session_id") or ""),
         "project_id": row.get("project_id"),
+        "machine_id": str(row.get("machine_id") or ""),
         "executor_surface": str(row.get("executor_surface") or ""),
         "executor_version": str(row.get("executor_version") or ""),
         "signature_id": signature.signature_id,
@@ -239,21 +250,25 @@ def _decision(
 def vendor_error_states(
     conn: Any,
     *,
-    machine_id: str,
     authorized_projects: Iterable[int],
+    machine_id: str | None = None,
     now: datetime | None = None,
 ) -> List[Dict[str, Any]]:
-    """Every live session on this machine whose last turn the vendor ended.
+    """Every live session in scope whose last turn the model provider ended.
 
     One row per session, each carrying its named status — ``due``,
     ``waiting_backoff``, ``turn_in_flight``, ``budget_spent``, or
     ``seat_required``. The resume sweep acts on ``due``; the fleet report
     renders all of them, which is why the states are computed here once
     rather than twice with two chances to disagree.
+
+    ``machine_id`` narrows the scope to one machine's own sessions, which
+    is what the relay must do before resuming anything; the report leaves
+    it out and sees the whole project.
     """
     current = now or utc_now()
     projects = tuple(sorted({int(value) for value in authorized_projects}))
-    if not projects or not machine_id:
+    if not projects:
         return []
     states: List[Dict[str, Any]] = []
     for row in _candidate_sessions(conn, machine_id=machine_id, projects=projects):
