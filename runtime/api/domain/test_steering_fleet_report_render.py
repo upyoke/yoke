@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import pytest
@@ -216,13 +217,11 @@ def _populated_report():
         last_activity_at=LONG_AGO,
         idle_seconds=3 * 3600,
     )
-    working = ClaimHolder(
+    working = dataclasses.replace(
+        quiet,
         session_id="working-session",
         item_id=5,
         public_ref="YOK-5",
-        mode="dash",
-        parked=False,
-        last_activity_at=JUST_NOW,
         idle_seconds=120,
     )
     return FleetReport(

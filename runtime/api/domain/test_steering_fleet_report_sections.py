@@ -22,9 +22,10 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_tool_call,
 )
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
-from yoke_core.domain.steering_fleet_report_render import (
+from yoke_core.domain.steering_fleet_report_render import report_body
+from yoke_core.domain.steering_fleet_report_sections import (
     CLAIMS_HEADING,
-    report_body,
+    unlisted_holders,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -109,7 +110,7 @@ def test_a_working_holder_appears_in_the_inventory_and_no_alarm(fleet):
     report = _compose(fleet)
     body = report_body(report)
 
-    assert [holder.session_id for holder in report.unlisted_holders] == ["busy-worker"]
+    assert [holder.session_id for holder in unlisted_holders(report)] == ["busy-worker"]
     assert len(_rows_naming(body, "busy-worker")) == 1
     assert body.index(CLAIMS_HEADING) < body.index("busy-worker")
 
@@ -119,7 +120,7 @@ def test_the_inventory_disappears_when_every_holder_is_already_named(fleet):
     report = _compose(fleet)
 
     assert [holder.session_id for holder in report.holders] == [WORKER_SESSION]
-    assert report.unlisted_holders == ()
+    assert unlisted_holders(report) == ()
     assert CLAIMS_HEADING not in report_body(report)
 
 

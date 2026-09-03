@@ -177,6 +177,32 @@ def in_flight_calls(
     return tuple(calls)
 
 
+@dataclass(frozen=True)
+class QuietPartition:
+    """Quiet holders split into the ones working and the ones to alarm on.
+
+    ``idle`` keeps holders whose native process is gone: a dead process runs
+    nothing, so an open call row of its own is residue. ``alive_idle`` drops
+    them again for the detectors that reason about a live session.
+    """
+
+    in_flight: tuple[InFlightCall, ...]
+    idle: tuple[Any, ...]
+    alive_idle: tuple[Any, ...]
+
+
+def partition_quiet(conn: Any, *, quiet: Sequence[Any], now: str) -> QuietPartition:
+    """Split quiet holders into long-running calls and the idle alarm."""
+    alive = tuple(holder for holder in quiet if not holder.native_process_gone)
+    calls = in_flight_calls(conn, quiet=alive, now=now)
+    working = {call.session_id for call in calls}
+    return QuietPartition(
+        in_flight=calls,
+        idle=tuple(h for h in quiet if h.session_id not in working),
+        alive_idle=tuple(h for h in alive if h.session_id not in working),
+    )
+
+
 def in_flight_section(calls: tuple[InFlightCall, ...]) -> list[str]:
     """The report's in-flight section, heading included; empty when quiet."""
     if not calls:
@@ -212,9 +238,11 @@ __all__ = [
     "IN_FLIGHT_CEILING_SECONDS",
     "MERGE_LANDING_WAIT_LABEL",
     "InFlightCall",
+    "QuietPartition",
     "call_was_denied",
     "in_flight_calls",
     "in_flight_dicts",
     "in_flight_section",
     "long_running_command",
+    "partition_quiet",
 ]
