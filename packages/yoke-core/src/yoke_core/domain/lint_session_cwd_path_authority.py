@@ -198,6 +198,20 @@ def is_inside_control_plane(target: str, repo_root: str) -> bool:
     return True
 
 
+def outside_worktree_lanes(
+    targets: Sequence[str],
+    repo_roots: Sequence[str],
+) -> List[str]:
+    """Drop targets landing inside any repo root's ``.worktrees`` subtree.
+
+    The complement of :func:`is_inside_control_plane`: that predicate
+    answers "is this a checkout path outside every lane?", this one
+    selects the targets no lane contains.
+    """
+    lanes = [str(Path(root) / ".worktrees") for root in repo_roots]
+    return [t for t in targets if not any(is_inside(t, lane) for lane in lanes)]
+
+
 def resolve_for_display(target: str) -> str:
     try:
         return str(Path(target).resolve())
@@ -277,6 +291,7 @@ __all__ = [
     "is_sanctioned_installed_read_path",
     "is_under_tool_dir",
     "is_yoke_watcher_capture_path",
+    "outside_worktree_lanes",
     "recorded_repo_roots",
     "resolve_for_display",
 ]

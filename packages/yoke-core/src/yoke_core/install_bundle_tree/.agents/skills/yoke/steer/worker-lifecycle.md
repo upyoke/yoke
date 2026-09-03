@@ -130,6 +130,35 @@ The resolved choice is recorded on the launch row.
 yoke session-control launch preview --project {_project} --surface {_surface} --list-models
 ```
 
+## 8. Tell a worker to survey a neighbour lane with Git, not prose
+
+When two live items share a file, the worker that edits second needs to
+see the first one's uncommitted hunks. Say so with the command it can
+actually run: read-only Git inspection of another item's live worktree is
+allowed, so the survey is a direct read of the neighbour's tree.
+
+```text
+yoke claims work holder-get --path <shared/path>
+git -C /abs/path/to/.worktrees/<neighbour-branch> status --short
+git -C /abs/path/to/.worktrees/<neighbour-branch> diff -- <shared/path>
+```
+
+One plain Git call per invocation. `status`, `diff`, `log`, `show`,
+`ls-files`, `ls-tree`, `rev-parse`, `blame`, `describe`, and `shortlog`
+are allowed with any arguments; `branch`, `remote`, and `config` only in
+their listing form, with no positional argument. Redirection, chaining,
+and `--output` are refused because they can write through an allowed
+verb, as is every state move in that lane (`checkout`, `switch`, `reset`,
+`restore`, `stash`, `clean`, `add`, `commit`, `merge`, `rebase`,
+`cherry-pick`, `apply`, `worktree`). Reading a neighbour's files with
+`cat`, `sed`, `rg`, or `Read` is still refused; the content route is the
+shared object store from the main checkout,
+`git -C <main-checkout> show <rev>:<path>`.
+
+A survey is not authority to edit the shared file in the neighbour's
+lane. The worker edits in its own lane and coordinates with the holder
+the first command named.
+
 ## Launcher recipe
 
 Preview is mandatory. Do not create until preview returns
