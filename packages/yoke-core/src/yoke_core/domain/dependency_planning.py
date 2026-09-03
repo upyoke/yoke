@@ -25,10 +25,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import db_backend
-from .dependencies import (
-    GatePoint,
-    evaluate_satisfaction,
-)
+from .dependencies import GatePoint
 from .dependency_planning_results import (
     BlockerDetail,
     CandidateItem,
@@ -36,6 +33,7 @@ from .dependency_planning_results import (
     PlanResult,
 )
 from .dependency_planning_telemetry import emit_batch_gate_evaluated
+from .dependency_satisfaction import evaluate_persisted_satisfaction
 from .dependency_workflow_context import workflow_from_joined_values
 from .item_ref_columns import render_column_item_ref, resolve_column_item_ref
 from .item_worktree_resolution import primary_item_worktree_branch_sql
@@ -127,10 +125,12 @@ def evaluate_item_gate(
         ) = row
 
         merge_fact = True if blk_merged_at else None
-        result = evaluate_satisfaction(
-            sat,
-            blk_status,
-            blk_worktree,
+        result = evaluate_persisted_satisfaction(
+            conn,
+            blocking_item_id=blk_item,
+            satisfaction=sat,
+            blocking_status=blk_status,
+            blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
             workflow=workflow_from_joined_values(
                 workflow_id,
@@ -205,10 +205,12 @@ def evaluate_batch_gates(
         ) = row
 
         merge_fact = True if blk_merged_at else None
-        result = evaluate_satisfaction(
-            sat,
-            blk_status,
-            blk_worktree,
+        result = evaluate_persisted_satisfaction(
+            conn,
+            blocking_item_id=blk_item,
+            satisfaction=sat,
+            blocking_status=blk_status,
+            blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
             workflow=workflow_from_joined_values(
                 workflow_id,

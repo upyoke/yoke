@@ -134,6 +134,10 @@ audit record — be specific enough that a reader (human or doctor HC) can
 verify the independence claim from the rationale alone. Generic phrases
 like "different concerns" or "no ordering required" are not enough.
 
+Use `fact:merged` when the dependent only needs the blocker's code on
+trunk. Use `fact:deployed:<environment-name>` when it must wait for that
+change to run in a registered environment, such as stage or prod QA.
+
 Then re-run `register`; the resolver classifies the overlap as
 `OverlapClassification.NONE` (no path-claim mutex) via the new edge and
 the candidate registers as `state='planned'`.
@@ -159,6 +163,10 @@ yoke items dependency add \
     --satisfaction fact:merged \
     --rationale "decision=directional. <why order matters: name what upstream lands that this candidate inherits or depends on>"
 ```
+
+The same satisfaction choice applies to directional edges: merge order
+uses `fact:merged`; a live-build consumer uses
+`fact:deployed:<environment-name>` for the required environment.
 
 Then re-run `register` without `--upstream-claim-id`; the resolver walks
 `item_dependencies` and lands the candidate in `state='blocked'` with

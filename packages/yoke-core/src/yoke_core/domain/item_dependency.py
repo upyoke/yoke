@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.dependency_satisfaction import require_authorable_satisfaction
 from yoke_core.domain.item_ref_columns import resolve_column_item_ref
 from yoke_core.domain.path_claims_blocked_reason_refresh import (
     refresh_blocked_reason_for_edge_change,
@@ -37,7 +38,6 @@ def _refresh_blocked_reasons(conn, dep_id: int, blk_id: int) -> None:
     )
 
 VALID_GATE_POINTS = frozenset({"activation", "integration", "closure", "coordination_only"})
-VALID_SATISFACTIONS = frozenset({"status:done", "status:implemented", "fact:merged"})
 VALID_SOURCES = frozenset(
     {"operator", "shepherd", "conduct", "feed", "migration", "idea", "refine"}
 )
@@ -65,10 +65,15 @@ def cmd_dependency_add(
     evidence_json: str = "{}",
     session_id: Optional[int] = None,
 ) -> str:
-    _validate_dependency_fields(source, gate_point, satisfaction)
+    _validate_dependency_fields(source, gate_point)
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
 
     satisfaction = satisfaction or _DEFAULT_SATISFACTION.get(gate_point, "status:done")
+    require_authorable_satisfaction(
+        conn,
+        blocking_item_id=blk_id,
+        satisfaction=satisfaction,
+    )
     rationale = rationale or f"Operator-declared {gate_point} dependency"
     p = _placeholder(conn)
     conn.execute(
@@ -97,14 +102,11 @@ def cmd_dependency_add(
 def _validate_dependency_fields(
     source: str,
     gate_point: str,
-    satisfaction: Optional[str] = None,
 ) -> None:
     if gate_point not in VALID_GATE_POINTS:
         raise ValueError(f"gate_point must be {', '.join(sorted(VALID_GATE_POINTS))}")
     if source not in VALID_SOURCES:
         raise ValueError(f"source must be {', '.join(sorted(VALID_SOURCES))}")
-    if satisfaction and satisfaction not in VALID_SATISFACTIONS:
-        raise ValueError(f"satisfaction must be {', '.join(sorted(VALID_SATISFACTIONS))}")
 
 
 def cmd_dependency_update(
@@ -118,6 +120,12 @@ def cmd_dependency_update(
 ) -> str:
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     _validate_dependency_update_inputs(match_gate_point, gate_point, satisfaction, rationale)
+    if satisfaction:
+        require_authorable_satisfaction(
+            conn,
+            blocking_item_id=blk_id,
+            satisfaction=satisfaction,
+        )
 
     p = _placeholder(conn)
     where_parts = [f"dependent_item_id={p}", f"blocking_item_id={p}"]
@@ -162,8 +170,6 @@ def _validate_dependency_update_inputs(
         raise ValueError(f"invalid match gate_point: {match_gate_point}")
     if gate_point and gate_point not in VALID_GATE_POINTS:
         raise ValueError(f"invalid gate_point: {gate_point}")
-    if satisfaction and satisfaction not in VALID_SATISFACTIONS:
-        raise ValueError(f"invalid satisfaction: {satisfaction}")
 
 
 def _ensure_single_dependency_match(
@@ -287,8 +293,11 @@ def _parse_dependency_edge(conn, line: str, source: str, ts: str) -> tuple | Non
     rationale = " ".join(parts[4:]) if len(parts) > 4 else ""
     if gate_point not in VALID_GATE_POINTS:
         raise ValueError(f"invalid gate_point in stdin: {gate_point}")
-    if satisfaction not in VALID_SATISFACTIONS:
-        raise ValueError(f"invalid satisfaction in stdin: {satisfaction}")
+    require_authorable_satisfaction(
+        conn,
+        blocking_item_id=blocking,
+        satisfaction=satisfaction,
+    )
     return (dependent, blocking, gate_point, satisfaction, source, rationale, "{}", ts)
 
 
@@ -315,5 +324,4 @@ def cmd_dependency_remove(
     conn.commit()
     _refresh_blocked_reasons(conn, dep_id, blk_id)
     return "OK"
-
 

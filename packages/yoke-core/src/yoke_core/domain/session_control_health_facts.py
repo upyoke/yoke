@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.dependencies import evaluate_satisfaction
+from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
 from yoke_core.domain.dependency_types import is_coordination_only
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
@@ -124,10 +124,12 @@ def _gating_blockers(
             row["definition_json"],
             row["definition_digest"],
         )
-        verdict = evaluate_satisfaction(
-            str(row["satisfaction"]),
-            row["blocking_status"],
-            row["lane_branch"],
+        verdict = evaluate_persisted_satisfaction(
+            conn,
+            blocking_item_id=int(row["blocking_item_id"]),
+            satisfaction=str(row["satisfaction"]),
+            blocking_status=row["blocking_status"],
+            blocking_worktree=row["lane_branch"],
             blocking_merged=True if row["merged_at"] else None,
             workflow=workflow,
         )

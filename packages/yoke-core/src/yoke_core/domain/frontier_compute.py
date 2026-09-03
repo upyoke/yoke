@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import db_backend
 from .dependency_planning import evaluate_batch_gates
+from .dependency_explanation import dependency_wait_summary
 from .frontier_classify import classify_next_action
 from .frontier_depth import _compute_downstream_depths
 from .frontier_rank import rank_frontier
@@ -212,10 +213,15 @@ def compute_frontier(
 
         if blockers:
             fi.blocked_by = [b[0] for b in blockers]
-            fi.blocked_reasons.extend(
-                f"Blocked by {b[0]} (status: {b[1]})" for b in blockers
-            )
             fi.blocker_details = blocker_details_map.get(internal_item_id, [])
+            fi.blocked_reasons.extend(
+                dependency_wait_summary(
+                    detail["blocking_item"],
+                    detail["satisfaction"],
+                    detail["reason"],
+                )
+                for detail in fi.blocker_details
+            )
 
         idea_incomplete = (
             status == workflow.stage_ids[0]

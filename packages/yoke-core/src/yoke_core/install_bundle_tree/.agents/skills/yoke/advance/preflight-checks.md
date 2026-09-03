@@ -36,7 +36,7 @@ If the service-client handler succeeds and returns JSON, parse `is_blocked` and 
 > **Blocked:** PREFIX-{N} has unresolved dependencies at the `{gate_point}` gate. All blockers must be satisfied before advancing to `{_target}`.
 
 For each entry in `unsatisfied_blockers`:
-> - **{blocking_item}** ({blocking_status}): {rationale}
+> - **{blocking_item}** ({blocking_status}): {reason}; {rationale}
 
 **Fallback:** If the service-client handler is not available (missing python3, missing script, or non-zero exit with no JSON), fall back to the shell-native checker:
 ```bash
@@ -50,7 +50,7 @@ _dep_output=$(cat "$_dep_output_file")
 rm -f "$_dep_output_file"
 ```
 
-If `_dep_exit` is non-zero (blockers found), **block** with the same format as above, using `BLOCKED|{blocker}|{status}|{title}|{gate_point}|{satisfaction}` lines from `_dep_output`.
+If `_dep_exit` is non-zero (blockers found), **block** with the same format as above, using `BLOCKED|{blocker}|{status}|{title}|{gate_point}|{satisfaction}|{reason}` lines from `_dep_output`. A deployed-fact reason must name its environment.
 
 Then emit the inspection command:
 > Inspect the full dependency graph (both directions):

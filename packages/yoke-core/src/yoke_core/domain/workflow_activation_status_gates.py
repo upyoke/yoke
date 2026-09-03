@@ -29,6 +29,8 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.dependency_explanation import dependency_wait_summary
+from yoke_core.domain.dependency_types import deployed_environment
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_gate_absence import record_gate_absence
 from yoke_core.domain.workflow_gate_catalog import (
@@ -48,12 +50,16 @@ def handles(gate_id: str) -> bool:
 
 
 def _blocker_summary(line: str) -> str:
-    """Render one ``BLOCKED|ref|status|title|gate|satisfaction`` row."""
+    """Render one structured hard-block row for an operator."""
     parts = line.split("|")
     if len(parts) < 6:
         return line
     _, ref, status, title, _gate, satisfaction = parts[:6]
-    return f"{ref} ({status}) {title!r} — needs {satisfaction}"
+    reason = parts[6] if len(parts) > 6 else ""
+    if deployed_environment(satisfaction) is not None:
+        return dependency_wait_summary(ref, satisfaction, reason)
+    summary = f"{ref} ({status}) {title!r} — needs {satisfaction}"
+    return f"{summary}: {reason}" if reason else summary
 
 
 def evaluate_check_hard_blocks(
@@ -104,7 +110,7 @@ def evaluate_check_hard_blocks(
             f"remain unsatisfied: {summary}."
         ),
         "remediation_hint": (
-            "Land the blocking item, or amend the dependency with "
+            "Satisfy the named dependency condition, or amend the edge with "
             "`yoke items dependency list <item>` evidence when the edge "
             "is no longer real."
         ),

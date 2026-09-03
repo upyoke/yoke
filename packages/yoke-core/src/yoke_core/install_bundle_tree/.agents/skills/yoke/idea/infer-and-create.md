@@ -123,6 +123,7 @@ Scan title and body for explicit `PREFIX-N` references. If found:
  ```
 - Auto-record as activation blocker
 - Print: `Auto-detected dependency: PREFIX-{N} (gate: activation, satisfaction: status:done)`
+- Prefer `fact:merged` when only trunk code is needed; use `fact:deployed:<environment-name>` when the dependent needs that change running in a registered environment.
 
 If no `PREFIX-N` references are found, skip silently.
 

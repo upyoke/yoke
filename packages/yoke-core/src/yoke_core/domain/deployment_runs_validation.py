@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
+from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
 from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.project_identity import (
     render_item_ref,
@@ -28,17 +29,6 @@ from yoke_core.domain.workflow_delivery_binding_validation import (
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 _LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
-
-
-def _hard_block_gate_filter(conn, alias: str = "dep") -> str:
-    """Return SQL that excludes compatibility-only dependency rows."""
-    cols = set(_schema_get_columns(conn, "item_dependencies"))
-    if "gate_point" not in cols:
-        return ""
-    return (
-        f"AND COALESCE({alias}.gate_point, 'activation') <> "
-        "'coordination_only' "
-    )
 
 
 def _item_label(conn, item_id: int, detail: str) -> str:
@@ -142,39 +132,17 @@ def cmd_validate_composition(run_id: str, db_path: Optional[str] = None) -> Tupl
             )
 
         # Check 4: Unsatisfied hard-block dependencies
-        hard_block_filter = _hard_block_gate_filter(conn)
-        blocked = query_rows(
+        run_items = [int(row[0]) for row in delivery_candidates]
+        blocked = unsatisfied_dependency_pairs(
             conn,
-            "SELECT dep.dependent_item_id, dep.blocking_item_id "
-            "FROM item_dependencies dep "
-            "JOIN deployment_run_items dri "
-            "  ON dri.item_id = dep.dependent_item_id "
-            "WHERE dri.run_id=%s "
-            f"  {hard_block_filter}"
-            "  AND NOT EXISTS ( "
-            "    SELECT 1 FROM deployment_run_items dri2 "
-            "    WHERE dri2.run_id=%s "
-            "      AND dri2.item_id = dep.blocking_item_id "
-            "  ) "
-            "  AND NOT EXISTS ( "
-            "    SELECT 1 FROM items blocker "
-            "    WHERE blocker.id = dep.blocking_item_id "
-            "      AND ( "
-            "        (dep.satisfaction = 'status:done' AND blocker.status = 'done') "
-            "        OR (dep.satisfaction = 'status:implemented' AND blocker.status IN ('implemented', 'release', 'done')) "
-            "        OR (dep.satisfaction = 'fact:merged' AND ( "
-            "          COALESCE(blocker.merged_at, '') <> '' "
-            "          OR blocker.status IN ('release', 'done') "
-            "        )) "
-            "      ) "
-            "  )",
-            (run_id, run_id),
+            run_items,
+            co_scheduled_blocker_ids=run_items,
         )
         if blocked:
             items_str = ", ".join(
-                f"{render_column_item_ref(conn, r[0])} (blocked by "
-                f"{render_column_item_ref(conn, r[1])})"
-                for r in blocked
+                f"{render_column_item_ref(conn, dependent)} (blocked by "
+                f"{render_column_item_ref(conn, blocker)}: {verdict.reason})"
+                for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
 
@@ -258,33 +226,16 @@ def cmd_check_batch_compatibility(
             )
 
         # Check 4: Unsatisfied hard-block deps outside batch
-        hard_block_filter = _hard_block_gate_filter(conn)
-        blocked = query_rows(
+        blocked = unsatisfied_dependency_pairs(
             conn,
-            f"SELECT dep.dependent_item_id, dep.blocking_item_id "
-            f"FROM item_dependencies dep "
-            f"WHERE dep.dependent_item_id IN ({placeholders}) "
-            f"  {hard_block_filter}"
-            f"  AND dep.blocking_item_id NOT IN ({placeholders}) "
-            f"  AND NOT EXISTS ( "
-            f"    SELECT 1 FROM items blocker "
-            f"    WHERE blocker.id = dep.blocking_item_id "
-            f"      AND ( "
-            f"        (dep.satisfaction = 'status:done' AND blocker.status = 'done') "
-            f"        OR (dep.satisfaction = 'status:implemented' AND blocker.status IN ('implemented', 'release', 'done')) "
-            f"        OR (dep.satisfaction = 'fact:merged' AND ( "
-            f"          COALESCE(blocker.merged_at, '') <> '' "
-            f"          OR blocker.status IN ('release', 'done') "
-            f"        )) "
-            f"      ) "
-            f"  )",
-            tuple(item_ids) + tuple(item_ids),
+            item_ids,
+            co_scheduled_blocker_ids=item_ids,
         )
         if blocked:
             items_str = ", ".join(
-                f"{render_column_item_ref(conn, r[0])} (blocked by "
-                f"{render_column_item_ref(conn, r[1])})"
-                for r in blocked
+                f"{render_column_item_ref(conn, dependent)} (blocked by "
+                f"{render_column_item_ref(conn, blocker)}: {verdict.reason})"
+                for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
 

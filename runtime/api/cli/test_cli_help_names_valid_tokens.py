@@ -12,6 +12,10 @@ import pytest
 
 from yoke_cli.commands import group_help
 from yoke_cli.commands.adapters.dash import dash_evidence
+from yoke_cli.commands.adapters.item_dependency import (
+    items_dependency_add,
+    items_dependency_update,
+)
 from yoke_cli.commands.adapters.items import items_get
 from yoke_cli.main import main as cli_main
 from yoke_contracts.dash_evidence_status import (
@@ -180,6 +184,23 @@ class TestVerificationStatusTokens:
             if "--verification-status" in action.option_strings
         )
         assert tuple(merge_flag.choices) == PASSING_VERIFICATION_STATUSES
+
+
+class TestDependencySatisfactionHelp:
+    @pytest.mark.parametrize(
+        "adapter",
+        [items_dependency_add, items_dependency_update],
+    )
+    def test_help_teaches_delivery_grammar_and_authoring_choice(
+        self, adapter, capsys,
+    ):
+        out = _help_text(adapter, ["--help"], capsys)
+        assert "fact:deployed:<environment-name>" in out
+        assert "not registered" in out
+        assert "needs the blocker's code on trunk" in out
+        assert "needs that code running" in out
+        assert "--satisfaction fact:merged" in out
+        assert "--satisfaction fact:deployed:prod" in out
 
 
 class TestWatchMergeSubcommands:

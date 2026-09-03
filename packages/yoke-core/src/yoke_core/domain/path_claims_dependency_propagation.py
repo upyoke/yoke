@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, List, Optional, Set
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
 from yoke_core.domain.path_claims_dependency_binding_lock import (
     lock_candidate_item_bindings,
 )
@@ -29,13 +30,15 @@ def _claim_owning_item(conn: Any, claim_id: int):
     return int(row[0])
 
 
-def _item_status(conn: Any, item_id: int) -> str:
+def _item_merge_state(conn: Any, item_id: int) -> tuple[str, bool | None]:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT status FROM items WHERE id = {p}",
+        f"SELECT status, merged_at FROM items WHERE id = {p}",
         (item_id,),
     ).fetchone()
-    return str(row[0]) if row and row[0] else ""
+    if row is None:
+        return "", None
+    return str(row[0] or ""), True if row[1] else None
 
 
 def _direct_downstream_claims(
@@ -75,7 +78,10 @@ def _dep_satisfied_downstream_claims(
     blocking_item_id = _claim_owning_item(conn, released_claim_id)
     if blocking_item_id is None:
         return []
-    blocking_status = _item_status(conn, blocking_item_id)
+    blocking_status, blocking_merged = _item_merge_state(conn, blocking_item_id)
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    workflow = load_item_workflow_runtime(conn, blocking_item_id)
     try:
         edges = conn.execute(
             "SELECT dependent_item_id, blocking_item_id, satisfaction "
@@ -87,11 +93,16 @@ def _dep_satisfied_downstream_claims(
     for raw_dep, raw_blk, sat in edges:
         if int(raw_blk) != blocking_item_id:
             continue
-        sat_text = str(sat or "status:done").strip()
-        if sat_text.startswith("status:"):
-            wanted = sat_text.split(":", 1)[1].strip()
-            if blocking_status == wanted:
-                satisfied_dependent_items.add(int(raw_dep))
+        verdict = evaluate_persisted_satisfaction(
+            conn,
+            blocking_item_id=blocking_item_id,
+            satisfaction=str(sat or "status:done").strip(),
+            blocking_status=blocking_status,
+            blocking_merged=blocking_merged,
+            workflow=workflow,
+        )
+        if verdict.satisfied:
+            satisfied_dependent_items.add(int(raw_dep))
 
     if not satisfied_dependent_items:
         return []

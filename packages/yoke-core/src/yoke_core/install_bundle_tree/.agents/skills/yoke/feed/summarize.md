@@ -69,6 +69,7 @@ Translate the reconciled dependency graph into an operator-usable execution plan
 
 - **Coding waves** -- group items by activation blockers so the operator can see what can start now vs what waits for another item to be done/passed
 - **Required merge order** -- list every `integration` dependency row that permits parallel coding but constrains merge order
+- **Required environment waits** -- render deployed-fact rows as "PREFIX-N waits for PREFIX-M to deploy to <environment>"
 - **Readiness callouts** -- list items that still need decomposition, refinement, cancellation, or human judgment before execution is truthful
 - **Residual uncertainty** -- list any open ambiguities that remain after updates and reconciliation
 
@@ -159,6 +160,9 @@ Coding waves:
 
 Required merge order:
  - {dependent} must merge after {blocking} because {rationale}
+
+Required environment waits:
+ - {dependent} waits for {blocking} to deploy to {environment} because {rationale}
 
 {If _stale_edges is non-empty:}
 Stale edges detected ({count}):

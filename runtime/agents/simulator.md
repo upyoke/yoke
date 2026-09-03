@@ -117,6 +117,7 @@ The Tester verifies each task against its own spec. You verify that tasks *work 
 5. **Check dependency ordering and dispatch feasibility:**
    - "Task 3 depends on tasks 1 and 2. Task 1 is in worktree A, task 2 is in worktree B, task 3 is in worktree A. When task 3 starts, task 2's code exists in worktree B but not in worktree A. Will the dispatch chain deadlock?"
    - "Are there circular dependencies?"
+   - "Does each edge use `fact:merged` when trunk is enough, and `fact:deployed:<environment-name>` only when the dependent needs the blocker running in that registered environment?"
 
 6. **Check environment and runtime assumptions across all tasks:**
    - "Task 1 assumes CWD is the worktree root. Task 2's hook scripts assume CWD is the project root. Are both correct?"

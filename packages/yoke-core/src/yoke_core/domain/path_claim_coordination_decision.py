@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, List, TypedDict
 
 from yoke_core.domain import db_backend, runtime_settings
-from yoke_core.domain.dependency_types import GatePoint
+from yoke_core.domain.dependency_types import GatePoint, Satisfaction
 from yoke_core.domain.items_queries import query_item
 from yoke_core.domain.path_registry import ancestors_of, target_at
 from yoke_core.domain.project_identity import render_item_ref
@@ -120,6 +120,7 @@ def _suggested_commands(
     cand = render_item_ref(conn, cand_id)
     other = render_item_ref(conn, other_id)
     co = GatePoint.COORDINATION_ONLY.value
+    merged = Satisfaction.FACT_MERGED.value
     dep_add = "yoke items dependency add"
     shared = ",".join(shared_paths) if shared_paths else "<shared-paths>"
     coord_rationale = (
@@ -140,7 +141,10 @@ def _suggested_commands(
         "# option: directional activation (order-dependent edits, "
         "lifecycle gate + path-claim mutex)",
         f"{dep_add} {cand} {other} <source> --gate-point activation "
-        f"--satisfaction fact:merged --rationale \"{dir_rationale}\"",
+        f"--satisfaction {merged} --rationale \"{dir_rationale}\"",
+        "# fact:merged is correct for trunk ordering; use "
+        "fact:deployed:<environment-name> only when the dependent needs "
+        "the blocker running in that registered environment",
         "# option: escalate (operator override, last resort)",
         "python3 -m yoke_core.api.service_client path-claim-override "
         f"--item {cand} --reason \"<operator-authored rationale per "

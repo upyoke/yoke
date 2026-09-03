@@ -119,6 +119,10 @@ yoke items dependency add \
     --rationale "decision=directional. <why order matters: what upstream lands that this candidate inherits>"
 ```
 
+Choose `fact:merged` when the dependent only needs the upstream code on
+trunk. Use `fact:deployed:<environment-name>` when it needs that change
+running in a registered stage, prod, or other named environment.
+
 After authoring, re-run ``yoke readiness check`` to confirm the
 readiness repair landed.
 
