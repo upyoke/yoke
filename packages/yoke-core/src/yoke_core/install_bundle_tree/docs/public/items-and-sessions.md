@@ -29,7 +29,11 @@ show the same scope, steering-launched workers group under their holder, and
 each of those workers shows whether its latest turn-end report was sent or
 acknowledged. Only a steering-launched session is relayed that way: a session
 the operator launched or opened keeps its turns to itself and reaches the seat
-deliberately with `yoke say --steering`. These views derive from existing
+deliberately with `yoke say --steering`. The relay carries only a turn that
+names something to act on — a failure, a blocker, a conflict, a decision, a
+question, or a terminal outcome. A worker stopping on a wait or a status note
+is recorded as a `SteeringReportSkipped` event rather than delivered, so a
+long gate costs the seat no acknowledgements. These views derive from existing
 claims, document locks, launch provenance, and message-recipient receipts;
 they do not create separate state.
 

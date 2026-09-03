@@ -8,13 +8,22 @@ steering seat acknowledged roughly thirty messages in an evening whose entire
 content was an elapsed-seconds poll, a watcher no-output heartbeat, or a
 "still green" liveness note.
 
-``FLEET_SUBSTANTIVE_ONLY_GUIDANCE`` is the rule; this module is the guard that
-makes the rule structural on the one path every sender shares. It refuses only
-what is unambiguously a progress tick: a short body that carries at least one
-progress marker and no substantive signal at all. Anything longer than
-``SUBSTANCE_SCAN_LIMIT_CHARS``, and anything naming a failure, a blocker, a
-conflict, a decision, or a terminal state, passes untouched — a percentage
-inside a real failure report is not a progress tick.
+``FLEET_SUBSTANTIVE_ONLY_GUIDANCE`` is the rule. Two predicates enforce it at
+two different strengths, over one shared notion of what the recipient could
+act on:
+
+- :func:`carries_actionable_signal` is the floor. A body naming a failure, a
+  blocker, a conflict, a decision, a question, or a terminal outcome clears
+  it; a bare status verb, a wait, a progress count, or a self-check note does
+  not. The turn-end steering relay applies the floor to a Stop body, because
+  that body is mailed by the machinery rather than chosen by a sender.
+- :func:`is_progress_tick` is the narrower classifier the send path refuses
+  on: a short body that carries a progress marker and clears nothing on the
+  floor. A sender who wrote the words gets refused only for what is
+  unambiguously a progress tick, so ``yoke say`` still carries a deliberate
+  status line. Anything longer than ``SUBSTANCE_SCAN_LIMIT_CHARS``, and
+  anything actionable, passes untouched — a percentage inside a real failure
+  report is not a progress tick.
 """
 
 from __future__ import annotations
@@ -58,7 +67,7 @@ _PROGRESS_MARKERS = (
     re.compile(r"\bin_progress\b", re.IGNORECASE),
 )
 
-# Anything the recipient could act on. One hit is enough to admit the body.
+# Anything the recipient could act on. One hit is enough to clear the floor.
 _SUBSTANTIVE_MARKERS = (
     re.compile(
         r"\b(?:fail|fails|failed|failing|failure|failures|error|errors|red|broke|"
@@ -78,14 +87,38 @@ _SUBSTANTIVE_MARKERS = (
         r"released|cancelled|canceled|abandoned|handoff|handing off)\b",
         re.IGNORECASE,
     ),
+    # A directive or a go-signal: the recipient is being told to act, or
+    # told the work it was waiting on is now theirs to move.
+    re.compile(
+        r"\b(?:go|proceed|resume|unblocked|parked|paused|handing over)\b",
+        re.IGNORECASE,
+    ),
+    # A question is a decision the recipient owns, whatever words carry it.
+    re.compile(r"\?"),
 )
 
 
 __all__ = [
     "SUBSTANCE_SCAN_LIMIT_CHARS",
+    "carries_actionable_signal",
     "is_progress_tick",
     "validate_body",
 ]
+
+
+def carries_actionable_signal(body: str) -> bool:
+    """Return True when the body names something the recipient could act on.
+
+    The floor: a failure, a blocker, a conflict, a decision, a question, or a
+    terminal outcome. A body clearing nothing here is a bare status verb, a
+    wait, a progress count, or a self-check note — true when it was written
+    and worthless a minute later.
+    """
+    text = (body or "").strip()
+    if not text:
+        return False
+    scanned = _ABSENCE_PHRASES.sub(" ", text)
+    return any(marker.search(scanned) for marker in _SUBSTANTIVE_MARKERS)
 
 
 def is_progress_tick(body: str) -> bool:
@@ -95,8 +128,7 @@ def is_progress_tick(body: str) -> bool:
         return False
     if not any(marker.search(text) for marker in _PROGRESS_MARKERS):
         return False
-    scanned = _ABSENCE_PHRASES.sub(" ", text)
-    return not any(marker.search(scanned) for marker in _SUBSTANTIVE_MARKERS)
+    return not carries_actionable_signal(text)
 
 
 def validate_body(body: str, *, max_body_bytes: int) -> None:

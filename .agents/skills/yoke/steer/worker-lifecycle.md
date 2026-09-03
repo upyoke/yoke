@@ -210,7 +210,13 @@ the worker's scope, and it covers exactly the sessions a seat launched:
 carries `origin = 'steering'`. So the mandate tells a launched worker to write
 its turn-end text as the report, gives it no manual DONE step at all, and the
 inbox stays a place for the things a turn end cannot carry. Handing a relayed
-worker both routes is what mailed this seat the same report twice. A session
+worker both routes is what mailed this seat the same report twice. The relay
+carries only a turn that names something to act on: a stop body with no
+failure, blocker, conflict, decision, question, or terminal outcome in it is
+recorded as `SteeringReportSkipped` and never delivered, because a worker
+that stops every few minutes while its gate runs was costing this seat a hand
+acknowledgement per wait note. Read those stops from the events ledger when
+you want them; the inbox holds the reports. A session
 the operator launched, and a session a person opened, are both outside the relay:
 they reach whichever seat holds their scope with `yoke say --steering` when
 there is something that seat must act on. That boundary is why an operator's
@@ -222,7 +228,7 @@ turn.
 
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
 
-Your DONE report IS the last assistant text of the turn you stop on: the Stop hook delivers that text to the steering seat automatically, once, and it still reaches the seat after close-out released your item claim. Write that text as the report — lead with `DONE <item> <one-line summary>`, then what landed, what is blocked, what you need — and never re-send it with `yoke say`. Keep `yoke say` for what cannot wait for a turn end.
+Your DONE report IS the last assistant text of the turn you stop on: the Stop hook delivers that text to the steering seat automatically, once, and it still reaches the seat after close-out released your item claim. Write that text as the report — lead with `DONE <item> <one-line summary>`, then what landed, what is blocked, what you need — and never re-send it with `yoke say`. Keep `yoke say` for what cannot wait for a turn end. Only a turn that names something to act on — a failure, a blocker, a conflict, a decision, a question, or a terminal outcome — is delivered; a turn ending in a wait, a status verb, or a progress note is recorded on the ledger as SteeringReportSkipped instead, so stopping on one costs the seat nothing and tells it nothing either.
 ```
 
 The server parameterizes that shape from the pinned `workflow_id` and

@@ -17,6 +17,18 @@ The item a report is addressed within comes from
 :mod:`yoke_core.domain.session_item_scope`, so the last turn a worker stops
 on -- the one after close-out released its item claim, carrying the DONE
 report -- still routes. Requiring a LIVE claim dropped exactly that turn.
+
+A relayed worker stops every few minutes while a gate runs, and the machinery
+mails whatever it said. Bodies that were pure wait -- "Waiting for the run.",
+"I will report when it lands.", "Holding." -- cost one seat a dozen hand
+acknowledgements in an evening and changed nothing it would do. So the body
+must clear
+:func:`yoke_core.domain.session_message_substance.carries_actionable_signal`
+before it is sent; a body that clears nothing is recorded as
+``SteeringReportSkipped`` instead, which still shows the seat the worker
+stopped without costing it an inbox row. The send path's own refusal is
+unchanged: a sender who chose the words is still refused only for an
+unambiguous progress tick.
 """
 
 from __future__ import annotations
@@ -34,13 +46,19 @@ from yoke_contracts.turn_end_evidence import (
     steering_report_idempotency_key,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.events import emit_event
 from yoke_core.domain.session_item_scope import session_item_scope
 from yoke_core.domain.session_message_service import send_message
+from yoke_core.domain.session_message_substance import carries_actionable_signal
 from yoke_core.domain.steering_scope_coverage import covering_seat
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 ROUTED_REASON = "steering_report_routed"
+SKIPPED_REASON = "steering_report_skipped_non_substantive"
+EVENT_STEERING_REPORT_SKIPPED = "SteeringReportSkipped"
+# Enough of the body to recognize the turn on the ledger, not a transcript.
+SKIPPED_BODY_EXCERPT_CHARS = 500
 
 
 def _p(conn: Any) -> str:
@@ -85,11 +103,23 @@ def route_turn_end_report(
     report: TurnEndReport,
     now: datetime | None = None,
 ) -> dict[str, Any] | None:
-    """Persist one covered report through the existing message plane."""
+    """Send one covered report, or record the skip when it clears no floor.
+
+    Returns ``None`` when this session is not relayed at all, the send
+    result when the report was mailed, and a ``skipped`` record when the
+    body carried nothing for the seat to act on.
+    """
     route = _covering_route(conn, session_id)
     if route is None:
         return None
     recipient_session_id = str(route["recipient_session_id"])
+    if not carries_actionable_signal(report.body):
+        return _record_skipped_report(
+            conn,
+            session_id=session_id,
+            report=report,
+            recipient_session_id=recipient_session_id,
+        )
     result = send_message(
         conn,
         actor_id=int(route["sender_actor_id"]),
@@ -100,6 +130,36 @@ def route_turn_end_report(
         now=now,
     )
     return {**result, "recipient_session_id": recipient_session_id}
+
+
+def _record_skipped_report(
+    conn: Any,
+    *,
+    session_id: str,
+    report: TurnEndReport,
+    recipient_session_id: str,
+) -> dict[str, Any]:
+    """Record the stop the seat is not being mailed, and report the skip."""
+    body = report.body.strip()
+    emit_event(
+        EVENT_STEERING_REPORT_SKIPPED,
+        event_kind="system",
+        event_type="session_lifecycle",
+        session_id=session_id,
+        context={
+            "recipient_session_id": recipient_session_id,
+            "fingerprint": report.fingerprint,
+            "reason": SKIPPED_REASON,
+            "body_chars": len(body),
+            "body_excerpt": body[:SKIPPED_BODY_EXCERPT_CHARS],
+        },
+        conn=conn,
+    )
+    return {
+        "skipped": True,
+        "reason": SKIPPED_REASON,
+        "recipient_session_id": recipient_session_id,
+    }
 
 
 def _report_for(context: HookContext) -> TurnEndReport | None:
@@ -144,6 +204,17 @@ def evaluate(context: HookContext) -> HookDecision:
             pass
     if routed is None:
         return _continue()
+    if routed.get("skipped"):
+        # Nothing was mailed, so the rest of the Stop chain still owns this
+        # turn exactly as it does for a session outside the relay.
+        return HookDecision(
+            outcome=Outcome.AUDIT_ONLY,
+            next=Next.CONTINUE,
+            audit_fields={
+                "reason": SKIPPED_REASON,
+                "recipient_session_id": routed["recipient_session_id"],
+            },
+        )
     return HookDecision(
         outcome=Outcome.ALLOW,
         next=Next.STOP,
@@ -155,4 +226,11 @@ def evaluate(context: HookContext) -> HookDecision:
     )
 
 
-__all__ = ["ROUTED_REASON", "evaluate", "route_turn_end_report"]
+__all__ = [
+    "EVENT_STEERING_REPORT_SKIPPED",
+    "ROUTED_REASON",
+    "SKIPPED_BODY_EXCERPT_CHARS",
+    "SKIPPED_REASON",
+    "evaluate",
+    "route_turn_end_report",
+]

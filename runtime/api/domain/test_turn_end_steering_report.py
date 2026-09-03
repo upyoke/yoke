@@ -23,8 +23,42 @@ from runtime.api.domain.test_session_message_support import (
 )
 
 
+EVENTS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY,
+    event_id TEXT UNIQUE NOT NULL,
+    source_type TEXT,
+    session_id TEXT NOT NULL,
+    severity TEXT,
+    event_kind TEXT,
+    event_type TEXT,
+    event_name TEXT,
+    event_outcome TEXT,
+    org_id TEXT,
+    actor_id INTEGER,
+    environment TEXT,
+    service TEXT,
+    project_id INTEGER DEFAULT 1 REFERENCES projects(id),
+    item_id TEXT,
+    task_num INTEGER,
+    agent TEXT,
+    tool_name TEXT,
+    duration_ms INTEGER,
+    exit_code INTEGER,
+    trace_id TEXT,
+    anomaly_flags TEXT,
+    tool_use_id TEXT,
+    turn_id TEXT,
+    hook_event_name TEXT,
+    envelope TEXT,
+    created_at TEXT
+);
+"""
+
+
 def _connection():
     conn = message_connection()
+    conn.executescript(EVENTS_SCHEMA)
     conn.execute("UPDATE harness_sessions SET actor_id=10")
     target = make_steering_target(1)
     conn.execute(
@@ -37,7 +71,11 @@ def _connection():
 
 
 def _report(label: str) -> TurnEndReport:
-    return TurnEndReport(body=f"Report {label}.", fingerprint=f"turn-{label}")
+    """A report the seat can act on: the floor admits a terminal outcome."""
+    return TurnEndReport(
+        body=f"DONE ALP-1 {label}; merged as abc1234.",
+        fingerprint=f"turn-{label}",
+    )
 
 
 def _message_count(conn) -> int:
@@ -90,7 +128,7 @@ def test_steering_launched_session_routes_to_steering_holder() -> None:
         "SELECT * FROM session_message_recipients WHERE message_id=?",
         (message["message_id"],),
     ).fetchone()
-    assert message["body"] == "Report covered."
+    assert message["body"] == "DONE ALP-1 covered; merged as abc1234."
     assert receipt["session_id"] == "s2"
     assert receipt["state"] == "pending"
 
