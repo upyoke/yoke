@@ -11,7 +11,6 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_navigation.js";
 import {
   DETAIL_RENDERERS,
-  TAB_RENDERERS,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views.js";
 import {
   FakeDocument,
@@ -68,73 +67,49 @@ async function mountAt(t, hash, client) {
   return { documentNode, root, mounted };
 }
 
-test("a view declares its second segment — tabs or drill-in, never both", () => {
-  const tabbed = NAV.filter((entry) => entry.tabs);
-  assert.ok(tabbed.length > 0);
-  for (const entry of tabbed) {
-    assert.ok(entry.tabs.length > 0);
-    // The same segment cannot be a tab and a drill-in at once.
-    assert.ok(!(entry.id in DETAIL_RENDERERS), entry.id);
-    // Every unbuilt tab must say what it will be.
-    for (const tab of entry.tabs) {
-      const live = Boolean((TAB_RENDERERS[entry.id] || {})[tab.id]);
-      assert.ok(live || tab.summary, `${entry.id}/${tab.id}`);
-    }
-    // A live tab renderer must belong to a declared tab.
-    for (const tabId of Object.keys(TAB_RENDERERS[entry.id] || {})) {
-      assert.ok(entry.tabs.some((tab) => tab.id === tabId), tabId);
-    }
-  }
-  // Tab renderers only hang off views that declared tabs.
-  for (const viewId of Object.keys(TAB_RENDERERS)) {
-    assert.ok(NAV.some((entry) => entry.id === viewId && entry.tabs), viewId);
+test("a destination's second segment is a drill-in, and only where one exists", () => {
+  // There is no facet segment left to compete with a drill-in: every facet
+  // that earned a name is a destination with its own entry.
+  for (const entry of NAV) assert.equal(entry.tabs, undefined, entry.id);
+  // A drill-in renderer only hangs off a destination that exists.
+  for (const viewId of Object.keys(DETAIL_RENDERERS)) {
+    assert.ok(NAV.some((entry) => entry.id === viewId), viewId);
   }
 });
 
-test("tab routes round-trip; absent and unknown segments resolve to the first tab", () => {
+test("routes round-trip, and an unknown view falls back without its segment", () => {
   assert.deepEqual(parseUniverseRoute("#/flows?project=3"), {
-    view: "delivery", tab: "flows", detail: null, project: "3",
+    view: "flows", tab: null, detail: null, project: "3",
   });
-  assert.equal(
-    buildUniverseRoute("delivery", "3", "flows"),
-    "#/flows?project=3",
-  );
-  assert.deepEqual(parseUniverseRoute("#/delivery"), {
-    view: "delivery", tab: "runs", detail: null, project: null,
+  assert.equal(buildUniverseRoute("flows", "3"), "#/flows?project=3");
+  assert.deepEqual(parseUniverseRoute("#/deployments"), {
+    view: "deployments", tab: null, detail: null, project: null,
   });
-  assert.equal(parseUniverseRoute("#/delivery/nonsense?project=2").tab, "runs");
-  // A tabbed view's segment is a facet, never a drill-in detail — so an
-  // unknown segment resolves instead of surviving as a detail.
-  assert.equal(parseUniverseRoute("#/flows").detail, null);
+  // A second segment is a drill-in now, so it survives on a view that exists…
+  assert.equal(parseUniverseRoute("#/qa-plans/7?project=2").detail, "7");
+  // …and falls with the view when that view does not.
+  const unknown = parseUniverseRoute("#/nonsense/7?project=2");
+  assert.equal(unknown.view, NAV[0].id);
+  assert.equal(unknown.detail, null);
 });
 
-test("a deep-linked Delivery facet stays under the active nav item and keeps scope", async (t) => {
+test("a deep-linked destination is the active nav item and keeps its scope", async (t) => {
   const client = deliveryClient();
   const { documentNode, root, mounted } = await mountAt(
     t, "#/environments?project=1", client,
   );
 
-  // Delivery stays the active destination; the tab never becomes one.
+  // The facet IS the destination now, so it is what the sidebar lights.
   const activeNav = byClass(root, "nav-link")
     .filter((node) => node.classList.contains("active"));
   assert.equal(activeNav.length, 1);
   assert.equal(
     allNodes(activeNav[0])
       .find((node) => node.classList.contains("txt")).textContent,
-    "Delivery",
+    "Environments",
   );
-
-  const tabLinks = byClass(root, "tab-link");
-  assert.deepEqual(
-    tabLinks.map((node) => node.textContent),
-    ["Runs", "Environments", "Flows", "Databases", "Infrastructure"],
-  );
-  const activeTabs = tabLinks
-    .filter((node) => node.classList.contains("active"));
-  assert.equal(activeTabs.length, 1);
-  assert.equal(activeTabs[0].textContent, "Environments");
-  // Tabs are real links that carry the view's scope.
-  assert.equal(activeTabs[0].href, "#/environments?project=1");
+  // No strip: its five facets are five entries in the sidebar.
+  assert.deepEqual(byClass(root, "tab-link"), []);
 
   assert.equal(byClass(root, "stub-panel").length, 0);
   assert.equal(byClass(root, "scope-bar").length, 1);
@@ -162,63 +137,20 @@ test("a deep-linked Delivery facet stays under the active nav item and keeps sco
   mounted.unmount();
 });
 
-test("a tabbed view's page head names the view and holds still across facets", async (t) => {
+test("a destination's page head names the destination, not a parent view", async (t) => {
   const client = deliveryClient();
-  const { documentNode, root, mounted } = await mountAt(
-    t, "#/deployments?project=1", client,
-  );
+  const { root, mounted } = await mountAt(t, "#/deployments?project=1", client);
 
-  const headOf = (node) => {
-    const content = byClass(node, "content")[0];
-    // The head leads the content column. Built facets put project scope
-    // before the strip; stubs omit the scope picker.
-    assert.ok(content.children[0].classList.contains("page-head"));
-    assert.ok(content.children.some(
-      (child) => child.classList.contains("tab-bar"),
-    ));
-    return content.children[0];
-  };
-
-  const liveHead = headOf(root);
-  const liveContent = byClass(root, "content")[0];
-  assert.ok(liveContent.children[1].classList.contains("scope-bar"));
-  assert.ok(liveContent.children[2].classList.contains("tab-bar"));
-  assert.equal(byClass(liveHead, "title")[0].textContent, "Delivery");
+  const content = byClass(root, "content")[0];
+  assert.ok(content.children[0].classList.contains("page-head"));
+  assert.ok(content.children.every(
+    (child) => !child.classList.contains("tab-bar"),
+  ));
+  const head = content.children[0];
+  assert.equal(byClass(head, "title")[0].textContent, "Deployments");
   assert.equal(
-    byClass(liveHead, "subtitle")[0].textContent,
-    "Environments, flows and runs, with databases and infrastructure.",
-  );
-
-  // Switching to another live facet re-renders the same head: one concept,
-  // one name, whatever the strip below shows.
-  documentNode.defaultView.location.hash = "#/environments?project=1";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
-  await settle();
-  assert.equal(byClass(root, "stub-panel").length, 0);
-  const stubHead = headOf(root);
-  assert.equal(byClass(root, "page-head").length, 1);
-  assert.equal(byClass(stubHead, "title")[0].textContent, "Delivery");
-  assert.equal(
-    byClass(stubHead, "subtitle")[0].textContent,
-    "Environments, flows and runs, with databases and infrastructure.",
-  );
-  mounted.unmount();
-});
-
-test("a tabbed route with no segment renders its first tab without rewriting the hash", async (t) => {
-  const client = deliveryClient();
-  const { documentNode, root, mounted } = await mountAt(
-    t, "#/delivery?project=1", client,
-  );
-
-  const activeTabs = byClass(root, "tab-link")
-    .filter((node) => node.classList.contains("active"));
-  assert.equal(activeTabs.length, 1);
-  assert.equal(activeTabs[0].textContent, "Runs");
-  // Resolution is a render decision, not a URL mutation: the bare route
-  // stays shareable exactly as the viewer wrote it.
-  assert.equal(
-    documentNode.defaultView.location.hash, "#/delivery?project=1",
+    byClass(head, "subtitle")[0].textContent,
+    "Each run of a flow against a target environment.",
   );
   mounted.unmount();
 });
