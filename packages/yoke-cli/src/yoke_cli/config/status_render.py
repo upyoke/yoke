@@ -19,7 +19,7 @@ def render_human(report: Mapping[str, Any]) -> str:
         "Yoke status",
         f"  ok: {str(report.get('ok')).lower()}",
         f"  config: {report.get('config_path')}",
-        f"  {PREFERRED_SESSION_MODELS_KEY}: blank = unset "
+        f"  {PREFERRED_SESSION_MODELS_KEY}: blank knobs = vendor defaults "
         f"in {report.get('config_path')}",
         f"  checkout: {report.get('repo_root')}",
     ]

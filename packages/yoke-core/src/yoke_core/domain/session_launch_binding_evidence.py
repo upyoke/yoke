@@ -6,21 +6,18 @@ started: both end at the deadline with a terminal code and nothing else. The
 two need entirely different repairs, so the refusal itself is written onto the
 launch while it is still true.
 
-Model labels get their own pair of fields because a launch's model is a
-request and the session's model is a measurement, and the two legitimately
-differ. A launch asks for the string the native command line accepts
-(Cursor's variant-qualified ``cursor-grok-4.6-xhigh``); the session records
-what the native actually ran. Comparing them for equality refused every
-correctly-bound Cursor launch, so bind identity ignores the model and
-records both labels instead — which is also how an operator sees that a
-launch asked for one variant and got another. This pair is launch
-diagnostics, not a second roster field, and the session's own model field
-is never overwritten with the request.
+Model-selection labels get requested/registered pairs because a launch's
+model, reasoning effort, and context window are requests while the session's
+plain fields are measurements, and the two legitimately differ. Comparing
+them for equality would refuse a correctly bound launch, so bind identity
+ignores selection differences and records both values instead. These pairs
+are launch diagnostics, not a second roster, and served session fields are
+never overwritten with requests.
 """
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
@@ -35,29 +32,29 @@ from yoke_core.domain.session_launch_types import LaunchRecord
 
 def bound_registration_evidence(
     launch: LaunchRecord,
-    registered_model: Any,
+    registered_facts: Mapping[str, Any],
     *,
     stamped_columns: Sequence[str] = (),
 ) -> str:
     """Record the ask beside the served value when the two differ.
 
-    ``registered_model`` is the session row's attested served model, so a
-    launch that asked for one variant and ran another is visible as a fact
-    rather than a suspicion. An unattested session has nothing to compare
-    and records no labels rather than an invented mismatch.
+    ``registered_facts`` are the session row's attested served values, so a
+    launch that asked for one selection and ran another is visible as a fact
+    rather than a suspicion. An unattested value records no label rather than
+    an invented mismatch.
 
     ``stamped_columns`` names the requested columns the binding wrote onto
     the session from this launch. A session that carried its own ask leaves
     it empty, so the two ways a request reaches the roster stay tellable
     apart when one of them stops working.
     """
-    requested = str(launch.requested_model or "").strip()
-    registered = str(registered_model or "").strip()
-    labels: dict[str, Any] = (
-        {"requested_model": requested, "registered_model": registered}
-        if requested and registered and requested != registered
-        else {}
-    )
+    labels: dict[str, Any] = {}
+    for name in ("model", "reasoning_effort", "context_window_tokens"):
+        requested = getattr(launch, f"requested_{name}")
+        registered = registered_facts.get(name)
+        if requested is not None and registered is not None and requested != registered:
+            labels[f"requested_{name}"] = requested
+            labels[f"registered_{name}"] = registered
     if stamped_columns:
         labels["stamped_requested_columns"] = ",".join(stamped_columns)
     return merge_redacted_evidence(launch.result_evidence, labels)

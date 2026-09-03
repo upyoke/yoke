@@ -12,6 +12,7 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
+from yoke_core.domain.steering_fleet_report_balance import selection_fingerprint_rows
 from yoke_core.domain.steering_fleet_report_limits import fingerprint_material
 
 if TYPE_CHECKING:  # pragma: no cover - annotation only, no import cycle
@@ -20,7 +21,6 @@ if TYPE_CHECKING:  # pragma: no cover - annotation only, no import cycle
 
 def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
     """The age-blind material one report hashes to."""
-    counts = {(machine, surface): n for machine, surface, n in report.session_counts}
     return {
         "available": sorted(entry.item_id for entry in report.available),
         "holders": sorted(
@@ -64,9 +64,9 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
             (entry.session_id, entry.answerer_session_id, entry.reason)
             for entry in report.dead_waits
         ),
-        "launch_balance": sorted(
-            (r.machine_id, r.surface, counts.get((r.machine_id, r.surface), 0))
-            for r in report.launchable
+        "launch_balance": selection_fingerprint_rows(report.session_counts),
+        "launchable": sorted(
+            (row.machine_id, row.surface) for row in report.launchable
         ),
         "plan_limits": fingerprint_material(report.plan_limits),
         "machine_capacity": sorted(

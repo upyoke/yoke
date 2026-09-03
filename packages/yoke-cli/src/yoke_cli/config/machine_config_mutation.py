@@ -47,8 +47,8 @@ def load_payload(path: str | Path | None) -> tuple[dict[str, Any], Path]:
     """Load the selected config, seeding a fresh document when empty.
 
     A missing file is a fresh write: schema version plus the real
-    ``preferred_session_models`` key with blank (unset) values for every
-    launchable surface. An existing document is returned unchanged, even
+    ``preferred_session_models`` key with blank model/effort and null context
+    values for every launchable surface. An existing document is returned unchanged, even
     when that key is absent — backfill is fresh writes and explicit
     repair only.
     """

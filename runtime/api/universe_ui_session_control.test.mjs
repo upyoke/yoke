@@ -121,7 +121,7 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   inputs[1].value = "YOK-2580";
   assert.equal(inputs[2].value, "codex-desktop");
   inputs[4].value = "gpt-5.6-sol";
-  inputs[5].value = "Open the assigned work and report through hooks.";
+  inputs[7].value = "Open the assigned work and report through hooks.";
   button(root, "Preview launch").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(lastButton(root, "Create session").disabled, false);

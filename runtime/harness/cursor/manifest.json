@@ -77,7 +77,31 @@
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",
-    "inline_context_bytes": 8192
+    "inline_context_bytes": 8192,
+    "launch_model_selection": {
+      "source": "yoke_contracts.session_control.model_selection",
+      "surface": "cursor-cli",
+      "model_catalog": "native_cli",
+      "documented_models": [],
+      "reasoning_efforts": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "extra-high",
+        "max"
+      ],
+      "context_windows": [
+        1000000
+      ],
+      "native_encoding": {
+        "model": "--model MODEL",
+        "reasoning_effort": "--model 'MODEL[effort=EFFORT]'",
+        "context_window_tokens": "--model 'MODEL[context=1m]'"
+      }
+    }
   },
   "agent_wake": {
     "source": "yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES",

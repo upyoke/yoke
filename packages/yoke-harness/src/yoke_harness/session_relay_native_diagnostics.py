@@ -41,11 +41,25 @@ NATIVE_DIAGNOSTIC_MAX_FILES = 256
 NATIVE_DIAGNOSTIC_TTL_SECONDS = 7 * 24 * 60 * 60
 _FILE_SUFFIX = ".capture"
 PERMISSION_BYPASS_UNACCEPTED = "permission_bypass_unaccepted"
+MODEL_COMBO_UNSUPPORTED = "model_combo_unsupported"
 _BACKGROUND_IN_USE_MARKERS = (
     b"session is already in use",
     b"conversation is already in use",
     b"already in use by another process",
     b"session is currently in use",
+)
+_MODEL_COMBO_MARKERS = (
+    "invalid value for '--model'",
+    'invalid value for "--model"',
+    "invalid value for '--effort'",
+    'invalid value for "--effort"',
+    "unknown model",
+    "unsupported model",
+    "model is not supported",
+    "model does not support",
+    "invalid model",
+    "context window is not supported",
+    "context length is not supported",
 )
 
 
@@ -79,7 +93,20 @@ def classify_native_failure(stderr: bytes) -> str:
         return "no_conversation_found"
     if any(marker in lowered for marker in _BACKGROUND_IN_USE_MARKERS):
         return "background_session_in_use"
+    if model_combo_rejection_detail(stderr):
+        return MODEL_COMBO_UNSUPPORTED
     return "process_exit"
+
+
+def model_combo_rejection_detail(output: bytes) -> str | None:
+    """Return one bounded vendor rejection line only for a model-knob error."""
+    text = bytes(output or b"").decode("utf-8", errors="replace")
+    for raw in text.splitlines():
+        line = " ".join(raw.strip().split())
+        lowered = line.lower()
+        if line and any(marker in lowered for marker in _MODEL_COMBO_MARKERS):
+            return line[:128]
+    return None
 
 
 def _require_private_directory(path: Path, *, create: bool) -> Path:
@@ -292,6 +319,7 @@ __all__ = [
     "NATIVE_DIAGNOSTIC_TTL_SECONDS",
     "NativeDiagnosticError",
     "NativeDiagnosticReceipt",
+    "MODEL_COMBO_UNSUPPORTED",
     "PERMISSION_BYPASS_UNACCEPTED",
     "classify_native_failure",
     "cleanup_native_diagnostics",
@@ -299,6 +327,7 @@ __all__ = [
     "native_diagnostic_path",
     "read_native_capture",
     "read_native_diagnostic",
+    "model_combo_rejection_detail",
     "store_native_diagnostic",
     "write_native_capture",
 ]

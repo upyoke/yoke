@@ -246,6 +246,8 @@ def launch_request_for_create(
         sender_surface=parsed.sender_surface,
         machine_id=parsed.machine_id,
         model=parsed.model,
+        reasoning_effort=parsed.reasoning_effort,
+        context_window_tokens=parsed.context_window_tokens,
         presentation=parsed.presentation,
         session_name=session_name,
         allow_surface_fallback=parsed.allow_surface_fallback,

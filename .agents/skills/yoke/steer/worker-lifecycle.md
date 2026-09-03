@@ -134,20 +134,31 @@ Resolve `{WORKER_SESSION_ID}` from the launch that staffed the item
 Never re-task an existing worker onto a different item. A new item is a
 new `session_control.launch.create`.
 
-## 7. Choose the model per item at launch
+## 7. Choose model, effort, and context per item at launch
 
-Default resolution: explicit `--model` on the launch > the
-`preferred_session_models` map of the machine the launch was PLACED on >
-vendor default. That machine owns the default because it holds the accounts
-and the installed models; this seat's config never decides a model running
-elsewhere. Blank map values are unset. Override per item with an explicit
-`--model` — heavier for architecture or migration, faster for mechanical work.
+Resolve each knob independently: its explicit launch flag > the value
+advertised by the machine the launch was placed on > the vendor default. The
+target machine owns these defaults because it owns the provider account and
+installed models; this seat's config never decides a session running
+elsewhere. Context is encoded in that machine's scalar model selector and
+effort comes from its additive reasoning-effort map. Blank values are unset.
 
-The preview names the model a launch would carry as `model` with a
-`model_source` naming the machine and key that decided it; the launch row
-keeps the caller's ask as `requested_model` and the result as
-`resolved_model`. `--list-models` reports THIS machine's map; preview a
-launch to read another machine's default.
+Override per item when the work warrants — a heavier model or effort for
+architecture, migration, or high-risk items; a faster selection for
+mechanical or copy-level dashes. Preview shows the raw request and effective
+selection with its source. The launch retains both, and the session later
+shows the effective ask beside provider-attested served facts. `--list-models`
+reports THIS machine's maps; preview a launch to read another machine's
+defaults.
+
+Only pass combinations the chosen CLI can encode. Claude accepts model,
+effort, and the 1M context tier; Codex accepts model and effort but no
+explicit context window; Cursor accepts all three in its parameterized model
+selector. Preview refuses an unsupported knob with a harness-specific code.
+If the provider rejects a combination after preview, the launch reads
+`model_combo_unsupported` with its bounded CLI detail: choose another
+listed combination and create a new launch. Never remove flags and silently
+fall back to vendor defaults.
 
 ```text
 yoke session-control launch preview --project {_project} --surface {_surface} --list-models
@@ -199,8 +210,10 @@ yoke session-control launch create \
   --project {_project} \
   --surface {_surface} \
   --item {ITEM} \
-  --idempotency-key "steer:{_project}:{ITEM}:{_surface}" \
+  --idempotency-key "steer:{_project}:{ITEM}:{_surface}:{_model}:{_effort}:{_context}" \
   --model {_model} \
+  --reasoning-effort {_effort} \
+  --context-window {_context} \
   --json
 ```
 

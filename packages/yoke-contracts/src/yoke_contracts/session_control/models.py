@@ -130,6 +130,8 @@ class LaunchPreviewRequest(BaseModel):
     executor_surface: str
     machine_id: Optional[str] = None
     model: Optional[str] = None
+    reasoning_effort: Optional[str] = None
+    context_window_tokens: Optional[int] = Field(default=None, gt=0)
     allow_surface_fallback: bool = False
 
     @field_validator("executor_surface")
@@ -186,6 +188,8 @@ class LaunchPreviewResponse(BaseModel):
     outcome: str
     requested_surface: str
     requested_model: Optional[str] = None
+    requested_reasoning_effort: Optional[str] = None
+    requested_context_window_tokens: Optional[int] = None
     selected_surface: Optional[str] = None
     fallback_used: bool = False
     launchable: bool

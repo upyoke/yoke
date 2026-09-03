@@ -19,6 +19,8 @@ from typing import Any
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
+from yoke_core.domain.steering_fleet_report_capacity import SessionCount
+from yoke_core.domain.steering_fleet_report_balance import selection_labels
 
 
 PLAN_LIMIT_HEADING = (
@@ -33,7 +35,7 @@ HEADROOM_LEGEND = (
     "windows — under 100% can hit a wall before its reset"
 )
 TABLE_HEADER = (
-    "| Machine | Surface | Tier | Window | Quota left | Resets in | "
+    "| Machine | Surface | Model / effort / context | Tier | Window | Quota left | Resets in | "
     "Headroom | Reset (UTC) |"
 )
 EMPTY = "-"
@@ -73,6 +75,7 @@ def window_label(window_kind: str, scope: str) -> str:
 
 @dataclass(frozen=True)
 class PlanLimitComputation:
+    machine_id: str
     machine_name: str
     surface: str
     plan_tier: str | None
@@ -150,6 +153,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
     """One surface's raw reading plus window-normalized headroom."""
     if row.status != "ok":
         return PlanLimitComputation(
+            machine_id=row.machine_id,
             machine_name=row.machine_name,
             surface=row.surface,
             plan_tier=row.plan_tier,
@@ -168,6 +172,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
     remaining = remaining_capacity(row.remaining_percent, window)
     until_reset = time_until_reset(row.resets_at, now)
     return PlanLimitComputation(
+        machine_id=row.machine_id,
         machine_name=row.machine_name,
         surface=row.surface,
         plan_tier=row.plan_tier,
@@ -194,10 +199,27 @@ def _percent(value: float | None) -> str:
     return f"{int(round(value))}%"
 
 
-def _markdown_row(computed: PlanLimitComputation) -> str:
+def _selection_cell(
+    computed: PlanLimitComputation,
+    counts: tuple[SessionCount, ...],
+) -> str:
+    labels = selection_labels(
+        counts,
+        machine_id=computed.machine_id,
+        surface=computed.surface,
+    )
+    return "<br>".join(labels) if labels else "no live selection"
+
+
+def _markdown_row(
+    computed: PlanLimitComputation,
+    counts: tuple[SessionCount, ...],
+) -> str:
+    selection = _selection_cell(computed, counts)
     if computed.status != "ok":
         return (
-            f"| {computed.machine_name} | {computed.surface} | {EMPTY} | "
+            f"| {computed.machine_name} | {computed.surface} | {selection} | "
+            f"{EMPTY} | "
             f"{window_label(computed.window_kind, computed.scope)} | "
             f"{EMPTY} | {EMPTY} | {computed.reason or 'unreadable'} | "
             f"{EMPTY} |"
@@ -208,7 +230,7 @@ def _markdown_row(computed: PlanLimitComputation) -> str:
         else EMPTY
     )
     return (
-        f"| {computed.machine_name} | {computed.surface} | "
+        f"| {computed.machine_name} | {computed.surface} | {selection} | "
         f"{_dash(computed.plan_tier)} | "
         f"{window_label(computed.window_kind, computed.scope)} | "
         f"{_percent(computed.remaining_percent)} | {resets_in} | "
@@ -225,7 +247,12 @@ def _sort_key(row: MachinePlanLimit) -> tuple[str, str, int, str, str]:
     return (row.machine_name, row.surface, order, row.window_kind, row.scope)
 
 
-def plan_limit_lines(limits: tuple[MachinePlanLimit, ...], *, now: str) -> list[str]:
+def plan_limit_lines(
+    limits: tuple[MachinePlanLimit, ...],
+    *,
+    now: str,
+    session_counts: tuple[SessionCount, ...] = (),
+) -> list[str]:
     if not limits:
         return []
     return [
@@ -233,7 +260,7 @@ def plan_limit_lines(limits: tuple[MachinePlanLimit, ...], *, now: str) -> list[
         PLAN_LIMIT_HEADING + ":",
         TABLE_HEADER,
         *(
-            _markdown_row(compute_plan_limit(row, now=now))
+            _markdown_row(compute_plan_limit(row, now=now), session_counts)
             for row in sorted(limits, key=_sort_key)
         ),
         HEADROOM_LEGEND,
@@ -241,7 +268,10 @@ def plan_limit_lines(limits: tuple[MachinePlanLimit, ...], *, now: str) -> list[
 
 
 def plan_limit_dicts(
-    limits: tuple[MachinePlanLimit, ...], *, now: str | None = None
+    limits: tuple[MachinePlanLimit, ...],
+    *,
+    now: str | None = None,
+    session_counts: tuple[SessionCount, ...] = (),
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in limits:
@@ -257,6 +287,13 @@ def plan_limit_dicts(
             "resets_at": row.resets_at,
             "status": row.status,
             "reason": row.reason,
+            "live_model_selections": list(
+                selection_labels(
+                    session_counts,
+                    machine_id=row.machine_id,
+                    surface=row.surface,
+                )
+            ),
         }
         if now is not None:
             computed = compute_plan_limit(row, now=now)

@@ -131,6 +131,8 @@ def claim_next_launch(
         native_instruction=claim.bootstrap_prompt,
         message_id=claim.launch.message_id,
         requested_model=claim.launch.resolved_model,
+        requested_reasoning_effort=claim.launch.requested_reasoning_effort,
+        requested_context_window_tokens=(claim.launch.requested_context_window_tokens),
         presentation=claim.launch.presentation_preference,
         session_name=claim.launch.session_name,
         deadline_at=claim.launch.deadline_at,

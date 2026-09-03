@@ -28,6 +28,12 @@ CORRELATION_FAILURE_CODES = frozenset(
         "surface_mismatch",
     }
 )
+LAUNCH_EXECUTION_FAILURE_CODES = frozenset({"model_combo_unsupported"})
+
+
+def launch_execution_failure_code(value: object) -> str:
+    code = str(value or "").strip()
+    return code if code in LAUNCH_EXECUTION_FAILURE_CODES else "native_create_failed"
 
 
 def launch_visibility(
@@ -70,4 +76,9 @@ def launch_visibility(
     }
 
 
-__all__ = ["CORRELATION_FAILURE_CODES", "launch_visibility"]
+__all__ = [
+    "CORRELATION_FAILURE_CODES",
+    "LAUNCH_EXECUTION_FAILURE_CODES",
+    "launch_execution_failure_code",
+    "launch_visibility",
+]

@@ -185,6 +185,8 @@ def test_session_control_schema_is_additive_and_idempotent() -> None:
         row[1] for row in conn.execute("PRAGMA table_info(session_launches)")
     }
     assert {
+        "requested_reasoning_effort",
+        "requested_context_window_tokens",
         "native_launch_pid",
         "native_launch_phase",
         "native_launch_observed_at",

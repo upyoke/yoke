@@ -11,6 +11,7 @@ from yoke_core.domain.session_launch_native_progress import native_launch_update
 from yoke_core.domain.session_launch_registered_session_binding import (
     bind_existing_registered_session,
 )
+from yoke_core.domain.session_launch_visibility import launch_execution_failure_code
 from yoke_core.domain.session_launch_store import (
     add_seconds,
     attestation_digest,
@@ -26,8 +27,8 @@ from yoke_core.domain.session_launch_store import (
 )
 from yoke_core.domain.session_launch_reconciliation import reconcile_launch
 from yoke_core.domain.session_relay_evidence import (
+    evidence_result_code,
     merge_redacted_evidence,
-    redacted_evidence_document,
 )
 from yoke_core.domain.session_launch_types import (
     LAUNCH_LEASE_SECONDS,
@@ -280,6 +281,7 @@ def report_launch_attempt(
         result_evidence = merge_redacted_evidence(
             value(attempt, "evidence", 6), evidence
         )
+        evidence_code = evidence_result_code(evidence)
         telemetry = native_launch_updates(evidence, observed_at=current)
         if telemetry:
             launch = update_launch(conn, launch_id, **telemetry)
@@ -320,13 +322,10 @@ def report_launch_attempt(
                 launch_id,
                 state="failed",
                 completed_at=current,
-                result_code="native_create_failed",
+                result_code=launch_execution_failure_code(evidence_code),
                 result_evidence=result_evidence,
             )
         else:
-            evidence_code = str(
-                redacted_evidence_document(evidence).get("result_code") or ""
-            ).strip()
             result = update_launch(
                 conn,
                 launch_id,
@@ -341,6 +340,7 @@ def report_launch_attempt(
     except Exception:
         conn.rollback()
         raise
+
 
 __all__ = [
     "claim_assigned_launch",

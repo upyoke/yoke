@@ -55,6 +55,11 @@ def _instruction_delivery(launch: Mapping[str, Any]) -> str:
 
 
 def _launch_recovery(launch: Mapping[str, Any]) -> str | None:
+    if launch.get("result_code") == "model_combo_unsupported":
+        return (
+            "Choose a supported model, reasoning effort, and context window; "
+            "then create a new launch. The rejected launch never falls back."
+        )
     if (
         launch.get("instruction_delivery") != "not_delivered"
         or launch.get("state") != "outcome_unknown"
@@ -114,6 +119,11 @@ def _write_launch_detail(
         ("Placement", launch.get("placement_reason")),
         ("Requested model", launch.get("requested_model")),
         ("Model", launch.get("resolved_model")),
+        ("Requested effort", launch.get("requested_reasoning_effort")),
+        (
+            "Requested context tokens",
+            launch.get("requested_context_window_tokens"),
+        ),
         ("Fallback allowed", bool(launch.get("allow_surface_fallback"))),
         ("Native session", launch.get("native_session_id")),
         ("Registered session", launch.get("registered_session_id")),

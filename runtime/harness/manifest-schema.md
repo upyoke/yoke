@@ -106,6 +106,7 @@ not author a second capability matrix.
 | `surfaces` | object | Closed mapping for only this harness family's known surfaces. |
 | `inline_context_source` | string | Canonical Python contract for the inline hook-context ceiling. |
 | `inline_context_bytes` | integer | That ceiling in bytes; runtime composition reads the Python contract, not this JSON. |
+| `launch_model_selection` | object | Accepted launch-time model knobs and their exact native CLI encodings, projected from the shared model-selection contract. |
 
 Each surface value carries `minimum_version`, `inject_events`, `create`,
 `message_active`, `message_idle`, `message_stopped`,
@@ -149,6 +150,13 @@ context is capped there so a vendor persist-to-file preview cannot hide a
 Fleet delivery behind a hint. Codex's value is the vendor
 `additionalContextLimit` default; Claude Code and Cursor use the shared
 envelope ceiling.
+
+`launch_model_selection` names its `surface`, catalog authority, documented
+model tokens, accepted reasoning efforts and context windows, and the native
+encoding for each knob. An encoding of `null` means the surface cannot express
+that knob; preview refuses it instead of dropping it. Cursor's model catalog is
+read from `cursor-agent --list-models`, while the other two CLI catalogs are
+documented in the shared contract.
 
 ## Agent wake
 

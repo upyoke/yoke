@@ -18,6 +18,8 @@ _PUBLIC_FIELDS = (
     "selected_surface",
     "requested_machine_id",
     "requested_model",
+    "requested_reasoning_effort",
+    "requested_context_window_tokens",
     "presentation_preference",
     "session_name",
     "allow_surface_fallback",

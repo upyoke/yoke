@@ -101,6 +101,8 @@ class RelayJob:
     target_native_thread_id: str | None = None
     target_launch_id: str | None = None
     requested_model: str | None = None
+    requested_reasoning_effort: str | None = None
+    requested_context_window_tokens: int | None = None
     presentation: str | None = None
     session_name: str | None = None
     deadline_at: str | None = None

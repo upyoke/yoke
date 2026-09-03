@@ -30,6 +30,8 @@ def same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> boo
             launch.requested_surface == request.executor_surface,
             launch.requested_machine_id == request.machine_id,
             launch.requested_model == request.model,
+            launch.requested_reasoning_effort == request.reasoning_effort,
+            launch.requested_context_window_tokens == request.context_window_tokens,
             launch.presentation_preference == request.presentation,
             launch.session_name == request.session_name,
             launch.allow_surface_fallback == request.allow_surface_fallback,

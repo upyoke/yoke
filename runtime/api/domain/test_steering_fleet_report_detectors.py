@@ -163,6 +163,29 @@ def test_identity_parse_failure_is_reported_before_the_deadline(fleet):
     assert gaps[0].result_code == "identity_parse_failed"
 
 
+def test_provider_model_rejection_is_reported_with_bounded_detail(fleet):
+    _launch(
+        fleet,
+        "launch-model-rejected",
+        deadline="2026-08-26T12:10:00Z",
+        state="failed",
+        result_code="model_combo_unsupported",
+    )
+    fleet.execute(
+        "UPDATE session_launches SET result_evidence = %s WHERE launch_id = %s",
+        (
+            json.dumps({"probe_detail": "model does not support effort max"}),
+            "launch-model-rejected",
+        ),
+    )
+    fleet.commit()
+
+    gaps = unregistered_launches(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert [entry.launch_id for entry in gaps] == ["launch-model-rejected"]
+    assert gaps[0].detail == "model does not support effort max"
+
+
 def test_exact_registered_session_with_missing_launch_binding_is_named(fleet):
     _launch(
         fleet,

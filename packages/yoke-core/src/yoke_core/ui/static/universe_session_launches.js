@@ -4,6 +4,10 @@ import { appendLaunchTimeline } from "./session_launch_timeline.js";
 import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
 import { appendRelayDiagnostic } from "./session_relay_diagnostic_view.js";
 import {
+  displaySessionModel,
+  sessionModelFactTags,
+} from "./session_model_display.js";
+import {
   labelledControl,
   presentSessionControlFailure,
   renderSessionControlFailure,
@@ -21,6 +25,7 @@ const RESULT_EVIDENCE_FIELDS = Object.freeze([
   ["adapter_revision", "text"],
   ["native_instruction_sha256", "text"],
   ["result_code", "text"],
+  ["probe_detail", "text"],
   ["surface", "text"],
   ["duration_ms", "integer"],
   ["exit_code", "integer"],
@@ -131,6 +136,16 @@ function launchCard(documentNode, launch, mutate) {
     "p",
     "fact-line",
     `${launch.requested_surface || "unknown surface"} requested · ${launch.selected_surface || "unselected"} selected · ${launch.assigned_machine_id || "unassigned"}`,
+  ));
+  const requestedSelection = [
+    displaySessionModel(launch, "vendor model default"),
+    ...sessionModelFactTags(launch).map((fact) => fact.label),
+  ];
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-launch-model-selection",
+    `Requested selection · ${requestedSelection.join(" · ")}`,
   ));
   if (
     launch.selected_surface

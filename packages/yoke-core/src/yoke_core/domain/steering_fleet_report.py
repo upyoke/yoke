@@ -62,6 +62,7 @@ from yoke_core.domain.steering_fleet_report_available import (
 )
 from yoke_core.domain.session_launch_capacity import MachineCapacity
 from yoke_core.domain.steering_fleet_report_capacity import (
+    SessionCount,
     SurfaceReadiness,
     launchable_surfaces,
     live_launch_origin_counts,
@@ -133,7 +134,7 @@ class FleetReport:
     landed_open: tuple[LandedItem, ...]
     dead_waits: tuple[DeadWait, ...]
     launchable: tuple[SurfaceReadiness, ...]
-    session_counts: tuple[tuple[str, str, int], ...]
+    session_counts: tuple[SessionCount, ...]
     suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
     #: Quiet holders inside one long-running call: reported, never an alarm.
     in_flight: tuple[InFlightCall, ...] = ()

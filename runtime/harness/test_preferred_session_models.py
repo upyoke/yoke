@@ -19,7 +19,7 @@ from yoke_contracts.machine_config.preferred_session_models import (
     list_preferred_models,
     preferred_session_models,
     render_list_models,
-    resolve_launch_model,
+    resolve_launch_selection,
     seed_preferred_session_models,
     validate_preferred_session_models,
 )
@@ -28,48 +28,75 @@ from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILI
 from yoke_cli.config import status_render
 
 
-def test_explicit_model_outranks_preferred_map() -> None:
-    payload = {PREFERRED_SESSION_MODELS_KEY: {"cursor-cli": "preferred-model"}}
+def _entry(model="", effort="", context=None):
+    return {
+        "model": model,
+        "reasoning_effort": effort,
+        "context_window_tokens": context,
+    }
 
-    resolved = resolve_launch_model("explicit-model", "cursor-cli", payload=payload)
+
+def test_explicit_knobs_independently_outrank_preferred_map() -> None:
+    payload = {
+        PREFERRED_SESSION_MODELS_KEY: {
+            "cursor-cli": _entry("preferred-model", "medium", 1_000_000)
+        }
+    }
+
+    resolved = resolve_launch_selection(
+        "explicit-model", "high", None, "cursor-cli", payload=payload
+    )
 
     assert resolved.model == "explicit-model"
-    assert resolved.source == EXPLICIT_SOURCE
+    assert resolved.reasoning_effort == "high"
+    assert resolved.context_window_tokens == 1_000_000
+    assert resolved.sources["model"] == EXPLICIT_SOURCE
+    assert resolved.sources["reasoning_effort"] == EXPLICIT_SOURCE
 
 
 def test_preferred_map_outranks_vendor_default() -> None:
-    payload = {PREFERRED_SESSION_MODELS_KEY: {"cursor-cli": "preferred-model"}}
+    payload = {
+        PREFERRED_SESSION_MODELS_KEY: {
+            "cursor-cli": _entry("preferred-model", "medium", 1_000_000)
+        }
+    }
 
-    resolved = resolve_launch_model(None, "cursor-cli", payload=payload)
+    resolved = resolve_launch_selection(None, None, None, "cursor-cli", payload=payload)
 
     assert resolved.model == "preferred-model"
-    assert resolved.source == f"{PREFERRED_SESSION_MODELS_KEY}.cursor-cli"
+    assert resolved.reasoning_effort == "medium"
+    assert resolved.context_window_tokens == 1_000_000
+    assert resolved.sources["model"] == (
+        f"{PREFERRED_SESSION_MODELS_KEY}.cursor-cli.model"
+    )
 
 
 def test_missing_surface_falls_through_to_vendor_default() -> None:
-    payload = {PREFERRED_SESSION_MODELS_KEY: {"claude-cli": "claude-opus"}}
+    payload = {PREFERRED_SESSION_MODELS_KEY: {"claude-cli": _entry("claude-opus")}}
 
-    resolved = resolve_launch_model("", "cursor-cli", payload=payload)
+    resolved = resolve_launch_selection("", None, None, "cursor-cli", payload=payload)
 
     assert resolved.model is None
-    assert resolved.source == VENDOR_DEFAULT_SOURCE
+    assert set(resolved.sources.values()) == {VENDOR_DEFAULT_SOURCE}
 
 
 def test_blank_and_whitespace_values_are_unset() -> None:
     payload = {
         PREFERRED_SESSION_MODELS_KEY: {
-            "cursor-cli": "",
-            "claude-cli": "   ",
-            "codex-cli": "codex-model",
+            "cursor-cli": _entry(),
+            "claude-cli": _entry("   "),
+            "codex-cli": _entry("codex-model"),
         }
     }
 
-    assert preferred_session_models(payload) == {"codex-cli": "codex-model"}
+    assert preferred_session_models(payload)["codex-cli"] == _entry("codex-model")
     assert validate_preferred_session_models(payload) == []
-    blank = resolve_launch_model(None, "cursor-cli", payload=payload)
-    whitespace = resolve_launch_model(None, "claude-cli", payload=payload)
-    assert blank.model is None and blank.source == VENDOR_DEFAULT_SOURCE
-    assert whitespace.model is None and whitespace.source == VENDOR_DEFAULT_SOURCE
+    blank = resolve_launch_selection(None, None, None, "cursor-cli", payload=payload)
+    whitespace = resolve_launch_selection(
+        None, None, None, "claude-cli", payload=payload
+    )
+    assert blank.model is None
+    assert whitespace.model is None
 
 
 def test_non_string_model_is_rejected_by_machine_config() -> None:
@@ -80,9 +107,9 @@ def test_non_string_model_is_rejected_by_machine_config() -> None:
     full = contract.validate_payload(payload)
 
     assert any(
-        issue.code == "preferred_session_models_model_invalid" for issue in issues
+        issue.code == "preferred_session_models_entry_invalid" for issue in issues
     )
-    assert any(issue.code == "preferred_session_models_model_invalid" for issue in full)
+    assert any(issue.code == "preferred_session_models_entry_invalid" for issue in full)
 
 
 def test_canonical_example_seeds_blank_launchable_surfaces() -> None:
@@ -91,7 +118,7 @@ def test_canonical_example_seeds_blank_launchable_surfaces() -> None:
     launchable = launchable_preferred_surfaces()
 
     assert set(seeded) == set(launchable)
-    assert all(value == "" for value in seeded.values())
+    assert all(value == _entry() for value in seeded.values())
     assert contract.validate_payload(payload) == []
     assert "claude-cli" in launchable
     assert "claude-desktop" not in launchable
@@ -105,10 +132,10 @@ def test_canonical_example_seeds_blank_launchable_surfaces() -> None:
 
 
 def test_seed_does_not_overwrite_existing_map() -> None:
-    payload = {PREFERRED_SESSION_MODELS_KEY: {"cursor-cli": "kept-model"}}
+    payload = {PREFERRED_SESSION_MODELS_KEY: {"cursor-cli": _entry("kept-model")}}
 
     assert seed_preferred_session_models(payload) is False
-    assert payload[PREFERRED_SESSION_MODELS_KEY] == {"cursor-cli": "kept-model"}
+    assert payload[PREFERRED_SESSION_MODELS_KEY] == {"cursor-cli": _entry("kept-model")}
 
 
 def test_list_models_treats_blanks_as_absent(monkeypatch, tmp_path) -> None:
@@ -129,11 +156,11 @@ def test_list_models_treats_blanks_as_absent(monkeypatch, tmp_path) -> None:
 
     assert report["key"] == PREFERRED_SESSION_MODELS_KEY
     assert report["config_file"] == str(config)
-    assert report["entries"] == []
+    assert report["entries"]["cursor-cli"] == _entry()
     assert report["selected"]["model"] is None
-    assert report["selected"]["source"] == VENDOR_DEFAULT_SOURCE
+    assert report["selected"]["sources"]["model"] == VENDOR_DEFAULT_SOURCE
     assert PREFERRED_SESSION_MODELS_KEY in rendered
-    assert "(no preferred models configured)" in rendered
+    assert "model=(none)" in rendered
 
 
 def test_list_models_names_the_config_key_as_source(monkeypatch, tmp_path) -> None:
@@ -141,7 +168,9 @@ def test_list_models_names_the_config_key_as_source(monkeypatch, tmp_path) -> No
     monkeypatch.setattr(
         "yoke_contracts.machine_config.runtime.load_config",
         lambda path=None: {
-            PREFERRED_SESSION_MODELS_KEY: {"cursor-cli": "preferred-model"}
+            PREFERRED_SESSION_MODELS_KEY: {
+                "cursor-cli": _entry("preferred-model", "high", 1_000_000)
+            }
         },
     )
     monkeypatch.setattr(
@@ -153,9 +182,12 @@ def test_list_models_names_the_config_key_as_source(monkeypatch, tmp_path) -> No
     rendered = render_list_models(report, json_mode=False)
 
     assert report["key"] == PREFERRED_SESSION_MODELS_KEY
-    assert report["selected"]["source"] == f"{PREFERRED_SESSION_MODELS_KEY}.cursor-cli"
+    assert report["selected"]["sources"]["model"] == (
+        f"{PREFERRED_SESSION_MODELS_KEY}.cursor-cli.model"
+    )
     assert "preferred-model" in rendered
-    assert f"{PREFERRED_SESSION_MODELS_KEY}.cursor-cli" in rendered
+    assert "effort=high" in rendered
+    assert "context=1m" in rendered
 
 
 def test_fresh_load_payload_seeds_blanks_without_writing(tmp_path) -> None:
@@ -196,8 +228,8 @@ def test_status_names_the_preferred_models_key() -> None:
     rendered = status_render.render_human({"config_path": "/tmp/config.json"})
 
     assert (
-        f"  {PREFERRED_SESSION_MODELS_KEY}: blank = unset in /tmp/config.json"
-        in rendered
+        f"  {PREFERRED_SESSION_MODELS_KEY}: blank knobs = vendor defaults "
+        "in /tmp/config.json" in rendered
     )
 
 

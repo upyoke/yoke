@@ -12,6 +12,10 @@ import time
 from yoke_contracts.session_control.launch_permission_bypass import (
     CODEX_EXEC_BYPASS_ARGUMENTS,
 )
+from yoke_contracts.session_control.model_selection import (
+    LaunchModelSelection,
+    native_model_selector,
+)
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
     CodexNativeRequest,
@@ -25,8 +29,10 @@ from yoke_harness.session_relay_inventory import (
     resolve_native_cli_source,
 )
 from yoke_harness.session_relay_native_diagnostics import (
+    MODEL_COMBO_UNSUPPORTED,
     NativeDiagnosticError,
     diagnostic_reference,
+    model_combo_rejection_detail,
     store_native_diagnostic,
 )
 from yoke_harness.session_relay_native_streams import (
@@ -78,8 +84,16 @@ def _base_command(binary: str, request: CodexNativeRequest) -> list[str]:
         "--skip-git-repo-check",
         *CODEX_EXEC_BYPASS_ARGUMENTS,
     ]
-    if request.requested_model:
-        command.extend(["--model", request.requested_model])
+    selection = LaunchModelSelection(
+        request.requested_model,
+        request.requested_reasoning_effort,
+        request.requested_context_window_tokens,
+    )
+    model = native_model_selector("codex-cli", selection)
+    if model:
+        command.extend(["--model", model])
+    if selection.reasoning_effort:
+        command.extend(["-c", f"model_reasoning_effort={selection.reasoning_effort}"])
     return command
 
 
@@ -130,6 +144,13 @@ def _retain(
         )
     except NativeDiagnosticError:
         return
+
+
+def _stderr_bytes(process: subprocess.Popen[bytes], streams: BoundedStreams) -> bytes:
+    thread = getattr(process, "_yoke_stderr_thread", None)
+    if thread is not None:
+        thread.join(1)
+    return streams.snapshot()[1]
 
 
 def _stop(process: subprocess.Popen[bytes]) -> None:
@@ -193,7 +214,8 @@ class CodexCliTransport:
                 stderr=subprocess.PIPE,
                 start_new_session=True,
             )
-            start_drain(process.stderr, streams, STDERR, daemon=False)
+            stderr_thread = start_drain(process.stderr, streams, STDERR, daemon=False)
+            setattr(process, "_yoke_stderr_thread", stderr_thread)
             if process.stdin is None:
                 raise OSError("native stdin unavailable")
             process.stdin.write(instruction)
@@ -273,13 +295,18 @@ class CodexCliTransport:
         if not found:
             exit_code = process.poll()
             _stop(process)
+            detail = model_combo_rejection_detail(_stderr_bytes(process, streams))
             _retain(streams, request.job_id, exit_code)
             return CodexNativeOutcome(
-                "outcome_unknown",
+                "not_created"
+                if detail and request.job_kind == "launch"
+                else "outcome_unknown",
                 exit_code=exit_code,
                 phase="thread_identity",
                 binary_source=binary_source,
                 pid=process.pid,
+                failure_code=MODEL_COMBO_UNSUPPORTED if detail else None,
+                failure_detail=detail,
             )
         if request.job_kind == "wake" and found != request.target_thread_id:
             _stop(process)

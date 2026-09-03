@@ -188,6 +188,7 @@ def test_preview_places_an_unpinned_launch_and_names_the_reason(
                 "project": "launch-project",
                 "executor_surface": "codex-cli",
                 "model": "gpt-5.6-sol",
+                "reasoning_effort": "xhigh",
             },
         )
     )
@@ -195,7 +196,29 @@ def test_preview_places_an_unpinned_launch_and_names_the_reason(
     assert result.primary_success is True
     assert result.result_payload["outcome"] == "assigned"
     assert result.result_payload["requested_model"] == "gpt-5.6-sol"
+    assert result.result_payload["requested_reasoning_effort"] == "xhigh"
     assert result.result_payload["model"] == "gpt-5.6-sol"
     assert result.result_payload["model_source"] == "explicit launch request"
     assert result.result_payload["selected_relay"]["machine_id"] == "machine-a"
     assert result.result_payload["placement_reason"]
+
+
+def test_preview_refuses_a_knob_the_named_harness_cannot_encode(monkeypatch) -> None:
+    conn = launch_connection()
+    add_relay(conn, surface="codex-cli")
+    _wire_handler(monkeypatch, conn)
+
+    result = handlers.handle_launch_preview(
+        _request(
+            "session.launch.preview",
+            {
+                "project": "launch-project",
+                "executor_surface": "codex-cli",
+                "model": "gpt-5.6-sol",
+                "context_window_tokens": 1_000_000,
+            },
+        )
+    )
+
+    assert result.primary_success is False
+    assert result.error and result.error.code == "codex_context_window_unsupported"

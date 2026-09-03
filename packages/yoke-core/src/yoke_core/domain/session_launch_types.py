@@ -112,6 +112,8 @@ class LaunchRequest:
     sender_surface: str | None = None
     machine_id: str | None = None
     model: str | None = None
+    reasoning_effort: str | None = None
+    context_window_tokens: int | None = None
     presentation: str | None = None
     session_name: str | None = None
     allow_surface_fallback: bool = False
@@ -177,6 +179,8 @@ class LaunchRecord:
     selected_surface: str
     requested_machine_id: str | None
     requested_model: str | None
+    requested_reasoning_effort: str | None
+    requested_context_window_tokens: int | None
     presentation_preference: str | None
     session_name: str | None
     allow_surface_fallback: bool

@@ -21,8 +21,35 @@ function payload(fields) {
     executor_surface: String(fields.surface.value),
     ...(fields.machine.value ? { machine_id: String(fields.machine.value) } : {}),
     ...(fields.model.value ? { model: String(fields.model.value) } : {}),
+    ...(fields.effort.value
+      ? { reasoning_effort: String(fields.effort.value) } : {}),
+    ...(fields.context.value
+      ? { context_window_tokens: Number(fields.context.value) } : {}),
     allow_surface_fallback: Boolean(fields.fallback.checked),
   };
+}
+
+function previewConfirmsSelection(request, result) {
+  return [
+    ["model", "requested_model"],
+    ["reasoning_effort", "requested_reasoning_effort"],
+    ["context_window_tokens", "requested_context_window_tokens"],
+  ].every(([asked, confirmed]) => (
+    String(request[asked] ?? "") === String(result[confirmed] ?? "")
+  ));
+}
+
+function modelSelectionNotice(request, launchable) {
+  if (!launchable) return "";
+  const requested = [
+    request.model ? `Model ${request.model}` : "",
+    request.reasoning_effort
+      ? `reasoning effort ${request.reasoning_effort}` : "",
+    request.context_window_tokens
+      ? `context window ${request.context_window_tokens} tokens` : "",
+  ].filter(Boolean);
+  if (!requested.length) return "";
+  return ` ${requested.join(", ")} will be verified at registration; the requested model selection will be recorded separately, and served facts settle independently.`;
 }
 
 function surfaceFamily(surface) {
@@ -72,7 +99,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     documentNode,
     "p",
     "session-control-help",
-    "Choose an exact surface, preview eligible machines, then create. An optional model is verified only when the new session registers; Yoke will not silently switch surfaces.",
+    "Choose an exact surface, preview eligible machines, then create. Optional model, effort, and context asks are recorded separately from served facts; Yoke will not silently change the selection or surface.",
   );
   help.id = "session-launch-create-help";
   shell.dialog.appendChild(help);
@@ -82,6 +109,8 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     surface: el(documentNode, "select", "session-control-input"),
     machine: el(documentNode, "select", "session-control-input"),
     model: el(documentNode, "input", "session-control-input"),
+    effort: el(documentNode, "input", "session-control-input"),
+    context: el(documentNode, "input", "session-control-input"),
     fallback: el(documentNode, "input", "session-control-checkbox"),
     raw: el(documentNode, "input", "session-control-checkbox"),
     instructions: el(documentNode, "textarea", "session-control-input session-message-body"),
@@ -100,6 +129,14 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   fields.model.type = "text";
   fields.model.placeholder = "Optional provider model ID";
   fields.model.value = "";
+  fields.effort.type = "text";
+  fields.effort.placeholder = "Optional provider effort level";
+  fields.effort.value = "";
+  fields.context.type = "number";
+  fields.context.min = "1";
+  fields.context.step = "1";
+  fields.context.placeholder = "Optional token count, for example 1000000";
+  fields.context.value = "";
   fields.item.type = "text";
   fields.item.placeholder = "Required work item ref";
   for (const [label, field] of [
@@ -109,6 +146,8 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     ["Allow same-family fallback", fields.fallback],
     ["Machine", fields.machine],
     ["Requested model (verified after launch)", fields.model],
+    ["Requested reasoning effort", fields.effort],
+    ["Requested context window (tokens)", fields.context],
     ["Use typed text as the full instruction body", fields.raw],
     ["Optional extras after the composed mandate", fields.instructions],
   ]) shell.dialog.appendChild(labelledControl(documentNode, label, field));
@@ -207,8 +246,8 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
       const result = await sessionControlCall(
         context, "session_control.launch.preview", request,
       );
-      if (String(result.requested_model || "") !== String(request.model || "")) {
-        status.textContent = "Launch preview did not confirm the requested model. Refresh after the control plane is updated.";
+      if (!previewConfirmsSelection(request, result)) {
+        status.textContent = "Launch preview did not confirm the requested model selection. Refresh after the control plane is updated.";
         create.disabled = true;
         return;
       }
@@ -224,9 +263,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
           ? `Fallback selected ${result.selected_surface}.`
           : `Requested surface ${result.selected_surface} is eligible.`)
         : `Launch refused: ${result.outcome || "unsupported"}.`;
-      const modelNotice = request.model && result.launchable
-        ? ` Model ${request.model} will be verified when the new session registers.`
-        : "";
+      const modelNotice = modelSelectionNotice(request, result.launchable);
       status.textContent = `${outcome}${modelNotice}`;
       create.disabled = !result.launchable;
     } catch (error) {

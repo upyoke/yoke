@@ -8,10 +8,13 @@ from uuid import uuid4
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_idempotency import deduplicated_outcome
 from yoke_core.domain.session_launch_machine_models import resolve_machine_model
-from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain import session_launch_native_progress as native_progress
+from yoke_core.domain.session_launch_request_storage import insert_launch_request
 from yoke_core.domain.session_launch_surface_selection import preview_launch
-from yoke_core.domain.session_launch_validation import validate_launch_request
+from yoke_core.domain.session_launch_validation import (
+    validate_launch_request,
+    validate_model_selection,
+)
 from yoke_core.domain import session_relay_managed_presentation as managed_presentation
 from yoke_core.domain.session_launch_store import (
     add_seconds,
@@ -20,7 +23,6 @@ from yoke_core.domain.session_launch_store import (
     get_launch,
     get_launch_by_dedupe,
     insert_instruction_message,
-    marker,
     update_launch,
     utc_now,
 )
@@ -39,68 +41,6 @@ from yoke_core.domain.session_launch_types import (
 )
 
 
-def _insert_launch(
-    conn: Any,
-    *,
-    launch_id: str,
-    message_id: str,
-    auth: LaunchAuthorization,
-    request: LaunchRequest,
-    preview: LaunchPreview,
-    created_at: str,
-    deadline_at: str,
-) -> bool:
-    relay = preview.selected_relay
-    assert relay is not None
-    p = marker(conn)
-    columns = (
-        "launch_id, requester_actor_id, requester_session_id, project_id, "
-        "requested_surface, selected_surface, requested_machine_id, requested_model, "
-        "presentation_preference, session_name, allow_surface_fallback, message_id, "
-        "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
-        "deadline_at, created_at, assigned_at, origin, placement_reason, "
-        "resolved_model"
-    )
-    values = (
-        launch_id,
-        auth.actor_id,
-        auth.session_id,
-        request.project_id,
-        request.executor_surface,
-        relay.surface,
-        request.machine_id,
-        request.model,
-        request.presentation,
-        request.session_name,
-        int(request.allow_surface_fallback),
-        message_id,
-        request.idempotency_key,
-        "assigned",
-        relay.relay_id,
-        relay.machine_id,
-        deadline_at,
-        created_at,
-        created_at,
-        derived_launch_origin(
-            conn, session_id=auth.session_id, project_id=request.project_id
-        ),
-        preview.placement_reason,
-        resolve_machine_model(
-            conn,
-            requested_model=request.model,
-            machine_id=relay.machine_id,
-            surface=relay.surface,
-        ).model,
-    )
-    row = conn.execute(
-        f"INSERT INTO session_launches ({columns}) "
-        f"VALUES ({', '.join(p for _ in values)}) "
-        "ON CONFLICT DO NOTHING RETURNING launch_id",
-        values,
-    ).fetchone()
-    return row is not None
-
-
 def create_launch(
     conn: Any,
     *,
@@ -113,7 +53,7 @@ def create_launch(
 ) -> LaunchCreateOutcome:
     ensure_operator(auth)
     request = managed_presentation.normalize_launch_presentation(request)
-    validate_launch_request(request, max_body_bytes=max_body_bytes)
+    request = validate_launch_request(request, max_body_bytes=max_body_bytes)
     current = now or utc_now()
     begin_mutation(conn)
     try:
@@ -144,6 +84,12 @@ def create_launch(
             raise SessionLaunchError(
                 preview.outcome, launch_refusal_message(conn, preview)
             )
+        validate_model_selection(
+            str(preview.selected_surface),
+            model=request.model,
+            reasoning_effort=request.reasoning_effort,
+            context_window_tokens=request.context_window_tokens,
+        )
 
         launch_id = str(uuid4())
         message_id = str(uuid4())
@@ -160,7 +106,7 @@ def create_launch(
             created_at=current,
             expires_at=deadline_at,
         )
-        inserted = _insert_launch(
+        inserted = insert_launch_request(
             conn,
             launch_id=launch_id,
             message_id=message_id,
@@ -290,6 +236,12 @@ def retry_launch(
         )
         if not preview.launchable:
             raise SessionLaunchError(preview.outcome, "no relay is eligible for retry")
+        validate_model_selection(
+            str(preview.selected_surface),
+            model=launch.requested_model,
+            reasoning_effort=launch.requested_reasoning_effort,
+            context_window_tokens=launch.requested_context_window_tokens,
+        )
         relay = preview.selected_relay
         assert relay is not None
         result = update_launch(

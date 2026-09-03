@@ -29,10 +29,24 @@ NATIVE_SESSION_ID = "native-session"
 LATER = "2026-08-22T12:00:31Z"
 
 
-def _registered_launch(conn, *, surface: str, version: str, model: str | None):
+def _registered_launch(
+    conn,
+    *,
+    surface: str,
+    version: str,
+    model: str | None,
+    reasoning_effort: str | None = None,
+    context_window_tokens: int | None = None,
+):
     """Run one launch up to the moment its native session registers."""
     add_relay(conn, surface=surface, version=version)
-    launch = assigned_launch(conn, surface=surface, model=model)
+    launch = assigned_launch(
+        conn,
+        surface=surface,
+        model=model,
+        reasoning_effort=reasoning_effort,
+        context_window_tokens=context_window_tokens,
+    )
     claim = claim_assigned_launch(
         conn,
         launch_id=launch.launch_id,
@@ -77,9 +91,23 @@ def _stamped_facts(conn) -> dict:
     return dict(row)
 
 
-def _bind(conn, *, surface: str, version: str, model: str | None, **stated) -> dict:
+def _bind(
+    conn,
+    *,
+    surface: str,
+    version: str,
+    model: str | None,
+    reasoning_effort: str | None = None,
+    context_window_tokens: int | None = None,
+    **stated,
+) -> dict:
     launch, claim = _registered_launch(
-        conn, surface=surface, version=version, model=model
+        conn,
+        surface=surface,
+        version=version,
+        model=model,
+        reasoning_effort=reasoning_effort,
+        context_window_tokens=context_window_tokens,
     )
     _register_session(conn, surface=surface, version=version, **stated)
     prepare_launch_registration(
@@ -92,41 +120,54 @@ def _bind(conn, *, surface: str, version: str, model: str | None, **stated) -> d
     return _stamped_facts(conn)
 
 
-def test_a_claude_launch_stores_the_ask_its_pooled_process_could_not_read() -> None:
+def test_claude_binding_stamps_every_supported_requested_knob() -> None:
     conn = launch_connection()
 
     facts = _bind(
         conn,
         surface="claude-cli",
         version="2.1.252",
-        model="claude-opus-5[1m]",
+        model="claude-opus-4-8",
+        reasoning_effort="max",
+        context_window_tokens=CLAUDE_CONTEXT_TIER_TOKENS,
     )
 
-    assert facts["requested_model"] == "claude-opus-5[1m]"
+    assert facts["requested_model"] == "claude-opus-4-8"
+    assert facts["requested_reasoning_effort"] == "max"
     assert facts["requested_context_window_tokens"] == CLAUDE_CONTEXT_TIER_TOKENS
 
 
-def test_a_codex_launch_stores_the_model_it_asked_for() -> None:
+def test_codex_binding_stamps_model_and_effort_with_no_unsupported_context() -> None:
     conn = launch_connection()
 
-    facts = _bind(conn, surface="codex-cli", version="0.148.0a15", model="gpt-5.6-sol")
+    facts = _bind(
+        conn,
+        surface="codex-cli",
+        version="0.148.0a15",
+        model="gpt-5.6-sol",
+        reasoning_effort="xhigh",
+    )
 
     assert facts["requested_model"] == "gpt-5.6-sol"
-    assert facts["requested_reasoning_effort"] is None
+    assert facts["requested_reasoning_effort"] == "xhigh"
+    assert facts["requested_context_window_tokens"] is None
 
 
-def test_a_cursor_launch_stores_the_effort_its_variant_name_spells() -> None:
+def test_cursor_binding_stamps_every_supported_requested_knob() -> None:
     conn = launch_connection()
 
     facts = _bind(
         conn,
         surface="cursor-cli",
         version="2026.08.25",
-        model="cursor-grok-4.6-xhigh",
+        model="cursor-grok-4.6",
+        reasoning_effort="xhigh",
+        context_window_tokens=CLAUDE_CONTEXT_TIER_TOKENS,
     )
 
-    assert facts["requested_model"] == "cursor-grok-4.6-xhigh"
+    assert facts["requested_model"] == "cursor-grok-4.6"
     assert facts["requested_reasoning_effort"] == "xhigh"
+    assert facts["requested_context_window_tokens"] == CLAUDE_CONTEXT_TIER_TOKENS
 
 
 def test_binding_never_rewrites_an_ask_the_session_stated_itself() -> None:

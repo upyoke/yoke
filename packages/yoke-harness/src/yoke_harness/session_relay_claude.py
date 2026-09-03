@@ -24,7 +24,11 @@ from yoke_harness.session_relay_claude_result import (
 from yoke_harness.session_relay_claude_transcript import (
     claude_session_transcript_exists,
 )
-from yoke_harness.session_relay_native_diagnostics import classify_native_failure
+from yoke_harness.session_relay_native_diagnostics import (
+    MODEL_COMBO_UNSUPPORTED,
+    classify_native_failure,
+    model_combo_rejection_detail,
+)
 from yoke_harness.session_relay_runtime import (
     native_instruction_targets_job,
     RelayAdapterResult,
@@ -164,20 +168,24 @@ def _run_create(
     refusal = immediate_native_refusal(started.capture_path)
     if refusal is not None and refusal.exit_code != 0:
         _contain_failed_launch(invocation)
+        output = refusal.stderr + b"\n" + refusal.stdout
+        detail = model_combo_rejection_detail(output)
+        failure_code = classify_native_failure(output)
         return _result(
             context,
             "not_created",
-            "child_exited",
+            MODEL_COMBO_UNSUPPORTED if detail else "child_exited",
             native_evidence={
                 **started.evidence,
                 "exit_code": -1 if refusal.exit_code is None else refusal.exit_code,
             },
             private_diagnostic=RelayPrivateDiagnostic(
-                classify_native_failure(refusal.stderr),
+                failure_code,
                 error_step="launch",
                 stdout=refusal.stdout,
                 stderr=refusal.stderr,
             ),
+            probe_detail=detail,
         )
     return _result(
         context,

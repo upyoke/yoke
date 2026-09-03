@@ -16,7 +16,10 @@ from runtime.api.domain.steering_claim_test_support import (
 )
 from yoke_core.domain.steering_fleet_plan_capacity import PLAN_LIMIT_HEADING
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
-from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
+from yoke_core.domain.steering_fleet_report_capacity import (
+    SessionCount,
+    SurfaceReadiness,
+)
 from yoke_core.domain.steering_fleet_report_compose import (
     CombinedFleetReport,
     ScopedFleetReport,
@@ -42,7 +45,7 @@ def _report(
     *,
     idle: tuple[ClaimHolder, ...] = (),
     launchable: tuple[SurfaceReadiness, ...] = (),
-    session_counts: tuple[tuple[str, str, int], ...] = (),
+    session_counts: tuple[SessionCount, ...] = (),
     origin_counts: tuple[tuple[str, int], ...] = (),
     plan_limits: tuple[MachinePlanLimit, ...] = (),
 ) -> FleetReport:
@@ -213,6 +216,20 @@ def _ready(machine_id: str, surface: str = "codex-cli") -> SurfaceReadiness:
     return SurfaceReadiness(machine_id=machine_id, surface=surface)
 
 
+def _count(machine_id: str, count: int) -> SessionCount:
+    return SessionCount(
+        machine_id,
+        "codex-cli",
+        count,
+        "gpt-5.6-sol",
+        "high",
+        None,
+        "gpt-5.6-sol",
+        "high",
+        None,
+    )
+
+
 def _limit(machine_id: str) -> MachinePlanLimit:
     return MachinePlanLimit(
         machine_id=machine_id,
@@ -237,7 +254,7 @@ def test_two_scopes_on_one_machine_share_one_machine_block() -> None:
         1,
         NOW,
         launchable=(_ready("machine-a"),),
-        session_counts=(("machine-a", "codex-cli", 2),),
+        session_counts=(_count("machine-a", 2),),
         origin_counts=(("steering", 2),),
         plan_limits=(_limit("machine-a"),),
     )
@@ -245,7 +262,7 @@ def test_two_scopes_on_one_machine_share_one_machine_block() -> None:
         2,
         NOW,
         launchable=(_ready("machine-a"),),
-        session_counts=(("machine-a", "codex-cli", 5),),
+        session_counts=(_count("machine-a", 5),),
         origin_counts=(("operator", 1),),
         plan_limits=(_limit("machine-a"),),
     )

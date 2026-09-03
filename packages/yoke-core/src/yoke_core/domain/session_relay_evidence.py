@@ -12,6 +12,10 @@ def redacted_evidence(value: Mapping[str, Any] | None) -> str:
     return json_helper.dumps_compact(redacted_evidence_document(value))
 
 
+def evidence_result_code(value: Mapping[str, Any] | None) -> str:
+    return str(redacted_evidence_document(value).get("result_code") or "").strip()
+
+
 def merge_redacted_evidence(
     existing: Any,
     incoming: Mapping[str, Any] | None,
@@ -31,6 +35,7 @@ def merge_redacted_evidence(
 
 
 __all__ = [
+    "evidence_result_code",
     "merge_redacted_evidence",
     "redacted_evidence",
     "redacted_evidence_document",

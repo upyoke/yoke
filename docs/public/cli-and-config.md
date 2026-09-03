@@ -28,31 +28,50 @@ surface; CLI adapters are the operator/debug shape. Prefer
 environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
-`preferred_session_models` is the surface-to-model map a machine names for
-sessions launched **on it**. Model availability is bound to the accounts on
-that machine, so the map stays machine-local and travels to the control plane
-on the machine's own relay heartbeat. A launch resolves its model against the
-machine it was placed on: explicit `--model` on the launch > that machine's
-map > the vendor default. The caller's own map never decides a launch that
-will run somewhere else — it would name a model the target machine may not
-have installed. `session_control.launch.preview` answers with `model` and
-`model_source`, so a seat can read the exact model a launch would carry
-before creating it, and each launch row records the same pair as
-`resolved_model` beside the caller's own `requested_model`.
+Launch defaults retain the scalar `preferred_session_models` map that the
+previous release can read. Context stays encoded in each native model
+selector, while effort lives in the additive
+`preferred_session_reasoning_efforts` map:
 
-A fresh installer/onboard write seeds the real key with every launchable
-harness surface from the session-control registry, each set to a blank
-string. Blank (or whitespace) means unset: the resolver, `--list-models`,
-machine-config validation, and `yoke config status` all treat it like an
-absent entry and fall through to the vendor default, so a freshly seeded map
-resolves credentials on a postgres-authority connection. Validation rejects
-only a non-object map, a blank surface name, or a non-string model id.
-Activation is typing a model id into a blank. Existing maps are left
-untouched; machines without the key are not backfilled except on a fresh
-write or an explicit config repair. `yoke status` and
-`yoke session-control launch create --list-models` name the key and the
-config file **of the machine you are typing on** — to read what another
-machine would use, preview a launch against it.
+```json
+{
+  "preferred_session_models": {
+    "claude-cli": "claude-opus-4-8[1m]",
+    "codex-cli": "gpt-5.6-sol"
+  },
+  "preferred_session_reasoning_efforts": {
+    "claude-cli": "max",
+    "codex-cli": "xhigh"
+  }
+}
+```
+
+Both maps are machine-local and travel on that machine's relay heartbeat.
+After placement, each knob resolves independently: its explicit launch flag >
+the chosen machine's advertised value > the vendor default. The caller's map
+never decides a launch running elsewhere. Preview shows the raw request and
+the effective selection with the machine setting that supplied each default;
+the launch record retains both, and the bound session shows the effective ask
+beside provider-attested served facts.
+
+A fresh installer/onboard write seeds both keys with every launchable harness
+surface. Blank model or effort means unset. Validation rejects non-string
+entries, invalid selectors, unsupported effort values, and combinations the
+named CLI cannot encode. Existing machine files are not rewritten during
+rollout. `yoke status` and `--list-models` describe this machine's maps;
+preview a launch to see another machine's effective defaults.
+
+`yoke session-control launch preview` and `create` accept the three flags.
+`--context-window` accepts a token count or compact form such as `1m`.
+`--list-models --surface SURFACE` prints Cursor's native
+`cursor-agent --list-models` result or the documented Claude/Codex IDs,
+plus accepted effort and context values. Claude maps context 1M to the
+model's `[1m]` selector and effort to `--effort`; Codex maps effort to
+`-c model_reasoning_effort=...` and refuses explicit context; Cursor folds
+effort and context into its bracketed `--model` value. An unsupported knob
+is a preview refusal named for the harness and knob. A combination the
+provider rejects at run time fails as `model_combo_unsupported`, retains a
+bounded vendor message in launch evidence, and never retries under defaults.
 
 ## Launched sessions run unattended
 

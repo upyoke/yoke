@@ -9,7 +9,7 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
 )
 
 
-def test_launch_preview_says_model_is_verified_at_registration() -> None:
+def test_launch_preview_says_selection_is_verified_at_registration() -> None:
     output = io.StringIO()
 
     write_launch_result(
@@ -17,6 +17,8 @@ def test_launch_preview_says_model_is_verified_at_registration() -> None:
             "outcome": "assigned",
             "requested_surface": "codex-desktop",
             "requested_model": "gpt-5.6-sol",
+            "requested_reasoning_effort": "high",
+            "requested_context_window_tokens": 1_000_000,
             "selected_surface": "codex-desktop",
             "launchable": True,
             "eligible_relays": [],
@@ -27,7 +29,31 @@ def test_launch_preview_says_model_is_verified_at_registration() -> None:
     rendered = output.getvalue()
     assert "Requested model" in rendered
     assert "gpt-5.6-sol" in rendered
-    assert "Model verification" in rendered
+    assert "Requested effort" in rendered
+    assert "high" in rendered
+    assert "Requested context tokens" in rendered
+    assert "1000000" in rendered
+    assert "Selection verification" in rendered
+    assert "at session registration" in rendered
+
+
+def test_effort_without_model_is_still_a_requested_selection() -> None:
+    output = io.StringIO()
+
+    write_launch_result(
+        {
+            "outcome": "assigned",
+            "requested_surface": "codex-cli",
+            "requested_reasoning_effort": "high",
+            "selected_surface": "codex-cli",
+            "launchable": True,
+            "eligible_relays": [],
+        },
+        output,
+    )
+
+    rendered = output.getvalue()
+    assert "Selection verification" in rendered
     assert "at session registration" in rendered
 
 

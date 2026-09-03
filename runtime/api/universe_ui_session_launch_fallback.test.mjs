@@ -90,7 +90,7 @@ test("launch fallback requires a visible opt-in and shows the selected surface",
   inputs[1].value = "YOK-2580";
   inputs[2].value = "codex-vscode";
   inputs[4].value = "gpt-5.6-sol";
-  inputs[5].value = "Use an explicitly approved same-family fallback.";
+  inputs[7].value = "Use an explicitly approved same-family fallback.";
   const fallback = byClass(root, "session-control-checkbox")[0];
   fallback.checked = true;
   fallback.dispatchEvent(new Event("change"));
@@ -147,13 +147,13 @@ test("launch preview refuses an unconfirmed model constraint", async (t) => {
   const inputs = byClass(root, "session-control-input");
   inputs[1].value = "YOK-2580";
   inputs[4].value = "gpt-5.6-sol";
-  inputs[5].value = "Open the assigned work.";
+  inputs[7].value = "Open the assigned work.";
   button(root, "Preview launch").dispatchEvent(new Event("click"));
   await settle();
 
   assert.equal(lastButton(root, "Create session").disabled, true);
   assert.ok(byClass(root, "session-control-status").at(-1).textContent.includes(
-    "did not confirm the requested model",
+    "did not confirm the requested model selection",
   ));
   mounted.unmount();
 });

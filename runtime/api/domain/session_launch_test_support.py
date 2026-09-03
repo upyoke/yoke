@@ -226,6 +226,8 @@ def assigned_launch(
     surface: str = "codex-cli",
     machine_id: str | None = None,
     model: str | None = "gpt-5",
+    reasoning_effort: str | None = None,
+    context_window_tokens: int | None = None,
 ):
     return create_launch(
         conn,
@@ -237,6 +239,8 @@ def assigned_launch(
             idempotency_key=key,
             machine_id=machine_id,
             model=model,
+            reasoning_effort=reasoning_effort,
+            context_window_tokens=context_window_tokens,
         ),
         now=NOW,
     ).launch

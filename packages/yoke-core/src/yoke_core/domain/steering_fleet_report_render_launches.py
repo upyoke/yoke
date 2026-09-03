@@ -53,6 +53,9 @@ def _unregistered_line(entry: UnregisteredLaunch) -> str:
             f"then `yoke session-control launch reconcile {entry.launch_id} "
             "--observed-native-id ID`"
         )
+    elif entry.result_code == "model_combo_unsupported":
+        problem = entry.detail or "native CLI rejected the requested combination"
+        recovery = "choose a supported model, effort, and context combination"
     else:
         problem = f"{entry.state}, deadline overdue {minutes(entry.overdue_seconds)}"
         recovery = "inspect registration before retry"

@@ -67,9 +67,11 @@ _TEXT_FIELDS = frozenset(
         # that tried and was refused is otherwise indistinguishable from one
         # that never came up — exactly the pair an operator must tell apart.
         "registered_model",
+        "registered_reasoning_effort",
         "registration_refusal_code",
         "registration_session_id",
         "requested_model",
+        "requested_reasoning_effort",
         "result_code",
         # Which requested_* columns the binding filled from this launch. A
         # session that carried its own ask leaves it absent, so the two ways
@@ -104,6 +106,8 @@ _INTEGER_FIELDS = frozenset(
         "native_launch_bound_seconds",
         "native_launch_pid",
         "native_pid",
+        "registered_context_window_tokens",
+        "requested_context_window_tokens",
     }
 )
 _MAX_TEXT_LENGTH = 128

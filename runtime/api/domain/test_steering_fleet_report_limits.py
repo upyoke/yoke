@@ -34,6 +34,7 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 from yoke_core.domain.steering_fleet_report_render import report_body
+from yoke_core.domain.steering_fleet_report_capacity import SessionCount
 
 _NOW = "2026-09-01T13:20:00Z"
 _HOST = PLAN_LIMIT_HOST
@@ -82,6 +83,17 @@ def test_worked_target_headroom_matches_format_ruling() -> None:
 
 
 def test_plan_limit_lines_match_worked_target_table() -> None:
+    count = SessionCount(
+        "machine-1",
+        "claude-cli",
+        2,
+        "claude-opus-4-6",
+        "max",
+        1_000_000,
+        "claude-opus-4-6",
+        "max",
+        1_000_000,
+    )
     lines = plan_limit_lines(
         (
             _row(
@@ -103,19 +115,22 @@ def test_plan_limit_lines_match_worked_target_table() -> None:
             _row(),
         ),
         now=_NOW,
+        session_counts=(count,),
     )
     assert PLAN_LIMIT_HEADING + ":" in lines
     assert TABLE_HEADER in lines
     assert (
-        f"| {_HOST} | claude-cli | max | weekly · all models | 44% | 2d 11h 40m | "
+        f"| {_HOST} | claude-cli | claude-opus-4-6 · effort max · context 1m ×2 | "
+        f"max | weekly · all models | 44% | 2d 11h 40m | "
         f"124% | Sep 4 01:00 |"
     ) in lines
     assert (
-        f"| {_HOST} | cursor-cli | Ultra | monthly · all models | 22% | 5d 11h 40m | "
+        f"| {_HOST} | cursor-cli | no live selection | Ultra | monthly · all models | "
+        f"22% | 5d 11h 40m | "
         f"120% | Sep 7 01:00 |"
     ) in lines
     assert (
-        f"| {_HOST} | codex-cli | {EMPTY} | unknown | {EMPTY} | {EMPTY} | "
+        f"| {_HOST} | codex-cli | no live selection | {EMPTY} | unknown | {EMPTY} | {EMPTY} | "
         f"usage_unreadable | {EMPTY} |"
     ) in lines
     assert HEADROOM_LEGEND in lines
@@ -219,8 +234,10 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
 
     assert PLAN_LIMIT_HEADING in body
     assert TABLE_HEADER in body
-    assert "claude-cli | max | rolling 5h · all models | 89%" in body
-    assert "claude-cli | max | weekly · Fable | 55%" in body
+    assert (
+        "claude-cli | no live selection | max | rolling 5h · all models | 89%" in body
+    )
+    assert "claude-cli | no live selection | max | weekly · Fable | 55%" in body
     assert "cursor-cli |" in body
     assert "stale_credential" in body
     assert "do not gate launches" in body
