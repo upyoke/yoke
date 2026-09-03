@@ -8,6 +8,9 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.cli.browser_toolchain_test_support import (
+    install_fake_toolchain,
+)
 from yoke_harness import browser_client
 from yoke_harness.browser_qa_daemon import ensure_daemon_running
 
@@ -35,9 +38,8 @@ def _prepare_daemon_launch(tmp_path, monkeypatch):
             raise AssertionError("healthy daemon must not be killed")
 
     def fake_run(command, **_kwargs):
-        if command[:2] == ["which", "node"]:
-            return subprocess.CompletedProcess(command, 0, "", "")
-        if command[:2] == ["node", "-e"]:
+        # The Chromium-presence probe is the only command a ready runtime runs.
+        if command[1:2] == ["-e"]:
             return subprocess.CompletedProcess(command, 0, "ok", "")
         raise AssertionError(f"unexpected command: {command}")
 
@@ -59,6 +61,7 @@ def _prepare_daemon_launch(tmp_path, monkeypatch):
         lambda *_args, **_kwargs: FakeProcess(),
     )
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
+    install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return state
 
 

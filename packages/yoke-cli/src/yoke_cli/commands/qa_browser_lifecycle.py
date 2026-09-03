@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List
+from typing import Callable, List
 
+from yoke_cli import browser_node_toolchain
 from yoke_cli.commands._helpers import parse_or_usage_error
 
 
@@ -55,12 +55,11 @@ def qa_browser_status(args: List[str]) -> int:
 def _format_status_human(payload: dict[str, object]) -> str:
     """Render the readiness facts as a human-readable status report.
 
-    Surfaces the same facts as ``--json`` (runtime dir, node, npm,
-    npm dependencies, chromium, daemon) plus repair guidance, so an
-    operator does not need ``--json`` to see why browser QA is not ready.
+    Surfaces the same facts as ``--json`` (runtime dir, node toolchain, npm
+    dependencies, chromium, daemon) plus repair guidance, so an operator does
+    not need ``--json`` to see why browser QA is not ready.
     """
     node = payload.get("node", {})
-    npm = payload.get("npm", {})
     deps = payload.get("npm_dependencies", {})
     chromium = payload.get("chromium", {})
     daemon = payload.get("daemon", {})
@@ -69,7 +68,6 @@ def _format_status_human(payload: dict[str, object]) -> str:
         f"runtime dir:      {payload.get('runtime_dir', 'unknown')}",
         f"materialized:     {'yes' if payload.get('materialized') else 'no'}",
         f"node:             {_facet(node)}",
-        f"npm:              {_facet(npm)}",
         f"npm dependencies: {deps.get('status', 'unknown')}",
         f"chromium:         {chromium.get('status', 'unknown')}",
         f"daemon:           {daemon.get('status', 'unknown')}",
@@ -84,9 +82,12 @@ def _format_status_human(payload: dict[str, object]) -> str:
 
 
 def _facet(facet: dict[str, object]) -> str:
+    """Render one readiness facet, naming where a provisioned tool came from."""
     status = facet.get("status", "unknown")
     version = facet.get("version")
-    return f"{status} ({version})" if version else str(status)
+    source = facet.get("source")
+    rendered = f"{status} ({version})" if version else str(status)
+    return f"{rendered} [{source}]" if source and version else rendered
 
 
 def qa_browser_setup(args: List[str]) -> int:
@@ -118,7 +119,9 @@ def qa_browser_setup(args: List[str]) -> int:
         runtime_dir = browser_runtime_home.ensure_materialized()
         prerequisite_actions: list[dict[str, str]] = []
         if not parsed.dry_run:
-            prerequisite_actions = _ensure_node_prerequisites()
+            prerequisite_actions = _ensure_node_toolchain(
+                emit=lambda line: print(line, file=sys.stderr)
+            )
         readiness = _browser_readiness(
             browser_client, browser_runtime_home, project=parsed.project,
         )
@@ -148,8 +151,12 @@ def qa_browser_setup(args: List[str]) -> int:
                 ),
             }
     except RuntimeError as exc:
+        failure: dict[str, object] = {"ok": False, "error": str(exc)}
+        if isinstance(exc, browser_node_toolchain.NodeToolchainError):
+            failure["error_code"] = exc.code
+            failure["recovery"] = exc.recovery
         if parsed.json_mode:
-            print(json.dumps({"ok": False, "error": str(exc)}))
+            print(json.dumps(failure))
         else:
             print(f"yoke qa browser setup: {exc}", file=sys.stderr)
         return 2
@@ -200,17 +207,15 @@ def _browser_readiness(
     expected_hash = browser_runtime_home.source_hash()
     marker = runtime_dir / browser_runtime_home.HASH_MARKER_NAME
     current_hash = _read_text(marker)
-    node = _command_version(["node", "--version"], minimum_major=18)
-    npm = _command_version(["npm", "--version"])
+    node = browser_node_toolchain.toolchain_status()
     deps_ready = (runtime_dir / "node_modules" / "playwright").is_dir()
     chromium = _chromium_status(runtime_dir) if deps_ready and node["ok"] else "unknown"
-    repairs = _repair_hints(node, npm, deps_ready, chromium)
+    repairs = _repair_hints(node, deps_ready, chromium)
     return {
         "runtime_dir": str(runtime_dir),
         "source_hash": expected_hash,
         "materialized": current_hash == expected_hash,
         "node": node,
-        "npm": npm,
         "npm_dependencies": {"status": "ready" if deps_ready else "missing"},
         "chromium": {"status": chromium},
         "daemon": browser_client.daemon_status(),
@@ -226,85 +231,50 @@ def _read_text(path: Path) -> str | None:
         return None
 
 
-def _command_version(command: list[str], minimum_major: int | None = None) -> dict[str, object]:
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
-    except OSError as exc:
-        return {"ok": False, "status": "missing", "error": str(exc)}
-    version = result.stdout.strip()
-    ok = result.returncode == 0
-    if ok and minimum_major is not None:
-        major = version.lstrip("v").split(".", 1)[0]
-        ok = major.isdigit() and int(major) >= minimum_major
-    return {"ok": ok, "status": "ready" if ok else "unsupported", "version": version}
-
-
 def _chromium_status(runtime_dir: Path) -> str:
     from yoke_harness import browser_runtime_home
 
+    toolchain = browser_node_toolchain.resolve_node_toolchain()
+    if toolchain is None:
+        return "unknown"
     result = subprocess.run(
-        ["node", "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
-        cwd=runtime_dir, capture_output=True, text=True, check=False,
+        [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
+        cwd=runtime_dir,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=toolchain.command_env(),
     )
     probe = result.stdout.strip() if result.returncode == 0 else "missing"
     return "ready" if probe == "ok" else "missing"
 
 
-def _ensure_node_prerequisites() -> list[dict[str, str]]:
-    node = _command_version(["node", "--version"], minimum_major=18)
-    npm = _command_version(["npm", "--version"])
-    if node["ok"] and npm["ok"]:
+def _ensure_node_toolchain(*, emit: Callable[[str], None]) -> list[dict[str, str]]:
+    """Resolve or provision the Node toolchain, naming what setup had to do."""
+    before = browser_node_toolchain.resolve_node_toolchain()
+    toolchain = browser_node_toolchain.ensure_node_toolchain(emit=emit)
+    if before is not None:
         return []
-    if sys.platform != "darwin":
-        raise RuntimeError(
-            "Node.js 18+ and npm are required. Install them with your system "
-            "package manager, then rerun `yoke qa browser setup`."
-        )
-    brew = _find_homebrew()
-    if brew is None:
-        raise RuntimeError(
-            "Node.js 18+ and npm are required. Install Homebrew or Node.js "
-            "18+, then rerun `yoke qa browser setup`."
-        )
-    result = subprocess.run(
-        [brew, "install", "node"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout).strip()
-        raise RuntimeError(
-            "Homebrew could not install Node.js for Browser QA setup"
-            + (f": {detail}" if detail else ".")
-        )
-    node = _command_version(["node", "--version"], minimum_major=18)
-    npm = _command_version(["npm", "--version"])
-    if not node["ok"] or not npm["ok"]:
-        raise RuntimeError(
-            "Homebrew completed, but Node.js 18+ and npm are still not "
-            "available on PATH. Open a new shell or add Homebrew to PATH, "
-            "then rerun `yoke qa browser setup`."
-        )
-    return [{"action": "install-node", "manager": "homebrew"}]
+    return [
+        {
+            "action": "provision-node",
+            "source": toolchain.source,
+            "version": toolchain.version,
+            "bin_dir": str(toolchain.bin_dir),
+        }
+    ]
 
 
-def _find_homebrew() -> str | None:
-    found = shutil.which("brew")
-    if found:
-        return found
-    for candidate in ("/opt/homebrew/bin/brew", "/usr/local/bin/brew"):
-        if Path(candidate).is_file():
-            return candidate
-    return None
-
-
-def _repair_hints(node: dict[str, object], npm: dict[str, object], deps_ready: bool, chromium: str) -> list[str]:
+def _repair_hints(
+    node: dict[str, object], deps_ready: bool, chromium: str
+) -> list[str]:
     hints: list[str] = []
     if not node["ok"]:
-        hints.append("Install Node.js 18+ and npm, then run `yoke qa browser setup`.")
-    if not npm["ok"]:
-        hints.append("Install npm, then run `yoke qa browser setup`.")
+        hints.append(
+            "Run `yoke qa browser setup`; it provisions Node.js "
+            f"{browser_node_toolchain.MANAGED_NODE_VERSION} for this host when "
+            "none is available."
+        )
     if not deps_ready:
         hints.append("Run `yoke qa browser setup` to install browser runtime npm dependencies.")
     if chromium != "ready":

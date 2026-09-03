@@ -297,8 +297,9 @@ browser` operation), and `yoke qa browser setup` provisions them on demand.
 
 The deferred set:
 
-- **Node.js 18+** and npm — the one host requirement you supply (the runtime
-  Node process); everything below is provisioned for you.
+- **Node.js 18+** and npm — the runtime Node process. Yoke uses one already on
+  `PATH`, and provisions a pinned release into `~/.yoke/node/<version>/` when
+  the host has none, so a clean machine needs no package manager of its own.
 - **Playwright** (`playwright` npm package) with Chromium browser
 - **pixelmatch** for image diffing
 - **pngjs** for PNG encoding/decoding
@@ -313,15 +314,28 @@ execution provisions everything; `yoke qa browser status` reports readiness
 and `yoke qa browser setup` materializes the runtime.
 
 `yoke qa browser setup` materializes the packaged sources into
-`~/.yoke/browser-runtime/`, runs `npm install` there when `node_modules` is
-missing, and installs Chromium via `npx playwright install chromium` when the
-binary is absent. The only host requirement is Node.js 18+ and npm on PATH.
+`~/.yoke/browser-runtime/`, resolves the Node toolchain, runs `npm install`
+there when `node_modules` is missing, and installs Chromium via
+`npx playwright install chromium` when the binary is absent. It needs nothing
+from the host but network access.
 
-When Node.js or npm is not on PATH, browser execution fails with a readiness
-error that points at `yoke qa browser setup` and the platform install hint —
-on Linux, Playwright's OS browser libraries may need package-manager access.
-Install Node.js 18+ and npm, then run `yoke qa browser setup`. Inspect
-readiness any time with `yoke qa browser status`.
+The toolchain resolves cheapest-first: a Node 18+ with npm already on `PATH`,
+else the pinned release already unpacked under `~/.yoke/node/<version>/`, else
+a checksum-verified download of that release from `nodejs.org/dist`. Every
+browser process — the daemon, `npm install`, the Chromium probe, `npx
+playwright install`, and the sign-in window — runs against that one resolved
+toolchain, with its `bin` directory leading `PATH` so the Node processes
+Playwright spawns resolve the same interpreter. Owner:
+`yoke_cli.browser_node_toolchain`.
+
+When provisioning cannot proceed, setup exits 2 and names why: the refusal
+carries an `error_code` (`node_platform_unsupported`, `node_download_failed`,
+`node_archive_digest_mismatch`, `node_archive_unusable`,
+`node_provisioned_but_unusable`) and the operator action that clears it, both
+in the text message and in the `--json` payload. On Linux, Playwright's OS
+browser libraries may still need package-manager access. Inspect readiness any
+time with `yoke qa browser status`, which reports the resolved Node version
+and whether it came from the host (`host_path`) or from Yoke (`managed`).
 
 ## Related
 

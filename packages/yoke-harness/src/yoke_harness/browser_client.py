@@ -21,6 +21,7 @@ from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     request_json,
 )
+from yoke_cli import browser_node_toolchain
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
 from yoke_harness.browser_client_readiness import wait_for_daemon_ready
@@ -208,17 +209,11 @@ def daemon_start(
     browser = _browser_dir()
     daemon_js = browser / "src" / "daemon.js"
     state_path = _state_file_path()
-    node_check = subprocess.run(["which", "node"], capture_output=True)
-    if node_check.returncode != 0:
-        raise RuntimeError(
-            "Node.js 18+ is required for Browser QA and `node` was not "
-            "found on PATH. Run `yoke qa browser setup` to install or "
-            "diagnose the browser runtime prerequisites, then retry."
-        )
+    toolchain = browser_node_toolchain.ensure_node_toolchain(emit=_log)
     if not daemon_js.exists():
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
 
-    env = os.environ.copy()
+    env = toolchain.command_env()
     node_modules = browser / "node_modules"
     pw_modules = node_modules / "playwright"
     autoinstall = os.environ.get("YOKE_BROWSER_AUTOINSTALL", "1")
@@ -230,7 +225,7 @@ def daemon_start(
             )
         _log("[browser-auto-bootstrap] node_modules or playwright missing; auto-installing...")
         result = subprocess.run(
-            ["npm", "install"],
+            [str(toolchain.npm), "install"],
             cwd=str(browser),
             capture_output=True,
             text=True,
@@ -243,7 +238,7 @@ def daemon_start(
         _log("[browser-auto-bootstrap] npm install completed successfully")
 
     result = subprocess.run(
-        ["node", "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
+        [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
         cwd=str(browser),
         capture_output=True,
         text=True,
@@ -268,7 +263,7 @@ def daemon_start(
                     f"{result.stderr or result.stdout}"
                 )
         _log("[browser-auto-bootstrap] Chromium binary not found; auto-installing...")
-        install_command = ["npx", "playwright", "install"]
+        install_command = [str(toolchain.npx), "playwright", "install"]
         if sys.platform.startswith("linux") and not is_amazon_linux():
             install_command.append("--with-deps")
         install_command.append("chromium")
@@ -289,7 +284,7 @@ def daemon_start(
     if requested_profile:
         _keep_profile_sign_in(Path(requested_profile))
 
-    command = ["node", str(daemon_js)]
+    command = [str(toolchain.node), str(daemon_js)]
     if port is not None:
         command.extend(["--port", str(port)])
     if headed:

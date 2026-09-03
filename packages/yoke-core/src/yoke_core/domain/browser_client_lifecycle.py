@@ -3,10 +3,10 @@
 These two functions own the long-running, side-effecting parts of the daemon
 lifecycle:
 
-- ``daemon_start`` shells out to ``which node``, ``npm install``, ``node -e``
-  for the Chromium probe, and ``npx playwright install chromium``. It is the
-  single biggest contributor to the parent file's line count and the natural
-  carve-out for this sibling.
+- ``daemon_start`` resolves the Browser QA Node toolchain, then shells out to
+  ``npm install``, ``node -e`` for the Chromium probe, and ``npx playwright
+  install chromium`` through it. It is the single biggest contributor to the
+  parent file's line count and the natural carve-out for this sibling.
 - ``daemon_stop`` issues a graceful ``/api/stop`` request, waits for the
   process to exit, and force-kills + cleans up the state file on timeout.
 
@@ -44,6 +44,7 @@ def daemon_start(
 
     Returns JSON status dict.
     """
+    from yoke_cli import browser_node_toolchain
     from yoke_core.domain import browser_client as _bc
     from yoke_core.domain.worktree import resolve_playwright_cache
     from yoke_harness import browser_runtime_home
@@ -68,21 +69,15 @@ def daemon_start(
     daemon_js = browser / "src" / "daemon.js"
     state_path = _bc._state_file_path()
 
-    # Preflight: node
-    node_check = subprocess.run(["which", "node"], capture_output=True)
-    if node_check.returncode != 0:
-        raise RuntimeError(
-            "Node.js 18+ is required for Browser QA and `node` was not "
-            "found on PATH. Run `yoke qa browser setup` to install or "
-            "diagnose the browser runtime prerequisites, then retry."
-        )
+    # Preflight: the Node toolchain, provisioned when this host has none.
+    toolchain = browser_node_toolchain.ensure_node_toolchain(emit=_bc._log)
     if not daemon_js.exists():
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
 
     # Resolve Playwright cache
     pw_cache = resolve_playwright_cache("yoke", None) or ""
 
-    env = os.environ.copy()
+    env = toolchain.command_env()
     if pw_cache:
         env["PLAYWRIGHT_BROWSERS_PATH"] = pw_cache
 
@@ -99,7 +94,7 @@ def daemon_start(
             )
         _bc._log("[browser-auto-bootstrap] node_modules or playwright missing — auto-installing...")
         r = subprocess.run(
-            ["npm", "install"], cwd=str(browser),
+            [str(toolchain.npm), "install"], cwd=str(browser),
             capture_output=True, text=True, env=env,
         )
         if r.returncode != 0:
@@ -108,7 +103,8 @@ def daemon_start(
 
     # Auto-bootstrap Chromium
     r = subprocess.run(
-        ["node", "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS], cwd=str(browser),
+        [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
+        cwd=str(browser),
         capture_output=True, text=True, env=env,
     )
     chromium_status = r.stdout.strip() if r.returncode == 0 else "error"
@@ -118,7 +114,7 @@ def daemon_start(
             raise RuntimeError("[browser-auto-bootstrap] BLOCKED: Chromium binary missing")
         _bc._log("[browser-auto-bootstrap] Chromium binary not found — auto-installing...")
         r = subprocess.run(
-            ["npx", "playwright", "install", "chromium"],
+            [str(toolchain.npx), "playwright", "install", "chromium"],
             cwd=str(browser), capture_output=True, text=True, env=env,
         )
         if r.returncode != 0:
@@ -126,7 +122,7 @@ def daemon_start(
         _bc._log("[browser-auto-bootstrap] Chromium installed successfully")
 
     # Build daemon args
-    cmd: List[str] = ["node", str(daemon_js)]
+    cmd: List[str] = [str(toolchain.node), str(daemon_js)]
     if port is not None:
         cmd.extend(["--port", str(port)])
     if headed:

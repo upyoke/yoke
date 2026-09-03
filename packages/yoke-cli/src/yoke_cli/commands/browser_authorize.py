@@ -19,6 +19,7 @@ import subprocess
 import sys
 from typing import List
 
+from yoke_cli import browser_node_toolchain
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,
@@ -158,7 +159,8 @@ def browser_authorize(args: List[str]) -> int:
         )
     profile = browser_profile.ensure_profile_dir(parsed.project)
 
-    command = ["node", str(authorize_js), "--profile-dir", str(profile)]
+    toolchain = browser_node_toolchain.ensure_node_toolchain()
+    command = [str(toolchain.node), str(authorize_js), "--profile-dir", str(profile)]
     if parsed.url:
         command.extend(["--url", parsed.url])
     if not parsed.json_mode:
@@ -174,6 +176,7 @@ def browser_authorize(args: List[str]) -> int:
         command,
         cwd=str(runtime_dir),
         check=False,
+        env=toolchain.command_env(),
         stdout=subprocess.DEVNULL if parsed.json_mode else None,
     )
     if result.returncode != 0:
