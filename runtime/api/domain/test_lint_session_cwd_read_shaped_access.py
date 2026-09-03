@@ -1,7 +1,8 @@
 """Read-shaped lane-guard regressions: classify reads as reads.
 
-Covers the four proven false-deny shapes: cross-lane git/ls inspection
-must still refuse but say read and name the main-checkout recipe;
+Covers the four proven false-deny shapes: a cross-lane file read must
+refuse but say read and name the main-checkout recipe (the Git-inspection
+allowance is covered in ``test_lint_session_cwd_lane_git_inspection``);
 ``print`` / ``printf`` operands are not write targets; installed harness
 surfaces are readable while a lane claim is held without gaining writes.
 """
@@ -81,18 +82,19 @@ def _seed_lane(conn, repo, *, session_id=HOLDER, item_id=HELD_ITEM):
 
 
 class TestForeignLaneReadDenial:
-    def test_git_show_stat_says_read_and_names_main_recipe(self, conn, repo):
+    def test_file_read_says_read_and_names_main_recipe(self, conn, repo):
         lane = _seed_lane(conn, repo)
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": INTRUDER,
             "tool_name": "Bash",
-            "tool_input": {"command": f"git -C {lane} show HEAD --stat"},
+            "tool_input": {"command": f"cat {lane}/README.md"},
         })
         assert verdict.allow is False
         assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
         assert "Refusing a read" in verdict.reason
         assert "Refusing a write" not in verdict.reason
         assert f"git -C {repo} show" in verdict.reason
+        assert "Read-only Git inspection of that lane IS allowed" in verdict.reason
 
     def test_ls_of_held_lane_says_read(self, conn, repo):
         lane = _seed_lane(conn, repo)

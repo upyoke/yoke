@@ -146,6 +146,7 @@ def evaluate_pre_tool_use(
             failure_class=IDENTITY_FAILURE_CLASS,
         )
     targets = extract_payload_targets(payload)
+    command = extract_payload_command(payload)
     fallback_cwd = resolve_authority_cwd(payload)
 
     try:
@@ -158,6 +159,7 @@ def evaluate_pre_tool_use(
                 watcher_capture_root=watcher_capture_root,
                 claude_job_tmp_root=claude_job_tmp_root,
                 read_only=not write_operation,
+                command=command,
             )
     except Exception as exc:
         emit_fail_open(
@@ -178,13 +180,12 @@ def evaluate_pre_tool_use(
     if outcome.failure_class == PRE_IMPL_FAILURE_CLASS:
         return build_pre_implementing_verdict(outcome, payload)
 
-    # When extract_payload_targets returned nothing, the deny is driven
-    # by the harness cwd alone — but Yoke Authority authorises
-    # read-only / self-orientation calls regardless of cwd. Short-circuit
-    # before composing the deny payload when the command matches a
-    # read-only signature.
+    # When extract_payload_targets returned nothing, the deny is driven by
+    # the harness cwd alone — but Yoke Authority authorises read-only /
+    # self-orientation calls regardless of cwd. Short-circuit before
+    # composing the deny payload when the command matches one.
     if not targets:
-        signature = match_read_only_signature(extract_payload_command(payload))
+        signature = match_read_only_signature(command)
         if signature:
             emit_mismatch_allowed_read_only(
                 session_id=outcome.session_id,
@@ -209,7 +210,7 @@ def evaluate_pre_tool_use(
             offending_target=outcome.offending_target,
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
-            command=extract_payload_command(payload),
+            command=command,
         )
         body += repo_command_block(payload, outcome.claims) if not targets else ""
     reason = append_field_note_footer(body, rule_id="lint-session-cwd")

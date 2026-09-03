@@ -251,7 +251,7 @@ class TestForeignLaneCommands:
         assert HOLDER_SESSION in verdict.reason
         assert "Runnable command:" not in verdict.reason
 
-    def test_foreign_lane_git_read_names_exact_main_checkout(self, conn, repo):
+    def test_foreign_lane_git_read_needs_no_retarget(self, conn, repo):
         lane = _seed_lane(
             conn,
             repo,
@@ -260,9 +260,19 @@ class TestForeignLaneCommands:
             branch="held-lane",
         )
 
-        verdict = _evaluate(f"git -C {lane} show HEAD --stat")
+        assert _evaluate(f"git -C {lane} show HEAD --stat").allow is True
+
+    def test_foreign_lane_file_read_names_exact_main_checkout(self, conn, repo):
+        lane = _seed_lane(
+            conn,
+            repo,
+            item_id=HELD_ITEM,
+            session_id=HOLDER_SESSION,
+            branch="held-lane",
+        )
+
+        verdict = _evaluate(f"cat {lane}/README.md")
 
         assert verdict.allow is False
-        command = _runnable_command(verdict.reason)
-        assert command == f"git -C {repo} show HEAD --stat"
-        assert _evaluate(command).allow is True
+        assert f"git -C {repo} show <rev>:<path>" in verdict.reason
+        assert "Runnable command:" not in verdict.reason

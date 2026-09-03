@@ -18,6 +18,7 @@ Behaviour:
   the caller holding any claim, because the sessions that cause the most
   damage here are precisely those with no claim on the lane they are
   writing into.
+* Read-only Git inspection of a lane → exempt from every test here.
 * Session with no claims → allowed everywhere except another session's
   live lane.
 * Session with one or more claims → each target path must additionally
@@ -52,6 +53,7 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     is_yoke_watcher_capture_path,
     resolve_for_display as _resolve_for_display,
 )
+from yoke_core.domain.lint_session_cwd_foreign_lane import governed_targets
 from yoke_core.domain.lint_session_cwd_status import (
     FAILURE_CLASS as _PRE_IMPL_FAILURE_CLASS,
     is_pre_implementing_status,
@@ -112,6 +114,7 @@ def validate_targets(
     watcher_capture_root: str = "",
     claude_job_tmp_root: str = "",
     read_only: bool = False,
+    command: str = "",
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -125,6 +128,7 @@ def validate_targets(
     local evaluation resolves the root directly.
     ``claude_job_tmp_root`` is the exact harness-owned background-job temp root.
     ``read_only`` admits explicitly sanctioned installed harness/tool paths.
+    ``command`` is the Bash body, which decides the lane-inspection case.
     """
     if not (session_id or "").strip():
         return ValidationVerdict(
@@ -139,6 +143,8 @@ def validate_targets(
     ]
     if not targets_to_check and fallback_cwd.strip():
         targets_to_check = [fallback_cwd]
+
+    targets_to_check = governed_targets(targets_to_check, repo_roots, command)
 
     # Ownership before authority. A caller with no claims, or with a
     # claim on some other item, is exactly the shape that reaches into a

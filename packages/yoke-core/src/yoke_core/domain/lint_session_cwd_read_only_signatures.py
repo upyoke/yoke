@@ -104,15 +104,22 @@ def _classify_harness_sessions(args: List[str]) -> Optional[str]:
 
 
 _GIT_VALUE_FLAGS = frozenset({"-C", "--git-dir", "--work-tree"})
-GIT_READ_ONLY_SUBS = frozenset({
-    "status", "log", "diff", "show", "rev-parse", "branch", "remote",
-    "config", "describe", "ls-files", "ls-tree", "blame", "shortlog",
+# Subcommands that only ever report: no argument turns one of these into a
+# repository mutation.
+GIT_INSPECTION_SUBS = frozenset({
+    "status", "log", "diff", "show", "rev-parse", "describe",
+    "ls-files", "ls-tree", "blame", "shortlog",
 })
+# Subcommands that report when given no positional and write when given
+# one (``git branch <name>``, ``git config <key> <value>``), so callers
+# that need a can-never-write guarantee must check the argument shape.
+GIT_LISTING_SUBS = frozenset({"branch", "remote", "config"})
+GIT_READ_ONLY_SUBS = GIT_INSPECTION_SUBS | GIT_LISTING_SUBS
 GIT_MUTATING_SUBS = frozenset({"commit", "add", "mv", "rm"})
 
 
-def git_subcommand(tokens: List[str]) -> Optional[str]:
-    """Return the git subcommand, skipping ``-C`` / ``--git-dir`` values."""
+def git_subcommand_index(tokens: List[str]) -> Optional[int]:
+    """Index of the git subcommand, skipping ``-C`` / ``--git-dir`` values."""
     if not tokens or tokens[0].rsplit("/", 1)[-1] != "git":
         return None
     i = 1
@@ -127,8 +134,14 @@ def git_subcommand(tokens: List[str]) -> Optional[str]:
         if tok.startswith("-"):
             i += 1
             continue
-        return tok
+        return i
     return None
+
+
+def git_subcommand(tokens: List[str]) -> Optional[str]:
+    """Return the git subcommand, skipping ``-C`` / ``--git-dir`` values."""
+    index = git_subcommand_index(tokens)
+    return None if index is None else tokens[index]
 
 
 def git_write_targets(
@@ -317,9 +330,12 @@ def match_read_only_signature(command: str) -> Optional[str]:
 
 
 __all__ = [
+    "GIT_INSPECTION_SUBS",
+    "GIT_LISTING_SUBS",
     "GIT_MUTATING_SUBS",
     "GIT_READ_ONLY_SUBS",
     "git_subcommand",
+    "git_subcommand_index",
     "git_write_targets",
     "match_read_only_signature",
 ]

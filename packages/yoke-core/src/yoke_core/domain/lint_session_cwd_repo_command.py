@@ -173,37 +173,7 @@ def repo_command_block(
     return f"\n\nRunnable command:\n\n  {command}"
 
 
-def retarget_foreign_git_read(
-    payload: Mapping[str, Any] | None,
-    checkout: str,
-) -> str:
-    """Retarget an explicit read-only Git command to a safe checkout."""
-    command = extract_payload_command(payload or {})
-    env, binary, args = _parse_simple_command(command)
-    if PurePath(binary).name != "git" or not _has_git_target(args):
-        return ""
-    filtered: list[str] = []
-    index = 0
-    while index < len(args):
-        arg = args[index]
-        if arg in _GIT_TARGET_FLAGS:
-            index += 2
-            continue
-        if any(arg.startswith(prefix) for prefix in _GIT_TARGET_PREFIXES):
-            index += 1
-            continue
-        if arg.startswith("-C") and arg != "-C":
-            index += 1
-            continue
-        filtered.append(arg)
-        index += 1
-    if not match_read_only_signature(shlex.join(["git", *filtered])):
-        return ""
-    return _insert_git_checkout(env, binary, filtered, checkout)
-
-
 __all__ = [
     "repo_command_block",
     "render_claimed_repo_command",
-    "retarget_foreign_git_read",
 ]
