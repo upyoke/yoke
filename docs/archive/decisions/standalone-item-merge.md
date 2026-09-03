@@ -152,6 +152,31 @@ operations relay through the dispatcher, while holder liveness stays on the
 client, because the process holding a merge lock is the local merging
 process and the server's process table says nothing about it.
 
+### Why a transition lost to a finished close-out is not a failure
+
+One pull request can be followed to `merged=true` by two watchers of the
+same session when the merge command is dispatched twice. Both enter
+close-out. The first records evidence, moves the item to `done`, and
+releases the work claim; the second records evidence and is then refused
+the terminal transition, because the claim it verified at admission is
+gone. Reported verbatim, that refusal carried the dispatcher's recovery —
+acquire the claim and retry — which on a terminal item is the one wrong
+action, and a launched worker reading only the exit code read a completed
+landing as a failed one.
+
+`done` is reachable only through a completed close-out, so a refused
+transition on an item that is already `done` with `merged_at` stamped and a
+merge identity in its evidence record was refused because another close-out
+finished first. The losing run reads those three facts fresh
+(`standalone_item_merge_evidence.recorded_landing`) and, when all hold,
+reports `result: landing_already_recorded` at exit 0, naming the session
+the evidence record says wrote it and repeating no re-acquire hint. Every
+other refusal is unchanged: an item short of `done` still has close-out
+work, so a missing claim there remains the refusal it always was. The
+evidence record carries `recorded_by_session_id` for this reason — the
+transition ledger records no session, and the claim that would have named
+one is exactly what the winner released.
+
 ### Why close-out runs on the connected control plane
 
 Merge admission needs a database this process can lock, so the local merge

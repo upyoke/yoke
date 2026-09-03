@@ -118,6 +118,7 @@ def handle_dash_evidence(request: FunctionCallRequest) -> HandlerOutcome:
                 posture_checks=payload.posture_checks,
                 no_changes=payload.no_changes,
                 actor_id=_actor_id(request) or "",
+                session_id=str(request.actor.session_id or ""),
             )
         except (LookupError, ValueError) as exc:
             return _error("evidence_refused", str(exc))

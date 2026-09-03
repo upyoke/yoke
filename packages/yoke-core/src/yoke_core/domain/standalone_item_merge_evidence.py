@@ -31,6 +31,9 @@ from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 # The status a standalone item reaches once its close-out has run. An item
 # short of it has work left, so a claim refusal there is a real refusal.
 CLOSED_OUT_STATUS = "done"
+# The named result of a close-out that lost its terminal transition to one
+# that had already finished: the landing is complete, just not by this run.
+LANDING_ALREADY_RECORDED = "landing_already_recorded"
 
 
 def _relay_error(response: Any, fallback: str) -> str:
@@ -125,6 +128,86 @@ def authoritative_status_is(item_id: int, expected_status: str) -> bool:
     return str(item.get("status") or "") == expected_status
 
 
+def _merged_at(item_id: int) -> str:
+    response = call_dispatcher(
+        function_id="items.get.run",
+        target=TargetRef(kind="item", item_id=item_id),
+        payload={"fields": ["merged_at"]},
+    )
+    if not getattr(response, "success", False):
+        return ""
+    fields = (getattr(response, "result", None) or {}).get("fields") or {}
+    return str(fields.get("merged_at") or "")
+
+
+def recorded_landing(item_id: int) -> Optional[dict[str, Any]]:
+    """The completed landing the item record carries, or ``None``.
+
+    Present only when the item is terminal, ``merged_at`` is stamped, and the
+    evidence names a merge identity: the three facts a finished close-out
+    writes and nothing else does. All three are read fresh, because the
+    caller asks after its own transition was refused, by which time the
+    item it loaded at admission is stale.
+    """
+    if not authoritative_status_is(item_id, CLOSED_OUT_STATUS):
+        return None
+    merged_at = _merged_at(item_id)
+    if not merged_at:
+        return None
+    record = recorded(item_id)
+    if record is None or not (record.get("merge_sha") or record.get("commit_sha")):
+        return None
+    return {**record, "merged_at": merged_at}
+
+
+def recorded_landing_envelope(
+    item_id: int,
+    *,
+    public_ref: str,
+    branch: str,
+) -> Optional[dict[str, Any]]:
+    """The finished landing a refused terminal transition lost a race to.
+
+    ``done`` is reachable only through a completed close-out, so a transition
+    refused on an item that is already there — with its merge identity
+    recorded — was refused because another close-out finished first. That
+    run's result is the landing itself, named as such; the refusal's
+    re-acquire recovery is deliberately not repeated, because following it
+    would re-claim and re-transition a terminal item. ``None`` when the item
+    still has close-out work, so the refusal stays a refusal.
+    """
+    landing = recorded_landing(item_id)
+    if landing is None:
+        return None
+    session = str(landing.get("recorded_by_session_id") or "")
+    recorded_by = (
+        f"session {session}"
+        if session
+        else f"actor {landing.get('actor_id') or 'unknown'}"
+    )
+    return {
+        "ok": True,
+        "result": LANDING_ALREADY_RECORDED,
+        "item_id": int(item_id),
+        "public_ref": public_ref,
+        "branch": branch,
+        "already_merged": True,
+        "commit_sha": str(landing.get("commit_sha") or ""),
+        "merge_sha": str(landing.get("merge_sha") or ""),
+        "merged_at": str(landing.get("merged_at") or ""),
+        "touched_files": list(landing.get("touched_files") or []),
+        "evidence_recorded": True,
+        "recorded_by_session_id": session,
+        "status": CLOSED_OUT_STATUS,
+        "warnings": [
+            f"{public_ref} landing already recorded by {recorded_by} at "
+            f"{landing.get('recorded_at') or 'an earlier attempt'}; that "
+            f"close-out released the work claim before this run's terminal "
+            f"transition, so this run changed nothing"
+        ],
+    }
+
+
 def closed_out_envelope(
     item: dict[str, Any],
     *,
@@ -166,9 +249,12 @@ def closed_out_envelope(
 
 __all__ = [
     "CLOSED_OUT_STATUS",
+    "LANDING_ALREADY_RECORDED",
     "authoritative_status_is",
     "closed_out_envelope",
     "record",
     "recorded",
     "recorded_covers_merge",
+    "recorded_landing",
+    "recorded_landing_envelope",
 ]
