@@ -121,6 +121,24 @@ def adopt_attested_session_identity(
     )
 
 
+def _extend_message_expiry(conn: Any, *, message_id: str, expires_at: str) -> None:
+    """Realign the instruction message TTL to the launch's live deadline.
+
+    A retried launch resets its own ``deadline_at`` but leaves the instruction
+    message pinned to the deadline it was created under, so a recipient
+    inserted here is swept to ``expired`` within a second and the mandate is
+    never delivered. Binding is where the delivery target becomes real, so it
+    is also where the message TTL is realigned to the deadline the recipient
+    will actually live under. Only ever extend, never shorten.
+    """
+    p = marker(conn)
+    conn.execute(
+        f"UPDATE session_messages SET expires_at={p} "
+        f"WHERE message_id={p} AND expires_at < {p}",
+        (expires_at, message_id, expires_at),
+    )
+
+
 def _insert_pending_recipient(
     conn: Any,
     *,
@@ -191,6 +209,9 @@ def bind_launch_to_session(
     """
     require_exact_launch_session(launch, session_id, facts)
     hold_launch_registration_grace(conn, session_id, now=now)
+    _extend_message_expiry(
+        conn, message_id=launch.message_id, expires_at=launch.deadline_at
+    )
     stamped = stamp_launch_requested_facts(conn, launch=launch, session_id=session_id)
     _insert_pending_recipient(
         conn,

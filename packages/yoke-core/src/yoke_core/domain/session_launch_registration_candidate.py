@@ -209,6 +209,48 @@ def reserve_launch_registration_candidate(
     }
 
 
+def registered_candidate_for_reconcile(conn: Any, launch: Any) -> str | None:
+    """Return the sole session that registered inside this launch's window.
+
+    Reconciliation runs after the binding window has closed, so unlike the live
+    reserve path it does not gate on the current time: a session that
+    registered inside the window but was never bound — the relay's pid-based
+    identity listing could not see a session served by a ``claude bg-spare``
+    child, and often burned the whole window before the registry was consulted
+    — is still the launch's rightful native session, and is adopted here rather
+    than spawned over by a retry. Returns ``None`` unless exactly one candidate
+    matches, so an ambiguous or empty result never guesses.
+    """
+    if launch.registered_session_id or launch.native_session_id:
+        return None
+    p = marker(conn)
+    attempt = conn.execute(
+        "SELECT started_at,evidence FROM session_launch_attempts "
+        f"WHERE launch_id={p} ORDER BY attempt_number DESC LIMIT 1",
+        (launch.launch_id,),
+    ).fetchone()
+    if attempt is None:
+        return None
+    evidence = registration_evidence_document(value(attempt, "evidence", 1))
+    workspace = str(evidence.get(NATIVE_LAUNCH_WORKSPACE_FIELD) or "").strip()
+    window = registration_binding_window(
+        value(attempt, "started_at", 0), launch.deadline_at, evidence
+    )
+    if not workspace or window is None:
+        return None
+    candidates = _registration_candidates(
+        conn,
+        launch_id=launch.launch_id,
+        project_id=launch.project_id,
+        surface=launch.selected_surface,
+        machine_id=str(launch.assigned_machine_id or ""),
+        workspace=workspace,
+        native_session_id=None,
+        window=window,
+    )
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def wait_for_launch_registration_candidate(
     conn: Any,
     *,
@@ -250,6 +292,7 @@ def wait_for_launch_registration_candidate(
 
 __all__ = [
     "REGISTRATION_CANDIDATE_STATES",
+    "registered_candidate_for_reconcile",
     "registration_binding_window",
     "registration_evidence_document",
     "reserve_launch_registration_candidate",
