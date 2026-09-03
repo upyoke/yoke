@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGINS
+from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.session_launch_capacity import (
     MachineCapacity,
     machine_capacity,
@@ -120,6 +121,7 @@ def launch_balance_lines(
     machine_capacity: Iterable[MachineCapacity],
     origin_counts: Iterable[tuple[str, int]],
     note: str | None,
+    machine_names: Mapping[str, str] | None = None,
 ) -> list[str]:
     """Per-machine surface counts, capacity, and the origin split.
 
@@ -133,13 +135,14 @@ def launch_balance_lines(
     for ready in launchable:
         by_machine.setdefault(ready.machine_id, []).append(ready.surface)
     capacity = {entry.machine_id: entry for entry in machine_capacity}
+    names = dict(machine_names or {})
     lines: list[str] = []
     for machine in sorted(set(by_machine) | set(capacity)):
         surfaces = " · ".join(
             f"{surface} {counts.get((machine, surface), 0)}"
             for surface in sorted(by_machine.get(machine, ()))
         )
-        lines.append(f"launch balance  {machine}")
+        lines.append(f"launch balance  {display_name(names, machine)}")
         lines.append(f"  {surfaces or 'no launchable surface'}")
         if machine in capacity:
             lines.append(f"  {capacity_line(capacity[machine])}")

@@ -201,13 +201,13 @@ For supported harnesses, Yoke core derives the effective `supported_paths` serve
 
 No adapter declares `supported_paths` at offer time — the offer surface has no such field. When no manifest exists for the executor, the session is treated as unconstrained for downstream-path validation. Adapters that want truthful fallback enforcement should add a manifest under `runtime/harness/{executor}/manifest.json` (or normalize their own surface-specific executors back to a family manifest the way Yoke-owned harnesses do); harness-passed `supported_paths` is ignored for Yoke-owned harnesses. Yoke-owned manifests should declare limitations, not copied command/path allowlists.
 
-## 4b. Machine launcher authority
+## 4b. Machine identity and launcher authority
 
-The login-shell `yoke` on PATH must be the canonical shim
-(`$XDG_BIN_HOME/yoke` or `~/.local/bin/yoke`) pointing at the registered
-checkout editable install. `python3 -m yoke_core.tools.install_yoke_launcher`
-writes it. `--repair` and `yoke doctor run --quick --fix` (HC-launcher-authority)
-quarantine PATH shadows and never delete them.
+The machine itself is registered before any of this matters: the connect flow (`yoke onboard` apply and `yoke status`) registers this host's `machine_id` with the public half of a key kept at `~/.yoke/machine-key.json`, every relay poll signs a fresh proof against it, and an unregistered or unproved poll is refused by name with the recovery — `yoke machine register`. The `machines` row's `access` document also decides which same-universe actors may spend that machine's launch capacity. `HC-machine-registry` checks the local id and key against the row; the full contract is [`machine-registry.md`](machine-registry.md).
+
+The login-shell `yoke` on PATH must be the canonical shim (`$XDG_BIN_HOME/yoke`
+or `~/.local/bin/yoke`) pointing at the registered checkout editable install.
+`python3 -m yoke_core.tools.install_yoke_launcher` writes it. `--repair` and `yoke doctor run --quick --fix` (HC-launcher-authority) quarantine PATH shadows and never delete them.
 
 Hook and guard verdicts print `{source_sha, install_kind, install_path}`
 so version skew is a fingerprint, not a reconstruction. Relayed verdicts

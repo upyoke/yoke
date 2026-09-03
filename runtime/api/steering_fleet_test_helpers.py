@@ -184,7 +184,7 @@ def seed_steering_scope(conn):
 def plan_limit_row(
     *,
     machine_id: str = "machine-1",
-    hostname: str = PLAN_LIMIT_HOST,
+    machine_name: str = PLAN_LIMIT_HOST,
     surface: str = "cursor-cli",
     plan_tier: str | None = "Ultra",
     window_kind: str = "monthly",
@@ -197,7 +197,7 @@ def plan_limit_row(
     """One (machine, surface, window) meter for the report renderers."""
     return MachinePlanLimit(
         machine_id=machine_id,
-        hostname=hostname,
+        machine_name=machine_name,
         surface=surface,
         plan_tier=plan_tier,
         window_kind=window_kind,

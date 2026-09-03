@@ -153,6 +153,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.session_relay import claim_relay_job
+    from yoke_core.domain.machine_registry_relay_guard import require_proved_machine
     from yoke_core.domain.session_relay_authorization import (
         require_relay_project_authority,
     )
@@ -165,6 +166,13 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 actor_id=actor_id,
                 project_ids=payload.projects,
+            )
+            require_proved_machine(
+                conn,
+                machine_id=payload.machine_id,
+                actor_id=actor_id,
+                proof_issued_at=payload.machine_proof_issued_at,
+                proof_signature=payload.machine_proof_signature,
             )
             # The poll is the only thing this machine does on a schedule, so
             # it is where the quiet-claim-holder sweeps live. Neither may

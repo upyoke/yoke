@@ -84,6 +84,9 @@ class EligibilitySnapshot:
     #: Every considered machine's lanes against its cap, full ones included,
     #: so a refusal can print the numbers rather than just the code.
     machine_capacity: tuple[MachineCapacity, ...] = ()
+    # A code says which rule refused; a detail says which setting decided it,
+    # so a refusal message can name the thing an operator has to change.
+    rejection_details: tuple[str, ...] = ()
 
 
 class LaunchEligibilityPort(Protocol):
@@ -126,6 +129,7 @@ class LaunchPreview:
     machine_capacity: tuple[MachineCapacity, ...] = ()
     placement_reason: str | None = None
     machine_candidates: tuple[MachineCandidate, ...] = ()
+    rejection_details: tuple[str, ...] = ()
 
     @property
     def launchable(self) -> bool:
@@ -155,6 +159,7 @@ class LaunchPreview:
             "machine_candidates": [
                 candidate.to_dict() for candidate in self.machine_candidates
             ],
+            "rejection_details": list(self.rejection_details),
             "eligible_relays": [relay.to_dict() for relay in self.eligible_relays],
             "selected_relay": (
                 self.selected_relay.to_dict() if self.selected_relay else None

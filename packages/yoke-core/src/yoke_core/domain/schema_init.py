@@ -20,6 +20,9 @@ from yoke_core.domain.flow_init import (
 )
 from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+from yoke_core.domain.machine_registry_schema import (
+    ensure_machine_registry_schema,
+)
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.ouroboros_entry_corrections import (
     ensure_ouroboros_entry_corrections_schema,
@@ -200,6 +203,9 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     create_actor_path_claim_tables(conn)
     create_auth_tables(conn)
     create_external_identity_tables(conn)
+    # Machines own the ids every session-control row names, so the registry
+    # converges before the tables that point at it.
+    ensure_machine_registry_schema(conn, commit=False)
     create_session_control_tables(conn)
     create_decision_request_tables(conn)
     create_github_app_tables(conn)

@@ -154,6 +154,11 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **355** (operation track
 | lifecycle | `yoke lifecycle repair-status` | `lifecycle.repair_status.execute` | ok |
 | lifecycle | `yoke lifecycle skip record-recoverable-substrate` | `lifecycle.skip.record_recoverable_substrate` | ok |
 | lifecycle | `yoke lifecycle transition` | `lifecycle.transition.execute` | ok |
+| machine | `yoke machine list` | `machine.list` | ok |
+| machine | `yoke machine register` | `machine.register` | ok |
+| machine | `yoke machine settings get` | `machine.settings.get` | ok |
+| machine | `yoke machine settings set` | `machine.settings.set` | ok |
+| machine | `yoke machine show` | `machine.show` | ok |
 | migration | `yoke migration content-identity verify` | `migration.content_identity.verify` | ok |
 | onboard | `yoke onboard checklist init` | `onboard.checklist.init` | ok |
 | onboard | `yoke onboard checklist` | `onboard.checklist.run` | ok |

@@ -218,7 +218,7 @@ def _ready(machine_id: str, surface: str = "codex-cli") -> SurfaceReadiness:
 def _limit(machine_id: str) -> MachinePlanLimit:
     return MachinePlanLimit(
         machine_id=machine_id,
-        hostname="host-a",
+        machine_name="host-a",
         surface="codex-cli",
         plan_tier="pro",
         window_kind="monthly",

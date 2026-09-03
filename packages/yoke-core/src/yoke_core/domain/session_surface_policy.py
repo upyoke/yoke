@@ -237,7 +237,10 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
         return f"{prefix}: {preview.placement_reason}"
     if SURFACE_DISABLED_REJECTION not in preview.rejection_codes:
         codes = ", ".join(preview.rejection_codes) or "no relay evidence"
-        return f"{prefix}: {codes}"
+        # A code alone ("machine_access_denied") does not tell the operator
+        # which setting to change; the detail carries that name.
+        detail = "; ".join(preview.rejection_details)
+        return f"{prefix}: {codes}" + (f" — {detail}" if detail else "")
     considered = set(preview.considered_machine_ids)
     details = [
         mark_refusal_text(mark)

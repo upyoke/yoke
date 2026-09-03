@@ -19,7 +19,10 @@ class MachinePlanLimit:
     """One (machine, surface, window) meter as the report renders it."""
 
     machine_id: str
-    hostname: str
+    #: The machine's registered name, which is what a person reading the report
+    #: recognizes; a machine with no registry row falls back to its relay's
+    #: reported host name.
+    machine_name: str
     surface: str
     plan_tier: str | None
     window_kind: str
@@ -74,6 +77,9 @@ def load_plan_limits(
     conn: Any, *, project_id: int, now: str
 ) -> tuple[MachinePlanLimit, ...]:
     """Connected relays' cached readings for machines serving this project."""
+    from yoke_core.domain.machine_registry import display_name, machine_names
+
+    names = machine_names(conn)
     marker = _p(conn)
     rows = conn.execute(
         "SELECT machine_id, hostname, project_checkouts, surface_plan_limits "
@@ -89,7 +95,7 @@ def load_plan_limits(
             _document(_cell(row, "surface_plan_limits", 3))
         )
         machine_id = str(_cell(row, "machine_id", 0))
-        hostname = str(_cell(row, "hostname", 1))
+        machine_name = display_name(names, machine_id) or str(_cell(row, "hostname", 1))
         for surface in CLI_PLAN_LIMIT_SURFACES:
             row_data = remaining_source.get(surface)
             if row_data is None:
@@ -100,7 +106,7 @@ def load_plan_limits(
                 found.append(
                     MachinePlanLimit(
                         machine_id=machine_id,
-                        hostname=hostname,
+                        machine_name=machine_name,
                         surface=surface,
                         plan_tier=plan_tier if isinstance(plan_tier, str) else None,
                         window_kind=str(window.get("window_kind") or "unknown"),

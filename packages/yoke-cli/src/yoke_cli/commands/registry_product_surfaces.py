@@ -2,6 +2,7 @@
 
 from yoke_cli.commands.adapters import (
     harness_machine_report,
+    machine,
     inbox_decisions,
     item_worktree_create,
     item_worktrees,
@@ -153,6 +154,20 @@ ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
     ),
 }
 
+MACHINE_SUBCOMMAND_REGISTRY = {
+    ("machine", "register"): ("machine.register", machine.machine_register),
+    ("machine", "list"): ("machine.list", machine.machine_list),
+    ("machine", "show"): ("machine.show", machine.machine_show),
+    ("machine", "settings", "get"): (
+        "machine.settings.get",
+        machine.machine_settings_get,
+    ),
+    ("machine", "settings", "set"): (
+        "machine.settings.set",
+        machine.machine_settings_set,
+    ),
+}
+
 OVERVIEW_SUBCOMMAND_REGISTRY = {
     ("overview", "activation", "get"): (
         "overview.activation.get",
@@ -166,6 +181,7 @@ OVERVIEW_SUBCOMMAND_REGISTRY = {
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
+    **MACHINE_SUBCOMMAND_REGISTRY,
     **OVERVIEW_SUBCOMMAND_REGISTRY,
     **EXECUTION_INSTRUCTION_SUBCOMMAND_REGISTRY,
     **INBOX_DECISION_SUBCOMMAND_REGISTRY,
@@ -183,6 +199,7 @@ PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY = {
 
 __all__ = [
     "INBOX_DECISION_SUBCOMMAND_REGISTRY",
+    "MACHINE_SUBCOMMAND_REGISTRY",
     "PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY",
     "PRODUCT_SURFACE_SUBCOMMAND_REGISTRY",
 ]

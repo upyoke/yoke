@@ -21,6 +21,10 @@ class RelayClaimRequest(BaseModel):
     plan_limits: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     capacity: Dict[str, Any] = Field(default_factory=dict)
     preferred_models: Dict[str, str] = Field(default_factory=dict)
+    # The signed claim to `machine_id`. Empty on a poll from a host that has
+    # not registered its key, which the control plane refuses by name.
+    machine_proof_issued_at: str = ""
+    machine_proof_signature: str = ""
     wait_seconds: int = Field(default=55, ge=0, le=55)
     broker_only: bool = False
     broker_lease_id: Optional[str] = None

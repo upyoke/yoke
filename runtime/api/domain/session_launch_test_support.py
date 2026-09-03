@@ -7,6 +7,7 @@ import sqlite3
 from typing import Any
 
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
+from yoke_core.domain.machine_registry_schema import ensure_machine_registry_schema
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchAuthorization, LaunchRequest
@@ -61,6 +62,7 @@ def launch_connection() -> sqlite3.Connection:
         );
         """
     )
+    ensure_machine_registry_schema(conn, commit=False)
     create_session_control_tables(conn)
     conn.commit()
     return conn
@@ -125,6 +127,32 @@ def authorization(
     )
 
 
+def register_machine_row(
+    conn: sqlite3.Connection,
+    *,
+    machine_id: str,
+    actor_id: int = 1,
+    name: str | None = None,
+    access: dict[str, Any] | None = None,
+) -> None:
+    """Seed one registered machine directly, the way relays are seeded here."""
+    conn.execute(
+        "INSERT OR REPLACE INTO machines "
+        "(machine_id, name, owner_actor_id, proof_public_key, access, "
+        "registered_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            machine_id,
+            name or machine_id,
+            actor_id,
+            "seeded-public-key",
+            json.dumps(access or {}),
+            NOW,
+            NOW,
+        ),
+    )
+    conn.commit()
+
+
 def add_relay(
     conn: sqlite3.Connection,
     *,
@@ -139,7 +167,10 @@ def add_relay(
     hostname: str = "relay-host",
     plan_limits: dict[str, Any] | None = None,
     preferred_models: dict[str, str] | None = None,
+    registered: bool = True,
 ) -> None:
+    if registered:
+        register_machine_row(conn, machine_id=machine_id, actor_id=actor_id)
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id, actor_id, machine_id, hostname, surface_versions, "
@@ -219,5 +250,6 @@ __all__ = [
     "authorization",
     "launch_connection",
     "plan_limit_document",
+    "register_machine_row",
     "relay_connection",
 ]

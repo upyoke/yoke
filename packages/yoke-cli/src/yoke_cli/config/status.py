@@ -22,6 +22,7 @@ from yoke_cli.config.status_runtime import (
     with_runtime_identity,
 )
 from yoke_cli.config.status_doctor import attach_doctor
+from yoke_cli.config.status_machine_registry import attach_machine_registry
 from yoke_cli.config.status_surface_policy import attach_live_marks
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.install_binding import distribution_version_for_module
@@ -129,7 +130,10 @@ def build_status(
         }
     )
     return attach_doctor(
-        attach_live_marks(with_runtime_identity(report), selected_path)
+        attach_machine_registry(
+            attach_live_marks(with_runtime_identity(report), selected_path),
+            selected_path,
+        )
     )
 
 

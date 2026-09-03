@@ -21,6 +21,33 @@ from yoke_cli.config import yoke_token_verify
 from yoke_cli.config import secrets as machine_secrets
 
 
+def _register_machine(
+    cfg_path: Path,
+    progress: onboard_apply_progress.ProgressCallback | None,
+    report: Dict[str, Any],
+) -> None:
+    """Register this machine now that the connection is active.
+
+    Registration is what turns the asserted machine id into one the control
+    plane can prove, and the relay refuses to poll without it — so it belongs
+    at connect time rather than as a step an operator has to discover later.
+    """
+    from yoke_cli.config.machine_registration import (
+        REGISTER_ACTION,
+        register_this_machine,
+    )
+
+    onboard_apply_progress.emit(progress, REGISTER_ACTION, "", "running")
+    outcome = register_this_machine(cfg_path)
+    report["machine"] = outcome
+    onboard_apply_progress.emit(
+        progress,
+        REGISTER_ACTION,
+        str(outcome.get("name") or outcome.get("machine_id") or ""),
+        "done" if outcome.get("registered") else "failed",
+    )
+
+
 def apply_local_universe(
     cfg_path: Path,
     env_name: str,
@@ -70,6 +97,7 @@ def apply_local_universe(
         if str(local_report.get("active_env") or "") != env_name:
             writer.set_active_env(env_name, path=cfg_path)
         onboard_apply_progress.emit(progress, "set-active-env", env_name, "done")
+    _register_machine(cfg_path, progress, report)
 
 
 def apply_sign_in_connection(
@@ -122,6 +150,7 @@ def apply_sign_in_connection(
         onboard_apply_progress.emit(progress, "set-active-env", env_name, "running")
         writer.set_active_env(env_name, path=cfg_path)
         onboard_apply_progress.emit(progress, "set-active-env", env_name, "done")
+    _register_machine(cfg_path, progress, report)
 
 
 def _resolve_token_source(

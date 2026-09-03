@@ -136,6 +136,9 @@ class FleetReport:
     plan_limits: tuple[MachinePlanLimit, ...] = ()
     #: Every connected machine's lanes against its cap, full ones included.
     machine_capacity: tuple[MachineCapacity, ...] = ()
+    #: Registered machine names keyed by machine id, so every per-machine row
+    #: shows the name its operator gave the box rather than a bare UUID.
+    machine_names: tuple[tuple[str, str], ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
@@ -201,6 +204,12 @@ class FleetReport:
     def fingerprint(self) -> str:
         """Content identity, blind to ages so the report is not noise."""
         return report_fingerprint(self)
+
+
+def registered_machine_names(conn: Any) -> dict[str, str]:
+    from yoke_core.domain.machine_registry import machine_names
+
+    return machine_names(conn)
 
 
 def compose_report(
@@ -272,6 +281,7 @@ def compose_report(
                 call.item_id for call in split.in_flight if "merge" in call.command
             ),
         ),
+        machine_names=tuple(sorted(registered_machine_names(conn).items())),
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),
