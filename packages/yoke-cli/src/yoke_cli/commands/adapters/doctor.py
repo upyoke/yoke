@@ -1,10 +1,17 @@
 """``yoke doctor run`` and ``yoke doctor last-run get`` flag adapters.
 
-``doctor.run.run`` is the machine-callable Doctor surface. Exactly one
-scope flag (``--quick`` | ``--full`` | ``--only NAMES``) is required;
-the explicit-scope rule mirrors the human CLI and is enforced
-server-side. ``doctor.last_run.get`` serves the most recent completed
-run recorded in ``doctor_runs`` without re-running any checks.
+``yoke doctor run`` is the Doctor surface for every transport and the
+command ``yoke watch doctor`` wraps. Exactly one scope flag (``--quick``
+| ``--full`` | ``--only NAMES``) is required; the explicit-scope rule
+mirrors the engine entrypoint and is enforced server-side.
+
+Both transports stream the same per-check progress lines while they
+work. A relayed run learns each verdict as its bounded batch returns and
+renders the line from that row; a local-Postgres run dispatches in this
+same process, so it installs the sink and the handler's own check loop
+writes the lines directly. ``doctor.last_run.get`` serves the most
+recent completed run recorded in ``doctor_runs`` without re-running any
+checks.
 """
 
 from __future__ import annotations
@@ -25,9 +32,16 @@ from yoke_cli.config.onboard_destinations import is_hosted_url
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
+    build_actor,
     dispatch_and_emit,
+    ensure_handlers_loaded,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.doctor_output import (
+    emit_doctor_response,
+    stream_progress_to_stderr,
+)
+from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_cli.transport.https import resolve_https_connection, TransportError
 from yoke_contracts.api.function_call import TargetRef
 
@@ -45,7 +59,7 @@ DOCTOR_CHUNK_MAX_CHECKS = 1
 
 DOCTOR_RUN_USAGE = (
     "yoke doctor run (--quick | --full | --only NAMES) [--fix] "
-    "[--project NAME] [--db-path PATH] [--session-id S] [--json]"
+    "[--project NAME] [--file PATH] [--db-path PATH] [--session-id S] [--json]"
 )
 
 DOCTOR_LAST_RUN_GET_USAGE = (
@@ -107,6 +121,11 @@ def doctor_run(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
+        "--file",
+        default=None,
+        help="Also write the rendered health report to PATH (human mode).",
+    )
+    parser.add_argument(
         "--db-path", dest="db_path", default=None, help="Optional DB path override."
     )
     add_session_arg(parser)
@@ -125,24 +144,53 @@ def doctor_run(args: List[str]) -> int:
         payload["only"] = parsed.only
     if parsed.db_path:
         payload["db_path"] = parsed.db_path
-    if _active_transport_is_https():
-        from yoke_cli.commands.adapters.doctor_https_compose import (
-            resolve_operator_project,
-        )
+    # One sink for the whole run, whichever transport serves it: every
+    # check this process executes emits through the shared executor, and
+    # a relayed batch's verdicts are rendered from its rows as they land.
+    with stream_progress_to_stderr():
+        if _active_transport_is_https():
+            from yoke_cli.commands.adapters.doctor_https_compose import (
+                resolve_operator_project,
+            )
 
-        payload["project"] = resolve_operator_project(str(payload["project"]))
-        return _dispatch_chunked(
+            payload["project"] = resolve_operator_project(str(payload["project"]))
+            return _dispatch_chunked(
+                payload=payload,
+                session_id=parsed.session_id,
+                json_mode=parsed.json_mode,
+                report_file=parsed.file,
+            )
+        return _dispatch_in_process(
             payload=payload,
             session_id=parsed.session_id,
             json_mode=parsed.json_mode,
+            report_file=parsed.file,
         )
-    return dispatch_and_emit(
+
+
+def _dispatch_in_process(
+    *,
+    payload: Dict[str, Any],
+    session_id: str | None,
+    json_mode: bool,
+    report_file: str | None,
+) -> int:
+    """Run the checks in this process, one dispatch for the whole roster.
+
+    A non-https connection dispatches in-process, so the handler's check
+    loop runs under the caller's progress sink and streams each verdict
+    without the client having to chunk the roster to see one.
+    """
+    ensure_handlers_loaded()
+    response = call_dispatcher(
         function_id="doctor.run.run",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
+        actor=build_actor(session_id=session_id),
         timeout_s=DOCTOR_RUN_READ_TIMEOUT_S,
+    )
+    return emit_doctor_response(
+        response, json_mode=json_mode, report_file=report_file
     )
 
 
@@ -179,6 +227,7 @@ def _dispatch_chunked(
     payload: Dict[str, Any],
     session_id: str | None,
     json_mode: bool,
+    report_file: str | None,
 ) -> int:
     from yoke_cli.commands.adapters.doctor_https_run import dispatch_chunked
 
@@ -188,4 +237,5 @@ def _dispatch_chunked(
         json_mode=json_mode,
         chunk_max_checks=DOCTOR_CHUNK_MAX_CHECKS,
         timeout_s=DOCTOR_RUN_READ_TIMEOUT_S,
+        report_file=report_file,
     )

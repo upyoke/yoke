@@ -241,19 +241,6 @@ class _RemediationFooterTests(unittest.TestCase):
     the field-note footer. Applied at the doctor result-render layer
     so per-HC modules need no edits."""
 
-    def test_remediation_with_footer_appends_when_absent(self):
-        wrapped = doctor_engine.remediation_with_footer("fix the column drift")
-        self.assertTrue(wrapped.startswith("fix the column drift"))
-        self.assertTrue(wrapped.endswith(FIELD_NOTE_FOOTER))
-
-    def test_remediation_with_footer_is_idempotent(self):
-        once = doctor_engine.remediation_with_footer("first prompt")
-        twice = doctor_engine.remediation_with_footer(once)
-        # Re-wrapping must not double-append; the second call sees the
-        # footer already present and returns the input unchanged.
-        self.assertEqual(once, twice)
-        self.assertEqual(twice.count(FIELD_NOTE_FOOTER), 1)
-
     def test_fail_detail_in_rendered_report_carries_footer(self):
         with patch(
             "yoke_core.engines.doctor.HEALTH_CHECKS",

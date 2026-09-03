@@ -19,6 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from yoke_core.engines.doctor_project_checks import (
+    PROJECT_CHECKS_DIR,
+    PROJECT_CHECKS_PACKAGE,
+)
 from yoke_core.tools.impacted_project_test_roots import (
     YOKE_SEEDED_TEST_ROOTS,
     current_test_roots,
@@ -26,6 +30,10 @@ from yoke_core.tools.impacted_project_test_roots import (
 from yoke_core.tools._impacted_selection import is_effectively_full
 
 _PACKAGE_SOURCE_MARKER = "/src/"
+#: Project-local checks live here and import under
+#: :data:`PROJECT_CHECKS_PACKAGE`; both facts belong to the engine that
+#: loads them, so they are read from it rather than restated.
+_PROJECT_CHECKS_PREFIX = f"{PROJECT_CHECKS_DIR.as_posix()}/"
 _SKIP_DIRECTORIES = frozenset(
     {".git", ".venv", "node_modules", "__pycache__", ".worktrees", "build"}
 )
@@ -39,6 +47,14 @@ TEST_ANCHORS = YOKE_SEEDED_TEST_ROOTS
 #: dependency reference (subprocess ``-m`` targets, patch targets,
 #: registry keys). Single-segment names are far too noisy to count.
 _DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
+
+#: A string literal shaped like a repo-relative path to a Python file is
+#: also a dependency reference. Contract rosters name their subjects that
+#: way — the field-note consumer list and the workspace-anchored writer
+#: list both do — so without this edge, editing a file a roster names
+#: leaves the test guarding that roster unreachable, and CI is the first
+#: thing to notice.
+_REPO_RELATIVE_PY = re.compile(r"^[\w.\-/]+\.py$")
 
 
 def is_test_file(rel_path: str) -> bool:
@@ -57,6 +73,12 @@ def module_name_for(rel_path: str) -> "str | None":
     if not rel_path.endswith(".py"):
         return None
     trimmed = rel_path[: -len(".py")]
+    # A project's own checks import under the namespace the engine loads
+    # them in, not under their folder. Naming them by folder leaves every
+    # test that imports one unreachable from the check it tests.
+    if trimmed.startswith(_PROJECT_CHECKS_PREFIX):
+        leaf = trimmed[len(_PROJECT_CHECKS_PREFIX) :]
+        return f"{PROJECT_CHECKS_PACKAGE}.{leaf}" if leaf else None
     marker_at = trimmed.find(_PACKAGE_SOURCE_MARKER)
     if marker_at != -1:
         trimmed = trimmed[marker_at + len(_PACKAGE_SOURCE_MARKER) :]
@@ -125,6 +147,25 @@ def _string_module_references(tree: ast.AST) -> set[str]:
         parts = value.split(".")
         for end in range(2, len(parts) + 1):
             found.add(".".join(parts[:end]))
+    return found
+
+
+def _string_path_references(tree: ast.AST) -> set[str]:
+    """Repo-relative ``.py`` path literals, as posix paths.
+
+    Resolved against the index's own file list by the caller, so a literal
+    naming no real file is simply dropped rather than becoming an inert
+    key.
+    """
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+            continue
+        value = node.value.strip()
+        if len(value) > 200 or "/" not in value:
+            continue
+        if _REPO_RELATIVE_PY.match(value):
+            found.add(value)
     return found
 
 
@@ -205,6 +246,9 @@ def bounded_importer_tests(
 def build_import_index(repo_root: Path) -> ImportIndex:
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
+    # Path literals resolve to modules only once every file is known, so
+    # they are collected here and folded in after the scan.
+    path_references: list[tuple[str, set[str]]] = []
     for path in _iter_source_files(repo_root):
         rel = path.relative_to(repo_root).as_posix()
         module = module_name_for(rel)
@@ -217,6 +261,14 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         references = _imported_modules(tree, module) | _string_module_references(tree)
         for referenced in references:
             importers.setdefault(referenced, set()).add(rel)
+        named_paths = _string_path_references(tree)
+        if named_paths:
+            path_references.append((rel, named_paths))
+    for rel, named_paths in path_references:
+        for named in named_paths:
+            referenced_module = module_of.get(named)
+            if referenced_module:
+                importers.setdefault(referenced_module, set()).add(rel)
     return ImportIndex(importers=importers, module_of=module_of)
 
 

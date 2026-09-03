@@ -28,13 +28,16 @@ target project's source tree, which runtimes it runs under, and which
 capabilities it needs; the runner derives the applicable set from the live
 context. See `## Health Checks` in AGENTS.md for the model.
 
-**Report "not applicable" honestly.** A run over an HTTPS authority executes
-the checks on the control-plane server, which holds no source tree — so every
-source-tree check comes back `N/A` with its reason in the `## Not Applicable`
-section, not as a pass. To actually exercise those checks, run doctor where
-the checkout lives (a local-Postgres connection). When you relay a report,
-relay the not-applicable count too: `N passed` over a hosted run does not mean
-the source tree was inspected.
+**Report "not applicable" honestly.** A relayed run executes the
+control-plane checks on the server, which holds no source tree. The run
+then composes: each check the server answered `N/A` *for want of a
+checkout* is re-run against this machine's checkout for the target
+project, and the local verdict replaces the relayed one. What stays
+`N/A` is what nothing could honestly answer — most often no checkout
+mapped for that project on this machine — and it carries its reason in
+the `## Not Applicable` section rather than counting as a pass. When you
+relay a report, relay the not-applicable count too: `N passed` does not
+mean the source tree was inspected.
 
 **Project-local checks.** A project's own checks live in its `.yoke/doctor/`
 folder and are discovered pytest-style by a runner that holds the checkout.
@@ -42,7 +45,9 @@ They appear in the report exactly like engine checks. A check module that
 fails to import is reported as `HC-project-check-discovery` FAIL. Yoke's own
 source-dev checks — agent and adapter drift, hook parity, skill and doc
 consistency, tier discipline, code-doctrine scans — live there rather than in
-the engine, so a hosted run of another project never carries them.
+the engine. They run wherever the target project's checkout is mapped, on
+either transport; a run targeting a project this machine holds no checkout
+for carries none of them.
 
 **Events table as health signal.** The events table captures anomaly patterns across all agent sessions. Include `yoke events anomalies --since "24 hours ago"` in the diagnostic context. Elevated anomaly counts or recurring `nonzero_exit` patterns on specific scripts are health signals.
 
@@ -82,16 +87,14 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
 1. **Run the health check engine:**
 
- Inspect `yoke status --json` and select the engine from
- `connection.transport`:
-
- - **`https`** — invoke `yoke doctor run` directly. The registered adapter
-   chunks the run into bounded server requests and skips source-tree-only HCs;
-   do not invoke the local watcher against a hosted connection.
- - **`local-postgres`** — invoke doctor through the watcher wrapper
-   `yoke watch doctor`. Per AGENTS.md `## Command Output
-   — Hard Rule`, local Doctor runs go through the watcher to preserve the raw
-   report and streaming progress.
+ One shape on every machine: `yoke watch doctor`. It wraps the
+ transport-keyed `yoke doctor run`, so there is no connection to inspect
+ and no branch to pick. A relayed control plane chunks the run into
+ bounded server requests and composes the source-tree HCs from this
+ machine's checkout; a local-Postgres connection runs the whole roster
+ in process. Either way the wrapper preserves the raw report and streams
+ the same per-check progress lines, which is what AGENTS.md `## Command
+ Output — Hard Rule` requires of a run this long.
 
  Pass bare doctor args after `--`:
  - **`--full`** for operator-invoked `/yoke doctor` — runs every HC including
@@ -110,18 +113,14 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  For `/yoke doctor` the canonical scope is `--full`:
 
  ```bash
- # Hosted HTTPS authority
- yoke doctor run --full --project {project} [--fix] --json
-
- # Local Postgres authority
  yoke watch doctor -- --full --project {project} [--file {path}] [--fix]
  ```
 
- `--file` applies only to the local watcher. The hosted adapter returns the
- complete typed report in its response envelope; display that response rather
- than claiming a local report file was created.
+ The run prints the Ouroboros Health Report on either transport, and
+ `--file` also writes it to that path. Only claim a report file when
+ `--file` was passed.
 
- Without a scope flag the engine exits 2 with a teachable error naming the
+ Without a scope flag the run exits 2 with a teachable error naming the
  three options. This is intentional: every caller must make an explicit
  GitHub-quota choice — automated verification paths use `--quick`,
  operator-invoked health checks use `--full`. The wrapper preserves the
@@ -197,13 +196,14 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
 6. **Final output:**
 
- For a local run, display the report file path:
+ Display the report. When `--file {path}` was passed, name where it
+ was written:
  ```
  Ouroboros health report saved to: {path}
  ```
 
- For a hosted run, state that the typed report was returned by the configured
- HTTPS authority; do not invent a filesystem path.
+ Without `--file` there is no report file — display the report the run
+ printed; do not invent a filesystem path.
 
  If there were failures that could not be auto-fixed:
  ```
@@ -212,7 +212,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
 ## Notes
 
-- The doctor engine exits 0 if no FAILs, exits 1 if any FAILs (the watcher wrapper at `yoke watch doctor` preserves this exit code). Use the exit code to determine overall health.
+- Doctor exits 0 if no FAILs and 1 if any FAILs (the watcher wrapper at `yoke watch doctor` preserves this exit code). Use the exit code to determine overall health.
 - GitHub-dependent health checks (sync-completeness-legacy, orphan/missing/comment-sync HCs) resolve the project's verified App binding through `yoke_core.domain.project_github_auth.resolve_project_github_auth` and call GitHub REST/GraphQL with a short-lived installation token — they do NOT require the host `gh` CLI. Bidirectional sync HCs delegate detection and repair to the internal resync engine in doctor format, which uses the same resolver. The doctor engine forwards `--fix` automatically; the agent never runs a host shell-out itself.
 - The `--fix` flag only repairs trivial, deterministic issues. It never modifies code, agent prompts, or SKILL.md files.
 - Bulk-mutation awareness: a single `/yoke doctor --fix` invocation can push large numbers of GitHub edits (every body, title, label, and state drift on every paired item). Before running `--fix` on a long-stale install, do a read-only pass first and confirm the mutation volume is acceptable.

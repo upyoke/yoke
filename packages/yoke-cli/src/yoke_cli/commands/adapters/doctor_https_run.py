@@ -1,8 +1,13 @@
-"""HTTPS ``yoke doctor run`` chunked relay + local compose orchestration."""
+"""HTTPS ``yoke doctor run`` chunked relay + local compose orchestration.
+
+Each relayed batch carries one check, so its response is also this
+transport's progress tick: the verdicts it returns are rendered as
+per-check lines the moment they arrive, which is what lets a watcher
+follow a relayed run instead of waiting out the whole roster in silence.
+"""
 
 from __future__ import annotations
 
-import json
 from typing import Any, Dict
 
 from yoke_contracts.deployment_destination import DESTINATION_LOCAL
@@ -15,10 +20,13 @@ from yoke_contracts.api.function_call import (
 from yoke_cli.commands._helpers import (
     build_actor,
     call_dispatcher,
-    emit_response,
 )
 from yoke_cli.commands.adapters.doctor_https_receipt import (
     persist_composed_receipt,
+)
+from yoke_cli.commands.adapters.doctor_output import (
+    emit_doctor_response,
+    emit_relayed_progress,
 )
 
 
@@ -33,6 +41,7 @@ def dispatch_chunked(
     json_mode: bool,
     chunk_max_checks: int,
     timeout_s: float,
+    report_file: str | None = None,
 ) -> int:
     from yoke_cli.commands.adapters.doctor_https_compose import (
         false_na_local_runtime_slugs,
@@ -65,7 +74,7 @@ def dispatch_chunked(
             session_id=session_id,
             timeout_s=timeout_s,
         )
-        return emit_response(
+        return emit_doctor_response(
             FunctionCallResponse(
                 success=True,
                 function="doctor.run.run",
@@ -74,6 +83,7 @@ def dispatch_chunked(
                 result=local_result,
             ),
             json_mode=json_mode,
+            report_file=report_file,
         )
 
     response = collect_chunked(
@@ -84,7 +94,9 @@ def dispatch_chunked(
     )
     relay_failed = _is_transport_failure(response)
     if not response.success and not relay_failed:
-        return emit_response(response, json_mode=json_mode)
+        return emit_doctor_response(
+            response, json_mode=json_mode, report_file=report_file
+        )
 
     result = dict(response.result or {})
     results = list(result.get("results") or [])
@@ -163,9 +175,10 @@ def dispatch_chunked(
             session_id=session_id,
             timeout_s=timeout_s,
         )
-    return _emit_doctor_response(
+    return emit_doctor_response(
         final,
         json_mode=json_mode,
+        report_file=report_file,
     )
 
 
@@ -217,16 +230,6 @@ def _partial_error(response: FunctionCallResponse) -> FunctionError:
             "every relayed batch completes."
         ),
     )
-
-
-def _emit_doctor_response(
-    response: FunctionCallResponse,
-    *,
-    json_mode: bool,
-) -> int:
-    if not json_mode and not response.success and response.result:
-        print(json.dumps(response.result, sort_keys=True))
-    return emit_response(response, json_mode=json_mode)
 
 
 def collect_chunked(
@@ -293,7 +296,9 @@ def collect_chunked(
             )
 
         result = response.result or {}
-        results.extend(result.get("results") or [])
+        batch_rows = result.get("results") or []
+        emit_relayed_progress(batch_rows)
+        results.extend(batch_rows)
         fail_count += int(result.get("fail_count") or 0)
         warn_count += int(result.get("warn_count") or 0)
         pass_count += int(result.get("pass_count") or 0)

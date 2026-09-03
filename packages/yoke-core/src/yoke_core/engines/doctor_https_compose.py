@@ -22,6 +22,7 @@ from yoke_core.engines.doctor_applicability_declarations import (
     local_runtime_slugs,
     source_checkout_slugs,
 )
+from yoke_core.engines import doctor_progress
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines.doctor_registry import HEALTH_CHECKS
 from yoke_core.engines.doctor_report import (
@@ -212,9 +213,17 @@ def run_local_source_checks(
                 if hc.slug not in wanted:
                     continue
                 pre = len(rec.results)
-                execute_check_isolated(conn, args, rec, hc)
-                if not owned:
-                    note_missing_control_plane(rec.results[pre:], project)
+                # Withheld, then emitted below: without a control plane
+                # this check's failure is the runner's, and the rewrite
+                # that says so happens after the call returns.
+                with doctor_progress.verdicts_withheld():
+                    execute_check_isolated(conn, args, rec, hc)
+                    if not owned:
+                        note_missing_control_plane(rec.results[pre:], project)
+                for record in rec.results[pre:]:
+                    doctor_progress.check_finished(
+                        record.check_id, record.result
+                    )
     finally:
         if owned:
             try:

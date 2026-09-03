@@ -238,6 +238,9 @@ def test_transport_partial_human_output_includes_report_and_recovery() -> None:
         )
 
     assert rc == 1
-    assert json.loads(stdout.getvalue())["partial"] is True
+    # Human mode renders the partial report it did manage to collect, and
+    # names the failure and its recovery on stderr rather than swallowing
+    # either behind a raw payload dump.
+    assert stdout.getvalue().startswith("# Ouroboros Health Report")
     assert "doctor_control_plane_partial" in stderr.getvalue()
     assert "Retry the same `yoke doctor run`" in stderr.getvalue()
