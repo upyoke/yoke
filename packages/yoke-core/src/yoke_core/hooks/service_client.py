@@ -159,6 +159,7 @@ def register_session(
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     native_thread_id: Optional[str] = None,
+    *,
     launch_id: Optional[str] = None,
 ) -> Optional[str]:
     """Register/touch a session via service_client.py session-begin.
@@ -174,7 +175,10 @@ def register_session(
     boundary; an unset fact ships no flag rather than an empty string.
 
     ``launch_id``, when the attestation side channel carried one, makes the
-    registration bind the launching actor instead of this machine's own.
+    registration bind the launching actor instead of this machine's own. It
+    is keyword-only: the positional tail of this call is a shape callers and
+    tests read by index, and an identity fact that most sessions do not carry
+    does not belong in it.
     """
     if not os.path.isfile(service_client_path):
         return "service_client.py not found"

@@ -88,7 +88,7 @@ def register_harness_session(
         executor_version,
         machine_id,
         native_thread_id,
-        launch_id,
+        launch_id=launch_id,
     ) or ""
 
 

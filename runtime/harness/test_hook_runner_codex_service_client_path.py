@@ -27,7 +27,7 @@ def _pin_local_transport(monkeypatch) -> None:
 def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
     calls: list[tuple] = []
 
-    def fake_register(*args):  # noqa: ANN001
+    def fake_register(*args, **_kwargs):  # noqa: ANN001,ANN003
         calls.append(args)
         return None
 
@@ -71,7 +71,7 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
 def test_codex_register_stamps_native_thread_id_from_env(monkeypatch) -> None:
     calls: list[tuple] = []
 
-    def fake_register(*args):  # noqa: ANN001
+    def fake_register(*args, **_kwargs):  # noqa: ANN001,ANN003
         calls.append(args)
         return None
 
@@ -100,7 +100,7 @@ def test_codex_register_stamps_native_thread_id_from_env(monkeypatch) -> None:
 def test_universal_register_uses_target_service_client_path(monkeypatch) -> None:
     calls: list[tuple] = []
 
-    def fake_register(*args):  # noqa: ANN001
+    def fake_register(*args, **_kwargs):  # noqa: ANN001,ANN003
         calls.append(args)
         return None
 
@@ -301,5 +301,6 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
             "executor_version": "0.1.0",
             "machine_id": "00000000-0000-4000-8000-000000000123",
             "native_thread_id": None,
+            "launch_id": None,
         }
     ]
