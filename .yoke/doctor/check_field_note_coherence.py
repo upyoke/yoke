@@ -62,7 +62,7 @@ IMPORTING_CONSUMERS: Tuple[str, ...] = (
     "packages/yoke-cli/src/yoke_cli/commands/adapters/ouroboros_field_note.py",
     "packages/yoke-contracts/src/yoke_contracts/api/function_call.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/denial_field_note_footer.py",
-    "packages/yoke-core/src/yoke_core/engines/doctor.py",
+    "packages/yoke-core/src/yoke_core/engines/doctor_result_report.py",
 ) + _LINTS
 
 # Packet seeds carry the canonical field-note command verbatim as

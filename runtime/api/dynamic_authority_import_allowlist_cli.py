@@ -160,6 +160,20 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "https doctor honors caller-checkout project-local --only slugs",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_output.py",
+        "yoke_core.engines.doctor_progress",
+    ): (
+        "client_local_diagnostics",
+        "doctor progress lines are the engine's shapes, rendered client-side",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_output.py",
+        "yoke_core.engines.doctor_result_report",
+    ): (
+        "client_local_diagnostics",
+        "the health report layout is the engine's, rendered from any result",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/db_claim.py",
         "yoke_core.domain.db_claim_prose_check",
     ): (

@@ -145,11 +145,15 @@ class TestDoctorRun:
         rc, stdout, stderr = _run_with_project_roster([_PROJECT_HC], *argv)
 
         assert rc == 0, stderr
-        rendered = json.loads(stdout)
-        result = rendered["result"] if json_mode else rendered
-        assert [row["hc"] for row in result["results"]] == [
-            "HC-project-policy",
-        ]
+        if json_mode:
+            result = json.loads(stdout)["result"]
+            assert [row["hc"] for row in result["results"]] == [
+                "HC-project-policy",
+            ]
+        else:
+            # Human mode renders the health report, not the envelope.
+            assert stdout.startswith("# Ouroboros Health Report")
+            assert "HC-project-policy: Project policy HC" in stdout
 
     @pytest.mark.parametrize("json_mode", [False, True])
     def test_unknown_check_still_fails_after_project_roster_discovery(
@@ -213,13 +217,21 @@ class TestDoctorRun:
     def test_dispatch_uses_doctor_read_timeout(self) -> None:
         calls = {}
 
-        def fake_dispatch_and_emit(**kwargs):
+        def fake_call_dispatcher(**kwargs):
             calls.update(kwargs)
-            return 0
+            return FunctionCallResponse(
+                success=True, function="doctor.run.run", version="v1",
+                request_id="req-1",
+                result={"results": [], "scope": "quick", "project": "yoke",
+                        "fail_count": 0, "warn_count": 0, "pass_count": 0},
+            )
 
-        with patch(
-            "yoke_cli.commands.adapters.doctor.dispatch_and_emit",
-            side_effect=fake_dispatch_and_emit,
+        with (
+            patch("yoke_cli.commands.adapters.doctor.ensure_handlers_loaded"),
+            patch(
+                "yoke_cli.commands.adapters.doctor.call_dispatcher",
+                side_effect=fake_call_dispatcher,
+            ),
         ):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                 rc = cli_main(["doctor", "run", "--quick"])

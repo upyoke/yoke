@@ -111,6 +111,8 @@ class TestNestedDoctorRejection:
     @pytest.mark.parametrize(
         "args",
         [
+            ["yoke", "doctor", "run"],
+            ["yoke", "doctor", "run", "--quick"],
             ["python3", "-m", "yoke_core.engines.doctor"],
             ["python3", "-m", "yoke_core.engines.doctor", "--quick"],
             ["python", "-m", "yoke_core.engines.doctor"],
@@ -128,19 +130,34 @@ class TestNestedDoctorRejection:
             ["--check", "HC-foo"],
             [],
             ["python3", "-m", "pytest"],
+            ["--only", "HC-doctor-run"],
         ],
     )
     def test_non_nested_invocations_pass(self, args: list[str]) -> None:
         assert not watch_doctor._is_nested_doctor_invocation(args)
 
+    def test_rejection_message_names_both_forms(self) -> None:
+        message = watch_doctor.NESTED_DOCTOR_REJECTION_MESSAGE
+        assert "yoke doctor run" in message
+        assert "yoke_core.engines.doctor" in message
+
 
 class TestDoctorArgv:
-    def test_argv_includes_module_prefix(self) -> None:
+    def test_argv_runs_the_transport_keyed_command(self) -> None:
+        # The engine entrypoint opens the control-plane DB itself and
+        # refuses on a relayed machine; the wrapper must run the product
+        # command so it works on every transport.
         import sys
 
         argv = watch_doctor._doctor_argv(["--quick"])
         assert argv[0] == sys.executable
-        assert argv[1:4] == ["-m", "yoke_core.engines.doctor", "--quick"]
+        assert argv[1:] == ["-m", "yoke_cli.main", "doctor", "run", "--quick"]
+        assert "yoke_core.engines.doctor" not in argv
+
+    def test_argv_with_no_passthrough_still_names_the_subcommand(self) -> None:
+        assert watch_doctor._doctor_argv([])[1:] == [
+            "-m", "yoke_cli.main", "doctor", "run",
+        ]
 
 
 class TestPassthroughParsing:
@@ -201,6 +218,16 @@ class TestArgparseHelpExample:
             watch_doctor._parse_args(["--help"])
         rendered = capsys.readouterr().out
         assert "yoke watch doctor --quick" in rendered
+
+    def test_help_teaches_scope_and_exit_status(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        with pytest.raises(SystemExit):
+            watch_doctor._parse_args(["--help"])
+        rendered = capsys.readouterr().out
+        assert "--quick" in rendered and "--full" in rendered
+        assert "--only" in rendered
+        assert "Exit status" in rendered
 
 
 class TestPrintStreamingPair:

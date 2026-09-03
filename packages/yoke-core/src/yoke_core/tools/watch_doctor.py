@@ -1,4 +1,4 @@
-"""Command-shaped watcher for ``yoke_core.engines.doctor`` runs.
+"""Command-shaped watcher for ``yoke doctor run``.
 
 Owns the doctor line classifier so callers do not author a Monitor
 filter per invocation. Doctor can take many minutes when every HC is
@@ -6,6 +6,17 @@ enabled; without this wrapper agents hand-author capture redirections
 and lose progress visibility (see the conduct evidence from
 2026-05-14 where ``2>&1 > /tmp/log`` inverted the stream order and
 sent stderr to the void).
+
+The wrapped command is the transport-keyed one, so this is the single
+doctor shape on every machine. Wrapping the engine entrypoint instead
+made the wrapper useless exactly where an operator most needs progress:
+that entrypoint opens the control-plane database itself, so on a
+relayed machine it refused before running a single check and the
+wrapper always exited 1. ``yoke doctor run`` relays control-plane checks,
+runs source-tree checks locally, and streams a verdict line per check
+either way. (``running HC-…`` comes only from checks this machine
+executes — a relayed roster lives server-side, so the next check's name
+is not known here until its verdict returns.)
 
 The classifier maps:
 
@@ -22,7 +33,7 @@ Every other line is ``NOISE`` (raw capture only).
 Usage::
 
     # Canonical form: the ``--`` separator marks "everything after this
-    # is forwarded to doctor". Used by --print-streaming-pair output.
+    # is forwarded to `yoke doctor run`". Used by --print-streaming-pair.
     yoke watch doctor -- --quick
 
     # Bare form: unrecognized flags are also forwarded to doctor, so
@@ -38,12 +49,14 @@ Usage::
         -- --quick
 
 The wrapper preserves doctor's exit code so callers can still branch
-on success/failure.
+on success/failure: 0 when the run recorded no FAIL, 1 when it did or
+when the run itself failed, 2 when no scope flag was given.
 
 Do NOT pass a full doctor command-shape (with or without the ``--``
-separator). The wrapper rejects ``python3 -m yoke_core.engines.doctor
-…`` (and the ``python``, ``sys.executable``, and ``pythonX.Y``
-variants) before invoking the underlying runner.
+separator). The wrapper rejects both ``yoke doctor run …`` and the
+engine entrypoint ``python3 -m yoke_core.engines.doctor …`` (with its
+``python``, ``sys.executable``, and ``pythonX.Y`` variants) before
+invoking the underlying runner.
 """
 
 from __future__ import annotations
@@ -59,6 +72,15 @@ from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_doctor"
 KIND = "doctor"
+#: The transport-keyed product command this wrapper runs. Invoked as a
+#: module rather than through the ``yoke`` shim so the watcher's own
+#: interpreter runs it — the one the CLI adapter already resolved (and
+#: probed) as able to import this wrapper. ``yoke-core`` depends on
+#: ``yoke-cli``, so an interpreter that imports the wrapper imports this
+#: module too; there is no environment where one resolves and the other
+#: does not.
+DOCTOR_CLI_MODULE = "yoke_cli.main"
+DOCTOR_CLI_SUBCOMMAND = ("doctor", "run")
 # argparse prog for a direct module invocation; the CLI adapter
 # passes the ``yoke watch doctor`` form so help reads back the
 # command as typed.
@@ -110,7 +132,8 @@ def classify_doctor_line(line: str) -> Classification:
 
 NESTED_DOCTOR_REJECTION_MESSAGE = (
     "watch_doctor expects bare doctor args after --; "
-    "do not include python3 -m yoke_core.engines.doctor.\n"
+    "do not restate the command itself. It rejects both "
+    "`yoke doctor run …` and `python3 -m yoke_core.engines.doctor …`.\n"
     "Example: yoke watch doctor -- --quick"
 )
 
@@ -130,8 +153,14 @@ def _looks_like_python_executable(token: str) -> bool:
 
 
 def _is_nested_doctor_invocation(args: Sequence[str]) -> bool:
-    """Return True if pass-through ``args`` start with
-    ``<python> -m yoke_core.engines.doctor``."""
+    """Return True when pass-through ``args`` restate the command itself.
+
+    Both spellings are caught: the ``yoke doctor run`` form an operator
+    is most likely to paste after ``--``, and the engine entrypoint that
+    still exists for source-dev use.
+    """
+    if list(args[:3]) == ["yoke", *DOCTOR_CLI_SUBCOMMAND]:
+        return True
     if len(args) < 3:
         return False
     return (
@@ -143,7 +172,13 @@ def _is_nested_doctor_invocation(args: Sequence[str]) -> bool:
 
 def _doctor_argv(args: Sequence[str]) -> list[str]:
     """Build the underlying doctor invocation."""
-    return [sys.executable, "-m", "yoke_core.engines.doctor", *list(args)]
+    return [
+        sys.executable,
+        "-m",
+        DOCTOR_CLI_MODULE,
+        *DOCTOR_CLI_SUBCOMMAND,
+        *list(args),
+    ]
 
 
 HELP_EPILOG = """\
@@ -157,13 +192,28 @@ examples:
       Bare form. Unrecognized flags are forwarded to doctor too, so this
       behaves identically to ``-- --quick``.
 
+  yoke watch doctor -- --full --project <project> --fix
+      Operator-invoked full scan of another project, applying the
+      deterministic repairs.
+
+  yoke watch doctor -- --only HC-schema-drift
+      Narrow to named checks.
+
   yoke watch doctor --print-streaming-pair -- --quick
       Print a ready-to-paste background command + progress-tail pair
       and exit.
 
-Do NOT include ``python3 -m yoke_core.engines.doctor`` in the
-passthrough — the wrapper supplies that prefix and rejects nested
-doctor invocations before any process starts.
+Scope is required: pass exactly one of ``--quick``, ``--full``, or
+``--only <slug[,slug...]>``. ``--project NAME`` targets another project,
+``--fix`` applies the deterministic repairs, and ``--file PATH`` also
+writes the rendered report there.
+
+Exit status is doctor's own: 0 when the run recorded no FAIL, 1 when it
+did (or the run itself failed), 2 when no scope flag was given.
+
+Do NOT restate the command in the passthrough — the wrapper supplies
+``yoke doctor run`` and rejects both that form and the source-dev engine
+entrypoint before any process starts.
 """
 
 

@@ -1,4 +1,10 @@
-"""Yoke doctor engine: CLI runner over the HC registry.
+"""Yoke doctor engine: source-dev runner over the HC registry.
+
+This entrypoint opens the control-plane database itself, so it runs only
+where the caller holds one. The product surface every operator and agent
+uses is ``yoke doctor run`` (and ``yoke watch doctor`` to follow it),
+which works on both transports; this module stays the source-dev and
+break-glass door onto the same roster.
 
 The ordered ``HEALTH_CHECKS`` list and every HC implementation live in
 ``yoke_core.engines.doctor_registry``. This module owns just the runner
@@ -49,10 +55,11 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from yoke_core.domain.db_helpers import connect
-from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 
 from yoke_core.engines.doctor_context import default_project, resolve_context
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
+from yoke_core.engines import doctor_progress
+from yoke_core.engines.doctor_result_report import attach_remediation_footers
 from yoke_core.engines.doctor_roster import (
     build_roster,
     record_discovery_failures,
@@ -85,28 +92,6 @@ from yoke_core.engines.doctor_registry import (  # noqa: F401
 )
 
 
-def remediation_with_footer(prompt_text: str) -> str:
-    """Append the field-note footer to one HC's remediation prompt.
-
-    Idempotent: re-wrapping text that already carries the footer is a
-    no-op. Every FAIL / WARN remediation prompt in the Markdown report
-    surfaces the footer so the operator-facing channel for the Ouroboros
-    learning loop is one screen away when doctor finds work.
-    """
-    if _FIELD_NOTE_FOOTER in prompt_text:
-        return prompt_text
-    return f"{prompt_text}\n\n{_FIELD_NOTE_FOOTER}"
-
-
-def _attach_remediation_footers(rec: RecordCollector) -> None:
-    """Wrap each FAIL / WARN result's ``detail`` with the field-note
-    footer before report rendering. Applied at the doctor result-render
-    layer so per-HC modules need no edits."""
-    for r in rec.results:
-        if r.result in ("FAIL", "WARN"):
-            r.detail = remediation_with_footer(r.detail)
-
-
 def run_checks(args: DoctorArgs) -> int:
     """Run all applicable health checks and return exit code (0 or 1)."""
     from yoke_core.domain.control_plane_transport import local_connection_or_none
@@ -117,10 +102,12 @@ def run_checks(args: DoctorArgs) -> int:
             "doctor engine entrypoint needs a local-postgres control plane; "
             "this connection has none.\n"
             "Use the product surface instead:\n"
-            "  yoke doctor run --quick\n"
-            "(or --full / --only). That adapter relays control-plane checks "
-            "and runs source-tree checks on this machine when a checkout is "
-            "present — do not switch environments to recover.",
+            "  yoke watch doctor -- --quick\n"
+            "(or --full / --only). The wrapper runs `yoke doctor run`, which "
+            "relays control-plane checks, runs source-tree checks on this "
+            "machine when a checkout is present, and streams the same "
+            "per-check lines on either transport — do not switch "
+            "environments to recover.",
             file=sys.stderr,
         )
         return 1
@@ -140,16 +127,13 @@ def run_checks(args: DoctorArgs) -> int:
         flush=True,
     )
 
-    for hc in roster.applicable:
-        print(f"running HC-{hc.slug}", flush=True)
-        pre_len = len(rec.results)
-        execute_check_isolated(conn, args, rec, hc)
-        for new_record in rec.results[pre_len:]:
-            print(f"{new_record.check_id}: {new_record.result}", flush=True)
+    with doctor_progress.progress_to(sys.stdout):
+        for hc in roster.applicable:
+            execute_check_isolated(conn, args, rec, hc)
 
     conn.close()
 
-    _attach_remediation_footers(rec)
+    attach_remediation_footers(rec)
     report = rec.format_report()
     print(report)
 
