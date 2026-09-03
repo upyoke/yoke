@@ -22,6 +22,7 @@ from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noq
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     ACCESS_KEY_ID,
     SECRET_ACCESS_KEY,
+    _aws_cli_present,
     _isolated_machine_home,
     _stub_path_doctor,
     body_text,
@@ -259,6 +260,9 @@ def test_a_keystroke_during_the_swap_lands_in_the_firstbox() -> None:
             seed_project(app)
             app._goto_hosting()
             app._on_hosting_provider_choice("aws")
+            # Choosing AWS preflights the CLI on a worker; the sign-in screen
+            # it opens would otherwise land on top of the credential form.
+            await app.workers.wait_for_complete()
             app._on_hosting_aws_sign_in_choice("create-key")
             await pilot.press("a")
             await pilot.pause()

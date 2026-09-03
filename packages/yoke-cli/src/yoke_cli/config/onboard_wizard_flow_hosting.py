@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from yoke_contracts import hosting_posture
 from yoke_cli.config import aws_admin_capability as hosting
+from yoke_cli.config import onboard_wizard_hosting_prerequisite as prerequisite
 from yoke_cli.config import onboard_project_modes as project_modes
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
 from yoke_cli.config.onboard_wizard_state import _FormField
@@ -68,7 +69,9 @@ class HostingFlow:
 
     def _on_hosting_provider_choice(self: _Shell, choice: str) -> None:
         if choice == "aws":
-            self._goto_hosting_aws_sign_in()
+            # The AWS CLI has to be established before a key is worth creating:
+            # the identity check below runs in-process and passes without it.
+            prerequisite.run_preflight(self)
             return
         if choice == "no-managed-host":
             self._goto_hosting_no_managed_host()

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded, parse_or_usage_error
 from yoke_cli.commands.adapters.dev import DEFAULT_PROJECT_ID, PROJECT_ID_ENV
+from yoke_cli.config import aws_cli_prerequisite
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 
@@ -20,6 +21,7 @@ AWS_EXEC_USAGE = (
 AWS_ADMIN_LINK_USAGE = (
     "yoke aws admin-link [--project PROJECT] [--region REGION]"
 )
+AWS_PREFLIGHT_USAGE = "yoke aws preflight"
 _AWS_ADMIN_CAPABILITY = "aws-admin"
 
 
@@ -111,11 +113,56 @@ def aws_exec(args: List[str]) -> int:
         return 1
 
     try:
-        completed = subprocess.run(["aws", *aws_args], env=env)
-    except FileNotFoundError:
-        print("error: aws CLI executable not found on PATH", file=sys.stderr)
+        cli = aws_cli_prerequisite.check_aws_cli()
+    except aws_cli_prerequisite.AwsCliPrerequisiteError as exc:
+        _print_prerequisite_refusal(exc)
+        return 127
+    try:
+        completed = subprocess.run([cli.executable, *aws_args], env=env)
+    except OSError as exc:
+        # The preflight resolved this path a moment ago, so reaching here means
+        # the install changed underneath us rather than that it was never there.
+        print(
+            f"error: the AWS CLI at {cli.executable} could not be run ({exc}).",
+            file=sys.stderr,
+        )
+        print(
+            f"  Reinstall it: {aws_cli_prerequisite.AWS_CLI_INSTALL_DOCS_URL}",
+            file=sys.stderr,
+        )
         return 127
     return int(completed.returncode)
+
+
+def aws_preflight(args: List[str]) -> int:
+    """Answer whether this machine can run capability-owned AWS commands."""
+    parser = argparse.ArgumentParser(
+        prog="yoke aws preflight",
+        description=(
+            "Check that the AWS CLI every aws-admin operation shells out to is "
+            "installed, on PATH, and runnable. Run this before collecting or "
+            "verifying an AWS credential: the credential check itself is an "
+            "in-process API call and passes on a machine with no AWS CLI."
+        ),
+    )
+    parsed = parse_or_usage_error(parser, args, AWS_PREFLIGHT_USAGE)
+    if parsed is None:
+        return 2
+    try:
+        cli = aws_cli_prerequisite.check_aws_cli()
+    except aws_cli_prerequisite.AwsCliPrerequisiteError as exc:
+        _print_prerequisite_refusal(exc)
+        return 127
+    print(f"aws CLI ready: {cli.executable} ({cli.version})")
+    return 0
+
+
+def _print_prerequisite_refusal(
+    exc: aws_cli_prerequisite.AwsCliPrerequisiteError,
+) -> None:
+    """Name the missing executable and the recovery, never a bare exit code."""
+    for line in exc.report_lines():
+        print(line, file=sys.stderr)
 
 
 def _aws_admin_region(project: str, *, session_id: Optional[str] = None) -> Optional[str]:
