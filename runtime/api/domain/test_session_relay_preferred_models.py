@@ -75,6 +75,22 @@ def test_blank_and_non_string_entries_never_become_a_default() -> None:
     assert advertised_session_models("not a map") == {}
 
 
+def test_a_machine_naming_its_default_as_a_settings_object_still_advertises() -> None:
+    """The entry carries the same fact whether it is an id or an object.
+
+    A machine whose config names each surface as a settings object would
+    otherwise advertise nothing at all, and every launch placed there would
+    quietly fall back to the vendor default.
+    """
+    assert advertised_session_models(
+        {
+            "codex-cli": {"model": "gpt-5.6-sol", "reasoning_effort": ""},
+            "claude-cli": {"model": "  ", "context_window_tokens": 1000000},
+            "cursor-cli": {"reasoning_effort": "high"},
+        }
+    ) == {"codex-cli": "gpt-5.6-sol"}
+
+
 def test_a_machine_with_no_relay_row_names_no_default() -> None:
     conn = relay_connection()
 

@@ -54,14 +54,19 @@ def advertised_session_models(raw: Any) -> dict[str, str]:
 
     A machine advertises its own ``preferred_session_models`` so a launch
     placed there resolves the model the chosen machine prefers rather than the
-    caller's. Blank or non-string entries mean unset and are dropped here, so
-    a stored map never implies a default the machine did not name.
+    caller's. The stored advertisement is always one model id per surface;
+    a machine that names its default as a settings object is read for the
+    model it carries, because the entry is the same fact either way and a
+    surface whose shape this refused would silently lose its default. Blank,
+    missing, and non-string model ids mean unset and are dropped, so a stored
+    map never implies a default the machine did not name.
     """
     if not isinstance(raw, Mapping):
         return {}
     models: dict[str, str] = {}
-    for surface, model in raw.items():
+    for surface, entry in raw.items():
         name = str(surface).strip()
+        model = entry.get("model") if isinstance(entry, Mapping) else entry
         value = model.strip() if isinstance(model, str) else ""
         if name and value:
             models[name] = value
