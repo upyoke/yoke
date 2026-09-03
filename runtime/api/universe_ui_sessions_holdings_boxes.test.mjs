@@ -249,3 +249,25 @@ test("an idle session boxes its empty state without a label", () => {
   assert.equal(byClass(idle, "session-holdings-label").length, 0);
   assert.equal(byClass(rendered, "session-holdings-current").length, 0);
 });
+
+test("a claimed Dash still at status idea paints idea done, not active", () => {
+  // The roster derives the strip from the pinned workflow and the live
+  // claim, so the card paints what it is handed: the Dash worker's item
+  // status is still idea while implementing is the active segment.
+  const rendered = card(new FakeDocument(), {
+    current_item_status: "idea",
+    stages: [
+      { name: "idea", state: "complete", failure: null },
+      { name: "implementing", state: "active", failure: null },
+      { name: "reviewing implementation", state: "pending", failure: null },
+      { name: "done", state: "pending", failure: null },
+    ],
+  });
+
+  const titles = byClass(rendered, "delivery-run-stage").map(
+    (node) => node.getAttribute("title"),
+  );
+  assert.equal(titles[0], "idea · complete");
+  assert.equal(titles[1], "implementing · active");
+  assert.ok(!titles.includes("idea · active"));
+});

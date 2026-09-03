@@ -1,4 +1,15 @@
-"""Pinned-workflow stage states for the primary item on a session card."""
+"""Pinned-workflow stage states for the primary item on a session card.
+
+The strip paints one segment per stage of the item's pinned workflow
+version. Which segment is active comes from the item status and the live
+work claim together: a skill binding's ``from_stage_id`` is the handoff the
+previous skill completed, so once the session holding the item's claim is
+working in that binding's own skill mode, the handoff stage is done and the
+binding's first working stage is the active one. A Dash at status ``idea``
+under a claim held in ``dash`` mode therefore shows ``idea`` complete and
+``implementing`` active; the same Dash unclaimed, or claimed by a session
+still waiting, shows ``idea`` active.
+"""
 
 from __future__ import annotations
 
@@ -7,42 +18,17 @@ from typing import Any, Iterable, Mapping, Sequence
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_item_id
-from yoke_core.domain.qa_constants import VALID_VERDICTS
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.session_item_stage_failures import (
+    launch_failures,
+    merge_failures,
+    qa_failures,
+)
 from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     workflow_runtime_from_row,
 )
 from yoke_core.domain.work_claim_targets import scope_int_sql
-
-
-_FAIL_VERDICTS = tuple(
-    verdict for verdict in VALID_VERDICTS if verdict in {"fail", "error"}
-)
-_LAUNCH_FAILURE_STATES = frozenset({"expired", "failed", "outcome_unknown"})
-_MERGE_FAILURE_LABELS = {
-    "MergePullRequestCiFailed": "CI checks failed",
-    "MergeBlockedNoVerificationEvidence": "verification missing",
-}
-_MERGE_FAILURE_EVENTS = frozenset(
-    {
-        *_MERGE_FAILURE_LABELS,
-        "MergeBranchPushFailed",
-        "MergeEngineFailed",
-        "MergePullRequestCreateFailed",
-        "MergePullRequestMergeFailed",
-        "MergeTargetPushFailed",
-        "MergeTargetStale",
-        "MergeVerificationFailed",
-    }
-)
-_MERGE_SUCCESS_EVENTS = frozenset(
-    {
-        "MergeEngineSucceeded",
-        "MergePullRequestCiPassed",
-        "MergeVerificationPassed",
-    }
-)
 
 
 def _p(conn: Any) -> str:
@@ -167,95 +153,26 @@ def _item_rows(conn: Any, item_ids: Sequence[int]) -> dict[int, dict[str, Any]]:
     return result
 
 
-def _qa_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
-    if not item_ids or not all(
-        _table_exists(conn, name) for name in ("qa_requirements", "qa_runs")
-    ):
+def _holder_modes(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
+    """Queue posture of the session holding each item's live work claim."""
+    required = ("work_claims", "harness_sessions")
+    if not item_ids or not all(_table_exists(conn, name) for name in required):
         return {}
     marker = _p(conn)
-    fail_markers = ",".join(marker for _ in _FAIL_VERDICTS)
+    item_id = scope_int_sql(conn, "c.scope", "item_id")
     records = conn.execute(
-        "SELECT item_id,workflow_transition_id,run_id FROM ("
-        "SELECT q.item_id,q.workflow_transition_id,r.id AS run_id,r.verdict,"
-        "ROW_NUMBER() OVER (PARTITION BY q.id ORDER BY r.id DESC) AS row_num "
-        "FROM qa_requirements q JOIN qa_runs r ON r.qa_requirement_id=q.id "
-        "WHERE q.item_id IN ("
+        f"SELECT {item_id} AS item_id,s.mode FROM work_claims c "
+        "JOIN harness_sessions s ON s.session_id=c.session_id "
+        "WHERE c.released_at IS NULL AND c.target_kind='item' "
+        f"AND {item_id} IN ("
         + ",".join(marker for _ in item_ids)
-        + ")) latest WHERE row_num=1 AND verdict IN ("
-        + fail_markers
-        + ") ORDER BY run_id DESC",
-        (*item_ids, *_FAIL_VERDICTS),
+        + ") ORDER BY c.claimed_at DESC,c.id DESC",
+        tuple(item_ids),
     ).fetchall()
-    failures: dict[int, str] = {}
+    modes: dict[int, str] = {}
     for record in records:
-        failures.setdefault(
-            int(record["item_id"]),
-            str(record["workflow_transition_id"] or ""),
-        )
-    return failures
-
-
-def _merge_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
-    if not item_ids or not _table_exists(conn, "events"):
-        return {}
-    marker = _p(conn)
-    names = tuple(sorted(_MERGE_FAILURE_EVENTS | _MERGE_SUCCESS_EVENTS))
-    records = conn.execute(
-        "SELECT item_id,event_name FROM events WHERE item_id IN ("
-        + ",".join(marker for _ in item_ids)
-        + ") AND event_name IN ("
-        + ",".join(marker for _ in names)
-        + ") ORDER BY created_at DESC,id DESC",
-        tuple(str(item_id) for item_id in item_ids) + names,
-    ).fetchall()
-    failures: dict[int, str] = {}
-    settled: set[int] = set()
-    for record in records:
-        item_id = int(record["item_id"])
-        if item_id in settled:
-            continue
-        name = str(record["event_name"])
-        if name in _MERGE_SUCCESS_EVENTS:
-            settled.add(item_id)
-        else:
-            failures[item_id] = _MERGE_FAILURE_LABELS.get(
-                name, "merge failed"
-            )
-            settled.add(item_id)
-    return failures
-
-
-def _launch_failures(
-    conn: Any, items: Mapping[int, Mapping[str, Any]],
-) -> dict[int, str]:
-    if not items or not _table_exists(conn, "session_launches"):
-        return {}
-    project_ids = tuple(
-        dict.fromkeys(int(item["project_id"]) for item in items.values())
-    )
-    marker = _p(conn)
-    records = conn.execute(
-        "SELECT project_id,session_name,state FROM session_launches "
-        "WHERE project_id IN ("
-        + ",".join(marker for _ in project_ids)
-        + ") ORDER BY created_at DESC,launch_id DESC",
-        project_ids,
-    ).fetchall()
-    by_ref = {
-        (int(item["project_id"]), str(item["public_ref"])): item_id
-        for item_id, item in items.items()
-    }
-    observed: set[int] = set()
-    failures: dict[int, str] = {}
-    for record in records:
-        public_ref = str(record["session_name"] or "").partition(":")[0]
-        item_id = by_ref.get((int(record["project_id"]), public_ref))
-        if item_id is None or item_id in observed:
-            continue
-        observed.add(item_id)
-        if str(record["state"] or "") in _LAUNCH_FAILURE_STATES:
-            failures[item_id] = "launch failed"
-    return failures
+        modes.setdefault(int(record["item_id"]), str(record["mode"] or ""))
+    return modes
 
 
 def _closeout_stage(runtime: WorkflowRuntime) -> str:
@@ -266,15 +183,50 @@ def _closeout_stage(runtime: WorkflowRuntime) -> str:
     )
 
 
+def active_stage_id(
+    runtime: WorkflowRuntime,
+    status: str,
+    *,
+    landed_open: bool = False,
+    holder_mode: str | None = None,
+) -> str:
+    """The stage the strip paints active, from the pin and the live claim.
+
+    ``holder_mode`` is the queue posture of the session holding the item's
+    live work claim; ``None`` means no live claim. When that posture is the
+    skill bound at the item's status and the status is that binding's
+    handoff stage, the skill has taken the handoff and its first working
+    stage is active. A binding with no working stage after its handoff, and
+    every other posture, leave the status-derived stage active.
+    """
+    if landed_open:
+        return _closeout_stage(runtime)
+    binding = runtime.skill_binding_for_stage(status)
+    if (
+        binding is None
+        or not holder_mode
+        or str(binding["skill_id"]) != holder_mode
+        or str(binding["from_stage_id"]) != status
+    ):
+        return status
+    working = runtime.next_stage_id(status)
+    if working is None or working == str(binding["through_stage_id"]):
+        return status
+    return working
+
+
 def item_stage_states(
     runtime: WorkflowRuntime,
     status: str,
     *,
     landed_open: bool = False,
     failures: Mapping[str, str] | None = None,
+    holder_mode: str | None = None,
 ) -> list[dict[str, Any]]:
     """Classify every pinned stage from ordered workflow and live item facts."""
-    active_stage = _closeout_stage(runtime) if landed_open else status
+    active_stage = active_stage_id(
+        runtime, status, landed_open=landed_open, holder_mode=holder_mode
+    )
     active_index = runtime.stage_index(active_stage)
     if active_index is None:
         active_index = 0
@@ -312,9 +264,10 @@ def primary_item_stages_by_session(
     selected = _primary_item_ids(conn, rows)
     items = _item_rows(conn, tuple(dict.fromkeys(selected.values())))
     item_ids = tuple(items)
-    qa = _qa_failures(conn, item_ids)
-    merge = _merge_failures(conn, item_ids)
-    launch = _launch_failures(conn, items)
+    qa = qa_failures(conn, item_ids)
+    merge = merge_failures(conn, item_ids)
+    launch = launch_failures(conn, items)
+    holder_modes = _holder_modes(conn, item_ids)
     projected: dict[str, list[dict[str, Any]]] = {}
     for session_id, item_id in selected.items():
         item = items.get(item_id)
@@ -326,7 +279,10 @@ def primary_item_stages_by_session(
             status not in runtime.terminal_stage_ids
             and (item.get("merged_at") or item.get("merge_queue_landed_at"))
         )
-        active_stage = _closeout_stage(runtime) if landed_open else status
+        holder_mode = holder_modes.get(item_id)
+        active_stage = active_stage_id(
+            runtime, status, landed_open=landed_open, holder_mode=holder_mode
+        )
         failures: dict[str, str] = {}
         if item_id in launch:
             failures[active_stage] = launch[item_id]
@@ -342,8 +298,13 @@ def primary_item_stages_by_session(
             status,
             landed_open=landed_open,
             failures=failures,
+            holder_mode=holder_mode,
         )
     return projected
 
 
-__all__ = ["item_stage_states", "primary_item_stages_by_session"]
+__all__ = [
+    "active_stage_id",
+    "item_stage_states",
+    "primary_item_stages_by_session",
+]
