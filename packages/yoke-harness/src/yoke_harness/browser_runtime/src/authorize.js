@@ -20,10 +20,15 @@
  * the fix; do not reintroduce a Playwright context here, and do not try to
  * mask the automation signals instead.
  *
- * It has to be the SAME binary the daemon drives. The profile's cookies are
- * encrypted against that binary's OS keychain entry, so a profile signed in
- * with the daemon's own Chromium is readable by the daemon afterwards, while
- * one signed in with a different browser is not.
+ * It has to be the SAME binary the daemon drives, launched with the SAME
+ * cookie-encryption switches. Chromium encrypts every stored cookie against a
+ * key it takes from the platform credential store, and drops any cookie it
+ * cannot decrypt when it loads the profile. Playwright always launches with
+ * `--password-store=basic --use-mock-keychain`, which puts its Chromium in a
+ * different key domain from a default launch, so a window opened without them
+ * wrote cookies the daemon then discarded -- the whole sign-in, including
+ * cookies that carried an explicit expiry. Passing the same two switches here
+ * is what makes the operator's sign-in readable afterwards.
  */
 
 const { spawn } = require('child_process');
@@ -34,6 +39,11 @@ function buildLaunchArgs({ profileDir, url }) {
     `--user-data-dir=${profileDir}`,
     '--no-first-run',
     '--no-default-browser-check',
+    // The daemon's Playwright launch always passes these two, and a cookie
+    // written under one key domain is unreadable -- so silently dropped --
+    // under the other. Keep them identical on both sides.
+    '--password-store=basic',
+    '--use-mock-keychain',
   ];
   if (url) {
     args.push(url);

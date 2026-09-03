@@ -47,6 +47,7 @@ and run `yoke browser authorize` again.
 yoke browser authorize                        # this checkout's project
 yoke browser authorize --project yoke
 yoke browser authorize --url https://app.upyoke.com
+yoke browser authorize --reset                # start from an empty profile
 ```
 
 The command opens the profile in a plain window of the daemon's own Chromium
@@ -70,10 +71,70 @@ is to stop presenting as automation, not to mask the signals; hiding
 `navigator.webdriver` is a losing arms race against a published policy.
 
 It has to be the same binary the daemon drives — Playwright's own Chromium,
-resolved through `chromium.executablePath()`. The profile's cookies are
-encrypted against that binary's OS keychain entry, so a profile signed in with
-the daemon's Chromium is readable by the daemon afterwards, while one signed in
-with Google Chrome or Safari writes cookies the daemon cannot decrypt.
+resolved through `chromium.executablePath()` — launched with the same
+cookie-encryption switches. Chromium encrypts every stored cookie against a key
+it takes from the platform credential store, and silently drops any cookie it
+cannot decrypt when it loads the profile. Playwright always launches with
+`--password-store=basic --use-mock-keychain`, which is a different key domain
+from a default browser launch, so a window opened without them wrote a whole
+sign-in the daemon then threw away. `buildLaunchArgs` passes the same two
+switches, and the authorize tests assert both that the window carries them and
+that Playwright's own launch still does. A profile signed in with Google Chrome
+or Safari is unreadable for the same reason, and cannot be fixed by a switch.
+
+One consequence is worth naming: on macOS those switches mean the profile's
+cookies are encrypted with a fixed key rather than a Keychain-derived one. What
+protects them is the same thing that protects the rest of the directory — it is
+owner-only, `0700`, under the machine's capability secrets. The alternative,
+stripping the switches from the daemon instead, would put an automated
+background browser in front of a credential-store prompt on macOS and a
+`gnome-keyring`/`kwallet` prompt on a self-hosted Linux box, which is how an
+unattended run hangs instead of failing.
+
+## How the sign-in survives the window closing
+
+A site that authenticates with a session cookie — no `Max-Age`, no `Expires` —
+sets a cookie an ordinary browser drops when it quits. Chromium restores such
+cookies only for a profile continuing its previous session, which an automated
+launch never is. So the operator's sign-in evaporated the moment they closed
+the window: the profile was authorized, the daemon opened it, and every page
+rendered signed out with an empty cookie store.
+
+Chromium offers no switch that changes this for the daemon's launch. Both
+candidates were measured against a real Playwright persistent context and
+neither preserved a session cookie: the profile preference that means "continue
+where you left off" (`session.restore_on_startup = 1`, written into
+`Default/Preferences` before launch, and still present in the file afterwards),
+and the `--restore-last-session` command-line switch. What a persistent context
+does keep is a cookie the store already considers persistent.
+
+So between the window closing and the next context opening, every session
+cookie in the profile is given an explicit expiry —
+`SIGN_IN_COOKIE_LIFETIME_DAYS` in `yoke_cli.config.browser_profile_cookies`,
+30 days. The encrypted value is never touched, only the row's lifetime. This
+runs at both moments where no browser holds the profile: when `yoke browser
+authorize` returns, which reports the count, and before `daemon_start` launches
+a persistent context, which also carries forward any session cookie the site
+refreshed during the previous run. A cookie store that cannot be updated is
+named in the daemon log and the run proceeds signed out — the same outcome an
+unauthorized project already gets — rather than failing the run.
+
+This is a deliberate extension of a lifetime the site chose, which is the whole
+purpose of an authorized profile: it exists to hold one operator sign-in for
+later automated runs. It is bounded rather than indefinite for that reason.
+
+## Starting over
+
+```sh
+yoke browser authorize --reset
+```
+
+Stops the daemon, deletes this project's profile directory, and opens a fresh
+window. Everything the profile was signed into is gone. Use it for a profile
+signed into the wrong account, a sign-in that will not take, or a damaged
+cookie store — the refusal from a damaged store names this command. The
+directory to delete is resolved from the project reference rather than accepted
+from the caller, so the only profile the command can remove is the one named.
 
 Chromium locks a profile directory and the daemon is a machine singleton, so
 `authorize` stops a running daemon first. The next case run starts it again on
@@ -110,6 +171,7 @@ profile facet.
 
 ## Expiry
 
-Expiry needs no machinery. A dead session lands the walker on a sign-in page,
-which is already the human gate it raises. Run `yoke browser authorize` again
-for that site.
+Expiry needs no machinery. A dead session — the site's own expiry, or the
+30-day lifetime given to a kept session cookie — lands the walker on a sign-in
+page, which is already the human gate it raises. Run `yoke browser authorize`
+again for that site.

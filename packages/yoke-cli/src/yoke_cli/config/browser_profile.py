@@ -20,6 +20,7 @@ behaved before profiles existed.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from yoke_contracts.machine_config import capability_secrets as contract
@@ -147,8 +148,8 @@ def resolve_authorized_profile(
             " Pass the project reference whose profile you meant, or run"
             f" `yoke browser authorize --project {key}` to sign in for this one."
             " Every profile is keyed by the project slug, so a key that is not"
-            " one belongs to no project any more; nothing migrates it — delete"
-            " that directory and authorize again."
+            " one belongs to no project any more: nothing resolves to it and"
+            " nothing reads it."
         )
     else:
         detail = (
@@ -156,6 +157,25 @@ def resolve_authorized_profile(
             f" --project {key}` if a case needs an authenticated page."
         )
     return None, f"No browser profile for project {key}; using a clean context.{detail}"
+
+
+def remove_profile_dir(
+    project: str | None = None,
+    *,
+    directory: Path | None = None,
+) -> Path | None:
+    """Delete one project's profile directory, and say which one was deleted.
+
+    The path is resolved here rather than accepted from the caller, so the
+    only directory this can ever delete is the profile of the project named.
+    A project with no profile yet is not an error -- there is simply nothing
+    to remove, reported as ``None``.
+    """
+    target = profile_dir(project, directory=directory)
+    if not target.is_dir():
+        return None
+    shutil.rmtree(target)
+    return target
 
 
 def profile_dir_display(directory: Path) -> str:
@@ -173,5 +193,6 @@ __all__ = [
     "profile_dir",
     "profile_dir_display",
     "profile_project_key",
+    "remove_profile_dir",
     "resolve_authorized_profile",
 ]

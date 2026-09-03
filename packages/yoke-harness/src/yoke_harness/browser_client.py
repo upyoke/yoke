@@ -13,12 +13,17 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.request import Request, urlopen
 
+from yoke_cli.config.browser_profile_cookies import (
+    SignInCookieError,
+    keep_sign_in_cookies,
+)
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     request_json,
 )
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
+from yoke_harness.browser_client_readiness import wait_for_daemon_ready
 from yoke_harness.browser_linux_deps import (
     amazon_linux_chromium_deps_command,
     is_amazon_linux,
@@ -127,13 +132,38 @@ def daemon_request(
 from yoke_harness.browser_client_health import (  # noqa: E402
     daemon_health,
     daemon_status,
-    probe_daemon_health as _probe_daemon_health,
+    # Read off this module by the readiness wait, and patched here by tests:
+    # the name has to stay resolvable on `browser_client` itself.
+    probe_daemon_health as _probe_daemon_health,  # noqa: F401
 )
 from yoke_harness.browser_client_actions import (  # noqa: E402
     execute_step,
     parse_viewport,
     snapshot_screenshot,
 )
+
+
+def _keep_profile_sign_in(profile: Path) -> None:
+    """Carry the profile's session cookies into the context about to launch.
+
+    Chromium drops a session cookie when the profile is next opened, so a
+    sign-in the operator made -- or one the site refreshed during the last run
+    -- would be gone by the time this daemon serves a page. Giving those
+    cookies an expiry while no browser holds the profile is what keeps a run
+    signed in. A profile that cannot be updated is worth naming, but it is not
+    worth refusing to run over: the run simply proceeds signed out, exactly as
+    an unauthorized project already does.
+    """
+    try:
+        kept = keep_sign_in_cookies(profile)
+    except SignInCookieError as exc:
+        _log(f"[browser-runtime] Could not keep this profile's sign-in: {exc}")
+        return
+    if kept:
+        _log(
+            f"[browser-runtime] Kept {kept} session cookie(s) from the browser "
+            f"profile at {profile}."
+        )
 
 
 def daemon_start(
@@ -256,6 +286,9 @@ def daemon_start(
             )
         _log("[browser-auto-bootstrap] Chromium installed successfully")
 
+    if requested_profile:
+        _keep_profile_sign_in(Path(requested_profile))
+
     command = ["node", str(daemon_js)]
     if port is not None:
         command.extend(["--port", str(port)])
@@ -277,40 +310,7 @@ def daemon_start(
             env=env,
         )
 
-    last_readiness_error = "state file not ready"
-    for _ in range(10):
-        current = DaemonState.load()
-        if current and current.pid != proc.pid:
-            last_readiness_error = (
-                f"state pid {current.pid} does not match launched pid {proc.pid}"
-            )
-        elif current and current.health == "healthy":
-            try:
-                _probe_daemon_health(current, timeout=1)
-            except RuntimeError as exc:
-                last_readiness_error = str(exc)
-            else:
-                return {
-                    "status": "started",
-                    "endpoint": current.endpoint,
-                    "pid": proc.pid,
-                }
-        try:
-            proc.wait(timeout=0)
-            stderr_content = log_file.read_text(encoding="utf-8") if log_file.exists() else ""
-            raise RuntimeError(f"daemon process exited unexpectedly\n{stderr_content}")
-        except subprocess.TimeoutExpired:
-            pass
-        time.sleep(1)
-
-    proc.kill()
-    stderr_content = log_file.read_text(encoding="utf-8") if log_file.exists() else ""
-    detail = f"last readiness error: {last_readiness_error}"
-    if stderr_content:
-        detail += f"\ndaemon stderr:\n{stderr_content}"
-    raise RuntimeError(
-        f"timeout waiting for browser daemon health endpoint to become ready\n{detail}"
-    )
+    return wait_for_daemon_ready(proc, log_file)
 
 
 def daemon_stop() -> str:
