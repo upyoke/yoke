@@ -1,12 +1,14 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   STEERING_MARKER_TITLE,
+  releasedHoldingHistory,
   steeringDocCovers,
   steeringHoldingText,
   steeringLeadCovers,
 } from "./universe_sessions_steering.js";
 import { el, statePill } from "./universe_view_support.js";
 import { renderStageStrip } from "./universe_stage_strip.js";
+import { relativeTime } from "./universe_time.js";
 
 const HOLDING_AUTHORITY_KINDS = new Set([
   "work_claim", "path_claim", "strategy_document", "coordination",
@@ -25,7 +27,7 @@ function holdingGroups(row) {
   const model = row.holdings || {};
   return {
     current: heldEntries(model.current),
-    previous: heldEntries(model.previous),
+    previous: releasedHoldingHistory(heldEntries(model.previous)),
     previousRemainder: Number(model.previous_remainder || 0),
   };
 }
@@ -173,6 +175,18 @@ function appendHoldingEntry(
       "session-path-count",
       `📁${Number(holding.path_count || 0)}`,
     ));
+  }
+  const releasedAt = holding.released_at;
+  if (releasedAt && !Number.isNaN(Date.parse(String(releasedAt)))) {
+    const history = el(documentNode, "span", "session-holding-history", "released ");
+    history.appendChild(relativeTime(documentNode, releasedAt));
+    const count = Number(holding.occurrence_count || 1);
+    if (count > 1) {
+      const repeated = el(documentNode, "span", "session-holding-repeat", `×${count}`);
+      repeated.title = `held ${count} times`;
+      history.appendChild(repeated);
+    }
+    work.appendChild(history);
   }
   if (showTitle) {
     const title = holding.item_title

@@ -144,11 +144,14 @@ test("ended tile suppresses idle and actionable-work lines", () => {
 });
 
 
-test("released steering seats list as ordinary previously-held rows beside items", () => {
+test("released steering seats lead previously-held rows before items", () => {
   const rendered = card(new FakeDocument(), "active", {
     current: [item("YOK-20", "Current title")],
     previous: [
-      item("YOK-19", "Previous title"),
+      {
+        ...item("YOK-19", "Previous title"),
+        released_at: "2026-08-26T13:00:00Z",
+      },
       steeringSeat(1, ["CURRENT-PLAN"], { released_at: "2026-08-26T12:00:00Z" }),
       steeringSeat(3, ["CURRENT-PLAN"], { released_at: "2026-08-26T12:00:00Z" }),
     ],
@@ -169,10 +172,51 @@ test("released steering seats list as ordinary previously-held rows beside items
   assert.deepEqual(
     byClass(previous, "session-lock").map((node) => [node.textContent, node.title]),
     [
+      ["🛞", "steering seat — this session steered this project"],
+      ["🛞", "steering seat — this session steered this project"],
       ["💼", "work claim — this session holds it"],
-      ["🛞", "steering seat — this session steered this project"],
-      ["🛞", "steering seat — this session steered this project"],
     ],
+  );
+});
+
+
+test("repeated released seats and items keep latest release and count", () => {
+  const rendered = card(new FakeDocument(), "ended", {
+    current: [],
+    previous: [
+      steeringSeat(1, ["CURRENT-PLAN"], {
+        released_at: "2026-08-26T12:00:00Z",
+      }),
+      steeringSeat(1, ["CURRENT-PLAN"], {
+        released_at: "2026-08-29T12:00:00Z",
+      }),
+      steeringSeat(1, ["CURRENT-PLAN"], {
+        released_at: "2026-08-27T12:00:00Z",
+      }),
+      { ...item("YOK-19", "Previous"), released_at: "2026-08-25T12:00:00Z" },
+      { ...item("YOK-19", "Previous"), released_at: "2026-08-28T12:00:00Z" },
+    ],
+    previous_remainder: 0,
+  }, { current_item: null, projects: PROJECTS });
+
+  assert.deepEqual(
+    byClass(rendered, "session-hold-target").map((node) => node.textContent),
+    ["yoke · CURRENT-PLAN"],
+  );
+  assert.deepEqual(
+    byClass(rendered, "session-holding-repeat").map((node) => node.textContent),
+    ["×3", "×2"],
+  );
+  assert.deepEqual(
+    byClass(rendered, "session-item-link").map((node) => node.textContent),
+    ["YOK-19"],
+  );
+  assert.deepEqual(
+    byClass(rendered, "session-holding-history").map(
+      (history) => history.children.find((node) => node.tagName === "TIME")
+        .getAttribute("datetime"),
+    ),
+    ["2026-08-29T12:00:00.000Z", "2026-08-28T12:00:00.000Z"],
   );
 });
 
