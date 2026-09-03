@@ -130,9 +130,7 @@ def classify_vendor_error(
     for signature in VENDOR_ERROR_SIGNATURES:
         if code and code in signature.vendor_codes:
             return signature
-        if text and any(
-            pattern in text for pattern in signature.message_patterns
-        ):
+        if text and any(pattern in text for pattern in signature.message_patterns):
             return signature
     return UNCLASSIFIED_VENDOR_ERROR
 

@@ -24,6 +24,14 @@ absence is the finding.
 A failed attempt appears at once, whatever the age, and names its
 diagnostic — an attempt that already ended badly has nothing left to wait
 for.
+
+One shape is neither: a recipient inside a tool call that has not returned
+is silent because no hook runs until it does, not because its route
+stopped. The delivery plane leaves such an envelope alone deliberately, so
+the row says which — a seat reading "recipient turn in flight since
+15:39Z" knows the wait is a long call finishing, not a worker to revive.
+The row that hid this named only "last attempt failed", after a resume was
+spawned against a worker twenty-one minutes into a merge wait.
 """
 
 from __future__ import annotations
@@ -41,6 +49,10 @@ from yoke_contracts.session_control.wake_delivery import (
     delivery_attempt_failed,
 )
 from yoke_core.domain import json_helper
+from yoke_core.domain.session_activity_state import (
+    OPEN_TOOL_CALL_COLUMN,
+    open_tool_call_select,
+)
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_relay_policy import effective_relay_policy
 from yoke_core.domain.session_message_starvation import hook_route_silent_since
@@ -66,6 +78,10 @@ class StarvedDelivery:
     #: The diagnostic reference that attempt left on its own machine, so the
     #: row can name the exact capture rather than the session's newest file.
     evidence_id: str = ""
+    #: When the recipient's still-running tool call started. Non-empty means
+    #: the wait is a turn genuinely in flight, which the delivery plane is
+    #: right not to resume — the envelope lands on that call's own hook.
+    turn_in_flight_since: str = ""
 
 
 def _last_attempts(
@@ -135,6 +151,7 @@ def starved_deliveries(
         seconds=int(effective_relay_policy(conn, [int(project_id)]).poll_seconds)
     )
     attempts = _last_attempts(conn, project_id=project_id, marker=placeholder)
+    open_call = open_tool_call_select(conn, session_alias="s")
     rows = conn.execute(
         f"""SELECT r.message_id AS message_id,
                    r.session_id AS session_id,
@@ -142,6 +159,7 @@ def starved_deliveries(
                    r.wake_escalation AS wake_escalation,
                    s.executor_surface AS executor_surface,
                    s.last_tool_call_at AS last_tool_call_at
+                   {open_call}
               FROM session_message_recipients r
               JOIN harness_sessions s ON s.session_id = r.session_id
              WHERE r.state = 'pending'
@@ -157,6 +175,7 @@ def starved_deliveries(
     escalations: dict[str, str] = {}
     diagnostics: dict[str, str] = {}
     references: dict[str, str] = {}
+    in_flight_since: dict[str, str] = {}
     operator_woken: set[str] = set()
     current = parse_stamp(now)
     for raw in rows:
@@ -209,6 +228,12 @@ def starved_deliveries(
         escalation = str(record.get("wake_escalation") or "")
         if escalation:
             escalations[session_id] = escalation
+        # A recipient inside an unreturned tool call is working, not stuck.
+        # Naming the call is what separates "nothing is coming" from "the
+        # envelope lands when this finishes".
+        open_since = str(record.get(OPEN_TOOL_CALL_COLUMN) or "")
+        if open_since:
+            in_flight_since[session_id] = open_since
         # A desktop recipient is never resumed by Yoke, so this row is not
         # a worker to revive; it names a chat only its operator can open.
         if not native_wake_supported(str(record.get("executor_surface") or "")):
@@ -223,6 +248,7 @@ def starved_deliveries(
             attempt_count=attempted.get(session_id, 0),
             diagnostic=diagnostics.get(session_id, ""),
             evidence_id=references.get(session_id, ""),
+            turn_in_flight_since=in_flight_since.get(session_id, ""),
         )
         for session_id in sorted(oldest, key=lambda key: (-oldest[key], key))
     )

@@ -143,13 +143,25 @@ class FleetReport:
             if entry.waiting_seconds(self.composed_at) >= self.staffing_after_seconds
         )
 
+    def starved_needing_action(self) -> tuple[StarvedDelivery, ...]:
+        """Starved deliveries the seat can actually do something about.
+
+        A recipient inside an unreturned tool call is reported so the seat
+        can see why its envelope is waiting, but it is not work: the call's
+        own completion hook will deliver it, and resuming that session
+        would start a second turn on the same conversation. Counting it as
+        actionable would raise the alarm for the whole length of every long
+        call, which is how a real finding gets lost.
+        """
+        return tuple(entry for entry in self.starved if not entry.turn_in_flight_since)
+
     @property
     def actionable(self) -> bool:
         """True when something in this report needs the steerer to act."""
         return bool(
             self.waited_too_long()
             or self.idle
-            or self.starved
+            or self.starved_needing_action()
             or self.unregistered_launches
             or self.abandoned_launches
             or self.landed_open

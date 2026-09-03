@@ -57,6 +57,16 @@ here asks an operator for anything. The reason travels on the recipient row
 and on the wake attempt so that an operator reading the message can tell an
 escalated resume from an ordinary one, and which of the two absences
 authorized it.
+
+One silence is not an absence at all, and :func:`turn_in_flight` is the
+exception that catches it. A tool call that has started and not finished
+runs no hook until it returns, so a session inside a long one looks
+exactly like a session whose route has stopped: its last tool call ages
+past the window while the turn is very much alive. A worker sitting in a
+twenty-one-minute ``merge-item --wait`` was escalated to a native resume
+on that reading. The open call is the proof that the route is only
+mid-stride — a hook is coming when it returns — so the envelope waits for
+it and no resume is spawned.
 """
 
 from __future__ import annotations
@@ -76,6 +86,24 @@ from yoke_core.domain.session_mode import session_is_parked
 STARVED_HOOK_ROUTE = "starved_hook_route"
 #: The same record, for a declared wait no hook event is going to end.
 PARKED_WITHOUT_IDLE_WAKE = "parked_without_idle_wake"
+
+
+def turn_in_flight(row: Mapping[str, Any]) -> datetime | None:
+    """When the recipient's still-running tool call started, if one is.
+
+    ``open_tool_call_since`` is the ``started_at`` of the recipient's most
+    recent ``session_tool_calls`` row when that row has no ``completed_at``.
+    Its presence means one thing: a hook will run for this session when the
+    call returns. So the hook route is not absent and must not be
+    escalated, however long the call has been running — a native resume
+    against a turn already executing is a second turn on the same
+    conversation, which is the fork this refuses.
+
+    Only a live session can hold one. A session that ends has every open
+    row closed by the orphan sweep, and every caller here has already
+    established that the session reads active.
+    """
+    return parse_timestamp(row.get("open_tool_call_since"))
 
 
 def undelivered_since_send(row: Mapping[str, Any], *, now: datetime) -> bool:
@@ -218,5 +246,6 @@ __all__ = [
     "hook_route_silent_since",
     "parked_without_idle_wake",
     "starved_hook_route",
+    "turn_in_flight",
     "undelivered_since_send",
 ]

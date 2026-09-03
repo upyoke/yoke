@@ -61,6 +61,7 @@ def _starved_dict(entry: StarvedDelivery) -> dict[str, Any]:
         "attempt_count": entry.attempt_count,
         "diagnostic": entry.diagnostic,
         "evidence_id": entry.evidence_id,
+        "turn_in_flight_since": entry.turn_in_flight_since,
     }
 
 

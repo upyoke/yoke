@@ -139,8 +139,7 @@ def turn_record_surfaces() -> tuple[str, ...]:
         sorted(
             capability.verified_on_surface
             for capability in HARNESS_TURN_RECORD_CAPABILITIES.values()
-            if capability.turn_record == "readable"
-            and capability.verified_on_surface
+            if capability.turn_record == "readable" and capability.verified_on_surface
         )
     )
 

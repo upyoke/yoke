@@ -32,10 +32,7 @@ def _session_control(harness_id: str) -> dict:
 
 def _agent_wake(harness_id: str) -> dict:
     payload: dict = {
-        "source": (
-            "yoke_contracts.harness_wake_capability."
-            "HARNESS_WAKE_CAPABILITIES"
-        ),
+        "source": ("yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES"),
     }
     payload.update(wake_capability_for_harness(harness_id).to_json())
     return payload

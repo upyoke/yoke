@@ -7,12 +7,7 @@ noise. The machine-readable projection of the same report lives in
 
 from __future__ import annotations
 
-from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
-from yoke_core.domain.steering_fleet_report import (
-    ClaimHolder,
-    FleetReport,
-    StarvedDelivery,
-)
+from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_capacity import (
     SurfaceReadiness,
     launch_balance_lines,
@@ -22,11 +17,12 @@ from yoke_core.domain.steering_fleet_report_render_launches import (
     abandoned_launch_lines,
     unregistered_launch_lines,
 )
+from yoke_core.domain.steering_fleet_report_render_starved import starved_lines
 from yoke_core.domain.steering_fleet_report_render_text import (
     OVERDUE_MARK,
     SECTION_LIMIT,
-    capped as _capped,
-    minutes as _minutes,
+    capped,
+    minutes,
 )
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
@@ -62,10 +58,10 @@ def _available_lines(report: FleetReport) -> list[str]:
         f"  {OVERDUE_MARK if entry.item_id in overdue else ' '} {entry.public_ref}  "
         f"rank {entry.rank}  next {entry.next_step}  "
         f"{'stopped' if entry.was_owned else 'new'}  "
-        f"waiting {_minutes(entry.waiting_seconds(now))}  {entry.title}"
+        f"waiting {minutes(entry.waiting_seconds(now))}  {entry.title}"
         for entry in report.available[:SECTION_LIMIT]
     ]
-    return _capped(lines, len(report.available))
+    return capped(lines, len(report.available))
 
 
 def _holder_lines(
@@ -75,71 +71,35 @@ def _holder_lines(
     for holder in holders[:SECTION_LIMIT]:
         line = (
             f"  {holder.public_ref}  session {holder.session_id}  mode "
-            f"{holder.mode or 'unset'}  quiet {_minutes(holder.idle_seconds)}"
+            f"{holder.mode or 'unset'}  quiet {minutes(holder.idle_seconds)}"
         )
         if holder.native_process_gone:
             line += "  process gone, claims held — terminate deliberately if dead"
         elif with_wake:
             line += f"  wake `yoke say --item {holder.public_ref} --stdin`"
         lines.append(line)
-    return _capped(lines, len(holders))
-
-
-def _starved_line(entry: StarvedDelivery) -> str:
-    # An already-escalated recipient is a wake in flight, not one the seat
-    # still owes by hand, so the line says which absence authorized it. A
-    # desktop recipient is neither: Yoke never resumes one, so the line asks
-    # for the only thing that delivers it instead of naming a revive recipe.
-    if entry.operator_wake:
-        suffix = (
-            ", waiting for the operator to wake it — ask them to type "
-            "anything in that chat"
-        )
-    elif entry.wake_escalation:
-        suffix = f", wake escalated ({entry.wake_escalation})"
-    else:
-        suffix = ""
-    # What was tried, and how it ended. A seat reading "never injected" with
-    # nothing else cannot tell a plane that made no attempt from one whose
-    # every attempt refused for the same nameable reason, and both shapes
-    # ran unread on one machine for two hours.
-    if entry.diagnostic:
-        tried = f", last attempt failed ({entry.diagnostic})"
-    elif entry.attempt_count == 0:
-        tried = ", no delivery attempted"
-    else:
-        tried = ""
-    return (
-        f"  session {entry.session_id}  {entry.envelope_count} envelope(s), "
-        f"oldest {_minutes(entry.oldest_seconds)}, never injected"
-        f"{tried}{suffix}{evidence_pull_suffix(entry.session_id, entry.evidence_id)}"
-    )
-
-
-def _starved_lines(report: FleetReport) -> list[str]:
-    lines = [_starved_line(entry) for entry in report.starved[:SECTION_LIMIT]]
-    return _capped(lines, len(report.starved))
+    return capped(lines, len(holders))
 
 
 def _landed_lines(report: FleetReport) -> list[str]:
     lines = [
         f"  {entry.public_ref}  still {entry.status}  "
-        f"landed {_minutes(entry.landed_seconds)} ago  "
+        f"landed {minutes(entry.landed_seconds)} ago  "
         f"{entry.holder_session_id or 'no live holder'}  "
         f"{landed_recovery(entry.public_ref)}"
         for entry in report.landed_open[:SECTION_LIMIT]
     ]
-    return _capped(lines, len(report.landed_open))
+    return capped(lines, len(report.landed_open))
 
 
 def _dead_wait_lines(report: FleetReport) -> list[str]:
     lines = [
         f"  {entry.public_ref}  session {entry.session_id}  asked "
-        f"{_minutes(entry.asked_seconds)} ago  {entry.answerer_session_id}: "
+        f"{minutes(entry.asked_seconds)} ago  {entry.answerer_session_id}: "
         f"{entry.reason}"
         for entry in report.dead_waits[:SECTION_LIMIT]
     ]
-    return _capped(lines, len(report.dead_waits))
+    return capped(lines, len(report.dead_waits))
 
 
 def _awaiting_seat_lines(report: FleetReport) -> list[str]:
@@ -162,8 +122,8 @@ def _section(heading: str, lines: list[str]) -> list[str]:
 
 
 def _project_header(report: FleetReport) -> str:
-    staffing = _minutes(report.staffing_after_seconds)
-    idle = _minutes(report.idle_after_seconds)
+    staffing = minutes(report.staffing_after_seconds)
+    idle = minutes(report.idle_after_seconds)
     return (
         f"project {report.project_id} · composed {report.composed_at} · "
         f"staffing {staffing} · idle {idle}"
@@ -171,8 +131,8 @@ def _project_header(report: FleetReport) -> str:
 
 
 def _scope_work_lines(report: FleetReport) -> list[str]:
-    staffing = _minutes(report.staffing_after_seconds)
-    idle = _minutes(report.idle_after_seconds)
+    staffing = minutes(report.staffing_after_seconds)
+    idle = minutes(report.idle_after_seconds)
     available = _available_lines(report)
     return [
         *(
@@ -198,7 +158,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         ),
         *_section(
             "starved delivery — sent, never injected, recipient silent since",
-            _starved_lines(report),
+            starved_lines(report),
         ),
         *_section(
             "unregistered launches — launch/session binding absent",
