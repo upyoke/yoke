@@ -47,9 +47,13 @@ def test_all_acceptance_surfaces_retain_message_hook_coverage() -> None:
     claude = json.loads((root / ".claude/settings.json").read_text(encoding="utf-8"))
     codex = json.loads((root / ".codex/hooks.json").read_text(encoding="utf-8"))
     cursor = json.loads((root / ".cursor/hooks.json").read_text(encoding="utf-8"))
-    for config in (claude, codex):
-        post = config["hooks"]["PostToolUse"]
-        assert any(entry.get("matcher") == "Bash" for entry in post)
+    claude_post = claude["hooks"]["PostToolUse"]
+    assert len(claude_post) == 1
+    assert "matcher" not in claude_post[0]
+    assert "evaluate PostToolUse" in claude_post[0]["hooks"][0]["command"]
+
+    codex_post = codex["hooks"]["PostToolUse"]
+    assert any(entry.get("matcher") == "Bash" for entry in codex_post)
     assert "Stop" in codex["hooks"]
     for surface in ("codex-cli", "codex-desktop", "codex-vscode"):
         assert "Stop" not in capability_for_surface(surface).inject_events
