@@ -13,7 +13,11 @@ from yoke_core.domain.session_launch_native_progress import (
 from yoke_core.domain.session_launch_registered_session_binding import (
     bind_existing_registered_session,
 )
+from yoke_core.domain.session_launch_registration_candidate import (
+    registered_candidate_for_reconcile,
+)
 from yoke_core.domain.session_launch_store import (
+    add_seconds,
     begin_mutation,
     canonical_json,
     get_launch,
@@ -23,6 +27,7 @@ from yoke_core.domain.session_launch_store import (
     utc_now,
 )
 from yoke_core.domain.session_launch_types import (
+    DEFAULT_LAUNCH_DEADLINE_SECONDS,
     LaunchAuthorization,
     LaunchRecord,
     SessionLaunchError,
@@ -120,6 +125,35 @@ def _settle_open_attempts(
             )
 
 
+def _adopt_registered_session(
+    conn: Any,
+    *,
+    launch: LaunchRecord,
+    session_id: str,
+    now: str,
+) -> LaunchRecord:
+    """Bind a session that registered inside the window but was never bound.
+
+    Adopting a genuinely-registered session restarts its delivery clock: the
+    relay's pid listing missed it inside the original window, which has since
+    passed, so give the bind a live deadline rather than re-minting the
+    instruction onto a deadline that has already expired. Then bind normally,
+    which realigns the message TTL and inserts the pending recipient.
+    """
+    _settle_open_attempts(conn, launch=launch, observed_native_id=session_id, now=now)
+    result = update_launch(
+        conn,
+        launch.launch_id,
+        state="awaiting_registration",
+        native_session_id=session_id,
+        awaiting_registration_at=now,
+        deadline_at=add_seconds(now, DEFAULT_LAUNCH_DEADLINE_SECONDS),
+        completed_at=None,
+        result_code="native_created_reconciled",
+    )
+    return bind_existing_registered_session(conn, launch=result, now=now)
+
+
 def reconcile_launch(
     conn: Any,
     *,
@@ -155,6 +189,15 @@ def reconcile_launch(
             launch.native_session_id,
         }:
             raise SessionLaunchError("reconciliation_conflict", "native id conflicts")
+
+        if observed_native_id is None and not launch.native_session_id:
+            adopted = registered_candidate_for_reconcile(conn, launch)
+            if adopted is not None:
+                result = _adopt_registered_session(
+                    conn, launch=launch, session_id=adopted, now=current
+                )
+                conn.commit()
+                return result
 
         _settle_open_attempts(
             conn,

@@ -134,3 +134,28 @@ def test_finalize_records_only_actual_render_delivery(monkeypatch) -> None:
             "injected": False,
         }
     ]
+
+
+def test_superseded_launch_code_yields_a_stop_context() -> None:
+    for code in ("invalid_state", "attestation_consumed", "late_registration"):
+        context = launch_hook._superseded_launch_stop_context(code)
+        assert context is not None and "Stop now" in context
+    assert launch_hook._superseded_launch_stop_context("attestation_invalid") is None
+
+
+def test_superseded_launch_warns_the_native_to_stop(monkeypatch) -> None:
+    from yoke_core.domain.session_launch_types import SessionLaunchError
+
+    def _raise(conn, **kwargs):
+        raise SessionLaunchError("attestation_consumed", "attestation is single-use")
+
+    monkeypatch.setattr(launch_hook, "_prepare_or_record_refusal", _raise)
+    decision = launch_hook.evaluate_launch_attestation(
+        _record(), connect=lambda: _Connection()
+    )
+
+    assert decision.outcome == Outcome.WARN
+    assert decision.audit_fields["session_launch_error"] == "attestation_consumed"
+    stop = decision.audit_fields["additionalContext"]
+    assert "superseded" in stop.lower()
+    assert "Stop now" in stop

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_launch_bound_liveness import bound_session_delivered
 from yoke_core.domain.session_launch_closure_evidence import (
     closure_evidence,
     open_attempt,
@@ -122,6 +123,19 @@ def _expire_at_deadline(
     and are written while they still are.
     """
     registration = launch.state == "awaiting_registration"
+    if registration and bound_session_delivered(conn, launch, now=now):
+        # The bound session came up, took the item's work claim, and is
+        # running: the launch reached a live worker even though the raw
+        # injection receipt lapsed. Closing it ``failed`` and cancelling the
+        # instruction would contradict a session that is visibly working, so
+        # close it delivered and leave the instruction message alone.
+        return update_launch(
+            conn,
+            launch.launch_id,
+            state="succeeded",
+            completed_at=now,
+            result_code="registered_and_claimed",
+        )
     result_code = "registration_deadline" if registration else "launch_deadline"
     evidence = closure_evidence(
         conn,

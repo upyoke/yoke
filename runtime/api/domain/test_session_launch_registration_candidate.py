@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain.session_launch_execution import claim_assigned_launch
+from yoke_core.domain.session_launch_execution import (
+    claim_assigned_launch,
+    reconcile_launch,
+    report_launch_attempt,
+)
 from yoke_core.domain.session_launch_pending_delivery import pending_launch_deliveries
 from yoke_core.domain.session_launch_registration_candidate import (
+    registered_candidate_for_reconcile,
     reserve_launch_registration_candidate,
 )
 from yoke_core.domain.session_launch_store import get_launch
@@ -15,6 +20,7 @@ from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
     assigned_launch,
+    authorization,
     relay_connection,
 )
 
@@ -217,3 +223,68 @@ def test_registration_candidate_does_not_guess_between_matching_sessions() -> No
 
     assert result == {"status": "registration_ambiguous", "candidate_count": 2}
     assert get_launch(conn, launch.launch_id).native_session_id is None
+
+
+def test_reconcile_adopts_a_session_registered_in_a_closed_window() -> None:
+    conn = _connection()
+    launch, claim = _claimed_launch(conn, "reconcile-adopt")
+    _register_candidate(conn)
+    # The relay's pid listing never saw the session and the attempt closed
+    # unbound; the launch is now reconcilable.
+    report_launch_attempt(
+        conn,
+        launch_id=launch.launch_id,
+        lease_id=claim.lease_id,
+        result_code="outcome_unknown",
+        evidence={"result_code": "identity_listing_failed"},
+        now="2026-08-22T12:00:05Z",
+    )
+    assert get_launch(conn, launch.launch_id).state == "outcome_unknown"
+
+    # The session that registered inside the (now closed) binding window is
+    # still the launch's rightful native, discoverable without a time gate.
+    assert (
+        registered_candidate_for_reconcile(conn, get_launch(conn, launch.launch_id))
+        == SESSION_ID
+    )
+
+    bound = reconcile_launch(
+        conn,
+        launch_id=launch.launch_id,
+        auth=authorization(),
+        observed_native_id=None,
+        now="2026-08-22T12:30:00Z",
+    )
+
+    assert bound.native_session_id == bound.registered_session_id == SESSION_ID
+    assert bound.result_code == "registration_bound"
+    recipient = conn.execute(
+        "SELECT session_id, state FROM session_message_recipients WHERE message_id=?",
+        (launch.message_id,),
+    ).fetchone()
+    assert tuple(recipient) == (SESSION_ID, "pending")
+
+
+def test_reconcile_does_not_adopt_when_no_session_registered_in_window() -> None:
+    conn = _connection()
+    launch, claim = _claimed_launch(conn, "reconcile-no-candidate")
+    report_launch_attempt(
+        conn,
+        launch_id=launch.launch_id,
+        lease_id=claim.lease_id,
+        result_code="outcome_unknown",
+        evidence={"result_code": "identity_listing_failed"},
+        now="2026-08-22T12:00:05Z",
+    )
+
+    reconciled = reconcile_launch(
+        conn,
+        launch_id=launch.launch_id,
+        auth=authorization(),
+        observed_native_id=None,
+        now="2026-08-22T12:30:00Z",
+    )
+
+    assert reconciled.state == "failed"
+    assert reconciled.result_code == "reconciled_not_created"
+    assert reconciled.registered_session_id is None

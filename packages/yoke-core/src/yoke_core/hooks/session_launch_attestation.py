@@ -111,6 +111,35 @@ def _prepare_or_record_refusal(
         raise
 
 
+# Refusal codes that mean this native is not the launch's live session: another
+# attempt already bound, or the launch was reconciled, retried, or expired. The
+# native holds no claim and has no mandate, so it must stop rather than spend a
+# dozen tool calls discovering it is unbound.
+_SUPERSEDED_LAUNCH_CODES = frozenset(
+    {
+        "invalid_state",
+        "attestation_consumed",
+        "late_registration",
+        "session_mismatch",
+        "native_session_mismatch",
+    }
+)
+
+
+def _superseded_launch_stop_context(code: str) -> str | None:
+    """Tell a superseded launch native to stop now, on its first hook."""
+    if code not in _SUPERSEDED_LAUNCH_CODES:
+        return None
+    return (
+        "## Yoke launch superseded\n\n"
+        f"This launch attempt is no longer the live one for its work ({code}). "
+        "Another attempt already bound, or the launch was reconciled, retried, "
+        "or expired. You hold no work claim and carry no mandate to execute. "
+        "Do not read the backlog, adopt an item, or write to the checkout. "
+        "Stop now: end this turn without taking further action."
+    )
+
+
 def evaluate_launch_attestation(
     record: HookContext,
     *,
@@ -135,10 +164,14 @@ def evaluate_launch_attestation(
         finally:
             conn.close()
     except SessionLaunchError as exc:
+        audit: dict[str, Any] = {"session_launch_error": exc.code}
+        stop_context = _superseded_launch_stop_context(exc.code)
+        if stop_context is not None:
+            audit["additionalContext"] = stop_context
         return HookDecision(
             outcome=Outcome.WARN,
             message=f"Yoke launch registration refused ({exc.code}).",
-            audit_fields={"session_launch_error": exc.code},
+            audit_fields=audit,
             next=Next.CONTINUE,
         )
 

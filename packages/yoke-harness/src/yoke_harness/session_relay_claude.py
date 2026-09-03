@@ -262,6 +262,31 @@ def run_claude_cli_adapter(
             process=process,
         )
     short_id = background_agent_id(process)
+    # Consult the control-plane registry before the pid-based agent listing.
+    # The registry correlates by workspace and registration window and sees a
+    # session served by a `claude bg-spare` child, which the pid listing cannot;
+    # under load the pid listing can also burn the entire binding window before
+    # the registry is ever reached, closing the launch with nothing bound while
+    # the session it should have adopted is already registered.
+    resolver = getattr(context, "launch_registration_resolver", None)
+    registered = (
+        resolve_registered_session(resolver, str(invocation.cwd))
+        if resolver is not None
+        else None
+    )
+    if registered is not None and registered.session_id is not None:
+        return _result(
+            context,
+            "native_created",
+            REGISTERED_BUT_UNBOUND_CODE,
+            native_session_id=registered.session_id,
+            process=ClaudeProcessResult(
+                0,
+                process.duration_ms,
+                pid=process.pid,
+                bound_exceeded=process.bound_exceeded,
+            ),
+        )
     actual_id = None
     failure_code = BACKGROUND_IDENTITY_MISSING_CODE
     combined = process
@@ -282,24 +307,7 @@ def run_claude_cli_adapter(
             else IDENTITY_LISTING_LAGGED_CODE
         )
     if actual_id is None:
-        registered = resolve_registered_session(
-            getattr(context, "launch_registration_resolver", None),
-            str(invocation.cwd),
-        )
-        if registered.session_id is not None:
-            return _result(
-                context,
-                "native_created",
-                REGISTERED_BUT_UNBOUND_CODE,
-                native_session_id=registered.session_id,
-                process=ClaudeProcessResult(
-                    0,
-                    combined.duration_ms,
-                    pid=combined.pid,
-                    bound_exceeded=combined.bound_exceeded,
-                ),
-            )
-        if registered.result_code in {
+        if registered is not None and registered.result_code in {
             REGISTRATION_AMBIGUOUS_CODE,
             REGISTERED_SESSION_INVALID_CODE,
             SPAWN_WORKSPACE_MISSING_CODE,
