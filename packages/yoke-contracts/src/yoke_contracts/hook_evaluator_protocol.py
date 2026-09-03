@@ -13,6 +13,7 @@ PROTOCOL_VERSION = 1
 MAX_FRAME_BYTES = 16 * 1024 * 1024
 RESIDENT_IDLE_TIMEOUT_SECONDS = 600
 EVALUATOR_PAYLOAD_KEY = "yoke_hook_evaluator"
+HOOK_OBSERVATION_BATCH_CAPABILITY = "read_only_observation_batch_v1"
 EVALUATORS = frozenset({"resident", "inprocess"})
 
 
@@ -103,9 +104,7 @@ def encode_frame(payload: Mapping[str, Any]) -> bytes:
     except (TypeError, ValueError) as exc:
         raise HookEvaluatorProtocolError("frame is not JSON serializable") from exc
     if len(body) > MAX_FRAME_BYTES:
-        raise HookEvaluatorProtocolError(
-            f"frame exceeds {MAX_FRAME_BYTES} byte limit"
-        )
+        raise HookEvaluatorProtocolError(f"frame exceeds {MAX_FRAME_BYTES} byte limit")
     return struct.pack("!I", len(body)) + body
 
 
@@ -129,9 +128,7 @@ def receive_frame(peer: socket.socket) -> dict[str, Any]:
     header = _receive_exact(peer, 4)
     size = struct.unpack("!I", header)[0]
     if size > MAX_FRAME_BYTES:
-        raise HookEvaluatorProtocolError(
-            f"frame exceeds {MAX_FRAME_BYTES} byte limit"
-        )
+        raise HookEvaluatorProtocolError(f"frame exceeds {MAX_FRAME_BYTES} byte limit")
     try:
         decoded = json.loads(_receive_exact(peer, size).decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as exc:
@@ -193,6 +190,7 @@ def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
 
 __all__ = [
     "EVALUATOR_PAYLOAD_KEY",
+    "HOOK_OBSERVATION_BATCH_CAPABILITY",
     "HookEvaluatorProtocolError",
     "HookEvaluatorRequest",
     "MAX_FRAME_BYTES",

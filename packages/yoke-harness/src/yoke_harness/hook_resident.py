@@ -90,13 +90,12 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
     def idle_expired(self) -> bool:
         with self.state_lock:
             idle = self.active_requests == 0 and (
-                time.monotonic() - self.last_activity
-                >= RESIDENT_IDLE_TIMEOUT_SECONDS
+                time.monotonic() - self.last_activity >= RESIDENT_IDLE_TIMEOUT_SECONDS
             )
         return idle and self.observations.pending_count() == 0
 
     def should_evaluate_locally(self, session_id: str) -> bool:
-        if not session_id:
+        if not session_id or not self.http_opener.observation_batch_supported():
             return False
         from yoke_harness.hook_resident_observations import (
             MESSAGE_PROBE_INTERVAL_SECONDS,

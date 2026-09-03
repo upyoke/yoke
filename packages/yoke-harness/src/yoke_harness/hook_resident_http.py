@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import json
+import threading
 import urllib.error
 import urllib.request
 from typing import Any
@@ -10,6 +12,9 @@ from typing import Any
 import httpx
 
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.hook_evaluator_protocol import (
+    HOOK_OBSERVATION_BATCH_CAPABILITY,
+)
 
 
 _HOP_BY_HOP_HEADERS = frozenset(
@@ -57,6 +62,7 @@ class ResidentHttpOpener:
     """Thread-safe opener backed by one keep-alive connection pool."""
 
     def __init__(self) -> None:
+        self._observation_batch_supported = threading.Event()
         self._client = httpx.Client(
             follow_redirects=False,
             limits=httpx.Limits(
@@ -96,8 +102,11 @@ class ResidentHttpOpener:
                             "resident hook response exceeded its size limit"
                         )
                     chunks.append(chunk)
+                response_body = b"".join(chunks)
+                if response.status_code == 200:
+                    self._record_capabilities(response_body)
                 return _ResidentHttpResponse(
-                    body=b"".join(chunks),
+                    body=response_body,
                     status=response.status_code,
                     headers=dict(response.headers),
                     url=str(response.url),
@@ -108,6 +117,24 @@ class ResidentHttpOpener:
             raise urllib.error.URLError(
                 f"resident keep-alive request failed ({type(exc).__name__})"
             ) from None
+
+    def _record_capabilities(self, response_body: bytes) -> None:
+        try:
+            payload = json.loads(response_body)
+        except (TypeError, ValueError):
+            return
+        capabilities = (
+            payload.get("capabilities") if isinstance(payload, dict) else None
+        )
+        if (
+            isinstance(capabilities, list)
+            and HOOK_OBSERVATION_BATCH_CAPABILITY in capabilities
+        ):
+            self._observation_batch_supported.set()
+
+    def observation_batch_supported(self) -> bool:
+        """Whether the active control plane advertised the batch endpoint."""
+        return self._observation_batch_supported.is_set()
 
     def close(self) -> None:
         self._client.close()

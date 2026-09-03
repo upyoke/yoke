@@ -81,7 +81,7 @@ def test_hook_evaluate_dry_run_delegates_flag_and_skips_transport(
             rc = cli_main(["hook", "evaluate", "Stop", "--dry-run"])
 
     assert rc == 0
-    hook_main.assert_called_once_with("Stop", dry_run=True)
+    hook_main.assert_called_once_with("Stop", dry_run=True, stdin_data="")
 
 
 def test_hook_evaluate_missing_event_returns_two() -> None:

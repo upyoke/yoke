@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import Request
@@ -59,9 +60,7 @@ def post_hook_observation_batch(
     project_ids: set[int] = set()
     for observation in batch.observations:
         try:
-            hook_request = HookEvaluateRequest.model_validate(
-                observation.hook_request
-            )
+            hook_request = HookEvaluateRequest.model_validate(observation.hook_request)
         except ValidationError as exc:
             return _error(
                 400,
@@ -81,7 +80,7 @@ def post_hook_observation_batch(
                 "only canonical read-only tool chains may use telemetry batching",
             )
         try:
-            payload = __import__("json").loads(hook_request.stdin or "{}")
+            payload = json.loads(hook_request.stdin or "{}")
         except (TypeError, ValueError):
             payload = {}
         if not isinstance(payload, dict) or payload.get("identity_stamped") is not True:

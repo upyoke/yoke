@@ -238,9 +238,10 @@ class ObservationQueue:
                 result = request_json(
                     request,
                     timeout_seconds=10.0,
-                    replay_safe=True,
+                    replay_safe=False,
                     allow_loopback_http=True,
                     response_limit_bytes=SMALL_JSON_RESPONSE_LIMIT_BYTES,
+                    sensitive_values=(batch[0].authorization,),
                     opener=self._opener,
                 ).payload
                 if not isinstance(result, dict) or result.get("accepted") != len(batch):

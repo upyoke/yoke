@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field
 
+from yoke_contracts.hook_evaluator_protocol import HOOK_OBSERVATION_BATCH_CAPABILITY
 from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
@@ -78,6 +79,7 @@ class HookEvaluateResponse(BaseModel):
     wait_ms: int
     degraded: List[str]
     outcome: str
+    capabilities: tuple[str, ...] = (HOOK_OBSERVATION_BATCH_CAPABILITY,)
 
 
 @router.post("/hooks/evaluate")

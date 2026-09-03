@@ -87,7 +87,7 @@ def evaluate_inprocess(
         )
 
     if dry_run:
-        return evaluate_hook_event(event_name, dry_run=True)
+        return evaluate_hook_event(event_name, dry_run=True, stdin_data=stdin_data)
 
     from yoke_cli.transport.https import TransportError, resolve_https_connection
 
