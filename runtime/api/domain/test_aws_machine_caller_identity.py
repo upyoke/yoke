@@ -37,7 +37,7 @@ def test_verifier_passes_explicit_machine_credentials_to_boto3(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        caller_identity.deploy_remote,
+        caller_identity.aws_machine_client.deploy_remote,
         "aws_machine_capability_env",
         _capability_env,
     )
@@ -47,18 +47,23 @@ def test_verifier_passes_explicit_machine_credentials_to_boto3(
     def factory(service_name: str, **kwargs: Any) -> _StsClient:
         captured["service_name"] = service_name
         captured.update(kwargs)
-        return _StsClient({
-            "Account": "123456789012",
-            "Arn": "arn:aws:iam::123456789012:user/existing-deployer",
-            "UserId": "AIDAEXAMPLE",
-        })
+        return _StsClient(
+            {
+                "Account": "123456789012",
+                "Arn": "arn:aws:iam::123456789012:user/existing-deployer",
+                "UserId": "AIDAEXAMPLE",
+            }
+        )
 
     identity = caller_identity.verify_machine_caller_identity(
-        "acme-app", "ignored-by-resolver", client_factory=factory,
+        "acme-app",
+        "ignored-by-resolver",
+        client_factory=factory,
     )
 
     assert identity == caller_identity.CallerIdentity(
-        account="123456789012", identity="existing-deployer",
+        account="123456789012",
+        identity="existing-deployer",
     )
     assert captured["service_name"] == "sts"
     assert captured["aws_access_key_id"] == ACCESS_KEY
@@ -77,7 +82,7 @@ def test_session_token_is_omitted_when_the_resolver_has_none(
     env = _capability_env()
     env.pop("AWS_SESSION_TOKEN")
     monkeypatch.setattr(
-        caller_identity.deploy_remote,
+        caller_identity.aws_machine_client.deploy_remote,
         "aws_machine_capability_env",
         lambda *_args, **_kwargs: env,
     )
@@ -85,13 +90,17 @@ def test_session_token_is_omitted_when_the_resolver_has_none(
 
     def factory(_service_name: str, **kwargs: Any) -> _StsClient:
         captured.update(kwargs)
-        return _StsClient({
-            "Account": "123456789012",
-            "Arn": "arn:aws:iam::123456789012:user/deployer",
-        })
+        return _StsClient(
+            {
+                "Account": "123456789012",
+                "Arn": "arn:aws:iam::123456789012:user/deployer",
+            }
+        )
 
     caller_identity.verify_machine_caller_identity(
-        "acme-app", "eu-west-1", client_factory=factory,
+        "acme-app",
+        "eu-west-1",
+        client_factory=factory,
     )
 
     assert "aws_session_token" not in captured
@@ -109,7 +118,7 @@ def test_aws_failure_names_only_the_safe_error_code(
         }
 
     monkeypatch.setattr(
-        caller_identity.deploy_remote,
+        caller_identity.aws_machine_client.deploy_remote,
         "aws_machine_capability_env",
         _capability_env,
     )
@@ -137,7 +146,7 @@ def test_connectivity_failure_is_named_without_raw_request_state(
         pass
 
     monkeypatch.setattr(
-        caller_identity.deploy_remote,
+        caller_identity.aws_machine_client.deploy_remote,
         "aws_machine_capability_env",
         _capability_env,
     )
@@ -163,7 +172,7 @@ def test_malformed_identity_is_rejected_without_echoing_payload(
     payload: Any,
 ) -> None:
     monkeypatch.setattr(
-        caller_identity.deploy_remote,
+        caller_identity.aws_machine_client.deploy_remote,
         "aws_machine_capability_env",
         _capability_env,
     )

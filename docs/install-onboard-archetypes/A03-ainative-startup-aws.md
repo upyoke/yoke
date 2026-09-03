@@ -80,7 +80,8 @@ Survey sees `.github/workflows/deploy.yml`, Terraform or CDK, `package.json`.
 Strategy docs from the running product.
 
 Profile (stop 1): scaffold mapped `not-needed`; infra Packs; `aws-admin`
-already verified (`yoke aws exec --project acme-app -- sts get-caller-identity`).
+already verified (`yoke aws admin-status --project acme-app --json` reports
+`ready: true` with redacted caller-identity evidence).
 Environments stage+prod. Domain default subdomain
 `yoke projects environment-settings merge … --set domain.mode=default-subdomain`.
 

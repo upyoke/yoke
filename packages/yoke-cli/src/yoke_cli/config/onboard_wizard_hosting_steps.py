@@ -24,7 +24,9 @@ HOSTING_PROVIDER_SUBTITLE = (
 HOSTING_PROVIDER_ROWS = [
     SelectionRow("aws", "AWS", "Yoke can manage its infrastructure"),
     SelectionRow(
-        "no-managed-host", "I host this myself", "Yoke applies no infrastructure",
+        "no-managed-host",
+        "I host this myself",
+        "Yoke applies no infrastructure",
     ),
     SelectionRow("skip", "Decide later", "/yoke onboard asks again"),
 ]
@@ -33,10 +35,14 @@ HOSTING_AWS_SIGN_IN_TITLE = "How should Yoke sign in to AWS?"
 HOSTING_AWS_SIGN_IN_SUBTITLE = "Choose an access-key path Yoke can execute today."
 HOSTING_AWS_SIGN_IN_ROWS = [
     SelectionRow(
-        "create-key", "Create a dedicated deploy key", "Recommended",
+        "create-key",
+        "Create a dedicated deploy key",
+        "Recommended",
     ),
     SelectionRow(
-        "existing-key", "Use existing credentials", "An access key you manage",
+        "existing-key",
+        "Use existing credentials",
+        "An access key you manage",
     ),
     SelectionRow("skip", "Not now", "Continue without AWS credentials"),
 ]
@@ -81,18 +87,6 @@ HOSTING_VERIFIED_ROWS = [
 HOSTING_RETRY_ROWS = [
     SelectionRow("retry", "Re-enter the two values", "paste them again"),
     SelectionRow("skip", "Not now", "Continue without AWS credentials"),
-]
-
-# The AWS branch needs the AWS CLI before it is worth asking for a key, so this
-# screen comes between choosing AWS and entering anything. "Back" is offered
-# explicitly rather than left to the keyboard: an operator who cannot install
-# the CLI right now still gets to give a different hosting answer instead of
-# being pushed into "decide later" as the only way out.
-HOSTING_PREREQUISITE_TITLE = "Yoke needs the AWS CLI before it asks for a key."
-HOSTING_PREREQUISITE_ROWS = [
-    SelectionRow("retry", "Check again", "after installing the AWS CLI"),
-    SelectionRow("back", "Back", "give a different hosting answer"),
-    SelectionRow("skip", "Not now", "/yoke onboard asks again"),
 ]
 
 HOSTING_GUIDED_KEY_TITLE = "Create a dedicated deploy key"
@@ -169,39 +163,45 @@ def _hosting_credential_body(
         Static("", classes="onboard-spacer"),
     ]
     if creation_link is not None:
-        widgets.extend([
+        widgets.extend(
+            [
+                Static(
+                    "  1  Set up the dedicated AWS key:",
+                    classes="onboard-plan-line",
+                ),
+                Static(
+                    f"     [{ACCENT}]{escape(creation_link)}[/]",
+                    classes="onboard-plan-line",
+                ),
+                Static("", classes="onboard-spacer"),
+                Static(
+                    "  2  Paste the two values here — never into an AI chat:",
+                    classes="onboard-plan-line",
+                ),
+            ]
+        )
+    else:
+        widgets.append(
             Static(
-                "  1  Set up the dedicated AWS key:",
+                "  Paste the two values here — never into an AI chat:",
                 classes="onboard-plan-line",
+            )
+        )
+    widgets.extend(
+        [
+            *form_field_widgets(HOSTING_CREDENTIAL_FIELDS),
+            Static(
+                f"  Stays on this machine ({escape(credential_dir)}) —",
+                classes="onboard-subtitle",
             ),
             Static(
-                f"     [{ACCENT}]{escape(creation_link)}[/]",
-                classes="onboard-plan-line",
+                "  operator-attended; CI only ever gets scoped OIDC roles minted later.",
+                classes="onboard-subtitle",
             ),
             Static("", classes="onboard-spacer"),
-            Static(
-                "  2  Paste the two values here — never into an AI chat:",
-                classes="onboard-plan-line",
-            ),
-        ])
-    else:
-        widgets.append(Static(
-            "  Paste the two values here — never into an AI chat:",
-            classes="onboard-plan-line",
-        ))
-    widgets.extend([
-        *form_field_widgets(HOSTING_CREDENTIAL_FIELDS),
-        Static(
-            f"  Stays on this machine ({escape(credential_dir)}) —",
-            classes="onboard-subtitle",
-        ),
-        Static(
-            "  operator-attended; CI only ever gets scoped OIDC roles minted later.",
-            classes="onboard-subtitle",
-        ),
-        Static("", classes="onboard-spacer"),
-        SelectionList(HOSTING_CREDENTIAL_ROWS),
-    ])
+            SelectionList(HOSTING_CREDENTIAL_ROWS),
+        ]
+    )
     return widgets
 
 
@@ -226,8 +226,7 @@ def hosting_no_managed_host_body() -> list[Static]:
         Static("", classes="onboard-spacer"),
         *form_field_widgets(HOSTING_NO_MANAGED_HOST_FIELDS),
         Static(
-            "  Kept as a note on the project so future readers know where it "
-            "runs.",
+            "  Kept as a note on the project so future readers know where it runs.",
             classes="onboard-subtitle",
         ),
         Static("", classes="onboard-spacer"),
@@ -251,7 +250,8 @@ def hosting_verified_body(
         Static(f"  Account       {escape(account)}", classes="onboard-plan-line"),
         Static(f"  Identity      {escape(identity)}", classes="onboard-plan-line"),
         Static(
-            f"  Stored at     {escape(credential_dir)}", classes="onboard-plan-line",
+            f"  Stored at     {escape(credential_dir)}",
+            classes="onboard-plan-line",
         ),
         Static("", classes="onboard-spacer"),
         Static(
@@ -260,7 +260,8 @@ def hosting_verified_body(
             classes="onboard-subtitle",
         ),
         Static(
-            "provisions from it during /yoke onboard.", classes="onboard-subtitle",
+            "provisions from it during /yoke onboard.",
+            classes="onboard-subtitle",
         ),
         Static("", classes="onboard-spacer"),
         SelectionList(HOSTING_VERIFIED_ROWS),
@@ -302,8 +303,6 @@ __all__ = [
     "HOSTING_NO_MANAGED_HOST_FIELDS",
     "HOSTING_NO_MANAGED_HOST_ROWS",
     "HOSTING_NO_MANAGED_HOST_TITLE",
-    "HOSTING_PREREQUISITE_ROWS",
-    "HOSTING_PREREQUISITE_TITLE",
     "HOSTING_PROVIDER_NOTE_FIELD",
     "HOSTING_PROVIDER_ROWS",
     "HOSTING_PROVIDER_SUBTITLE",

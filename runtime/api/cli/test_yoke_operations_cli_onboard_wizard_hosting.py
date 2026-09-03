@@ -18,15 +18,14 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config import aws_admin_capability as hosting  # noqa: E402
+from yoke_cli.config import aws_cli_prerequisite  # noqa: E402
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noqa: E402
-from yoke_cli.config import onboard_wizard_hosting_prerequisite as prerequisite  # noqa: E402
 from yoke_contracts import hosting_posture  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     ACCESS_KEY_ID,
     SECRET_ACCESS_KEY,
-    _aws_cli_present,
     _isolated_machine_home,
     _stub_path_doctor,
     body_text,
@@ -34,8 +33,6 @@ from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     paste_credentials,
     reach_credential_screen,
     reach_provider_screen,
-    stub_aws_cli,
-    stub_aws_cli_missing,
     stub_identity,
 )
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
@@ -60,14 +57,14 @@ def test_skip_reaches_review_and_plans_the_skip() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("enter")  # project: existing folder
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
             await pilot.press("enter")  # slug
             await pilot.press("enter")  # name
-            await pilot.press("down")   # publish: No
+            await pilot.press("down")  # publish: No
             await pilot.press("enter")
             await pilot.press("enter")  # default branch
             await submit_public_item_prefix(pilot)
@@ -134,9 +131,8 @@ def test_both_key_paths_store_and_verify_the_same_redacted_identity(
     stored = stored / hosting.CAPABILITY_TYPE
     assert (stored / hosting.ACCESS_KEY_ID_KEY).read_text().strip() == ACCESS_KEY_ID
     assert (
-        (stored / hosting.SECRET_ACCESS_KEY_KEY).read_text().strip()
-        == SECRET_ACCESS_KEY
-    )
+        stored / hosting.SECRET_ACCESS_KEY_KEY
+    ).read_text().strip() == SECRET_ACCESS_KEY
     # Owner-only, both files and the directory that holds them.
     assert (stored / hosting.SECRET_ACCESS_KEY_KEY).stat().st_mode & 0o077 == 0
     assert stored.stat().st_mode & 0o077 == 0
@@ -235,7 +231,7 @@ def test_unexpected_failure_is_not_blamed_on_aws(monkeypatch) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# The AWS CLI prerequisite
+# AWS CLI independence
 # --------------------------------------------------------------------------- #
 
 
@@ -246,58 +242,17 @@ async def _choose_aws(a: Any, pilot: Any) -> None:
     await pilot.pause()
 
 
-def test_missing_aws_cli_refuses_before_asking_for_a_key(monkeypatch) -> None:
-    """A machine that cannot run the AWS CLI is told so, not asked for a key."""
-    stub_aws_cli_missing(
-        monkeypatch,
-        detail_lines=("Install it: sudo installer -pkg AWSCLIV2.pkg -target /",),
-    )
+def test_missing_aws_cli_does_not_gate_hosting_setup(monkeypatch) -> None:
+    """The SDK-backed hosting path never consults the optional AWS CLI."""
+
+    def _unexpected_preflight():
+        raise AssertionError("the Hosting step consulted the AWS CLI")
+
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setattr(aws_cli_prerequisite, "check_aws_cli", _unexpected_preflight)
     app, _spy = make_app()
 
     body = drive(app, _choose_aws)
 
-    assert hosting_steps.HOSTING_PREREQUISITE_TITLE in body
-    assert "not installed on this machine" in body
-    assert "AWSCLIV2.pkg" in body
-    # The credential screens are not reachable from a refused prerequisite.
-    assert "Access key ID" not in body
-    assert hosting_steps.HOSTING_AWS_SIGN_IN_TITLE not in body
-    # Nothing was saved and nothing was verified.
-    assert "aws-admin saved" not in body
-    assert app.result.hosting_verification is None
-    assert not hosting.credential_saved("acme-app")
-
-
-def test_refused_prerequisite_keeps_the_aws_answer_available(monkeypatch) -> None:
-    """Installing the CLI and checking again continues into AWS, not around it."""
-    stub_aws_cli_missing(monkeypatch)
-    app, _spy = make_app()
-
-    async def action(a: Any, pilot: Any) -> None:
-        await _choose_aws(a, pilot)
-        # The operator installs the AWS CLI, then takes "Check again".
-        stub_aws_cli(monkeypatch)
-        prerequisite.on_refusal_choice(a, "retry")
-        await a.workers.wait_for_complete()
-        await pilot.pause()
-
-    body = drive(app, action)
     assert hosting_steps.HOSTING_AWS_SIGN_IN_TITLE in body
-
-
-def test_refused_prerequisite_leaves_hosting_undecided_only_by_choice(
-    monkeypatch,
-) -> None:
-    """"Not now" is a decision the operator makes, and it stores no posture."""
-    stub_aws_cli_missing(monkeypatch)
-    app, _spy = make_app()
-
-    async def action(a: Any, pilot: Any) -> None:
-        await _choose_aws(a, pilot)
-        prerequisite.on_refusal_choice(a, "skip")
-        await pilot.pause()
-
-    drive(app, action)
-
-    assert app.result.hosting_choice == hosting_posture.POSTURE_UNDECIDED
-    assert app.result.hosting_verification is None
+    assert "Access key ID" not in body

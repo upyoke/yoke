@@ -151,13 +151,17 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "source_dev_admin",
         "attended source-authority credential cutoff and export boundary",
     ),
-    ("packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
-     "yoke_core.domain.universe_archive_validation"):
-        ("client_local_validation", "validate a local archive before upload"),
-    ("packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
-     "yoke_core.domain.migration_validation_binding"):
-        ("client_local_validation",
-         "read the same disposable-database binding rehearsal reads"),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
+        "yoke_core.domain.universe_archive_validation",
+    ): ("client_local_validation", "validate a local archive before upload"),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
+        "yoke_core.domain.migration_validation_binding",
+    ): (
+        "client_local_validation",
+        "read the same disposable-database binding rehearsal reads",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/config/dev_setup.py",
         "yoke_core.tools.pg_testcluster",
@@ -270,8 +274,8 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ): ("source_dev_admin", "explicit aws-admin capability subprocess helper"),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/vps.py",
-        "yoke_core.domain.deploy_remote",
-    ): ("source_dev_admin", "explicit VPS power-control capability helper"),
+        "yoke_core.domain.aws_machine_client",
+    ): ("source_dev_admin", "in-process VPS power-control capability helper"),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/runner_fleet.py",
         "yoke_core.tools.runner_fleet_exec",

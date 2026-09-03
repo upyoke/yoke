@@ -22,7 +22,6 @@ from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noq
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     ACCESS_KEY_ID,
     SECRET_ACCESS_KEY,
-    _aws_cli_present,
     _isolated_machine_home,
     _stub_path_doctor,
     body_text,
@@ -121,7 +120,8 @@ def test_both_boxes_are_on_one_screen_with_the_caret_in_the_first() -> None:
 
 
 def test_enter_walks_the_boxes_then_commits_the_pair(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     """Enter finishes a box; Enter on the last one saves both values at once."""
     stub_identity(monkeypatch)
@@ -166,9 +166,7 @@ def test_a_rejected_value_marks_only_the_box_it_came_from() -> None:
             # A pasted pair rather than a single value: rejected, and the other
             # box is left alone.
             box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).value = "AKIA1 AKIA2"
-            box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).value = (
-                SECRET_ACCESS_KEY
-            )
+            box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).value = SECRET_ACCESS_KEY
             app._on_hosting_credential_choice("connect")
             await pilot.pause()
             assert "paste the access key ID alone" in field_error(
@@ -216,9 +214,7 @@ def test_a_corrected_value_clears_the_mark_and_saves(monkeypatch) -> None:
                 app, hosting_steps.HOSTING_ACCESS_KEY_FIELD
             )
             box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).value = ACCESS_KEY_ID
-            box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).value = (
-                SECRET_ACCESS_KEY
-            )
+            box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).value = SECRET_ACCESS_KEY
             app._on_hosting_credential_choice("connect")
             await app.workers.wait_for_complete()
             await pilot.pause()
@@ -260,9 +256,6 @@ def test_a_keystroke_during_the_swap_lands_in_the_firstbox() -> None:
             seed_project(app)
             app._goto_hosting()
             app._on_hosting_provider_choice("aws")
-            # Choosing AWS preflights the CLI on a worker; the sign-in screen
-            # it opens would otherwise land on top of the credential form.
-            await app.workers.wait_for_complete()
             app._on_hosting_aws_sign_in_choice("create-key")
             await pilot.press("a")
             await pilot.pause()

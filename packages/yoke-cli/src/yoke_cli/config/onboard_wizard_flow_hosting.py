@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from yoke_contracts import hosting_posture
 from yoke_cli.config import aws_admin_capability as hosting
-from yoke_cli.config import onboard_wizard_hosting_prerequisite as prerequisite
 from yoke_cli.config import onboard_project_modes as project_modes
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
 from yoke_cli.config.onboard_wizard_state import _FormField
@@ -61,17 +60,17 @@ class HostingFlow:
             return
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_HOSTING,
-            hosting_steps.hosting_provider_body,
-            self._on_hosting_provider_choice,
-        ))
+        self._goto(
+            _View(
+                STEP_HOSTING,
+                hosting_steps.hosting_provider_body,
+                self._on_hosting_provider_choice,
+            )
+        )
 
     def _on_hosting_provider_choice(self: _Shell, choice: str) -> None:
         if choice == "aws":
-            # The AWS CLI has to be established before a key is worth creating:
-            # the identity check below runs in-process and passes without it.
-            prerequisite.run_preflight(self)
+            self._goto_hosting_aws_sign_in()
             return
         if choice == "no-managed-host":
             self._goto_hosting_no_managed_host()
@@ -83,11 +82,13 @@ class HostingFlow:
     def _goto_hosting_aws_sign_in(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_HOSTING,
-            hosting_steps.hosting_aws_sign_in_body,
-            self._on_hosting_aws_sign_in_choice,
-        ))
+        self._goto(
+            _View(
+                STEP_HOSTING,
+                hosting_steps.hosting_aws_sign_in_body,
+                self._on_hosting_aws_sign_in_choice,
+            )
+        )
 
     def _on_hosting_aws_sign_in_choice(self: _Shell, choice: str) -> None:
         if choice == "create-key":
@@ -105,7 +106,8 @@ class HostingFlow:
             self._begin_form(
                 hosting_steps.HOSTING_CREDENTIAL_FIELDS,
                 on_done=lambda values: self._after_hosting_credentials(
-                    values, guided=guided,
+                    values,
+                    guided=guided,
                 ),
             )
             if guided:
@@ -119,11 +121,13 @@ class HostingFlow:
                 credential_dir=self._hosting_credential_dir(),
             )
 
-        self._goto(_View(
-            STEP_HOSTING,
-            builder,
-            self._on_hosting_credential_choice,
-        ))
+        self._goto(
+            _View(
+                STEP_HOSTING,
+                builder,
+                self._on_hosting_credential_choice,
+            )
+        )
 
     def _on_hosting_credential_choice(self: _Shell, choice: str) -> None:
         if choice != "connect":
@@ -149,9 +153,13 @@ class HostingFlow:
             )
             return hosting_steps.hosting_no_managed_host_body()
 
-        self._goto(_View(
-            STEP_HOSTING, builder, self._on_no_managed_host_choice,
-        ))
+        self._goto(
+            _View(
+                STEP_HOSTING,
+                builder,
+                self._on_no_managed_host_choice,
+            )
+        )
 
     def _on_no_managed_host_choice(self: _Shell, choice: str) -> None:
         if choice == "back":
@@ -164,7 +172,8 @@ class HostingFlow:
         self._submit_pending_form()
 
     def _after_no_managed_host_note(
-        self: _Shell, values: dict[str, str],
+        self: _Shell,
+        values: dict[str, str],
     ) -> None:
         note = values[hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key].strip()
         self.result.hosting_choice = hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST
@@ -215,7 +224,8 @@ class HostingFlow:
     # ── outcome screens ─────────────────────────────────────
 
     def _goto_hosting_verified(
-        self: _Shell, identity: hosting.CallerIdentity,
+        self: _Shell,
+        identity: hosting.CallerIdentity,
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
@@ -230,15 +240,17 @@ class HostingFlow:
             # operator was just verified rather than in a default they never saw.
             "region": self._hosting_region(),
         }
-        self._goto(_View(
-            STEP_HOSTING,
-            lambda: hosting_steps.hosting_verified_body(
-                account=identity.account,
-                identity=identity.identity,
-                credential_dir=self._hosting_credential_dir(),
-            ),
-            lambda _choice: self._goto_finish(),
-        ))
+        self._goto(
+            _View(
+                STEP_HOSTING,
+                lambda: hosting_steps.hosting_verified_body(
+                    account=identity.account,
+                    identity=identity.identity,
+                    credential_dir=self._hosting_credential_dir(),
+                ),
+                lambda _choice: self._goto_finish(),
+            )
+        )
 
     def _goto_hosting_error(
         self: _Shell,
@@ -262,15 +274,21 @@ class HostingFlow:
             ]
         self.result.hosting_choice = hosting_posture.POSTURE_UNDECIDED
         self.result.hosting_verification = None
-        self._goto(_View(
-            STEP_HOSTING,
-            lambda: hosting_steps.hosting_error_body(
-                title, str(exc), details, hosting_steps.HOSTING_RETRY_ROWS,
-            ),
-            lambda choice: self._on_hosting_error_choice(
-                choice, guided=guided,
-            ),
-        ))
+        self._goto(
+            _View(
+                STEP_HOSTING,
+                lambda: hosting_steps.hosting_error_body(
+                    title,
+                    str(exc),
+                    details,
+                    hosting_steps.HOSTING_RETRY_ROWS,
+                ),
+                lambda choice: self._on_hosting_error_choice(
+                    choice,
+                    guided=guided,
+                ),
+            )
+        )
 
     def _on_hosting_error_choice(
         self: _Shell,

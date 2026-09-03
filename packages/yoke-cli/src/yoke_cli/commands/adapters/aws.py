@@ -15,29 +15,17 @@ from yoke_cli.config import aws_cli_prerequisite
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 
-AWS_EXEC_USAGE = (
-    "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>"
-)
-AWS_ADMIN_LINK_USAGE = (
-    "yoke aws admin-link [--project PROJECT] [--region REGION]"
-)
+AWS_EXEC_USAGE = "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>"
+AWS_ADMIN_LINK_USAGE = "yoke aws admin-link [--project PROJECT] [--region REGION]"
 AWS_PREFLIGHT_USAGE = "yoke aws preflight"
-AWS_ADMIN_STATUS_USAGE = (
-    "yoke aws admin-status [--project PROJECT] [--json]"
-)
+AWS_ADMIN_STATUS_USAGE = "yoke aws admin-status [--project PROJECT] [--json]"
 _AWS_ADMIN_CAPABILITY = "aws-admin"
 
 
 def aws_admin_link(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke aws admin-link",
-        description=(
-            "Print the one-click CloudFormation link that creates this "
-            "project's aws-admin bootstrap credential. The stack makes an IAM "
-            "user and an access key; both values appear as stack Outputs — "
-            "paste them into `yoke onboard`. The link pins "
-            "the template published with the running build."
-        ),
+        description="Print the CloudFormation key link; keys appear as stack Outputs.",
     )
     parser.add_argument(
         "--project",
@@ -69,18 +57,11 @@ def aws_admin_link(args: List[str]) -> int:
 
 
 def aws_admin_status(args: List[str]) -> int:
-    """Report which half of the project's aws-admin credential is missing."""
     parser = argparse.ArgumentParser(
         prog="yoke aws admin-status",
         description=(
-            "Report both halves of a project's aws-admin capability: the "
-            "capability row in the connected control plane (with its region "
-            "and account), and the access-key pair on this machine. A "
-            "credential is only usable when both are present, and each half "
-            "is filled by a different command, so this names the missing half "
-            "and only the command that fills it. Exit status reports whether "
-            "the check itself could run, not whether the capability is ready "
-            "-- read `ready` for that."
+            "Report the control-plane row and machine key pair, name remedies, "
+            "and verify them through boto3. Read `ready`; exit only says it ran."
         ),
     )
     parser.add_argument(
@@ -106,6 +87,12 @@ def aws_admin_status(args: List[str]) -> int:
         return 1
 
     report = aws_admin_status_report(slug, settings)
+    if report["ready"]:
+        _verify_aws_admin_identity(
+            report,
+            slug,
+            str((settings or {}).get("region") or ""),
+        )
     if parsed.json_mode:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
@@ -156,6 +143,36 @@ def aws_admin_status_report(
     }
 
 
+def _verify_aws_admin_identity(
+    report: Dict[str, Any],
+    slug: str,
+    region: str,
+) -> None:
+    from yoke_cli.config import aws_admin_capability as capability
+
+    try:
+        identity = capability.verify_caller_identity(slug, region)
+    except capability.HostingVerificationError as exc:
+        report["ready"] = False
+        report["verification"] = {
+            "checked": True,
+            "ok": False,
+            "reason": str(exc),
+        }
+        report["remedy"] = [
+            f"yoke projects capability secret set --project {slug} "
+            f"--cap-type {_AWS_ADMIN_CAPABILITY} --key {key} --value-stdin"
+            for key in capability.REQUIRED_CREDENTIAL_KEYS
+        ] + [f"yoke aws admin-status --project {slug} --json"]
+        return
+    report["verification"] = {
+        "checked": True,
+        "ok": True,
+        "account": identity.account,
+        "identity": identity.identity,
+    }
+
+
 def _write_aws_admin_status(report: Dict[str, Any]) -> None:
     row = report["capability_row"]
     secrets = report["machine_secrets"]
@@ -167,18 +184,27 @@ def _write_aws_admin_status(report: Dict[str, Any]) -> None:
         account = f", account {row['account_id']}" if row["account_id"] else ""
         row_line = f"present (region {row['region']}{account})"
     held = ", ".join(secrets["present"]) + " present" if secrets["present"] else "none"
-    absent = (
-        f" · missing {', '.join(secrets['missing'])}" if secrets["missing"] else ""
-    )
+    absent = f" · missing {', '.join(secrets['missing'])}" if secrets["missing"] else ""
     print(f"{_AWS_ADMIN_CAPABILITY} · project {report['project']}")
     print(f"  capability row     {row_line}")
     print(f"  machine secrets    {held}{absent} ({secrets['directory']})")
+    verification = report.get("verification")
+    if verification and verification["ok"]:
+        print(
+            "  identity check     verified · account "
+            f"{verification['account']} · {verification['identity']}"
+        )
     if report["ready"]:
         print("  ready              yes")
         return
-    print(f"  ready              no · missing {', '.join(report['missing'])}")
+    detail = (
+        f"missing {', '.join(report['missing'])}"
+        if report["missing"]
+        else f"identity check failed · {verification['reason']}"
+    )
+    print(f"  ready              no · {detail}")
     print("")
-    print("Fill only the missing half:")
+    print("Recovery:")
     for command in report["remedy"]:
         print(f"  {command}")
 
@@ -246,8 +272,6 @@ def aws_exec(args: List[str]) -> int:
                 f"project '{project}' aws-admin capability settings declare "
                 "no region; set settings.region or pass --region"
             )
-        # Machine-local secrets + relayed settings: works on https without a
-        # local Postgres open (same shape as yoke pulumi exec / yoke vps).
         deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
         env = deploy_remote.aws_machine_capability_env(project, region)
     except Exception as exc:
@@ -277,14 +301,13 @@ def aws_exec(args: List[str]) -> int:
 
 
 def aws_preflight(args: List[str]) -> int:
-    """Answer whether this machine can run capability-owned AWS commands."""
+    """Answer whether this machine can run the raw AWS CLI pass-through."""
     parser = argparse.ArgumentParser(
         prog="yoke aws preflight",
         description=(
-            "Check that the AWS CLI every aws-admin operation shells out to is "
-            "installed, on PATH, and runnable. Run this before collecting or "
-            "verifying an AWS credential: the credential check itself is an "
-            "in-process API call and passes on a machine with no AWS CLI."
+            "Check that the AWS CLI used only by `yoke aws exec` is installed, "
+            "on PATH, and runnable. Yoke's identity and VPS operations use "
+            "boto3 in-process and do not require this executable."
         ),
     )
     parsed = parse_or_usage_error(parser, args, AWS_PREFLIGHT_USAGE)

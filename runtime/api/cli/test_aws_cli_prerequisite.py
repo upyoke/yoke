@@ -1,10 +1,8 @@
-"""The AWS CLI prerequisite check and the surfaces that refuse through it.
+"""The optional AWS CLI preflight and raw ``yoke aws exec`` pass-through.
 
-A stored access key pair says nothing about whether this machine can run the
-executable every capability-owned AWS operation shells out to, so these
-scenarios pin the three answers the check gives — not installed, installed off
-``PATH``, present but unusable — and prove that the exec wrappers turn each one
-into a named reason with recovery rather than a bare failure.
+These scenarios pin the three answers the executable check gives — not
+installed, installed off ``PATH``, present but unusable — and prove the one
+operator pass-through turns each into a named reason with recovery.
 """
 
 from __future__ import annotations
@@ -16,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.commands.adapters import aws as aws_adapter
-from yoke_cli.commands.adapters import vps as vps_adapter
 from yoke_cli.config import aws_cli_prerequisite as prerequisite
 
 
@@ -35,7 +32,9 @@ def test_reports_the_resolved_executable_and_version(
 ) -> None:
     monkeypatch.setattr(prerequisite, "_WHICH", lambda _name: "/usr/local/bin/aws")
     monkeypatch.setattr(
-        prerequisite, "_RUN", lambda *_a, **_k: _Result(0, "aws-cli/2.34.55 \n"),
+        prerequisite,
+        "_RUN",
+        lambda *_a, **_k: _Result(0, "aws-cli/2.34.55 \n"),
     )
 
     cli = prerequisite.check_aws_cli()
@@ -133,13 +132,15 @@ def _refuse(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_aws_preflight_reports_a_ready_machine(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(
         prerequisite,
         "check_aws_cli",
         lambda: prerequisite.AwsCli(
-            executable="/usr/local/bin/aws", version="aws-cli/2.34.55",
+            executable="/usr/local/bin/aws",
+            version="aws-cli/2.34.55",
         ),
     )
 
@@ -148,7 +149,8 @@ def test_aws_preflight_reports_a_ready_machine(
 
 
 def test_aws_preflight_refuses_with_the_recovery_step(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     _refuse(monkeypatch)
 
@@ -159,20 +161,24 @@ def test_aws_preflight_refuses_with_the_recovery_step(
 
 
 def test_aws_exec_refuses_before_running_a_missing_executable(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     fake_deploy_remote = types.SimpleNamespace(
         aws_machine_capability_env=lambda project, region: {"AWS_REGION": region},
     )
     monkeypatch.setattr(
-        aws_adapter.importlib, "import_module", lambda _name: fake_deploy_remote,
+        aws_adapter.importlib,
+        "import_module",
+        lambda _name: fake_deploy_remote,
     )
     monkeypatch.setattr(aws_adapter, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(
         aws_adapter,
         "call_dispatcher",
         lambda **_k: types.SimpleNamespace(
-            success=True, result={"settings_json": '{"region": "us-east-1"}'},
+            success=True,
+            result={"settings_json": '{"region": "us-east-1"}'},
             error=None,
         ),
     )
@@ -187,19 +193,3 @@ def test_aws_exec_refuses_before_running_a_missing_executable(
     err = capsys.readouterr().err
     assert "not installed" in err
     assert "Verify with: aws --version" in err
-
-
-def test_vps_refuses_with_the_named_reason_instead_of_a_traceback(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def _never_runs(*_args, **_kwargs):
-        raise AssertionError("a subprocess was started without the AWS CLI")
-
-    monkeypatch.setattr(vps_adapter.subprocess, "run", _never_runs)
-    _refuse(monkeypatch)
-
-    with pytest.raises(vps_adapter.VpsPowerError) as caught:
-        vps_adapter._aws(["ec2", "describe-instances"], {})
-
-    assert "not installed" in str(caught.value)
-    assert "Install it:" in str(caught.value)

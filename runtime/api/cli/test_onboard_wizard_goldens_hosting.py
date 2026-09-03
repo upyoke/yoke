@@ -22,7 +22,6 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     render,
 )
 from yoke_cli.config import aws_admin_capability  # noqa: E402
-from yoke_cli.config import aws_cli_prerequisite  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 
 _TITLE = "yoke onboard · Hosting"
@@ -37,19 +36,14 @@ _STUB_IDENTITY = "yoke-aws-admin"
 @pytest.fixture(autouse=True)
 def _pin_build_and_home(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        aws_admin_capability, "build_version", lambda: _PINNED_VERSION,
+        aws_admin_capability,
+        "build_version",
+        lambda: _PINNED_VERSION,
     )
     monkeypatch.setattr(
-        aws_admin_capability, "default_region", lambda: "us-east-1",
-    )
-    # Choosing AWS preflights the CLI, so the gate renders the same screen on a
-    # machine with the executable and one without.
-    monkeypatch.setattr(
-        aws_cli_prerequisite,
-        "check_aws_cli",
-        lambda: aws_cli_prerequisite.AwsCli(
-            executable="/usr/local/bin/aws", version="aws-cli/2.0.0",
-        ),
+        aws_admin_capability,
+        "default_region",
+        lambda: "us-east-1",
     )
     # The custody line names the secrets directory; anchor it off a fixed home
     # so the rendered path is machine-independent.
@@ -92,7 +86,8 @@ def test_hosting_verified() -> None:
         _seed_project(a)
         a._goto_hosting_verified(
             aws_admin_capability.CallerIdentity(
-                account=_STUB_ACCOUNT, identity=_STUB_IDENTITY,
+                account=_STUB_ACCOUNT,
+                identity=_STUB_IDENTITY,
             )
         )
 

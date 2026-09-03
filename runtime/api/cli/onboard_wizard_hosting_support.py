@@ -15,7 +15,6 @@ import pytest
 from textual.widgets import Input, Static
 
 from yoke_cli.config import aws_admin_capability as hosting
-from yoke_cli.config import aws_cli_prerequisite
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
 
@@ -30,18 +29,6 @@ IDENTITY = "yoke-aws-admin"
 @pytest.fixture(autouse=True)
 def _stub_path_doctor(monkeypatch):
     stub_path_doctor(monkeypatch)
-
-
-@pytest.fixture(autouse=True)
-def _aws_cli_present(monkeypatch):
-    """Every scenario runs as if the machine has a working AWS CLI.
-
-    The AWS branch preflights the executable before it asks for anything, so
-    without this the suite would assert the credential screens on a machine
-    that has the CLI and the prerequisite refusal on one that does not. The
-    refusal itself is driven explicitly by :func:`stub_aws_cli_missing`.
-    """
-    stub_aws_cli(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
@@ -83,23 +70,16 @@ async def reach_provider_screen(app, pilot) -> None:
 
 
 async def reach_aws_sign_in_screen(app, pilot) -> None:
-    """Open the AWS-only sign-in choice from the provider level.
-
-    Choosing AWS runs the CLI preflight on a worker thread, so the wait is what
-    makes the screen under test the screen that is up when this returns.
-    """
+    """Open the AWS-only sign-in choice from the provider level."""
     await reach_provider_screen(app, pilot)
     app._on_hosting_provider_choice("aws")
-    await app.workers.wait_for_complete()
     await pilot.pause()
 
 
 async def reach_credential_screen(app, pilot, *, guided: bool = True) -> None:
     """Open guided or existing-key entry through both choice levels."""
     await reach_aws_sign_in_screen(app, pilot)
-    app._on_hosting_aws_sign_in_choice(
-        "create-key" if guided else "existing-key"
-    )
+    app._on_hosting_aws_sign_in_choice("create-key" if guided else "existing-key")
     await pilot.pause()
 
 
@@ -117,38 +97,6 @@ async def paste_credentials(
     app._on_hosting_credential_choice("connect")
 
 
-def stub_aws_cli(
-    monkeypatch,
-    *,
-    executable: str = "/usr/local/bin/aws",
-    version: str = "aws-cli/2.0.0",
-) -> None:
-    """Report a working AWS CLI without running one."""
-    monkeypatch.setattr(
-        aws_cli_prerequisite,
-        "check_aws_cli",
-        lambda: aws_cli_prerequisite.AwsCli(
-            executable=executable, version=version,
-        ),
-    )
-
-
-def stub_aws_cli_missing(
-    monkeypatch,
-    *,
-    code: str = "aws-cli-missing",
-    message: str = "The AWS CLI is not installed on this machine.",
-    detail_lines: tuple[str, ...] = ("Install it: <installer command>",),
-) -> None:
-    """Refuse the AWS CLI preflight the way a clean host does."""
-    def _check():
-        raise aws_cli_prerequisite.AwsCliPrerequisiteError(
-            code, message, detail_lines,
-        )
-
-    monkeypatch.setattr(aws_cli_prerequisite, "check_aws_cli", _check)
-
-
 def stub_identity(
     monkeypatch,
     *,
@@ -157,6 +105,7 @@ def stub_identity(
     failure: BaseException | None = None,
 ) -> None:
     """Replace the facade seam; no SDK, executable, or real secret is used."""
+
     def _verify(_project_slug: str, _region: str) -> hosting.CallerIdentity:
         if failure is not None:
             raise failure

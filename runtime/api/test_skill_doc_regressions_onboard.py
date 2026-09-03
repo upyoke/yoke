@@ -235,9 +235,7 @@ def test_onboard_profile_always_carries_a_test_setup_box():
 def test_onboard_binds_the_confirmed_test_setup_to_the_gate():
     """AC-bearing gate commands come from the binding, not from prose."""
     text = _read(ONBOARD_DIR / "verification-binding.md")
-    assert (
-        "yoke qa registered-command set --project {project} --scope quick" in text
-    )
+    assert "yoke qa registered-command set --project {project} --scope quick" in text
     assert "--scope full" in text
     assert "--cap-type ci_workflow_file" in text
     assert "verification-command-binding=configured" in text
@@ -251,7 +249,7 @@ def test_onboard_teaches_hosting_probe_and_stdin_secrets():
     # step reads both before asking for anything: an operator whose pair is
     # already on disk must never be asked to paste it again.
     assert "yoke aws admin-status --project {project} --json" in text
-    assert "yoke aws exec --project {project} -- sts get-caller-identity" in text
+    assert "in-process caller-identity probe" in text
     assert "yoke projects capability secret set" in text
     assert "--value-stdin" in text
     assert "app-binding" in text
@@ -274,9 +272,7 @@ def test_onboard_fills_only_the_missing_aws_admin_half():
 
 def test_onboard_teaches_environment_and_flow_registration():
     text = _read(ONBOARD_DIR / "hosting-and-environments.md")
-    assert (
-        "yoke projects site create --project {project} --site {site_name}" in text
-    )
+    assert "yoke projects site create --project {project} --site {site_name}" in text
     assert "yoke projects environment create" in text
     assert "--environment stage" in text
     assert "--environment prod" in text
@@ -290,7 +286,8 @@ def test_onboard_teaches_environment_and_flow_registration():
     assert "none of it is contractual" in text
     assert "reconcile-project" not in text
     patch_commands = [
-        line for line in text.splitlines()
+        line
+        for line in text.splitlines()
         if line.startswith("yoke project-structure patch apply ")
     ]
     # hosting posture, two deploy-default branches, project-wide policy rows,
