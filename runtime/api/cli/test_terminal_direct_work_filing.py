@@ -12,7 +12,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     _patch_externals,
     tmp_db,  # noqa: F401 — re-exported pytest fixture
 )
-from yoke_cli.commands.adapters import dash, task
+from yoke_cli.commands.adapters import dash_file, task
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.domain import backlog_create_op
 
@@ -29,7 +29,7 @@ def test_item_create_is_registered_for_sessionless_terminal_filing():
 
 @pytest.mark.parametrize(
     ("file_command", "workflow"),
-    ((dash.dash_file, "dash"), (task.task_file, "task")),
+    ((dash_file.dash_file, "dash"), (task.task_file, "task")),
 )
 def test_direct_work_filing_without_harness_session(
     file_command,

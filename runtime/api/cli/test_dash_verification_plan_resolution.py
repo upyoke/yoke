@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.commands.adapters import dash, dash_verification_plan
+from yoke_cli.commands.adapters import dash_file, dash_verification_plan
 from yoke_cli.commands import direct_workflow_worktree
 from yoke_core.api import service_client_structured_api_adapter
 from yoke_core.domain import direct_workflow_worktree_preflight
@@ -40,7 +40,7 @@ def _capture_filing(monkeypatch: pytest.MonkeyPatch) -> dict:
         captured.update(kwargs)
         return 0
 
-    monkeypatch.setattr(dash, "dispatch_and_emit", _dispatch)
+    monkeypatch.setattr(dash_file, "dispatch_and_emit", _dispatch)
     return captured
 
 
@@ -54,7 +54,7 @@ def test_dash_filing_resolves_plan_slug_within_item_project(
     captured = _capture_filing(monkeypatch)
 
     assert (
-        dash.dash_file(
+        dash_file.dash_file(
             [
                 "Title",
                 "Instruction",
@@ -86,7 +86,7 @@ def test_dash_filing_keeps_integer_plan_id_without_catalog_lookup(
     )
     captured = _capture_filing(monkeypatch)
 
-    assert dash.dash_file(["Title", "Instruction", "--verification-plan", "38"]) == 0
+    assert dash_file.dash_file(["Title", "Instruction", "--verification-plan", "38"]) == 0
     assert captured["payload"]["workflow_posture"]["verification"]["plan_id"] == 38
 
 
@@ -97,7 +97,7 @@ def test_unknown_plan_slug_names_slug_and_project(
     _plan_roster(monkeypatch, [])
 
     assert (
-        dash.dash_file(
+        dash_file.dash_file(
             [
                 "Title",
                 "Instruction",
@@ -128,7 +128,7 @@ def test_ambiguous_plan_slug_lists_every_candidate(
     )
 
     assert (
-        dash.dash_file(
+        dash_file.dash_file(
             [
                 "Title",
                 "Instruction",
