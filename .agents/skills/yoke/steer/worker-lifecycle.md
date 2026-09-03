@@ -222,6 +222,15 @@ did not carry from the events ledger:
 yoke events query --event-name SteeringReportSkipped --session WORKER-SESSION-ID
 ```
 
+Every launched worker, whatever its origin, is a headless command, so the
+mandate also tells it that a merge-queue landing is not a place to stop. The
+handoff route — end the pass on `landing_pending=true`, re-enter on the
+landing-complete message — needs a session that can be prompted again, and a
+launched one cannot be. Seven items in one night landed their branches and sat
+at `reviewing-implementation` waiting for a re-entry nobody could make. A
+launched worker holds the turn on the in-turn landing wait instead, and only
+the poll budget running out ends that turn, parked with the state it observed.
+
 A session the operator launched, and a session a person opened, are both
 outside the relay: they reach whichever seat holds their scope with
 `yoke say --steering` when there is something that seat must act on. That
@@ -232,6 +241,8 @@ design discussion turn by turn.
 {ROUTED_ENTRYPOINT}
 
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
+
+You are a headless command that cannot be prompted again, so a merge-queue landing is not a place to stop. When your merge returns landing_pending=true, do not end the pass on it: pass --wait and hold the turn on the merge watcher wrapper the way your skill's merge step spells out. Merged closes the item out in that same turn; a stopped landing rebases, re-runs the verification gate, and re-runs the same command; only the poll budget running out ends the turn, and then you stamp `yoke sessions touch --mode parked --reason "<observed landing state>"` and report a HUMAN_GATE naming the pull request, that reading, and the resume command. Never end a turn on a landing you did not read.
 
 Your DONE report IS the last assistant text of the turn you stop on: the Stop hook delivers that text to the steering seat automatically, once, and it still reaches the seat after close-out released your item claim. Write that text as the report — lead with `DONE <item> <one-line summary>`, then what landed, what is blocked, what you need — and never re-send it with `yoke say`. Keep `yoke say` for what cannot wait for a turn end. Only a turn that names something to act on — a failure, a blocker, a conflict, a decision, a question, or a terminal outcome — is delivered; a turn ending in a wait, a status verb, or a progress note is recorded on the ledger as SteeringReportSkipped instead, so stopping on one costs the seat nothing and tells it nothing either.
 ```

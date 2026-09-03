@@ -214,12 +214,18 @@ A preflight refusal whose only issues are missing or stale commit-bound verdicts
 
 **Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it runs under the watcher wrapper. `yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --skip-status` prints the background + Monitor pair.
 
-**Queue handoff:** Codex/Cursor may append `--wait` after `--skip-status` and
-keep the existing inline flow. Claude never passes `--wait`. Its default
-queue call exits successfully with `landing_pending=true`; retain the claim
-and `release` status, end this usher pass, and re-enter after the
-landing-complete message. Do not begin deployment until a re-entry returns a
-real `merge_sha` with `landing_pending=false` or absent.
+**Queue handoff:** the default queue call exits successfully with
+`landing_pending=true`. An operator-opened session retains the claim and
+`release` status, ends this usher pass, and re-enters after the
+landing-complete message. A session launched from a worker mandate cannot
+accept that later prompt, so it appends `--wait` after `--skip-status` and
+holds the turn on the merge watcher wrapper instead, exactly as
+[`../dash/verification-and-close.md`](../dash/verification-and-close.md)
+step 7 spells out — merged closes out in the same turn, a stopped landing
+rebases and re-gates, and only the poll budget running out parks with the
+state it observed. Never block a bare foreground call on the full wait. Do
+not begin deployment until a re-entry (or the wait) returns a real
+`merge_sha` with `landing_pending=false` or absent.
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.
 

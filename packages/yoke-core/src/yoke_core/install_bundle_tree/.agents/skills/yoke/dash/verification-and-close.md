@@ -162,11 +162,17 @@ registered claim.
 
 ### 7. Merge, record evidence, and finish
 
-Merge-queue projects use a two-call handoff by default. The first call opens /
-rebases / arms the pull request, returns `landing_pending=true`, and leaves the
-claim and item non-terminal; end this execution pass. `landing_pending=true`
-means GitHub itself reported that it holds the landing — armed or already
-queued, still mergeable, and with none of its own required checks already
+Merge-queue projects have two landing routes, and which one this session takes
+is settled by whether it can be prompted again. A session a person opened takes
+the two-call handoff. A session launched from a worker mandate is a headless
+command that cannot accept a later prompt, so it takes the in-turn wait below:
+ending a launched worker's pass on `landing_pending=true` strands the close-out,
+leaving the branch landed and the item at `reviewing-implementation` with nobody
+to re-enter.
+
+Either way the first call opens / rebases / arms the pull request and returns
+`landing_pending=true`, which means GitHub itself reported that it holds the
+landing — armed or already queued, still mergeable, and with none of its own required checks already
 red — read back rather than inferred from the arming request succeeding.
 GitHub creates the queue entry only once those checks pass, so
 armed-and-not-yet-queued is the ordinary state here; an arming that never
@@ -175,7 +181,9 @@ checks have already concluded red each refuse instead and name which of
 those four it saw. A red required check refuses before anything is armed,
 and names the check and its run.
 
-Exactly one of two control-plane messages then ends that wait. **Landing
+**Two-call handoff — an operator-opened session.** The first call leaves the
+claim and item non-terminal; end this execution pass. Exactly one of two
+control-plane messages then ends that wait. **Landing
 complete**: re-enter the same command to close out. **Landing stopped**:
 GitHub is no longer going to land it (its base moved and it went dirty, it
 was closed, its arming was cleared without a merge, one of its required
@@ -190,11 +198,43 @@ the head origin holds and the queue will build. If that push cannot happen,
 the command refuses with the remote head, the unpublished local commits, and
 the exact `git push --force-with-lease` recovery — it never reports the new
 SHA while origin still holds the old one.
-Codex and Cursor may add `--wait` to keep both phases inline when their process
-is safe for the full wait. Claude must never pass `--wait`. `--wait` returns
-immediately with a terminal failure when the pull request's required checks
-have already concluded red and nothing is in flight for that head sha; the
-poll budget applies only while checks or the train are genuinely pending.
+
+**In-turn wait — a launched worker.** Pass `--wait` and hold this turn on it
+through the merge watcher wrapper. That wrapper polls the same four-fact landing
+readback the handoff observer reads (armed, queued, eligible, required checks)
+on the documented cadence, streams each reading, and writes the exit sentinel
+that ends the follow — so a launched worker never needs a hand-authored `gh`
+poll loop, and never blocks a bare foreground call on the full wait:
+
+```text
+yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \
+  --result "<what changed>" --verification "<checks and evidence>"
+```
+
+Run the printed pair on the long-command surface your harness session rules
+name, and stay in this turn until it exits. Every way it ends is named, and
+none of them is silence:
+
+- **merged** — exit 0. That same command already recorded the evidence and
+  closed the item out in this turn; continue at the guardrail-denial report
+  below.
+- **landing stopped** — exit 9, naming what GitHub reported and the recovery:
+  usually rebase the lane onto the base branch, re-run the verification gate,
+  and re-run the same command, which re-arms it. Re-running is safe — it
+  converges on the merge if one happened meanwhile.
+- **a required check already red** — exit 1, terminal for this tree. Fix the
+  check, re-run the verification gate, then re-run the landing.
+- **poll budget exhausted** — exit 9 with the last observed reading and the
+  exact resume command. Do not re-arm blindly and do not stop quietly: stamp
+  `yoke sessions touch --mode parked --reason "<observed landing state>"`, then
+  end the turn with a `HUMAN_GATE` report naming the pull request, that reading,
+  and the resume command. The item stays non-terminal and the claim stays held,
+  so the seat or operator resumes exactly where this left off.
+
+`--wait` returns immediately with a terminal failure when the pull request's
+required checks have already concluded red and nothing is in flight for that
+head sha; the poll budget applies only while checks or the train are genuinely
+pending.
 
 When deployment posture is selected, merge first without closing out, so the
 item-bound deployment can run against the recorded merge identity:

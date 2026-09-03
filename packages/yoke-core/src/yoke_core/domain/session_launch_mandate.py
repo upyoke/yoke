@@ -52,6 +52,20 @@ _REMAINING_LEGS = {
 }
 
 
+HEADLESS_LANDING_WAIT_TEACHING = (
+    "You are a headless command that cannot be prompted again, so a "
+    "merge-queue landing is not a place to stop. When your merge returns "
+    "landing_pending=true, do not end the pass on it: pass --wait and hold "
+    "the turn on the merge watcher wrapper the way your skill's merge step "
+    "spells out. Merged closes the item out in that same turn; a stopped "
+    "landing rebases, re-runs the verification gate, and re-runs the same "
+    "command; only the poll budget running out ends the turn, and then you "
+    'stamp `yoke sessions touch --mode parked --reason "<observed landing '
+    'state>"` and report a HUMAN_GATE naming the pull request, that reading, '
+    "and the resume command. Never end a turn on a landing you did not read."
+)
+
+
 TURN_END_RELAY_TEACHING = (
     "Your DONE report IS the last assistant text of the turn you stop on: "
     "the Stop hook delivers that text to the steering seat automatically, "
@@ -104,6 +118,13 @@ def compose_single_item_mandate(
     covers exactly the sessions a seat launched. Teaching it to an
     operator-launched worker would promise a delivery that never happens.
 
+    The landing teaching, by contrast, is unconditional: every composed
+    mandate belongs to a launched CLI session, and a launched session of
+    any origin is a headless command that cannot be re-entered on the
+    landing-complete message. A worker that stopped on that handoff left
+    its branch landed and its item at reviewing-implementation with
+    nobody to close it out, seven times in one night.
+
     That worker is also the only one given a manual DONE step. Handing a
     relayed worker both routes is what delivered the same report twice in
     one day: its turn-end text reached the seat, and so did the `yoke say`
@@ -127,6 +148,7 @@ def compose_single_item_mandate(
         f"instead. {close} If your claim is swept mid-work, reacquire and "
         "continue."
     )
+    mandate = f"{mandate}\n\n{HEADLESS_LANDING_WAIT_TEACHING}"
     if steering_launched:
         mandate = f"{mandate}\n\n{TURN_END_RELAY_TEACHING}"
     extra = extras.strip()
@@ -232,6 +254,7 @@ def launch_request_for_create(
 
 
 __all__ = [
+    "HEADLESS_LANDING_WAIT_TEACHING",
     "TURN_END_RELAY_TEACHING",
     "compose_item_launch_instructions",
     "compose_single_item_mandate",

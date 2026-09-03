@@ -98,8 +98,11 @@ def _build_parser() -> argparse.ArgumentParser:
         ("--pr", "Merge through a pull request."),
         (
             "--wait",
-            "Wait for queue landing inline. Red required checks return "
-            "immediately; the poll budget is for pending checks or trains.",
+            "Wait for queue landing inline, instead of the enqueue-and-"
+            "re-enter handoff. A launched headless worker uses this: it "
+            "cannot be prompted on the landing-complete message. Red "
+            "required checks return immediately; the poll budget is for "
+            "pending checks or trains.",
         ),
     )
     for flag, help_text in boolean_options:
