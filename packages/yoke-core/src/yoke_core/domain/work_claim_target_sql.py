@@ -15,6 +15,7 @@ from yoke_core.domain.sql_json import json_get
 from yoke_core.domain.work_claim_targets import (
     ALL_TARGET_KINDS,
     STICKY_TARGET_KINDS,
+    TARGET_KIND_DEPLOY_SERIALIZATION,
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_PROCESS,
     WorkClaimTarget,
@@ -41,12 +42,14 @@ def liveness_bound_clause(alias: str = "") -> str:
 
 
 #: Scope keys that form a kind's exclusivity unit when it is narrower than
-#: the whole scope. A process claim conflicts on its conflict group, and a
-#: migration-serialization claim on the model it serializes — the rest of
-#: each scope records who holds it, not what is held.
+#: the whole scope. A process claim conflicts on its conflict group, a
+#: migration-serialization claim on the model it serializes, and a
+#: deploy-serialization claim on the project id alone — the rest of each
+#: scope records who holds it or how it is addressed, not what is held.
 _CONFLICT_KEYS = {
     TARGET_KIND_PROCESS: ("conflict_group",),
     TARGET_KIND_MIGRATION_SERIALIZATION: ("project_id", "model"),
+    TARGET_KIND_DEPLOY_SERIALIZATION: ("project_id",),
 }
 
 

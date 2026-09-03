@@ -6,6 +6,7 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.work_claim_targets import (
+    make_deploy_serialization_target,
     make_migration_serialization_target,
     make_qa_admission_target,
     make_route_qualification_target,
@@ -65,12 +66,17 @@ def qualification_target(project_id: int = PROJECT_YOKE, grant_key: str = GRANT_
     return make_route_qualification_target(project_id, grant_key)
 
 
+def deploy_target(project_id: int = PROJECT_YOKE, slug: str = "yoke"):
+    return make_deploy_serialization_target(project_id, slug)
+
+
 __all__ = [
     "GRANT_KEY",
     "MACHINE",
     "MODEL",
     "PROJECT_OTHER",
     "PROJECT_YOKE",
+    "deploy_target",
     "migration_target",
     "qa_target",
     "qualification_target",

@@ -310,8 +310,18 @@ CLI-only, never a hand-rolled spawn and never `/yoke do`.
 
 Workers merge but never create or dispatch deployment runs. The steerer owns
 batch delivery through the **prod control-plane** db-admin connection, even
-when the target environment is stage. Pin one source SHA and use that same SHA
-for stage and production:
+when the target environment is stage.
+
+**Take the project's deploy lock before the first run and hold it through the
+whole pair.** Creating a run and executing one both refuse without it, so one
+seat drives a project's deployments and a stage promotion cannot overtake the
+production promotion it precedes:
+
+```text
+yoke claims coordination-claim acquire --project {_project} --key DEPLOY:{_project} --reason "driving the release pair"
+```
+
+Pin one source SHA and use that same SHA for stage and production:
 
 ```text
 yoke --env <cp>-db-admin deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA}
@@ -335,6 +345,17 @@ yoke watch merge done-transition -- PREFIX-N
 Release the claim only if the ceremony did not already release it. An item
 parked at release still holds path claims and blocks dependents until this
 ceremony finishes.
+
+Then release the deploy lock, so the next seat can drive:
+
+```text
+yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "release pair complete"
+```
+
+Nothing reclaims that lock automatically — the pipeline outlives its local
+driver — so a hold stranded by a dead seat is freed by the human-only
+`yoke coordination-claim release --project P --key DEPLOY:P --reason "..."`,
+which records a WARN `OperatorLeaseRelease`.
 
 ### 7. Keep the document current
 

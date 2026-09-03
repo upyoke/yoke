@@ -12,6 +12,9 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
+
+from runtime.api.engines.runs_start_for_item_test_support import _patches
 from yoke_core.engines import runs_start_for_item as composer
 from yoke_core.engines.runs_start_for_item import (
     PHASE_ADD_ITEM,
@@ -24,45 +27,16 @@ from yoke_core.engines.runs_start_for_item import (
 )
 
 
-def _patches(
-    *,
-    item_row=("yoke", "to-prod"),
-    target=("persistent", 101, "prod"),
-    run_id="2026-05-19-001",
-    add_item_ret="OK",
-    validate_ret=(True, "ok"),
-    resolve_raises=None,
-    create_raises=None,
-    add_raises=None,
-    validate_raises=None,
-):
-    """Return a tuple of mock patches covering the composer's helpers."""
-    helpers = mock.patch.object(
-        composer,
-        "_lookup_item_project_and_flow",
-        return_value=item_row,
-    )
-    resolve = mock.patch.object(
-        composer, "cmd_resolve_target",
-        side_effect=resolve_raises if resolve_raises else None,
-        return_value=target,
-    )
-    create = mock.patch.object(
-        composer, "cmd_create_run",
-        side_effect=create_raises if create_raises else None,
-        return_value=run_id,
-    )
-    add = mock.patch.object(
-        composer, "cmd_add_item",
-        side_effect=add_raises if add_raises else None,
-        return_value=add_item_ret,
-    )
-    validate = mock.patch.object(
-        composer, "cmd_validate_composition",
-        side_effect=validate_raises if validate_raises else None,
-        return_value=validate_ret,
-    )
-    return helpers, resolve, create, add, validate
+@pytest.fixture(autouse=True)
+def holding_the_deploy_lock():
+    """Run every composer test as the session that holds the deploy lock.
+
+    The gate opens a control-plane connection, which this mocked surface
+    deliberately does not have. The lock's own behavior is covered by the
+    two tests at the end of this module, which override this.
+    """
+    with mock.patch.object(composer, "deploy_lock_refusal", return_value=None):
+        yield
 
 
 def test_success_returns_structured_handle():

@@ -18,6 +18,7 @@ TARGET_KIND_STEERING = "steering"
 TARGET_KIND_MIGRATION_SERIALIZATION = "migration_serialization"
 TARGET_KIND_QA_ADMISSION = "qa_admission"
 TARGET_KIND_ROUTE_QUALIFICATION = "route_qualification"
+TARGET_KIND_DEPLOY_SERIALIZATION = "deploy_serialization"
 ALL_TARGET_KINDS = (
     TARGET_KIND_ITEM,
     TARGET_KIND_EPIC_TASK,
@@ -26,6 +27,7 @@ ALL_TARGET_KINDS = (
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_ROUTE_QUALIFICATION,
+    TARGET_KIND_DEPLOY_SERIALIZATION,
 )
 
 #: The strategy document a steering seat is narrowed to, when it has one.
@@ -41,6 +43,9 @@ REQUIRED_SCOPE_KEYS = {
     ),
     TARGET_KIND_QA_ADMISSION: frozenset({"machine_id"}),
     TARGET_KIND_ROUTE_QUALIFICATION: frozenset({"project_id", "grant_key"}),
+    TARGET_KIND_DEPLOY_SERIALIZATION: frozenset(
+        {"project_id", "project_slug"}
+    ),
 }
 
 OPTIONAL_SCOPE_KEYS = {
@@ -121,6 +126,14 @@ def normalize_scope(kind: str, scope: Mapping[str, Any]) -> Dict[str, Any]:
             "project_id": positive_integer(raw["project_id"], "project_id"),
             "grant_key": nonempty_text(raw["grant_key"], "grant_key"),
         }
+    if kind == TARGET_KIND_DEPLOY_SERIALIZATION:
+        # The slug rides in the scope so the operator key renders without a
+        # database read, while exclusivity stays on the project id alone: a
+        # rename cannot hand out a second live lock.
+        return {
+            "project_id": positive_integer(raw["project_id"], "project_id"),
+            "project_slug": nonempty_text(raw["project_slug"], "project_slug"),
+        }
     steering = {"project_id": positive_integer(raw["project_id"], "project_id")}
     if STEERING_DOCUMENT_KEY in raw:
         steering[STEERING_DOCUMENT_KEY] = nonempty_text(
@@ -134,6 +147,7 @@ __all__ = [
     "OPTIONAL_SCOPE_KEYS",
     "REQUIRED_SCOPE_KEYS",
     "STEERING_DOCUMENT_KEY",
+    "TARGET_KIND_DEPLOY_SERIALIZATION",
     "TARGET_KIND_EPIC_TASK",
     "TARGET_KIND_ITEM",
     "TARGET_KIND_MIGRATION_SERIALIZATION",

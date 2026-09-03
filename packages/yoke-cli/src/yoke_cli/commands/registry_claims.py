@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands.adapters.claims_coordination_claim import (
+    claims_coordination_claim_acquire,
     claims_coordination_claim_list,
+    claims_coordination_claim_release,
 )
 from yoke_cli.commands.adapters.claims_steering import (
     claims_steering_acquire,
@@ -31,9 +33,17 @@ CLAIMS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "claims.steering.list",
         claims_steering_list,
     ),
+    ("claims", "coordination-claim", "acquire"): (
+        "claims.coordination_claim.acquire",
+        claims_coordination_claim_acquire,
+    ),
     ("claims", "coordination-claim", "list"): (
         "claims.coordination_claim.list",
         claims_coordination_claim_list,
+    ),
+    ("claims", "coordination-claim", "release"): (
+        "claims.coordination_claim.release",
+        claims_coordination_claim_release,
     ),
     ("steering", "report", "get"): (
         "steering.report.get",

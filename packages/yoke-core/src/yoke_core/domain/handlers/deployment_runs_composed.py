@@ -42,6 +42,7 @@ def handle_deployment_run_start_for_item(
         environment=(payload.get("environment") or None),
         release_lineage=(payload.get("release_lineage") or None),
         created_by=created_by,
+        session_id=request.actor.session_id,
     )
     if not result.ok:
         suffix = f"; run_id={result.run_id}" if result.run_id else ""

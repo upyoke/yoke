@@ -15,15 +15,18 @@ from typing import Any, Optional
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_KEY_PREFIXES as _PREFIXES,
     COORDINATION_TARGET_KINDS,
+    DEPLOY_KEY_PREFIX,
     MIGRATION_KEY_PREFIX,
     QA_HOST_KEY_PREFIX,
     QUALIFICATION_KEY_PREFIX,
 )
 from yoke_core.domain.work_claim_targets import (
+    TARGET_KIND_DEPLOY_SERIALIZATION,
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_ROUTE_QUALIFICATION,
     WorkClaimTarget,
+    make_deploy_serialization_target,
     make_migration_serialization_target,
     make_qa_admission_target,
     make_route_qualification_target,
@@ -48,6 +51,7 @@ def target_for_key(
     *,
     project_id: int,
     item_id: Optional[int] = None,
+    project_slug: Optional[str] = None,
 ) -> WorkClaimTarget:
     """Resolve one operator key to its typed target.
 
@@ -55,6 +59,11 @@ def target_for_key(
     required only for migration territory, whose scope records the item
     that owns the hold; a lookup that does not know the owner passes the
     placeholder and matches on the exclusivity unit instead.
+
+    A ``DEPLOY:`` key names the project twice — once as the caller's
+    ``project_id`` and once as the slug in the key — so a mismatch is
+    refused here rather than silently locking whichever one the caller
+    happened to resolve.
     """
     kind = kind_for_key(key)
     if kind == TARGET_KIND_ROUTE_QUALIFICATION:
@@ -69,6 +78,16 @@ def target_for_key(
         )
     if kind == TARGET_KIND_QA_ADMISSION:
         return make_qa_admission_target(str(key)[len(QA_HOST_KEY_PREFIX):])
+    if kind == TARGET_KIND_DEPLOY_SERIALIZATION:
+        slug = str(key)[len(DEPLOY_KEY_PREFIX):]
+        if project_slug is not None and slug != project_slug:
+            raise CoordinationKeyError(
+                f"{key!r} names project {slug!r} but the call resolved "
+                f"project {project_slug!r} (id {project_id}). Pass "
+                f"--key {DEPLOY_KEY_PREFIX}{project_slug} to lock that "
+                "project, or name the other project with --project."
+            )
+        return make_deploy_serialization_target(project_id, slug)
     raise CoordinationKeyError(
         f"{key!r} names no shared-operation resource; expected one of "
         + ", ".join(f"{prefix}…" for prefix, _ in _PREFIXES)
@@ -83,6 +102,8 @@ def key_for_target(target: WorkClaimTarget) -> str:
         return f"{QA_HOST_KEY_PREFIX}{target.machine_id}"
     if target.kind == TARGET_KIND_ROUTE_QUALIFICATION:
         return f"{QUALIFICATION_KEY_PREFIX}{target.grant_key}"
+    if target.kind == TARGET_KIND_DEPLOY_SERIALIZATION:
+        return f"{DEPLOY_KEY_PREFIX}{target.project_slug}"
     raise CoordinationKeyError(
         f"{target.kind!r} is not a shared-operation claim kind"
     )
@@ -98,6 +119,7 @@ def key_for_row(row: Any) -> str:
 __all__ = [
     "COORDINATION_TARGET_KINDS",
     "CoordinationKeyError",
+    "DEPLOY_KEY_PREFIX",
     "MIGRATION_KEY_PREFIX",
     "QA_HOST_KEY_PREFIX",
     "QUALIFICATION_KEY_PREFIX",
