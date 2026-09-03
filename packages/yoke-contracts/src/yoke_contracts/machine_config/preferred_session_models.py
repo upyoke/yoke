@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
 from yoke_contracts.machine_config.preferred_session_model_config import (
     PREFERRED_SESSION_MODELS_KEY,
@@ -17,12 +17,10 @@ from yoke_contracts.machine_config.preferred_session_model_config import (
     seed_preferred_session_models,
     validate_preferred_session_models,
 )
-from yoke_contracts.session_control.model_selection import (
-    LaunchModelSelection,
-    model_catalog,
-    validate_launch_model_selection,
-)
 from yoke_contracts.session_model_facts import CLAUDE_CONTEXT_TIER_TOKENS
+
+if TYPE_CHECKING:
+    from yoke_contracts.session_control.model_selection import LaunchModelSelection
 
 
 VENDOR_DEFAULT_SOURCE = "vendor default"
@@ -38,6 +36,8 @@ class ResolvedLaunchSelection:
     sources: Mapping[str, str]
 
     def selection(self) -> LaunchModelSelection:
+        from yoke_contracts.session_control.model_selection import LaunchModelSelection
+
         return LaunchModelSelection(
             self.model,
             self.reasoning_effort,
@@ -57,6 +57,11 @@ def resolve_launch_selection(
     payload: Mapping[str, Any] | None = None,
 ) -> ResolvedLaunchSelection:
     """Resolve each knob independently: explicit, configured, vendor default."""
+    from yoke_contracts.session_control.model_selection import (
+        LaunchModelSelection,
+        validate_launch_model_selection,
+    )
+
     configured, configured_sources = configured_preferred_selection(
         payload if payload is not None else _load_payload(),
         surface,
@@ -99,11 +104,14 @@ def resolve_launch_selection(
 def list_preferred_models(surface: str | None = None) -> dict[str, Any]:
     """Return configured defaults beside each CLI's accepted launch catalog."""
     from yoke_contracts.machine_config.runtime import config_path
+    from yoke_contracts.session_control.model_selection import model_catalog
 
     payload = _load_payload()
     surfaces = (surface,) if surface else launchable_preferred_surfaces()
     entries = {
-        item: resolve_launch_selection(None, None, None, item, payload=payload).payload()
+        item: resolve_launch_selection(
+            None, None, None, item, payload=payload
+        ).payload()
         for item in surfaces
     }
     selected = None

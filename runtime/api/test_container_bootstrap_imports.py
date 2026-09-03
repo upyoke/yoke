@@ -15,8 +15,11 @@ omission fails here, in seconds, naming the package and the fix.
 from __future__ import annotations
 
 import ast
+import os
 import re
 from pathlib import Path
+import subprocess
+import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -78,9 +81,7 @@ def _imported_names(tree: ast.AST) -> set[str]:
             # `level` marks a relative import; the bootstrap tree uses absolute
             # imports, and a relative one resolves within its own package
             # anyway, so it can never reach a root the list omits.
-            if node.level or not (node.module or "").startswith(
-                _FIRST_PARTY_PREFIX
-            ):
+            if node.level or not (node.module or "").startswith(_FIRST_PARTY_PREFIX):
                 continue
             module = node.module or ""
             names.add(module)
@@ -141,3 +142,26 @@ def test_dockerfile_bootstrap_pythonpath_resolves_core_imports() -> None:
         + ". Add the owning packages/yoke-*/src directory to the "
         "RUN PYTHONPATH= list in the Dockerfile builder stage."
     )
+
+
+def test_dockerfile_bootstrap_imports_before_dependencies_install() -> None:
+    roots, entry = _parse_bootstrap_step()
+    environment = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(str(root) for root in roots),
+    }
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-S",
+            "-c",
+            f"import runpy; runpy.run_path({str(entry)!r})",
+        ],
+        capture_output=True,
+        check=False,
+        env=environment,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr

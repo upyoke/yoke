@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
-from yoke_contracts.session_control.model_selection import (
-    LaunchModelSelection,
-    LaunchModelSelectionError,
-    validate_launch_model_selection,
-)
 from yoke_contracts.session_model_facts import (
     CLAUDE_CONTEXT_TIER_SUFFIX,
     CLAUDE_CONTEXT_TIER_TOKENS,
 )
+
+if TYPE_CHECKING:
+    from yoke_contracts.session_control.model_selection import (
+        LaunchModelSelection,
+        LaunchModelSelectionError,
+    )
 
 
 PREFERRED_SESSION_MODELS_KEY = "preferred_session_models"
@@ -85,6 +86,8 @@ def seed_preferred_session_models(payload: dict[str, Any]) -> bool:
 
 
 def _selection_error(surface: str, detail: str) -> LaunchModelSelectionError:
+    from yoke_contracts.session_control.model_selection import LaunchModelSelectionError
+
     prefix = surface.replace("-cli", "").replace("-", "_")
     return LaunchModelSelectionError(
         f"{prefix}_model_invalid",
@@ -93,6 +96,8 @@ def _selection_error(surface: str, detail: str) -> LaunchModelSelectionError:
 
 
 def _decode_model_selector(surface: str, value: str) -> LaunchModelSelection:
+    from yoke_contracts.session_control.model_selection import LaunchModelSelection
+
     selector = str(value or "").strip()
     if not selector:
         return LaunchModelSelection()
@@ -144,6 +149,11 @@ def configured_preferred_selection(
     payload: Mapping[str, Any] | None,
     surface: str,
 ) -> tuple[LaunchModelSelection, dict[str, str]]:
+    from yoke_contracts.session_control.model_selection import (
+        LaunchModelSelection,
+        LaunchModelSelectionError,
+    )
+
     selector = preferred_session_models(payload).get(surface, "")
     selection = _decode_model_selector(surface, selector)
     configured_effort = preferred_session_reasoning_efforts(payload).get(surface, "")
@@ -163,9 +173,7 @@ def configured_preferred_selection(
     if selection.model:
         sources["model"] = f"{PREFERRED_SESSION_MODELS_KEY}.{surface}"
     if selection.context_window_tokens is not None:
-        sources["context_window_tokens"] = (
-            f"{PREFERRED_SESSION_MODELS_KEY}.{surface}"
-        )
+        sources["context_window_tokens"] = f"{PREFERRED_SESSION_MODELS_KEY}.{surface}"
     if effort:
         key = (
             PREFERRED_SESSION_REASONING_EFFORTS_KEY
@@ -233,6 +241,9 @@ def _validate_string_map(
 def validate_preferred_session_models(payload: Mapping[str, Any]) -> list[Any]:
     """Validate the previous-release model map plus additive effort defaults."""
     from yoke_contracts.machine_config.schema_projects import _error
+    from yoke_contracts.session_control.model_selection import (
+        validate_launch_model_selection,
+    )
 
     allowed = set(launchable_preferred_surfaces())
     issues = _validate_string_map(payload, PREFERRED_SESSION_MODELS_KEY)
