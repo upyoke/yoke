@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.migration_boot_test_helpers import connection
 from yoke_contracts import schema_authority
 from yoke_contracts.machine_config import runtime as machine_config_runtime
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
@@ -59,9 +60,7 @@ class TestConnectionDecidesAuthority:
     def test_prod_flagged_connection_is_named(self, prod_connection: None) -> None:
         assert schema_authority.prod_flagged_connection() == PROD_ENV
 
-    def test_local_connection_carries_no_refusal(
-        self, local_connection: None
-    ) -> None:
+    def test_local_connection_carries_no_refusal(self, local_connection: None) -> None:
         assert schema_authority.prod_flagged_connection() == ""
         schema_authority.refuse_without_serving_build_authority("converging")
 
@@ -85,9 +84,7 @@ class TestConnectionDecidesAuthority:
         assert PROD_ENV in message
         assert "serving_build_authority" in message
 
-    def test_refusal_is_not_an_ordinary_exception(
-        self, prod_connection: None
-    ) -> None:
+    def test_refusal_is_not_an_ordinary_exception(self, prod_connection: None) -> None:
         # The migration and convergence paths are full of blanket
         # ``except Exception`` handlers that log and continue. A refusal any
         # of them could swallow would be swallowed exactly where the silence
@@ -130,13 +127,35 @@ class TestKernelsRefuseBeforeTouchingTheDatabase:
                 model_name="",
             )
 
-    def test_stamping_a_history_as_applied_refuses(
-        self, prod_connection: None
-    ) -> None:
+    def test_stamping_a_history_as_applied_refuses(self, prod_connection: None) -> None:
         with pytest.raises(schema_authority.SchemaAuthorityRefused):
             migration_boot_apply.stamp_history(
                 None, (), ledger=YOKE_LEDGER_CONTRACT, applied_by="test"
             )
+
+    def test_stamping_uses_the_resolved_target_over_ambient_selection(
+        self,
+        prod_connection: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        target_connection = connection()
+        observed = []
+        monkeypatch.setattr(
+            migration_boot_apply.administered_postgres,
+            "administering_target",
+            lambda *, connection: observed.append(connection) or "",
+        )
+
+        assert (
+            migration_boot_apply.stamp_history(
+                target_connection,
+                (),
+                ledger=YOKE_LEDGER_CONTRACT,
+                applied_by="test",
+            )
+            == ()
+        )
+        assert observed == [target_connection]
 
 
 def _select(
@@ -179,8 +198,11 @@ class TestChildCommandsDoNotInheritAdministeringAuthority:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         _select(
-            monkeypatch, tmp_path,
-            connections=PAIRED_UNIVERSE, active_env=SERVED_ENV, override=PROD_ENV,
+            monkeypatch,
+            tmp_path,
+            connections=PAIRED_UNIVERSE,
+            active_env=SERVED_ENV,
+            override=PROD_ENV,
         )
         assert schema_authority.prod_flagged_connection() == PROD_ENV
 
@@ -194,8 +216,11 @@ class TestChildCommandsDoNotInheritAdministeringAuthority:
         # Dropping the override would leave the child resolving the same
         # administering connection through the config's own default.
         _select(
-            monkeypatch, tmp_path,
-            connections=PAIRED_UNIVERSE, active_env=PROD_ENV, override=None,
+            monkeypatch,
+            tmp_path,
+            connections=PAIRED_UNIVERSE,
+            active_env=PROD_ENV,
+            override=None,
         )
 
         env = schema_authority.environment_without_administering_selection()
@@ -206,26 +231,30 @@ class TestChildCommandsDoNotInheritAdministeringAuthority:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         _select(
-            monkeypatch, tmp_path,
-            connections=PAIRED_UNIVERSE, active_env=SERVED_ENV, override=SERVED_ENV,
+            monkeypatch,
+            tmp_path,
+            connections=PAIRED_UNIVERSE,
+            active_env=SERVED_ENV,
+            override=SERVED_ENV,
         )
 
-        assert (
-            schema_authority.environment_without_administering_selection()
-            == dict(os.environ)
+        assert schema_authority.environment_without_administering_selection() == dict(
+            os.environ
         )
 
     def test_a_local_universe_passes_through_untouched(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         _select(
-            monkeypatch, tmp_path,
-            connections=PAIRED_UNIVERSE, active_env="local", override="local",
+            monkeypatch,
+            tmp_path,
+            connections=PAIRED_UNIVERSE,
+            active_env="local",
+            override="local",
         )
 
-        assert (
-            schema_authority.environment_without_administering_selection()
-            == dict(os.environ)
+        assert schema_authority.environment_without_administering_selection() == dict(
+            os.environ
         )
 
     def test_no_served_sibling_leaves_the_selection_alone(
@@ -234,7 +263,8 @@ class TestChildCommandsDoNotInheritAdministeringAuthority:
         # Substituting some other universe's connection would send the child
         # to rows that are not its own — worse than the refusal it avoids.
         _select(
-            monkeypatch, tmp_path,
+            monkeypatch,
+            tmp_path,
             connections={
                 "solo": {"transport": "local-postgres", "prod": True},
                 "local": {"transport": "local-postgres", "prod": False},
@@ -243,7 +273,6 @@ class TestChildCommandsDoNotInheritAdministeringAuthority:
             override="solo",
         )
 
-        assert (
-            schema_authority.environment_without_administering_selection()
-            == dict(os.environ)
+        assert schema_authority.environment_without_administering_selection() == dict(
+            os.environ
         )

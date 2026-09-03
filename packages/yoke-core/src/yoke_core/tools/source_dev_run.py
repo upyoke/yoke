@@ -9,8 +9,9 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from yoke_contracts import schema_authority
 from yoke_core.domain import verification_tree_binding
-from yoke_core.tools import _source_pythonpath
+from yoke_core.tools import _pytest_parallel, _source_pythonpath
 
 
 MAIN_CHECKOUT_FALLBACK_EVENT = "SourceDevRunMainCheckoutFallback"
@@ -280,7 +281,9 @@ def run(
                 file=sys.stderr,
             )
             return 1
-    env = _source_pythonpath.with_source_pythonpath(None, root)
+    env = schema_authority.environment_without_administering_selection()
+    env = _pytest_parallel.isolate_from_administering_machine_config(env)
+    env = _source_pythonpath.with_source_pythonpath(env, root)
     origins, origin_error = _source_pythonpath.import_origins(root, env=env)
     if origin_error:
         print(f"error: {origin_error}", file=sys.stderr)

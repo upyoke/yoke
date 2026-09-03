@@ -15,15 +15,14 @@ The strays then survived as apparent fleet members: the next release's fleet
 rehearsal converged them, met the ledger of a run that no longer existed, and
 refused.
 
-So the refusal rides the connection, the way
-:mod:`yoke_contracts.schema_authority` does for convergence, and reads the
-same prod flag — it is the same fact, that administering a database is not
-owning it. Three things have to hold together before that flag means a
-scratch database would land on the administered cluster, and
-:func:`administering_scratch_cluster` requires all three, because a refusal
-that fires when the databases were never going in that direction would stop
-every ordinary local run. A caller that genuinely owns the cluster it creates
-on — a throwaway cluster it started itself — says so with
+So the refusal rides the concrete target. The resolved DSN or live connection
+is reduced to its host/port cluster endpoint and compared with every
+prod-flagged local-Postgres connection registered on this machine. An explicit
+DSN is not an exemption: a raw DSN aimed at an administered SSH forward is the
+same target as selecting that connection. The migration-history birth guard
+reads the same predicate, so fixture naming and schema stamping cannot disagree.
+A caller that genuinely owns the cluster it creates on — a throwaway cluster
+it started itself — says so with
 :func:`owned_scratch_cluster`, at the call site, rather than through an
 allowlist of module paths that rots as files move.
 
@@ -36,14 +35,10 @@ leaks into every concurrent one.
 from __future__ import annotations
 
 import contextvars
-import os
 from contextlib import contextmanager
 from typing import Iterator
 
-from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
-from yoke_contracts.machine_config import runtime as machine_config_runtime
-from yoke_contracts.machine_config.schema_transport import POSTGRES_TRANSPORTS
-from yoke_contracts.schema_authority import prod_flagged_connection
+from yoke_core.domain import administered_postgres
 
 
 class ScratchDatabaseRefused(BaseException):
@@ -88,45 +83,31 @@ def owned_scratch_cluster_declared() -> bool:
     return _owned_cluster.get()
 
 
-def administering_scratch_cluster() -> str:
+def administering_scratch_cluster(target_dsn: str | None = None) -> str:
     """Return the connection a scratch database would land on, when administered.
 
-    Empty unless all three facts hold. The selected connection is flagged
-    prod, so this machine administers the database it names without serving
-    it. It carries a Postgres transport, so it resolves to a cluster at all —
-    an https connection relays and hands out no cluster to create on. And
-    nothing else named a target, so the cluster IS inherited from it: an
-    explicit ``YOKE_PG_DSN``, a DSN file, or a context-bound authority each
-    name their own cluster, which is how the sanctioned test runners point a
-    suite at the local test cluster while an administering connection is
-    still selected.
+    The caller may provide the exact DSN it will write through. Otherwise the
+    canonical backend resolver covers a context binding, ``YOKE_PG_DSN``, its
+    file form, and the selected connection in their normal precedence order.
+    If no concrete target can be resolved, the selected prod local-Postgres
+    connection remains the fail-closed backstop; an HTTPS connection never
+    names a cluster.
     """
-    # The named-target checks come first because they are two dict lookups
-    # and answer for every ordinary local run, which is pointed at its own
-    # cluster; reading machine config to reach the same answer would put a
-    # file read on the path of every database a suite creates.
-    if os.environ.get(PG_DSN_ENV) or os.environ.get(PG_DSN_FILE_ENV):
-        return ""
-    # Local import: this module is read by the naming factory that db_backend
-    # itself has no knowledge of, and keeping the edge one-way leaves the
-    # import graph honest about which of the two is the lower layer.
-    from yoke_core.domain import db_backend
+    if target_dsn is None:
+        from yoke_core.domain import db_backend
 
-    if db_backend.pg_dsn_is_bound():
-        return ""
-    env = prod_flagged_connection()
-    if not env:
-        return ""
-    try:
-        connection = machine_config_runtime.active_connection()
-    except Exception:  # noqa: BLE001 - config problems surface where they are
-        return ""
-    if str(connection.get("transport") or "").strip() not in POSTGRES_TRANSPORTS:
-        return ""
-    return env
+        try:
+            target_dsn = db_backend.resolve_pg_dsn()
+        except Exception:  # noqa: BLE001 - target setup errors retain backstop
+            target_dsn = None
+    return administered_postgres.administering_target(dsn=target_dsn)
 
 
-def refuse_scratch_database_on_administered_cluster(name: str) -> None:
+def refuse_scratch_database_on_administered_cluster(
+    name: str,
+    *,
+    target_dsn: str | None = None,
+) -> None:
     """Raise when *name* would be created on a cluster this process only administers.
 
     A no-op wherever the cluster is the run's own, which is every local
@@ -135,19 +116,20 @@ def refuse_scratch_database_on_administered_cluster(name: str) -> None:
     """
     if _owned_cluster.get():
         return
-    env = administering_scratch_cluster()
+    env = administering_scratch_cluster(target_dsn)
     if not env:
         return
     raise ScratchDatabaseRefused(
-        f"scratch database {name!r} refused: connection {env!r} is flagged "
-        "prod and nothing else names a cluster, so this database would be "
-        "created on one this machine administers but does not own. A "
+        f"scratch database {name!r} refused: its target matches administered "
+        f"Postgres connection {env!r}, so it would be created on a cluster "
+        "this machine administers but does not own. Run tests through "
+        "`yoke watch pytest`, which isolates the administering selection, or "
+        "point the run at the local test cluster. A "
         "disposable test database belongs on the local test cluster or a "
         "declared validation surface. Start a cluster this run owns with "
         "`yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start` "
         "and export the YOKE_PG_DSN it prints, or select a non-prod "
-        f"connection with YOKE_ENV, then re-run; `yoke watch pytest` and the "
-        "generic runner already drop the administering selection for you. "
+        f"connection with YOKE_ENV, then re-run. "
         "Strays already on that cluster are removed with `python3 -m "
         "runtime.api.tools.drop_leftover_test_databases`. A tool that creates "
         "scratch databases on a cluster it owns outright declares that with "

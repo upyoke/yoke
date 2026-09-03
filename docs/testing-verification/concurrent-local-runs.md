@@ -30,18 +30,18 @@ The browser and the launchd login domain are the machine's other shared resource
 - Databases left behind by an interrupted run are reclaimed by an orphan
   sweep that first confirms the owning process has exited, then drops with
   `FORCE` under a bounded statement timeout.
-- A run that named no cluster of its own does not get to borrow an
-  administered one. Where a scratch database would land is decided by the
-  connection when nothing else names a target, so with a prod-flagged
-  Postgres connection selected and no `YOKE_PG_DSN`, the first name minted
-  is refused before any database is created. `yoke watch pytest` and the
-  generic runner drop the administering selection for their child, so this
-  only fires on a hand-run suite in a shell holding a `*-db-admin`
-  connection; the fix is to point it at a cluster the run owns, or select a
-  non-prod connection. Strays already on such a cluster are removed with
-  `python3 -m runtime.api.tools.drop_leftover_test_databases`, and the fleet
-  migration preflight skips the reserved `yoke_test_run` prefix outright so
-  one can never be rehearsed as a tenant.
+- A run does not get to borrow an administered cluster under any spelling.
+  The resolved target — explicit `YOKE_PG_DSN`, DSN file, context binding, or
+  selected connection — is reduced to its host/port endpoint and compared
+  with every prod-flagged local-Postgres connection this machine knows. A raw
+  DSN aimed at the production SSH forward is therefore refused exactly like
+  `YOKE_ENV=prod-db-admin`, before a database is created. `yoke watch pytest`,
+  the generic runner, and `yoke dev run` also strip the ambient administering
+  selection from their child. The fix is to use `yoke watch pytest` or point
+  the run at a cluster it owns. `yoke watch doctor -- --quick` reports any
+  existing strays with dry-run and manual removal recipes; Doctor never drops
+  them. The fleet migration preflight skips the reserved `yoke_test_run`
+  prefix outright so one can never be rehearsed as a tenant.
 
 The sweep never sits in a starting suite's critical path. Cluster preparation
 launches it detached and returns immediately, because dropping a database is

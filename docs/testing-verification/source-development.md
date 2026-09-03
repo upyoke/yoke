@@ -16,6 +16,15 @@ prints the resolved origins for `yoke_contracts`, `yoke_cli`, `yoke_core`,
 This makes the recipe independent of the shell's current directory and exposes
 partial source binding immediately.
 
+The child also receives the same non-administering machine environment as
+`yoke watch pytest` and the generic test runner. A selected prod
+`*-db-admin` connection is replaced with its served sibling and the child
+cannot reopen the parent's machine config. It receives only a sanitized
+host/port inventory of administered clusters, never their credentials. An
+explicit raw DSN is still judged by that target inventory, so spelling the
+administered SSH forward as `YOKE_PG_DSN` cannot bypass scratch-database or
+migration-history guards.
+
 For example, validate the agent renderer from the lane with:
 
 ```bash

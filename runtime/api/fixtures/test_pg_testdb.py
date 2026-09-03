@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.fixtures import pg_testdb
+from yoke_contracts.schema_authority import SchemaAuthorityRefused
 from yoke_core.domain import pg_test_db_namespace
 
 
@@ -68,6 +69,41 @@ def test_fixture_template_db_builds_once_then_clones(monkeypatch):
     assert admin_sql[-1] == f'DROP DATABASE IF EXISTS "{template}" WITH (FORCE)'
 
 
+def test_fixture_template_schema_refusal_drops_the_created_database(monkeypatch):
+    admin_sql = []
+    registered = []
+    unregistered = []
+    closed = []
+
+    monkeypatch.setattr(pg_testdb, "_base_dsn", lambda: "host=/tmp dbname=postgres")
+    monkeypatch.setattr(pg_testdb, "_admin_execute", admin_sql.append)
+    monkeypatch.setattr(pg_testdb.atexit, "register", registered.append)
+    monkeypatch.setattr(pg_testdb.atexit, "unregister", unregistered.append)
+    monkeypatch.setattr(
+        pg_testdb,
+        "_apply_schema",
+        lambda _conn: (_ for _ in ()).throw(SchemaAuthorityRefused("refused")),
+    )
+    monkeypatch.setattr(
+        pg_testdb.db_backend,
+        "_open_native_postgres",
+        lambda _dsn: SimpleNamespace(close=lambda: closed.append(True)),
+    )
+    monkeypatch.setattr(pg_testdb, "_FIXTURE_TEMPLATE_DB", None)
+
+    with pytest.raises(SchemaAuthorityRefused):
+        pg_testdb._fixture_template_db()
+
+    name = admin_sql[0].split('"')[1]
+    assert admin_sql == [
+        f'CREATE DATABASE "{name}"',
+        f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)',
+    ]
+    assert closed == [True]
+    assert unregistered == registered
+    assert pg_testdb._FIXTURE_TEMPLATE_DB is None
+
+
 def test_refuses_to_drop_another_invocations_database(monkeypatch):
     """The guard that makes concurrent runs safe without coordinating.
 
@@ -79,8 +115,7 @@ def test_refuses_to_drop_another_invocations_database(monkeypatch):
     monkeypatch.setattr(pg_testdb, "_base_dsn", lambda: "host=/tmp dbname=postgres")
     monkeypatch.setattr(pg_testdb, "_admin_execute", lambda sql: dropped.append(sql))
     theirs = (
-        f"{pg_testdb.TEST_DB_PREFIX}"
-        f"{pg_test_db_namespace.mint_run_tag(pid=31337)}_abc"
+        f"{pg_testdb.TEST_DB_PREFIX}{pg_test_db_namespace.mint_run_tag(pid=31337)}_abc"
     )
 
     with pytest.raises(RuntimeError, match="another invocation"):

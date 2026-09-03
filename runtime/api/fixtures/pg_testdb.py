@@ -134,9 +134,7 @@ def _admin_execute(sql: str) -> None:
         admin.execute(sql)
 
 
-def create_test_database(
-    template: "str | None" = None, *, pooled: bool = True
-) -> str:
+def create_test_database(template: "str | None" = None, *, pooled: bool = True) -> str:
     """Return a fresh test database, blank or cloned from *template*.
 
     A blank database is served from this worker's pool when one is free
@@ -175,12 +173,23 @@ def _fixture_template_db() -> str:
         # Not pooled: the template outlives every borrower and is cloned
         # from, so it must be a database of its own for the whole process.
         name = create_test_database(pooled=False)
-        conn = db_backend._open_native_postgres(dsn_for_test_database(name))
+
+        def cleanup() -> None:
+            drop_test_database(name, pooled=False)
+
+        atexit.register(cleanup)
         try:
-            _apply_schema(conn)
-        finally:
-            conn.close()
-        atexit.register(lambda: drop_test_database(name, pooled=False))
+            conn = db_backend._open_native_postgres(dsn_for_test_database(name))
+            try:
+                _apply_schema(conn)
+            finally:
+                conn.close()
+        except BaseException:
+            try:
+                drop_test_database(name, pooled=False)
+            finally:
+                atexit.unregister(cleanup)
+            raise
         _FIXTURE_TEMPLATE_DB = name
     return _FIXTURE_TEMPLATE_DB
 
@@ -256,9 +265,7 @@ def reusable_fixture_database():
     """
     from runtime.api.fixtures import pg_reusable_db
 
-    return pg_reusable_db.checkout(
-        REUSABLE_FIXTURE_FLAVOR, _build_reusable_fixture_db
-    )
+    return pg_reusable_db.checkout(REUSABLE_FIXTURE_FLAVOR, _build_reusable_fixture_db)
 
 
 @contextlib.contextmanager

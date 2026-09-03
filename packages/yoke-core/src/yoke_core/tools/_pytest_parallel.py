@@ -167,10 +167,14 @@ def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, 
     ``environment_without_administering_selection`` swaps a ``*-db-admin``
     selection for its served sibling. When that sibling — or the original
     selection — is itself prod-flagged (hosted HTTPS ``prod``), the child
-    would still refuse fixture-owned schema work. An empty machine home
-    makes the guard a no-op without pointing the suite at another universe.
+    would still refuse fixture-owned schema work. An empty machine home drops
+    that ambient authority without pointing the suite at another universe;
+    an endpoint-only inventory still lets concrete target guards recognize an
+    explicitly named administered cluster.
     """
-    isolated = dict(env)
+    from yoke_core.domain import administered_postgres
+
+    isolated = administered_postgres.environment_with_administered_target_inventory(env)
     isolated[machine_config_runtime.HOME_ENV] = tempfile.mkdtemp(
         prefix="yoke-pytest-non-admin-"
     )
