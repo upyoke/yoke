@@ -14,6 +14,7 @@ from yoke_contracts.machine_config import schema as machine_schema
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_path
+from yoke_cli.config import onboard_apply_aws_admin_capability
 from yoke_cli.config import onboard_apply_connection
 from yoke_cli.config import onboard_apply_hosting_posture
 from yoke_cli.config import onboard_bridge
@@ -57,6 +58,7 @@ def build_report(
     machine_github_api_url: str | None = None,
     hosting_choice: str = hosting_posture.POSTURE_UNDECIDED,
     hosting_provider_note: str | None = None,
+    hosting_verification: dict[str, Any] | None = None,
     path_repair: dict[str, Any] | None = None,
     project_mode: str = PROJECT_MODE_MACHINE_ONLY,
     project_remote_url: str | None = None,
@@ -315,6 +317,12 @@ def build_report(
             project=str(project_slug or ""),
             posture=hosting_choice,
             provider_note=hosting_provider_note,
+            config_path=cfg_path,
+        )
+        report["aws_admin_capability"] = onboard_apply_aws_admin_capability.record(
+            project=str(project_slug or ""),
+            posture=hosting_choice,
+            verification=hosting_verification,
             config_path=cfg_path,
         )
         report["message"] = "machine config and project handoff written"

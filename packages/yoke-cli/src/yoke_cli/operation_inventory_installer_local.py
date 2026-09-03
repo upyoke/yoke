@@ -16,6 +16,7 @@ from yoke_cli.operation_inventory_model import (
 # registered-function lookup misses.
 PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke aws admin-link", "aws", REASON_TOOL_SHAPED),
+    _p("yoke aws admin-status", "aws", REASON_TOOL_SHAPED),
     _p("yoke aws exec", "aws", REASON_TOOL_SHAPED),
     _p("yoke aws preflight", "aws", REASON_TOOL_SHAPED),
     _p("yoke github connect", "github", REASON_TOOL_SHAPED),

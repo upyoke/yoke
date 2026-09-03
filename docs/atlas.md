@@ -398,6 +398,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | agents.render | `yoke agents render` | tool_shaped | — |
 | auth | `yoke auth set` | tool_shaped | — |
 | aws | `yoke aws admin-link` | tool_shaped | — |
+| aws | `yoke aws admin-status` | tool_shaped | — |
 | aws | `yoke aws exec` | tool_shaped | — |
 | aws | `yoke aws preflight` | tool_shaped | — |
 | board.art | `yoke board art variant create` | tool_shaped | — |

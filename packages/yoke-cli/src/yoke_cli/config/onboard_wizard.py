@@ -221,6 +221,7 @@ class WizardResult:
             "machine_github_api_url": self.machine_github_api_url,
             "hosting_choice": self.hosting_choice,
             "hosting_provider_note": self.hosting_provider_note,
+            "hosting_verification": self.hosting_verification,
             "path_repair": self.path_repair,
             "project_mode": self.project_mode,
             "project_remote_url": self.project_remote_url,

@@ -225,6 +225,10 @@ class HostingFlow:
             "ok": True,
             "account": identity.account,
             "identity": identity.identity,
+            # The region the probe authenticated in becomes the capability
+            # row's region at apply, so a later `yoke aws exec` runs where the
+            # operator was just verified rather than in a default they never saw.
+            "region": self._hosting_region(),
         }
         self._goto(_View(
             STEP_HOSTING,
