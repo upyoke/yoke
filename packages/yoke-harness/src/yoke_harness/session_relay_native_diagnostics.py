@@ -119,6 +119,18 @@ def _reference_path(directory: Path, reference: str) -> Path:
     return directory / f"{reference}{_FILE_SUFFIX}"
 
 
+def native_diagnostic_path(
+    reference: str,
+    *,
+    state_dir: Path | None = None,
+) -> Path:
+    """Return where an exact reference is stored, without opening it."""
+    return _reference_path(
+        _diagnostic_directory(state_dir, create=False),
+        reference,
+    )
+
+
 def _require_private_file(details: os.stat_result) -> None:
     if not stat.S_ISREG(details.st_mode) or stat.S_ISLNK(details.st_mode):
         raise NativeDiagnosticError("diagnostic is not a regular file")

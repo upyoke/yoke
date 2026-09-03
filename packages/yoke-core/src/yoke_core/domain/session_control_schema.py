@@ -27,6 +27,7 @@ SESSION_CONTROL_TABLES = (
     "session_launch_attempts",
     "session_relays",
     "session_termination_reaps",
+    "session_evidence_fetches",
     "session_surface_policies",
 )
 ACTOR_MESSAGE_TABLES = ("actor_message_recipients",)
@@ -246,6 +247,36 @@ def create_session_control_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_session_termination_reaps_machine_state
             ON session_termination_reaps(machine_id, state, requested_at);
+
+        CREATE TABLE IF NOT EXISTS session_evidence_fetches (
+            fetch_id TEXT PRIMARY KEY,
+            target_session_id TEXT NOT NULL
+                REFERENCES harness_sessions(session_id),
+            project_id INTEGER NOT NULL REFERENCES projects(id),
+            machine_id TEXT NOT NULL,
+            kind TEXT,
+            file_name TEXT,
+            diagnostic_ref TEXT,
+            tail_lines INTEGER NOT NULL,
+            state TEXT NOT NULL
+                CHECK(state IN ('pending','leased','succeeded','failed','expired')),
+            requested_at TEXT NOT NULL,
+            requested_by_actor_id INTEGER NOT NULL REFERENCES actors(id),
+            requested_by_session_id TEXT REFERENCES harness_sessions(session_id),
+            lease_id TEXT,
+            lease_expires_at TEXT,
+            completed_at TEXT,
+            result_code TEXT,
+            files TEXT,
+            selected_file TEXT,
+            content TEXT,
+            content_bytes INTEGER,
+            truncated INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_session_evidence_fetches_machine_state
+            ON session_evidence_fetches(machine_id, state, requested_at);
+        CREATE INDEX IF NOT EXISTS idx_session_evidence_fetches_target_state
+            ON session_evidence_fetches(target_session_id, state, requested_at);
 
         CREATE TABLE IF NOT EXISTS session_surface_policies (
             mark_id TEXT PRIMARY KEY,

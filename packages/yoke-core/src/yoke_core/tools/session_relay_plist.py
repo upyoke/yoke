@@ -90,8 +90,8 @@ def relay_launchd_paths(
     return RelayLaunchdPaths(
         plist=launch_agents_dir(user_home) / f"{selected.label}.plist",
         state_dir=state,
-        stdout_log=state / "relay.stdout.log",
-        stderr_log=state / "relay.stderr.log",
+        stdout_log=state / RELAY_STDOUT_LOG_NAME,
+        stderr_log=state / RELAY_STDERR_LOG_NAME,
         environment=selected.environment,
         label=selected.label,
         config_path=selected.config_path,

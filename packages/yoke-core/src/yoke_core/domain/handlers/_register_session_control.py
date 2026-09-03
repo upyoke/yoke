@@ -11,11 +11,17 @@ from yoke_contracts.session_control.termination import (
     SessionTerminateRequest,
     SessionTerminateResponse,
 )
+from yoke_contracts.session_control.evidence_fetch import (
+    EvidenceGetRequest,
+    EvidenceGetResponse,
+)
+from yoke_contracts.session_control.function_ids import EVIDENCE_GET_FUNCTION_ID
 from yoke_contracts.session_control.wake import SessionWakeRequest, SessionWakeResponse
 from yoke_core.domain.handlers import session_launch as _launch
 from yoke_core.domain.handlers._register_session_messages import (
     register_message_functions,
 )
+from yoke_core.domain.handlers import session_evidence as _evidence
 from yoke_core.domain.handlers import session_relay as _relay
 from yoke_contracts.session_control import native_turn_end as _turn_end
 from yoke_core.domain.session_native_turn_end import EVENT_SESSION_TURN_END_OBSERVED
@@ -239,6 +245,16 @@ def register(registry) -> None:
         side_effects=["session_control_attempts_update", "session_relays_update"],
         owner_module=_relay.__name__,
         adapter_status="internal",
+    )
+
+    _register(
+        registry,
+        EVIDENCE_GET_FUNCTION_ID,
+        _evidence.handle_evidence_get,
+        EvidenceGetRequest,
+        EvidenceGetResponse,
+        side_effects=["session_evidence_fetches_upsert"],
+        owner_module=_evidence.__name__,
     )
 
     policy_specs = (

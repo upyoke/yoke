@@ -116,7 +116,15 @@ yours:
 - **Starved delivery** — read which shape the row is. *no delivery attempted*
   means the plane owed a wake and made none; *last attempt failed (reason)*
   names a refusal to fix, and one reason repeating across a machine's rows is
-  that relay. Otherwise use the registered wake or **Revive** bridge below.
+  that relay. The reason is a code; the diagnosis behind it sits on the
+  recipient's machine, so pull it with the row's own `evidence` clause before
+  guessing — it round-trips through that machine's relay and is read-only:
+
+  ```text
+  yoke session-control evidence get --session {SESSION_ID}
+  ```
+
+  Otherwise use the registered wake or **Revive** bridge below.
 - **Unregistered launches** — read which hand the row asks for. *native is
   live — bind it* means the process is up and only the binding is missing, so
   reconcile it onto the session the row names. *native is dead — reconcile,

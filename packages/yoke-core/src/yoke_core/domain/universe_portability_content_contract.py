@@ -17,6 +17,7 @@ ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
         "qa_plan_item_attachments",
         "qa_plan_project_defaults",
         "qa_plans",
+        "session_evidence_fetches",
         "session_launch_attempts",
         "session_message_attempts",
         "session_message_recipients",

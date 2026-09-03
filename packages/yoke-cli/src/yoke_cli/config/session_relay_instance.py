@@ -14,6 +14,11 @@ from yoke_contracts.machine_config import schema as machine_schema
 PROD_RELAY_LABEL = "com.upyoke.relay"
 NON_PROD_RELAY_LABEL_PREFIX = f"{PROD_RELAY_LABEL}."
 PROD_RELAY_STATE_DIR_NAME = "relay"
+#: The service's own streams, in the state dir. The launchd plist points
+#: at them and the evidence read serves them back, so the names live once.
+RELAY_STDOUT_LOG_NAME = "relay.stdout.log"
+RELAY_STDERR_LOG_NAME = "relay.stderr.log"
+RELAY_LOG_FILE_NAMES = (RELAY_STDOUT_LOG_NAME, RELAY_STDERR_LOG_NAME)
 NON_PROD_RELAY_STATE_ROOT_NAME = "relay-instances"
 _INSTANCE_DIGEST_LENGTH = 16
 

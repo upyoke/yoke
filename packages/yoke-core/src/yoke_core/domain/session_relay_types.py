@@ -11,7 +11,7 @@ from yoke_contracts.session_control.private_route_qualification import (
 )
 
 
-RelayJobKind = Literal["launch", "wake", "terminate"]
+RelayJobKind = Literal["launch", "wake", "terminate", "evidence"]
 WAKE_LEASE_SECONDS = 90
 MAX_RELAY_LONG_POLL_SECONDS = 55
 RELAY_LONG_POLL_STEP_SECONDS = 1
@@ -80,6 +80,10 @@ class RelayJob:
     target_liveness: str | None = None
     wake_route: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
+    #: The exact bounded question an evidence read carries to the machine:
+    #: which kind, which file, how many lines, and the diagnostic references
+    #: the control plane resolved for the target session.
+    evidence_request: Mapping[str, Any] | None = None
     private_route_qualification: PrivateRouteQualificationGrant | None = field(
         default=None,
         repr=False,

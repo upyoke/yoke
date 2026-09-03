@@ -33,6 +33,9 @@ from datetime import timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
+from yoke_contracts.session_control.evidence import (
+    valid_native_diagnostic_reference,
+)
 from yoke_contracts.session_control.wake_delivery import (
     delivery_attempt_diagnostic,
     delivery_attempt_failed,
@@ -60,6 +63,9 @@ class StarvedDelivery:
     attempt_count: int = 0
     #: How the last attempt failed, named. Empty when nothing was attempted.
     diagnostic: str = ""
+    #: The diagnostic reference that attempt left on its own machine, so the
+    #: row can name the exact capture rather than the session's newest file.
+    evidence_id: str = ""
 
 
 def _last_attempts(
@@ -150,6 +156,7 @@ def starved_deliveries(
     attempted: dict[str, int] = {}
     escalations: dict[str, str] = {}
     diagnostics: dict[str, str] = {}
+    references: dict[str, str] = {}
     operator_woken: set[str] = set()
     current = parse_stamp(now)
     for raw in rows:
@@ -191,6 +198,11 @@ def starved_deliveries(
         oldest[session_id] = max(oldest.get(session_id, 0), waited)
         if diagnostic:
             diagnostics[session_id] = diagnostic
+        reference = valid_native_diagnostic_reference(
+            evidence.get("native_diagnostic_ref")
+        )
+        if reference is not None:
+            references[session_id] = reference
         # A recipient the sweep already escalated needs no hand resume, so
         # the finding says which absence authorized that wake rather than
         # reading like an envelope nothing has acted on.
@@ -210,6 +222,7 @@ def starved_deliveries(
             operator_wake=session_id in operator_woken,
             attempt_count=attempted.get(session_id, 0),
             diagnostic=diagnostics.get(session_id, ""),
+            evidence_id=references.get(session_id, ""),
         )
         for session_id in sorted(oldest, key=lambda key: (-oldest[key], key))
     )

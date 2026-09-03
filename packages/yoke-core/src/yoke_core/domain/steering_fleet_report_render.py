@@ -7,6 +7,7 @@ noise. The machine-readable projection of the same report lives in
 
 from __future__ import annotations
 
+from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
 from yoke_core.domain.steering_fleet_report import (
     ClaimHolder,
     FleetReport,
@@ -110,7 +111,7 @@ def _starved_line(entry: StarvedDelivery) -> str:
     return (
         f"  session {entry.session_id}  {entry.envelope_count} envelope(s), "
         f"oldest {_minutes(entry.oldest_seconds)}, never injected"
-        f"{tried}{suffix}"
+        f"{tried}{suffix}{evidence_pull_suffix(entry.session_id, entry.evidence_id)}"
     )
 
 

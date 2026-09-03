@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-03T14:46:46Z_
+_Audit generated_at: 2026-09-03T18:46:41Z_
 
 ## 1. Summary
 
-- Function ids registered: **444**
+- Function ids registered: **445**
 - Internal dispatch-only functions without CLI adapters: **87**
-- `yoke` CLI subcommands: **372** (372 carry usable `--help`)
+- `yoke` CLI subcommands: **373** (373 carry usable `--help`)
 - Operation tracker: **348 wrapped**, 14 tool_cli, 137 permanent, 0 pending
-- Skill-body recipes: 330 total (278 template-skipped, 1 failing)
+- Skill-body recipes: 331 total (279 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **348** (operation tracker confirms 348 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **349** (operation tracker confirms 348 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -241,6 +241,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **348** (operation track
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |
 | readiness | `yoke readiness repair-stale-count` | `readiness.repair_stale_count` | ok |
 | release_pin | `yoke release-pin record` | `release_pin.record` | ok |
+| session_control | `yoke session-control evidence get` | `session_control.evidence.get` | ok |
 | session_control | `yoke session-control keepalive hold` | `session_control.keepalive.hold` | ok |
 | session_control | `yoke sessions keepalive hold` | `session_control.keepalive.hold` | ok |
 | session_control | `yoke session-control keepalive release` | `session_control.keepalive.release` | ok |
@@ -565,9 +566,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 41 |
-| cursor | 7 |
-| claude-code | 2 |
+| codex | 27 |
+| claude-code | 19 |
+| cursor | 4 |
 
 ## 8. Contradictions
 

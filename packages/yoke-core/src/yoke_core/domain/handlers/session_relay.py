@@ -287,6 +287,11 @@ def handle_relay_report(request: FunctionCallRequest) -> HandlerOutcome:
                 native_session_id=payload.native_id,
                 adapter_revision=payload.adapter_revision,
                 evidence=payload.evidence,
+                document=(
+                    payload.document.model_dump(mode="json")
+                    if payload.document is not None
+                    else None
+                ),
             )
         except (SessionRelayError, ValueError) as exc:
             return _failure(getattr(exc, "code", "relay_report_failed"), str(exc))

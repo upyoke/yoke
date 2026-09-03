@@ -53,7 +53,7 @@ def _safe_payload(value: object) -> dict[str, object] | None:
         not isinstance(value.get(name), str) or not value.get(name) for name in required
     ):
         return None
-    if value["job_kind"] not in {"launch", "wake", "terminate"}:
+    if value["job_kind"] not in {"launch", "wake", "terminate", "evidence"}:
         return None
     payload: dict[str, object] = {name: value[name] for name in required}
     for name in ("native_id", "adapter_revision"):
@@ -63,6 +63,8 @@ def _safe_payload(value: object) -> dict[str, object] | None:
     payload["evidence"] = redacted_evidence_document(
         evidence if isinstance(evidence, Mapping) else None
     )
+    document = value.get("document")
+    payload["document"] = document if isinstance(document, Mapping) else None
     return payload
 
 
@@ -101,11 +103,11 @@ def deliver_terminal_report(
     state_dir: Path | None,
     timeout_s: int,
 ) -> Any:
-    """Persist a sanitized report before its first delivery attempt."""
+    """Persist a sanitized report first, unless nobody would retry it."""
     safe = _safe_payload(payload)
     if safe is None:
         raise ValueError("relay report payload is invalid")
-    if safe["job_kind"] == "wake":
+    if safe["job_kind"] in {"wake", "evidence"}:
         return _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)
     pending = _write_pending(safe, state_dir)
     try:

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
@@ -82,6 +82,24 @@ def suspected_orphaned_waiters(
     return tuple(matches)
 
 
+def _recorded_diagnostic(value: Any) -> str:
+    """Return the diagnostic reference a stored result evidence document names."""
+    from yoke_contracts.session_control.evidence import (
+        valid_native_diagnostic_reference,
+    )
+    from yoke_core.domain import json_helper
+
+    try:
+        document = json_helper.loads_text(str(value or "{}"))
+    except (TypeError, ValueError):
+        return ""
+    if not isinstance(document, Mapping):
+        return ""
+    return (
+        valid_native_diagnostic_reference(document.get("native_diagnostic_ref")) or ""
+    )
+
+
 @dataclass(frozen=True)
 class UnregisteredLaunch:
     """One launch whose missing session binding blocks instruction delivery."""
@@ -102,6 +120,9 @@ class UnregisteredLaunch:
     #: or reads nothing.
     native_stderr_tail: str = ""
     exit_code: int | None = None
+    #: The diagnostic reference this launch's own result recorded, so the
+    #: row names the exact capture on the machine that produced it.
+    evidence_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -191,6 +212,7 @@ def unregistered_launches(
                     record.get("result_evidence"), "native_stderr_tail"
                 ),
                 exit_code=evidence_int(record.get("result_evidence"), "exit_code"),
+                evidence_id=_recorded_diagnostic(record.get("result_evidence")),
             )
         )
     return tuple(
