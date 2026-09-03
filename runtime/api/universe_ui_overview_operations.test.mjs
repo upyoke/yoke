@@ -56,26 +56,6 @@ test("the Delivery summary keeps the engine's newest-first receipt order", async
   mounted.unmount();
 });
 
-test("a doctor run that never ran reports the unavailable health state", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/overview?project=1";
-  const root = documentNode.createElement("div");
-  const client = overviewClient({ "doctor.last_run.get": { never_run: true } });
-
-  const mounted = mountUniverseApp(root, { client });
-  await settle();
-
-  assert.equal(byClass(root, "stat").length, 0);
-  const text = allNodes(root).map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("doctor has not run yet"));
-  const doctor = byClass(root, "overview-section")[5];
-  assert.equal(byClass(doctor, "panel-count")[0].textContent, "· not run");
-  mounted.unmount();
-});
-
 test("Sessions keeps its full mode-shaped table and recently-ended region", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -209,41 +189,6 @@ test("Overview shows a parked badge and nothing for any other mode", async (t) =
     ),
     [["parked", "waiting on YOK-2546", "parked: waiting on YOK-2546"]],
   );
-  mounted.unmount();
-});
-
-test("Events and Doctor use the prototype pulse and health hierarchies", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/overview?project=1";
-  const root = documentNode.createElement("div");
-
-  const mounted = mountUniverseApp(root, { client: overviewClient() });
-  await settle();
-
-  assert.equal(byClass(root, "overview-pulse-row").length, 1);
-  assert.equal(
-    byClass(root, "overview-pulse-source")[0].textContent,
-    "codex · desktop",
-  );
-  assert.equal(
-    byClass(root, "overview-pulse-event")[0].textContent,
-    "YokeFunctionCalled",
-  );
-  assert.equal(
-    byClass(root, "overview-pulse-context")[0].textContent,
-    "items.structured_field.replace · YOK-9",
-  );
-  assert.equal(byClass(root, "overview-doctor-rollup").length, 1);
-  assert.equal(byClass(root, "overview-health-row").length, 1);
-  assert.equal(
-    byClass(root, "overview-health-check")[0].textContent,
-    "HC-stale-migration",
-  );
-  const doctor = byClass(root, "overview-section")[5];
-  assert.equal(byClass(doctor, "panel-count")[0].textContent, "· 2 warnings");
   mounted.unmount();
 });
 

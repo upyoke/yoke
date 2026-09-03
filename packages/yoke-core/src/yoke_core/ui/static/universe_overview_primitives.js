@@ -207,3 +207,19 @@ export function ageTone(value) {
   if (ageHours < 168) return "week";
   return "older";
 }
+
+// One heading over the panels that answer its question. The Overview asks two
+// — where is this universe pointed, and what is happening now — and a panel
+// belongs to exactly one of them. Six equal panels in a row said nothing
+// about which question each one served.
+export function overviewSection(documentNode, id, label, panels) {
+  const node = documentNode.createElement("section");
+  node.className = "overview-section";
+  node.id = `overview-section-${id}`;
+  const head = documentNode.createElement("h2");
+  head.className = "overview-section-head";
+  head.textContent = label;
+  node.appendChild(head);
+  for (const panel of panels) node.appendChild(panel);
+  return node;
+}

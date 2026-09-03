@@ -10,13 +10,9 @@ import { el } from "./universe_view_support.js";
 // drift from the summaries it navigates.
 export const OVERVIEW_SECTIONS = [
   ["strategy", "❖", "Strategy", "where this universe has been, and where VISION points it"],
-  // Frontier is no longer a destination — the Overview's own frontier section
-  // is what it was — so the strip does not offer a jump to it.
-  ["items", "≣", "Items", "every work item, at any stage"],
-  ["sessions", "◈", "Sessions", "who is working across the universe"],
-  ["deployments", "⬈", "Deployments", "what is shipping, and where it stands"],
-  ["events", "≋", "Events", "the pulse · newest first"],
-  ["doctor", "♥", "Doctor", "the floor · invariants that hold"],
+  ["frontier", "⚡", "Waiting and ready", "what cannot run yet, and what can"],
+  ["sessions", "◈", "Active", "who is working across the universe"],
+  ["delivery", "⬈", "Shipping", "what is shipping, and where it stands"],
 ];
 
 const STATE_SIGNALS = [

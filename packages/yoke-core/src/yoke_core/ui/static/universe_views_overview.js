@@ -6,12 +6,14 @@ import {
   sectionJumps,
   signalMasthead,
 } from "./universe_views_overview_signals.js";
-import { summaryPanel } from "./universe_overview_primitives.js";
+import {
+  overviewSection,
+  summaryPanel,
+} from "./universe_overview_primitives.js";
 import { loadVitals, loadStrategy } from "./universe_overview_strategy.js";
 import { loadFrontier } from "./universe_overview_frontier.js";
 import { loadSessions } from "./universe_overview_sessions.js";
 import { loadDelivery } from "./universe_overview_delivery.js";
-import { loadDoctor, loadEvents } from "./universe_overview_health.js";
 
 // The one entry point the shell calls. The activation stack pins above the
 // scope picker (in the shell's above-scope host when one is supplied, else
@@ -21,30 +23,36 @@ export function renderOverviewView(context, main, scope, options = {}) {
   const documentNode = context.document;
   const masthead = signalMasthead(documentNode);
 
+  // Two questions, in the order an operator asks them: where is this universe
+  // pointed, and what is happening right now. Everything the Overview shows
+  // answers one of them, so everything it shows sits under one of two
+  // headings — where six equal panels in a row said nothing about which
+  // question each one served.
   const strategy = summaryPanel(documentNode, "Strategy", "strategy", scope, "Strategy");
-  // The frontier panel keeps its place and its content; what changed is where
-  // its "open" link goes. Frontier is no longer a destination — this section
-  // IS what that destination was — so the link opens Items, which is the view
-  // that answers the follow-up question the section raises.
-  const frontier = summaryPanel(documentNode, "Frontier", "items", scope, "Frontier");
-  const sessions = summaryPanel(documentNode, "Sessions", "sessions", scope, "Sessions");
-  const delivery = summaryPanel(documentNode, "Deployments", "deployments", scope, "Delivery");
-  const events = summaryPanel(documentNode, "Events", "events", scope, "Events");
-  const doctor = summaryPanel(documentNode, "Doctor", "doctor", scope, "Doctor");
+  // Frontier is no longer a destination — this section IS what that
+  // destination was — so its "open" link goes to Items, the view that answers
+  // the follow-up question the section raises.
+  const frontier = summaryPanel(documentNode, "Waiting and ready", "items", scope, "Frontier");
+  const sessions = summaryPanel(documentNode, "Active", "sessions", scope, "Sessions");
+  const delivery = summaryPanel(documentNode, "Shipping", "deployments", scope, "Delivery");
   const panels = new Map([
     ["strategy", strategy], ["frontier", frontier], ["sessions", sessions],
-    ["delivery", delivery], ["events", events], ["doctor", doctor],
+    ["delivery", delivery],
   ]);
-  const finalPair = el(documentNode, "div", "overview-pair");
-  finalPair.appendChild(events);
-  finalPair.appendChild(doctor);
+  // Events and Doctor leave the Overview. Both are records you consult when
+  // something already happened, which is the drawer's whole subject; neither
+  // answers where this universe is pointed or what is happening now, and a
+  // pulse you cannot act on is a screenshot of your own event table.
   const activationHost = el(documentNode, "div", "activation-host");
   const aboveScope = options.aboveScope || null;
   if (aboveScope) aboveScope.replaceChildren(activationHost);
   main.replaceChildren(
     sectionJumps(documentNode, panels), masthead,
     ...(aboveScope ? [] : [activationHost]),
-    strategy, frontier, sessions, delivery, finalPair,
+    overviewSection(documentNode, "strategy", "Strategy", [strategy]),
+    overviewSection(documentNode, "frontier", "Frontier", [
+      frontier, sessions, delivery,
+    ]),
   );
 
   // Each read is issued once at mount over the widest bucket set; a
@@ -70,8 +78,6 @@ export function renderOverviewView(context, main, scope, options = {}) {
   hold(loadFrontier(context, frontier, getScope, activationFacts));
   hold(loadSessions(context, sessions, getScope));
   hold(loadDelivery(context, delivery, getScope, activationFacts));
-  hold(loadEvents(context, events, getScope));
-  hold(loadDoctor(context, doctor, getScope));
 
   return {
     rescope(newScope) {
