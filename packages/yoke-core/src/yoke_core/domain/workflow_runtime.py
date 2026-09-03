@@ -109,7 +109,11 @@ class WorkflowRuntime:
             return frozenset()
         return frozenset(str(gate["id"]) for gate in self.gates_for_stage(stage_id))
 
-    def skill_for_stage(self, stage_id: str) -> Optional[str]:
+    def skill_binding_for_stage(
+        self,
+        stage_id: str,
+    ) -> Optional[Mapping[str, Any]]:
+        """The binding whose half-open interval covers a non-terminal stage."""
         position = self.stage_index(stage_id)
         if position is None or stage_id in self.terminal_stage_ids:
             return None
@@ -117,7 +121,15 @@ class WorkflowRuntime:
             start = self.stage_index(str(binding["from_stage_id"]))
             stop = self.stage_index(str(binding["through_stage_id"]))
             if start is not None and stop is not None and start <= position < stop:
-                return str(binding["skill_id"])
+                return binding
+        return None
+
+    def skill_for_stage(self, stage_id: str) -> Optional[str]:
+        if self.stage_index(stage_id) is None or stage_id in self.terminal_stage_ids:
+            return None
+        binding = self.skill_binding_for_stage(stage_id)
+        if binding is not None:
+            return str(binding["skill_id"])
         raise WorkflowRegistryError(
             f"workflow {self.workflow_id}@{self.version} has no skill "
             f"for stage {stage_id!r}"

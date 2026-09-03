@@ -118,3 +118,16 @@ def test_runtime_interprets_positional_postgres_rows(test_db):
 
     assert runtime.workflow_id == "issue"
     assert runtime.workflow_version_id > 0
+
+
+def test_runtime_names_the_binding_covering_a_stage(test_db):
+    runtime = load_item_workflow_runtime(test_db, _create(test_db))
+
+    binding = runtime.skill_binding_for_stage("refining-idea")
+
+    assert binding is not None
+    assert binding["skill_id"] == "refine"
+    assert binding["from_stage_id"] == "idea"
+    assert binding["through_stage_id"] == "refined-idea"
+    assert runtime.skill_binding_for_stage("done") is None
+    assert runtime.skill_binding_for_stage("planning") is None
