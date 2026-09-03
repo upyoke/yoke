@@ -64,13 +64,15 @@ from yoke_core.domain.steering_fleet_report_capacity import (
     live_session_counts,
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
+from yoke_core.domain.steering_fleet_report_starvation import (
+    StarvedDelivery,
+    starved_deliveries,
+)
 from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
-    StarvedDelivery,
     UnregisteredLaunch,
     age_seconds,
     landed_without_closeout,
-    starved_deliveries,
     suspected_orphaned_waiters,
     unregistered_launches,
 )

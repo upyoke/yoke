@@ -13,14 +13,22 @@ delivery that will never happen. One sat 53 minutes at zero injections; a
 second, four hours later, sat pending against a session reading ``active``
 the whole time. Neither is a slow delivery — both are a route that ended.
 
-The envelope itself proves it. Zero injections after the message has been
-sitting longer than the acknowledgement grace window says nothing on its
-own, because a session that never had work to do also injects nothing. What
+The envelope itself proves it. Zero injections says nothing on its own,
+because a session that never had work to do also injects nothing. What
 closes it is the recipient's own clock: no tool call since the message was
-created means no hook has run for this session in that whole window, and a
-hook is the only thing that could have attached the envelope. At that point
-the route is not slow, it is absent — so the wake escalates to the
-stopped-session native-resume path even though liveness still reads active.
+created means no hook has run for this session since it arrived, and a hook
+is the only thing that could have attached the envelope. Hold that for a
+full acknowledgement grace window of silence and the route is not slow, it
+is absent — so the wake escalates to the stopped-session native-resume path
+even though liveness still reads active.
+
+The window is measured from that last tool call rather than from the send,
+which is the delivery SLA this module states: an undelivered envelope to a
+recipient already silent for a window is attempted on the first sweep that
+sees it. Counting the window from the send instead restarted the wait on
+every new message, so a worker quiet for seventeen minutes still bought its
+envelope five more before anything was tried, and four steering waits were
+abandoned by hand inside that window in a single night.
 
 A session that stamped ``parked`` declares the same absence up front, and on
 a harness with no idle wake it declares it conclusively: parked is a wait
@@ -106,6 +114,20 @@ def _escalated_wake_available(
     return last_wake is None or last_wake + window <= now
 
 
+def hook_route_silent_since(row: Mapping[str, Any]) -> datetime | None:
+    """Return when this recipient's hook route last proved it was running.
+
+    A hook runs on a tool call, so the recipient's own last tool call is the
+    last moment the route demonstrably worked. A session that has never made
+    one leaves nothing to measure, and the envelope's own creation is then
+    the earliest instant the wait can be counted from.
+    """
+    last_tool_call = parse_timestamp(row.get("last_tool_call_at"))
+    if last_tool_call is not None:
+        return last_tool_call
+    return parse_timestamp(row.get("message_created_at"))
+
+
 def starved_hook_route(
     row: Mapping[str, Any],
     *,
@@ -116,9 +138,18 @@ def starved_hook_route(
     """True when this receipt's hook route has demonstrably stopped running.
 
     ``row`` is one eligibility row: the recipient joined to its message and
-    its session. The same window bounds both halves of the question — how
-    long the envelope has waited, and how long one escalated wake stays the
-    only one in flight for that recipient.
+    its session. The window is a silence window on the recipient's own
+    clock, not an age window on the envelope, and that distinction is the
+    whole SLA. Counting from the send restarts the wait every time a new
+    message arrives, so a worker that had already been quiet for seventeen
+    minutes bought its envelope another five before anything was attempted —
+    and four steering waits were abandoned by hand inside that window in one
+    night. Silence accrued before the message is silence all the same: what
+    the window has to establish is that no hook is running, and a recipient
+    that has been quiet for a full window has established it already.
+
+    The same window bounds the other half of the question, how long one
+    escalated wake stays the only one in flight for that recipient.
 
     ``ignore_wake_cooldown`` is for the caller re-deriving a candidate whose
     wake it has already stamped — the broker adoption reads the receipt back
@@ -128,8 +159,8 @@ def starved_hook_route(
     if not undelivered_since_send(row, now=now):
         return False
     window = timedelta(seconds=grace_seconds)
-    created = parse_timestamp(row.get("message_created_at"))
-    if created is None or created + window > now:
+    silent_since = hook_route_silent_since(row)
+    if silent_since is None or silent_since + window > now:
         return False
     return _escalated_wake_available(
         row,
@@ -184,6 +215,7 @@ def parked_without_idle_wake(
 __all__ = [
     "PARKED_WITHOUT_IDLE_WAKE",
     "STARVED_HOOK_ROUTE",
+    "hook_route_silent_since",
     "parked_without_idle_wake",
     "starved_hook_route",
     "undelivered_since_send",

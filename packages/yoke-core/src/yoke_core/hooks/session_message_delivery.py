@@ -20,6 +20,7 @@ from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
 )
+from yoke_contracts.session_control.wake_delivery import HOOK_INJECTED_RESULT
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.domain.session_message_delivery_probe import (
     PROBE_LEASE_FAILED,
@@ -257,7 +258,7 @@ def settle_after_render(
         elif overflow:
             result = "inline_overflow"
         elif injected:
-            result = "injected"
+            result = HOOK_INJECTED_RESULT
         else:
             result = "render_output_missing"
         try:

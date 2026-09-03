@@ -1,4 +1,4 @@
-"""The five failures that arrive as silence, and the guesses not made about them."""
+"""The failures that arrive as silence, and the guesses not made about them."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from runtime.api.steering_fleet_test_helpers import (
     ANSWERER,
     ASKER,
     BEFORE_THAT,
-    JUST_NOW,
     LONG_AGO,
     NOW,
     PROJECT_ID,
@@ -21,7 +20,6 @@ from runtime.api.steering_fleet_test_helpers import (
 )
 from yoke_core.domain.steering_fleet_report_detectors import (
     landed_without_closeout,
-    starved_deliveries,
     suspected_orphaned_waiters,
     unregistered_launches,
 )
@@ -107,79 +105,6 @@ def fleet(test_db):
     )
     test_db.commit()
     return test_db
-
-
-def test_an_envelope_never_injected_to_a_silent_recipient_is_starved(fleet):
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    fleet.commit()
-
-    starved = starved_deliveries(fleet, project_id=PROJECT_ID, now=NOW)
-
-    assert [entry.session_id for entry in starved] == [ANSWERER]
-    assert starved[0].envelope_count == 1
-
-
-def test_a_worker_to_worker_envelope_starves_like_any_other(fleet):
-    """Sender is not a filter: the steerer did not have to send it to matter."""
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    _send(fleet, "msg-2", sender=ANSWERER, to=ASKER, at=LONG_AGO)
-    fleet.commit()
-
-    starved = starved_deliveries(fleet, project_id=PROJECT_ID, now=NOW)
-
-    assert {entry.session_id for entry in starved} == {ASKER, ANSWERER}
-
-
-def test_a_recipient_that_has_run_a_tool_since_the_send_is_not_starved(fleet):
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    fleet.execute(
-        "UPDATE harness_sessions SET last_tool_call_at = %s WHERE session_id = %s",
-        (JUST_NOW, ANSWERER),
-    )
-    fleet.commit()
-
-    assert starved_deliveries(fleet, project_id=PROJECT_ID, now=NOW) == ()
-
-
-def test_an_envelope_inside_the_grace_window_is_not_yet_starved(fleet):
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=JUST_NOW)
-    fleet.commit()
-
-    assert starved_deliveries(fleet, project_id=PROJECT_ID, now=NOW) == ()
-
-
-def test_a_desktop_recipient_is_flagged_as_its_operators_to_wake(fleet):
-    """The seat cannot revive this one, so the row must say so.
-
-    Everything else about the finding is identical — pending, never
-    injected, silent past the window — and the action is completely
-    different, because Yoke never resumes an operator-opened chat.
-    """
-    fleet.execute(
-        "UPDATE harness_sessions SET executor_surface = %s WHERE session_id = %s",
-        ("claude-desktop", ANSWERER),
-    )
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    _send(fleet, "msg-2", sender=ANSWERER, to=ASKER, at=LONG_AGO)
-    fleet.commit()
-
-    starved = {
-        entry.session_id: entry.operator_wake
-        for entry in starved_deliveries(fleet, project_id=PROJECT_ID, now=NOW)
-    }
-
-    assert starved == {ANSWERER: True, ASKER: False}
-
-
-def test_an_ended_recipient_is_not_a_starved_worker(fleet):
-    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    fleet.execute(
-        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
-        (JUST_NOW, ANSWERER),
-    )
-    fleet.commit()
-
-    assert starved_deliveries(fleet, project_id=PROJECT_ID, now=NOW) == ()
 
 
 @pytest.mark.parametrize(

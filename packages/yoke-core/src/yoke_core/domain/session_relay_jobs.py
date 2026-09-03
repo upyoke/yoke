@@ -9,7 +9,9 @@ from yoke_contracts.session_control.wake_delivery import (
     WAKE_DELIVERY_UNVERIFIED_RESULTS,
     WAKE_REPORT_CODES,
 )
-from yoke_core.domain.session_broker_wake import direct_wake_waits_for_broker
+from yoke_core.domain.session_broker_wake_fallback import (
+    direct_wake_waits_for_broker,
+)
 from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
 from yoke_core.domain.session_relay_evidence import (
     merge_redacted_evidence,

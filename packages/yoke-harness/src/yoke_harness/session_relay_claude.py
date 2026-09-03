@@ -35,7 +35,7 @@ from yoke_harness.session_relay_claude_transcript import (
     claude_session_transcript_exists,
 )
 from yoke_harness.session_relay_runtime import (
-    expected_native_instruction,
+    native_instruction_targets_job,
     RelayAdapterResult,
     RelayExecutionContext,
     RelayPrivateDiagnostic,
@@ -171,8 +171,7 @@ def run_claude_cli_adapter(
     if not _operation_authorized(context, operation, version_gate):
         result = "not_created" if context.job_kind == "launch" else "version_mismatch"
         return _result(context, result, "version_mismatch")
-    expected = expected_native_instruction(context)
-    if expected is None or context.native_instruction != expected:
+    if not native_instruction_targets_job(context):
         result = "not_created" if context.job_kind == "launch" else "failed"
         return _result(context, result, "instruction_invalid")
     executable = discover_claude_cli(executable_finder)
@@ -191,11 +190,11 @@ def run_claude_cli_adapter(
     elif context.presentation not in (None, CLAUDE_LOCAL_PRESENTATION):
         return _result(context, "failed", "presentation_unsupported")
     # The native is handed the sentence the control plane issued, never a
-    # second one written here: an adapter that validates against `expected`
-    # and then delivers its own wording is how a native reads an instruction
-    # no one attested, and how a wake prompt drifts out of step with the
-    # acknowledgement the receipt is waiting for.
-    invocation = native_invocation(context, executable, expected)
+    # second one written here: an adapter that re-derives its own wording is
+    # how a native reads an instruction no one attested, and how a wake
+    # prompt drifts out of step with the acknowledgement the receipt waits
+    # for — or, when the two builds disagree, how every wake refuses.
+    invocation = native_invocation(context, executable, context.native_instruction)
     if invocation is None:
         result = "not_created" if context.job_kind == "launch" else "not_found"
         return _result(context, result, "native_session_missing")

@@ -105,9 +105,20 @@ def _starved_line(entry: StarvedDelivery) -> str:
             if entry.wake_escalation
             else ""
         )
+    # What was tried, and how it ended. A seat reading "never injected" with
+    # nothing else cannot tell a plane that made no attempt from one whose
+    # every attempt refused for the same nameable reason, and both shapes
+    # ran unread on one machine for two hours.
+    if entry.diagnostic:
+        tried = f", last attempt failed ({entry.diagnostic})"
+    elif entry.attempt_count == 0:
+        tried = ", no delivery attempted"
+    else:
+        tried = ""
     return (
         f"  session {entry.session_id}  {entry.envelope_count} envelope(s), "
-        f"oldest {_minutes(entry.oldest_seconds)}, never injected{suffix}"
+        f"oldest {_minutes(entry.oldest_seconds)}, never injected"
+        f"{tried}{suffix}"
     )
 
 

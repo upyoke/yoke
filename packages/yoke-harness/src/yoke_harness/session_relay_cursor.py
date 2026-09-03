@@ -21,7 +21,7 @@ from yoke_harness.session_relay_cursor_identity import (
 )
 from yoke_harness.session_relay_native_diagnostics import classify_native_failure
 from yoke_harness.session_relay_runtime import (
-    expected_native_instruction,
+    native_instruction_targets_job,
     RelayAdapter,
     RelayAdapterResult,
     RelayExecutionContext,
@@ -190,8 +190,7 @@ def _validated(
 ) -> RelayAdapterResult | None:
     if context.surface != CURSOR_CLI_SURFACE:
         return _result("unsupported_surface")
-    expected = expected_native_instruction(context)
-    if expected is None or context.native_instruction != expected:
+    if not native_instruction_targets_job(context):
         code = "not_created" if context.job_kind == "launch" else "failed"
         return _result(code, native=CursorNativeResult("instruction_refused"))
     if context.job_kind == "launch" and not context.launch_attestation:

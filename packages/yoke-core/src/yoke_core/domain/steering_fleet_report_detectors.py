@@ -1,8 +1,9 @@
 """Detect steering failures that arrive as silence in live control-plane state.
 
-Queries reveal stuck delivery, unregistered launches, frozen Monitor waiters,
-and merged work lacking close-out. Dead waits that need judgment live in
-:mod:`steering_fleet_report_dead_waits`.
+Queries reveal unregistered launches, frozen Monitor waiters, and merged
+work lacking close-out. Stuck delivery lives in
+:mod:`steering_fleet_report_starvation`; dead waits that need judgment live
+in :mod:`steering_fleet_report_dead_waits`.
 
 Shared timestamp parsing stays here. Data comes from
 ``session_message_recipients``, ``session_launches``, and ``items``.
@@ -14,19 +15,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Sequence
 
-from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
-
-
-#: How long an envelope may sit uninjected before the delivery plane has
-#: plainly failed rather than merely not finished yet. This is a property of
-#: delivery, not a steering judgment, so it is a constant rather than a
-#: project policy key an operator would have no basis to tune.
-STARVED_DELIVERY_GRACE_SECONDS = 10 * 60
 
 
 def marker(conn: Any) -> str:
@@ -85,20 +78,6 @@ def suspected_orphaned_waiters(
 
 
 @dataclass(frozen=True)
-class StarvedDelivery:
-    """One session with envelopes the delivery plane never injected."""
-
-    session_id: str
-    envelope_count: int
-    oldest_seconds: int
-    #: Why the wake sweep already escalated, when it has; empty otherwise.
-    wake_escalation: str = ""
-    #: True when the recipient's surface is woken only by its own operator,
-    #: so the finding is an ask to that person rather than work for the seat.
-    operator_wake: bool = False
-
-
-@dataclass(frozen=True)
 class UnregisteredLaunch:
     """One launch whose missing session binding blocks instruction delivery."""
 
@@ -124,78 +103,6 @@ class LandedItem:
     status: str
     landed_at: str
     landed_seconds: int
-
-
-def starved_deliveries(
-    conn: Any,
-    *,
-    project_id: int,
-    now: str,
-) -> tuple[StarvedDelivery, ...]:
-    """Envelopes still pending and never injected, whose recipient went quiet.
-
-    Sender is deliberately not a filter: a worker-to-worker envelope starves
-    exactly like a steerer-sent one. Ended and terminated recipients are
-    excluded -- an envelope addressed to a session that is gone is not a
-    worker waiting on a message, and there is nothing left to revive.
-
-    Grouped by recipient because the action is per recipient: one session
-    with four stuck envelopes is one worker to wake, not four findings.
-    """
-    p = marker(conn)
-    rows = conn.execute(
-        f"""SELECT r.session_id AS session_id,
-                   r.created_at AS created_at,
-                   r.wake_escalation AS wake_escalation,
-                   s.executor_surface AS executor_surface,
-                   s.last_tool_call_at AS last_tool_call_at
-              FROM session_message_recipients r
-              JOIN harness_sessions s ON s.session_id = r.session_id
-             WHERE r.state = 'pending'
-               AND COALESCE(r.injection_count, 0) = 0
-               AND r.project_id = {p}
-               AND s.ended_at IS NULL
-               AND s.terminated_at IS NULL""",
-        (int(project_id),),
-    ).fetchall()
-    oldest: dict[str, int] = {}
-    counts: dict[str, int] = {}
-    escalations: dict[str, str] = {}
-    operator_woken: set[str] = set()
-    for row in rows:
-        record = dict(row)
-        sent_at = str(record.get("created_at") or "")
-        waited = age_seconds(sent_at, now)
-        if waited is None or waited < STARVED_DELIVERY_GRACE_SECONDS:
-            continue
-        acted = str(record.get("last_tool_call_at") or "")
-        if acted and parse_stamp(acted) >= parse_stamp(sent_at):
-            # The recipient has run a tool since the send, so this envelope is
-            # that session's ordinary backlog rather than a stuck delivery.
-            continue
-        session_id = str(record["session_id"])
-        counts[session_id] = counts.get(session_id, 0) + 1
-        oldest[session_id] = max(oldest.get(session_id, 0), waited)
-        # A recipient the sweep already escalated needs no hand resume, so
-        # the finding says which absence authorized that wake rather than
-        # reading like an envelope nothing has acted on.
-        escalation = str(record.get("wake_escalation") or "")
-        if escalation:
-            escalations[session_id] = escalation
-        # A desktop recipient is never resumed by Yoke, so this row is not
-        # a worker to revive; it names a chat only its operator can open.
-        if not native_wake_supported(str(record.get("executor_surface") or "")):
-            operator_woken.add(session_id)
-    return tuple(
-        StarvedDelivery(
-            session_id=session_id,
-            envelope_count=counts[session_id],
-            oldest_seconds=oldest[session_id],
-            wake_escalation=escalations.get(session_id, ""),
-            operator_wake=session_id in operator_woken,
-        )
-        for session_id in sorted(oldest, key=lambda key: (-oldest[key], key))
-    )
 
 
 def unregistered_launches(
@@ -334,15 +241,12 @@ def landed_without_closeout(
 
 
 __all__ = [
-    "STARVED_DELIVERY_GRACE_SECONDS",
     "LandedItem",
-    "StarvedDelivery",
     "UnregisteredLaunch",
     "age_seconds",
     "landed_without_closeout",
     "marker",
     "parse_stamp",
-    "starved_deliveries",
     "suspected_orphaned_waiters",
     "unregistered_launches",
 ]
