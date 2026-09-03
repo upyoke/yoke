@@ -13,6 +13,7 @@ the policy's own work and is the price of preempting nothing.
 
 from __future__ import annotations
 
+import contextvars
 import importlib
 import signal
 import threading
@@ -85,6 +86,7 @@ def _evaluate_on_worker_thread(
     evaluator, context: HookContext, timeout_ms: int,
 ) -> tuple[Optional[HookDecision], Optional[str]]:
     box: dict[str, Any] = {}
+    inherited_context = contextvars.copy_context()
 
     def _run() -> None:
         try:
@@ -93,7 +95,9 @@ def _evaluate_on_worker_thread(
             box["error"] = exc
 
     worker = threading.Thread(
-        target=_run, name=f"hook-policy-{module_name(evaluator)}", daemon=True,
+        target=lambda: inherited_context.run(_run),
+        name=f"hook-policy-{module_name(evaluator)}",
+        daemon=True,
     )
     worker.start()
     worker.join(timeout_ms / 1000.0)

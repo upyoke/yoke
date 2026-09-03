@@ -19,6 +19,7 @@ dependencies = [
     "yoke-contracts",
     # Shared client substrate (transport/config) lives in yoke-cli per Decision 1.
     "yoke-cli",
+    "httpx==0.28.1",
 ]
 
 [tool.setuptools_scm]

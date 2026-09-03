@@ -6,7 +6,7 @@ import json
 import os
 import sys
 import urllib.request
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
@@ -142,6 +142,7 @@ def relay_hook_event(
     *,
     stdin_data: Optional[str] = None,
     extra_context: Optional[str] = None,
+    opener: Callable[..., Any] | None = None,
 ) -> int:
     """Evaluate one hook event across the client/server relay split."""
     deadline = start_hook_deadline()
@@ -228,7 +229,7 @@ def relay_hook_event(
             allow_loopback_http=True,
             response_limit_bytes=SMALL_JSON_RESPONSE_LIMIT_BYTES,
             sensitive_values=(connection.token,),
-            opener=urllib.request.urlopen,
+            opener=opener or urllib.request.urlopen,
         )
         response = hosted.payload
     except BoundedJsonHttpStatusError as exc:

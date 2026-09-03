@@ -24,6 +24,7 @@ from yoke_contracts.hook_driver_process import (
     DRIVER_PAYLOAD_KEY,
     resolve_driver_process,
 )
+from yoke_contracts.hook_evaluator_protocol import evaluator_telemetry_fields
 from yoke_contracts.hook_runner.chain_registry import TERMINAL_HOOK_EVENTS
 
 
@@ -169,6 +170,7 @@ def flush_run_tail(
                     "driver_pid": driver.get("pid"),
                     "driver_ppid": driver.get("ppid"),
                     "driver_origin": driver.get("origin"),
+                    **evaluator_telemetry_fields(payload),
                 },
             },
         )

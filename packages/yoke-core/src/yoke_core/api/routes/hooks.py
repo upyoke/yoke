@@ -30,6 +30,7 @@ from yoke_core.domain.session_ambient_identity import (
 )
 from yoke_core.hooks.remote_entry import evaluate_remote
 from yoke_core.api.routes.hooks_denial_audit import router as _denial_audit_router
+from yoke_core.api.routes.hook_observations import router as _observation_router
 
 
 router = APIRouter()
@@ -337,6 +338,7 @@ def _authorize_project(
 
 
 router.include_router(_denial_audit_router)
+router.include_router(_observation_router)
 
 
 __all__ = ["HOOK_WIRE_SCHEMA", "router"]
