@@ -127,6 +127,26 @@ class TestApplicabilityAxes(unittest.TestCase):
             ),
         )
 
+    def test_local_control_plane_check_skips_https(self):
+        declaration = CheckApplicability(requires_local_control_plane=True)
+        reason = not_applicable_reason(
+            declaration,
+            _context(https_control_plane=True),
+        )
+        self.assertIsNotNone(reason)
+        self.assertIn("machine-local control-plane database", reason)
+
+    def test_local_control_plane_check_runs_on_local_postgres(self):
+        declaration = CheckApplicability(requires_local_control_plane=True)
+        self.assertIsNone(not_applicable_reason(declaration, _context()))
+
+    def test_control_plane_requirements_are_mutually_exclusive(self):
+        with self.assertRaisesRegex(ValueError, "cannot require both"):
+            CheckApplicability(
+                requires_https_control_plane=True,
+                requires_local_control_plane=True,
+            )
+
 
 class TestDeclarationTable(unittest.TestCase):
     def test_every_registered_check_declares_its_applicability(self):
@@ -162,6 +182,11 @@ class TestDeclarationTable(unittest.TestCase):
     def test_session_relay_needs_https_and_the_local_runtime(self):
         declaration = applicability_for("session-relay")
         self.assertTrue(declaration.requires_https_control_plane)
+        self.assertEqual(declaration.runtimes, frozenset({RUNTIME_LOCAL}))
+
+    def test_local_operating_actor_authority_needs_the_local_control_plane(self):
+        declaration = applicability_for("local-operating-actor-authority")
+        self.assertTrue(declaration.requires_local_control_plane)
         self.assertEqual(declaration.runtimes, frozenset({RUNTIME_LOCAL}))
 
     def test_retired_schema_resurrection_is_self_scoped(self):

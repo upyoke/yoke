@@ -19,6 +19,7 @@ from yoke_core.domain.project_checkout_locations import (
 )
 from yoke_core.engines.doctor_applicability import RUNTIME_LOCAL
 from yoke_core.engines.doctor_applicability_declarations import (
+    applicability_for,
     local_runtime_slugs,
     source_checkout_slugs,
 )
@@ -86,7 +87,7 @@ def false_na_source_slugs(results: Sequence[Dict[str, Any]]) -> List[str]:
 def false_na_local_runtime_slugs(
     results: Sequence[Dict[str, Any]],
 ) -> List[str]:
-    """Local-only slugs the relayed runner could not execute on this machine."""
+    """Local-only slugs an HTTPS client can honestly re-run on this machine."""
     wanted = local_runtime_slugs()
     out: List[str] = []
     seen: set[str] = set()
@@ -95,6 +96,8 @@ def false_na_local_runtime_slugs(
         if str(row.get("severity") or "").upper() != "N/A":
             continue
         if slug not in wanted or slug in seen:
+            continue
+        if applicability_for(slug).requires_local_control_plane:
             continue
         seen.add(slug)
         out.append(slug)
