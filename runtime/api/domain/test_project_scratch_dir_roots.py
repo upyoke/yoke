@@ -8,6 +8,8 @@ import pytest
 
 from yoke_core.domain import project_scratch_dir as scratch
 from yoke_core.domain import project_scratch_roots as roots
+from yoke_contracts.machine_config import runtime as machine_runtime
+from yoke_contracts.machine_config import scratch_roots as root_order
 from runtime.api.domain.test_project_scratch_dir import (
     _patch_checkout_project,
     _patch_repo_root,
@@ -24,17 +26,11 @@ def test_env_override_wins_and_relative_roots_are_machine_home_relative(
     _patch_repo_root(monkeypatch, repo)
     _patch_checkout_project(monkeypatch)
     _set_identity(monkeypatch)
-    monkeypatch.setenv(roots.machine_config.HOME_ENV, str(yoke_home))
+    monkeypatch.setenv(machine_runtime.HOME_ENV, str(yoke_home))
     monkeypatch.setenv(roots.ENV_KEY, "tmp")
 
     assert scratch.scratch_root("yoke") == (
-        yoke_home
-        / "tmp"
-        / "yoke"
-        / "sessions"
-        / "test-session"
-        / "runs"
-        / "test-run"
+        yoke_home / "tmp" / "yoke" / "sessions" / "test-session" / "runs" / "test-run"
     )
 
 
@@ -47,18 +43,13 @@ def test_machine_temp_root_when_env_missing(
     _set_identity(monkeypatch)
     monkeypatch.delenv(roots.ENV_KEY, raising=False)
     monkeypatch.setattr(
-        roots.machine_config,
+        machine_runtime,
         "temp_root",
         lambda path=None: str(configured),
     )
 
     assert scratch.scratch_root("yoke") == (
-        configured
-        / "yoke"
-        / "sessions"
-        / "test-session"
-        / "runs"
-        / "test-run"
+        configured / "yoke" / "sessions" / "test-session" / "runs" / "test-run"
     )
 
 
@@ -71,18 +62,13 @@ def test_machine_config_temp_root_when_env_missing(
     _set_identity(monkeypatch)
     monkeypatch.delenv(roots.ENV_KEY, raising=False)
     monkeypatch.setattr(
-        roots.machine_config,
+        machine_runtime,
         "temp_root",
         lambda path=None: str(configured),
     )
 
     assert scratch.scratch_root("yoke") == (
-        configured
-        / "yoke"
-        / "sessions"
-        / "test-session"
-        / "runs"
-        / "test-run"
+        configured / "yoke" / "sessions" / "test-session" / "runs" / "test-run"
     )
 
 
@@ -93,7 +79,7 @@ def test_os_tmpdir_fallback_includes_project(
     _set_identity(monkeypatch, session="externalwebapp-session", run="run-2")
     monkeypatch.delenv(roots.ENV_KEY, raising=False)
     monkeypatch.setattr(
-        roots.machine_config,
+        machine_runtime,
         "temp_root",
         lambda path=None: str(tmp_path / "bad-root"),
     )
@@ -102,7 +88,7 @@ def test_os_tmpdir_fallback_includes_project(
         "ensure_writable_dir",
         lambda path: path != tmp_path / "bad-root",
     )
-    monkeypatch.setattr(roots.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(root_order.tempfile, "gettempdir", lambda: str(tmp_path))
 
     # The unwritable configured root emits the fallback warning before degrading
     # to the OS tmpdir; assert it here so it is captured, not leaked to the summary.
@@ -122,11 +108,9 @@ def test_os_tmpdir_fallback_includes_project(
 def test_macos_var_folders_fallback_prefers_short_tmp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        roots.tempfile, "gettempdir", lambda: "/var/folders/abc/T"
-    )
+    monkeypatch.setattr(root_order.tempfile, "gettempdir", lambda: "/var/folders/abc/T")
 
-    assert roots._fallback_base() == Path("/tmp") / "yoke-scratch"
+    assert root_order.fallback_scratch_root() == Path("/tmp") / "yoke-scratch"
 
 
 def test_override_root_appends_project_session_and_run_segments(
@@ -156,4 +140,7 @@ def test_global_scratch_root_is_project_agnostic(
     monkeypatch.setenv(roots.ENV_KEY, str(override_root))
 
     assert scratch.global_scratch_root() == override_root
-    assert scratch.scratch_root("externalwebapp").parents[4] == scratch.global_scratch_root()
+    assert (
+        scratch.scratch_root("externalwebapp").parents[4]
+        == scratch.global_scratch_root()
+    )
