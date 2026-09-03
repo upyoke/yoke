@@ -35,8 +35,13 @@ def register_harness_session(
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     native_thread_id: Optional[str] = None,
+    launch_id: Optional[str] = None,
 ) -> str:
     """Register a harness session through the target-aware service client.
+
+    ``launch_id`` names the launch that started this session, when one
+    did; registration binds the launching actor from it rather than the
+    operating actor of this machine.
 
     On https-default machines this self-skips and reports success: the
     local service-client subprocess has no local authority to reach, and
@@ -69,6 +74,7 @@ def register_harness_session(
             executor_version=executor_version,
             machine_id=machine_id,
             native_thread_id=native_thread_id,
+            launch_id=launch_id,
         )
     return service_client.register_session(
         service_client_path(root),
@@ -82,6 +88,7 @@ def register_harness_session(
         executor_version,
         machine_id,
         native_thread_id,
+        launch_id,
     ) or ""
 
 

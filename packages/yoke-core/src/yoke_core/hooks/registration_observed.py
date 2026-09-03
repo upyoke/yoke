@@ -20,6 +20,11 @@ class HookRegistrationFacts:
     executor_version: str = ""
     machine_id: str = ""
     native_thread_id: str = ""
+    #: The launch that started this session, read from the authenticated
+    #: ``yoke_launch`` side channel the launch handoff projects into the
+    #: payload. Present only while that launch is still undelivered; a
+    #: session nobody launched carries none.
+    launch_id: str = ""
     project_id: Optional[int] = None
     transcript_path: str = ""
     cwd: str = ""
@@ -62,6 +67,7 @@ def parse_hook_registration_facts(
         executor_version=_text("executor_version"),
         machine_id=_text("machine_id"),
         native_thread_id=_text("native_thread_id"),
+        launch_id=_launch_id(payload),
         project_id=(
             project_id
             if project_id is not None
@@ -98,6 +104,15 @@ def reclassify_unservable_model(facts: SessionModelFacts) -> SessionModelFacts:
     if facts.requested_model:
         return replace(facts, model=None)
     return replace(facts, model=None, requested_model=model)
+
+
+def _launch_id(payload: dict) -> str:
+    """Return the launch id the attestation side channel carried, if any."""
+    block = payload.get("yoke_launch")
+    if not isinstance(block, dict):
+        return ""
+    launch_id = block.get("launch_id")
+    return launch_id.strip() if isinstance(launch_id, str) else ""
 
 
 def _driver_block(payload: dict) -> Optional[dict]:

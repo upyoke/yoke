@@ -247,6 +247,7 @@ and resume correlation without retroactive schema changes to the offer envelope.
  tracking, heartbeat, ledger events, charge records).
 - **`executor`** -- the canonical harness identity stored in `harness_sessions.executor` — always `claude-code` or `codex`. The surface-specific input (`claude-desktop`, `codex-vscode`, etc.) is preserved in `harness_sessions.executor_surface` and used by board / session rendering. Multiple
  sessions may share an executor identity but will have distinct `session_id` values.
+- **`actor_id`** -- the actor the session acts for, stored in `harness_sessions.actor_id` and never NULL. A session a person opened binds that person; a session another session LAUNCHED binds the launching actor transitively, so a worker carries the authority of whoever started the chain rather than of the machine running it (`docs/archive/decisions/session-actor-follows-the-person.md`).
 - **`execution_lane`** -- execution lane identity. Yoke core resolves the default lane per executor from config, then applies the matching `lane_paths_<lane>` policy before routing.
 
 ### Codex runtime correlation

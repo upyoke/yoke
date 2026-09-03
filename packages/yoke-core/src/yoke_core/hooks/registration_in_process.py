@@ -32,8 +32,14 @@ def _register_in_process(
     machine_id: Optional[str] = None,
     native_thread_id: Optional[str] = None,
     driver: Optional[dict] = None,
+    launch_id: Optional[str] = None,
 ) -> str:
     """Direct domain registration for server-side (remote) contexts.
+
+    ``launch_id`` names the launch that started this session, when the
+    authenticated attestation side channel carried one. Registration
+    binds the launching actor from it, so a worker acts for whoever
+    started it rather than for whoever owns the machine it runs on.
 
     ``driver`` is the dispatch tail's driving-process block (pid, ppid, and
     the hook event that ran). It is what a reactivation stamps on its own
@@ -77,6 +83,7 @@ def _register_in_process(
                 machine_id=machine_id,
                 native_thread_id=native_thread_id,
                 driver=driver,
+                launch_id=launch_id,
                 **lane_kwargs,
             )
         finally:

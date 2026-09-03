@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event
 from yoke_core.domain.function_call_ledger import record_call
+from yoke_core.domain.session_action_attribution import record_session_action
 from yoke_core.domain.yoke_function_actor_identity import BoundIdentity
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -147,6 +148,10 @@ def emit_called(
         ),
         context=context,
     )
+    # A call that acted on another session also belongs in THAT session's
+    # history, attributed to the caller's actor — otherwise a worker's own
+    # history cannot say who woke, held, or ended it.
+    record_session_action(request, entry.function_id, response, project=project)
     # Idempotency state rides the same flow as the telemetry emission:
     # the ledger row is what `_idempotency_lookup` replays on request_id
     # reuse. First write wins; calls without a request_id skip, and

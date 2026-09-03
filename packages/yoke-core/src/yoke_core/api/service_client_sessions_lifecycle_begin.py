@@ -52,6 +52,7 @@ def begin_session(
     machine_id: str | None = None,
     native_thread_id: str | None = None,
     actor_id: int | None = None,
+    launch_id: str | None = None,
 ) -> dict:
     """Register (or idempotently refresh) a session row; return a result dict.
 
@@ -64,7 +65,9 @@ def begin_session(
 
     ``actor_id`` is the caller's authenticated actor when the transport
     verified one; without it registration binds the universe's operating
-    actor rather than storing NULL.
+    actor rather than storing NULL. ``launch_id`` names the launch that
+    started the session, when one did, and outranks both: a launched
+    worker acts for whoever started it, never for the machine it runs on.
 
     ``executor`` is passed through verbatim.
     :func:`yoke_core.domain.sessions_lifecycle_canonicalize.canonicalize_executor`
@@ -100,6 +103,7 @@ def begin_session(
             machine_id=machine_id,
             native_thread_id=native_thread_id,
             actor_id=actor_id,
+            launch_id=launch_id,
         )
     except SessionError as exc:
         if exc.code == "SESSION_EXISTS":
@@ -142,6 +146,7 @@ def cmd_session_begin(args: list[str]) -> int:
     parser.add_argument("--executor-version", default=None)
     parser.add_argument("--machine-id", default=None)
     parser.add_argument("--native-thread-id", default=None)
+    parser.add_argument("--launch-id", default=None)
 
     try:
         parsed = parser.parse_args(args)
@@ -183,6 +188,7 @@ def cmd_session_begin(args: list[str]) -> int:
                 executor_version=parsed.executor_version,
                 machine_id=parsed.machine_id,
                 native_thread_id=parsed.native_thread_id,
+                launch_id=parsed.launch_id,
             )
             print(json.dumps(result, default=str))
         except SessionError as exc:
