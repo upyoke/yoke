@@ -25,7 +25,7 @@ _AWS_ADMIN_CAPABILITY = "aws-admin"
 def aws_admin_link(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke aws admin-link",
-        description="Print the build-pinned CloudFormation aws-admin key link.",
+        description="Print the CloudFormation key link; keys appear as stack Outputs.",
     )
     parser.add_argument(
         "--project",
