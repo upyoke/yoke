@@ -32,7 +32,7 @@ Code, Codex, or Cursor in your project folder and run `/yoke onboard`.
 
 ```bash
 yoke status          # machine, env, credentials, checkouts
-yoke ui              # local workbench (local mode)
+yoke ui up           # local workbench (local mode), detached from this terminal
 # or open the Cloud dashboard after sign-in
 ```
 

@@ -902,7 +902,7 @@ Then prove the local dashboard:
 
 ```bash
 cd "$HOME/code/my-project"
-yoke ui --host 127.0.0.1 --port 8787
+yoke ui up --host 127.0.0.1 --port 8787 --no-browser
 ```
 
 From the operator machine:

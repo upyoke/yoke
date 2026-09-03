@@ -38,7 +38,10 @@ class LocalUniverseSetupError(RuntimeError):
     """The local universe could not be initialized, exported, or recorded."""
 
 
-_ENGINE_MISSING_MESSAGE = (
+#: What every client-side engine seam says when the engine half of the
+#: install is missing. Shared, because a product install that lost its
+#: engine gives the same answer whichever seam noticed first.
+ENGINE_MISSING_MESSAGE = (
     "the yoke-core engine package is not importable on this machine; "
     "reinstall Yoke (the engine ships in every product install)"
 )
@@ -48,21 +51,21 @@ def _engine():
     try:
         return importlib.import_module("yoke_core.domain.local_universe")
     except ModuleNotFoundError as exc:
-        raise LocalUniverseSetupError(_ENGINE_MISSING_MESSAGE) from exc
+        raise LocalUniverseSetupError(ENGINE_MISSING_MESSAGE) from exc
 
 
 def _export_engine():
     try:
         return importlib.import_module("yoke_core.domain.universe_export")
     except ModuleNotFoundError as exc:
-        raise LocalUniverseSetupError(_ENGINE_MISSING_MESSAGE) from exc
+        raise LocalUniverseSetupError(ENGINE_MISSING_MESSAGE) from exc
 
 
 def _import_engine():
     try:
         return importlib.import_module("yoke_core.domain.local_universe_import")
     except ModuleNotFoundError as exc:
-        raise LocalUniverseSetupError(_ENGINE_MISSING_MESSAGE) from exc
+        raise LocalUniverseSetupError(ENGINE_MISSING_MESSAGE) from exc
 
 
 def run_local_init(

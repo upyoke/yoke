@@ -168,8 +168,13 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke self-host import", "self_host.import", REASON_TOOL_SHAPED),
     _p("yoke self-host teardown", "self_host.teardown", REASON_TOOL_SHAPED),
     _p("yoke connect", "self_host.connect", REASON_TOOL_SHAPED),
-    # Machine-local token-gated UI server (reads dispatch in-process).
+    # Machine-local token-gated UI server (reads dispatch in-process),
+    # run as a detached daemon rather than a terminal job.
     _p("yoke ui", "local_universe.ui", REASON_TOOL_SHAPED),
+    _p("yoke ui up", "local_universe.ui", REASON_TOOL_SHAPED),
+    _p("yoke ui down", "local_universe.ui", REASON_TOOL_SHAPED),
+    _p("yoke ui status", "local_universe.ui", REASON_TOOL_SHAPED),
+    _p("yoke ui serve-process", "local_universe.ui", REASON_TOOL_SHAPED),
     _p("yoke check file-line", "checks.file_line", REASON_TOOL_SHAPED),
     _p("yoke board art variant create", "board.art", REASON_TOOL_SHAPED),
     _p("yoke merge item", "merge.item", REASON_TOOL_SHAPED),
