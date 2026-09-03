@@ -144,6 +144,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "path_claim_amendments",
         "actors",
         "actor_labels",
+        "machines",
         "harness_machine_reports",
     ),
     "auth": (
@@ -194,8 +195,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # catalog/report projection so Pack-status audits do not guess its schema.
 # These caps therefore follow the complete registered recipes and table facts
 # rendered today rather than an arbitrary prose target. The claims topic now
-# also names harness_machine_reports (install-glue presence plus exact Codex
-# normalized-handler trust hashes)
+# also names machines (the registered machine identity, owner and access
+# document every machine-keyed row points at) and harness_machine_reports
+# (install-glue presence plus exact Codex normalized-handler trust hashes)
 # and the sticky shared-operation work-claim kinds. The core
 # topic additionally carries the declared package roots, so every role learns
 # where a module physically lives instead of guessing a repo-root directory
