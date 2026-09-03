@@ -22,7 +22,9 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
-from yoke_core.engines import merge_worktree_safe_prune as _safe_prune
+from yoke_core.engines.merge_prune_authority import (
+    item_cleanup_authority_blocks_prune,
+)
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
@@ -197,7 +199,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
 
         for pattern in present:
             if args.fix:
-                if _safe_prune.item_cleanup_authority_blocks_prune(conn, int(did)):
+                if item_cleanup_authority_blocks_prune(conn, int(did)):
                     preserved += 1
                     issues.append(
                         f"- PRESERVED stale remote branch {pattern}{proj_label}: "

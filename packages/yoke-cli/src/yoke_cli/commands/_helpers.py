@@ -254,13 +254,13 @@ def dispatch_and_emit(
         cleanup_terminal_item_lanes = importlib.import_module(
             "yoke_core.domain.terminal_lane_cleanup"
         ).cleanup_terminal_item_lanes
-        warnings = cleanup_terminal_item_lanes(
+        close = cleanup_terminal_item_lanes(
             cleanup_item,
             target_status=str(payload.get("target_status") or ""),
             session_id=actor.session_id,
             emit=lambda message, **_kw: print(message, file=sys.stderr),
         )
-        for warning in warnings:
+        for warning in close.warnings:
             print(f"WARNING: {warning}", file=sys.stderr)
     return result_code
 

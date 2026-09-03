@@ -1,175 +1,106 @@
-"""Fail-closed pruning for DB-owned merged worktrees and branches."""
+"""Fail-closed sweep of merged, terminal, unclaimed lanes on this machine.
+
+The per-lane retirement at landing (``merge_landed_lane_cleanup``) can refuse
+— a dirty tree, a locked worktree, an incomplete remote delete — and nothing
+retries it on its own. This sweep is that retry: every landing boundary on a
+machine runs it after its own lane is handled, so a lane one landing
+preserved is examined again by the next. It never widens the rules: the
+control plane must name a terminal owner with no live authority
+(``merge.prune.authority_verdict`` over the active transport), the tree must
+be clean once disposable caches are gone, the branch must be contained in
+``origin/<target>``, and the remote branch goes before any local ref.
+Unreachable authority skips everything. What was removed and what was kept,
+each with its reason, comes back as a :class:`WorktreeSweep` so the landing
+that ran the sweep can show it instead of burying it in progress output.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain import db_backend
 from yoke_core.engines.merge_worktree_cleanliness import (
     clean_after_disposable_cache_removal,
 )
-
-
-_ITEM_TERMINAL = frozenset({"done", "cancelled"})
-
-
-@dataclass(frozen=True)
-class _Owner:
-    kind: str
-    item_id: int
-    task_num: int | None = None
 
 
 @dataclass(frozen=True)
 class _Worktree:
     path: Path
     branch: str
+    # Git's lock note; ``None`` when the worktree is not locked.
+    lock_reason: str | None = None
 
 
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+@dataclass(frozen=True)
+class PreservedLane:
+    path: str
+    reason: str
 
 
-def _row_value(row: Any, key: str, index: int) -> Any:
-    return row[key] if hasattr(row, "keys") else row[index]
+@dataclass(frozen=True)
+class WorktreeSweep:
+    """What one sweep removed and what it left on disk, each with a reason."""
+
+    removed: tuple[str, ...] = ()
+    preserved: tuple[PreservedLane, ...] = ()
+    skipped: str = ""
+
+    def payload(self) -> dict[str, Any]:
+        return {
+            "removed": list(self.removed),
+            "preserved": [asdict(lane) for lane in self.preserved],
+            "skipped": self.skipped,
+        }
 
 
-def _terminal_owner(
-    conn: Any,
-    *,
-    branch: str,
-    path: Path | None,
-) -> _Owner | None:
-    """Return the unique terminal DB owner, never infer one from a name."""
-    marker = _p(conn)
-    owners: set[_Owner] = set()
-    try:
-        where = f"iw.branch = {marker}"
-        params: tuple[Any, ...] = (branch,)
-        if path is not None:
-            where += f" OR iw.path = {marker}"
-            params = (branch, str(path))
-        rows = conn.execute(
-            "SELECT iw.id AS lane_id, iw.item_id, i.status "
-            "FROM item_worktrees iw JOIN items i ON i.id = iw.item_id "
-            f"WHERE {where}",
-            params,
-        ).fetchall()
-        for row in rows:
-            lane_id = int(_row_value(row, "lane_id", 0))
-            item_id = int(_row_value(row, "item_id", 1))
-            task_rows = conn.execute(
-                "SELECT epic_id, task_num, status FROM epic_tasks "
-                f"WHERE item_worktree_id = {marker}",
-                (lane_id,),
-            ).fetchall()
-            if not task_rows:
-                if str(_row_value(row, "status", 2)) not in _ITEM_TERMINAL:
-                    return None
-                owners.add(_Owner("item", item_id))
-                continue
-            for task_row in task_rows:
-                if str(_row_value(task_row, "status", 2)) not in TASK_TERMINAL_SUCCESS:
-                    return None
-                owners.add(
-                    _Owner(
-                        "epic_task",
-                        int(_row_value(task_row, "epic_id", 0)),
-                        int(_row_value(task_row, "task_num", 1)),
-                    )
-                )
-        if not rows:
-            return None
-        if any(
-            owner.item_id not in {int(_row_value(row, "item_id", 1)) for row in rows}
-            for owner in owners
-        ):
-            # A task link whose parent disagrees with the universal lane owner
-            # is corrupt; pruning must preserve it for diagnosis.
-            return None
-    except Exception:  # noqa: BLE001 - missing/stale DB shape means preserve
-        return None
-    return next(iter(owners)) if len(owners) == 1 else None
+def _runtime_git() -> Callable[..., Any]:
+    from yoke_core.engines._merge_worktree_runtime import _run_git
+
+    return _run_git
 
 
-def _has_active_authority(
-    conn: Any,
-    owner: _Owner,
-    path: Path | None,
-) -> bool:
-    """Conservatively treat lookup failure as active authority."""
-    marker = _p(conn)
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+def _runtime_emit() -> Callable[..., Any]:
+    from yoke_core.engines._merge_worktree_runtime import _print
 
-    try:
-        if owner.kind == "item":
-            item_scope = scope_int_sql(conn, "scope", "item_id")
-            row = conn.execute(
-                "SELECT 1 FROM work_claims WHERE released_at IS NULL "
-                f"AND target_kind = 'item' AND {item_scope} = {marker} LIMIT 1",
-                (owner.item_id,),
-            ).fetchone()
-        else:
-            epic_scope = scope_int_sql(conn, "scope", "epic_id")
-            task_scope = scope_int_sql(conn, "scope", "task_num")
-            row = conn.execute(
-                "SELECT 1 FROM work_claims WHERE released_at IS NULL "
-                "AND target_kind = 'epic_task' "
-                f"AND {epic_scope} = {marker} "
-                f"AND {task_scope} = {marker} LIMIT 1",
-                (owner.item_id, owner.task_num),
-            ).fetchone()
-        if row is not None:
-            return True
-        row = conn.execute(
-            "SELECT 1 FROM path_claims "
-            "WHERE state IN ('planned', 'blocked', 'active') "
-            f"AND owner_kind = 'item' AND owner_item_id = {marker} "
-            "LIMIT 1",
-            (owner.item_id,),
-        ).fetchone()
-        if row is not None:
-            return True
-        if path is not None:
-            row = conn.execute(
-                "SELECT 1 FROM harness_sessions WHERE ended_at IS NULL "
-                f"AND workspace = {marker} LIMIT 1",
-                (str(path),),
-            ).fetchone()
-            if row is not None:
-                return True
-    except Exception:  # noqa: BLE001 - fail closed
-        return True
-    return False
+    return _print
 
 
-def item_cleanup_authority_blocks_prune(conn: Any, item_id: int) -> bool:
-    """Return true when item authority is active or cannot be proven idle."""
-    return _has_active_authority(conn, _Owner("item", int(item_id)), None)
+def first_output_line(result: Any) -> str:
+    """The first meaningful line git wrote, or its exit code."""
+    detail = (result.stderr or result.stdout or "").strip()
+    return detail.splitlines()[0] if detail else f"exit {result.returncode}"
 
 
 def registered_worktrees(
     run_git: Callable[..., Any], repo_root: str
 ) -> list[_Worktree] | None:
-    """Every worktree git has registered, or ``None`` when it cannot say."""
+    """Every branch-bearing worktree git registers, or ``None`` when it cannot say."""
     result = run_git(["worktree", "list", "--porcelain"], cwd=repo_root, capture=True)
     if result.returncode != 0:
         return None
     entries: list[_Worktree] = []
-    path: Path | None = None
+    block: dict[str, str] = {}
     for line in [*result.stdout.splitlines(), ""]:
-        if line.startswith("worktree "):
-            path = Path(line.removeprefix("worktree ")).resolve()
-        elif line.startswith("branch refs/heads/") and path is not None:
-            entries.append(_Worktree(path, line.removeprefix("branch refs/heads/")))
-            path = None
-        elif not line:
-            path = None
+        if not line:
+            if "branch" in block:
+                entries.append(
+                    _Worktree(
+                        Path(block["worktree"]).resolve(),
+                        block["branch"],
+                        block.get("locked"),
+                    )
+                )
+            block = {}
+        elif line.startswith("worktree "):
+            block["worktree"] = line.removeprefix("worktree ")
+        elif line.startswith("branch refs/heads/"):
+            block["branch"] = line.removeprefix("branch refs/heads/")
+        elif line == "locked" or line.startswith("locked "):
+            block["locked"] = line.removeprefix("locked").strip()
     return entries
 
 
@@ -199,10 +130,9 @@ def _prune_verdict(
     """Relay the fail-closed authority verdict for one branch / worktree.
 
     Returns the verdict dict, or ``None`` when DB authority is unreachable
-    over the active transport (flagged on *state* so the caller can skip
-    all pruning exactly as the old bare-connect failure did). The terminal
-    owner + active authority reads run server-side over the relay; the
-    prune/keep decision and every git deletion stay client-side.
+    over the active transport (flagged on *state* so the caller skips all
+    pruning). The terminal owner + active authority reads run server-side;
+    the prune/keep decision and every git deletion stay client-side.
     """
     try:
         resp = call_dispatcher(
@@ -226,7 +156,7 @@ def _delete_remote_before_local(
     repo_root: str,
     branch: str,
     target: str,
-) -> bool:
+) -> Any:
     """Prove and delete ``origin/<branch>`` before discarding local refs."""
     from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
 
@@ -239,33 +169,50 @@ def _delete_remote_before_local(
         emit(f"Deleted merged remote branch: origin/{branch}")
     elif result.status == "preserved":
         emit(f"Preserving remote branch origin/{branch}: {result.reason}")
-    return result.cleanup_complete
+    return result
+
+
+def _skipped(
+    emit: Callable[..., Any],
+    reason: str,
+    removed: tuple[str, ...] = (),
+    preserved: tuple[PreservedLane, ...] = (),
+) -> WorktreeSweep:
+    emit(f"Skipping automatic worktree pruning: {reason}")
+    return WorktreeSweep(removed, preserved, reason)
 
 
 def prune_managed_worktrees(
     *,
-    parent: Any,
     repo_root: str,
     target: str,
-) -> None:
+    run_git: Callable[..., Any] | None = None,
+    emit: Callable[..., Any] | None = None,
+) -> WorktreeSweep:
     """Prune clean, unclaimed, terminal lanes after remote-first delete.
 
     Authority verdicts relay via ``merge.prune.authority_verdict``; git stays
     local. Unreachable DB authority skips pruning. Incomplete remote cleanup
-    preserves the local retry lane.
+    preserves the local retry lane. Every kept lane is named with its reason
+    on the returned sweep as well as on ``emit``.
     """
-    run_git = parent._run_git
-    emit = parent._print
+    git = run_git or _runtime_git()
+    say = emit or _runtime_emit()
     root = Path(repo_root).resolve()
     base = f"origin/{target}"
-    fetched = run_git(["fetch", "origin", target], cwd=repo_root, capture=True)
+    fetched = git(["fetch", "origin", target], cwd=repo_root, capture=True)
     if fetched.returncode != 0:
-        emit(f"Skipping automatic worktree pruning: could not refresh {base}")
-        return
-    entries = registered_worktrees(run_git, repo_root)
+        return _skipped(say, f"could not refresh {base}")
+    entries = registered_worktrees(git, repo_root)
     if entries is None:
-        emit("Skipping automatic worktree pruning: worktree registry unavailable")
-        return
+        return _skipped(say, "worktree registry unavailable")
+
+    removed: list[str] = []
+    preserved: list[PreservedLane] = []
+
+    def keep(path: Path, reason: str) -> None:
+        say(f"Preserving worktree {path}: {reason}")
+        preserved.append(PreservedLane(str(path), reason))
 
     state = {"unavailable": False}
     checked_out = {entry.branch for entry in entries}
@@ -274,76 +221,90 @@ def prune_managed_worktrees(
             continue
         verdict = _prune_verdict(entry.branch, entry.path, state)
         if state["unavailable"]:
-            emit("Skipping automatic worktree pruning: DB authority unavailable")
-            return
+            return _skipped(
+                say, "DB authority unavailable", tuple(removed), tuple(preserved)
+            )
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
             if verdict.get("reason") == "active_authority":
-                emit(f"Preserving actively claimed worktree: {entry.path}")
+                keep(entry.path, "actively claimed")
             continue
-        if not clean_after_disposable_cache_removal(run_git, entry.path):
-            emit(f"Preserving dirty or unverifiable worktree: {entry.path}")
+        if entry.lock_reason is not None:
+            keep(
+                entry.path,
+                f"worktree is locked ({entry.lock_reason or 'no reason recorded'})",
+            )
             continue
-        if not _merged(run_git, repo_root, entry.branch, base):
-            emit(f"Preserving unmerged worktree branch: {entry.branch}")
+        if not clean_after_disposable_cache_removal(git, entry.path):
+            keep(entry.path, "dirty or unverifiable worktree")
             continue
-        if not _delete_remote_before_local(
-            run_git=run_git,
-            emit=emit,
+        if not _merged(git, repo_root, entry.branch, base):
+            keep(entry.path, f"unmerged worktree branch {entry.branch}")
+            continue
+        remote = _delete_remote_before_local(
+            run_git=git,
+            emit=say,
             repo_root=repo_root,
             branch=entry.branch,
             target=target,
-        ):
+        )
+        if not remote.cleanup_complete:
+            keep(entry.path, f"remote cleanup incomplete: {remote.reason}")
             continue
-        removed = run_git(
+        removal = git(
             ["worktree", "remove", str(entry.path)],
             cwd=repo_root,
             capture=True,
         )
-        if removed.returncode != 0:
-            emit(f"Preserving worktree after removal refusal: {entry.path}")
+        if removal.returncode != 0:
+            keep(entry.path, f"removal refused: {first_output_line(removal)}")
             continue
-        emit(f"Pruned terminal merged worktree: {entry.path}")
+        say(f"Pruned terminal merged worktree: {entry.path}")
+        removed.append(str(entry.path))
         checked_out.discard(entry.branch)
-        deleted = run_git(["branch", "-d", entry.branch], cwd=repo_root, capture=True)
+        deleted = git(["branch", "-d", entry.branch], cwd=repo_root, capture=True)
         if deleted.returncode != 0:
-            emit(f"Preserved local branch after delete refusal: {entry.branch}")
+            say(f"Preserved local branch after delete refusal: {entry.branch}")
 
-    branches = run_git(
+    branches = git(
         ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
         cwd=repo_root,
         capture=True,
     )
     if branches.returncode != 0:
-        return
+        return WorktreeSweep(tuple(removed), tuple(preserved))
     for branch in branches.stdout.splitlines():
         if branch in checked_out or branch == target:
             continue
         verdict = _prune_verdict(branch, None, state)
         if state["unavailable"]:
-            emit("Skipping automatic worktree pruning: DB authority unavailable")
-            return
+            return _skipped(
+                say, "DB authority unavailable", tuple(removed), tuple(preserved)
+            )
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
             continue
-        if not _merged(run_git, repo_root, branch, base):
+        if not _merged(git, repo_root, branch, base):
             continue
         if not _delete_remote_before_local(
-            run_git=run_git,
-            emit=emit,
+            run_git=git,
+            emit=say,
             repo_root=repo_root,
             branch=branch,
             target=target,
-        ):
+        ).cleanup_complete:
             continue
-        deleted = run_git(["branch", "-d", branch], cwd=repo_root, capture=True)
+        deleted = git(["branch", "-d", branch], cwd=repo_root, capture=True)
         if deleted.returncode == 0:
-            emit(f"Pruned terminal merged local branch: {branch}")
+            say(f"Pruned terminal merged local branch: {branch}")
+    return WorktreeSweep(tuple(removed), tuple(preserved))
 
 
 __all__ = [
+    "PreservedLane",
+    "WorktreeSweep",
+    "first_output_line",
     "is_managed_worktree_path",
-    "item_cleanup_authority_blocks_prune",
     "prune_managed_worktrees",
     "registered_worktrees",
 ]

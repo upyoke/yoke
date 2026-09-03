@@ -280,3 +280,19 @@ def test_row_release_warning_is_returned_from_prune(landed_lane, monkeypatch):
 
     assert any("left active after worktree removal" in note for note in preserved)
     assert any("control plane down" in note for note in preserved)
+
+
+def test_locked_worktree_is_preserved_with_git_reason_named(landed_lane):
+    """Git's own refusal is the reason an operator needs, so it is relayed."""
+    _land_on_main(landed_lane.repo)
+    _git(landed_lane.repo, "worktree", "lock", "--reason", "initializing", str(landed_lane.worktree))
+
+    preserved = prune_landed_lane(
+        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
+        run_git=_run_git, emit=lambda *_a, **_kw: None,
+    )
+
+    assert len(preserved) == 1
+    assert "worktree removal refused" in preserved[0]
+    assert "locked" in preserved[0]
+    assert landed_lane.worktree.exists()

@@ -316,15 +316,16 @@ def run(argv: List[str]) -> int:
             return 1
         envelope["status"] = "done"
         _announce_close_out("lane cleanup")
-        envelope["warnings"].extend(
-            cleanup_terminal_item_lanes(
-                {**item, "claim": None},
-                target_status="done",
-                session_id=str(args.session_id),
-                repo_root=repo_root,
-                target_branch=target,
-            )
+        close = cleanup_terminal_item_lanes(
+            {**item, "claim": None},
+            target_status="done",
+            session_id=str(args.session_id),
+            repo_root=repo_root,
+            target_branch=target,
+            emit=lambda message, **_kw: print(message, file=sys.stderr, flush=True),
         )
+        envelope["warnings"].extend(close.warnings)
+        envelope["lane_sweep"] = close.sweep
         marker_error = pending.clear_after_close_out(item_id, item)
         if marker_error:
             envelope["warnings"].append(f"queue marker not cleared: {marker_error}")

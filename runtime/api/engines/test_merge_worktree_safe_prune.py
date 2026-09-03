@@ -13,9 +13,6 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from types import SimpleNamespace
-
-import pytest
 
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -165,39 +162,58 @@ def _install(monkeypatch, repo: Path, conn: _Conn):
     def run_git(argv, cwd=None, capture=False):
         return _git(Path(cwd or repo), *argv, check=False)
 
-    parent = SimpleNamespace(
-        _run_git=run_git,
-        _connect=lambda: pytest.fail("must not open a bare parent._connect()"),
-        _print=lambda line, **_kwargs: lines.append(line),
-    )
+    git_io = dict(run_git=run_git, emit=lambda line, **_kwargs: lines.append(line))
     monkeypatch.setattr(_ops, "_connect_rw", lambda: conn)
     monkeypatch.setattr(_safe_prune, "call_dispatcher", _fake_dispatcher(conn))
-    return parent, lines
+    return git_io, lines
 
 
 def test_clean_terminal_merged_worktree_and_branch_are_pruned(
     monkeypatch, tmp_path: Path
 ):
     repo, worktree, branch = _repo(tmp_path)
-    parent, lines = _install(monkeypatch, repo, _Conn(branch))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert not worktree.exists()
     assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
     assert any("Pruned terminal merged worktree" in line for line in lines)
+    assert sweep.removed == (str(worktree.resolve()),)
+    assert sweep.preserved == ()
+    assert sweep.payload()["skipped"] == ""
 
 
 def test_dirty_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
     (worktree / "evidence.txt").write_text("keep me\n", encoding="utf-8")
-    parent, lines = _install(monkeypatch, repo, _Conn(branch))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert branch in _git(repo, "branch", "--list", branch).stdout
     assert any("dirty or unverifiable" in line for line in lines)
+    assert sweep.removed == ()
+    assert sweep.payload()["preserved"] == [
+        {"path": str(worktree.resolve()), "reason": "dirty or unverifiable worktree"}
+    ]
+
+
+def test_locked_terminal_worktree_is_preserved_with_the_lock_named(
+    monkeypatch, tmp_path: Path
+):
+    """A lock is an operator's hold; the sweep names it instead of forcing it."""
+    repo, worktree, branch = _repo(tmp_path)
+    _git(repo, "worktree", "lock", "--reason", "initializing", str(worktree))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    assert worktree.exists()
+    assert branch in _git(repo, "branch", "--list", branch).stdout
+    assert sweep.preserved[0].reason == "worktree is locked (initializing)"
+    assert any("locked (initializing)" in line for line in lines)
 
 
 def test_known_python_and_node_caches_are_removed_before_prune(
@@ -218,9 +234,9 @@ def test_known_python_and_node_caches_are_removed_before_prune(
     for path in cache_files:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("generated\n", encoding="utf-8")
-    parent, _lines = _install(monkeypatch, repo, _Conn(branch))
+    git_io, _lines = _install(monkeypatch, repo, _Conn(branch))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert not worktree.exists()
     assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
@@ -231,9 +247,9 @@ def test_unknown_ignored_content_is_preserved(monkeypatch, tmp_path: Path):
     protected = worktree / ".private" / "operator-note"
     protected.parent.mkdir(parents=True)
     protected.write_text("keep me\n", encoding="utf-8")
-    parent, lines = _install(monkeypatch, repo, _Conn(branch))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert protected.read_text(encoding="utf-8") == "keep me\n"
     assert worktree.exists()
@@ -242,9 +258,9 @@ def test_unknown_ignored_content_is_preserved(monkeypatch, tmp_path: Path):
 
 def test_active_claim_preserves_terminal_worktree(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
-    parent, lines = _install(monkeypatch, repo, _Conn(branch, claimed=True))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch, claimed=True))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert any("actively claimed" in line for line in lines)
@@ -254,9 +270,9 @@ def test_active_item_owned_path_claim_preserves_terminal_worktree(
     monkeypatch, tmp_path: Path
 ):
     repo, worktree, branch = _repo(tmp_path)
-    parent, lines = _install(monkeypatch, repo, _Conn(branch, path_claimed=True))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch, path_claimed=True))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert branch in _git(repo, "branch", "--list", branch).stdout
@@ -268,9 +284,9 @@ def test_unmerged_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
     (worktree / "feature.txt").write_text("new\n", encoding="utf-8")
     _git(worktree, "add", "feature.txt")
     _git(worktree, "commit", "-m", "unmerged")
-    parent, lines = _install(monkeypatch, repo, _Conn(branch))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert any("unmerged worktree branch" in line for line in lines)
@@ -278,9 +294,9 @@ def test_unmerged_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
 
 def test_nonterminal_owner_preserves_merged_worktree(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
-    parent, _lines = _install(monkeypatch, repo, _Conn(branch, terminal=False))
+    git_io, _lines = _install(monkeypatch, repo, _Conn(branch, terminal=False))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert branch in _git(repo, "branch", "--list", branch).stdout
@@ -290,9 +306,9 @@ def test_terminal_and_nonterminal_owners_sharing_branch_are_preserved(
     monkeypatch, tmp_path: Path,
 ):
     repo, worktree, branch = _repo(tmp_path)
-    parent, _lines = _install(monkeypatch, repo, _Conn(branch, mixed_owner=True))
+    git_io, _lines = _install(monkeypatch, repo, _Conn(branch, mixed_owner=True))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert branch in _git(repo, "branch", "--list", branch).stdout
@@ -300,12 +316,13 @@ def test_terminal_and_nonterminal_owners_sharing_branch_are_preserved(
 
 def test_unavailable_db_authority_skips_all_pruning(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
-    parent, lines = _install(monkeypatch, repo, _Conn(branch, unavailable=True))
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch, unavailable=True))
 
-    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     # Fail closed: the terminal merged worktree is preserved and the skip
     # narrative fires, exactly as the pre-relay bare-connect failure did.
     assert worktree.exists()
     assert branch in _git(repo, "branch", "--list", branch).stdout
     assert any("DB authority unavailable" in line for line in lines)
+    assert sweep.payload()["skipped"] == "DB authority unavailable"

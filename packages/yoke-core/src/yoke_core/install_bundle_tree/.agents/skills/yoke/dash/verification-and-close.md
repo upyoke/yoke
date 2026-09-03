@@ -281,7 +281,10 @@ When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,
 then retry the transition. A successful standalone merge (or the terminal
 transition it drives) may already release the item work claim and remove the
-registered Dash worktree lane. Only release when a claim remains, or when
+registered Dash worktree lane, then sweeps lanes earlier landings on this
+machine preserved: the envelope's `lane_sweep` names what it removed and kept
+(with the reason), and a refusal on the item's own lane is recorded as a
+`LandedLanePreserved` event. Only release when a claim remains, or when
 exiting before merge:
 
 ```text

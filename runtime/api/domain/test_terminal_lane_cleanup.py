@@ -10,6 +10,8 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import terminal_lane_cleanup
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut
+from yoke_core.engines.merge_worktree_safe_prune import WorktreeSweep
 
 
 LANE_SHA = "1" * 40
@@ -26,6 +28,10 @@ def _item() -> dict:
         "claim": {"session_id": "session-1"},
         "worktrees": [{"branch": "ITEM-7", "path": "/repo/.worktrees/ITEM-7"}],
     }
+
+
+def _no_sweep(**_kwargs) -> WorktreeSweep:
+    return WorktreeSweep()
 
 
 def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
@@ -61,7 +67,8 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
     monkeypatch.setattr(
         merge_cli,
         "cleanup_terminal_item_lanes",
-        lambda *_a, **_k: timeline.append("cleanup") or cleanup_result,
+        lambda *_a, **_k: timeline.append("cleanup")
+        or TerminalLaneCloseOut(tuple(cleanup_result), {"removed": ["/repo/.worktrees/OLD"]}),
     )
     return timeline
 
@@ -134,6 +141,7 @@ def test_cleanup_refusal_is_reported_without_blocking_done(
     assert result == 0
     assert payload["status"] == "done"
     assert "dirty worktree preserved" in payload["warnings"][0]
+    assert payload["lane_sweep"] == {"removed": ["/repo/.worktrees/OLD"]}
 
 
 def test_close_out_drops_released_claim_before_lane_cleanup(monkeypatch):
@@ -142,7 +150,8 @@ def test_close_out_drops_released_claim_before_lane_cleanup(monkeypatch):
     monkeypatch.setattr(
         merge_cli,
         "cleanup_terminal_item_lanes",
-        lambda payload, **_k: seen.update(claim=payload.get("claim")) or (),
+        lambda payload, **_k: seen.update(claim=payload.get("claim"))
+        or TerminalLaneCloseOut(),
     )
 
     result = merge_cli.run(
@@ -176,10 +185,11 @@ def test_closing_session_claim_does_not_block_lane_cleanup(monkeypatch, tmp_path
         session_id="session-1",
         repo_root=tmp_path,
         prune=prune,
+        sweep=_no_sweep,
     )
 
     assert calls[0]["authority_block"] == ""
-    assert warnings == ()
+    assert warnings.warnings == ()
 
 
 def test_ambient_closing_session_does_not_block_when_flag_empty(
@@ -201,10 +211,11 @@ def test_ambient_closing_session_does_not_block_when_flag_empty(
         session_id="",
         repo_root=tmp_path,
         prune=prune,
+        sweep=_no_sweep,
     )
 
     assert calls[0]["authority_block"] == ""
-    assert warnings == ()
+    assert warnings.warnings == ()
 
 
 def test_foreign_live_claim_is_passed_to_shared_safety_predicate(
@@ -226,12 +237,13 @@ def test_foreign_live_claim_is_passed_to_shared_safety_predicate(
         session_id="session-1",
         repo_root=tmp_path,
         prune=prune,
+        sweep=_no_sweep,
     )
 
     assert calls[0]["authority_block"] == (
         "live work claim belongs to session other-session"
     )
-    assert "other-session" in warnings[0]
+    assert "other-session" in warnings.warnings[0]
 
 
 def test_unexpected_cleanup_error_is_advisory_after_terminal_state(
@@ -247,7 +259,9 @@ def test_unexpected_cleanup_error_is_advisory_after_terminal_state(
         session_id="session-1",
         repo_root=tmp_path,
         prune=prune,
+        sweep=_no_sweep,
     )
 
-    assert "unexpected refusal" in warnings[0]
-    assert "cleanup transport unavailable" in warnings[0]
+    assert "unexpected refusal" in warnings.warnings[0]
+    assert "cleanup transport unavailable" in warnings.warnings[0]
+
