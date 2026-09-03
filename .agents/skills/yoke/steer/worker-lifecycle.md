@@ -220,12 +220,13 @@ did not carry from the events ledger:
 
 ```text
 yoke events query --event-name SteeringReportSkipped --session WORKER-SESSION-ID
-``` A session
-the operator launched, and a session a person opened, are both outside the relay:
-they reach whichever seat holds their scope with `yoke say --steering` when
-there is something that seat must act on. That boundary is why an operator's
-own conversation no longer mails this seat its design discussion turn by
-turn.
+```
+
+A session the operator launched, and a session a person opened, are both
+outside the relay: they reach whichever seat holds their scope with
+`yoke say --steering` when there is something that seat must act on. That
+boundary is why an operator's own conversation no longer mails this seat its
+design discussion turn by turn.
 
 ```text
 {ROUTED_ENTRYPOINT}
