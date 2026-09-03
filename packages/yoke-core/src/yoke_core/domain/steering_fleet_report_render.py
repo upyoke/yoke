@@ -13,8 +13,14 @@ from yoke_core.domain.steering_fleet_report import (
     StarvedDelivery,
 )
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
+from yoke_core.domain.steering_fleet_report_detectors import landed_recovery
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
+from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
+from yoke_core.domain.steering_fleet_report_sections import (
+    CLAIMS_HEADING,
+    unlisted_holders,
+)
 
 
 #: Longest list rendered per section; past this the steerer needs the board.
@@ -39,12 +45,6 @@ LAUNCH_BALANCE_NOTE = (
     "most headroom and run it down; level counts only when headrooms are "
     "comparable; no per-surface session cap"
 )
-
-
-def _landed_recovery(public_ref: str) -> str:
-    return (
-        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
-    )
 
 
 def _minutes(seconds: int) -> str:
@@ -168,7 +168,7 @@ def _landed_lines(report: FleetReport) -> list[str]:
     lines = [
         f"  {entry.public_ref}  still {entry.status}  "
         f"landed {_minutes(entry.landed_seconds)} ago  "
-        f"{_landed_recovery(entry.public_ref)}"
+        f"{landed_recovery(entry.public_ref)}"
         for entry in report.landed_open[:SECTION_LIMIT]
     ]
     return _capped(lines, len(report.landed_open))
@@ -233,6 +233,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             "holders included even when parked",
             _holder_lines(report.idle),
         ),
+        *_in_flight.in_flight_section(report.in_flight),
         *_section(
             "suspected orphaned waiter — Monitor completed, waiting past idle",
             _holder_lines(report.suspected_orphaned_waiters, with_wake=True),
@@ -255,7 +256,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             _dead_wait_lines(report),
         ),
         *_awaiting_seat_lines(report),
-        *_section("live item claims", _holder_lines(report.holders)),
+        *_section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report))),
     ]
 
 
@@ -300,7 +301,7 @@ def scope_actionable_digest(report: FleetReport) -> str:
     work = _scope_work_lines(report)
     if work[:1] == ["available: none"]:
         work = work[2:] if work[1:2] == [""] else work[1:]
-    claims = _section("live item claims", _holder_lines(report.holders))
+    claims = _section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report)))
     if claims:
         work = work[: -len(claims)]
     return "\n".join(work).strip()

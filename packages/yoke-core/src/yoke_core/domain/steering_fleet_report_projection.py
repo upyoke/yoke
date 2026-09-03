@@ -18,14 +18,10 @@ from yoke_core.domain.steering_fleet_report_starvation import (
 from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
     UnregisteredLaunch,
+    landed_recovery,
 )
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
-
-
-def _landed_recovery(public_ref: str) -> str:
-    return (
-        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
-    )
+from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 
 
 def _entry_dict(entry: FrontierEntry, now: str) -> dict[str, Any]:
@@ -90,7 +86,7 @@ def _landed_dict(entry: LandedItem) -> dict[str, Any]:
         "status": entry.status,
         "landed_at": entry.landed_at,
         "landed_seconds": entry.landed_seconds,
-        "recovery": _landed_recovery(entry.public_ref),
+        "recovery": landed_recovery(entry.public_ref),
     }
 
 
@@ -130,6 +126,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         "suspected_orphaned_waiters": [
             _holder_dict(holder) for holder in report.suspected_orphaned_waiters
         ],
+        "in_flight": _in_flight.in_flight_dicts(report.in_flight),
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}

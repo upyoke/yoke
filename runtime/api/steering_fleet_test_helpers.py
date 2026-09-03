@@ -62,6 +62,44 @@ def seed_session(conn, session_id: str, **columns) -> None:
     )
 
 
+def seed_tool_call(
+    conn,
+    session_id: str,
+    *,
+    tool_use_id: str,
+    started_at: str,
+    command_summary: str,
+    completed_at: str | None = None,
+    tool_name: str = "Bash",
+) -> None:
+    """One ``session_tool_calls`` row, open unless ``completed_at`` is given."""
+    conn.execute(
+        "INSERT INTO session_tool_calls "
+        "(session_id, tool_use_id, tool_name, started_at, completed_at, "
+        "command_summary) VALUES (%s, %s, %s, %s, %s, %s)",
+        (
+            session_id,
+            tool_use_id,
+            tool_name,
+            started_at,
+            completed_at,
+            command_summary,
+        ),
+    )
+
+
+def seed_denial(conn, session_id: str, *, tool_use_id: str, at: str) -> None:
+    """The PreToolUse guardrail event that marks a start row as refused."""
+    conn.execute(
+        "INSERT INTO events "
+        "(event_id, source_type, session_id, event_kind, event_type, "
+        "event_name, tool_name, tool_use_id, created_at) "
+        "VALUES (%s, 'hook', %s, 'audit', 'tool_call', "
+        "'HarnessToolCallDenied', 'Bash', %s, %s)",
+        (f"denial-{tool_use_id}", session_id, tool_use_id, at),
+    )
+
+
 def seed_relay(conn) -> None:
     """One connected relay, so a launch has somewhere it could land."""
     conn.execute(
@@ -183,7 +221,9 @@ __all__ = [
     "compose",
     "plan_limit_row",
     "quiet_holder",
+    "seed_denial",
     "seed_relay",
     "seed_session",
     "seed_steering_scope",
+    "seed_tool_call",
 ]

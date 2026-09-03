@@ -25,16 +25,35 @@ from runtime.api.steering_fleet_test_helpers import (
     quiet_holder,
     seed_session,
 )
-from yoke_core.domain.steering_fleet_report_dead_waits import UNRESOLVED, dead_waits
+from yoke_core.domain.steering_fleet_report_dead_waits import (
+    UNRESOLVED,
+    dead_waits,
+    message_asks,
+)
 
 
-def _send(conn, message_id: str, *, sender, to, at, state="pending") -> None:
+#: A message that wants something back, so waiting on it is a real wait.
+A_QUESTION = "Did the rebase land clean, or do you need the base moved?"
+#: A message that closes a topic. Its sender is not waiting on anything.
+A_CONFIRMATION = "Confirmed, YOK-1 is merged. No reply needed."
+
+
+def _send(
+    conn,
+    message_id: str,
+    *,
+    sender,
+    to,
+    at,
+    state="pending",
+    body=A_QUESTION,
+) -> None:
     conn.execute(
         "INSERT INTO session_messages "
         "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
         "selector_snapshot, created_at, expires_at) "
-        "VALUES (%s, %s, %s, 'a question', 'sha', %s, %s, %s)",
-        (message_id, ACTOR_ID, sender, json.dumps({}), at, NOW),
+        "VALUES (%s, %s, %s, %s, 'sha', %s, %s, %s)",
+        (message_id, ACTOR_ID, sender, body, json.dumps({}), at, NOW),
     )
     conn.execute(
         "INSERT INTO session_message_recipients "
@@ -118,6 +137,53 @@ def test_an_answer_that_already_came_back_is_not_a_dead_wait(fleet):
 def test_an_idle_holder_that_asked_nobody_produces_no_row(fleet):
     """Its silence has some other cause; inventing a wait is the other guess."""
     assert dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW) == ()
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (A_QUESTION, True),
+        ("Which lane holds the claim?", True),
+        ("Please reply with the run id once it lands.", True),
+        ("Let me know whether the gate went green.", True),
+        ("Confirm whether the gate went green before I push.", True),
+        (A_CONFIRMATION, False),
+        ("Merged and deployed. No reply needed.", False),
+        ("Seat note: field-note 44959 has the detail.", False),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_only_a_message_that_wants_something_back_counts_as_asking(body, expected):
+    assert message_asks(body) is expected
+
+
+def test_a_confirmation_to_an_ended_session_is_not_a_dead_wait(fleet):
+    """Nobody is waiting, so the ended answerer costs the sender nothing."""
+    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO, body=A_CONFIRMATION)
+    fleet.execute(
+        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
+        (JUST_NOW, ANSWERER),
+    )
+    fleet.commit()
+
+    assert dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW) == ()
+
+
+def test_a_confirmation_sent_after_a_question_does_not_hide_the_real_wait(fleet):
+    """The newest message is not always the one its sender is waiting on."""
+    _send(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
+    _send(fleet, "msg-2", sender=ASKER, to=ANSWERER, at=JUST_NOW, body=A_CONFIRMATION)
+    fleet.execute(
+        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
+        (NOW, ANSWERER),
+    )
+    fleet.commit()
+
+    waits = dead_waits(fleet, idle=[quiet_holder(ASKER)], now=NOW)
+
+    assert [entry.session_id for entry in waits] == [ASKER]
+    assert waits[0].reason == "answerer session has ended"
 
 
 def test_a_role_addressed_question_is_a_handoff_rather_than_a_dead_wait(fleet):

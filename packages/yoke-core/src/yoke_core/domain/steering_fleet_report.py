@@ -19,6 +19,13 @@ it is presumed stuck". That is a judgment about a worker mid-task, not about
 a queue, and it is legitimately a longer number. The two shared one value
 once; they are unrelated concepts that happened to share a default.
 
+Quiet is not the same as stuck
+------------------------------
+A worker inside one long foreground call records no new tool call while that
+call runs, so the quiet threshold alone reads a working merge wait as stuck.
+:mod:`steering_fleet_report_in_flight` partitions the quiet holders so the
+idle alarm keeps meaning "nobody is driving this".
+
 The stale-claim window is already covered
 -----------------------------------------
 A stale claim is deliberately not a candidate for available work: the item
@@ -68,6 +75,10 @@ from yoke_core.domain.steering_fleet_report_capacity import (
     live_session_counts,
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
+from yoke_core.domain.steering_fleet_report_in_flight import (
+    InFlightCall,
+    partition_quiet,
+)
 from yoke_core.domain.steering_fleet_report_starvation import (
     StarvedDelivery,
     starved_deliveries,
@@ -128,6 +139,8 @@ class FleetReport:
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[tuple[str, str, int], ...]
     suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
+    #: Quiet holders inside one long-running call: reported, never an alarm.
+    in_flight: tuple[InFlightCall, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.
@@ -178,6 +191,7 @@ class FleetReport:
                 (holder.session_id, holder.item_id)
                 for holder in self.suspected_orphaned_waiters
             ),
+            "in_flight": sorted((c.session_id, c.command) for c in self.in_flight),
             "dead_waits": sorted(
                 (entry.session_id, entry.answerer_session_id, entry.reason)
                 for entry in self.dead_waits
@@ -276,13 +290,14 @@ def compose_report(
 ) -> FleetReport:
     """Assemble one steering scope's report from live control-plane state."""
     holders = claim_holders(conn, project_id=project_id, now=now)
-    idle = tuple(
+    quiet = tuple(
         holder
         for holder in holders
         if holder.native_process_gone
         or (not holder.parked and holder.idle_seconds >= int(idle_after_seconds))
     )
-    alive_idle = tuple(holder for holder in idle if not holder.native_process_gone)
+    split = partition_quiet(conn, quiet=quiet, now=now)
+    alive_idle = split.alive_idle
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
@@ -290,13 +305,14 @@ def compose_report(
         idle_after_seconds=int(idle_after_seconds),
         available=scope_candidates(conn, project_id=project_id, session_id=session_id),
         holders=holders,
-        idle=idle,
+        idle=split.idle,
         starved=starved_deliveries(conn, project_id=project_id, now=now),
         unregistered_launches=unregistered_launches(
             conn, project_id=project_id, now=now
         ),
         landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
+        in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),

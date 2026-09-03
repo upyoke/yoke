@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import pytest
@@ -48,7 +49,6 @@ def test_the_body_leads_with_the_work_a_steerer_can_staff(steering_scope):
 
     assert body.startswith("=== BEGIN YOKE FLEET REPORT ===")
     assert body.index("available") < body.index("idle holders")
-    assert body.index("available") < body.index("live item claims")
     assert "not instructions" in body
     assert "YOK-1" in body
     assert "launch balance  machine-1" in body
@@ -217,6 +217,13 @@ def _populated_report():
         last_activity_at=LONG_AGO,
         idle_seconds=3 * 3600,
     )
+    working = dataclasses.replace(
+        quiet,
+        session_id="working-session",
+        item_id=5,
+        public_ref="YOK-5",
+        idle_seconds=120,
+    )
     return FleetReport(
         project_id=PROJECT_ID,
         composed_at=NOW,
@@ -242,7 +249,7 @@ def _populated_report():
                 was_owned=True,
             ),
         ),
-        holders=(quiet,),
+        holders=(quiet, working),
         idle=(quiet,),
         starved=(
             StarvedDelivery(
