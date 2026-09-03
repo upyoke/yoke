@@ -20,8 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.lint_yok_n_cruft_status import load_work_item_statuses
 
 # ---------------------------------------------------------------------------
 # Scan scope
@@ -148,7 +147,11 @@ def _iter_scan_paths(
                 yield f
     for extra in extra_paths:
         p = Path(extra)
-        if p.is_file() and p.suffix in _SCAN_EXTS and not _is_exempt(p, repo_root=repo_root):
+        if (
+            p.is_file()
+            and p.suffix in _SCAN_EXTS
+            and not _is_exempt(p, repo_root=repo_root)
+        ):
             yield p
         elif p.is_dir():
             for ext in _SCAN_EXTS:
@@ -156,53 +159,6 @@ def _iter_scan_paths(
                     if _is_exempt(f, repo_root=repo_root):
                         continue
                     yield f
-
-
-# ---------------------------------------------------------------------------
-# Work-item status lookup
-# ---------------------------------------------------------------------------
-
-
-def _load_work_item_statuses(
-    work_items: Iterable[str],
-    *,
-    db_path: Optional[str] = None,
-) -> dict[str, str]:
-    """Return a status map for every provided work-item reference.
-
-    Missing work items (already deleted or not yet filed) land in the map as
-    ``'unknown'``. Opens a single read-only connection to minimise overhead.
-    """
-    ids = sorted({ref for ref in work_items if _YOKE_REF.fullmatch(ref)})
-    if not ids:
-        return {}
-    numeric_ids = [int(t.split("-", 1)[1]) for t in ids]
-
-    statuses: dict[str, str] = {t: "unknown" for t in ids}
-    try:
-        conn = connect(path=db_path)
-    except Exception:
-        return statuses
-    try:
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        placeholders = ",".join([p] * len(numeric_ids))
-        rows = conn.execute(
-            f"SELECT id, status FROM items WHERE id IN ({placeholders})",
-            numeric_ids,
-        ).fetchall()
-        for row in rows:
-            row_id = row[0] if not hasattr(row, "keys") else row["id"]
-            row_status = row[1] if not hasattr(row, "keys") else row["status"]
-            work_item = f"YOK-{int(row_id)}"
-            statuses[work_item] = str(row_status or "unknown")
-    except Exception:
-        pass
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-    return statuses
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +263,7 @@ def scan(
                 work_items.add(work_item)
                 per_file_matches.append((f, i, work_item, line.rstrip()))
 
-    statuses = _load_work_item_statuses(work_items, db_path=db_path)
+    statuses = load_work_item_statuses(work_items, db_path=db_path)
     result.work_item_lookups = len(statuses)
 
     for path, line_no, work_item, line in per_file_matches:

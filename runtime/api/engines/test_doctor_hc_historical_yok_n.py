@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, lint_yok_n_cruft_status
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_project_checks import check_historical_yok_n as hc
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -81,11 +81,25 @@ class TestGeneratedOutputExemption(unittest.TestCase):
             db_path = str(root / "lint.db")
             _seed_db_with_done_work_item(db_path)
             # Live tracked source — must still be flagged.
-            _write(root, "docs/lifecycle-note.md", f"Historical note: implemented in {_DONE_WORK_ITEM}.\n")
-            _write(root, "runtime/api/widget.py", f"# implemented in {_DONE_WORK_ITEM}\n")
+            _write(
+                root,
+                "docs/lifecycle-note.md",
+                f"Historical note: implemented in {_DONE_WORK_ITEM}.\n",
+            )
+            _write(
+                root, "runtime/api/widget.py", f"# implemented in {_DONE_WORK_ITEM}\n"
+            )
             # Generated outputs — must be exempt.
-            _write(root, "docs/archive/legacy-plan-artifacts/spec-history/snap.md", f"Snapshot mentions {_DONE_WORK_ITEM}.\n")
-            _write(root, "runtime/harness/claude/agents/yoke-architect.md", f"Recipe: items get {_DONE_WORK_ITEM} spec.\n")
+            _write(
+                root,
+                "docs/archive/legacy-plan-artifacts/spec-history/snap.md",
+                f"Snapshot mentions {_DONE_WORK_ITEM}.\n",
+            )
+            _write(
+                root,
+                "runtime/harness/claude/agents/yoke-architect.md",
+                f"Recipe: items get {_DONE_WORK_ITEM} spec.\n",
+            )
             rec = _run_hc(root, db_path)
 
         result = _only_result(rec)
@@ -102,8 +116,16 @@ class TestGeneratedOutputExemption(unittest.TestCase):
             root = Path(td)
             db_path = str(root / "lint.db")
             _seed_db_with_done_work_item(db_path)
-            _write(root, "docs/archive/legacy-plan-artifacts/evidence.md", f"Mentions {_DONE_WORK_ITEM}.\n")
-            _write(root, "runtime/harness/codex/agents/yoke-boss.md", f"Mentions {_DONE_WORK_ITEM}.\n")
+            _write(
+                root,
+                "docs/archive/legacy-plan-artifacts/evidence.md",
+                f"Mentions {_DONE_WORK_ITEM}.\n",
+            )
+            _write(
+                root,
+                "runtime/harness/codex/agents/yoke-boss.md",
+                f"Mentions {_DONE_WORK_ITEM}.\n",
+            )
             rec = _run_hc(root, db_path)
 
         result = _only_result(rec)
@@ -114,7 +136,9 @@ class TestGeneratedOutputExemption(unittest.TestCase):
             root = Path(td)
             db_path = str(root / "lint.db")
             _seed_db_with_done_work_item(db_path)
-            _write(root, "docs/lifecycle-note.md", f"Implemented in {_DONE_WORK_ITEM}.\n")
+            _write(
+                root, "docs/lifecycle-note.md", f"Implemented in {_DONE_WORK_ITEM}.\n"
+            )
             rec = _run_hc(root, db_path)
 
         result = _only_result(rec)
@@ -154,14 +178,45 @@ class TestSelfSkip(unittest.TestCase):
         result = _only_result(rec)
         self.assertEqual(result.result, "PASS", result.detail)
 
+    def test_https_status_lookup_relays_and_check_completes(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _write(root, "docs/lifecycle-note.md", "Open work: YOK-200.\n")
+            with (
+                mock.patch.object(
+                    lint_yok_n_cruft_status.control_plane_transport,
+                    "local_connection_or_none",
+                    return_value=None,
+                ),
+                mock.patch.object(
+                    lint_yok_n_cruft_status.control_plane_transport,
+                    "relay",
+                    return_value={
+                        "rows": [{"id": "YOK-200", "status": "implementing"}]
+                    },
+                ) as relay,
+            ):
+                rec = _run_hc(root, db_path="remote")
+
+        result = _only_result(rec)
+        self.assertEqual(result.result, "PASS", result.detail)
+        relay.assert_called_once_with(
+            "items.list.run",
+            {"project": "yoke", "fields": ["id", "status"]},
+        )
+
 
 class TestIsGeneratedOutputPath(unittest.TestCase):
     def test_exact_root_matches(self) -> None:
-        self.assertTrue(hc._is_generated_output_path("docs/archive/legacy-plan-artifacts"))
+        self.assertTrue(
+            hc._is_generated_output_path("docs/archive/legacy-plan-artifacts")
+        )
 
     def test_nested_under_root_matches(self) -> None:
         self.assertTrue(
-            hc._is_generated_output_path("docs/archive/legacy-plan-artifacts/atlas-boundary-inventory/x.md")
+            hc._is_generated_output_path(
+                "docs/archive/legacy-plan-artifacts/atlas-boundary-inventory/x.md"
+            )
         )
         self.assertTrue(
             hc._is_generated_output_path("runtime/harness/claude/agents/yoke-x.md")
@@ -182,17 +237,19 @@ class TestIsGeneratedOutputPath(unittest.TestCase):
                 )
 
     def test_live_source_does_not_match(self) -> None:
-        self.assertFalse(hc._is_generated_output_path(".yoke/docs/reference/lifecycle.md"))
-        self.assertFalse(hc._is_generated_output_path("runtime/api/widget.py"))
         self.assertFalse(
-            hc._is_generated_output_path("runtime/agents/architect.md")
+            hc._is_generated_output_path(".yoke/docs/reference/lifecycle.md")
         )
+        self.assertFalse(hc._is_generated_output_path("runtime/api/widget.py"))
+        self.assertFalse(hc._is_generated_output_path("runtime/agents/architect.md"))
 
     def test_prefix_lookalike_does_not_match(self) -> None:
         # A sibling directory that merely shares the root's name prefix is not
         # under the exempt root and must still be scanned.
         self.assertFalse(
-            hc._is_generated_output_path("docs/archive/legacy-plan-artifacts-notes/x.md")
+            hc._is_generated_output_path(
+                "docs/archive/legacy-plan-artifacts-notes/x.md"
+            )
         )
 
 
