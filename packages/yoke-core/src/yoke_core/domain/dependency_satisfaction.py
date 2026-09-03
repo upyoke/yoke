@@ -19,7 +19,11 @@ from yoke_core.domain.environment_delivery_record import (
     require_registered_environment,
     resolve_environment_id,
 )
-from yoke_core.domain.workflow_runtime import WorkflowRuntime
+from yoke_core.domain.schema_common import _get_columns, _table_exists
+from yoke_core.domain.workflow_runtime import (
+    WorkflowRuntime,
+    builtin_workflow_runtime,
+)
 
 
 @dataclass(frozen=True)
@@ -248,15 +252,36 @@ def unsatisfied_dependency_pairs(
         return []
     p = _placeholder(conn)
     placeholders = ",".join(p for _ in dependent_item_ids)
+    dependency_columns = set(_get_columns(conn, "item_dependencies"))
+    item_columns = set(_get_columns(conn, "items"))
+    has_workflow_context = _table_exists(conn, "workflow_versions") and {
+        "workflow_id",
+        "workflow_version_id",
+    } <= item_columns
+    workflow_fields = (
+        "b.workflow_id,b.workflow_version_id,wv.version,wv.definition_json,"
+        "wv.definition_digest"
+        if has_workflow_context
+        else "NULL,NULL,NULL,NULL,NULL"
+    )
+    workflow_join = (
+        "LEFT JOIN workflow_versions wv ON wv.id=b.workflow_version_id "
+        if has_workflow_context
+        else ""
+    )
+    gate_filter = (
+        "AND COALESCE(d.gate_point,'activation') <> 'coordination_only'"
+        if "gate_point" in dependency_columns
+        else ""
+    )
     rows = conn.execute(
         "SELECT d.dependent_item_id,d.blocking_item_id,d.satisfaction,"
-        "b.status AS blocking_status,b.merged_at,b.workflow_id,"
-        "b.workflow_version_id,wv.version,wv.definition_json,"
-        "wv.definition_digest,NULL AS lane_branch "
+        f"b.status AS blocking_status,b.merged_at,{workflow_fields},"
+        "NULL AS lane_branch "
         "FROM item_dependencies d LEFT JOIN items b ON b.id=d.blocking_item_id "
-        "LEFT JOIN workflow_versions wv ON wv.id=b.workflow_version_id "
+        f"{workflow_join}"
         f"WHERE d.dependent_item_id IN ({placeholders}) "
-        "AND COALESCE(d.gate_point,'activation') <> 'coordination_only'",
+        f"{gate_filter}",
         tuple(int(item_id) for item_id in dependent_item_ids),
     ).fetchall()
     from yoke_core.domain.dependency_workflow_context import workflow_from_joined_values
@@ -267,12 +292,16 @@ def unsatisfied_dependency_pairs(
         dependent = int(_row_value(row, "dependent_item_id", 0))
         blocker = int(_row_value(row, "blocking_item_id", 1))
         satisfaction = str(_row_value(row, "satisfaction", 2))
-        workflow = workflow_from_joined_values(
-            _row_value(row, "workflow_id", 5),
-            _row_value(row, "workflow_version_id", 6),
-            _row_value(row, "version", 7),
-            _row_value(row, "definition_json", 8),
-            _row_value(row, "definition_digest", 9),
+        workflow = (
+            workflow_from_joined_values(
+                _row_value(row, "workflow_id", 5),
+                _row_value(row, "workflow_version_id", 6),
+                _row_value(row, "version", 7),
+                _row_value(row, "definition_json", 8),
+                _row_value(row, "definition_digest", 9),
+            )
+            if has_workflow_context
+            else builtin_workflow_runtime("issue")
         )
         deployed = read_deployed_environment_fact(
             conn,
