@@ -7,9 +7,14 @@ opens its checklist, so existence alone is satisfied while nothing has been
 configured yet; completion is what the module claims, and completion means a
 checklist with no open rows.
 
-Nothing is latched here. The activation latch is monotone and reads only the
-completion verdict; these facts re-derive on every read so a card can name
-the blocker a run picked up after it activated.
+A project that has deployed is past onboarding whatever its checklist says.
+Every read first lets :mod:`yoke_core.domain.project_onboarding_run_supersede`
+close the runs a project's deployments overtook — on the run row itself,
+so the record says why it closed — and a superseded run counts as complete.
+
+Nothing else is latched here. The activation latch is monotone and reads
+only the completion verdict; these facts re-derive on every read so a card
+can name the blocker a run picked up after it activated.
 
 The three outcome flags exist because a complete run does not imply a
 particular ending: a mapped existing app finishes with the scaffold row
@@ -29,6 +34,11 @@ from yoke_contracts.onboard_checklist import (
     STATUS_VERIFIED,
     TERMINAL_STATUSES,
 )
+from yoke_core.domain.project_onboarding_run_supersede import (
+    RUN_STATUS_SUPERSEDED,
+    supersede_overtaken_runs,
+    superseded_by,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 RUNS_TABLE = "project_onboarding_runs"
@@ -47,6 +57,9 @@ RUN_STATUS_BLOCKED = STATUS_BLOCKED
 RUN_STATUS_COMPLETE = "complete"
 RUN_STATUS_OPEN = "open"
 
+#: Run statuses under which the module's checklist is finished.
+FINISHED_RUN_STATUSES = (RUN_STATUS_COMPLETE, RUN_STATUS_SUPERSEDED)
+
 #: Checklist position comes from the contract's row order, never from the
 #: ``step`` label: the labels sort "1", "10", "17a", "9a" as text, which
 #: would name the wrong next step.
@@ -61,8 +74,9 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     """
     if not (_table_exists(conn, RUNS_TABLE) and _table_exists(conn, ROWS_TABLE)):
         return None
+    supersede_overtaken_runs(conn)
     run = conn.execute(
-        f"SELECT run_id FROM {RUNS_TABLE} "
+        f"SELECT run_id, status, metadata_json FROM {RUNS_TABLE} "
         "ORDER BY updated_at DESC, run_id DESC LIMIT 1"
     ).fetchone()
     if run is None:
@@ -70,12 +84,20 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     rows = _ordered_rows(conn, str(run[0]))
     open_rows = [row for row in rows if row["status"] not in TERMINAL_STATUSES]
     blocked = [row for row in rows if row["status"] == STATUS_BLOCKED]
+    superseded = (
+        superseded_by(run[2]) if str(run[1]) == RUN_STATUS_SUPERSEDED else None
+    )
     return {
-        "run_status": _run_status(rows, open_rows, blocked),
+        "run_status": (
+            RUN_STATUS_SUPERSEDED if superseded
+            else _run_status(rows, open_rows, blocked)
+        ),
+        "superseded_by": superseded,
         "steps_done": len(rows) - len(open_rows),
         "steps_total": len(rows),
-        "next": _step(open_rows[0]) if open_rows else None,
-        "blocker": _blocker(blocked[0]) if blocked else None,
+        # A superseded run has nothing next: its project moved on to delivery.
+        "next": _step(open_rows[0]) if open_rows and not superseded else None,
+        "blocker": _blocker(blocked[0]) if blocked and not superseded else None,
         "scaffold_installed": any(
             row["row_id"] == SCAFFOLD_ROW_ID
             and row["status"] in SCAFFOLD_INSTALLED_STATUSES
@@ -87,8 +109,12 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
 
 
 def run_is_complete(progress: Optional[Mapping[str, Any]]) -> bool:
-    """Whether *progress* describes a checklist with nothing left open."""
-    return bool(progress) and progress["run_status"] == RUN_STATUS_COMPLETE
+    """Whether *progress* describes a finished checklist.
+
+    Finished means nothing left open, or a run its project's deployments
+    superseded.
+    """
+    return bool(progress) and progress["run_status"] in FINISHED_RUN_STATUSES
 
 
 def _run_status(
@@ -160,6 +186,7 @@ def _environment_names(conn: Any) -> List[str]:
 
 __all__ = [
     "ENVIRONMENTS_TABLE",
+    "FINISHED_RUN_STATUSES",
     "ROWS_TABLE",
     "RUNS_TABLE",
     "RUN_STATUS_BLOCKED",

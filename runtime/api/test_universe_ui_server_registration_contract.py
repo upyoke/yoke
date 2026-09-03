@@ -17,7 +17,13 @@ class TestRegistrationShape:
         for function_id in ui_server.UI_ACTIVATION_LATCH_FUNCTIONS:
             entry = lookup(function_id)
             assert entry is not None, function_id
-            assert entry.side_effects == ("overview_activation_facts_insert",)
+            # Every write the read performs is a latch or a reconciliation
+            # the read itself derives; none takes a claim.
+            assert entry.side_effects == (
+                "overview_activation_facts_insert",
+                "overview_machine_activation_facts_insert",
+                "project_onboarding_runs_supersede",
+            )
             assert entry.claim_required_kind is None
 
     def test_mutation_allowlist_is_the_bounded_browser_operation_roster(self):

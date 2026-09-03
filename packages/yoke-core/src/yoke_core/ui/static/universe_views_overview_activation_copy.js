@@ -58,6 +58,34 @@ export const MODULE_COPY = {
   },
 };
 
+// Machine rows. Every registered machine answers the harness module for
+// itself, so the copy names the machine before it names the harness. A
+// machine the control plane knows only by id has no hostname yet, and its
+// id renders whole: machine ids collide at any prefix.
+export const machineNameOf = (machine) =>
+  machine.name || `machine ${String(machine.machine_id || "")}`;
+export const machineNamesLine = (machines) => {
+  const names = machines.map(machineNameOf);
+  return machines.length === 1
+    ? `· ${names[0]}`
+    : `· ${machines.length} machines: ${names.join(", ")}`;
+};
+export const machineMetaLine = (surfaces, lastSeen) => {
+  const parts = [];
+  if (surfaces && surfaces.length) parts.push(surfaces.join(", "));
+  if (lastSeen !== null && lastSeen !== undefined) {
+    parts.push(`seen ${lastSeen} ago`);
+  }
+  return parts.length ? `· ${parts.join(" · ")}` : "";
+};
+export const machineConnectedLine = (executor, relative) => (
+  relative === null
+    ? `${executor} connected.`
+    : `${executor} connected ${relative} ago.`
+);
+export const MACHINE_PENDING_COPY =
+  "Next up — open a supported harness on this machine.";
+
 // The /yoke onboard module speaks from its own checklist run, so its copy
 // is a set of sentence builders rather than one line per state. Before a
 // run exists there is nothing to report but the route; once one exists,
@@ -85,6 +113,11 @@ export const onboardCompleteLine = (outcomes) => (
     ? `Execution-ready — ${outcomes.join(", ")}.`
     : "Onboarding checklist complete."
 );
+// A project that deployed is past onboarding whatever its checklist says;
+// the engine closed the run and named the deployment that overtook it.
+export const onboardSupersededLine = (deploymentRunId, at) =>
+  `Onboarding done — superseded by deployment ${deploymentRunId}` +
+  `${at ? ` on ${String(at).slice(0, 10)}` : ""}.`;
 
 // Day-zero ghost panels: hint line per section, keyed to the module whose
 // activation retires the ghost.

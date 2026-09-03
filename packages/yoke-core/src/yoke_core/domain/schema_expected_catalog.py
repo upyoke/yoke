@@ -85,6 +85,7 @@ _EXPECTED_SCHEMA_STR = (
     "|ouroboros_entry_corrections:correction_entry_id/INTEGER,corrected_entry_id/INTEGER,created_at/TEXT"
     "|ouroboros_entry_dispositions:entry_id/INTEGER,disposition_kind/TEXT,state/TEXT,item_id/INTEGER,title/TEXT,instruction/TEXT,requested_by_actor_id/INTEGER,requested_by_session_id/TEXT,project_override/TEXT,failure_reason/TEXT,created_at/TEXT,updated_at/TEXT"
     "|overview_activation_facts:id/INTEGER,module_key/TEXT,activated_at/TEXT"
+    "|overview_machine_activation_facts:id/INTEGER,machine_id/TEXT,module_key/TEXT,activated_at/TEXT"
     "|pack_catalog:slug/TEXT,name/TEXT,description/TEXT,latest_version/TEXT,dependencies_json/TEXT,documentation/TEXT,file_count/INTEGER,observed_at/TEXT"
     "|path_claim_amendments:id/INTEGER,claim_id/INTEGER,amended_at/TEXT,amendment_kind/TEXT,payload/TEXT,reason/TEXT"
     "|path_claim_overrides:id/INTEGER,path_claim_id/INTEGER,blocking_claim_id/INTEGER,blocking_path_targets/TEXT,override_point/TEXT,conflict_reason/TEXT,integration_target/TEXT,actor_id/INTEGER,actor_reason/TEXT,item_id/INTEGER,project/TEXT,session_id/TEXT,created_at/TEXT"

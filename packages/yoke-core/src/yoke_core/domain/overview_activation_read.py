@@ -8,16 +8,23 @@ calling actor's dismissal preferences.
 Module signals (all engine-owned reads; the one host-supplied fact is the
 hosted machine connection, forwarded verbatim in ``host_facts``):
 
-* ``finish_installation_wizard`` — required pair is the machine/universe
-  connection plus a first ``projects`` row; GitHub
+* ``finish_installation_wizard`` — required pair is a connected machine
+  plus a first ``projects`` row. A machine is connected when the universe
+  lists a registered machine
+  (:mod:`yoke_core.domain.overview_machine_activation`) or the host says so;
+  the checklist row counts and names the registered machines. GitHub
   (``project_github_repo_bindings`` with a non-revoked status) and hosting
   (an ``aws-admin`` ``project_capabilities`` row — declared, no verifier
   writes ``verified_at`` today) are the recommended tail.
-* ``connect_harness`` — any ``harness_sessions`` row.
-* ``run_onboard`` — an onboarding checklist run with no open rows
-  (:mod:`yoke_core.domain.overview_onboard_progress`). A run row exists
-  from the checklist's first write, so existence alone once activated the
-  module over a run blocked at its first hosting step.
+* ``connect_harness`` — answered per registered machine, never for the
+  universe: each machine lists the harnesses that ran from it and its own
+  hook health, latched per ``(machine, module)``. The module reads
+  activated only when every listed machine has connected a harness, so a
+  machine that registered a relay and ran nothing stays "next up" on its
+  own account instead of inheriting another machine's history.
+* ``run_onboard`` — an onboarding checklist run with no open rows, or one
+  its project's deployments superseded
+  (:mod:`yoke_core.domain.overview_onboard_progress`).
 * ``first_deploy`` — any ``deployment_runs`` row with status succeeded.
 
 Latched activation is monotone: once a module's signal has been observed
@@ -38,9 +45,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
-from yoke_core.domain.overview_harness_hook_health import (
-    harness_targets,
-    session_identities,
+from yoke_core.domain.overview_machine_activation import (
+    every_machine_has_harness,
+    machine_module_rows,
+    read_registered_machines,
 )
 from yoke_core.domain.overview_onboard_progress import (
     read_onboard_progress,
@@ -58,6 +66,14 @@ MODULE_FIRST_DEPLOY = "first_deploy"
 MODULE_KEYS: Tuple[str, ...] = (
     MODULE_FINISH_INSTALLATION_WIZARD,
     MODULE_CONNECT_HARNESS,
+    MODULE_RUN_ONBOARD,
+    MODULE_FIRST_DEPLOY,
+)
+
+#: Modules latched once for the universe. The harness module is latched
+#: per machine instead and derives its state from those rows.
+UNIVERSE_LATCH_KEYS: Tuple[str, ...] = (
+    MODULE_FINISH_INSTALLATION_WIZARD,
     MODULE_RUN_ONBOARD,
     MODULE_FIRST_DEPLOY,
 )
@@ -83,22 +99,9 @@ def _guarded_exists(conn: Any, table: str, sql: str) -> bool:
 
 def read_signals(conn: Any) -> Dict[str, Any]:
     """Read every engine-owned activation signal in one pass."""
-    # One row per session so a silent older episode in the same identity
-    # still colours red. Only the hook chain stamps tool_call_count /
-    # last_tool_call_at.
-    harness_identities = session_identities(
-        conn.execute(
-            "SELECT executor, COALESCE(executor_surface, ''), "
-            "CASE WHEN tool_call_count > 0 OR last_tool_call_at IS NOT NULL "
-            "THEN 1 ELSE 0 END, episode_started_at, last_tool_call_at "
-            "FROM harness_sessions"
-        ).fetchall()
+    machines = machine_module_rows(
+        conn, read_registered_machines(conn, read_harness_machine_reports(conn)),
     )
-    harness_reports = read_harness_machine_reports(conn)
-    latest = conn.execute(
-        "SELECT executor, offered_at FROM harness_sessions "
-        "ORDER BY offered_at DESC LIMIT 1"
-    ).fetchone()
     directories = [
         {"slug": str(row[0]), "workspace": row[1]}
         for row in conn.execute(
@@ -121,13 +124,7 @@ def read_signals(conn: Any) -> Dict[str, Any]:
             conn, "project_capabilities",
             "SELECT 1 FROM project_capabilities WHERE type = 'aws-admin'",
         ),
-        "sessions_exist": bool(harness_identities),
-        "harness_identities": harness_identities,
-        "harness_reports": harness_reports,
-        "connected": (
-            {"executor": str(latest[0]), "at": latest[1]}
-            if latest is not None else None
-        ),
+        "machines": machines,
         "project_directories": directories,
         "onboard_progress": read_onboard_progress(conn),
         "deploy_succeeded": _guarded_exists(
@@ -140,20 +137,23 @@ def read_signals(conn: Any) -> Dict[str, Any]:
 def latch_activations(
     conn: Any, satisfied: Dict[str, bool],
 ) -> Dict[str, str]:
-    """Latch newly satisfied modules; return ``{module_key: activated_at}``.
+    """Latch newly satisfied universe modules; return ``{module_key: activated_at}``.
 
     Monotone and idempotent: an existing fact row is never touched, a
     satisfied module missing its row gains one, and nothing is deleted.
+    Only universe-latched keys are read back, so a row written for a key
+    that has since moved to the per-machine latch is inert.
     """
     latched = {
         str(row[0]): row[1]
         for row in conn.execute(
             "SELECT module_key, activated_at FROM overview_activation_facts"
         ).fetchall()
+        if str(row[0]) in UNIVERSE_LATCH_KEYS
     }
     now = iso8601_now()
     missing = [
-        key for key in MODULE_KEYS
+        key for key in UNIVERSE_LATCH_KEYS
         if satisfied.get(key) and key not in latched
     ]
     for key in missing:
@@ -184,14 +184,24 @@ def _wizard_submodules(
     signals: Dict[str, Any], machine_connected: Optional[bool],
 ) -> List[Dict[str, Any]]:
     """The installation-wizard checklist rows, in wizard order."""
+    machines = signals["machines"]
     machine_detail = (
-        None if machine_connected is not None
+        None if machine_connected is not None or machines
         else "no host machine fact supplied"
     )
     return [
         {
             "key": "machine_universe", "label_key": "machine_universe",
-            "done": machine_connected is True, "detail": machine_detail,
+            "done": machine_connected is True or bool(machines),
+            "detail": machine_detail,
+            "machines": [
+                {
+                    "machine_id": row["machine_id"],
+                    "name": row["name"],
+                    "connected_at": row["connected_at"],
+                }
+                for row in machines
+            ],
         },
         {
             "key": "github", "label_key": "github",
@@ -208,6 +218,27 @@ def _wizard_submodules(
     ]
 
 
+def _harness_machines(machines: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The harness module's per-machine rows, each with its own state."""
+    return [
+        {
+            "machine_id": row["machine_id"],
+            "name": row["name"],
+            "surfaces": row["surfaces"],
+            "relay_state": row["relay_state"],
+            "last_seen_at": row["last_seen_at"],
+            "state": (
+                STATE_ACTIVATED if row["harness_activated_at"] else STATE_IN_PROGRESS
+            ),
+            "activated_at": row["harness_activated_at"],
+            "connected": row["connected"],
+            "harnesses": row["harnesses"],
+            "targets": row["targets"],
+        }
+        for row in machines
+    ]
+
+
 def compute_activation(
     conn: Any,
     machine_connected: Optional[bool],
@@ -215,18 +246,21 @@ def compute_activation(
 ) -> Dict[str, Any]:
     """Derive the full activation-module payload, latching as a side effect."""
     signals = read_signals(conn)
+    submodules = _wizard_submodules(signals, machine_connected)
     satisfied = {
         MODULE_FINISH_INSTALLATION_WIZARD: (
-            machine_connected is True and signals["projects_exist"]
+            submodules[0]["done"] and signals["projects_exist"]
         ),
-        MODULE_CONNECT_HARNESS: signals["sessions_exist"],
         MODULE_RUN_ONBOARD: run_is_complete(signals["onboard_progress"]),
         MODULE_FIRST_DEPLOY: signals["deploy_succeeded"],
     }
     latched = latch_activations(conn, satisfied)
+    if every_machine_has_harness(signals["machines"]):
+        latched[MODULE_CONNECT_HARNESS] = max(
+            str(row["harness_activated_at"]) for row in signals["machines"]
+        )
     dismissed = read_dismissed_modules(conn, actor_id)
 
-    submodules = _wizard_submodules(signals, machine_connected)
     modules: List[Dict[str, Any]] = []
     earlier_all_activated = True
     for key in MODULE_KEYS:
@@ -251,12 +285,8 @@ def compute_activation(
         if key == MODULE_RUN_ONBOARD:
             module["onboard"] = signals["onboard_progress"]
         if key == MODULE_CONNECT_HARNESS:
-            module["targets"] = harness_targets(
-                signals["harness_identities"],
-                signals["harness_reports"],
-            )
+            module["machines"] = _harness_machines(signals["machines"])
             module["projects"] = signals["project_directories"]
-            module["connected"] = signals["connected"]
         modules.append(module)
         earlier_all_activated = earlier_all_activated and activated
     return {
@@ -275,6 +305,7 @@ __all__ = [
     "STATE_ACTIVATED",
     "STATE_IN_PROGRESS",
     "STATE_NOT_STARTED",
+    "UNIVERSE_LATCH_KEYS",
     "compute_activation",
     "latch_activations",
     "read_dismissed_modules",

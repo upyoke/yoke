@@ -38,7 +38,11 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.overview_activation",
         target_kinds=["global"],
-        side_effects=["overview_activation_facts_insert"],
+        side_effects=[
+            "overview_activation_facts_insert",
+            "overview_machine_activation_facts_insert",
+            "project_onboarding_runs_supersede",
+        ],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
