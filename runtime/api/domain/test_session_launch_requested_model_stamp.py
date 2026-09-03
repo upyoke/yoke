@@ -211,7 +211,12 @@ def test_a_launch_asking_for_no_model_stamps_nothing() -> None:
 def test_the_binding_records_which_requested_columns_it_supplied() -> None:
     conn = launch_connection()
     launch, claim = _registered_launch(
-        conn, surface="cursor-cli", version="2026.08.25", model="cursor-grok-4.6-xhigh"
+        conn,
+        surface="cursor-cli",
+        version="2026.08.25",
+        model="cursor-grok-4.6",
+        reasoning_effort="xhigh",
+        context_window_tokens=CLAUDE_CONTEXT_TIER_TOKENS,
     )
     _register_session(conn, surface="cursor-cli", version="2026.08.25")
 
@@ -226,3 +231,4 @@ def test_the_binding_records_which_requested_columns_it_supplied() -> None:
     evidence = get_launch(conn, launch.launch_id).result_evidence or ""
     assert "requested_model" in evidence
     assert "requested_reasoning_effort" in evidence
+    assert "requested_context_window_tokens" in evidence
