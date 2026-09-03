@@ -158,6 +158,18 @@ def test_identity_parse_fields_survive_the_worker_payload() -> None:
     )
 
 
+def test_conversation_store_survives_the_worker_payload() -> None:
+    outcome = CursorNativeResult(
+        "native_created", SESSION_ID, duration_ms=2, conversation_store="acp"
+    )
+
+    round_tripped = process_module._outcome_from_payload(
+        process_module._outcome_payload(outcome)
+    )
+
+    assert round_tripped.conversation_store == "acp"
+
+
 def test_acp_default_delegates_to_detached_owner(monkeypatch, tmp_path: Path) -> None:
     request = _request(tmp_path)
     expected = CursorNativeResult("native_created", SESSION_ID)

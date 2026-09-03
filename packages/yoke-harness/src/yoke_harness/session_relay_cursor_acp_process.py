@@ -116,6 +116,8 @@ def _outcome_payload(outcome: CursorNativeResult) -> dict[str, object]:
         payload["identity_output_snippet"] = outcome.identity_output_snippet
     if outcome.identity_parse_expectation:
         payload["identity_parse_expectation"] = outcome.identity_parse_expectation
+    if outcome.conversation_store:
+        payload["conversation_store"] = outcome.conversation_store
     if outcome.native_stderr:
         # The worker owns the pipe; the parent owns the retention. Base64
         # because this hand-off is JSON and the native writes arbitrary bytes.
@@ -133,6 +135,7 @@ def _outcome_from_payload(payload: object) -> CursorNativeResult | None:
     duration_ms = payload.get("duration_ms")
     snippet = payload.get("identity_output_snippet")
     expectation = payload.get("identity_parse_expectation")
+    store = payload.get("conversation_store")
     encoded = payload.get("native_stderr_b64")
     try:
         stderr = base64.b64decode(encoded, validate=True) if encoded else b""
@@ -147,6 +150,7 @@ def _outcome_from_payload(payload: object) -> CursorNativeResult | None:
         identity_parse_expectation=(
             expectation if isinstance(expectation, str) else None
         ),
+        conversation_store=store if isinstance(store, str) else None,
         native_stderr=stderr,
     )
 
