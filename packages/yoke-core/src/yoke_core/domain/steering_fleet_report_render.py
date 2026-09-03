@@ -92,12 +92,10 @@ def _starved_line(entry: StarvedDelivery) -> str:
             ", waiting for the operator to wake it — ask them to type "
             "anything in that chat"
         )
+    elif entry.wake_escalation:
+        suffix = f", wake escalated ({entry.wake_escalation})"
     else:
-        suffix = (
-            f", wake escalated ({entry.wake_escalation})"
-            if entry.wake_escalation
-            else ""
-        )
+        suffix = ""
     # What was tried, and how it ended. A seat reading "never injected" with
     # nothing else cannot tell a plane that made no attempt from one whose
     # every attempt refused for the same nameable reason, and both shapes
