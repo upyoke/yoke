@@ -24,11 +24,10 @@ from yoke_contracts.session_control.evidence import (
 from yoke_harness.session_relay_diagnostic_retention import (
     retain_private_diagnostic,
 )
-from yoke_harness.session_relay_claude import (
-    ClaudeProcessResult,
-    run_claude_cli_adapter,
-)
+from yoke_harness.session_relay_claude import run_claude_cli_adapter
+from yoke_harness.session_relay_native_capture_format import compose_capture
 from yoke_harness.session_relay_native_diagnostics import classify_native_failure
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 
 
 @pytest.mark.parametrize(
@@ -52,18 +51,26 @@ def test_claude_failure_evidence_carries_the_last_line_and_nothing_before_it(
     private_uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
     earlier = f"resolved workspace for {private_uuid}"
     diagnosis = "No conversation found with session ID"
-    stderr = f"{earlier}\n{diagnosis}"
+    capture = tmp_path / "refusal.capture"
+    capture.write_bytes(
+        compose_capture(
+            stdout=b"private body",
+            stderr=f"{earlier}\n{diagnosis}".encode(),
+            exit_code=1,
+        )
+    )
     result = run_claude_cli_adapter(
         _context(),
-        process_runner=lambda _invocation: ClaudeProcessResult(
-            1,
-            10,
-            stdout="private body",
-            stderr=stderr,
+        create_spawner=lambda invocation: SupervisedNative(
+            4242,
+            invocation.executable,
+            "path",
+            capture,
+            "nd-11111111-1111-4111-8111-111111111111",
+            "2026-09-03T21:00:00Z",
         ),
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
-        attestation_handoff=lambda *args, **kwargs: True,
     )
 
     retained = retain_private_diagnostic(

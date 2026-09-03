@@ -11,11 +11,11 @@ vendor flag inline. The declarations are grounded against the native builds
 this repository supports:
 
 * ``claude-code`` — ``--dangerously-skip-permissions`` on the ``claude``
-  invocation. The flag is inside the CLI's own persisted respawn-flag
-  allowlist, so a background job keeps it when the wake route respawns it.
-  ``--bg`` additionally refuses bypass until the disclaimer has been accepted
-  once on the machine; :data:`CLAUDE_BYPASS_DISCLAIMER_RECOVERY` is the
-  recovery step a refused launch reports.
+  invocation, passed identically on the create and the resume, since each is
+  one relay-owned process carrying its own flags. The CLI can still refuse
+  bypass until the disclaimer has been accepted once on the machine;
+  :data:`CLAUDE_BYPASS_DISCLAIMER_REFUSAL` is what that refusal says and
+  :data:`CLAUDE_BYPASS_DISCLAIMER_RECOVERY` is the recovery step reported.
 * ``codex`` — the CLI exec route takes
   ``--dangerously-bypass-approvals-and-sandbox``; the app-server route has no
   such flag and carries the same posture as typed thread parameters instead
@@ -64,8 +64,8 @@ from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 CLAUDE_BYPASS_ARGUMENTS: tuple[str, ...] = ("--dangerously-skip-permissions",)
 CLAUDE_BYPASS_DISCLAIMER_REFUSAL = "requires accepting the disclaimer"
 CLAUDE_BYPASS_DISCLAIMER_RECOVERY = (
-    "Claude Code refuses a background launch with bypassed permissions until "
-    "the machine has accepted the bypass disclaimer once. Run "
+    "Claude Code refuses a launch with bypassed permissions until the machine "
+    "has accepted the bypass disclaimer once. Run "
     "`claude --dangerously-skip-permissions` interactively on this machine, "
     "accept the prompt, then retry the launch."
 )

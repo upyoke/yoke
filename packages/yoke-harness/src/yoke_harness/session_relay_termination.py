@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import signal
 import time
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
@@ -127,62 +127,6 @@ def _terminate_record(path: Path, record: Mapping[str, Any]) -> tuple[int, str] 
     return pid, result
 
 
-def _stop_claude_background_agent(
-    native_session_id: str,
-    *,
-    process_runner: Callable[[tuple[str, ...]], Any] | None = None,
-) -> tuple[str, dict[str, object]]:
-    from yoke_harness.session_relay_claude_identity import resolve_background_agent
-    from yoke_harness.session_relay_claude_native import (
-        CLAUDE_AGENT_LIST_ARGUMENTS,
-        CLAUDE_BACKGROUND_STOP_COMMAND,
-        CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
-        discover_claude_cli,
-    )
-    from yoke_harness.session_relay_claude_process import run_bounded_claude_process
-
-    executable = discover_claude_cli()
-    if executable is None:
-        return "not_found", {"background_agent_result": "executable_not_found"}
-
-    def run(arguments: tuple[str, ...]) -> Any:
-        if process_runner is not None:
-            return process_runner(arguments)
-        return run_bounded_claude_process(
-            arguments,
-            cwd=Path.cwd(),
-            environment=os.environ,
-            timeout_seconds=CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
-        )
-
-    resolution = resolve_background_agent(
-        native_session_id,
-        lambda: run((executable, *CLAUDE_AGENT_LIST_ARGUMENTS)),
-    )
-    evidence: dict[str, object] = {
-        "background_agent_result": resolution.result_code,
-        "background_agent_lookup_attempts": resolution.attempts,
-    }
-    if resolution.short_id is None:
-        code = (
-            "not_found"
-            if resolution.result_code
-            in {"background_agent_not_found", "native_session_invalid"}
-            else "outcome_unknown"
-        )
-        return code, evidence
-    try:
-        stopped = run((executable, CLAUDE_BACKGROUND_STOP_COMMAND, resolution.short_id))
-    except Exception:
-        evidence["background_agent_stop"] = "native_exception"
-        return "outcome_unknown", evidence
-    evidence["background_agent_stop"] = (
-        "completed" if stopped.returncode == 0 else "native_exit"
-    )
-    evidence["background_agent_stop_duration_ms"] = max(0, int(stopped.duration_ms))
-    return ("terminated" if stopped.returncode == 0 else "failed"), evidence
-
-
 def _matching_resume_records(
     target_session_id: str,
     native_thread_id: str | None,
@@ -230,9 +174,13 @@ def reap_terminated_session(
     *,
     state_dir: Path | None = None,
     anchors_dir: Path | None = None,
-    claude_process_runner: Callable[[tuple[str, ...]], Any] | None = None,
 ) -> "Any":
-    """Reap launch custody, detached resume, or local process-anchor handles."""
+    """Reap launch custody, detached resume, or local process-anchor handles.
+
+    Every native this relay starts is a process it owns, so terminating one is
+    signalling the process group named by a record this machine wrote. No
+    surface needs a second owner asked to release the session first.
+    """
     from yoke_harness.session_relay_runtime import RelayAdapterResult
 
     target = str(job.get("target_session_id") or job.get("job_id") or "")
@@ -240,15 +188,6 @@ def reap_terminated_session(
     native_id = str(job.get("target_native_thread_id") or "") or None
     outcomes: list[str] = []
     evidence: dict[str, object] = {}
-    from yoke_harness.session_relay_claude import CLAUDE_CLI_SURFACE
-
-    if str(job.get("surface") or "") == CLAUDE_CLI_SURFACE and native_id:
-        background_result, background_evidence = _stop_claude_background_agent(
-            native_id,
-            process_runner=claude_process_runner,
-        )
-        outcomes.append(background_result)
-        evidence.update(background_evidence)
     records: list[tuple[Path, dict[str, Any]]] = []
     if launch_id:
         handle = _handle_path(launch_id, state_dir)

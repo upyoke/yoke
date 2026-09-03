@@ -16,7 +16,6 @@ from yoke_harness.session_launch_containment import (
     release_supervised_native,
 )
 from yoke_harness.session_relay_runtime import run_registered_job
-from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 from yoke_harness.session_relay_termination import (
     NATIVE_HANDLE_DIRECTORY_NAME,
     adopt_launched_session,
@@ -189,54 +188,22 @@ def test_reaper_ignores_handles_without_the_target_identity(tmp_path: Path) -> N
             process.wait()
 
 
-def test_claude_background_agent_hold_is_stopped_by_resolved_short_id(
-    tmp_path: Path, monkeypatch
+def test_claude_termination_reaps_the_relay_owned_process_alone(
+    tmp_path: Path,
 ) -> None:
-    calls: list[tuple[str, ...]] = []
-    monkeypatch.setattr(
-        "yoke_harness.session_relay_claude_native.discover_claude_cli",
-        lambda: "/usr/local/bin/claude",
-    )
+    """Nothing but this machine's own records names a Claude session's process.
 
-    def run(arguments: tuple[str, ...]) -> ClaudeProcessResult:
-        calls.append(arguments)
-        if arguments[1] == "agents":
-            return ClaudeProcessResult(
-                0,
-                7,
-                json.dumps(
-                    {
-                        "agents": [
-                            {
-                                "id": "7c5dcf5d",
-                                "sessionId": NATIVE_ID,
-                                "status": "running",
-                            }
-                        ]
-                    }
-                ),
-            )
-        return ClaudeProcessResult(0, 11)
-
+    While a daemon owned the session, terminating one meant asking that daemon
+    to stop a job first, and a listing that came back empty left the process
+    running with nobody accountable for it.
+    """
     result = reap_terminated_session(
         _job(surface="claude-cli", target_native_thread_id=NATIVE_ID),
         state_dir=tmp_path,
-        claude_process_runner=run,
     )
 
-    assert result.result_code == "terminated"
-    assert calls == [
-        ("/usr/local/bin/claude", "agents", "--all", "--json"),
-        ("/usr/local/bin/claude", "stop", "7c5dcf5d"),
-    ]
-    assert result.evidence == {
-        "background_agent_result": "background_agent_resolved",
-        "background_agent_lookup_attempts": 1,
-        "background_agent_stop": "completed",
-        "background_agent_stop_duration_ms": 11,
-        "result_code": "terminated",
-        "handles_considered": 0,
-    }
+    assert result.result_code == "not_found"
+    assert result.evidence == {"result_code": "not_found", "handles_considered": 0}
     assert redacted_evidence_document(result.evidence) == result.evidence
 
 

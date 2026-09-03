@@ -2,21 +2,16 @@
 
 from __future__ import annotations
 
-from functools import partial
 import json
 from pathlib import Path
 
 import pytest
 
 from runtime.harness.test_session_relay_claude import (
-    ACTUAL_ID,
     CHECK_INBOX,
     CLAUDE,
-    SHORT_ID,
-    _agents,
     _allow,
     _context,
-    _created,
 )
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_contracts.session_control.presentation import (
@@ -26,9 +21,14 @@ from yoke_contracts.session_control.wake_instruction import native_wake_instruct
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness import session_relay_claude_native as native_module
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
-from yoke_harness.session_relay_claude_native import spawn_claude_wake
-from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 from yoke_harness.session_relay_native_spawn import SupervisedNative
+
+
+TARGET_ID = "87654321-4321-4321-8321-cba987654321"
+LOCAL_SETTINGS = json.dumps(
+    {CLAUDE_REMOTE_CONTROL_SETTING: True},
+    separators=(",", ":"),
+)
 
 
 @pytest.fixture(autouse=True)
@@ -40,23 +40,9 @@ def _transcript_present(monkeypatch):
     )
 
 
-def _background_wake(monkeypatch, *, stop_returncode: int = 0):
-    """Wake a background-launched session and capture what the relay ran."""
-    launch = run_claude_cli_adapter(
-        _context(),
-        process_runner=lambda _invocation: _created(),
-        session_lookup=lambda _invocation: _agents(),
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=_allow,
-        attestation_handoff=lambda *_args, **_kwargs: True,
-    )
-    assert launch.native_session_id == ACTUAL_ID
-    commands: list[tuple[str, ...]] = []
+def _wake(monkeypatch):
+    """Wake a stopped session and capture exactly what the relay ran."""
     detached: list[tuple[tuple[str, ...], dict]] = []
-
-    def run_command(_invocation, argv):
-        commands.append(argv)
-        return ClaudeProcessResult(stop_returncode, 3, "", "")
 
     def spawn(argv, **kwargs):
         detached.append((argv, kwargs))
@@ -64,130 +50,65 @@ def _background_wake(monkeypatch, *, stop_returncode: int = 0):
             4321,
             CLAUDE,
             "path",
-            Path("/private/captures/background-resume.capture"),
-            "nd-00000000-0000-4000-8000-000000004321",
+            Path("/private/captures/resume.capture"),
+            "nd-44444444-4444-4444-8444-444444444444",
             "2026-08-26T12:00:00Z",
-            kwargs.get("extra_evidence") or {},
         )
 
-    monkeypatch.setattr(native_module, "_run_claude_command", run_command)
     monkeypatch.setattr(native_module, "spawn_supervised_native", spawn)
     wake = run_claude_cli_adapter(
         _context(
             job_kind="wake",
             job_id="11111111-1111-4111-8111-111111111111",
             native_instruction=CHECK_INBOX,
-            target_session_id=launch.native_session_id,
+            target_session_id=TARGET_ID,
             launch_attestation=None,
             target_liveness="ended",
             wake_mode="waiting",
         ),
-        wake_spawner=partial(
-            spawn_claude_wake,
-            session_lookup=lambda _invocation: _agents(),
-        ),
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
     )
-    return wake, commands, detached
+    return wake, detached
 
 
-def test_background_session_wake_stops_the_job_and_carries_the_prompt(
-    monkeypatch,
-) -> None:
+def test_wake_resumes_the_conversation_and_carries_the_prompt(monkeypatch) -> None:
     """A resumed turn only delivers when it carries the wake prompt.
 
     The promptless restart verb reactivated the session and ended the turn
     without a single hook, so the pending envelope was never injected.
     """
-    wake, commands, detached = _background_wake(monkeypatch)
+    wake, detached = _wake(monkeypatch)
 
-    assert commands == [(CLAUDE, "stop", SHORT_ID)]
     argv, kwargs = detached[0]
     assert argv == (
         CLAUDE,
         "-p",
         "--dangerously-skip-permissions",
         "--settings",
-        json.dumps(
-            {CLAUDE_REMOTE_CONTROL_SETTING: True},
-            separators=(",", ":"),
-        ),
+        LOCAL_SETTINGS,
         "--resume",
-        ACTUAL_ID,
+        TARGET_ID,
         CHECK_INBOX,
         "--output-format",
         "json",
     )
-    assert kwargs["native_session_id"] == ACTUAL_ID
+    assert kwargs["native_session_id"] == TARGET_ID
     assert wake.result_code == RESUMED_RUNNING_RESULT
-    assert wake.evidence["background_agent_result"] == "background_agent_resolved"
-    assert wake.evidence["background_agent_stop"] == "completed"
+    assert wake.evidence["native_pid"] == 4321
 
 
-def test_background_job_stop_failure_still_resumes_and_names_itself(
-    monkeypatch,
-) -> None:
-    wake, _commands, detached = _background_wake(monkeypatch, stop_returncode=1)
+def test_wake_asks_no_second_owner_to_release_the_conversation(monkeypatch) -> None:
+    """The previous turn's process is gone, so nothing holds the transcript.
 
-    assert detached[0][0][1] == "-p"
-    assert wake.evidence["background_agent_stop"] == "native_exit"
+    While a daemon job owned the conversation, a headless resume of a session
+    it still held was refused outright, and a parked worker could only be
+    woken by terminating and relaunching it.
+    """
+    wake, detached = _wake(monkeypatch)
 
-
-def test_wake_without_a_background_job_skips_the_stop(monkeypatch) -> None:
-    detached: list[tuple[tuple[str, ...], dict]] = []
-    commands: list[tuple[str, ...]] = []
-
-    def spawn(argv, **kwargs):
-        detached.append((argv, kwargs))
-        return SupervisedNative(
-            4321,
-            CLAUDE,
-            "path",
-            Path("/private/captures/plain-resume.capture"),
-            "nd-00000000-0000-4000-8000-000000004321",
-            "2026-08-26T12:00:00Z",
-            kwargs.get("extra_evidence") or {},
-        )
-
-    monkeypatch.setattr(
-        native_module,
-        "_run_claude_command",
-        lambda _invocation, argv: commands.append(argv),
-    )
-    monkeypatch.setattr(native_module, "spawn_supervised_native", spawn)
-    wake = run_claude_cli_adapter(
-        _context(
-            job_kind="wake",
-            job_id="11111111-1111-4111-8111-111111111111",
-            native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
-            launch_attestation=None,
-            target_liveness="ended",
-            wake_mode="waiting",
-        ),
-        wake_spawner=partial(
-            spawn_claude_wake,
-            session_lookup=lambda _invocation: _agents(rows=[]),
-        ),
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=_allow,
-    )
-
-    assert commands == []
-    assert detached[0][0][:7] == (
-        CLAUDE,
-        "-p",
-        "--dangerously-skip-permissions",
-        "--settings",
-        json.dumps(
-            {CLAUDE_REMOTE_CONTROL_SETTING: True},
-            separators=(",", ":"),
-        ),
-        "--resume",
-        ACTUAL_ID,
-    )
-    assert wake.evidence["background_agent_result"] == "background_agent_not_found"
+    assert len(detached) == 1
+    assert not [key for key in wake.evidence if key.startswith("background_")]
 
 
 def test_wake_prompt_asks_the_resumed_turn_for_the_acknowledgement() -> None:

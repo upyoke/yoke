@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 import json
 import shutil
 from typing import Callable, Mapping
+from uuid import uuid4
 
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_BYPASS_ARGUMENTS,
@@ -15,55 +15,39 @@ from yoke_contracts.session_control.launch_permission_bypass import (
 from yoke_contracts.session_control.launch_registration import (
     NATIVE_LAUNCH_WORKSPACE_FIELD,
 )
-from yoke_contracts.session_control.capabilities import native_create_timeout_seconds
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_contracts.session_control.presentation import (
     CLAUDE_LOCAL_PRESENTATION,
     CLAUDE_REMOTE_CONTROL_SETTING,
-)
-from yoke_harness.session_relay_claude_identity import (
-    CLAUDE_IDENTITY_LOOKUP_ATTEMPTS,
-    CLAUDE_IDENTITY_RETRY_SECONDS,
-    resolve_background_agent,
-)
-from yoke_harness.session_relay_claude_process import (
-    ClaudeProcessResult,
-    run_bounded_claude_process,
 )
 from yoke_harness.session_relay_native_spawn import (
     SupervisedNative,
     spawn_supervised_native,
 )
 from yoke_harness.session_relay_environment import native_session_environment
-from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECONDS
 from yoke_harness.session_relay_runtime import RelayExecutionContext
-
-
-CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS = 20
-CLAUDE_CREATE_TIMEOUT_SECONDS = native_create_timeout_seconds("claude-cli")
-if CLAUDE_CREATE_TIMEOUT_SECONDS is None:
-    raise RuntimeError("claude-cli manifest has no native create timeout")
-CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS = (
-    CLAUDE_IDENTITY_LOOKUP_ATTEMPTS * CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS
-    + (CLAUDE_IDENTITY_LOOKUP_ATTEMPTS - 1) * CLAUDE_IDENTITY_RETRY_SECONDS
-    + RELAY_REPORT_TIMEOUT_SECONDS
-)
-CLAUDE_AGENT_LIST_ARGUMENTS = ("agents", "--all", "--json")
-CLAUDE_BACKGROUND_STOP_COMMAND = "stop"
 
 
 @dataclass(frozen=True)
 class ClaudeNativeInvocation:
+    """One native command, its workspace, and the session it names.
+
+    ``session_id`` is the conversation the native will run in — chosen by the
+    relay on a create, and the target's own id on a wake. ``launch_id`` is the
+    launch that asked for a create, and is what custody and the attestation are
+    keyed on; a wake has no launch and leaves it unset.
+    """
+
     executable: str
     cwd: Path
     session_id: str
     surface_version: str
     instruction: str = field(repr=False)
     resume: bool = False
+    launch_id: str | None = None
     model: str | None = None
     presentation: str | None = None
     session_name: str | None = None
-    launch_deadline_at: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
     progress_reporter: Callable[[Mapping[str, object]], bool] | None = field(
         default=None, repr=False, compare=False
@@ -81,36 +65,30 @@ class ClaudeNativeInvocation:
 
     @property
     def argv(self) -> tuple[str, ...]:
-        if self.resume:
-            return (
-                self.executable,
-                "-p",
-                *CLAUDE_BYPASS_ARGUMENTS,
-                *self.settings_arguments,
-                "--resume",
-                self.session_id,
-                self.instruction,
-                "--output-format",
-                "json",
-            )
         arguments = [
             self.executable,
+            "-p",
             *CLAUDE_BYPASS_ARGUMENTS,
             *self.settings_arguments,
         ]
-        if self.model:
-            arguments.extend(("--model", self.model))
-        if self.session_name:
-            arguments.extend(("--name", self.session_name))
-        arguments.extend(("--bg", self.instruction))
+        if self.resume:
+            arguments.extend(("--resume", self.session_id))
+        else:
+            # The relay names the conversation instead of discovering it, so a
+            # create knows its own session before the native's first hook runs.
+            arguments.extend(("--session-id", self.session_id))
+            if self.model:
+                arguments.extend(("--model", self.model))
+            if self.session_name:
+                arguments.extend(("--name", self.session_name))
+        arguments.extend((self.instruction, "--output-format", "json"))
         return tuple(arguments)
 
 
-ClaudeProcessRunner = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
+ClaudeNativeSpawner = Callable[["ClaudeNativeInvocation"], SupervisedNative | None]
 ClaudeWakeSpawner = Callable[
-    [RelayExecutionContext, ClaudeNativeInvocation], SupervisedNative | None
+    [RelayExecutionContext, "ClaudeNativeInvocation"], SupervisedNative | None
 ]
-ClaudeSessionLookup = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
 ExecutableFinder = Callable[[str], str | None]
 
 
@@ -129,165 +107,61 @@ def _environment(invocation: ClaudeNativeInvocation) -> dict[str, str]:
         provider="anthropic",
         model=invocation.model,
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
+        launch_id=invocation.launch_id,
+        launch_attestation=invocation.launch_attestation,
     )
-
-
-def _run_claude_command(
-    invocation: ClaudeNativeInvocation,
-    argv: tuple[str, ...],
-) -> ClaudeProcessResult:
-    return run_bounded_claude_process(
-        argv,
-        cwd=invocation.cwd,
-        environment=_environment(invocation),
-        timeout_seconds=CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
-    )
-
-
-def _deadline_budget(raw: str | None) -> float | None:
-    try:
-        deadline = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return None
-    if deadline.tzinfo is None:
-        deadline = deadline.replace(tzinfo=timezone.utc)
-    remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
-    return max(0.1, remaining - CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS)
 
 
 def _launch_progress(
     invocation: ClaudeNativeInvocation,
-    *,
-    pid: int,
-    phase: str,
-    duration_ms: int | None = None,
+    started: SupervisedNative,
 ) -> None:
-    evidence: dict[str, object] = {
-        "surface": "claude-cli",
-        "result_code": "native_spawn_pending",
-        "native_launch_phase": phase,
-        "native_launch_pid": pid,
-        NATIVE_LAUNCH_WORKSPACE_FIELD: str(invocation.cwd),
-        "native_launch_bound_seconds": int(CLAUDE_CREATE_TIMEOUT_SECONDS),
-    }
-    if duration_ms is not None:
-        evidence["duration_ms"] = duration_ms
     reporter = invocation.progress_reporter
-    if reporter is not None:
-        try:
-            reporter(evidence)
-        except Exception:
-            pass
-
-
-def _supervise_launch(invocation: ClaudeNativeInvocation, pid: int) -> None:
-    from yoke_harness.session_launch_containment import record_supervised_native
-
-    if not record_supervised_native(invocation.session_id, pid):
-        raise RuntimeError(
-            "native launch supervision unavailable; inspect relay custody before retry"
-        )
-    _launch_progress(invocation, pid=pid, phase="spawn_started")
-
-
-def _contain_launch(invocation: ClaudeNativeInvocation, _pid: int) -> None:
-    from yoke_harness.session_launch_containment_sweep import contain_launch_native
-
-    contain_launch_native(invocation.session_id, reason="launch_deadline")
-
-
-def run_claude_process(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
-    """Run one create through its soft manifest bound and launch deadline."""
-    hard_timeout = _deadline_budget(invocation.launch_deadline_at)
-    soft_timeout = float(CLAUDE_CREATE_TIMEOUT_SECONDS)
-    hard_timeout = soft_timeout if hard_timeout is None else hard_timeout
-    soft_timeout = min(soft_timeout, hard_timeout)
-    return run_bounded_claude_process(
-        invocation.argv,
-        cwd=invocation.cwd,
-        environment=_environment(invocation),
-        timeout_seconds=soft_timeout,
-        continue_while_alive=True,
-        hard_timeout_seconds=hard_timeout,
-        on_started=lambda pid: _supervise_launch(invocation, pid),
-        on_bound_exceeded=lambda pid, duration: _launch_progress(
-            invocation, pid=pid, phase="spawn_alive", duration_ms=duration
-        ),
-        on_hard_timeout=lambda pid: _contain_launch(invocation, pid),
-        start_new_session=True,
-    )
-
-
-def lookup_claude_session(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
-    return _run_claude_command(
-        invocation,
-        (invocation.executable, *CLAUDE_AGENT_LIST_ARGUMENTS),
-    )
-
-
-def stop_claude_background(
-    invocation: ClaudeNativeInvocation,
-    short_id: str,
-) -> None:
-    """Best-effort stop of a native created without a valid handoff."""
+    if reporter is None:
+        return
     try:
-        _run_claude_command(
-            invocation,
-            (invocation.executable, CLAUDE_BACKGROUND_STOP_COMMAND, short_id),
+        reporter(
+            {
+                "surface": "claude-cli",
+                "result_code": "native_spawn_pending",
+                "native_launch_phase": "spawn_started",
+                "native_launch_pid": started.pid,
+                NATIVE_LAUNCH_WORKSPACE_FIELD: str(invocation.cwd),
+                **started.evidence,
+            }
         )
     except Exception:
         pass
 
 
-def _release_background_job(
+def spawn_claude_create(
     invocation: ClaudeNativeInvocation,
-    session_lookup: ClaudeSessionLookup,
-) -> dict[str, str]:
-    """Free the conversation so the wake turn can carry its prompt.
-
-    A wake only delivers because the resumed turn runs a prompt: the prompt
-    is what fires a hook, and the hook is what injects the pending envelope.
-    A background job holds its conversation open and the native refuses a
-    headless resume of one that is still running, so the job is stopped
-    first — that keeps the transcript, and the prompt then lands on the same
-    session id instead of on a fork. Only a session the wake scheduler has
-    already found non-active reaches here, so no working agent is stopped.
-
-    Returns the bounded facts recorded on the attempt's evidence.
-    """
-    resolution = resolve_background_agent(
-        invocation.session_id,
-        lambda: session_lookup(invocation),
+) -> SupervisedNative | None:
+    """Start the session's first turn as a process this relay owns."""
+    started = spawn_supervised_native(
+        invocation.argv,
+        checkout=invocation.cwd,
+        environment=_environment(invocation),
+        attempt_id=str(invocation.launch_id or ""),
+        native_session_id=invocation.session_id,
+        binary_source="path",
+        supervision_kind="launch",
     )
-    evidence = {"background_agent_result": resolution.result_code}
-    if resolution.short_id is None:
-        return evidence
-    try:
-        stopped = _run_claude_command(
-            invocation,
-            (
-                invocation.executable,
-                CLAUDE_BACKGROUND_STOP_COMMAND,
-                resolution.short_id,
-            ),
-        )
-    except Exception:  # native exception text can carry private output
-        return {**evidence, "background_agent_stop": "native_exception"}
-    # The resume runs either way: the job may have exited on its own between
-    # the listing and the stop. When it truly still holds the conversation
-    # the native refuses, and that refusal settles the attempt with its
-    # captured reason rather than reporting a silent success.
-    outcome = "completed" if stopped.returncode == 0 else "native_exit"
-    return {**evidence, "background_agent_stop": outcome}
+    if started is not None:
+        _launch_progress(invocation, started)
+    return started
 
 
 def spawn_claude_wake(
     context: RelayExecutionContext,
     invocation: ClaudeNativeInvocation,
-    *,
-    session_lookup: ClaudeSessionLookup = lookup_claude_session,
 ) -> SupervisedNative | None:
-    background_job = _release_background_job(invocation, session_lookup)
+    """Resume a stopped conversation in a fresh process the relay owns.
+
+    Nothing holds the conversation open between turns, so the resume never has
+    to argue with a second owner for it: the previous turn's process is gone,
+    and this one starts where it left off.
+    """
     environment = _environment(invocation)
     environment[RESUME_ATTEMPT_ENV] = context.job_id
     return spawn_supervised_native(
@@ -298,7 +172,6 @@ def spawn_claude_wake(
         native_session_id=invocation.session_id,
         binary_source="path",
         lease_id=context.lease_id,
-        extra_evidence=background_job,
     )
 
 
@@ -308,7 +181,10 @@ def native_invocation(
     instruction: str,
 ) -> ClaudeNativeInvocation | None:
     launch = context.job_kind == "launch"
-    session_id = context.job_id if launch else str(context.target_session_id or "")
+    # A create mints the conversation id it is about to start; every retry of
+    # one launch therefore starts a session of its own, and no attempt inherits
+    # an id another attempt already used.
+    session_id = str(uuid4()) if launch else str(context.target_session_id or "")
     if not session_id.strip():
         return None
     raw_model = getattr(context, "requested_model", None) if launch else None
@@ -319,30 +195,22 @@ def native_invocation(
         str(context.surface_version),
         instruction,
         resume=not launch,
+        launch_id=context.job_id if launch else None,
         model=str(raw_model).strip() if raw_model else None,
         presentation=context.presentation,
         session_name=context.session_name if launch else None,
-        launch_deadline_at=context.launch_deadline_at if launch else None,
         launch_attestation=context.launch_attestation if launch else None,
         progress_reporter=context.launch_progress_reporter if launch else None,
     )
 
 
 __all__ = [
-    "CLAUDE_AGENT_LIST_ARGUMENTS",
-    "CLAUDE_BACKGROUND_STOP_COMMAND",
-    "CLAUDE_CREATE_TIMEOUT_SECONDS",
-    "CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS",
-    "CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS",
     "ClaudeNativeInvocation",
-    "ClaudeProcessRunner",
-    "ClaudeSessionLookup",
+    "ClaudeNativeSpawner",
     "ClaudeWakeSpawner",
     "ExecutableFinder",
     "discover_claude_cli",
-    "lookup_claude_session",
     "native_invocation",
-    "run_claude_process",
+    "spawn_claude_create",
     "spawn_claude_wake",
-    "stop_claude_background",
 ]

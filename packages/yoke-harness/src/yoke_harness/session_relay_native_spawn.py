@@ -9,6 +9,10 @@ per-attempt capture, and the relay reports only the safe spawn facts.
 The identifier the caller passes IS the capture's name — a wake attempt id for
 a resume, a launch id for a spawn — so nothing has to record where the file
 went in order to find it again.
+
+A session's first turn runs the same way, and says so: ``supervision_kind``
+names which it is, because a launch and a resume are reaped and settled by
+different readers of the one custody record.
 """
 
 from __future__ import annotations
@@ -96,6 +100,7 @@ def spawn_supervised_native(
     attempt_id: str,
     native_session_id: str,
     binary_source: str,
+    supervision_kind: str = "resume",
     lease_id: str = "",
     extra_evidence: Mapping[str, str] | None = None,
     state_dir: Path | None = None,
@@ -136,7 +141,7 @@ def spawn_supervised_native(
         attempt_id,
         process.pid,
         native_session_id=native_session_id,
-        supervision_kind="resume",
+        supervision_kind=supervision_kind,
         capture_path=capture_path,
         diagnostic_ref=reference,
         lease_id=lease_id,

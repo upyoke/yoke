@@ -1,8 +1,7 @@
-"""Claude background identity, transport, version, and redaction tests."""
+"""Claude relay-owned create, transport, version, and redaction tests."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,23 +9,16 @@ import pytest
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
-from yoke_harness import session_relay_claude_native as claude_native_module
-from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_claude import (
-    CLAUDE_CREATE_TIMEOUT_SECONDS,
-    CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
     ClaudeNativeInvocation,
-    ClaudeProcessResult,
-    lookup_claude_session,
     run_claude_cli_adapter,
-    run_claude_process,
     unsupported_claude_route,
 )
+from yoke_harness.session_relay_native_capture_format import compose_capture
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 
 
 LAUNCH_ID = "12345678-1234-4234-8234-123456789abc"
-ACTUAL_ID = "87654321-4321-4321-8321-cba987654321"
-SHORT_ID = "7c5dcf5d"
 BOOTSTRAP = native_launch_bootstrap(LAUNCH_ID)
 MESSAGE_ID = "message-1"
 CHECK_INBOX = native_wake_instruction(MESSAGE_ID)
@@ -49,7 +41,7 @@ def _context(**overrides):
         "launch_attestation": "secret-attestation",
         "requested_model": "claude-opus-4-1",
         "presentation": "local",
-        "session_name": "YOK-2580: Record session presentation",
+        "session_name": "Session display name",
         "launch_deadline_at": "2099-08-22T12:15:00Z",
         "launch_progress_reporter": None,
         "target_liveness": None,
@@ -66,217 +58,145 @@ def _allow(surface, version, operation):
     return True
 
 
-def _created(output: str | None = None) -> ClaudeProcessResult:
-    return ClaudeProcessResult(
-        0,
-        17,
-        output
-        or f"backgrounded · {SHORT_ID} · Example session\nclaude attach {SHORT_ID}",
-        "private-create-stderr",
+DIAGNOSTIC_REF = "nd-33333333-3333-4333-8333-333333333333"
+
+
+def _started(
+    invocation: ClaudeNativeInvocation,
+    capture_path: Path | None = None,
+) -> SupervisedNative:
+    return SupervisedNative(
+        4242,
+        invocation.executable,
+        "path",
+        capture_path or Path("/state/native-diagnostics/never-written.capture"),
+        DIAGNOSTIC_REF,
+        "2026-09-03T21:00:00Z",
     )
 
 
-def _agents(rows=None, *, returncode: int = 0) -> ClaudeProcessResult:
-    document = rows if rows is not None else [{"id": SHORT_ID, "sessionId": ACTUAL_ID}]
-    return ClaudeProcessResult(
-        returncode,
-        7,
-        json.dumps(document) if not isinstance(document, str) else document,
-        "private-lookup-stderr",
-    )
-
-
-def test_create_reports_and_stages_the_actual_background_session() -> None:
-    invocations = []
-    lookups = []
-    handoffs = []
-
-    def handoff(launch_id, secret, **kwargs):
-        handoffs.append((launch_id, secret, kwargs))
-        return True
+def test_create_starts_a_relay_owned_process_under_the_id_it_chose() -> None:
+    invocations: list[ClaudeNativeInvocation] = []
 
     result = run_claude_cli_adapter(
         _context(),
-        process_runner=lambda invocation: invocations.append(invocation) or _created(),
-        session_lookup=lambda invocation: lookups.append(invocation) or _agents(),
+        create_spawner=lambda invocation: (
+            invocations.append(invocation) or _started(invocation)
+        ),
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
-        attestation_handoff=handoff,
     )
 
-    assert invocations[0].argv == (
+    invocation = invocations[0]
+    assert invocation.launch_id == LAUNCH_ID
+    assert invocation.session_id != LAUNCH_ID
+    assert invocation.argv == (
         CLAUDE,
+        "-p",
         "--dangerously-skip-permissions",
         "--settings",
         CLAUDE_LOCAL_SETTINGS_JSON,
+        "--session-id",
+        invocation.session_id,
         "--model",
         "claude-opus-4-1",
         "--name",
-        "YOK-2580: Record session presentation",
-        "--bg",
+        "Session display name",
         BOOTSTRAP,
+        "--output-format",
+        "json",
     )
-    assert lookups == invocations
-    assert handoffs == [(LAUNCH_ID, "secret-attestation", {"binding_id": ACTUAL_ID})]
     assert result.result_code == "native_created"
-    assert result.native_session_id == ACTUAL_ID
-    assert result.evidence["result_code"] == "identity_listing_resolved"
+    assert result.native_session_id == invocation.session_id
+    assert result.evidence["result_code"] == "native_spawned"
+    assert result.evidence["native_pid"] == 4242
+    # The reference is how any other seat reaches this native's own account.
+    assert result.evidence["native_diagnostic_ref"] == DIAGNOSTIC_REF
     assert result.evidence["presentation_preference"] == "local"
     assert result.evidence["presentation_control"] == "disableRemoteControl"
-    assert "private-create-stderr" not in repr(result.evidence)
-    assert "private-lookup-stderr" not in repr(result.evidence)
-    assert "secret-attestation" not in repr(invocations[0])
+    assert "secret-attestation" not in repr(invocation)
 
 
-@pytest.mark.parametrize(
-    ("created", "lookup", "code"),
-    [
-        (_created("no background identity"), _agents(), "background_identity_missing"),
-        (_created(), _agents(returncode=8), "identity_listing_failed"),
-        (_created(), _agents("not-json"), "identity_listing_lagged"),
-        (
-            _created(),
-            _agents([{"id": "another", "sessionId": ACTUAL_ID}]),
-            "identity_listing_lagged",
-        ),
-        (
-            _created(),
-            _agents([{"id": SHORT_ID, "sessionId": "not-a-uuid"}]),
-            "identity_listing_lagged",
-        ),
-    ],
-)
-def test_create_identity_failures_are_unknown_and_private(
-    created, lookup, code
-) -> None:
-    lookup_calls = []
-    handoffs = []
-    result = run_claude_cli_adapter(
-        _context(),
-        process_runner=lambda _invocation: created,
-        session_lookup=lambda invocation: lookup_calls.append(invocation) or lookup,
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=_allow,
-        attestation_handoff=lambda *_args, **kwargs: handoffs.append(kwargs) or True,
+def test_every_create_names_a_session_no_earlier_attempt_used() -> None:
+    minted = []
+    for _attempt in range(3):
+        run_claude_cli_adapter(
+            _context(),
+            create_spawner=lambda invocation: (
+                minted.append(invocation.session_id) or _started(invocation)
+            ),
+            executable_finder=lambda _name: CLAUDE,
+            version_gate=_allow,
+        )
+    assert len(set(minted)) == 3
+
+
+def test_native_that_refuses_at_once_is_not_created_and_private(tmp_path) -> None:
+    capture = tmp_path / "capture.capture"
+    capture.write_bytes(
+        compose_capture(
+            stdout=b"",
+            stderr=b"claude: unknown option --nope\n",
+            exit_code=2,
+        )
     )
 
-    assert result.result_code == "outcome_unknown"
-    assert result.native_session_id is None
-    assert result.evidence["result_code"] == code
-    assert handoffs == []
-    assert len(lookup_calls) == (0 if created.stdout == "no background identity" else 4)
-    assert "private" not in repr(result.evidence)
-    if created.stdout == "no background identity":
-        assert result.private_diagnostic is not None
-        assert result.private_diagnostic.failure_class == "background_identity_missing"
-        assert result.private_diagnostic.stdout == b"no background identity"
-
-
-def test_lookup_exception_text_never_enters_result() -> None:
-    def unavailable(_invocation):
-        raise RuntimeError("secret lookup output")
-
     result = run_claude_cli_adapter(
         _context(),
-        process_runner=lambda _invocation: _created(),
-        session_lookup=unavailable,
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=_allow,
-        attestation_handoff=lambda *_args, **_kwargs: True,
-    )
-
-    assert result.result_code == "outcome_unknown"
-    assert result.evidence["result_code"] == "identity_listing_failed"
-    assert "secret lookup output" not in repr(result)
-
-
-def test_sidecar_failure_reports_known_actual_session_as_unknown() -> None:
-    handoffs = []
-    result = run_claude_cli_adapter(
-        _context(),
-        process_runner=lambda _invocation: _created(),
-        session_lookup=lambda _invocation: _agents(),
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=_allow,
-        attestation_handoff=lambda *_args, **kwargs: handoffs.append(kwargs) or False,
-    )
-
-    assert handoffs == [{"binding_id": ACTUAL_ID}]
-    assert result.result_code == "outcome_unknown"
-    assert result.native_session_id == ACTUAL_ID
-    assert result.evidence["result_code"] == "attestation_handoff_failed"
-
-
-def test_missing_sidecar_refuses_before_native_create() -> None:
-    calls = []
-    result = run_claude_cli_adapter(
-        _context(),
-        process_runner=calls.append,
+        create_spawner=lambda invocation: _started(invocation, capture),
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
     )
 
     assert result.result_code == "not_created"
-    assert result.evidence["result_code"] == "attestation_handoff_unavailable"
-    assert calls == []
+    assert result.native_session_id is None
+    assert result.evidence["result_code"] == "child_exited"
+    assert result.evidence["exit_code"] == 2
+    assert "unknown option" not in repr(result.evidence)
+    assert result.private_diagnostic is not None
+    assert b"unknown option" in result.private_diagnostic.stderr
 
 
-def test_native_commands_use_private_collector_without_launch_secret(
-    monkeypatch,
-) -> None:
-    calls = []
-
-    def fake_run(argv, **kwargs):
-        calls.append((argv, kwargs))
-        return ClaudeProcessResult(0, 12, "private-stdout", "private-stderr")
-
-    monkeypatch.setattr(
-        claude_native_module,
-        "run_bounded_claude_process",
-        fake_run,
-    )
-    monkeypatch.setenv("CODEX_SESSION_ID", "parent-session")
-    invocation = ClaudeNativeInvocation(
-        CLAUDE,
-        Path("/project"),
-        LAUNCH_ID,
-        "2.1.238",
-        BOOTSTRAP,
-    )
-
-    created = run_claude_process(invocation)
-    agents = lookup_claude_session(invocation)
-
-    assert calls[0][0] == invocation.argv
-    assert calls[1][0] == (CLAUDE, "agents", "--all", "--json")
-    assert "CODEX_SESSION_ID" not in calls[0][1]["environment"]
-    assert LAUNCH_CONTEXT_ENV not in calls[0][1]["environment"]
-    assert calls[0][1]["timeout_seconds"] == CLAUDE_CREATE_TIMEOUT_SECONDS
-    assert calls[0][1]["continue_while_alive"] is True
-    assert calls[0][1]["start_new_session"] is True
-    assert calls[1][1]["timeout_seconds"] == CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS
-    assert "private" not in repr((created, agents))
-
-
-def test_child_exit_is_unknown_and_redacted() -> None:
+def test_spawn_that_never_started_is_outcome_unknown() -> None:
     result = run_claude_cli_adapter(
         _context(),
-        process_runner=lambda _invocation: ClaudeProcessResult(
-            23,
-            81,
-            stdout="message body",
-            stderr="bearer token",
-        ),
+        create_spawner=lambda _invocation: None,
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
-        attestation_handoff=lambda _launch_id, _secret: True,
     )
 
     assert result.result_code == "outcome_unknown"
-    assert result.evidence["result_code"] == "child_exited"
-    assert result.evidence["exit_code"] == 23
-    assert "message body" not in repr(result)
-    assert "bearer token" not in repr(result)
+    assert result.evidence["result_code"] == "create_spawn_failed"
+
+
+def test_spawn_exception_text_never_enters_result() -> None:
+    def unavailable(_invocation):
+        raise RuntimeError("secret spawn output")
+
+    result = run_claude_cli_adapter(
+        _context(),
+        create_spawner=unavailable,
+        executable_finder=lambda _name: CLAUDE,
+        version_gate=_allow,
+    )
+
+    assert result.result_code == "outcome_unknown"
+    assert result.evidence["result_code"] == "native_exception"
+    assert "secret spawn output" not in repr(result.evidence)
+
+
+def test_missing_attestation_refuses_before_native_create() -> None:
+    calls = []
+    result = run_claude_cli_adapter(
+        _context(launch_attestation=None),
+        create_spawner=calls.append,
+        executable_finder=lambda _name: CLAUDE,
+        version_gate=_allow,
+    )
+
+    assert result.result_code == "not_created"
+    assert result.evidence["result_code"] == "launch_attestation_missing"
+    assert calls == []
 
 
 @pytest.mark.parametrize(
@@ -311,10 +231,9 @@ def test_missing_cli_is_discovered_before_native_invocation(
             target_liveness="ended" if job_kind == "wake" else None,
             wake_mode="waiting" if job_kind == "wake" else None,
         ),
-        process_runner=invocations.append,
+        create_spawner=invocations.append,
         executable_finder=lambda _name: None,
         version_gate=_allow,
-        attestation_handoff=lambda _launch_id, _secret: True,
     )
 
     assert result.result_code == expected
@@ -339,10 +258,9 @@ def test_invalid_launch_inputs_are_refused_before_native_process(context, code) 
     calls = []
     result = run_claude_cli_adapter(
         context,
-        process_runner=calls.append,
+        create_spawner=calls.append,
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
-        attestation_handoff=lambda *_args, **_kwargs: True,
     )
 
     assert result.result_code == "not_created"

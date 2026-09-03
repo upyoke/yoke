@@ -6,31 +6,16 @@ from functools import partial
 from typing import Callable
 from uuid import UUID
 
-from yoke_harness.session_relay_claude_identity import (
-    background_agent_id,
-    resolve_background_session,
-)
-from yoke_harness.session_relay_claude_process import (
-    ClaudeProcessResult as ClaudeProcessResult,
-)
-from yoke_harness.session_relay_claude_registration import (
-    resolve_registered_session,
-)
+from yoke_harness.session_relay_claude_create import immediate_native_refusal
 from yoke_harness.session_relay_claude_native import (
-    CLAUDE_CREATE_TIMEOUT_SECONDS as CLAUDE_CREATE_TIMEOUT_SECONDS,
-    CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS as CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS,
-    CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS as CLAUDE_NATIVE_COMMAND_TIMEOUT_SECONDS,
     ClaudeNativeInvocation as ClaudeNativeInvocation,
-    ClaudeProcessRunner,
-    ClaudeSessionLookup,
+    ClaudeNativeSpawner,
     ClaudeWakeSpawner,
     ExecutableFinder,
     discover_claude_cli,
-    lookup_claude_session,
     native_invocation,
-    run_claude_process,
+    spawn_claude_create,
     spawn_claude_wake,
-    stop_claude_background,
 )
 from yoke_harness.session_relay_claude_result import (
     build_claude_result,
@@ -39,6 +24,7 @@ from yoke_harness.session_relay_claude_result import (
 from yoke_harness.session_relay_claude_transcript import (
     claude_session_transcript_exists,
 )
+from yoke_harness.session_relay_native_diagnostics import classify_native_failure
 from yoke_harness.session_relay_runtime import (
     native_instruction_targets_job,
     RelayAdapterResult,
@@ -48,20 +34,11 @@ from yoke_harness.session_relay_runtime import (
 )
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
-from yoke_contracts.session_control.launch_registration import (
-    BACKGROUND_IDENTITY_MISSING_CODE,
-    IDENTITY_LISTING_FAILED_CODE,
-    IDENTITY_LISTING_LAGGED_CODE,
-    IDENTITY_LISTING_RESOLVED_CODE,
-    REGISTERED_BUT_UNBOUND_CODE,
-    REGISTERED_SESSION_INVALID_CODE,
-    REGISTRATION_AMBIGUOUS_CODE,
-    SPAWN_WORKSPACE_MISSING_CODE,
-)
 
 
-CLAUDE_ADAPTER_REVISION = "claude-native-v7"
+CLAUDE_ADAPTER_REVISION = "claude-relay-owned-process-v1"
 CLAUDE_CLI_SURFACE = "claude-cli"
+NATIVE_SPAWNED_CODE = "native_spawned"
 _result = partial(
     build_claude_result,
     adapter_revision=CLAUDE_ADAPTER_REVISION,
@@ -69,20 +46,14 @@ _result = partial(
 
 
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
-LaunchAttestationHandoff = Callable[..., bool]
 
 
-def _contain_failed_launch(
-    invocation: ClaudeNativeInvocation,
-    short_id: str | None = None,
-) -> None:
+def _contain_failed_launch(invocation: ClaudeNativeInvocation) -> None:
     """Best-effort containment before a failed create becomes retryable."""
-    if short_id:
-        stop_claude_background(invocation, short_id)
     try:
         from yoke_harness.session_launch_containment_sweep import contain_launch_native
 
-        contain_launch_native(invocation.session_id, reason="create_failed")
+        contain_launch_native(str(invocation.launch_id or ""), reason="create_failed")
     except Exception:
         pass
 
@@ -152,15 +123,78 @@ def _missing_control_plane_launch_field(
     return None
 
 
+def _refuse_launch_preconditions(
+    context: RelayExecutionContext,
+) -> RelayAdapterResult | None:
+    if context.presentation != CLAUDE_LOCAL_PRESENTATION:
+        return _result(context, "not_created", "presentation_unsupported")
+    try:
+        UUID(context.job_id)
+    except (TypeError, ValueError, AttributeError):
+        return _result(context, "not_created", "native_session_invalid")
+    if not context.launch_attestation:
+        # The native registers itself from the attestation it inherits, so a
+        # launch without one would start a session nothing could ever bind.
+        return _result(context, "not_created", "launch_attestation_missing")
+    return None
+
+
+def _run_create(
+    context: RelayExecutionContext,
+    invocation: ClaudeNativeInvocation,
+    create_spawner: ClaudeNativeSpawner,
+) -> RelayAdapterResult:
+    try:
+        started = create_spawner(invocation)
+    except Exception as exc:  # native exceptions stay private on this relay
+        _contain_failed_launch(invocation)
+        return _result(
+            context,
+            "outcome_unknown",
+            "native_exception",
+            private_diagnostic=RelayPrivateDiagnostic(
+                "native_exception",
+                error_step="launch",
+                stderr=str(exc).encode("utf-8", errors="replace"),
+            ),
+        )
+    if started is None:
+        _contain_failed_launch(invocation)
+        return _result(context, "outcome_unknown", "create_spawn_failed")
+    refusal = immediate_native_refusal(started.capture_path)
+    if refusal is not None and refusal.exit_code != 0:
+        _contain_failed_launch(invocation)
+        return _result(
+            context,
+            "not_created",
+            "child_exited",
+            native_evidence={
+                **started.evidence,
+                "exit_code": -1 if refusal.exit_code is None else refusal.exit_code,
+            },
+            private_diagnostic=RelayPrivateDiagnostic(
+                classify_native_failure(refusal.stderr),
+                error_step="launch",
+                stdout=refusal.stdout,
+                stderr=refusal.stderr,
+            ),
+        )
+    return _result(
+        context,
+        "native_created",
+        NATIVE_SPAWNED_CODE,
+        native_session_id=invocation.session_id,
+        native_evidence=started.evidence,
+    )
+
+
 def run_claude_cli_adapter(
     context: RelayExecutionContext,
     *,
-    process_runner: ClaudeProcessRunner = run_claude_process,
+    create_spawner: ClaudeNativeSpawner = spawn_claude_create,
     wake_spawner: ClaudeWakeSpawner = spawn_claude_wake,
-    session_lookup: ClaudeSessionLookup = lookup_claude_session,
     executable_finder: ExecutableFinder | None = None,
     version_gate: SurfaceVersionGate | None = None,
-    attestation_handoff: LaunchAttestationHandoff | None = None,
 ) -> RelayAdapterResult:
     """Create or wake exactly one Claude CLI session, failing closed."""
     if context.surface != CLAUDE_CLI_SURFACE:
@@ -194,14 +228,9 @@ def run_claude_cli_adapter(
         result = "not_created" if context.job_kind == "launch" else "failed"
         return _result(context, result, "executable_unavailable")
     if context.job_kind == "launch":
-        if context.presentation != CLAUDE_LOCAL_PRESENTATION:
-            return _result(context, "not_created", "presentation_unsupported")
-        try:
-            UUID(context.job_id)
-        except (TypeError, ValueError, AttributeError):
-            return _result(context, "not_created", "native_session_invalid")
-        if not context.launch_attestation or attestation_handoff is None:
-            return _result(context, "not_created", "attestation_handoff_unavailable")
+        refusal = _refuse_launch_preconditions(context)
+        if refusal is not None:
+            return refusal
     elif context.presentation not in (None, CLAUDE_LOCAL_PRESENTATION):
         return _result(context, "failed", "presentation_unsupported")
     # The native is handed the sentence the control plane issued, never a
@@ -213,124 +242,30 @@ def run_claude_cli_adapter(
     if invocation is None:
         result = "not_created" if context.job_kind == "launch" else "not_found"
         return _result(context, result, "native_session_missing")
+    if context.job_kind == "launch":
+        return _run_create(context, invocation, create_spawner)
     if operation == "message_stopped" and not claude_session_transcript_exists(
         context.checkout,
         str(context.target_session_id or ""),
     ):
         return _result(context, "failed", "transcript_missing")
-    if context.job_kind == "wake":
-        try:
-            resumed = wake_spawner(context, invocation)
-        except Exception as exc:  # native exceptions stay private on this relay
-            return _result(
-                context,
-                "failed",
-                "native_exception",
-                private_diagnostic=RelayPrivateDiagnostic(
-                    "native_exception",
-                    error_step="resume",
-                    stderr=str(exc).encode("utf-8", errors="replace"),
-                ),
-            )
-        if resumed is None:
-            return _result(context, "failed", "resume_spawn_failed")
-        return RelayAdapterResult(
-            RESUMED_RUNNING_RESULT,
-            adapter_revision=CLAUDE_ADAPTER_REVISION,
-            evidence={**resumed.evidence, "surface": context.surface},
-        )
     try:
-        process = process_runner(invocation)
+        resumed = wake_spawner(context, invocation)
     except Exception as exc:  # native exceptions stay private on this relay
-        _contain_failed_launch(invocation)
-        result = "outcome_unknown" if context.job_kind == "launch" else "failed"
         return _result(
             context,
-            result,
+            "failed",
             "native_exception",
             private_diagnostic=RelayPrivateDiagnostic(
                 "native_exception",
-                error_step="resume" if context.job_kind == "wake" else "launch",
+                error_step="resume",
                 stderr=str(exc).encode("utf-8", errors="replace"),
             ),
         )
-    if process.returncode != 0:
-        _contain_failed_launch(invocation)
-        result = "outcome_unknown" if context.job_kind == "launch" else "failed"
-        return _result(
-            context,
-            result,
-            "child_exited",
-            process=process,
-        )
-    short_id = background_agent_id(process)
-    # Consult the control-plane registry before the pid-based agent listing.
-    # The registry correlates by workspace and registration window and sees a
-    # session served by a `claude bg-spare` child, which the pid listing cannot;
-    # under load the pid listing can also burn the entire binding window before
-    # the registry is ever reached, closing the launch with nothing bound while
-    # the session it should have adopted is already registered.
-    resolver = getattr(context, "launch_registration_resolver", None)
-    registered = (
-        resolve_registered_session(resolver, str(invocation.cwd))
-        if resolver is not None
-        else None
-    )
-    if registered is not None and registered.session_id is not None:
-        return _result(
-            context,
-            "native_created",
-            REGISTERED_BUT_UNBOUND_CODE,
-            native_session_id=registered.session_id,
-            process=process.with_outcome(0, process.duration_ms),
-        )
-    actual_id = None
-    failure_code = BACKGROUND_IDENTITY_MISSING_CODE
-    combined = process
-    if short_id is not None:
-        resolution = resolve_background_session(
-            short_id, lambda: session_lookup(invocation)
-        )
-        combined = process.with_outcome(
-            resolution.returncode,
-            min(process.duration_ms + resolution.duration_ms, 3_600_000),
-        )
-        actual_id = resolution.session_id
-        failure_code = (
-            IDENTITY_LISTING_FAILED_CODE
-            if resolution.result_code == "identity_lookup_failed"
-            else IDENTITY_LISTING_LAGGED_CODE
-        )
-    if actual_id is None:
-        if registered is not None and registered.result_code in {
-            REGISTRATION_AMBIGUOUS_CODE,
-            REGISTERED_SESSION_INVALID_CODE,
-            SPAWN_WORKSPACE_MISSING_CODE,
-        }:
-            failure_code = registered.result_code
-        _contain_failed_launch(invocation, short_id)
-        return _result(context, "outcome_unknown", failure_code, process=combined)
-    try:
-        staged = attestation_handoff(
-            context.job_id,
-            context.launch_attestation,
-            binding_id=actual_id,
-        )
-    except Exception:  # the secret must never be copied into failure evidence
-        staged = False
-    if not staged:
-        _contain_failed_launch(invocation, short_id)
-        return _result(
-            context,
-            "outcome_unknown",
-            "attestation_handoff_failed",
-            native_session_id=actual_id,
-            process=combined,
-        )
-    return _result(
-        context,
-        "native_created",
-        IDENTITY_LISTING_RESOLVED_CODE,
-        native_session_id=actual_id,
-        process=combined,
+    if resumed is None:
+        return _result(context, "failed", "resume_spawn_failed")
+    return RelayAdapterResult(
+        RESUMED_RUNNING_RESULT,
+        adapter_revision=CLAUDE_ADAPTER_REVISION,
+        evidence={**resumed.evidence, "surface": context.surface},
     )

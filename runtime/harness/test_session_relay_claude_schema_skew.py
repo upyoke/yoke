@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -11,16 +10,23 @@ from yoke_cli.config.machine_config import ConfiguredProject
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_runtime as runtime
-from yoke_harness.session_relay_claude import (
-    ClaudeProcessResult,
-    run_claude_cli_adapter,
-)
+from yoke_harness.session_relay_claude import run_claude_cli_adapter
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 
 
 LAUNCH_ID = "12345678-1234-4234-8234-123456789abc"
-ACTUAL_ID = "87654321-4321-4321-8321-cba987654321"
-SHORT_ID = "7c5dcf5d"
 CLAUDE = "/opt/claude/bin/claude"
+
+
+def _started(invocation) -> SupervisedNative:
+    return SupervisedNative(
+        4242,
+        invocation.executable,
+        "path",
+        Path("/state/native-diagnostics/never-written.capture"),
+        "nd-55555555-5555-4555-8555-555555555555",
+        "2026-09-03T21:00:00Z",
+    )
 
 
 def _control_plane_job(**updates: object) -> dict[str, object]:
@@ -59,25 +65,11 @@ def test_job_without_new_optional_field_remains_launchable(relay_context) -> Non
 
     result = run_claude_cli_adapter(
         context,
-        process_runner=lambda invocation: (
-            invocations.append(invocation)
-            or ClaudeProcessResult(
-                0,
-                17,
-                (
-                    f"backgrounded · {SHORT_ID} · Schema skew launch\n"
-                    f"claude attach {SHORT_ID}"
-                ),
-            )
-        ),
-        session_lookup=lambda _invocation: ClaudeProcessResult(
-            0,
-            7,
-            json.dumps([{"id": SHORT_ID, "sessionId": ACTUAL_ID}]),
+        create_spawner=lambda invocation: (
+            invocations.append(invocation) or _started(invocation)
         ),
         executable_finder=lambda _name: CLAUDE,
         version_gate=lambda *_args: True,
-        attestation_handoff=lambda *_args, **_kwargs: True,
     )
 
     assert result.result_code == "native_created"
