@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_core.domain.approval_policy import parse_approval_policy
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
     TASK_PRODUCING_PLANNING_SKILL_IDS,
@@ -117,8 +118,6 @@ _POLICY_VALUES = {
 #: drops them: the merge sees Yoke removed the key and the universe left it
 #: alone, so an inert key clears itself on the next update.
 _RETIRED_POLICY_KEYS = frozenset({"parallelism"})
-_APPROVAL_DEFAULT_KEYS = frozenset({"roles", "actors"})
-_APPROVAL_ROLES = frozenset({"owner", "operator", "admin"})
 ITEM_POSTURE_VALUES = frozenset(
     {
         "approval",
@@ -158,30 +157,10 @@ def _validate_approval_defaults(
             raise WorkflowDefinitionError(
                 f"{path} does not name a declared transition target"
             )
-        gate = require_mapping(raw_gate, path)
-        require_exact_keys(gate, _APPROVAL_DEFAULT_KEYS, path)
-        roles = require_sequence(gate.get("roles"), f"{path}.roles")
-        actors = require_sequence(gate.get("actors"), f"{path}.actors")
-        if not roles and not actors:
-            raise WorkflowDefinitionError(
-                f"{path} must name at least one role or actor"
-            )
-        if any(not isinstance(role, str) for role in roles) or len(roles) != len(
-            set(roles)
-        ):
-            raise WorkflowDefinitionError(f"{path}.roles must be unique")
-        unknown_roles = set(roles) - _APPROVAL_ROLES
-        if unknown_roles:
-            raise WorkflowDefinitionError(
-                f"{path}.roles has unknown values: {sorted(unknown_roles)}"
-            )
-        if any(
-            isinstance(actor_id, bool) or not isinstance(actor_id, int) or actor_id <= 0
-            for actor_id in actors
-        ) or len(actors) != len(set(actors)):
-            raise WorkflowDefinitionError(
-                f"{path}.actors must be unique positive integer actor ids"
-            )
+        try:
+            parse_approval_policy(raw_gate, path=path)
+        except ValueError as exc:
+            raise WorkflowDefinitionError(str(exc)) from exc
 
 
 def _validate_generated_children_producer(

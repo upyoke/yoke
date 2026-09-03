@@ -28,7 +28,11 @@ DELIVERY_SET_USAGE = (
 )
 APPROVAL_PUBLISH_USAGE = (
     "yoke workflows approval-defaults publish --workflow W "
-    "--expected-current-version N --defaults-file FILE [--json]"
+    "--expected-current-version N --defaults-file FILE [--json] "
+    "(FILE maps each gated transition id to "
+    '{"roles": [...], "actors": [...], "mode": "any"|"all"}; "mode" '
+    "defaults to \"any\", where the first approval settles the gate, while "
+    '"all" needs one decision per checked role or person)'
 )
 
 

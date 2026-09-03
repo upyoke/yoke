@@ -7,12 +7,14 @@ import pytest
 from runtime.api.domain.decision_request_test_support import (
     decision_request_connection,
 )
+from yoke_core.domain.decision_request_authority import (
+    decision_request_authority_actor_ids,
+    pending_requests_for_actor,
+)
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
-    decision_request_authority_actor_ids,
     list_subject_requests,
-    pending_requests_for_actor,
 )
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
@@ -118,7 +120,11 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
     assert pending_requests_for_actor(conn, 2) == []
     assert [
         row[0] for row in conn.execute("SELECT event_name FROM events ORDER BY id")
-    ] == ["DecisionRequestCreated", "DecisionRequestResolved"]
+    ] == [
+        "DecisionRequestCreated",
+        "DecisionRecorded",
+        "DecisionRequestResolved",
+    ]
 
 
 def test_unauthorized_resolution_refuses_without_state_change(conn):

@@ -5,11 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
+from yoke_core.domain.decision_request_authority import (
+    pending_requests_for_actor,
+)
 from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
 from yoke_core.domain.decision_request_disposition import (
     dispose_ended_decision_requests,
 )
-from yoke_core.domain.decision_requests import pending_requests_for_actor
 
 
 def inbox_for_actor(

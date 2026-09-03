@@ -36,6 +36,8 @@ def create_decision_request_tables(
             project_id INTEGER REFERENCES projects(id),
             org_id INTEGER REFERENCES organizations(id),
             originator_actor_id INTEGER REFERENCES actors(id),
+            approval_mode TEXT NOT NULL DEFAULT 'any'
+                CHECK(approval_mode IN ('any', 'all')),
             status TEXT NOT NULL DEFAULT 'pending'
                 CHECK(status IN ('pending', 'resolved', 'withdrawn')),
             resolution_action TEXT,
@@ -83,7 +85,26 @@ def create_decision_request_tables(
         );
         CREATE INDEX IF NOT EXISTS idx_decision_request_actors_actor
             ON decision_request_actor_authorities(actor_id, request_id);
+
+        CREATE TABLE IF NOT EXISTS decision_request_decisions (
+            id INTEGER PRIMARY KEY,
+            request_id INTEGER NOT NULL REFERENCES decision_requests(id)
+                ON DELETE CASCADE,
+            actor_id INTEGER NOT NULL REFERENCES actors(id),
+            action TEXT NOT NULL,
+            note TEXT,
+            decided_at TEXT NOT NULL,
+            UNIQUE (request_id, actor_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_decision_request_decisions_request
+            ON decision_request_decisions(request_id, decided_at, id);
     """,
+    )
+    _add_column_if_not_exists(
+        conn,
+        "decision_requests",
+        "approval_mode",
+        "TEXT NOT NULL DEFAULT 'any' CHECK(approval_mode IN ('any', 'all'))",
     )
     _add_column_if_not_exists(
         conn,

@@ -11,6 +11,9 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.deployment_approval_output import (
+    write_run_approval,
+)
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
@@ -40,7 +43,10 @@ DEPLOYMENT_RUNS_UPDATE_USAGE = (
 )
 DEPLOYMENT_RUNS_APPROVE_USAGE = (
     "yoke deployment-runs approve RUN-ID [--note TEXT] "
-    "[--session-id S] [--json]"
+    "[--session-id S] [--json] "
+    "(records your decision; under an every-approver stage policy the "
+    "stage stays gated until the rest decide \u2014 read stage_approved "
+    "and approval_progress)"
 )
 DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE = (
     "yoke deployment-runs resolve-target PROJECT FLOW "
@@ -269,12 +275,7 @@ def deployment_runs_approve(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        print(
-            f"Approved {result.get('run_id')}: "
-            f"{result.get('approved_stage')} -> {result.get('next_stage')}",
-            file=stdout,
-        )
+        write_run_approval(response.result or {}, stdout)
         return None
 
     payload = {}

@@ -19,7 +19,9 @@ INBOX_LIST_USAGE = (
 )
 DECISION_REQUESTS_RESOLVE_USAGE = (
     "yoke decision-requests resolve REQUEST_ID ACTION [--note TEXT] "
-    "[--session-id S] [--json]"
+    "[--session-id S] [--json] "
+    "(records one decision; an every-approver request stays pending until "
+    "every checked role or person has decided)"
 )
 DECISION_REQUESTS_DISPOSE_ENDED_USAGE = (
     "yoke decision-requests dispose-ended [--project-id N ...] "
@@ -77,9 +79,16 @@ def decision_requests_resolve(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke decision-requests resolve",
         description=(
-            "Resolve one pending decision request with an action offered by "
-            "that request. The server re-evaluates live actor authority and "
-            "validates the action against the request kind."
+            "Record your decision on one pending decision request, using an "
+            "action that request offers. The server re-evaluates live actor "
+            "authority and validates the action against the request kind. "
+            "Your decision resolves the request only when the recorded "
+            "decisions satisfy its approval policy: under mode 'any' the "
+            "first approval settles it, under mode 'all' every checked role "
+            "or named person needs its own decision, and any rejection by a "
+            "listed party resolves it against. Read approval_progress in the "
+            "response for what the gate is still waiting on. A decision is "
+            "final: the same actor cannot decide the same request twice."
         ),
     )
     parser.add_argument("request_id", type=int, help="Decision request id.")

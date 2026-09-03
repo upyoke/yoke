@@ -141,7 +141,7 @@ def evaluate_deployment_stage_approval(
     stage_def = next(entry for entry in stages if entry.name == stage)
     if "approvals" not in stage_def.config:
         raise ValueError(MISSING_STAGE_APPROVALS.format(name=stage))
-    roles, actors = parse_stage_approvals(
+    policy = parse_stage_approvals(
         stage_def.config.get("approvals"),
         path=f"stage {stage!r} approvals",
     )
@@ -182,9 +182,10 @@ def evaluate_deployment_stage_approval(
         role_authorities=role_authorities_for(
             project_id=int(run["project_id"]),
             org_id=run["org_id"],
-            role_names=roles,
+            role_names=policy.roles,
         ),
-        named_actor_ids=actors,
+        named_actor_ids=policy.actors,
+        approval_mode=policy.mode,
         subject_context=subject_context,
         session_id=session_id,
     )

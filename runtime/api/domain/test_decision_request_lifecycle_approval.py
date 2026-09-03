@@ -10,6 +10,7 @@ from runtime.api.domain.decision_request_test_support import (
     decision_request_connection,
 )
 from yoke_core.domain.approval_gate import evaluate_lifecycle_approval
+from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
 )
@@ -44,7 +45,7 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
         conn,
         item_id=1907,
         to_stage_id="reviewing-implementation",
-        role_names=["owner"],
+        policy=ApprovalPolicy(roles=("owner",)),
         approval_source=WORKFLOW_APPROVAL,
         originator_actor_id=1,
     )
@@ -79,7 +80,7 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
         conn,
         item_id=1907,
         to_stage_id="reviewing-implementation",
-        role_names=["owner"],
+        policy=ApprovalPolicy(roles=("owner",)),
         approval_source=WORKFLOW_APPROVAL,
         originator_actor_id=1,
     )
@@ -94,7 +95,7 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
         conn,
         item_id=1907,
         to_stage_id="reviewing-implementation",
-        role_names=["owner"],
+        policy=ApprovalPolicy(roles=("owner",)),
         approval_source=WORKFLOW_APPROVAL,
         originator_actor_id=1,
     )
@@ -114,7 +115,7 @@ def test_rejected_gate_creates_a_fresh_request_on_the_next_attempt(conn):
         conn,
         item_id=1908,
         to_stage_id="done",
-        named_actor_ids=[3],
+        policy=ApprovalPolicy(actors=(3,)),
         approval_source=POSTURE_APPROVAL,
         originator_actor_id=1,
     )
@@ -128,7 +129,7 @@ def test_rejected_gate_creates_a_fresh_request_on_the_next_attempt(conn):
         conn,
         item_id=1908,
         to_stage_id="done",
-        named_actor_ids=[3],
+        policy=ApprovalPolicy(actors=(3,)),
         approval_source=POSTURE_APPROVAL,
         originator_actor_id=1,
     )
@@ -139,3 +140,37 @@ def test_rejected_gate_creates_a_fresh_request_on_the_next_attempt(conn):
         conn.execute("SELECT status FROM items WHERE id=1908").fetchone()[0]
         == "implementing"
     )
+
+
+def test_all_mode_lifecycle_gate_stays_closed_until_every_box_decides(conn):
+    conn.execute(
+        "INSERT INTO items VALUES "
+        "(1909, 10, 4201, 'Release shell', 'implementing', 'issue', 1)"
+    )
+    policy = ApprovalPolicy(roles=("owner",), actors=(3,), mode="all")
+
+    def gate():
+        return evaluate_lifecycle_approval(
+            conn,
+            item_id=1909,
+            to_stage_id="done",
+            policy=policy,
+            approval_source=POSTURE_APPROVAL,
+            originator_actor_id=1,
+        )
+
+    verdict = gate()
+    assert verdict.satisfied is False
+    assert (
+        conn.execute(
+            "SELECT approval_mode FROM decision_requests WHERE id=?",
+            (verdict.request_id,),
+        ).fetchone()[0]
+        == "all"
+    )
+    resolve_decision_request(conn, verdict.request_id, actor_id=2, action="approve")
+    still_waiting = gate()
+    assert still_waiting.satisfied is False
+    assert still_waiting.request_id == verdict.request_id
+    resolve_decision_request(conn, verdict.request_id, actor_id=3, action="approve")
+    assert gate().satisfied is True

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.deployment_stage_approval_fixture import OpenConnection
+from yoke_core.domain import deployment_run_approval
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
@@ -11,8 +13,10 @@ from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
 )
 from yoke_core.domain.deployment_approval_requests import (
+    deployment_stage_is_approved,
     evaluate_deployment_stage_approval,
 )
+from yoke_core.domain.deployment_run_approval import emit_run_approval
 
 
 def _prod_environment_id(conn) -> int:
@@ -147,3 +151,83 @@ def test_named_actor_is_the_configured_authority(test_db):
         (verdict.request_id,),
     ).fetchall()
     assert roles == []
+
+
+def test_all_mode_stage_stays_unapproved_until_every_box_decides(
+    test_db,
+    monkeypatch,
+):
+    create_decision_request_tables(test_db)
+    named = int(
+        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
+    owner = int(
+        test_db.execute("SELECT id FROM actors ORDER BY id DESC LIMIT 1").fetchone()[0]
+    )
+    assert owner != named
+    role = test_db.execute(
+        "INSERT INTO roles (id, name, description, created_at) "
+        "VALUES (9402, 'owner', 'Owner', '2026-07-26T00:00:00Z') "
+        "ON CONFLICT(name) DO UPDATE SET description=EXCLUDED.description "
+        "RETURNING id"
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO actor_project_roles "
+        "(actor_id, project_id, role_id, granted_at) "
+        "VALUES (%s, 1, %s, '2026-07-26T00:00:00Z') ON CONFLICT DO NOTHING",
+        (owner, role),
+    )
+    _seed_run(
+        test_db,
+        flow_id="gate-every-approver",
+        run_id="run-gate-every-approver",
+        stages_json=(
+            '[{"name":"approve-prod","step_runner":"human-approval",'
+            f'"approvals":{{"roles":["owner"],"actors":[{named}],'
+            '"mode":"all"}},'
+            '{"name":"release","step_runner":"auto"}]'
+        ),
+    )
+    open_conn = OpenConnection(test_db)
+    monkeypatch.setattr(deployment_run_approval, "connect", lambda: open_conn)
+
+    partial = deployment_run_approval.approve_run(
+        "run-gate-every-approver",
+        actor_id=owner,
+        session_id="stage-session",
+        note="owner cleared prod",
+    )
+    assert partial.stage_approved is False
+    assert partial.approval_progress["satisfied"] == 1
+    assert partial.approval_progress["required"] == 2
+    assert (
+        emit_run_approval(
+            partial, actor_id=str(owner), session_id="stage-session", note=None
+        )
+        is None
+    )
+    assert (
+        deployment_stage_is_approved(
+            test_db,
+            run_id="run-gate-every-approver",
+            stage_id="approve-prod",
+        )
+        is False
+    )
+
+    finished = deployment_run_approval.approve_run(
+        "run-gate-every-approver",
+        actor_id=named,
+        session_id="stage-session",
+        note="named approver cleared prod",
+    )
+    assert finished.stage_approved is True
+    assert finished.next_stage == "release"
+    assert (
+        deployment_stage_is_approved(
+            test_db,
+            run_id="run-gate-every-approver",
+            stage_id="approve-prod",
+        )
+        is True
+    )

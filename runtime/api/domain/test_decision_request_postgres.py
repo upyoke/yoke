@@ -5,10 +5,12 @@ from __future__ import annotations
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
+from yoke_core.domain.decision_request_authority import (
+    pending_requests_for_actor,
+)
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
-    pending_requests_for_actor,
 )
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,

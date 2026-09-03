@@ -44,3 +44,7 @@ conversation mapping) — operators should not invent session IDs.
   gates waiting on your decision (deploy stage, QA review, lifecycle
   approval) and the messages sent to you. An agent that needs you to know
   something sends a message, with context and a specific ask
+- A gate that needs every listed approver shows how far it has got — how
+  many of the checked approvers have decided, and who it is still waiting
+  on. A gate you already answered reports your own decision instead of
+  offering an action you cannot take twice; any rejection ends it outright

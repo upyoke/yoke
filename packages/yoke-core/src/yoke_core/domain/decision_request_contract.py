@@ -60,6 +60,7 @@ DECISION_KINDS = {
 }
 
 REQUEST_CREATED_EVENT = "DecisionRequestCreated"
+DECISION_RECORDED_EVENT = "DecisionRecorded"
 REQUEST_RESOLVED_EVENT = "DecisionRequestResolved"
 REQUEST_WITHDRAWN_EVENT = "DecisionRequestWithdrawn"
 
@@ -71,10 +72,16 @@ DECISION_EVENT_ROWS = (
         "A typed human decision request was created for a governed subject.",
     ),
     (
+        DECISION_RECORDED_EVENT,
+        "lifecycle",
+        "decision_request",
+        "An authorized actor answered a typed human decision request.",
+    ),
+    (
         REQUEST_RESOLVED_EVENT,
         "lifecycle",
         "decision_request",
-        "An authorized actor resolved a typed human decision request.",
+        "Recorded decisions satisfied a request's approval policy.",
     ),
     (
         REQUEST_WITHDRAWN_EVENT,
@@ -87,6 +94,7 @@ DECISION_EVENT_ROWS = (
 
 __all__ = [
     "DECISION_EVENT_ROWS",
+    "DECISION_RECORDED_EVENT",
     "DECISION_KINDS",
     "DECISION_REQUEST_KINDS",
     "DEPLOYMENT_STAGE_APPROVAL",

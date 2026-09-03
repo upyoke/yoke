@@ -7,11 +7,13 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
     list_subject_requests,
 )
+from yoke_core.domain.qa_review_requirement_facts import requirement_facts
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -122,57 +124,10 @@ def requirement_awaits_human_review(
     )
 
 
-def _requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
-    p = _p(conn)
-    row = conn.execute(
-        "SELECT id, item_id, epic_id, deployment_run_id, plan_id, "
-        "plan_case_key, method_id, method_name, expected_outcome, qa_kind, "
-        "success_policy "
-        "FROM qa_requirements "
-        f"WHERE id = {p}",
-        (int(requirement_id),),
-    ).fetchone()
-    if row is None:
-        raise LookupError(f"QA requirement {requirement_id} does not exist")
-    value = {key: row[key] for key in row.keys()}
-    if value.get("plan_id") is not None:
-        project = conn.execute(
-            f"SELECT project_id, name FROM qa_plans WHERE id = {p}",
-            (int(value["plan_id"]),),
-        ).fetchone()
-        if project is not None:
-            value["project_id"] = int(project[0])
-            value["plan_name"] = str(project[1])
-    if (
-        value.get("method_id") is not None
-        and value.get("method_name") is None
-        and value.get("plan_id") is None
-    ):
-        method = conn.execute(
-            f"SELECT name FROM qa_methods WHERE id = {p}",
-            (str(value["method_id"]),),
-        ).fetchone()
-        if method is not None:
-            value["method_name"] = str(method[0])
-    item_id = value.get("item_id") or value.get("epic_id")
-    if value.get("project_id") is None and item_id is not None:
-        project = conn.execute(
-            f"SELECT project_id, title FROM items WHERE id = {p}",
-            (int(item_id),),
-        ).fetchone()
-        if project is not None:
-            value["project_id"] = int(project[0])
-            value["item_title"] = str(project[1])
-    if value.get("project_id") is None and value.get("deployment_run_id"):
-        project = conn.execute(
-            f"SELECT project_id FROM deployment_runs WHERE id = {p}",
-            (str(value["deployment_run_id"]),),
-        ).fetchone()
-        if project is not None:
-            value["project_id"] = int(project[0])
-    if value.get("project_id") is None:
-        raise ValueError(f"QA requirement {requirement_id} has no project authority")
-    return value
+#: Who answers a QA evidence review when the caller names no one else.
+#: A project's owners and operators, any one of whom settles it -- the same
+#: address these reviews carried before the policy shape existed.
+QA_REVIEW_DEFAULT_POLICY = ApprovalPolicy(roles=("operator", "owner"))
 
 
 def ensure_qa_review_request(
@@ -180,6 +135,7 @@ def ensure_qa_review_request(
     *,
     requirement_id: int,
     run_id: int,
+    policy: ApprovalPolicy = QA_REVIEW_DEFAULT_POLICY,
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
     commit: bool = True,
@@ -188,7 +144,7 @@ def ensure_qa_review_request(
     required = ("decision_requests", "projects", "items")
     if not all(_table_exists(conn, table) for table in required):
         return None, False
-    requirement = _requirement(conn, requirement_id)
+    requirement = requirement_facts(conn, requirement_id)
     project_id = int(requirement["project_id"])
     p = _p(conn)
     reason_row = conn.execute(
@@ -229,9 +185,10 @@ def ensure_qa_review_request(
         project_id=project_id,
         originator_actor_id=originator_actor_id,
         role_authorities=[
-            RoleAuthority("project", project_id, "owner"),
-            RoleAuthority("project", project_id, "operator"),
+            RoleAuthority("project", project_id, role) for role in policy.roles
         ],
+        named_actor_ids=policy.actors,
+        approval_mode=policy.mode,
         subject_context={
             "requirement_id": int(requirement_id),
             "run_id": int(run_id),
@@ -263,6 +220,7 @@ def maybe_ensure_qa_review_request(
     verdict: Optional[str],
     requirement_id: int,
     run_id: int,
+    policy: ApprovalPolicy = QA_REVIEW_DEFAULT_POLICY,
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
 ) -> Optional[dict[str, Any]]:
@@ -287,6 +245,7 @@ def maybe_ensure_qa_review_request(
         conn,
         requirement_id=requirement_id,
         run_id=run_id,
+        policy=policy,
         originator_actor_id=originator_actor_id,
         session_id=session_id,
     )
@@ -303,7 +262,7 @@ def apply_qa_review_resolution(
     resolved_at: Optional[str] = None,
 ) -> None:
     """Apply the human decision to the canonical requirement evidence."""
-    requirement = _requirement(conn, requirement_id)
+    requirement = requirement_facts(conn, requirement_id)
     stamp = resolved_at or iso8601_now()
     p = _p(conn)
     if action == "waive":
@@ -338,6 +297,7 @@ def apply_qa_review_resolution(
 
 
 __all__ = [
+    "QA_REVIEW_DEFAULT_POLICY",
     "QaReviewWait",
     "apply_qa_review_resolution",
     "ensure_qa_review_request",

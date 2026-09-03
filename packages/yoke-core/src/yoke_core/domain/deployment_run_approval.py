@@ -1,4 +1,9 @@
-"""Resolve a deployment run stage through the shared Inbox authority.
+"""Record a deployment run stage decision through the shared Inbox authority.
+
+One approval is not always a resolved stage. The stage declares the same
+approval policy every other gate declares, so under ``all`` this records the
+caller's decision and reports what the stage is still waiting on; the stage
+resolves only when the recorded decisions satisfy that policy.
 
 The deployment runner consumes the resolved decision and remains the only
 surface that advances run and member-item deployment state.
@@ -22,6 +27,8 @@ class RunApproval:
     approved_at: str
     member_item_ids: tuple[int, ...]
     decision_request_id: Optional[int] = None
+    stage_approved: bool = True
+    approval_progress: Optional[dict] = None
 
 
 class RunApprovalRejected(ValueError):
@@ -35,7 +42,7 @@ def approve_run(
     session_id: str = "",
     note: Optional[str] = None,
 ) -> RunApproval:
-    """Resolve the run stage's Inbox decision without moving run state."""
+    """Record this actor's stage decision without moving run state."""
     from yoke_core.domain.decision_request_resolution import (
         resolve_decision_request,
     )
@@ -94,7 +101,7 @@ def approve_run(
                 f"{approved_stage!r} is {verdict.reason} "
                 f"(decision request {verdict.request_id})"
             )
-        resolve_decision_request(
+        request = resolve_decision_request(
             conn,
             int(verdict.request_id),
             actor_id=actor_id,
@@ -103,6 +110,7 @@ def approve_run(
             session_id=session_id,
             resolved_at=approved_at,
         )
+        progress = dict(request.get("approval_progress") or {})
         return RunApproval(
             run_id=run_id,
             project=str(run["project"]),
@@ -111,6 +119,9 @@ def approve_run(
             approved_at=approved_at,
             member_item_ids=member_item_ids,
             decision_request_id=int(verdict.request_id),
+            stage_approved=str(request["status"]) == "resolved"
+            and str(request["resolution_action"]) == "approve",
+            approval_progress=progress,
         )
     except Exception:
         conn.rollback()
@@ -126,7 +137,14 @@ def emit_run_approval(
     session_id: Optional[str],
     note: Optional[str],
 ) -> Optional[str]:
-    """Write the Yoke audit event after the authoritative mutation."""
+    """Announce a stage that is actually approved, never one still waiting.
+
+    A decision that did not satisfy the stage's policy is already recorded as
+    its own decision event; announcing it as granted would tell the pipeline
+    and the operator that a stage cleared when it did not.
+    """
+    if not approval.stage_approved:
+        return None
     from yoke_core.domain.events import emit_event
 
     result = emit_event(

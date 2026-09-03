@@ -1,13 +1,14 @@
 ---
 name: approve
-description: "Approve a deployment run that is paused at a Yoke human-approval stage."
+description: "Record your decision on a deployment run paused at a Yoke human-approval stage."
 argument-hint: "RUN-ID [--note \"...\"]"
 ---
 
 # /yoke approve RUN-ID [--note "..."]
 
-Approve one exact deployment run inside Yoke. The run is the authority; member
-item deployment stages are synchronized by the same transaction.
+Record one approval on one exact deployment run inside Yoke. The run is the
+authority; member item deployment stages are synchronized by the same
+transaction.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -34,17 +35,25 @@ The command must succeed only when all of these are true:
 
 - the exact run exists;
 - its status is `executing`;
-- its current stage exists in the run's deployment flow; and
-- that stage uses the `human-approval` executor.
+- its current stage exists in the run's deployment flow;
+- that stage uses the `human-approval` executor; and
+- you hold an authority the stage's approval policy addresses, and have not
+  already decided this stage.
 
-On success, Yoke atomically advances `deployment_runs.current_stage` and every
-member item's `deploy_stage`, keeps member items in `release`, and emits
-`DeploymentApprovalGranted` with run, stage, actor, session, note, and member
-identity. Do not issue separate run or item updates and do not create an
-external approval record.
+**One approval is not always an approved stage.** The stage declares the same
+approval policy every Yoke gate declares. Under `any` your approval settles
+it; under `all` it records your decision and the stage keeps waiting for the
+rest. Read `stage_approved` and `approval_progress` in the result: when
+`stage_approved` is false, the stage is still gated, `DeploymentApprovalGranted`
+is deliberately not emitted, and `approval_progress.outstanding` names who the
+run is waiting on. Report that and stop — do not resume the pipeline.
 
-Then resume the exact run through the deployment pipeline. The pipeline starts
-from the newly authoritative `current_stage`.
+When `stage_approved` is true, Yoke has resolved the stage's decision request
+and emitted `DeploymentApprovalGranted` with run, stage, actor, session, note,
+and member identity. Do not issue separate run or item updates and do not
+create an external approval record. Then resume the exact run through the
+deployment pipeline, which advances from the run's authoritative
+`current_stage`.
 
-If approval is rejected, report the exact structured error and stop. Never
+If the command refuses, report the exact structured error and stop. Never
 force a run past a non-approval stage or approve a terminal run.

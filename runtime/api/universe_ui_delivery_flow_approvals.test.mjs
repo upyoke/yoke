@@ -141,8 +141,65 @@ test("human-approval stages show who may approve and publish through update_stag
     assert.deepEqual(JSON.parse(update.payload.stages)[0].approvals, {
       roles: ["operator", "owner"],
       actors: [],
+      mode: "any",
     });
     assert.equal(JSON.parse(update.payload.stages)[1].step_runner, "auto");
     mounted.unmount();
   },
 );
+
+function modeSelect(root) {
+  const selects = allNodes(root).filter((node) => node.tagName === "SELECT");
+  return selects[selects.length - 1];
+}
+
+test("the every-approver switch publishes onto the stage and reads back as and",
+  async (t) => {
+    const client = flowClient([GATED]);
+    const { root, mounted } = await mountFlows(t, client);
+    buttonByText(root, "Edit who may approve").dispatchEvent(new Event("click"));
+    await settle();
+    assert.deepEqual(
+      modeSelect(root).children.map((node) => node.textContent),
+      ["Any one of them settles it", "All of them, one decision each"],
+    );
+    byClass(root, "workflow-checkbox")[0].children[0]
+      .dispatchEvent(new Event("change"));
+    const mode = modeSelect(root);
+    mode.value = "all";
+    mode.dispatchEvent(new Event("change"));
+    await settle();
+    assert.equal(
+      byClass(root, "workflow-approval-help")[0].textContent,
+      "Every box checked here must approve approve-prod",
+    );
+    buttonByText(root, "Save stage approvals")
+      .dispatchEvent(new Event("click"));
+    await settle();
+    const update = client.requests.find(
+      (request) => request.function === "deployment_flows.update_stages",
+    );
+    assert.deepEqual(JSON.parse(update.payload.stages)[0].approvals, {
+      roles: ["operator", "owner"],
+      actors: [],
+      mode: "all",
+    });
+    mounted.unmount();
+  },
+);
+
+test("a stage needing every approver reads as and in the pipeline", async (t) => {
+  const everyApprover = {
+    ...GATED,
+    approval_stages: [{
+      name: "approve-prod",
+      approvals: { roles: ["operator", "owner"], actors: [], mode: "all" },
+    }],
+  };
+  const { root, mounted } = await mountFlows(t, flowClient([everyApprover]));
+  assert.equal(
+    byClass(root, "delivery-flow-stage-approvers")[0].textContent,
+    "project operator and project owner",
+  );
+  mounted.unmount();
+});

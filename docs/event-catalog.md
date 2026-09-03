@@ -25,8 +25,9 @@
 | ClaimVerificationDenied | lifecycle | claim_verification | yoke-core | Status mutation denied: current session does not hold the matching work claim | INFO | active |
 | DataLossDetected | system | db_alarm | yoke_core.domain.db_error_hook_collapse | Expected low-cadence fatal alarm emitted when row-count collapse is detected after DDL; retained active because absence usually means the alarm did not need to fire. | FATAL | active |
 | DbClaimAmended | workflow | db_claim_amendment | yoke_core.domain.db_claim | DB claim amended through the sanctioned unified workflow | INFO | active |
+| DecisionRecorded | lifecycle | decision_request | engine | An authorized actor answered a typed human decision request. | INFO | active |
 | DecisionRequestCreated | lifecycle | decision_request | engine | A typed human decision request was created for a governed subject. | INFO | active |
-| DecisionRequestResolved | lifecycle | decision_request | engine | An authorized actor resolved a typed human decision request. | INFO | active |
+| DecisionRequestResolved | lifecycle | decision_request | engine | Recorded decisions satisfied a request's approval policy. | INFO | active |
 | DecisionRequestWithdrawn | lifecycle | decision_request | engine | A pending decision request was withdrawn because its subject ended. | INFO | active |
 | DependencyGateEvaluated | workflow | dependency_gate | cli | Batch summary of dependency gate evaluation from planning kernel | INFO | active |
 | DeploymentApprovalGranted | lifecycle | deployment_run | cli | Human approval granted for a deployment pipeline stage | INFO | active |

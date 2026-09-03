@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from runtime.api.deployment_stage_approval_fixture import OpenConnection
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
@@ -16,19 +17,6 @@ from yoke_core.domain.deployment_approval_requests import (
     dispatch_deployment_stage_approval,
     evaluate_deployment_stage_approval,
 )
-
-
-class _OpenConnection:
-    """Keep the fixture-owned connection open across runtime helper calls."""
-
-    def __init__(self, conn):
-        self._conn = conn
-
-    def __getattr__(self, name):
-        return getattr(self._conn, name)
-
-    def close(self):
-        return None
 
 
 def _prod_environment_id(conn) -> int:
@@ -185,7 +173,7 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         == "approve-prod"
     )
 
-    open_conn = _OpenConnection(test_db)
+    open_conn = OpenConnection(test_db)
     import yoke_core.domain.db_helpers as db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", lambda: open_conn)
@@ -207,6 +195,7 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     )
     assert approval.decision_request_id == request_id
     assert approval.next_stage == "release"
+    assert approval.stage_approved is True
     assert (
         deployment_stage_is_approved(
             test_db,

@@ -8,6 +8,7 @@ import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import REQUEST_WITHDRAWN_EVENT
 from yoke_core.domain.decision_request_events import append_decision_event
@@ -153,8 +154,7 @@ def evaluate_lifecycle_approval(
     *,
     item_id: int,
     to_stage_id: str,
-    role_names: Iterable[str] = (),
-    named_actor_ids: Iterable[int] = (),
+    policy: ApprovalPolicy,
     approval_source: Mapping[str, str],
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
@@ -197,9 +197,10 @@ def evaluate_lifecycle_approval(
         role_authorities=role_authorities_for(
             project_id=int(item["project_id"]),
             org_id=item["org_id"],
-            role_names=role_names,
+            role_names=policy.roles,
         ),
-        named_actor_ids=named_actor_ids,
+        named_actor_ids=policy.actors,
+        approval_mode=policy.mode,
         subject_context=build_lifecycle_subject_context(
             conn,
             item,
