@@ -161,9 +161,35 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         ns.bounded = True
     pytest_args = _strip_separator(list(ns.passthrough))
 
+    # Claim the capture pair before preflight. The impacted selection,
+    # the tree-binding lookup, and the import probe below each outlast a
+    # follower's writer-evidence window, and a follower armed on a
+    # capture nothing has claimed yet refuses a run that is merely slow
+    # to reach its first line. Claiming here also makes every refusal
+    # below a close, so the follower relays it and exits on the sentinel
+    # -- including a capture flag misplaced after ``--``, whose named
+    # file is exactly where that follower is waiting.
+    misplaced = _watch_runner.misplaced_capture_flags(pytest_args)
+    ns.raw_capture = ns.raw_capture or misplaced.get("--raw-capture")
+    ns.progress_capture = ns.progress_capture or misplaced.get("--progress-capture")
+    raw_path: Path | None = None
+    progress_path: Path | None = None
+    if not ns.print_streaming_pair:
+        raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
+
+    def refuse(message: str, exit_code: int) -> int:
+        return _watch_runner.refuse_claimed_capture(
+            progress_path, KIND, message, exit_code
+        )
+
     selection = None
     run_root = Path.cwd().resolve()
     if ns.impacted is not None:
+        _watch_runner.note_claimed_capture(
+            progress_path,
+            f"# watch_{KIND} impacted-selection: resolving the change against "
+            f"{ns.impacted}; this runs before pytest starts",
+        )
         run_root = _impacted_tree()
         selection = _impacted_selection(
             ns.impacted,
@@ -171,7 +197,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             root=run_root,
         )
         if selection is None:
-            return 0
+            return refuse(_watch_pytest_args.NO_SELECTED_TESTS, 0)
         if getattr(selection, "bounded_deferral", False):
             print(
                 _watch_pytest_args.format_would_widen_advisory(
@@ -183,32 +209,13 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         if not ns.print_streaming_pair:
             pytest_args = [*selection.pytest_paths(), *pytest_args]
     elif ns.widen:
-        print(_watch_pytest_args.WIDEN_WITHOUT_IMPACTED, file=sys.stderr)
-        return 2
+        return refuse(_watch_pytest_args.WIDEN_WITHOUT_IMPACTED, 2)
     elif ns.bounded:
-        print(_watch_pytest_args.BOUNDED_WITHOUT_IMPACTED, file=sys.stderr)
-        return 2
+        return refuse(_watch_pytest_args.BOUNDED_WITHOUT_IMPACTED, 2)
 
-    if _watch_pytest_args.is_nested_pytest_invocation(pytest_args):
-        print(
-            _watch_pytest_args.NESTED_PYTEST_REJECTION_MESSAGE,
-            file=sys.stderr,
-        )
-        return 2
-
-    if _watch_pytest_args.has_bare_runtime_path(pytest_args):
-        print(
-            _watch_pytest_args.BARE_RUNTIME_REJECTION_MESSAGE,
-            file=sys.stderr,
-        )
-        return 2
-
-    invalid_selection = _watch_pytest_args.invalid_test_selection_diagnostic(
-        pytest_args, run_root
-    )
-    if invalid_selection is not None:
-        print(invalid_selection, file=sys.stderr)
-        return _watch_pytest_args.PYTEST_USAGE_ERROR_EXIT_STATUS
+    shape_refusal = _watch_pytest_args.argument_shape_refusal(pytest_args, run_root)
+    if shape_refusal is not None:
+        return refuse(*shape_refusal)
 
     binding = verification_tree_binding.evaluate_run(
         surface=prog,
@@ -218,8 +225,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     if binding.notice is not None:
         print(binding.notice, file=sys.stderr)
     if binding.refusal is not None:
-        print(binding.refusal, file=sys.stderr)
-        return _tree_binding_startup.TREE_BINDING_REFUSED_EXIT_STATUS
+        return refuse(
+            binding.refusal, _tree_binding_startup.TREE_BINDING_REFUSED_EXIT_STATUS
+        )
 
     # Parallel-by-default: inject ``-n auto`` unless caller passed
     # ``--no-parallel`` or already supplied ``-n``/``--numprocesses``.
@@ -242,11 +250,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             env=pytest_env,
         )
         if import_refusal is not None:
-            print(
-                f"watch_pytest IMPORT-BINDING REFUSAL: {import_refusal}",
-                file=sys.stderr,
-            )
-            return 3
+            return refuse(f"watch_pytest IMPORT-BINDING REFUSAL: {import_refusal}", 3)
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
@@ -270,8 +274,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         )
         return 0
 
-    raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
-
+    # Bound above, before preflight; the print branch returned already.
     warning = _watch_pytest_rootdir.rootdir_mismatch_warning(pytest_args, str(run_root))
     if warning:
         sys.stdout.write(warning)
@@ -281,8 +284,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         try:
             execution_timeout = qa_gate_timeout.execution_timeout_from_env()
         except ValueError as exc:
-            print(f"watch_pytest: {exc}", file=sys.stderr)
-            return 2
+            return refuse(f"watch_pytest: {exc}", 2)
         started = time.monotonic()
         collected_items = None
 

@@ -95,3 +95,40 @@ def test_refusals_name_the_cause_and_the_recovery_step(tmp_path: Path) -> None:
     assert "4242" in dead
     assert "exit sentinel" in dead
     assert "--print-streaming-pair" in dead
+
+
+def test_a_refusal_closes_the_claimed_capture_with_a_sentinel(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    progress = tmp_path / "progress.log"
+    binding.stamp_writer(progress, "pytest")
+
+    rc = binding.refuse_claimed_capture(progress, "pytest", "no soup for you", 4)
+    lines = progress.read_text(encoding="utf-8").splitlines()
+
+    # The refusal reaches both the operator's stderr and the follower's
+    # stream, and the sentinel is what lets that follower exit at all.
+    assert rc == 4
+    assert "no soup for you" in capsys.readouterr().err
+    assert lines[-2:] == ["no soup for you", "# watch_pytest exit=4"]
+
+
+def test_a_refusal_before_any_claim_still_reports_and_returns(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    rc = binding.refuse_claimed_capture(None, "pytest", "nothing claimed", 2)
+
+    assert rc == 2
+    assert "nothing claimed" in capsys.readouterr().err
+
+
+def test_a_note_appends_one_line_to_a_claimed_capture(tmp_path: Path) -> None:
+    progress = tmp_path / "progress.log"
+    binding.stamp_writer(progress, "pytest")
+
+    binding.note_claimed_capture(progress, "# watch_pytest doing slow work\n\n")
+    binding.note_claimed_capture(None, "dropped: nothing claimed this")
+
+    lines = progress.read_text(encoding="utf-8").splitlines()
+    assert lines[-1] == "# watch_pytest doing slow work"
+    assert binding.writer_pid(lines[0] + "\n") == os.getpid()

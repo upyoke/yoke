@@ -37,10 +37,18 @@ BARE_RUNTIME_REJECTION_MESSAGE = (
 )
 
 PYTEST_USAGE_ERROR_EXIT_STATUS = 4
+#: Canonical agent-facing form, used where a message repairs a command.
+WATCH_PYTEST_COMMAND = "yoke watch pytest"
 BOUNDED_FLAG = "--bounded"
 WIDEN_FLAG = "--widen"
 BOUNDED_WITHOUT_IMPACTED = "watch_pytest: --bounded only applies with --impacted"
 WIDEN_WITHOUT_IMPACTED = "watch_pytest: --widen only applies with --impacted"
+#: Closing line for a selection that resolved to no test files at all.
+#: A follower reads it as the whole run: nothing was executed, and the
+#: reason lines sit above it in this same capture.
+NO_SELECTED_TESTS = (
+    "watch_pytest: the impacted selection chose no test files; nothing was run."
+)
 WOULD_WIDEN_ADVISORY = (
     "watch_pytest: selection would widen (rule={rule}, triggers={triggers}) "
     "— the final QA case run covers the rest"
@@ -81,14 +89,17 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         type=Path,
         default=None,
         help="Explicit raw capture file path. Defaults to a helper-resolved "
-        "path under the project scratch root.",
+        "path under the project scratch root. Must precede the '--' "
+        "separator; after it, pytest takes the flag as an unknown option.",
     )
     parser.add_argument(
         "--progress-capture",
         type=Path,
         default=None,
-        help="Explicit progress capture file path. Defaults to a helper-"
-        "resolved path under the project scratch root.",
+        help="Explicit progress capture file path, the one watch_tail "
+        "follows. Defaults to a helper-resolved path under the project "
+        "scratch root. Must precede the '--' separator; after it, pytest "
+        "takes the flag as an unknown option.",
     )
     parser.add_argument(
         "--impacted",
@@ -132,6 +143,7 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         ),
     )
     return parser.parse_args(list(argv))
+
 
 # Match the bare interpreter names operators most commonly retype, plus
 # the literal ``sys.executable`` token (sometimes copied from the wrapper
@@ -277,3 +289,25 @@ def zero_collection_diagnostic(
             reason = "pytest reported no collectable items in this selection"
         lines.append(f"# watch_pytest no-items: {token} — {reason}")
     return "\n".join(lines)
+
+
+def argument_shape_refusal(args: Sequence[str], cwd: Path) -> tuple[str, int] | None:
+    """The first refusal the pass-through earns, with its exit status.
+
+    One gate for every way a pass-through is wrong before pytest starts,
+    so the wrapper has a single place to close its claimed capture.
+    """
+    misplaced = _watch_runner.misplaced_capture_flags(args)
+    if misplaced:
+        message = _watch_runner.misplaced_capture_rejection(
+            misplaced, command=WATCH_PYTEST_COMMAND
+        )
+        return message, PYTEST_USAGE_ERROR_EXIT_STATUS
+    if is_nested_pytest_invocation(args):
+        return NESTED_PYTEST_REJECTION_MESSAGE, 2
+    if has_bare_runtime_path(args):
+        return BARE_RUNTIME_REJECTION_MESSAGE, 2
+    invalid = invalid_test_selection_diagnostic(args, cwd)
+    if invalid is not None:
+        return invalid, PYTEST_USAGE_ERROR_EXIT_STATUS
+    return None
