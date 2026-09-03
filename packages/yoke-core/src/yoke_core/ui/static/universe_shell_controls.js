@@ -10,9 +10,6 @@ import { createFooter } from "./universe_shell_footer.js";
 // theirs bounds how much of that roster the browser holds.
 const SEARCH_RESULT_LIMIT = 8;
 const SESSION_INDEX_LIMIT = 500;
-// The sessions view is tabbed, so a session's own page is a drill-in on its
-// roster facet rather than a destination of its own.
-const SESSION_ROSTER_TAB = "roster";
 // Exported so a caller waiting for search results waits on the real interval
 // rather than a copy of it.
 export const SEARCH_DEBOUNCE_MS = 150;
@@ -59,10 +56,11 @@ function itemResult(row) {
 function sessionResult(row) {
   const sessionId = String(row.session_id || "session");
   return {
+    // A session's own page is a drill-in on Sessions: there is no facet
+    // segment between them any more.
     href: buildUniverseRoute(
       "sessions",
       row.project_id ? String(row.project_id) : null,
-      SESSION_ROSTER_TAB,
       sessionId,
     ),
     kind: "Session",

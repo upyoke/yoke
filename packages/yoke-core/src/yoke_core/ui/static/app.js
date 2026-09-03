@@ -181,6 +181,25 @@ export function mountUniverseApp(rootNode, options = {}) {
       return;
     }
     if (entry.scope === SCOPE_NONE) {
+      // An unscoped view can still own drill-ins: Projects is a universe-wide
+      // roster whose rows each open one project. The row carries the project,
+      // so the drill-in needs no picker above it — a breadcrumb back to the
+      // roster is the whole chrome.
+      if (detailRenderer && route.detail) {
+        const detailHost = el(documentNode, "div", "view-host");
+        const breadcrumb = createBreadcrumb(
+          documentNode, entry, serializeScope(scope), route.detail,
+        );
+        main.replaceChildren(breadcrumb, detailHost);
+        detailRenderer(
+          context,
+          detailHost,
+          route.detail,
+          route.detail,
+          breadcrumbNavigation(breadcrumb),
+        );
+        return;
+      }
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
       renderer(context, viewHost, null, route.detail);

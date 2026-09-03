@@ -98,9 +98,9 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   assert.deepEqual(
     byClass(root, "row-link").map((node) => node.href),
     [
-      "#/project?project=1",
+      "#/projects/1",
       "https://github.com/acme/yoke",
-      "#/project?project=2",
+      "#/projects/2",
     ],
   );
   assert.equal(
@@ -114,7 +114,7 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
       "--public-item-prefix <PREFIX>",
   );
 
-  documentNode.defaultView.location.hash = "#/project?project=1";
+  documentNode.defaultView.location.hash = "#/projects/1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.deepEqual(
@@ -170,17 +170,21 @@ test("every routed view opens with its prototype page head and scope summary", a
   assert.equal(title.textContent, "Sessions");
   assert.equal(
     byClass(heads[0], "subtitle")[0].textContent,
-    "Every harness session running against this universe, and what each one holds.",
+    "What can run on each machine, and every harness session running against "
+    + "this universe.",
   );
-  // The head leads the content column. Sessions is a tabbed view, so its
-  // project picker precedes the facet strip owned by the destination.
+  // The head leads the content column, then the project picker. No facet
+  // strip follows it: Sessions has no facets to strip, because each one that
+  // earned a name is its own destination.
   const content = byClass(root, "content")[0];
   assert.ok(content.children[0].classList.contains("page-head"));
   const scopeIndex = content.children.findIndex(
     (child) => child.classList.contains("scope-bar"),
   );
   assert.ok(scopeIndex > 0);
-  assert.ok(content.children[scopeIndex + 1].classList.contains("tab-bar"));
+  assert.ok(content.children.every(
+    (child) => !child.classList.contains("tab-bar"),
+  ));
 
   documentNode.defaultView.location.hash = "#/items?project=1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));

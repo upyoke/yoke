@@ -78,7 +78,7 @@ export function renderProjectsView(context, main) {
         {
           label: "project",
           value: (row) => `${row.emoji || "▤"} ${row.name || row.slug}`,
-          href: (row) => buildUniverseRoute("project", String(row.id)),
+          href: (row) => buildUniverseRoute("projects", null, String(row.id)),
         },
         { label: "slug", value: (row) => row.slug, mono: true },
         {

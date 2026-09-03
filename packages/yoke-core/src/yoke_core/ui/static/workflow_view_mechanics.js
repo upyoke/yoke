@@ -11,9 +11,9 @@ import {
 } from "./workflow_view_primitives.js";
 
 const MECHANIC_DESTINATION_LABELS = {
-  qa: "QA",
+  "qa-plans": "QA plans",
   inbox: "Inbox",
-  delivery: "Delivery",
+  deployments: "Deployments",
   strategy: "Strategy",
 };
 
