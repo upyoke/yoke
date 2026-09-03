@@ -59,7 +59,12 @@ TURN_END_RELAY_TEACHING = (
     "claim. Write that text as the report — lead with `DONE <item> "
     "<one-line summary>`, then what landed, what is blocked, what you need — "
     "and never re-send it with `yoke say`. Keep `yoke say` for what cannot "
-    "wait for a turn end."
+    "wait for a turn end. Only a turn that names something to act on — a "
+    "failure, a blocker, a conflict, a decision, a question, or a terminal "
+    "outcome — is delivered; a turn ending in a wait, a status verb, or a "
+    "progress note is recorded on the ledger as SteeringReportSkipped "
+    "instead, so stopping on one costs the seat nothing and tells it "
+    "nothing either."
 )
 
 _RELAYED_CLOSE = (
