@@ -19,10 +19,9 @@ unanswered message is working, not waiting.
 
 A question addressed to the steering ROLE never appears here. Its answer
 does not depend on the session that happened to hold the seat: the message
-is a durable row that the next seat drains on acquire, so an ended
-answerer is a handoff rather than a dead end. The fleet report counts those
-in its own awaiting-a-seat line instead of reporting them as waits nobody
-can answer.
+is a durable row that the next seat drains on acquire unless its holder
+acknowledged it. The fleet report counts only unacknowledged rows in its
+awaiting-a-seat line instead of reporting them as waits nobody can answer.
 """
 
 from __future__ import annotations

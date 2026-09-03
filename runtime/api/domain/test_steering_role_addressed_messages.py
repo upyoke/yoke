@@ -14,6 +14,7 @@ from yoke_core.domain.steering_message_drain import DIGEST_BEGIN, drain_to_seat
 from yoke_core.domain.steering_message_recipients import (
     STATE_AWAITING_SEAT,
     STATE_DELIVERED,
+    awaiting_seat_count,
     drainable_rows,
 )
 from runtime.api.domain.test_session_message_support import (
@@ -196,6 +197,8 @@ def test_acquiring_the_scope_drains_parked_and_stranded_mail() -> None:
     conn.execute("UPDATE work_claims SET released_at=? WHERE id=10", (NOW_TEXT,))
     conn.commit()
 
+    assert awaiting_seat_count(conn, project_id=1, scope=PROJECT_SCOPE) == 2
+
     _seat(conn, claim_id=11, session_id="s4")
     handoff = drain_to_seat(
         conn,
@@ -256,6 +259,17 @@ def test_the_seat_acknowledging_records_it_on_the_role_row() -> None:
     acknowledge_message(conn, message_id=sent["message_id"], session_id="s2", now=NOW)
 
     assert _steering_row(conn, sent["message_id"])["state"] == "acknowledged"
+
+
+def test_acknowledged_mail_stays_settled_after_its_seat_ends() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    sent = _say_steering(conn)
+    acknowledge_message(conn, message_id=sent["message_id"], session_id="s2", now=NOW)
+    _end(conn, "s2")
+
+    assert drainable_rows(conn, scope=PROJECT_SCOPE, project_id=1) == []
+    assert awaiting_seat_count(conn, scope=PROJECT_SCOPE, project_id=1) == 0
 
 
 def test_a_scope_in_another_project_is_not_drained() -> None:

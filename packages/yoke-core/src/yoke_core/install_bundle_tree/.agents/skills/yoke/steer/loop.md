@@ -96,9 +96,9 @@ yours:
 
 - **Available work** — staff it. An `!` row has waited past the staffing
   threshold; an unmarked row is simply available.
-- **Steering messages awaiting a seat** — mail addressed to a scope this
-  session does not hold. Acquiring that scope hands it over as one handoff
-  digest; until someone does, the reports in it are unread.
+- **Steering messages awaiting a seat** — unacknowledged mail no live seat
+  holds: parked reports and reports left by an ended seat. Acquiring that scope
+  hands them over; acknowledged reports stay settled and are never inherited.
 - **Unacked injected (this session)** — your inbox, already shown, still
   awaiting `yoke messages acknowledge MESSAGE-ID`. Not the seat-awaiting
   count above. An overflow pointer means the body never injected: read
