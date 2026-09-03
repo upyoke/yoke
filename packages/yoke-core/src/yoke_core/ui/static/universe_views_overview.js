@@ -32,9 +32,17 @@ export function renderOverviewView(context, main, scope, options = {}) {
   // Frontier is no longer a destination — this section IS what that
   // destination was — so its "open" link goes to Items, the view that answers
   // the follow-up question the section raises.
-  const frontier = summaryPanel(documentNode, "Waiting and ready", "items", scope, "Frontier");
+  // The third argument is the SECTION key — what the jump strip and the
+  // detail line are keyed on. It used to double as the destination the panel
+  // opens, because every section was named for its own view; two of them are
+  // not any more, and the loaders own the link.
+  const frontier = summaryPanel(
+    documentNode, "Waiting and ready", "frontier", scope, "Frontier", "items",
+  );
   const sessions = summaryPanel(documentNode, "Active", "sessions", scope, "Sessions");
-  const delivery = summaryPanel(documentNode, "Shipping", "deployments", scope, "Delivery");
+  const delivery = summaryPanel(
+    documentNode, "Shipping", "delivery", scope, "Delivery", "deployments",
+  );
   const panels = new Map([
     ["strategy", strategy], ["frontier", frontier], ["sessions", sessions],
     ["delivery", delivery],

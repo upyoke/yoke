@@ -284,3 +284,18 @@
     display: none;
   }
 }
+
+/* The Overview asks two questions, and each heading owns the panels that
+ * answer one of them. The panels keep their own chrome; this only groups
+ * them, so it is a heading and spacing and nothing else. */
+.overview-group { display: contents; }
+.overview-group-head {
+  grid-column: 1 / -1;
+  margin: 26px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.overview-group:first-of-type .overview-group-head { margin-top: 0; }

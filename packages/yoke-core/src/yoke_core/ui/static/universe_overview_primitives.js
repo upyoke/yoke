@@ -8,15 +8,22 @@ export const SESSION_SUMMARY_ROW_LIMIT = 7;
 
 // The link out of a summary and into the full screen, carrying the scope the
 // Overview holds so the destination opens on the same projects.
-export function openLink(documentNode, view, scope, label) {
+export function openLink(documentNode, destination, scope, label) {
   const link = el(documentNode, "a", "overview-open", `Open ${label} →`);
-  link.href = buildUniverseRoute(view, serializeScope(scope));
+  link.href = buildUniverseRoute(destination, serializeScope(scope));
   return link;
 }
 
 // A titled summary panel that links to its full screen. The link is a sibling
 // of the body, so a section load replacing the body leaves it in place.
-export function summaryPanel(documentNode, title, view, scope, label) {
+// `view` is the SECTION key — what the jump strip, the DOM id and the detail
+// line are keyed on. `destination` is where "Open" goes. They were one
+// argument while every section was named for its own view; Frontier is not a
+// destination any more and Delivery is called Deployments, so the two facts
+// separate rather than one of them quietly becoming wrong.
+export function summaryPanel(
+  documentNode, title, view, scope, label, destination = view,
+) {
   const panel = section(documentNode, title);
   panel.classList.add("overview-section");
   panel.setAttribute("id", `overview-${view}`);
@@ -47,7 +54,7 @@ export function summaryPanel(documentNode, title, view, scope, label) {
   panel.setDetail = (text) => {
     if (detail) detail.textContent = String(text || "");
   };
-  const openLinkNode = openLink(documentNode, view, scope, label);
+  const openLinkNode = openLink(documentNode, destination, scope, label);
   panel.appendChild(openLinkNode);
   // The panel's own chrome, snapshotted so a day-zero ghost can collapse the
   // panel and a later scope with data can restore it intact.
@@ -214,10 +221,10 @@ export function ageTone(value) {
 // about which question each one served.
 export function overviewSection(documentNode, id, label, panels) {
   const node = documentNode.createElement("section");
-  node.className = "overview-section";
-  node.id = `overview-section-${id}`;
+  node.className = "overview-group";
+  node.id = `overview-group-${id}`;
   const head = documentNode.createElement("h2");
-  head.className = "overview-section-head";
+  head.className = "overview-group-head";
   head.textContent = label;
   node.appendChild(head);
   for (const panel of panels) node.appendChild(panel);
