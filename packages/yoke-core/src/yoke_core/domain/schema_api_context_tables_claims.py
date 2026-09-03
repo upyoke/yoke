@@ -92,7 +92,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             "outcome) on the completion event; open rows "
             "(completed_at IS NULL) are the orphan set the session-end "
             "sweep closes with outcome='interrupted'. An open row is NOT "
-            "proof a command is still running: a call a PreToolUse "
+            "proof a command is still running: a call a pre-tool-call "
             "guardrail refused leaves one (join events on "
             "(session_id, tool_use_id) for HarnessToolCallDenied), and a "
             "harness that never closes rows leaves residue the session "
