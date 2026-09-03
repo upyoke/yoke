@@ -21,9 +21,9 @@ SIGTERM, then SIGKILL after the termination grace period. Every other host
 is put to the control plane through `session_control.relay.idle_hosts`,
 which answers with the ones whose Yoke session has `ended_at` or
 `terminated_at` set. Those jobs are stopped through Claude Code's own stop
-path (`claude stop <background-agent-id>`), which closes the job so the
-daemon releases the process. A host whose session the control plane reports
-live is left alone.
+path (`claude stop <background-job-id>`), by the job id Claude's own session
+record already names, which closes the job so the daemon releases the
+process. A host whose session the control plane reports live is left alone.
 
 Every host stopped or signalled is reported back on the same function with
 its pid, age, idle time, resident size, action, and result; the control
@@ -49,6 +49,28 @@ unexpectedly" prompt. One such restart replayed a report finished a week
 earlier and tried to reach an orchestrator that had long since ended. So a
 host is signalled only when Claude's own job record says `stopped`, and an
 open job is always closed through Claude's stop path instead.
+
+## Why the stop names the job id rather than resolving one
+
+A stop used to start from a native session id and ask `claude agents --all
+--json` which background job carried it. That listing is read under a
+64 KiB output bound, and a machine with a few hundred background agents
+overruns it: the JSON arrives truncated, every resolution fails to parse,
+and the stop is never issued. Observed live at 78 KiB and 275 agents, where
+nine idle hosts were named correctly and none of them stopped.
+
+This path never needs that lookup. The session record it already read to
+identify the host carries the job id, and it is exactly the id `claude stop`
+takes, so the stop is issued from a fact the machine already holds.
+
+## Which hosts are left to reclaim
+
+Yoke starts its own Claude workers as relay-owned processes, so they have
+no daemon job and leave no host behind. What still arrives here is the
+daemon's own population: sessions a person opened, and hosts left by
+workers started before that changed. The path is narrower than the leak
+that motivated it and is now a cleanup for the sessions Yoke does not
+start, rather than a correction for the ones it does.
 
 ## Why the control plane answers rather than the machine guessing
 

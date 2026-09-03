@@ -11,10 +11,11 @@ the spare pool are Claude Code runtime facts with no Codex or Cursor
 counterpart:
 
 * An idle host whose Yoke session has ended is stopped through Claude Code's
-  own stop path, which closes the job and lets the daemon release the
-  process. A plain signal is never sent to a host Claude Code still tracks:
-  the daemon reads that as a crash and auto-restarts the session, which is
-  how a week-old worker once came back to replay a finished report.
+  own stop path, by the job id its session record already names, which
+  closes the job and lets the daemon release the process. A plain signal is
+  never sent to a host Claude Code still tracks: the daemon reads that as a
+  crash and auto-restarts the session, which is how a week-old worker once
+  came back to replay a finished report.
 * A host whose job Claude Code already reports ``stopped`` and that still
   lingers is signalled directly, SIGTERM then SIGKILL.
 
@@ -54,7 +55,7 @@ from yoke_harness.claude_runtime_records import (
 from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECONDS
 from yoke_harness.session_relay_termination import (
     TERMINATE_WAIT_SECONDS,
-    stop_claude_background_agent,
+    stop_claude_job,
 )
 
 
@@ -269,9 +270,7 @@ def reclaim_idle_claude_hosts(
     ] = claude_session_record,
     job_state_of: Callable[[str], Mapping[str, Any] | None] = claude_job_state,
     signal_host: Callable[[IdleHost], str] = signal_exited_host,
-    stop_job: Callable[[str], tuple[str, dict[str, object]]] = (
-        stop_claude_background_agent
-    ),
+    stop_job: Callable[[str], tuple[str, dict[str, object]]] = stop_claude_job,
     timeout_s: int = RELAY_REPORT_TIMEOUT_SECONDS,
 ) -> tuple[dict[str, Any], ...]:
     """Stop or signal this machine's idle Claude hosts; return what was reclaimed.
@@ -305,7 +304,7 @@ def reclaim_idle_claude_hosts(
     stopped: list[dict[str, Any]] = []
     for host in open_hosts:
         if ended is not None and host.session_id in ended:
-            code, _detail = stop_job(host.session_id)
+            code, _detail = stop_job(host.job_id)
             stopped.append(host.evidence(STOP_JOB_ACTION, code))
     if stopped:
         _report(dispatcher, inventory, hosts=[], reclaimed=stopped, timeout_s=timeout_s)

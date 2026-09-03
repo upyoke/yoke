@@ -146,8 +146,8 @@ def test_exited_hosts_are_signalled_and_ended_open_hosts_stopped_via_claude() ->
         signalled.append(host.pid)
         return "terminated"
 
-    def stop_job(session_id: str):
-        stopped.append(session_id)
+    def stop_job(job_id: str):
+        stopped.append(job_id)
         return "terminated", {"background_agent_stop": "completed"}
 
     reclaimed = reclaim_idle_claude_hosts(
@@ -161,7 +161,11 @@ def test_exited_hosts_are_signalled_and_ended_open_hosts_stopped_via_claude() ->
         stop_job=stop_job,
     )
     assert signalled == [101]
-    assert stopped == [open_session]
+    # The job is stopped by the id Claude's own session record names, never by
+    # the session UUID: the listing that would resolve one from the other is
+    # drained under a byte bound this machine's agent list already overruns.
+    assert stopped == [record_of(109)["job_id"]]
+    assert open_session not in stopped
     assert [
         (entry["pid"], entry["action"], entry["result"]) for entry in reclaimed
     ] == [
@@ -188,7 +192,7 @@ def test_a_tracked_host_whose_session_is_live_is_never_touched() -> None:
         session_record_of=record_of,
         job_state_of=job_of,
         signal_host=lambda host: "terminated",
-        stop_job=lambda session_id: (stopped.append(session_id), ("failed", {}))[1],
+        stop_job=lambda job_id: (stopped.append(job_id), ("failed", {}))[1],
     )
     assert stopped == []
     assert [entry["pid"] for entry in reclaimed] == [101]
@@ -207,7 +211,7 @@ def test_a_refusing_control_plane_stops_nothing_it_was_asked_about() -> None:
         session_record_of=record_of,
         job_state_of=job_of,
         signal_host=lambda host: "terminated",
-        stop_job=lambda session_id: (stopped.append(session_id), ("failed", {}))[1],
+        stop_job=lambda job_id: (stopped.append(job_id), ("failed", {}))[1],
     )
     assert stopped == []
     assert len(dispatcher.calls) == 1

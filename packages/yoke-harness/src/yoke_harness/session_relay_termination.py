@@ -6,8 +6,9 @@ import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import time
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
@@ -127,6 +128,56 @@ def _terminate_record(path: Path, record: Mapping[str, Any]) -> tuple[int, str] 
     return pid, result
 
 
+#: What `claude` is asked to do with a background job id.
+CLAUDE_STOP_COMMAND = "stop"
+#: A stop is one short command; past this it is not going to answer.
+CLAUDE_STOP_TIMEOUT_SECONDS = 20
+
+
+def stop_claude_job(
+    job_id: str,
+    *,
+    process_runner: Callable[[tuple[str, ...]], Any] | None = None,
+) -> tuple[str, dict[str, object]]:
+    """Stop one Claude background job by the id its own records already name.
+
+    Yoke starts its own Claude workers as relay-owned processes, so the jobs
+    reached here belong to the daemon: sessions a person opened, and hosts
+    left behind by workers started before that changed. A job id is all the
+    daemon needs to close one, and this path holds the id already, so it
+    never asks the agent listing to map a session back to a job — that
+    listing is read under a byte bound a machine with a few hundred agents
+    overruns, and every identity resolved through it then fails to parse.
+    """
+    from yoke_harness.session_relay_claude_native import discover_claude_cli
+
+    executable = discover_claude_cli()
+    if executable is None:
+        return "not_found", {"background_agent_result": "executable_not_found"}
+    arguments = (executable, CLAUDE_STOP_COMMAND, job_id)
+    evidence: dict[str, object] = {}
+    try:
+        if process_runner is not None:
+            returncode = int(process_runner(arguments).returncode)
+        else:
+            returncode = subprocess.run(
+                list(arguments),
+                cwd=Path.cwd(),
+                env=dict(os.environ),
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=CLAUDE_STOP_TIMEOUT_SECONDS,
+                check=False,
+            ).returncode
+    except Exception:
+        evidence["background_agent_stop"] = "native_exception"
+        return "outcome_unknown", evidence
+    evidence["background_agent_stop"] = (
+        "completed" if returncode == 0 else "native_exit"
+    )
+    return ("terminated" if returncode == 0 else "failed"), evidence
+
+
 def _matching_resume_records(
     target_session_id: str,
     native_thread_id: str | None,
@@ -238,4 +289,5 @@ __all__ = [
     "local_state_root",
     "read_local_record",
     "reap_terminated_session",
+    "stop_claude_job",
 ]

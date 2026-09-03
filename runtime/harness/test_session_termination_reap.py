@@ -20,6 +20,7 @@ from yoke_harness.session_relay_termination import (
     NATIVE_HANDLE_DIRECTORY_NAME,
     adopt_launched_session,
     reap_terminated_session,
+    stop_claude_job,
 )
 
 
@@ -205,6 +206,49 @@ def test_claude_termination_reaps_the_relay_owned_process_alone(
     assert result.result_code == "not_found"
     assert result.evidence == {"result_code": "not_found", "handles_considered": 0}
     assert redacted_evidence_document(result.evidence) == result.evidence
+
+
+class _StopResult:
+    """What a stop invocation reports back: only its exit status is read."""
+
+    def __init__(self, returncode: int) -> None:
+        self.returncode = returncode
+
+
+def test_a_known_job_id_is_stopped_without_listing_every_agent(monkeypatch) -> None:
+    """The agent listing is the failure mode a caller holding the job id skips.
+
+    Its output is read under a byte bound, and a machine with a few hundred
+    background agents overruns it, so every identity resolved through it fails
+    to parse and nothing is stopped.
+    """
+    calls: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_claude_native.discover_claude_cli",
+        lambda: "/usr/local/bin/claude",
+    )
+
+    def run(arguments: tuple[str, ...]) -> _StopResult:
+        calls.append(arguments)
+        return _StopResult(0)
+
+    code, evidence = stop_claude_job("7c5dcf5d", process_runner=run)
+
+    assert code == "terminated"
+    assert calls == [("/usr/local/bin/claude", "stop", "7c5dcf5d")]
+    assert evidence == {"background_agent_stop": "completed"}
+
+
+def test_a_refused_job_stop_is_reported_as_failed(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_claude_native.discover_claude_cli",
+        lambda: "/usr/local/bin/claude",
+    )
+    code, evidence = stop_claude_job(
+        "7c5dcf5d", process_runner=lambda arguments: _StopResult(3)
+    )
+    assert code == "failed"
+    assert evidence["background_agent_stop"] == "native_exit"
 
 
 def test_runtime_dispatches_termination_without_project_checkout(monkeypatch) -> None:
