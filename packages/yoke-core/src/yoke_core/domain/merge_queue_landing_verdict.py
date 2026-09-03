@@ -4,12 +4,14 @@ Merging and ejection look identical from a single read. GitHub clears
 merge-when-ready when the queue merges a pull request and when it drops
 it, and the merged flag becomes visible a moment later, so a poll in
 that window sees an unmerged, unarmed pull request. Nothing here is
-terminal on one read except red required checks: checks on the
-PR head that have already concluded failed/error/cancelled/timed_out
-with nothing in flight. That cannot merge, so it must not spend the
-poll budget. Other refusals still confirm: merged is re-read after a
-short delay; a still-queued entry is still landing; an unmerged, open,
-unarmed pull request the queue no longer holds, with no identified train
+terminal on one read except red required checks: a check GitHub gates
+the queue entry on that has already concluded
+failed/error/cancelled/timed_out on the pull request's head. The rest of
+the set still running does not soften that — the entry can never happen
+— so it must not spend the poll budget. Other refusals still
+confirm: merged is re-read after a short delay; a still-queued entry is
+still landing; an unmerged, open, unarmed pull request the queue no
+longer holds, with no identified train
 still driving it, has stalled. Every verdict names the facts it saw,
 including ``mergeStateStatus`` so ``DIRTY`` is not a silent wait.
 """
@@ -33,11 +35,12 @@ from yoke_core.engines.merge_worktree_pr_queue import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.domain.merge_queue_entry_checks import (
     ENTRY_CHECKS_FAILED,
-    entry_checks_are_red,
+    failed_required_checks,
 )
 from yoke_core.engines.merge_worktree_pr_check_runs import (
     LandingCheck,
     read_landing_checks,
+    read_required_checks,
 )
 
 # Queue ejection is a failed train, not an empty slot. GitHub clears the
@@ -65,6 +68,7 @@ class LandingVerdict:
     narrative: str = ""
     warnings: tuple[str, ...] = field(default=())
     head_sha: str = ""
+    failed_checks: tuple[LandingCheck, ...] = field(default=())
 
 
 def describe_checks(checks: Sequence[LandingCheck]) -> str:
@@ -124,7 +128,7 @@ _Observe = tuple[
     Optional[QueueMember],
     bool,
     Optional[TrainRun],
-    Optional[tuple[LandingCheck, ...]],
+    tuple[LandingCheck, ...],
 ]
 
 
@@ -135,20 +139,29 @@ def _observe(
     target: str,
     warnings: list[str],
 ) -> _Observe:
-    """Read the queue slot and train run behind ``state`` and describe them."""
+    """Read the slot, train, and checks behind ``state`` and describe them.
+
+    Which check set answers depends on the phase. Once a train is
+    building, the commit under validation is the train's and nothing on
+    it is required for the pull request. Before that, the gate is the
+    pull request's own required checks, and one of those already red is
+    what makes the wait terminal rather than ordinary.
+    """
     entry, entry_error = _queue_entry(ctx, pr_num, target)
     if entry_error:
         warnings.append(entry_error)
     train, train_note = read_train_run(ctx, pr_num)
     if train_note:
         warnings.append(train_note)
-    checks: Optional[tuple[LandingCheck, ...]] = None
-    check_sha = (train.head_sha if train is not None else "") or state.head_sha
-    if check_sha:
-        checks, check_error = read_landing_checks(ctx, check_sha)
-        if check_error:
-            warnings.append(check_error)
-            checks = None
+    failed: tuple[LandingCheck, ...] = ()
+    if train is not None:
+        checks, check_error = read_landing_checks(ctx, train.head_sha)
+    else:
+        checks, check_error = read_required_checks(ctx, pr_num)
+        failed = failed_required_checks(checks)
+    if check_error:
+        warnings.append(check_error)
+        checks = None
     narrative = describe(
         pr_num,
         state,
@@ -157,7 +170,7 @@ def _observe(
         train,
         checks,
     )
-    return narrative, entry, entry_error is None, train, checks
+    return narrative, entry, entry_error is None, train, failed
 
 
 def _queue_entry(
@@ -218,15 +231,16 @@ def classify_landing(
             warnings=tuple(warnings),
         )
     if state.auto_merge_active and not state.closed and not _has_conflicts(state):
-        narrative, _entry, _readable, train, checks = _observe(
+        narrative, _entry, _readable, train, failed = _observe(
             ctx, pr_num, state, target, warnings
         )
-        if train is None and entry_checks_are_red(checks):
+        if failed:
             return LandingVerdict(
                 ENTRY_CHECKS_FAILED,
                 narrative=narrative,
                 warnings=tuple(warnings),
                 head_sha=state.head_sha,
+                failed_checks=failed,
             )
         return LandingVerdict(PENDING, narrative=narrative, warnings=tuple(warnings))
 
@@ -249,15 +263,16 @@ def classify_landing(
             warnings=tuple(warnings),
         )
 
-    narrative, entry, entry_readable, train, checks = _observe(
+    narrative, entry, entry_readable, train, failed = _observe(
         ctx, pr_num, confirmed, target, warnings
     )
-    if train is None and entry_checks_are_red(checks):
+    if failed:
         return LandingVerdict(
             ENTRY_CHECKS_FAILED,
             narrative=narrative,
             warnings=tuple(warnings),
             head_sha=confirmed.head_sha,
+            failed_checks=failed,
         )
     if _has_conflicts(confirmed) and not confirmed.closed:
         return LandingVerdict(CONFLICTED, narrative=narrative, warnings=tuple(warnings))
@@ -297,4 +312,5 @@ __all__ = [
     "describe",
     "describe_checks",
     "read_landing_checks",
+    "read_required_checks",
 ]

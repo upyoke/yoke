@@ -11,6 +11,7 @@ from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.merge_queue_enqueue_verification import read_landing
 from yoke_core.domain.merge_queue_landing_observation import (
     EJECTED,
     LANDED,
@@ -22,6 +23,9 @@ from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
 from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
 from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.engines.merge_worktree_pr_check_runs import (
+    read_required_checks,
+)
 from yoke_core.engines.merge_worktree_pr_membership import (
     read_pr_queue_membership,
 )
@@ -201,6 +205,7 @@ def observe_pending_landings(
     now: datetime | None = None,
     read_state: Callable[..., Any] = read_pr_landing_state,
     read_membership: Callable[..., Any] = read_pr_queue_membership,
+    read_checks: Callable[..., Any] = read_required_checks,
 ) -> dict[str, int]:
     """Report every pending landing that resolved, and how it resolved.
 
@@ -229,13 +234,16 @@ def observe_pending_landings(
             repo_root="",
             project=str(row["slug"]),
         )
-        state, state_error = read_state(ctx, pr_number)
-        if state_error:
+        readback = read_landing(
+            ctx,
+            pr_number,
+            read_state=read_state,
+            read_membership=read_membership,
+            read_checks=read_checks,
+        )
+        if readback.state_error:
             continue
-        membership = None
-        if state is not None and not state.merged:
-            membership, _membership_error = read_membership(ctx, pr_number)
-        observation = classify_pending_landing(state, membership, target=target)
+        observation = classify_pending_landing(readback, target=target)
         if observation.kind not in (LANDED, EJECTED):
             continue
         public_ref = format_item_ref(

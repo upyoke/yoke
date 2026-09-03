@@ -93,14 +93,22 @@ deployment run has succeeded, and the caller retries.
 
 A project with merge-queue capability opens and arms a pull request, reads
 back from GitHub that it is holding the landing, records a durable item
-marker, and returns immediately. That read-back is three fields together —
-armed (`autoMergeRequest`), queued (`isInMergeQueue`), and still eligible
-(`mergeStateStatus`) — because GitHub creates the queue entry only after the
-pull request's own required checks pass, so requiring the entry at arming
+marker, and returns immediately. That read-back is four fields together —
+armed (`autoMergeRequest`), queued (`isInMergeQueue`), still eligible
+(`mergeStateStatus`), and not already refused by its own required checks
+(the pull request's `statusCheckRollup`) — because GitHub creates the queue
+entry only after those checks pass, so requiring the entry at arming
 time would refuse ordinary landings, while trusting the arming mutation alone
-records a handoff GitHub never took. The queue owns the long CI wait; no
-detached local waiter owns item state. A control-plane observer reads the same
-three fields until the landing resolves — merged, or no longer being driven —
+records a handoff GitHub never took. The fourth field is what separates the
+ordinary wait from a landing that can never happen: `BLOCKED` with everything
+still running is armed-and-waiting, and `BLOCKED` with one required check
+already red is an ejection wearing the same clothes — read as the former, it
+held a worker thirteen minutes on a pull request the queue would never take.
+The same read orders the landing, which refuses rather than arming
+merge-when-ready onto an already-red pull request. The queue owns the long CI
+wait; no detached local waiter owns item state. A control-plane observer reads
+the same four fields until the landing resolves — merged, or no longer being
+driven —
 and messages the live claim holder either way. A merge notice leads to a
 re-entry that records evidence and runs the terminal lifecycle transition; a
 stopped notice names the recovery (usually rebase, re-gate, re-run) and clears

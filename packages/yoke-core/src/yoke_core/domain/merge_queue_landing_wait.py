@@ -3,8 +3,9 @@
 Callers that keep their process alive through the landing wait here;
 the durable handoff route exits instead and lets the control-plane
 observer watch. Both read the same classifier, so a pull request that
-leaves the queue or goes dirty ends either wait with the same named
-refusal rather than an unbounded silence.
+leaves the queue, goes dirty, or has a required check already concluded
+red ends either wait with the same named refusal rather than an
+unbounded silence.
 """
 
 from __future__ import annotations
@@ -100,6 +101,7 @@ def wait_for_queue_landing(
                     head_sha=landing.head_sha,
                     narrative=landing.narrative,
                     disarm_note=disarm_merge_when_ready(ctx, pr_num),
+                    failed=landing.failed_checks,
                 )
             )
         if landing.kind == CLOSED_UNMERGED:

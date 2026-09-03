@@ -166,18 +166,22 @@ Merge-queue projects use a two-call handoff by default. The first call opens /
 rebases / arms the pull request, returns `landing_pending=true`, and leaves the
 claim and item non-terminal; end this execution pass. `landing_pending=true`
 means GitHub itself reported that it holds the landing — armed or already
-queued, and still mergeable — read back rather than inferred from the arming
-request succeeding. GitHub creates the queue entry only once the pull
-request's own required checks pass, so armed-and-not-yet-queued is the
-ordinary state here; an arming that never took, or a pull request that is no
-longer mergeable, refuses instead and names which of those three it saw.
+queued, still mergeable, and with none of its own required checks already
+red — read back rather than inferred from the arming request succeeding.
+GitHub creates the queue entry only once those checks pass, so
+armed-and-not-yet-queued is the ordinary state here; an arming that never
+took, a pull request that is no longer mergeable, and one whose required
+checks have already concluded red each refuse instead and name which of
+those four it saw. A red required check refuses before anything is armed,
+and names the check and its run.
 
 Exactly one of two control-plane messages then ends that wait. **Landing
 complete**: re-enter the same command to close out. **Landing stopped**:
 GitHub is no longer going to land it (its base moved and it went dirty, it
-was closed, its arming was cleared without a merge), so do what the message
-names — usually rebase the lane onto the base branch, re-run the verification
-gate, and re-run `yoke merge item`, which re-arms it. Neither message is a
+was closed, its arming was cleared without a merge, one of its required
+checks concluded red), so do what the message names — usually rebase the
+lane onto the base branch, re-run the verification gate, and re-run
+`yoke merge item`, which re-arms it. Neither message is a
 landing you may assume; a pending landing that resolves always says which way
 it went.
 A re-entry while `landing_pending=true` publishes any new local lane commits

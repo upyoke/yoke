@@ -20,6 +20,7 @@ from yoke_core.domain.merge_queue_admission_shape import (
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
 from yoke_core.domain.merge_queue_enqueue_verification import (
+    red_entry_checks_refusal,
     verify_landing_admitted,
 )
 from yoke_core.domain.merge_queue_failed_train import (
@@ -170,6 +171,13 @@ def land_item_through_merge_queue(
                 error=refusal,
                 warnings=tuple(warnings),
             )
+        # Arming a pull request its own required checks have already
+        # refused is what turns a red gate into a wait nothing ends:
+        # merge-when-ready takes, and every later read sees an armed
+        # landing waiting for an entry GitHub will never create.
+        red_checks = red_entry_checks_refusal(ctx, pr_num)
+        if red_checks:
+            return _fail_landing(pr_num, red_checks, tuple(warnings))
         entry = enter_merge_queue(ctx, pr_num)
         if not entry.success:
             return QueueLandingOutcome(
