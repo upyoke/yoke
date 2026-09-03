@@ -19,7 +19,16 @@ COPY packages ./packages
 
 # Portability runs pg_restore/pg_dump inside the server. Fetch the same
 # checksum-verified PostgreSQL build that local mode pins in product code.
-RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-core/src \
+#
+# This runs from the source tree before any wheel exists, so the interpreter
+# resolves imports from PYTHONPATH alone. List every split package rather
+# than the subset the bootstrap module imports today: yoke-core declares
+# yoke-contracts, yoke-cli, and yoke-harness as dependencies, so any import a
+# core module legitimately adds is already inside that closure. A hand-picked
+# subset goes stale silently and fails the image build instead of the change
+# that caused it -- test_dockerfile_bootstrap_pythonpath_resolves_core_imports
+# executes this exact path to keep the two in step.
+RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/build/packages/yoke-harness/src:/build/packages/yoke-core/src \
         YOKE_MACHINE_HOME=/var/lib/yoke \
         python -c "import runpy; runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries']()"
 
