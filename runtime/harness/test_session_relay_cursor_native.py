@@ -8,15 +8,11 @@ from pathlib import Path
 import time
 from types import SimpleNamespace
 
-from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
-from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_cursor_acp as acp_module
 from yoke_harness import session_relay_cursor_cli as cli_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import (
-    CursorCreateRequest,
     CursorNativeResult,
-    CursorWakeRequest,
     build_cursor_adapter,
 )
 from yoke_harness.session_relay_cursor_acp import CursorAcpTransport
