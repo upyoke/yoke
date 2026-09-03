@@ -15,18 +15,32 @@
   font-weight: 650;
 }
 
+.universe-app-root {
+  --session-control-height: 34px;
+}
+
 .universe-app-root .session-roster-filter input,
 .universe-app-root .session-roster-filter select,
 .universe-app-root .session-control-input {
   box-sizing: border-box;
   width: 100%;
-  min-height: 34px;
+  min-height: var(--session-control-height);
   padding: 7px 9px;
   border: 1px solid var(--yoke-border);
   border-radius: 7px;
   background: var(--yoke-surface);
   color: var(--yoke-ink);
   font: inherit;
+}
+
+/* A native <select> grows past a shared min-height from its own chrome while
+   an <input> sits exactly on it, so the roster filter row only lines up when
+   both are pinned to one fixed height. Only the filter row is pinned: the
+   message textarea keeps its tall, resizable minimum and the session-control
+   panel fields keep the shared minimum. */
+.universe-app-root .session-roster-filter input,
+.universe-app-root .session-roster-filter select {
+  height: var(--session-control-height);
 }
 
 .universe-app-root .session-message-body {
