@@ -90,6 +90,7 @@ def _landed_dict(entry: LandedItem) -> dict[str, Any]:
         "status": entry.status,
         "landed_at": entry.landed_at,
         "landed_seconds": entry.landed_seconds,
+        "holder_session_id": entry.holder_session_id,
         "recovery": landed_recovery(entry.public_ref),
     }
 

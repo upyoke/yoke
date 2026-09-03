@@ -184,6 +184,36 @@ def ensure_landing_pull_request(
     public_ref: str,
     *,
     lane_head: str = "",
+    item_id: int = 0,
+) -> tuple[str, Optional[str]]:
+    """Resolve this landing's pull request and record it on the item.
+
+    Recording here rather than at either caller is what makes the number
+    survive a process that dies waiting: both the verification gate and the
+    landing converge on this one function, so this is the only place that
+    sees every pull request an item lands through. Recording is advisory —
+    a landing that is otherwise fine does not fail because the marker write
+    did — and ``item_id=0`` skips it for callers with no item in hand.
+    """
+    pr_num, error = _resolve_landing_pull_request(
+        ctx,
+        public_ref,
+        lane_head=lane_head,
+    )
+    if pr_num and item_id:
+        from yoke_core.domain.merge_queue_landing_pending import (
+            record_landing_pull_request,
+        )
+
+        record_landing_pull_request(int(item_id), pr_num)
+    return pr_num, error
+
+
+def _resolve_landing_pull_request(
+    ctx: MergeContext,
+    public_ref: str,
+    *,
+    lane_head: str = "",
 ) -> tuple[str, Optional[str]]:
     """Find the pull request this landing may use, or open one.
 

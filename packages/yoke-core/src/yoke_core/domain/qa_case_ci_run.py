@@ -174,6 +174,7 @@ def execute_ci_case(
                     branch=branch,
                     target=entry_run_base,
                     lane_head=head_sha,
+                    item_id=int(case["item_id"]),
                 )
                 superseded_ci_run_id = (
                     qa_case_ci_superseded_run.force_cancel_if_rebased(

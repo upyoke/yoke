@@ -122,6 +122,7 @@ def _landed_lines(report: FleetReport) -> list[str]:
     lines = [
         f"  {entry.public_ref}  still {entry.status}  "
         f"landed {_minutes(entry.landed_seconds)} ago  "
+        f"{entry.holder_session_id or 'no live holder'}  "
         f"{landed_recovery(entry.public_ref)}"
         for entry in report.landed_open[:SECTION_LIMIT]
     ]

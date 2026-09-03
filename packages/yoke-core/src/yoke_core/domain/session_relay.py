@@ -105,7 +105,7 @@ def claim_relay_job(
     conn.commit()
 
     if not broker_only:
-        from yoke_core.domain.merge_queue_landing_pending import (
+        from yoke_core.domain.merge_queue_landing_observer import (
             observe_pending_landings,
         )
 

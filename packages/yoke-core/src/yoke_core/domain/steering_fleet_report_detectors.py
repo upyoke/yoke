@@ -25,6 +25,7 @@ from yoke_core.domain.steering_fleet_report_evidence import (
     evidence_text,
 )
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def marker(conn: Any) -> str:
@@ -134,6 +135,10 @@ class LandedItem:
     status: str
     landed_at: str
     landed_seconds: int
+    #: The live session holding the item's claim, empty when none does.
+    #: Close-out is a claim-holding step, so this is the difference between
+    #: a landing someone can be told to finish and one that needs staffing.
+    holder_session_id: str = ""
 
 
 def unregistered_launches(
@@ -234,6 +239,33 @@ def landed_recovery(public_ref: str) -> str:
     )
 
 
+def _live_item_holders(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
+    """Which of ``item_ids`` a live session still holds the claim on.
+
+    Only sessions that have neither ended nor terminated count: an ended
+    session cannot be asked to run close-out, so reporting it as the holder
+    would name a recovery path that does not exist.
+    """
+    if not item_ids:
+        return {}
+    p = marker(conn)
+    scope = scope_int_sql(conn, "wc.scope", "item_id")
+    holes = ", ".join(p for _ in item_ids)
+    rows = conn.execute(
+        f"""SELECT {scope} AS item_id, wc.session_id
+              FROM work_claims wc
+              JOIN harness_sessions hs ON hs.session_id = wc.session_id
+             WHERE wc.target_kind = 'item'
+               AND wc.released_at IS NULL
+               AND hs.ended_at IS NULL
+               AND hs.terminated_at IS NULL
+               AND {scope} IN ({holes})
+             ORDER BY wc.id""",
+        tuple(int(value) for value in item_ids),
+    ).fetchall()
+    return {int(row[0]): str(row[1]) for row in rows}
+
+
 def landed_without_closeout(
     conn: Any,
     *,
@@ -244,7 +276,13 @@ def landed_without_closeout(
 
     The landing stamp is the item's own ``merged_at`` or, on a merge-queue
     project, ``merge_queue_landed_at``; the earlier of the two present is the
-    moment the code was on the base branch.
+    moment the code was on the base branch. Either stamp may come from the
+    control-plane landing observer rather than from a worker that waited, so
+    this row fires for a landing whose waiting process died.
+
+    Each row carries whoever still holds the item, because close-out is a
+    claim-holding step: a landing with a live holder is a message away from
+    finished, and one with none needs a seat.
     """
     p = marker(conn)
     terminal = sorted(TERMINAL_STATUSES)
@@ -258,7 +296,9 @@ def landed_without_closeout(
         (int(project_id), *terminal),
     ).fetchall()
     records = [dict(row) for row in rows]
-    refs = render_item_refs(conn, [int(record["id"]) for record in records])
+    item_ids = [int(record["id"]) for record in records]
+    refs = render_item_refs(conn, item_ids)
+    holders = _live_item_holders(conn, item_ids)
     landed = []
     for record in records:
         present = [
@@ -277,6 +317,7 @@ def landed_without_closeout(
                 status=str(record.get("status") or ""),
                 landed_at=landed_at,
                 landed_seconds=age_seconds(landed_at, now) or 0,
+                holder_session_id=holders.get(item_id, ""),
             )
         )
     return tuple(

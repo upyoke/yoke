@@ -9,6 +9,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
     land,
     wire_happy_path,
 )
+from yoke_core.domain import merge_queue_landing_outcome as outcome_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain import qa_case_ci_lane
@@ -23,7 +24,7 @@ def test_enqueue_records_marker_and_exits_before_poll_or_close_out(monkeypatch):
         lambda item_id, pr_num, **_kw: ("2026-08-27T18:00:00Z", ""),
     )
     monkeypatch.setattr(
-        route_mod,
+        outcome_mod,
         "record_landing",
         lambda *_a, **_kw: (_ for _ in ()).throw(
             AssertionError("enqueue-only mode must not close out")

@@ -99,7 +99,7 @@ def test_the_lane_is_rebased_before_the_pull_request_opens(wired, monkeypatch):
         # The rebase is what moves the lane head the gate then binds to.
         head["sha"] = POST_REBASE_HEAD
 
-    def _open(_checkout, *, project, branch, target, lane_head):
+    def _open(_checkout, *, project, branch, target, lane_head, item_id):
         order.append(f"open-pr:{lane_head}")
         return "213"
 

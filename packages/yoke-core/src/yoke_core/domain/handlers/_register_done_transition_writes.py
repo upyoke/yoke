@@ -1,7 +1,8 @@
-"""Register the internal done-transition finalize writes.
+"""Register the internal done-transition finalize and landing-marker writes.
 
 These internal write functions carry done-transition finalization and the
-merge-queue handoff over an https control plane as well as local Postgres.
+merge-queue landing marker over an https control plane as well as local
+Postgres.
 They are ``adapter_status='internal'`` (merge finalize glue,
 never an agent CLI surface), so they need no CLI adapter row, and they are
 ``ambient_session_required=False`` because the done transition runs in a
@@ -16,8 +17,10 @@ writes.
 from __future__ import annotations
 
 from yoke_core.domain.handlers import done_transition_writes as _writes
+from yoke_core.domain.handlers import merge_queue_marker_writes as _markers
 
 _MODULE = "yoke_core.domain.handlers.done_transition_writes"
+_MARKER_MODULE = "yoke_core.domain.handlers.merge_queue_marker_writes"
 
 
 def register(registry) -> None:
@@ -52,12 +55,27 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
-        "merge_queue.landing_pending.mark",
-        _writes.handle_mark_landing_pending,
-        _writes.MarkLandingPendingRequest,
-        _writes.MarkLandingPendingResponse,
+        "merge_queue.landing_pull_request.record",
+        _markers.handle_record_landing_pull_request,
+        _markers.RecordLandingPullRequestRequest,
+        _markers.RecordLandingPullRequestResponse,
         stability="stable",
-        owner_module=_MODULE,
+        owner_module=_MARKER_MODULE,
+        target_kinds=["item"],
+        side_effects=["item_merge_queue_marker_write"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "merge_queue.landing_pending.mark",
+        _markers.handle_mark_landing_pending,
+        _markers.MarkLandingPendingRequest,
+        _markers.MarkLandingPendingResponse,
+        stability="stable",
+        owner_module=_MARKER_MODULE,
         target_kinds=["item"],
         side_effects=["item_merge_queue_marker_write"],
         emitted_event_names=["YokeFunctionCalled"],
@@ -68,11 +86,11 @@ def register(registry) -> None:
     )
     registry.register(
         "merge_queue.landing_pending.clear",
-        _writes.handle_clear_landing_pending,
-        _writes.ClearLandingPendingRequest,
-        _writes.ClearLandingPendingResponse,
+        _markers.handle_clear_landing_pending,
+        _markers.ClearLandingPendingRequest,
+        _markers.ClearLandingPendingResponse,
         stability="stable",
-        owner_module=_MODULE,
+        owner_module=_MARKER_MODULE,
         target_kinds=["item"],
         side_effects=["item_merge_queue_marker_write"],
         emitted_event_names=["YokeFunctionCalled"],

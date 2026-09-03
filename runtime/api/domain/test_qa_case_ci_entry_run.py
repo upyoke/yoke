@@ -120,8 +120,8 @@ def test_opening_the_pull_request_binds_this_machines_github_authority(
     )
     monkeypatch.setattr(
         "yoke_core.domain.merge_queue_landing_pull_request.ensure_landing_pull_request",
-        lambda _ctx, _ref, lane_head="": (
-            ("213", None) if bound == ["enter"] else ("", "unbound")
+        lambda _ctx, _ref, lane_head="", item_id=0: (
+            ("213", None) if bound == ["enter"] and item_id else ("", "unbound")
         ),
     )
 
@@ -131,6 +131,7 @@ def test_opening_the_pull_request_binds_this_machines_github_authority(
         branch="PRJ-9",
         target="main",
         lane_head=LANE_HEAD,
+        item_id=7,
     )
 
     assert pr_num == "213"

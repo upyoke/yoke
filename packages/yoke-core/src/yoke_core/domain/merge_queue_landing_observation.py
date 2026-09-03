@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
+from yoke_core.domain.merge_queue_landing_notice import HOLDER
 
 
 # What the queued pull request turned out to be doing.
@@ -85,7 +86,7 @@ def ejection_message(
         "meantime, re-running `yoke merge item` converges on that merge "
         "instead."
     )
-    if route == "holder":
+    if route == HOLDER:
         return f"{head} — {observation.recovery}. {tail}"
     return (
         f"{head}, and its claim holder is gone. Route normal "
