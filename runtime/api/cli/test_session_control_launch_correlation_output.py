@@ -133,7 +133,7 @@ def test_failed_correlation_says_instruction_was_not_delivered_and_teaches_recov
             "launch": _launch(
                 launch_id="launch-failed",
                 state="outcome_unknown",
-                result_code="identity_parse_failed",
+                result_code="identity_listing_lagged",
                 native_session_id=None,
                 registered_session_id=None,
                 identity_correlation="correlation_failed",
@@ -144,7 +144,7 @@ def test_failed_correlation_says_instruction_was_not_delivered_and_teaches_recov
     )
 
     rendered = output.getvalue()
-    assert "failed (identity parse failed)" in rendered
+    assert "failed (identity listing lagged)" in rendered
     assert "Instruction delivery" in rendered and "not delivered" in rendered
     assert "Find the native session ID" in rendered
     assert (

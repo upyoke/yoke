@@ -12,6 +12,9 @@ from typing import Callable, Mapping
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_BYPASS_ARGUMENTS,
 )
+from yoke_contracts.session_control.launch_registration import (
+    NATIVE_LAUNCH_WORKSPACE_FIELD,
+)
 from yoke_contracts.session_control.capabilities import native_create_timeout_seconds
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_contracts.session_control.presentation import (
@@ -90,7 +93,11 @@ class ClaudeNativeInvocation:
                 "--output-format",
                 "json",
             )
-        arguments = [self.executable, *CLAUDE_BYPASS_ARGUMENTS, *self.settings_arguments]
+        arguments = [
+            self.executable,
+            *CLAUDE_BYPASS_ARGUMENTS,
+            *self.settings_arguments,
+        ]
         if self.model:
             arguments.extend(("--model", self.model))
         if self.session_name:
@@ -160,6 +167,7 @@ def _launch_progress(
         "result_code": "native_spawn_pending",
         "native_launch_phase": phase,
         "native_launch_pid": pid,
+        NATIVE_LAUNCH_WORKSPACE_FIELD: str(invocation.cwd),
         "native_launch_bound_seconds": int(CLAUDE_CREATE_TIMEOUT_SECONDS),
     }
     if duration_ms is not None:

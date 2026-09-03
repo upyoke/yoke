@@ -5,6 +5,10 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.launch_registration import (
+    NATIVE_LAUNCH_WORKSPACE_FIELD,
+)
+
 
 _TEXT_FIELDS = frozenset(
     {
@@ -47,6 +51,7 @@ _TEXT_FIELDS = frozenset(
         "native_error_step",
         "native_instruction_sha256",
         "native_launch_phase",
+        NATIVE_LAUNCH_WORKSPACE_FIELD,
         "native_started_at",
         "relay_id",
         # Which session the launch was talking about, why the control plane
@@ -128,7 +133,12 @@ def redacted_evidence_document(
         if isinstance(item, str) and item.strip():
             limit = (
                 _MAX_CAPTURE_PATH_LENGTH
-                if key in {"native_capture_path", "identity_output_snippet"}
+                if key
+                in {
+                    "native_capture_path",
+                    "identity_output_snippet",
+                    NATIVE_LAUNCH_WORKSPACE_FIELD,
+                }
                 else _MAX_TEXT_LENGTH
             )
             clean[key] = item.strip()[:limit]

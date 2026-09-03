@@ -118,31 +118,31 @@ def test_create_reports_and_stages_the_actual_background_session() -> None:
     )
     assert lookups == invocations
     assert handoffs == [(LAUNCH_ID, "secret-attestation", {"binding_id": ACTUAL_ID})]
-    assert ACTUAL_ID != LAUNCH_ID
     assert result.result_code == "native_created"
     assert result.native_session_id == ACTUAL_ID
-    assert result.evidence["result_code"] == "native_created"
+    assert result.evidence["result_code"] == "identity_listing_resolved"
     assert result.evidence["presentation_preference"] == "local"
     assert result.evidence["presentation_control"] == "disableRemoteControl"
     assert "private-create-stderr" not in repr(result.evidence)
     assert "private-lookup-stderr" not in repr(result.evidence)
     assert "secret-attestation" not in repr(invocations[0])
 
+
 @pytest.mark.parametrize(
     ("created", "lookup", "code"),
     [
-        (_created("no background identity"), _agents(), "identity_parse_failed"),
-        (_created(), _agents(returncode=8), "identity_lookup_failed"),
-        (_created(), _agents("not-json"), "identity_parse_failed"),
+        (_created("no background identity"), _agents(), "background_identity_missing"),
+        (_created(), _agents(returncode=8), "identity_listing_failed"),
+        (_created(), _agents("not-json"), "identity_listing_lagged"),
         (
             _created(),
             _agents([{"id": "another", "sessionId": ACTUAL_ID}]),
-            "identity_parse_failed",
+            "identity_listing_lagged",
         ),
         (
             _created(),
             _agents([{"id": SHORT_ID, "sessionId": "not-a-uuid"}]),
-            "identity_parse_failed",
+            "identity_listing_lagged",
         ),
     ],
 )
@@ -168,7 +168,7 @@ def test_create_identity_failures_are_unknown_and_private(
     assert "private" not in repr(result.evidence)
     if created.stdout == "no background identity":
         assert result.private_diagnostic is not None
-        assert result.private_diagnostic.failure_class == "identity_parse_failed"
+        assert result.private_diagnostic.failure_class == "background_identity_missing"
         assert result.private_diagnostic.stdout == b"no background identity"
 
 
@@ -186,7 +186,7 @@ def test_lookup_exception_text_never_enters_result() -> None:
     )
 
     assert result.result_code == "outcome_unknown"
-    assert result.evidence["result_code"] == "identity_lookup_failed"
+    assert result.evidence["result_code"] == "identity_listing_failed"
     assert "secret lookup output" not in repr(result)
 
 
@@ -258,7 +258,7 @@ def test_native_commands_use_private_collector_without_launch_secret(
     assert "private" not in repr((created, agents))
 
 
-def test_create_failure_after_handoff_is_unknown_and_redacted() -> None:
+def test_child_exit_is_unknown_and_redacted() -> None:
     result = run_claude_cli_adapter(
         _context(),
         process_runner=lambda _invocation: ClaudeProcessResult(
@@ -273,8 +273,8 @@ def test_create_failure_after_handoff_is_unknown_and_redacted() -> None:
     )
 
     assert result.result_code == "outcome_unknown"
-    assert result.evidence["result_code"] == "native_exit"
-    assert result.evidence["presentation_control"] == "disableRemoteControl"
+    assert result.evidence["result_code"] == "child_exited"
+    assert result.evidence["exit_code"] == 23
     assert "message body" not in repr(result)
     assert "bearer token" not in repr(result)
 

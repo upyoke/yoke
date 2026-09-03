@@ -13,6 +13,10 @@ from yoke_contracts.session_control.presentation import (
     CLAUDE_LOCAL_PRESENTATION,
     CLAUDE_REMOTE_CONTROL_SETTING,
 )
+from yoke_contracts.session_control.launch_registration import (
+    BACKGROUND_IDENTITY_MISSING_CODE,
+    IDENTITY_LISTING_LAGGED_CODE,
+)
 
 
 def _private_process_diagnostic(
@@ -84,7 +88,8 @@ def build_claude_result(
 ) -> RelayAdapterResult:
     capture_identity_output = bool(
         process is not None
-        and evidence_code == "identity_parse_failed"
+        and evidence_code
+        in {BACKGROUND_IDENTITY_MISSING_CODE, IDENTITY_LISTING_LAGGED_CODE}
         and (
             process.stdout_bytes
             or process.stderr_bytes
@@ -92,13 +97,15 @@ def build_claude_result(
             or process.stderr
         )
     )
-    if private_diagnostic is None and process is not None and (
-        process.returncode != 0 or capture_identity_output
+    if (
+        private_diagnostic is None
+        and process is not None
+        and (process.returncode != 0 or capture_identity_output)
     ):
         private_diagnostic = _private_process_diagnostic(
             process,
             error_step="resume" if context.job_kind == "wake" else "launch",
-            failure_class=("identity_parse_failed" if capture_identity_output else None),
+            failure_class=(evidence_code if capture_identity_output else None),
         )
     return RelayAdapterResult(
         result_code,

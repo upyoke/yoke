@@ -6,6 +6,10 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
+from yoke_contracts.session_control.launch_registration import (
+    LAUNCH_DELIVERY_PENDING_STATUS,
+)
+
 
 def _parse_time(value: Any) -> datetime | None:
     text = str(value or "").strip()
@@ -59,6 +63,9 @@ def _end_blocker(row: Mapping[str, Any]) -> str | None:
     if status == "wake_delivery_in_flight":
         state = str(blocker.get("recipient_state") or "pending")
         return f"wake delivering ({state}) until {blocker.get('wake_delivery_window_ends_at')}"
+    if status == LAUNCH_DELIVERY_PENDING_STATUS:
+        launch = blocker.get("launch_id") or f"{blocker.get('launch_count')} launches"
+        return f"launch {launch} binding until {blocker.get('binding_window_ends_at')}"
     if status == "chain_pending":
         step = int(blocker.get("checkpoint_step") or 0)
         maximum = int(blocker.get("max_chain_steps") or 0)

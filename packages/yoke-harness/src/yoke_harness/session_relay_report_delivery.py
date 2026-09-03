@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.session_control.capabilities import native_create_timeout_seconds
 from yoke_contracts.session_control.evidence import redacted_evidence_document
+from yoke_contracts.session_control.launch_registration import (
+    IDENTITY_REGISTRATION_WAIT_CODE,
+    NATIVE_LAUNCH_WORKSPACE_FIELD,
+)
 from yoke_harness.session_relay_schedule import relay_state_dir
 from yoke_harness.session_relay_runtime import RelayAdapterResult
 
@@ -130,6 +135,32 @@ def report_launch_progress(
     return bool(getattr(response, "success", False))
 
 
+def _launch_registration(
+    dispatcher: Dispatcher,
+    function_id: str,
+    payload: Mapping[str, object],
+    *,
+    timeout_s: int,
+) -> dict[str, object] | None:
+    safe = _safe_payload({**payload, "result": "progress"})
+    if safe is None:
+        return None
+    try:
+        response = _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)
+    except Exception:
+        return None
+    if not getattr(response, "success", False):
+        return None
+    envelope = getattr(response, "result", None)
+    if not isinstance(envelope, Mapping):
+        return None
+    result = envelope.get("result", envelope)
+    if not isinstance(result, Mapping):
+        return None
+    registration = result.get("registration")
+    return dict(registration) if isinstance(registration, Mapping) else None
+
+
 def attach_launch_progress_reporter(
     dispatcher: Dispatcher,
     function_id: str,
@@ -153,6 +184,26 @@ def attach_launch_progress_reporter(
         )
 
     runnable["_launch_progress_reporter"] = report
+
+    def resolve_registration(workspace: str) -> dict[str, object] | None:
+        bound = native_create_timeout_seconds(str(job.get("surface") or ""))
+        progress = RelayAdapterResult(
+            "progress",
+            evidence={
+                "result_code": IDENTITY_REGISTRATION_WAIT_CODE,
+                NATIVE_LAUNCH_WORKSPACE_FIELD: workspace,
+                "native_launch_bound_seconds": int(bound or 0),
+                "surface": str(job.get("surface") or ""),
+            },
+        )
+        return _launch_registration(
+            dispatcher,
+            function_id,
+            _launch_payload(relay_id, job, progress),
+            timeout_s=timeout_s,
+        )
+
+    runnable["_launch_registration_resolver"] = resolve_registration
     return runnable
 
 

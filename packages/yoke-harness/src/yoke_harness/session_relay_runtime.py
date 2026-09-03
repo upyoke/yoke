@@ -64,6 +64,9 @@ class RelayExecutionContext:
         repr=False,
         compare=False,
     )
+    launch_registration_resolver: (
+        Callable[[str], Mapping[str, object] | None] | None
+    ) = field(default=None, repr=False, compare=False)
     private_route_qualification: PrivateRouteQualificationGrant | None = field(
         default=None,
         repr=False,
@@ -192,6 +195,11 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         launch_progress_reporter=(
             job.get("_launch_progress_reporter")
             if callable(job.get("_launch_progress_reporter"))
+            else None
+        ),
+        launch_registration_resolver=(
+            job.get("_launch_registration_resolver")
+            if callable(job.get("_launch_registration_resolver"))
             else None
         ),
         private_route_qualification=qualification,
