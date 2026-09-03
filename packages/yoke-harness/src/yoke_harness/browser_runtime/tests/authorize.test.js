@@ -11,6 +11,13 @@
  * through launchPersistentContext cannot be signed into through Google at
  * all. These tests hold that shape: the daemon's own Chromium binary, the
  * profile directory, and no automation-shaped flags.
+ *
+ * They also hold the cookie-encryption switches. Chromium drops any stored
+ * cookie it cannot decrypt when it loads a profile, and Playwright always
+ * launches in a different key domain from a default browser launch, so a
+ * window opened without those switches wrote a sign-in the daemon then threw
+ * away -- silently, leaving a profile that looked authorized and rendered
+ * signed out.
  */
 
 const fs = require('fs');
@@ -41,6 +48,11 @@ const AUTOMATION_FLAGS = [
   '--remote-debugging-pipe',
   '--headless',
 ];
+
+// Chromium takes its cookie-encryption key from the platform credential
+// store; these two switches select the same key domain Playwright's own
+// launch uses. Both sides must agree or the daemon cannot read the sign-in.
+const COOKIE_ENCRYPTION_SWITCHES = ['--password-store=basic', '--use-mock-keychain'];
 
 function fakeChild() {
   const child = new EventEmitter();
@@ -90,6 +102,36 @@ async function testSpawnsTheDaemonsBinaryOnTheProfile() {
     automation.length === 0,
     `Carries no automation-shaped flags (saw: ${automation.join(', ') || 'none'})`,
   );
+  const missing = COOKIE_ENCRYPTION_SWITCHES.filter(
+    (flag) => !spawned[0].args.includes(flag),
+  );
+  assert(
+    missing.length === 0,
+    `Writes cookies in the daemon's key domain (missing: ${missing.join(', ') || 'none'})`,
+  );
+}
+
+async function testMatchesPlaywrightsOwnCookieEncryptionSwitches() {
+  console.log('\n## Test: the key domain is the one Playwright still launches with');
+  const libDir = path.join(
+    path.dirname(require.resolve('playwright-core/package.json')), 'lib',
+  );
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.js')) files.push(full);
+    }
+  };
+  walk(libDir);
+  const sources = files.map((file) => fs.readFileSync(file, 'utf8'));
+  for (const flag of COOKIE_ENCRYPTION_SWITCHES) {
+    assert(
+      sources.some((source) => source.includes(flag)),
+      `Playwright still launches Chromium with ${flag}`,
+    );
+  }
 }
 
 async function testOmitsTheUrlWhenNoneIsGiven() {
@@ -170,6 +212,7 @@ async function run() {
 
   const tests = [
     testSpawnsTheDaemonsBinaryOnTheProfile,
+    testMatchesPlaywrightsOwnCookieEncryptionSwitches,
     testOmitsTheUrlWhenNoneIsGiven,
     testReportsANonZeroBrowserExit,
     testNeverUsesAPlaywrightContext,

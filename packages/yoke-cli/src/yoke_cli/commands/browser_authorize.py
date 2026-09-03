@@ -20,10 +20,15 @@ import sys
 from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.config.browser_profile_cookies import (
+    SIGN_IN_COOKIE_LIFETIME_DAYS,
+    SignInCookieError,
+    keep_sign_in_cookies,
+)
 
 
 BROWSER_AUTHORIZE_USAGE = (
-    "yoke browser authorize [--project PROJECT] [--url URL] [--json]"
+    "yoke browser authorize [--project PROJECT] [--url URL] [--reset] [--json]"
 )
 
 _BROWSER_AUTHORIZE_HELP_DEEP = """\
@@ -41,9 +46,11 @@ automation-controlled browser announces itself — `--enable-automation`,
 refuses exactly that shape with "Couldn't sign you in. This browser or app may
 not be secure", so a profile opened under automation could not be signed into
 through Google at all. It is the daemon's own Chromium binary rather than any
-other installed browser because the profile's cookies are encrypted against
-that binary's OS keychain entry; a profile signed in with a different browser
-is unreadable to the daemon afterwards.
+other installed browser, launched with the daemon's own cookie-encryption
+switches, because Chromium drops any stored cookie it cannot decrypt when it
+opens a profile: a sign-in written in a different key domain -- another
+browser, or this one launched differently -- is gone by the time the daemon
+looks.
 
 The profile is keyed by the project slug, so a slug, a numeric project id, and
 the checkout default all open the one profile for that project.
@@ -58,12 +65,28 @@ The browser daemon is a machine singleton and Chromium locks a profile
 directory, so a running daemon is stopped first; the next case run starts it
 again on the profile you just signed into.
 
-Sessions expire, and that needs no machinery: an expired session lands a
-walker on a sign-in page, which is already the human gate it raises. Run this
-again for that site.
+Sites that authenticate with a session cookie -- one with no expiry, which
+an ordinary browser drops when it quits -- would otherwise lose the sign-in
+the moment you close this window. So when the window closes, every session
+cookie the profile holds is given an explicit {lifetime}-day expiry, and the
+count is reported. Sign in again after that, or whenever a walker lands on a
+sign-in page: an expired session is already the human gate it raises, and
+needs no other machinery.
+
+Start over with a profile that has gone wrong -- a stale sign-in, a site that
+will not sign in again, a profile signed into the wrong account:
+
+  yoke browser authorize --reset
+
+That stops the daemon, deletes this project's profile directory, and opens a
+fresh window. Everything the profile was signed into is gone; sign in again
+in the window it opens.
 
 Exit codes: 0 window closed normally; 1 the window could not be opened;
 2 prerequisite failure (browser runtime missing, bad usage)."""
+_BROWSER_AUTHORIZE_HELP_DEEP = _BROWSER_AUTHORIZE_HELP_DEEP.format(
+    lifetime=SIGN_IN_COOKIE_LIFETIME_DAYS,
+)
 
 
 def browser_authorize(args: List[str]) -> int:
@@ -81,6 +104,13 @@ def browser_authorize(args: List[str]) -> int:
     parser.add_argument(
         "--url", default=None,
         help="Optional starting URL to open in the window.",
+    )
+    parser.add_argument(
+        "--reset", action="store_true",
+        help=(
+            "Delete this project's profile before opening the window, so the "
+            "sign-in starts from an empty browser."
+        ),
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, BROWSER_AUTHORIZE_USAGE)
@@ -101,7 +131,6 @@ def browser_authorize(args: List[str]) -> int:
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        profile = browser_profile.ensure_profile_dir(parsed.project)
         project_key = browser_profile.profile_project_key(parsed.project)
     except ProjectSlugLookupError as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
@@ -116,6 +145,18 @@ def browser_authorize(args: List[str]) -> int:
         )
 
     _stop_daemon_holding_profile(browser_client)
+
+    removed = (
+        browser_profile.remove_profile_dir(parsed.project) if parsed.reset else None
+    )
+    if parsed.reset and not parsed.json_mode:
+        print(
+            f"Removed the previous {project_key} browser profile at "
+            f"{browser_profile.profile_dir_display(removed)}."
+            if removed is not None
+            else f"No {project_key} browser profile to remove; starting fresh."
+        )
+    profile = browser_profile.ensure_profile_dir(parsed.project)
 
     command = ["node", str(authorize_js), "--profile-dir", str(profile)]
     if parsed.url:
@@ -144,15 +185,26 @@ def browser_authorize(args: List[str]) -> int:
             code=1,
         )
 
+    try:
+        kept = keep_sign_in_cookies(profile)
+    except SignInCookieError as exc:
+        return _fail(parsed.json_mode, str(exc), code=1)
+
     payload = {
         "ok": True,
         "project": project_key,
         "profile_dir": str(profile),
+        "reset": bool(parsed.reset),
+        "kept_sign_in_cookies": kept,
     }
     if parsed.json_mode:
         print(json.dumps(payload))
     else:
-        print(f"Profile saved for project {project_key}.")
+        print(
+            f"Profile saved for project {project_key}. Kept {kept} session "
+            f"cookie(s) for {SIGN_IN_COOKIE_LIFETIME_DAYS} days so the daemon "
+            "opens this profile signed in."
+        )
     return 0
 
 
