@@ -20,6 +20,13 @@ between the two -- the pytest admission gate is the worked case -- and
 a follower that could not see an owner during that wait would refuse a
 run that is merely queued.
 
+For the same reason a wrapper binds before its own preflight, not after
+it: an impacted-test selection, a control-plane lookup, or an import
+probe can each outlast the follower's grace window, and an unclaimed
+capture during that work is indistinguishable from one no run will ever
+write. Binding first makes every refusal after it a close as well, which
+is what :func:`refuse_claimed_capture` exists to do.
+
 Imports stay limited to the scratch-path helper: ``watch_tail`` reads
 this module, and reaching back into the watcher runtime from here would
 close an import cycle through the streaming-pair renderer.
@@ -29,8 +36,9 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Sequence
 
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
 
@@ -42,6 +50,10 @@ WRITER_MARKER_RE = re.compile(r"^# watch_\w+ writer_pid=(\d+)\b")
 #: Covers interpreter start-up and the gap between arming the follower
 #: and pasting the background command; a queued run has already stamped.
 DEFAULT_WRITER_GRACE_SECONDS = 30.0
+#: The wrapper flags naming the capture pair. A caller who places one
+#: after the ``--`` separator hands it to the watched command, which
+#: fails on the unknown option before it starts.
+CAPTURE_FLAGS = ("--raw-capture", "--progress-capture")
 #: Follower exit code for "this capture has no writer". Distinct from
 #: argparse's ``2`` and from any watched command's own exit code, which
 #: reaches a follower only through the sentinel line.
@@ -146,4 +158,81 @@ def dead_writer_refusal(path: Path, *, pid: int) -> str:
         "#   Fix: inspect the raw capture named in this file's header line, "
         "then re-run the\n"
         "#   background command printed by --print-streaming-pair.\n"
+    )
+
+
+def note_claimed_capture(progress_capture: Path | None, text: str) -> None:
+    """Append one wrapper metadata line to an already-claimed capture.
+
+    A wrapper claims its capture before its own preflight, so anything
+    slow that runs before the watched command starts owes the follower a
+    line saying so; silence and death read identically otherwise.
+    """
+    if progress_capture is None:
+        return
+    with progress_capture.open("a", encoding="utf-8") as handle:
+        handle.write(f"{text.rstrip()}\n")
+
+
+def refuse_claimed_capture(
+    progress_capture: Path | None,
+    kind: str,
+    message: str,
+    exit_code: int,
+) -> int:
+    """Report *message* and release any follower armed on the capture.
+
+    Claiming a capture before preflight makes every later refusal a
+    close as well: a follower reads writer liveness, so a wrapper that
+    refuses and exits without a sentinel leaves that follower reporting
+    a dead watcher instead of the refusal the operator has to act on.
+    Writes the refusal and the exit sentinel
+    :func:`yoke_core.tools._watch_runner.run_watcher` would otherwise
+    have written, then returns *exit_code* so a refusal site stays one
+    ``return`` statement.
+
+    ``progress_capture`` is ``None`` on a path that never claimed one --
+    ``--print-streaming-pair``, or a refusal raised before the claim --
+    and the capture write is then skipped.
+    """
+    print(message, file=sys.stderr)
+    note_claimed_capture(progress_capture, message)
+    if progress_capture is not None:
+        with progress_capture.open("a", encoding="utf-8") as handle:
+            handle.write(f"# watch_{kind} exit={exit_code}\n")
+    return exit_code
+
+
+def misplaced_capture_flags(args: Sequence[str]) -> dict[str, Path]:
+    """Capture flags a caller placed after the ``--`` separator.
+
+    Each is returned with the path it named so the wrapper can claim
+    that capture and refuse INTO it: a follower is already armed on the
+    file the caller wrote down, and a refusal delivered anywhere else
+    leaves that follower waiting on a run which never starts.
+    """
+    found: dict[str, Path] = {}
+    for index, arg in enumerate(args):
+        name, separator, inline = arg.partition("=")
+        if name not in CAPTURE_FLAGS or name in found:
+            continue
+        following = args[index + 1] if index + 1 < len(args) else ""
+        value = inline if separator else following
+        if value and not value.startswith("-"):
+            found[name] = Path(value)
+    return found
+
+
+def misplaced_capture_rejection(flags: Iterable[str], *, command: str) -> str:
+    """Return the refusal naming the canonical position for *flags*."""
+    return (
+        f"{command}: wrapper capture flags after the '--' separator: "
+        f"{', '.join(sorted(flags))}.\n"
+        "They belong to the wrapper, not to the watched command, which "
+        "takes them as unknown options and fails before it starts.\n"
+        "Canonical position — before the separator:\n"
+        f"  {command} --raw-capture RAW --progress-capture PROGRESS "
+        "-- <args>\n"
+        "The --print-streaming-pair background command already places them "
+        "there; paste it verbatim."
     )

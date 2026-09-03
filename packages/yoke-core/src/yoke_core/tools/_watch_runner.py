@@ -42,6 +42,10 @@ from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.tools._watch_capture_binding import (  # noqa: F401
     bind_capture_paths,
     mint_capture_paths,
+    misplaced_capture_flags,
+    misplaced_capture_rejection,
+    note_claimed_capture,
+    refuse_claimed_capture,
 )
 from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
 from yoke_core.tools._watch_digest import (  # noqa: F401
