@@ -48,8 +48,6 @@ REPORT_PREAMBLE = (
     "steerer's; nothing here has acted."
 )
 
-OVERDUE_MARK = "!"
-
 
 def _available_lines(report: FleetReport) -> list[str]:
     now = report.composed_at

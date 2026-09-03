@@ -55,6 +55,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from yoke_core.domain.machine_registry import machine_names
 from yoke_core.domain.steering_fleet_report_available import (
     FrontierEntry,
     scope_candidates,
@@ -235,8 +236,6 @@ def compose_report(
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     alive_idle = split.alive_idle
-    from yoke_core.domain.machine_registry import machine_names
-
     names = machine_names(conn)
     return FleetReport(
         project_id=int(project_id),
