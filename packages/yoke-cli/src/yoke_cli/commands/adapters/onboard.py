@@ -21,9 +21,9 @@ from yoke_cli.commands.adapters.onboard_github_requests import (
 )
 from yoke_cli.config import machine_config
 from yoke_contracts import harness_unattended_posture
-# A module global, so a test can still patch `onboard._build_report`.
 from yoke_cli.commands.adapters.onboard_build_report import (
-    build_report as _build_report,
+    MachineConfigWriteError,  # noqa: F401 — re-exported adapter surface
+    build_report as _build_report,  # module global, so a test can patch it
 )
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_destinations

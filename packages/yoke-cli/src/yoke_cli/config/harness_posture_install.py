@@ -11,13 +11,13 @@ from __future__ import annotations
 import io
 from typing import List
 
+from yoke_contracts.harness_posture_install import (
+    configure_harness_unattended_posture,
+)
+
 
 def apply_reported() -> List[str]:
     """Write the posture into every detected harness; never raise."""
-    from yoke_core.tools.install_harness_unattended_posture import (
-        configure_harness_unattended_posture,
-    )
-
     try:
         return configure_harness_unattended_posture(stream=io.StringIO())
     except Exception as exc:  # noqa: BLE001 — reported, never fatal

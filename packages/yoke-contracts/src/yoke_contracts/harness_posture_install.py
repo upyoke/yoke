@@ -31,14 +31,14 @@ def configure_harness_unattended_posture(
     Claude's preference patch is applied by its own module, which predates
     the other two and already owns its refusal and reporting.
     """
-    from yoke_core.tools.install_yoke_launcher_claude import (
+    from yoke_contracts.claude_posture_install import (
         configure_claude_app_bypass_permissions,
         configure_claude_cli_permission_mode,
     )
-    from yoke_core.tools.install_yoke_launcher_codex import (
+    from yoke_contracts.codex_posture_install import (
         configure_codex_unattended_posture,
     )
-    from yoke_core.tools.install_yoke_launcher_cursor import (
+    from yoke_contracts.cursor_posture_install import (
         configure_cursor_unattended_posture,
     )
 

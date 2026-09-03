@@ -28,7 +28,7 @@ from yoke_contracts.harness_unattended_posture import (
     cursor_posture_problems,
     posture_problems,
 )
-from yoke_core.tools.install_yoke_launcher_codex import (
+from yoke_contracts.codex_posture_install import (
     configure_codex_unattended_posture,
 )
 from yoke_contracts.codex_config_posture import (
@@ -37,7 +37,7 @@ from yoke_contracts.codex_config_posture import (
     parse_config,
     plan,
 )
-from yoke_core.tools.install_yoke_launcher_cursor import (
+from yoke_contracts.cursor_posture_install import (
     configure_cursor_unattended_posture,
 )
 
@@ -126,10 +126,10 @@ def test_codex_pass_writes_and_names_what_it_granted(tmp_path: Path):
 
 def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
     """The writers report and the pass prints, so nothing is double-reported."""
-    import yoke_core.tools.install_yoke_launcher_claude as claude_module
-    import yoke_core.tools.install_yoke_launcher_codex as codex_module
-    from yoke_core.tools import install_harness_unattended_posture as pass_module
-    import yoke_core.tools.install_yoke_launcher_cursor as cursor_module
+    import yoke_contracts.claude_posture_install as claude_module
+    import yoke_contracts.codex_posture_install as codex_module
+    from yoke_contracts import harness_posture_install as pass_module
+    import yoke_contracts.cursor_posture_install as cursor_module
 
     monkeypatch.setattr(
         codex_module, "codex_config_path", lambda: _codex_home(tmp_path)

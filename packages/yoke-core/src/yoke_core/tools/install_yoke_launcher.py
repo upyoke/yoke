@@ -14,7 +14,7 @@ import sysconfig
 from pathlib import Path
 from typing import Optional
 
-from yoke_core.tools import install_yoke_launcher_claude as _claude
+from yoke_contracts import claude_posture_install as _claude
 from yoke_core.tools import install_yoke_launcher_core as _core
 from yoke_core.tools import install_yoke_launcher_macos as _macos
 
@@ -104,7 +104,7 @@ def configure_harness_unattended_posture(
     checkout: Optional[Path] = None,
     stream=None,
 ) -> list:
-    from yoke_core.tools.install_harness_unattended_posture import (
+    from yoke_contracts.harness_posture_install import (
         configure_harness_unattended_posture as _configure,
     )
 
