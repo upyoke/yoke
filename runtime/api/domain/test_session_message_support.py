@@ -52,7 +52,8 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY, org_id INTEGER NOT NULL,
             slug TEXT NOT NULL, name TEXT NOT NULL,
-            public_item_prefix TEXT NOT NULL
+            public_item_prefix TEXT NOT NULL,
+            default_branch TEXT NOT NULL DEFAULT 'main'
         );
         CREATE TABLE actors (
             id INTEGER PRIMARY KEY,

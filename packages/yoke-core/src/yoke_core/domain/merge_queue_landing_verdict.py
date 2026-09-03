@@ -8,10 +8,10 @@ terminal on one read except red required checks: checks on the
 PR head that have already concluded failed/error/cancelled/timed_out
 with nothing in flight. That cannot merge, so it must not spend the
 poll budget. Other refusals still confirm: merged is re-read after a
-short delay; a still-queued entry is still landing; only an unmerged,
-open, unarmed, absent, failed-train PR has stalled. Every verdict names
-the facts it saw, including ``mergeStateStatus`` so ``DIRTY`` is not a
-silent wait.
+short delay; a still-queued entry is still landing; an unmerged, open,
+unarmed pull request the queue no longer holds, with no identified train
+still driving it, has stalled. Every verdict names the facts it saw,
+including ``mergeStateStatus`` so ``DIRTY`` is not a silent wait.
 """
 
 from __future__ import annotations
@@ -35,6 +35,10 @@ from yoke_core.domain.merge_queue_entry_checks import (
     ENTRY_CHECKS_FAILED,
     entry_checks_are_red,
 )
+from yoke_core.engines.merge_worktree_pr_check_runs import (
+    LandingCheck,
+    read_landing_checks,
+)
 
 # Queue ejection is a failed train, not an empty slot. GitHub clears the
 # slot and merge-when-ready while a successful train is still merging.
@@ -51,15 +55,6 @@ STALLED = "stalled"
 PENDING = "pending"
 
 DEFAULT_CONFIRM_SECONDS = MINIMUM_POLL_INTERVAL_SECONDS
-
-
-@dataclass(frozen=True)
-class LandingCheck:
-    """One check run attached to the SHA the train is validating."""
-
-    name: str
-    status: str
-    conclusion: str = ""
 
 
 @dataclass(frozen=True)
@@ -84,56 +79,6 @@ def describe_checks(checks: Sequence[LandingCheck]) -> str:
         f"pending-checks={','.join(pending) or 'none'} "
         f"concluded-checks={','.join(concluded) or 'none'}"
     )
-
-
-def read_landing_checks(
-    ctx: MergeContext,
-    head_sha: str,
-) -> tuple[Optional[tuple[LandingCheck, ...]], Optional[str]]:
-    """Per-check breakdown for the SHA the train is validating."""
-    from yoke_contracts.github_app_installation_permissions import (
-        GITHUB_CHECKS_READ_PERMISSION_LEVELS as CHECKS_READ,
-    )
-    from yoke_core.domain.gh_rest_transport import (
-        RestRequest,
-        RestTransportError,
-        request_with_retry,
-        split_repo,
-    )
-    from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
-
-    if not head_sha:
-        return (), None
-    auth, auth_err = resolve_auth_detail(ctx, CHECKS_READ)
-    if auth_err or auth is None:
-        return None, auth_err
-    owner, repo = split_repo(auth.repo)
-    try:
-        response = request_with_retry(
-            RestRequest(
-                method="GET",
-                path=f"/repos/{owner}/{repo}/commits/{head_sha}/check-runs",
-            ),
-            token=auth.token,
-        )
-    except RestTransportError as exc:
-        return None, f"check-runs read failed: {exc}"
-    payload = response.body if isinstance(response.body, dict) else None
-    raw_runs = payload.get("check_runs") if payload is not None else None
-    if not isinstance(raw_runs, list):
-        return None, "check-runs response omitted check_runs"
-    checks: list[LandingCheck] = []
-    for raw in raw_runs:
-        if not isinstance(raw, dict):
-            return None, "check-runs response contained a malformed run"
-        checks.append(
-            LandingCheck(
-                name=str(raw.get("name") or "unnamed check").strip(),
-                status=str(raw.get("status") or "").strip().lower(),
-                conclusion=str(raw.get("conclusion") or "").strip().lower(),
-            )
-        )
-    return tuple(checks), None
 
 
 def describe(
@@ -233,11 +178,18 @@ def _has_conflicts(state: PrLandingState) -> bool:
     return state.merge_state_status.strip().lower() == "dirty"
 
 
-def _failed_train(train: Optional[TrainRun]) -> bool:
-    """The train concluded in a way that will not produce a merge."""
+def _train_still_working(train: Optional[TrainRun]) -> bool:
+    """A train that was identified and has not failed is still driving.
+
+    An *unidentified* train is not evidence of work in progress. Reading it
+    as such is how an ejected pull request — dropped before any train ever
+    carried it, so no queue ref bears its marker — stayed PENDING until the
+    poll budget ran out and the wait reported a timeout instead of the
+    ejection it had been observing all along.
+    """
     if train is None:
         return False
-    return (train.conclusion or "").strip().lower() in _FAILED_TRAIN_CONCLUSIONS
+    return (train.conclusion or "").strip().lower() not in _FAILED_TRAIN_CONCLUSIONS
 
 
 def classify_landing(
@@ -311,13 +263,14 @@ def classify_landing(
         return LandingVerdict(CONFLICTED, narrative=narrative, warnings=tuple(warnings))
     if not confirmed.closed:
         # An unreadable queue cannot prove the entry is gone. An entry that
-        # is still there, or a train that has not failed, means GitHub is
-        # still working — the slot and arming clear before merged=true.
+        # is still there, arming still set, or an identified train that has
+        # not failed all mean GitHub is still working — the slot and arming
+        # clear before merged=true.
         still_landing = (
             not entry_readable
             or entry is not None
             or confirmed.auto_merge_active
-            or not _failed_train(train)
+            or _train_still_working(train)
         )
         if still_landing:
             return LandingVerdict(

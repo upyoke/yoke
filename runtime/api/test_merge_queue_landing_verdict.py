@@ -230,8 +230,12 @@ def test_missing_train_run_is_named_rather_than_asserted(monkeypatch):
         train_note="no merge_group workflow run found",
     )
     verdict = _classify()
-    # An unidentified train cannot prove ejection.
-    assert verdict.kind == verdict_mod.PENDING
+    # A pull request the queue has dropped before any train carried it
+    # leaves no queue ref bearing its marker, so "not identified" is the
+    # normal reading of an ejection rather than evidence of work in
+    # flight. Treating it as still landing is what spent the whole poll
+    # budget on a wait that had already ended.
+    assert verdict.kind == verdict_mod.STALLED
     assert "train-run=not identified" in verdict.narrative
     assert "no merge_group workflow run found" in verdict.warnings
 

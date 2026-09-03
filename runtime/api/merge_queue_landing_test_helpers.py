@@ -155,6 +155,11 @@ def wire_happy_path(
         route_mod, "enter_merge_queue",
         lambda _ctx, pr_num: QueueEntryResult(success=True, pr_num=pr_num),
     )
+    # GitHub holding the landing is the default these tests assume; the
+    # cases about a queue that did not take it override this explicitly.
+    monkeypatch.setattr(
+        route_mod, "verify_landing_admitted", lambda *_a, **_k: "",
+    )
     states = list(landing_states or [MERGED])
     # One script feeds both readers in call order: the route's pre-entry
     # convergence check, then every read the verdict takes. An exhausted

@@ -9,6 +9,8 @@ from types import SimpleNamespace
 from runtime.api.domain.test_session_message_support import NOW, message_connection
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.merge_queue_landing_pending import observe_pending_landings
+from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
+from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 
 INJECTED_AT = datetime(2026, 8, 27, 17, 5, tzinfo=timezone.utc)
 INJECTED_TEXT = "2026-08-27T17:05:00Z"
@@ -59,7 +61,13 @@ def test_landing_notification_is_sent_once_to_the_claim_holder():
     conn = _connection()
 
     queued = observe_pending_landings(conn, [1], now=NOW, read_state=_merged)
-    assert queued == {"checked": 1, "landed": 1, "notified": 0, "unrouted": 0}
+    assert queued == {
+        "checked": 1,
+        "landed": 1,
+        "notified": 0,
+        "ejected": 0,
+        "unrouted": 0,
+    }
 
     message_id = _queued_message_id(conn)
     body = conn.execute(
@@ -138,3 +146,141 @@ def test_ended_holder_still_receives_the_landing_push():
         "WHERE m.idempotency_key='merge-queue-landed:101:42'"
     ).fetchone()
     assert recipient[0] == "s1"
+
+
+#: Armed when the base moved underneath it, so GitHub can no longer create
+#: the merge commit — the shape that leaves a holder waiting forever.
+DIRTY = PrLandingState(
+    merged=False,
+    closed=False,
+    auto_merge_active=True,
+    merge_state_status="dirty",
+)
+#: Armed, eligible, and waiting on its own required checks before GitHub
+#: creates the queue entry: the ordinary landing, not an ejection.
+ARMED_AWAITING_CHECKS = PrLandingState(
+    merged=False,
+    closed=False,
+    auto_merge_active=True,
+    merge_state_status="blocked",
+)
+OUT_OF_QUEUE = PrQueueMembership(in_queue=False, mergeable="CONFLICTING")
+NOT_QUEUED = PrQueueMembership(in_queue=False, mergeable="MERGEABLE")
+IN_QUEUE = PrQueueMembership(
+    in_queue=True, entry_state="AWAITING_CHECKS", mergeable="MERGEABLE"
+)
+
+
+def _dirty(_ctx, _pr_number):
+    return DIRTY, None
+
+
+def _out_of_queue(_ctx, _pr_number):
+    return OUT_OF_QUEUE, None
+
+
+def _in_queue(_ctx, _pr_number):
+    return IN_QUEUE, None
+
+
+def _armed_awaiting_checks(_ctx, _pr_number):
+    return ARMED_AWAITING_CHECKS, None
+
+
+def _not_queued(_ctx, _pr_number):
+    return NOT_QUEUED, None
+
+
+def _ejected_message_id(conn) -> str:
+    row = conn.execute(
+        "SELECT message_id FROM session_messages "
+        "WHERE idempotency_key='merge-queue-ejected:101:42'"
+    ).fetchone()
+    assert row is not None
+    return str(row[0])
+
+
+def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
+    conn = _connection()
+
+    observed = observe_pending_landings(
+        conn, [1], now=NOW, read_state=_dirty, read_membership=_out_of_queue
+    )
+    assert observed["landed"] == 0
+    assert observed["ejected"] == 0  # not yet delivered to the holder
+
+    message_id = _ejected_message_id(conn)
+    body = conn.execute(
+        "SELECT body FROM session_messages WHERE message_id=?", (message_id,)
+    ).fetchone()[0]
+    assert "Landing stopped for ALP-1" in body
+    assert "rebase the lane onto main" in body
+    assert "isInMergeQueue=false" in body
+
+    _inject(conn, message_id)
+    delivered = observe_pending_landings(
+        conn, [1], now=INJECTED_AT, read_state=_dirty, read_membership=_out_of_queue
+    )
+    assert delivered["ejected"] == 1
+    # The queue admission is cleared, so the item is no longer reported as a
+    # pending landing and a fresh `yoke merge item` re-arms it. The pull
+    # request number stays: a re-entry that turns out to be converging on a
+    # merge still reads the merge-group run through it.
+    marker = conn.execute(
+        "SELECT merge_queue_pr_number,merge_queue_enqueued_at FROM items WHERE id=101"
+    ).fetchone()
+    assert marker[0] == "42"
+    assert marker[1] is None
+    assert (
+        observe_pending_landings(
+            conn, [1], now=INJECTED_AT, read_state=_dirty, read_membership=_out_of_queue
+        )["checked"]
+        == 0
+    )
+
+
+def test_an_armed_pull_request_awaiting_its_checks_stays_silent():
+    """The queue entry appears only after the checks pass; that is the wait."""
+    conn = _connection()
+
+    observed = observe_pending_landings(
+        conn,
+        [1],
+        now=NOW,
+        read_state=_armed_awaiting_checks,
+        read_membership=_not_queued,
+    )
+    assert observed == {
+        "checked": 1,
+        "landed": 0,
+        "notified": 0,
+        "ejected": 0,
+        "unrouted": 0,
+    }
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+
+
+def test_a_queue_entry_outranks_a_stale_mergeability_read():
+    """GitHub removes an entry it cannot merge, so an entry is still landing."""
+    conn = _connection()
+
+    observed = observe_pending_landings(
+        conn, [1], now=NOW, read_state=_dirty, read_membership=_in_queue
+    )
+
+    assert observed["ejected"] == 0
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+
+
+def test_an_unreadable_membership_cannot_prove_an_ejection():
+    conn = _connection()
+
+    observed = observe_pending_landings(
+        conn,
+        [1],
+        now=NOW,
+        read_state=_dirty,
+        read_membership=lambda _ctx, _pr: (None, "github graphql transport failure"),
+    )
+    assert observed["ejected"] == 0
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
