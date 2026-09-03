@@ -154,9 +154,11 @@ def project_launch_attestation(
     payload.pop("yoke_launch", None)
     current = time.time() if now is None else now
     raw = _environment_context(environ)
-    binding: str | None = None
+    # The binding is the session the native turned out to be, whichever channel
+    # carried the attestation: it is what the launch's durable process handle is
+    # written against, so termination and liveness can still reach this native.
+    binding = _identifier(payload.get("session_id"))
     if raw is None:
-        binding = _identifier(payload.get("session_id"))
         if binding is None:
             return None
         raw = _read_owner_only(_handoff_path(binding, state_dir), now=current)

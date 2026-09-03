@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from runtime.harness.test_session_relay_claude import (
-    ACTUAL_ID,
     CHECK_INBOX,
     CLAUDE,
     CLAUDE_LOCAL_SETTINGS_JSON,
@@ -18,6 +17,11 @@ from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_native_spawn import SupervisedNative
+
+
+# The session a wake targets, named here rather than borrowed from the create:
+# a create no longer discovers one fixed id to hand on, it mints its own.
+TARGET_ID = "87654321-4321-4321-8321-cba987654321"
 
 
 @pytest.fixture(autouse=True)
@@ -49,19 +53,17 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
     scenario,
 ) -> None:
     spawns = []
-    lookups = []
     result = run_claude_cli_adapter(
         _context(
             job_kind="wake",
             job_id=scenario,
             native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
+            target_session_id=TARGET_ID,
             launch_attestation=None,
             target_liveness="active",
             wake_mode="waiting",
         ),
         wake_spawner=_spawned(spawns),
-        session_lookup=lookups.append,
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
     )
@@ -74,12 +76,12 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
         "--settings",
         CLAUDE_LOCAL_SETTINGS_JSON,
         "--resume",
-        ACTUAL_ID,
+        TARGET_ID,
         CHECK_INBOX,
         "--output-format",
         "json",
     )
-    assert invocation.session_id == ACTUAL_ID
+    assert invocation.session_id == TARGET_ID
     assert invocation.instruction == CHECK_INBOX
     assert context.job_id == scenario
     assert all(
@@ -98,7 +100,6 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
         "native_started_at": "2026-08-25T12:00:00Z",
         "surface": "claude-cli",
     }
-    assert lookups == []
 
 
 def test_detached_resume_spawn_failure_is_terminal_for_the_relay_cycle() -> None:
@@ -106,7 +107,7 @@ def test_detached_resume_spawn_failure_is_terminal_for_the_relay_cycle() -> None
         _context(
             job_kind="wake",
             native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
+            target_session_id=TARGET_ID,
             target_liveness="active",
             wake_mode="waiting",
         ),
@@ -127,7 +128,7 @@ def test_detached_resume_native_exception_stays_private() -> None:
         _context(
             job_kind="wake",
             native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
+            target_session_id=TARGET_ID,
             target_liveness="active",
             wake_mode="waiting",
         ),
@@ -158,7 +159,7 @@ def test_private_wake_version_mismatch_never_spawns_native_process() -> None:
         _context(
             job_kind="wake",
             native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
+            target_session_id=TARGET_ID,
             surface_version="2.1.239",
             target_liveness="active",
             wake_mode="waiting",
@@ -183,7 +184,7 @@ def test_stopped_wake_refuses_when_transcript_missing(monkeypatch) -> None:
         _context(
             job_kind="wake",
             native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
+            target_session_id=TARGET_ID,
             target_liveness="ended",
             wake_mode="waiting",
         ),
@@ -203,7 +204,7 @@ def test_stopped_wake_spawns_when_transcript_exists() -> None:
         _context(
             job_kind="wake",
             native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
+            target_session_id=TARGET_ID,
             target_liveness="ended",
             wake_mode="waiting",
         ),

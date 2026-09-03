@@ -76,6 +76,14 @@ def test_handoff_files_are_owner_only_and_untrusted_payload_is_removed(
 
 
 def test_environment_projection_uses_the_same_replay_marker(tmp_path: Path) -> None:
+    """The binding is the session the native turned out to be, either way.
+
+    An attestation carried in the environment says nothing about which session
+    the native opened, so the binding has to come from the hook payload. While
+    it did not, a launch reached through that channel wrote a durable process
+    handle naming no session, and both termination by launch handle and the
+    relay's process-death liveness went blind to that native.
+    """
     environ = {
         LAUNCH_CONTEXT_ENV: json.dumps(
             {"launch_id": LAUNCH_ID, "attestation": ATTESTATION}
@@ -90,7 +98,7 @@ def test_environment_projection_uses_the_same_replay_marker(tmp_path: Path) -> N
     )
 
     assert projection is not None
-    assert projection.binding_id is None
+    assert projection.binding_id == BINDING_ID
     mark_launch_attestation_delivered(projection, state_dir=tmp_path)
     assert (
         project_launch_attestation(

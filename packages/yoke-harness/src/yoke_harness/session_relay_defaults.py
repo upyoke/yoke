@@ -38,10 +38,7 @@ def _cursor_adapter() -> RelayAdapter:
 def _claude_cli_adapter(context):
     from yoke_harness.session_relay_claude import run_claude_cli_adapter
 
-    return run_claude_cli_adapter(
-        context,
-        attestation_handoff=stage_launch_attestation,
-    )
+    return run_claude_cli_adapter(context)
 
 
 def _claude_unsupported_adapter(context):
