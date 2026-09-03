@@ -46,7 +46,7 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # machines table — one row per registered Yoke machine, net-new and
 # pure-additive, so every column is born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "fe6b239d1e5553f4c6ebe41d5785f4ad9b361dee5d39daf020d7cc1685e28b65"
+    "60cb1071a0682a37dcc21b063ea83c54ac2a46343e20671970cf331da5db68d6"
 )
 
 
