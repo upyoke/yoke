@@ -15,6 +15,7 @@ from yoke_core.domain.steering_fleet_report import (
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
+from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 
 
 #: Longest list rendered per section; past this the steerer needs the board.
@@ -32,6 +33,8 @@ REPORT_PREAMBLE = (
 )
 
 OVERDUE_MARK = "!"
+
+CLAIMS_HEADING = "live item claims — every other holder; quiet here is no alarm"
 
 LAUNCH_BALANCE_NOTE = (
     "allocate by headroom: keep one session on every surface above 100% so "
@@ -233,6 +236,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             "holders included even when parked",
             _holder_lines(report.idle),
         ),
+        *_in_flight.in_flight_section(report.in_flight),
         *_section(
             "suspected orphaned waiter — Monitor completed, waiting past idle",
             _holder_lines(report.suspected_orphaned_waiters, with_wake=True),
@@ -255,7 +259,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             _dead_wait_lines(report),
         ),
         *_awaiting_seat_lines(report),
-        *_section("live item claims", _holder_lines(report.holders)),
+        *_section(CLAIMS_HEADING, _holder_lines(report.unlisted_holders)),
     ]
 
 
@@ -300,7 +304,7 @@ def scope_actionable_digest(report: FleetReport) -> str:
     work = _scope_work_lines(report)
     if work[:1] == ["available: none"]:
         work = work[2:] if work[1:2] == [""] else work[1:]
-    claims = _section("live item claims", _holder_lines(report.holders))
+    claims = _section(CLAIMS_HEADING, _holder_lines(report.unlisted_holders))
     if claims:
         work = work[: -len(claims)]
     return "\n".join(work).strip()

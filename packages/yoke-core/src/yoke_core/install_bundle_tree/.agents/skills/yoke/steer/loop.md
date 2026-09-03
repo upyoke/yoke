@@ -81,15 +81,16 @@ yoke steering report get
 The report already answers, from live control-plane state, every check that
 used to be a hand query here — available work with a per-row never-started
 / owner-released marker and an overdue flag, idle claim holders keyed on
-`last_tool_call_at` rather than any liveness label, starved outbound
-delivery, launches with failed or overdue instruction binding, items whose branch
-landed while the item stayed open, whether an idle holder's last
-question can still be answered, how many role-addressed messages this
-scope holds that no seat has taken, and per-surface plan remaining and
-reset (informational only). Do not re-run those queries by hand: a
-steering seat that did burned a pass rediscovering what the report on
-screen had already told it. A section with nothing to say prints nothing,
-so a short report is a quiet fleet, not a broken detector.
+`last_tool_call_at` rather than any liveness label, starved outbound delivery,
+launches with failed or overdue instruction binding, items whose branch landed
+while the item stayed open, whether an idle holder's last question can still be
+answered, how many role-addressed messages this scope holds that no seat has
+taken, and per-surface plan remaining and reset (informational only). Do not
+re-run those queries by hand: a steering seat that did burned a pass
+rediscovering what the report on screen had already told it. A section with
+nothing to say prints nothing, so a short report is a quiet fleet rather than a
+broken detector: wake sources are events, failures are silences, and the report
+scans the silences on every pass.
 
 What the report gives you is a finding. What to do with each one is still
 yours:
@@ -103,13 +104,15 @@ yours:
   awaiting `yoke messages acknowledge MESSAGE-ID`. Not the seat-awaiting
   count above. An overflow pointer means the body never injected: read
   `yoke messages get MESSAGE-ID` and ack; the row stays pending.
-- **Idle holders** — probe and revive. A holder that stamped `--mode
-  parked` declared its wait and never appears here. A starved holder is
-  also burning down its stale clock, so read `stale_eligible_at` and
-  `effective_stale_ttl_minutes` from its `yoke sessions list --json` row
-  while triaging: at `stale_eligible_at` the reclaim sweep releases its
-  claims and the item reads as untouched, so a holder near reclaim is
-  revived before anything else in the pass.
+- **Idle holders** — probe and revive. A holder that stamped `--mode parked`
+  declared its wait, and one inside a long call is listed under **In flight**
+  instead; neither appears here. A starved holder is also burning down its
+  stale clock, so read `stale_eligible_at` and `effective_stale_ttl_minutes`
+  from its `yoke sessions list --json` row while triaging: at `stale_eligible_at`
+  the reclaim sweep releases its claims and the item reads as untouched, so a
+  holder near reclaim is revived before anything else in the pass.
+- **In flight** — inside a watcher or merge landing wait: quiet because the
+  command holds the turn, so nothing to do. Past 45m it rejoins **Idle holders**.
 - **Starved delivery** — read which shape the row is. *no delivery attempted*
   means the plane owed a wake and made none; *last attempt failed (reason)*
   names a refusal to fix, and one reason repeating across a machine's rows is
@@ -135,19 +138,18 @@ yours:
   send a bare `WAKE` to an idle holder without reading its row here — a
   wake alone parks it on the same question.
 
-- **Plan limits** — informational table, one row per surface window
-  (quota left, time-to-reset, headroom). Each row names its model
-  scope — `weekly · all models` beside `weekly · Fable`. Compare
-  headroom across every surface and window; under 100% can hit a
-  wall before its reset. Approaching walls are raised with the
-  operator; these numbers never disable a surface or gate a launch.
+- **Plan limits** — informational table, one row per surface window (quota
+  left, time-to-reset, headroom). Each row names its model scope — `weekly ·
+  all models` beside `weekly · Fable`. Compare headroom across every surface
+  and window; under 100% can hit a wall before its reset. Approaching walls
+  go to the operator; these numbers never disable a surface or gate a launch.
 
 Two things the report deliberately does not do, so do them yourself:
 
-- **Re-verify ownership immediately before launching or reclaiming.** The
-  gap between the report's composition and your action is one more claim
-  handoff window. Observed: a sweep hit that window and staffed a second
-  worker onto a healthy item.
+- **Re-verify ownership immediately before launching or reclaiming.** The gap
+  between the report's composition and your action is one more claim handoff
+  window. Observed: a sweep hit that window and staffed a second worker onto
+  a healthy item.
 
   ```text
   yoke claims work holder-get PREFIX-N
@@ -155,10 +157,10 @@ Two things the report deliberately does not do, so do them yourself:
 
 - **Set the hold flag on work you are holding on purpose.** The report
   excludes frozen and operator-blocked items rather than guessing intent
-  from age, so an item you have parked reports as available until you say
-  so with `yoke items freeze PREFIX-N` or `yoke items block PREFIX-N
-  --reason TEXT`. Work that will never resume is
-  `yoke items cancel PREFIX-N --reason TEXT`, not freeze.
+  from age, so an item you have parked reports as available until you say so
+  with `yoke items freeze PREFIX-N` or `yoke items block PREFIX-N --reason
+  TEXT`. Work that will never resume is `yoke items cancel PREFIX-N --reason
+  TEXT`, not freeze.
 
 The dashboard session card carries these signals faster when the operator
 has it open: a server-active session reads `active now` under a minute and
@@ -168,11 +170,7 @@ carries a `waiting` / `probed` / `possibly stale` health pill. The server's
 classification against the executor-aware TTL (1440 minutes on this surface)
 solely decides alive versus stale, so `idle 6h` can still be a session the
 control plane counts. The age says how long it has been quiet and whether to
-nudge it. The pill only appears past the staleness window, naming a quiet
-claim-holder without replacing either signal.
-
-Wake sources are events; failures are silences — the report scans the
-silences on every pass.
+nudge it; the pill only appears past the staleness window.
 
 ### 2. Consume worker reports
 
@@ -338,12 +336,12 @@ be able to cold-start the scope from the claimed document alone.
 
 ### 8. Escalate only human decisions
 
-Escalate to the operator when the loop cannot choose: conflicting
-reports, a scope that needs a new project, a lock it cannot release
-without destroying in-flight work, or any decision the operator reserved.
-Present the decision, the evidence, and the recommended option, then
-**wait**. Do not guess. Do not implement. Do not file a substitute item
-to dodge the gate. Everything else continues autonomously.
+Escalate to the operator when the loop cannot choose: conflicting reports, a
+scope that needs a new project, a lock it cannot release without destroying
+in-flight work, or any decision the operator reserved. Present the decision,
+the evidence, and the recommended option, then **wait**. Do not guess. Do not
+implement. Do not file a substitute item to dodge the gate. Everything else
+continues autonomously.
 
 ## Stop
 

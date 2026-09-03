@@ -15,7 +15,11 @@ absence -- a holder that asked nobody produces no row at all, because its
 silence has some other cause.
 
 Scoped to holders the idle detector already named: a busy session with an
-unanswered message is working, not waiting.
+unanswered message is working, not waiting. And scoped to messages that
+actually ask -- an interrogative sentence or an explicit reply request. A
+holder's last peer message is frequently a confirmation, which asks for
+nothing and waits on nothing; counting it produced exactly the false positive
+this module exists to avoid.
 
 A question addressed to the steering ROLE never appears here. Its answer
 does not depend on the session that happened to hold the seat: the message
@@ -37,6 +41,34 @@ from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
 #: sees the open question, but never as evidence that the wait is dead.
 UNRESOLVED = "unresolved"
 
+#: Phrasings that request a reply without asking a question. A peer message
+#: is otherwise only a wait when it contains an interrogative sentence.
+REPLY_REQUEST_PHRASES: tuple[str, ...] = (
+    "please reply",
+    "please send",
+    "confirm whether",
+    "let me know",
+)
+
+#: How far back a holder's own outbound messages are read for its open
+#: question. A question older than its recent conversation has been overtaken
+#: by whatever the holder said since, and resurrecting it invents a wait.
+ASK_SCAN_LIMIT = 20
+
+
+def message_asks(body: str | None) -> bool:
+    """Whether this message actually asks the recipient for something.
+
+    A confirmation is not a wait. One worker told a peer "Confirmed: none of
+    these files is in the diff" and the report read that as an open question,
+    sending the seat to answer a question nobody had asked.
+    """
+    text = str(body or "")
+    if "?" in text:
+        return True
+    lowered = text.lower()
+    return any(phrase in lowered for phrase in REPLY_REQUEST_PHRASES)
+
 
 @dataclass(frozen=True)
 class DeadWait:
@@ -56,20 +88,30 @@ class DeadWait:
 
 
 def _last_question(conn: Any, session_id: str) -> dict[str, Any] | None:
-    """The most recent message this session sent, and who was meant to answer."""
+    """The most recent message this session sent that asks something.
+
+    Scans back over the holder's recent conversation rather than reading only
+    its latest message, so a confirmation sent after a real question neither
+    counts as a wait itself nor hides the question still underneath it.
+    """
     p = marker(conn)
-    row = conn.execute(
+    rows = conn.execute(
         f"""SELECT m.message_id AS message_id,
                    m.created_at AS created_at,
+                   m.body AS body,
                    r.session_id AS answerer_session_id
               FROM session_messages m
               JOIN session_message_recipients r ON r.message_id = m.message_id
              WHERE m.sender_session_id = {p}
              ORDER BY m.created_at DESC, m.message_id DESC
-             LIMIT 1""",
+             LIMIT {ASK_SCAN_LIMIT}""",
         (session_id,),
-    ).fetchone()
-    return dict(row) if row is not None else None
+    ).fetchall()
+    for row in rows:
+        record = dict(row)
+        if message_asks(record.get("body")):
+            return record
+    return None
 
 
 def answered_after(conn: Any, *, answerer: str, asker: str, asked_at: str) -> bool:
@@ -185,4 +227,12 @@ def dead_waits(
     return tuple(waits)
 
 
-__all__ = ["UNRESOLVED", "DeadWait", "answered_after", "dead_waits"]
+__all__ = [
+    "ASK_SCAN_LIMIT",
+    "REPLY_REQUEST_PHRASES",
+    "UNRESOLVED",
+    "DeadWait",
+    "answered_after",
+    "dead_waits",
+    "message_asks",
+]

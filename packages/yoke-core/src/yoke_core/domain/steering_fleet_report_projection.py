@@ -20,6 +20,7 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
 )
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
+from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 
 
 def _landed_recovery(public_ref: str) -> str:
@@ -130,6 +131,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         "suspected_orphaned_waiters": [
             _holder_dict(holder) for holder in report.suspected_orphaned_waiters
         ],
+        "in_flight": _in_flight.in_flight_dicts(report.in_flight),
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}

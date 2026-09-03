@@ -19,6 +19,15 @@ it is presumed stuck". That is a judgment about a worker mid-task, not about
 a queue, and it is legitimately a longer number. The two shared one value
 once; they are unrelated concepts that happened to share a default.
 
+Quiet is not the same as stuck
+------------------------------
+A worker inside one long foreground call records no new tool call for as long
+as that call runs, so the quiet threshold alone reads a working merge wait or
+CI-routed QA gate as stuck. :mod:`steering_fleet_report_in_flight` separates
+the two: quiet holders whose open call is a known long-running shape are
+reported as in flight and excluded from the idle alarm, so the alarm keeps
+meaning "nobody is driving this".
+
 The stale-claim window is already covered
 -----------------------------------------
 A stale claim is deliberately not a candidate for available work: the item
@@ -68,6 +77,10 @@ from yoke_core.domain.steering_fleet_report_capacity import (
     live_session_counts,
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
+from yoke_core.domain.steering_fleet_report_in_flight import (
+    InFlightCall,
+    in_flight_calls,
+)
 from yoke_core.domain.steering_fleet_report_starvation import (
     StarvedDelivery,
     starved_deliveries,
@@ -128,6 +141,9 @@ class FleetReport:
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[tuple[str, str, int], ...]
     suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
+    #: Quiet holders sitting inside one long-running call. Reported so the
+    #: seat sees them, but never an alarm: these are workers working.
+    in_flight: tuple[InFlightCall, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.
@@ -135,6 +151,23 @@ class FleetReport:
     #: to a seat that has ended is not anyone's inbox item until a seat
     #: acquires the scope and drains it.
     messages_awaiting_seat: int = 0
+
+    @property
+    def unlisted_holders(self) -> tuple[ClaimHolder, ...]:
+        """Holders no section above already named, so no row is printed twice.
+
+        The claim inventory and the idle alarm render the same row shape, and
+        an empty section prints nothing, so an inventory that repeated every
+        finding put a byte-identical row directly under the alarm that named
+        it. A seat read one holder as two, and read the inventory's
+        below-threshold rows as more of the alarm.
+        """
+        named = {holder.session_id for holder in self.idle}
+        named.update(holder.session_id for holder in self.suspected_orphaned_waiters)
+        named.update(call.session_id for call in self.in_flight)
+        return tuple(
+            holder for holder in self.holders if holder.session_id not in named
+        )
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -177,6 +210,9 @@ class FleetReport:
             "suspected_orphaned_waiters": sorted(
                 (holder.session_id, holder.item_id)
                 for holder in self.suspected_orphaned_waiters
+            ),
+            "in_flight": sorted(
+                (call.session_id, call.command) for call in self.in_flight
             ),
             "dead_waits": sorted(
                 (entry.session_id, entry.answerer_session_id, entry.reason)
@@ -276,13 +312,21 @@ def compose_report(
 ) -> FleetReport:
     """Assemble one steering scope's report from live control-plane state."""
     holders = claim_holders(conn, project_id=project_id, now=now)
-    idle = tuple(
+    quiet = tuple(
         holder
         for holder in holders
         if holder.native_process_gone
         or (not holder.parked and holder.idle_seconds >= int(idle_after_seconds))
     )
-    alive_idle = tuple(holder for holder in idle if not holder.native_process_gone)
+    # A holder whose native process is verifiably gone is running nothing, so
+    # an open call row of its own is residue rather than work in progress.
+    alive_quiet = tuple(holder for holder in quiet if not holder.native_process_gone)
+    in_flight = in_flight_calls(conn, quiet=alive_quiet, now=now)
+    working = {call.session_id for call in in_flight}
+    idle = tuple(holder for holder in quiet if holder.session_id not in working)
+    alive_idle = tuple(
+        holder for holder in alive_quiet if holder.session_id not in working
+    )
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
@@ -297,6 +341,7 @@ def compose_report(
         ),
         landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
+        in_flight=in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
