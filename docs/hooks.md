@@ -32,10 +32,43 @@ the parent session or release its claims.
 
 ## Transport
 
-`yoke hook evaluate <event>` branches on the machine config's active connection (`yoke_cli.transport.https.resolve_https_connection`):
+`yoke hook evaluate <event>` is a thin Unix-socket client. For every non-dry
+invocation it sends the event, payload, caller pid/ppid, cwd, environment, and
+installed revision to one resident evaluator for the machine user. The
+resident keeps the canonical engine imported and uses one persistent HTTPS
+connection pool. It applies the caller context while evaluating, so session
+identity and policy behavior remain those of the originating harness process.
+Inside that resident, the canonical evaluator branches on the machine config's
+active connection (`yoke_cli.transport.https.resolve_https_connection`):
 
 - **local transport** (or `--dry-run`, which always stays local): the in-process shared hook runner (`yoke_core.hooks`) dispatches the chain exactly as before.
 - **https transport**: one policy chain evaluates split across the two sides. The CLI reads the hook payload once, detects the executor client-side, then (1) evaluates the `LOCAL_STATE_POLICIES` subset **client-side** via `yoke_harness.hooks.local_subset.evaluate_local_subset` — the packaged client-side policy evaluators — and (2) POSTs `{hook_schema, event_name, stdin, executor, agent_type, entrypoint, model, execution_lane, deadline_ms}` with the machine credential to the active env's `POST /v1/hooks/evaluate`, which evaluates everything else via `evaluate_remote`. The three identity fields are client-owned: the server cannot read the caller's local transcript/cache, entrypoint env, or no-project machine fallback routing inputs. Verdicts compose with **any deny wins, regardless of side**: a client deny renders immediately and skips the POST (the server verdict could not flip it); a server `outcome=denied` relays verbatim and drops client advisories (deny text is never diluted — the in-chain renderer's own rule); two allows merge stdouts via `decision_render.merge_allow_stdout` (sibling advisory envelopes join into one).
+
+**Resident lifecycle and recovery.** The client starts the singleton on first
+use. It exits after ten idle minutes, and a request from a different installed
+revision causes an orderly drain followed by re-exec before that request is
+retried. Concurrent connections evaluate in isolated caller contexts. An
+unreachable socket, protocol error, startup refusal, or mid-request crash is
+named on stderr and falls back to the same canonical in-process evaluator for
+that invocation; `HookDispatchTelemetry` records `evaluator=inprocess` and the
+fallback reason. Absence of the resident can therefore never manufacture an
+allow verdict.
+
+**Read-only hot path.** After an HTTPS server advertises
+`read_only_observation_batch_v1`, tool events whose complete canonical chains
+contain no decision-making guard run locally in the resident. The classifier
+comes from canonical chain ordering, not a separate allowlist; guarded tools
+such as Bash, Write, and Edit remain synchronous. The first read-only event for
+a session, and another at least every two seconds, still relays so pending
+messages can be injected. Events between those probes return locally and queue
+their unchanged `HarnessToolCallStarted`/`HarnessToolCallCompleted` and
+`HookDispatchTelemetry` effects. The resident flushes the ordered queue every
+two seconds or 32 observations, retries a failed prefix without dropping it,
+and emits `YOKE_HOOK_TELEMETRY_FLUSH_FAILED` while work is retained. Session
+heartbeat and tool-activity state advance when the batch commits, so their lag
+is bounded by the same flush interval. An older server does not advertise the
+capability, leaving every hook on the established synchronous path throughout
+a rolling upgrade.
 
 **Deadline contract.** One shared ceiling — `hook_runner_total_timeout_ms`, default 10000ms (`yoke_core.domain.hook_runner_deadline`) — spans both halves: the client-side subset fits within the remaining budget (head-starves-tail, identical to one in-process chain), the client's POST socket timeout is the remainder after it, `deadline_ms` propagates that same remainder, and the server stops launching further chain policies once it is exhausted (clamped to its own ceiling). A deny computed before expiry is preserved on either side; otherwise the response marks `deadline_exhausted` in `degraded` and names every skipped guard as `deadline_skipped:N:a,b,c`. Server-side latency telemetry: `yoke.hook.wait_ms` histogram + `yoke.hook.requests` counter with `outcome ∈ completed|timeout|denied` (the same `outcome` field rides the response for the client's composition).
 
