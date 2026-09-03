@@ -7,6 +7,7 @@ import subprocess
 import pytest
 
 from yoke_cli.config import hosted_machine_authorization as auth
+from yoke_cli.config import hosted_machine_browser as browser
 
 PENDING = auth.PendingMachineAuthorization(
     platform_url="https://app.upyoke.com",
@@ -27,14 +28,14 @@ def test_webbrowser_success_needs_no_fallback() -> None:
     opened: list[str] = []
     macos_calls: list[str] = []
 
-    result = auth.open_browser(
+    result = browser.open_browser(
         PENDING,
         browser_open=lambda url: opened.append(url) or True,
         macos_open=lambda url: macos_calls.append(url) or _completed(0),
-        platform=auth.MACOS_PLATFORM,
+        platform=browser.MACOS_PLATFORM,
     )
 
-    assert result == auth.BrowserOpenResult(opened=True, method="webbrowser")
+    assert result == browser.BrowserOpenResult(opened=True, method="webbrowser")
     assert opened == [PENDING.verification_uri_complete]
     assert macos_calls == []
 
@@ -42,11 +43,11 @@ def test_webbrowser_success_needs_no_fallback() -> None:
 def test_macos_open_command_covers_a_false_webbrowser_return() -> None:
     macos_calls: list[str] = []
 
-    result = auth.open_browser(
+    result = browser.open_browser(
         PENDING,
         browser_open=lambda _url: False,
         macos_open=lambda url: macos_calls.append(url) or _completed(0),
-        platform=auth.MACOS_PLATFORM,
+        platform=browser.MACOS_PLATFORM,
     )
 
     assert result.opened is True
@@ -59,11 +60,11 @@ def test_every_failed_attempt_is_named_in_order() -> None:
     def _raise(_url: str) -> bool:
         raise RuntimeError("no display")
 
-    result = auth.open_browser(
+    result = browser.open_browser(
         PENDING,
         browser_open=_raise,
         macos_open=lambda _url: _completed(1, stderr="LSOpenURLsWithRole() failed"),
-        platform=auth.MACOS_PLATFORM,
+        platform=browser.MACOS_PLATFORM,
     )
 
     assert result.opened is False
@@ -78,11 +79,11 @@ def test_a_missing_open_command_is_a_named_failure_not_a_crash() -> None:
     def _missing(_url: str) -> subprocess.CompletedProcess[str]:
         raise FileNotFoundError("open")
 
-    result = auth.open_browser(
+    result = browser.open_browser(
         PENDING,
         browser_open=lambda _url: False,
         macos_open=_missing,
-        platform=auth.MACOS_PLATFORM,
+        platform=browser.MACOS_PLATFORM,
     )
 
     assert result.opened is False
@@ -92,14 +93,14 @@ def test_a_missing_open_command_is_a_named_failure_not_a_crash() -> None:
 def test_other_platforms_report_the_webbrowser_failure_alone() -> None:
     macos_calls: list[str] = []
 
-    result = auth.open_browser(
+    result = browser.open_browser(
         PENDING,
         browser_open=lambda _url: False,
         macos_open=lambda url: macos_calls.append(url) or _completed(0),
         platform="linux",
     )
 
-    assert result == auth.BrowserOpenResult(
+    assert result == browser.BrowserOpenResult(
         opened=False, reason="webbrowser.open returned False",
     )
     assert macos_calls == []
