@@ -21,6 +21,7 @@ from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noq
 from yoke_contracts import hosting_posture  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
+    _aws_cli_present,
     _isolated_machine_home,
     _stub_path_doctor,
     body_text,

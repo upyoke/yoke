@@ -21,6 +21,7 @@ from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.adapters.dev import PROJECT_ID_ENV
+from yoke_cli.config import aws_cli_prerequisite
 
 VPS_POWER_USAGE = "yoke vps <status|stop|start> --stack STACK [--project P] [--region R]"
 
@@ -52,8 +53,14 @@ def _parser(verb: str) -> argparse.ArgumentParser:
 
 
 def _aws(args: List[str], env: dict) -> str:
+    try:
+        cli = aws_cli_prerequisite.check_aws_cli()
+    except aws_cli_prerequisite.AwsCliPrerequisiteError as exc:
+        raise VpsPowerError(
+            "\n".join((str(exc), *(f"  {line}" for line in exc.detail_lines)))
+        ) from exc
     result = subprocess.run(
-        ["aws", *args], env=env, capture_output=True, text=True,
+        [cli.executable, *args], env=env, capture_output=True, text=True,
     )
     if result.returncode:
         raise VpsPowerError((result.stderr or result.stdout).strip())

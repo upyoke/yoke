@@ -18,18 +18,24 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config import aws_admin_capability as hosting  # noqa: E402
+from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noqa: E402
+from yoke_cli.config import onboard_wizard_hosting_prerequisite as prerequisite  # noqa: E402
 from yoke_contracts import hosting_posture  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     ACCESS_KEY_ID,
     SECRET_ACCESS_KEY,
+    _aws_cli_present,
     _isolated_machine_home,
     _stub_path_doctor,
     body_text,
     drive,
     paste_credentials,
     reach_credential_screen,
+    reach_provider_screen,
+    stub_aws_cli,
+    stub_aws_cli_missing,
     stub_identity,
 )
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
@@ -226,3 +232,72 @@ def test_unexpected_failure_is_not_blamed_on_aws(monkeypatch) -> None:
     body = drive(app, action)
     assert "Couldn't save the hosting credential." in body
     assert "couldn't verify" not in body
+
+
+# --------------------------------------------------------------------------- #
+# The AWS CLI prerequisite
+# --------------------------------------------------------------------------- #
+
+
+async def _choose_aws(a: Any, pilot: Any) -> None:
+    await reach_provider_screen(a, pilot)
+    a._on_hosting_provider_choice("aws")
+    await a.workers.wait_for_complete()
+    await pilot.pause()
+
+
+def test_missing_aws_cli_refuses_before_asking_for_a_key(monkeypatch) -> None:
+    """A machine that cannot run the AWS CLI is told so, not asked for a key."""
+    stub_aws_cli_missing(
+        monkeypatch,
+        detail_lines=("Install it: sudo installer -pkg AWSCLIV2.pkg -target /",),
+    )
+    app, _spy = make_app()
+
+    body = drive(app, _choose_aws)
+
+    assert hosting_steps.HOSTING_PREREQUISITE_TITLE in body
+    assert "not installed on this machine" in body
+    assert "AWSCLIV2.pkg" in body
+    # The credential screens are not reachable from a refused prerequisite.
+    assert "Access key ID" not in body
+    assert hosting_steps.HOSTING_AWS_SIGN_IN_TITLE not in body
+    # Nothing was saved and nothing was verified.
+    assert "aws-admin saved" not in body
+    assert app.result.hosting_verification is None
+    assert not hosting.credential_saved("acme-app")
+
+
+def test_refused_prerequisite_keeps_the_aws_answer_available(monkeypatch) -> None:
+    """Installing the CLI and checking again continues into AWS, not around it."""
+    stub_aws_cli_missing(monkeypatch)
+    app, _spy = make_app()
+
+    async def action(a: Any, pilot: Any) -> None:
+        await _choose_aws(a, pilot)
+        # The operator installs the AWS CLI, then takes "Check again".
+        stub_aws_cli(monkeypatch)
+        prerequisite.on_refusal_choice(a, "retry")
+        await a.workers.wait_for_complete()
+        await pilot.pause()
+
+    body = drive(app, action)
+    assert hosting_steps.HOSTING_AWS_SIGN_IN_TITLE in body
+
+
+def test_refused_prerequisite_leaves_hosting_undecided_only_by_choice(
+    monkeypatch,
+) -> None:
+    """"Not now" is a decision the operator makes, and it stores no posture."""
+    stub_aws_cli_missing(monkeypatch)
+    app, _spy = make_app()
+
+    async def action(a: Any, pilot: Any) -> None:
+        await _choose_aws(a, pilot)
+        prerequisite.on_refusal_choice(a, "skip")
+        await pilot.pause()
+
+    drive(app, action)
+
+    assert app.result.hosting_choice == hosting_posture.POSTURE_UNDECIDED
+    assert app.result.hosting_verification is None

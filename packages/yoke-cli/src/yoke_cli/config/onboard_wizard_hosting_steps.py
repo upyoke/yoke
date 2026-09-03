@@ -83,6 +83,18 @@ HOSTING_RETRY_ROWS = [
     SelectionRow("skip", "Not now", "Continue without AWS credentials"),
 ]
 
+# The AWS branch needs the AWS CLI before it is worth asking for a key, so this
+# screen comes between choosing AWS and entering anything. "Back" is offered
+# explicitly rather than left to the keyboard: an operator who cannot install
+# the CLI right now still gets to give a different hosting answer instead of
+# being pushed into "decide later" as the only way out.
+HOSTING_PREREQUISITE_TITLE = "Yoke needs the AWS CLI before it asks for a key."
+HOSTING_PREREQUISITE_ROWS = [
+    SelectionRow("retry", "Check again", "after installing the AWS CLI"),
+    SelectionRow("back", "Back", "give a different hosting answer"),
+    SelectionRow("skip", "Not now", "/yoke onboard asks again"),
+]
+
 HOSTING_GUIDED_KEY_TITLE = "Create a dedicated deploy key"
 HOSTING_GUIDED_KEY_SUBTITLE = (
     "New to AWS? Create an account at aws.amazon.com first, then return here."
@@ -290,6 +302,8 @@ __all__ = [
     "HOSTING_NO_MANAGED_HOST_FIELDS",
     "HOSTING_NO_MANAGED_HOST_ROWS",
     "HOSTING_NO_MANAGED_HOST_TITLE",
+    "HOSTING_PREREQUISITE_ROWS",
+    "HOSTING_PREREQUISITE_TITLE",
     "HOSTING_PROVIDER_NOTE_FIELD",
     "HOSTING_PROVIDER_ROWS",
     "HOSTING_PROVIDER_SUBTITLE",

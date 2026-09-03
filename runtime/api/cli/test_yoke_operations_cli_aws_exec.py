@@ -2,8 +2,28 @@ from __future__ import annotations
 
 import types
 
+import pytest
+
 from yoke_cli.commands.adapters import aws as aws_adapter
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+
+
+@pytest.fixture(autouse=True)
+def _aws_cli_present(monkeypatch):
+    """Exec scenarios are about credential plumbing, not the machine's CLI.
+
+    ``aws exec`` preflights the executable first, so without this the suite
+    would pass only on a machine that has the AWS CLI installed. The
+    executable name is kept as ``aws`` so the argv assertions read as the
+    command an operator types.
+    """
+    monkeypatch.setattr(
+        aws_adapter.aws_cli_prerequisite,
+        "check_aws_cli",
+        lambda: aws_adapter.aws_cli_prerequisite.AwsCli(
+            executable="aws", version="aws-cli/2.0.0",
+        ),
+    )
 
 
 class Completed:
@@ -170,7 +190,8 @@ def test_aws_exec_settings_relay_failure_surfaces_error(monkeypatch, capsys):
     assert "control plane unreachable" in capsys.readouterr().err
 
 
-def test_aws_exec_missing_binary_returns_127(monkeypatch):
+def test_aws_exec_reports_an_install_that_vanished_mid_call(monkeypatch, capsys):
+    """The preflight passed, then the executable went away before the exec."""
     fake_deploy_remote = types.SimpleNamespace(
         aws_machine_capability_env=lambda project, region: {"AWS_REGION": region},
     )
@@ -185,6 +206,13 @@ def test_aws_exec_missing_binary_returns_127(monkeypatch):
         "call_dispatcher",
         lambda **_k: _settings_response('{"region": "us-east-1"}'),
     )
+    monkeypatch.setattr(
+        aws_adapter.aws_cli_prerequisite,
+        "check_aws_cli",
+        lambda: aws_adapter.aws_cli_prerequisite.AwsCli(
+            executable="/usr/local/bin/aws", version="aws-cli/2.0.0",
+        ),
+    )
 
     def fake_run(argv, *, env):
         raise FileNotFoundError
@@ -192,6 +220,9 @@ def test_aws_exec_missing_binary_returns_127(monkeypatch):
     monkeypatch.setattr(aws_adapter.subprocess, "run", fake_run)
 
     assert aws_adapter.aws_exec(["--", "sts", "get-caller-identity"]) == 127
+    err = capsys.readouterr().err
+    assert "/usr/local/bin/aws" in err
+    assert "Reinstall it:" in err
 
 
 def test_aws_exec_requires_aws_args(capsys):
