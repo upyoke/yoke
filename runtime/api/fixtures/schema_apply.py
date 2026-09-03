@@ -49,6 +49,9 @@ def apply_canonical_schema(conn) -> None:
     from yoke_core.domain.external_identity_schema import (
         create_external_identity_tables,
     )
+    from yoke_core.domain.machine_registry_schema import (
+        ensure_machine_registry_schema,
+    )
     from yoke_core.domain.org_schema import seed_default_org
     from yoke_core.domain.project_seed_test_helpers import seed_project_identities
     from yoke_core.domain.shepherd import cmd_init as shepherd_cmd_init
@@ -66,6 +69,7 @@ def apply_canonical_schema(conn) -> None:
     create_actor_path_claim_tables(conn)
     create_auth_tables(conn)
     create_external_identity_tables(conn)
+    ensure_machine_registry_schema(conn)
     seed_default_org(conn)
     seed_roles_and_permissions(conn)
     apply_idempotent_migrations(conn)

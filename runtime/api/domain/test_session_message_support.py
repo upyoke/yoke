@@ -14,6 +14,7 @@ from yoke_core.domain.actor_permissions import (
     grant_actor_project_role,
     seed_roles_and_permissions,
 )
+from yoke_core.domain.machine_registry_schema import ensure_machine_registry_schema
 from yoke_core.domain.session_control_schema import create_session_control_tables
 
 
@@ -173,6 +174,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             (3,'s3','process','{{"conflict_group":"build-beta","process_key":"build-beta"}}','{NOW_TEXT}');
         """
     )
+    ensure_machine_registry_schema(conn)
     create_session_control_tables(conn)
     seed_roles_and_permissions(conn)
     for project_id in (1, 2):

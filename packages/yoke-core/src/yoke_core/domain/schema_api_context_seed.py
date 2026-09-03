@@ -213,6 +213,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # reads a gate's refusal needs to know that the rung which discharged it
 # is recorded on the item, and that a derived project fact nobody has
 # converged reads as unknown rather than as false — guessing either way
-# turns an honest refusal into a suspected bug.
-PACKET_LINE_BUDGET_PER_ROLE: int = 434
-PACKET_LINE_BUDGET_AGGREGATE: int = 2676
+# turns an honest refusal into a suspected bug. The last two lines of the
+# per-role cap are the machines row: an agent that reads a relay refusal or a
+# launch that named no eligible machine has to know the registered machine is
+# where identity, ownership and access live, and no other table teaches it.
+PACKET_LINE_BUDGET_PER_ROLE: int = 436
+PACKET_LINE_BUDGET_AGGREGATE: int = 2690

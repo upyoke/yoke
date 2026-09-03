@@ -103,6 +103,28 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     # qa-family entries live in the _qa sibling module (350-cap split).
     *QA_ADAPTERS,
     *TEST_MACHINE_ADAPTERS,
+    AdapterEntry(
+        "machine.register",
+        "yoke machine register [--name NAME] [--rotate-key]",
+        notes="registers this host's id and the public half of its proof key",
+    ),
+    AdapterEntry(
+        "machine.settings.set",
+        "yoke machine settings set [MACHINE-ID] --path use.mode --value universe",
+        notes="owner or administrator edits one leaf of the access document",
+    ),
+    _read_entry(
+        function_id="machine.list",
+        cli_invocation="yoke machine list [--mine]",
+    ),
+    _read_entry(
+        function_id="machine.show",
+        cli_invocation="yoke machine show [MACHINE-ID]",
+    ),
+    _read_entry(
+        function_id="machine.settings.get",
+        cli_invocation="yoke machine settings get [MACHINE-ID] [--path use.mode]",
+    ),
     # Cross-family readers (db_router forms stay operator-debug).
     _read_entry(
         function_id="events.tail.run", cli_invocation="yoke events tail --limit N"

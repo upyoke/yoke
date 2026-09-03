@@ -38,6 +38,9 @@ AUTHZ_BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     ("project.install", AuthzSpec(CLIENT_LOCAL, None)),
     ("project.refresh", AuthzSpec(CLIENT_LOCAL, None)),
     ("project.uninstall", AuthzSpec(CLIENT_LOCAL, None)),
+    # A machine belongs to an actor in the universe, not to a project, and
+    # the registry handlers enforce owner-or-administrator themselves.
+    ("machine.", AuthzSpec(ACTOR_SESSION, None)),
     ("harness.machine_report.", AuthzSpec(ACTOR_SESSION, None)),
     ("session_control.", AuthzSpec(ACTOR_SESSION, None)),
     # Steering acts on one project's own backlog and files launches against
@@ -46,7 +49,6 @@ AUTHZ_BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     # operation and classifies under the `claims.` prefix instead.)
     ("steering.", AuthzSpec(PROJECT, PERM_ITEMS_WRITE)),
 )
-
 
 
 __all__ = ["AUTHZ_BY_PREFIX"]

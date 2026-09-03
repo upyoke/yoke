@@ -4,51 +4,18 @@ from __future__ import annotations
 
 import json
 
-from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain import session_relay as relay_domain
 from yoke_core.domain.handlers import session_relay as relay_handlers
 from yoke_core.domain.session_relay_types import RelayClaimOutcome
 from yoke_core.domain.actor_permissions import ROLE_OPERATOR, grant_actor_project_role
+from runtime.api.domain.session_relay_handler_test_support import (
+    Connection as _Connection,
+    NoCloseConnection as _NoCloseConnection,
+    claim_payload as _claim_payload,
+    machine_is_proved as _machine_is_proved,
+    relay_request as _request,
+)
 from runtime.api.domain.test_session_message_support import message_connection
-
-
-def _request(function: str, payload: dict, *, actor_id: str | None = "41"):
-    return FunctionCallRequest.model_validate(
-        {
-            "function": function,
-            "actor": {"actor_id": actor_id, "session_id": "machine-token"},
-            "target": {"kind": "global"},
-            "payload": payload,
-        }
-    )
-
-
-def _claim_payload() -> dict:
-    return {
-        "relay_id": "relay-1",
-        "machine_id": "11111111-1111-4111-8111-111111111111",
-        "hostname": "host-1",
-        "relay_version": "1.0",
-        "projects": [10],
-        "surfaces": {"codex-cli": "0.148.0-alpha.15"},
-        "wait_seconds": 0,
-    }
-
-
-class _Connection:
-    def close(self) -> None:
-        pass
-
-
-class _NoCloseConnection:
-    def __init__(self, conn):
-        self._conn = conn
-
-    def __getattr__(self, name):
-        return getattr(self._conn, name)
-
-    def close(self) -> None:
-        pass
 
 
 def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None:
@@ -82,6 +49,7 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
         )
 
     monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
+    _machine_is_proved(monkeypatch)
     monkeypatch.setattr(
         "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
         authorize,
@@ -134,6 +102,7 @@ def test_broker_claim_forwards_exact_lease_and_verified_session(monkeypatch) -> 
         )
 
     monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
+    _machine_is_proved(monkeypatch)
     monkeypatch.setattr(
         "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
         lambda *_args, **_kwargs: None,
@@ -211,6 +180,7 @@ def test_authorized_claim_stamps_actor_and_only_advertised_projects(
     from yoke_core.domain import db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
+    _machine_is_proved(monkeypatch)
     payload = _claim_payload()
     payload["projects"] = [1]
 

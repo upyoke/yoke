@@ -141,10 +141,16 @@ def apply_fixture_ddl(conn: Any, ddl: str) -> None:
 def apply_fixture_schema(conn: Any) -> None:
     """Apply the composed fixture schema to *conn*."""
     apply_fixture_ddl(conn, _schema_ddl())
+    from yoke_core.domain.machine_registry_schema import (
+        ensure_machine_registry_schema,
+    )
     from yoke_core.domain.session_control_schema import (
         create_session_control_tables,
     )
 
+    # Machines own the ids every session-control row names, so the registry
+    # converges first here exactly as it does at boot.
+    ensure_machine_registry_schema(conn)
     create_session_control_tables(conn)
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
