@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from yoke_cli.commands import _helpers
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
+from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut
 from runtime.api.cli.test_yoke_operations_cli_deployment import _run_capture
 
 
@@ -49,7 +50,7 @@ def test_terminal_lifecycle_receipt_precedes_lane_cleanup(monkeypatch) -> None:
 
     def cleanup(*_args, **_kwargs):
         timeline.append("cleanup")
-        return ()
+        return TerminalLaneCloseOut()
 
     monkeypatch.setattr(
         _helpers.importlib,
