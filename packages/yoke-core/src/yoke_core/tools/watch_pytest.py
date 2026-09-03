@@ -21,10 +21,12 @@ Usage::
     yoke watch pytest --local -- runtime/api/ runtime/harness/ tests/
 
 Pass BARE pytest args after ``--``; the wrapper supplies the pytest command
-prefix and rejects ``-- python3 -m pytest …``. Local runs inject ``-n auto``
-(pytest-xdist) unless the pass-through names ``-n``; use ``-n 0`` for
-sequential debugging. The wrapper preserves the underlying exit code — a
-remote run's mirrors the CI conclusion.
+prefix and rejects ``-- python3 -m pytest …``.
+Parallel-by-default: ``-n auto`` (pytest-xdist) is injected into a local
+run unless the pass-through supplies its own ``-n``/``--numprocesses``;
+use ``-n 0`` for sequential order-sensitive debugging. A remote run drops
+those flags, which describe this machine. The wrapper preserves the
+underlying exit code — a remote run's mirrors the CI conclusion.
 """
 
 from __future__ import annotations

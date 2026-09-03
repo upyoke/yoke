@@ -174,21 +174,6 @@ def _isolate_machine_config(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _keep_pytest_runs_local(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pin the test wrappers to this machine for the whole suite.
-
-    ``watch_pytest`` and ``run_tests`` execute on the project's CI by
-    default, which starts by pushing the tree they are invoked in. A test
-    that calls either entry point in-process is standing in a real
-    checkout, so without this pin it would publish that checkout and
-    dispatch a workflow. Tests of the routing itself delete the variable.
-    """
-    from yoke_core.tools.pytest_remote_selection import LOCAL_ENV
-
-    monkeypatch.setenv(LOCAL_ENV, "1")
-
-
-@pytest.fixture(autouse=True)
 def _ensure_test_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mint a synthetic ambient session id for the test process.
 
