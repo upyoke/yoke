@@ -8,6 +8,7 @@ import pytest
 
 from yoke_core.domain import project_scratch_dir as scratch
 from yoke_core.domain import project_scratch_roots as roots
+from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_core.domain import project_scratch_segments as segments
 
 
@@ -34,7 +35,9 @@ def test_public_export_surface_is_complete() -> None:
 
 
 def _patch_repo_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
-    monkeypatch.setattr(scratch, "find_repo_root", lambda start=None: root, raising=False)
+    monkeypatch.setattr(
+        scratch, "find_repo_root", lambda start=None: root, raising=False
+    )
 
 
 def _patch_checkout_project(
@@ -236,7 +239,7 @@ def test_default_dispatch_inputs_uses_os_tmpdir_scratch(
     _set_identity(monkeypatch)
     monkeypatch.delenv(scratch.ENV_KEY, raising=False)
     monkeypatch.setattr(
-        scratch.machine_config,
+        machine_runtime,
         "temp_root",
         lambda path=None: str(tmp_path / "machine-tmp"),
     )

@@ -9,6 +9,13 @@ from typing import Any, Callable, Mapping
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
+from yoke_core.domain.session_evidence_fetch import (
+    expire_stale_evidence_requests,
+)
+from yoke_core.domain.session_evidence_relay_job import (
+    claim_evidence_fetch,
+    report_evidence_fetch,
+)
 from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
 from yoke_core.domain.session_relay_jobs import (
     claim_wake_job,
@@ -92,6 +99,7 @@ def claim_relay_job(
 
     reconcile_spawned_wake_attempts(conn, now=current)
     release_expired_termination_leases(conn, now=current)
+    expire_stale_evidence_requests(conn, now=current)
     settle_expired_relay_leases(conn, now=current)
     expire_due_recipients(conn, now=parse_timestamp(current))
     conn.commit()
@@ -137,6 +145,12 @@ def claim_relay_job(
             else claim_termination_reap(conn, heartbeat, now=current)
         )
         jobs: tuple[Any, ...] = (termination,) if termination is not None else ()
+        if not jobs and not broker_only:
+            # A seat's dispatch is blocked on this read and it costs the
+            # machine one file tail, so it goes ahead of the minutes-long
+            # native work rather than behind it.
+            evidence = claim_evidence_fetch(conn, heartbeat, now=current)
+            jobs = (evidence,) if evidence is not None else ()
         if not jobs:
             jobs = (
                 ()
@@ -227,6 +241,7 @@ def report_relay_job(
     native_session_id: str | None = None,
     adapter_revision: str | None = None,
     evidence: Mapping[str, Any] | None = None,
+    document: Mapping[str, Any] | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
     """Persist one bounded native result without logging job payloads."""
@@ -261,6 +276,21 @@ def report_relay_job(
             evidence=evidence,
             now=current,
         )
+    if job_kind == "evidence":
+        if native_session_id:
+            raise SessionRelayError(
+                "native_id_forbidden",
+                "evidence reports never carry a native session id",
+            )
+        return report_evidence_fetch(
+            conn,
+            relay_id=relay_id,
+            fetch_id=job_id,
+            lease_id=lease_id,
+            result_code=result_code,
+            document=document,
+            now=current,
+        )
     if job_kind == "terminate":
         if native_session_id:
             raise SessionRelayError(
@@ -278,7 +308,8 @@ def report_relay_job(
             now=current,
         )
     raise SessionRelayError(
-        "job_kind_invalid", "relay job kind must be launch, wake, or terminate"
+        "job_kind_invalid",
+        "relay job kind must be launch, wake, terminate, or evidence",
     )
 
 

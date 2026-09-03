@@ -91,9 +91,7 @@ def _error_code(response: Any) -> str:
 
 
 def _report_payload(
-    inventory: RelayInventory,
-    job: Mapping[str, Any],
-    result: RelayAdapterResult,
+    inventory: RelayInventory, job: Mapping[str, Any], result: RelayAdapterResult
 ) -> dict[str, object]:
     return {
         "relay_id": inventory.relay_id,
@@ -104,6 +102,7 @@ def _report_payload(
         "native_id": result.native_session_id,
         "adapter_revision": result.adapter_revision,
         "evidence": redacted_evidence_document(result.evidence),
+        "document": result.document,
     }
 
 

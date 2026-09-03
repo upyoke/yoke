@@ -60,6 +60,7 @@ def _starved_dict(entry: StarvedDelivery) -> dict[str, Any]:
         "operator_wake": entry.operator_wake,
         "attempt_count": entry.attempt_count,
         "diagnostic": entry.diagnostic,
+        "evidence_id": entry.evidence_id,
     }
 
 
@@ -73,6 +74,7 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
         "result_code": entry.result_code,
         "native_session_id": entry.native_session_id,
         "observed_session_id": entry.observed_session_id,
+        "evidence_id": entry.evidence_id,
         "native_launch_pid": entry.native_launch_pid,
         "native_launch_phase": entry.native_launch_phase,
         "native_stderr_tail": entry.native_stderr_tail,

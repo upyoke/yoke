@@ -36,10 +36,13 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # table must instead restore through boot convergence and leave this digest
 # unchanged. Current value drops the addressed-delivery table and the
 # decision-request blocking flag, both retired by an ordered history entry,
-# adds the decision-record table each approval decision lands in, and adds the
-# per-machine Overview activation latch table (overview_machine_activation_facts).
+# adds the decision-record table each approval decision lands in, the
+# per-machine Overview activation latch table (overview_machine_activation_facts),
+# and the machine-local evidence fetch table, whose every column ships with the
+# table itself: the request, the lease the owning relay takes on it, and the
+# bounded answer that comes back.
 _BORN_WITH_COLUMN_DIGEST = (
-    "d2b2ac4bf2de467df264a3ccbaf1e08f8abcec82880081ef9fb7af9b7fdc9c88"
+    "406af972f5df6791ef4f2415f8b5206fb0a96bee95dd118ef907a31522ef977b"
 )
 
 

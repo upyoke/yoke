@@ -56,6 +56,18 @@ SESSION_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="session_control.evidence.get",
+        cli_invocation=(
+            "yoke session-control evidence get --session SESSION-ID "
+            "[--kind relay|watcher|diagnostic] [--file NAME] "
+            "[--evidence-id ND-REF] [--tail N] [--wait-seconds N]"
+        ),
+        notes=(
+            "records the request the owning machine's relay answers, so it "
+            "writes a row rather than reading one"
+        ),
+    ),
+    AdapterEntry(
         function_id="session_control.keepalive.hold",
         cli_invocation=(
             "yoke sessions keepalive hold SESSION-ID --reason R [--seconds N]"

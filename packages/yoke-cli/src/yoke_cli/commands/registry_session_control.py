@@ -8,6 +8,9 @@ from yoke_cli.commands.adapters.session_control_acceptance import (
     ACCEPTANCE_RUN_USAGE,
     session_control_acceptance_run,
 )
+from yoke_cli.commands.adapters.session_control_evidence import (
+    session_evidence_get,
+)
 from yoke_cli.commands.adapters.session_control_keepalive import (
     session_keepalive_hold,
     session_keepalive_release,
@@ -149,6 +152,10 @@ SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
     ("session-control", "surface-policy", "enable"): (
         "session_control.surface_policy.enable",
         session_surface_policy_enable,
+    ),
+    ("session-control", "evidence", "get"): (
+        "session_control.evidence.get",
+        session_evidence_get,
     ),
     ("session-control", "surface-policy", "list"): (
         "session_control.surface_policy.list",

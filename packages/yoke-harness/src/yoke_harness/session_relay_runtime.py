@@ -108,6 +108,10 @@ class RelayAdapterResult:
     native_session_id: str | None = None
     adapter_revision: str | None = None
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    #: An evidence read's listing and file tail. Every other job reports only
+    #: through the bounded ``evidence`` allowlist, which holds short named
+    #: facts and would drop a file's contents without saying so.
+    document: Mapping[str, Any] | None = None
     private_diagnostic: "RelayPrivateDiagnostic | None" = field(
         default=None,
         repr=False,
@@ -207,6 +211,10 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
 
 
 def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
+    if str(job.get("job_kind") or "") == "evidence":
+        from yoke_harness.session_relay_evidence_files import read_session_evidence
+
+        return read_session_evidence(job)
     if str(job.get("job_kind") or "") == "terminate":
         from yoke_harness.session_relay_termination import reap_terminated_session
 
