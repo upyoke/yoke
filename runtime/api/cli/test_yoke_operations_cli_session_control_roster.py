@@ -180,6 +180,36 @@ def test_roster_point_lookup_dispatches_the_exact_session_filter(monkeypatch) ->
     assert captured["json_mode"] is True
 
 
+def test_roster_names_a_pending_launch_binding_window() -> None:
+    output = io.StringIO()
+    roster.write_roster_result(
+        {
+            "fields": list(SESSION_CONTROL_ROSTER_FIELDS),
+            "rows": [
+                {
+                    "session_id": "session-1",
+                    "project": "yoke",
+                    "executor": "claude-code",
+                    "executor_surface": "claude-cli",
+                    "liveness": "active",
+                    "claims": [],
+                    "messageability": {"messageable": True},
+                    "end_blocker": {
+                        "status": "launch_delivery_pending",
+                        "launch_id": "launch-1",
+                        "launch_count": 1,
+                        "binding_window_ends_at": "2026-08-23T12:03:00Z",
+                    },
+                }
+            ],
+        },
+        output,
+    )
+
+    rendered = output.getvalue()
+    assert "launch launch-1 binding until 2026-08-23T12:03:00Z" in rendered
+
+
 def test_registry_override_and_usage_map_are_ready_for_aggregation() -> None:
     function_id, adapter = SESSION_CONTROL_SUBCOMMAND_REGISTRY[("sessions", "list")]
     assert function_id == "sessions.list"

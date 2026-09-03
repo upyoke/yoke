@@ -4,9 +4,18 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.launch_registration import (
+    IDENTITY_REGISTRATION_WAIT_CODE,
+)
 from yoke_core.domain.session_launch_native_progress import native_launch_updates
+from yoke_core.domain.session_launch_registration_candidate import (
+    wait_for_launch_registration_candidate,
+)
 from yoke_core.domain.session_launch_store import update_launch
-from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
+from yoke_core.domain.session_relay_evidence import (
+    merge_redacted_evidence,
+    redacted_evidence_document,
+)
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
 
@@ -51,6 +60,17 @@ def report_launch_progress(
     if str(row[1] or "") == "relay_lease_expired":
         updates["result_evidence"] = merged
     launch = update_launch(conn, launch_id, **updates) if updates else None
+    conn.commit()
+    registration = None
+    safe = redacted_evidence_document(evidence)
+    if safe.get("result_code") == IDENTITY_REGISTRATION_WAIT_CODE:
+        registration = wait_for_launch_registration_candidate(
+            conn,
+            launch_id=launch_id,
+            lease_id=lease_id,
+            initial_now=now,
+        )
+        launch = None
     if launch is None:
         launch_row = conn.execute(
             f"SELECT state,result_code FROM session_launches WHERE launch_id={p}",
@@ -60,7 +80,10 @@ def report_launch_progress(
     else:
         state, result_code = launch.state, str(launch.result_code or "")
     conn.commit()
-    return {"launch_id": launch_id, "state": state, "result_code": result_code}
+    result = {"launch_id": launch_id, "state": state, "result_code": result_code}
+    if registration is not None:
+        result["registration"] = registration
+    return result
 
 
 __all__ = ["report_launch_progress"]

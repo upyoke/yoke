@@ -1,6 +1,15 @@
 """Claim-aware session auto-end behavior."""
 
+import json
+from datetime import timedelta
+
 from runtime.api.test_sessions import _insert_claimable_item, _register
+from yoke_core.domain.session_control_schema import create_session_control_tables
+from yoke_core.domain.session_launch_execution import claim_assigned_launch
+from yoke_core.domain.session_launch_requests import create_launch
+from yoke_core.domain.session_launch_types import LaunchAuthorization, LaunchRequest
+from yoke_core.domain.session_message_types import timestamp, utc_now
+from yoke_core.domain.session_relay_launch_progress import report_launch_progress
 from yoke_core.domain.sessions import claim_work, end_session_if_empty
 
 pytest_plugins = ("runtime.api.test_sessions",)
@@ -130,3 +139,91 @@ def test_ends_session_when_the_woken_message_was_acknowledged(conn):
 
     assert result["status"] == "ended"
     assert result["ended"] is True
+
+
+def test_skips_registered_session_while_its_launch_is_pending_binding(conn):
+    create_session_control_tables(conn)
+    now = utc_now()
+    started_at = timestamp(now)
+    machine_id = "33333333-3333-4333-8333-333333333333"
+    session_id = "87654321-4321-4321-8321-cba987654321"
+    actor_id = int(
+        conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
+    conn.execute(
+        "INSERT INTO session_relays ("
+        "relay_id,actor_id,machine_id,hostname,surface_versions,project_checkouts,"
+        "first_seen_at,last_seen_at,connected_until,state) "
+        "VALUES ('relay-registration-hold',%s,%s,'relay-host',%s,%s,%s,%s,%s,'active')",
+        (
+            actor_id,
+            machine_id,
+            json.dumps({"claude-cli": "2.1.238"}),
+            json.dumps([1]),
+            started_at,
+            started_at,
+            timestamp(now + timedelta(minutes=10)),
+        ),
+    )
+    conn.commit()
+    launch = create_launch(
+        conn,
+        auth=LaunchAuthorization(
+            actor_id=actor_id,
+            session_id=None,
+            can_operate_project=True,
+        ),
+        request=LaunchRequest(
+            project_id=1,
+            executor_surface="claude-cli",
+            instructions="Wait for the automatic launch instruction.",
+            idempotency_key="pending-registration-end-hold",
+            machine_id=machine_id,
+            presentation="local",
+        ),
+        now=started_at,
+    ).launch
+    claim = claim_assigned_launch(
+        conn,
+        launch_id=launch.launch_id,
+        relay_id="relay-registration-hold",
+        machine_id=machine_id,
+        now=started_at,
+    )
+    report_launch_progress(
+        conn,
+        relay_id="relay-registration-hold",
+        launch_id=launch.launch_id,
+        lease_id=claim.lease_id,
+        adapter_revision="claude-native-v7",
+        evidence={
+            "result_code": "native_spawn_pending",
+            "native_launch_phase": "spawn_started",
+            "native_launch_pid": 4242,
+            "native_launch_workspace": "/tmp/work",
+            "native_launch_bound_seconds": 180,
+        },
+        now=started_at,
+    )
+    _register(
+        conn,
+        session_id=session_id,
+        executor="claude-code",
+        entrypoint="cli",
+        executor_version="2.1.238",
+        machine_id=machine_id,
+    )
+
+    result = end_session_if_empty(conn, session_id)
+
+    assert result["status"] == "launch_delivery_pending"
+    assert result["ended"] is False
+    assert result["launch_id"] == launch.launch_id
+    assert result["launch_count"] == 1
+    assert result["recovery"] == (
+        f"yoke session-control launch get {launch.launch_id} --json"
+    )
+    row = conn.execute(
+        "SELECT ended_at FROM harness_sessions WHERE session_id=%s", (session_id,)
+    ).fetchone()
+    assert row["ended_at"] is None

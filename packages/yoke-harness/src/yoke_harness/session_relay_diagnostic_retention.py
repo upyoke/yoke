@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from yoke_contracts.session_control.launch_registration import (
+    BACKGROUND_IDENTITY_MISSING_CODE,
+    IDENTITY_LISTING_LAGGED_CODE,
+)
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     store_native_diagnostic,
@@ -15,7 +19,9 @@ from yoke_harness.session_relay_runtime import RelayAdapterResult
 NATIVE_FAILURE_CLASSES = frozenset(
     {
         "adapter_exception",
+        BACKGROUND_IDENTITY_MISSING_CODE,
         "background_session_in_use",
+        IDENTITY_LISTING_LAGGED_CODE,
         "identity_parse_failed",
         "native_exception",
         "no_conversation_found",

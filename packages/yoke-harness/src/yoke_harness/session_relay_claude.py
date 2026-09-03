@@ -11,6 +11,9 @@ from yoke_harness.session_relay_claude_identity import (
     resolve_background_session,
 )
 from yoke_harness.session_relay_claude_process import ClaudeProcessResult
+from yoke_harness.session_relay_claude_registration import (
+    resolve_registered_session,
+)
 from yoke_harness.session_relay_claude_native import (
     CLAUDE_CREATE_TIMEOUT_SECONDS as CLAUDE_CREATE_TIMEOUT_SECONDS,
     CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS as CLAUDE_CREATE_HANDOFF_RESERVE_SECONDS,
@@ -43,9 +46,19 @@ from yoke_harness.session_relay_runtime import (
 )
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
+from yoke_contracts.session_control.launch_registration import (
+    BACKGROUND_IDENTITY_MISSING_CODE,
+    IDENTITY_LISTING_FAILED_CODE,
+    IDENTITY_LISTING_LAGGED_CODE,
+    IDENTITY_LISTING_RESOLVED_CODE,
+    REGISTERED_BUT_UNBOUND_CODE,
+    REGISTERED_SESSION_INVALID_CODE,
+    REGISTRATION_AMBIGUOUS_CODE,
+    SPAWN_WORKSPACE_MISSING_CODE,
+)
 
 
-CLAUDE_ADAPTER_REVISION = "claude-native-v6"
+CLAUDE_ADAPTER_REVISION = "claude-native-v7"
 CLAUDE_CLI_SURFACE = "claude-cli"
 _result = partial(
     build_claude_result,
@@ -245,33 +258,55 @@ def run_claude_cli_adapter(
         return _result(
             context,
             result,
-            "native_exit",
+            "child_exited",
             process=process,
         )
     short_id = background_agent_id(process)
-    if short_id is None:
-        _contain_failed_launch(invocation)
-        return _result(
-            context,
-            "outcome_unknown",
-            "identity_parse_failed",
-            process=process,
+    actual_id = None
+    failure_code = BACKGROUND_IDENTITY_MISSING_CODE
+    combined = process
+    if short_id is not None:
+        resolution = resolve_background_session(
+            short_id, lambda: session_lookup(invocation)
         )
-    resolution = resolve_background_session(
-        short_id, lambda: session_lookup(invocation)
-    )
-    combined = ClaudeProcessResult(
-        resolution.returncode,
-        min(process.duration_ms + resolution.duration_ms, 3_600_000),
-        pid=process.pid,
-        bound_exceeded=process.bound_exceeded,
-    )
-    actual_id = resolution.session_id
+        combined = ClaudeProcessResult(
+            resolution.returncode,
+            min(process.duration_ms + resolution.duration_ms, 3_600_000),
+            pid=process.pid,
+            bound_exceeded=process.bound_exceeded,
+        )
+        actual_id = resolution.session_id
+        failure_code = (
+            IDENTITY_LISTING_FAILED_CODE
+            if resolution.result_code == "identity_lookup_failed"
+            else IDENTITY_LISTING_LAGGED_CODE
+        )
     if actual_id is None:
-        _contain_failed_launch(invocation, short_id)
-        return _result(
-            context, "outcome_unknown", resolution.result_code, process=combined
+        registered = resolve_registered_session(
+            getattr(context, "launch_registration_resolver", None),
+            str(invocation.cwd),
         )
+        if registered.session_id is not None:
+            return _result(
+                context,
+                "native_created",
+                REGISTERED_BUT_UNBOUND_CODE,
+                native_session_id=registered.session_id,
+                process=ClaudeProcessResult(
+                    0,
+                    combined.duration_ms,
+                    pid=combined.pid,
+                    bound_exceeded=combined.bound_exceeded,
+                ),
+            )
+        if registered.result_code in {
+            REGISTRATION_AMBIGUOUS_CODE,
+            REGISTERED_SESSION_INVALID_CODE,
+            SPAWN_WORKSPACE_MISSING_CODE,
+        }:
+            failure_code = registered.result_code
+        _contain_failed_launch(invocation, short_id)
+        return _result(context, "outcome_unknown", failure_code, process=combined)
     try:
         staged = attestation_handoff(
             context.job_id,
@@ -292,7 +327,7 @@ def run_claude_cli_adapter(
     return _result(
         context,
         "native_created",
-        "native_created",
+        IDENTITY_LISTING_RESOLVED_CODE,
         native_session_id=actual_id,
         process=combined,
     )

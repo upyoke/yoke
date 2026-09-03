@@ -165,6 +165,66 @@ def test_every_launch_reports_start_and_terminal_phase_before_completion(
     assert reports[3]["evidence"]["native_launch_phase"] == "adapter_complete"
 
 
+def test_launch_registration_resolver_returns_the_server_candidate(
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def dispatch(**kwargs):
+        calls.append(kwargs)
+        if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
+            return SimpleNamespace(
+                success=True,
+                result={"state": "active", "next_poll_seconds": 60, "jobs": [_job()]},
+            )
+        return SimpleNamespace(
+            success=True,
+            result={
+                "job_kind": "launch",
+                "result": {
+                    "registration": {
+                        "status": "registered_but_unbound",
+                        "session_id": MACHINE_ID,
+                    }
+                },
+            },
+        )
+
+    def run(job):
+        registration = job["_launch_registration_resolver"]("/project")
+        assert registration == {
+            "status": "registered_but_unbound",
+            "session_id": MACHINE_ID,
+        }
+        return RelayAdapterResult(
+            "native_created",
+            native_session_id=MACHINE_ID,
+            evidence={"result_code": "registered_but_unbound"},
+        )
+
+    outcome = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        dispatcher=dispatch,
+        runner=run,
+        clock=lambda: 1000.0,
+    )
+
+    assert outcome.state == "reported"
+    registration_call = next(
+        call
+        for call in calls
+        if call.get("payload", {}).get("evidence", {}).get("result_code")
+        == "identity_registration_wait"
+    )
+    assert registration_call["payload"]["evidence"]["native_launch_workspace"] == (
+        "/project"
+    )
+    assert (
+        registration_call["payload"]["evidence"]["native_launch_bound_seconds"] == 180
+    )
+
+
 def test_next_poll_drains_a_terminal_report_before_claiming_more_work(
     tmp_path: Path,
 ) -> None:
