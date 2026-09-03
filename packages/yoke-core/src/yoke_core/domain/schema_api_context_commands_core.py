@@ -162,7 +162,11 @@ CORE_COMMANDS: list[dict] = [
             "gate_point, satisfaction, source, …). Storage is "
             "``dependent_item_id``/``blocking_item_id``; those are not "
             "list keys — reading them from the handler result drops rows. "
-            "Use over raw SQL; guessed columns are not the canonical schema."
+            "Use over raw SQL; guessed columns are not the canonical schema. "
+            "Satisfaction accepts status:done, status:implemented, "
+            "fact:merged, or fact:deployed:<environment-name>. Choose merged "
+            "when trunk is enough; choose deployed when the dependent needs "
+            "the blocker running in that registered environment."
         ),
     },
     {

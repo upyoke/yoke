@@ -16,13 +16,17 @@ Key concepts:
   (don't close until blocker reaches a milestone).
 - **Satisfaction condition** describes *what* must be true about the
   blocking item for the dependency to be considered resolved:
-  ``status:done``, ``status:implemented``, or ``fact:merged``.
+  ``status:done``, ``status:implemented``, ``fact:merged``, or
+  ``fact:deployed:<environment-name>``.
 """
 
 from __future__ import annotations
 
 from enum import Enum
 from typing import NamedTuple, Optional
+
+
+FACT_DEPLOYED_PREFIX = "fact:deployed:"
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +80,8 @@ class Satisfaction(str, Enum):
       ``release``, or ``done``.
     - ``FACT_MERGED``: Blocking item's merge must be confirmed by canonical
       fact (for example ``merged_at``) or branch ancestry.
+    - ``fact:deployed:<environment-name>``: A succeeded deployment run for
+      the blocker's project and named environment must carry the blocker.
     """
 
     STATUS_DONE = "status:done"
@@ -83,12 +89,50 @@ class Satisfaction(str, Enum):
     FACT_MERGED = "fact:merged"
 
     @classmethod
+    def _missing_(cls, value: object) -> "Satisfaction" | None:
+        environment = deployed_environment(str(value))
+        if environment is None:
+            return None
+        member = str.__new__(cls, str(value))
+        member._name_ = f"FACT_DEPLOYED_{environment}"
+        member._value_ = str(value)
+        return member
+
+    @classmethod
     def from_db(cls, value: str) -> "Satisfaction":
         """Resolve a DB string to its enum member."""
-        for member in cls:
-            if member.value == value:
-                return member
-        raise ValueError(f"Unknown satisfaction: {value!r}")
+        try:
+            return cls(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unknown satisfaction: {value!r}; accepted grammar: "
+                f"{SATISFACTION_GRAMMAR}"
+            ) from exc
+
+
+SATISFACTION_GRAMMAR = (
+    "status:done | status:implemented | fact:merged | "
+    "fact:deployed:<environment-name>"
+)
+
+
+def deployed_environment(satisfaction: str) -> str | None:
+    """Return the named environment from a deployed-fact value."""
+    if not satisfaction.startswith(FACT_DEPLOYED_PREFIX):
+        return None
+    environment = satisfaction[len(FACT_DEPLOYED_PREFIX):]
+    if not environment or environment != environment.strip():
+        return None
+    return environment
+
+
+def satisfaction_is_known(satisfaction: str) -> bool:
+    """Whether *satisfaction* matches the complete accepted grammar."""
+    try:
+        Satisfaction.from_db(satisfaction)
+    except ValueError:
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------

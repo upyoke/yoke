@@ -10,8 +10,8 @@ CLI contract::
 
 Output format (when blocked, one line per unresolved blocker)::
 
-    BLOCKED|YOK-N|idea|Enforce hard-block item dependencies|activation|status:done
-    BLOCKED|YOK-M|implementing|Some other item title|integration|fact:merged
+    BLOCKED|YOK-N|idea|Dependency title|activation|status:done|evaluation reason
+    BLOCKED|YOK-M|done|Deploy API|closure|fact:deployed:prod|evaluation reason
 """
 
 from __future__ import annotations
@@ -23,7 +23,8 @@ from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
-from yoke_core.domain.dependencies import evaluate_satisfaction
+from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
+from yoke_core.domain.dependency_types import deployed_environment
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
@@ -87,6 +88,7 @@ def _query_item(conn, item_id: int) -> Optional[dict]:
     if row is None:
         return None
     return {
+        "id": int(item_id),
         "status": row["status"],
         "title": row["title"],
         "lane_branch": row["lane_branch"],
@@ -138,22 +140,28 @@ def _branch_is_merged(repo: str, branch: str, base: str = "main") -> bool:
     return result.returncode == 0
 
 
-def _is_satisfied(satisfaction: str, item: dict, conn) -> bool:
+def _evaluate_item_satisfaction(satisfaction: str, item: dict, conn):
     status = item.get("status") or ""
     merged = True if item.get("merged_at") else None
-    if satisfaction == "fact:merged":
+    if satisfaction == "fact:merged" or deployed_environment(satisfaction) is not None:
         lane_branch = item.get("lane_branch")
         if merged is None and lane_branch:
             repo = _query_project_repo_path(conn, item.get("project")) or _git_root()
             if repo and _branch_is_merged(repo, lane_branch):
                 merged = True
-    return evaluate_satisfaction(
-        satisfaction,
-        status,
-        item.get("lane_branch"),
+    return evaluate_persisted_satisfaction(
+        conn,
+        blocking_item_id=item.get("id"),
+        satisfaction=satisfaction,
+        blocking_status=status,
+        blocking_worktree=item.get("lane_branch"),
         blocking_merged=merged,
         workflow=item.get("workflow"),
-    ).satisfied
+    )
+
+
+def _is_satisfied(satisfaction: str, item: dict, conn) -> bool:
+    return _evaluate_item_satisfaction(satisfaction, item, conn).satisfied
 
 
 def evaluate_blockers(
@@ -201,16 +209,18 @@ def _blocker_lines(
                 % (blocking_item, gate_point, satisfaction)
             )
             continue
-        if _is_satisfied(satisfaction, dep_item, conn):
+        verdict = _evaluate_item_satisfaction(satisfaction, dep_item, conn)
+        if verdict.satisfied:
             continue
         output.append(
-            "BLOCKED|%s|%s|%s|%s|%s"
+            "BLOCKED|%s|%s|%s|%s|%s|%s"
             % (
                 blocking_item,
                 dep_item.get("status") or "",
                 dep_item.get("title") or "",
                 gate_point,
                 satisfaction,
+                verdict.reason,
             )
         )
     return output

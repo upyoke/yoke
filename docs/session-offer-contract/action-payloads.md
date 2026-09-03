@@ -315,9 +315,11 @@ The `blocked_details` array is present when the shared scheduler provides struct
 | `item_id` | string | The blocked item (``YOK-N``). |
 | `blocking_item` | string | The blocker item (``YOK-N``). |
 | `gate_point` | string | When the dependency matters: ``activation``, ``integration``, or ``closure``. |
-| `satisfaction` | string | What must be true: ``status:done``, ``status:implemented``, or ``fact:merged``. |
+| `satisfaction` | string | What must be true: ``status:done``, ``status:implemented``, ``fact:merged``, or ``fact:deployed:<environment-name>``. Use merged for a trunk dependency and deployed when the blocker must be running in the named registered environment. |
 | `rationale` | string | Persisted human-readable explanation of why this edge exists. |
 | `reason` | string | Runtime evaluation: why the blocker is currently unsatisfied. |
+
+For a deployed fact, `reason` names the environment and distinguishes an unmerged blocker, a merged blocker not yet present in any succeeded run's `carried_work`, and an `environment_unregistered` edge. This lets session offers say “waits for YOK-N to deploy to prod” instead of reporting a bare unsatisfied edge.
 
 When `blocked_details` is absent or empty, adapters should fall back to the `blocked_items` list for a simple enumeration of blocked item IDs. When the frontier also carries lane-filtered detail, the same `lane_filtered_count` / `lane_filtered_note` / `lane_filtered_items` keys ride along on `escalate` so the operator sees both signals.
 

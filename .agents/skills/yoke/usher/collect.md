@@ -51,8 +51,8 @@ for _item in $_ready_items; do
 
  if [ "$_dep_exit" -ne 0 ]; then
  # stop with:
- # > **Blocked:** PREFIX-${_item} has unresolved integration-gate dependencies. All integration blockers must reach `done` before usher can merge or deploy it.
- # and list each BLOCKED|{blocker}|{status}|{title} line for the operator.
+ # > **Blocked:** PREFIX-${_item} has unresolved integration-gate dependencies. Every named satisfaction condition must clear before usher can merge or deploy it.
+ # and list each BLOCKED|{blocker}|{status}|{title}|{gate_point}|{satisfaction}|{reason} line for the operator. Preserve a deployed fact's environment in the reason.
  #
  # Additionally, query persisted rationale for each blocker to explain
  # why the integration ordering exists (task 4):

@@ -177,12 +177,12 @@ For every dependency edge identified during analysis, produce a structured edge 
  dependent: "PREFIX-N",
  blocking: "PREFIX-M",
  gate_point: "activation|integration|closure",
- satisfaction: "status:done|status:implemented|fact:merged",
+ satisfaction: "status:done|status:implemented|fact:merged|fact:deployed:<environment-name>",
  rationale: "<human-readable explanation of WHY this dependency exists>",
  evidence_json: {
  "shared_files": ["path/to/file.sh"],
  "contract_linkage": "PREFIX-M provides interface X consumed by PREFIX-N",
- "blocker_class": "coding_order|validation_before_start|merge_order|closeout",
+ "blocker_class": "coding_order|validation_before_start|merge_order|deployment_before_consume|closeout",
  "constraint_type": "shared_surface|contract|schema|hook|deployment|test_harness",
  "task_references": ["epic 42 task 3"]
  }
@@ -193,7 +193,12 @@ Gate/satisfaction combinations:
 - **Coding-order blockers**: `gate_point=activation`, `satisfaction=status:done` -- PREFIX-N cannot start until PREFIX-M is done
 - **Validation-before-start**: `gate_point=activation`, `satisfaction=status:implemented` -- PREFIX-N cannot start until PREFIX-M reaches implemented status
 - **Merge-order blockers**: `gate_point=integration`, `satisfaction=fact:merged` -- PREFIX-N and PREFIX-M can be coded in parallel but must merge in order
+- **Runtime-deployment blockers**: choose the gate where consumption begins and `satisfaction=fact:deployed:<environment-name>` -- PREFIX-N waits until a succeeded run carries PREFIX-M into that registered environment
 - **Closeout blockers**: `gate_point=closure`, `satisfaction=status:done` -- PREFIX-N cannot close until PREFIX-M is done
+
+Use `fact:merged` when the dependent only needs the blocker's code on trunk
+(including code built together). Use the deployed fact for a live stage/prod
+walk, a released API consumer, or another project that needs the running build.
 
 ## Ambiguity Handling
 

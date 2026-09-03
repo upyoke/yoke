@@ -69,16 +69,35 @@ def items_dependency_list(args: List[str]) -> int:
 ITEMS_DEPENDENCY_ADD_USAGE = (
     "yoke items dependency add <dependent> <blocking> <source> "
     "[--gate-point activation|integration|closure|coordination_only] "
-    "[--satisfaction status:done|status:implemented|fact:merged] "
+    "[--satisfaction status:done|status:implemented|fact:merged|"
+    "fact:deployed:<environment-name>] "
     "(--rationale TEXT | --rationale-file PATH) "
     "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
 )
+
+_SATISFACTION_HELP = """Satisfaction values:
+  status:done | status:implemented | fact:merged |
+  fact:deployed:<environment-name>
+
+Use fact:merged when the dependent only needs the blocker's code on trunk.
+Use fact:deployed:<environment-name> when it needs that code running in a
+registered environment. Add and update refuse an environment not registered
+for the blocking item's project.
+
+Examples:
+  yoke items dependency add APP-2 APP-1 operator --gate-point integration
+    --satisfaction fact:merged --rationale "needs blocker on trunk"
+  yoke items dependency add APP-3 APP-1 operator --gate-point activation
+    --satisfaction fact:deployed:prod --rationale "acceptance uses the prod build"
+"""
 
 
 def items_dependency_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency add",
         description=ITEMS_DEPENDENCY_ADD_USAGE,
+        epilog=_SATISFACTION_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "item", metavar="dependent",
@@ -92,7 +111,11 @@ def items_dependency_add(args: List[str]) -> int:
         help="Dependency source: conduct, feed, idea, migration, operator, refine, shepherd.",
     )
     parser.add_argument("--gate-point", default="activation")
-    parser.add_argument("--satisfaction", default=None)
+    parser.add_argument(
+        "--satisfaction",
+        default=None,
+        help="Condition grammar; see the values and examples below.",
+    )
     rationale = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         rationale, "--rationale", "--rationale-file",
@@ -141,7 +164,9 @@ def items_dependency_add(args: List[str]) -> int:
 ITEMS_DEPENDENCY_UPDATE_USAGE = (
     "yoke items dependency update <dependent> <blocking> "
     "[--match-gate-point POINT] [--gate-point POINT] "
-    "[--satisfaction VALUE] [--rationale TEXT | --rationale-file PATH] "
+    "[--satisfaction status:done|status:implemented|fact:merged|"
+    "fact:deployed:<environment-name>] "
+    "[--rationale TEXT | --rationale-file PATH] "
     "[--session-id S] [--json]"
 )
 
@@ -150,6 +175,8 @@ def items_dependency_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency update",
         description=ITEMS_DEPENDENCY_UPDATE_USAGE,
+        epilog=_SATISFACTION_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "item", metavar="dependent",
@@ -158,7 +185,11 @@ def items_dependency_update(args: List[str]) -> int:
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
     parser.add_argument("--match-gate-point", default=None)
     parser.add_argument("--gate-point", default=None)
-    parser.add_argument("--satisfaction", default=None)
+    parser.add_argument(
+        "--satisfaction",
+        default=None,
+        help="Condition grammar; deployed environments must be registered.",
+    )
     rationale = parser.add_mutually_exclusive_group()
     add_text_file_pair(
         rationale, "--rationale", "--rationale-file",

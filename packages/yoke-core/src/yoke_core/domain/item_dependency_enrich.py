@@ -5,6 +5,7 @@ import sys
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.dependency_explanation import dependency_wait_summary
 from yoke_core.domain.item_ref_columns import render_column_item_ref
 
 
@@ -89,12 +90,10 @@ def _enriched_rationale(
         "Operator-declared closure dependency",
     }
     if rationale in generic_rationales:
+        wait = dependency_wait_summary(blocking, satisfaction)
         if blocking_title:
-            return (
-                f"{dependent} blocked at {gate_point} gate until {blocking} "
-                f"({blocking_title}) satisfies {satisfaction}"
-            )
-        return f"{dependent} blocked at {gate_point} gate until {blocking} satisfies {satisfaction}"
+            return f"{dependent}: {wait} ({blocking_title}) at the {gate_point} gate"
+        return f"{dependent}: {wait} at the {gate_point} gate"
     if rationale == "Migrated from legacy depends_on field" and blocking_title:
         return f"Legacy activation dependency: {dependent} waits for {blocking} ({blocking_title})"
     if rationale == "Created during shepherd pipeline" and blocking_title:

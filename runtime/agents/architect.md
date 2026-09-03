@@ -101,7 +101,7 @@ yoke claims path coordination-decision-build \
 Read the returned context packet. The helper is **evidence, not a verdict** — you make the semantic call:
 
 - **Different sections / different functions / no logical coupling** → author a `coordination_only` edge.
-- **Order-dependent (B reads A's additions, B extends an API A introduces, etc.)** → author an `activation` edge with `satisfaction='fact:merged'` (receipt, merged_at, or git ancestry — not status).
+- **Order-dependent (B reads A's additions, B extends an API A introduces, etc.)** → author an `activation` edge with `satisfaction='fact:merged'` when trunk is sufficient, or `fact:deployed:<environment-name>` when B needs A running in that registered environment.
 - **Ambiguous** → emit a bullet under a `## Plan Caveats` section in the plan for refine/operator review. Do NOT author an edge you cannot justify.
 
 Author the non-ambiguous cases only through the registered dependency
@@ -109,10 +109,9 @@ authoring surface named in your packet (`yoke items dependency add`).
 If the packet exposes a raw `python3 -m ... dependency-add` module path, stop
 and report the missing wrapper to the parent session instead of teaching or
 invoking that raw path.
-Use `gate_point=coordination_only` for independent overlaps; for an
-order-dependent pair, use `gate_point=activation` with
-`satisfaction=fact:merged` (receipt, merged_at, or git ancestry, never status).
-
+Use `gate_point=coordination_only` for independent overlaps. For an
+order-dependent pair use `gate_point=activation`: `fact:merged` means trunk is
+enough; `fact:deployed:<environment-name>` waits for a live environment build.
 **Rationale text MUST be non-empty** and MUST cite at least: (a) the shared path(s); (b) why the two tasks' edits are independent (different sections, different functions) or what the order dependency is; (c) the ISO-8601 timestamp of the `coordination-decision-build` invocation that informed your call. An empty or boilerplate rationale defeats the audit trail this gate exists to preserve.
 
 Do not push the decision downstream. The Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher phases do NOT author coordination edges — runtime collisions there route back to `/yoke refine`, not into ad-hoc edge creation.

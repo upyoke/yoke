@@ -22,7 +22,7 @@ Query the charge-relevant status subset for the target project. The candidate se
 
 ### Step 2: Resolve hard-block dependencies
 
-Query the `item_dependencies` table for all canonical blocker dependencies at `gate_point='activation'`. Evaluate each dependency using its `satisfaction` condition (`status:done`, `status:implemented`, or `fact:merged`) and build a map from each dependent item to its list of unsatisfied blockers.
+Query the `item_dependencies` table for all canonical blocker dependencies at `gate_point='activation'`. Evaluate each dependency using its `satisfaction` condition (`status:done`, `status:implemented`, `fact:merged`, or `fact:deployed:<environment-name>`) and build a map from each dependent item to its list of unsatisfied blockers. Use `fact:merged` when trunk contains everything the dependent needs; use `fact:deployed:<environment-name>` when the dependent needs the blocker running in that registered environment. A deployed fact clears only when a succeeded run for the blocker's project and environment names the blocker in `carried_work.items`.
 
 ### Step 3: Compute direct activation unblocking value
 

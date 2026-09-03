@@ -57,7 +57,12 @@ Apply these rules when encoding each edge:
 | Coding-order | `activation` | `status:done` | PREFIX-N cannot start until PREFIX-M is done |
 | Validation-before-start | `activation` | `status:implemented` | PREFIX-N cannot start until PREFIX-M reaches implemented status |
 | Merge-order | `integration` | `fact:merged` | Parallel coding OK but must merge in order |
+| Runtime deployment | chosen consumption gate | `fact:deployed:<environment-name>` | The dependent needs the blocker running in that registered environment |
 | Closeout | `closure` | `status:done` | PREFIX-N cannot close until PREFIX-M is done |
+
+Use `fact:merged` when trunk contains everything the dependent consumes.
+Use the deployed fact for stage/prod QA, an installed environment build, a
+live API, or a cross-project consumer that cannot proceed at merge time.
 
 ### Deduplication
 
@@ -97,7 +102,7 @@ _edge_mutations.append({
  dependent: "PREFIX-N",
  blocking: "PREFIX-M",
  gate_point: "activation|integration|closure",
- satisfaction: "status:done|status:implemented|fact:merged",
+ satisfaction: "status:done|status:implemented|fact:merged|fact:deployed:<environment-name>",
  source: "feed|operator|idea|shepherd|conduct",
  rationale: "<why this row exists or changed>"
 })

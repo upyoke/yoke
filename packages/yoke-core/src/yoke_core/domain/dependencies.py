@@ -13,7 +13,8 @@ Key concepts:
   (don't close until blocker reaches a milestone).
 - **Satisfaction condition** describes *what* must be true about the
   blocking item for the dependency to be considered resolved:
-  ``status:done``, ``status:implemented``, or ``fact:merged``.
+  ``status:done``, ``status:implemented``, ``fact:merged``, or
+  ``fact:deployed:<environment-name>``.
 - **Rationale** is a human-readable explanation of why the edge exists.
 - **Evidence JSON** is structured provenance payload.
 
@@ -31,7 +32,7 @@ Dependencies:
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.dependency_types import (  # noqa: F401 — re-export public API
@@ -43,6 +44,10 @@ from yoke_core.domain.dependency_types import (  # noqa: F401 — re-export publ
 from yoke_core.domain.dependency_explanation import (  # noqa: F401 — public API
     explain_dependency,
 )
+from yoke_core.domain.dependency_satisfaction import (
+    evaluate_persisted_satisfaction,
+    evaluate_satisfaction,  # noqa: F401 — re-export public API
+)
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
@@ -53,87 +58,10 @@ from yoke_core.domain.item_ref_columns import (
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
-from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-# ---------------------------------------------------------------------------
-# Satisfaction evaluation
-# ---------------------------------------------------------------------------
-
-
-def evaluate_satisfaction(
-    satisfaction: str,
-    blocking_status: Optional[str],
-    blocking_worktree: Optional[str] = None,
-    blocking_merged: Optional[bool] = None,
-    *,
-    workflow: Optional[WorkflowRuntime] = None,
-) -> GateResult:
-    """Evaluate whether a satisfaction condition holds for a blocking item.
-
-    Args:
-        satisfaction: The satisfaction condition string (e.g., ``"status:done"``).
-        blocking_status: Current status of the blocking item (``None`` if unknown).
-        blocking_worktree: Branch name of the blocking item's worktree (for
-            ``fact:merged`` checks).
-        blocking_merged: Pre-computed merge fact.  When ``True``, the caller
-            has confirmed the blocker is merged (for example via
-            ``items.merged_at`` or branch ancestry).  When ``None``, the
-            caller has not confirmed the merge fact.
-
-    Returns:
-        A ``GateResult`` indicating whether the condition is met and why.
-    """
-    if workflow is None or blocking_status is None:
-        return GateResult(
-            False,
-            "Blocking item has no verifiable workflow-version pin.",
-        )
-
-    if satisfaction == Satisfaction.STATUS_DONE.value:
-        if workflow.satisfies_stage_milestone(blocking_status, "done"):
-            return GateResult(True, "Blocking item has reached done.")
-        return GateResult(
-            False,
-            f"Blocking item status is '{blocking_status}'; must reach done.",
-        )
-
-    if satisfaction == Satisfaction.STATUS_IMPLEMENTED.value:
-        if workflow.satisfies_stage_milestone(
-            blocking_status,
-            "implemented",
-        ):
-            return GateResult(True, "Blocking item has reached implemented or later.")
-        return GateResult(
-            False,
-            f"Blocking item status is '{blocking_status}'; must reach implemented.",
-        )
-
-    if satisfaction == Satisfaction.FACT_MERGED.value:
-        if blocking_merged is True:
-            return GateResult(True, "Blocking item's merge is confirmed.")
-        if blocking_merged is False:
-            branch_desc = f" ({blocking_worktree})" if blocking_worktree else ""
-            return GateResult(
-                False,
-                f"Blocking item's branch{branch_desc} is not yet merged to main.",
-            )
-        if workflow.stage_implies_merge(blocking_status):
-            return GateResult(
-                True,
-                f"Blocking item status is '{blocking_status}' (merge inferred).",
-            )
-        return GateResult(
-            False,
-            f"Blocking item status is '{blocking_status}'; branch merge not confirmed.",
-        )
-
-    # Unknown satisfaction -- fail safe (unsatisfied)
-    return GateResult(False, f"Unknown satisfaction condition: {satisfaction!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -226,10 +154,12 @@ def query_unsatisfied_at_gate(
             blocking_worktree=blk_worktree,
         )
         merge_fact = True if blk_merged_at else None
-        result = evaluate_satisfaction(
-            sat,
-            blk_status,
-            blk_worktree,
+        result = evaluate_persisted_satisfaction(
+            conn,
+            blocking_item_id=blk_item,
+            satisfaction=sat,
+            blocking_status=blk_status,
+            blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
             workflow=workflow_from_joined_values(
                 workflow_id,
@@ -308,10 +238,12 @@ def query_frontier_blocks(
             definition_digest,
         ) = row
         merge_fact = True if blk_merged_at else None
-        result = evaluate_satisfaction(
-            sat,
-            blk_status,
-            blk_worktree,
+        result = evaluate_persisted_satisfaction(
+            conn,
+            blocking_item_id=blk_item,
+            satisfaction=sat,
+            blocking_status=blk_status,
+            blocking_worktree=blk_worktree,
             blocking_merged=merge_fact,
             workflow=workflow_from_joined_values(
                 workflow_id,
