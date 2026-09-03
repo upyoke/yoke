@@ -42,7 +42,7 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # table itself: the request, the lease the owning relay takes on it, and the
 # bounded answer that comes back.
 _BORN_WITH_COLUMN_DIGEST = (
-    "RECOMPUTE"
+    "406af972f5df6791ef4f2415f8b5206fb0a96bee95dd118ef907a31522ef977b"
 )
 
 

@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-03T20:20:13Z_
+_Audit generated_at: 2026-09-03T21:29:06Z_
 
 ## 1. Summary
 
