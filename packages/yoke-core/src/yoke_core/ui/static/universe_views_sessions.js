@@ -3,6 +3,7 @@ import {
   presentSessionControlFailure,
   renderSessionControlFailure,
 } from "./universe_session_control_data.js";
+import { loadMachinesPanel } from "./universe_machines_panel.js";
 import { appendHoldings } from "./universe_sessions_holdings.js";
 import {
   callFunction,
@@ -189,6 +190,8 @@ function renderSessions(
 export function renderSessionsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const view = el(documentNode, "div", "sessions-view");
+  // Machines first: what can run, before what is running.
+  const machinesHost = el(documentNode, "div", "machines-host");
   const actionStatus = el(documentNode, "p", "sessions-action-status");
   actionStatus.hidden = true;
   actionStatus.setAttribute("role", "status");
@@ -236,7 +239,8 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   view.appendChild(filters.host);
   view.appendChild(content);
   view.appendChild(dialogHost);
-  main.replaceChildren(view);
+  main.replaceChildren(machinesHost, view);
+  loadMachinesPanel(context, machinesHost);
 
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
