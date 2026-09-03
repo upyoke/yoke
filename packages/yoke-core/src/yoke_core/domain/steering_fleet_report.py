@@ -206,12 +206,6 @@ class FleetReport:
         return report_fingerprint(self)
 
 
-def registered_machine_names(conn: Any) -> dict[str, str]:
-    from yoke_core.domain.machine_registry import machine_names
-
-    return machine_names(conn)
-
-
 def compose_report(
     conn: Any,
     *,
@@ -241,7 +235,9 @@ def compose_report(
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     alive_idle = split.alive_idle
-    names = registered_machine_names(conn)
+    from yoke_core.domain.machine_registry import machine_names
+
+    names = machine_names(conn)
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
