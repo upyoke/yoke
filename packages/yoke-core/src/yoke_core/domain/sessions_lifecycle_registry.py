@@ -89,8 +89,13 @@ def register_session(
     machine_id: Optional[str] = None,
     native_thread_id: Optional[str] = None,
     driver: Optional[Dict[str, Any]] = None,
+    launch_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Register a new active session.
+
+    ``launch_id`` binds the launching actor rather than the operating
+    actor of the machine running the session, and is authoritative the
+    way an explicit actor is: a reactivation overwrites with it.
 
     ``model_facts`` carries the requested ask beside whatever a provider
     attested; ``session_model_columns`` owns how each half is written.
@@ -113,7 +118,9 @@ def register_session(
     """
     now = _now_iso()
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
-    resolved_actor_id = resolve_session_actor_id(conn, actor_id)
+    resolved_actor_id = resolve_session_actor_id(
+        conn, actor_id, launch_id=launch_id
+    )
     resolved_project_id = resolve_session_project_id(conn, project_id)
     executor_version, machine_id = normalize_observed_identity(
         executor_version, machine_id
@@ -200,12 +207,12 @@ def register_session(
         executor_version = resolve_reactivation_executor_version(
             existing, incoming_surface=display_name, incoming_version=driver_version
         )
-        # An explicitly supplied actor overwrites; a resolved operating
-        # actor only fills a row that carries none, so a session that
-        # registered under a named actor keeps it.
+        # An explicitly supplied or inherited-from-launch actor overwrites;
+        # a resolved operating actor only fills a row that carries none, so a
+        # session that registered under a named actor keeps it.
         actor_clause = (
             f", actor_id = {p}"
-            if actor_id is not None
+            if actor_id is not None or launch_id
             else f", actor_id = COALESCE(actor_id, {p})"
         )
 

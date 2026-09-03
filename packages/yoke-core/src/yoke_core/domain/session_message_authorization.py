@@ -13,6 +13,7 @@ from yoke_core.domain.actor_permissions import (
     require_org_permission,
 )
 from yoke_core.domain.organization_settings import read_organization_setting
+from yoke_core.domain.session_action_authority import authorize_session_action
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
@@ -87,6 +88,12 @@ def authorize_recipients(
     project without currently resolving to a session there: a role-addressed
     message parks in its scope, and it still has to be authorized and sized
     by that project's policy rather than by nobody's.
+
+    A message resolves its audience by anchor, so the dispatcher cannot
+    name the targets ahead of the handler. This is therefore where the
+    shared session-action authority is applied for messaging — the same
+    decision and the same refusal wording a directly targeted wake or
+    termination gets, once per project the audience actually reached.
     """
     project_ids = sorted(
         {
@@ -97,22 +104,31 @@ def authorize_recipients(
         | {int(project_id) for project_id in additional_project_ids}
     )
     policies: dict[int, MessageProjectPolicy] = {}
-    denied: list[int] = []
+    refusals: list[str] = []
     for project_id in project_ids:
-        decision = permission_decision(
-            conn,
-            actor_id=actor_id,
-            project_id=project_id,
-            permission_key=permission_key,
-        )
-        if not decision.allowed:
-            denied.append(project_id)
+        if permission_key == PERM_ITEMS_WRITE:
+            decision = authorize_session_action(
+                conn,
+                actor_id=actor_id,
+                function_id="session_control.message.send",
+                project_id=project_id,
+            )
+            allowed, refusal = decision.allowed, decision.message
+        else:
+            allowed = permission_decision(
+                conn,
+                actor_id=actor_id,
+                project_id=project_id,
+                permission_key=permission_key,
+            ).allowed
+            refusal = (
+                f"actor {actor_id} lacks {permission_key!r} on project id {project_id}"
+            )
+        if not allowed:
+            refusals.append(refusal)
         policies[project_id] = project_policy(conn, project_id)
-    if denied:
-        raise SessionMessageError(
-            "unauthorized_target",
-            f"actor {actor_id} lacks {permission_key!r} on project ids {denied}",
-        )
+    if refusals:
+        raise SessionMessageError("unauthorized_target", " ".join(refusals))
     return policies
 
 

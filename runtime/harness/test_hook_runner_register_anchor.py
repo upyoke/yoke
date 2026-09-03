@@ -168,7 +168,7 @@ class TestRelayOwnedRegistration:
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: True)
         monkeypatch.setattr(
             "yoke_core.hooks.service_client.register_session",
-            lambda *a: pytest.fail(
+            lambda *a, **_k: pytest.fail(
                 "https transport must not spawn the local registration "
                 "subprocess — the relay owns registration"
             ),
@@ -204,7 +204,7 @@ class TestRelayOwnedRegistration:
         calls = []
         monkeypatch.setattr(
             "yoke_core.hooks.service_client.register_session",
-            lambda *a: calls.append(a) or None,
+            lambda *a, **_k: calls.append(a) or None,
         )
         monkeypatch.setattr(
             slc, "service_client_path", lambda _r: "/sc/service_client.py",

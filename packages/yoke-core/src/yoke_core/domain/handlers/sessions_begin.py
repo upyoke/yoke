@@ -42,6 +42,10 @@ class BeginRequest(BaseModel):
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
     native_thread_id: Optional[str] = None
+    #: The launch that started this session, when one did. Registration
+    #: binds the launching actor from it, so a launched worker acts for
+    #: whoever started it rather than for the machine running it.
+    launch_id: Optional[str] = None
 
 
 class BeginResponse(BaseModel):
@@ -102,6 +106,7 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 machine_id=body.machine_id,
                 native_thread_id=body.native_thread_id,
                 actor_id=_bound_actor_id(request),
+                launch_id=body.launch_id,
             )
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)

@@ -11,16 +11,31 @@ from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.domain.session_model_columns import MODEL_COLUMNS, changed_columns
 
 
-def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
-    """Bind the session's actor: the explicit one, else this universe's.
+def resolve_session_actor_id(
+    conn: Any,
+    explicit: Optional[int],
+    *,
+    launch_id: Optional[str] = None,
+) -> int:
+    """Bind the session's actor: the launching one, the explicit one, else this universe's.
 
-    An explicit actor (the verified bearer-token actor over https, or one
-    an operator surface supplied) wins after a presence check; otherwise
-    the universe's operating actor is resolved, because the identity a
-    session acts for already exists by the time it registers. Nothing
-    falls through to NULL: an actor-less session cannot register a path
-    claim, and that refusal lands far from the registration that caused
-    it, so registration refuses here with the reason and the recovery.
+    ``launch_id`` names the launch that started this session, and it wins
+    over every other source: a launched worker acts for whoever started
+    the chain, so it inherits
+    :mod:`yoke_core.domain.session_launch_actor_inheritance`'s answer and
+    never the identity of the machine running it — which is what both
+    remaining sources would name (the OS login locally, the relay's
+    bearer-token owner over https). An unreadable launch refuses rather
+    than falling back, because that fallback is the misattribution.
+
+    Otherwise an explicit actor (the verified bearer-token actor over
+    https, or one an operator surface supplied) wins after a presence
+    check; otherwise the universe's operating actor is resolved, because
+    the identity a session acts for already exists by the time it
+    registers. Nothing falls through to NULL: an actor-less session
+    cannot register a path claim, and that refusal lands far from the
+    registration that caused it, so registration refuses here with the
+    reason and the recovery.
 
     Resolving the operating actor — and only that branch — is also where
     a single-owner universe converges the org admin role it operates
@@ -40,9 +55,14 @@ def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
         explicit_actor_binding,
         resolve_operating_actor,
     )
+    from yoke_core.domain.session_launch_actor_inheritance import (
+        resolve_launch_requester_actor,
+    )
     from yoke_core.domain.sessions import SessionError
 
-    if explicit is not None:
+    if launch_id:
+        binding = resolve_launch_requester_actor(conn, launch_id)
+    elif explicit is not None:
         binding = explicit_actor_binding(conn, explicit)
     else:
         binding = resolve_operating_actor(conn)

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
-    PERM_DB_READ_RAW,
     PERM_ITEMS_READ,
     PermissionDenied,
     require_org_permission,
@@ -33,20 +31,16 @@ from yoke_core.domain.function_unresolved_project import (
     permission_error_response as _error_response,
 )
 from yoke_core.domain.project_identity import AmbiguousProjectRefError
-from yoke_contracts.api.function_call import (
-    FunctionCallRequest,
-    FunctionCallResponse,
+from yoke_core.domain.session_action_dispatch_permission import (
+    session_action_dispatch_permission,
+)
+from yoke_contracts.api.function_call import FunctionCallRequest
+from yoke_core.domain.yoke_function_permission_types import DispatchPermission
+from yoke_core.domain.yoke_function_permissions_by_function import (
+    board_data_get_dispatch_permission,
+    doctor_dispatch_permission,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
-
-
-@dataclass(frozen=True)
-class DispatchPermission:
-    permission_key: str | None
-    project_id: int | None
-    project_slug: str | None
-    visible_project_ids: tuple[int, ...] | None = None
-    error: FunctionCallResponse | None = None
 
 
 def check_dispatch_permission(
@@ -76,9 +70,9 @@ def check_dispatch_permission(
         # normal project-scoped authorization below.
         return DispatchPermission(None, None, None)
     if entry.function_id == "doctor.run.run":
-        return _doctor_dispatch_permission(conn, entry, request, actor_id)
+        return doctor_dispatch_permission(conn, entry, request, actor_id)
     if entry.function_id == "board.data.get":
-        return _board_data_get_dispatch_permission(
+        return board_data_get_dispatch_permission(
             conn, entry, request, actor_id, spec.permission_key or PERM_ITEMS_READ,
         )
     if spec.scope == DENY:
@@ -91,7 +85,9 @@ def check_dispatch_permission(
             ),
         )
     if spec.scope == ACTOR_SESSION:
-        return DispatchPermission(spec.permission_key, None, None)
+        return session_action_dispatch_permission(
+            conn, entry, request, actor_id, spec.permission_key
+        )
     if spec.scope == CONTROL_PLANE:
         try:
             require_control_plane_permission(
@@ -164,130 +160,6 @@ def check_dispatch_permission(
             error=_error_response(request, entry, "permission_denied", str(exc)),
         )
     return DispatchPermission(spec.permission_key, project_id, project_slug)
-
-
-def _board_data_get_dispatch_permission(
-    conn: Any,
-    entry: RegistryEntry,
-    request: FunctionCallRequest,
-    actor_id: int,
-    permission_key: str,
-) -> DispatchPermission:
-    visible_ids = actor_project_ids_with_permission(
-        conn, actor_id, permission_key,
-    )
-    ordered_visible = tuple(sorted(visible_ids or ()))
-    scope = str((request.payload or {}).get("scope") or "all").strip() or "all"
-    if scope == "all":
-        if not ordered_visible:
-            return DispatchPermission(
-                permission_key, None, "all",
-                visible_project_ids=ordered_visible,
-                error=_error_response(
-                    request, entry, "permission_denied",
-                    f"actor {actor_id} lacks {permission_key!r} on any project",
-                ),
-            )
-        return DispatchPermission(
-            permission_key, None, "all",
-            visible_project_ids=ordered_visible,
-        )
-
-    try:
-        project_context = resolve_project_context(
-            conn, entry, request, visible_project_ids=visible_ids,
-        )
-    except AmbiguousProjectRefError as exc:
-        return DispatchPermission(
-            permission_key, None, None,
-            visible_project_ids=ordered_visible,
-            error=_error_response(request, entry, "ambiguous_project", str(exc)),
-        )
-    if project_context is None:
-        return DispatchPermission(
-            permission_key, None, None,
-            visible_project_ids=ordered_visible,
-            error=_error_response(
-                request, entry, "permission_denied",
-                "could not resolve a target project for project-scoped function",
-            ),
-        )
-    project_id, project_slug = project_context
-    try:
-        require_permission(
-            conn, actor_id=actor_id, project_id=project_id,
-            permission_key=permission_key,
-        )
-    except PermissionDenied as exc:
-        return DispatchPermission(
-            permission_key, project_id, project_slug,
-            visible_project_ids=ordered_visible,
-            error=_error_response(request, entry, "permission_denied", str(exc)),
-        )
-    return DispatchPermission(
-        permission_key, project_id, project_slug,
-        visible_project_ids=ordered_visible,
-    )
-
-
-def _doctor_dispatch_permission(
-    conn: Any,
-    entry: RegistryEntry,
-    request: FunctionCallRequest,
-    actor_id: int,
-) -> DispatchPermission:
-    if _is_project_safe_doctor_quick(request.payload):
-        visible_ids = actor_project_ids_with_permission(conn, actor_id, PERM_ITEMS_READ)
-        try:
-            project_context = resolve_project_context(
-                conn, entry, request, visible_project_ids=visible_ids,
-            )
-        except AmbiguousProjectRefError as exc:
-            return DispatchPermission(
-                PERM_ITEMS_READ, None, None,
-                error=_error_response(request, entry, "ambiguous_project", str(exc)),
-            )
-        if project_context is None:
-            return DispatchPermission(
-                PERM_ITEMS_READ, None, None,
-                error=_error_response(
-                    request, entry, "permission_denied",
-                    "could not resolve a target project for project-scoped doctor",
-                ),
-            )
-        project_id, project_slug = project_context
-        try:
-            require_permission(
-                conn, actor_id=actor_id, project_id=project_id,
-                permission_key=PERM_ITEMS_READ,
-            )
-        except PermissionDenied as exc:
-            return DispatchPermission(
-                PERM_ITEMS_READ, project_id, project_slug,
-                error=_error_response(request, entry, "permission_denied", str(exc)),
-            )
-        return DispatchPermission(PERM_ITEMS_READ, project_id, project_slug)
-
-    try:
-        require_control_plane_permission(
-            conn, actor_id=actor_id,
-            permission_key=PERM_DB_READ_RAW,
-        )
-    except PermissionDenied as exc:
-        return DispatchPermission(
-            PERM_DB_READ_RAW, None, None,
-            error=_error_response(request, entry, "permission_denied", str(exc)),
-        )
-    return DispatchPermission(PERM_DB_READ_RAW, None, None)
-
-
-def _is_project_safe_doctor_quick(payload: dict[str, Any] | None) -> bool:
-    payload = payload or {}
-    return (
-        payload.get("quick") is True
-        and not any(payload.get(key) for key in ("full", "only", "fix", "db_path"))
-        and payload.get("project_safe_quick") is True
-    )
 
 
 def dispatch_permission_for_request(

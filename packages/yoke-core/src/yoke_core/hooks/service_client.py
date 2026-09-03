@@ -159,6 +159,8 @@ def register_session(
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     native_thread_id: Optional[str] = None,
+    *,
+    launch_id: Optional[str] = None,
 ) -> Optional[str]:
     """Register/touch a session via service_client.py session-begin.
 
@@ -171,6 +173,12 @@ def register_session(
     ``model_facts`` travels as one flag per column so the requested ask and
     the attested served truth stay distinguishable across the subprocess
     boundary; an unset fact ships no flag rather than an empty string.
+
+    ``launch_id``, when the attestation side channel carried one, makes the
+    registration bind the launching actor instead of this machine's own. It
+    is keyword-only: the positional tail of this call is a shape callers and
+    tests read by index, and an identity fact that most sessions do not carry
+    does not belong in it.
     """
     if not os.path.isfile(service_client_path):
         return "service_client.py not found"
@@ -199,6 +207,8 @@ def register_session(
         cmd.extend(["--machine-id", machine_id])
     if native_thread_id:
         cmd.extend(["--native-thread-id", native_thread_id])
+    if launch_id:
+        cmd.extend(["--launch-id", launch_id])
 
     try:
         cwd = _target_cwd(workspace, service_client_path)

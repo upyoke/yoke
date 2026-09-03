@@ -181,7 +181,10 @@ native_process_gone_at TEXT -- relay observation; later activity supersedes it
 native_process_gone_evidence TEXT -- bounded JSON evidence from local records
 ended_at TEXT -- NULL while active; set when session ends
 offer_envelope TEXT -- full offer envelope JSON (optional; includes supported_paths, max_chain_steps, chain_checkpoint)
+actor_id INTEGER NOT NULL -- the actor this session acts for; never NULL
 ```
+
+**Actor binding.** A session a person opened binds that person's identity. A session another session LAUNCHED binds the launching actor, transitively — the launch's `requester_actor_id`, read at registration through the authenticated launch side channel, outranks both the machine's OS login and a relay's bearer-token actor, and an unreadable launch refuses registration rather than falling back to either. Every action one session takes on another (message, wake, keep-alive, terminate, launch) writes a `SessionActionPerformed` row into the TARGET session's history carrying the ACTING actor, and is role-checked against the target project by `yoke_core.domain.session_action_authority`: project membership for messaging, waking, holding alive, and terminating a launched worker; project owner or org admin for terminating another actor's interactive session. Contract: `docs/archive/decisions/session-actor-follows-the-person.md`.
 
 The process-gone columns record machine evidence without ending a claim holder. `sessions.list.native_process` exposes the observation only until a later heartbeat, tool call, or episode start supersedes it. The `offer_envelope` column stores the full session-offer JSON including `supported_paths` (list of canonical downstream path names the session can execute), `max_chain_steps`, and the persisted `chain_checkpoint`. When `supported_paths` is non-empty, the decision engine validates the required path against it and returns `escalate` with `escalate_reason: "unsupported_path"` if the path is not supported. See `.yoke/docs/reference/session-offer.md` for the path derivation mapping.
 

@@ -140,7 +140,7 @@ def test_local_registration_resolves_native_identity(monkeypatch) -> None:
     monkeypatch.setattr(
         session_lifecycle_client.service_client,
         "register_session",
-        lambda *args: calls.append(args),
+        lambda *args, **_kwargs: calls.append(args),
     )
 
     result = session_lifecycle_client.register_harness_session(

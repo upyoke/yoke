@@ -24,14 +24,13 @@ from yoke_core.domain.sessions_analytics import SessionError
 def _authorized_target(conn: Any, request: FunctionCallRequest, session_id: str):
     """Return the target row once the caller may operate its project.
 
-    Holding another session alive is a milder act than terminating it, so it
-    takes the same project-operation authority messaging and waking take
-    rather than the operator-or-steering authority termination requires.
+    Holding another session alive is a milder act than terminating it, so
+    it takes the ordinary project membership messaging and waking take.
+    The decision itself comes from the one session-action authority the
+    dispatcher also applies, so a caller reaching this handler by another
+    route reads the same refusal rather than a second wording of it.
     """
-    from yoke_core.domain.actor_permissions import (
-        PERM_ITEMS_WRITE,
-        permission_decision,
-    )
+    from yoke_core.domain.session_action_authority import authorize_session_action
     from yoke_core.domain.session_message_types import SessionMessageError
     from yoke_core.domain.session_operator_authority import session_control_target
 
@@ -43,18 +42,15 @@ def _authorized_target(conn: Any, request: FunctionCallRequest, session_id: str)
             f"Session '{session_id}' belongs to no project, so no actor can "
             "be authorized to hold it alive.",
         )
-    decision = permission_decision(
+    decision = authorize_session_action(
         conn,
         actor_id=numeric_actor_id(request),
+        function_id=request.function,
         project_id=int(project_id),
-        permission_key=PERM_ITEMS_WRITE,
+        target=target,
     )
     if not decision.allowed:
-        raise SessionMessageError(
-            "unauthorized_target",
-            f"actor {numeric_actor_id(request)} lacks {PERM_ITEMS_WRITE!r} on "
-            f"project id {int(project_id)}",
-        )
+        raise SessionMessageError("unauthorized_target", decision.message)
     return target
 
 

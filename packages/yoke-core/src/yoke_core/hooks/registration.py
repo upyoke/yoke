@@ -156,6 +156,7 @@ def _register_from_hook(
             native_thread_id=facts.native_thread_id
             or detect_native_thread_id(executor, session_id, payload_json),
             driver=facts.driver,
+            launch_id=facts.launch_id or None,
         )
         return (err, executor, provider, model_facts, entrypoint)
 
@@ -173,6 +174,7 @@ def _register_from_hook(
         machine_id=machine_id or None,
         native_thread_id=facts.native_thread_id
         or detect_native_thread_id(executor, session_id, payload_json),
+        launch_id=facts.launch_id or None,
     )
     return (err, executor, provider, model_facts, entrypoint)
 
