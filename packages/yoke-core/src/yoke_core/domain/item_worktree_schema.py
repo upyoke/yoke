@@ -137,8 +137,10 @@ def ensure_item_worktree_key(conn: Any) -> None:
             f"epic lane foreign keys ({_reference_constraint_list()}) cannot "
             "reference it, and the key could not be added. Statement: "
             f"{statement}. The database refused it: {exc}. Recovery: resolve "
-            f"the duplicate or NULL item_worktrees.{LANE_KEY_COLUMN} values "
-            "the refusal names, then converge this database again."
+            "what that refusal names — usually duplicate or NULL "
+            f"item_worktrees.{LANE_KEY_COLUMN} rows, or an existing index of "
+            "the same name that cannot back a reference — then converge this "
+            "database again."
         ) from exc
 
 
