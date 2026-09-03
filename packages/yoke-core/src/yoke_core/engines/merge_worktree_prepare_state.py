@@ -59,7 +59,10 @@ def prune_agent_worktrees(repo_root: str, target: str = "main") -> None:
         prune_managed_worktrees,
     )
 
-    prune_managed_worktrees(parent=_parent(), repo_root=repo_root, target=target)
+    mw = _parent()
+    prune_managed_worktrees(
+        repo_root=repo_root, target=target, run_git=mw._run_git, emit=mw._print
+    )
 
 
 def extract_generated_files(ctx: MergeContext) -> list[str]:

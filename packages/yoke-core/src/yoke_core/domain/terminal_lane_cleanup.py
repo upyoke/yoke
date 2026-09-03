@@ -2,20 +2,41 @@
 
 The control plane releases lane rows and claims in the status transaction.
 This module owns the matching machine-local obligation: prove that each lane
-is clean and merged, then remove its worktree and branch. Refusal is evidence,
-not a reason to unwind the committed terminal transition.
+is clean and merged, then remove its worktree and branch, and then run the
+machine-wide merged-lane sweep so a lane an earlier landing preserved is
+examined again now. Refusal is evidence, not a reason to unwind the committed
+terminal transition: each preserved lane of the item's own is named on the
+returned warnings and recorded as a ``LandedLanePreserved`` event, so the
+refusal outlives the terminal output that first showed it.
 """
 
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
+from yoke_core.engines.merge_worktree_safe_prune import (
+    WorktreeSweep,
+    prune_managed_worktrees,
+)
+
+LANE_PRESERVED_EVENT_NAME = "LandedLanePreserved"
+
+
+@dataclass(frozen=True)
+class TerminalLaneCloseOut:
+    """Warnings for the item's own lanes plus the machine-wide sweep result."""
+
+    warnings: tuple[str, ...] = ()
+    sweep: dict[str, Any] = field(default_factory=dict)
 
 
 def _closing_session_id(session_id: str) -> str:
@@ -56,6 +77,42 @@ def _leave_doomed_worktree(path: Path, repo_root: Path) -> None:
     reseat_loaded_packages(doomed_root=str(path), surviving_root=str(repo_root))
 
 
+def _record_preserved_lane(
+    item: dict[str, Any], *, branch: str, path: str, target: str, reason: str
+) -> str:
+    """Record the refusal as an event; return a warning when that was refused."""
+    try:
+        response = call_dispatcher(
+            function_id="events.emit",
+            target=TargetRef(kind="global"),
+            payload={
+                "name": LANE_PRESERVED_EVENT_NAME,
+                "kind": "lifecycle",
+                "type": "merge_lifecycle",
+                "source_type": "system",
+                "severity": "WARN",
+                "outcome": "preserved",
+                "project": str((item.get("project") or {}).get("slug") or ""),
+                "item_id": str(int(item["id"])),
+                "context": {
+                    "branch": branch,
+                    "path": path,
+                    "target": target,
+                    "reason": reason,
+                },
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - the lane is already preserved
+        detail = str(exc)
+    else:
+        if response.success:
+            return ""
+        detail = (
+            response.error.message if response.error is not None else "refused"
+        )
+    return f"{LANE_PRESERVED_EVENT_NAME} not recorded for {branch}: {detail}"
+
+
 def _cleanup_terminal_item_lanes(
     item: dict[str, Any],
     *,
@@ -65,10 +122,11 @@ def _cleanup_terminal_item_lanes(
     target_branch: str = "",
     emit: Optional[Callable[..., Any]] = None,
     prune: Callable[..., tuple[str, ...]] = prune_landed_lane,
-) -> tuple[str, ...]:
-    """Retire every surviving lane after a successful terminal transition."""
+    sweep: Callable[..., WorktreeSweep] = prune_managed_worktrees,
+) -> TerminalLaneCloseOut:
+    """Retire every surviving lane, then sweep lanes earlier landings kept."""
     if not _terminal_status(item, target_status):
-        return ()
+        return TerminalLaneCloseOut()
     public_ref = str(item.get("public_ref") or item.get("id") or "item")
     project = item.get("project") or {}
     root = (
@@ -79,7 +137,9 @@ def _cleanup_terminal_item_lanes(
         )
     )
     if root is None or not root.is_dir():
-        return (f"{public_ref}: terminal lane cleanup preserved: checkout unavailable",)
+        return TerminalLaneCloseOut(
+            (f"{public_ref}: terminal lane cleanup preserved: checkout unavailable",)
+        )
     root = root.resolve()
     target = target_branch or str(project.get("default_branch") or "main")
     authority_block = _foreign_claim_reason(item, session_id)
@@ -109,8 +169,16 @@ def _cleanup_terminal_item_lanes(
             authority_block=authority_block,
         )
         location = f" at {path_text}" if path_text else " (branch only)"
-        warnings.extend(f"{public_ref}{location}: {reason}" for reason in preserved)
-    return tuple(warnings)
+        for reason in preserved:
+            warnings.append(f"{public_ref}{location}: {reason}")
+            refused = _record_preserved_lane(
+                item, branch=branch, path=path_text, target=target, reason=reason
+            )
+            if refused:
+                warnings.append(refused)
+
+    swept = sweep(repo_root=str(root), target=target, emit=emit)
+    return TerminalLaneCloseOut(tuple(warnings), swept.payload())
 
 
 def cleanup_terminal_item_lanes(
@@ -122,7 +190,8 @@ def cleanup_terminal_item_lanes(
     target_branch: str = "",
     emit: Optional[Callable[..., Any]] = None,
     prune: Callable[..., tuple[str, ...]] = prune_landed_lane,
-) -> tuple[str, ...]:
+    sweep: Callable[..., WorktreeSweep] = prune_managed_worktrees,
+) -> TerminalLaneCloseOut:
     """Retire terminal lanes without unwinding the committed transition."""
     try:
         return _cleanup_terminal_item_lanes(
@@ -133,12 +202,20 @@ def cleanup_terminal_item_lanes(
             target_branch=target_branch,
             emit=emit,
             prune=prune,
+            sweep=sweep,
         )
     except Exception as exc:  # noqa: BLE001 - terminal state is already committed
         public_ref = str(item.get("public_ref") or item.get("id") or "item")
-        return (
-            f"{public_ref}: terminal lane cleanup preserved after an unexpected refusal: {exc}",
+        return TerminalLaneCloseOut(
+            (
+                f"{public_ref}: terminal lane cleanup preserved after an "
+                f"unexpected refusal: {exc}",
+            )
         )
 
 
-__all__ = ["cleanup_terminal_item_lanes"]
+__all__ = [
+    "LANE_PRESERVED_EVENT_NAME",
+    "TerminalLaneCloseOut",
+    "cleanup_terminal_item_lanes",
+]

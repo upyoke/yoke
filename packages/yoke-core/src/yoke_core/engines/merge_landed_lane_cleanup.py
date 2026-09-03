@@ -27,6 +27,7 @@ from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.engines.merge_worktree_safe_prune import (
+    first_output_line,
     is_managed_worktree_path,
     registered_worktrees,
 )
@@ -65,6 +66,7 @@ class WorktreeResidueAssessment:
     safe: bool
     ignored_only: bool = False
     reason: str = ""
+    precious_paths: tuple[str, ...] = ()
 
 
 def assess_worktree_residue(
@@ -99,6 +101,7 @@ def assess_worktree_residue(
         return WorktreeResidueAssessment(
             False,
             reason="unignored changes present: " + ", ".join(precious_paths),
+            precious_paths=tuple(precious_paths),
         )
     return WorktreeResidueAssessment(True, ignored_only=bool(ignored_paths))
 
@@ -313,7 +316,7 @@ def prune_landed_lane(
         if removed.returncode != 0:
             return (
                 f"lane {branch} preserved: worktree removal refused for "
-                f"{worktree_path}",
+                f"{worktree_path} ({first_output_line(removed)})",
             )
         say(f"Pruned merged worktree: {worktree_path}")
         _remove_empty_parent(worktree_path)

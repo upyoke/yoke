@@ -18,8 +18,8 @@ branch deletion, test execution — local.
 
 Each handler is a thin wrapper over unchanged domain state: the prune
 verdict wraps the unchanged
-:func:`yoke_core.engines.merge_worktree_safe_prune._terminal_owner` /
-:func:`~yoke_core.engines.merge_worktree_safe_prune._has_active_authority`
+:func:`yoke_core.engines.merge_prune_authority.terminal_owner` /
+:func:`~yoke_core.engines.merge_prune_authority.has_active_authority`
 fail-closed logic, and the post-rebase read wraps
 :func:`yoke_core.domain.qa_plan_attachments.materialize_for_item` plus the
 registered project Command-plan reader. The prune/keep
@@ -157,18 +157,18 @@ def handle_prune_authority_verdict(request: FunctionCallRequest) -> HandlerOutco
     except Exception as exc:  # noqa: BLE001 - surface a structured payload error
         return _err("payload_invalid", f"prune authority payload invalid: {exc}")
 
-    from yoke_core.engines.merge_worktree_safe_prune import (
-        _has_active_authority,
-        _terminal_owner,
+    from yoke_core.engines.merge_prune_authority import (
+        has_active_authority,
+        terminal_owner,
     )
 
     path = Path(body.path) if body.path else None
     try:
         with _connect_rw() as conn:
-            owner = _terminal_owner(conn, branch=body.branch, path=path)
+            owner = terminal_owner(conn, branch=body.branch, path=path)
             if owner is None:
                 verdict = {"prunable": False, "reason": "no_terminal_owner"}
-            elif _has_active_authority(conn, owner, path):
+            elif has_active_authority(conn, owner, path):
                 verdict = {"prunable": False, "reason": "active_authority"}
             else:
                 verdict = {"prunable": True, "reason": "prunable"}
