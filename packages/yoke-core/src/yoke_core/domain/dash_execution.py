@@ -12,20 +12,13 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.dash_close_out_progress import append_close_out_progress
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.item_activity import touch_item_activity
-from yoke_core.domain.progress_log import (
-    PROGRESS_LOG_ORDERING,
-    PROGRESS_LOG_SECTION,
-    format_entry,
-    join_entry,
-)
 from yoke_core.domain.floor_attestation import (
     evidence_workflow_mismatch,
     sha_fields_required,
     uses_agent_attested_floor,
 )
-from yoke_core.domain.gate_satisfier_ladder_catalog import RUNG_AGENT_ATTESTED
 from yoke_core.domain.gate_satisfier_resolution import (
     missing_done_evidence_rungs,
     record_done_evidence_rungs,
@@ -33,7 +26,6 @@ from yoke_core.domain.gate_satisfier_resolution import (
 from yoke_core.domain.item_json_sections import (
     read_json_section,
     upsert_json_section,
-    upsert_section,
 )
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_MERGE_FREE,
@@ -103,44 +95,6 @@ def _delivers_merge_free(conn: Any, item_id: int) -> bool:
     return runtime.policies.get("delivery") == WORKFLOW_DELIVERY_MERGE_FREE
 
 
-def _append_close_out_progress(
-    conn: Any,
-    *,
-    item_id: int,
-    result_summary: str,
-    merge_sha: str,
-    recorded_at: str,
-) -> None:
-    """Append the landed outcome once, before the item becomes terminal."""
-    marker = (
-        f"Merge SHA: `{merge_sha}`"
-        if merge_sha
-        else f"Satisfier: `{RUNG_AGENT_ATTESTED}`"
-    )
-    placeholder = _p(conn)
-    row = conn.execute(
-        "SELECT content FROM item_sections "
-        f"WHERE item_id = {placeholder} AND section_name = {placeholder}",
-        (int(item_id), PROGRESS_LOG_SECTION),
-    ).fetchone()
-    existing = str(row[0] or "") if row is not None else ""
-    if marker in existing:
-        return
-    entry = format_entry(
-        timestamp=recorded_at,
-        headline="Landed",
-        body=f"{result_summary}\n\n{marker}",
-    )
-    upsert_section(
-        conn,
-        item_id=item_id,
-        section=PROGRESS_LOG_SECTION,
-        content=join_entry(existing, entry),
-        ordering=PROGRESS_LOG_ORDERING,
-    )
-    touch_item_activity(conn, item_id=item_id)
-
-
 def record_dash_evidence(
     conn: Any,
     *,
@@ -156,6 +110,7 @@ def record_dash_evidence(
     posture_checks: Optional[Mapping[str, str]] = None,
     no_changes: bool = False,
     actor_id: str = "",
+    session_id: str = "",
 ) -> dict[str, Any]:
     """Write the canonical evidence section consumed by the done gate.
 
@@ -237,6 +192,9 @@ def record_dash_evidence(
         "touched_files": files,
         "no_changes": bool(no_changes),
         "actor_id": str(actor_id or "").strip(),
+        # Names the close-out that wrote this record, so a later run that
+        # loses the terminal transition to it can say who finished first.
+        "recorded_by_session_id": str(session_id or "").strip(),
         "posture_checks": checks,
         "verification_tree": {
             "root": clean_tree_root,
@@ -251,7 +209,7 @@ def record_dash_evidence(
         payload=payload,
         ordering=190,
     )
-    _append_close_out_progress(
+    append_close_out_progress(
         conn,
         item_id=item_id,
         result_summary=clean_result,

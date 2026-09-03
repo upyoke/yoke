@@ -217,7 +217,11 @@ none of them is silence:
 
 - **merged** — exit 0. That same command already recorded the evidence and
   closed the item out in this turn; continue at the guardrail-denial report
-  below.
+  below. An envelope carrying `result: landing_already_recorded` is the same
+  outcome reached by another close-out first (a second watcher on the same
+  pull request): the item is `done` with its merge identity recorded, the
+  envelope names the session that recorded it, and nothing remains to do —
+  do not acquire a claim or transition the item again.
 - **landing stopped** — exit 9, naming what GitHub reported and the recovery:
   usually rebase the lane onto the base branch, re-run the verification gate,
   and re-run the same command, which re-arms it. Re-running is safe — it

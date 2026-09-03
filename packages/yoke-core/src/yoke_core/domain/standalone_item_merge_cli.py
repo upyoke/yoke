@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import argparse
 import json
-import os
 import sys
 from typing import Any, List, Optional
 
@@ -20,6 +18,7 @@ from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
+from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 from yoke_core.domain.standalone_item_merge_checkout import (
     ensure_usable_cwd as _ensure_usable_cwd,
     resolve_checkout as _resolve_checkout,
@@ -32,7 +31,6 @@ from yoke_core.domain.standalone_item_merge_lane import (
     merge_source_lane,
 )
 from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
-from yoke_contracts.dash_evidence_status import status_argument_kwargs
 
 # Workflows whose terminal transition requires an execution-evidence record.
 EVIDENCE_WORKFLOWS = frozenset({"dash"})
@@ -73,46 +71,8 @@ def _announce_close_out(step: str) -> None:
     print(f"[phase:close-out] {step}", file=sys.stderr, flush=True)
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="yoke merge item")
-    parser.add_argument("item")
-    parser.add_argument("--project")
-    parser.add_argument("--target", default="", help="Override the base branch.")
-    parser.add_argument("--session-id", default=os.environ.get("YOKE_SESSION_ID", ""))
-    parser.add_argument(
-        "--result",
-        default="",
-        help="What changed or was learned. Required to close a Dash item, "
-        "including when the merge queue already landed the branch.",
-    )
-    parser.add_argument(
-        "--verification",
-        default="",
-        help="Verification evidence. Required with --result to close a Dash "
-        "item; do not substitute `yoke lifecycle transition --to done`.",
-    )
-    parser.add_argument("--verification-status", **status_argument_kwargs())
-    boolean_options = (
-        ("--no-changes", "Record a verified no-change result."),
-        ("--skip-status", "Merge without changing lifecycle status."),
-        ("--pr", "Merge through a pull request."),
-        (
-            "--wait",
-            "Wait for queue landing inline, instead of the enqueue-and-"
-            "re-enter handoff. A launched headless worker uses this: it "
-            "cannot be prompted on the landing-complete message. Red "
-            "required checks return immediately; the poll budget is for "
-            "pending checks or trains.",
-        ),
-    )
-    for flag, help_text in boolean_options:
-        parser.add_argument(flag, action="store_true", help=help_text)
-    parser.add_argument("--json", action="store_true")
-    return parser
-
-
 def run(argv: List[str]) -> int:
-    parser = _build_parser()
+    parser = build_parser()
     args = parser.parse_args(argv)
     as_json = bool(args.json)
 
@@ -307,6 +267,17 @@ def run(argv: List[str]) -> int:
             session_id=str(args.session_id),
         )
         if transition_error:
+            # A transition refused on an item another close-out has already
+            # finished is a lost race, not a failure: the landing is complete
+            # and the refusal's re-acquire hint would re-open a terminal item.
+            recorded = evidence.recorded_landing_envelope(
+                item_id,
+                public_ref=public_ref,
+                branch=branch,
+            )
+            if recorded is not None:
+                print(json.dumps(recorded, indent=2, sort_keys=True))
+                return 0
             envelope["ok"] = False
             envelope["error"] = (
                 f"merge landed and evidence recorded, but the terminal "
