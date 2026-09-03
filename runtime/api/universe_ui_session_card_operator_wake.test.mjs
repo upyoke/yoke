@@ -14,16 +14,18 @@ import {
   sessionsClient,
 } from "./universe_ui_sessions_view_test_support.mjs";
 
-test("Sessions card says a quiet desktop chat waits on its operator", async (t) => {
+test("Message button explains a quiet desktop chat waits on its operator", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.hash = "#/sessions?project=1";
   const root = documentNode.createElement("div");
-  // Yoke never resumes this window, so the card reports who the message is
-  // waiting on rather than calling delivery unavailable — and keeps the
-  // Message button, because the hook still carries it on their next turn.
+  // Yoke never resumes this window, so delivery stays available and the
+  // Message button remains, because the hook still carries the message on
+  // the operator's next turn. The card already shows the wait in its parked
+  // badge and footer, so that mechanic rides the button's tooltip instead of
+  // a standalone line.
   const rows = [
     {
       session_id: "desk-1", liveness: "stale",
@@ -49,17 +51,13 @@ test("Sessions card says a quiet desktop chat waits on its operator", async (t) 
   ).children[1];
   state.value = "";
   state.dispatchEvent(new Event("change"));
+  assert.equal(byClass(root, "session-messaging-blocked").length, 0);
+  const buttons = byClass(byClass(root, "session-card")[0], "item-button");
+  assert.deepEqual(buttons.map((button) => button.textContent), ["Message"]);
   assert.equal(
-    byClass(root, "session-messaging-operator-wake")[0].textContent,
+    buttons[0].title,
     "Waiting for the operator to wake it: a message is delivered when they "
       + "next type anything in this chat.",
-  );
-  assert.equal(byClass(root, "session-messaging-blocked").length, 0);
-  assert.deepEqual(
-    byClass(byClass(root, "session-card")[0], "item-button").map(
-      (button) => button.textContent,
-    ),
-    ["Message"],
   );
   mounted.unmount();
 });

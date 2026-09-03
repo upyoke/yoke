@@ -159,8 +159,10 @@ export function appendSessionRelay(documentNode, body, row) {
 //
 // A desktop surface has no such route by design: Yoke never resumes the
 // window a person is reading. A message to a quiet one still arrives — on
-// that operator's next turn — so the card says who it is waiting on rather
-// than calling delivery unavailable.
+// that operator's next turn — so delivery stays available and the wait is
+// reported as a `note` rather than a blocker. The card already shows that
+// wait in its parked badge and footer, so the note rides the Message
+// button's tooltip instead of taking a line of its own.
 export function messagingAvailability(row) {
   const routing = row.messageability || {};
   if (routing.reason === "session_terminated") {
@@ -226,22 +228,16 @@ export function sessionMessageButton(documentNode, row, onMessage) {
     "Message",
   );
   message.type = "button";
-  message.title = `Message only session ${row.session_id}`;
+  message.title = availability.note
+    || `Message only session ${row.session_id}`;
   message.addEventListener("click", () => onMessage(String(row.session_id)));
   return message;
 }
 
+// Only a genuine blocker earns a line. When messaging is unavailable the
+// Message button is gone, so this paragraph is the sole feedback for why.
 export function appendSessionMessagingBlocker(documentNode, body, row) {
   const availability = messagingAvailability(row);
-  if (availability.note) {
-    body.appendChild(el(
-      documentNode,
-      "p",
-      "fact-line session-messaging-operator-wake",
-      availability.note,
-    ));
-    return;
-  }
   if (availability.available) return;
   body.appendChild(el(
     documentNode,
