@@ -30,23 +30,23 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _sweep_quiet_claim_holders(conn, *, machine_id: str, projects) -> None:
-    """Probe this machine's silent claim-holders and end the unanswering.
+    """Probe this machine's silent claim-holders.
 
-    Both steps are best-effort around the poll they ride on. The poll's job
-    is to hand this relay its next wake; a sweep that fails must not take
+    The probe is best-effort around the poll it rides on. The poll's job
+    is to hand this relay its next wake; a probe that fails must not take
     that away, so failure is logged and the poll continues — the next poll
     tries again from the same durable rows.
     """
-    from yoke_core.domain.session_stale_alive_probe import (
-        end_probe_unresponsive_sessions,
-        probe_stale_alive_sessions,
-    )
+    from yoke_core.domain.session_stale_alive_probe import probe_stale_alive_sessions
 
-    for sweep in (end_probe_unresponsive_sessions, probe_stale_alive_sessions):
-        try:
-            sweep(conn, machine_id=machine_id, authorized_projects=projects)
-        except Exception:
-            _LOGGER.debug("%s failed during relay poll", sweep.__name__, exc_info=True)
+    try:
+        probe_stale_alive_sessions(
+            conn, machine_id=machine_id, authorized_projects=projects
+        )
+    except Exception:
+        _LOGGER.debug(
+            "quiet claim-holder probe failed during relay poll", exc_info=True
+        )
 
 
 def _stuck_native_turn_probes(conn, *, machine_id: str, projects) -> list:
@@ -224,7 +224,7 @@ def handle_relay_turn_end(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
-    """End the reported sessions whose native process this machine proved gone."""
+    """Apply reports whose native process this machine proved gone."""
     if invalid := _target_failure(request):
         return invalid
     try:
@@ -232,8 +232,8 @@ def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.session_process_liveness_end import (
-        end_process_verified_dead_sessions,
+    from yoke_core.domain.session_process_liveness_report import (
+        apply_verified_process_death_reports,
     )
     from yoke_core.domain.session_relay_authorization import (
         require_relay_project_authority,
@@ -248,13 +248,15 @@ def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
                 actor_id=actor_id,
                 project_ids=payload.projects,
             )
-            outcome = end_process_verified_dead_sessions(
+            outcome = apply_verified_process_death_reports(
                 conn,
                 machine_id=payload.machine_id,
                 authorized_projects=payload.projects,
                 reports=[report.model_dump(mode="json") for report in payload.sessions],
             )
+            conn.commit()
         except (SessionRelayError, ValueError) as exc:
+            conn.rollback()
             return _failure(getattr(exc, "code", "relay_liveness_failed"), str(exc))
     finally:
         conn.close()

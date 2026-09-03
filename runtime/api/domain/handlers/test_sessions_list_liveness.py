@@ -65,6 +65,31 @@ class TestLivenessDerivation:
         assert rows[0]["liveness"] == "active"
         assert rows[0]["activity_at"] == recent_tool_call
 
+    def test_process_gone_evidence_is_current_only_until_later_activity(self, test_db):
+        old = _iso(_LONG_AGO_MINUTES)
+        observed = _iso()
+        _insert_session(test_db, "s-gone", last_heartbeat=old)
+        test_db.execute(
+            "UPDATE harness_sessions SET native_process_gone_at=%s, "
+            "native_process_gone_evidence=%s WHERE session_id=%s",
+            (observed, '{"pids":[42]}', "s-gone"),
+        )
+        test_db.commit()
+
+        row = list_sessions()[0]
+        assert row["native_process"] == {
+            "state": "gone",
+            "observed_at": observed,
+            "evidence": {"pids": [42]},
+        }
+
+        test_db.execute(
+            "UPDATE harness_sessions SET last_heartbeat=%s WHERE session_id=%s",
+            (_iso(-1), "s-gone"),
+        )
+        test_db.commit()
+        assert list_sessions()[0]["native_process"] is None
+
     def test_liveness_filter_and_rejection(self, test_db):
         _insert_session(test_db, "s-active", last_heartbeat=_iso())
         _insert_session(

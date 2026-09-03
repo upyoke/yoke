@@ -114,8 +114,9 @@ runner therefore never asserts the agent is gone on its own:
   release` or by expiry). The lease is control-plane state, so the held
   session's own tool calls neither set nor clear it — unlike `parked` mode,
   which a session declares about itself and its next tool call takes back.
-  It guards only idle reaping: an explicit terminate, and the relay's
-  verified-process-death path, still end the session.
+  It guards only idle reaping: an explicit terminate still ends the session.
+  Relay-verified process death ends a claimless session, but records evidence
+  and spares a session with any open claim or lock.
 - Destructive ends are explicit operator/CLI calls
   (`session-end --release-claims` through
   `sessions_render_end.end_session`). They fail closed with

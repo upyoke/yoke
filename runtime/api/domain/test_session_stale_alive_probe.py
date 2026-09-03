@@ -1,9 +1,9 @@
 # ruff: noqa: F811
-"""The three legs of probing a silent claim-holder: ask, wake, end."""
+"""The relay's non-terminal status probe for a silent claim-holder."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 import pytest
 
@@ -20,9 +20,6 @@ from yoke_core.domain.actor_permissions import (
     seed_roles_and_permissions,
 )
 from yoke_core.domain.session_stale_alive_probe import (
-    PROBE_UNDELIVERED_STATUS,
-    PROBE_UNRESPONSIVE_REASON,
-    end_probe_unresponsive_sessions,
     probe_key,
     probe_stale_alive_sessions,
 )
@@ -42,10 +39,6 @@ ACTOR_ID = 4401
 #: probe is refused as unroutable before it is ever sent.
 SURFACE = "claude-cli"
 SURFACE_VERSION = "2.1.238"
-
-#: ``fleet.stale_alive_probe_seconds`` and ``fleet.wake_ack_grace_seconds``.
-PROBE_THRESHOLD = timedelta(seconds=900)
-GRACE = timedelta(seconds=300)
 
 
 @pytest.fixture
@@ -92,10 +85,6 @@ def _claimable_items(conn):
     _insert_claimable_items(conn, ITEM_ID, ITEM_ID + 1)
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 def _quiet_holder(
     conn,
     session_id: str = "sess-quiet",
@@ -130,12 +119,6 @@ def _probe(conn, *, machine_id: str = MACHINE, now: datetime | None = None):
     )
 
 
-def _end_unanswered(conn, *, machine_id: str = MACHINE, now: datetime | None = None):
-    return end_probe_unresponsive_sessions(
-        conn, machine_id=machine_id, authorized_projects=PROJECTS, now=now
-    )
-
-
 def _probe_recipient(conn, session_id: str):
     return conn.execute(
         "SELECT r.state, r.wake_attempt_count FROM session_message_recipients r "
@@ -145,40 +128,7 @@ def _probe_recipient(conn, session_id: str):
     ).fetchone()
 
 
-def _ended_at(conn, session_id: str):
-    return conn.execute(
-        "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
-        (session_id,),
-    ).fetchone()["ended_at"]
-
-
-def _mark_woken(conn, session_id: str, when: datetime) -> None:
-    """Stand in for the wake the sweep fires against a starved probe."""
-    conn.execute(
-        "UPDATE session_message_recipients SET wake_attempt_count = 1, "
-        "last_wake_at = %s WHERE session_id = %s",
-        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), session_id),
-    )
-    conn.commit()
-
-
-def _mark_delivered(conn, session_id: str, when: datetime) -> None:
-    """Stand in for the hook that attached the probe inside a woken turn."""
-    conn.execute(
-        "UPDATE session_message_recipients SET state = 'injected', "
-        "injection_count = 1, last_injected_at = %s WHERE session_id = %s",
-        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), session_id),
-    )
-    conn.commit()
-
-
-def _woken_and_delivered(conn, session_id: str) -> None:
-    when = _now() - GRACE - timedelta(seconds=30)
-    _mark_woken(conn, session_id, when)
-    _mark_delivered(conn, session_id, when)
-
-
-def test_a_parked_quiet_claim_holder_is_not_probed_or_ended(conn):
+def test_a_parked_quiet_claim_holder_is_not_probed(conn):
     session_id = _quiet_holder(conn)
     conn.execute(
         "UPDATE harness_sessions SET mode = %s WHERE session_id = %s",
@@ -187,8 +137,6 @@ def test_a_parked_quiet_claim_holder_is_not_probed_or_ended(conn):
     conn.commit()
     assert _probe(conn) == {"probed": [], "skipped": []}
     assert _probe_recipient(conn, session_id) is None
-    assert _end_unanswered(conn) == {"ended": [], "skipped": []}
-    assert _ended_at(conn, session_id) is None
 
 
 def test_a_working_claim_holder_is_never_probed(conn):
@@ -228,81 +176,3 @@ def test_a_silent_claim_holder_is_probed_once(conn):
 def test_another_machines_session_is_not_this_relays_business(conn):
     _quiet_holder(conn, "sess-elsewhere", machine_id=OTHER_MACHINE)
     assert _probe(conn)["probed"] == []
-
-
-def test_a_session_that_answers_its_probe_is_never_ended(conn):
-    session_id = _quiet_holder(conn)
-    assert _probe(conn) == {"probed": [session_id], "skipped": []}
-    _woken_and_delivered(conn, session_id)
-    # Its turn ran again, which is the whole answer the probe was after.
-    # The stamp has to be unambiguously after the probe rather than inside
-    # the same second, because equal timestamps cannot prove which came
-    # first and the sweep will not end a session on an ambiguous answer.
-    conn.execute(
-        "UPDATE harness_sessions SET last_tool_call_at=%s WHERE session_id=%s",
-        ((_now() + timedelta(seconds=5)).strftime("%Y-%m-%dT%H:%M:%SZ"), session_id),
-    )
-    conn.commit()
-
-    assert _end_unanswered(conn) == {"ended": [], "skipped": []}
-    assert _ended_at(conn, session_id) is None
-
-
-def test_a_probe_still_inside_its_wake_window_is_not_ended_yet(conn):
-    session_id = _quiet_holder(conn)
-    _probe(conn)
-    _mark_woken(conn, session_id, _now())
-    assert _end_unanswered(conn)["ended"] == []
-    assert _ended_at(conn, session_id) is None
-
-
-def test_a_probe_woken_and_still_ignored_ends_the_session_and_frees_its_claims(conn):
-    session_id = _quiet_holder(conn)
-    assert _probe(conn) == {"probed": [session_id], "skipped": []}
-    _woken_and_delivered(conn, session_id)
-
-    assert _end_unanswered(conn)["ended"] == [session_id]
-    assert _ended_at(conn, session_id) is not None
-    held = conn.execute(
-        "SELECT COUNT(*) AS cnt FROM work_claims "
-        "WHERE session_id = %s AND released_at IS NULL",
-        (session_id,),
-    ).fetchone()["cnt"]
-    # The reason to end here at all is that the claims come back now rather
-    # than when the much longer holdings TTL expires.
-    assert held == 0
-
-
-def test_a_wake_that_delivered_nothing_ends_no_session(conn):
-    """Three accepted wakes with zero injections are not three refusals."""
-    session_id = _quiet_holder(conn)
-    assert _probe(conn) == {"probed": [session_id], "skipped": []}
-    # Woken well outside the grace window, but the resumed turn made no tool
-    # call, so no hook ever attached the probe.
-    _mark_woken(conn, session_id, _now() - GRACE - timedelta(seconds=30))
-
-    outcome = _end_unanswered(conn)
-
-    assert outcome == {
-        "ended": [],
-        "skipped": [{"session_id": session_id, "status": PROBE_UNDELIVERED_STATUS}],
-    }
-    assert _ended_at(conn, session_id) is None
-
-
-def test_the_end_names_the_probe_and_wake_it_rests_on(conn):
-    from yoke_core.domain.sessions_analytics import EVENT_HARNESS_SESSION_ENDED
-
-    session_id = _quiet_holder(conn)
-    _probe(conn)
-    _woken_and_delivered(conn, session_id)
-    _end_unanswered(conn)
-
-    envelope = conn.execute(
-        "SELECT envelope FROM events WHERE event_name = %s AND session_id = %s "
-        "ORDER BY id DESC LIMIT 1",
-        (EVENT_HARNESS_SESSION_ENDED, session_id),
-    ).fetchone()["envelope"]
-    # A verdict an operator cannot question is not evidence.
-    assert PROBE_UNRESPONSIVE_REASON in str(envelope)
-    assert "stale_alive_probe" in str(envelope)

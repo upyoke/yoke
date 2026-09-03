@@ -1,10 +1,10 @@
-"""Ask a silent claim-holder to report, then act on whether it answers.
+"""Ask a silent claim-holder to report.
 
 Two failure modes look identical from the control plane: a session whose
 process died, and a session whose process is fine but whose turn has stopped
-advancing. Both hold their claims and both go quiet. The machine's own relay
-separates them for the first case only — it proves a recorded pid is gone and
-that session is ended, which is the right recovery for a dead process.
+advancing. Both hold their claims and both go quiet. The machine's relay can
+separate the first case by recording that the process is gone, but no
+machine-liveness signal revokes a session's holdings.
 
 What is left over is the harder population: claim-holding sessions that read
 ``stale`` while the relay does *not* prove them dead. Nothing decides anything
@@ -13,8 +13,7 @@ later, and the work they were holding is blocked the whole time on a session
 that may simply be waiting for someone to say something to it.
 
 So ask. The escalation this module opens is deliberately the mildest thing
-that could work, in three steps that each only fire when the previous one
-produced no answer:
+that could work:
 
 1. **Probe.** Send the session an ordinary message asking it to report. If
    its hooks still run, the message injects, the session takes a turn, and
@@ -22,20 +21,10 @@ produced no answer:
 2. **Wake.** A probe nobody collects is a starved envelope like any other,
    so the existing wake machinery escalates it — the native resume when the
    session reads active, the ordinary idle route while it reads stale.
-3. **End.** A probe that was *delivered*, then produced no tool call one
-   further window later, has had every chance a live process would have
-   taken. Ending it releases the claims immediately rather than leaving them
-   for the holdings TTL, and carries the probe and wake evidence so the
-   verdict can be questioned afterwards.
 
-Delivery is the hinge of that last step, and it is not the same fact as
-having woken the session. A wake that resumed a session whose turn then ran
-no tool call injects nothing, and three such wakes against one parked
-session look — from wake attempts alone — exactly like a session that was
-asked three times and refused to answer. It was never asked. So a probe the
-receipt does not show as delivered ends nothing: the verdict falls back to
-the holdings TTL, which costs time, rather than to ending a session that was
-never reached, which costs its work.
+A delivered probe that gets no answer remains evidence for the operator and
+the normal holdings-TTL sweep. It never ends a claim-holding session; only a
+deliberate termination or that holdings TTL may release its authority.
 
 Nothing here pages an operator. Each step is evidence for the next, and the
 session can end the sequence at any point simply by calling a tool.
@@ -50,11 +39,9 @@ from yoke_contracts.session_control.liveness import LIVENESS_STALE
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_routing import session_liveness
-from yoke_core.domain.session_message_types import parse_timestamp, row_dict, utc_now
+from yoke_core.domain.session_message_types import row_dict, utc_now
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
-from yoke_core.domain.sessions_analytics import SessionError
-from yoke_core.domain.sessions_render_end import end_session
 
 
 #: Marks a message as a status probe. Carried on the message's idempotency
@@ -62,20 +49,13 @@ from yoke_core.domain.sessions_render_end import end_session
 #: probe is identifiable for the rest of its life from the row itself.
 PROBE_KEY_PREFIX = "stale-alive-probe:"
 
-#: The end reason recorded when a probed session never answers.
-PROBE_UNRESPONSIVE_REASON = "probe_unresponsive"
-
-#: Why a probed session was left alone: the probe never reached it, so its
-#: silence is the wake route's failure and not the session's answer.
-PROBE_UNDELIVERED_STATUS = "wake_never_delivered"
-
 PROBE_BODY = (
     "Status probe: this session holds an active work claim but has not made "
     "a tool call since it went quiet, and its machine cannot confirm the "
     "process is gone. Report status by continuing your work — any tool call "
     "clears this probe. If you are blocked or waiting on someone, say so and "
-    "release the claim if the work has been handed off. A session that never "
-    "answers is ended so its claims return to the fleet."
+    "release the claim if the work has been handed off. An unanswered probe "
+    "stays visible until deliberate termination or the holdings TTL."
 )
 
 
@@ -221,117 +201,9 @@ def probe_stale_alive_sessions(
     return {"probed": probed, "skipped": skipped}
 
 
-def _unanswered_probes(
-    conn: Any,
-    *,
-    machine_id: str,
-    projects: Sequence[int],
-    now: datetime,
-) -> List[Dict[str, Any]]:
-    """Return probes that were woken and still produced no tool call."""
-    if not projects:
-        return []
-    marker = _p(conn)
-    placeholders = ",".join(marker for _ in projects)
-    rows = conn.execute(
-        "SELECT r.session_id,r.wake_attempt_count,r.last_wake_at,r.state,"
-        "r.injection_count,r.last_injected_at,"
-        "m.message_id,m.created_at AS probe_created_at,hs.project_id,"
-        "hs.last_tool_call_at,hs.mode "
-        "FROM session_message_recipients r "
-        "JOIN session_messages m ON m.message_id=r.message_id "
-        "JOIN harness_sessions hs ON hs.session_id=r.session_id "
-        f"WHERE m.idempotency_key LIKE {marker} AND m.cancelled_at IS NULL "
-        f"AND hs.machine_id={marker} AND hs.ended_at IS NULL "
-        f"AND hs.terminated_at IS NULL AND hs.project_id IN ({placeholders}) "
-        "AND r.wake_attempt_count>0 "
-        "ORDER BY r.session_id,m.created_at",
-        (f"{PROBE_KEY_PREFIX}%", machine_id, *projects),
-    ).fetchall()
-    return [row_dict(row) for row in rows]
-
-
-def end_probe_unresponsive_sessions(
-    conn: Any,
-    *,
-    machine_id: str,
-    authorized_projects: Iterable[int],
-    now: datetime | None = None,
-) -> Dict[str, Any]:
-    """End sessions that were probed, then woken, and still said nothing.
-
-    The claims are released with the end, because the whole reason to reach
-    this step is that they are being held by something that has stopped
-    answering for them.
-    """
-    current = now or utc_now()
-    projects = tuple(sorted({int(value) for value in authorized_projects}))
-    ended: List[str] = []
-    skipped: List[Dict[str, Any]] = []
-    for row in _unanswered_probes(
-        conn, machine_id=machine_id, projects=projects, now=current
-    ):
-        session_id = str(row["session_id"])
-        if str(row.get("mode") or "") == SESSION_MODE_PARKED:
-            continue
-        probe_sent = parse_timestamp(row.get("probe_created_at"))
-        last_wake = parse_timestamp(row.get("last_wake_at"))
-        if probe_sent is None or last_wake is None:
-            continue
-        last_tool_call = parse_timestamp(row.get("last_tool_call_at"))
-        if last_tool_call is not None and last_tool_call > probe_sent:
-            # It answered. The probe having been woken says nothing once a
-            # turn actually ran.
-            continue
-        if int(row.get("injection_count") or 0) < 1:
-            # Woken but never handed the probe. Nothing here is evidence
-            # about the session; it is evidence about the wake route.
-            skipped.append(
-                {"session_id": session_id, "status": PROBE_UNDELIVERED_STATUS}
-            )
-            continue
-        window = timedelta(
-            seconds=project_policy(conn, int(row["project_id"])).wake_ack_grace_seconds
-        )
-        if last_wake + window > current:
-            continue
-        evidence = {
-            "source": "stale_alive_probe",
-            "verdict": PROBE_UNRESPONSIVE_REASON,
-            "probe_message_id": str(row["message_id"]),
-            "probe_sent_at": str(row.get("probe_created_at") or ""),
-            "probe_state": str(row.get("state") or ""),
-            "probe_injected_at": str(row.get("last_injected_at") or ""),
-            "wake_attempt_count": int(row.get("wake_attempt_count") or 0),
-            "last_wake_at": str(row.get("last_wake_at") or ""),
-        }
-        try:
-            end_session(
-                conn,
-                session_id,
-                release_claims=True,
-                # A session that did not answer its probe cannot take the
-                # next chain step either; the rationale rides the ledger.
-                override_chain_end=True,
-                chain_end_rationale=PROBE_UNRESPONSIVE_REASON,
-                end_reason=PROBE_UNRESPONSIVE_REASON,
-                agent_presence_evidence=evidence,
-            )
-        except SessionError as exc:
-            skipped.append(
-                {"session_id": session_id, "status": f"refused_{exc.code.lower()}"}
-            )
-            continue
-        ended.append(session_id)
-    return {"ended": ended, "skipped": skipped}
-
-
 __all__ = [
     "PROBE_BODY",
     "PROBE_KEY_PREFIX",
-    "PROBE_UNDELIVERED_STATUS",
-    "PROBE_UNRESPONSIVE_REASON",
-    "end_probe_unresponsive_sessions",
     "probe_key",
     "probe_stale_alive_sessions",
 ]

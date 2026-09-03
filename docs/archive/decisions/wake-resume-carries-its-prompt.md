@@ -135,13 +135,10 @@ now joins the results that hand the next attempt to the peer-hook broker —
 a route that does not depend on the resumed turn calling anything — instead
 of reporting a success that stops the plane from trying again.
 
-## The probe rests on delivery, not on having woken
+## The status probe is never terminal authority
 
-The stale-alive probe ends a session that was asked to report and did not.
-It read "asked" as "woken", and a wake that delivers nothing never asked
-anything: three resumes against a parked session look, from wake attempts
-alone, exactly like three refusals to answer. The end step therefore reads
-the probe's own receipt. An undelivered probe ends nothing and says so
-(`wake_never_delivered`), leaving the claims to the holdings TTL — slower,
-and the only honest verdict available about a session that was never
-reached.
+The stale-alive probe asks a quiet claim holder to report and lets ordinary
+wake delivery carry that question. Whether the probe was delivered or
+answered is useful operator evidence, but neither fact authorizes ending a
+session that still holds authority. An unanswered probe stays visible until
+deliberate termination or the holdings-TTL sweep settles it.

@@ -159,7 +159,7 @@ Tracks active harness sessions offering themselves to Yoke for work assignment. 
 
 **Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:
 
-- `session_stale_ttl_minutes` (default `20`) — the short tier for a session with no active work claim, no session-owned strategy-document claim, and no session-owned coordination lease. One base applies on every harness: fleet machinery ends sessions at every stop, so silence means the same thing everywhere.
+- `session_stale_ttl_minutes` (default `20`) — the short tier for a session with no active work claim, no session-owned strategy-document claim, and no session-owned coordination lease. One base applies on every harness; transient stop signals attempt only a non-destructive empty-session end.
 - `session_stale_ttl_with_holdings_minutes` (default `1440`) — the minimum tier for a session holding any of those three active resources. It prevents a long foreground command from losing its claim or lock merely because no tool-boundary heartbeat landed.
 
 Resolver: `yoke_core.domain.sessions_analytics_core` owns both source thresholds, `yoke_core.domain.session_cleanup_holdings.effective_cleanup_ttl` selects `max(short, holdings)` when the session has active holdings, and the sessions-card stale-eligible badge reads that same effective TTL. Downstream documentation should cite the config keys above by name rather than the current literal values — values may shift; the key names are stable.
@@ -177,11 +177,13 @@ workspace TEXT NOT NULL -- absolute path to working directory
 mode TEXT DEFAULT 'wait' -- session mode (charge, feed, strategize, wait)
 offered_at TEXT NOT NULL -- ISO 8601 when session was registered
 last_heartbeat TEXT NOT NULL -- ISO 8601 of last heartbeat
+native_process_gone_at TEXT -- relay observation; later activity supersedes it
+native_process_gone_evidence TEXT -- bounded JSON evidence from local records
 ended_at TEXT -- NULL while active; set when session ends
 offer_envelope TEXT -- full offer envelope JSON (optional; includes supported_paths, max_chain_steps, chain_checkpoint)
 ```
 
-The `offer_envelope` column stores the full session-offer JSON including `supported_paths` (list of canonical downstream path names the session can execute), `max_chain_steps`, and the persisted `chain_checkpoint`. When `supported_paths` is non-empty, the decision engine validates the required path against it and returns `escalate` with `escalate_reason: "unsupported_path"` if the path is not supported. See `.yoke/docs/reference/session-offer.md` for the path derivation mapping.
+The process-gone columns record machine evidence without ending a claim holder. `sessions.list.native_process` exposes the observation only until a later heartbeat, tool call, or episode start supersedes it. The `offer_envelope` column stores the full session-offer JSON including `supported_paths` (list of canonical downstream path names the session can execute), `max_chain_steps`, and the persisted `chain_checkpoint`. When `supported_paths` is non-empty, the decision engine validates the required path against it and returns `escalate` with `escalate_reason: "unsupported_path"` if the path is not supported. See `.yoke/docs/reference/session-offer.md` for the path derivation mapping.
 
 **Chain checkpoint:** After each `/yoke do` mode handler returns, a `chain_checkpoint` key is written into `offer_envelope` via `update_chain_checkpoint()`. This persists the post-handler state (`step`, `action`, `chainable`, `handler_outcome`, `item_id`, `task_num`, `status`, `required_path`, `completed_at`) so that Step C of the loop can consult durable state rather than prompt-local variables when deciding whether to re-offer. When that item reaches a terminal workflow stage, post-commit closeout marks the matching checkpoint `terminal_item_closed`: it remains chainable for a live loop's next offer, but no longer blocks an empty session's final hook, and the same handler's final checkpoint write preserves the consumed outcome. The same envelope's `max_chain_steps` value lets normal `session-end` reject premature cleanup with `CHAIN_PENDING`; `--force` / `force=true` does not bypass that guard. The explicit chain-end override flag plus a non-empty rationale is required and emits `ChainDeclineOverridden`. Sessions holding unreleased claims stay active until the claim lifecycle releases them, the stale-session cleaner (`yoke sessions reclaim-stale --confirm`) reclaims them, or a human explicitly uses `python3 -m yoke_core.api.service_client claim-release`. Read via `read_chain_checkpoint()` or the `session-checkpoint-read` CLI command.
 

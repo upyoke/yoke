@@ -87,4 +87,6 @@ handles termination keeps, and reports the sessions whose every record is
 gone. A contended record is skipped: a pid that cannot name one session
 cannot testify about one session's death either. Why this exists, and what
 the control plane does with the report, is in
-[`relay-verified-process-death.md`](../archive/decisions/relay-verified-process-death.md).
+[`relay-verified-process-death.md`](../archive/decisions/relay-verified-process-death.md),
+with the holdings-preserving boundary in
+[`relay-process-death-respects-session-holdings.md`](../archive/decisions/relay-process-death-respects-session-holdings.md).

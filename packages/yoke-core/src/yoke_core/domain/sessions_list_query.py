@@ -22,6 +22,8 @@ _SELECT = (
     "s.mode, s.parked_reason, s.keepalive_until, s.keepalive_reason, "
     "s.workspace, s.project_id, pr.slug AS project, "
     "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
+    "s.episode_started_at, s.native_process_gone_at, "
+    "s.native_process_gone_evidence, "
     "s.ended_at, s.terminated_at, s.terminated_by_actor_id, "
     "s.terminated_by_session_id, s.termination_reason, s.current_item_id, s.actor_id, "
     "a.kind AS actor_kind, i.title AS current_item_title, "

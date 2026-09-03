@@ -31,6 +31,7 @@ SESSION_LIST_FIELDS = (
     "context_window_tokens",
     "workspace",
     "offered_at",
+    "native_process",
     "ended_at",
     "terminated_at",
     "terminated_by_actor_id",

@@ -1,24 +1,10 @@
-"""End sessions whose machine proved their native process is gone.
+"""Apply one machine's verified native-process death reports.
 
-A session row keeps reading ``active`` until its heartbeat ages past the
-stale TTL, and keeps reading ``stale`` — never ``ended`` — until the
-periodic cleanup sweep reaches it. For a native that actually died, both
-readings are lies with consequences: the wake machinery offers a stale
-session the idle-injection route, which pokes a process that no longer
-exists, so every wake for it fails until the sweep's much longer holdings
-TTL expires. One observed cursor worker died at 12:46Z and its row stayed
-running, holding claims, for hours.
-
-Only the machine that ran the native can settle the question, and it
-already runs one relay. The relay reports the sessions whose recorded pid
-is verifiably gone; this module applies that report. Ending the row moves
-it to the ``ended`` liveness whose wake operation is a fresh native
-resume, which is exactly the recovery a dead process needs.
-
-The report is evidence, not authority: a reported session is ended only
-when it belongs to the reporting machine, sits in a project that relay is
-authorized for, and is already past the short stale TTL. Anything else is
-skipped with a named status, and the cleanup sweep remains the backstop.
+A local process record proves only that the recorded process is gone.  It
+does not revoke control-plane authority.  A stale session with no holdings
+can end immediately; one with any current holding remains live, keeps every
+claim, and carries the process-gone observation until new activity supersedes
+it or a deliberate/holdings-TTL teardown ends it.
 """
 
 from __future__ import annotations
@@ -26,14 +12,18 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
-from .session_message_routing import session_liveness
-from .session_message_types import row_dict
-from .sessions_analytics import SessionError
-from .sessions_render_end import end_session
 from yoke_contracts.session_control.liveness import LIVENESS_STALE
+from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.session_message_types import row_dict
+from yoke_core.domain.session_native_process_observation import (
+    CLAIMS_HELD_STATUS,
+    record_native_process_gone,
+)
+from yoke_core.domain.sessions_analytics import SessionError
+from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
+from yoke_core.domain.sessions_render_end import end_session
 
 
-#: The end reason recorded on ``HarnessSessionEnded`` for this path.
 PROCESS_VERIFIED_DEAD_REASON = "process_verified_dead"
 
 _SESSION_COLUMNS = (
@@ -57,7 +47,6 @@ def _skip_reason(
     authorized_projects: Sequence[int],
     now: datetime,
 ) -> str | None:
-    """Name why a reported session must not be ended, or ``None`` to end it."""
     if row is None:
         return "session_not_found"
     if str(row.get("machine_id") or "") != machine_id:
@@ -67,27 +56,20 @@ def _skip_reason(
         return "project_unauthorized"
     liveness = session_liveness(row, now=now)
     if liveness != LIVENESS_STALE:
-        # ``active`` means the row has been touched since the process died —
-        # a re-registration, a resumed episode — and any terminal liveness
-        # is already the outcome this path exists to reach.
         return f"liveness_{liveness}"
     return None
 
 
-def _end_one(
+def _end_claimless(
     conn: Any,
     session_id: str,
     evidence: Mapping[str, Any],
 ) -> str | None:
-    """End one verified-dead session; return a skip status on refusal."""
     try:
         end_session(
             conn,
             session_id,
             release_claims=False,
-            # A dead process cannot take the next chain step, so a pending
-            # checkpoint is exactly what the resume this end enables must
-            # pick up. The override records the rationale on the ledger.
             override_chain_end=True,
             chain_end_rationale=PROCESS_VERIFIED_DEAD_REASON,
             end_reason=PROCESS_VERIFIED_DEAD_REASON,
@@ -102,7 +84,7 @@ def _end_one(
     return None
 
 
-def end_process_verified_dead_sessions(
+def apply_verified_process_death_reports(
     conn: Any,
     *,
     machine_id: str,
@@ -110,14 +92,10 @@ def end_process_verified_dead_sessions(
     reports: Iterable[Mapping[str, Any]],
     now: datetime | None = None,
 ) -> Dict[str, Any]:
-    """Apply one machine's verified-dead session reports.
-
-    Returns the ended session ids and, for every report left alone, the
-    named status that explains it — a silent no-op here would be
-    indistinguishable from the ghost this path exists to remove.
-    """
+    """End claimless dead processes and retain every claim-holding session."""
     current = now or datetime.now(timezone.utc)
     projects = tuple(sorted({int(value) for value in authorized_projects}))
+    holdings = session_holdings_by_session(conn, previous_limit=0)
     ended: List[str] = []
     skipped: List[Dict[str, Any]] = []
     for report in reports:
@@ -129,7 +107,14 @@ def end_process_verified_dead_sessions(
             machine_id=machine_id,
             authorized_projects=projects,
             now=current,
-        ) or _end_one(conn, session_id, report.get("evidence") or {})
+        )
+        evidence = report.get("evidence") or {}
+        current_holdings = (holdings.get(session_id) or {}).get("current") or []
+        if status is None and current_holdings:
+            record_native_process_gone(conn, session_id, evidence, observed_at=current)
+            status = CLAIMS_HELD_STATUS
+        if status is None:
+            status = _end_claimless(conn, session_id, evidence)
         if status is None:
             ended.append(session_id)
         else:
@@ -139,5 +124,5 @@ def end_process_verified_dead_sessions(
 
 __all__ = [
     "PROCESS_VERIFIED_DEAD_REASON",
-    "end_process_verified_dead_sessions",
+    "apply_verified_process_death_reports",
 ]

@@ -83,7 +83,9 @@ def _holder_lines(
             f"  {holder.public_ref}  session {holder.session_id}  mode "
             f"{holder.mode or 'unset'}  quiet {_minutes(holder.idle_seconds)}"
         )
-        if with_wake:
+        if holder.native_process_gone:
+            line += "  process gone, claims held — terminate deliberately if dead"
+        elif with_wake:
             line += f"  wake `yoke say --item {holder.public_ref} --stdin`"
         lines.append(line)
     return _capped(lines, len(holders))
@@ -227,8 +229,8 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         ),
         "",
         *_section(
-            f"idle holders — claim held, no tool call in over {idle} "
-            "(parked sessions excluded; they declared their wait)",
+            f"idle holders — claim held, no tool call in over {idle}; process-gone "
+            "holders included even when parked",
             _holder_lines(report.idle),
         ),
         *_section(

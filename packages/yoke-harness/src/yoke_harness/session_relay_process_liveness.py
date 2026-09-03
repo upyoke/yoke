@@ -21,12 +21,10 @@ rather than as alive. A session with no record at all proves nothing and is
 left to the control plane's TTL sweep — this path only ever shortens the
 wait for a death it can actually demonstrate.
 
-A record whose process is gone is spent: it exists to reach a running
-native, and it can never do that again. Once the report it fed has landed,
-the record is removed — which is what the identity resolver already does
-with a stale anchor it reads, and what keeps this sweep quiescent. Without
-it, one death would be re-reported on every poll for the life of the
-machine.
+A record whose process is gone is spent only after the control plane ends
+the session. A claim-holding session is deliberately spared, so its local
+records remain and the relay reports the fact again after its claims are
+released. That later report can then end the claimless session.
 """
 
 from __future__ import annotations
@@ -242,9 +240,11 @@ def report_verified_dead_sessions(
         # The records stay, so a server that starts serving this function
         # still hears about every death observed while it could not.
         return ()
-    _prune(dead)
     ended = (getattr(response, "result", None) or {}).get("ended") or []
-    return tuple(str(session_id) for session_id in ended)
+    ended_ids = tuple(str(session_id) for session_id in ended)
+    ended_set = set(ended_ids)
+    _prune(tuple(entry for entry in dead if entry.session_id in ended_set))
+    return ended_ids
 
 
 __all__ = [

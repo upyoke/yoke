@@ -10,6 +10,11 @@ from yoke_core.domain.session_turn_posture import (
     TURN_POSTURE_AT_COLUMN_DDL,
     TURN_POSTURE_COLUMN_DDL,
 )
+from yoke_core.domain.session_native_process_observation import (
+    NATIVE_PROCESS_GONE_AT_COLUMN,
+    NATIVE_PROCESS_GONE_EVIDENCE_COLUMN,
+    NATIVE_PROCESS_OBSERVATION_COLUMN_DDL,
+)
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 
@@ -57,6 +62,8 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     last_tool_call_at TEXT DEFAULT NULL,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
     episode_started_at TEXT DEFAULT NULL,
+    {NATIVE_PROCESS_GONE_AT_COLUMN} {NATIVE_PROCESS_OBSERVATION_COLUMN_DDL},
+    {NATIVE_PROCESS_GONE_EVIDENCE_COLUMN} {NATIVE_PROCESS_OBSERVATION_COLUMN_DDL},
     pending_resume_notice TEXT DEFAULT NULL,
     last_chain_step INTEGER DEFAULT NULL,
     last_checkpoint_at TEXT DEFAULT NULL,
