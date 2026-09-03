@@ -47,7 +47,7 @@ def classify_database(name: str, *, validation_databases: Set[str]) -> Tuple[boo
     tenant: the Platform catalog, scratch databases a test run abandoned, and
     the validation database governed migration rehearsal applies history into
     and leaves behind. Converging any of them proves nothing about a tenant,
-    and each has failed a release at least once by being counted as one.
+    and the latter two have each failed a release by being counted as one.
     """
     if name == PLATFORM_DATABASE:
         return False, CONTROL_PLANE_REASON

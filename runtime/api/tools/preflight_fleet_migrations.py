@@ -10,8 +10,8 @@ The fleet is what the release must keep serving, which is narrower than
 every Yoke-schema database on the cluster: the Platform catalog, scratch
 databases a test run abandoned, and the validation database governed
 migration rehearsal applies history into and leaves behind are all owned by
-something other than a tenant, and each has failed a release by being
-converged as one. Every candidate is rostered before any of them is copied,
+something other than a tenant, and the latter two have each failed a release
+by being converged as one. Every candidate is rostered before it is copied,
 naming whether it is a member and why, so the capture answers which
 databases this rehearsed without a reader reconstructing the rule.
 
