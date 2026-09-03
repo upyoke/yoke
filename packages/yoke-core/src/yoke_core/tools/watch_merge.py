@@ -210,7 +210,9 @@ def _parse_args(
             f"  {prog} merge-item -- PREFIX-N --wait --result TEXT --verification TEXT\n"
             f"  {prog} merge-worktree -- PREFIX-N\n"
             f"  {prog} done-transition -- PREFIX-N\n"
-            "Claude never blocks on --wait; Codex/Cursor may use it."
+            "--wait holds the landing inline: operator-opened sessions take the\n"
+            "enqueue/re-enter handoff, launched headless workers pass --wait\n"
+            "through this wrapper. Never block a bare foreground call on it."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
@@ -315,9 +317,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=sub_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(
-                flush_seconds
-            ),
+            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
         return 0
 
@@ -331,9 +331,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
-        flush_seconds=_watch_digest.resolve_flush_seconds(
-            ns, flush_seconds
-        ),
+        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 
 

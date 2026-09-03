@@ -119,13 +119,18 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch merge "
             "--print-streaming-pair merge-worktree -- PREFIX-N\n"
-            "# merge-item defaults to enqueue/re-enter; Codex/Cursor may pass --wait"
+            "# merge-item enqueues and exits; a launched worker adds --wait"
         ),
         "notes": (
             "watch_merge owns the merge filter regex (section banners, "
             "step headers, errors, warnings, RESULT_FILE=). Use for any "
-            "merge or done_transition; never hand-author the filter. Claude "
-            "must not pass merge-item --wait."
+            "merge or done_transition; never hand-author the filter. "
+            "merge-item --wait holds the landing inline: an operator-opened "
+            "session takes the enqueue/re-enter handoff, while a launched "
+            "headless worker passes --wait through this wrapper and holds "
+            "its turn, because it cannot be prompted on the "
+            "landing-complete message. Never block a bare foreground call "
+            "on the full wait."
         ),
     },
     {
