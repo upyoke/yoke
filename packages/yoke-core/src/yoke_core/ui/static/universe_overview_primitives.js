@@ -62,7 +62,9 @@ export function summaryPanel(
   // The "Open X ->" link carries the view's scope; a held in-place rescope
   // rewrites it so the destination opens on the newly selected projects.
   panel.setScope = (newScope) => {
-    openLinkNode.href = buildUniverseRoute(view, serializeScope(newScope));
+    // The same distinction the constructor draws: a rescope changes which
+    // projects the link carries, never which destination it opens.
+    openLinkNode.href = buildUniverseRoute(destination, serializeScope(newScope));
   };
   panel.ghost = (hintNode) => {
     panel.classList.add("overview-ghost");

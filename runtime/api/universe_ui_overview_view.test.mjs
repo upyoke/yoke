@@ -121,7 +121,7 @@ test("the Overview jump strip maps and scrolls to every summary", async (t) => {
   ]);
 
   const panels = byClass(root, "overview-section");
-  assert.equal(panels.length, 6);
+  assert.equal(panels.length, 4);
   let scrollOptions = null;
   panels[3].scrollIntoView = (options) => { scrollOptions = options; };
   jumps[3].dispatchEvent(new Event("click"));

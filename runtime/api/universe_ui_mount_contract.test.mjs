@@ -164,9 +164,18 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
     firstNavigation.children[firstNavigation.children.length - 1],
     navigationEndSlot,
   );
+  // Between the slots the sidebar is destinations and the group headings that
+  // separate them, and nothing else.
   assert.ok(firstNavigation.children.slice(1, -1).every(
-    (node) => node.classList.contains("nav-link"),
+    (node) => node.classList.contains("nav-link")
+      || node.classList.contains("nav-group"),
   ));
+  assert.deepEqual(
+    firstNavigation.children.filter(
+      (node) => node.classList.contains("nav-group"),
+    ).map((node) => node.textContent),
+    ["Settings", "Diagnostics"],
+  );
   const firstShell = byClass(firstRoot, "shell")[0];
   assert.equal(firstShell.children[0], firstNavigation);
   const firstBody = firstShell.children[1];

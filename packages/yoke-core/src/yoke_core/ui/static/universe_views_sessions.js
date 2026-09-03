@@ -242,7 +242,8 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     chrome.setPageHead({
       title: "Sessions",
       summary:
-        "Every harness session running against this universe, and what each one holds.",
+        "What can run on each machine, and every harness session running "
+        + "against this universe.",
     });
   }
 

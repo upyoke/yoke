@@ -53,8 +53,7 @@ test("a project-selection change re-renders from held data with zero new reads",
   assert.equal(activeCount(root), "3");
   assert.deepEqual(openHrefs(root), [
     "#/strategy?project=1", "#/items?project=1", "#/sessions?project=1",
-    "#/deployments?project=1", "#/events?project=1", "#/doctor?project=1",
-  ]);
+    "#/deployments?project=1",   ]);
 
   const activationHost = byClass(root, "activation-host")[0];
   const activationStack = byClass(root, "activation-stack")[0];
@@ -75,8 +74,7 @@ test("a project-selection change re-renders from held data with zero new reads",
   assert.equal(activeCount(root), "1");
   assert.deepEqual(openHrefs(root), [
     "#/strategy?project=2", "#/items?project=2", "#/sessions?project=2",
-    "#/deployments?project=2", "#/events?project=2", "#/doctor?project=2",
-  ]);
+    "#/deployments?project=2",   ]);
 
   // The activation stack, picker, and page head are the same nodes — no full
   // route render ran, so onboarding never reloaded.
@@ -95,8 +93,7 @@ test("a project-selection change re-renders from held data with zero new reads",
   assert.equal(activeCount(root), "4");
   assert.deepEqual(openHrefs(root), [
     "#/strategy", "#/items", "#/sessions",
-    "#/deployments", "#/events", "#/doctor",
-  ]);
+    "#/deployments",   ]);
   assert.equal(byClass(root, "activation-host")[0], activationHost);
   mounted.unmount();
 });
