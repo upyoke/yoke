@@ -84,8 +84,8 @@ with what to do about it, and idle holders keyed on `last_tool_call_at`
 rather than any liveness label. Do not re-run those queries by hand: a seat
 that did burned a pass rediscovering what the report on screen already told
 it. A section with nothing to say prints nothing, so a short report is a
-quiet fleet rather than a broken detector: failures are the silences, and
-the report scans them every pass.
+quiet fleet rather than a broken detector: failures are silences, and the
+report scans them every pass.
 
 What the report gives you is a finding; what to do with each one is yours:
 
