@@ -1,19 +1,12 @@
-"""Read-only AWS CLI readiness check for the ``aws-admin`` capability.
+"""Read-only AWS CLI readiness for the operator's raw pass-through.
 
-Storing an access key pair proves nothing about this machine's ability to use
-it. The wizard's identity check runs in-process through boto3, so it passes on
-a host that has no AWS CLI at all — while every capability-owned operation the
-credential exists for (``yoke aws exec``, ``yoke vps``, the infrastructure
-Packs' own tooling) shells out to the ``aws`` executable. A clean host could
-therefore reach "AWS identity verified" and finish setup while the executable
-that work depends on was never established.
-
-This module is the one place that answers "can this machine run the AWS CLI?",
-so the wizard asks before it collects a credential, and the exec wrappers ask
-before they hand a command to a binary that may not be there. Each refusal
-carries a named code and the recovery appropriate to this operating system,
-including the case where the CLI is installed but its directory is missing
-from ``PATH``.
+Yoke's caller-identity and VPS operations use boto3 in-process with credentials
+from the machine-local ``aws-admin`` capability. ``yoke aws exec`` is the one
+surface that deliberately hands arbitrary arguments to the AWS CLI, and
+``yoke aws preflight`` lets an operator check that optional executable before
+using the pass-through. Each refusal carries a named code and the recovery for
+this operating system, including an install whose directory is missing from
+``PATH``.
 """
 
 from __future__ import annotations
@@ -26,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-#: The executable every capability-owned AWS operation invokes.
+#: The executable the raw ``yoke aws exec`` pass-through invokes.
 AWS_CLI_EXECUTABLE = "aws"
 
 #: Official install instructions, quoted on every refusal.
@@ -60,9 +53,7 @@ _LINUX_INSTALL_COMMAND = (
     'curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" '
     '-o "awscliv2.zip" && unzip -q awscliv2.zip && sudo ./aws/install'
 )
-_WINDOWS_INSTALL_COMMAND = (
-    "msiexec.exe /i https://awscli.amazonaws.com/AWSCLIV2.msi"
-)
+_WINDOWS_INSTALL_COMMAND = "msiexec.exe /i https://awscli.amazonaws.com/AWSCLIV2.msi"
 
 _RUN = subprocess.run
 _WHICH = shutil.which
@@ -111,7 +102,7 @@ def _raise_not_on_path() -> None:
             f"The AWS CLI is installed at {installed}, but its folder is not "
             "on this shell's PATH.",
             (
-                f"Add it to PATH: export PATH=\"{installed.parent}:$PATH\"",
+                f'Add it to PATH: export PATH="{installed.parent}:$PATH"',
                 "Add the same line to your shell profile so new shells keep it.",
                 f"Verify with: {AWS_CLI_EXECUTABLE} --version",
             ),

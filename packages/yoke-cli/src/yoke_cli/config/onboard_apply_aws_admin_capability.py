@@ -34,7 +34,7 @@ from yoke_cli.config.project_onboard_support import (
 )
 from yoke_cli.transport.dispatcher import call_dispatcher
 
-#: Region key the credential resolver reads to run the AWS CLI for a project.
+#: Region key the credential resolver reads for project-scoped AWS clients.
 REGION_KEY = "region"
 #: Account the verified identity belongs to. Recorded when the probe named it;
 #: an unverified pair leaves it out rather than guessing.
@@ -83,7 +83,9 @@ def record(
         message = response.error.message if response.error else "unknown error"
         code = response.error.code if response.error else "unknown_error"
         raise ProjectDispatchError(
-            "projects.capability_settings.merge", code, message,
+            "projects.capability_settings.merge",
+            code,
+            message,
         )
     result = dict(response.result or {})
     result["settings"] = assignments

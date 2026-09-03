@@ -14,16 +14,15 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import json
-import subprocess
 import sys
-from typing import List
+from typing import Any, List, Mapping
 
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.adapters.dev import PROJECT_ID_ENV
-from yoke_cli.config import aws_cli_prerequisite
 
-VPS_POWER_USAGE = "yoke vps <status|stop|start> --stack STACK [--project P] [--region R]"
+VPS_POWER_USAGE = (
+    "yoke vps <status|stop|start> --stack STACK [--project P] [--region R]"
+)
 
 #: Pulumi tags the instance ``<stack name>/VpsInstance``.
 _INSTANCE_SUFFIX = "/VpsInstance"
@@ -52,45 +51,56 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     return parser
 
 
-def _aws(args: List[str], env: dict) -> str:
+def _aws_sdk() -> Any:
+    # The CLI wheel keeps its engine edge dynamic; product-boundary inventory
+    # classifies this one machine-local credential operation explicitly.
     try:
-        cli = aws_cli_prerequisite.check_aws_cli()
-    except aws_cli_prerequisite.AwsCliPrerequisiteError as exc:
+        return importlib.import_module("yoke_core.domain.aws_machine_client")
+    except Exception as exc:  # noqa: BLE001 - translated to operator recovery
         raise VpsPowerError(
-            "\n".join((str(exc), *(f"  {line}" for line in exc.detail_lines)))
+            f"AWS SDK support is unavailable ({type(exc).__name__}); "
+            "reinstall Yoke and retry"
         ) from exc
-    result = subprocess.run(
-        [cli.executable, *args], env=env, capture_output=True, text=True,
-    )
-    if result.returncode:
-        raise VpsPowerError((result.stderr or result.stdout).strip())
-    return result.stdout.strip()
 
 
-def _capability_env(project: str, region: str) -> dict:
-    # Resolved through importlib, as the sibling aws adapter does: this package
-    # must not take a static import on the engine, and the boundary test walks
-    # the AST for exactly that.
-    #
-    # The machine-local resolver is used rather than the DB-backed one so this
-    # works from an ordinary https-connected session; the credentials still
-    # come from the project's aws-admin capability store, never the shell.
-    deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
-    return deploy_remote.aws_machine_capability_env(project, region)
+def _ec2_client(project: str, region: str, sdk: Any) -> Any:
+    try:
+        return sdk.machine_aws_client("ec2", project, region)
+    except Exception as exc:  # noqa: BLE001 - raw SDK state may contain secrets
+        reason = sdk.safe_aws_error_reason(exc)
+        raise VpsPowerError(
+            f"could not prepare project '{project}' AWS authority ({reason}); "
+            f"verify it with `yoke aws admin-status --project {project}` and retry"
+        ) from exc
 
 
-def _resolve(stack: str, env: dict) -> tuple[str, str]:
+def _resolve(stack: str, client: Any) -> tuple[str, str]:
     """Return ``(instance_id, state)`` for the stack's VPS host."""
-    raw = _aws(
-        [
-            "ec2", "describe-instances",
-            "--filters", f"Name=tag:Name,Values={stack}{_INSTANCE_SUFFIX}",
-            "--query", "Reservations[].Instances[].[InstanceId,State.Name]",
-            "--output", "json",
+    response = client.describe_instances(
+        Filters=[
+            {
+                "Name": "tag:Name",
+                "Values": [f"{stack}{_INSTANCE_SUFFIX}"],
+            }
         ],
-        env,
     )
-    found = [row for row in json.loads(raw or "[]") if row[1] != "terminated"]
+    found: list[tuple[str, str]] = []
+    if isinstance(response, Mapping):
+        for reservation in response.get("Reservations") or []:
+            if not isinstance(reservation, Mapping):
+                continue
+            for instance in reservation.get("Instances") or []:
+                if not isinstance(instance, Mapping):
+                    continue
+                instance_id = str(instance.get("InstanceId") or "").strip()
+                state_row = instance.get("State")
+                state = (
+                    str(state_row.get("Name") or "").strip()
+                    if isinstance(state_row, Mapping)
+                    else ""
+                )
+                if instance_id and state and state != "terminated":
+                    found.append((instance_id, state))
     if not found:
         raise VpsPowerError(
             f"no live instance tagged {stack}{_INSTANCE_SUFFIX}; "
@@ -107,8 +117,9 @@ def _run(verb: str, args: List[str]) -> int:
         return 2
     project = parsed.project or _default_project()
     try:
-        env = _capability_env(project, parsed.region)
-        instance_id, state = _resolve(parsed.stack, env)
+        sdk = _aws_sdk()
+        client = _ec2_client(project, parsed.region, sdk)
+        instance_id, state = _resolve(parsed.stack, client)
         if verb == "status":
             print(f"{parsed.stack}: {instance_id} is {state}")
             return 0
@@ -116,19 +127,18 @@ def _run(verb: str, args: List[str]) -> int:
         if state == wanted:
             print(f"{parsed.stack}: {instance_id} is already {state}")
             return 0
-        _aws(
-            [
-                "ec2", f"{verb}-instances",
-                "--instance-ids", instance_id,
-                "--output", "json",
-            ],
-            env,
-        )
+        operation = getattr(client, f"{verb}_instances")
+        operation(InstanceIds=[instance_id])
     except VpsPowerError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    except Exception as exc:  # capability resolution and AWS CLI absence
-        print(f"error: vps {verb} failed: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 - raw SDK state may contain secrets
+        reason = sdk.safe_aws_error_reason(exc)
+        print(
+            f"error: vps {verb} failed ({reason}); verify project '{project}' "
+            f"with `yoke aws admin-status --project {project}` and retry",
+            file=sys.stderr,
+        )
         return 1
     settling = "starting" if verb == "start" else "stopping"
     print(f"{parsed.stack}: {instance_id} {settling} (was {state})")

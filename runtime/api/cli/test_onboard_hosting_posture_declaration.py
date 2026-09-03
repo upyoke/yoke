@@ -21,7 +21,6 @@ from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noq
 from yoke_contracts import hosting_posture  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
-    _aws_cli_present,
     _isolated_machine_home,
     _stub_path_doctor,
     body_text,
@@ -45,7 +44,9 @@ def test_provider_level_has_the_three_locked_answers() -> None:
     rows = hosting_steps.HOSTING_PROVIDER_ROWS
     assert [row.value for row in rows] == ["aws", DECLARED_ROW, "skip"]
     assert [row.label for row in rows] == [
-        "AWS", "I host this myself", "Decide later",
+        "AWS",
+        "I host this myself",
+        "Decide later",
     ]
 
 
@@ -88,15 +89,15 @@ def test_declaring_records_the_posture_and_the_optional_provider_note() -> None:
         await reach_provider_screen(a, pilot)
         a._on_hosting_provider_choice(DECLARED_ROW)
         await pilot.pause()
-        a._after_no_managed_host_note({
-            hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "  Render  ",
-        })
+        a._after_no_managed_host_note(
+            {
+                hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "  Render  ",
+            }
+        )
         await pilot.pause()
 
     drive(app, action)
-    assert app.result.hosting_choice == (
-        hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST
-    )
+    assert app.result.hosting_choice == (hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST)
     assert app.result.hosting_provider_note == "Render"
     assert app.result.hosting_verification is None
 
@@ -106,9 +107,11 @@ def test_an_empty_provider_note_stays_absent_rather_than_blank() -> None:
 
     async def action(a: Any, pilot: Any) -> None:
         await reach_provider_screen(a, pilot)
-        a._after_no_managed_host_note({
-            hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "   ",
-        })
+        a._after_no_managed_host_note(
+            {
+                hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "   ",
+            }
+        )
         await pilot.pause()
 
     drive(app, action)
@@ -175,15 +178,17 @@ def test_a_declared_posture_becomes_a_singleton_family_put(monkeypatch) -> None:
     assert len(calls) == 1
     payload = calls[0]["payload"]
     assert payload["project_id"] == "acme-app"
-    assert payload["ops"] == [{
-        "op": "put",
-        "family": hosting_posture.HOSTING_POSTURE_FAMILY,
-        "attachment": "project",
-        "payload": {
-            "posture": hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST,
-            "provider": "Render",
-        },
-    }]
+    assert payload["ops"] == [
+        {
+            "op": "put",
+            "family": hosting_posture.HOSTING_POSTURE_FAMILY,
+            "attachment": "project",
+            "payload": {
+                "posture": hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST,
+                "provider": "Render",
+            },
+        }
+    ]
 
 
 def test_re_running_the_same_answer_is_the_same_put(monkeypatch) -> None:
@@ -205,15 +210,22 @@ def test_re_running_the_same_answer_is_the_same_put(monkeypatch) -> None:
 
 def test_undecided_writes_nothing_at_all(monkeypatch) -> None:
     """Absence is how "not answered" is stored, so there is nothing to write."""
+
     def _refuse(**_kwargs):
         raise AssertionError("undecided must not reach the dispatcher")
 
     monkeypatch.setattr(
-        onboard_apply_hosting_posture, "call_dispatcher", _refuse,
+        onboard_apply_hosting_posture,
+        "call_dispatcher",
+        _refuse,
     )
-    assert onboard_apply_hosting_posture.record(
-        project="acme-app", posture=hosting_posture.POSTURE_UNDECIDED,
-    ) is None
+    assert (
+        onboard_apply_hosting_posture.record(
+            project="acme-app",
+            posture=hosting_posture.POSTURE_UNDECIDED,
+        )
+        is None
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -231,7 +243,8 @@ def test_undecided_writes_nothing_at_all(monkeypatch) -> None:
 )
 def test_the_review_line_matches_the_answer(posture, expected) -> None:
     line = onboard_plan_labels.friendly_line(
-        hosting_posture.HOSTING_POSTURE_ACTION, posture,
+        hosting_posture.HOSTING_POSTURE_ACTION,
+        posture,
     )
     assert expected in line
 
@@ -252,9 +265,7 @@ def test_the_posture_vocabulary_has_exactly_one_home() -> None:
     repo = Path(__file__).resolve()
     while not (repo / "pyproject.toml").exists():
         repo = repo.parent
-    contracts = (
-        repo / "packages/yoke-contracts/src/yoke_contracts/hosting_posture.py"
-    )
+    contracts = repo / "packages/yoke-contracts/src/yoke_contracts/hosting_posture.py"
     offenders = [
         str(candidate.relative_to(repo))
         for candidate in repo.glob("packages/**/*.py")
