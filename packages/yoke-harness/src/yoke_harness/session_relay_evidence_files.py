@@ -132,7 +132,7 @@ def _diagnostics(
     found = []
     for reference in references:
         try:
-            path = native_diagnostic_path(reference, state_dir=state_dir)
+            path = native_diagnostic_path(reference, state_dir=state_dir, create=False)
         except NativeDiagnosticError:
             continue
         entry = _describe(path, "diagnostic", reference)

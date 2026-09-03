@@ -9,6 +9,7 @@ the row itself, for every seat that cannot reach that machine.
 
 from __future__ import annotations
 
+from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 from yoke_core.domain.steering_fleet_report_abandoned import AbandonedLaunch
 from yoke_core.domain.steering_fleet_report_detectors import UnregisteredLaunch
@@ -60,6 +61,9 @@ def _unregistered_line(entry: UnregisteredLaunch) -> str:
     if entry.spawn_duration_ms is not None:
         problem += f", spawn {entry.spawn_duration_ms / 1000:.1f}s"
     problem += _said(entry.native_stderr_tail, entry.exit_code)
+    # The tail above is one line; the whole capture stays on the machine that
+    # wrote it, and this is the read that brings it to a seat elsewhere.
+    recovery += evidence_pull_suffix(native, entry.evidence_id)
     return (
         f"  launch {entry.launch_id}  {entry.surface} on {entry.machine_id}  "
         f"{problem}; instruction not delivered; {recovery}"

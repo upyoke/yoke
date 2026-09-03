@@ -12,10 +12,15 @@ from yoke_harness.session_relay_evidence_files import (
     read_session_evidence,
     read_tail,
 )
-from yoke_harness.session_relay_native_diagnostics import store_native_diagnostic
+from yoke_harness.session_relay_native_diagnostics import (
+    diagnostic_reference,
+    store_native_diagnostic,
+)
 
 
 SESSION_ID = "22222222-2222-4222-8222-222222222222"
+#: The launch whose native produced the capture this session can read.
+LAUNCH_ID = "33333333-3333-4333-8333-333333333333"
 
 
 def _machine(tmp_path: Path) -> tuple[Path, Path]:
@@ -44,7 +49,12 @@ def _machine(tmp_path: Path) -> tuple[Path, Path]:
 
 def test_listing_covers_every_kind_the_machine_holds(tmp_path: Path) -> None:
     state_dir, scratch_root = _machine(tmp_path)
-    receipt = store_native_diagnostic(b"out", b"err", state_dir=state_dir)
+    receipt = store_native_diagnostic(
+        b"out",
+        b"err",
+        reference=diagnostic_reference(LAUNCH_ID),
+        state_dir=state_dir,
+    )
 
     found = list_session_evidence(
         SESSION_ID,
