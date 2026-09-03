@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "production-deploy",
   "name": "Production Deploy",
   "description": "Adds GitHub workflows, checks, scripts, and instructions for safely deploying or hot-fixing a Docker Compose web app on one server.",
@@ -132,6 +132,38 @@
           "name": "source-check",
           "command": "git diff --check -- .github/workflows ops docs/packs/production-deploy"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
+        },
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.1.0": {
@@ -260,6 +292,38 @@
         {
           "name": "source-check",
           "command": "git diff --check -- .github/workflows ops docs/packs/production-deploy"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
+        },
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     },
@@ -390,6 +454,38 @@
           "name": "source-check",
           "command": "git diff --check -- .github/workflows ops docs/packs/production-deploy"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
+        },
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.1.2": {
@@ -518,6 +614,38 @@
         {
           "name": "source-check",
           "command": "git diff --check -- .github/workflows ops docs/packs/production-deploy"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "docker",
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          }
+        },
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     }

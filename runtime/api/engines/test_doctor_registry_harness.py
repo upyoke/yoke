@@ -34,6 +34,7 @@ _ENGINE_CONFIG_SLUGS = (
     "session-relay-orphans",
     "harness-unattended-posture",
     "project-hook-config-validity",
+    "pack-prerequisites",
 )
 
 # Session/harness substrate checks that read this repo's own hook wiring and

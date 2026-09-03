@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "webapp-environment-infrastructure",
   "name": "Web Application Environment Infrastructure",
   "description": "Combines a VPS, managed Postgres, API routing, runtime permissions, logs, and artifact storage into one deployable web application environment.",
@@ -58,6 +58,23 @@
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
+        }
       ]
     },
     "1.0.1": {
@@ -112,6 +129,23 @@
         {
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
         }
       ]
     }

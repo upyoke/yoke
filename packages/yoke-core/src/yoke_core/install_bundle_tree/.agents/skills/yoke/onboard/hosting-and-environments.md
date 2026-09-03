@@ -120,6 +120,14 @@ yoke packs get {pack} {checkout} --project {project}
 yoke packs get {pack} {checkout} --project {project} --apply
 ```
 
+The preview is also the local-tool preflight. In particular,
+`pulumi-foundation` and every infra Pack that declares Pulumi must show a
+`pulumi` prerequisite row with status `ready` before apply. A missing,
+unusable, or outdated Pulumi CLI blocks the matching checklist row with the
+named prerequisite code and the install recipe printed by the preview; stop
+and rerun after recovery. Never add `--allow-missing-tools` unless the operator
+explicitly confirmed that override in the execution profile.
+
 Installing a Pack lands source in the repo only — its stacks do not run until step 7's gate.
 
 ### Hosting verified/configured: register the site and environments

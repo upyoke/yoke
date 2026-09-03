@@ -9,6 +9,10 @@ from typing import Any, Mapping
 
 from yoke_cli.packs.errors import PackClientError
 from yoke_cli.packs.merge import plan_get, plan_update
+from yoke_cli.packs.prerequisites import (
+    probe_pack_prerequisites,
+    unsatisfied_prerequisites,
+)
 from yoke_cli.packs.receipt import (
     empty_receipt,
     load_receipt,
@@ -39,6 +43,7 @@ def run_pack_operation(
     pack: str,
     operation: str,
     apply: bool = False,
+    allow_missing_tools: bool = False,
     version: str | None = None,
     session_id: str | None = None,
     accepted_current_paths: list[str] | None = None,
@@ -93,6 +98,10 @@ def run_pack_operation(
         bundles.append(requested)
         bundles.extend(missing_dependencies)
 
+    prerequisite_rows = probe_pack_prerequisites(
+        [(bundle["pack"], bundle["prerequisites"]) for bundle in bundles]
+    )
+    unsatisfied = unsatisfied_prerequisites(prerequisite_rows)
     plans: list[dict[str, Any]] = []
     execution_plans: list[dict[str, Any]] = []
     simulated = json.loads(json.dumps(receipt))
@@ -139,12 +148,18 @@ def run_pack_operation(
         "repo_root": str(root),
         "requested_pack": pack,
         "plans": plans,
+        "prerequisites": prerequisite_rows,
+        "unsatisfied_prerequisite_count": len(unsatisfied),
         "conflict_count": conflict_count,
+        "allow_missing_tools": allow_missing_tools,
         "applied": False,
         "receipt": str(root / PACK_RECEIPT_REL),
     }
-    if not apply or conflict_count:
-        report["refused"] = bool(apply and conflict_count)
+    prerequisite_refusal = bool(unsatisfied and not allow_missing_tools)
+    if not apply or conflict_count or prerequisite_refusal:
+        report["refused"] = bool(apply and (conflict_count or prerequisite_refusal))
+        if report["refused"]:
+            report["refusal"] = _refusal(conflict_count, unsatisfied)
         return report
 
     for execution_plan in execution_plans:
@@ -160,6 +175,26 @@ def run_pack_operation(
         report["projection"] = None
         report["projection_warning"] = str(exc)
     return report
+
+
+def _refusal(
+    conflict_count: int,
+    unsatisfied: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if unsatisfied:
+        tools = sorted({str(row["tool"]) for row in unsatisfied})
+        return {
+            "code": "pack-prerequisites-unsatisfied",
+            "message": (
+                "Pack install requires usable local tools: " + ", ".join(tools)
+            ),
+            "tools": tools,
+        }
+    return {
+        "code": "pack-file-conflicts",
+        "message": f"Pack install has {conflict_count} unresolved file conflict(s).",
+        "tools": [],
+    }
 
 
 def _accept_current_conflicts(plan: dict[str, Any], accepted_paths: list[str]) -> None:

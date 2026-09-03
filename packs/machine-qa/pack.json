@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "machine-qa",
   "name": "Machine QA",
   "description": "Registers reusable terminal, machine-state, and exploratory mission proof methods.",
@@ -35,6 +35,23 @@
           "name": "method-contracts",
           "command": "python3 -m json.tool qa/methods/machine-qa.json"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.0.1": {
@@ -66,6 +83,23 @@
         {
           "name": "method-contracts",
           "command": "python3 -m json.tool qa/methods/machine-qa.json"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     },
@@ -99,6 +133,23 @@
           "name": "method-contracts",
           "command": "python3 -m json.tool qa/methods/machine-qa.json"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.0.3": {
@@ -130,6 +181,23 @@
         {
           "name": "method-contracts",
           "command": "python3 -m json.tool qa/methods/machine-qa.json"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     },
@@ -163,6 +231,23 @@
           "name": "method-contracts",
           "command": "python3 -m json.tool qa/methods/machine-qa.json"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.0.5": {
@@ -195,6 +280,23 @@
           "name": "method-contracts",
           "command": "python3 -m json.tool qa/methods/machine-qa.json"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.0.6": {
@@ -226,6 +328,23 @@
         {
           "name": "method-contracts",
           "command": "python3 -m json.tool qa/methods/machine-qa.json"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     },
@@ -268,6 +387,23 @@
         {
           "name": "worked-mission",
           "command": "python3 -m json.tool qa/examples/installer-exploration.json"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     },
@@ -317,6 +453,23 @@
           "name": "worked-mission",
           "command": "python3 -m json.tool qa/examples/installer-exploration.json"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.0.9": {
@@ -364,6 +517,23 @@
         {
           "name": "worked-mission",
           "command": "python3 -m json.tool qa/examples/installer-exploration.json"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     }

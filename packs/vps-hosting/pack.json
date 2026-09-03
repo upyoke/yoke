@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "vps-hosting",
   "name": "AWS EC2 Hosting",
   "description": "Creates and prepares an AWS EC2 server, including networking, permissions, TLS setup, firewall rules, and host provisioning.",
@@ -90,6 +90,38 @@
           "name": "source-check",
           "command": "git diff --check -- ops"
         }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
+        },
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
+        }
       ]
     },
     "1.0.1": {
@@ -176,6 +208,38 @@
         {
           "name": "source-check",
           "command": "git diff --check -- ops"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
+        },
+        {
+          "tool": "ssh",
+          "minimum_version": "8.0.0",
+          "probe": {
+            "executable": "ssh",
+            "version_args": [
+              "-V"
+            ]
+          },
+          "install": {
+            "darwin": "brew install openssh",
+            "linux": "sudo apt-get install -y openssh-client",
+            "windows": "Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0"
+          }
         }
       ]
     }

@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "managed-database",
   "name": "Managed Database",
   "description": "Adds the Pulumi code needed to create and configure an optional managed PostgreSQL database for an application.",
@@ -35,6 +35,23 @@
         {
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
         }
       ]
     }

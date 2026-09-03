@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "domain-cdn-edge",
   "name": "Domain and CDN Edge",
   "description": "Connects an application to its domain through DNS, HTTPS, API routing, and CloudFront caching, including cache invalidation after deployment.",
@@ -77,6 +77,23 @@
         {
           "name": "python-check",
           "command": "python3 -m compileall -q infra"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "pulumi",
+          "minimum_version": "3.0.0",
+          "probe": {
+            "executable": "pulumi",
+            "version_args": [
+              "version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install pulumi/tap/pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "winget install Pulumi.Pulumi"
+          }
         }
       ]
     }

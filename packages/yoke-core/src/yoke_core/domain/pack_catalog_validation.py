@@ -5,7 +5,10 @@ import re
 import stat
 from typing import Any, Mapping
 
-from yoke_contracts.packs import PACK_DESCRIPTOR_SCHEMA
+from yoke_contracts.packs import (
+    PACK_DESCRIPTOR_SCHEMA,
+    validate_pack_prerequisites,
+)
 from yoke_core.domain.install_bundle import is_bundle_junk_path
 
 
@@ -86,6 +89,12 @@ def _validate_version_contract(
     record: Mapping[str, Any],
     root: Path,
 ) -> None:
+    try:
+        validate_pack_prerequisites(record.get("prerequisites"))
+    except ValueError as exc:
+        raise PackError(
+            f"Pack {slug!r} version {version!r} prerequisites are invalid: {exc}"
+        ) from exc
     schema = record.get("settings_schema")
     if not isinstance(schema, dict) or set(schema) != {
         "type",

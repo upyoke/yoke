@@ -187,6 +187,9 @@ def list_project_pack_status(conn: Any, *, project: str) -> dict[str, Any]:
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise PackProjectionError(f"project {project!r} not found")
+    prerequisites = {
+        row["slug"]: list(row.get("prerequisites") or []) for row in catalog_rows()
+    }
     rows = conn.execute(
         "SELECT c.slug,c.name,c.description,c.latest_version,c.dependencies_json,"
         "c.documentation,c.file_count,c.observed_at,r.installed_version,"
@@ -207,8 +210,12 @@ def list_project_pack_status(conn: Any, *, project: str) -> dict[str, Any]:
             stale_reasons.append("update_available")
         if installed and not _report_is_fresh(reported_at):
             stale_reasons.append("repository_report_expired")
-        status = "available" if not installed else "stale" if stale_reasons else "installed"
-        dependencies = json_helper.loads_text(str(_row(row, "dependencies_json") or "[]"))
+        status = (
+            "available" if not installed else "stale" if stale_reasons else "installed"
+        )
+        dependencies = json_helper.loads_text(
+            str(_row(row, "dependencies_json") or "[]")
+        )
         result.append(
             {
                 "slug": _row(row, "slug"),
@@ -218,6 +225,7 @@ def list_project_pack_status(conn: Any, *, project: str) -> dict[str, Any]:
                 "installed_version": installed,
                 "latest_version": latest,
                 "dependencies": dependencies,
+                "prerequisites": prerequisites.get(str(_row(row, "slug")), []),
                 "documentation": _row(row, "documentation"),
                 "file_count": _row(row, "file_count"),
                 "installed_file_count": _row(row, "installed_file_count"),
@@ -258,7 +266,9 @@ def _validate_report_row(row: Mapping[str, Any]) -> dict[str, Any]:
     version = str(row.get("version") or "").strip()
     file_count = row.get("file_count")
     if not slug or not version or not isinstance(file_count, int) or file_count < 0:
-        raise PackProjectionError("Pack report rows require slug, version, and file_count")
+        raise PackProjectionError(
+            "Pack report rows require slug, version, and file_count"
+        )
     return {"slug": slug, "version": version, "file_count": file_count}
 
 
@@ -277,7 +287,10 @@ def _report_is_fresh(raw: Any) -> bool:
         return False
     if observed.tzinfo is None:
         observed = observed.replace(tzinfo=timezone.utc)
-    return datetime.now(timezone.utc) - observed.astimezone(timezone.utc) <= PACK_REPORT_FRESHNESS
+    return (
+        datetime.now(timezone.utc) - observed.astimezone(timezone.utc)
+        <= PACK_REPORT_FRESHNESS
+    )
 
 
 __all__ = [

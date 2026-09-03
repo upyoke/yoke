@@ -243,3 +243,63 @@ def test_run_setup_prints_tls_instructions_when_missing(
         # The TLS guidance references the project-owned file installed by its Pack.
         assert "provision-tls.sh" in output
         assert str(repo_path / "ops" / "provision-tls.sh") in output
+
+
+def test_run_setup_prints_pack_prerequisite_refusal_and_recovery(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    repo_path = tmp_path / "externalwebapp-repo"
+    repo_path.mkdir()
+    ssh_key = tmp_path / ".ssh_key"
+    ssh_key.write_text("fake-ssh-key")
+
+    def fake_run(cmd, *, stdin=None, cwd=None, env=None):
+        if cmd[:2] == ["ssh-keygen", "-y"]:
+            return subprocess.CompletedProcess(cmd, 0, "ssh-rsa AAAA fake\n", "")
+        if cmd and cmd[0] == "ssh":
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        raise AssertionError(f"Unexpected command: {cmd}")
+
+    def refuse_pack(*args, **kwargs):
+        return {
+            "applied": False,
+            "refused": True,
+            "refusal": {
+                "code": "pack-prerequisites-unsatisfied",
+                "message": "Pack install requires usable local tools: pulumi",
+            },
+            "prerequisites": [
+                {
+                    "tool": "pulumi",
+                    "status": "missing",
+                    "detail": "pulumi is not on PATH",
+                    "install_recipe": "brew install pulumi/tap/pulumi",
+                }
+            ],
+        }
+
+    with bootstrap_seeded_db(tmp_path, ssh_key) as db_path:
+        register_bootstrap_backend_checkout(db_path, repo_path)
+        ctx = BootstrapContext(
+            project="externalwebapp",
+            project_root=tmp_path,
+            script_dir=tmp_path / ".agents" / "skills" / "yoke" / "scripts",
+            yoke_db=db_path,
+            packs=("pulumi-foundation",),
+        )
+        monkeypatch.setattr("yoke_core.domain.bootstrap_project_helpers._run", fake_run)
+        monkeypatch.setattr(
+            "yoke_core.domain.bootstrap_project_setup.load_receipt", lambda root: None
+        )
+        monkeypatch.setattr(
+            "yoke_core.domain.bootstrap_project_setup.run_pack_operation", refuse_pack
+        )
+        install_fake_project_github_auth(monkeypatch)
+        _install_fake_rest(monkeypatch)
+
+        assert run_setup(ctx) == 2
+
+    error = capsys.readouterr().err
+    assert "pack-prerequisites-unsatisfied" in error
+    assert "pulumi is not on PATH" in error
+    assert "brew install pulumi/tap/pulumi" in error
