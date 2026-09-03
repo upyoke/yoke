@@ -31,7 +31,9 @@ def _launch(**overrides):
             "machine_id": "machine-1",
             "relay_id": "machine:machine-1",
             "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-            "native_diagnostic_command": ("yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            "native_diagnostic_command": (
+                "yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            ),
             "token": "secret-token",
             "body": "secret-body",
             "argv": ["secret-argument"],

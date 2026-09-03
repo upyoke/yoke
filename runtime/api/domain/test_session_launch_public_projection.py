@@ -108,7 +108,9 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
         "adapter_revision": "adapter-v2",
         "duration_ms": 17,
         "machine_id": "machine-1",
-        "native_diagnostic_command": ("yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+        "native_diagnostic_command": (
+            "yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        ),
         "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "relay_id": "machine:machine-1",
     }
@@ -143,7 +145,9 @@ def test_get_and_list_return_the_safe_projection_after_operator_auth(
             "adapter_revision": "adapter-v2",
             "duration_ms": 17,
             "machine_id": "machine-1",
-            "native_diagnostic_command": ("yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            "native_diagnostic_command": (
+                "yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            ),
             "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "relay_id": "machine:machine-1",
         }

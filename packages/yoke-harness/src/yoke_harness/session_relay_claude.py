@@ -10,6 +10,9 @@ from yoke_harness.session_relay_claude_identity import (
     background_agent_id,
     resolve_background_session,
 )
+from yoke_harness.session_relay_claude_process import (
+    ClaudeProcessResult as ClaudeProcessResult,
+)
 from yoke_harness.session_relay_claude_registration import (
     resolve_registered_session,
 )

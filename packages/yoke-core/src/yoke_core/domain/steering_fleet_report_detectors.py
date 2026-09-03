@@ -115,13 +115,6 @@ class LandedItem:
     landed_seconds: int
 
 
-def landed_recovery(public_ref: str) -> str:
-    """The close-out recipe both the text and the machine projection print."""
-    return (
-        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
-    )
-
-
 def unregistered_launches(
     conn: Any,
     *,
@@ -212,6 +205,13 @@ def unregistered_launches(
     )
 
 
+def landed_recovery(public_ref: str) -> str:
+    """The close-out recipe both the text and the machine projection print."""
+    return (
+        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
+    )
+
+
 def landed_without_closeout(
     conn: Any,
     *,
@@ -266,6 +266,7 @@ __all__ = [
     "LandedItem",
     "UnregisteredLaunch",
     "age_seconds",
+    "landed_recovery",
     "landed_without_closeout",
     "marker",
     "parse_stamp",
