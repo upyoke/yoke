@@ -6,12 +6,13 @@ chains into native hook config shapes:
 - Claude ``settings.json`` ``hooks`` block (matcher + nested ``hooks`` list).
 - Codex ``hooks.json`` ``hooks`` block (matcher + ``hooks`` list).
 
-Both harnesses now collapse to one CLI command per ``(event, matcher)``
-pair. The command (``yoke hook evaluate <event>``) is the stable project
-hook boundary; the CLI currently delegates to the local hook runner, and can
-later choose local runtime or cloud transport without changing project hook
-configs. The rendered manifest no longer enumerates per-lint module command
-lines.
+Claude tool events collapse overlapping matchers to one CLI command per
+event; the runner selects the registered chain from the payload's tool name.
+Codex uses one command per mutually exclusive ``(event, matcher)`` pair. The
+command (``yoke hook evaluate <event>``) is the stable project hook boundary;
+the CLI currently delegates to the local hook runner, and can later choose
+local runtime or cloud transport without changing project hook configs. The
+rendered manifest no longer enumerates per-lint module command lines.
 """
 
 from __future__ import annotations
@@ -78,15 +79,16 @@ def _claude_chain_for(event: str, matcher: str) -> list[str]:
     return ordered_pipeline_for(event, matcher)
 
 
-# Events whose chain applies regardless of matcher — rendered as a single
-# entry with no ``matcher`` key. PreToolUse is matcherless so every tool
-# reaches the runner; per-tool chain selection stays in HOOK_ORDERING.
-_CLAUDE_DEFAULT_ONLY_EVENTS = {
+# Events rendered as one matcherless command. Tool-shaped payloads retain the
+# tool name, so the runner can select the matching HOOK_ORDERING chain without
+# spawning one interpreter for every overlapping Claude matcher.
+_CLAUDE_MATCHERLESS_EVENTS = {
     "SessionStart",
     "SessionEnd",
     "Stop",
     "UserPromptSubmit",
     "PreToolUse",
+    "PostToolUse",
 }
 
 # Canonical verbs no Claude surface fires. The ordering registry is
@@ -113,7 +115,7 @@ def render_claude_hooks_block() -> dict:
         if event in _CLAUDE_UNSUPPORTED_EVENTS:
             continue
         entries: list[dict] = []
-        if event in _CLAUDE_DEFAULT_ONLY_EVENTS:
+        if event in _CLAUDE_MATCHERLESS_EVENTS:
             if _claude_chain_for(event, "_default"):
                 entries.append({"hooks": [_claude_hook_entry(event)]})
         else:

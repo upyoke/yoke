@@ -116,6 +116,7 @@ def test_posttool_observe_command_includes_env_prefix_and_agent_type() -> None:
         for event_name in ("PostToolUse", "PostToolUseFailure"):
             entries = block.get(event_name, [])
             assert len(entries) == 1, (role, event_name, entries)
+            assert "matcher" not in entries[0], (role, event_name, entries[0])
             command = entries[0]["hooks"][0]["command"]
             assert command.startswith(
                 "YOKE_HOOK_CONFIG_OWNER=claude "
