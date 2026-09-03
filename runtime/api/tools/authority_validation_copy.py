@@ -23,15 +23,17 @@ from psycopg import sql
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_validation_binding import (
+    DERIVED_DATABASE_SUFFIX,
+    YOKE_VALIDATION_DSN_ENV,
     read_binding,
     write_binding,
 )
 
 
-VALIDATION_DSN_ENV = "YOKE_PG_DSN_VALIDATION"
-
-#: Appended to the authority's database name when no binding names a target.
-DERIVED_DB_SUFFIX = "_validation"
+#: The binding module owns both names: the fleet selector recognizes this
+#: helper's output by them, so a second spelling here would let a rehearsal
+#: database it provisioned be rehearsed as a tenant.
+VALIDATION_DSN_ENV = YOKE_VALIDATION_DSN_ENV
 
 #: Connected to only for the CREATE DATABASE that provisions a derived
 #: target; the database being created cannot host its own creation.
@@ -95,7 +97,7 @@ def resolve_validation_dsn(authority_dsn: str) -> tuple[str, bool]:
             f"database can be derived from it; bind {VALIDATION_DSN_ENV} to "
             "a disposable database explicitly"
         )
-    parameters["dbname"] = f"{authority_db}{DERIVED_DB_SUFFIX}"
+    parameters["dbname"] = f"{authority_db}{DERIVED_DATABASE_SUFFIX}"
     return psycopg.conninfo.make_conninfo(**parameters), True
 
 

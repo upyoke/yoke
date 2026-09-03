@@ -6,6 +6,15 @@ apply to the databases that are behind? — by running it against a copy of
 each of them, on the local embedded cluster, exactly as a booting container
 would. The live databases are only read.
 
+The fleet is what the release must keep serving, which is narrower than
+every Yoke-schema database on the cluster: the Platform catalog, scratch
+databases a test run abandoned, and the validation database governed
+migration rehearsal applies history into and leaves behind are all owned by
+something other than a tenant, and each has failed a release by being
+converged as one. Every candidate is rostered before any of them is copied,
+naming whether it is a member and why, so the capture answers which
+databases this rehearsed without a reader reconstructing the rule.
+
 Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
 The release wheel is produced after tag allocation, so it cannot exist at
 the only moment a receipt can be written. The wheel is built from the same
