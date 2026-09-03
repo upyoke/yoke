@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from yoke_cli.config import onboard_path_plan
+from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_reuse_feedback
@@ -59,6 +60,7 @@ _MACHINE_ACTIONS = {
     "install-session-relay-plist",
     "load-session-relay-login-item",
     "reuse-session-relay-token",
+    harness_unattended_posture.POSTURE_PLAN_ACTION,
     onboard_path_plan.PATH_REPAIR_ACTION,
     hosting_posture.HOSTING_POSTURE_ACTION,
 }

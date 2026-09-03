@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_path_plan
@@ -40,6 +41,7 @@ def build_plan(
     path_repair: dict[str, Any] | None = None,
     reuse: dict[str, Any] | None = None,
     local_destination: bool = False,
+    harness_posture: bool = True,
 ) -> dict[str, Any]:
     reuse = dict(reuse or {})
     steps = onboard_path_plan.steps(path_repair)
@@ -93,6 +95,10 @@ def build_plan(
                 ),
             }
         )
+    # Every destination, because the harness a person opens prompts the same
+    # way whether their control plane is local, a team server, or hosted.
+    if harness_posture:
+        steps.append(harness_unattended_posture.posture_plan_step())
     if not reuse.get("temp_root"):
         steps.append({"action": "create-runtime-dir", "target": "temp_root"})
     if not reuse.get("cache_dir"):

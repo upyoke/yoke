@@ -47,43 +47,59 @@ def _relay_install_noop(monkeypatch):
     monkeypatch.setattr(isl, "configure_session_relay", lambda **_kwargs: False)
 
 
-def test_install_skip_claude_config_propagates(tmp_path: Path, install_env):
+@pytest.fixture(autouse=True)
+def _harness_posture_noop(monkeypatch):
+    """Never let an install test write this machine's real harness configs.
+
+    ``install`` writes the unattended posture into Claude's, Codex's, and
+    Cursor's own machine-level files. That is the point of the step, and it
+    is exactly why no test may run it for real: a suite that did would
+    rewrite the config of whoever ran it. Tests asserting on the step patch
+    it with their own spy, which replaces this one.
+    """
+    monkeypatch.setattr(
+        isl, "configure_harness_unattended_posture", lambda **_kwargs: []
+    )
+
+
+def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env):
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
     called = []
 
-    def spy(*, config_path=None, stream=None):
-        called.append(True)
-        return False
+    def spy(*, checkout=None, stream=None):
+        called.append(checkout)
+        return []
 
-    install_env.setattr(isl, "configure_claude_app_bypass_permissions", spy)
+    install_env.setattr(isl, "configure_harness_unattended_posture", spy)
     isl.install(
         cwd=repo,
         home=repo,
         target_dir=str(tmp_path / "bin"),
-        skip_claude_config=True,
+        skip_harness_permissions=True,
         stream=io.StringIO(),
     )
     assert called == []
 
 
-def test_install_default_invokes_claude_config(tmp_path: Path, install_env):
+def test_install_default_configures_every_harness(tmp_path: Path, install_env):
+    """The install writes the posture, and names the checkout it trusts."""
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
     called = []
 
-    def spy(*, config_path=None, stream=None):
-        called.append(True)
-        return False
+    def spy(*, checkout=None, stream=None):
+        called.append(checkout)
+        return []
 
-    install_env.setattr(isl, "configure_claude_app_bypass_permissions", spy)
+    install_env.setattr(isl, "configure_harness_unattended_posture", spy)
     isl.install(
         cwd=repo,
         home=repo,
         target_dir=str(tmp_path / "bin"),
         stream=io.StringIO(),
     )
-    assert called == [True]
+    assert called == [repo.resolve()]
 
 
 def test_install_happy_path_writes_launcher(tmp_path: Path, install_env):

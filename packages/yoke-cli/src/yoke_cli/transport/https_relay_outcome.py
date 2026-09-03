@@ -15,11 +15,16 @@ from typing import Optional
 from yoke_cli.api_urls import HEALTH_PATH, join_api_url
 from yoke_cli.transport import relay_telemetry
 from yoke_cli.transport.https_response_policy import redact_text
+from yoke_cli.transport.https_retry_policy import (
+    connection_refusal_is_conclusive,
+    is_sandbox_denial,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
     FunctionError,
 )
+from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
 
 TRANSPORT_FAILED_CODE = "https_transport_failed"
 
@@ -44,24 +49,67 @@ _CONCLUSIVE_HINT = (
 )
 
 
+# The OS refused the connect on policy. Retrying asks the same policy the
+# same question, and the env and credential really are not implicated — but
+# neither is the network, so the unreachable hint would send an operator
+# looking in the wrong place entirely.
+_SANDBOX_HINT = (
+    "The connection was denied by this machine's sandbox policy, not by the "
+    "network, so retrying will not help and the env and credential are not "
+    "implicated."
+)
+# A sandbox denies name resolution as well as connection, and a denied
+# lookup is indistinguishable from a host that is genuinely unreachable —
+# so this cannot be asserted, only raised as the first thing to check. It
+# appears solely under a harness that sandboxes commands, where "retrying is
+# the repair" is the one piece of advice that can never work.
+_SANDBOX_POSSIBLE_HINT = (
+    "The relay did not answer. This session runs under a harness that "
+    "sandboxes commands, and a sandbox denies name resolution exactly as it "
+    "denies connections, which looks identical to an unreachable relay — "
+    "check that first, because no number of retries changes it."
+)
+_REPLAY_SAFE = (
+    "If the sandbox already grants that reach, the relay was simply "
+    "unreachable and re-running is safe: the same request_id replays a "
+    "completed call instead of repeating it."
+)
+
+
+def _unreachable_hint() -> str:
+    """The unreachable hint, naming the sandbox where one is in play."""
+    recovery = sandbox_recovery()
+    if not recovery:
+        return _UNREACHABLE_HINT
+    return f"{_SANDBOX_POSSIBLE_HINT} {recovery} {_REPLAY_SAFE}"
+
+
 def transport_error_response(
     request: FunctionCallRequest,
     api_url: str,
     detail: str,
     *,
     attempts: Optional[int] = None,
-    conclusive: bool = False,
+    error: BaseException | None = None,
     sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
-    """Build the typed refusal, naming attempts when more than one was made."""
+    """Build the typed refusal, naming attempts when more than one was made.
+
+    What the failure *means* is decided here rather than by the caller, so
+    the hint and the retry decision cannot end up reading the same error two
+    different ways.
+    """
     health_url = join_api_url(api_url, HEALTH_PATH)
     message = detail
     if attempts is not None and attempts > 1:
         message = f"{detail} after {attempts} attempts"
-    if conclusive:
+    if is_sandbox_denial(error):
+        recovery = sandbox_recovery()
+        hint = f"{_SANDBOX_HINT} {recovery}" if recovery else _SANDBOX_HINT
+    elif connection_refusal_is_conclusive(api_url, error):
         hint = _CONCLUSIVE_HINT
     else:
-        hint = _UNREACHABLE_HINT if attempts is not None else _MALFORMED_HINT
+        hint = _unreachable_hint() if attempts is not None else _MALFORMED_HINT
     return FunctionCallResponse(
         success=False,
         function=request.function,

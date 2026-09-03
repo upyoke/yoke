@@ -227,6 +227,68 @@ worktree consumes that receipt before aliasing the new conversation onto
 the holder. A worktree workspace with a live claim holder and no receipt
 is identity-failure, not a folder fold.
 
+## 4c. Unattended permission posture
+
+Every harness decides from its own persisted machine config whether to stop
+and ask before running a command, and every one ships defaults that ask.
+Yoke's launched workers never see those prompts — the launch plane passes
+each harness a bypass flag, declared once in
+`yoke_contracts.session_control.launch_permission_bypass`. A session a
+*person* opens reads the persisted config instead, so a fresh install has
+someone approving each `yoke` call by hand, including the field-note command
+Yoke tells them to run when something goes wrong.
+
+`python3 -m yoke_core.tools.install_yoke_launcher` therefore writes the same
+posture into each installed harness, on both first install and `--repair`.
+The keys live in `yoke_contracts.harness_unattended_posture`:
+
+| Harness | Config | Keys |
+|---|---|---|
+| `claude-code` | `claude_desktop_config.json` + `~/.claude/settings.json` | `preferences.bypassPermissionsModeEnabled`, `permissions.defaultMode` |
+| `codex` | `$CODEX_HOME/config.toml` | `approval_policy`, `sandbox_mode` |
+| `cursor` | `~/.cursor/cli-config.json` | `approvalMode`, `sandbox.mode` |
+
+`yoke onboard` plans it as a named step, **Unattended harness posture** —
+previewed in Review, declinable with `--skip-harness-permissions`, naming
+each harness, file, key, and the undo.
+
+Approval posture is machine-wide; **folder trust is per path**, and a machine
+with one still stops on the other — a Codex session with `approval_policy =
+"never"` still asks about the directory first. Yoke answers that too, at
+project install for the checkout and at lane creation for each worktree:
+
+| Harness | Where trust is recorded |
+|---|---|
+| `claude-code` | `~/.claude.json` → `projects.<path>.hasTrustDialogAccepted` |
+| `codex` | `$CODEX_HOME/config.toml` → `[projects."<path>"] trust_level` |
+| `cursor` | `~/.cursor/projects/<slug>/.workspace-trusted` |
+
+Trust is path-keyed in all three with no evidence any treats a parent's entry
+as covering a subdirectory — the shape Codex hook trust already has — so a
+linked worktree gets its own entry rather than inheriting the checkout's.
+
+One thing defeats all of this and no config can fix it: **wrapping `yoke` in
+a shell loop or command substitution.** Allowing commands that start with
+`yoke` matches a first word, so `for slug in A B C; do yoke ...; done`
+presents `for` and prompts again. Recipes spell repeated calls out plainly.
+
+All three are machine-level because that is where each harness reads them:
+Codex reads no project-local config at all.
+
+Three properties hold for every pass, because widening what a harness runs
+without asking is the operator's business:
+
+* **A key you set yourself is never overwritten.** Only an absent key is
+  written; a differing value is reported, not changed.
+* **Every unrelated setting survives.** These files hold model choices, hook
+  trust, and auth cache, so each pass edits in place rather than rewriting.
+* **It says what it did.** Each write is named in the output,
+  `collect_harness_inventory` reports each harness's `unattended_posture`,
+  and `HC-harness-unattended-posture` fails with the offending key and the
+  repair when any installed harness still prompts.
+
+A harness that is not installed on the machine is skipped, not created.
+
 ## 5. Repo-local Skill Discovery
 
 Yoke skills live canonically in the **hidden** repo-local directory `.agents/skills/yoke/`. Modern Codex runtimes natively scan repo-local `.agents/skills` locations, so the Yoke skill tree is a first-class Codex skill source when Codex starts in this repository. No `.codex/skills` mirror is required.

@@ -40,6 +40,7 @@ from yoke_cli.commands.tool_shaped import (
 )
 from yoke_cli.conceptual_cli_names import conceptual_cli_hint
 from yoke_cli.config import install_binding, machine_config
+from yoke_cli import sandbox_denial
 from yoke_cli.session_id_propagation import propagated_session_identity
 from yoke_contracts.control_plane_locality import (
     local_authority_is_pinned,
@@ -329,7 +330,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             argv
         ):
             try:
-                return adapter(remaining)
+                return sandbox_denial.run(adapter, remaining, argv)
             except SystemExit as exc:
                 return exc.code if isinstance(exc.code, int) else 1
             except KeyboardInterrupt:

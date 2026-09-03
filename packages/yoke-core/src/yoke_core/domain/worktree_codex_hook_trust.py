@@ -27,6 +27,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+from yoke_contracts.harness_unattended_posture import codex_config_path
 from yoke_core.domain.codex_hook_trust_identity import (
     CodexHookIdentityError,
     codex_hook_hashes,
@@ -98,13 +99,6 @@ class HookTrustResult:
         if parts:
             return "; ".join(parts)
         return self.blocked_reason
-
-
-def codex_config_path() -> Path:
-    """Resolve the Codex config file this machine reads hook trust from."""
-    home = os.environ.get("CODEX_HOME")
-    root = Path(home) if home else Path.home() / ".codex"
-    return root / "config.toml"
 
 
 def hooks_file_for(checkout: str) -> Path:

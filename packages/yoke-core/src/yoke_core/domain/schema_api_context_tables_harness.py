@@ -20,6 +20,7 @@ HARNESS_TABLES: dict[str, dict] = {
             ("config_present", "INTEGER"),
             ("project_entry_present", "INTEGER"),
             ("approval_state", "TEXT"),
+            ("unattended_posture", "TEXT"),
             ("reported_at", "TEXT"),
         ],
         "notes": (
@@ -28,7 +29,11 @@ HARNESS_TABLES: dict[str, dict] = {
             "approved|unapproved|not_applicable|unknown; orange is "
             "unapproved (every normalized .codex/hooks.json handler must "
             "match trusted_hash under the literal hooks-file path). Write "
-            "via harness.machine_report.upsert."
+            "via harness.machine_report.upsert. unattended_posture is "
+            "unattended|prompts|absent and answers whether a session the "
+            "operator opens in that harness runs yoke without an approval "
+            "prompt; 'absent' means the harness is not installed on the "
+            "reporting machine, never that it is configured."
         ),
     },
 }

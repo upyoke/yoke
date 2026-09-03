@@ -1,0 +1,316 @@
+"""The unattended posture each harness needs, and the passes that write it.
+
+Covers the two config surfaces Yoke edits in place — Codex's TOML and
+Cursor's JSON — plus the pass that drives all three harnesses. The
+invariants under test are the same for both surfaces: set what is absent,
+never overwrite what the operator set, leave every unrelated setting alone,
+and say out loud what changed.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+from pathlib import Path
+
+import pytest
+
+from yoke_contracts.harness_unattended_posture import (
+    CODEX_APPROVAL_POLICY_KEY,
+    CODEX_SANDBOX_MODE_KEY,
+    CURSOR_APPROVAL_MODE,
+    CURSOR_APPROVAL_MODE_KEY,
+    CURSOR_SANDBOX_CONTAINER,
+    CURSOR_SANDBOX_MODE,
+    CURSOR_SANDBOX_MODE_KEY,
+    claude_posture_problems,
+    codex_posture_problems,
+    cursor_posture_problems,
+    posture_problems,
+)
+from yoke_contracts.codex_posture_install import (
+    configure_codex_unattended_posture,
+)
+from yoke_contracts.codex_config_posture import (
+    CodexConfigUnreadable,
+    changed,
+    parse_config,
+    plan,
+)
+from yoke_contracts.cursor_posture_install import (
+    configure_cursor_unattended_posture,
+)
+
+CHECKOUT = "/repos/example"
+UNATTENDED_CODEX_TEXT = (
+    'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
+)
+
+
+def _codex_home(tmp_path: Path, text: str = "") -> Path:
+    home = tmp_path / ".codex"
+    home.mkdir(parents=True)
+    target = home / "config.toml"
+    if text:
+        target.write_text(text, encoding="utf-8")
+    return target
+
+
+def _cursor_home(tmp_path: Path, payload: dict | None = None) -> Path:
+    home = tmp_path / ".cursor"
+    home.mkdir()
+    target = home / "cli-config.json"
+    if payload is not None:
+        target.write_text(json.dumps(payload), encoding="utf-8")
+    return target
+
+
+def test_codex_plan_writes_both_keys_and_the_checkout_trust():
+    text, record = plan("", CHECKOUT)
+    parsed = parse_config(text)
+    assert parsed[CODEX_APPROVAL_POLICY_KEY] == "never"
+    assert parsed[CODEX_SANDBOX_MODE_KEY] == "danger-full-access"
+    assert parsed["projects"][CHECKOUT]["trust_level"] == "trusted"
+    assert record["conflicts"] == []
+
+
+def test_codex_plan_preserves_every_unrelated_setting():
+    base = (
+        'model = "gpt"\n\n[hooks.state."/repo/.codex/hooks.json:Stop::0"]\n'
+        'trusted_hash = "abc"\n'
+    )
+    text, _record = plan(base, CHECKOUT)
+    parsed = parse_config(text)
+    assert parsed["model"] == "gpt"
+    assert parsed["hooks"]["state"]["/repo/.codex/hooks.json:Stop::0"] == {
+        "trusted_hash": "abc"
+    }
+
+
+def test_codex_plan_is_idempotent():
+    once, _ = plan("", CHECKOUT)
+    twice, record = plan(once, CHECKOUT)
+    assert twice == once
+    assert not changed(record)
+
+
+def test_codex_plan_never_overwrites_an_operator_choice():
+    base = 'approval_policy = "on-request"\nsandbox_mode = "read-only"\n'
+    text, record = plan(base, CHECKOUT)
+    parsed = parse_config(text)
+    assert parsed[CODEX_APPROVAL_POLICY_KEY] == "on-request"
+    assert parsed[CODEX_SANDBOX_MODE_KEY] == "read-only"
+    assert len(record["conflicts"]) == 2
+    assert record["set_keys"] == []
+
+
+def test_codex_plan_refuses_a_config_it_cannot_parse():
+    with pytest.raises(CodexConfigUnreadable):
+        plan("this is not = = toml", CHECKOUT)
+
+
+def test_codex_pass_skips_a_machine_with_no_codex(tmp_path: Path):
+    absent = tmp_path / "nothing" / "config.toml"
+    assert configure_codex_unattended_posture(config_path=absent) == []
+
+
+def test_codex_pass_writes_and_names_what_it_granted(tmp_path: Path):
+    target = _codex_home(tmp_path)
+    actions = configure_codex_unattended_posture(
+        checkout=Path(CHECKOUT), config_path=target
+    )
+    assert len(actions) == 1
+    assert "enabled unattended mode" in actions[0]
+    assert codex_posture_problems(parse_config(target.read_text())) == ()
+
+
+def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
+    """The writers report and the pass prints, so nothing is double-reported."""
+    import yoke_contracts.claude_posture_install as claude_module
+    import yoke_contracts.codex_posture_install as codex_module
+    from yoke_contracts import harness_posture_install as pass_module
+    import yoke_contracts.cursor_posture_install as cursor_module
+
+    monkeypatch.setattr(
+        codex_module, "codex_config_path", lambda: _codex_home(tmp_path)
+    )
+    monkeypatch.setattr(
+        cursor_module, "cursor_config_path", lambda: tmp_path / "gone" / "x.json"
+    )
+    monkeypatch.setattr(
+        claude_module, "configure_claude_app_bypass_permissions",
+        lambda **_kwargs: False,
+    )
+    monkeypatch.setattr(
+        claude_module, "configure_claude_cli_permission_mode",
+        lambda **_kwargs: [],
+    )
+    stream = io.StringIO()
+    actions = pass_module.configure_harness_unattended_posture(
+        checkout=Path(CHECKOUT), stream=stream
+    )
+    assert len(actions) == 1
+    assert stream.getvalue().count(actions[0]) == 1
+
+
+def test_codex_pass_reports_a_conflict_without_writing(tmp_path: Path):
+    target = _codex_home(tmp_path, 'approval_policy = "untrusted"\n')
+    actions = configure_codex_unattended_posture(config_path=target)
+    assert any("left your own setting in place" in line for line in actions)
+    assert parse_config(target.read_text())[CODEX_APPROVAL_POLICY_KEY] == "untrusted"
+
+
+def test_cursor_pass_sets_both_keys_and_keeps_the_rest(tmp_path: Path):
+    target = _cursor_home(tmp_path, {"model": {"modelId": "grok"}, "hints": True})
+    actions = configure_cursor_unattended_posture(config_path=target)
+    payload = json.loads(target.read_text())
+    assert payload[CURSOR_APPROVAL_MODE_KEY] == CURSOR_APPROVAL_MODE
+    assert payload[CURSOR_SANDBOX_CONTAINER][CURSOR_SANDBOX_MODE_KEY] == (
+        CURSOR_SANDBOX_MODE
+    )
+    assert payload["model"] == {"modelId": "grok"}
+    assert payload["hints"] is True
+    assert len(actions) == 1
+    assert cursor_posture_problems(payload) == ()
+
+
+def test_cursor_pass_never_overwrites_an_operator_choice(tmp_path: Path):
+    target = _cursor_home(
+        tmp_path,
+        {
+            CURSOR_APPROVAL_MODE_KEY: "allowlist",
+            CURSOR_SANDBOX_CONTAINER: {CURSOR_SANDBOX_MODE_KEY: "enabled"},
+        },
+    )
+    actions = configure_cursor_unattended_posture(config_path=target)
+    payload = json.loads(target.read_text())
+    assert payload[CURSOR_APPROVAL_MODE_KEY] == "allowlist"
+    assert len(actions) == 2
+    assert all("left your own setting in place" in line for line in actions)
+
+
+def test_cursor_pass_skips_a_machine_with_no_cursor(tmp_path: Path):
+    absent = tmp_path / "nothing" / "cli-config.json"
+    assert configure_cursor_unattended_posture(config_path=absent) == []
+
+
+def test_posture_readers_agree_with_the_dispatcher():
+    codex = {"approval_policy": "never", "sandbox_mode": "danger-full-access"}
+    cursor = {
+        CURSOR_APPROVAL_MODE_KEY: CURSOR_APPROVAL_MODE,
+        CURSOR_SANDBOX_CONTAINER: {CURSOR_SANDBOX_MODE_KEY: CURSOR_SANDBOX_MODE},
+    }
+    claude = {"preferences": {"bypassPermissionsModeEnabled": True}}
+    assert posture_problems("codex", codex) == codex_posture_problems(codex) == ()
+    assert posture_problems("cursor", cursor) == cursor_posture_problems(cursor) == ()
+    assert posture_problems("claude-code", claude) == claude_posture_problems(claude)
+    with pytest.raises(ValueError):
+        posture_problems("emacs", {})
+
+
+def test_claude_reader_names_a_prompting_preference():
+    problems = claude_posture_problems({"preferences": {}})
+    assert len(problems) == 1
+    assert "bypassPermissionsModeEnabled" in problems[0]
+
+
+def test_running_family_prefers_the_process_walk(monkeypatch) -> None:
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_sandbox_recovery as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: "codex")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "inherited")
+    assert posture.running_harness_family() == "codex"
+
+
+def test_claude_gets_no_sandbox_recovery(monkeypatch) -> None:
+    """Claude's gate is an approval prompt; a refused socket is not its doing."""
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_sandbox_recovery as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: "claude-code")
+    assert posture.running_harness_family() == "claude-code"
+    assert posture.sandbox_recovery() is None
+
+
+def test_running_family_falls_back_to_one_stamped_harness(monkeypatch) -> None:
+    """A sandbox denies the process table, so the env stamp is what is left."""
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_sandbox_recovery as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: None)
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    monkeypatch.setenv("CODEX_SESSION_ID", "a-codex-session")
+    assert posture.running_harness_family() == "codex"
+    assert "codex session" in (posture.sandbox_recovery() or "")
+
+
+def test_running_family_refuses_to_guess_between_two_stamps(monkeypatch) -> None:
+    """A harness opened inside another's shell carries both harnesses' vars."""
+    import yoke_contracts.harness_family_identity as identity
+    from yoke_contracts import harness_sandbox_recovery as posture
+
+    monkeypatch.setattr(identity, "nearest_harness_family", lambda: None)
+    monkeypatch.setenv("CODEX_SESSION_ID", "a-codex-session")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "a-claude-session")
+    assert posture.running_harness_family() is None
+    assert posture.sandbox_recovery() is None
+
+
+def test_posture_state_reports_each_outcome(tmp_path: Path) -> None:
+    configured = _codex_home(tmp_path / "yes", UNATTENDED_CODEX_TEXT)
+    prompting = _codex_home(tmp_path / "no", 'approval_policy = "on-request"\n')
+    from yoke_contracts.harness_unattended_posture import (
+        POSTURE_ABSENT,
+        POSTURE_PROMPTS,
+        POSTURE_UNATTENDED,
+        posture_state,
+    )
+
+    assert posture_state("codex", configured) == POSTURE_UNATTENDED
+    assert posture_state("codex", prompting) == POSTURE_PROMPTS
+    assert posture_state("codex", tmp_path / "gone" / "config.toml") == POSTURE_ABSENT
+
+
+def test_the_wizard_step_names_every_harness_file_and_key():
+    """The operator sees what will be written before agreeing to it."""
+    from yoke_cli.config.onboard_plan_labels import friendly_line
+    from yoke_contracts.harness_unattended_posture import (
+        CLAUDE_SETTINGS_PATH,
+        CODEX_CONFIG_DISPLAY_PATH,
+        CURSOR_CLI_CONFIG_PATH,
+        POSTURE_PLAN_ACTION,
+    )
+
+    line = friendly_line(POSTURE_PLAN_ACTION, "detected")
+    assert "Unattended harness posture" in line
+    for named in (CLAUDE_SETTINGS_PATH, CODEX_CONFIG_DISPLAY_PATH,
+                  CURSOR_CLI_CONFIG_PATH):
+        assert named in line
+    for key in ("permissions.defaultMode", "approval_policy", "approvalMode"):
+        assert key in line
+    assert "--skip-harness-permissions" in line
+
+
+def test_the_wizard_plans_the_step_for_every_destination():
+    from yoke_cli.config import onboard_report
+    from yoke_contracts.harness_unattended_posture import POSTURE_PLAN_ACTION
+
+    def _actions(**kwargs):
+        plan = onboard_report.build_plan(
+            Path("/tmp/machine-config.json"),
+            "local",
+            "",
+            {"kind": "dsn_file"},
+            {"kind": "local-universe"},
+            "quick",
+            project_mode="machine-only",
+            project_inputs={},
+            machine_github={"choice": "disabled"},
+            **kwargs,
+        )
+        return [step["action"] for step in plan["steps"]]
+
+    for local_destination in (True, False):
+        assert POSTURE_PLAN_ACTION in _actions(local_destination=local_destination)
+    assert POSTURE_PLAN_ACTION not in _actions(harness_posture=False)

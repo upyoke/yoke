@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.commands.adapters import onboard as onboard_adapter
+from yoke_cli.commands.adapters import onboard_build_report
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_apply_resume
 from yoke_cli.config import onboard_checkout_ownership
@@ -188,8 +189,10 @@ def test_cli_resume_restores_saved_project_choices(
         captured.append(kwargs)
         return {"ok": True}
 
+    # `build_report` looks this up in its own module, so patch it there:
+    # the adapter's same-named global is a separate binding.
     monkeypatch.setattr(
-        onboard_adapter,
+        onboard_build_report,
         "_apply_with_durable_report",
         fake_apply_with_durable_report,
     )

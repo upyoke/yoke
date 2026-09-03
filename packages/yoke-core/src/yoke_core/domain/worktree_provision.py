@@ -144,6 +144,28 @@ def provision_worktree_hook_trust(repo_root: str, worktree_path: str) -> None:
         )
 
 
+def provision_worktree_folder_trust(worktree_path: str) -> None:
+    """Best-effort folder trust for a lane, in every harness present.
+
+    Folder trust is path-keyed in all three harnesses with no inheritance
+    from the checkout, so a lane a person opens would otherwise stop and ask
+    about the directory before running anything in it. Runs for reused lanes
+    too, so one created before this step existed is trusted next time.
+    """
+    try:
+        from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
+
+        granted = grant_folder_trust(worktree_path)
+    except Exception as exc:  # noqa: BLE001 — best-effort lane provisioning
+        print(
+            f"Warning: harness folder trust failed (non-fatal): {exc}",
+            file=sys.stderr,
+        )
+        return
+    for line in granted:
+        print(f"lane folder trust: {line}", file=sys.stderr)
+
+
 def provision_worktree_harness_enablement(
     repo_root: str,
     worktree_path: str,
@@ -308,6 +330,7 @@ __all__ = [
     "count_active_worktrees",
     "project_field",
     "provision_worktree",
+    "provision_worktree_folder_trust",
     "provision_worktree_harness_enablement",
     "provision_worktree_hook_trust",
     "provision_worktree_test_environment",

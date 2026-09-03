@@ -32,6 +32,7 @@ _ENGINE_CONFIG_SLUGS = (
     "launcher-authority",
     "session-relay",
     "session-relay-orphans",
+    "harness-unattended-posture",
     "project-hook-config-validity",
 )
 

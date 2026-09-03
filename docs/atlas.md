@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-02T19:31:53Z_
+_Audit generated_at: 2026-09-03T01:20:34Z_
 
 ## 1. Summary
 
@@ -10,7 +10,7 @@ _Audit generated_at: 2026-09-02T19:31:53Z_
 - Internal dispatch-only functions without CLI adapters: **87**
 - `yoke` CLI subcommands: **372** (372 carry usable `--help`)
 - Operation tracker: **348 wrapped**, 14 tool_cli, 131 permanent, 0 pending
-- Skill-body recipes: 330 total (277 template-skipped, 1 failing)
+- Skill-body recipes: 334 total (282 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
@@ -559,9 +559,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 30 |
-| claude-code | 19 |
-| cursor | 1 |
+| claude-code | 26 |
+| codex | 24 |
 
 ## 8. Contradictions
 

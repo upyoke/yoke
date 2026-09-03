@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import argparse
+
+from yoke_contracts.harness_unattended_posture import (
+    POSTURE_DECLINE_HELP,
+)
 import os
 import subprocess
 import sys
@@ -10,7 +14,7 @@ import sysconfig
 from pathlib import Path
 from typing import Optional
 
-from yoke_core.tools import install_yoke_launcher_claude as _claude
+from yoke_contracts import claude_posture_install as _claude
 from yoke_core.tools import install_yoke_launcher_core as _core
 from yoke_core.tools import install_yoke_launcher_macos as _macos
 
@@ -93,6 +97,19 @@ def write_launcher(
 ) -> None:
     launcher_source = source if source is not None else LAUNCHER_SOURCE
     _core.write_launcher(target_path, source=launcher_source, default_home=default_home)
+
+
+def configure_harness_unattended_posture(
+    *,
+    checkout: Optional[Path] = None,
+    stream=None,
+) -> list:
+    from yoke_contracts.harness_posture_install import (
+        configure_harness_unattended_posture as _configure,
+    )
+
+    _claude.CLAUDE_APP_CONFIG_PATH = CLAUDE_APP_CONFIG_PATH
+    return _configure(checkout=checkout, stream=stream)
 
 
 def configure_claude_app_bypass_permissions(
@@ -190,14 +207,9 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--skip-claude-config",
+        "--skip-harness-permissions",
         action="store_true",
-        help=(
-            "Skip the Claude.app bypass-permissions preference patch. macOS "
-            "only — no-op on other platforms. The patch only sets "
-            "bypassPermissionsModeEnabled=true when the key is absent; "
-            "explicit-False values are always respected."
-        ),
+        help=POSTURE_DECLINE_HELP,
     )
     parser.add_argument(
         "--repair",
@@ -233,7 +245,7 @@ def install(
     skip_verify: bool = False,
     verify_env: Optional[str] = None,
     no_system_packages: bool = False,
-    skip_claude_config: bool = False,
+    skip_harness_permissions: bool = False,
     skip_macos_path_fix: bool = False,
     repair: bool = False,
     write_canonical: bool = False,
@@ -249,6 +261,8 @@ def install(
 
         home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
         report = converge_machine(cwd, home=home, force=force, stream=out)
+        if not skip_harness_permissions:
+            configure_harness_unattended_posture(checkout=cwd, stream=out)
         configure_session_relay(executable=report.canonical, stream=out)
         return TargetChoice(report.canonical.parent, "canonical_user_local")
     if not skip_pip:
@@ -270,8 +284,8 @@ def install(
     verify_path_includes(choice.path, stream=out)
     if not skip_verify:
         run_verification(verify_env=verify_env, stream=out)
-    if not skip_claude_config:
-        configure_claude_app_bypass_permissions(stream=out)
+    if not skip_harness_permissions:
+        configure_harness_unattended_posture(checkout=cwd, stream=out)
     if not skip_macos_path_fix:
         configure_macos_path_for_homebrew(stream=out)
     relay_launcher = target_path
@@ -309,7 +323,7 @@ def main(argv: Optional[list] = None) -> int:
             skip_verify=args.skip_verify,
             verify_env=args.verify_env,
             no_system_packages=args.no_system_packages,
-            skip_claude_config=args.skip_claude_config,
+            skip_harness_permissions=args.skip_harness_permissions,
             skip_macos_path_fix=args.skip_macos_path_fix,
             repair=args.repair,
             write_canonical=True,
