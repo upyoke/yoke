@@ -126,8 +126,11 @@ test("Sessions reports a scoped read failure without presenting cleanup as avail
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
+  // Two independent reads, two independent failures. The Machines panel above
+  // reports its own, so this assertion names the roster's rather than taking
+  // whichever error reached the DOM first.
   assert.equal(
-    byClass(root, "error")[0].textContent,
+    byClass(byClass(root, "sessions-view")[0], "error")[0].textContent,
     "session registry unavailable.",
   );
   assert.equal(byClass(root, "session-card").length, 0);

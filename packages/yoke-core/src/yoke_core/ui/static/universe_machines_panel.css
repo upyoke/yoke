@@ -99,3 +99,30 @@
 .machine-surface-silent .machine-surface-state { color: var(--warn); font-weight: 650; }
 .machine-surface-absent .machine-surface-name { color: var(--muted); }
 .machine-surface-reason { margin: 4px 0 0; font-size: 10.5px; color: var(--muted); }
+
+/* A read that failed keeps the heading and says so. Hiding it would make the
+ * one state meaning "you cannot trust this" look like the state meaning
+ * "there is nothing here". */
+.machines-failure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border: 1px solid var(--crit);
+  border-radius: var(--radius, 8px);
+  background: color-mix(in srgb, var(--crit) 7%, transparent);
+}
+.machines-failure .error { margin: 0; font-size: 12px; }
+.machines-retry {
+  margin-left: auto;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.machines-retry:hover { background: var(--hover); }

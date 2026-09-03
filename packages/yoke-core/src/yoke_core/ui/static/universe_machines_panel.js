@@ -14,7 +14,10 @@
 // nothing about them rather than guessing.
 
 import { el } from "./universe_view_support.js";
-import { sessionControlCall } from "./universe_session_control_data.js";
+import {
+  renderSessionControlFailure,
+  sessionControlCall,
+} from "./universe_session_control_data.js";
 
 // The three surfaces a launch can create. A desktop surface is present on most
 // machines and declares `create: none`, so a light for one would offer an
@@ -136,20 +139,44 @@ export function renderMachinesPanel(context, host, relays) {
 // does not re-read on a scope change: a machine does not belong to a project,
 // and filtering it by one would hide the machine a launch would land on.
 //
-// A failed read leaves the panel absent rather than drawing a card with no
-// facts in it — a machine card whose lights are all unknown says less than no
-// card, and reads as a broken machine rather than as a failed read.
+// A failed read SAYS SO. Hiding the panel would have been the quiet option and
+// the wrong one: an absent panel is indistinguishable from a universe with no
+// machines, so the one state that means "you cannot trust what you are looking
+// at" would render as the state that means "there is nothing to look at". The
+// failure keeps the heading, names itself, and offers the retry.
 export async function loadMachinesPanel(context, host) {
-  let relays = [];
-  try {
-    const result = await sessionControlCall(
-      context, "session_control.relay.list", { limit: 500 },
-    );
-    relays = result.relays || [];
-  } catch (_error) {
-    return;
-  }
-  if (!context.isMounted()) return;
-  host.replaceChildren();
-  renderMachinesPanel(context, host, relays);
+  const documentNode = context.document;
+  const run = async () => {
+    let relays;
+    try {
+      const result = await sessionControlCall(
+        context, "session_control.relay.list", { limit: 500 },
+      );
+      relays = result.relays || [];
+    } catch (error) {
+      if (!context.isMounted()) return;
+      host.replaceChildren();
+      const panel = el(documentNode, "section", "machines-panel");
+      panel.appendChild(el(
+        documentNode, "h2", "machines-panel-head", "Machines",
+      ));
+      const failure = el(documentNode, "div", "machines-failure");
+      renderSessionControlFailure(
+        failure,
+        error,
+        "The relay roster could not be read, so what can run is unknown.",
+      );
+      const retry = el(documentNode, "button", "machines-retry", "Try again");
+      retry.type = "button";
+      retry.addEventListener("click", () => { run(); });
+      failure.appendChild(retry);
+      panel.appendChild(failure);
+      host.appendChild(panel);
+      return;
+    }
+    if (!context.isMounted()) return;
+    host.replaceChildren();
+    renderMachinesPanel(context, host, relays);
+  };
+  await run();
 }
