@@ -38,6 +38,13 @@ REVIEW_SAVED_SECRETS_SUBTITLE = (
     "Your API token and hosting credential are already saved; everything below "
     "waits for Apply."
 )
+# The clone lands during the Project step so the operator can inspect the
+# repository before deciding anything, which makes the bare "nothing is
+# written yet" promise false on that path.
+REVIEW_FETCHED_CHECKOUT_SUBTITLE = (
+    "The repository is already fetched into your folder so you could inspect "
+    "it; everything below still waits for Apply."
+)
 REVIEW_AFTER_GITHUB_SUBTITLE = (
     "Machine GitHub authorization is already saved; only the remaining setup "
     "writes wait for Apply. Use yoke github disconnect to remove the saved "
@@ -118,6 +125,8 @@ def _review_subtitle(plan: dict, machine_github_saved: bool) -> str:
     inner = plan.get("plan") if isinstance(plan, dict) else None
     reuse = inner.get("reuse") if isinstance(inner, dict) else None
     reuse = reuse if isinstance(reuse, dict) else {}
+    if reuse.get("project_clone_checkout"):
+        return REVIEW_FETCHED_CHECKOUT_SUBTITLE
     if reuse.get("token_reference") and reuse.get("aws_admin"):
         return REVIEW_SAVED_SECRETS_SUBTITLE
     if machine_github_saved:
@@ -129,6 +138,7 @@ __all__ = [
     "CONFIRM_ROWS",
     "FINISH_EMPTY_ROWS",
     "REVIEW_BLOCKED_ROWS",
+    "REVIEW_FETCHED_CHECKOUT_SUBTITLE",
     "REVIEW_SAVED_SECRETS_SUBTITLE",
     "REVIEW_SUBTITLE",
     "REVIEW_TITLE",

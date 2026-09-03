@@ -126,6 +126,7 @@ yoke project import git@github.com:owner/demo.git ~/work/demo \
   --default-branch main \
   --public-item-prefix DMO \
   --github-adoption disabled \
+  --existing-yoke-layer remove \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -133,9 +134,36 @@ yoke project import git@github.com:owner/demo.git ~/work/demo \
 This clones the remote, creates or imports the project identity, registers the
 checkout, and runs project install.
 
+A repository can arrive with a Yoke operating layer already committed — a
+clone of a repo somebody else onboarded, or one whose earlier install was
+never removed. Installing over it silently converges hundreds of files that
+were never this project's, so the import refuses a repository nobody has
+looked at and names what it found. Decide with `--existing-yoke-layer`:
+
+- `remove` deletes the layer and commits the deletion before anything is
+  installed, so what follows really is a first install;
+- `keep` installs over what is there.
+
+The layer is `.yoke/`, the Yoke skill trees under `.agents/`, `.claude/`,
+`.codex/`, and `.cursor/`, the `yoke-` agent adapters, `.claude/rules/`, the
+`.yoke-operating-layer.json` receipt, the managed block inside `AGENTS.md` /
+`CLAUDE.md` / `CODEX.md` / `CURSOR.md`, and the Yoke hook entries merged into
+the harness settings files. Removal takes exactly those: your own agents,
+your own text outside the managed block, and your other hook and settings
+entries stay. A repository with no layer needs no decision.
+
+The wizard asks the same question on a screen of its own. It fetches the
+repository during the Project step — before Review, and before a single write
+— then shows what the folder holds and offers **Remove them** or **Keep
+them**. Review then describes the checkout as it actually is, and Apply reuses
+the clone that is already on disk.
+
 ### Existing local checkout
 
-Preview first:
+Preview first. A folder already on your disk needs no fetch and no decision
+point — you can look at it before you name it, which is exactly what the
+clone path could not offer until it was fetched during the Project step.
+
 
 ```bash
 yoke onboard project ~/work/demo \

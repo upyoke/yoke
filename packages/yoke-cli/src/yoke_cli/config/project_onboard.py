@@ -11,6 +11,7 @@ from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_onboard_apply
 from yoke_cli.config import project_onboard_create
 from yoke_cli.config import project_onboard_existing
+from yoke_cli.config import project_onboard_installed_layer
 from yoke_cli.config import project_onboard_progress as progress_steps
 from yoke_cli.config.project_github_adoption import (
     github_adoption_report,
@@ -223,6 +224,9 @@ def import_project(
                 plan=plan,
                 clone_reused=clone_reused,
             )
+    project_onboard_installed_layer.apply_decision(
+        root, plan.existing_layer_decision, progress=progress,
+    )
     if existing_project_id is not None:
         return project_onboard_apply.install_existing_project(
             operation="project.clone-existing",

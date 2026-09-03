@@ -10,9 +10,29 @@ scenario spawns a login shell.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from yoke_cli.config import onboard_wizard_flow_checkout_inspection as inspection
 from yoke_cli.config import path_doctor
+from yoke_cli.config import project_installed_layer as installed_layer
 from yoke_cli.config.onboard_wizard import WizardDefaults
 from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
+
+
+def stub_checkout_fetch(monkeypatch, *, scan=None) -> None:
+    """Resolve the Project-step fetch without git, to a clean scan by default.
+
+    Pass ``scan`` to drive the inspection screen a repository already carrying
+    a Yoke operating layer would show.
+    """
+    monkeypatch.setattr(
+        inspection.CheckoutInspectionFlow,
+        "_materialize_checkout",
+        lambda self: scan
+        or installed_layer.InstalledLayerScan(
+            Path(str(self.result.project_checkout or ""))
+        ),
+    )
 
 
 def all_clear_diagnosis() -> path_doctor.PathDiagnosis:

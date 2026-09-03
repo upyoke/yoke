@@ -145,6 +145,10 @@ class WizardResult:
     # remote choreography; keep_upstream is honored only by "make it mine"; the
     # ClonePlan carries the make-it-mine PublishRequest and the fallback token.
     project_clone_outcome: str | None = None
+    # Keep or remove a Yoke operating layer the fetched repository already
+    # carries. Recorded on the checkout inspection screen and carried to Apply
+    # in the ClonePlan; empty means the checkout was never inspected.
+    project_clone_existing_layer_decision: str = ""
     project_clone_keep_upstream: bool = True
     project_clone_requires_machine_github: bool = False
     # Default branch detected from the clone source (via ls-remote --symref) at

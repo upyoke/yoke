@@ -17,7 +17,9 @@ unsupported; WSL follows the Linux path.
 1. **Install / PATH** — confirm the CLI
 2. **Account** — where Yoke lives (this machine / team server / upyoke.com)
 3. **GitHub** — optional App connect for product GitHub commands
-4. **Project** — create, clone, import, or bind a checkout
+4. **Project** — create, clone, import, or bind a checkout. A clone is
+   fetched here, not at Apply, so you see what the repository holds — and
+   decide what happens to any Yoke files it already carries — first
 5. **Review** — preview persistent writes, then apply
 
 Flags: `--yes` for non-interactive apply; `--local` or `--connect URL` to skip

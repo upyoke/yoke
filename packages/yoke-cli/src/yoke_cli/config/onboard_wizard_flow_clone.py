@@ -17,6 +17,9 @@ from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import onboard_wizard_project_screens as project_screens
 from yoke_cli.config import onboard_wizard_clone_visibility
 from yoke_cli.config import project_clone_support as clone_support
+from yoke_cli.config.onboard_wizard_flow_checkout_inspection import (
+    CheckoutInspectionFlow,
+)
 from yoke_cli.config.onboard_wizard_flow_clone_source import CloneSourceFlow
 from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
@@ -43,10 +46,11 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _goto_project_mode(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_existing_project_ready(self) -> None: ...
+    def _materialize_and_inspect_checkout(self) -> None: ...
     async def action_back(self) -> None: ...
 
 
-class CloneFlow(CloneSourceFlow):
+class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
     # ── Clone visibility (public / private split) ───────────
 
     def _goto_clone_visibility(self: _Shell) -> None:
@@ -224,10 +228,7 @@ class CloneFlow(CloneSourceFlow):
         ):
             self._goto_resume_or_choose_folder(value)
             return
-        if self.result.existing_project_id:
-            self._goto_existing_project_ready()
-            return
-        self._goto_clone_outcome()
+        self._materialize_and_inspect_checkout()
 
     def _goto_resume_or_choose_folder(self: _Shell, checkout: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
@@ -243,10 +244,7 @@ class CloneFlow(CloneSourceFlow):
             self._goto_clone_folder()
             return
         # The resumable apply steps skip whatever already landed.
-        if self.result.existing_project_id:
-            self._goto_existing_project_ready()
-            return
-        self._goto_clone_outcome()
+        self._materialize_and_inspect_checkout()
 
     # ── Clone outcome (clone path only) ─────────────────────
 

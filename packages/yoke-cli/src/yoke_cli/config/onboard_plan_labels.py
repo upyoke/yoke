@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_project
+from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
     CLONE_OUTCOME_JUST_CLONE,
@@ -100,6 +101,11 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Re-home onto the new repo and push"
     if action == "project-fork-remotes":
         return "Point origin at your fork and track the source as upstream"
+    if action == REMOVE_LAYER_ACTION:
+        return (
+            "Remove the Yoke files this repository already carries, before "
+            "installing"
+        )
     if action == "project-install-scaffold":
         return "Install the Yoke project scaffold (.yoke/)"
     if action == "project-refresh-scaffold":

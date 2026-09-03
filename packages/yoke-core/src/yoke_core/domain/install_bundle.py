@@ -42,10 +42,21 @@ from yoke_contracts.engine_version import (
 )
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
+from yoke_contracts.project_contract.installed_layer import (
+    CANONICAL_SKILLS_DEST,
+    CLAUDE_AGENTS_DEST,
+    CLAUDE_RULES_DEST,
+    CLAUDE_SKILLS_DEST,
+    CODEX_AGENTS_DEST,
+    CODEX_SKILLS_DEST,
+    CURSOR_AGENTS_DEST,
+)
 from yoke_contracts.packs import PACKS_SOURCE
 
-# Server-tree source dirs (relative to the tree root).
-SKILLS_SOURCE = ".agents/skills/yoke"
+# Server-tree source dirs (relative to the tree root). Skills are copied to the
+# same relative path they are authored at, so the canonical destination names
+# the source too.
+SKILLS_SOURCE = CANONICAL_SKILLS_DEST
 CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CURSOR_AGENTS_SOURCE = "runtime/harness/cursor/agents"
@@ -76,15 +87,6 @@ def is_bundle_junk_path(path: Path) -> bool:
     if path.name in _JUNK_FILE_NAMES:
         return True
     return path.name.endswith(_JUNK_FILE_SUFFIXES)
-
-
-CANONICAL_SKILLS_DEST = SKILLS_SOURCE
-CLAUDE_SKILLS_DEST = ".claude/skills/yoke"
-CODEX_SKILLS_DEST = ".codex/skills/yoke"
-CLAUDE_AGENTS_DEST = ".claude/agents"
-CODEX_AGENTS_DEST = ".codex/agents"
-CURSOR_AGENTS_DEST = ".cursor/agents"
-CLAUDE_RULES_DEST = ".claude/rules"
 
 
 class InstallBundleError(RuntimeError):

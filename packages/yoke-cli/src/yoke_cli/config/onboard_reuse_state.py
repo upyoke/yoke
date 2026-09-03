@@ -11,6 +11,7 @@ from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_resume
+from yoke_cli.config import project_installed_layer
 from yoke_cli.project_install import files as project_install_files
 from yoke_contracts.machine_config import schema as machine_schema
 
@@ -85,6 +86,9 @@ def detect(
         "project_clone_checkout": _project_clone_checkout_reused(
             checkout, remote_url, mode, web_url=clone_web_url,
         ),
+        # What the checkout on disk actually holds, so the review describes the
+        # repository rather than the intent that named it.
+        "project_installed_layer": _installed_layer_summary(checkout, mode),
         "project_scaffold": _project_scaffold_installed(checkout, project_id),
     }
 
@@ -218,6 +222,16 @@ def _project_clone_checkout_reused(
         )
     except Exception:
         return False
+
+
+def _installed_layer_summary(checkout: Any, mode: str) -> dict[str, Any] | None:
+    """Scan a materialized clone; ``None`` when there is nothing on disk yet."""
+    if mode not in onboard_project.PROJECT_REMOTE_MODES or not checkout:
+        return None
+    root = Path(str(checkout)).expanduser()
+    if not root.is_dir():
+        return None
+    return project_installed_layer.summarize(root)
 
 
 def _looks_like_git_checkout(root: Path) -> bool:

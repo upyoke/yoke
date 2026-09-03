@@ -121,7 +121,7 @@ def commit_touched_paths(
     message = _commit_message(operation, version)
     committed = _run_git(
         repo_root,
-        *_identity_args(repo_root),
+        *commit_identity_args(repo_root),
         "-c",
         "commit.gpgsign=false",
         "commit",
@@ -290,7 +290,7 @@ def _string_list(value: Any) -> list[str]:
     return [str(item) for item in value if isinstance(item, str) and item]
 
 
-def _identity_args(repo_root: Path) -> list[str]:
+def commit_identity_args(repo_root: Path) -> list[str]:
     """Fill user.name/email only when the checkout has none."""
     args: list[str] = []
     if not _run_git(repo_root, "config", "--get", "user.email").stdout.strip():
@@ -330,5 +330,6 @@ def _run_git_input(
 __all__ = [
     "FALLBACK_DEFAULT_BRANCH",
     "assert_ready_for_write",
+    "commit_identity_args",
     "commit_touched_paths",
 ]
