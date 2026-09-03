@@ -124,6 +124,30 @@ def test_the_grace_window_bounds_the_escalation() -> None:
     assert len(wake_eligible_recipients(conn, now=STARVED)) == 1
 
 
+def test_silence_before_the_send_counts_toward_the_window() -> None:
+    """The SLA is a silence window on the recipient, not an envelope age.
+
+    A worker that had already been quiet for seventeen minutes when the
+    message arrived is not about to run a hook, and counting the window from
+    the send bought it another five minutes of nothing. Four steering waits
+    were abandoned by hand inside that window in one night, three of them
+    before any attempt existed at all.
+    """
+    conn = message_connection()
+    _send(conn)
+    just_sent = NOW + timedelta(seconds=1)
+    _stamp(
+        conn,
+        when=just_sent,
+        tool_call=(NOW - timedelta(minutes=17)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+
+    eligible = wake_eligible_recipients(conn, now=just_sent)
+
+    assert len(eligible) == 1
+    assert eligible[0]["wake_escalation"] == STARVED_HOOK_ROUTE
+
+
 def test_an_injected_envelope_is_not_starved() -> None:
     conn = message_connection()
     message_id = _send(conn)

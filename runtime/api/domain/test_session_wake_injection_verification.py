@@ -25,7 +25,7 @@ from yoke_contracts.session_control.wake_instruction import (
     WAKE_DELIVERY_COMMAND,
     native_wake_instruction,
 )
-from yoke_core.domain.session_broker_wake import DIRECT_FALLBACK_RESULTS
+from yoke_core.domain.session_broker_wake_fallback import DIRECT_FALLBACK_RESULTS
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job

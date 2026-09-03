@@ -12,9 +12,11 @@ from typing import Any
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
+from yoke_core.domain.steering_fleet_report_starvation import (
+    StarvedDelivery,
+)
 from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
-    StarvedDelivery,
     UnregisteredLaunch,
 )
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
@@ -58,6 +60,8 @@ def _starved_dict(entry: StarvedDelivery) -> dict[str, Any]:
         "oldest_seconds": entry.oldest_seconds,
         "wake_escalation": entry.wake_escalation,
         "operator_wake": entry.operator_wake,
+        "attempt_count": entry.attempt_count,
+        "diagnostic": entry.diagnostic,
     }
 
 

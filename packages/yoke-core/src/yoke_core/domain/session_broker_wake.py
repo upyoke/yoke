@@ -8,10 +8,10 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
-from yoke_contracts.session_control.wake_delivery import (
-    TURN_WITHOUT_INJECTION_RESULT,
-)
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_broker_wake_fallback import (
+    direct_wake_waits_for_broker,
+)
 from yoke_core.domain.session_broker_wake_recruit import (
     machine_has_fresh_relay,
     should_defer_operator_facing_broker,
@@ -31,22 +31,8 @@ from yoke_core.domain.session_relay_storage import (
 
 
 BROKER_HOOK_LEASE_SECONDS = 30
-BROKER_JOB_TIMEOUT_SECONDS = 300
 BROKER_ADAPTER_REVISION = "session-broker-hook-v1"
 BROKER_COMMAND = "yoke relay serve-once --broker"
-DIRECT_FALLBACK_RESULTS = frozenset(
-    {
-        "failed",
-        # A native resume that delivered nothing has proved the direct route
-        # cannot reach this turn. The peer-hook broker is the other route.
-        TURN_WITHOUT_INJECTION_RESULT,
-        "not_found",
-        "outcome_unknown",
-        "relay_lease_expired",
-        "unsupported_surface",
-        "version_mismatch",
-    }
-)
 
 
 @dataclass(frozen=True)
@@ -68,43 +54,6 @@ def _begin(conn: Any) -> None:
         getattr(conn, "in_transaction", False)
     ):
         conn.execute("BEGIN IMMEDIATE")
-
-
-def _latest_wake_result(
-    conn: Any, *, message_id: str, session_id: str
-) -> tuple[str, str, str] | None:
-    p = marker(conn)
-    row = conn.execute(
-        "SELECT attempt_kind,result_code,completed_at FROM session_message_attempts "
-        f"WHERE message_id={p} AND target_session_id={p} "
-        "AND attempt_kind IN ('wake_relay','wake_broker') "
-        "AND completed_at IS NOT NULL ORDER BY started_at DESC,attempt_id DESC LIMIT 1",
-        (message_id, session_id),
-    ).fetchone()
-    return (
-        (str(row[0]), str(row[1] or ""), str(row[2] or "")) if row is not None else None
-    )
-
-
-def direct_wake_waits_for_broker(
-    conn: Any,
-    *,
-    message_id: str,
-    session_id: str,
-    now: datetime | str | None = None,
-) -> bool:
-    """Keep a failed direct route from immediately claiming itself again."""
-    latest = _latest_wake_result(conn, message_id=message_id, session_id=session_id)
-    if not latest or latest[0] != "wake_relay":
-        return False
-    completed = parse_timestamp(latest[2])
-    current = parse_timestamp(now) if isinstance(now, str) else now
-    return bool(
-        latest[1] in DIRECT_FALLBACK_RESULTS
-        and completed
-        and (current or utc_now())
-        < completed + timedelta(seconds=BROKER_JOB_TIMEOUT_SECONDS)
-    )
 
 
 def _broker_session(conn: Any, session_id: str) -> Mapping[str, Any] | None:
@@ -339,9 +288,6 @@ __all__ = [
     "BROKER_ADAPTER_REVISION",
     "BROKER_COMMAND",
     "BROKER_HOOK_LEASE_SECONDS",
-    "BROKER_JOB_TIMEOUT_SECONDS",
     "BrokerWakeLease",
-    "DIRECT_FALLBACK_RESULTS",
-    "direct_wake_waits_for_broker",
     "lease_broker_wake_for_hook",
 ]

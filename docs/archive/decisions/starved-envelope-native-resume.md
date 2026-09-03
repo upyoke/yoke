@@ -33,8 +33,12 @@ The receipt carries the evidence, so nothing has to be inferred about the
 session's inner state. Zero injections past the acknowledgement grace window
 says little on its own; a session with no work to do also injects nothing.
 What closes it is the recipient's own clock: **no tool call since the message
-was created** means no hook has run for that session across the whole window,
-and a hook is the only thing that could have attached the envelope.
+was created** means no hook has run for that session since it arrived, and a
+hook is the only thing that could have attached the envelope. The window is
+measured from that last tool call rather than from the send, so silence the
+recipient had already accrued counts — see
+[`wake-attempt-and-diagnosis.md`](wake-attempt-and-diagnosis.md) for why
+counting from the send abandoned four steering waits in one night.
 
 At that point the wake escalates to the stopped-session native-resume path,
 even though liveness still reads active. The predicate lives in

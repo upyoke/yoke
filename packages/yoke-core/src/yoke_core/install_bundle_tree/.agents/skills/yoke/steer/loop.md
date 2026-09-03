@@ -110,8 +110,12 @@ yours:
   while triaging: at `stale_eligible_at` the reclaim sweep releases its
   claims and the item reads as untouched, so a holder near reclaim is
   revived before anything else in the pass.
-- **Starved delivery** — read the row. A wake may be in flight or awaiting its
-  operator; otherwise use the registered wake or **Revive** bridge below.
+- **Starved delivery** — read the row, and read which of the two shapes it
+  is. *no delivery attempted* means the plane owed a wake and made none;
+  *last attempt failed (reason)* names a refusal to go fix, and a reason
+  repeating across every row on one machine is that machine's relay, not
+  those workers. A wake may also be in flight or awaiting its operator;
+  otherwise use the registered wake or **Revive** bridge below.
 - **Unregistered launches** — list each `launch_id`; `spawn_started` or
   `spawn_alive` in `native_launch_phase` belongs to the first process. Wait
   through `deadline_at`; reconcile refuses and retry reattaches without

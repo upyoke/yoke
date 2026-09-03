@@ -9,6 +9,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake import (
     BROKER_ADAPTER_REVISION,
     BROKER_HOOK_LEASE_SECONDS,
+)
+from yoke_core.domain.session_broker_wake_fallback import (
     BROKER_JOB_TIMEOUT_SECONDS,
 )
 from yoke_core.domain.session_message_types import (

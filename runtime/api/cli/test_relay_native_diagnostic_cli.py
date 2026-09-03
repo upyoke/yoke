@@ -192,3 +192,56 @@ def test_relay_diagnostic_is_registered_as_a_machine_local_tool() -> None:
         ]
         == relay.RELAY_DIAGNOSTIC_USAGE
     )
+
+
+def test_a_failed_attempt_names_its_reason_rather_than_an_empty_column() -> None:
+    """`failed` with nothing beside it is the shape that hid a dead relay.
+
+    The stored code is coarse; the adapter's own refusal is in the evidence.
+    For two hours every wake on one machine refused for one nameable reason
+    while the operator-facing table showed `failed` against an empty column.
+    """
+    output = StringIO()
+
+    write_message_result(
+        {
+            "message": {
+                "message_id": "message-1",
+                "recipients": [{"session_id": "session-1", "state": "pending"}],
+                "attempts": [
+                    {
+                        "attempt_id": "attempt-1",
+                        "target_session_id": "session-1",
+                        "attempt_kind": "wake_relay",
+                        "result_code": "failed",
+                        "evidence": {"result_code": "instruction_invalid"},
+                    },
+                    {
+                        "attempt_id": "attempt-2",
+                        "target_session_id": "session-1",
+                        "attempt_kind": "wake_relay",
+                        "result_code": "failed",
+                        "evidence": {},
+                    },
+                    {
+                        "attempt_id": "attempt-3",
+                        "target_session_id": "session-1",
+                        "attempt_kind": "hook",
+                        "result_code": "injected",
+                        "evidence": {"hook_event": "PreToolUse"},
+                    },
+                ],
+            }
+        },
+        output,
+    )
+
+    lines = {
+        line.split()[0]: line
+        for line in output.getvalue().splitlines()
+        if line.startswith("attempt-")
+    }
+    assert "instruction_invalid" in lines["attempt-1"]
+    assert "unreported" in lines["attempt-2"]
+    # A delivered hook injection is not a failure and owes no reason.
+    assert "unreported" not in lines["attempt-3"]

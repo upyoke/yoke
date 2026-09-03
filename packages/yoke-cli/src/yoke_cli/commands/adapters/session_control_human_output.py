@@ -6,10 +6,9 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, TextIO
 
-from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.liveness import ENDED_CAUSE_KILLED
-from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
-    native_diagnostic_fields,
+from yoke_cli.commands.adapters.session_control_attempt_output import (
+    write_attempts,
 )
 from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import (
     roster_diagnostics,
@@ -219,39 +218,6 @@ def _body_excerpt(value: Any) -> str:
     return _fit(value, BODY_EXCERPT_CHARACTERS)
 
 
-def _attempt_evidence(attempt: Mapping[str, Any]) -> dict[str, str | int]:
-    evidence = attempt.get("evidence")
-    return redacted_evidence_document(
-        evidence if isinstance(evidence, Mapping) else None
-    )
-
-
-def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> None:
-    rows = list(attempts)
-    if not rows:
-        return
-    columns: tuple[Column, ...] = (
-        ("ATTEMPT", lambda row: row.get("attempt_id"), None),
-        ("TARGET", lambda row: row.get("target_session_id"), None),
-        ("TYPE", lambda row: humanize(row.get("attempt_kind")), 16),
-        ("RESULT", lambda row: humanize(row.get("result_code")), 18),
-        # Escalation says why a wake fired against a live-looking session.
-        ("ESCALATION", lambda row: _attempt_evidence(row).get("wake_escalation"), 24),
-        (
-            "DIAGNOSTIC",
-            lambda row: _attempt_evidence(row).get("native_diagnostic_ref"),
-            None,
-        ),
-    )
-    write_table("DELIVERY ATTEMPTS", columns, rows, stdout, empty="")
-    for row in rows:
-        evidence = _attempt_evidence(row)
-        fields = native_diagnostic_fields(evidence)
-        if not fields:
-            continue
-        write_summary("NATIVE DIAGNOSTIC", fields, stdout)
-
-
 def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
     command = message.get("acknowledgement_command")
     if command:
@@ -276,7 +242,7 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         )
     write_summary("MESSAGE", fields, stdout)
     _write_recipients(recipients, stdout, actor_recipients=actor_recipients)
-    _write_attempts(message.get("attempts") or [], stdout)
+    write_attempts(message.get("attempts") or [], stdout)
 
 
 def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
