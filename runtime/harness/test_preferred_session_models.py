@@ -137,9 +137,7 @@ def test_seed_does_not_overwrite_existing_map() -> None:
 
     assert seed_preferred_session_models(payload) is False
     assert payload[PREFERRED_SESSION_MODELS_KEY] == {"cursor-cli": "kept-model"}
-    assert payload[PREFERRED_SESSION_REASONING_EFFORTS_KEY] == {
-        "cursor-cli": "high"
-    }
+    assert payload[PREFERRED_SESSION_REASONING_EFFORTS_KEY] == {"cursor-cli": "high"}
 
 
 def test_list_models_treats_blanks_as_absent(monkeypatch, tmp_path) -> None:
@@ -175,9 +173,7 @@ def test_list_models_names_the_config_key_as_source(monkeypatch, tmp_path) -> No
     monkeypatch.setattr(
         "yoke_contracts.machine_config.runtime.load_config",
         lambda path=None: {
-            PREFERRED_SESSION_MODELS_KEY: {
-                "cursor-cli": "preferred-model[context=1m]"
-            },
+            PREFERRED_SESSION_MODELS_KEY: {"cursor-cli": "preferred-model[context=1m]"},
             PREFERRED_SESSION_REASONING_EFFORTS_KEY: {"cursor-cli": "high"},
         },
     )
@@ -243,8 +239,7 @@ def test_status_names_the_preferred_models_key() -> None:
 
     assert (
         f"  launch defaults: {PREFERRED_SESSION_MODELS_KEY} + "
-        f"{PREFERRED_SESSION_REASONING_EFFORTS_KEY}; blank = vendor default"
-        in rendered
+        f"{PREFERRED_SESSION_REASONING_EFFORTS_KEY}; blank = vendor default" in rendered
     )
 
 

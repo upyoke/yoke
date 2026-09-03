@@ -5,6 +5,7 @@ names the machine-global default. Per-command routing (``--env`` /
 ``YOKE_ENV``) selects any configured env without rewriting the file
 (decision record: ``docs/archive/decisions/machine-config-env-connections.md``).
 """
+
 from __future__ import annotations
 import uuid
 from typing import Any, Mapping
@@ -28,37 +29,48 @@ from yoke_contracts.machine_config.schema_project_validation import (
     validate_projects,
 )
 from yoke_contracts.machine_config.credential_sources import (
-    CREDENTIAL_KIND_AWS_SECRETS_MANAGER as CREDENTIAL_KIND_AWS_SECRETS_MANAGER, CREDENTIAL_KIND_DSN_FILE as CREDENTIAL_KIND_DSN_FILE,
+    CREDENTIAL_KIND_AWS_SECRETS_MANAGER as CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
+    CREDENTIAL_KIND_DSN_FILE as CREDENTIAL_KIND_DSN_FILE,
     CREDENTIAL_KIND_ENV as CREDENTIAL_KIND_ENV,
     CREDENTIAL_KIND_TOKEN_FILE as CREDENTIAL_KIND_TOKEN_FILE,
     CREDENTIAL_KINDS as CREDENTIAL_KINDS,
-    TOKEN_CREDENTIAL_KINDS,
-    validate_credential_source as _validate_credential_source_impl,
 )
 from yoke_contracts.machine_config.schema_transport import (
-    DEFAULT_TRANSPORT as DEFAULT_TRANSPORT, POSTGRES_TRANSPORTS, PRODUCT_CLIENT_TRANSPORTS as PRODUCT_CLIENT_TRANSPORTS,
-    TRANSPORTS, TRANSPORT_HTTPS,
+    DEFAULT_TRANSPORT as DEFAULT_TRANSPORT,
+    POSTGRES_TRANSPORTS as POSTGRES_TRANSPORTS,
+    PRODUCT_CLIENT_TRANSPORTS as PRODUCT_CLIENT_TRANSPORTS,
+    TRANSPORTS,
+    TRANSPORT_HTTPS as TRANSPORT_HTTPS,
 )
 from yoke_contracts.machine_config.schema_github import (
-    DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL, DEFAULT_GITHUB_WEB_URL as DEFAULT_GITHUB_WEB_URL,
-    GITHUB_AUTH_KIND_USER_AUTHORIZATION as GITHUB_AUTH_KIND_USER_AUTHORIZATION, GITHUB_AUTH_STATUSES as GITHUB_AUTH_STATUSES,
+    DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL,
+    DEFAULT_GITHUB_WEB_URL as DEFAULT_GITHUB_WEB_URL,
+    GITHUB_AUTH_KIND_USER_AUTHORIZATION as GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+    GITHUB_AUTH_STATUSES as GITHUB_AUTH_STATUSES,
     GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT as GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
     GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT as GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
     GITHUB_PROFILE_SOURCE_SERVICE as GITHUB_PROFILE_SOURCE_SERVICE,
     GITHUB_PROFILE_SOURCES as GITHUB_PROFILE_SOURCES,
-    github_config as github_config, has_github_config, normalize_github_payload, validate_github_config,
+    github_config as github_config,
+    has_github_config,
+    normalize_github_payload,
+    validate_github_config,
 )
 from yoke_contracts.machine_config.schema_connections import (
     DB_ADMIN_ENV_SUFFIX as DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE as ENV_OVERRIDE,
     MachineConfigContractError as MachineConfigContractError,
-    PROD_FLAG_KEY,
+    PROD_FLAG_KEY as PROD_FLAG_KEY,
     connection_is_prod as connection_is_prod,
     env_override_teaching as env_override_teaching,
     local_postgres_envs as local_postgres_envs,
     same_universe_db_admin_env as same_universe_db_admin_env,
     same_universe_https_env as same_universe_https_env,
     selected_env as selected_env,
+)
+from yoke_contracts.machine_config.schema_connection_validation import (
+    TUNNEL_REQUIRED_KEYS as TUNNEL_REQUIRED_KEYS,
+    validate_connection,
 )
 
 SCHEMA_VERSION = 1
@@ -70,9 +82,6 @@ DEFAULT_TEMP_DIR_NAME = "tmp"
 DEFAULT_TEMP_ROOT = "~/.yoke/tmp"
 DEFAULT_CACHE_ROOT = "~/.yoke/cache"
 SECRETS_DIR_NAME = "secrets"
-# SSH local-forward parameters the readiness self-heal needs; a declared
-# ``connections.<env>.postgres.tunnel`` block must carry all of them.
-TUNNEL_REQUIRED_KEYS = ("bastion", "identity_file", "remote_host", "remote_port")
 
 from yoke_contracts.machine_config.schema_example import (  # noqa: E402
     canonical_example_payload as canonical_example_payload,
@@ -88,10 +97,8 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     raw = dict(payload or {})
     normalized: dict[str, Any] = dict(raw)
     normalized.setdefault("schema_version", SCHEMA_VERSION)
-    normalized["temp_root"] = _nonempty_str(raw.get("temp_root"),
-                                            DEFAULT_TEMP_ROOT)
-    normalized["cache_dir"] = _nonempty_str(raw.get("cache_dir"),
-                                           DEFAULT_CACHE_ROOT)
+    normalized["temp_root"] = _nonempty_str(raw.get("temp_root"), DEFAULT_TEMP_ROOT)
+    normalized["cache_dir"] = _nonempty_str(raw.get("cache_dir"), DEFAULT_CACHE_ROOT)
     projects = raw.get("projects")
     settings = raw.get("settings")
     connections = raw.get("connections")
@@ -108,6 +115,7 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
         preferred_session_models,
         preferred_session_reasoning_efforts,
     )
+
     if PREFERRED_SESSION_MODELS_KEY in raw:
         normalized[PREFERRED_SESSION_MODELS_KEY] = preferred_session_models(raw)
     if PREFERRED_SESSION_REASONING_EFFORTS_KEY in raw:
@@ -122,6 +130,7 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
         }
     return normalized
 
+
 def validate_payload(
     payload: Mapping[str, Any] | None,
     *,
@@ -135,60 +144,85 @@ def validate_payload(
     issues.extend(validate_github_config(raw))
     github_available = has_github_config(raw)
     if raw.get("schema_version") != SCHEMA_VERSION:
-        issues.append(_error("schema_version", "schema_version must be 1",
-                             path="schema_version"))
+        issues.append(
+            _error("schema_version", "schema_version must be 1", path="schema_version")
+        )
     connections = raw.get("connections")
     if not isinstance(connections, Mapping) or not connections:
         if not github_available:
-            issues.append(_error(
-                "connections_required",
-                "connections must map env labels to connection objects",
-                path="connections",
-                hint="Add connections or start from `yoke config example`.",
-            ))
+            issues.append(
+                _error(
+                    "connections_required",
+                    "connections must map env labels to connection objects",
+                    path="connections",
+                    hint="Add connections or start from `yoke config example`.",
+                )
+            )
         connections = {}
     else:
         for env_label, entry in connections.items():
             if not _is_nonempty_str(env_label):
-                issues.append(_error("connection_env_label_invalid",
-                                     "connection env labels must be non-empty strings",
-                                     path="connections"))
+                issues.append(
+                    _error(
+                        "connection_env_label_invalid",
+                        "connection env labels must be non-empty strings",
+                        path="connections",
+                    )
+                )
                 continue
             if not isinstance(entry, Mapping):
-                issues.append(_error("connection_entry_invalid",
-                                     f"connections.{env_label} must be an object",
-                                     path=f"connections.{env_label}"))
+                issues.append(
+                    _error(
+                        "connection_entry_invalid",
+                        f"connections.{env_label} must be an object",
+                        path=f"connections.{env_label}",
+                    )
+                )
                 continue
-            issues.extend(_validate_connection(str(env_label), entry))
+            issues.extend(validate_connection(str(env_label), entry))
     active = raw.get("active_env")
     if not _is_nonempty_str(active) and (connections or not github_available):
-        issues.append(_error(
-            "active_env_required", "active_env must name the default env",
-            path="active_env", hint="Set it with `yoke env use <env>`."))
+        issues.append(
+            _error(
+                "active_env_required",
+                "active_env must name the default env",
+                path="active_env",
+                hint="Set it with `yoke env use <env>`.",
+            )
+        )
     elif connections and str(active) not in connections:
-        issues.append(_error(
-            "active_env_unknown",
-            f"active_env {str(active)!r} has no entry in connections "
-            f"(configured: {sorted(map(str, connections))})",
-            path="active_env"))
+        issues.append(
+            _error(
+                "active_env_unknown",
+                f"active_env {str(active)!r} has no entry in connections "
+                f"(configured: {sorted(map(str, connections))})",
+                path="active_env",
+            )
+        )
     requested = (explicit_env or "").strip()
     if requested and connections and requested not in connections:
-        issues.append(_error(
-            "env_unknown",
-            f"requested env {requested!r} has no entry in connections "
-            f"(configured: {sorted(map(str, connections))})",
-            path="connections"))
+        issues.append(
+            _error(
+                "env_unknown",
+                f"requested env {requested!r} has no entry in connections "
+                f"(configured: {sorted(map(str, connections))})",
+                path="connections",
+            )
+        )
     for key in ("temp_root", "cache_dir"):
         value = raw.get(key)
         if value is not None and not _is_nonempty_str(value):
-            issues.append(_error(f"{key}_invalid",
-                                 f"{key} must be a non-empty string", path=key))
+            issues.append(
+                _error(f"{key}_invalid", f"{key} must be a non-empty string", path=key)
+            )
     connection_labels = (
         {str(label) for label in connections}
-        if isinstance(connections, Mapping) else set()
+        if isinstance(connections, Mapping)
+        else set()
     )
-    issues.extend(validate_projects(
-        raw.get("projects"), connection_labels=connection_labels))
+    issues.extend(
+        validate_projects(raw.get("projects"), connection_labels=connection_labels)
+    )
     machine_id = raw.get(MACHINE_ID_KEY)
     if machine_id is not None:
         try:
@@ -196,19 +230,25 @@ def validate_payload(
         except (ValueError, TypeError, AttributeError):
             parsed_machine_id = None
         if parsed_machine_id is None or str(parsed_machine_id) != str(machine_id):
-            issues.append(_error(
-                "machine_id_invalid",
-                "machine_id must be a canonical UUID",
-                path=MACHINE_ID_KEY,
-            ))
+            issues.append(
+                _error(
+                    "machine_id_invalid",
+                    "machine_id must be a canonical UUID",
+                    path=MACHINE_ID_KEY,
+                )
+            )
     settings = raw.get("settings", {})
     if settings is not None and not isinstance(settings, Mapping):
-        issues.append(_error(
-            "settings_invalid", "settings must be an object", path="settings"))
+        issues.append(
+            _error("settings_invalid", "settings must be an object", path="settings")
+        )
     from yoke_contracts.machine_config.preferred_session_models import (
-        validate_preferred_session_models)
+        validate_preferred_session_models,
+    )
+
     issues.extend(validate_preferred_session_models(raw))
     return issues
+
 
 def active_connection(
     payload: Mapping[str, Any],
@@ -240,78 +280,3 @@ def active_connection(
     resolved = dict(entry)
     resolved["env"] = env_name
     return resolved
-
-def _validate_connection(
-    env_label: str,
-    connection: Mapping[str, Any],
-) -> list[ValidationIssue]:
-    prefix = f"connections.{env_label}"
-    issues: list[ValidationIssue] = []
-    transport = connection.get("transport")
-    if not _is_nonempty_str(transport) or str(transport) not in TRANSPORTS:
-        issues.append(_error("transport_invalid",
-                             f"{prefix}.transport must be one of {sorted(TRANSPORTS)}",
-                             path=f"{prefix}.transport"))
-    source = connection.get("credential_source")
-    if not isinstance(source, Mapping):
-        issues.append(_error("credential_source_required",
-                             f"{prefix}.credential_source must be an object",
-                             path=f"{prefix}.credential_source"))
-    else:
-        issues.extend(_validate_credential_source(source, prefix=prefix))
-    if PROD_FLAG_KEY in connection and not isinstance(connection.get(PROD_FLAG_KEY), bool):
-        issues.append(_error(
-            "prod_flag_invalid",
-            f"{prefix}.{PROD_FLAG_KEY} must be a boolean when present",
-            path=f"{prefix}.{PROD_FLAG_KEY}",
-        ))
-    if str(transport) in POSTGRES_TRANSPORTS:
-        postgres = connection.get("postgres")
-        if postgres is not None and not isinstance(postgres, Mapping):
-            issues.append(_error("postgres_invalid",
-                                 f"{prefix}.postgres must be an object",
-                                 path=f"{prefix}.postgres"))
-        elif isinstance(postgres, Mapping):
-            issues.extend(_validate_tunnel(postgres.get("tunnel"), prefix=prefix))
-    if str(transport) == TRANSPORT_HTTPS:
-        if not _is_nonempty_str(connection.get("api_url")):
-            issues.append(_error("api_url_required",
-                                 "https transport requires api_url",
-                                 path=f"{prefix}.api_url"))
-        kind = source.get("kind") if isinstance(source, Mapping) else None
-        if kind not in TOKEN_CREDENTIAL_KINDS:
-            issues.append(_error(
-                "https_credential_kind_invalid",
-                "https transport requires credential_source.kind 'token_file'",
-                path=f"{prefix}.credential_source.kind"))
-    return issues
-
-def _validate_tunnel(
-    tunnel: Any,
-    *,
-    prefix: str,
-) -> list[ValidationIssue]:
-    """A declared tunnel block must be complete or the self-heal is dead."""
-    if tunnel is None:
-        return []
-    if not isinstance(tunnel, Mapping):
-        return [_error("tunnel_invalid",
-                       f"{prefix}.postgres.tunnel must be an object",
-                       path=f"{prefix}.postgres.tunnel")]
-    missing = [key for key in TUNNEL_REQUIRED_KEYS if not tunnel.get(key)]
-    if missing:
-        return [_error(
-            "tunnel_incomplete",
-            f"{prefix}.postgres.tunnel is missing {', '.join(missing)}; "
-            "an incomplete tunnel block disables connected-env self-heal",
-            path=f"{prefix}.postgres.tunnel",
-            hint=f"Declare all of: {', '.join(TUNNEL_REQUIRED_KEYS)}.")]
-    return []
-
-
-def _validate_credential_source(
-    source: Mapping[str, Any],
-    *,
-    prefix: str,
-) -> list[ValidationIssue]:
-    return _validate_credential_source_impl(source, prefix=prefix)
