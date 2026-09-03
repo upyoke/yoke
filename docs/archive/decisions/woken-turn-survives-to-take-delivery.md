@@ -1,5 +1,10 @@
 # A woken turn has to survive long enough to take delivery
 
+> The wake instruction no longer relies on hook injection to hand the turn
+> its envelope; it names a command that reads the message. See
+> [`wake-turn-reads-its-own-message.md`](wake-turn-reads-its-own-message.md).
+> Everything below still holds for a turn that dies or never calls a tool.
+
 A wake does not deliver anything. It starts a turn, and a hook that fires
 inside that turn injects the envelope. Three separate things have to hold
 for that to end in a receipt: the turn has to survive, the envelope has to

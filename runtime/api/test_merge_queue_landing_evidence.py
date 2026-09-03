@@ -239,9 +239,9 @@ def test_close_out_keeps_the_pull_requests_answer_when_it_has_one(monkeypatch):
 def test_a_landing_with_no_identified_run_says_so(monkeypatch):
     """No marker match reads as unidentified, never as somebody else's green.
 
-    An unidentified train cannot prove ejection, so the poll stays pending.
-    The test therefore advances a fake clock past the budget instead of
-    waiting on the real one.
+    An unarmed, unqueued pull request with no train carrying its marker is
+    an ejection rather than a wait, so the refusal names what it observed
+    and never attributes another train's outcome to it.
     """
     wire_happy_path(
         monkeypatch, landing_states=[UNARMED, UNARMED], queue_entries=(),
@@ -253,16 +253,10 @@ def test_a_landing_with_no_identified_run_says_so(monkeypatch):
             f"no merge_group workflow run identified for pull request {pr_num}",
         ),
     )
-    now = {"t": 0.0}
 
-    def monotonic():
-        now["t"] += 40.0
-        return now["t"]
-
-    outcome = land(monotonic=monotonic, deadline_seconds=120.0)
+    outcome = land(deadline_seconds=120.0)
     assert not outcome.ok
-    assert "did not merge within" in outcome.error
-    assert "no longer driving" not in outcome.error
+    assert "no longer driving" in outcome.error
     assert "train-run=not identified" in outcome.error
     assert any(
         "no merge_group workflow run identified" in note

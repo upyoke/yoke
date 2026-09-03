@@ -11,7 +11,6 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.github_poll_schedule import (
     CI_SUITE_SCHEDULE,
     PollSchedule,
-    next_read_delay,
 )
 from yoke_core.domain.merge_queue_admission import evaluate_admission
 from yoke_core.domain.merge_queue_admission_shape import (
@@ -20,6 +19,9 @@ from yoke_core.domain.merge_queue_admission_shape import (
 )
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
+from yoke_core.domain.merge_queue_enqueue_verification import (
+    verify_landing_admitted,
+)
 from yoke_core.domain.merge_queue_failed_train import (
     unchanged_failed_train_refusal,
 )
@@ -27,22 +29,15 @@ from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
 )
 from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
-from yoke_core.domain.merge_queue_landing_timeout import timeout_message
+from yoke_core.domain.merge_queue_landing_wait import (
+    DEFAULT_DEADLINE_SECONDS,
+    POLL_LINE_PREFIX,
+    RECOVERABLE_QUEUE_EXIT_CODE,
+    wait_for_queue_landing,
+)
 from yoke_core.domain.merge_queue_drift_gate import (
     drift_check_before_landing,
     drift_receipt,
-)
-from yoke_core.domain.merge_queue_landing_verdict import (
-    CLOSED_UNMERGED,
-    CONFLICTED,
-    ENTRY_CHECKS_FAILED,
-    LANDED,
-    STALLED,
-    classify_landing,
-)
-from yoke_core.domain.merge_queue_entry_checks import (
-    disarm_merge_when_ready,
-    entry_checks_refusal,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.engines.merge_worktree_pr_queue import (
@@ -51,14 +46,6 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     read_queue_members,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
-
-
-# Exit 9 is recoverable; red required checks are terminal (exit 1).
-RECOVERABLE_QUEUE_EXIT_CODE = 9
-
-DEFAULT_DEADLINE_SECONDS = 45.0 * 60.0
-
-POLL_LINE_PREFIX = "Queue landing:"
 
 
 def _emit_to_stderr(line: str) -> None:
@@ -192,6 +179,20 @@ def land_item_through_merge_queue(
                 error=entry.error_detail or "queue entry refused",
             )
 
+    # Arming is a request. What the handoff depends on is GitHub reporting
+    # that it holds the landing, which the mutation's own success does not.
+    if not already_merged:
+        not_admitted = verify_landing_admitted(
+            ctx, pr_num, target=target, sleep=sleep
+        )
+        if not_admitted:
+            return _fail_landing(
+                pr_num,
+                not_admitted,
+                tuple(warnings),
+                exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
+            )
+
     if not already_merged and not wait_for_landing:
         enqueued_at, marker_error = mark_landing_pending(
             item_id,
@@ -225,90 +226,28 @@ def land_item_through_merge_queue(
         )
 
     # Explicit wait mode keeps the owning session alive through the poll.
-    started = monotonic()
-    deadline = started + deadline_seconds
-    pump = liveness if liveness is not None else SessionLivenessPump()
-    merged = False
-    last_seen = ""
-    last_announced = ""
-    now = started
-    while now < deadline:
-        pump.tick()
-        landing = classify_landing(
-            ctx,
-            pr_num=pr_num,
-            target=target,
-            sleep=sleep,
-        )
-        warnings.extend(landing.warnings)
-        if landing.narrative:
-            last_seen = landing.narrative
-            if landing.narrative != last_announced:
-                last_announced = landing.narrative
-                emit(
-                    f"{POLL_LINE_PREFIX} {landing.narrative} "
-                    f"(elapsed: {int(now - started)}s)"
-                )
-        if landing.kind == LANDED:
-            merged = True
-            break
-        if landing.kind == ENTRY_CHECKS_FAILED:
-            return _fail_landing(
-                pr_num,
-                entry_checks_refusal(
-                    pr_num=pr_num,
-                    head_sha=landing.head_sha,
-                    narrative=landing.narrative,
-                    disarm_note=disarm_merge_when_ready(ctx, pr_num),
-                ),
-                tuple(warnings),
-            )
-        if landing.kind == CLOSED_UNMERGED:
-            return _fail_landing(
-                pr_num,
-                f"pull request {pr_num} closed without merging — observed "
-                f"{landing.narrative}; reopen or recreate it before "
-                "re-entering the queue",
-                tuple(warnings),
-            )
-        if landing.kind == CONFLICTED:
-            return _fail_landing(
-                pr_num,
-                f"pull request {pr_num} has merge conflicts — observed "
-                f"{landing.narrative}; rebase onto the current base and "
-                "re-enter the queue",
-                tuple(warnings),
-                exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-            )
-        if landing.kind == STALLED:
-            return _fail_landing(
-                pr_num,
-                f"the merge queue is no longer driving pull request "
-                f"{pr_num} — observed {landing.narrative}; address what "
-                "the train run reports and re-enter the queue. Re-running "
-                "the landing is safe: it converges on the merge if one "
-                "happens meanwhile",
-                tuple(warnings),
-                exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-            )
-        pump.wait(next_read_delay(now - started, schedule), sleep=sleep)
-        now = monotonic()
-    if not merged:
-        # Poll-budget timeout is resumable: the claim is still held.
-        return QueueLandingOutcome(
-            ok=False,
-            exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-            pr_num=pr_num,
-            error=timeout_message(
-                pr_num=pr_num,
-                deadline_seconds=deadline_seconds,
-                item_id=item_id,
-                public_ref=public_ref,
-                resume_command=resume_command,
-                dispatch=dispatch,
-                last_observed=last_seen,
-            ),
-            warnings=tuple(warnings),
+    refusal = wait_for_queue_landing(
+        ctx,
+        pr_num=pr_num,
+        target=target,
+        item_id=item_id,
+        public_ref=public_ref,
+        resume_command=resume_command,
+        dispatch=dispatch,
+        sleep=sleep,
+        monotonic=monotonic,
+        schedule=schedule,
+        deadline_seconds=deadline_seconds,
+        liveness=liveness,
+        emit=emit,
+        warnings=warnings,
+    )
+    if refusal is not None:
+        return _fail_landing(
+            pr_num,
+            refusal.error,
+            tuple(warnings),
+            exit_code=refusal.exit_code,
         )
 
     close_out = record_landing(

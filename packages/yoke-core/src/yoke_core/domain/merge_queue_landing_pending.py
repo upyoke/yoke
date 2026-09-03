@@ -11,11 +11,20 @@ from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.merge_queue_landing_observation import (
+    EJECTED,
+    LANDED,
+    classify_pending_landing,
+    ejection_message,
+)
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
 from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
 from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.engines.merge_worktree_pr_membership import (
+    read_pr_queue_membership,
+)
 from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
@@ -74,7 +83,8 @@ def _pending_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str, Any]]
     rows = conn.execute(
         "SELECT i.id, i.project_id, i.project_sequence, i.merge_queue_pr_number, "
         "i.merge_queue_enqueued_at, i.merge_queue_landed_at, p.slug, "
-        "p.public_item_prefix FROM items i JOIN projects p ON p.id=i.project_id "
+        "p.public_item_prefix, p.default_branch "
+        "FROM items i JOIN projects p ON p.id=i.project_id "
         f"WHERE i.project_id IN ({slots}) AND i.merge_queue_enqueued_at IS NOT NULL "
         "AND i.merge_queue_pr_number IS NOT NULL "
         "AND i.merge_queue_notified_at IS NULL AND i.merged_at IS NULL "
@@ -144,51 +154,89 @@ def _landing_receipt_delivered(conn: Any, message_id: str, session_id: str) -> b
     return False
 
 
+def _push_notice(
+    conn: Any,
+    row: dict[str, Any],
+    *,
+    body_for_route: Callable[[str], str],
+    idempotency_key: str,
+    now: datetime,
+) -> str:
+    """Send one notice to whoever owns the lane; report what delivery did.
+
+    ``""`` means nobody was addressable and ``"undelivered"`` means the
+    envelope exists but has not reached the recipient yet — both leave the
+    marker alone so the next poll tries again. The body is composed from
+    the resolved route, because a notice to a lane whose holder is gone
+    has to say something different from one the holder will read.
+    """
+    session_id, actor_id, route = _recipient(
+        conn,
+        item_id=int(row["id"]),
+        project_id=int(row["project_id"]),
+    )
+    if not session_id:
+        return ""
+    created = send_message(
+        conn,
+        actor_id=actor_id,
+        sender_session_id=None,
+        selector=RecipientSelector(session_ids=[session_id]),
+        body=body_for_route(route),
+        idempotency_key=idempotency_key,
+        now=now,
+        commit=False,
+    )
+    message_id = str(created["message_id"])
+    mark_explicit_stopped_wake(conn, message_id=message_id, session_id=session_id)
+    if not _landing_receipt_delivered(conn, message_id, session_id):
+        return "undelivered"
+    return "delivered"
+
+
 def observe_pending_landings(
     conn: Any,
     project_ids: Iterable[int],
     *,
     now: datetime | None = None,
     read_state: Callable[..., Any] = read_pr_landing_state,
+    read_membership: Callable[..., Any] = read_pr_queue_membership,
 ) -> dict[str, int]:
-    """Push a landing notice to the claim holder; stamp notified_at on delivery."""
+    """Report every pending landing that resolved, and how it resolved.
+
+    A landing that merged notifies its holder to close out. A pull request
+    GitHub has dropped notifies the holder to rebase and re-gate, and its
+    handoff marker is cleared, because there is no queued landing left to
+    wait for. Only a pull request the queue still holds stays silent.
+    """
     current = now or utc_now()
     current_text = timestamp(current)
     rows = _pending_rows(conn, project_ids)
     conn.commit()
-    result = {"checked": len(rows), "landed": 0, "notified": 0, "unrouted": 0}
+    result = {
+        "checked": len(rows),
+        "landed": 0,
+        "notified": 0,
+        "ejected": 0,
+        "unrouted": 0,
+    }
     marker = _p(conn)
     for row in rows:
         pr_number = str(row["merge_queue_pr_number"])
-        state, error = read_state(
-            MergeContext(
-                args=MergeArgs(branch="", target="main"),
-                repo_root="",
-                project=str(row["slug"]),
-            ),
-            pr_number,
+        target = str(row.get("default_branch") or "main")
+        ctx = MergeContext(
+            args=MergeArgs(branch="", target=target),
+            repo_root="",
+            project=str(row["slug"]),
         )
-        if error or state is None or not bool(state.merged):
+        state, state_error = read_state(ctx, pr_number)
+        if state_error:
             continue
-        if not str(row.get("merge_queue_landed_at") or ""):
-            cursor = conn.execute(
-                f"UPDATE items SET merge_queue_landed_at={marker} "
-                f"WHERE id={marker} AND merge_queue_pr_number={marker} "
-                "AND merge_queue_landed_at IS NULL AND merged_at IS NULL",
-                (current_text, int(row["id"]), pr_number),
-            )
-            if not cursor.rowcount:
-                conn.rollback()
-                continue
-            result["landed"] += 1
-        session_id, actor_id, route = _recipient(
-            conn,
-            item_id=int(row["id"]),
-            project_id=int(row["project_id"]),
-        )
-        if not session_id:
-            conn.commit()
-            result["unrouted"] += 1
+        membership = None
+        if state is not None and not state.merged:
+            membership, _membership_error = read_membership(ctx, pr_number)
+        observation = classify_pending_landing(state, membership, target=target)
+        if observation.kind not in (LANDED, EJECTED):
             continue
         public_ref = format_item_ref(
             row["slug"],
@@ -197,23 +245,63 @@ def observe_pending_landings(
             item_id=int(row["id"]),
         )
         try:
-            created = send_message(
+            if observation.kind == EJECTED:
+                delivery = _push_notice(
+                    conn,
+                    row,
+                    body_for_route=lambda route: ejection_message(
+                        public_ref, pr_number, observation, route
+                    ),
+                    idempotency_key=f"merge-queue-ejected:{row['id']}:{pr_number}",
+                    now=current,
+                )
+                if not delivery:
+                    conn.commit()
+                    result["unrouted"] += 1
+                    continue
+                if delivery == "delivered":
+                    # The queue admission is what ended, so that is what is
+                    # cleared: the item stops being reported as a pending
+                    # landing and a fresh `yoke merge item` re-arms it. The
+                    # pull request number stays, because one observation
+                    # cannot separate an ejection from the seconds in which
+                    # a successful train has cleared the slot and the merge
+                    # has not surfaced — and a re-entry that turns out to
+                    # be converging on a merge still needs that number to
+                    # find the merge-group run its evidence is built on.
+                    conn.execute(
+                        f"UPDATE items SET merge_queue_enqueued_at=NULL "
+                        f"WHERE id={marker} AND merge_queue_pr_number={marker}",
+                        (int(row["id"]), pr_number),
+                    )
+                    result["ejected"] += 1
+                conn.commit()
+                continue
+            if not str(row.get("merge_queue_landed_at") or ""):
+                cursor = conn.execute(
+                    f"UPDATE items SET merge_queue_landed_at={marker} "
+                    f"WHERE id={marker} AND merge_queue_pr_number={marker} "
+                    "AND merge_queue_landed_at IS NULL AND merged_at IS NULL",
+                    (current_text, int(row["id"]), pr_number),
+                )
+                if not cursor.rowcount:
+                    conn.rollback()
+                    continue
+                result["landed"] += 1
+            delivery = _push_notice(
                 conn,
-                actor_id=actor_id,
-                sender_session_id=None,
-                selector=RecipientSelector(session_ids=[session_id]),
-                body=_message_body(public_ref, pr_number, route),
+                row,
+                body_for_route=lambda route: _message_body(
+                    public_ref, pr_number, route
+                ),
                 idempotency_key=f"merge-queue-landed:{row['id']}:{pr_number}",
                 now=current,
-                commit=False,
             )
-            message_id = str(created["message_id"])
-            mark_explicit_stopped_wake(
-                conn,
-                message_id=message_id,
-                session_id=session_id,
-            )
-            if _landing_receipt_delivered(conn, message_id, session_id):
+            if not delivery:
+                conn.commit()
+                result["unrouted"] += 1
+                continue
+            if delivery == "delivered":
                 conn.execute(
                     f"UPDATE items SET merge_queue_notified_at={marker} "
                     f"WHERE id={marker} AND merge_queue_pr_number={marker} "

@@ -310,8 +310,9 @@ def test_dirty_pull_request_names_rebase_and_does_not_keep_waiting(monkeypatch):
     assert not outcome.ok
     assert outcome.exit_code == route_mod.RECOVERABLE_QUEUE_EXIT_CODE
     assert "merge conflicts" in outcome.error
-    assert "rebase onto the current base" in outcome.error
-    assert "re-enter the queue" in outcome.error
+    assert "rebase the lane onto main" in outcome.error
+    assert "re-run the verification gate" in outcome.error
+    assert "yoke merge item" in outcome.error
     assert "Re-running the landing is safe" not in outcome.error
     assert "mergeStateStatus=DIRTY" in outcome.error
     assert any("mergeStateStatus=DIRTY" in line for line in announced)

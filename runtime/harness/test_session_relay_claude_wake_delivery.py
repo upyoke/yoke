@@ -194,14 +194,16 @@ def test_wake_prompt_asks_the_resumed_turn_for_the_acknowledgement() -> None:
     A resumed turn whose transcript is a conversation rather than a worker
     mandate will answer an announcement in prose and end, leaving the plane
     to wake it again for a receipt the first wake had already earned. The
-    prompt therefore asks for the acknowledgement inside this turn — and
-    withholds it when no envelope arrived, so a wake that failed to deliver
-    cannot be acknowledged into looking successful.
+    prompt therefore names the read that returns the message body, asks for
+    the acknowledgement inside this turn, and withholds it when the read
+    found nothing — so a wake that failed to deliver cannot be acknowledged
+    into looking successful.
     """
     message_id = "11111111-1111-4111-8111-111111111111"
     prompt = native_wake_instruction(message_id)
 
     assert message_id in prompt
-    assert "acknowledge" in prompt
+    assert f"yoke messages get {message_id} --json" in prompt
+    assert f"yoke messages acknowledge {message_id}" in prompt
     assert "this turn" in prompt
-    assert "If no envelope was injected, do not acknowledge" in prompt
+    assert "If the read reported no such message, do not acknowledge" in prompt

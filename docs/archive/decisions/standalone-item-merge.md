@@ -91,11 +91,20 @@ deployment run has succeeded, and the caller retries.
 
 ### Why queue landing and close-out are separate
 
-A project with merge-queue capability opens and arms a pull request, records a
-durable item marker, and returns immediately. The queue owns the long CI wait;
-no detached local waiter owns item state. A control-plane observer notices the
-merge and messages the live claim holder, whose re-entry records evidence and
-runs the terminal lifecycle transition. That re-entry sees a branch the base
+A project with merge-queue capability opens and arms a pull request, reads
+back from GitHub that it is holding the landing, records a durable item
+marker, and returns immediately. That read-back is three fields together —
+armed (`autoMergeRequest`), queued (`isInMergeQueue`), and still eligible
+(`mergeStateStatus`) — because GitHub creates the queue entry only after the
+pull request's own required checks pass, so requiring the entry at arming
+time would refuse ordinary landings, while trusting the arming mutation alone
+records a handoff GitHub never took. The queue owns the long CI wait; no
+detached local waiter owns item state. A control-plane observer reads the same
+three fields until the landing resolves — merged, or no longer being driven —
+and messages the live claim holder either way. A merge notice leads to a
+re-entry that records evidence and runs the terminal lifecycle transition; a
+stopped notice names the recovery (usually rebase, re-gate, re-run) and clears
+the queue admission, because there is no longer a landing to wait for. That re-entry sees a branch the base
 already contains, but the durable marker keeps it on the queue close-out path:
 it records the identified merge-group run as the item's `ci_run` proof before
 execution evidence is evaluated. It never republishes the lane or re-enters

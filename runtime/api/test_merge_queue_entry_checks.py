@@ -6,6 +6,7 @@ from runtime.api.test_merge_queue_route import stalled_clock
 
 from yoke_core.domain import merge_queue_entry_checks as checks_mod
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
+from yoke_core.domain import merge_queue_landing_wait as wait_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.merge_queue_landing_verdict import LandingCheck
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, TrainRun
@@ -32,7 +33,7 @@ def test_red_entry_checks_return_immediately_without_the_poll_budget(
         ),
     )
     monkeypatch.setattr(
-        route_mod,
+        wait_mod,
         "disarm_merge_when_ready",
         lambda *_a, **_k: "merge-when-ready disarmed",
     )
