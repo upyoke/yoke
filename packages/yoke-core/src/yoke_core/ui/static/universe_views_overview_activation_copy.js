@@ -60,9 +60,10 @@ export const MODULE_COPY = {
 
 // Machine rows. Every registered machine answers the harness module for
 // itself, so the copy names the machine before it names the harness. A
-// machine the control plane knows only by id has no hostname yet.
+// machine the control plane knows only by id has no hostname yet, and its
+// id renders whole: machine ids collide at any prefix.
 export const machineNameOf = (machine) =>
-  machine.name || `machine ${String(machine.machine_id || "").slice(0, 8)}`;
+  machine.name || `machine ${String(machine.machine_id || "")}`;
 export const machineNamesLine = (machines) => {
   const names = machines.map(machineNameOf);
   return machines.length === 1

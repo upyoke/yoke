@@ -133,11 +133,12 @@ test("a machine the control plane knows only by id names itself by id", async (t
     })],
   });
 
+  // The id renders whole: a prefix would collide with other machines.
   assert.equal(
-    byClass(wizard, "activation-check-machines")[0].textContent, "· machine 22222222",
+    byClass(wizard, "activation-check-machines")[0].textContent, `· machine ${BETA}`,
   );
   const row = byClass(harness, "activation-machine")[0];
-  assert.equal(byClass(row, "activation-machine-name")[0].textContent, "machine 22222222");
+  assert.equal(byClass(row, "activation-machine-name")[0].textContent, `machine ${BETA}`);
   assert.equal(byClass(row, "activation-machine-meta").length, 0);
   assert.ok(textOf(row).includes("cursor connected."));
   mounted.unmount();
