@@ -50,6 +50,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
+#: The process title of a Claude daemon spare, which becomes one session's host.
+CLAUDE_BACKGROUND_SPARE_PROCESS_NAME = "claude bg-spare"
 
 MULTIPLEXED_PROCESS_BASENAMES = frozenset(
     {
@@ -58,7 +60,7 @@ MULTIPLEXED_PROCESS_BASENAMES = frozenset(
         "cursor",
         "cursor-agent",
         "claude bg-pty-host",
-        "claude bg-spare",
+        CLAUDE_BACKGROUND_SPARE_PROCESS_NAME,
     }
 )
 """Harness processes that host many concurrent sessions under one pid.
@@ -92,7 +94,7 @@ class ProcessAnchor:
     process_name: str
 
 
-def _ps_lines(args: List[str]) -> List[str]:
+def ps_lines(args: List[str]) -> List[str]:
     """Run ``ps`` with ``args`` and return stdout lines; [] on any failure."""
     try:
         result = subprocess.run(
@@ -120,7 +122,7 @@ def process_table() -> Dict[int, Tuple[int, str]]:
     dropping out, so a missing name never breaks the parent chain.
     """
     table: Dict[int, Tuple[int, str]] = {}
-    for line in _ps_lines(["-axo", "pid=,ppid=,comm="]):
+    for line in ps_lines(["-axo", "pid=,ppid=,comm="]):
         fields = line.split(None, 2)
         if len(fields) < 2:
             continue
@@ -139,7 +141,7 @@ def parent_map() -> Dict[int, int]:
 
 def process_start_time(pid: int) -> Optional[str]:
     """Return the opaque ``ps -o lstart=`` string for ``pid`` or ``None``."""
-    lines = _ps_lines(["-o", "lstart=", "-p", str(pid)])
+    lines = ps_lines(["-o", "lstart=", "-p", str(pid)])
     if not lines:
         return None
     value = lines[0].strip()
@@ -153,7 +155,7 @@ def process_command_name(pid: int) -> Optional[str]:
     contain spaces) and the bare command name on Linux; taking the whole
     line and basenaming it handles both.
     """
-    lines = _ps_lines(["-o", "comm=", "-p", str(pid)])
+    lines = ps_lines(["-o", "comm=", "-p", str(pid)])
     if not lines:
         return None
     raw = lines[0].strip()
@@ -323,6 +325,7 @@ def find_nearest_named_process_anchor(
 
 
 __all__ = [
+    "CLAUDE_BACKGROUND_SPARE_PROCESS_NAME",
     "HARNESS_PROCESS_BASENAMES",
     "MULTIPLEXED_PROCESS_BASENAMES",
     "ProcessAnchor",
@@ -336,4 +339,5 @@ __all__ = [
     "process_command_name",
     "process_start_time",
     "process_table",
+    "ps_lines",
 ]

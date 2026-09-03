@@ -56,7 +56,7 @@ def test_registration_adopts_owner_only_launch_handle_and_reaper_stops_it(
 ) -> None:
     process = _sleeper()
     monkeypatch.setattr(
-        "yoke_harness.session_relay_termination._TERMINATE_WAIT_SECONDS",
+        "yoke_harness.session_relay_termination.TERMINATE_WAIT_SECONDS",
         0.05,
     )
     try:
@@ -138,7 +138,7 @@ def test_detached_resume_can_be_reaped_by_native_thread_identity(
 ) -> None:
     process = _sleeper()
     monkeypatch.setattr(
-        "yoke_harness.session_relay_termination._TERMINATE_WAIT_SECONDS",
+        "yoke_harness.session_relay_termination.TERMINATE_WAIT_SECONDS",
         0.05,
     )
     try:

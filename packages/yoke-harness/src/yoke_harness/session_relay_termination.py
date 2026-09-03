@@ -18,7 +18,7 @@ from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
 ADAPTER_REVISION = "session-termination-v1"
 NATIVE_HANDLE_DIRECTORY_NAME = "session-native-handles"
 MAX_RECORD_BYTES = 4096
-_TERMINATE_WAIT_SECONDS = 2.0
+TERMINATE_WAIT_SECONDS = 2.0
 
 
 def local_state_root(state_dir: Path | None) -> Path:
@@ -99,7 +99,7 @@ def _terminate_pid(pid: int, expected_start: object) -> str:
         os.killpg(group, signal.SIGTERM)
     except OSError:
         return "already_exited"
-    deadline = time.monotonic() + _TERMINATE_WAIT_SECONDS
+    deadline = time.monotonic() + TERMINATE_WAIT_SECONDS
     while time.monotonic() < deadline:
         try:
             os.killpg(group, 0)
@@ -233,6 +233,7 @@ __all__ = [
     "ADAPTER_REVISION",
     "MAX_RECORD_BYTES",
     "NATIVE_HANDLE_DIRECTORY_NAME",
+    "TERMINATE_WAIT_SECONDS",
     "adopt_launched_session",
     "local_state_root",
     "read_local_record",

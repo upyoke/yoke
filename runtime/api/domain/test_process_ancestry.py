@@ -127,7 +127,7 @@ class TestAnchorCandidatePids(unittest.TestCase):
         ]
         with patch.object(
             process_ancestry,
-            "_ps_lines",
+            "ps_lines",
             return_value=rows,
         ) as ps_lines:
             self.assertEqual(anchor_candidate_pids(400), [300])
@@ -257,7 +257,7 @@ class TestPsParsing(unittest.TestCase):
     def test_parent_map_parses_pid_ppid_pairs(self):
         with patch.object(
             process_ancestry,
-            "_ps_lines",
+            "ps_lines",
             return_value=["    1     0", "  338     1", "garbage line x"],
         ):
             parents = parent_map()
@@ -265,7 +265,7 @@ class TestPsParsing(unittest.TestCase):
 
     def test_process_table_keeps_a_path_with_spaces_whole(self):
         rows = ["  200     1 /Applications/My App/Contents/MacOS/claude"]
-        with patch.object(process_ancestry, "_ps_lines", return_value=rows):
+        with patch.object(process_ancestry, "ps_lines", return_value=rows):
             self.assertEqual(process_table(), {200: (1, "claude")})
 
     def test_process_table_tolerates_a_missing_command_name(self):
@@ -273,13 +273,13 @@ class TestPsParsing(unittest.TestCase):
         # breaks at it and every ancestor above becomes unreachable.
         with patch.object(
             process_ancestry,
-            "_ps_lines",
+            "ps_lines",
             return_value=["  338     1"],
         ):
             self.assertEqual(process_table(), {338: (1, "")})
 
     def test_ps_failure_degrades_to_empty(self):
-        with patch.object(process_ancestry, "_ps_lines", return_value=[]):
+        with patch.object(process_ancestry, "ps_lines", return_value=[]):
             self.assertEqual(parent_map(), {})
             self.assertEqual(ancestor_pids(123), [])
 

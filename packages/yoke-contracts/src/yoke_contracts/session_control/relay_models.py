@@ -97,6 +97,44 @@ class EvidenceDocument(BaseModel):
     truncated: bool = False
 
 
+class RelayIdleHost(BaseModel):
+    """One idle Claude host whose session this machine cannot classify alone."""
+
+    model_config = ConfigDict(extra="forbid")
+    session_id: str
+    pid: int = Field(gt=0)
+
+
+class RelayReclaimedHost(BaseModel):
+    """One host this machine stopped or signalled, with what that reclaimed."""
+
+    model_config = ConfigDict(extra="forbid")
+    session_id: str
+    pid: int = Field(gt=0)
+    action: str
+    result: str
+    job_state: str = ""
+    age_seconds: int = Field(default=0, ge=0)
+    idle_seconds: int = Field(default=0, ge=0)
+    rss_kb: int = Field(default=0, ge=0)
+
+
+class RelayIdleHostsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    relay_id: str
+    machine_id: str
+    projects: List[int]
+    hosts: List[RelayIdleHost] = Field(default_factory=list, max_length=100)
+    reclaimed: List[RelayReclaimedHost] = Field(default_factory=list, max_length=100)
+
+
+class RelayIdleHostsResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    ended: List[str] = Field(default_factory=list)
+    skipped: List[Dict[str, Any]] = Field(default_factory=list)
+    recorded: List[str] = Field(default_factory=list)
+
+
 class RelayReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relay_id: str
@@ -129,11 +167,15 @@ __all__ = [
     "EvidenceDocument",
     "RelayClaimRequest",
     "RelayClaimResponse",
+    "RelayIdleHost",
+    "RelayIdleHostsRequest",
+    "RelayIdleHostsResponse",
     "RelayListRequest",
     "RelayListResponse",
     "RelayLivenessReport",
     "RelayLivenessRequest",
     "RelayLivenessResponse",
+    "RelayReclaimedHost",
     "RelayReportRequest",
     "RelayReportResponse",
 ]

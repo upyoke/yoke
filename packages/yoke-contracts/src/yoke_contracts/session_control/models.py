@@ -16,11 +16,15 @@ from yoke_contracts.session_control.states import (
 from yoke_contracts.session_control.relay_models import (
     RelayClaimRequest,
     RelayClaimResponse,
+    RelayIdleHost,
+    RelayIdleHostsRequest,
+    RelayIdleHostsResponse,
     RelayListRequest,
     RelayListResponse,
     RelayLivenessReport,
     RelayLivenessRequest,
     RelayLivenessResponse,
+    RelayReclaimedHost,
     RelayReportRequest,
     RelayReportResponse,
 )
@@ -227,6 +231,10 @@ __all__ = [
     "RelayLivenessReport",
     "RelayLivenessRequest",
     "RelayLivenessResponse",
+    "RelayIdleHost",
+    "RelayIdleHostsRequest",
+    "RelayIdleHostsResponse",
+    "RelayReclaimedHost",
     "RelayReportRequest",
     "RelayReportResponse",
 ]

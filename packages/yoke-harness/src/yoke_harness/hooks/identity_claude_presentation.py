@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
-import os
-from pathlib import Path
-import stat
 from typing import Any
 from uuid import UUID
 
@@ -18,40 +14,17 @@ from yoke_contracts.session_control.presentation import (
     PRESENTATION_STATE_NOT_ATTACHED,
     PRESENTATION_SURFACE_REMOTE_CONTROL,
 )
+from yoke_harness.claude_runtime_records import bounded_json_record, job_state_path
 from yoke_harness.hooks.identity_runtime import is_claude
 
 
-_MAX_JOB_STATE_BYTES = 64 * 1024
-
-
-def _job_state_path(session_id: str) -> Path | None:
+def _job_state(session_id: str) -> dict[str, Any] | None:
     try:
         UUID(session_id)
     except (TypeError, ValueError, AttributeError):
         return None
-    configured = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
-    root = Path(configured).expanduser() if configured else Path.home() / ".claude"
-    return root / "jobs" / session_id[:8] / "state.json"
-
-
-def _bounded_state(path: Path) -> dict[str, Any] | None:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-    descriptor: int | None = None
-    try:
-        descriptor = os.open(path, flags)
-        details = os.fstat(descriptor)
-        if not stat.S_ISREG(details.st_mode) or details.st_size > _MAX_JOB_STATE_BYTES:
-            return None
-        raw = os.read(descriptor, _MAX_JOB_STATE_BYTES + 1)
-        if len(raw) > _MAX_JOB_STATE_BYTES:
-            return None
-        decoded = json.loads(raw.decode("utf-8"))
-        return decoded if isinstance(decoded, dict) else None
-    except (OSError, UnicodeDecodeError, ValueError):
-        return None
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)
+    # A background job is keyed by the leading eight characters of its session.
+    return bounded_json_record(job_state_path(session_id[:8]))
 
 
 def observe_claude_presentation(
@@ -64,8 +37,7 @@ def observe_claude_presentation(
     session_id = payload.get("session_id")
     if not isinstance(session_id, str):
         return {}
-    path = _job_state_path(session_id)
-    state = _bounded_state(path) if path is not None else None
+    state = _job_state(session_id)
     if state is None or state.get("sessionId") != session_id:
         return {}
     bridge_id = state.get("bridgeSessionId")

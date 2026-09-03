@@ -23,7 +23,9 @@ from yoke_core.domain.handlers._register_session_messages import (
 )
 from yoke_core.domain.handlers import session_evidence as _evidence
 from yoke_core.domain.handlers import session_relay as _relay
+from yoke_core.domain.handlers import session_relay_idle_hosts as _idle_hosts
 from yoke_contracts.session_control import native_turn_end as _turn_end
+from yoke_core.domain.session_idle_host_report import EVENT_NATIVE_HOST_RECLAIMED
 from yoke_core.domain.session_native_turn_end import EVENT_SESSION_TURN_END_OBSERVED
 from yoke_core.domain.handlers import session_termination as _termination
 from yoke_core.domain.handlers import session_wake as _wake
@@ -235,6 +237,17 @@ def register(registry) -> None:
         owner_module=_relay.__name__,
         adapter_status="internal",
         emitted_event_names=["YokeFunctionCalled", EVENT_SESSION_TURN_END_OBSERVED],
+    )
+    _register(
+        registry,
+        "session_control.relay.idle_hosts",
+        _idle_hosts.handle_relay_idle_hosts,
+        _models.RelayIdleHostsRequest,
+        _models.RelayIdleHostsResponse,
+        side_effects=[],
+        owner_module=_idle_hosts.__name__,
+        adapter_status="internal",
+        emitted_event_names=["YokeFunctionCalled", EVENT_NATIVE_HOST_RECLAIMED],
     )
     _register(
         registry,
