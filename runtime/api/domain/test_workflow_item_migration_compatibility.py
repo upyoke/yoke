@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.fixtures.backlog import insert_deployment_run, insert_item, insert_item_worktree, insert_qa_requirement, insert_qa_run
 from yoke_core.domain.approval_gate import evaluate_lifecycle_approval
+from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_subject_context import (
@@ -110,7 +111,7 @@ def _seed_approval(test_db) -> None:
         test_db,
         item_id=ITEM_ID,
         to_stage_id="reviewing-implementation",
-        role_names=("owner",),
+        policy=ApprovalPolicy(roles=("owner",)),
         approval_source={
             "kind": APPROVAL_SOURCE_WORKFLOW_DEFAULT,
             "entry": "approval_defaults.reviewing-implementation",

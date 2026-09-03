@@ -50,6 +50,21 @@ export function subjectHref(row) {
   return buildUniverseRoute("inbox", row.project_id);
 }
 
+export function decisionProgressText(row) {
+  const progress = row.approval_progress || {};
+  const required = Number(progress.required || 0);
+  if (required < 2) return "";
+  const count = `${Number(progress.satisfied || 0)} of ${required}`;
+  const waiting = (progress.outstanding || []).join(", ");
+  return waiting ? `${count}, waiting on ${waiting}` : count;
+}
+
+export function yourDecisionText(row) {
+  if (!row.decided_by_you) return "";
+  const action = row.your_decision?.action;
+  return `you chose ${ACTION_LABELS[action] || action || "an action"}`;
+}
+
 export function decisionSubtitle(row) {
   const facts = row.subject_context || {};
   const details = [];
@@ -68,7 +83,11 @@ export function decisionSubtitle(row) {
   } else if (row.kind === "machine_approval" && facts.code) {
     details.push(`one-time code ${facts.code}`);
   }
-  if (row.asked_of_you) trailing.push("asked of you");
+  const progress = decisionProgressText(row);
+  if (progress) trailing.push(progress);
+  const decided = yourDecisionText(row);
+  if (decided) trailing.push(decided);
+  else if (row.asked_of_you) trailing.push("asked of you");
   else if (row.authority_reason) trailing.push(`you: ${row.authority_reason}`);
   return {
     leading: details.join(" · "),
@@ -91,7 +110,9 @@ export function decisionTitle(row) {
 }
 
 export const inboxPresentation = {
+  decisionProgressText,
   decisionSubtitle,
   decisionTitle,
   subjectHref,
+  yourDecisionText,
 };

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from yoke_core.domain.approval_policy import approval_policy_or_none
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.decision_request_subject_context import (
     item_posture_approval_source,
@@ -36,11 +37,12 @@ def evaluate(
     conn = connect(db_path)
     try:
         workflow = load_item_workflow_runtime(conn, int(item_id))
-        configured = dict(workflow.policies.get("approval_defaults", {})).get(
-            target_status
+        policy = approval_policy_or_none(
+            dict(workflow.policies.get("approval_defaults", {})).get(target_status),
+            path=f"policies.approval_defaults.{target_status}",
         )
         approval_source = workflow_default_approval_source(target_status)
-        if not configured:
+        if policy is None:
             # Same authority resolution the preflight uses when it decides
             # whether to create the decision request at all, so the gate and
             # the request agree about who — if anyone — may answer.
@@ -48,13 +50,13 @@ def evaluate(
                 approval_policy_for_transition,
             )
 
-            configured = approval_policy_for_transition(
+            policy = approval_policy_for_transition(
                 conn,
                 item_id=int(item_id),
                 target_status=target_status,
             )
             approval_source = item_posture_approval_source()
-        if not configured:
+        if policy is None:
             record_gate_absence(
                 gate_id="approval",
                 item_id=int(item_id),

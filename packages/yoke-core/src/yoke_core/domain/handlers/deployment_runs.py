@@ -223,6 +223,8 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
             "note": note,
             "member_item_ids": list(approval.member_item_ids),
             "decision_request_id": approval.decision_request_id,
+            "stage_approved": approval.stage_approved,
+            "approval_progress": approval.approval_progress,
             "event_id": event_id,
         },
         primary_success=True,

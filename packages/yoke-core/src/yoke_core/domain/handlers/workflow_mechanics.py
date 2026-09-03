@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
+)
+from yoke_core.domain.approval_policy import (
+    DEFAULT_APPROVAL_MODE,
+    parse_approval_policy,
 )
 
 
@@ -38,10 +42,16 @@ class DeliveryDefaultSetRequest(ProjectDefaultSetRequest):
 
 
 class ApprovalAddress(BaseModel):
-    roles: List[Literal["owner", "operator", "admin"]] = Field(
-        default_factory=list,
-    )
+    """One transition's approval policy, validated by its single parser."""
+
+    roles: List[str] = Field(default_factory=list)
     actors: List[int] = Field(default_factory=list)
+    mode: str = DEFAULT_APPROVAL_MODE
+
+    @model_validator(mode="after")
+    def valid_approval_policy(self) -> "ApprovalAddress":
+        parse_approval_policy(self.model_dump(), path="approval_defaults entry")
+        return self
 
 
 class ApprovalDefaultsPublishRequest(BaseModel):

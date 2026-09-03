@@ -38,9 +38,9 @@ export function messageRow(overrides = {}) {
   };
 }
 
-export function inboxClient() {
+export function inboxClient(needsRows = null) {
   const requests = [];
-  let needs = [requestRow()];
+  let needs = needsRows ? [...needsRows] : [requestRow()];
   let messages = [messageRow()];
   return {
     requests,
@@ -68,10 +68,10 @@ export function inboxClient() {
   };
 }
 
-export function renderInbox(scope = "all") {
+export function renderInbox(scope = "all", needsRows = null) {
   const documentNode = new FakeDocument();
   const main = documentNode.createElement("main");
-  const client = inboxClient();
+  const client = inboxClient(needsRows);
   renderInboxView({
     document: documentNode,
     client,

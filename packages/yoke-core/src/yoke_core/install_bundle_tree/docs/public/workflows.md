@@ -36,4 +36,13 @@ item's pin is explicit and compatibility-checked.
 Testing and delivery defaults are project-owned. Approval defaults are
 universe-owned workflow policy.
 
+Every approval — a workflow transition, a deployment flow's human-approval
+stage, a QA evidence review — declares the same policy: which roles may
+approve, which named people may approve, and whether **any** one of them
+settles it or **all** of them must decide. `any` is the default, so a policy
+written before the switch existed keeps its meaning. Under `all` a checked
+role is satisfied by any one current holder of that role and a named person
+only by that person, membership is read live at each decision, and any
+rejection by a listed party rejects. Nothing checked is no gate at all.
+
 Detail: [reference/lifecycle.md](reference/lifecycle.md).

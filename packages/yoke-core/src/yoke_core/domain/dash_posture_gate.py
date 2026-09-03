@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.dash_path_claim_posture import (
     activation_gate as _path_activation_gate,
     completion_gate as _path_completion_gate,
@@ -28,7 +29,7 @@ def approval_policy_for_posture(
     workflow_id: str,
     posture: Mapping[str, Any],
     target_status: str,
-) -> Optional[dict[str, list[Any]]]:
+) -> Optional[ApprovalPolicy]:
     """Return the explicit owner gate selected by Dash approval posture."""
     if (
         workflow_id != "dash"
@@ -36,7 +37,7 @@ def approval_policy_for_posture(
         or posture.get("approval_on_done") is not True
     ):
         return None
-    return {"roles": ["owner"], "actors": []}
+    return ApprovalPolicy(roles=("owner",))
 
 
 def approval_policy_for_transition(
@@ -44,8 +45,8 @@ def approval_policy_for_transition(
     *,
     item_id: int,
     target_status: str,
-) -> Optional[dict[str, list[Any]]]:
-    """Return the explicit v1 owner authority for approval-on-done."""
+) -> Optional[ApprovalPolicy]:
+    """Return the explicit owner authority selected by approval-on-done."""
     item = _item(conn, item_id)
     return approval_policy_for_posture(
         workflow_id=str(item["workflow_id"]),

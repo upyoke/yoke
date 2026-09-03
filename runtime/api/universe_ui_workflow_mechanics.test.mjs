@@ -143,7 +143,7 @@ test("approval editor publishes structured addressees as a new version", async (
         workflow_id: "dash",
         expected_current_version: 1,
         approval_defaults: {
-          prove: { roles: ["owner"], actors: [] },
+          prove: { roles: ["owner"], actors: [], mode: "any" },
         },
       },
     },

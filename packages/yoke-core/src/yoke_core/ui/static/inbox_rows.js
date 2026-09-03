@@ -7,6 +7,7 @@ import {
   decisionTitle,
   KIND_PRESENTATION,
   subjectHref,
+  yourDecisionText,
 } from "./inbox_presentation.js";
 import { senderDescription } from "./universe_session_message_actors.js";
 
@@ -103,6 +104,18 @@ export function appendDecisionRow(
   ));
   wrap.appendChild(main);
   const actions = el(documentNode, "div", "inbox-actions");
+  if (row.decided_by_you) {
+    // A decision is final for the person who made it; under an all-approvers
+    // policy the gate stays open for everyone else, so this row reports their
+    // own answer rather than offering an action they cannot take again.
+    actions.appendChild(el(
+      documentNode, "span", "inbox-decided", yourDecisionText(row),
+    ));
+    wrap.appendChild(actions);
+    makeRowNavigable(documentNode, wrap, href, decisionTitle(row));
+    body.appendChild(wrap);
+    return;
+  }
   const orderedActions = [...(row.actions || [])].sort(
     (left, right) => Number(ACTION_RANK[left] ?? 1) -
       Number(ACTION_RANK[right] ?? 1),

@@ -21,7 +21,8 @@ function whoMayApprove(approvals) {
     ...(approvals?.roles || []).map((role) => ROLE_LABELS[role] || role),
     ...(approvals?.actors || []).map((actorId) => `actor ${actorId}`),
   ];
-  return who.length ? who.join(" or ") : "No one configured";
+  if (!who.length) return "No one configured";
+  return who.join(approvals?.mode === "all" ? " and " : " or ");
 }
 function metadataFact(documentNode, label, value) {
   const fact = el(documentNode, "div", "delivery-flow-fact");
@@ -100,10 +101,14 @@ async function loadApprovers(client) {
 function applyApprovalGates(stages, gates) {
   return stages.map((stage) => {
     if (stage.step_runner !== "human-approval") return stage;
-    const gate = gates[stage.name] || { roles: [], actors: [] };
+    const gate = gates[stage.name] || { roles: [], actors: [], mode: "any" };
     return {
       ...stage,
-      approvals: { roles: [...gate.roles], actors: [...gate.actors] },
+      approvals: {
+        roles: [...gate.roles],
+        actors: [...gate.actors],
+        mode: gate.mode === "all" ? "all" : "any",
+      },
     };
   });
 }
@@ -140,6 +145,7 @@ export function openDeliveryFlowApprovalEditor({
     {
       roles: [...(stage.approvals?.roles || [])],
       actors: [...(stage.approvals?.actors || [])].map(Number),
+      mode: stage.approvals?.mode === "all" ? "all" : "any",
     },
   ]));
   loadApprovers(client).then((approvers) => {

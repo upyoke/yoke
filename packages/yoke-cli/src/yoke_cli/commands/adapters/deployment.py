@@ -11,6 +11,10 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.deployment_approval_output import (
+    APPROVE_COMMAND_DESCRIPTION,
+    write_run_approval,
+)
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
@@ -258,7 +262,7 @@ def deployment_runs_update(args: List[str]) -> int:
 def deployment_runs_approve(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs approve",
-        description=DEPLOYMENT_RUNS_APPROVE_USAGE,
+        description=APPROVE_COMMAND_DESCRIPTION,
     )
     parser.add_argument("run_id")
     parser.add_argument("--note", default=None)
@@ -269,12 +273,7 @@ def deployment_runs_approve(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        print(
-            f"Approved {result.get('run_id')}: "
-            f"{result.get('approved_stage')} -> {result.get('next_stage')}",
-            file=stdout,
-        )
+        write_run_approval(response.result or {}, stdout)
         return None
 
     payload = {}

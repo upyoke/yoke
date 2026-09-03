@@ -78,6 +78,7 @@ export function openApprovalEditor({
     return [transitionId, {
       roles: [...(gate.roles || [])],
       actors: [...(gate.actors || [])].map(Number),
+      mode: gate.mode === "all" ? "all" : "any",
     }];
   }));
   const state = { transitionId: ids[0], gates };
@@ -117,7 +118,9 @@ export function openApprovalEditor({
       "workflow-field-help workflow-approval-help",
     );
     setWorkflowInlineContent(documentNode, approvalHelp, [
-      "Anyone who matches may approve ",
+      gate.mode === "all"
+        ? "Every box checked here must approve "
+        : "Anyone who matches may approve ",
       {
         kind: "strong",
         text: labelFor(state.transitionId),
@@ -158,6 +161,20 @@ export function openApprovalEditor({
         "No named human actors are available.",
       ));
     }
+    dialog.appendChild(fieldLabel(documentNode, "How many must approve"));
+    const mode = el(documentNode, "select", "workflow-field");
+    mode.appendChild(option(
+      documentNode, "any", "Any one of them settles it", gate.mode,
+    ));
+    mode.appendChild(option(
+      documentNode, "all", "All of them, one decision each", gate.mode,
+    ));
+    mode.value = gate.mode;
+    mode.addEventListener("change", (event) => {
+      gate.mode = event.target.value;
+      render();
+    });
+    dialog.appendChild(mode);
     const configured = ids.filter(
       (id) => gates[id].roles.length || gates[id].actors.length,
     );

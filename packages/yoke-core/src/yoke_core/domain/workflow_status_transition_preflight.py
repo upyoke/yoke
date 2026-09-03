@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.approval_policy import approval_policy_or_none
 from yoke_core.domain.decision_request_subject_context import (
     item_posture_approval_source,
     workflow_default_approval_source,
@@ -129,20 +130,23 @@ def prepare_status_transition(
             transition_id=target_status,
         )
     workflow_version_id = int(workflow.workflow_version_id)
-    approval = dict(workflow.policies.get("approval_defaults", {})).get(target_status)
+    policy = approval_policy_or_none(
+        dict(workflow.policies.get("approval_defaults", {})).get(target_status),
+        path=f"policies.approval_defaults.{target_status}",
+    )
     approval_source = workflow_default_approval_source(target_status)
-    if not approval:
+    if policy is None:
         from yoke_core.domain.dash_posture_gate import (
             approval_policy_for_transition,
         )
 
-        approval = approval_policy_for_transition(
+        policy = approval_policy_for_transition(
             conn,
             item_id=item_id,
             target_status=target_status,
         )
         approval_source = item_posture_approval_source()
-    if not approval:
+    if policy is None:
         conn.commit()
         return StatusTransitionPreflight(
             workflow_version_id=workflow_version_id,
@@ -155,8 +159,7 @@ def prepare_status_transition(
         conn,
         item_id=item_id,
         to_stage_id=target_status,
-        role_names=approval.get("roles", ()),
-        named_actor_ids=approval.get("actors", ()),
+        policy=policy,
         approval_source=approval_source,
         originator_actor_id=originator_actor_id,
         session_id=session_id,

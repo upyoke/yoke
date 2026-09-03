@@ -95,6 +95,12 @@
   gap: 6px;
 }
 
+.universe-app-root .inbox-decided {
+  color: var(--yoke-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .universe-app-root .inbox-row:has(
   :is(.inbox-note-composer, .inbox-row-error)
 ) {

@@ -42,6 +42,23 @@ def attach_default_human_approval_addresses(conn: Any) -> None:
     conn.commit()
 
 
+class OpenConnection:
+    """Keep the fixture-owned connection open across runtime helper calls.
+
+    The approval helpers open and close their own connection; a test driving
+    them against a fixture connection must survive that ``close()``.
+    """
+
+    def __init__(self, conn: Any):
+        self._conn = conn
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
+
+    def close(self) -> None:
+        return None
+
+
 def yield_seeded_api_db_with_default_approvals() -> Iterator[dict[str, str]]:
     from runtime.api.api_items_test_helpers import make_test_db_fixture
     from runtime.api.fixtures.file_test_db import connect_test_db

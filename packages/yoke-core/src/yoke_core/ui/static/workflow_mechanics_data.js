@@ -107,7 +107,8 @@ export function approvalSummary(data, workflow) {
         (actorId) => actorLabels.get(Number(actorId)) || `actor ${actorId}`,
       ),
     ];
-    return `${transitionId} → ${who.join(" or ")}`;
+    const joiner = gate.mode === "all" ? " and " : " or ";
+    return `${transitionId} → ${who.join(joiner)}`;
   });
   return parts.length
     ? parts.join(" · ")

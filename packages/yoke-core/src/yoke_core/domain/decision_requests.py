@@ -7,6 +7,14 @@ import json
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.approval_decisions import (
+    evaluate_decisions,
+    list_decisions,
+)
+from yoke_core.domain.approval_policy import (
+    APPROVAL_MODES,
+    DEFAULT_APPROVAL_MODE,
+)
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
@@ -63,6 +71,11 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
             (request_id,),
         ).fetchall()
     ]
+    result["approval_mode"] = str(
+        result.get("approval_mode") or DEFAULT_APPROVAL_MODE
+    )
+    result["decisions"] = list_decisions(conn, request_id)
+    result["approval_progress"] = evaluate_decisions(conn, result).as_dict()
     return result
 
 
@@ -120,6 +133,7 @@ def create_decision_request(
     originator_actor_id: Optional[int] = None,
     role_authorities: Iterable[RoleAuthority] = (),
     named_actor_ids: Iterable[int] = (),
+    approval_mode: str = DEFAULT_APPROVAL_MODE,
     subject_context: Optional[Mapping[str, Any]] = None,
     session_id: str = "",
     created_at: Optional[str] = None,
@@ -138,6 +152,10 @@ def create_decision_request(
     actors = tuple(sorted({int(value) for value in named_actor_ids}))
     if not roles and not actors:
         raise ValueError("at least one role or named actor authority is required")
+    if approval_mode not in APPROVAL_MODES:
+        raise ValueError(
+            f"approval_mode must be one of: {', '.join(APPROVAL_MODES)}"
+        )
     _validate_scope(
         conn,
         kind=kind,
@@ -157,17 +175,21 @@ def create_decision_request(
     cursor = conn.execute(
         "INSERT INTO decision_requests "
         "(kind, subject_type, subject_key, subject_context, project_id, org_id, "
-        "originator_actor_id, status, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
+        "originator_actor_id, approval_mode, status, created_at) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
             kind,
             subject_type,
             subject_key,
-            json.dumps(validate_subject_context(kind, subject_context), separators=(",", ":")),
+            json.dumps(
+                validate_subject_context(kind, subject_context),
+                separators=(",", ":"),
+            ),
             project_id,
             org_id,
             originator_actor_id,
+            approval_mode,
             stamp,
         ),
     )
@@ -225,72 +247,6 @@ def create_decision_request(
     return _request_row(conn, request_id), created
 
 
-def _authority_reason(
-    conn: Any,
-    request_id: int,
-    actor_id: int,
-) -> Optional[str]:
-    p = _p(conn)
-    named = conn.execute(
-        "SELECT 1 FROM decision_request_actor_authorities "
-        f"WHERE request_id = {p} AND actor_id = {p}",
-        (request_id, actor_id),
-    ).fetchone()
-    if named is not None:
-        return "asked of you"
-    rows = conn.execute(
-        "SELECT scope_kind, scope_id, role_name "
-        "FROM decision_request_role_authorities "
-        f"WHERE request_id = {p} ORDER BY role_name",
-        (request_id,),
-    ).fetchall()
-    for row in rows:
-        table = "actor_org_roles" if row[0] == "org" else "actor_project_roles"
-        scope_column = "org_id" if row[0] == "org" else "project_id"
-        match = conn.execute(
-            f"SELECT 1 FROM {table} ar JOIN roles r ON r.id = ar.role_id "
-            f"WHERE ar.actor_id = {p} AND ar.{scope_column} = {p} "
-            f"AND r.name = {p} LIMIT 1",
-            (actor_id, int(row[1]), str(row[2])),
-        ).fetchone()
-        if match is not None:
-            return f"{row[0]} {str(row[2]).replace('_', ' ')}"
-    return None
-
-
-def decision_request_authority_actor_ids(
-    conn: Any,
-    request_id: int,
-) -> tuple[int, ...]:
-    """Resolve live role holders plus frozen named actors for event fan-out."""
-    p = _p(conn)
-    actor_ids = {
-        int(row[0])
-        for row in conn.execute(
-            "SELECT actor_id FROM decision_request_actor_authorities "
-            f"WHERE request_id = {p}",
-            (request_id,),
-        ).fetchall()
-    }
-    roles = conn.execute(
-        "SELECT scope_kind, scope_id, role_name "
-        "FROM decision_request_role_authorities "
-        f"WHERE request_id = {p}",
-        (request_id,),
-    ).fetchall()
-    for role in roles:
-        table = "actor_org_roles" if role[0] == "org" else "actor_project_roles"
-        scope_column = "org_id" if role[0] == "org" else "project_id"
-        rows = conn.execute(
-            f"SELECT ar.actor_id FROM {table} ar "
-            "JOIN roles r ON r.id = ar.role_id "
-            f"WHERE ar.{scope_column} = {p} AND r.name = {p}",
-            (int(role[1]), str(role[2])),
-        ).fetchall()
-        actor_ids.update(int(row[0]) for row in rows)
-    return tuple(sorted(actor_ids))
-
-
 def list_subject_requests(
     conn: Any,
     subject_type: str,
@@ -307,43 +263,8 @@ def list_subject_requests(
     return [_request_row(conn, int(row[0])) for row in rows]
 
 
-def pending_requests_for_actor(
-    conn: Any,
-    actor_id: int,
-    *,
-    project_ids: Optional[Iterable[int]] = None,
-) -> list[dict[str, Any]]:
-    """Evaluate live role predicates and frozen names for one actor."""
-    allowed_projects = (
-        {int(value) for value in project_ids} if project_ids is not None else None
-    )
-    rows = conn.execute(
-        "SELECT id FROM decision_requests WHERE status = 'pending' "
-        "ORDER BY created_at DESC, id DESC"
-    ).fetchall()
-    result = []
-    for row in rows:
-        request = _request_row(conn, int(row[0]))
-        if (
-            allowed_projects is not None
-            and request["project_id"] is not None
-            and int(request["project_id"]) not in allowed_projects
-        ):
-            continue
-        reason = _authority_reason(conn, request["id"], actor_id)
-        if reason is None:
-            continue
-        request["asked_of_you"] = reason == "asked of you"
-        request["authority_reason"] = reason
-        result.append(request)
-    result.sort(key=lambda value: not value["asked_of_you"])
-    return result
-
-
 __all__ = [
     "RoleAuthority",
     "create_decision_request",
-    "decision_request_authority_actor_ids",
     "list_subject_requests",
-    "pending_requests_for_actor",
 ]

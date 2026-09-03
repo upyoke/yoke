@@ -40,6 +40,7 @@ def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
         "project_id": "INTEGER",
         "org_id": "INTEGER",
         "originator_actor_id": "INTEGER",
+        "approval_mode": "TEXT",
         "status": "TEXT",
         "resolution_action": "TEXT",
         "resolution_actor_id": "INTEGER",

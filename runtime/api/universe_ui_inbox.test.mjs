@@ -259,3 +259,52 @@ test("all four request kinds link to their one subject home", () => {
     subject_context: { item_id: 2262 },
   })), "#/items?project=10");
 });
+
+
+test("an every-approver gate shows progress and reports the viewer's own decision",
+  async () => {
+    const { main } = renderInbox("all", [requestRow({
+      approval_progress: {
+        mode: "all",
+        required: 2,
+        satisfied: 1,
+        outstanding: ["Bo"],
+        resolved: false,
+      },
+      decided_by_you: true,
+      your_decision: { actor_id: 2, action: "approve" },
+    })]);
+    await settle();
+    const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
+    assert.ok(subtitle.includes("1 of 2, waiting on Bo"), subtitle);
+    assert.ok(subtitle.includes("you chose Approve"), subtitle);
+    assert.equal(byClass(main, "inbox-action").length, 0);
+    assert.equal(
+      byClass(main, "inbox-decided")[0].textContent,
+      "you chose Approve",
+    );
+  },
+);
+
+
+test("a single-approver gate keeps its actions and shows no progress count",
+  async () => {
+    const { main } = renderInbox("all", [requestRow({
+      approval_progress: {
+        mode: "any",
+        required: 1,
+        satisfied: 0,
+        outstanding: ["project owner"],
+        resolved: false,
+      },
+      decided_by_you: false,
+    })]);
+    await settle();
+    const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
+    assert.ok(!subtitle.includes(" of "), subtitle);
+    assert.deepEqual(
+      byClass(main, "inbox-action").map((node) => node.textContent),
+      ["Reject", "Approve"],
+    );
+  },
+);
