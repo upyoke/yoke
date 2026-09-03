@@ -81,7 +81,6 @@ def _diagnostic_refs(conn: Any, session_id: str) -> tuple[str, ...]:
     return tuple(found[:_DIAGNOSTIC_REF_LIMIT])
 
 
-
 def claim_evidence_fetch(
     conn: Any,
     heartbeat: RelayHeartbeat,

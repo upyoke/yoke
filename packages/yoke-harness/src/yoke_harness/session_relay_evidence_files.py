@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import os
 from pathlib import Path
 import stat
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_contracts.session_control.evidence_fetch import (
     EVIDENCE_MAX_BYTES,
@@ -23,6 +23,7 @@ from yoke_contracts.session_control.evidence_fetch import (
     EvidenceKind,
 )
 from yoke_cli.config.session_relay_instance import RELAY_LOG_FILE_NAMES
+from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     native_diagnostic_path,
@@ -94,16 +95,26 @@ def _relay_logs(state_dir: Path) -> list[EvidenceFile]:
     return found
 
 
-def _watcher_captures(session_id: str, scratch_root: Path) -> list[EvidenceFile]:
+def _watcher_captures(
+    session_id: str,
+    scratch_roots: Sequence[Path],
+) -> list[EvidenceFile]:
     """Every capture under this session's own scratch subtree.
 
-    The project segment above ``sessions/`` is resolved from the calling
-    process's own configuration, which the relay does not share, so the
-    listing walks every project segment instead. A session id is unique
-    across them, so this finds exactly the session's captures.
+    Two segments are unknown to this process. The project segment above
+    ``sessions/`` is resolved from the writing process's own configuration,
+    and the scratch root itself is whichever candidate that process could
+    write to — so the listing walks every project segment under every
+    candidate root. A session id is unique across both, so this finds
+    exactly the session's captures and nothing else.
     """
     found = []
-    for run in scratch_root.glob(f"*/sessions/{session_id}/runs/*"):
+    runs = [
+        run
+        for root in scratch_roots
+        for run in root.glob(f"*/sessions/{session_id}/runs/*")
+    ]
+    for run in runs:
         directory = run / WATCHER_CAPTURE_DIR_NAME
         if not directory.is_dir():
             continue
@@ -139,15 +150,13 @@ def list_session_evidence(
     scratch_root: Path | None = None,
 ) -> list[EvidenceFile]:
     """Return every file of the requested kinds, newest first."""
-    from yoke_core.domain.project_scratch_roots import global_scratch_root
-
     directory = state_dir or relay_state_dir()
-    root = scratch_root if scratch_root is not None else global_scratch_root()
+    roots = (scratch_root,) if scratch_root is not None else scratch_root_candidates()
     found: list[EvidenceFile] = []
     if kind in (None, "relay"):
         found.extend(_relay_logs(directory))
     if kind in (None, "watcher"):
-        found.extend(_watcher_captures(session_id, root))
+        found.extend(_watcher_captures(session_id, roots))
     if kind in (None, "diagnostic"):
         found.extend(_diagnostics(diagnostic_refs, directory))
     return sorted(

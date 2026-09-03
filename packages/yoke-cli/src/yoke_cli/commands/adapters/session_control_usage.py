@@ -19,6 +19,9 @@ from yoke_cli.commands.adapters.session_control_messages import (
     MESSAGE_PREVIEW_USAGE,
     MESSAGE_SEND_USAGE,
 )
+from yoke_cli.commands.adapters.session_control_evidence import (
+    EVIDENCE_GET_USAGE,
+)
 from yoke_cli.commands.adapters.session_control_keepalive import (
     SESSION_KEEPALIVE_HOLD_USAGE,
     SESSION_KEEPALIVE_RELEASE_USAGE,
@@ -53,6 +56,7 @@ SESSION_CONTROL_USAGE_BY_FUNCTION_ID = {
     "session_control.launch.cancel": LAUNCH_CANCEL_USAGE,
     "session_control.launch.retry": LAUNCH_RETRY_USAGE,
     "session_control.launch.reconcile": LAUNCH_RECONCILE_USAGE,
+    "session_control.evidence.get": EVIDENCE_GET_USAGE,
     "session_control.keepalive.hold": SESSION_KEEPALIVE_HOLD_USAGE,
     "session_control.keepalive.release": SESSION_KEEPALIVE_RELEASE_USAGE,
     "session_control.session.terminate": SESSION_TERMINATE_USAGE,

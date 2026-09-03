@@ -234,6 +234,7 @@ def wait_for_evidence_fetch(
         conn.commit()
         sleep(min(_RESULT_POLL_SECONDS, remaining))
 
+
 __all__ = [
     "evidence_fetch_result",
     "expire_stale_evidence_requests",

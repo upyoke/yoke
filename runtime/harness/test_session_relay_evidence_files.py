@@ -26,8 +26,14 @@ def _machine(tmp_path: Path) -> tuple[Path, Path]:
         "relay boot\nrelay refused a wake\n", encoding="utf-8"
     )
     scratch_root = tmp_path / "scratch"
-    captures = scratch_root / "10" / "sessions" / SESSION_ID / "runs" / "pid-7" / (
-        "watcher-captures"
+    captures = (
+        scratch_root
+        / "10"
+        / "sessions"
+        / SESSION_ID
+        / "runs"
+        / "pid-7"
+        / ("watcher-captures")
     )
     captures.mkdir(parents=True)
     (captures / "yoke-pytest.raw.abc.log").write_text(
@@ -50,9 +56,7 @@ def test_listing_covers_every_kind_the_machine_holds(tmp_path: Path) -> None:
 
     assert {entry.kind for entry in found} == {"relay", "watcher", "diagnostic"}
     # A watcher capture is named by its run so two runs never collide.
-    assert any(
-        entry.name == "pid-7/yoke-pytest.raw.abc.log" for entry in found
-    )
+    assert any(entry.name == "pid-7/yoke-pytest.raw.abc.log" for entry in found)
 
 
 def test_a_kind_narrows_the_listing(tmp_path: Path) -> None:

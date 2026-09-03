@@ -13,13 +13,14 @@ Project, session, and run segments are layered on top of this root by
 
 from __future__ import annotations
 
-import tempfile
-import os
 import uuid
 import warnings
 from pathlib import Path
 
-from yoke_core.domain import machine_config
+from yoke_contracts.machine_config.scratch_roots import (
+    fallback_scratch_root,
+    scratch_root_candidates,
+)
 
 
 ENV_KEY = "YOKE_SCRATCH_ROOT"
@@ -32,21 +33,17 @@ class ScratchRootResolutionError(RuntimeError):
 def global_scratch_root() -> Path:
     """Return the writable scratch root shared across ALL projects."""
 
-    override = _override_root()
-    if override is not None:
-        resolved = _absolute_root(override)
-        if ensure_writable_dir(resolved):
-            return resolved
-        warnings.warn(
-            f"scratch root {resolved} is not writable; falling back to "
-            f"{_fallback_base()}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-
-    fallback = _fallback_base()
-    if ensure_writable_dir(fallback):
-        return fallback
+    candidates = scratch_root_candidates()
+    fallback = candidates[-1]
+    for candidate in candidates:
+        if ensure_writable_dir(candidate):
+            return candidate
+        if candidate != fallback:
+            warnings.warn(
+                f"scratch root {candidate} is not writable; falling back to {fallback}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
     raise ScratchRootResolutionError(
         f"Unable to create writable scratch root at {fallback}. "
         f"Set {ENV_KEY} to a writable path."
@@ -65,29 +62,9 @@ def ensure_writable_dir(path: Path) -> bool:
         return False
 
 
-def _override_root() -> str | None:
-    env_value = os.environ.get(ENV_KEY, "").strip()
-    if env_value:
-        return env_value
-    return machine_config.temp_root()
-
-
-def _fallback_base() -> Path:
-    base = Path(tempfile.gettempdir())
-    if str(base).startswith("/var/folders/") and Path("/tmp").is_dir():
-        base = Path("/tmp")
-    return base / "yoke-scratch"
-
-
-def _absolute_root(value: str) -> Path:
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path
-    return machine_config.yoke_home() / path
-
-
 __all__ = [
     "ENV_KEY",
+    "fallback_scratch_root",
     "ScratchRootResolutionError",
     "ensure_writable_dir",
     "global_scratch_root",

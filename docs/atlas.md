@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-03T18:46:41Z_
+_Audit generated_at: 2026-09-03T20:20:13Z_
 
 ## 1. Summary
 
 - Function ids registered: **445**
 - Internal dispatch-only functions without CLI adapters: **87**
 - `yoke` CLI subcommands: **373** (373 carry usable `--help`)
-- Operation tracker: **348 wrapped**, 14 tool_cli, 137 permanent, 0 pending
+- Operation tracker: **349 wrapped**, 14 tool_cli, 137 permanent, 0 pending
 - Skill-body recipes: 331 total (279 template-skipped, 1 failing)
-- Recent field-notes inspected: 50
+- Recent field-notes inspected: 0
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **349** (operation tracker confirms 348 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **349** (operation tracker confirms 349 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -562,13 +562,7 @@ Lint modules inventoried: **2** (0 reference the field-note footer; 0 carry deni
 
 ## 7. Field-note hotspots
 
-Recent field-notes inspected: **50** (read surface: `agent_facing`).
-
-| agent | recent count |
-|---|---|
-| codex | 27 |
-| claude-code | 19 |
-| cursor | 4 |
+_Field-note read failed: RuntimeError: YOKE_PG_DSN, YOKE_PG_DSN_FILE, managed database secret environment, or a usable ~/.yoke/config.json credential source must be set for postgres authority: no connected environment binding found_
 
 ## 8. Contradictions
 
@@ -579,6 +573,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 ## 9. Next-slice recommendation
 
+- **Field-note hotspot read through the agent-facing surface is unhealthy** _(category: teaching_drift)_
 - **1 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
 
 ## 10. Curl floor — the envelope shape under every family

@@ -38,6 +38,14 @@ class RelayInstance:
     label: str
     state_dir: Path
 
+    @property
+    def stdout_log(self) -> Path:
+        return self.state_dir / RELAY_STDOUT_LOG_NAME
+
+    @property
+    def stderr_log(self) -> Path:
+        return self.state_dir / RELAY_STDERR_LOG_NAME
+
 
 def _canonical(path: Path) -> Path:
     return path.expanduser().resolve(strict=False)

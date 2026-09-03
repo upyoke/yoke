@@ -20,6 +20,7 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke session-control launch cancel", "session_control.launch"),
     _w("yoke session-control launch retry", "session_control.launch"),
     _w("yoke session-control launch reconcile", "session_control.launch"),
+    _w("yoke session-control evidence get", "session_control.evidence"),
     _w("yoke session-control keepalive hold", "session_control.keepalive"),
     _w("yoke session-control keepalive release", "session_control.keepalive"),
     _w("yoke session-control session terminate", "session_control.session"),

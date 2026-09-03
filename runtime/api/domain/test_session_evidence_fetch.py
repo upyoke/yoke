@@ -198,9 +198,9 @@ def test_unknown_session_refuses_by_name() -> None:
         )
 
     assert "66666666-6666-4666-8666-666666666666" in str(caught.value)
-    assert conn.execute(
-        "SELECT COUNT(*) FROM session_evidence_fetches"
-    ).fetchone()[0] == 0
+    assert (
+        conn.execute("SELECT COUNT(*) FROM session_evidence_fetches").fetchone()[0] == 0
+    )
 
 
 def test_a_report_from_another_relay_is_refused() -> None:
@@ -241,8 +241,7 @@ def test_a_pending_answer_names_the_command_that_reads_it_back() -> None:
 def test_report_rows_share_one_pull_renderer() -> None:
     assert evidence_pull_suffix("") == ""
     assert evidence_pull_suffix(TARGET_SESSION_ID) == (
-        f"; evidence `yoke session-control evidence get "
-        f"--session {TARGET_SESSION_ID}`"
+        f"; evidence `yoke session-control evidence get --session {TARGET_SESSION_ID}`"
     )
     assert DIAGNOSTIC_REF in evidence_pull_suffix(TARGET_SESSION_ID, DIAGNOSTIC_REF)
 
