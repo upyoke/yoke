@@ -18,7 +18,7 @@ from yoke_harness.session_relay_codex_app_server_client import (
     CodexAppServerError,
     _Client,
 )
-from yoke_harness.session_relay_codex_cli import _launch_environment
+from yoke_harness.session_relay_codex_invocation import codex_launch_environment
 from yoke_harness.session_relay_inventory import resolve_native_cli_source
 
 
@@ -134,7 +134,7 @@ class CodexAppServerTransport:
         return _Client(
             self.binary,
             request.checkout,
-            _launch_environment(request),
+            codex_launch_environment(request),
             self.timeout,
         )
 

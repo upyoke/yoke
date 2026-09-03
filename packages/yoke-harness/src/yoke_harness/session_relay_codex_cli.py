@@ -9,21 +9,17 @@ import subprocess
 import threading
 import time
 
-from yoke_contracts.session_control.launch_permission_bypass import (
-    CODEX_EXEC_BYPASS_ARGUMENTS,
-)
-from yoke_contracts.session_control.model_selection import (
-    LaunchModelSelection,
-    native_model_selector,
-)
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
     CodexNativeRequest,
     NativePhase,
 )
+from yoke_harness.session_relay_codex_invocation import (
+    codex_base_command,
+    codex_launch_environment,
+)
 from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
-from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_inventory import (
     ResolvedNativeCli,
     resolve_native_cli_source,
@@ -63,38 +59,6 @@ class _NativePhaseError(Exception):
         self.phase = phase
         self.binary_source = binary_source
         self.pid = pid
-
-
-def _launch_environment(request: CodexNativeRequest) -> dict[str, str]:
-    return native_session_environment(
-        executor="codex",
-        provider="openai",
-        model=request.requested_model,
-        markers={"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": request.surface},
-        launch_id=request.job_id if request.job_kind == "launch" else None,
-        launch_attestation=request.launch_attestation,
-    )
-
-
-def _base_command(binary: str, request: CodexNativeRequest) -> list[str]:
-    command = [
-        binary,
-        "exec",
-        "--json",
-        "--skip-git-repo-check",
-        *CODEX_EXEC_BYPASS_ARGUMENTS,
-    ]
-    selection = LaunchModelSelection(
-        request.requested_model,
-        request.requested_reasoning_effort,
-        request.requested_context_window_tokens,
-    )
-    model = native_model_selector("codex-cli", selection)
-    if model:
-        command.extend(["--model", model])
-    if selection.reasoning_effort:
-        command.extend(["-c", f"model_reasoning_effort={selection.reasoning_effort}"])
-    return command
 
 
 def _thread_id(event: object) -> str | None:
@@ -199,7 +163,7 @@ class CodexCliTransport:
         instruction = request.native_instruction.encode()
         if not instruction or len(instruction) > MAX_HANDOFF_BYTES:
             raise _NativePhaseError("instruction_write", binary_source=resolved.source)
-        command = _base_command(resolved.path, request)
+        command = codex_base_command(resolved.path, request)
         if resume:
             command.extend(["resume", str(request.target_thread_id)])
         command.append("-")
@@ -208,7 +172,7 @@ class CodexCliTransport:
             process = subprocess.Popen(
                 command,
                 cwd=request.checkout,
-                env=_launch_environment(request),
+                env=codex_launch_environment(request),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

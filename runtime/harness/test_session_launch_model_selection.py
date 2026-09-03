@@ -19,7 +19,7 @@ from yoke_contracts.session_control.model_selection import (
 )
 from yoke_harness.session_relay_claude_native import native_invocation
 from yoke_harness.session_relay_codex import CodexNativeRequest
-from yoke_harness.session_relay_codex_cli import _base_command
+from yoke_harness.session_relay_codex_invocation import codex_base_command
 from yoke_harness.session_relay_cursor_requests import cursor_model_selector
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
@@ -119,7 +119,7 @@ def test_codex_maps_model_and_effort_to_argv_config() -> None:
         requested_reasoning_effort="xhigh",
     )
 
-    command = _base_command("/opt/codex", request)
+    command = codex_base_command("/opt/codex", request)
 
     assert command[-4:] == [
         "--model",
