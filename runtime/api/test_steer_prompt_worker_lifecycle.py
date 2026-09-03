@@ -44,7 +44,7 @@ class TestSteerWorkerLifecycle:
         assert "Route one item through its pinned workflow" in text
         assert "Workers self-end after their DONE report" in text
         assert "Every new item gets a fresh session" in text
-        assert "Choose the model per item at launch" in text
+        assert "Choose model, effort, and context per item at launch" in text
         assert "yoke session-control launch create" in text
         assert "yoke session-control launch get" in text
         assert "yoke session-control launch reconcile" in text
