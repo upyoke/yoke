@@ -1,4 +1,11 @@
-"""SSH-backed execution of the Test Machine verification contract."""
+"""SSH-backed implementation of the host-operation contract for a macOS box.
+
+One class implements every operation a person can run against a mac-ssh test
+machine -- verify, reset, capture a golden baseline, diagnose the terminal
+bridge -- because they share a transport, a credential, and a lease, and
+splitting them by operation would give four adapters four chances to disagree
+about what the same host is.
+"""
 
 from __future__ import annotations
 
@@ -19,11 +26,9 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_contracts.machine_qa_execution import (
     HOST_TEST_COMMAND,
     HostControlExecutionContract,
-    VERIFICATION_BASELINES,
+    HOST_BASELINES,
 )
-from yoke_harness.ssh_mac_baseline_probes import (
-    reach_user_equivalent_baseline,
-)
+from yoke_harness.ssh_mac_baseline_probes import reach_user_equivalent_baseline
 from yoke_harness.ssh_mac_full_reset_contract import INSTALLER_TEMP_PATH
 from yoke_harness.ssh_mac_transport import SshMacTransport
 from yoke_harness.test_machine_types import HostActionResult
@@ -35,8 +40,8 @@ _INSTALLER_CONFIRM_ENV = "YOKE_INSTALL_YES"
 _INSTALLER_NO_ONBOARD_ENV = "YOKE_NO_ONBOARD"
 
 
-class SshMacVerificationControl(SshMacTransport):
-    """Credential-owning Test Mac control limited to verification operations."""
+class SshMacHostOperations(SshMacTransport):
+    """Credential-owning control for every operator-run mac-ssh operation."""
 
     def __init__(
         self,
@@ -52,7 +57,7 @@ class SshMacVerificationControl(SshMacTransport):
     def from_contract(
         cls,
         contract: HostControlExecutionContract,
-    ) -> "SshMacVerificationControl":
+    ) -> "SshMacHostOperations":
         """Attach the one registered machine-local credential."""
         secrets: list[str] = []
         secret_paths: dict[str, str] = {}
@@ -87,14 +92,14 @@ class SshMacVerificationControl(SshMacTransport):
 
     def reach_baseline(self, name: str) -> HostActionResult:
         """Reach one server-approved verification baseline."""
-        if name == VERIFICATION_BASELINES[0]:
+        if name == HOST_BASELINES[0]:
             return reach_user_equivalent_baseline(self)
-        if name == VERIFICATION_BASELINES[1]:
+        if name == HOST_BASELINES[1]:
             return self._reach_shell_preconfigured()
         raise ValueError(f"unknown host baseline {name!r}")
 
     def _reach_shell_preconfigured(self) -> HostActionResult:
-        name = VERIFICATION_BASELINES[1]
+        name = HOST_BASELINES[1]
         reset = reach_user_equivalent_baseline(self)
         if not reset.ok:
             return HostActionResult(
@@ -245,4 +250,4 @@ class SshMacVerificationControl(SshMacTransport):
         )
 
 
-__all__ = ["SshMacVerificationControl"]
+__all__ = ["SshMacHostOperations"]

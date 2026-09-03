@@ -7,7 +7,7 @@ from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_type as _machine_type,
 )
 from yoke_contracts.machine_qa_execution import (
-    VERIFICATION_BASELINES,
+    HOST_BASELINES,
     VERIFICATION_CHECKS,
 )
 from yoke_core.domain.capabilities_test_machine_read import read_test_machine_facts
@@ -37,6 +37,7 @@ def _settings(resource_name: str = SHARED_HOST) -> dict[str, str]:
         "resource_name": resource_name,
         "host": "test-mac.local",
         "user": "yoke-test",
+        "host_kind": "mac-ssh",
         "operating_notes": "Do not interrupt an active lease.",
     }
 
@@ -68,7 +69,7 @@ def _begin_verification(conn, *, project: str, session_id: str, actor_id: str):
         session_id=session_id,
         operation="verify",
         checks=VERIFICATION_CHECKS,
-        baselines=VERIFICATION_BASELINES,
+        baselines=HOST_BASELINES,
     )
 
 

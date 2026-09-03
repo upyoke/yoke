@@ -7,9 +7,9 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from yoke_harness.test_machine_verification import (
+from yoke_harness.test_machine_operations import (
     LocalHostControlSubmission,
-    execute_verification_contract as execute_client_verification_contract,
+    execute_host_operation_contract as execute_client_host_operation_contract,
 )
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
@@ -75,8 +75,8 @@ def _execution(
     )
 
 
-class _CoreVerificationControl:
-    """Adapt the full core execution runtime to the client-safe verifier."""
+class _CoreHostOperations:
+    """Adapt the full core execution runtime to the host-operation contract."""
 
     def __init__(self, execution: MachineQaLease) -> None:
         self._execution = execution
@@ -88,17 +88,34 @@ class _CoreVerificationControl:
     def check_terminal_bridge(self) -> Any:
         return self._execution.control.check_terminal_bridge()
 
+    def diagnose_terminal_bridge(self) -> Any:
+        return self._execution.control.diagnose_terminal_bridge()
+
     def reach_baseline(self, name: str) -> Any:
         return self._execution.reach_baseline(name)
 
+    def capture_golden_baseline(
+        self,
+        destination: str,
+        *,
+        probes_document: str | None = None,
+    ) -> Any:
+        return self._execution.control.capture_golden_baseline(
+            destination,
+            probes_document=probes_document,
+        )
 
-def execute_verification_contract(
+
+def execute_host_operation_contract(
     raw_contract: dict[str, Any],
+    *,
+    probes_document: str | None = None,
 ) -> LocalHostControlSubmission:
-    """Run the exact verification checks named by the server contract."""
-    return execute_client_verification_contract(
+    """Run one operator-run operation through the core execution runtime."""
+    return execute_client_host_operation_contract(
         raw_contract,
-        control_factory=lambda contract: _CoreVerificationControl(_execution(contract)),
+        probes_document=probes_document,
+        operations_factory=lambda contract: _CoreHostOperations(_execution(contract)),
     )
 
 
@@ -280,5 +297,5 @@ __all__ = [
     "execute_agent_mission_host_command",
     "execute_agent_mission_scratch_teardown",
     "prepare_agent_mission_contract",
-    "execute_verification_contract",
+    "execute_host_operation_contract",
 ]

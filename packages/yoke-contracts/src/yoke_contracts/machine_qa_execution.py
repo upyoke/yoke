@@ -10,6 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from yoke_contracts.machine_config.test_machine import (
+    validate_golden_baseline_path,
     validate_test_machine_settings,
 )
 
@@ -20,51 +21,35 @@ GUI_SESSION_CONTEXT = "gui"
 AGENT_MISSION_ARTIFACT_LIMIT = 100
 REQUIRED_SESSION_CONTEXT_FIELD = "required_session_context"
 VERIFICATION_CHECKS = ("connection", "terminal_bridge")
-VERIFICATION_BASELINES = ("fresh-host", "shell-preconfigured")
-# Named failure for a Terminal.app screenshot check that captured identical
-# frames across a proven display change: the host lacks the macOS Screen
-# Recording grant for Terminal.app, so captures hold wallpaper, not windows.
-TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE = "terminal_screen_recording_required"
-# The remaining ways a region capture of a driven Terminal.app window fails.
-# Each names the condition an operator has to change, because one umbrella
-# code sent a person to the console to rule these out by hand.
-TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE = "terminal_window_off_screen"
-TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE = "terminal_console_user_mismatch"
-TERMINAL_DISPLAY_LOCKED_ERROR_CODE = "terminal_display_locked"
-TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE = "terminal_display_frame_unavailable"
-TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE = "terminal_screen_capture_failed"
-TERMINAL_CAPTURE_RECOVERY = {
-    TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE: (
-        "grant Terminal.app access under System Settings > Privacy & Security "
-        "> Screen & System Audio Recording on the host, then re-run the "
-        "verification"
-    ),
-    TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE: (
-        "the driven window would not stay inside the display's visible frame; "
-        "confirm the host's display resolution and that no display "
-        "arrangement places windows off the menu-bar screen, then re-run the "
-        "verification"
-    ),
-    TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE: (
-        "log the host's graphical session in as the automation user; a "
-        "different console user owns the window server and Terminal.app "
-        "cannot draw into it"
-    ),
-    TERMINAL_DISPLAY_LOCKED_ERROR_CODE: (
-        "unlock the host's screen and disable its screen saver and display "
-        "sleep, then re-run the verification"
-    ),
-    TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE: (
-        "confirm the Mac has an attached or virtual display and an active "
-        "graphical login session, then re-run the verification"
-    ),
-    TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE: (
-        "read the recorded screencapture command, exit code, and stderr in "
-        "the check evidence and clear the named condition on the host"
+HOST_BASELINES = ("fresh-host", "shell-preconfigured")
+# What a machine is left in once a baseline is reached. Verification runs both
+# in order, so the box it hands back is the LAST one -- which is not fresh, and
+# said plainly here rather than inferred from a baseline name.
+HOST_BASELINE_END_STATE = {
+    HOST_BASELINES[0]: ("the host carries its captured user state and no Yoke at all"),
+    HOST_BASELINES[1]: (
+        "the host carries its captured user state plus the current Yoke "
+        "launcher on both shell surfaces; it is NOT a fresh host"
     ),
 }
+# The destructive operations a person runs against one machine, each recorded
+# against the machine under its own name so the last one is always readable.
+RESET_OPERATION = "reset"
+GOLDEN_CAPTURE_OPERATION = "golden_capture"
+BRIDGE_DIAGNOSE_OPERATION = "bridge_diagnose"
+VERIFY_OPERATION = "verify"
+TEST_MACHINE_OPERATIONS = (
+    VERIFY_OPERATION,
+    RESET_OPERATION,
+    GOLDEN_CAPTURE_OPERATION,
+    BRIDGE_DIAGNOSE_OPERATION,
+)
+
 HostControlOperation = Literal[
     "verify",
+    "reset",
+    "golden_capture",
+    "bridge_diagnose",
     "case",
     "baseline_group",
     "plan_case",
@@ -152,6 +137,10 @@ class HostControlExecutionContract(BaseModel):
     checks: list[str] = Field(default_factory=list)
     baselines: list[str] = Field(default_factory=list)
     cases: list[MachineQaCaseContract] = Field(default_factory=list)
+    # Where a golden capture writes. The server chooses it so the digest binds
+    # the destination: a client that picked its own could write the host's
+    # captured state anywhere and still submit a contract-shaped receipt.
+    golden_destination: str | None = None
     plan_execution_id: str | None = None
     roster_digest: str | None = None
     ordinal: int | None = Field(default=None, ge=0)
@@ -167,8 +156,18 @@ class HostControlExecutionContract(BaseModel):
                 raise ValueError("verification contracts cannot contain cases")
             if self.checks != list(VERIFICATION_CHECKS):
                 raise ValueError("verification contract names unknown checks")
-            if self.baselines != list(VERIFICATION_BASELINES):
+            if self.baselines != list(HOST_BASELINES):
                 raise ValueError("verification contract names unknown baselines")
+        elif self.operation == RESET_OPERATION:
+            if self.cases or self.checks:
+                raise ValueError("reset contracts carry one baseline and nothing else")
+            if len(self.baselines) != 1 or self.baselines[0] not in (HOST_BASELINES):
+                raise ValueError("reset contract names one registered baseline")
+        elif self.operation in {GOLDEN_CAPTURE_OPERATION, BRIDGE_DIAGNOSE_OPERATION}:
+            if self.cases or self.checks or self.baselines:
+                raise ValueError(
+                    f"{self.operation} contracts carry no cases, checks, or baselines"
+                )
         elif self.operation in {"case", "plan_case"}:
             if len(self.cases) != 1:
                 raise ValueError("case contracts require exactly one case")
@@ -186,6 +185,17 @@ class HostControlExecutionContract(BaseModel):
         ):
             raise ValueError(
                 "baseline-group cases must share their registered baseline"
+            )
+        if (self.golden_destination is None) == (
+            self.operation == GOLDEN_CAPTURE_OPERATION
+        ):
+            raise ValueError(
+                "a golden destination belongs to a golden-capture contract and "
+                "to no other operation"
+            )
+        if self.golden_destination is not None:
+            self.golden_destination = validate_golden_baseline_path(
+                self.golden_destination
             )
         plan_fields = (
             self.plan_execution_id,
@@ -250,6 +260,7 @@ def issue_execution_contract(
     checks: list[str] | None = None,
     baselines: list[str] | None = None,
     cases: list[dict[str, Any]] | None = None,
+    golden_destination: str | None = None,
     plan_execution_id: str | None = None,
     roster_digest: str | None = None,
     ordinal: int | None = None,
@@ -269,6 +280,7 @@ def issue_execution_contract(
         checks=list(checks or []),
         baselines=list(baselines or []),
         cases=[MachineQaCaseContract.model_validate(case) for case in (cases or [])],
+        golden_destination=golden_destination,
         plan_execution_id=plan_execution_id,
         roster_digest=roster_digest,
         ordinal=ordinal,
@@ -286,22 +298,21 @@ def issue_execution_contract(
 
 __all__ = [
     "AGENT_MISSION_ARTIFACT_LIMIT",
+    "BRIDGE_DIAGNOSE_OPERATION",
+    "GOLDEN_CAPTURE_OPERATION",
     "GUI_SESSION_CONTEXT",
+    "HOST_BASELINE_END_STATE",
     "HOST_CONTROL_PROTOCOL",
     "HOST_TEST_COMMAND",
     "HostControlExecutionContract",
     "HostControlOperation",
     "MachineQaCaseContract",
     "REQUIRED_SESSION_CONTEXT_FIELD",
-    "TERMINAL_CAPTURE_RECOVERY",
-    "TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE",
-    "TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE",
-    "TERMINAL_DISPLAY_LOCKED_ERROR_CODE",
-    "TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE",
-    "TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE",
-    "TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE",
-    "VERIFICATION_BASELINES",
+    "RESET_OPERATION",
+    "TEST_MACHINE_OPERATIONS",
+    "HOST_BASELINES",
     "VERIFICATION_CHECKS",
+    "VERIFY_OPERATION",
     "execution_contract_digest",
     "issue_execution_contract",
 ]

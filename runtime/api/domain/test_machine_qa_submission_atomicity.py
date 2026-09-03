@@ -19,9 +19,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.handlers.machine_qa import (
-    handle_verify_begin,
-    handle_verify_submit,
+from yoke_core.domain.handlers.machine_qa_operation import (
+    handle_operation_begin,
+    handle_operation_submit,
 )
 from yoke_core.domain.handlers.machine_qa_case import (
     handle_baseline_group_begin,
@@ -34,8 +34,8 @@ from yoke_core.domain.host_control_runner import (
     register_host_control_factory,
 )
 from yoke_core.domain.machine_qa_local_execution import (
+    execute_host_operation_contract,
     execute_machine_case_contract,
-    execute_verification_contract,
 )
 
 
@@ -119,13 +119,13 @@ def _local_case_submission(
 def _local_verification_submission() -> Any:
     register_host_control_factory(lambda _material: FakeHostControl())
     try:
-        begun = handle_verify_begin(
+        begun = handle_operation_begin(
             _verify_request(
-                "test_machine.verify.begin",
-                {"project": "yoke"},
+                "test_machine.operation.begin",
+                {"project": "yoke", "operation": "verify"},
             )
         )
-        return execute_verification_contract(begun.result_payload["execution"])
+        return execute_host_operation_contract(begun.result_payload["execution"])
     finally:
         clear_host_control_factory()
 
@@ -200,20 +200,20 @@ def test_verification_replay_returns_original_receipt(
     configure_test_machine(conn, tmp_path, monkeypatch)
     submission = _local_verification_submission()
     request = _verify_request(
-        "test_machine.verify.submit",
+        "test_machine.operation.submit",
         {"project": "yoke", **submission.payload},
     )
 
-    first = handle_verify_submit(request)
+    first = handle_operation_submit(request)
     later_submission = _local_verification_submission()
     later_payload = {"project": "yoke", **later_submission.payload}
     later_payload["status"] = "error"
     later_payload["checks"] = [{**later_payload["checks"][0], "ok": False}]
     later_payload["error_code"] = "connection_check_failed"
-    later = handle_verify_submit(
-        _verify_request("test_machine.verify.submit", later_payload)
+    later = handle_operation_submit(
+        _verify_request("test_machine.operation.submit", later_payload)
     )
-    replay = handle_verify_submit(request)
+    replay = handle_operation_submit(request)
 
     assert first.primary_success, first.error
     assert later.result_payload["status"] == "error"
@@ -229,8 +229,8 @@ def test_verification_replay_rejects_another_lease_owner(
     configure_test_machine(conn, tmp_path, monkeypatch)
     submission = _local_verification_submission()
     payload = {"project": "yoke", **submission.payload}
-    accepted = handle_verify_submit(
-        _verify_request("test_machine.verify.submit", payload)
+    accepted = handle_operation_submit(
+        _verify_request("test_machine.operation.submit", payload)
     )
 
     assert accepted.primary_success, accepted.error
@@ -248,9 +248,9 @@ def test_verification_replay_rejects_another_lease_owner(
         ),
     ]
     for actor, message in unauthorized:
-        replay = handle_verify_submit(
+        replay = handle_operation_submit(
             _verify_request(
-                "test_machine.verify.submit",
+                "test_machine.operation.submit",
                 payload,
                 actor=actor,
             )
@@ -330,9 +330,9 @@ def test_verification_release_failure_rolls_back_receipt(
         "yoke_core.domain.machine_qa_execution_protocol.release",
         _reject_release,
     )
-    rejected = handle_verify_submit(
+    rejected = handle_operation_submit(
         _verify_request(
-            "test_machine.verify.submit",
+            "test_machine.operation.submit",
             {"project": "yoke", **submission.payload},
         )
     )

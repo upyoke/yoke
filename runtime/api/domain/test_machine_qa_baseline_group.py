@@ -13,6 +13,9 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from yoke_cli.commands.adapters import test_machine as test_machine_cli
+from yoke_cli.commands.adapters import (
+    test_machine_operation as test_machine_operation_cli,
+)
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_type as _machine_type,
@@ -156,13 +159,13 @@ def test_cli_verify_orchestrates_begin_and_submit_over_active_transport(
     calls: list[dict[str, Any]] = []
     begin = FunctionCallResponse(
         success=True,
-        function="test_machine.verify.begin",
+        function="test_machine.operation.begin",
         version="v1",
         result={"execution": {"server": "contract"}},
     )
     final = FunctionCallResponse(
         success=True,
-        function="test_machine.verify.submit",
+        function="test_machine.operation.submit",
         version="v1",
         result={
             "project": "yoke",
@@ -177,14 +180,16 @@ def test_cli_verify_orchestrates_begin_and_submit_over_active_transport(
         calls.append(dict(kwargs))
         return begin if len(calls) == 1 else final
 
-    monkeypatch.setattr(test_machine_cli, "ensure_handlers_loaded", lambda: None)
-    monkeypatch.setattr(test_machine_cli, "call_dispatcher", dispatch)
+    cli = test_machine_operation_cli
+    monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(
-        "yoke_harness.test_machine_verification.execute_verification_contract",
-        lambda contract: LocalHostControlSubmission(
+        "yoke_harness.test_machine_operations.execute_host_operation_contract",
+        lambda contract, **_kwargs: LocalHostControlSubmission(
             payload={
                 "lease_id": 9,
                 "contract_digest": "digest",
+                "operation": "verify",
                 "status": "verified",
                 "checks": [],
                 "error_code": None,
@@ -204,12 +209,15 @@ def test_cli_verify_orchestrates_begin_and_submit_over_active_transport(
 
     assert exit_code == 0
     assert [call["function_id"] for call in calls] == [
-        "test_machine.verify.begin",
-        "test_machine.verify.submit",
+        "test_machine.operation.begin",
+        "test_machine.operation.submit",
     ]
     assert calls[0]["payload"] == {
         "project": "yoke",
         "machine": "mac-mini-lab",
+        "operation": "verify",
+        "baseline": None,
+        "destination": None,
     }
     assert calls[1]["payload"]["contract_digest"] == "digest"
     assert json.loads(capsys.readouterr().out)["function"] == "test_machine.verify"

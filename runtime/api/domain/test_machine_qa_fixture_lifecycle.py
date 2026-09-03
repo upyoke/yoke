@@ -325,6 +325,7 @@ def test_plan_case_contract_uses_the_same_single_case_lifecycle(
             "resource_name": "test-mac",
             "host": "test-mac.example",
             "user": "tester",
+            "host_kind": "mac-ssh",
             "operating_notes": "",
         },
         cases=[case.model_dump(mode="json")],

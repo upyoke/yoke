@@ -13,7 +13,10 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
     materialize_installer_campaign,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_conn
-from yoke_cli.commands.adapters import test_machine as test_machine_cli
+from yoke_cli.commands.adapters import (
+    test_machine as test_machine_cli,
+    test_machine_operation as test_machine_operation_cli,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -21,9 +24,11 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers.machine_qa import (
-    handle_verify,
-    handle_verify_begin,
-    handle_verify_submit,
+    handle_operation_on_control_plane,
+)
+from yoke_core.domain.handlers.machine_qa_operation import (
+    handle_operation_begin,
+    handle_operation_submit,
 )
 from yoke_core.domain.handlers.machine_qa_case import (
     handle_case_begin,
@@ -35,8 +40,8 @@ from yoke_core.domain.host_control_runner import (
     register_host_control_factory,
 )
 from yoke_core.domain.machine_qa_local_execution import (
+    execute_host_operation_contract,
     execute_machine_case_contract,
-    execute_verification_contract,
 )
 
 ACTOR = ActorContext(actor_id="2", session_id="session-machine-two-phase")
@@ -77,10 +82,10 @@ def test_verification_begin_local_submit_persists_and_releases(
     configure_test_machine(conn, tmp_path, monkeypatch)
     register_host_control_factory(lambda _material: FakeHostControl())
     try:
-        begun = handle_verify_begin(
+        begun = handle_operation_begin(
             _verify_request(
-                "test_machine.verify.begin",
-                {"project": "yoke"},
+                "test_machine.operation.begin",
+                {"project": "yoke", "operation": "verify"},
             )
         )
         assert begun.primary_success
@@ -89,17 +94,17 @@ def test_verification_begin_local_submit_persists_and_releases(
         assert (
             conn.execute(
                 "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
-            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
+                "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
             ).fetchone()[0]
             == 1
         )
 
-        submission = execute_verification_contract(execution)
+        submission = execute_host_operation_contract(execution)
         assert "top-secret" not in json.dumps(submission.payload)
         assert "[REDACTED]" in json.dumps(submission.payload)
-        submitted = handle_verify_submit(
+        submitted = handle_operation_submit(
             _verify_request(
-                "test_machine.verify.submit",
+                "test_machine.operation.submit",
                 {"project": "yoke", **submission.payload},
             )
         )
@@ -130,19 +135,19 @@ def test_submit_rejects_another_actor_without_releasing_lease(
     configure_test_machine(conn, tmp_path, monkeypatch)
     register_host_control_factory(lambda _material: FakeHostControl())
     try:
-        begun = handle_verify_begin(
+        begun = handle_operation_begin(
             _verify_request(
-                "test_machine.verify.begin",
-                {"project": "yoke"},
+                "test_machine.operation.begin",
+                {"project": "yoke", "operation": "verify"},
             )
         )
-        submission = execute_verification_contract(
+        submission = execute_host_operation_contract(
             begun.result_payload["execution"],
         )
     finally:
         clear_host_control_factory()
     request = _verify_request(
-        "test_machine.verify.submit",
+        "test_machine.operation.submit",
         {"project": "yoke", **submission.payload},
     ).model_copy(
         update={
@@ -153,7 +158,7 @@ def test_submit_rejects_another_actor_without_releasing_lease(
         }
     )
 
-    submitted = handle_verify_submit(request)
+    submitted = handle_operation_submit(request)
 
     assert not submitted.primary_success
     assert "different session" in submitted.error.message
@@ -166,17 +171,28 @@ def test_submit_rejects_another_actor_without_releasing_lease(
     )
 
 
-def test_direct_hosted_verification_points_to_cli() -> None:
-    outcome = handle_verify(
-        _verify_request(
-            "test_machine.verify",
-            {"project": "yoke"},
-        )
+@pytest.mark.parametrize(
+    ("operation", "command"),
+    [
+        ("verify", "verify"),
+        ("reset", "reset"),
+        ("golden_capture", "golden-capture"),
+        ("bridge_diagnose", "bridge-diagnose"),
+    ],
+)
+def test_direct_hosted_operation_points_to_cli(
+    operation: str,
+    command: str,
+) -> None:
+    # The refusal names the operation the caller dispatched, which is the
+    # function id itself rather than anything in the payload.
+    outcome = handle_operation_on_control_plane(
+        _verify_request(f"test_machine.{operation}", {"project": "yoke"})
     )
 
     assert not outcome.primary_success
     assert outcome.error.code == "host_control_client_required"
-    assert "yoke test-machine verify --project yoke" in outcome.error.message
+    assert f"yoke test-machine {command} --project yoke" in outcome.error.message
 
 
 def test_direct_hosted_case_points_to_credential_owning_cli() -> None:
@@ -256,7 +272,7 @@ def test_cli_verify_local_failure_aborts_server_lease(
     calls: list[dict[str, Any]] = []
     begin = FunctionCallResponse(
         success=True,
-        function="test_machine.verify.begin",
+        function="test_machine.operation.begin",
         version="v1",
         result={
             "execution": {
@@ -267,7 +283,7 @@ def test_cli_verify_local_failure_aborts_server_lease(
     )
     abort = FunctionCallResponse(
         success=True,
-        function="test_machine.verify.abort",
+        function="test_machine.operation.abort",
         version="v1",
         result={
             "lease_id": 19,
@@ -280,11 +296,15 @@ def test_cli_verify_local_failure_aborts_server_lease(
         calls.append(dict(kwargs))
         return begin if len(calls) == 1 else abort
 
-    monkeypatch.setattr(test_machine_cli, "ensure_handlers_loaded", lambda: None)
-    monkeypatch.setattr(test_machine_cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(
-        "yoke_harness.test_machine_verification.execute_verification_contract",
-        lambda _contract: (_ for _ in ()).throw(
+        test_machine_operation_cli,
+        "ensure_handlers_loaded",
+        lambda: None,
+    )
+    monkeypatch.setattr(test_machine_operation_cli, "call_dispatcher", dispatch)
+    monkeypatch.setattr(
+        "yoke_harness.test_machine_operations.execute_host_operation_contract",
+        lambda _contract, **_kwargs: (_ for _ in ()).throw(
             RuntimeError("local control unavailable")
         ),
     )
@@ -299,13 +319,16 @@ def test_cli_verify_local_failure_aborts_server_lease(
 
     assert exit_code == 1
     assert [call["function_id"] for call in calls] == [
-        "test_machine.verify.begin",
-        "test_machine.verify.abort",
+        "test_machine.operation.begin",
+        "test_machine.operation.abort",
     ]
     assert calls[1]["payload"] == {
         "project": "yoke",
         "lease_id": 19,
         "contract_digest": "digest-19",
+        "operation": "verify",
+        "baseline": None,
+        "destination": None,
         "reason": "local_execution_failed",
     }
     emitted = json.loads(capsys.readouterr().out)

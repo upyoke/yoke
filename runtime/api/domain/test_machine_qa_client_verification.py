@@ -12,15 +12,15 @@ from yoke_contracts.api_urls import (
     DISTRIBUTION_STAGE_URL,
 )
 from yoke_contracts.machine_qa_execution import (
-    VERIFICATION_BASELINES,
+    HOST_BASELINES,
     VERIFICATION_CHECKS,
     issue_execution_contract,
 )
 from yoke_harness.ssh_mac_full_reset_contract import INSTALLER_TEMP_PATH
-from yoke_harness.ssh_mac_verification import SshMacVerificationControl
+from yoke_harness.ssh_mac_host_operations import SshMacHostOperations
 from yoke_harness.test_machine_types import HostActionResult
-from yoke_harness.test_machine_verification import (
-    execute_verification_contract,
+from yoke_harness.test_machine_operations import (
+    execute_host_operation_contract,
 )
 
 
@@ -35,10 +35,11 @@ def _verification_contract() -> dict[str, object]:
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",
             "user": "yoke-test",
+            "host_kind": "mac-ssh",
             "operating_notes": "",
         },
         checks=list(VERIFICATION_CHECKS),
-        baselines=list(VERIFICATION_BASELINES),
+        baselines=list(HOST_BASELINES),
     ).model_dump(mode="json")
 
 
@@ -63,12 +64,12 @@ def test_client_verification_runs_only_the_server_contract_and_redacts() -> None
             calls.append(name)
             return HostActionResult(True, {"operation": name})
 
-    submission = execute_verification_contract(
+    submission = execute_host_operation_contract(
         _verification_contract(),
-        control_factory=lambda _contract: Control(),
+        operations_factory=lambda _contract: Control(),
     )
 
-    assert calls == [*VERIFICATION_CHECKS, *VERIFICATION_BASELINES]
+    assert calls == [*VERIFICATION_CHECKS, *HOST_BASELINES]
     assert submission.payload["status"] == "verified"
     encoded = json.dumps(submission.payload)
     assert "top-secret" not in encoded
@@ -108,24 +109,24 @@ class _SequenceControl:
 def test_capture_failure_still_reaches_every_host_baseline() -> None:
     calls: list[str] = []
 
-    submission = execute_verification_contract(
+    submission = execute_host_operation_contract(
         _verification_contract(),
-        control_factory=lambda _contract: _SequenceControl(calls),
+        operations_factory=lambda _contract: _SequenceControl(calls),
     )
 
-    assert calls == [*VERIFICATION_CHECKS, *VERIFICATION_BASELINES]
+    assert calls == [*VERIFICATION_CHECKS, *HOST_BASELINES]
     assert submission.payload["status"] == "error"
     assert submission.payload["error_code"] == "terminal_window_off_screen"
     names = [check["name"] for check in submission.payload["checks"]]
-    assert names == [*VERIFICATION_CHECKS, *VERIFICATION_BASELINES]
+    assert names == [*VERIFICATION_CHECKS, *HOST_BASELINES]
 
 
 def test_transport_failure_ends_the_sequence_before_any_baseline() -> None:
     calls: list[str] = []
 
-    submission = execute_verification_contract(
+    submission = execute_host_operation_contract(
         _verification_contract(),
-        control_factory=lambda _contract: _SequenceControl(
+        operations_factory=lambda _contract: _SequenceControl(
             calls,
             connection_ok=False,
         ),
@@ -152,13 +153,13 @@ def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
             stderr="",
         )
 
-    control = SshMacVerificationControl.__new__(SshMacVerificationControl)
+    control = SshMacHostOperations.__new__(SshMacHostOperations)
     control.path_state = SimpleNamespace(
         yoke_bin="/Users/tester/.local/bin/yoke",
     )
     control._run = run
 
-    result = control._install_current_release(VERIFICATION_BASELINES[1])
+    result = control._install_current_release(HOST_BASELINES[1])
 
     assert result.ok
     assert result.evidence["operations"] == [

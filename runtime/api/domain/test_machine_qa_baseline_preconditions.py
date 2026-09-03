@@ -29,6 +29,7 @@ def _execution(control: FakeHostControl) -> MachineQaLease:
                 "resource_name": "mac-mini-lab",
                 "host": "test-mac.local",
                 "user": "yoke-test",
+                "host_kind": "mac-ssh",
                 "operating_notes": "",
             },
             secrets={"ssh_private_key": "top-secret"},

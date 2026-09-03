@@ -58,7 +58,7 @@ class TestKindAndStateDerivation:
             MACHINE_TYPE,
             settings=(
                 '{"resource_name":"mac-mini-lab","host":"mac",'
-                '"user":"yoke","operating_notes":""}'
+                '"user":"yoke","host_kind":"mac-ssh","operating_notes":""}'
             ),
             verified_at=_iso(2),
         )
@@ -74,7 +74,7 @@ class TestKindAndStateDerivation:
             MACHINE_TYPE,
             settings=(
                 '{"resource_name":"mac-mini-lab","host":"mac",'
-                '"user":"yoke","operating_notes":""}'
+                '"user":"yoke","host_kind":"mac-ssh","operating_notes":""}'
             ),
             verified_at=_iso(2),
         )

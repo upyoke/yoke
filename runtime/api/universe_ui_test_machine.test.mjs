@@ -79,7 +79,10 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
   assert.match(rendered, /Machine state check/);
   assert.match(rendered, /Credential references/);
   assert.doesNotMatch(rendered, /top-secret/);
-  assert.equal(byClass(main, "test-machine-check").length, 3);
+  // Scoped to its panel: the operations panel reuses the row class for the
+  // same timeline treatment, so a page-wide count drifts as receipts land.
+  const receiptBody = byClass(main, "test-machine-receipt-body")[0];
+  assert.equal(byClass(receiptBody, "test-machine-check").length, 4);
   assert.match(rendered, /SSH \+ runner materialization/);
   assert.match(rendered, /sample artifact discarded after verification/);
   assert.match(rendered, /Host baselines reached \+ verified/);
@@ -87,7 +90,7 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
     rendered,
     /asserted the branch-determining state itself, never a proxy/,
   );
-  assert.equal(byClass(main, "timeline-dot").length, 3);
+  assert.equal(byClass(receiptBody, "timeline-dot").length, 4);
   assert.equal(byClass(main, "test-machine-stat").length, 3);
   assert.equal(
     byClass(main, "test-machine-stats")[0].classList.contains("mini-grid"),
@@ -138,6 +141,7 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
     [
       "test-mac.local",
       "yoke-test",
+      "mac-ssh",
       "fresh-host",
       "shell-preconfigured",
       "host_control",

@@ -8,6 +8,7 @@ from yoke_harness.ssh_mac_display_frame import (
     window_layout,
 )
 from yoke_harness.ssh_mac_terminal_app import (
+    KeystrokeDelivery,
     RunRemote,
     capture_terminal_app_transcript,
     close_terminal_app_window,
@@ -27,6 +28,7 @@ from yoke_harness.ssh_mac_terminal_screenshot import (
 __all__ = [
     "DisplayFrame",
     "DisplayFrameUnavailable",
+    "KeystrokeDelivery",
     "RunRemote",
     "ScreenCapture",
     "capture_terminal_app_screen",

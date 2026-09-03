@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -11,17 +10,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_SECRET_KEYS,
     is_machine_local_capability_secret,
 )
-from yoke_contracts.machine_config.test_machine import (
-    test_machine_capability_type as _machine_type,
-)
 from yoke_core.domain.host_baseline_operations import run_host_baseline
-from yoke_core.domain.host_control_runner import (
-    clear_host_control_factory,
-    register_host_control_factory,
-)
-from yoke_core.domain.machine_qa_execution import (
-    verify_test_machine as verify_machine,
-)
 from yoke_core.domain.machine_qa_method_contracts import (
     MACHINE_METHODS,
     MachineQaExecutionError,
@@ -35,15 +24,12 @@ from yoke_core.domain.machine_qa_capability import (
     replace_test_machine_settings,
     test_machine_detail as read_test_machine_detail,
 )
-from yoke_core.domain.capability_machine_secrets import (
-    store_machine_capability_secret,
-)
 from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_conn
 
 
 def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.9"
+    assert version == "1.1.0"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
@@ -118,6 +104,7 @@ def test_test_machine_is_typed_and_secret_presence_only(
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",
             "user": "yoke-test",
+            "host_kind": "mac-ssh",
             "operating_notes": "Do not interrupt an active lease.",
         },
         base_settings=None,
@@ -155,6 +142,7 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",
             "user": "yoke-test",
+            "host_kind": "mac-ssh",
             "operating_notes": "Do not interrupt an active lease.",
         },
         base_settings=None,
@@ -272,56 +260,3 @@ def test_terminal_contract_requires_entry_completion_and_structured_steps() -> N
         entry_surface="public-installer",
         required_completion="project-screen",
     )["capture_checkpoints"] == ["project-screen"]
-
-
-def test_verifier_holds_one_lease_and_returns_only_redacted_receipts(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    conn = make_conn()
-    replace_test_machine_settings(
-        conn,
-        project="yoke",
-        settings={
-            "resource_name": "mac-mini-lab",
-            "host": "test-mac.local",
-            "user": "yoke-test",
-            "operating_notes": "",
-        },
-        base_settings=None,
-    )
-    for key in TEST_MACHINE_SECRET_KEYS:
-        store_machine_capability_secret(
-            "yoke",
-            TEST_MACHINE_CAPABILITY,
-            key,
-            "top-secret" if key == "ssh_private_key" else f"value-{key}",
-        )
-    control = FakeHostControl()
-    register_host_control_factory(lambda material: control)
-    try:
-        conn.execute(
-            "INSERT INTO harness_sessions(session_id,actor_id) VALUES(?,2)",
-            ("session-verify",),
-        )
-        result = verify_machine(
-            conn,
-            project="yoke",
-            session_id="session-verify",
-        )
-    finally:
-        clear_host_control_factory()
-    assert result["status"] == "verified"
-    assert "top-secret" not in json.dumps(result)
-    assert "[REDACTED]" in json.dumps(result)
-    active = conn.execute(
-        "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
-        "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
-    ).fetchone()[0]
-    assert active == 0
-    verified_at = conn.execute(
-        "SELECT verified_at FROM project_capabilities WHERE project_id=1 AND type=?",
-        (_machine_type("mac-mini-lab"),),
-    ).fetchone()[0]
-    assert verified_at

@@ -4,21 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections.abc import Callable
-from functools import partial
 from typing import Any, Mapping
 
-from yoke_contracts.machine_qa_execution import (
-    VERIFICATION_BASELINES,
-    VERIFICATION_CHECKS,
-)
-from yoke_harness.test_machine_verification import run_verification_sequence
 
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.coordination_claims import (
     CoordinationClaimStaleHolderError,
     release,
 )
-from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.host_baseline_operations import (
     HostBaselineResult,
     run_host_baseline,
@@ -253,54 +246,6 @@ def acquire_machine_qa_lease(
     )
 
 
-def verify_test_machine(
-    conn: Any,
-    *,
-    project: str,
-    session_id: str,
-    machine: str | None = None,
-) -> dict[str, Any]:
-    """Verify connection, control bridge, and both registered baselines."""
-    with acquire_machine_qa_lease(
-        conn,
-        project=project,
-        session_id=session_id,
-        machine=machine,
-        select_any=False,
-    ) as execution:
-        checks, error_code = run_verification_sequence(
-            checks=[
-                (VERIFICATION_CHECKS[0], execution.control.check_connection),
-                (VERIFICATION_CHECKS[1], execution.control.check_terminal_bridge),
-            ],
-            baselines=[
-                (name, partial(execution.reach_baseline, name))
-                for name in VERIFICATION_BASELINES
-            ],
-        )
-        status = "verified" if error_code is None else "error"
-        safe_checks = redact_machine_qa_value(
-            checks,
-            tuple(execution.material.secrets.values()),
-        )
-        record_test_machine_verification(
-            conn,
-            execution.material.project_id,
-            machine=execution.material.settings["resource_name"],
-            status=status,
-            checks=safe_checks,
-            error_code=error_code,
-        )
-    return {
-        "project": project,
-        "machine": execution.material.settings["resource_name"],
-        "status": status,
-        "checked_at": iso8601_now(),
-        "checks": safe_checks,
-        "error_code": error_code,
-    }
-
-
 __all__ = [
     "MACHINE_METHODS",
     "MachineCaseResult",
@@ -311,5 +256,4 @@ __all__ = [
     "record_test_machine_verification",
     "redact_machine_qa_value",
     "validate_machine_method_config",
-    "verify_test_machine",
 ]

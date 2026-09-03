@@ -29,8 +29,9 @@ from yoke_core.domain.work_claim_targets import (
 
 # The capability row names the machine resolved by the roster's host lease.
 MACHINE_SETTINGS = (
-    '{"host":"test-mac.local","operating_notes":"",'
-    '"resource_name":"mac-mini-lab","user":"yoke-test"}'
+    '{"host":"test-mac.local","host_kind":"mac-ssh",'
+    '"operating_notes":"","resource_name":"mac-mini-lab",'
+    '"user":"yoke-test"}'
 )
 MACHINE_TYPE = _machine_type("mac-mini-lab")
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import shlex
 from typing import Any
 
-from yoke_contracts.machine_qa_execution import (
+from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SCREEN_CAPTURE_FAILED_ERROR_CODE,
     TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE,
 )
@@ -45,23 +45,6 @@ class ScreenCapture:
     path: Path | None
     error_code: str | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
-
-
-def probe_host_display_context(run: RunRemote) -> dict[str, Any]:
-    """Read the host facts that decide whether any capture could have worked."""
-    console = run("/usr/bin/stat -f%Su /dev/console", timeout=10)
-    locked = run(
-        "/usr/sbin/ioreg -n Root -d1 -k CGSSessionScreenIsLocked",
-        timeout=10,
-    )
-    return {
-        "console_user": (console.stdout.strip() if console.returncode == 0 else None),
-        "display_locked": (
-            '"CGSSessionScreenIsLocked" = Yes' in locked.stdout
-            if locked.returncode == 0
-            else None
-        ),
-    }
 
 
 def capture_terminal_app_region(
@@ -215,5 +198,4 @@ __all__ = [
     "ScreenCapture",
     "capture_terminal_app_region",
     "capture_terminal_app_screen",
-    "probe_host_display_context",
 ]

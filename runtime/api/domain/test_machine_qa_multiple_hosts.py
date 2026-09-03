@@ -13,7 +13,7 @@ from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_type as _machine_type,
 )
 from yoke_contracts.machine_qa_execution import (
-    VERIFICATION_BASELINES,
+    HOST_BASELINES,
     VERIFICATION_CHECKS,
 )
 from yoke_core.domain.coordination_claims import release
@@ -45,6 +45,7 @@ def _settings(machine: str, *, notes: str = "") -> dict[str, str]:
         "resource_name": machine,
         "host": f"{machine}.local",
         "user": "yoke-test",
+        "host_kind": "mac-ssh",
         "operating_notes": notes,
     }
 
@@ -146,7 +147,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
         session_id="mission-one",
         operation="verify",
         checks=VERIFICATION_CHECKS,
-        baselines=VERIFICATION_BASELINES,
+        baselines=HOST_BASELINES,
     )
     assert first.settings["resource_name"] == MACHINES[0]
     assert read_fleet_context(conn, project_id=1) == {
@@ -162,7 +163,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
         session_id="mission-two",
         operation="verify",
         checks=VERIFICATION_CHECKS,
-        baselines=VERIFICATION_BASELINES,
+        baselines=HOST_BASELINES,
     )
     assert second.settings["resource_name"] == MACHINES[1]
     assert read_fleet_context(conn, project_id=1)["state"] == "in_use"
@@ -173,7 +174,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
             session_id="mission-three",
             operation="verify",
             checks=VERIFICATION_CHECKS,
-            baselines=VERIFICATION_BASELINES,
+            baselines=HOST_BASELINES,
         )
 
     release(conn, first.lease_id, "test-complete")
@@ -183,7 +184,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
         session_id="mission-three",
         operation="verify",
         checks=VERIFICATION_CHECKS,
-        baselines=VERIFICATION_BASELINES,
+        baselines=HOST_BASELINES,
     )
     assert next_contract.settings["resource_name"] == MACHINES[0]
     release(conn, second.lease_id, "test-complete")
@@ -217,7 +218,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
         session_id="automatic",
         operation="verify",
         checks=VERIFICATION_CHECKS,
-        baselines=VERIFICATION_BASELINES,
+        baselines=HOST_BASELINES,
     )
     assert automatic.settings["resource_name"] == MACHINES[1]
     assert automatic.selection_reason == f"selected {MACHINES[1]}: verified"
@@ -228,7 +229,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
         session_id="pinned",
         operation="verify",
         checks=VERIFICATION_CHECKS,
-        baselines=VERIFICATION_BASELINES,
+        baselines=HOST_BASELINES,
         machine=MACHINES[0],
     )
     assert pinned.settings["resource_name"] == MACHINES[0]
@@ -242,7 +243,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
             session_id="missing",
             operation="verify",
             checks=VERIFICATION_CHECKS,
-            baselines=VERIFICATION_BASELINES,
+            baselines=HOST_BASELINES,
             machine="mac-pro-missing",
         )
     release(conn, automatic.lease_id, "test-complete")

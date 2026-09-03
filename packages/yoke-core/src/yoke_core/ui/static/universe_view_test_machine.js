@@ -15,6 +15,7 @@ import {
 import {
   availabilityPanel,
   methodsPanel,
+  operationsPanel,
   receiptPanel,
   secretPanel,
 } from "./test_machine_detail_panels.js";
@@ -141,6 +142,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
     ["Resource name", detail.settings.resource_name],
     ["Host", el(documentNode, "span", "mono", detail.settings.host)],
     ["User", el(documentNode, "span", "mono", detail.settings.user)],
+    ["Host kind", el(documentNode, "span", "mono", detail.settings.host_kind)],
     ["Features", detail.features.join(" · ")],
     ["Host baselines", baselineSummary],
     ["Operating notes", detail.settings.operating_notes],
@@ -151,6 +153,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
   right.appendChild(availabilityPanel(documentNode, detail));
   right.appendChild(methodsPanel(documentNode, detail));
   right.appendChild(receiptPanel(documentNode, detail));
+  right.appendChild(operationsPanel(documentNode, detail));
   columns.appendChild(left);
   columns.appendChild(right);
   main.replaceChildren(
@@ -159,6 +162,13 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
     columns,
   );
 }
+
+function lastOperationSummary(detail) {
+  const [latest] = detail.operations || [];
+  if (!latest) return "";
+  return `last ${latest.operation.replace("_", " ")}: ${latest.status}`;
+}
+
 
 function renderMissing(documentNode, main, project) {
   const missing = panel(documentNode, "Capability");
@@ -254,7 +264,11 @@ function renderMachineChooser(
       documentNode,
       "small",
       "dl-sub",
-      `${detail.settings.host} · ${detail.verification.status}`,
+      [
+        detail.settings.host,
+        detail.verification.status,
+        lastOperationSummary(detail),
+      ].filter(Boolean).join(" · "),
     ));
     choose.addEventListener("click", () => loadMachineDetail(
       context,

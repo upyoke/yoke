@@ -13,7 +13,16 @@ from yoke_contracts.machine_config.capability_secrets import (
 
 _RESOURCE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 _REMOTE_USER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$")
-_SETTING_KEYS = frozenset({"resource_name", "host", "user", "operating_notes"})
+# The kind of host the machine is, and therefore which implementation of the
+# host-operation contract reaches it. It is declared rather than inferred: a
+# document that does not say what it controls would have to be guessed at by
+# every operation that drives it, and the first wrong guess runs a destructive
+# restore against a machine it does not understand.
+MAC_SSH_HOST_KIND = "mac-ssh"
+TEST_MACHINE_HOST_KINDS = (MAC_SSH_HOST_KIND,)
+_SETTING_KEYS = frozenset(
+    {"resource_name", "host", "user", "host_kind", "operating_notes"}
+)
 # Declaring a golden baseline is what turns the destructive host reset into a
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
@@ -67,6 +76,16 @@ def is_test_machine_capability_type(capability_type: Any) -> bool:
     return True
 
 
+def validate_test_machine_host_kind(value: Any) -> str:
+    """Return one registered host kind or name every kind that exists."""
+    normalized = str(value or "").strip()
+    if normalized not in TEST_MACHINE_HOST_KINDS:
+        raise TestMachineCapabilityError(
+            "host_kind must be one of " + ", ".join(TEST_MACHINE_HOST_KINDS)
+        )
+    return normalized
+
+
 def validate_golden_baseline_path(value: Any) -> str:
     """Return one absolute, literal golden-baseline location.
 
@@ -105,9 +124,8 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
             detail.append("unknown " + ", ".join(unknown))
         raise TestMachineCapabilityError(
             "test-machine settings require exactly resource_name, host, user, "
-            "and operating_notes, and optionally golden_baseline_path ("
-            + "; ".join(detail)
-            + ")"
+            "host_kind, and operating_notes, and optionally "
+            "golden_baseline_path (" + "; ".join(detail) + ")"
         )
     values = {key: str(payload[key] or "").strip() for key in present}
     if values.get("golden_baseline_path"):
@@ -119,6 +137,7 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
     values["resource_name"] = validate_test_machine_resource_name(
         values["resource_name"]
     )
+    values["host_kind"] = validate_test_machine_host_kind(values["host_kind"])
     host = values["host"]
     if not host or len(host) > 253 or any(ch.isspace() for ch in host):
         raise TestMachineCapabilityError("host must be a non-empty host name")
@@ -132,12 +151,15 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
 
 
 __all__ = [
+    "MAC_SSH_HOST_KIND",
     "TEST_MACHINE_CAPABILITY_PREFIX",
+    "TEST_MACHINE_HOST_KINDS",
     "TestMachineCapabilityError",
     "is_test_machine_capability_type",
     "test_machine_capability_type",
     "test_machine_resource_name",
     "validate_golden_baseline_path",
+    "validate_test_machine_host_kind",
     "validate_test_machine_resource_name",
     "validate_test_machine_settings",
 ]

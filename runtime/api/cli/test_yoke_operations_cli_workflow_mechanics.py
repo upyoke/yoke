@@ -195,6 +195,7 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
         "resource_name": "mac-mini-lab",
         "host": "test-mac.local",
         "user": "yoke-test",
+        "host_kind": "mac-ssh",
         "operating_notes": "",
     }
     settings_file.write_text(json.dumps(settings), encoding="utf-8")

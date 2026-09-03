@@ -15,12 +15,19 @@ export const detail = {
     resource_name: "mac-mini-lab",
     host: "test-mac.local",
     user: "yoke-test",
+    host_kind: "mac-ssh",
     operating_notes:
       "Do not interrupt an active lease; keep Terminal region unobscured.",
   },
   settings_token: "{\"host\":\"test-mac.local\"}",
   features: ["Terminal.app", "PTY", "screenshots", "post-install shell"],
   host_baselines: ["fresh-host", "shell-preconfigured"],
+  host_baseline_end_states: {
+    "fresh-host": "the host carries its captured user state and no Yoke at all",
+    "shell-preconfigured":
+      "the host carries its captured user state plus the current Yoke launcher on both shell surfaces; it is NOT a fresh host",
+  },
+  host_kinds: ["mac-ssh"],
   concurrency: { limit: 1, mode: "serial" },
   verification: {
     status: "verified",
@@ -40,7 +47,18 @@ export const detail = {
         verified_property: "tool directory absence from shell PATH",
       },
     ],
+    host_end_state:
+      "the host carries its captured user state plus the current Yoke launcher on both shell surfaces; it is NOT a fresh host",
   },
+  operations: [
+    {
+      operation: "reset",
+      status: "verified",
+      performed_at: "2026-07-26T17:00:00Z",
+      error_code: null,
+      checks: [{ name: "fresh-host", ok: true }],
+    },
+  ],
   secrets: [
     { key: "screen_control_token", stored: false },
     { key: "ssh_private_key", stored: true },
