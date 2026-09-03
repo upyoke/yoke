@@ -29,3 +29,44 @@ def test_launch_preview_says_model_is_verified_at_registration() -> None:
     assert "gpt-5.6-sol" in rendered
     assert "Model verification" in rendered
     assert "at session registration" in rendered
+
+
+def test_launch_preview_names_the_machine_that_decided_an_unasked_model() -> None:
+    output = io.StringIO()
+
+    write_launch_result(
+        {
+            "outcome": "assigned",
+            "requested_surface": "codex-cli",
+            "requested_model": None,
+            "model": "gpt-5.6-sol",
+            "model_source": "machine-roomy preferred_session_models.codex-cli",
+            "selected_surface": "codex-cli",
+            "launchable": True,
+            "eligible_relays": [],
+            "placement_reason": "most codex-cli headroom; chose machine-roomy",
+            "machine_candidates": [
+                {
+                    "machine_id": "machine-roomy",
+                    "hostname": "roomy-host",
+                    "surface": "codex-cli",
+                    "headroom_percent": 240.0,
+                    "headroom_window": "rolling 5h · all models",
+                    "owned_by_requester": True,
+                    "may_use": True,
+                    "denial_reason": None,
+                    "selected": True,
+                }
+            ],
+        },
+        output,
+    )
+
+    rendered = output.getvalue()
+    assert "Model this launch would carry" in rendered
+    assert "gpt-5.6-sol" in rendered
+    assert "machine-roomy preferred_session_models.codex-cli" in rendered
+    assert "at session registration" in rendered
+    assert "MACHINES WEIGHED" in rendered
+    assert "240% (rolling 5h · all models)" in rendered
+    assert "most codex-cli headroom; chose machine-roomy" in rendered

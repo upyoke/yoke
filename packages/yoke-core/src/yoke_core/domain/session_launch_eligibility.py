@@ -96,7 +96,8 @@ def derive_launch_eligibility(
         params.append(machine_id)
     rows = conn.execute(
         "SELECT relay_id, machine_id, surface_versions, project_checkouts, "
-        "last_seen_at, state, connected_until, machine_capacity "
+        "last_seen_at, state, connected_until, machine_capacity, hostname, "
+        "actor_id "
         "FROM session_relays"
         f"{machine_clause} ORDER BY last_seen_at DESC, relay_id ASC",
         tuple(params),
@@ -143,12 +144,18 @@ def derive_launch_eligibility(
         if capacities[relay_machine].at_capacity:
             rejected.add(MACHINE_AT_CAPACITY)
             continue
+        try:
+            owner_actor_id = int(_value(row, "actor_id", 9))
+        except (TypeError, ValueError):
+            owner_actor_id = None
         selected_by_machine[relay_machine] = EligibleRelay(
             relay_id=str(_value(row, "relay_id", 0)),
             machine_id=relay_machine,
             surface=surface,
             version=offered,
             last_seen_at=str(_value(row, "last_seen_at", 4)),
+            hostname=str(_value(row, "hostname", 8) or ""),
+            owner_actor_id=owner_actor_id,
         )
     if not rows:
         rejected.add("relay_absent")

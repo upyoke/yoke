@@ -108,7 +108,9 @@ def _write_launch_detail(
         ),
         ("Requested machine", launch.get("requested_machine_id")),
         ("Assigned machine", launch.get("assigned_machine_id")),
-        ("Model", launch.get("requested_model")),
+        ("Placement", launch.get("placement_reason")),
+        ("Requested model", launch.get("requested_model")),
+        ("Model", launch.get("resolved_model")),
         ("Fallback allowed", bool(launch.get("allow_surface_fallback"))),
         ("Native session", launch.get("native_session_id")),
         ("Registered session", launch.get("registered_session_id")),
@@ -140,20 +142,39 @@ def _machine_capacity(result: Mapping[str, Any]) -> str | None:
         parts.append(f"{entry.get('machine_id')}: {entry.get('summary')}{flag}")
     return "; ".join(parts) or None
 
+def _headroom_cell(row: Mapping[str, Any]) -> str:
+    """Name the reading and the meter that produced it, or say it is missing."""
+    headroom = row.get("headroom_percent")
+    if headroom is None:
+        return "unreadable"
+    window = row.get("headroom_window") or "plan limits"
+    return f"{int(round(float(headroom)))}% ({window})"
+
+
+def _usable_cell(row: Mapping[str, Any]) -> str:
+    if row.get("may_use"):
+        return "yes"
+    return row.get("denial_reason") or "no"
+
 
 def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
     selected = result.get("selected_relay")
     selected_row = selected if isinstance(selected, Mapping) else {}
     requested_model = result.get("requested_model")
+    # What the launch would carry, which is what registration verifies. A
+    # payload that names no resolved model falls back to the caller's ask.
+    carried_model = result.get("model") or requested_model
     write_summary(
         "LAUNCH PREVIEW",
         [
             ("Outcome", humanize(result.get("outcome"))),
             ("Requested surface", result.get("requested_surface")),
             ("Requested model", requested_model),
+            ("Model this launch would carry", carried_model),
+            ("Model decided by", result.get("model_source")),
             (
                 "Model verification",
-                "at session registration" if requested_model else "not requested",
+                "at session registration" if carried_model else "not requested",
             ),
             ("Selected surface", result.get("selected_surface")),
             ("Fallback used", bool(result.get("fallback_used"))),
@@ -177,8 +198,26 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("Selected relay", selected_row.get("relay_id")),
             ("Selected machine", selected_row.get("machine_id")),
             ("Machine capacity", _machine_capacity(result)),
+            ("Placement", result.get("placement_reason")),
         ],
         stdout,
+    )
+    placement_columns: tuple[Column, ...] = (
+        ("MACHINE", lambda row: row.get("machine_id"), None),
+        ("HOST", lambda row: row.get("hostname"), 20),
+        ("SURFACE", lambda row: row.get("surface"), 20),
+        ("HEADROOM", _headroom_cell, 34),
+        ("LANES", lambda row: row.get("capacity_summary") or "-", 30),
+        ("OWNED", lambda row: "yes" if row.get("owned_by_requester") else "no", 6),
+        ("USABLE", _usable_cell, 30),
+        ("CHOSEN", lambda row: "yes" if row.get("selected") else "", 7),
+    )
+    write_table(
+        "MACHINES WEIGHED",
+        placement_columns,
+        result.get("machine_candidates") or [],
+        stdout,
+        empty="No machines were weighed.",
     )
     columns: tuple[Column, ...] = (
         ("RELAY", lambda row: row.get("relay_id"), None),

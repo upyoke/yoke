@@ -6,6 +6,8 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_idempotency import deduplicated_outcome
+from yoke_core.domain.session_launch_machine_models import resolve_machine_model
 from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain import session_launch_native_progress as native_progress
 from yoke_core.domain.session_launch_surface_selection import preview_launch
@@ -18,9 +20,7 @@ from yoke_core.domain.session_launch_store import (
     get_launch,
     get_launch_by_dedupe,
     insert_instruction_message,
-    instruction_message,
     marker,
-    sha256_text,
     update_launch,
     utc_now,
 )
@@ -37,38 +37,6 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
     ensure_operator,
 )
-
-
-def _same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> bool:
-    body, body_hash, _ = instruction_message(conn, launch.message_id)
-    return all(
-        (
-            launch.project_id == request.project_id,
-            launch.requested_surface == request.executor_surface,
-            launch.requested_machine_id == request.machine_id,
-            launch.requested_model == request.model,
-            launch.presentation_preference == request.presentation,
-            launch.session_name == request.session_name,
-            launch.allow_surface_fallback == request.allow_surface_fallback,
-            body_hash == sha256_text(request.instructions),
-            body == request.instructions,
-        )
-    )
-
-
-def _deduplicated(
-    conn: Any,
-    *,
-    existing: LaunchRecord,
-    request: LaunchRequest,
-    preview: LaunchPreview,
-) -> LaunchCreateOutcome:
-    if not _same_request(conn, existing, request):
-        raise SessionLaunchError(
-            "idempotency_conflict",
-            "idempotency key already names a different launch request",
-        )
-    return LaunchCreateOutcome(existing, preview, True)
 
 
 def _insert_launch(
@@ -90,7 +58,8 @@ def _insert_launch(
         "requested_surface, selected_surface, requested_machine_id, requested_model, "
         "presentation_preference, session_name, allow_surface_fallback, message_id, "
         "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
-        "deadline_at, created_at, assigned_at, origin"
+        "deadline_at, created_at, assigned_at, origin, placement_reason, "
+        "resolved_model"
     )
     values = (
         launch_id,
@@ -115,6 +84,13 @@ def _insert_launch(
         derived_launch_origin(
             conn, session_id=auth.session_id, project_id=request.project_id
         ),
+        preview.placement_reason,
+        resolve_machine_model(
+            conn,
+            requested_model=request.model,
+            machine_id=relay.machine_id,
+            surface=relay.surface,
+        ).model,
     )
     row = conn.execute(
         f"INSERT INTO session_launches ({columns}) "
@@ -132,7 +108,6 @@ def create_launch(
     request: LaunchRequest,
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
     surface_fallback_enabled: bool = False,
-    auto_select_machine: bool = False,
     now: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchCreateOutcome:
@@ -151,12 +126,11 @@ def create_launch(
             machine_id=request.machine_id,
             allow_surface_fallback=request.allow_surface_fallback,
             surface_fallback_enabled=surface_fallback_enabled,
-            auto_select_machine=auto_select_machine,
             now=current,
             eligibility=eligibility,
         )
         if existing is not None:
-            outcome = _deduplicated(
+            outcome = deduplicated_outcome(
                 conn,
                 existing=existing,
                 request=request,
@@ -203,7 +177,7 @@ def create_launch(
             )
             if existing is None:
                 raise SessionLaunchError("create_conflict", "launch insert conflicted")
-            outcome = _deduplicated(
+            outcome = deduplicated_outcome(
                 conn,
                 existing=existing,
                 request=request,
@@ -279,7 +253,6 @@ def retry_launch(
     auth: LaunchAuthorization,
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS,
     surface_fallback_enabled: bool = False,
-    auto_select_machine: bool = False,
     now: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchRecord:
@@ -312,7 +285,6 @@ def retry_launch(
             machine_id=launch.requested_machine_id,
             allow_surface_fallback=launch.allow_surface_fallback,
             surface_fallback_enabled=surface_fallback_enabled,
-            auto_select_machine=auto_select_machine,
             now=current,
             eligibility=eligibility,
         )
@@ -325,8 +297,15 @@ def retry_launch(
             launch_id,
             state="assigned",
             selected_surface=relay.surface,
+            resolved_model=resolve_machine_model(
+                conn,
+                requested_model=launch.requested_model,
+                machine_id=relay.machine_id,
+                surface=relay.surface,
+            ).model,
             assigned_relay_id=relay.relay_id,
             assigned_machine_id=relay.machine_id,
+            placement_reason=preview.placement_reason,
             native_session_id=None,
             attestation_hash=None,
             attestation_consumed_at=None,

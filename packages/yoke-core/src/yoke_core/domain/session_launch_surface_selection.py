@@ -10,6 +10,7 @@ from yoke_contracts.executor_labels import (
 )
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_placement import place_launch
 from yoke_core.domain.session_launch_store import utc_now
 from yoke_core.domain.session_launch_types import (
     EligibilitySnapshot,
@@ -17,7 +18,6 @@ from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     LaunchEligibilityPort,
     LaunchPreview,
-    choose_relay,
     ensure_operator,
 )
 
@@ -90,7 +90,6 @@ def preview_launch(
     machine_id: str | None = None,
     allow_surface_fallback: bool = False,
     surface_fallback_enabled: bool = False,
-    auto_select_machine: bool = False,
     now: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchPreview:
@@ -104,19 +103,17 @@ def preview_launch(
         machine_id=machine_id,
         now=current,
     )
-    if exact.relays:
-        return choose_relay(
-            exact,
-            surface=surface,
-            machine_id=machine_id,
-            auto_select_machine=auto_select_machine,
-        )
-    exact_preview = choose_relay(
-        exact,
+    exact_preview = place_launch(
+        conn,
+        snapshot=exact,
         surface=surface,
         machine_id=machine_id,
-        auto_select_machine=auto_select_machine,
+        actor_id=auth.actor_id,
+        project_id=project_id,
+        now=current,
     )
+    if exact.relays:
+        return exact_preview
     if surface.endswith("-desktop") and exact_preview.outcome == "unsupported_surface":
         return exact_preview
     if not allow_surface_fallback:
@@ -137,12 +134,15 @@ def preview_launch(
     )
     if not fallback.relays:
         return exact_preview
-    return choose_relay(
-        fallback,
+    return place_launch(
+        conn,
+        snapshot=fallback,
         surface=surface,
         machine_id=machine_id,
+        actor_id=auth.actor_id,
+        project_id=project_id,
+        now=current,
         fallback=True,
-        auto_select_machine=auto_select_machine,
     )
 
 

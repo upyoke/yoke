@@ -4,7 +4,9 @@ A launched session cannot always read its own ask. Claude serves a launch
 from a pre-warmed process pool, so the process that runs the session was
 started before the launch existed and its environment names no model; the
 registration envelope arrives with every ``requested_*`` field null while
-the launch row beside it holds the exact string the operator asked for.
+the launch row beside it holds the exact string the session was launched
+with -- the operator's explicit ask, or the default the chosen machine
+named for that surface.
 Cursor and Codex do export the ask, but a channel that works on two
 harnesses and silently loses the fact on the third is not a channel.
 
@@ -35,7 +37,7 @@ from yoke_core.domain.session_launch_store import marker
 
 
 def launch_requested_facts(launch: LaunchRecord) -> SessionModelFacts:
-    """Return the ask this launch states, as far as its selector spells it.
+    """Return the model this launch carried, as far as its selector spells it.
 
     The selected surface names the harness family, which is what decides
     whether the model string also carries a reasoning level: Cursor spells
@@ -47,7 +49,7 @@ def launch_requested_facts(launch: LaunchRecord) -> SessionModelFacts:
         # A surface outside the harness vocabulary still asked for a model;
         # only the name-encoded effort reading depends on knowing the family.
         harness_id = ""
-    return requested_facts_of(launch.requested_model, harness_id=harness_id)
+    return requested_facts_of(launch.resolved_model, harness_id=harness_id)
 
 
 def stamp_launch_requested_facts(

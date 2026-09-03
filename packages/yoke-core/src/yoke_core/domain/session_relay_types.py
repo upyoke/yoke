@@ -46,6 +46,26 @@ class RelayHeartbeat:
     project_ids: Sequence[int]
     surface_plan_limits: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     machine_capacity: Mapping[str, Any] = field(default_factory=dict)
+    preferred_session_models: Mapping[str, str] = field(default_factory=dict)
+
+
+def advertised_session_models(raw: Any) -> dict[str, str]:
+    """Keep only the surface-to-model pairs a launch could actually send.
+
+    A machine advertises its own ``preferred_session_models`` so a launch
+    placed there resolves the model the chosen machine prefers rather than the
+    caller's. Blank or non-string entries mean unset and are dropped here, so
+    a stored map never implies a default the machine did not name.
+    """
+    if not isinstance(raw, Mapping):
+        return {}
+    models: dict[str, str] = {}
+    for surface, model in raw.items():
+        name = str(surface).strip()
+        value = model.strip() if isinstance(model, str) else ""
+        if name and value:
+            models[name] = value
+    return models
 
 
 @dataclass(frozen=True)
@@ -136,4 +156,5 @@ __all__ = [
     "SessionRelayError",
     "WAKE_LEASE_SECONDS",
     "WakeMode",
+    "advertised_session_models",
 ]

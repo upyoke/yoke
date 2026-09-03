@@ -231,6 +231,10 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
         return f"{prefix}: {reason}"
     if preview.outcome == MACHINE_AT_CAPACITY:
         return f"{prefix}: {capacity_refusal(preview.machine_capacity)}"
+    if preview.placement_reason:
+        # Placement already refused in a full sentence naming each machine it
+        # weighed; the rejection codes describe eligibility, which passed.
+        return f"{prefix}: {preview.placement_reason}"
     if SURFACE_DISABLED_REJECTION not in preview.rejection_codes:
         codes = ", ".join(preview.rejection_codes) or "no relay evidence"
         return f"{prefix}: {codes}"

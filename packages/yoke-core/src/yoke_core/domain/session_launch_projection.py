@@ -24,6 +24,8 @@ _PUBLIC_FIELDS = (
     "state",
     "assigned_relay_id",
     "assigned_machine_id",
+    "placement_reason",
+    "resolved_model",
     "native_session_id",
     "attestation_consumed_at",
     "registered_session_id",

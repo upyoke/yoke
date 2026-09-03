@@ -6,6 +6,7 @@ import json
 import sqlite3
 from typing import Any
 
+from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchAuthorization, LaunchRequest
@@ -136,12 +137,15 @@ def add_relay(
     projects: list[Any] | None = None,
     actor_id: int = 1,
     hostname: str = "relay-host",
+    plan_limits: dict[str, Any] | None = None,
+    preferred_models: dict[str, str] | None = None,
 ) -> None:
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id, actor_id, machine_id, hostname, surface_versions, "
-        "project_checkouts, first_seen_at, last_seen_at, connected_until, state) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')",
+        "project_checkouts, first_seen_at, last_seen_at, connected_until, state, "
+        "surface_plan_limits, preferred_session_models) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)",
         (
             relay_id,
             actor_id,
@@ -152,9 +156,35 @@ def add_relay(
             NOW,
             last_seen_at,
             connected_until,
+            json.dumps(plan_limits or {}),
+            json.dumps(preferred_models or {}),
         ),
     )
     conn.commit()
+
+
+def plan_limit_document(
+    surface: str,
+    *,
+    remaining_percent: float,
+    resets_at: str,
+    window_kind: str = "rolling_5h",
+) -> dict[str, Any]:
+    """One machine's published meter for a surface, as the relay stores it."""
+    return {
+        surface: {
+            "plan_tier": "max",
+            "windows": [
+                {
+                    "window_kind": window_kind,
+                    "scope": ALL_MODELS_SCOPE,
+                    "remaining_percent": remaining_percent,
+                    "resets_at": resets_at,
+                    "status": "ok",
+                }
+            ],
+        }
+    }
 
 
 def assigned_launch(
@@ -188,5 +218,6 @@ __all__ = [
     "assigned_launch",
     "authorization",
     "launch_connection",
+    "plan_limit_document",
     "relay_connection",
 ]

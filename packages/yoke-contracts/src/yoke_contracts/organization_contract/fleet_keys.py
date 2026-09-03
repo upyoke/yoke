@@ -68,11 +68,6 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
         bool,
         "Require exact-recipient confirmation for universe broadcast.",
     ),
-    "fleet.auto_select_machine": FleetKeySpec(
-        False,
-        bool,
-        "Allow deterministic relay selection when several are eligible.",
-    ),
     "fleet.surface_fallback": FleetKeySpec(
         False,
         bool,

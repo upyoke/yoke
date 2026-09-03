@@ -70,17 +70,32 @@ Read `launchable`, `rejection_codes`, and `eligible_relays`.
   `~/.yoke/config.json` on that machine, or pass `--machine` to place the
   launch on a machine with room. Do not retry the same placement: the cap
   is a memory fact about that box, not a transient race.
+- `machine_access_denied` — every eligible machine is one this actor may
+  not use. `placement_reason` names each machine and why.
 
 A refusal names the surface, not the item. Do not skip remaining work
 because one surface refused.
 
-Allocate by headroom, not by leveling counts. Read the headroom table in
-the fleet report: keep one session on every surface above 100% so each
-harness stays exercised, then send the rest to the surface with the most
-headroom and run it down. Level counts only when headrooms are comparable,
-and avoid a surface under 100% for long items. There is no per-surface
-session cap. A surface absent from the launch-balance line cannot accept a
-launch — do not read a missing surface as zero.
+**Do not pick the machine.** A launch that names no `--machine` is placed
+for you: among the machines this actor may use that offer the requested
+surface, the one with the most headroom wins, and the requester's own
+machine wins a tie. Headroom is the lowest reading among the meters that
+machine publishes for that surface, because the soonest wall is the one a
+launch can hit. The
+preview answers with `placement_reason` — one sentence naming the chosen
+machine, the readings it beat, and the meter that decided — plus
+`machine_candidates`, the same readings per machine. Both are recorded on
+the launch row, so a later reader sees why work went where it did. Pass
+`--machine` only to override that decision deliberately.
+
+Choosing the SURFACE is still yours.
+Allocate by headroom, not by leveling counts. Read the headroom table in the
+fleet report: keep one session on every surface above 100% so each harness
+stays exercised, then send the rest to the surface with the most headroom and
+run it down. Level counts only when headrooms are comparable, and avoid a
+surface under 100% for long items. There is no per-surface session cap. A
+surface absent from the launch-balance line cannot accept a launch — do not
+read a missing surface as zero.
 
 ## 4. Route one item through its pinned workflow, never via `/yoke do`
 
@@ -126,15 +141,24 @@ new `session_control.launch.create`.
 
 ## 7. Choose the model per item at launch
 
-Default resolution: explicit `--model` on the launch > machine-config
-`preferred_session_models` map > vendor default. Blank (or whitespace)
-map values are unset and fall through to the vendor default. Override
-per item when the work warrants — a heavier model for architecture,
-migration, or high-risk items; a faster model for mechanical or
-copy-level dashes. The override is the launch's explicit `--model`.
-The resolved choice is recorded on the launch row.
+Default resolution: explicit `--model` on the launch > the
+`preferred_session_models` map of the machine the launch was PLACED on >
+vendor default. The chosen machine owns that default because it is the
+machine that has the accounts and the installed models; this seat's own
+config never decides a model that will run elsewhere. Blank (or whitespace)
+map values are unset and fall through to the vendor default. Override per
+item when the work warrants — a heavier model for architecture, migration,
+or high-risk items; a faster model for mechanical or copy-level dashes. The
+override is the launch's explicit `--model`.
+
+The preview names the exact model a launch would carry as `model` with a
+`model_source` naming the machine and key that decided it. Each launch row
+records the caller's ask as `requested_model` and what it resolved to as
+`resolved_model`. `--list-models` reports THIS machine's map and names its
+config file; to read another machine's default, preview a launch.
 
 ```text
+yoke session-control launch preview --project {_project} --surface {_surface} --json
 yoke session-control launch preview --project {_project} --surface {_surface} --list-models
 ```
 

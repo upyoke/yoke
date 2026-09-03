@@ -162,7 +162,7 @@ def test_create_reads_the_organization_surface_fallback_gate(monkeypatch) -> Non
     assert enabled.result_payload["launch"]["selected_surface"] == "codex-cli"
 
 
-def test_preview_reads_the_organization_machine_auto_selection_gate(
+def test_preview_places_an_unpinned_launch_and_names_the_reason(
     monkeypatch,
 ) -> None:
     conn = launch_connection()
@@ -179,11 +179,7 @@ def test_preview_reads_the_organization_machine_auto_selection_gate(
         connected_until="2026-08-24T12:00:00Z",
     )
     _wire_handler(monkeypatch, conn)
-    monkeypatch.setattr(
-        handlers,
-        "_fleet_policy",
-        lambda _conn, _project_id, key: key == "fleet.auto_select_machine",
-    )
+    monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: False)
 
     result = handlers.handle_launch_preview(
         _request(
@@ -199,4 +195,7 @@ def test_preview_reads_the_organization_machine_auto_selection_gate(
     assert result.primary_success is True
     assert result.result_payload["outcome"] == "assigned"
     assert result.result_payload["requested_model"] == "gpt-5.6-sol"
+    assert result.result_payload["model"] == "gpt-5.6-sol"
+    assert result.result_payload["model_source"] == "explicit launch request"
     assert result.result_payload["selected_relay"]["machine_id"] == "machine-a"
+    assert result.result_payload["placement_reason"]
