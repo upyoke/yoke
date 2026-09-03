@@ -79,21 +79,15 @@ yoke steering report get
 ```
 
 The report already answers, from live control-plane state, every check that
-used to be a hand query here — available work with a per-row never-started
-/ owner-released marker and an overdue flag, idle claim holders keyed on
-`last_tool_call_at` rather than any liveness label, starved outbound delivery,
-launches with failed or overdue instruction binding, items whose branch landed
-while the item stayed open, whether an idle holder's last question can still be
-answered, how many role-addressed messages this scope holds that no seat has
-taken, and per-surface plan remaining and reset (informational only). Do not
-re-run those queries by hand: a steering seat that did burned a pass
-rediscovering what the report on screen had already told it. A section with
-nothing to say prints nothing, so a short report is a quiet fleet rather than a
-broken detector: wake sources are events, failures are silences, and the report
-scans the silences on every pass.
+used to be a hand query here — one section per finding, each listed below
+with what to do about it, and idle holders keyed on `last_tool_call_at`
+rather than any liveness label. Do not re-run those queries by hand: a seat
+that did burned a pass rediscovering what the report on screen already told
+it. A section with nothing to say prints nothing, so a short report is a
+quiet fleet rather than a broken detector: failures are the silences, and
+the report scans them every pass.
 
-What the report gives you is a finding. What to do with each one is still
-yours:
+What the report gives you is a finding; what to do with each one is yours:
 
 - **Available work** — staff it. An `!` row has waited past the staffing
   threshold; an unmarked row is simply available.
@@ -105,12 +99,13 @@ yours:
   count above. An overflow pointer means the body never injected: read
   `yoke messages get MESSAGE-ID` and ack; the row stays pending.
 - **Idle holders** — probe and revive. A holder that stamped `--mode parked`
-  declared its wait, and one inside a long call is listed under **In flight**
-  instead; neither appears here. A starved holder is also burning down its
-  stale clock, so read `stale_eligible_at` and `effective_stale_ttl_minutes`
-  from its `yoke sessions list --json` row while triaging: at `stale_eligible_at`
-  the reclaim sweep releases its claims and the item reads as untouched, so a
-  holder near reclaim is revived before anything else in the pass.
+  declared its wait, one inside a long call is listed under **In flight**, and
+  one the provider stopped under **Vendor-stopped sessions**; none of the
+  three appears here. A starved holder is also burning down its stale clock,
+  so read `stale_eligible_at` and `effective_stale_ttl_minutes` from its `yoke
+  sessions list --json` row while triaging: at `stale_eligible_at` the reclaim
+  sweep releases its claims and the item reads as untouched, so a holder
+  near reclaim is revived before anything else in the pass.
 - **In flight** — inside a watcher or merge landing wait: quiet because the
   command holds the turn, so nothing to do. Past 45m it rejoins **Idle holders**.
 - **Starved delivery** — read which shape the row is. *no delivery attempted*
@@ -124,7 +119,18 @@ yours:
   yoke session-control evidence get --session {SESSION_ID}
   ```
 
-  Otherwise use the registered wake or **Revive** bridge below.
+  *recipient turn in flight* is no failure: the worker is inside an
+  unreturned tool call, the envelope lands on that call's own hook, and a wake
+  would start a second turn — leave it. Otherwise use the wake or **Revive**
+  bridge below.
+- **Vendor-stopped sessions** — the model provider ended that worker's turn,
+  not the worker. The end of the row says who moves next: an attempt and a
+  time is the relay's, so leave it. A row naming you has no retry coming — an
+  exhausted quota or rejected credentials (fix the account, not the session),
+  or a spent budget, meaning every resume died the same way. Read the lane
+  first: a worker that produced commits is worth resuming, one that never got
+  a turn in is better reclaimed onto a fresh session; the same failure on
+  every row of a machine is the provider or that client build.
 - **Unregistered launches** — read which hand the row asks for. *native is
   live — bind it* means the process is up and only the binding is missing, so
   reconcile it onto the session the row names. *native is dead — reconcile,
@@ -188,15 +194,14 @@ Two things the report deliberately does not do, so do them yourself:
   TEXT`. Work that will never resume is `yoke items cancel PREFIX-N --reason
   TEXT`, not freeze.
 
-The dashboard session card carries these signals faster when the operator
-has it open: a server-active session reads `active now` under a minute and
-`idle <age>` once quiet; a server-stale session keeps `stale <age>` (or
-`stale · activity just now` after fresh activity). A claim-holding card also
-carries a `waiting` / `probed` / `possibly stale` health pill. The server's
-classification against the executor-aware TTL (1440 minutes on this surface)
-solely decides alive versus stale, so `idle 6h` can still be a session the
-control plane counts. The age says how long it has been quiet and whether to
-nudge it; the pill only appears past the staleness window.
+The dashboard session card carries these signals faster when the operator has
+it open: a server-active session reads `active now` under a minute and `idle
+<age>` once quiet; a server-stale one keeps `stale <age>` (or `stale ·
+activity just now` after fresh activity), and a claim-holding card adds a
+`waiting` / `probed` / `possibly stale` pill past the staleness window. The
+server's classification against the executor-aware TTL (1440 minutes on this
+surface) solely decides alive versus stale, so `idle 6h` can still be a
+session the control plane counts. The age says how long it has been quiet.
 
 ### 2. Consume worker reports
 
@@ -266,11 +271,9 @@ bridge is still for; resume that stuck session directly:
 cursor-agent --resume <session-id> --print --output-format json --workspace <dir> --trust '<instruction>'
 ```
 
-A run of workers that die or hang within a few tool calls on one otherwise
-installed and signed-in surface may mean vendor quota or credits are exhausted,
-which currently resembles a crash. Verify by running that harness CLI
-interactively, rebalance new lanes onto the other surfaces while it recovers,
-and restore the steady-state balance afterward.
+A run of deaths within a few tool calls on one installed, signed-in surface is
+vendor quota or credits exhausted. Rebalance new lanes onto the other surfaces
+until it recovers, then restore the steady-state balance.
 
 ### 3. Write the strategy document itemless
 
@@ -299,15 +302,9 @@ dependency, launch, and automatic document-archive boundary.
 
 Runnable work that sits unclaimed is this seat's to staff; nothing else
 does it. Work this seat files is staffed in the same pass, as soon as it is
-runnable; the report is not its trigger. The report covers work this seat
-did not create — its available list carries everything runnable and
-unclaimed, each row marked never-started or owner-released — and arrives
-appended to this session's messages covering every held scope; pull it
-between wakes with:
-
-```text
-yoke steering report get
-```
+runnable; the report is not its trigger. Everything else runnable and
+unclaimed reaches you through the available list of the report you already
+read above (`yoke steering report get` between wakes).
 
 Launch per [`worker-lifecycle.md`](worker-lifecycle.md) — item-bound and
 CLI-only, never a hand-rolled spawn and never `/yoke do`.

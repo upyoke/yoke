@@ -39,8 +39,7 @@ def _next_actor(entry: VendorErrorSession) -> str:
         return f"relay resumes it this poll (attempt {attempt} of {entry.budget})"
     if entry.status == "waiting_backoff":
         return (
-            f"relay resumes it at {entry.due_at} "
-            f"(attempt {attempt} of {entry.budget})"
+            f"relay resumes it at {entry.due_at} (attempt {attempt} of {entry.budget})"
         )
     if entry.status == "turn_in_flight":
         return "working now, inside an unreturned tool call — no resume"

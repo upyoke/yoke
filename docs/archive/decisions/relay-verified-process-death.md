@@ -98,3 +98,13 @@ which is a far worse failure than a skipped liveness sweep.
 does not need to be told: the records are its own, and reporting from a
 local scan keeps the whole exchange to one dispatch that happens only when
 there is something to report.
+
+## Related
+
+A dead process is the easy half. The same relay poll also handles a session
+that is unmistakably alive and will still never speak again, because the
+model provider ended its turn:
+[`codex-error-terminal-turn-wake.md`](codex-error-terminal-turn-wake.md)
+covers reading that from the session's own turn record, and
+[`vendor-stopped-session-resume.md`](vendor-stopped-session-resume.md)
+covers what the relay then does about it.
