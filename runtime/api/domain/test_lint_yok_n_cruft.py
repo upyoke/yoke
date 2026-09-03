@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import db_backend, lint_yok_n_cruft
+from yoke_core.domain import (
+    db_backend,
+    lint_yok_n_cruft,
+    lint_yok_n_cruft_status,
+)
 from runtime.api.fixtures.file_test_db import init_test_db
 
 
@@ -18,9 +22,9 @@ from runtime.api.fixtures.file_test_db import init_test_db
 def _seed_lint_items_table() -> None:
     """``init_test_db`` ``apply_schema`` strategy for the cruft lint.
 
-    Builds the tiny two-column ``items`` table the lint's work-item-status lookup
-    reads (deliberately NOT the production ``items`` schema) and seeds rows with
-    representative statuses. Resolves its own connection through the backend
+    Builds the minimal project/item identity columns the lint's status lookup
+    reads and seeds rows whose internal ids differ from their public sequences.
+    Resolves its own connection through the backend
     factory (``YOKE_DB`` on SQLite, the repointed per-test ``YOKE_PG_DSN`` on
     Postgres), so each test gets an isolated table that never collides with the
     ambient production ``items`` relation on Postgres. The lint's code-under-test
@@ -29,17 +33,32 @@ def _seed_lint_items_table() -> None:
     conn = db_backend.connect()
     try:
         conn.execute(
-            "CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT NOT NULL)"
+            "CREATE TABLE projects ("
+            "id INTEGER PRIMARY KEY, public_item_prefix TEXT NOT NULL)"
+        )
+        conn.execute(
+            "CREATE TABLE items ("
+            "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, "
+            "project_sequence INTEGER NOT NULL, status TEXT NOT NULL)"
         )
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        conn.execute(
+            f"INSERT INTO projects (id, public_item_prefix) VALUES ({p}, {p})",
+            (1, "YOK"),
+        )
         for row in [
-            (100, "done"),
-            (101, "done"),
-            (200, "implementing"),
-            (300, "refined-idea"),
-            (400, "cancelled"),
+            (1100, 1, 100, "done"),
+            (1101, 1, 101, "done"),
+            (1200, 1, 200, "implementing"),
+            (1300, 1, 300, "refined-idea"),
+            (1400, 1, 400, "cancelled"),
         ]:
-            conn.execute(f"INSERT INTO items (id, status) VALUES ({p}, {p})", row)
+            conn.execute(
+                f"INSERT INTO items "
+                f"(id, project_id, project_sequence, status) "
+                f"VALUES ({p}, {p}, {p}, {p})",
+                row,
+            )
         conn.commit()
     finally:
         conn.close()
@@ -89,9 +108,7 @@ def test_ignores_open_work_item(tmp_path: Path, db_path: str) -> None:
 
 def test_ignores_refined_work_item(tmp_path: Path, db_path: str) -> None:
     _seed(tmp_path)
-    (tmp_path / "docs" / "foo.md").write_text(
-        "Refined for planning: YOK-300.\n"
-    )
+    (tmp_path / "docs" / "foo.md").write_text("Refined for planning: YOK-300.\n")
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
     assert result.hits == []
 
@@ -138,7 +155,9 @@ def test_ignores_strategy_path(tmp_path: Path, db_path: str) -> None:
     assert result.hits == []
 
 
-def test_default_scope_excludes_packs_and_projects(tmp_path: Path, db_path: str) -> None:
+def test_default_scope_excludes_packs_and_projects(
+    tmp_path: Path, db_path: str
+) -> None:
     """Default scan targets the cold-start prose surfaces only. Pack source
     and per-project surfaces are out of scope unless the caller passes them
     explicitly via extra_paths."""
@@ -146,7 +165,9 @@ def test_default_scope_excludes_packs_and_projects(tmp_path: Path, db_path: str)
     (tmp_path / "packs").mkdir()
     (tmp_path / "packs" / "webapp.md").write_text("sample with YOK-100\n")
     (tmp_path / "projects").mkdir()
-    (tmp_path / "projects" / "externalwebapp.md").write_text("project note with YOK-100\n")
+    (tmp_path / "projects" / "externalwebapp.md").write_text(
+        "project note with YOK-100\n"
+    )
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
     assert result.hits == []
 
@@ -156,7 +177,9 @@ def test_extra_paths_broaden_scan_beyond_default(tmp_path: Path, db_path: str) -
     `runtime/`, `.yoke/strategy/`, or `projects/` on demand."""
     _seed(tmp_path)
     (tmp_path / "projects").mkdir()
-    (tmp_path / "projects" / "externalwebapp.md").write_text("project note with YOK-100\n")
+    (tmp_path / "projects" / "externalwebapp.md").write_text(
+        "project note with YOK-100\n"
+    )
     result = lint_yok_n_cruft.scan(
         tmp_path,
         db_path=db_path,
@@ -217,9 +240,45 @@ def test_dedupe_file_count(tmp_path: Path, db_path: str) -> None:
     """Multiple hits in one file count as one file in the summary."""
     _seed(tmp_path)
     (tmp_path / "docs" / "foo.md").write_text(
-        "First mention of YOK-100.\n"
-        "Second mention of YOK-100 on a later line.\n"
+        "First mention of YOK-100.\nSecond mention of YOK-100 on a later line.\n"
     )
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
     assert len(result.hits) == 2
     assert len({h.path for h in result.hits}) == 1
+
+
+def test_remote_status_lookup_relays_through_registered_items_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed(tmp_path)
+    (tmp_path / "docs" / "foo.md").write_text(
+        "This note retains a (YOK-100) provenance tag.\n"
+    )
+    calls = []
+
+    monkeypatch.setattr(
+        lint_yok_n_cruft_status.control_plane_transport,
+        "local_connection_or_none",
+        lambda _connect: None,
+    )
+
+    def _relay(function_id, payload):
+        calls.append((function_id, payload))
+        return {"rows": [{"id": "YOK-100", "status": "done"}]}
+
+    monkeypatch.setattr(
+        lint_yok_n_cruft_status.control_plane_transport,
+        "relay",
+        _relay,
+    )
+
+    result = lint_yok_n_cruft.scan(tmp_path)
+
+    assert [hit.work_item for hit in result.hits] == ["YOK-100"]
+    assert calls == [
+        (
+            "items.list.run",
+            {"project": "yoke", "fields": ["id", "status"]},
+        )
+    ]

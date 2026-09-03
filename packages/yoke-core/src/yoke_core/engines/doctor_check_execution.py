@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_core.engines import doctor_progress
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -74,6 +75,21 @@ def _run_isolated(
 
     try:
         health_check.fn(conn, args, rec)
+    except RemoteControlPlaneConnectionError as exc:
+        detail = (
+            f"Control-plane locality refusal in {health_check.slug} "
+            f"({type(exc).__name__}): {exc} Recovery: reach control-plane "
+            "rows through a registered function-call read, or, only when "
+            "this check intentionally opens a separate local database it "
+            "owns, declare the connection call site with "
+            "yoke_contracts.control_plane_locality.local_authority_exempt()."
+        )
+        try:
+            _rollback_if_supported(conn)
+        except Exception as rollback_exc:  # pragma: no cover - broken connection guard
+            detail += f" Transaction recovery also failed: {rollback_exc}"
+        rec.record(INTERNAL_ERROR_CHECK_ID, health_check.name, "FAIL", detail)
+        return
     except Exception as exc:
         detail = f"Internal error in {health_check.slug}: {exc}"
         try:
