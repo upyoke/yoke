@@ -212,3 +212,28 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
     /\.session-latest-message \.session-message-badge \{[^}]*padding-block: 0;/,
   );
 });
+
+test("The roster filter inputs and State dropdown share one fixed height", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_control.css",
+    import.meta.url,
+  ), "utf8");
+  // A native <select> outgrows a shared min-height while an <input> sits on
+  // it; only a fixed height on both keeps the filter row level.
+  assert.match(css, /\.universe-app-root \{\s*--session-control-height: 34px;\s*\}/);
+  assert.match(
+    css,
+    /\.universe-app-root \.session-roster-filter input,\n\.universe-app-root \.session-roster-filter select \{[^}]*height: var\(--session-control-height\);/,
+  );
+  // The shared rule keeps its minimum so the message textarea stays tall and
+  // resizable and the session-control panel fields keep their size.
+  const shared = css.match(
+    /\.universe-app-root \.session-control-input \{([^}]*)\}/,
+  )[1];
+  assert.match(shared, /min-height: var\(--session-control-height\);/);
+  assert.doesNotMatch(shared, /\n\s*height:/);
+  assert.match(
+    css,
+    /\.universe-app-root \.session-message-body \{[^}]*min-height: 130px;[^}]*resize: vertical;/,
+  );
+});
