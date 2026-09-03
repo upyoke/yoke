@@ -22,7 +22,7 @@ from yoke_core.domain.agents_render_hooks import (
 )
 
 
-def test_default_only_events_render_single_matcherless_entry() -> None:
+def test_claude_events_render_single_matcherless_dispatch() -> None:
     block = render_claude_hooks_block()
     for event in (
         "SessionStart",
@@ -30,6 +30,7 @@ def test_default_only_events_render_single_matcherless_entry() -> None:
         "Stop",
         "UserPromptSubmit",
         "PreToolUse",
+        "PostToolUse",
     ):
         entries = block[event]
         assert len(entries) == 1, (event, entries)
@@ -37,14 +38,12 @@ def test_default_only_events_render_single_matcherless_entry() -> None:
 
 
 def test_posttool_events_have_no_redundant_per_tool_fanout() -> None:
-    """The matcherless ``_default`` entry covers every tool; explicit
-    matcher entries exist only for tools with their own registered chain."""
+    """One matcherless dispatch lets the runner select each tool's chain."""
     block = render_claude_hooks_block()
 
     post = block["PostToolUse"]
-    matcherless = [e for e in post if "matcher" not in e]
-    assert len(matcherless) == 1, post
-    assert {e["matcher"] for e in post if "matcher" in e} == {"Bash", "Agent"}
+    assert len(post) == 1, post
+    assert "matcher" not in post[0], post
 
     post_failure = block["PostToolUseFailure"]
     assert len(post_failure) == 1, post_failure

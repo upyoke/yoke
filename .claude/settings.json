@@ -18,24 +18,6 @@
             "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PostToolUse'",
             "type": "command"
           }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PostToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Agent"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PostToolUse'",
-            "type": "command"
-          }
         ]
       }
     ],

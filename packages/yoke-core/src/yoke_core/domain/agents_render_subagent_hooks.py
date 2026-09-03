@@ -11,8 +11,9 @@ orchestrator (:mod:`yoke_core.domain.agents_render`) used to inline:
 - :func:`render_claude_agent` — produce the full rendered Claude
   adapter file (frontmatter + body) for a single agent.
 - :func:`render_claude_subagent_hooks_block` — compose the per-subagent
-  ``hooks`` YAML block: matcherless PreToolUse (runner selects the chain
-  from ``tool_name``), PostToolUse observe, and SubagentStop.
+  ``hooks`` YAML block with exactly one matcherless command per emitted
+  event: PreToolUse (runner selects the chain from ``tool_name``),
+  PostToolUse observe, and SubagentStop.
 
 Single source of truth for subagent hook chains:
 
