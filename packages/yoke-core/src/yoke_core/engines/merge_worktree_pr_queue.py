@@ -180,6 +180,10 @@ class PrLandingState:
     auto_merge_active: bool
     merge_state_status: str = ""
     head_sha: str = ""
+    #: When GitHub merged it, so a reader that arrives late records the
+    #: landing's own moment rather than the moment it noticed.
+    merged_at: str = ""
+    merge_commit_sha: str = ""
 
 
 def read_pr_landing_state(
@@ -210,6 +214,8 @@ def read_pr_landing_state(
             auto_merge_active=body.get("auto_merge") is not None,
             merge_state_status=str(body.get("mergeable_state") or "").lower(),
             head_sha=head_sha,
+            merged_at=str(body.get("merged_at") or "").strip(),
+            merge_commit_sha=str(body.get("merge_commit_sha") or "").strip(),
         ),
         None,
     )

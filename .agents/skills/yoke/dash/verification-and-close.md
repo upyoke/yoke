@@ -166,9 +166,11 @@ Merge-queue projects have two landing routes, and which one this session takes
 is settled by whether it can be prompted again. A session a person opened takes
 the two-call handoff. A session launched from a worker mandate is a headless
 command that cannot accept a later prompt, so it takes the in-turn wait below:
-ending a launched worker's pass on `landing_pending=true` strands the close-out,
-leaving the branch landed and the item at `reviewing-implementation` with nobody
-to re-enter.
+ending a launched worker's pass on `landing_pending=true` leaves the branch
+landed and the item at `reviewing-implementation` with nobody to re-enter. The
+control plane records that landing from GitHub and reports it as landed without
+close-out, so it is recoverable rather than lost — but recovering it costs a
+steering seat's attention.
 
 Either way the first call opens / rebases / arms the pull request and returns
 `landing_pending=true`, which means GitHub itself reported that it holds the

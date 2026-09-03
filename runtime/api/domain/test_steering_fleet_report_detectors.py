@@ -231,3 +231,61 @@ def test_a_queue_landing_counts_as_the_branch_landing(fleet):
     landed = landed_without_closeout(fleet, project_id=PROJECT_ID, now=NOW)
 
     assert [entry.item_id for entry in landed] == [1]
+    # Nothing holds the item, and that is the answer the report needs: this
+    # landing needs a seat rather than a message.
+    assert landed[0].holder_session_id == ""
+
+
+def _claim_item(conn, session_id: str, *, item_id: int = 1, **columns) -> None:
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(session_id, target_kind, scope, claimed_at, last_heartbeat, released_at) "
+        "VALUES (%s, 'item', %s, %s, %s, %s)",
+        (
+            session_id,
+            json.dumps({"item_id": item_id}),
+            LONG_AGO,
+            LONG_AGO,
+            columns.get("released_at"),
+        ),
+    )
+
+
+def test_a_landing_its_claim_holder_still_holds_names_that_session(fleet):
+    """Close-out holds the claim, so the holder IS the recovery path."""
+    fleet.execute("UPDATE items SET merged_at = %s WHERE id = 1", (LONG_AGO,))
+    _claim_item(fleet, ASKER)
+    fleet.commit()
+
+    landed = landed_without_closeout(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert landed[0].holder_session_id == ASKER
+
+
+def test_a_landing_whose_holder_ended_reports_no_live_holder(fleet):
+    """An ended session cannot be asked to close out.
+
+    Naming it would point the seat at a recovery that cannot happen, which
+    is the state this row exists to make actionable.
+    """
+    fleet.execute("UPDATE items SET merged_at = %s WHERE id = 1", (LONG_AGO,))
+    fleet.execute(
+        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
+        (LONG_AGO, ASKER),
+    )
+    _claim_item(fleet, ASKER)
+    fleet.commit()
+
+    landed = landed_without_closeout(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert landed[0].holder_session_id == ""
+
+
+def test_a_released_claim_is_not_a_live_holder(fleet):
+    fleet.execute("UPDATE items SET merged_at = %s WHERE id = 1", (LONG_AGO,))
+    _claim_item(fleet, ASKER, released_at=NOW)
+    fleet.commit()
+
+    landed = landed_without_closeout(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert landed[0].holder_session_id == ""

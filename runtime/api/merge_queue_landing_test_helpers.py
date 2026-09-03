@@ -53,18 +53,24 @@ def ok_response(result):
     return SimpleNamespace(success=True, result=result, error=None)
 
 
-def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION):
+def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION, merge_queue=None):
     """Dispatch fake serving claims/profile/dependency reads per item ref.
 
     ``holder`` answers the work-claim lookup the timeout message makes;
     it is keyed by item id rather than ref, so it is served before the
     per-ref shapes are consulted. Pass ``None`` for an item whose claim
     has been released.
+
+    ``merge_queue`` is the item's recorded landing, which the route reads
+    before anything else: an empty one means no landing is on record, so
+    the full landing path runs.
     """
 
     def dispatch(*, function_id, target, payload=None, **_kw):
         if function_id == "claims.work.holder_get":
             return ok_response({"holder": holder})
+        if function_id == "items.detail.get":
+            return ok_response({"item": {"merge_queue": dict(merge_queue or {})}})
         if function_id == DB_READ_FUNCTION_ID:
             rows = []
             for public_ref, shape in shapes.items():

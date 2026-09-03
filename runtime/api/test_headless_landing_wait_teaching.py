@@ -81,9 +81,12 @@ def test_dash_close_out_routes_the_landing_by_whether_the_session_is_headless():
     assert "Two-call handoff — an operator-opened session." in content
     assert "In-turn wait — a launched worker." in content
     assert "headless command that cannot accept a later prompt" in content
-    # Why the handoff cannot be the launched worker's route.
-    assert "strands the close-out" in content
+    # Why the handoff cannot be the launched worker's route: the landing is
+    # recorded from GitHub either way, so the cost is a seat's attention
+    # rather than a lost merge — which is still a cost worth avoiding.
     assert "at `reviewing-implementation` with nobody to re-enter" in content
+    assert "recoverable rather than lost" in content
+    assert "costs a" in content and "steering seat's attention" in content
     # The wait is the wrapper over the existing readback, never a hand-
     # authored poll loop and never a blocking bare foreground call.
     assert (

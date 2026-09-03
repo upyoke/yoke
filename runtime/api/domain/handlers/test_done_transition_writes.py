@@ -6,7 +6,8 @@ unchanged engine/domain write; these tests prove the wrapper writes real
 DB rows server-side (deployed_to set, release_entries upserted, merged_at
 set) and returns the declared response shape. This is the local /
 in-process leg of the ALL-MODES contract; the relay leg is covered by
-``test_done_transition_writes_transport``.
+``test_done_transition_writes_transport``. The merge-queue landing marker
+writes are covered by ``test_merge_queue_marker_writes``.
 """
 
 from __future__ import annotations
@@ -200,42 +201,37 @@ class TestPopulateMergedAt:
         assert outcome.error is not None
         assert outcome.error.code == "target_invalid"
 
+    def test_an_earlier_recorded_landing_time_survives_close_out(self, db):
+        """Close-out stamps when it ran, which is later than the merge.
 
-class TestLandingPendingMarker:
-    def test_mark_is_idempotent_and_clear_removes_the_handoff(self, db):
-        item_id = 9521
+        When the landing observer has already recorded the moment GitHub
+        reported the merge, that is the truer answer, and it is the number
+        the report measuring unclosed landings ages from. So the write keeps
+        it and reports back what the item actually holds.
+        """
+        item_id = 9513
         conn = connect_test_db(db)
         try:
             insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+            conn.execute(
+                "UPDATE items SET merged_at = %s WHERE id = %s",
+                ("2026-09-03T15:05:46Z", item_id),
+            )
+            conn.commit()
         finally:
             conn.close()
 
-        first = writes.handle_mark_landing_pending(
+        outcome = writes.handle_populate_merged_at(
             _item_envelope(
-                "merge_queue.landing_pending.mark",
+                "done_transition.populate_merged_at",
                 item_id=item_id,
-                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:00:00Z"},
+                payload={"merged_at": "2026-09-03T15:20:00Z"},
             )
         )
-        second = writes.handle_mark_landing_pending(
-            _item_envelope(
-                "merge_queue.landing_pending.mark",
-                item_id=item_id,
-                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:05:00Z"},
-            )
-        )
-        assert first.primary_success and second.primary_success
-        assert second.result_payload["enqueued_at"] == "2026-08-27T18:00:00Z"
-        writes.MarkLandingPendingResponse(**second.result_payload)
 
-        cleared = writes.handle_clear_landing_pending(
-            _item_envelope("merge_queue.landing_pending.clear", item_id=item_id)
-        )
-        assert cleared.primary_success
-        writes.ClearLandingPendingResponse(**cleared.result_payload)
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload["merged_at"] == "2026-09-03T15:05:46Z"
         assert (
-            _scalar(
-                db, "SELECT merge_queue_pr_number FROM items WHERE id = %s", (item_id,)
-            )
-            is None
+            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
+            == "2026-09-03T15:05:46Z"
         )

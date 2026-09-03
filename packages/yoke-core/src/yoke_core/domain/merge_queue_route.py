@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 import time
-from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
@@ -17,8 +16,6 @@ from yoke_core.domain.merge_queue_admission_shape import (
     candidate_shape,
     train_context,
 )
-from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
-from yoke_core.domain.merge_queue_close_out import record_landing
 from yoke_core.domain.merge_queue_enqueue_verification import (
     red_entry_checks_refusal,
     verify_landing_admitted,
@@ -29,6 +26,12 @@ from yoke_core.domain.merge_queue_failed_train import (
 from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
 )
+from yoke_core.domain.merge_queue_landing_outcome import (
+    QueueLandingOutcome,
+    close_out,
+    fail_landing,
+    recorded_landing,
+)
 from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
 from yoke_core.domain.merge_queue_landing_wait import (
     DEFAULT_DEADLINE_SECONDS,
@@ -36,10 +39,7 @@ from yoke_core.domain.merge_queue_landing_wait import (
     RECOVERABLE_QUEUE_EXIT_CODE,
     wait_for_queue_landing,
 )
-from yoke_core.domain.merge_queue_drift_gate import (
-    drift_check_before_landing,
-    drift_receipt,
-)
+from yoke_core.domain.merge_queue_drift_gate import drift_check_before_landing
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.engines.merge_worktree_pr_queue import (
     enter_merge_queue,
@@ -51,30 +51,6 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 def _emit_to_stderr(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
-
-
-@dataclass(frozen=True)
-class QueueLandingOutcome:
-    ok: bool
-    exit_code: int
-    pr_num: str = ""
-    commit_sha: str = ""
-    merge_sha: str = ""
-    touched_files: tuple[str, ...] = field(default=())
-    batch: Optional[BatchReceipt] = None
-    already_merged: bool = False
-    landing_pending: bool = False
-    enqueued_at: str = ""
-    error: str = ""
-    warnings: tuple[str, ...] = field(default=())
-
-
-def _fail_landing(
-    pr_num: str, error: str, warnings, *, exit_code: int = 1
-) -> QueueLandingOutcome:
-    return QueueLandingOutcome(
-        ok=False, exit_code=exit_code, pr_num=pr_num, error=error, warnings=warnings
-    )
 
 
 def land_item_through_merge_queue(
@@ -96,6 +72,29 @@ def land_item_through_merge_queue(
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue."""
     warnings: list[str] = []
+
+    # A landing already recorded from GitHub leaves nothing to land, so the
+    # queue is never consulted again: re-reading membership would find this
+    # pull request gone and the admission gate would refuse a train that
+    # already ran, turning the one recoverable state — merged, not closed
+    # out — into a refusal. Close-out itself is idempotent bookkeeping.
+    recorded_pr, recorded_landed_at = recorded_landing(dispatch, item_id)
+    if recorded_pr and recorded_landed_at:
+        emit(
+            f"[phase:landing] pull request {recorded_pr} landed at "
+            f"{recorded_landed_at}; closing out from the recorded landing"
+        )
+        return close_out(
+            ctx,
+            item_id=item_id,
+            public_ref=public_ref,
+            commit_sha=commit_sha,
+            pr_num=recorded_pr,
+            member_refs=(),
+            drift=None,
+            resume_command=resume_command,
+            warnings=warnings,
+        )
 
     # A comparison that could not run rides the batch evidence instead.
     drift = drift_check_before_landing(
@@ -142,6 +141,7 @@ def land_item_through_merge_queue(
         ctx,
         public_ref,
         lane_head=commit_sha,
+        item_id=item_id,
     )
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
@@ -177,7 +177,7 @@ def land_item_through_merge_queue(
         # landing waiting for an entry GitHub will never create.
         red_checks = red_entry_checks_refusal(ctx, pr_num)
         if red_checks:
-            return _fail_landing(pr_num, red_checks, tuple(warnings))
+            return fail_landing(pr_num, red_checks, tuple(warnings))
         entry = enter_merge_queue(ctx, pr_num)
         if not entry.success:
             return QueueLandingOutcome(
@@ -194,7 +194,7 @@ def land_item_through_merge_queue(
             ctx, pr_num, target=target, sleep=sleep
         )
         if not_admitted:
-            return _fail_landing(
+            return fail_landing(
                 pr_num,
                 not_admitted,
                 tuple(warnings),
@@ -251,38 +251,24 @@ def land_item_through_merge_queue(
         warnings=warnings,
     )
     if refusal is not None:
-        return _fail_landing(
+        return fail_landing(
             pr_num,
             refusal.error,
             tuple(warnings),
             exit_code=refusal.exit_code,
         )
 
-    close_out = record_landing(
+    return close_out(
         ctx,
         item_id=item_id,
+        public_ref=public_ref,
         commit_sha=commit_sha,
         pr_num=pr_num,
-        member_snapshot=tuple(dict.fromkeys((*member_refs, public_ref))),
-        drift_check=drift_receipt(drift),
-    )
-    warnings.extend(close_out.warnings)
-    ci_refusal = close_out.ci_evidence_refusal(pr_num, resume_command)
-    if ci_refusal:
-        return _fail_landing(
-            pr_num, ci_refusal,
-            tuple(warnings), exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-        )
-    return QueueLandingOutcome(
-        ok=True,
-        exit_code=0,
-        pr_num=pr_num,
-        commit_sha=commit_sha,
-        merge_sha=close_out.merge_sha,
-        touched_files=close_out.touched_files,
-        batch=close_out.batch,
+        member_refs=member_refs,
+        drift=drift,
+        resume_command=resume_command,
+        warnings=warnings,
         already_merged=already_merged,
-        warnings=tuple(warnings),
     )
 
 

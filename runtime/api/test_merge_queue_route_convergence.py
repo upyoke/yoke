@@ -18,6 +18,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
     wire_happy_path,
 )
 
+from yoke_core.domain import merge_queue_landing_outcome as outcome_mod
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_route as route_mod
@@ -232,7 +233,7 @@ def test_lane_beyond_the_merged_pull_request_lands_freshly(monkeypatch):
     )
     landed: list[str] = []
     monkeypatch.setattr(
-        route_mod, "record_landing",
+        outcome_mod, "record_landing",
         lambda _ctx, **kw: landed.append(kw["pr_num"]) or QueueCloseOut(
             merge_sha="n" * 40, touched_files=("a.py",),
         ),
@@ -268,7 +269,7 @@ def test_lane_beyond_the_merged_pull_request_records_nothing_when_stuck(
     def forbidden(*_a, **_kw):
         raise AssertionError("a refused convergence must record nothing")
 
-    monkeypatch.setattr(route_mod, "record_landing", forbidden)
+    monkeypatch.setattr(outcome_mod, "record_landing", forbidden)
 
     outcome = land()
 

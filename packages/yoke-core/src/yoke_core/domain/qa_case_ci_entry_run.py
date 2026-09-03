@@ -240,6 +240,7 @@ def open_landing_pull_request(
     branch: str,
     target: str,
     lane_head: str,
+    item_id: int = 0,
 ) -> str:
     """Open (or converge on) the pull request whose entry run gates this tree.
 
@@ -271,6 +272,7 @@ def open_landing_pull_request(
             ctx,
             branch,
             lane_head=lane_head,
+            item_id=item_id,
         )
     if error:
         raise QaCaseExecutionError(

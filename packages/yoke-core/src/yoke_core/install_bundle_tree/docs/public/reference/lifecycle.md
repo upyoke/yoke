@@ -262,7 +262,7 @@ the recovery workflow, including how to read the real timestamp off the
 merge commit.
 
 A live item never needs this: `yoke merge item PREFIX-N` is the merge boundary
-and stamps `merged_at` itself.
+and stamps `merged_at` itself, and on a merge-queue project it need not be the process that sees the merge — the pull request number is recorded when that pull request opens, and the control-plane observer stamps `merged_at` and the merge-queue landing columns from GitHub's own merge time. A worker whose wait died therefore leaves a recorded landing rather than an untouched-looking item: the fleet report reports it as landed without close-out, and re-entering `yoke merge item PREFIX-N` closes out from those recorded facts without re-consulting the queue. Recording a landing never advances the stage; close-out stays a claim-holding step.
 
 Note that nothing currently blocks an item from reaching a terminal stage
 with `merged_at` unset — the equivalent gate exists only for epics

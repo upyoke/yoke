@@ -146,8 +146,10 @@ yours:
   The item reads unclaimed rather than wrong, so nothing else in the pass will
   surface it. Read the quoted last line — a refusal that will repeat needs
   fixing before the work is restaffed — then staff the item again.
-- **Landed without close-out** — nudge the live claim holder; with no live
-  holder, route the normal starvation/restaffing path.
+- **Landed without close-out** — merged already; only bookkeeping is owed.
+  Message the named holder to re-enter `yoke merge item PREFIX-N`, which
+  closes out from the recorded landing; on `no live holder`, restaff. Never
+  redo the merge.
 - **Dead waits** — a row naming an ended answerer, or an answerer whose own
   item is terminal, means no reply is coming: answer on the ended session's
   behalf, sending the asker the answer plus the current state of whatever
