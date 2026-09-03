@@ -191,8 +191,10 @@ class TestHcStaleReclaimCollision:
         _insert_session(conn, "sess-A", executor="codex")
         # Reclaim 30 minutes ago.
         _insert_reclaimed_event(conn, "sess-A", reclaimed_at=_ago_minutes(30))
-        # Tool event 10 minutes ago — inside the shared 20-minute window.
-        _insert_tool_event(conn, "sess-A", created_at=_ago_minutes(10))
+        # Tool event 15 minutes ago — unambiguously inside the shared
+        # 20-minute window, even when the two timestamps cross a wall-clock
+        # second while the fixture is being assembled.
+        _insert_tool_event(conn, "sess-A", created_at=_ago_minutes(15))
 
         rec = _RecordCapture()
         hc_stale_reclaim_collision(conn, _Args(), rec)
