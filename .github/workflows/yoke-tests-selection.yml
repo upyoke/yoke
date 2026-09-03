@@ -8,6 +8,15 @@ name: yoke-tests-selection
 # working tree. Its concurrency group is keyed by dispatch id and never
 # cancels: yoke-ci cancels in-progress runs per ref, and a selection
 # dispatched on a lane branch must never take that lane's gate down.
+#
+# GitHub registers a workflow_dispatch workflow only from the DEFAULT branch:
+# until this file is on main, the dispatch API answers 404 for it whatever ref
+# is requested, and the wrapper reports CI as unreachable and names --local.
+# A selection workflow therefore starts working on the merge that lands it,
+# never on the branch that adds it. Verified 2026-09-03: while this file
+# existed only on its own lane, `gh api
+# repos/<owner>/<repo>/actions/workflows/yoke-tests-selection.yml` was 404 and
+# the workflow was absent from the repository's workflow listing.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
       && format('yoke-tests-selection {0} [yoke-dispatch:{1}]', inputs.head_sha, inputs.yoke_dispatch_id)

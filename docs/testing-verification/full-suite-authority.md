@@ -40,6 +40,14 @@ Local verification stays change-scoped:
   instead of a lane. It drops `-n`/`--numprocesses`/`--rootdir`, which
   describe this machine, and names the drop.
 
+  A selection workflow only becomes dispatchable once it is on the
+  repository's default branch: GitHub registers `workflow_dispatch`
+  workflows from that branch alone, so while the file exists only on the
+  branch that adds it, the dispatch API answers 404 whatever ref is
+  requested and the wrapper reports CI as unreachable. Routing therefore
+  begins working on the merge that lands the workflow, not on the branch
+  that authors it — until then, verify with `--local`.
+
   `--local` — or `YOKE_PYTEST_LOCAL=1` for a whole shell — runs it here
   instead: order-sensitive `-n 0` debugging, a tree you want to try
   before committing, an unreachable CI. Local runs take their xdist

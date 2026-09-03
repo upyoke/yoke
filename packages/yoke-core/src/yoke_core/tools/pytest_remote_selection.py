@@ -204,6 +204,18 @@ def resolve_route(
     if environ.get("CI"):
         return LocalRoute("already running on CI")
     project = default_project_for_directory(root)
+    from yoke_core.domain.yoke_connected_env import load_active
+
+    if load_active() is None:
+        # No binding at all is not an outage to wait out: this process was
+        # detached from the machine's control plane on purpose (the
+        # source-dev runner hides it so a test child cannot inherit
+        # administering authority). With no declaration reachable, the
+        # honest answer is the same one an undeclared project gets.
+        return LocalRoute(
+            "this process has no control-plane connection to read a CI "
+            "declaration from"
+        )
     try:
         from yoke_core.domain.project_ci_workflow import project_ci_workflow_settings
 

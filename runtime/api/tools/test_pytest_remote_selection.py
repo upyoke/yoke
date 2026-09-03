@@ -49,6 +49,11 @@ def lane_repo(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setattr(
         "yoke_core.domain.qa_case_ci_lane.repo_slug", lambda _root: "acme/widgets",
     )
+    # A pytest child runs with the machine config deliberately hidden, so the
+    # real lookup answers None here and would route every case below locally.
+    monkeypatch.setattr(
+        "yoke_core.domain.yoke_connected_env.load_active", lambda *a, **k: object(),
+    )
     return root
 
 
@@ -116,6 +121,26 @@ def test_tree_without_the_selection_workflow_runs_locally(lane_repo: Path) -> No
 
     assert isinstance(route, routing.LocalRoute)
     assert routing.DEFAULT_SELECTION_WORKFLOW_FILE in route.reason
+
+
+def test_process_without_a_control_plane_binding_runs_locally(
+    lane_repo: Path, monkeypatch,
+) -> None:
+    """A detached process has no declaration to read, so it is not an outage.
+
+    The source-dev runner hides the machine config from its children on
+    purpose. Refusing there would turn the sanctioned way to run a lane's
+    own tests into a dead end, so the honest answer is the one an
+    undeclared project already gets: run here, and say why.
+    """
+    monkeypatch.setattr(
+        "yoke_core.domain.yoke_connected_env.load_active", lambda *a, **k: None,
+    )
+
+    route = _route(lane_repo)
+
+    assert isinstance(route, routing.LocalRoute)
+    assert "control-plane connection" in route.reason
 
 
 def test_unreachable_control_plane_refuses_and_names_local(lane_repo: Path, monkeypatch) -> None:
