@@ -142,7 +142,7 @@ def test_build_plan_existing_project_missing_board_art_lists_art_step() -> None:
 
     assert "project-write-board-art" in actions
     assert "Install the Yoke project scaffold (.yoke/)" in repo
-    assert "Write your board art and initial BOARD.md" in repo
+    assert "Write your board art, rebuild BOARD.md, and commit the art" in repo
     assert grouped["core"][-1] == (
         "Use GitHub settings already stored in the Yoke core database for this project"
     )
@@ -167,7 +167,7 @@ def test_build_plan_existing_project_with_board_art_skips_art_step(
 
     assert "project-write-board-art" not in actions
     assert "Install the Yoke project scaffold (.yoke/)" in repo
-    assert "Write your board art and initial BOARD.md" not in repo
+    assert "Write your board art, rebuild BOARD.md, and commit the art" not in repo
 
 
 def test_reuse_feedback_names_detected_clone_values() -> None:

@@ -85,7 +85,7 @@ def board_art_payoff_body(
     return [
         Static(f"[{ACCENT}]✓ Your board is ready.[/]", classes="onboard-title"),
         Static(
-            "Saved .yoke/board-art and rebuilt your board.",
+            "Committed .yoke/board-art and rebuilt your board — the checkout is clean.",
             classes="onboard-subtitle",
         ),
         Static("", classes="onboard-spacer"),

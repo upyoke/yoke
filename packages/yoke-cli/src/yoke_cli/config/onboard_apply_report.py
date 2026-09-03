@@ -157,6 +157,20 @@ class ApplyReportWriter:
         self.payload["updated_at"] = _now_iso()
         self.write()
 
+    def step_outcome(
+        self, step_id: str, detail: Mapping[str, Any],
+    ) -> None:
+        """Mark one step done and attach what it actually did."""
+        step = self._steps.get(str(step_id))
+        if step is None:
+            return
+        step["status"] = STATUS_DONE
+        step["finished_at"] = _now_iso()
+        step["error"] = None
+        step["detail"] = dict(detail)
+        self.payload["updated_at"] = _now_iso()
+        self.write()
+
     def summary(self) -> dict[str, Any]:
         return {
             "run_id": self.payload["run_id"],
@@ -214,38 +228,6 @@ class ApplyReportWriter:
             if step.get("status") == STATUS_PENDING:
                 return step_id
         return None
-
-
-def fail_report_path(
-    path: str | Path,
-    error: BaseException,
-    *,
-    action: str | None = None,
-) -> dict[str, Any]:
-    """Mark an already-written apply report failed after a late apply step.
-
-    The TUI board-art payoff runs after ``build_report`` returns, so failures
-    there need to reopen the durable report and mark the corresponding step.
-    """
-    report_path = Path(path).expanduser()
-    payload = json.loads(report_path.read_text(encoding="utf-8"))
-    writer = ApplyReportWriter(report_path, payload)
-    writer.fail(error, step_id=_step_id_for_action(payload, action))
-    return writer.summary()
-
-
-def _step_id_for_action(
-    payload: Mapping[str, Any],
-    action: str | None,
-) -> str | None:
-    if not action:
-        return None
-    for raw in payload.get("steps") or []:
-        if not isinstance(raw, Mapping):
-            continue
-        if raw.get("action") == action:
-            return str(raw.get("step_id") or "")
-    return None
 
 
 def run_report_path(run_id: str) -> Path:
@@ -317,7 +299,6 @@ def steps_from_preview(preview: Mapping[str, Any]) -> list[StepRef]:
 
 __all__ = [
     "ApplyReportWriter",
-    "fail_report_path",
     "OnboardApplyReportError",
     "REPORTS_DIR_NAME",
     "SCHEMA_NAME",

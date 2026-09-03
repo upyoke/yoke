@@ -64,7 +64,7 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         ("project-install-git-hooks", ""):
             "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)",
         ("project-write-board-art", ""):
-            "Write your board art and initial BOARD.md",
+            "Write your board art, rebuild BOARD.md, and commit the art",
         ("project-source-dev-admin", "/src/yoke"):
             "Set up the Yoke source checkout at /src/yoke",
         ("project-github-auth-choice", GITHUB_ADOPTION_APP_BINDING):

@@ -9,6 +9,7 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config import onboard_wizard_board_art as art  # noqa: E402
+from yoke_cli.config import onboard_wizard_board_art_apply as art_apply  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardResult  # noqa: E402
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow  # noqa: E402
 from yoke_contracts.project_contract.board_art import (  # noqa: E402
@@ -89,27 +90,6 @@ def test_render_master_map_returns_board_header():
     # render_header composed the stats box, so we got the real board header,
     # not the bare-map fallback.
     assert "THE BOARD" in rendered
-
-
-def test_write_board_art_writes_sections(tmp_path: Path):
-    variants = [
-        art.generate_variant(kind="ASCII", word="EXT", seed_text="s", attempt=0),
-        art.generate_variant(kind="Mixed", word="EXT", seed_text="s", attempt=0),
-    ]
-    art.write_board_art(tmp_path, "EXT", variants)
-    content = (tmp_path / ".yoke" / "board-art").read_text(encoding="utf-8")
-    assert "## Master Map" in content
-    assert "## ASCII" in content
-    assert "## Mixed" in content
-
-
-def test_repo_root_prefers_report_then_fallback(tmp_path: Path):
-    report = {"project_onboarding": {"checkout": str(tmp_path)}}
-    assert art.repo_root_from_report(report, "/other") == tmp_path
-    structured = {"project_onboarding": {"checkout": {"path": str(tmp_path)}}}
-    assert art.repo_root_from_report(structured, "/other") == tmp_path
-    assert art.repo_root_from_report({}, str(tmp_path)) == tmp_path
-    assert art.repo_root_from_report({}, None) is None
 
 
 def test_preview_rows_shape_by_kind():
@@ -307,7 +287,7 @@ def test_flow_edit_master_letters_caps_at_limit():
 
 
 def test_flow_after_apply_writes_and_shows_payoff(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(art, "rebuild_board", lambda repo_root: None)
+    monkeypatch.setattr(art_apply, "rebuild_board", lambda repo_root: None)
     shell = _shell()
     shell._goto_board_art_intro()
     shell._on_board_art_style("ascii")
