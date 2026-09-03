@@ -125,6 +125,7 @@ def _run_and_report(
     )
     result = retain_private_diagnostic(
         runner(job),
+        attempt_id=str(job.get("job_id") or ""),
         state_dir=state_dir,
         relay_id=inventory.relay_id,
         machine_id=inventory.machine_id,

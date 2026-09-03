@@ -84,7 +84,11 @@ def _session_row(conn, session_id: str):
 
 def test_a_stale_claimless_session_on_this_machine_is_ended(conn):
     session_id = _ghost(conn)
-    assert _apply(conn, session_id) == {"ended": [session_id], "skipped": []}
+    assert _apply(conn, session_id) == {
+        "ended": [session_id],
+        "launches_corrected": [],
+        "skipped": [],
+    }
     assert _session_row(conn, session_id)["ended_at"]
 
 
@@ -95,6 +99,7 @@ def test_desktop_and_headless_claim_holders_are_spared(conn, executor_surface):
 
     assert _apply(conn, session_id) == {
         "ended": [],
+        "launches_corrected": [],
         "skipped": [{"session_id": session_id, "status": CLAIMS_HELD_STATUS}],
     }
     row = _session_row(conn, session_id)

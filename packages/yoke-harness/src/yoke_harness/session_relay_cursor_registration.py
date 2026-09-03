@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from yoke_harness.session_launch_containment import contain_launch_native
+from yoke_harness.session_launch_containment_sweep import contain_launch_native
 from yoke_harness.session_relay_cursor_identity import (
     ACP_SESSION_PARSE_EXPECTATION,
     CURSOR_REGISTRATION_WAIT_SECONDS,

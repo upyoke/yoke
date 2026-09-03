@@ -25,7 +25,7 @@ from runtime.api.domain.session_launch_test_support import (
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
 RELAY_ID = f"machine:{MACHINE_ID}"
-DIAGNOSTIC_REF = "nd-" + "a" * 32
+DIAGNOSTIC_REF = "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
 
 def _heartbeat() -> RelayHeartbeat:
@@ -92,12 +92,15 @@ def test_relay_lease_expiry_preserves_last_phase_and_diagnostic() -> None:
     # The relay's own last word survives the closure. The document also
     # carries what the server observed as it closed the attempt, so this
     # asserts the preserved keys rather than the absence of every other one.
-    assert evidence.items() >= {
-        "native_diagnostic_command": f"yoke relay diagnostic {DIAGNOSTIC_REF}",
-        "native_diagnostic_ref": DIAGNOSTIC_REF,
-        "native_launch_phase": "spawn",
-        "result_code": "relay_lease_expired",
-    }.items()
+    assert (
+        evidence.items()
+        >= {
+            "native_diagnostic_command": f"yoke relay diagnostic {DIAGNOSTIC_REF}",
+            "native_diagnostic_ref": DIAGNOSTIC_REF,
+            "native_launch_phase": "spawn",
+            "result_code": "relay_lease_expired",
+        }.items()
+    )
     launch_row = conn.execute(
         "SELECT state,result_code,result_evidence FROM session_launches "
         "WHERE launch_id=?",
@@ -226,10 +229,13 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
     assert attached.state == "launching"
     assert attached.result_code == "native_spawn_pending"
     assert attached.deadline_at == deadline
-    assert conn.execute(
-        "SELECT COUNT(*) FROM session_launch_attempts WHERE launch_id=?",
-        (launch.launch_id,),
-    ).fetchone()[0] == 1
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM session_launch_attempts WHERE launch_id=?",
+            (launch.launch_id,),
+        ).fetchone()[0]
+        == 1
+    )
 
     with pytest.raises(SessionLaunchError) as refused:
         reconcile_launch(
@@ -248,10 +254,13 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
     )
     conn.commit()
     assert settle_expired_relay_leases(conn, now="2026-08-22T12:05:01Z") == 0
-    assert conn.execute(
-        "SELECT completed_at FROM session_launch_attempts WHERE launch_id=?",
-        (launch.launch_id,),
-    ).fetchone()[0] is None
+    assert (
+        conn.execute(
+            "SELECT completed_at FROM session_launch_attempts WHERE launch_id=?",
+            (launch.launch_id,),
+        ).fetchone()[0]
+        is None
+    )
 
     report_relay_job(
         conn,
@@ -277,10 +286,13 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
         now="2026-08-22T12:05:02Z",
     )
     assert handoff.native_launch_phase == "spawn_completed_after_bound"
-    assert conn.execute(
-        "SELECT COUNT(*) FROM session_launch_attempts WHERE launch_id=?",
-        (launch.launch_id,),
-    ).fetchone()[0] == 1
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM session_launch_attempts WHERE launch_id=?",
+            (launch.launch_id,),
+        ).fetchone()[0]
+        == 1
+    )
     assert settle_expired_relay_leases(conn, now="2026-08-22T12:05:02Z") == 0
     assert settle_launch_deadlines(conn, now="2026-08-22T12:05:02Z") == []
 

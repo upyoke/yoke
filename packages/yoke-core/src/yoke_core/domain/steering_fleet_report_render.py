@@ -14,7 +14,16 @@ from yoke_core.domain.steering_fleet_report import (
 )
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.steering_fleet_report_detectors import landed_recovery
-from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
+from yoke_core.domain.steering_fleet_report_render_launches import (
+    abandoned_launch_lines,
+    unregistered_launch_lines,
+)
+from yoke_core.domain.steering_fleet_report_render_text import (
+    OVERDUE_MARK,
+    SECTION_LIMIT,
+    capped as _capped,
+    minutes as _minutes,
+)
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 from yoke_core.domain.steering_fleet_report_sections import (
@@ -22,9 +31,6 @@ from yoke_core.domain.steering_fleet_report_sections import (
     unlisted_holders,
 )
 
-
-#: Longest list rendered per section; past this the steerer needs the board.
-SECTION_LIMIT = 20
 
 REPORT_BEGIN = "=== BEGIN YOKE FLEET REPORT ==="
 REPORT_END = "=== END YOKE FLEET REPORT ==="
@@ -37,28 +43,12 @@ REPORT_PREAMBLE = (
     "steerer's; nothing here has acted."
 )
 
-OVERDUE_MARK = "!"
-
 LAUNCH_BALANCE_NOTE = (
     "allocate by headroom: keep one session on every surface above 100% so "
     "each harness stays exercised, then send the rest to the surface with the "
     "most headroom and run it down; level counts only when headrooms are "
     "comparable; no per-surface session cap"
 )
-
-
-def _minutes(seconds: int) -> str:
-    if seconds < 60:
-        return f"{seconds}s"
-    if seconds < 3600:
-        return f"{seconds // 60}m"
-    return f"{seconds // 3600}h{(seconds % 3600) // 60:02d}m"
-
-
-def _capped(lines: list[str], total: int) -> list[str]:
-    if total > SECTION_LIMIT:
-        return [*lines, f"  ... {total - SECTION_LIMIT} more"]
-    return lines
 
 
 def _available_lines(report: FleetReport) -> list[str]:
@@ -127,41 +117,6 @@ def _starved_line(entry: StarvedDelivery) -> str:
 def _starved_lines(report: FleetReport) -> list[str]:
     lines = [_starved_line(entry) for entry in report.starved[:SECTION_LIMIT]]
     return _capped(lines, len(report.starved))
-
-
-def _launch_lines(report: FleetReport) -> list[str]:
-    lines = []
-    for entry in report.unregistered_launches[:SECTION_LIMIT]:
-        native = entry.observed_session_id or entry.native_session_id
-        if native:
-            problem = f"registered session {native} exists; launch binding is absent"
-            recovery = (
-                "reconcile before retry: `yoke session-control launch reconcile "
-                f"{entry.launch_id} --observed-native-id {native}`"
-            )
-        elif entry.result_code in CORRELATION_FAILURE_CODES:
-            problem = entry.result_code.replace("_", " ")
-            recovery = (
-                "find the native session ID, then reconcile before retry with "
-                f"`yoke session-control launch reconcile {entry.launch_id} "
-                "--observed-native-id ID`"
-            )
-        else:
-            problem = (
-                f"{entry.state}, deadline overdue {_minutes(entry.overdue_seconds)}"
-            )
-            recovery = "inspect registration before retry"
-        if entry.native_launch_pid and entry.native_launch_phase:
-            problem += (
-                f", native pid {entry.native_launch_pid} {entry.native_launch_phase}"
-            )
-        if entry.spawn_duration_ms is not None:
-            problem += f", spawn {entry.spawn_duration_ms / 1000:.1f}s"
-        lines.append(
-            f"  launch {entry.launch_id}  {entry.surface} on {entry.machine_id}  "
-            f"{problem}; instruction not delivered; {recovery}"
-        )
-    return _capped(lines, len(report.unregistered_launches))
 
 
 def _landed_lines(report: FleetReport) -> list[str]:
@@ -244,7 +199,11 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         ),
         *_section(
             "unregistered launches — launch/session binding absent",
-            _launch_lines(report),
+            unregistered_launch_lines(report.unregistered_launches),
+        ),
+        *_section(
+            "abandoned launches — mandate delivered, worker never started",
+            abandoned_launch_lines(report.abandoned_launches),
         ),
         *_section(
             "landed without close-out — branch merged, item still open",

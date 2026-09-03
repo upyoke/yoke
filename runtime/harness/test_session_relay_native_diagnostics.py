@@ -8,6 +8,7 @@ import stat
 
 import pytest
 
+from yoke_harness.session_relay_native_capture_format import parse_capture
 from yoke_harness.session_relay_native_diagnostics import (
     NATIVE_DIAGNOSTIC_DIR_NAME,
     NATIVE_DIAGNOSTIC_MAX_BYTES,
@@ -15,9 +16,17 @@ from yoke_harness.session_relay_native_diagnostics import (
     NATIVE_DIAGNOSTIC_TTL_SECONDS,
     NativeDiagnosticError,
     cleanup_native_diagnostics,
+    diagnostic_reference,
     read_native_diagnostic,
     store_native_diagnostic,
 )
+
+
+ATTEMPT_ID = "11111111-1111-4111-8111-111111111111"
+
+
+def _reference(index: int = 0) -> str:
+    return diagnostic_reference(f"11111111-1111-4111-8111-{index:012d}")
 
 
 def test_private_capture_is_bounded_owner_only_and_round_trips(
@@ -26,7 +35,14 @@ def test_private_capture_is_bounded_owner_only_and_round_trips(
     stdout = b"stdout-secret\n" * 20_000
     stderr = b"stderr-secret\n" * 20_000
 
-    receipt = store_native_diagnostic(stdout, stderr, state_dir=tmp_path, now=1000)
+    receipt = store_native_diagnostic(
+        stdout,
+        stderr,
+        reference=diagnostic_reference(ATTEMPT_ID),
+        exit_code=3,
+        state_dir=tmp_path,
+        now=1000,
+    )
     directory = tmp_path / NATIVE_DIAGNOSTIC_DIR_NAME
     capture = directory / f"{receipt.reference}.capture"
     payload = read_native_diagnostic(receipt.reference, state_dir=tmp_path, now=1001)
@@ -39,6 +55,11 @@ def test_private_capture_is_bounded_owner_only_and_round_trips(
     assert b"--- stderr ---" in payload
     assert receipt.reference not in payload.decode(errors="ignore")
     assert receipt.expires_at == 1000 + NATIVE_DIAGNOSTIC_TTL_SECONDS
+    # The capture is named after the attempt that produced it, so a reader
+    # holding that id needs nothing else to find the file.
+    assert receipt.reference == f"nd-{ATTEMPT_ID}"
+    parsed = parse_capture(payload)
+    assert parsed is not None and parsed.exited and parsed.exit_code == 3
 
 
 def test_reader_refuses_traversal_symlinks_wrong_owner_and_open_permissions(
@@ -49,7 +70,7 @@ def test_reader_refuses_traversal_symlinks_wrong_owner_and_open_permissions(
     directory.mkdir(mode=0o700)
     outside = tmp_path / "outside"
     outside.write_bytes(b"private")
-    symlink_ref = "nd-" + "a" * 32
+    symlink_ref = _reference(1)
     (directory / f"{symlink_ref}.capture").symlink_to(outside)
 
     with pytest.raises(NativeDiagnosticError, match="unavailable|regular file"):
@@ -57,7 +78,9 @@ def test_reader_refuses_traversal_symlinks_wrong_owner_and_open_permissions(
     with pytest.raises(NativeDiagnosticError, match="reference is invalid"):
         read_native_diagnostic("../outside", state_dir=tmp_path, now=1)
 
-    receipt = store_native_diagnostic(b"out", b"err", state_dir=tmp_path, now=2)
+    receipt = store_native_diagnostic(
+        b"out", b"err", reference=_reference(2), state_dir=tmp_path, now=2
+    )
     capture = directory / f"{receipt.reference}.capture"
     capture.chmod(0o644)
     with pytest.raises(NativeDiagnosticError, match="permissions"):
@@ -85,12 +108,13 @@ def test_cleanup_enforces_ttl_and_count_without_following_unknown_entries(
     unknown.write_text("keep", encoding="utf-8")
     outside = tmp_path / "outside"
     outside.write_text("keep", encoding="utf-8")
-    (directory / ("nd-" + "f" * 32 + ".capture")).symlink_to(outside)
+    (directory / f"{_reference(9)}.capture").symlink_to(outside)
 
     for index in range(NATIVE_DIAGNOSTIC_MAX_FILES + 4):
         receipt = store_native_diagnostic(
             str(index).encode(),
             b"err",
+            reference=_reference(100 + index),
             state_dir=tmp_path,
             now=1000 + index,
         )
@@ -115,7 +139,9 @@ def test_cleanup_enforces_ttl_and_count_without_following_unknown_entries(
 
 
 def test_reader_refuses_expired_capture(tmp_path: Path) -> None:
-    receipt = store_native_diagnostic(b"out", b"err", state_dir=tmp_path, now=10)
+    receipt = store_native_diagnostic(
+        b"out", b"err", reference=_reference(3), state_dir=tmp_path, now=10
+    )
     capture = tmp_path / NATIVE_DIAGNOSTIC_DIR_NAME / f"{receipt.reference}.capture"
     os.utime(capture, (10, 10))
 
@@ -128,10 +154,17 @@ def test_reader_refuses_expired_capture(tmp_path: Path) -> None:
 
 
 def test_reader_refuses_capture_replaced_with_oversized_file(tmp_path: Path) -> None:
-    receipt = store_native_diagnostic(b"out", b"err", state_dir=tmp_path, now=10)
+    receipt = store_native_diagnostic(
+        b"out", b"err", reference=_reference(4), state_dir=tmp_path, now=10
+    )
     capture = tmp_path / NATIVE_DIAGNOSTIC_DIR_NAME / f"{receipt.reference}.capture"
     capture.write_bytes(b"x" * (NATIVE_DIAGNOSTIC_MAX_BYTES + 1))
     capture.chmod(0o600)
 
     with pytest.raises(NativeDiagnosticError, match="retention limit"):
         read_native_diagnostic(receipt.reference, state_dir=tmp_path, now=11)
+
+
+def test_a_reference_needs_a_launch_or_attempt_identifier(tmp_path: Path) -> None:
+    with pytest.raises(NativeDiagnosticError, match="launch id or wake attempt id"):
+        diagnostic_reference("../../escape")

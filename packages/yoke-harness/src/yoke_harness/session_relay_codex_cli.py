@@ -24,6 +24,18 @@ from yoke_harness.session_relay_inventory import (
     ResolvedNativeCli,
     resolve_native_cli_source,
 )
+from yoke_harness.session_relay_native_diagnostics import (
+    NativeDiagnosticError,
+    diagnostic_reference,
+    store_native_diagnostic,
+)
+from yoke_harness.session_relay_native_streams import (
+    STDERR,
+    STDOUT,
+    BoundedStreams,
+    drain,
+    start_drain,
+)
 from yoke_harness.session_relay_runtime import wake_operation
 
 
@@ -78,17 +90,46 @@ def _thread_id(event: object) -> str | None:
     return str(value).strip() if isinstance(value, str) and value.strip() else None
 
 
-def _discard_and_reap(process: subprocess.Popen[bytes]) -> None:
-    def drain() -> None:
-        try:
-            if process.stdout is not None:
-                while process.stdout.read(65_536):
-                    pass
-            process.wait()
-        except (OSError, subprocess.SubprocessError):
-            return
+def _retain_and_reap(
+    process: subprocess.Popen[bytes],
+    streams: BoundedStreams,
+    reference: str,
+) -> None:
+    """Own the native for the rest of its turn and keep what it said.
 
-    threading.Thread(target=drain, daemon=False, name="yoke-codex-relay-reap").start()
+    This worker outlives the relay poll that started it, so it is the only
+    process that can see how the native ends. Reading the streams to their end
+    and writing them once, with the exit status, is what turns a codex turn
+    that died into something an operator can still read.
+    """
+
+    def own() -> None:
+        drain(process.stdout, streams, STDOUT)
+        try:
+            exit_code = process.wait()
+        except (OSError, subprocess.SubprocessError):
+            exit_code = None
+        _retain(streams, reference, exit_code)
+
+    threading.Thread(target=own, daemon=False, name="yoke-codex-relay-reap").start()
+
+
+def _retain(
+    streams: BoundedStreams,
+    reference: str,
+    exit_code: int | None,
+) -> None:
+    """Write one codex native's account, or leave the outcome unaffected."""
+    stdout, stderr = streams.snapshot()
+    try:
+        store_native_diagnostic(
+            stdout,
+            stderr,
+            reference=diagnostic_reference(reference),
+            exit_code=exit_code,
+        )
+    except NativeDiagnosticError:
+        return
 
 
 def _stop(process: subprocess.Popen[bytes]) -> None:
@@ -128,7 +169,7 @@ class CodexCliTransport:
         return resolve_native_cli_source(self.binary)
 
     def _spawn(
-        self, request: CodexNativeRequest, *, resume: bool
+        self, request: CodexNativeRequest, *, resume: bool, streams: BoundedStreams
     ) -> tuple[subprocess.Popen[bytes], str]:
         """Start the native, raising the phase that stopped it short."""
         resolved = self._resolve_binary()
@@ -149,9 +190,10 @@ class CodexCliTransport:
                 env=_launch_environment(request),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 start_new_session=True,
             )
+            start_drain(process.stderr, streams, STDERR, daemon=False)
             if process.stdin is None:
                 raise OSError("native stdin unavailable")
             process.stdin.write(instruction)
@@ -174,6 +216,7 @@ class CodexCliTransport:
         request: CodexNativeRequest,
         *,
         binary_source: str,
+        streams: BoundedStreams,
     ) -> CodexNativeOutcome:
         """Correlate the native from its own stream, never a second process.
 
@@ -186,6 +229,7 @@ class CodexCliTransport:
         """
         if process.stdout is None:
             _stop(process)
+            _retain(streams, request.job_id, process.poll())
             return CodexNativeOutcome(
                 "outcome_unknown",
                 phase="spawn",
@@ -209,6 +253,7 @@ class CodexCliTransport:
                 if not chunk:
                     break
                 captured += len(chunk)
+                streams.append(STDOUT, chunk)
                 if captured > _MAX_CAPTURE_BYTES:
                     break
                 buffer.extend(chunk)
@@ -228,6 +273,7 @@ class CodexCliTransport:
         if not found:
             exit_code = process.poll()
             _stop(process)
+            _retain(streams, request.job_id, exit_code)
             return CodexNativeOutcome(
                 "outcome_unknown",
                 exit_code=exit_code,
@@ -237,6 +283,7 @@ class CodexCliTransport:
             )
         if request.job_kind == "wake" and found != request.target_thread_id:
             _stop(process)
+            _retain(streams, request.job_id, process.poll())
             return CodexNativeOutcome(
                 "outcome_unknown",
                 native_session_id=found,
@@ -246,7 +293,7 @@ class CodexCliTransport:
                 binary_source=binary_source,
                 pid=process.pid,
             )
-        _discard_and_reap(process)
+        _retain_and_reap(process, streams, request.job_id)
         return CodexNativeOutcome(
             "accepted",
             native_session_id=found,
@@ -257,16 +304,22 @@ class CodexCliTransport:
         )
 
     def _run(self, request: CodexNativeRequest, *, resume: bool) -> CodexNativeOutcome:
+        streams = BoundedStreams()
         try:
-            process, binary_source = self._spawn(request, resume=resume)
+            process, binary_source = self._spawn(
+                request, resume=resume, streams=streams
+            )
         except _NativePhaseError as failure:
+            _retain(streams, request.job_id, None)
             return CodexNativeOutcome(
                 "not_found" if request.job_kind == "wake" else "not_created",
                 phase=failure.phase,
                 binary_source=failure.binary_source,
                 pid=failure.pid,
             )
-        return self._await_identity(process, request, binary_source=binary_source)
+        return self._await_identity(
+            process, request, binary_source=binary_source, streams=streams
+        )
 
     def create(self, request: CodexNativeRequest) -> CodexNativeOutcome:
         if not self.worker:

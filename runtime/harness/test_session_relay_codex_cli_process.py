@@ -168,7 +168,13 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
     child = type(
         "Child",
         (),
-        {"stdin": _Input(bodies.append), "stdout": BytesIO()},
+        {
+            "stdin": _Input(bodies.append),
+            "stdout": BytesIO(),
+            # The transport drains stderr from the spawn onward, so a native
+            # that refuses before announcing a thread still leaves its reason.
+            "stderr": BytesIO(),
+        },
     )()
     monkeypatch.setattr(
         cli_module.subprocess,
@@ -184,7 +190,7 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
     process, binary_source = cli_module.CodexCliTransport(
         binary="/opt/codex",
         worker=True,
-    )._spawn(_request(tmp_path), resume=False)
+    )._spawn(_request(tmp_path), resume=False, streams=cli_module.BoundedStreams())
 
     assert process is child
     assert binary_source == "explicit"
@@ -261,7 +267,11 @@ def test_cli_drain_thread_is_non_daemon(monkeypatch) -> None:
             return 0
 
     monkeypatch.setattr(cli_module.threading, "Thread", Thread)
-    cli_module._discard_and_reap(Process())
+    cli_module._retain_and_reap(
+        Process(),
+        cli_module.BoundedStreams(),
+        "11111111-1111-4111-8111-111111111111",
+    )
 
     assert observed["daemon"] is False
     assert observed["started"] is True

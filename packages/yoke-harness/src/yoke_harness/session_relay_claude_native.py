@@ -30,9 +30,9 @@ from yoke_harness.session_relay_claude_process import (
     ClaudeProcessResult,
     run_bounded_claude_process,
 )
-from yoke_harness.session_relay_claude_resume import (
-    ClaudeResumeProcess,
-    spawn_detached_claude_resume,
+from yoke_harness.session_relay_native_spawn import (
+    SupervisedNative,
+    spawn_supervised_native,
 )
 from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECONDS
@@ -108,7 +108,7 @@ class ClaudeNativeInvocation:
 
 ClaudeProcessRunner = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
 ClaudeWakeSpawner = Callable[
-    [RelayExecutionContext, ClaudeNativeInvocation], ClaudeResumeProcess | None
+    [RelayExecutionContext, ClaudeNativeInvocation], SupervisedNative | None
 ]
 ClaudeSessionLookup = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
 ExecutableFinder = Callable[[str], str | None]
@@ -191,7 +191,7 @@ def _supervise_launch(invocation: ClaudeNativeInvocation, pid: int) -> None:
 
 
 def _contain_launch(invocation: ClaudeNativeInvocation, _pid: int) -> None:
-    from yoke_harness.session_launch_containment import contain_launch_native
+    from yoke_harness.session_launch_containment_sweep import contain_launch_native
 
     contain_launch_native(invocation.session_id, reason="launch_deadline")
 
@@ -286,11 +286,11 @@ def spawn_claude_wake(
     invocation: ClaudeNativeInvocation,
     *,
     session_lookup: ClaudeSessionLookup = lookup_claude_session,
-) -> ClaudeResumeProcess | None:
+) -> SupervisedNative | None:
     background_job = _release_background_job(invocation, session_lookup)
     environment = _environment(invocation)
     environment[RESUME_ATTEMPT_ENV] = context.job_id
-    return spawn_detached_claude_resume(
+    return spawn_supervised_native(
         invocation.argv,
         checkout=invocation.cwd,
         environment=environment,
@@ -298,7 +298,7 @@ def spawn_claude_wake(
         native_session_id=invocation.session_id,
         binary_source="path",
         lease_id=context.lease_id,
-        background_job=background_job,
+        extra_evidence=background_job,
     )
 
 

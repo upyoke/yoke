@@ -67,7 +67,7 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
                 "identity_parse_failed",
                 error_step="session_lookup",
                 stdout=b"private stdout body",
-                stderr=b"actual native stderr",
+                stderr=b"private native transcript\nactual native stderr",
             ),
         ),
         clock=lambda: 1000.0,
@@ -87,8 +87,9 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
         f"yoke relay diagnostic {evidence['native_diagnostic_ref']}"
     )
     assert isinstance(evidence["diagnostic_expires_at"], int)
+    assert evidence["native_stderr_tail"] == "actual native stderr"
     assert "private stdout body" not in repr(report)
-    assert "actual native stderr" not in repr(report)
+    assert "private native transcript" not in repr(report)
     assert "private instruction" not in repr(report)
 
     payload = read_native_diagnostic(
@@ -155,18 +156,21 @@ def test_report_failure_keeps_local_diagnostic_ref_and_recipe(
     assert b"private lookup stderr" in retained
 
 
-def test_storage_failure_reports_unavailable_without_raw_streams(
+def test_storage_failure_reports_unavailable_and_only_the_last_line(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    """Losing the file must not lose the reason, or leak the whole stream.
+
+    One bounded line travels so a seat on another machine can read why the
+    native refused; everything the native said before it stays local.
+    """
     from yoke_harness.session_relay_native_diagnostics import NativeDiagnosticError
 
     def unavailable(*_args, **_kwargs):
         raise NativeDiagnosticError("private filesystem detail")
 
-    monkeypatch.setattr(
-        diagnostic_retention, "store_native_diagnostic", unavailable
-    )
+    monkeypatch.setattr(diagnostic_retention, "store_native_diagnostic", unavailable)
     result = diagnostic_retention.retain_private_diagnostic(
         RelayAdapterResult(
             "failed",
@@ -174,9 +178,10 @@ def test_storage_failure_reports_unavailable_without_raw_streams(
             private_diagnostic=RelayPrivateDiagnostic(
                 "process_exit",
                 error_step="private-step-name",
-                stderr=b"private native failure",
+                stderr=b"private native transcript\nnative refused the resume",
             ),
         ),
+        attempt_id="11111111-1111-4111-8111-111111111111",
         state_dir=tmp_path,
     )
 
@@ -185,9 +190,10 @@ def test_storage_failure_reports_unavailable_without_raw_streams(
         "native_error_class": "process_exit",
         "native_error_step": "native_command",
         "diagnostic_availability": "unavailable",
+        "native_stderr_tail": "native refused the resume",
     }
     assert result.private_diagnostic is None
-    assert "private native failure" not in repr(result)
+    assert "private native transcript" not in repr(result)
     assert "private filesystem detail" not in repr(result)
 
 
@@ -214,9 +220,7 @@ def test_storage_failure_keeps_typed_operator_outcome_and_location(
             )
         return SimpleNamespace(success=True, result={"state": "failed"})
 
-    monkeypatch.setattr(
-        diagnostic_retention, "store_native_diagnostic", unavailable
-    )
+    monkeypatch.setattr(diagnostic_retention, "store_native_diagnostic", unavailable)
     outcome = session_relay.serve_once(
         state_dir=tmp_path,
         inventory_provider=_inventory,
@@ -226,7 +230,7 @@ def test_storage_failure_keeps_typed_operator_outcome_and_location(
             private_diagnostic=RelayPrivateDiagnostic(
                 "process_exit",
                 error_step="session_lookup",
-                stderr=b"private native failure",
+                stderr=b"private native transcript\nnative refused the resume",
             ),
         ),
         clock=lambda: 1000.0,
@@ -239,5 +243,5 @@ def test_storage_failure_keeps_typed_operator_outcome_and_location(
     assert outcome.jobs[0].machine_id == MACHINE_ID
     assert outcome.jobs[0].relay_id == f"machine:{MACHINE_ID}"
     assert outcome.jobs[0].native_diagnostic_ref is None
-    assert "private native failure" not in repr(outcome)
+    assert "private native transcript" not in repr(outcome)
     assert "private filesystem detail" not in repr(outcome)

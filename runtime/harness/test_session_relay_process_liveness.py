@@ -115,6 +115,9 @@ def test_only_sessions_with_every_record_gone_are_verified_dead(
         "records_considered": 1,
         "sources": [LAUNCH_HANDLE_SOURCE],
         "pids": [4002],
+        # A launch handle names the launch too, which is what lets the control
+        # plane correct a launch still reading succeeded for a dead worker.
+        "launch_id": "launch-dead",
     }
 
 

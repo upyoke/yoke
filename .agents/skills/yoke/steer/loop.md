@@ -117,17 +117,27 @@ yours:
   means the plane owed a wake and made none; *last attempt failed (reason)*
   names a refusal to fix, and one reason repeating across a machine's rows is
   that relay. Otherwise use the registered wake or **Revive** bridge below.
-- **Unregistered launches** — list each `launch_id`; `spawn_started` or
-  `spawn_alive` in `native_launch_phase` belongs to the first process. Wait
-  through `deadline_at`; reconcile refuses and retry reattaches without
-  duplication. Otherwise use the commands below: `session_control.launch.list`
-  reads `session_launches`; `session_control_launches` does not exist:
+- **Unregistered launches** — read which hand the row asks for. *native is
+  live — bind it* means the process is up and only the binding is missing, so
+  reconcile it onto the session the row names. *native is dead — reconcile,
+  then retry* means the process exited; the row quotes the last line it wrote
+  and its exit code, which is the reason to fix before retrying anything.
+  `spawn_started` or `spawn_alive` in `native_launch_phase` belongs to the
+  first process. Wait through `deadline_at`; reconcile refuses and retry
+  reattaches without duplication. Otherwise use the commands below:
+  `session_control.launch.list` reads `session_launches`;
+  `session_control_launches` does not exist:
 
   ```text
   yoke session-control launch list --project {_project}
   yoke session-control launch reconcile {LAUNCH_ID} --json
   yoke session-control launch retry {LAUNCH_ID} --json
   ```
+- **Abandoned launches** — the mandate reached a worker that never started:
+  no claim, no message, no completed tool call, and its native is now gone.
+  The item reads unclaimed rather than wrong, so nothing else in the pass will
+  surface it. Read the quoted last line — a refusal that will repeat needs
+  fixing before the work is restaffed — then staff the item again.
 - **Landed without close-out** — nudge the live claim holder; with no live
   holder, route the normal starvation/restaffing path.
 - **Dead waits** — a row naming an ended answerer, or an answerer whose own

@@ -1,4 +1,10 @@
-"""Keep a native failure's streams on the machine and report only a handle."""
+"""Keep a native spawn's streams on the machine and report only a handle.
+
+Every spawn is retained, not only the ones that already failed. A launch
+that reports success and whose native then dies before it ever works has
+no second chance to explain itself, and the account it left behind on the
+way up is the only one anybody will ever get.
+"""
 
 from __future__ import annotations
 
@@ -11,8 +17,10 @@ from yoke_contracts.session_control.launch_registration import (
 )
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
+    diagnostic_reference,
     store_native_diagnostic,
 )
+from yoke_harness.session_relay_native_capture_format import capture_tail
 from yoke_harness.session_relay_runtime import RelayAdapterResult
 
 
@@ -43,11 +51,18 @@ NATIVE_ERROR_STEPS = frozenset(
 def retain_private_diagnostic(
     result: RelayAdapterResult,
     *,
+    attempt_id: str,
     state_dir: Path | None,
     relay_id: str | None = None,
     machine_id: str | None = None,
 ) -> RelayAdapterResult:
-    """Store the private streams and return a result safe to report."""
+    """Store the private streams under this job's own name and report a handle.
+
+    ``attempt_id`` is the launch id for a spawn and the wake attempt id for a
+    resume, which is what the capture is named after. Nothing else records
+    where the file went, so a reader holding either identifier can still find
+    what the native said.
+    """
     private = result.private_diagnostic
     if private is None:
         return result
@@ -67,10 +82,13 @@ def retain_private_diagnostic(
         evidence["relay_id"] = relay_id
     if machine_id:
         evidence["machine_id"] = machine_id
+    exit_code = result.evidence.get("exit_code")
     try:
         receipt = store_native_diagnostic(
             private.stdout,
             private.stderr,
+            reference=diagnostic_reference(attempt_id),
+            exit_code=exit_code if isinstance(exit_code, int) else None,
             state_dir=state_dir,
         )
     except NativeDiagnosticError:
@@ -84,6 +102,11 @@ def retain_private_diagnostic(
                 "native_error_sha256": receipt.fingerprint_sha256,
             }
         )
+    # The last line the native said, so a seat reading a fleet row on another
+    # machine sees the reason without fetching the file it cannot reach.
+    tail = capture_tail(private.stderr) or capture_tail(private.stdout)
+    if tail:
+        evidence["native_stderr_tail"] = tail
     return replace(result, evidence=evidence, private_diagnostic=None)
 
 

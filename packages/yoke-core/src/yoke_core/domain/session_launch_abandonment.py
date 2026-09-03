@@ -18,12 +18,20 @@ leave the launch claiming success.
 Ending is not itself failure — a session that claimed, worked, and released
 ends claim-free too. The distinguishing fact is that no claim row or outbound
 message ever named this session, which no completed mandate can be true of.
+
+A native that is killed never ends its session at all, so the same correction
+also runs the moment the machine that started it proves the process is gone.
+That check is stricter about what counts as having started: a completed tool
+call is enough, because a worker that ran one was alive and working when it
+died, and the launch is then an honest success that ended badly rather than a
+worker that never began.
 """
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any
+from typing import Any, Mapping
 
 from yoke_core.domain.session_launch_store import (
     LAUNCH_COLUMNS,
@@ -40,6 +48,7 @@ from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 _LOGGER = logging.getLogger(__name__)
 
 ABANDONED_RESULT_CODE = "abandoned_without_claim"
+NATIVE_PROCESS_GONE_REASON = "native_process_gone"
 # Only a launch the plane calls successful can be wrong in this direction.
 # One already closed as failed, expired, or uncertain is already honest.
 _REVIEWABLE_STATES = frozenset({"succeeded"})
@@ -74,6 +83,85 @@ def _entered_mandate(
         (session_id,),
     ).fetchone()
     return spoke is not None
+
+
+def _worked(conn: Any, session_id: str) -> bool:
+    """Report whether this session ever performed an act only work performs.
+
+    A completed tool call counts here and not at session end: a worker killed
+    mid-tool-call was working, while one that ran a wrong first command and
+    was then reaped idle was not.
+    """
+    p = marker(conn)
+    if _entered_mandate(conn, session_id):
+        return True
+    ran = conn.execute(
+        "SELECT 1 FROM events WHERE session_id = "
+        + p
+        + " AND event_name = 'HarnessToolCallCompleted' LIMIT 1",
+        (session_id,),
+    ).fetchone()
+    return ran is not None
+
+
+def settle_launch_native_death(
+    conn: Any,
+    session_id: str,
+    evidence: Mapping[str, Any],
+    *,
+    now: str | None = None,
+) -> LaunchRecord | None:
+    """Correct the launch of a worker whose native died before it ever worked.
+
+    Runs from the relay's verified-death report, so it does not wait for the
+    session to end — a killed native never ends its own session, which is
+    exactly the shape that left a launch reading ``succeeded`` while its item
+    quietly returned to the frontier.
+    """
+    current = now or utc_now()
+    begin_mutation(conn)
+    try:
+        launch = _launch_for_session(conn, session_id)
+        if launch is None or launch.state not in _REVIEWABLE_STATES:
+            conn.commit()
+            return None
+        if _worked(conn, session_id):
+            conn.commit()
+            return None
+        tail = str(evidence.get("native_stderr_tail") or "").strip()
+        reason = NATIVE_PROCESS_GONE_REASON
+        if tail:
+            reason = f"{NATIVE_PROCESS_GONE_REASON}: {tail}"
+        recorded = {
+            "result_code": ABANDONED_RESULT_CODE,
+            "closure_reason": reason,
+            "launch_phase_reached": "registered_and_injected",
+            "registration_session_id": session_id,
+            **{
+                name: evidence[name]
+                for name in (
+                    "exit_code",
+                    "native_diagnostic_ref",
+                    "native_exit_at",
+                    "native_stderr_tail",
+                )
+                if name in evidence
+            },
+        }
+        flipped = update_launch(
+            conn,
+            launch.launch_id,
+            delivery_changed_at=current,
+            state="failed",
+            completed_at=current,
+            result_code=ABANDONED_RESULT_CODE,
+            result_evidence=merge_redacted_evidence(launch.result_evidence, recorded),
+        )
+        conn.commit()
+        return flipped
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def settle_abandoned_launch(
@@ -122,8 +210,31 @@ def settle_abandoned_launch(
         raise
 
 
+def _stored_evidence(launch: LaunchRecord) -> dict[str, Any]:
+    """Read a launch's evidence whether it is stored as JSON text or a map."""
+    raw = launch.result_evidence
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    try:
+        parsed = json.loads(raw or "")
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def abandonment_notice(launch: LaunchRecord, session_id: str) -> str:
     """Render the sentence the launching session is told."""
+    reason = str(_stored_evidence(launch).get("closure_reason") or "").strip()
+    if reason.startswith(NATIVE_PROCESS_GONE_REASON):
+        detail = reason[len(NATIVE_PROCESS_GONE_REASON) :].lstrip(": ").strip()
+        said = f" Its last output was: {detail}" if detail else ""
+        return (
+            f"Launch {launch.launch_id} failed after delivery: the native "
+            f"running session {session_id} is gone, and that session never "
+            "acquired a work claim, sent a message, or completed a tool call, "
+            f"so it never entered its mandate.{said} The launch is now recorded "
+            f"{ABANDONED_RESULT_CODE}; whatever work it was given is unstarted."
+        )
     return (
         f"Launch {launch.launch_id} failed after delivery: session {session_id} "
         "ended without ever acquiring a work claim or sending a message, so it "
@@ -185,10 +296,38 @@ def settle_and_notify(
     return launch
 
 
+def settle_and_notify_native_death(
+    conn: Any,
+    session_id: str,
+    evidence: Mapping[str, Any],
+) -> LaunchRecord | None:
+    """Run the death correction around a liveness report, never raising.
+
+    The report's own outcome is the caller's, not this check's, so a failure
+    here degrades to a launch row that stays optimistic rather than to a
+    liveness poll that stops working.
+    """
+    try:
+        launch = settle_launch_native_death(conn, session_id, evidence)
+    except Exception:
+        _LOGGER.debug("launch native-death settle failed", exc_info=True)
+        return None
+    if launch is None:
+        return None
+    try:
+        notify_launch_requester(conn, launch, session_id)
+    except Exception:
+        _LOGGER.debug("launch abandonment notice failed", exc_info=True)
+    return launch
+
+
 __all__ = [
     "ABANDONED_RESULT_CODE",
+    "NATIVE_PROCESS_GONE_REASON",
     "abandonment_notice",
     "notify_launch_requester",
     "settle_abandoned_launch",
     "settle_and_notify",
+    "settle_and_notify_native_death",
+    "settle_launch_native_death",
 ]

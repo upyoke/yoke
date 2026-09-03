@@ -7,15 +7,17 @@ in its first second looked exactly like one still reasoning, until the control
 plane inferred an outcome from twenty minutes of session silence. The exit
 status had been sitting on the machine that started it the whole time.
 
-The supervisor beside each resume records that exit status, and this module
-turns it into the terminal report the attempt has been waiting for.
+The supervisor running each resume writes that exit status into the same
+capture the native's own words go to, and this module turns it into the
+terminal report the attempt has been waiting for. It is harness-agnostic on
+purpose: every supervised resume is settled here, because the supervisor that
+wrote the capture is the same one on every harness.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import os
 from typing import Any, Callable
 
 from yoke_contracts.session_control.resume import (
@@ -28,20 +30,15 @@ from yoke_harness.session_launch_containment import (
     release_supervised_native,
     supervised_records,
 )
-from yoke_harness.session_relay_diagnostic_retention import retain_private_diagnostic
-from yoke_harness.session_relay_native_diagnostics import classify_native_failure
+from yoke_harness.session_relay_native_capture_format import NativeCapture
+from yoke_harness.session_relay_native_diagnostics import (
+    classify_native_failure,
+    read_native_capture,
+)
 from yoke_harness.session_relay_report_delivery import deliver_terminal_report
-from yoke_harness.session_relay_resume_watch import (
-    read_resume_outcome,
-    resume_outcome_path,
-)
-from yoke_harness.session_relay_runtime import (
-    RelayAdapterResult,
-    RelayPrivateDiagnostic,
-)
+from yoke_harness.session_relay_runtime import RelayAdapterResult
 
 
-CAPTURE_TAIL_BYTES = 32 * 1024
 Dispatcher = Callable[..., Any]
 
 
@@ -53,6 +50,7 @@ class SupervisedResume:
     pid: int
     lease_id: str
     capture_path: Path | None
+    diagnostic_ref: str | None
     running: bool
 
 
@@ -63,23 +61,15 @@ class FinishedNativeResume:
     attempt_id: str
     lease_id: str
     result: RelayAdapterResult
-    outcome_path: Path | None
 
 
-def _capture_tail(path: Path | None) -> bytes:
-    if path is None:
-        return b""
-    try:
-        with path.open("rb") as stream:
-            stream.seek(0, os.SEEK_END)
-            stream.seek(max(0, stream.tell() - CAPTURE_TAIL_BYTES), os.SEEK_SET)
-            return stream.read(CAPTURE_TAIL_BYTES)
-    except OSError:
-        return b""
-
-
-def _result(exit_code: int | None, tail: bytes) -> RelayAdapterResult:
-    if exit_code == 0:
+def _result(
+    capture: NativeCapture | None,
+    diagnostic_ref: str | None,
+) -> RelayAdapterResult:
+    """Turn one finished native's own account into this attempt's outcome."""
+    exit_code = capture.exit_code if capture is not None else None
+    if capture is not None and exit_code == 0:
         return RelayAdapterResult(
             RESUMED_COMPLETED_RESULT,
             evidence={"exit_code": 0, "result_code": RESUMED_COMPLETED_RESULT},
@@ -88,37 +78,35 @@ def _result(exit_code: int | None, tail: bytes) -> RelayAdapterResult:
     evidence: dict[str, Any] = {"result_code": code}
     if exit_code is not None:
         evidence["exit_code"] = exit_code
-    # The tail is the only account of why the native refused, so it is retained
-    # by the same machine-local diagnostic store every other native failure
-    # uses: the report carries its opaque reference, never its text.
-    return RelayAdapterResult(
-        code,
-        evidence=evidence,
-        private_diagnostic=RelayPrivateDiagnostic(
-            classify_native_failure(tail),
-            error_step="resume",
-            stdout=tail,
-        ),
-    )
+    if capture is None:
+        return RelayAdapterResult(code, evidence=evidence)
+    if capture.exit_at:
+        evidence["native_exit_at"] = capture.exit_at
+    # The capture is already retained under this attempt's own name, so the
+    # report carries that reference and the one line the native ended on —
+    # never the streams themselves.
+    if diagnostic_ref:
+        evidence["native_diagnostic_ref"] = diagnostic_ref
+    tail = capture.tail
+    if tail:
+        evidence["native_stderr_tail"] = tail
+        evidence["native_error_class"] = classify_native_failure(capture.stderr)
+    return RelayAdapterResult(code, evidence=evidence)
 
 
 def _finished(record: SupervisedResume) -> FinishedNativeResume | None:
     if not record.attempt_id or not record.lease_id:
         return None
-    capture = record.capture_path
-    outcome_path = None if capture is None else resume_outcome_path(capture)
-    settled, exit_code = read_resume_outcome(outcome_path)
-    if not settled:
-        if record.running:
-            return None
-        # The process is gone without leaving an outcome: its supervisor was
-        # killed alongside it, or never got far enough to write one.
-        exit_code = None
+    capture = read_native_capture(record.capture_path)
+    settled = capture is not None and capture.exited
+    if not settled and record.running:
+        return None
+    # The process is gone without a settled capture: its supervisor was killed
+    # alongside it, or never got far enough to record how the native ended.
     return FinishedNativeResume(
         record.attempt_id,
         record.lease_id,
-        _result(exit_code, _capture_tail(capture)),
-        outcome_path,
+        _result(capture if settled else None, record.diagnostic_ref),
     )
 
 
@@ -132,12 +120,14 @@ def supervised_resumes(state_dir: Path | None = None) -> tuple[SupervisedResume,
         if not isinstance(pid, int) or pid <= 0:
             continue
         capture = payload.get("capture_path")
+        reference = payload.get("diagnostic_ref")
         resumes.append(
             SupervisedResume(
                 attempt_id=str(payload.get("launch_id") or ""),
                 pid=pid,
                 lease_id=str(payload.get("lease_id") or ""),
                 capture_path=Path(capture) if isinstance(capture, str) else None,
+                diagnostic_ref=reference if isinstance(reference, str) else None,
                 # A reused pid names a different process, so the resume this
                 # record was written for is gone either way.
                 running=process_start_time(pid) == payload.get("process_start_time"),
@@ -155,16 +145,6 @@ def finished_native_resumes(
     return tuple(record for record in finished if record is not None)
 
 
-def _release(finished: FinishedNativeResume, *, state_dir: Path | None) -> None:
-    release_supervised_native(finished.attempt_id, state_dir=state_dir)
-    if finished.outcome_path is None:
-        return
-    try:
-        finished.outcome_path.unlink(missing_ok=True)
-    except OSError:
-        return
-
-
 def settle_finished_native_resumes(
     dispatcher: Dispatcher,
     function_id: str,
@@ -177,12 +157,6 @@ def settle_finished_native_resumes(
     """Report every finished resume and return the attempts settled here."""
     settled: list[str] = []
     for finished in finished_native_resumes(state_dir=state_dir):
-        result = retain_private_diagnostic(
-            finished.result,
-            state_dir=state_dir,
-            relay_id=relay_id,
-            machine_id=machine_id,
-        )
         report = deliver_terminal_report(
             dispatcher,
             function_id,
@@ -191,8 +165,12 @@ def settle_finished_native_resumes(
                 "job_kind": "wake",
                 "job_id": finished.attempt_id,
                 "lease_id": finished.lease_id,
-                "result": result.result_code,
-                "evidence": dict(result.evidence),
+                "result": finished.result.result_code,
+                "evidence": {
+                    **dict(finished.result.evidence),
+                    "relay_id": relay_id,
+                    "machine_id": machine_id,
+                },
             },
             state_dir=state_dir,
             timeout_s=timeout_s,
@@ -200,13 +178,12 @@ def settle_finished_native_resumes(
         if not getattr(report, "success", False):
             # The record stays, so the next poll reports this outcome again.
             continue
-        _release(finished, state_dir=state_dir)
+        release_supervised_native(finished.attempt_id, state_dir=state_dir)
         settled.append(finished.attempt_id)
     return tuple(settled)
 
 
 __all__ = [
-    "CAPTURE_TAIL_BYTES",
     "FinishedNativeResume",
     "SupervisedResume",
     "finished_native_resumes",

@@ -93,7 +93,7 @@ def _request(
 def _spawning(monkeypatch, native: _FakeNative, source: str = "bundled"):
     transport = CodexCliTransport(worker=True)
     monkeypatch.setattr(
-        transport, "_spawn", lambda request, *, resume: (native, source)
+        transport, "_spawn", lambda request, *, resume, streams: (native, source)
     )
     return transport
 

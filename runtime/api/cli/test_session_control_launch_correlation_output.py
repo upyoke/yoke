@@ -30,8 +30,10 @@ def _launch(**overrides):
             "exit_code": 0,
             "machine_id": "machine-1",
             "relay_id": "machine:machine-1",
-            "native_diagnostic_ref": "nd-" + "a" * 32,
-            "native_diagnostic_command": ("yoke relay diagnostic nd-" + "a" * 32),
+            "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "native_diagnostic_command": (
+                "yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            ),
             "token": "secret-token",
             "body": "secret-body",
             "argv": ["secret-argument"],
@@ -68,11 +70,11 @@ def test_launch_detail_shows_identity_chain_and_only_sanitized_evidence() -> Non
     assert "duration ms=11" in rendered
     assert "exit code=0" in rendered
     assert "Native diagnostic" in rendered
-    assert "nd-" + "a" * 32 in rendered
+    assert "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" in rendered
     assert "Diagnostic location" in rendered
     assert "machine-1 / machine:machine-1" in rendered
     assert "Retrieve diagnostic" in rendered
-    assert "yoke relay diagnostic nd-" + "a" * 32 in rendered
+    assert "yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" in rendered
     assert "secret-attestation" not in rendered
     assert "secret-message" not in rendered
     assert "secret-requester" not in rendered

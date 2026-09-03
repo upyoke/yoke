@@ -10,12 +10,14 @@ import sys
 import time
 
 from yoke_harness.session_launch_containment import (
-    CONTAINMENT_TTL_SECONDS,
-    contain_launch_native,
-    contain_stranded_launch_natives,
     record_supervised_native,
     release_supervised_native,
     touch_supervised_resume,
+)
+from yoke_harness.session_launch_containment_sweep import (
+    CONTAINMENT_TTL_SECONDS,
+    contain_launch_native,
+    contain_stranded_launch_natives,
 )
 from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
 

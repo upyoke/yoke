@@ -83,6 +83,10 @@ from yoke_core.domain.steering_fleet_report_starvation import (
     StarvedDelivery,
     starved_deliveries,
 )
+from yoke_core.domain.steering_fleet_report_abandoned import (
+    AbandonedLaunch,
+    abandoned_launches,
+)
 from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
     UnregisteredLaunch,
@@ -141,6 +145,7 @@ class FleetReport:
     suspected_orphaned_waiters: tuple[ClaimHolder, ...] = ()
     #: Quiet holders inside one long-running call: reported, never an alarm.
     in_flight: tuple[InFlightCall, ...] = ()
+    abandoned_launches: tuple[AbandonedLaunch, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.
@@ -165,6 +170,7 @@ class FleetReport:
             or self.idle
             or self.starved
             or self.unregistered_launches
+            or self.abandoned_launches
             or self.landed_open
             or self.suspected_orphaned_waiters
             or self.dead_waits
@@ -185,6 +191,9 @@ class FleetReport:
             "unregistered_launches": sorted(
                 (entry.launch_id, entry.native_launch_phase, entry.spawn_duration_ms)
                 for entry in self.unregistered_launches
+            ),
+            "abandoned_launches": sorted(
+                entry.launch_id for entry in self.abandoned_launches
             ),
             "landed_open": sorted(entry.item_id for entry in self.landed_open),
             "suspected_orphaned_waiters": sorted(
@@ -310,6 +319,7 @@ def compose_report(
         unregistered_launches=unregistered_launches(
             conn, project_id=project_id, now=now
         ),
+        abandoned_launches=abandoned_launches(conn, project_id=project_id, now=now),
         landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,

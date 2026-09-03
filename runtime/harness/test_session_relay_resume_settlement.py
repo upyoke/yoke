@@ -14,15 +14,15 @@ from yoke_contracts.session_control.resume import (
 )
 from yoke_harness import session_relay_resume_settlement as settlement
 from yoke_harness.session_launch_containment import record_supervised_native
-from yoke_harness.session_relay_claude_resume import spawn_detached_claude_resume
+from yoke_harness.session_relay_native_capture_format import (
+    STATE_RUNNING,
+    compose_capture,
+)
+from yoke_harness.session_relay_native_spawn import spawn_supervised_native
 from yoke_harness.session_relay_resume_settlement import (
     finished_native_resumes,
     settle_finished_native_resumes,
     supervised_resumes,
-)
-from yoke_harness.session_relay_resume_watch import (
-    resume_outcome_path,
-    write_resume_outcome,
 )
 
 
@@ -50,7 +50,7 @@ class _Dispatcher:
 
 
 def _spawn(tmp_path: Path, script: str):
-    return spawn_detached_claude_resume(
+    return spawn_supervised_native(
         [sys.executable, "-c", script],
         checkout=tmp_path,
         environment=dict(os.environ),
@@ -62,14 +62,24 @@ def _spawn(tmp_path: Path, script: str):
     )
 
 
-def _await_outcome(capture_path: Path) -> Path:
-    outcome = resume_outcome_path(capture_path)
+def _await_outcome(capture_path: Path) -> None:
+    """Wait for the supervisor to seal the capture with the native's exit."""
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
-        if outcome.exists():
-            return outcome
+        try:
+            if b"exit-code:" in capture_path.read_bytes():
+                return
+        except OSError:
+            pass
         time.sleep(0.05)
-    raise AssertionError(f"resume supervisor never recorded an outcome at {outcome}")
+    raise AssertionError(f"supervisor never sealed the capture at {capture_path}")
+
+
+def _settled_capture(tmp_path: Path, body: bytes, exit_code: int | None) -> Path:
+    """Write one capture exactly as a finished supervisor would have."""
+    capture = tmp_path / f"nd-{ATTEMPT_ID}.capture"
+    capture.write_bytes(compose_capture(stdout=b"", stderr=body, exit_code=exit_code))
+    return capture
 
 
 def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
@@ -100,13 +110,12 @@ def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
     assert report["lease_id"] == LEASE_ID
     assert report["result"] == RESUME_EXITED_NONZERO_RESULT
     assert report["evidence"]["exit_code"] == 3
-    assert report["evidence"]["native_error_step"] == "resume"
     assert report["evidence"]["native_error_class"] == "process_exit"
-    assert report["evidence"]["diagnostic_availability"] == "relay_local"
-    assert report["evidence"]["native_diagnostic_ref"].startswith("nd-")
-    assert REFUSAL not in str(report["evidence"])
+    assert report["evidence"]["native_diagnostic_ref"] == f"nd-{ATTEMPT_ID}"
+    # The last line travels for a seat that cannot reach this machine; the
+    # streams themselves never leave it.
+    assert report["evidence"]["native_stderr_tail"] == REFUSAL
     assert supervised_resumes(tmp_path) == ()
-    assert not resume_outcome_path(resumed.capture_path).exists()
 
 
 def test_native_exiting_cleanly_settles_the_attempt_as_completed(
@@ -130,14 +139,16 @@ def test_native_exiting_cleanly_settles_the_attempt_as_completed(
     report = dispatcher.calls[0]
     assert report["result"] == RESUMED_COMPLETED_RESULT
     assert report["evidence"]["exit_code"] == 0
-    assert "native_diagnostic_ref" not in report["evidence"]
+    assert "native_stderr_tail" not in report["evidence"]
 
 
 def test_a_running_resume_is_left_alone_until_its_outcome_lands(
     tmp_path: Path,
 ) -> None:
-    capture = tmp_path / f"{ATTEMPT_ID}.capture"
-    capture.write_bytes(b"still reasoning\n")
+    capture = tmp_path / f"nd-{ATTEMPT_ID}.capture"
+    capture.write_bytes(
+        compose_capture(stdout=b"still reasoning\n", stderr=b"", state=STATE_RUNNING)
+    )
     record_supervised_native(
         ATTEMPT_ID,
         # This process is alive and its start time matches, which is exactly
@@ -152,7 +163,9 @@ def test_a_running_resume_is_left_alone_until_its_outcome_lands(
 
     assert finished_native_resumes(state_dir=tmp_path) == ()
 
-    write_resume_outcome(resume_outcome_path(capture), exit_code=9)
+    capture.write_bytes(
+        compose_capture(stdout=b"still reasoning\n", stderr=b"", exit_code=9)
+    )
 
     finished = finished_native_resumes(state_dir=tmp_path)
     assert len(finished) == 1
@@ -163,8 +176,10 @@ def test_a_vanished_resume_without_an_outcome_settles_as_died(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    capture = tmp_path / f"{ATTEMPT_ID}.capture"
-    capture.write_bytes(b"contained mid-turn\n")
+    capture = tmp_path / f"nd-{ATTEMPT_ID}.capture"
+    capture.write_bytes(
+        compose_capture(stdout=b"contained mid-turn\n", stderr=b"", state=STATE_RUNNING)
+    )
     record_supervised_native(
         ATTEMPT_ID,
         os.getpid(),
@@ -186,8 +201,7 @@ def test_a_vanished_resume_without_an_outcome_settles_as_died(
 
 
 def test_a_failed_report_keeps_the_record_for_the_next_poll(tmp_path: Path) -> None:
-    capture = tmp_path / f"{ATTEMPT_ID}.capture"
-    capture.write_bytes(b"refused\n")
+    capture = _settled_capture(tmp_path, b"refused\n", 1)
     record_supervised_native(
         ATTEMPT_ID,
         os.getpid(),
@@ -197,7 +211,6 @@ def test_a_failed_report_keeps_the_record_for_the_next_poll(tmp_path: Path) -> N
         lease_id=LEASE_ID,
         state_dir=tmp_path,
     )
-    write_resume_outcome(resume_outcome_path(capture), exit_code=1)
 
     settled = settle_finished_native_resumes(
         _Dispatcher(success=False),

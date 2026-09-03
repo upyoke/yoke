@@ -5,6 +5,11 @@ does not revoke control-plane authority.  A stale session with no holdings
 can end immediately; one with any current holding remains live, keeps every
 claim, and carries the process-gone observation until new activity supersedes
 it or a deliberate/holdings-TTL teardown ends it.
+
+Correcting the launch behind a dead native is separate from ending its
+session, and runs whatever the session verdict is. A session that died a
+minute ago still reads active, so waiting for it to go stale is exactly how a
+launch kept reporting ``succeeded`` for a worker that was already gone.
 """
 
 from __future__ import annotations
@@ -13,6 +18,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
 from yoke_contracts.session_control.liveness import LIVENESS_STALE
+from yoke_core.domain.session_launch_abandonment import (
+    settle_and_notify_native_death,
+)
 from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.session_native_process_observation import (
@@ -97,6 +105,7 @@ def apply_verified_process_death_reports(
     projects = tuple(sorted({int(value) for value in authorized_projects}))
     holdings = session_holdings_by_session(conn, previous_limit=0)
     ended: List[str] = []
+    corrected: List[str] = []
     skipped: List[Dict[str, Any]] = []
     for report in reports:
         session_id = str(report.get("session_id") or "").strip()
@@ -109,6 +118,8 @@ def apply_verified_process_death_reports(
             now=current,
         )
         evidence = report.get("evidence") or {}
+        if settle_and_notify_native_death(conn, session_id, evidence) is not None:
+            corrected.append(session_id)
         current_holdings = (holdings.get(session_id) or {}).get("current") or []
         if status is None and current_holdings:
             record_native_process_gone(conn, session_id, evidence, observed_at=current)
@@ -119,7 +130,7 @@ def apply_verified_process_death_reports(
             ended.append(session_id)
         else:
             skipped.append({"session_id": session_id, "status": status})
-    return {"ended": ended, "skipped": skipped}
+    return {"ended": ended, "launches_corrected": corrected, "skipped": skipped}
 
 
 __all__ = [

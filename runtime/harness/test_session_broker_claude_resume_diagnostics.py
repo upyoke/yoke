@@ -22,7 +22,7 @@ from yoke_harness import session_relay
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness import session_relay_runtime as relay_runtime
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
-from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 from yoke_harness.session_relay_inventory import RelayInventory
 
 
@@ -95,11 +95,12 @@ def test_exact_broker_lease_spawns_claude_and_reports_running(
 
         def spawn(_context, invocation):
             invocations.append(invocation)
-            return ClaudeResumeProcess(
+            return SupervisedNative(
                 9876,
                 invocation.executable,
                 "path",
                 tmp_path / "resume.capture",
+                "nd-00000000-0000-4000-8000-000000009876",
                 _stamp(seconds=3),
             )
 

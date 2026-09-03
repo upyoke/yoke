@@ -8,58 +8,30 @@ from pathlib import Path
 import time
 from types import SimpleNamespace
 
-from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
-from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_cursor_acp as acp_module
 from yoke_harness import session_relay_cursor_cli as cli_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import (
-    CursorCreateRequest,
     CursorNativeResult,
-    CursorWakeRequest,
     build_cursor_adapter,
 )
 from yoke_harness.session_relay_cursor_acp import CursorAcpTransport
 from yoke_harness.session_relay_cursor_acp_stderr import BoundedStderr
 from yoke_harness.session_relay_cursor_cli import CursorCliTransport
+from runtime.harness.session_relay_cursor_test_support import (
+    ATTEMPT_ID,
+    ATTESTATION,
+    BOOTSTRAP,
+    CHECK_INBOX,
+    LAUNCH_ID,
+    SESSION_ID,
+    RunningProcess,
+    create_request,
+    local_supervision,
+    native_argv,
+    wake_request,
+)
 from yoke_harness.session_relay_runtime import RelayExecutionContext
-
-
-LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
-SESSION_ID = "22222222-2222-4222-8222-222222222222"
-ATTESTATION = "single-use-secret"
-BOOTSTRAP = native_launch_bootstrap(LAUNCH_ID)
-CHECK_INBOX = native_wake_instruction("message-1")
-
-
-class RunningProcess:
-    def wait(self, timeout=None):
-        if timeout == cli_module._STARTUP_SETTLE_SECONDS:
-            raise cli_module.subprocess.TimeoutExpired("cursor-agent", timeout)
-        return 0
-
-
-def _create_request(tmp_path: Path) -> CursorCreateRequest:
-    return CursorCreateRequest(
-        checkout=tmp_path,
-        launch_id=LAUNCH_ID,
-        surface_version="2026.08.11-e8db854",
-        native_instruction=BOOTSTRAP,
-        launch_attestation=ATTESTATION,
-        requested_model="composer-2",
-    )
-
-
-def _wake_request(tmp_path: Path) -> CursorWakeRequest:
-    return CursorWakeRequest(
-        checkout=tmp_path,
-        target_session_id=SESSION_ID,
-        surface_version="2026.08.11-e8db854",
-        target_liveness="ended",
-        wake_mode="waiting",
-        native_instruction=CHECK_INBOX,
-        requested_model="composer-2",
-    )
 
 
 def test_cli_transport_offers_no_create_operation_at_all(tmp_path: Path) -> None:
@@ -78,17 +50,22 @@ def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
     monkeypatch.setattr(
         cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
     )
+    local_supervision(monkeypatch, tmp_path)
 
     def spawn(command, **kwargs):
         spawns.append((command, kwargs))
         return RunningProcess()
 
     result = CursorCliTransport(process_factory=spawn).resume_chat(
-        _wake_request(tmp_path)
+        wake_request(tmp_path)
     )
 
     assert result.result_code == "accepted"
-    command, options = spawns[0]
+    # The turn runs under the supervisor, which keeps what it says; the
+    # native the supervisor was handed follows the `--` separator.
+    assert result.diagnostic_ref == f"nd-{ATTEMPT_ID}"
+    supervised, options = spawns[0]
+    command = native_argv(supervised)
     assert command[:3] == ["/opt/cursor-agent", "--resume", SESSION_ID]
     assert "--trust" in command
     assert "--force" in command
@@ -116,7 +93,8 @@ def test_cli_wake_names_no_model_when_the_relay_asked_for_none(
     monkeypatch.setattr(
         cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
     )
-    request = replace(_wake_request(tmp_path), requested_model=None)
+    local_supervision(monkeypatch, tmp_path)
+    request = replace(wake_request(tmp_path), requested_model=None)
 
     CursorCliTransport(
         process_factory=lambda command, **kwargs: (
@@ -124,7 +102,8 @@ def test_cli_wake_names_no_model_when_the_relay_asked_for_none(
         )
     ).resume_chat(request)
 
-    command, options = spawns[0]
+    supervised, options = spawns[0]
+    command = native_argv(supervised)
     assert "--model" not in command and "YOKE_MODEL" not in options["env"]
 
 
@@ -136,7 +115,7 @@ def test_cli_wake_refuses_an_inexact_session_before_spawn(
     monkeypatch.setattr(
         cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
     )
-    request = replace(_wake_request(tmp_path), target_session_id="not-an-id")
+    request = replace(wake_request(tmp_path), target_session_id="not-an-id")
 
     result = CursorCliTransport(
         process_factory=lambda *args, **kwargs: spawns.append((args, kwargs))
@@ -182,7 +161,7 @@ def test_acp_idle_wake_loads_and_prompts_the_exact_session(
     transport = CursorAcpTransport(worker=True)
     monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
 
-    result = transport.prompt_session(_wake_request(tmp_path))
+    result = transport.prompt_session(wake_request(tmp_path))
 
     assert result.result_code == "accepted"
     assert client.requests == [
@@ -211,7 +190,7 @@ def test_acp_launch_creates_a_session_and_makes_it_containable(
         ),
     )
 
-    result = transport.new_session(_create_request(tmp_path))
+    result = transport.new_session(create_request(tmp_path))
 
     assert result.result_code == "native_created"
     assert result.native_session_id == SESSION_ID
@@ -245,7 +224,7 @@ def test_acp_launch_survives_a_refused_model_selection(
         lambda launch_id, pid, native_session_id=None: None,
     )
 
-    result = transport.new_session(_create_request(tmp_path))
+    result = transport.new_session(create_request(tmp_path))
 
     assert result.result_code == "native_created"
     assert client.prompts == [(SESSION_ID, BOOTSTRAP)]
@@ -263,7 +242,7 @@ def test_acp_launch_parse_failure_carries_output_snippet(
     transport = CursorAcpTransport(worker=True)
     monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
 
-    result = transport.new_session(_create_request(tmp_path))
+    result = transport.new_session(create_request(tmp_path))
 
     assert result.result_code == "not_created"
     assert result.native_session_id is None
@@ -302,7 +281,7 @@ def test_acp_launch_failure_carries_what_the_native_said(
     transport = CursorAcpTransport(worker=True)
     monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
 
-    result = transport.new_session(_create_request(tmp_path))
+    result = transport.new_session(create_request(tmp_path))
 
     assert result.result_code == "not_created"
     assert result.native_stderr == b"cursor-agent: not logged in\n"

@@ -17,7 +17,7 @@ from runtime.harness.test_session_relay_claude import (
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
-from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 
 
 @pytest.fixture(autouse=True)
@@ -32,11 +32,12 @@ def _transcript_present_by_default(monkeypatch):
 def _spawned(calls):
     def spawn(context, invocation):
         calls.append((context, invocation))
-        return ClaudeResumeProcess(
+        return SupervisedNative(
             4321,
             invocation.executable,
             "path",
             Path("/private/captures/resume.capture"),
+            "nd-00000000-0000-4000-8000-000000004321",
             "2026-08-25T12:00:00Z",
         )
 
@@ -93,6 +94,7 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
         "native_binary": CLAUDE,
         "native_binary_source": "path",
         "native_capture_path": "/private/captures/resume.capture",
+        "native_diagnostic_ref": "nd-00000000-0000-4000-8000-000000004321",
         "native_started_at": "2026-08-25T12:00:00Z",
         "surface": "claude-cli",
     }

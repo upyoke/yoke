@@ -4,13 +4,16 @@ Resume prompts a session that already exists and already registered, so a
 detached print-mode turn against it is bounded by a session Yoke can already
 see. Creating a session this way is not: nothing owns the resulting native
 and nothing registers it, which is why launches use the ACP transport.
+
+The turn runs under the shared native supervisor, the same one Claude resumes
+use. This transport used to send both of the native's streams to ``/dev/null``,
+so a cursor resume that refused reported a bare exit code and its reason was
+gone the moment the process was.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 import subprocess
-import threading
 import time
 from typing import Callable
 from uuid import UUID
@@ -24,10 +27,13 @@ from yoke_harness.session_relay_cursor import (
 )
 from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_inventory import resolve_native_cli
+from yoke_harness.session_relay_native_spawn import (
+    SupervisedNative,
+    spawn_supervised_native,
+)
 
 
 CURSOR_AGENT_EXECUTABLE = "cursor-agent"
-_STARTUP_SETTLE_SECONDS = 0.05
 
 ProcessFactory = Callable[..., subprocess.Popen[bytes]]
 
@@ -59,16 +65,6 @@ def _environment(model: str | None) -> dict[str, str]:
     )
 
 
-def _reap(process: subprocess.Popen[bytes]) -> None:
-    def wait() -> None:
-        try:
-            process.wait()
-        except (OSError, subprocess.SubprocessError):
-            pass
-
-    threading.Thread(target=wait, daemon=True, name="yoke-cursor-relay-reap").start()
-
-
 class CursorCliTransport:
     """Resume one installed, documented Cursor CLI session at an exact ID."""
 
@@ -86,14 +82,11 @@ class CursorCliTransport:
 
     def _start_turn(
         self,
+        request: CursorWakeRequest,
         binary: str,
-        *,
-        checkout: Path,
         session_id: str,
-        instruction: str,
-        model: str | None,
-    ) -> tuple[subprocess.Popen[bytes] | None, int | None]:
-        """Start one print-mode resume, naming the model when one is asked for.
+    ) -> SupervisedNative | None:
+        """Start one supervised print-mode resume, naming the model asked for.
 
         ``--model`` is the only channel cursor-agent honors for this: the
         ACP ``session/new`` model parameter is accepted and ignored, so a
@@ -101,6 +94,7 @@ class CursorCliTransport:
         that omits the flag runs the default too. Naming it here sticks —
         the conversation keeps the variant for later resumes that omit it.
         """
+        model = request.requested_model
         command = [
             binary,
             "--resume",
@@ -109,52 +103,45 @@ class CursorCliTransport:
             "--output-format",
             "json",
             "--workspace",
-            str(checkout),
+            str(request.checkout),
             "--trust",
             *CURSOR_CLI_BYPASS_ARGUMENTS,
         ]
         if model:
             command.extend(("--model", model))
-        command.append(instruction)
-        try:
-            process = self.process_factory(
-                command,
-                cwd=checkout,
-                env=_environment(model),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-        except OSError:
-            return None, None
-        try:
-            returncode = process.wait(timeout=_STARTUP_SETTLE_SECONDS)
-        except subprocess.TimeoutExpired:
-            _reap(process)
-            return process, None
-        return process, int(returncode)
+        command.append(request.native_instruction)
+        return spawn_supervised_native(
+            command,
+            checkout=request.checkout,
+            environment=_environment(model),
+            attempt_id=request.attempt_id,
+            native_session_id=session_id,
+            binary_source="path",
+            lease_id=request.lease_id,
+            process_factory=self.process_factory,
+        )
 
     def resume_chat(self, request: CursorWakeRequest) -> CursorNativeResult:
+        """Start the turn and report the spawn; the settlement reports its end.
+
+        The relay poll is gone long before a cursor turn finishes, so this
+        reports only that the native started. The capture the supervisor is
+        streaming into carries the rest, and the shared resume settlement
+        turns it into this attempt's terminal result on a later poll.
+        """
         started = time.monotonic()
         binary = self._binary()
         session_id = _session_id(request.target_session_id)
         if binary is None or session_id is None or not request.checkout.is_dir():
             return CursorNativeResult("not_found")
-        process, returncode = self._start_turn(
-            binary,
-            checkout=request.checkout,
-            session_id=session_id,
-            instruction=request.native_instruction,
-            model=request.requested_model,
-        )
-        if process is None:
+        spawned = self._start_turn(request, binary, session_id)
+        if spawned is None:
             return CursorNativeResult("failed", duration_ms=_elapsed_ms(started))
-        code = "accepted" if returncode in {None, 0} else "failed"
         return CursorNativeResult(
-            code,
-            exit_code=returncode,
+            "accepted",
             duration_ms=_elapsed_ms(started),
+            diagnostic_ref=spawned.diagnostic_ref,
+            capture_path=str(spawned.capture_path),
         )
 
 

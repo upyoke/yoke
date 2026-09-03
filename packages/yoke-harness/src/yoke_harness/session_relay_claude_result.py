@@ -97,10 +97,17 @@ def build_claude_result(
             or process.stderr
         )
     )
+    # A launch is retained whatever it reported. The create that succeeds is
+    # the same one whose native can die minutes later having claimed nothing,
+    # and by then this is the only account of how it came up.
     if (
         private_diagnostic is None
         and process is not None
-        and (process.returncode != 0 or capture_identity_output)
+        and (
+            context.job_kind == "launch"
+            or process.returncode != 0
+            or capture_identity_output
+        )
     ):
         private_diagnostic = _private_process_diagnostic(
             process,

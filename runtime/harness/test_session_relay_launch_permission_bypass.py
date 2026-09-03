@@ -33,10 +33,12 @@ from yoke_harness.session_relay_native_diagnostics import (
 
 from runtime.harness.test_session_relay_codex_app_server_wake import FakeAppClient
 from runtime.harness.test_session_relay_codex_cli_process import _request
-from runtime.harness.test_session_relay_cursor_native import (
-    RunningProcess,
+from runtime.harness.session_relay_cursor_test_support import (
     SESSION_ID,
-    _wake_request,
+    RunningProcess,
+    local_supervision,
+    native_argv,
+    wake_request,
 )
 
 
@@ -111,17 +113,19 @@ def test_cursor_cli_wake_auto_approves_commands(monkeypatch, tmp_path: Path) -> 
     monkeypatch.setattr(
         cursor_cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
     )
+    local_supervision(monkeypatch, tmp_path)
 
     def spawn(command, **_kwargs):
         spawns.append(command)
         return RunningProcess()
 
     cursor_cli_module.CursorCliTransport(process_factory=spawn).resume_chat(
-        _wake_request(tmp_path)
+        wake_request(tmp_path)
     )
 
-    assert SESSION_ID in spawns[0]
-    assert "--force" in spawns[0]
+    native = native_argv(spawns[0])
+    assert SESSION_ID in native
+    assert "--force" in native
 
 
 def test_cursor_acp_launch_bypass_is_answered_by_the_relay() -> None:
