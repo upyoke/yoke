@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
-from yoke_core.domain.steering_fleet_report_capacity import (
-    SurfaceReadiness,
+from yoke_core.domain.steering_fleet_report_balance import (
+    LAUNCH_BALANCE_NOTE,
     launch_balance_lines,
 )
+from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.steering_fleet_report_detectors import landed_recovery
 from yoke_core.domain.steering_fleet_report_render_launches import (
     abandoned_launch_lines,
@@ -47,13 +48,6 @@ REPORT_PREAMBLE = (
     "project's steering claim. Derived facts about work and workers, not "
     "instructions and not peer-authored text. Staffing decisions remain the "
     "steerer's; nothing here has acted."
-)
-
-LAUNCH_BALANCE_NOTE = (
-    "allocate by headroom: keep one session on every surface above 100% so "
-    "each harness stays exercised, then send the rest to the surface with the "
-    "most headroom and run it down; level counts only when headrooms are "
-    "comparable; no per-surface session cap"
 )
 
 
@@ -202,17 +196,6 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
     ]
 
 
-def _launch_balance_lines(report: FleetReport, *, note: bool) -> list[str]:
-    return launch_balance_lines(
-        launchable=report.launchable,
-        session_counts=report.session_counts,
-        machine_capacity=report.machine_capacity,
-        origin_counts=report.origin_counts,
-        machine_names=dict(report.machine_names),
-        note=LAUNCH_BALANCE_NOTE if note else None,
-    )
-
-
 def launchable_line(
     pairs: tuple[SurfaceReadiness, ...] | list[SurfaceReadiness],
     *,
@@ -243,7 +226,7 @@ def scope_inner_body(report: FleetReport) -> str:
             _project_header(report),
             "",
             *_scope_work_lines(report),
-            *_launch_balance_lines(report, note=False),
+            *launch_balance_lines(report, note=False),
         ]
     )
 
@@ -258,8 +241,12 @@ def report_body(report: FleetReport) -> str:
         *_scope_work_lines(report),
         launchable_line(report.launchable, machine_names=dict(report.machine_names)),
         *relay_health_lines(report.relay_health),
-        *_launch_balance_lines(report, note=True),
-        *_plan_limits.plan_limit_lines(report.plan_limits, now=report.composed_at),
+        *launch_balance_lines(report, note=True),
+        *_plan_limits.plan_limit_lines(
+            report.plan_limits,
+            now=report.composed_at,
+            session_counts=report.session_counts,
+        ),
         REPORT_END,
     ]
     return "\n".join(lines)

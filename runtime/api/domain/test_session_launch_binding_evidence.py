@@ -7,6 +7,7 @@ import json
 import pytest
 
 from yoke_core.domain.session_launch_binding_evidence import (
+    bound_registration_evidence,
     record_registration_refusal,
 )
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
@@ -101,6 +102,38 @@ def test_matching_model_labels_record_no_divergence() -> None:
     evidence = _evidence(conn, launch.launch_id)
     assert "requested_model" not in evidence
     assert "registered_model" not in evidence
+
+
+def test_every_requested_and_served_selection_difference_is_recorded() -> None:
+    conn = launch_connection()
+    add_relay(conn, surface="claude-cli", version="2.1.259")
+    launch = assigned_launch(
+        conn,
+        surface="claude-cli",
+        model="claude-opus-4-8",
+        reasoning_effort="max",
+        context_window_tokens=1_000_000,
+    )
+
+    evidence = json.loads(
+        bound_registration_evidence(
+            launch,
+            {
+                "model": "claude-sonnet-5",
+                "reasoning_effort": "high",
+                "context_window_tokens": 258_400,
+            },
+        )
+    )
+
+    assert evidence == {
+        "registered_context_window_tokens": 258_400,
+        "registered_model": "claude-sonnet-5",
+        "registered_reasoning_effort": "high",
+        "requested_context_window_tokens": 1_000_000,
+        "requested_model": "claude-opus-4-8",
+        "requested_reasoning_effort": "max",
+    }
 
 
 def test_refused_registration_is_written_onto_the_launch_once_per_code() -> None:

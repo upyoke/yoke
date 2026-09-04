@@ -12,12 +12,9 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.session_control.models import (
     LaunchCreateRequest,
     LaunchListRequest,
-    LaunchListResponse,
     LaunchMutationRequest,
     LaunchPreviewRequest,
-    LaunchPreviewResponse,
     LaunchReconcileRequest,
-    LaunchResponse,
 )
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
@@ -27,6 +24,8 @@ from yoke_core.domain.session_launch_projection import (
     public_launch_record,
     public_launch_records,
 )
+from yoke_core.domain.session_launch_validation import preview_model_selection_payload
+from yoke_core.domain.session_launch_validation import validate_preview_model_selection
 
 
 def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome:
@@ -128,13 +127,14 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(parsed, HandlerOutcome):
         return parsed
     from yoke_core.domain.session_launch_machine_models import (
-        resolve_machine_model,
+        resolve_machine_selection,
     )
     from yoke_core.domain.session_launch_requests import preview_launch
 
     conn = _open()
     try:
         project_id = _resolve_project(conn, parsed.project)
+        selection = validate_preview_model_selection(parsed.executor_surface, parsed)
         preview = preview_launch(
             conn,
             auth=_authorization(conn, request, project_id),
@@ -146,15 +146,19 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
                 _fleet_policy(conn, project_id, "fleet.surface_fallback")
             ),
         )
+        if preview.selected_surface:
+            selection = validate_preview_model_selection(
+                preview.selected_surface, parsed
+            )
         payload = preview.to_dict()
-        payload["requested_model"] = parsed.model
+        payload.update(preview_model_selection_payload(selection))
         relay = preview.selected_relay
-        # A preview that names a machine can also name the model a launch
-        # there would carry, because the default belongs to that machine.
         payload.update(
-            resolve_machine_model(
+            resolve_machine_selection(
                 conn,
                 requested_model=parsed.model,
+                requested_reasoning_effort=parsed.reasoning_effort,
+                requested_context_window_tokens=parsed.context_window_tokens,
                 machine_id=relay.machine_id if relay else None,
                 surface=relay.surface if relay else parsed.executor_surface,
             ).to_dict()
@@ -330,10 +334,6 @@ def handle_launch_reconcile(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "LaunchListRequest",
-    "LaunchListResponse",
-    "LaunchPreviewResponse",
-    "LaunchResponse",
     "handle_launch_cancel",
     "handle_launch_create",
     "handle_launch_get",

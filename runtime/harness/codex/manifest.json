@@ -100,7 +100,35 @@
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",
-    "inline_context_bytes": 2500
+    "inline_context_bytes": 2500,
+    "launch_model_selection": {
+      "source": "yoke_contracts.session_control.model_selection",
+      "surface": "codex-cli",
+      "model_catalog": "documented",
+      "documented_models": [
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-5.5",
+        "gpt-5.4"
+      ],
+      "reasoning_efforts": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "context_windows": [],
+      "native_encoding": {
+        "model": "--model MODEL",
+        "reasoning_effort": "-c model_reasoning_effort=EFFORT",
+        "context_window_tokens": null
+      }
+    }
   },
   "agent_wake": {
     "source": "yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES",

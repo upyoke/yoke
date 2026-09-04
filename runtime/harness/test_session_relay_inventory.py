@@ -9,6 +9,10 @@ from yoke_contracts.machine_config.machine_capacity import (
     CAP_SOURCE_SETTING,
     CAP_SOURCE_UNREADABLE,
 )
+from yoke_contracts.machine_config.preferred_session_models import (
+    PREFERRED_SESSION_MODELS_KEY,
+    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
+)
 from yoke_harness import session_relay_inventory as inventory_module
 from yoke_harness import session_relay_surface_probes as probe_module
 
@@ -191,3 +195,37 @@ def test_claim_payload_derives_a_cap_when_no_setting_names_one(
 
     assert capacity["cap_source"] in (CAP_SOURCE_DERIVED, CAP_SOURCE_UNREADABLE)
     assert capacity["max_worker_lanes"] is None or capacity["max_worker_lanes"] >= 1
+
+
+def test_claim_payload_advertises_this_machines_selection_defaults(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        inventory_module,
+        "ensure_machine_id",
+        lambda: "44444444-4444-4444-8444-444444444444",
+    )
+    monkeypatch.setattr(
+        inventory_module.machine_config,
+        "configured_projects",
+        lambda **_kwargs: [],
+    )
+    monkeypatch.setattr(inventory_module, "local_handshake_version", lambda: "source")
+    monkeypatch.setattr(inventory_module, "observe_plan_limits", lambda *_a, **_k: {})
+    monkeypatch.setattr(inventory_module, "read_settings", lambda: {})
+    monkeypatch.setattr(
+        inventory_module,
+        "load_config",
+        lambda: {
+            PREFERRED_SESSION_MODELS_KEY: {"claude-cli": "claude-opus-4-8[1m]"},
+            PREFERRED_SESSION_REASONING_EFFORTS_KEY: {"claude-cli": "max"},
+        },
+    )
+
+    payload = inventory_module.collect_cached_inventory(
+        state_dir=tmp_path
+    ).claim_payload()
+
+    assert payload["preferred_models"] == {"claude-cli": "claude-opus-4-8[1m]"}
+    assert payload["preferred_reasoning_efforts"] == {"claude-cli": "max"}

@@ -2,87 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-import json
 import shutil
-from typing import Callable, Mapping
+from typing import Callable
 from uuid import uuid4
 
-from yoke_contracts.session_control.launch_permission_bypass import (
-    CLAUDE_BYPASS_ARGUMENTS,
-)
 from yoke_contracts.session_control.launch_registration import (
     NATIVE_LAUNCH_WORKSPACE_FIELD,
 )
-from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
-from yoke_contracts.session_control.presentation import (
-    CLAUDE_LOCAL_PRESENTATION,
-    CLAUDE_REMOTE_CONTROL_SETTING,
+from yoke_contracts.session_control.model_selection import (
+    LaunchModelSelection,
+    native_model_selector,
 )
+from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
+from yoke_harness.session_relay_claude_invocation import ClaudeNativeInvocation
 from yoke_harness.session_relay_native_spawn import (
     SupervisedNative,
     spawn_supervised_native,
 )
 from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_runtime import RelayExecutionContext
-
-
-@dataclass(frozen=True)
-class ClaudeNativeInvocation:
-    """One native command, its workspace, and the session it names.
-
-    ``session_id`` is the conversation the native will run in — chosen by the
-    relay on a create, and the target's own id on a wake. ``launch_id`` is the
-    launch that asked for a create, and is what custody and the attestation are
-    keyed on; a wake has no launch and leaves it unset.
-    """
-
-    executable: str
-    cwd: Path
-    session_id: str
-    surface_version: str
-    instruction: str = field(repr=False)
-    resume: bool = False
-    launch_id: str | None = None
-    model: str | None = None
-    presentation: str | None = None
-    session_name: str | None = None
-    launch_attestation: str | None = field(default=None, repr=False)
-    progress_reporter: Callable[[Mapping[str, object]], bool] | None = field(
-        default=None, repr=False, compare=False
-    )
-
-    @property
-    def settings_arguments(self) -> tuple[str, ...]:
-        if self.presentation != CLAUDE_LOCAL_PRESENTATION:
-            return ()
-        settings = json.dumps(
-            {CLAUDE_REMOTE_CONTROL_SETTING: True},
-            separators=(",", ":"),
-        )
-        return "--settings", settings
-
-    @property
-    def argv(self) -> tuple[str, ...]:
-        arguments = [
-            self.executable,
-            "-p",
-            *CLAUDE_BYPASS_ARGUMENTS,
-            *self.settings_arguments,
-        ]
-        if self.resume:
-            arguments.extend(("--resume", self.session_id))
-        else:
-            # The relay names the conversation instead of discovering it, so a
-            # create knows its own session before the native's first hook runs.
-            arguments.extend(("--session-id", self.session_id))
-            if self.model:
-                arguments.extend(("--model", self.model))
-            if self.session_name:
-                arguments.extend(("--name", self.session_name))
-        arguments.extend((self.instruction, "--output-format", "json"))
-        return tuple(arguments)
 
 
 ClaudeNativeSpawner = Callable[["ClaudeNativeInvocation"], SupervisedNative | None]
@@ -188,6 +126,17 @@ def native_invocation(
     if not session_id.strip():
         return None
     raw_model = getattr(context, "requested_model", None) if launch else None
+    raw_effort = (
+        getattr(context, "requested_reasoning_effort", None) if launch else None
+    )
+    raw_context = (
+        getattr(context, "requested_context_window_tokens", None) if launch else None
+    )
+    selection = LaunchModelSelection(
+        str(raw_model).strip() if raw_model else None,
+        str(raw_effort).strip() if raw_effort else None,
+        int(raw_context) if raw_context is not None else None,
+    )
     return ClaudeNativeInvocation(
         executable,
         context.checkout,
@@ -196,7 +145,8 @@ def native_invocation(
         instruction,
         resume=not launch,
         launch_id=context.job_id if launch else None,
-        model=str(raw_model).strip() if raw_model else None,
+        model=native_model_selector("claude-cli", selection),
+        reasoning_effort=selection.reasoning_effort,
         presentation=context.presentation,
         session_name=context.session_name if launch else None,
         launch_attestation=context.launch_attestation if launch else None,

@@ -10,7 +10,6 @@ the public default adapter fails closed without starting a process.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 import time
 from typing import Callable, Protocol
 
@@ -24,12 +23,20 @@ from yoke_harness.session_relay_cursor_identity import (
     LaunchAttestationHandoff,
     conversation_map_lookup,
 )
+from yoke_harness.session_relay_cursor_requests import (
+    CursorCreateRequest,
+    CursorWakeRequest,
+    cursor_model_selector,
+)
+from yoke_harness.session_relay_native_diagnostics import (
+    MODEL_COMBO_UNSUPPORTED,
+    model_combo_rejection_detail,
+)
 from yoke_harness.session_relay_runtime import (
     native_instruction_targets_job,
     RelayAdapter,
     RelayAdapterResult,
     RelayExecutionContext,
-    WakeMode,
     normalize_wake_mode,
     wake_operation,
 )
@@ -49,45 +56,6 @@ _WAKE_CODES = frozenset(
         "version_mismatch",
     }
 )
-
-
-@dataclass(frozen=True)
-class CursorCreateRequest:
-    """One opaque create request; the attestation is never printable."""
-
-    checkout: Path
-    launch_id: str
-    surface_version: str
-    native_instruction: str = field(repr=False)
-    launch_attestation: str = field(repr=False)
-    requested_model: str | None = None
-
-
-@dataclass(frozen=True)
-class CursorWakeRequest:
-    """One exact-session resume carrying only the check-inbox sentence.
-
-    ``requested_model`` is the variant this turn must run under. cursor-agent
-    resumes a session at whichever model it last ran, so naming it once — on
-    the launch's own first resume — is what makes every later wake inherit it.
-    """
-
-    checkout: Path
-    target_session_id: str
-    surface_version: str
-    target_liveness: str | None
-    wake_mode: WakeMode
-    native_instruction: str = field(repr=False)
-    requested_model: str | None = None
-    # The wake attempt this turn belongs to, and the lease it was claimed
-    # under. The supervisor names the turn's capture after the attempt, and
-    # the settlement that reports how it ended needs the lease to do so.
-    attempt_id: str = ""
-    lease_id: str = ""
-
-    def __post_init__(self) -> None:
-        if normalize_wake_mode(self.wake_mode) is None:
-            raise ValueError("wake instruction has no authorized mode")
 
 
 @dataclass(frozen=True)
@@ -136,12 +104,17 @@ def _result(
     native: CursorNativeResult | None = None,
     native_session_id: str | None = None,
     evidence_code: str | None = None,
+    probe_detail: str | None = None,
 ) -> RelayAdapterResult:
     return RelayAdapterResult(
         result_code,
         native_session_id=native_session_id,
         adapter_revision=CURSOR_ADAPTER_REVISION,
-        evidence=cursor_evidence(evidence_code or result_code, native),
+        evidence=cursor_evidence(
+            evidence_code or result_code,
+            native,
+            probe_detail=probe_detail,
+        ),
         private_diagnostic=cursor_private_diagnostic(native),
     )
 
@@ -187,6 +160,14 @@ def _validated(
 
 
 def _launch_result(native: CursorNativeResult) -> RelayAdapterResult:
+    detail = model_combo_rejection_detail(native.native_stderr)
+    if detail:
+        return _result(
+            "not_created",
+            native=native,
+            evidence_code=MODEL_COMBO_UNSUPPORTED,
+            probe_detail=detail,
+        )
     if native.result_code not in _LAUNCH_CODES:
         return _result("outcome_unknown", native=native)
     if native.result_code == "native_created" and not native.native_session_id:
@@ -234,7 +215,7 @@ def build_cursor_adapter(
                 surface_version=str(context.surface_version),
                 native_instruction=context.native_instruction,
                 launch_attestation=str(context.launch_attestation),
-                requested_model=context.requested_model,
+                requested_model=cursor_model_selector(context),
             )
             if acp_port is None:
                 return _result(
@@ -271,7 +252,7 @@ def build_cursor_adapter(
             target_liveness=context.target_liveness,
             wake_mode=wake_mode,
             native_instruction=context.native_instruction,
-            requested_model=context.requested_model,
+            requested_model=cursor_model_selector(context),
             attempt_id=str(context.job_id),
             lease_id=str(context.lease_id),
         )
@@ -316,5 +297,6 @@ __all__ = [
     "CursorSubprocessPort",
     "CursorWakeRequest",
     "build_cursor_adapter",
+    "cursor_model_selector",
     "cursor_relay_adapter",
 ]

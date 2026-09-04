@@ -12,6 +12,7 @@ from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     SessionRelayError,
     advertised_session_models,
+    advertised_session_reasoning_efforts,
 )
 
 
@@ -72,6 +73,9 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
         surface_plan_limits=sanitize_plan_limits(heartbeat.surface_plan_limits),
         preferred_session_models=advertised_session_models(
             heartbeat.preferred_session_models
+        ),
+        preferred_session_reasoning_efforts=advertised_session_reasoning_efforts(
+            heartbeat.preferred_session_reasoning_efforts
         ),
         machine_capacity=sanitize_machine_capacity(heartbeat.machine_capacity),
         relay_health=sanitize_relay_health(heartbeat.relay_health),

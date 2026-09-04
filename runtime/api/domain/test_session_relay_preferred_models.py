@@ -1,12 +1,16 @@
-"""A machine advertises its own preferred models on its relay heartbeat."""
+"""A machine advertises its model and effort defaults on each heartbeat."""
 
 from __future__ import annotations
 
-from yoke_core.domain.session_launch_machine_models import machine_preferred_models
+from yoke_core.domain.session_launch_machine_models import (
+    machine_preferred_models,
+    machine_preferred_reasoning_efforts,
+)
 from yoke_core.domain.session_relay_storage import heartbeat_relay
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     advertised_session_models,
+    advertised_session_reasoning_efforts,
 )
 
 from runtime.api.domain.session_launch_test_support import (
@@ -20,7 +24,9 @@ MACHINE_ID = "22222222-2222-4222-8222-222222222222"
 RELAY_ID = f"machine:{MACHINE_ID}"
 
 
-def _heartbeat(models: dict[str, str]) -> RelayHeartbeat:
+def _heartbeat(
+    models: dict[str, str], efforts: dict[str, str] | None = None
+) -> RelayHeartbeat:
     return RelayHeartbeat(
         relay_id=RELAY_ID,
         actor_id=1,
@@ -30,6 +36,7 @@ def _heartbeat(models: dict[str, str]) -> RelayHeartbeat:
         surface_versions={"codex-cli": "0.148.0a15"},
         project_ids=(10,),
         preferred_session_models=models,
+        preferred_session_reasoning_efforts=efforts or {},
     )
 
 
@@ -39,7 +46,10 @@ def test_heartbeat_persists_the_machines_own_preferred_models() -> None:
 
     heartbeat_relay(
         conn,
-        _heartbeat({"codex-cli": "gpt-5.6-sol", "claude-cli": "claude-opus-5"}),
+        _heartbeat(
+            {"codex-cli": "gpt-5.6-sol", "claude-cli": "claude-opus-5"},
+            {"codex-cli": "xhigh", "claude-cli": "max"},
+        ),
         state="active",
         next_poll_seconds=60,
         now=NOW,
@@ -48,6 +58,10 @@ def test_heartbeat_persists_the_machines_own_preferred_models() -> None:
     assert machine_preferred_models(conn, machine_id=MACHINE_ID) == {
         "codex-cli": "gpt-5.6-sol",
         "claude-cli": "claude-opus-5",
+    }
+    assert machine_preferred_reasoning_efforts(conn, machine_id=MACHINE_ID) == {
+        "codex-cli": "xhigh",
+        "claude-cli": "max",
     }
 
 
@@ -73,6 +87,10 @@ def test_blank_and_non_string_entries_never_become_a_default() -> None:
         {"codex-cli": "   ", "claude-cli": None, "  ": "x", "cursor-cli": " m "}
     ) == {"cursor-cli": "m"}
     assert advertised_session_models("not a map") == {}
+    assert advertised_session_reasoning_efforts(
+        {"codex-cli": " XHIGH ", "claude-cli": "", "cursor-cli": None}
+    ) == {"codex-cli": "xhigh"}
+    assert advertised_session_reasoning_efforts("not a map") == {}
 
 
 def test_a_machine_naming_its_default_as_a_settings_object_still_advertises() -> None:

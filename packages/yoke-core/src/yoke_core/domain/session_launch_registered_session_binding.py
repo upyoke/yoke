@@ -228,7 +228,7 @@ def bind_launch_to_session(
         attestation_consumed_at=now,
         result_code="registration_bound",
         result_evidence=bound_registration_evidence(
-            launch, facts["model"], stamped_columns=stamped
+            launch, facts, stamped_columns=stamped
         ),
     )
 

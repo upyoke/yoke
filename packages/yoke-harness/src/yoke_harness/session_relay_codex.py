@@ -68,6 +68,8 @@ class CodexNativeRequest:
     native_instruction: str = field(repr=False)
     launch_attestation: str | None = field(default=None, repr=False)
     target_thread_id: str | None = None
+    requested_reasoning_effort: str | None = None
+    requested_context_window_tokens: int | None = None
 
     def __post_init__(self) -> None:
         if self.job_kind == "wake" and normalize_wake_mode(self.wake_mode) is None:
@@ -95,6 +97,8 @@ class CodexNativeOutcome:
     phase: NativePhase | None = None
     binary_source: str | None = None
     pid: int | None = None
+    failure_code: str | None = None
+    failure_detail: str | None = None
 
 
 class CodexNativeTransport(Protocol):
@@ -136,6 +140,12 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
     if version is None:
         raise ValueError("relay context has no surface version")
     requested_model = _text(_extended(context, "requested_model"))
+    requested_reasoning_effort = _text(
+        getattr(context, "requested_reasoning_effort", None)
+    )
+    requested_context_window_tokens = getattr(
+        context, "requested_context_window_tokens", None
+    )
     presentation = _text(_extended(context, "presentation"))
     liveness = _text(getattr(context, "target_liveness", None))
     target_session_id = _text(context.target_session_id)
@@ -190,6 +200,8 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
             native_instruction=instruction,
             launch_attestation=_text(context.launch_attestation),
             target_thread_id=target_thread_id,
+            requested_reasoning_effort=requested_reasoning_effort,
+            requested_context_window_tokens=requested_context_window_tokens,
         ),
         operation,
     )
@@ -201,7 +213,8 @@ def _evidence(
     outcome: CodexNativeOutcome | None = None,
 ) -> dict[str, Any]:
     """Render the bounded facts an unproven attempt needs to name its phase."""
-    payload: dict[str, Any] = {"surface": surface, "result_code": state}
+    code = outcome.failure_code if outcome and outcome.failure_code else state
+    payload: dict[str, Any] = {"surface": surface, "result_code": code}
     if outcome is None:
         return payload
     if outcome.exit_code is not None:
@@ -212,6 +225,8 @@ def _evidence(
         payload["native_binary_source"] = outcome.binary_source
     if outcome.pid:
         payload["native_launch_pid"] = int(outcome.pid)
+    if outcome.failure_detail:
+        payload["probe_detail"] = outcome.failure_detail
     return payload
 
 

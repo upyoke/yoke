@@ -135,6 +135,9 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     machine_capacity=payload.capacity,
                     preferred_session_models=payload.preferred_models,
                     relay_health=payload.health,
+                    preferred_session_reasoning_efforts=(
+                        payload.preferred_reasoning_efforts
+                    ),
                 ),
                 wait_seconds=payload.wait_seconds,
                 broker_only=payload.broker_only,

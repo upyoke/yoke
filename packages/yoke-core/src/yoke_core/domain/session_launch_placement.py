@@ -182,9 +182,9 @@ def place_launch(
         else:
             outcome = "no_eligible_relay"
         return LaunchPreview(
-            outcome,
-            surface,
-            relays,
+            outcome=outcome,
+            requested_surface=surface,
+            eligible_relays=relays,
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=snapshot.rejection_codes,
             machine_capacity=snapshot.machine_capacity,
@@ -205,9 +205,9 @@ def place_launch(
             for _relay, candidate in weighed
         )
         return LaunchPreview(
-            ACCESS_DENIED_OUTCOME,
-            surface,
-            relays,
+            outcome=ACCESS_DENIED_OUTCOME,
+            requested_surface=surface,
+            eligible_relays=relays,
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=snapshot.rejection_codes,
             machine_capacity=snapshot.machine_capacity,
@@ -219,9 +219,9 @@ def place_launch(
         )
     if machine_id and len(usable) > 1:
         return LaunchPreview(
-            "relay_ambiguous",
-            surface,
-            relays,
+            outcome="relay_ambiguous",
+            requested_surface=surface,
+            eligible_relays=relays,
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=snapshot.rejection_codes,
             machine_capacity=snapshot.machine_capacity,
@@ -260,10 +260,10 @@ def place_launch(
         for _relay, candidate in weighed
     )
     return LaunchPreview(
-        "assigned_fallback" if fallback else "assigned",
-        surface,
-        relays,
-        relay,
+        outcome="assigned_fallback" if fallback else "assigned",
+        requested_surface=surface,
+        eligible_relays=relays,
+        selected_relay=relay,
         considered_machine_ids=snapshot.considered_machine_ids,
         rejection_codes=snapshot.rejection_codes,
         machine_capacity=snapshot.machine_capacity,

@@ -22,10 +22,10 @@ from yoke_cli.commands.adapters.session_control_native_diagnostic_output import 
     native_diagnostic_fields,
 )
 from yoke_harness import session_relay_codex_app_server as app_module
-from yoke_harness import session_relay_codex_cli as codex_cli_module
 from yoke_harness import session_relay_cursor_cli as cursor_cli_module
 from yoke_harness.session_relay_claude import ClaudeNativeInvocation
 from yoke_harness.session_relay_codex import CodexNativeRequest
+from yoke_harness.session_relay_codex_invocation import codex_base_command
 from yoke_harness.session_relay_native_diagnostics import (
     PERMISSION_BYPASS_UNACCEPTED,
     classify_native_failure,
@@ -68,7 +68,7 @@ def test_claude_create_and_resume_both_skip_permissions(resume: bool) -> None:
 def test_codex_exec_bypasses_approvals_and_sandbox_on_create_and_resume(
     tmp_path: Path,
 ) -> None:
-    command = codex_cli_module._base_command("/opt/codex", _request(tmp_path))
+    command = codex_base_command("/opt/codex", _request(tmp_path))
 
     # The resume route appends to this same base, so one assertion covers both.
     assert "--dangerously-bypass-approvals-and-sandbox" in command

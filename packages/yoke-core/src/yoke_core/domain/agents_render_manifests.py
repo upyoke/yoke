@@ -19,14 +19,19 @@ from yoke_contracts.harness_turn_record_capability import (
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_contracts.session_control import capabilities_for_harness
+from yoke_contracts.session_control.model_selection_manifest import (
+    launch_model_selection_manifest,
+)
 
 
 def _session_control(harness_id: str) -> dict:
+    cli = harness_cli_manifest(harness_id)
     return {
         "source": "yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES",
         "surfaces": capabilities_for_harness(harness_id),
         "inline_context_source": "yoke_contracts.hook_inline_context",
         "inline_context_bytes": inline_context_bytes_for_harness(harness_id),
+        "launch_model_selection": launch_model_selection_manifest(cli.surface_id),
     }
 
 

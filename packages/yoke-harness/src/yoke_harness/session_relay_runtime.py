@@ -52,6 +52,8 @@ class RelayExecutionContext:
     target_session_id: str | None = None
     target_native_thread_id: str | None = None
     requested_model: str | None = None
+    requested_reasoning_effort: str | None = None
+    requested_context_window_tokens: int | None = None
     presentation: str | None = None
     session_name: str | None = None
     launch_deadline_at: str | None = None
@@ -182,6 +184,16 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         ),
         requested_model=(
             str(job["requested_model"]) if job.get("requested_model") else None
+        ),
+        requested_reasoning_effort=(
+            str(job["requested_reasoning_effort"])
+            if job.get("requested_reasoning_effort")
+            else None
+        ),
+        requested_context_window_tokens=(
+            int(job["requested_context_window_tokens"])
+            if job.get("requested_context_window_tokens") is not None
+            else None
         ),
         presentation=(str(job["presentation"]) if job.get("presentation") else None),
         session_name=(str(job["session_name"]) if job.get("session_name") else None),

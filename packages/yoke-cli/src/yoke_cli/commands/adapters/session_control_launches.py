@@ -16,6 +16,9 @@ from yoke_cli.commands.adapters.session_control_common import (
     read_stdin_payload,
     write_launch_result,
 )
+from yoke_cli.commands.adapters.session_control_launch_selection import (
+    selector_payload,
+)
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import LaunchState
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
@@ -23,18 +26,21 @@ from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 
 LAUNCH_PREVIEW_USAGE = (
     "yoke session-control launch preview --project P --surface S "
-    "[--machine M] [--model M] [--allow-surface-fallback] [--list-models] [--json]"
+    "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
+    "[--allow-surface-fallback] [--list-models] [--json]"
 )
 LAUNCH_CREATE_USAGE = (
     "yoke session-control launch create --project P --surface S "
     "--item PREFIX-N --idempotency-key K [--stdin] [--raw-instructions] "
-    "[--machine M] [--model M] [--presentation P] "
+    "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
+    "[--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     "yoke sessions create --project P --surface S "
     "(--preview | --item PREFIX-N --idempotency-key K [--stdin] [--raw-instructions]) "
-    "[--machine M] [--model M] [--presentation P] "
+    "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
+    "[--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
 )
 LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
@@ -49,10 +55,22 @@ LAUNCH_RECONCILE_USAGE = (
 
 
 def _add_launch_selector(parser: argparse.ArgumentParser) -> None:
+    from yoke_contracts.session_control.model_selection import (
+        parse_context_window_tokens,
+    )
+
     parser.add_argument("--project", required=True)
     parser.add_argument("--surface", required=True, dest="executor_surface")
     parser.add_argument("--machine", default=None, dest="machine_id")
     parser.add_argument("--model", default=None)
+    parser.add_argument("--reasoning-effort", default=None)
+    parser.add_argument(
+        "--context-window",
+        dest="context_window_tokens",
+        type=parse_context_window_tokens,
+        default=None,
+        metavar="TOKENS",
+    )
     parser.add_argument("--allow-surface-fallback", action="store_true")
 
 
@@ -71,27 +89,6 @@ def _maybe_list_models(args: List[str]) -> int | None:
     report = list_preferred_models(parsed.executor_surface)
     print(render_list_models(report, json_mode=parsed.json_mode), end="")
     return 0
-
-
-def _preview_payload(parsed: argparse.Namespace) -> dict[str, Any]:
-    """Send only what the caller asked for.
-
-    An unnamed model is left unnamed: the control plane resolves it against
-    the machine that will actually run the session, so filling in this
-    machine's default here would name a model the target may not even have.
-    """
-    payload: dict[str, Any] = {
-        "project": parsed.project,
-        "executor_surface": parsed.executor_surface,
-        "allow_surface_fallback": parsed.allow_surface_fallback,
-    }
-    machine_id = getattr(parsed, "machine_id", None)
-    if machine_id:
-        payload["machine_id"] = machine_id
-    model = str(getattr(parsed, "model", None) or "").strip()
-    if model:
-        payload["model"] = model
-    return payload
 
 
 def _dispatch_launch(
@@ -126,10 +123,13 @@ def session_launch_preview(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, LAUNCH_PREVIEW_USAGE)
     if parsed is None:
         return 2
+    payload = selector_payload(parsed)
+    if payload is None:
+        return 2
     return _dispatch_launch(
         parsed,
         function_id="session_control.launch.preview",
-        payload=_preview_payload(parsed),
+        payload=payload,
     )
 
 
@@ -179,11 +179,14 @@ def _create(args: List[str], *, alias: bool) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    selector = selector_payload(parsed)
+    if selector is None:
+        return 2
     if alias and parsed.preview:
         return _dispatch_launch(
             parsed,
             function_id="session_control.launch.preview",
-            payload=_preview_payload(parsed),
+            payload=selector,
         )
     if not parsed.idempotency_key:
         return usage_error("launch create requires --idempotency-key")
@@ -193,7 +196,7 @@ def _create(args: List[str], *, alias: bool) -> int:
     if parsed.raw_instructions and not instructions.strip():
         return usage_error("raw instruction launches require non-empty --stdin")
     payload = {
-        **_preview_payload(parsed),
+        **selector,
         "instructions": instructions,
         "idempotency_key": parsed.idempotency_key,
         "item": parsed.item,

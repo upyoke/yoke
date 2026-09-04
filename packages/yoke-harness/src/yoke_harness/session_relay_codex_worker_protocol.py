@@ -27,6 +27,8 @@ def request_payload(request: CodexNativeRequest) -> dict[str, object]:
         "surface_version": request.surface_version,
         "checkout": str(request.checkout),
         "requested_model": request.requested_model,
+        "requested_reasoning_effort": request.requested_reasoning_effort,
+        "requested_context_window_tokens": request.requested_context_window_tokens,
         "presentation": request.presentation,
         "target_liveness": request.target_liveness,
         "target_session_id": request.target_session_id,
@@ -48,6 +50,16 @@ def request_from_payload(payload: object) -> CodexNativeRequest:
         checkout=Path(str(payload.get("checkout") or "")),
         requested_model=(
             str(payload["requested_model"]) if payload.get("requested_model") else None
+        ),
+        requested_reasoning_effort=(
+            str(payload["requested_reasoning_effort"])
+            if payload.get("requested_reasoning_effort")
+            else None
+        ),
+        requested_context_window_tokens=(
+            int(payload["requested_context_window_tokens"])
+            if payload.get("requested_context_window_tokens") is not None
+            else None
         ),
         presentation=(
             str(payload["presentation"]) if payload.get("presentation") else None
@@ -104,6 +116,8 @@ def outcome_payload(outcome: CodexNativeOutcome) -> dict[str, object]:
         "phase": outcome.phase,
         "binary_source": outcome.binary_source,
         "pid": outcome.pid,
+        "failure_code": outcome.failure_code,
+        "failure_detail": outcome.failure_detail,
     }
 
 
@@ -125,6 +139,8 @@ def outcome_from_payload(payload: object) -> CodexNativeOutcome | None:
     phase = payload.get("phase")
     binary_source = payload.get("binary_source")
     pid = payload.get("pid")
+    failure_code = payload.get("failure_code")
+    failure_detail = payload.get("failure_detail")
     return CodexNativeOutcome(
         state,
         str(native) if isinstance(native, str) and native else None,
@@ -135,6 +151,10 @@ def outcome_from_payload(payload: object) -> CodexNativeOutcome | None:
         if isinstance(binary_source, str) and binary_source
         else None,
         int(pid) if isinstance(pid, int) and not isinstance(pid, bool) else None,
+        str(failure_code) if isinstance(failure_code, str) and failure_code else None,
+        str(failure_detail)[:128]
+        if isinstance(failure_detail, str) and failure_detail
+        else None,
     )
 
 

@@ -13,6 +13,7 @@ from yoke_contracts import github_app_tokens
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config.preferred_session_models import (
     PREFERRED_SESSION_MODELS_KEY,
+    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
 )
 from yoke_cli.config.machine_config_mutation import (
     MachineConfigWriteError,
@@ -94,6 +95,7 @@ def clear_github(
         "schema_version",
         contract.MACHINE_ID_KEY,
         PREFERRED_SESSION_MODELS_KEY,
+        PREFERRED_SESSION_REASONING_EFFORTS_KEY,
     }:
         machine_config_file.remove_file(cfg_path)
     else:

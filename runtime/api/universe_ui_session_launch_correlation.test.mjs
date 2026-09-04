@@ -45,6 +45,12 @@ test("launch cards show identity correlation and exact registered-session links"
       native_session_id: "session-matched", registered_session_id: "session-matched",
       identity_correlation: "matched", instruction_delivery: "delivered",
       result_code: "native_created",
+      requested_model: "gpt-5.6-sol",
+      requested_reasoning_effort: "xhigh",
+      requested_context_window_tokens: 1_000_000,
+      resolved_model: "gpt-5.6-sol",
+      resolved_reasoning_effort: "xhigh",
+      resolved_context_window_tokens: 1_000_000,
       result_evidence: {
         adapter_revision: "adapter-v2",
         native_instruction_sha256: "sha256:safe-digest",
@@ -52,6 +58,7 @@ test("launch cards show identity correlation and exact registered-session links"
         surface: "codex-desktop",
         duration_ms: 9,
         exit_code: 0,
+        probe_detail: "model does not support effort max",
         token: "secret-token",
         body: "secret-body",
         argv: ["secret-argument"],
@@ -134,7 +141,16 @@ test("launch cards show identity correlation and exact registered-session links"
     "surface: codex-desktop",
     "duration ms: 9",
     "exit code: 0",
+    "probe detail: model does not support effort max",
   ]) assert.match(rendered, new RegExp(safeFact));
+  assert.match(
+    byClass(root, "session-launch-model-request")[0].textContent,
+    /gpt-5\.6-sol \(requested\).*XHIGH \(requested\).*1m \(requested\)/,
+  );
+  assert.match(
+    byClass(root, "session-launch-model-selection")[0].textContent,
+    /gpt-5\.6-sol.*XHIGH.*1m/,
+  );
   assert.doesNotMatch(
     rendered,
     /secret-attestation|raw secret evidence|secret-token|secret-body|secret-argument|secret-stdout|secret-stderr/,

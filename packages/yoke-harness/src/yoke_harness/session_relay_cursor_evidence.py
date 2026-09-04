@@ -24,6 +24,8 @@ CURSOR_CLI_SURFACE = "cursor-cli"
 def cursor_evidence(
     result_code: str,
     native: "CursorNativeResult | None" = None,
+    *,
+    probe_detail: str | None = None,
 ) -> dict[str, str | int]:
     evidence: dict[str, str | int] = {
         "surface": CURSOR_CLI_SURFACE,
@@ -31,6 +33,8 @@ def cursor_evidence(
     }
     if native is None:
         return evidence
+    if probe_detail:
+        evidence["probe_detail"] = probe_detail
     if native.exit_code is not None:
         evidence["exit_code"] = native.exit_code
     if native.duration_ms is not None:

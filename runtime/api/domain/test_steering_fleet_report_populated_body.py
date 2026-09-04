@@ -26,7 +26,10 @@ from yoke_core.domain.steering_fleet_report_render import report_body
 def _populated_report():
     """One report with every section non-empty, built without touching a DB."""
     from yoke_core.domain.steering_fleet_report_available import FrontierEntry
-    from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
+    from yoke_core.domain.steering_fleet_report_capacity import (
+        SessionCount,
+        SurfaceReadiness,
+    )
     from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
     from yoke_core.domain.steering_fleet_report_detectors import (
         LandedItem,
@@ -94,6 +97,15 @@ def _populated_report():
                 native_launch_phase="spawn_completed_after_bound",
                 spawn_duration_ms=103_000,
             ),
+            UnregisteredLaunch(
+                launch_id="launch-model-rejected",
+                surface="claude-cli",
+                machine_id="machine-1",
+                state="failed",
+                overdue_seconds=0,
+                result_code="model_combo_unsupported",
+                detail="model does not support effort max",
+            ),
         ),
         landed_open=(
             LandedItem(
@@ -117,7 +129,19 @@ def _populated_report():
         ),
         suspected_orphaned_waiters=(quiet,),
         launchable=(SurfaceReadiness(machine_id="machine-1", surface=SURFACE),),
-        session_counts=(("machine-1", SURFACE, 2),),
+        session_counts=(
+            SessionCount(
+                machine_id="machine-1",
+                surface=SURFACE,
+                count=2,
+                requested_model="gpt-5.6-sol",
+                requested_reasoning_effort="high",
+                requested_context_window_tokens=None,
+                model="gpt-5.6-sol",
+                reasoning_effort="high",
+                context_window_tokens=None,
+            ),
+        ),
         origin_counts=(("operator", 1), ("steering", 1)),
     )
 
@@ -162,6 +186,11 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     assert "native pid 4242 spawn_completed_after_bound" in launch_row
     assert "spawn 103.0s" in launch_row
     assert "reconcile launch-1 --observed-native-id ID" in launch_row
+    rejected = next(
+        line for line in body.splitlines() if "launch-model-rejected" in line
+    )
+    assert "model does not support effort max" in rejected
+    assert "choose a supported model, effort, and context combination" in rejected
     waiter_row = next(line for line in body.splitlines() if "wake `yoke say" in line)
     assert "YOK-3" in waiter_row
     assert "session holder-session" in waiter_row

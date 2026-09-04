@@ -1,203 +1,200 @@
-"""Preferred per-surface model for yoke-launched sessions.
-
-One machine-local map in ``~/.yoke/config.json`` so every launcher
-resolves the same default: explicit ``--model`` > this map > vendor default.
-"""
+"""Rollout-safe per-surface defaults for Yoke-launched model selections."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
-PREFERRED_SESSION_MODELS_KEY = "preferred_session_models"
+from yoke_contracts.machine_config.preferred_session_model_config import (
+    PREFERRED_SESSION_MODELS_KEY,
+    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
+    blank_preferred_session_models,
+    blank_preferred_session_reasoning_efforts,
+    configured_preferred_selection,
+    launchable_preferred_surfaces,
+    preferred_session_models,
+    preferred_session_reasoning_efforts,
+    seed_preferred_session_models,
+    validate_preferred_session_models,
+)
+from yoke_contracts.session_model_facts import CLAUDE_CONTEXT_TIER_TOKENS
+
+if TYPE_CHECKING:
+    from yoke_contracts.session_control.model_selection import LaunchModelSelection
+
+
 VENDOR_DEFAULT_SOURCE = "vendor default"
-EXPLICIT_SOURCE = "explicit --model"
+EXPLICIT_SOURCE = "explicit launch request"
+_FIELDS = ("model", "reasoning_effort", "context_window_tokens")
 
 
 @dataclass(frozen=True)
-class ResolvedLaunchModel:
+class ResolvedLaunchSelection:
     model: str | None
-    source: str
+    reasoning_effort: str | None
+    context_window_tokens: int | None
+    sources: Mapping[str, str]
 
+    def selection(self) -> LaunchModelSelection:
+        from yoke_contracts.session_control.model_selection import LaunchModelSelection
 
-def preferred_session_models(payload: Mapping[str, Any] | None) -> dict[str, str]:
-    """Return the cleaned surface-to-model map from a config payload."""
-    raw = (payload or {}).get(PREFERRED_SESSION_MODELS_KEY)
-    if not isinstance(raw, Mapping):
-        return {}
-    models: dict[str, str] = {}
-    for key, value in raw.items():
-        surface = str(key).strip()
-        model = value.strip() if isinstance(value, str) else ""
-        if surface and model:
-            models[surface] = model
-    return models
-
-
-def launchable_preferred_surfaces() -> tuple[str, ...]:
-    """Surfaces a fresh install may seed, from the session-control registry."""
-    from yoke_contracts.session_control.capabilities import (
-        SESSION_SURFACE_CAPABILITIES,
-    )
-
-    return tuple(
-        sorted(
-            surface
-            for surface, capability in SESSION_SURFACE_CAPABILITIES.items()
-            if capability.create == "supported"
+        return LaunchModelSelection(
+            self.model,
+            self.reasoning_effort,
+            self.context_window_tokens,
         )
-    )
+
+    def payload(self) -> dict[str, str | int]:
+        return self.selection().payload()
 
 
-def blank_preferred_session_models() -> dict[str, str]:
-    """Every launchable surface mapped to a blank (unset) model id."""
-    return {surface: "" for surface in launchable_preferred_surfaces()}
-
-
-def seed_preferred_session_models(payload: dict[str, Any]) -> bool:
-    """Insert the real key when absent. Never overwrite an existing map."""
-    if PREFERRED_SESSION_MODELS_KEY in payload:
-        return False
-    payload[PREFERRED_SESSION_MODELS_KEY] = blank_preferred_session_models()
-    return True
-
-
-def validate_preferred_session_models(payload: Mapping[str, Any]) -> list[Any]:
-    """Reject a present map that is not surface-name to string model ids.
-
-    Blank or whitespace values are valid and mean unset.
-    """
-    from yoke_contracts.machine_config.schema_projects import _error
-
-    raw = payload.get(PREFERRED_SESSION_MODELS_KEY)
-    if raw is None:
-        return []
-    if not isinstance(raw, Mapping):
-        return [
-            _error(
-                "preferred_session_models_invalid",
-                f"{PREFERRED_SESSION_MODELS_KEY} must be an object",
-                path=PREFERRED_SESSION_MODELS_KEY,
-            )
-        ]
-    issues = []
-    for key, value in raw.items():
-        surface = str(key).strip()
-        if not surface:
-            issues.append(
-                _error(
-                    "preferred_session_models_surface_invalid",
-                    "preferred model surfaces must be non-empty strings",
-                    path=PREFERRED_SESSION_MODELS_KEY,
-                )
-            )
-            continue
-        if not isinstance(value, str):
-            issues.append(
-                _error(
-                    "preferred_session_models_model_invalid",
-                    f"{PREFERRED_SESSION_MODELS_KEY}.{surface} must be a string "
-                    "model id (blank means unset)",
-                    path=f"{PREFERRED_SESSION_MODELS_KEY}.{surface}",
-                )
-            )
-    return issues
-
-
-def resolve_launch_model(
-    explicit: str | None,
+def resolve_launch_selection(
+    model: str | None,
+    reasoning_effort: str | None,
+    context_window_tokens: int | None,
     surface: str,
     *,
     payload: Mapping[str, Any] | None = None,
-) -> ResolvedLaunchModel:
-    """Resolve the model a launcher should send for ``surface``."""
-    model = (explicit or "").strip()
-    if model:
-        return ResolvedLaunchModel(model, EXPLICIT_SOURCE)
-    mapping = preferred_session_models(payload) if payload is not None else _load_map()
-    preferred = mapping.get((surface or "").strip())
-    if preferred:
-        return ResolvedLaunchModel(
-            preferred, f"{PREFERRED_SESSION_MODELS_KEY}.{surface}"
-        )
-    return ResolvedLaunchModel(None, VENDOR_DEFAULT_SOURCE)
+) -> ResolvedLaunchSelection:
+    """Resolve each knob independently: explicit, configured, vendor default."""
+    from yoke_contracts.session_control.model_selection import (
+        LaunchModelSelection,
+        validate_launch_model_selection,
+    )
+
+    configured, configured_sources = configured_preferred_selection(
+        payload if payload is not None else _load_payload(),
+        surface,
+    )
+    explicit = LaunchModelSelection(
+        str(model or "").strip() or None,
+        str(reasoning_effort or "").strip().lower() or None,
+        context_window_tokens,
+    )
+    selected: dict[str, Any] = {}
+    sources: dict[str, str] = {}
+    for field in _FIELDS:
+        explicit_value = getattr(explicit, field)
+        configured_value = getattr(configured, field)
+        if explicit_value is not None:
+            selected[field] = explicit_value
+            sources[field] = EXPLICIT_SOURCE
+        elif configured_value is not None:
+            selected[field] = configured_value
+            sources[field] = configured_sources[field]
+        else:
+            selected[field] = None
+            sources[field] = VENDOR_DEFAULT_SOURCE
+    validated = validate_launch_model_selection(
+        surface,
+        LaunchModelSelection(
+            selected["model"],
+            selected["reasoning_effort"],
+            selected["context_window_tokens"],
+        ),
+    )
+    return ResolvedLaunchSelection(
+        validated.model,
+        validated.reasoning_effort,
+        validated.context_window_tokens,
+        sources,
+    )
 
 
 def list_preferred_models(surface: str | None = None) -> dict[str, Any]:
-    """Name configured defaults and the config key they come from."""
+    """Return configured defaults beside each CLI's accepted launch catalog."""
     from yoke_contracts.machine_config.runtime import config_path
+    from yoke_contracts.session_control.model_selection import model_catalog
 
-    mapping = _load_map()
-    entries = [
-        {
-            "surface": name,
-            "model": model,
-            "source": f"{PREFERRED_SESSION_MODELS_KEY}.{name}",
-        }
-        for name, model in sorted(mapping.items())
-    ]
-    selected_surface = (surface or "").strip() or None
+    payload = _load_payload()
+    surfaces = (surface,) if surface else launchable_preferred_surfaces()
+    entries = {
+        item: resolve_launch_selection(
+            None, None, None, item, payload=payload
+        ).payload()
+        for item in surfaces
+    }
     selected = None
-    if selected_surface:
-        resolved = resolve_launch_model(
-            None,
-            selected_surface,
-            payload={
-                PREFERRED_SESSION_MODELS_KEY: mapping,
-            },
-        )
+    if surface:
+        resolved = resolve_launch_selection(None, None, None, surface, payload=payload)
         selected = {
-            "surface": selected_surface,
             "model": resolved.model,
-            "source": resolved.source,
+            "reasoning_effort": resolved.reasoning_effort,
+            "context_window_tokens": resolved.context_window_tokens,
+            "surface": surface,
+            "sources": dict(resolved.sources),
         }
     return {
         "key": PREFERRED_SESSION_MODELS_KEY,
+        "effort_key": PREFERRED_SESSION_REASONING_EFFORTS_KEY,
         "config_file": str(config_path()),
         "entries": entries,
         "selected": selected,
+        "catalogs": [model_catalog(item).to_dict() for item in surfaces],
     }
 
 
+def _context_label(value: object) -> str:
+    if value == CLAUDE_CONTEXT_TIER_TOKENS:
+        return "1m"
+    return str(value) if value else "(none)"
+
+
 def render_list_models(report: Mapping[str, Any], *, json_mode: bool) -> str:
-    """Render ``--list-models`` output, naming the default source."""
     import json
 
     if json_mode:
         return json.dumps(report, indent=2) + "\n"
     lines = [
         f"{report['key']} in {report['config_file']}",
+        f"effort defaults: {report['effort_key']}",
     ]
-    entries = report.get("entries") or []
-    if not entries:
-        lines.append("  (no preferred models configured)")
-    for entry in entries:
-        lines.append(f"  {entry['surface']}  {entry['model']}  ({entry['source']})")
-    selected = report.get("selected")
-    if isinstance(selected, Mapping):
-        model = selected.get("model") or "(none)"
-        lines.append(f"{selected['surface']} default: {model}")
-        lines.append(f"source: {selected['source']}")
+    for surface, entry in (report.get("entries") or {}).items():
+        lines.append(
+            f"  {surface}  model={entry.get('model') or '(none)'}  "
+            f"effort={entry.get('reasoning_effort') or '(none)'}  "
+            f"context={_context_label(entry.get('context_window_tokens'))}"
+        )
+    for catalog in report.get("catalogs") or ():
+        lines.append(f"{catalog['surface']} accepted ({catalog['source']}):")
+        if catalog.get("error"):
+            lines.append(f"  unavailable: {catalog['error']}; verify the native CLI")
+            continue
+        lines.append(
+            "  models: "
+            + (", ".join(catalog.get("models") or ()) or "(vendor default only)")
+        )
+        lines.append(
+            "  effort: "
+            + (", ".join(catalog.get("effort_levels") or ()) or "(unsupported)")
+        )
+        contexts = [
+            _context_label(value) for value in catalog.get("context_windows") or ()
+        ]
+        lines.append("  context: " + (", ".join(contexts) or "(unsupported)"))
     return "\n".join(lines) + "\n"
 
 
-def _load_map() -> dict[str, str]:
+def _load_payload() -> dict[str, Any]:
     from yoke_contracts.machine_config.runtime import load_config
 
-    return preferred_session_models(load_config())
+    return load_config()
 
 
 __all__ = [
     "EXPLICIT_SOURCE",
     "PREFERRED_SESSION_MODELS_KEY",
-    "ResolvedLaunchModel",
+    "PREFERRED_SESSION_REASONING_EFFORTS_KEY",
+    "ResolvedLaunchSelection",
     "VENDOR_DEFAULT_SOURCE",
     "blank_preferred_session_models",
+    "blank_preferred_session_reasoning_efforts",
     "launchable_preferred_surfaces",
     "list_preferred_models",
     "preferred_session_models",
+    "preferred_session_reasoning_efforts",
     "render_list_models",
-    "resolve_launch_model",
+    "resolve_launch_selection",
     "seed_preferred_session_models",
     "validate_preferred_session_models",
 ]

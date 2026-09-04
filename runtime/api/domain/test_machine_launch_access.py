@@ -21,7 +21,7 @@ from runtime.api.domain.session_launch_test_support import (
 
 def _snapshot() -> EligibilitySnapshot:
     return EligibilitySnapshot(
-        (
+        relays=(
             EligibleRelay(
                 relay_id="relay-1",
                 machine_id="machine-1",
@@ -30,7 +30,7 @@ def _snapshot() -> EligibilitySnapshot:
                 last_seen_at=NOW,
             ),
         ),
-        ("machine-1",),
+        considered_machine_ids=("machine-1",),
     )
 
 

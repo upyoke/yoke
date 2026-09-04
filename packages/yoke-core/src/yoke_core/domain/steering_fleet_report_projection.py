@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
+from yoke_core.domain.steering_fleet_report_balance import session_selection_label
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
 from yoke_core.domain.steering_fleet_report_starvation import (
@@ -83,6 +84,7 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
         "native_stderr_tail": entry.native_stderr_tail,
         "exit_code": entry.exit_code,
         "spawn_duration_ms": entry.spawn_duration_ms,
+        "detail": entry.detail,
     }
 
 
@@ -179,8 +181,17 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             {"machine_id": ready.machine_id, "surface": ready.surface}
             for ready in report.launchable
         ],
+        "session_counts": [
+            {
+                **row.__dict__,
+                "selection_display": session_selection_label(row),
+            }
+            for row in report.session_counts
+        ],
         "plan_limits": _plan_limits.plan_limit_dicts(
-            report.plan_limits, now=report.composed_at
+            report.plan_limits,
+            now=report.composed_at,
+            session_counts=report.session_counts,
         ),
         "machine_capacity": [entry.to_dict() for entry in report.machine_capacity],
         "origin_counts": list(report.origin_counts),

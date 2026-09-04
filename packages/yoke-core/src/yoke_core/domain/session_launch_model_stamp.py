@@ -25,11 +25,7 @@ from __future__ import annotations
 
 from typing import Any, List
 
-from yoke_contracts.executor_labels import canonical_harness_id
-from yoke_contracts.session_model_facts import (
-    SessionModelFacts,
-    requested_facts_of,
-)
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.domain.session_launch_types import LaunchRecord
 from yoke_core.domain.session_model_columns import MODEL_COLUMNS, changed_columns
@@ -37,19 +33,12 @@ from yoke_core.domain.session_launch_store import marker
 
 
 def launch_requested_facts(launch: LaunchRecord) -> SessionModelFacts:
-    """Return the model this launch carried, as far as its selector spells it.
-
-    The selected surface names the harness family, which is what decides
-    whether the model string also carries a reasoning level: Cursor spells
-    the effort as the variant name's suffix, and no other family does.
-    """
-    try:
-        harness_id = canonical_harness_id(launch.selected_surface)
-    except ValueError:
-        # A surface outside the harness vocabulary still asked for a model;
-        # only the name-encoded effort reading depends on knowing the family.
-        harness_id = ""
-    return requested_facts_of(launch.resolved_model, harness_id=harness_id)
+    """Return the effective typed selection the launch carried."""
+    return SessionModelFacts(
+        requested_model=launch.resolved_model,
+        requested_reasoning_effort=launch.resolved_reasoning_effort,
+        requested_context_window_tokens=launch.resolved_context_window_tokens,
+    )
 
 
 def stamp_launch_requested_facts(
@@ -63,7 +52,7 @@ def stamp_launch_requested_facts(
     nothing, or the session already stated everything the launch knows.
     """
     facts = launch_requested_facts(launch)
-    if facts.requested_model is None:
+    if not any(getattr(facts, column) is not None for column in MODEL_COLUMNS):
         return []
     p = marker(conn)
     row = conn.execute(

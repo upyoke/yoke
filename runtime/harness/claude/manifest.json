@@ -93,7 +93,32 @@
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",
-    "inline_context_bytes": 8192
+    "inline_context_bytes": 8192,
+    "launch_model_selection": {
+      "source": "yoke_contracts.session_control.model_selection",
+      "surface": "claude-cli",
+      "model_catalog": "documented",
+      "documented_models": [
+        "claude-opus-4-8",
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-fable-5"
+      ],
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "context_windows": [
+        1000000
+      ],
+      "native_encoding": {
+        "model": "--model MODEL",
+        "reasoning_effort": "--effort EFFORT",
+        "context_window_tokens": "--model MODEL[1m]"
+      }
+    }
   },
   "agent_wake": {
     "source": "yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES",

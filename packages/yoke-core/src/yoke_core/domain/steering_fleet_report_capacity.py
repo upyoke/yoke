@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGINS
-from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.session_launch_capacity import (
     MachineCapacity,
     machine_capacity,
@@ -33,6 +32,21 @@ class SurfaceReadiness:
 
     machine_id: str
     surface: str
+
+
+@dataclass(frozen=True)
+class SessionCount:
+    """Live sessions sharing one requested/served model selection."""
+
+    machine_id: str
+    surface: str
+    count: int
+    requested_model: str | None
+    requested_reasoning_effort: str | None
+    requested_context_window_tokens: int | None
+    model: str | None
+    reasoning_effort: str | None
+    context_window_tokens: int | None
 
 
 def launchable_surfaces(
@@ -117,63 +131,38 @@ def capacity_line(entry: MachineCapacity) -> str:
     return f"capacity {entry.summary()} · {entry.cap_origin()}{verdict}"
 
 
-def launch_balance_lines(
-    *,
-    launchable: Iterable[SurfaceReadiness],
-    session_counts: Iterable[tuple[str, str, int]],
-    machine_capacity: Iterable[MachineCapacity],
-    origin_counts: Iterable[tuple[str, int]],
-    note: str | None,
-    machine_names: Mapping[str, str] | None = None,
-) -> list[str]:
-    """Per-machine surface counts, capacity, and the origin split.
-
-    Machines come from the launchable pairs unioned with the capacity
-    readings, because a machine at its cap has no launchable surface left and
-    would otherwise vanish from the block exactly when the seat needs to see
-    it is full.
-    """
-    counts = {(machine, surface): n for machine, surface, n in session_counts}
-    by_machine: dict[str, list[str]] = {}
-    for ready in launchable:
-        by_machine.setdefault(ready.machine_id, []).append(ready.surface)
-    capacity = {entry.machine_id: entry for entry in machine_capacity}
-    names = dict(machine_names or {})
-    lines: list[str] = []
-    for machine in sorted(set(by_machine) | set(capacity)):
-        surfaces = " · ".join(
-            f"{surface} {counts.get((machine, surface), 0)}"
-            for surface in sorted(by_machine.get(machine, ()))
-        )
-        lines.append(f"launch balance  {display_name(names, machine)}")
-        lines.append(f"  {surfaces or 'no launchable surface'}")
-        if machine in capacity:
-            lines.append(f"  {capacity_line(capacity[machine])}")
-        if note:
-            lines.append(f"  {note}")
-    origins = list(origin_counts)
-    if origins:
-        lines.append("origin " + " · ".join(f"{name} {n}" for name, n in origins))
-    return lines
-
-
-def live_session_counts(
-    conn: Any, *, project_id: int
-) -> tuple[tuple[str, str, int], ...]:
-    """Live sessions in this project, grouped by machine and surface."""
+def live_session_counts(conn: Any, *, project_id: int) -> tuple[SessionCount, ...]:
+    """Live sessions grouped by machine, surface, and model selection."""
     p = marker(conn)
     rows = conn.execute(
-        f"""SELECT machine_id, executor_surface, COUNT(*) AS n
+        f"""SELECT machine_id, executor_surface,
+                   requested_model, requested_reasoning_effort,
+                   requested_context_window_tokens,
+                   model, reasoning_effort, context_window_tokens,
+                   COUNT(*) AS n
               FROM harness_sessions
              WHERE ended_at IS NULL AND terminated_at IS NULL
                AND project_id = {p}
                AND COALESCE(machine_id, '') <> ''
                AND COALESCE(executor_surface, '') <> ''
-             GROUP BY machine_id, executor_surface""",
+             GROUP BY machine_id, executor_surface,
+                      requested_model, requested_reasoning_effort,
+                      requested_context_window_tokens,
+                      model, reasoning_effort, context_window_tokens""",
         (int(project_id),),
     ).fetchall()
     return tuple(
-        (str(row["machine_id"]), str(row["executor_surface"]), int(row["n"]))
+        SessionCount(
+            machine_id=str(row["machine_id"]),
+            surface=str(row["executor_surface"]),
+            count=int(row["n"]),
+            requested_model=row["requested_model"],
+            requested_reasoning_effort=row["requested_reasoning_effort"],
+            requested_context_window_tokens=row["requested_context_window_tokens"],
+            model=row["model"],
+            reasoning_effort=row["reasoning_effort"],
+            context_window_tokens=row["context_window_tokens"],
+        )
         for row in rows
     )
 
@@ -199,9 +188,9 @@ def live_launch_origin_counts(
 
 __all__ = [
     "MANUAL_SESSION_ORIGIN",
+    "SessionCount",
     "SurfaceReadiness",
     "capacity_line",
-    "launch_balance_lines",
     "launchable_surfaces",
     "machine_capacities",
     "live_launch_origin_counts",

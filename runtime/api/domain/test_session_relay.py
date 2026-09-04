@@ -252,20 +252,33 @@ def test_launch_claim_separates_attestation_and_redacts_report() -> None:
         conn,
         relay_id=RELAY_ID,
         machine_id=MACHINE_ID,
+        surface="claude-cli",
+        version="2.1.259",
     )
     launch = assigned_launch(
         conn,
         instructions="Sensitive launch instructions",
         key="relay-launch",
         machine_id=MACHINE_ID,
+        surface="claude-cli",
+        model="claude-opus-4-8",
+        reasoning_effort="max",
+        context_window_tokens=1_000_000,
     )
 
-    claimed = claim_relay_job(conn, _heartbeat(), wait_seconds=0, now_provider=_clock())
+    claimed = claim_relay_job(
+        conn,
+        _heartbeat(**{"claude-cli": "2.1.259"}),
+        wait_seconds=0,
+        now_provider=_clock(),
+    )
 
     assert len(claimed.jobs) == 1 and claimed.jobs[0].job_kind == "launch"
     assert "Sensitive launch instructions" not in claimed.jobs[0].native_instruction
-    assert claimed.jobs[0].surface_version == "0.148.0a15"
-    assert claimed.jobs[0].requested_model == "gpt-5"
+    assert claimed.jobs[0].surface_version == "2.1.259"
+    assert claimed.jobs[0].requested_model == "claude-opus-4-8"
+    assert claimed.jobs[0].requested_reasoning_effort == "max"
+    assert claimed.jobs[0].requested_context_window_tokens == 1_000_000
     assert claimed.jobs[0].launch_attestation
     result = report_relay_job(
         conn,

@@ -9,24 +9,26 @@ import subprocess
 import threading
 import time
 
-from yoke_contracts.session_control.launch_permission_bypass import (
-    CODEX_EXEC_BYPASS_ARGUMENTS,
-)
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
     CodexNativeRequest,
     NativePhase,
 )
+from yoke_harness.session_relay_codex_invocation import (
+    codex_base_command,
+    codex_launch_environment,
+)
 from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
-from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_inventory import (
     ResolvedNativeCli,
     resolve_native_cli_source,
 )
 from yoke_harness.session_relay_native_diagnostics import (
+    MODEL_COMBO_UNSUPPORTED,
     NativeDiagnosticError,
     diagnostic_reference,
+    model_combo_rejection_detail,
     store_native_diagnostic,
 )
 from yoke_harness.session_relay_native_streams import (
@@ -57,30 +59,6 @@ class _NativePhaseError(Exception):
         self.phase = phase
         self.binary_source = binary_source
         self.pid = pid
-
-
-def _launch_environment(request: CodexNativeRequest) -> dict[str, str]:
-    return native_session_environment(
-        executor="codex",
-        provider="openai",
-        model=request.requested_model,
-        markers={"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": request.surface},
-        launch_id=request.job_id if request.job_kind == "launch" else None,
-        launch_attestation=request.launch_attestation,
-    )
-
-
-def _base_command(binary: str, request: CodexNativeRequest) -> list[str]:
-    command = [
-        binary,
-        "exec",
-        "--json",
-        "--skip-git-repo-check",
-        *CODEX_EXEC_BYPASS_ARGUMENTS,
-    ]
-    if request.requested_model:
-        command.extend(["--model", request.requested_model])
-    return command
 
 
 def _thread_id(event: object) -> str | None:
@@ -132,6 +110,13 @@ def _retain(
         return
 
 
+def _stderr_bytes(process: subprocess.Popen[bytes], streams: BoundedStreams) -> bytes:
+    thread = getattr(process, "_yoke_stderr_thread", None)
+    if thread is not None:
+        thread.join(1)
+    return streams.snapshot()[1]
+
+
 def _stop(process: subprocess.Popen[bytes]) -> None:
     if process.poll() is not None:
         return
@@ -178,7 +163,7 @@ class CodexCliTransport:
         instruction = request.native_instruction.encode()
         if not instruction or len(instruction) > MAX_HANDOFF_BYTES:
             raise _NativePhaseError("instruction_write", binary_source=resolved.source)
-        command = _base_command(resolved.path, request)
+        command = codex_base_command(resolved.path, request)
         if resume:
             command.extend(["resume", str(request.target_thread_id)])
         command.append("-")
@@ -187,13 +172,14 @@ class CodexCliTransport:
             process = subprocess.Popen(
                 command,
                 cwd=request.checkout,
-                env=_launch_environment(request),
+                env=codex_launch_environment(request),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 start_new_session=True,
             )
-            start_drain(process.stderr, streams, STDERR, daemon=False)
+            stderr_thread = start_drain(process.stderr, streams, STDERR, daemon=False)
+            setattr(process, "_yoke_stderr_thread", stderr_thread)
             if process.stdin is None:
                 raise OSError("native stdin unavailable")
             process.stdin.write(instruction)
@@ -273,13 +259,18 @@ class CodexCliTransport:
         if not found:
             exit_code = process.poll()
             _stop(process)
+            detail = model_combo_rejection_detail(_stderr_bytes(process, streams))
             _retain(streams, request.job_id, exit_code)
             return CodexNativeOutcome(
-                "outcome_unknown",
+                "not_created"
+                if detail and request.job_kind == "launch"
+                else "outcome_unknown",
                 exit_code=exit_code,
                 phase="thread_identity",
                 binary_source=binary_source,
                 pid=process.pid,
+                failure_code=MODEL_COMBO_UNSUPPORTED if detail else None,
+                failure_detail=detail,
             )
         if request.job_kind == "wake" and found != request.target_thread_id:
             _stop(process)

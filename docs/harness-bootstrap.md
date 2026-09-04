@@ -167,6 +167,14 @@ When a harness connects to Yoke, Yoke needs to know certain facts about the sess
 | `agent_wake` | Whether an ended turn can be resumed out of band, and by which primitive | Harness capability manifest, sourced from `yoke_contracts.harness_wake_capability` |
 | `lane` | Execution lane identity (e.g., `DARIUS`) | Harness or operator configuration |
 
+### Requested launch selection versus served identity
+
+A managed launch persists typed model, reasoning-effort, and context-window requests separately from provider-attested served identity; registration stamps missing requested values, while UI and fleet views label requests and show both values when they differ.
+
+Adapter encoding is manifest-declared: Claude uses `--model`, `--effort`, and a `[1m]` model selector; Codex uses `--model` and `-c model_reasoning_effort=...` without context selection; Cursor uses its bracketed model selector with `effort=...` and `context=1m` parameters.
+
+Preview validates every knob and reports a harness-specific refusal. Cursor discovers models through `cursor-agent --list-models`; Claude and Codex expose documented identifiers. Runtime rejections become `model_combo_unsupported` with bounded safe detail and never trigger silent fallback.
+
 ### Identity resolution
 
 Yoke does not prescribe how a harness resolves these fields. The harness may:
@@ -180,18 +188,9 @@ The only requirement is that the values are truthful. Yoke uses these fields to 
 
 ### Session scratch cleanup
 
-The stale-session lifecycle sweep also runs a machine-throttled scratch
-janitor. It removes only known scratch artifact kinds whose ownership is
-positively dead: a registered harness session must have a recorded end time,
-while a non-harness `session-unknown` run must use a `pid-N` run id whose
-process is no longer alive. Current, DB-active, unknown UUID, live-PID, and
-unverifiable owners are preserved. PID liveness is checked again immediately
-before deletion, and a machine lock prevents concurrent sweepers.
+The machine-throttled stale-session scratch janitor removes only known artifacts with positively dead owners: ended registered sessions or non-harness `session-unknown` runs whose `pid-N` process is no longer alive. All active, unknown, live, or unverifiable owners are preserved; PID liveness is rechecked before deletion and a machine lock prevents concurrent sweepers.
 
-`/yoke doctor --fix` uses the same proof rules for operator-attended repair.
-If the session registry is unavailable, automatic mutation fails closed; the
-doctor reports the problem without treating filesystem age alone as ownership
-proof.
+`/yoke doctor --fix` uses the same proof rules. If the registry is unavailable, mutation fails closed and the doctor never treats filesystem age alone as ownership proof.
 
 For supported harnesses such as Claude Code and Codex, `session_id` should come from the harness runtime's stable conversation identifier (`CLAUDE_CODE_SESSION_ID`, `CODEX_SESSION_ID`, or a hook payload `session_id` when the env var is unavailable). Do not invent a second ID format for those harnesses. Codex also exports `CODEX_THREAD_ID`, which names the thread actually running and is the *child* inside a subagent; the canonical chain consults it only after `CODEX_SESSION_ID`. Every one of these variables is inherited by whatever the harness starts, so the chain reads only the variables of the family the process tree names — a harness launched from inside another harness's shell resolves to itself or to nothing, never to its launcher.
 

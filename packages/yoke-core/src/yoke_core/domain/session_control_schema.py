@@ -7,13 +7,14 @@ from typing import Any
 from yoke_core.domain.actor_message_recipient_schema import (
     RECIPIENT_KIND_STATE_CONSTRAINT,
     RECIPIENT_KIND_STATE_PREDICATE,
-    converge_role_addressed_recipients,
 )
 from yoke_core.domain.machine_registry_schema import ensure_machine_registry_schema
-from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
-from yoke_contracts.session_control.sender_surface import SENDER_SURFACES
+from yoke_core.domain.session_control_schema_convergence import (
+    SENDER_SURFACE_VALUES_SQL,
+    converge_session_control_schema,
+)
 from yoke_core.domain.session_launch_surface_domain import (
     REQUESTED_SURFACE_COLUMN_DDL,
     SELECTED_SURFACE_COLUMN_DDL,
@@ -32,7 +33,6 @@ SESSION_CONTROL_TABLES = (
     "session_surface_policies",
 )
 ACTOR_MESSAGE_TABLES = ("actor_message_recipients",)
-_SENDER_SURFACE_VALUES = ",".join(f"'{value}'" for value in SENDER_SURFACES)
 
 
 def create_session_control_tables(conn: Any) -> None:
@@ -54,7 +54,7 @@ def create_session_control_tables(conn: Any) -> None:
             cancelled_at TEXT,
             cancelled_by_actor_id INTEGER REFERENCES actors(id),
             cancellation_reason TEXT,
-            sender_surface TEXT CHECK(sender_surface IN ({_SENDER_SURFACE_VALUES}))
+            sender_surface TEXT CHECK(sender_surface IN ({SENDER_SURFACE_VALUES_SQL}))
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_messages_sender_dedupe
             ON session_messages(sender_actor_id, idempotency_key)
@@ -148,6 +148,8 @@ def create_session_control_tables(conn: Any) -> None:
             selected_surface {SELECTED_SURFACE_COLUMN_DDL},
             requested_machine_id TEXT,
             requested_model TEXT,
+            requested_reasoning_effort TEXT,
+            requested_context_window_tokens INTEGER,
             presentation_preference TEXT,
             session_name TEXT,
             allow_surface_fallback INTEGER NOT NULL DEFAULT 0,
@@ -179,7 +181,9 @@ def create_session_control_tables(conn: Any) -> None:
             spawn_duration_ms INTEGER,
             spawn_hold_reason TEXT,
             placement_reason TEXT,
-            resolved_model TEXT
+            resolved_model TEXT,
+            resolved_reasoning_effort TEXT,
+            resolved_context_window_tokens INTEGER
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_launches_requester_dedupe
             ON session_launches(requester_actor_id, idempotency_key)
@@ -230,7 +234,8 @@ def create_session_control_tables(conn: Any) -> None:
             surface_plan_limits TEXT,
             machine_capacity TEXT,
             preferred_session_models TEXT,
-            relay_health TEXT
+            relay_health TEXT,
+            preferred_session_reasoning_efforts TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_session_relays_machine_connected
             ON session_relays(machine_id, connected_until);
@@ -306,34 +311,7 @@ def create_session_control_tables(conn: Any) -> None:
             ON session_surface_policies(machine_id, created_at);
     """,
     )
-    # CREATE TABLE IF NOT EXISTS never alters an existing table, so a column
-    # introduced after a table first shipped must also converge as an additive
-    # ALTER for databases born before it.
-    for table, name, column_type in (
-        ("session_launch_attempts", "batch_id", "TEXT"),
-        ("session_launches", "origin", ORIGIN_COLUMN_DDL),
-        ("session_launches", "session_name", "TEXT"),
-        ("session_launches", "native_launch_pid", "INTEGER"),
-        ("session_launches", "native_launch_phase", "TEXT"),
-        ("session_launches", "native_launch_observed_at", "TEXT"),
-        ("session_launches", "spawn_duration_ms", "INTEGER"),
-        ("session_launches", "spawn_hold_reason", "TEXT"),
-        ("session_launches", "placement_reason", "TEXT"),
-        ("session_launches", "resolved_model", "TEXT"),
-        ("session_relays", "surface_plan_limits", "TEXT"),
-        ("session_relays", "machine_capacity", "TEXT"),
-        ("session_relays", "preferred_session_models", "TEXT"),
-        ("session_message_recipients", "wake_escalation", "TEXT"),
-        ("session_relays", "relay_health", "TEXT"),
-    ):
-        if not _column_exists(conn, table, name):
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
-    if not _column_exists(conn, "session_messages", "sender_surface"):
-        conn.execute(
-            "ALTER TABLE session_messages ADD COLUMN sender_surface TEXT "
-            f"CHECK(sender_surface IN ({_SENDER_SURFACE_VALUES}))"
-        )
-    converge_role_addressed_recipients(conn)
+    converge_session_control_schema(conn)
 
 
 def required_tables() -> tuple[str, ...]:

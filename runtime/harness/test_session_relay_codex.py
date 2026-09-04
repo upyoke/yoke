@@ -15,10 +15,10 @@ from yoke_harness.session_relay_codex import (
     CodexNativeRequest,
     build_codex_relay_adapter,
 )
-from yoke_harness.session_relay_codex_cli import (
-    LAUNCH_CONTEXT_ENV,
-    _base_command,
-    _launch_environment,
+from yoke_harness.session_relay_codex_cli import LAUNCH_CONTEXT_ENV
+from yoke_harness.session_relay_codex_invocation import (
+    codex_base_command,
+    codex_launch_environment,
 )
 
 
@@ -227,8 +227,8 @@ def test_cli_side_channel_never_inherits_parent_session(
     monkeypatch.setenv("CODEX_SESSION_ID", "parent-codex-session")
     monkeypatch.setenv("CODEX_THREAD_ID", "parent-codex-thread")
     request = adapter_module._request(context(tmp_path))[0]
-    env = _launch_environment(request)
-    command = _base_command("/opt/codex", request) + [request.native_instruction]
+    env = codex_launch_environment(request)
+    command = codex_base_command("/opt/codex", request) + [request.native_instruction]
 
     assert "YOKE_SESSION_ID" not in env
     assert "CODEX_SESSION_ID" not in env

@@ -4,6 +4,10 @@ import { appendLaunchTimeline } from "./session_launch_timeline.js";
 import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
 import { appendRelayDiagnostic } from "./session_relay_diagnostic_view.js";
 import {
+  displaySessionModel,
+  sessionModelFactTags,
+} from "./session_model_display.js";
+import {
   labelledControl,
   presentSessionControlFailure,
   renderSessionControlFailure,
@@ -21,6 +25,7 @@ const RESULT_EVIDENCE_FIELDS = Object.freeze([
   ["adapter_revision", "text"],
   ["native_instruction_sha256", "text"],
   ["result_code", "text"],
+  ["probe_detail", "text"],
   ["surface", "text"],
   ["duration_ms", "integer"],
   ["exit_code", "integer"],
@@ -114,6 +119,13 @@ function appendAction(documentNode, actions, label, disabled, invoke) {
   actions.appendChild(button);
 }
 
+function selectionLabels(row, emptyModel) {
+  return [
+    displaySessionModel(row, emptyModel),
+    ...sessionModelFactTags(row).map((fact) => fact.label),
+  ];
+}
+
 function launchCard(documentNode, launch, mutate) {
   const card = el(documentNode, "article", "panel session-launch-card");
   card.setAttribute("data-launch-id", String(launch.launch_id || ""));
@@ -131,6 +143,24 @@ function launchCard(documentNode, launch, mutate) {
     "p",
     "fact-line",
     `${launch.requested_surface || "unknown surface"} requested · ${launch.selected_surface || "unselected"} selected · ${launch.assigned_machine_id || "unassigned"}`,
+  ));
+  const explicitSelection = selectionLabels(launch, "vendor defaults requested");
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-launch-model-request",
+    `Explicit request · ${explicitSelection.join(" · ")}`,
+  ));
+  const effectiveSelection = selectionLabels({
+    model: launch.resolved_model,
+    reasoning_effort: launch.resolved_reasoning_effort,
+    context_window_tokens: launch.resolved_context_window_tokens,
+  }, "vendor model default");
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-launch-model-selection",
+    `Effective launch selection · ${effectiveSelection.join(" · ")}`,
   ));
   if (
     launch.selected_surface

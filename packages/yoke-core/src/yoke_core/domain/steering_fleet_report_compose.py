@@ -31,6 +31,7 @@ from yoke_core.domain.steering_fleet_report_capacity import (
     SurfaceReadiness,
     capacity_line,
 )
+from yoke_core.domain.steering_fleet_report_balance import aggregate_session_counts
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_inbox import (
@@ -236,6 +237,7 @@ def _machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[s
         for machine_id, name in report.machine_names
     }
     lines: list[str] = []
+    counts = aggregate_session_counts(reports)
     for index, machine_id in enumerate(machine_ids):
         if index:
             lines.append("")
@@ -256,7 +258,11 @@ def _machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[s
         lines.extend(relay_health_lines(conditions, machine_id=machine_id))
         lines.extend(
             _plan_limits.plan_limit_lines(
-                _machine_plan_limits(reports, machine_id), now=now
+                _machine_plan_limits(reports, machine_id),
+                now=now,
+                session_counts=tuple(
+                    row for row in counts if row.machine_id == machine_id
+                ),
             )
         )
     return lines

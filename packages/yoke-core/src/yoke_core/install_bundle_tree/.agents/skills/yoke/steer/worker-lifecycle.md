@@ -134,24 +134,23 @@ Resolve `{WORKER_SESSION_ID}` from the launch that staffed the item
 Never re-task an existing worker onto a different item. A new item is a
 new `session_control.launch.create`.
 
-## 7. Choose the model per item at launch
+## 7. Choose model, effort, and context per item at launch
 
-Default resolution: explicit `--model` on the launch > the
-`preferred_session_models` map of the machine the launch was PLACED on >
-vendor default. That machine owns the default because it holds the accounts
-and the installed models; this seat's config never decides a model running
-elsewhere. Blank map values are unset. Override per item with an explicit
-`--model` — heavier for architecture or migration, faster for mechanical work.
-
-The preview names the model a launch would carry as `model` with a
-`model_source` naming the machine and key that decided it; the launch row
-keeps the caller's ask as `requested_model` and the result as
-`resolved_model`. `--list-models` reports THIS machine's map; preview a
-launch to read another machine's default.
-
-```text
-yoke session-control launch preview --project {_project} --surface {_surface} --list-models
-```
+Resolve each knob independently: its explicit launch flag > the value
+advertised by the machine the launch was placed on > the vendor default. The
+target machine owns these defaults because it owns the provider account and
+installed models, never this seat's config. Context uses that machine's scalar
+`preferred_session_models` selector and effort uses its additive
+`preferred_session_reasoning_efforts` map. Blank values are unset.
+Override per item when risk warrants. Preview shows the raw request and its
+effective selection; the launch retains both, and the session shows the ask
+beside served facts. `--list-models` reports local maps; preview reads remote defaults.
+Claude accepts model, effort, and the 1M context tier; Codex accepts model and
+effort but no explicit context window; Cursor accepts all three in its
+parameterized model selector. Preview refuses unsupported knobs with a
+harness-specific code. A provider rejection becomes `model_combo_unsupported`
+with bounded CLI detail: choose another listed combination and create a new
+launch. Never remove flags and silently fall back to vendor defaults.
 
 ## 8. Tell a worker to survey a neighbour lane with Git, not prose
 
@@ -199,8 +198,10 @@ yoke session-control launch create \
   --project {_project} \
   --surface {_surface} \
   --item {ITEM} \
-  --idempotency-key "steer:{_project}:{ITEM}:{_surface}" \
+  --idempotency-key "steer:{_project}:{ITEM}:{_surface}:{_model}:{_effort}:{_context}" \
   --model {_model} \
+  --reasoning-effort {_effort} \
+  --context-window {_context} \
   --json
 ```
 

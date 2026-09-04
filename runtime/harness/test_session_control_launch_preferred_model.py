@@ -8,6 +8,7 @@ import sys
 from yoke_cli.commands.adapters import session_control_launches as launches
 from yoke_contracts.machine_config.preferred_session_models import (
     PREFERRED_SESSION_MODELS_KEY,
+    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
 )
 
 
@@ -24,8 +25,9 @@ def _create(monkeypatch, *extra_args: str) -> dict:
         "yoke_contracts.machine_config.runtime.load_config",
         lambda path=None: {
             PREFERRED_SESSION_MODELS_KEY: {
-                "cursor-cli": "cursor-grok-4.6-high-fast",
-            }
+                "cursor-cli": "cursor-grok-4.6[context=1m]",
+            },
+            PREFERRED_SESSION_REASONING_EFFORTS_KEY: {"cursor-cli": "high"},
         },
     )
 
@@ -64,10 +66,20 @@ def test_launch_create_without_model_leaves_the_machine_to_decide(
     assert "model" not in payload
 
 
-def test_an_explicit_model_still_travels_with_the_launch(monkeypatch) -> None:
-    payload = _create(monkeypatch, "--model", "cursor-grok-4.6-high")
+def test_an_explicit_selection_still_travels_with_the_launch(monkeypatch) -> None:
+    payload = _create(
+        monkeypatch,
+        "--model",
+        "cursor-grok-4.6",
+        "--reasoning-effort",
+        "high",
+        "--context-window",
+        "1m",
+    )
 
-    assert payload["model"] == "cursor-grok-4.6-high"
+    assert payload["model"] == "cursor-grok-4.6"
+    assert payload["reasoning_effort"] == "high"
+    assert payload["context_window_tokens"] == 1_000_000
 
 
 def test_launch_create_list_models_names_source_without_dispatch(
@@ -77,7 +89,10 @@ def test_launch_create_list_models_names_source_without_dispatch(
     monkeypatch.setattr(
         "yoke_contracts.machine_config.runtime.load_config",
         lambda path=None: {
-            PREFERRED_SESSION_MODELS_KEY: {"cursor-cli": "preferred-model"}
+            PREFERRED_SESSION_MODELS_KEY: {
+                "claude-cli": "claude-opus-4-8[1m]",
+            },
+            PREFERRED_SESSION_REASONING_EFFORTS_KEY: {"claude-cli": "max"},
         },
     )
     monkeypatch.setattr(
@@ -86,10 +101,10 @@ def test_launch_create_list_models_names_source_without_dispatch(
     )
 
     assert (
-        launches.session_launch_create(["--list-models", "--surface", "cursor-cli"])
+        launches.session_launch_create(["--list-models", "--surface", "claude-cli"])
         == 0
     )
     rendered = capsys.readouterr().out
     assert PREFERRED_SESSION_MODELS_KEY in rendered
-    assert "preferred-model" in rendered
-    assert "source:" in rendered
+    assert "claude-opus-4-8" in rendered
+    assert "documented CLI contract" in rendered

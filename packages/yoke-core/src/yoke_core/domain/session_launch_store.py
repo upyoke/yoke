@@ -18,13 +18,15 @@ from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchErr
 LAUNCH_COLUMNS = (
     "launch_id, requester_actor_id, requester_session_id, project_id, "
     "requested_surface, selected_surface, requested_machine_id, requested_model, "
+    "requested_reasoning_effort, requested_context_window_tokens, "
     "presentation_preference, session_name, allow_surface_fallback, message_id, "
     "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
     "native_session_id, attestation_hash, attestation_consumed_at, "
     "registered_session_id, deadline_at, created_at, assigned_at, launching_at, "
     "awaiting_registration_at, completed_at, result_code, result_evidence, origin, "
     "native_launch_pid, native_launch_phase, native_launch_observed_at, "
-    "spawn_duration_ms, spawn_hold_reason, placement_reason, resolved_model"
+    "spawn_duration_ms, spawn_hold_reason, placement_reason, resolved_model, "
+    "resolved_reasoning_effort, resolved_context_window_tokens"
 )
 _MUTABLE_LAUNCH_COLUMNS = frozenset(
     {
@@ -50,6 +52,8 @@ _MUTABLE_LAUNCH_COLUMNS = frozenset(
         "spawn_hold_reason",
         "placement_reason",
         "resolved_model",
+        "resolved_reasoning_effort",
+        "resolved_context_window_tokens",
     }
 )
 
@@ -112,34 +116,40 @@ def row_to_launch(row: Any) -> LaunchRecord:
         selected_surface=str(value(row, "selected_surface", 5)),
         requested_machine_id=value(row, "requested_machine_id", 6),
         requested_model=value(row, "requested_model", 7),
-        presentation_preference=value(row, "presentation_preference", 8),
-        session_name=value(row, "session_name", 9),
-        allow_surface_fallback=bool(value(row, "allow_surface_fallback", 10)),
-        message_id=str(value(row, "message_id", 11)),
-        idempotency_key=value(row, "idempotency_key", 12),
-        state=str(value(row, "state", 13)),
-        assigned_relay_id=value(row, "assigned_relay_id", 14),
-        assigned_machine_id=value(row, "assigned_machine_id", 15),
-        native_session_id=value(row, "native_session_id", 16),
-        attestation_hash=value(row, "attestation_hash", 17),
-        attestation_consumed_at=value(row, "attestation_consumed_at", 18),
-        registered_session_id=value(row, "registered_session_id", 19),
-        deadline_at=str(value(row, "deadline_at", 20)),
-        created_at=str(value(row, "created_at", 21)),
-        assigned_at=value(row, "assigned_at", 22),
-        launching_at=value(row, "launching_at", 23),
-        awaiting_registration_at=value(row, "awaiting_registration_at", 24),
-        completed_at=value(row, "completed_at", 25),
-        result_code=value(row, "result_code", 26),
-        result_evidence=value(row, "result_evidence", 27),
-        origin=str(value(row, "origin", 28)),
-        native_launch_pid=value(row, "native_launch_pid", 29),
-        native_launch_phase=value(row, "native_launch_phase", 30),
-        native_launch_observed_at=value(row, "native_launch_observed_at", 31),
-        spawn_duration_ms=value(row, "spawn_duration_ms", 32),
-        spawn_hold_reason=value(row, "spawn_hold_reason", 33),
-        placement_reason=value(row, "placement_reason", 34),
-        resolved_model=value(row, "resolved_model", 35),
+        requested_reasoning_effort=value(row, "requested_reasoning_effort", 8),
+        requested_context_window_tokens=value(
+            row, "requested_context_window_tokens", 9
+        ),
+        presentation_preference=value(row, "presentation_preference", 10),
+        session_name=value(row, "session_name", 11),
+        allow_surface_fallback=bool(value(row, "allow_surface_fallback", 12)),
+        message_id=str(value(row, "message_id", 13)),
+        idempotency_key=value(row, "idempotency_key", 14),
+        state=str(value(row, "state", 15)),
+        assigned_relay_id=value(row, "assigned_relay_id", 16),
+        assigned_machine_id=value(row, "assigned_machine_id", 17),
+        native_session_id=value(row, "native_session_id", 18),
+        attestation_hash=value(row, "attestation_hash", 19),
+        attestation_consumed_at=value(row, "attestation_consumed_at", 20),
+        registered_session_id=value(row, "registered_session_id", 21),
+        deadline_at=str(value(row, "deadline_at", 22)),
+        created_at=str(value(row, "created_at", 23)),
+        assigned_at=value(row, "assigned_at", 24),
+        launching_at=value(row, "launching_at", 25),
+        awaiting_registration_at=value(row, "awaiting_registration_at", 26),
+        completed_at=value(row, "completed_at", 27),
+        result_code=value(row, "result_code", 28),
+        result_evidence=value(row, "result_evidence", 29),
+        origin=str(value(row, "origin", 30)),
+        native_launch_pid=value(row, "native_launch_pid", 31),
+        native_launch_phase=value(row, "native_launch_phase", 32),
+        native_launch_observed_at=value(row, "native_launch_observed_at", 33),
+        spawn_duration_ms=value(row, "spawn_duration_ms", 34),
+        spawn_hold_reason=value(row, "spawn_hold_reason", 35),
+        placement_reason=value(row, "placement_reason", 36),
+        resolved_model=value(row, "resolved_model", 37),
+        resolved_reasoning_effort=value(row, "resolved_reasoning_effort", 38),
+        resolved_context_window_tokens=value(row, "resolved_context_window_tokens", 39),
     )
 
 

@@ -43,12 +43,14 @@ def run_detached_operation(
     timeout: float = _START_TIMEOUT_SECONDS,
 ) -> CodexNativeOutcome:
     """Start a child that owns app-server pipes after serve-once exits."""
-    from yoke_harness.session_relay_codex_cli import _launch_environment
+    from yoke_harness.session_relay_codex_invocation import (
+        codex_launch_environment,
+    )
 
     return run_detached_json_worker(
         module=_MODULE,
         checkout=request.checkout,
-        environment=_launch_environment(request),
+        environment=codex_launch_environment(request),
         payload=_request_payload(request),
         decode=_outcome_from_payload,
         initial_failure=_initial_failure(request),

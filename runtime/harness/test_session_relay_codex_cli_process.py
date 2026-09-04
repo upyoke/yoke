@@ -13,6 +13,7 @@ from yoke_harness import session_relay_codex_cli as cli_module
 from yoke_harness import session_relay_codex_cli_process as process_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_relay_codex_invocation import codex_base_command
 from yoke_harness.session_relay_inventory import ResolvedNativeCli
 from yoke_harness.session_relay_codex_worker_protocol import request_payload
 
@@ -207,7 +208,7 @@ def test_codex_launches_run_unattended_on_both_transports(
     tmp_path: Path,
 ) -> None:
     request = _request(tmp_path)
-    command = cli_module._base_command("/opt/codex", request)
+    command = codex_base_command("/opt/codex", request)
     assert command == [
         "/opt/codex",
         "exec",

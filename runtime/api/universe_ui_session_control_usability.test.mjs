@@ -170,7 +170,7 @@ test("launch and relay views explain unavailable machine capability", async (t) 
     "Reconnect a machine relay",
   ));
   assert.ok(byClass(launch.root, "session-control-help")[0].textContent.includes(
-    "will not silently switch surfaces",
+    "will not silently change the selection or surface",
   ));
   launch.mounted.unmount();
 

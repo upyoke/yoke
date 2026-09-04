@@ -162,6 +162,8 @@ def test_worker_returns_only_bounded_outcome(monkeypatch, tmp_path: Path) -> Non
         "phase": None,
         "binary_source": None,
         "pid": None,
+        "failure_code": None,
+        "failure_detail": None,
     }
     assert SECRET not in stdout.getvalue()
     assert INSTRUCTION not in stdout.getvalue()

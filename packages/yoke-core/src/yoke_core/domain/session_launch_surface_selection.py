@@ -70,15 +70,15 @@ def _fallback_snapshot(
         for relay in snapshot.relays:
             selected_by_machine.setdefault(relay.machine_id, relay)
     return EligibilitySnapshot(
-        tuple(
+        relays=tuple(
             sorted(
                 selected_by_machine.values(),
                 key=lambda relay: (relay.machine_id, relay.relay_id),
             )
         ),
-        tuple(sorted(considered)),
-        tuple(sorted(rejected)),
-        tuple(capacities[machine] for machine in sorted(capacities)),
+        considered_machine_ids=tuple(sorted(considered)),
+        rejection_codes=tuple(sorted(rejected)),
+        machine_capacity=tuple(capacities[machine] for machine in sorted(capacities)),
     )
 
 
@@ -131,9 +131,9 @@ def preview_launch(
         return exact_preview
     if not surface_fallback_enabled:
         return LaunchPreview(
-            "surface_fallback_disabled",
-            surface,
-            exact_preview.eligible_relays,
+            outcome="surface_fallback_disabled",
+            requested_surface=surface,
+            eligible_relays=exact_preview.eligible_relays,
         )
     fallback, _ = filter_by_machine_access(
         conn,
