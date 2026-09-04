@@ -3,7 +3,9 @@
 A launched headless worker is one important no-wake case, but operator-opened
 and unknown surfaces must not be assumed reachable either. These tests hold
 the Dash close-out steps, usher merge step, worker mandate, packet recipe, and
-watcher help to the derived reachability split and every terminal wait outcome.
+watcher help to the derived reachability split and every terminal wait
+outcome. The in-turn wait consumes a cadence-limited server record rather
+than repeating GitHub reads on the worker machine.
 """
 
 from __future__ import annotations
@@ -103,6 +105,9 @@ def test_dash_close_out_routes_the_landing_by_derived_reachability():
     assert "yoke github merge-queue readiness ITEM --json" in content
     assert "queue-entry=AWAITING_CHECKS" in content
     assert "consumed and in flight, not cleared" in content
+    assert "merge_queue.landing.observe" in content
+    assert "one project-wide GitHub sweep per cadence" in content
+    assert "waiting machine issues no `gh`, GitHub, or `git fetch` read loop" in content
     assert "none of them is silence" in content
 
 
@@ -121,8 +126,12 @@ def test_dash_close_out_names_every_way_the_in_turn_wait_ends():
     # A red required check is terminal for this tree, not a wait.
     red = _outcome(wait, "a required check already red")
     assert "exit 1, terminal for this tree" in red
+    stale = _outcome(wait, "landing record stale")
+    assert "landing_record_stale" in stale
+    assert "last record/project refresh times" in stale
+    assert "Do not substitute local polling" in stale
     # The bounded deadline parks with the state it read, and only then.
-    deadline = _outcome(wait, "poll budget exhausted")
+    deadline = _outcome(wait, "wait budget exhausted")
     assert "exit 9" in deadline
     assert "last observed reading" in deadline
     assert (
@@ -154,7 +163,8 @@ def test_every_launched_worker_mandate_carries_the_in_turn_landing_wait():
     assert "pass --wait and hold the turn on the merge watcher wrapper" in teaching
     assert "Merged closes the item out in that same turn" in teaching
     assert "a stopped landing rebases, re-runs the verification gate" in teaching
-    assert "only the poll budget running out ends the turn" in teaching
+    assert "stale server landing record names its last refresh" in teaching
+    assert "wait budget running out ends the turn" in teaching
     assert "--mode parked" in teaching
     assert "HUMAN_GATE" in teaching
     assert "Never end a turn on a landing you did not read." in teaching

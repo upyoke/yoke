@@ -1,15 +1,15 @@
-"""What a landing that exhausted its poll budget tells the operator.
+"""What a landing that exhausted its bounded record wait tells the operator.
 
-Running out of poll budget is not a failure: the queue may still merge the
+Running out of wait budget is not a failure: the queue may still merge the
 pull request, and re-running the landing converges on whatever happened
 meanwhile. What made the printed retry unusable was the item work claim.
-A landing polls for tens of minutes without emitting a line, so the
+A landing can wait for tens of minutes without emitting a line, so the
 stale-session sweep saw a session with no activity, reclaimed it, and
 released the claim the retry needs — then the timeout text said "re-run
 the landing" without mentioning that the retry would now refuse for want
 of a claim, and the operator had to discover an undocumented re-acquire.
 
-Two things keep that from repeating. The poll loop refreshes the session
+Two things keep that from repeating. The record loop refreshes the session
 heartbeat while it waits (:mod:`yoke_core.domain.session_liveness_pump`),
 so the claim survives a wait that is doing exactly what it was asked to
 do; and the message built here reads the claim as it actually is at the
@@ -142,9 +142,9 @@ def timeout_message(
     dispatch: Callable[..., Any],
     last_observed: str = "",
 ) -> str:
-    """The operator-facing text for one poll-budget timeout.
+    """The operator-facing text for one record-wait timeout.
 
-    ``last_observed`` is the poll's final reading of the pull request. It
+    ``last_observed`` is the record loop's final reading of the pull request. It
     is what separates a wait worth resuming from one that could never have
     merged, so the message states it rather than sending the operator to
     GitHub to find out whether re-running is the right move at all.
@@ -157,7 +157,7 @@ def timeout_message(
     observed = (
         f"last observed {last_observed}. "
         if last_observed
-        else "The poll read nothing conclusive. "
+        else "The landing record carried no conclusive state. "
     )
     return (
         f"pull request {pr_num} did not merge within "

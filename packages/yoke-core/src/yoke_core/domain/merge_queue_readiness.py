@@ -12,6 +12,24 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
 
+from yoke_core.domain.merge_queue_readback_outcomes import (
+    ARMED_NOT_ENQUEUED,
+    CLOSED_UNMERGED,
+    CONFLICTED,
+    ENQUEUED,
+    ENTRY_ABSENT,
+    ENTRY_NOT_READ,
+    ENTRY_PRESENT,
+    IN_FLIGHT,
+    LANDED,
+    MERGE_WHEN_READY_ARMED,
+    MERGE_WHEN_READY_CLEARED,
+    MERGE_WHEN_READY_CONSUMED,
+    NEITHER,
+    NOT_IN_FLIGHT,
+    NOT_STARTED,
+    UNREADABLE,
+)
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
     QueueMember,
@@ -19,22 +37,6 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     read_queue_members,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
-
-
-ENQUEUED = "enqueued"
-ARMED_NOT_ENQUEUED = "armed_not_enqueued"
-NEITHER = "neither"
-UNREADABLE = "unreadable"
-NOT_STARTED = "not_started"
-
-IN_FLIGHT = "in_flight"
-LANDED = "landed"
-CLOSED_UNMERGED = "closed_unmerged"
-CONFLICTED = "conflicted"
-NOT_IN_FLIGHT = "not_in_flight"
-
-ENTRY_ABSENT = "absent"
-ENTRY_NOT_READ = "not_read"
 
 
 @dataclass(frozen=True)
@@ -117,7 +119,7 @@ def classify_readiness(
     warnings = tuple(note for note in (state_error, queue_error) if note)
     entry = _entry_for(members or (), pr_number) if members is not None else None
     entry_state = (
-        (entry.state or "present").strip().upper()
+        (entry.state or ENTRY_PRESENT).strip().upper()
         if entry is not None
         else ENTRY_ABSENT
         if members is not None
@@ -136,11 +138,11 @@ def classify_readiness(
     if state is None:
         arming = UNREADABLE
     elif state.auto_merge_active:
-        arming = "armed"
+        arming = MERGE_WHEN_READY_ARMED
     elif entry is not None:
-        arming = "consumed"
+        arming = MERGE_WHEN_READY_CONSUMED
     else:
-        arming = "cleared"
+        arming = MERGE_WHEN_READY_CLEARED
 
     if state is not None and state.merged:
         landing_state, in_flight = LANDED, False
@@ -206,10 +208,17 @@ def not_started(*, target: str) -> MergeQueueReadiness:
 __all__ = [
     "ARMED_NOT_ENQUEUED",
     "ENQUEUED",
+    "ENTRY_ABSENT",
+    "ENTRY_NOT_READ",
+    "ENTRY_PRESENT",
     "IN_FLIGHT",
+    "MERGE_WHEN_READY_ARMED",
+    "MERGE_WHEN_READY_CLEARED",
+    "MERGE_WHEN_READY_CONSUMED",
     "MergeQueueReadiness",
     "NEITHER",
     "NOT_IN_FLIGHT",
+    "UNREADABLE",
     "classify_readiness",
     "not_started",
     "read_merge_queue_readiness",

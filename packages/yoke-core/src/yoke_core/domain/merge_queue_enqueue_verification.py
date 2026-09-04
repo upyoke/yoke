@@ -40,6 +40,11 @@ from yoke_core.domain.merge_queue_entry_checks import (
     failed_required_checks,
     regate_instruction,
 )
+from yoke_core.domain.merge_queue_readback_outcomes import (
+    MERGE_WHEN_READY_ARMED,
+    MERGE_WHEN_READY_CLEARED,
+    MERGE_WHEN_READY_CONSUMED,
+)
 from yoke_core.engines.merge_worktree_pr_check_runs import (
     LandingCheck,
     read_required_checks,
@@ -159,11 +164,11 @@ class LandingReadback:
             armed = f"unreadable ({self.state_error or 'no reason given'})"
         else:
             armed = (
-                "armed"
+                MERGE_WHEN_READY_ARMED
                 if state.auto_merge_active
-                else "consumed"
+                else MERGE_WHEN_READY_CONSUMED
                 if self.membership is not None and self.membership.in_queue
-                else "cleared"
+                else MERGE_WHEN_READY_CLEARED
             )
         if self.required_checks is None:
             checks = f"unreadable ({self.checks_error or 'no reason given'})"

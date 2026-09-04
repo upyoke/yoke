@@ -3,7 +3,7 @@
 Four columns on ``items`` say which pull request an item lands through and
 how far that landing has got: the pull request number, the queue admission,
 the landing, and the notification. Three writes own them — the pull request
-is recorded when it is opened, the queue admission when the handoff route
+is recorded when it is opened, the queue admission after either landing route
 arms it, and the whole marker is cleared at close-out.
 
 They are separate calls because the moments are separate and only the first
@@ -29,6 +29,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.merge_queue_landing_record import delete_landing_record
 
 
 class MarkLandingPendingRequest(BaseModel):
@@ -120,6 +121,7 @@ def _write_landing_marker(
             recorded_enqueued_at = str(row[1]) if same_pr and row[1] else enqueued_at
             landed_at = str(row[2] or "") if same_pr else ""
             notified_at = str(row[3] or "") if same_pr else ""
+            reset_observation = not same_pr or bool(enqueued_at and not row[1])
             conn.execute(
                 "UPDATE items SET merge_queue_pr_number = {0}, "
                 "merge_queue_enqueued_at = {0}, merge_queue_landed_at = {0}, "
@@ -132,6 +134,8 @@ def _write_landing_marker(
                     item_id,
                 ),
             )
+            if reset_observation:
+                delete_landing_record(conn, item_id)
             conn.commit()
     except Exception as exc:  # noqa: BLE001 - surfaced to the merge boundary
         return _err(failure_code, str(exc))
@@ -155,11 +159,12 @@ def handle_record_landing_pull_request(
 
     Recorded when the pull request is opened rather than when the queue
     takes it, because that is the only moment both landing routes share.
-    The two-call handoff marks its own queue admission afterwards, while a
-    worker holding the landing in its own turn never marks anything — so
-    without this write, an item whose waiting process dies leaves no trace
-    of the pull request, and the control-plane landing observer has nothing
-    to read. It declares no queue admission of its own.
+    Both routes mark their queue admission afterwards; a worker holding the
+    landing does so before it starts its server-record wait. This first write
+    still matters before that point: if
+    the process dies between opening and arming, the observer can record a
+    merge without inventing a queue admission. It declares no admission of
+    its own.
     """
     item_id = _require_item_id(request)
     if item_id is None:
@@ -211,6 +216,7 @@ def handle_clear_landing_pending(request: FunctionCallRequest) -> HandlerOutcome
                 f"merge_queue_notified_at = NULL WHERE id = {p}",
                 (item_id,),
             )
+            delete_landing_record(conn, item_id)
             conn.commit()
             cleared = bool(cursor.rowcount)
     except ValidationError as exc:

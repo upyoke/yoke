@@ -12,6 +12,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from runtime.api.domain.test_session_message_support import message_connection
+from yoke_core.domain.merge_queue_landing_record_schema import (
+    ensure_merge_queue_landing_record_schema,
+)
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
@@ -50,6 +53,7 @@ ARMED_AWAITING_CHECKS = PrLandingState(
     closed=False,
     auto_merge_active=True,
     merge_state_status="blocked",
+    head_sha="cd" * 20,
 )
 
 OUT_OF_QUEUE = PrQueueMembership(in_queue=False, mergeable="CONFLICTING")
@@ -85,6 +89,7 @@ def observer_connection():
           merge_queue_enqueued_at='2026-08-27T17:00:00Z' WHERE id=101;
         """
     )
+    ensure_merge_queue_landing_record_schema(conn)
     conn.commit()
     return conn
 

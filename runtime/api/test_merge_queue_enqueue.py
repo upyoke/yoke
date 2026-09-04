@@ -57,8 +57,8 @@ def test_enqueue_refuses_success_when_the_durable_marker_is_missing(monkeypatch)
     outcome = land(wait_for_landing=False)
 
     assert not outcome.ok
-    assert "durable close-out marker was not recorded" in outcome.error
-    assert "--wait" in outcome.error
+    assert "durable landing marker was not recorded" in outcome.error
+    assert "re-enter `yoke merge item`" in outcome.error
 
 
 def _pending_retry(monkeypatch, *, remote_sha, push):
