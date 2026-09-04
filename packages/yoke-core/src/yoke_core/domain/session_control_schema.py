@@ -38,10 +38,8 @@ _SENDER_SURFACE_VALUES = ",".join(f"'{value}'" for value in SENDER_SURFACES)
 def create_session_control_tables(conn: Any) -> None:
     """Create additive fleet-control tables and lookup indexes.
 
-    Every table here names a machine — relays, launches, termination reaps,
-    surface policies, message recipients — so the registry that owns those ids
-    converges first. Doing it here rather than at each call site means a
-    universe, a fixture, and a focused test all get the same ordering.
+    Every table here names a machine, so the registry owning those ids
+    converges first — once here, not once per call site.
     """
     ensure_machine_registry_schema(conn, commit=False)
     execute_schema_script(
