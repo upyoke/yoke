@@ -111,6 +111,11 @@ def test_responsive_shell_uses_a_drawer_and_search_overlay():
     assert ".shell-search-inline" in compact
     phone = responsive.split("@media (max-width: 640px)", 1)[1]
     assert ".header-project-context" in phone
+    assert (
+        ".universe-app-root .context-side {\n"
+        "    display: contents;\n"
+        "  }"
+    ) in phone
     assert ".header-search-panel" in phone
     assert "inset: 0" in phone
 

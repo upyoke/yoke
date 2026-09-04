@@ -203,7 +203,16 @@
     gap: 7px;
     padding: 8px 10px;
   }
+  /* Let the three labelled contexts take part in the topbar's wrapping.
+     Keeping them inside one flex item makes Projects set that item's
+     intrinsic width, which forces the whole group onto a narrow second row
+     and crushes its labels together. Universe and Actor now stay beside the
+     compact controls while Projects owns the complete row below. */
+  .universe-app-root .context-side {
+    display: contents;
+  }
   .universe-app-root .header-project-context {
+    flex: 1 0 100%;
     width: 100%;
     order: 20;
   }
