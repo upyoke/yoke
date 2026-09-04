@@ -101,7 +101,10 @@ def _codex_from_http_mirror(payload: Mapping[str, Any]) -> Mapping[str, Any]:
         "planType": payload.get("plan_type"),
         "limitName": None,
     }
-    for source, target in (("primary_window", "primary"), ("secondary_window", "secondary")):
+    for source, target in (
+        ("primary_window", "primary"),
+        ("secondary_window", "secondary"),
+    ):
         window = rate_limit.get(source)
         if not isinstance(window, Mapping):
             continue

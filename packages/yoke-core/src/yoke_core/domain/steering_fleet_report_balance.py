@@ -5,6 +5,11 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Iterable, Protocol
 
+from yoke_contracts.session_control.plan_limits import (
+    CURSOR_MODELS_SCOPE,
+    CURSOR_OTHER_MODELS_SCOPE,
+    cursor_scope_for_model,
+)
 from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.steering_fleet_report_capacity import (
     SessionCount,
@@ -26,6 +31,12 @@ class BalanceReport(Protocol):
     machine_capacity: tuple[object, ...]
     origin_counts: tuple[tuple[str, int], ...]
     machine_names: tuple[tuple[str, str], ...]
+
+
+class PlanMeter(Protocol):
+    machine_id: str
+    surface: str
+    scope: str
 
 
 def context_label(value: int | None) -> str:
@@ -73,6 +84,35 @@ def selection_labels(
             if row.machine_id == machine_id and row.surface == surface
         )
     )
+
+
+def plan_meter_selection_labels(
+    row: PlanMeter,
+    counts: tuple[SessionCount, ...],
+) -> tuple[str, ...]:
+    selected = counts
+    if row.surface == "cursor-cli" and row.scope in {
+        CURSOR_MODELS_SCOPE,
+        CURSOR_OTHER_MODELS_SCOPE,
+    }:
+        selected = tuple(
+            count
+            for count in counts
+            if cursor_scope_for_model(count.model or count.requested_model) == row.scope
+        )
+    return selection_labels(
+        selected,
+        machine_id=row.machine_id,
+        surface=row.surface,
+    )
+
+
+def plan_meter_selection_cell(
+    row: PlanMeter,
+    counts: tuple[SessionCount, ...],
+) -> str:
+    labels = plan_meter_selection_labels(row, counts)
+    return "<br>".join(labels) if labels else "no live selection"
 
 
 def aggregate_session_counts(
@@ -176,6 +216,8 @@ __all__ = [
     "aggregate_session_counts",
     "context_label",
     "launch_balance_lines",
+    "plan_meter_selection_cell",
+    "plan_meter_selection_labels",
     "selection_fingerprint_rows",
     "selection_labels",
     "session_selection_label",

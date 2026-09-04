@@ -167,10 +167,14 @@ What the report gives you is a finding; what to do with each one is yours:
   wake alone parks it on the same question.
 
 - **Plan limits** — informational table, one row per surface window (quota
-  left, time-to-reset, headroom). Each row names its model scope — `weekly ·
-  all models` beside `weekly · Fable`. Compare headroom across every surface
-  and window; under 100% can hit a wall before its reset. Approaching walls
-  go to the operator; these numbers never disable a surface or gate a launch.
+  left, time-to-reset, headroom). Each row names the vendor-enforced meter and
+  model scope — `weekly · all models` beside `weekly · Fable`. Cursor reports
+  two monthly pools: `composer-*` and `cursor-grok-*` selections sit beside
+  **Cursor Models**, while every other model sits beside **Other Models**.
+  Claude and Codex likewise name the counter their vendor enforces. Compare
+  headroom across every surface and window; under 100% can hit a wall before
+  its reset. Approaching walls go to the operator; these numbers never disable
+  a surface or gate a launch.
 - **Capacity** — unlike plan limits, the line under each machine's launch
   balance does gate launches. `AT CAP, launches refuse` means the plane
   refuses there: wait for a landing to free a lane, raise

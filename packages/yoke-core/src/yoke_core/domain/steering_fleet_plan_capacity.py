@@ -1,7 +1,7 @@
 """Shared plan-capacity computer: raw readings plus window-normalized headroom.
 
 The fleet-report table and any dashboard capacity view are two renderers of
-this computer. One row per (machine, surface, window), because a vendor
+this computer. One row per (machine, surface, meter, window), because a vendor
 publishes several meters at once and the operator needs to see the scoped
 one that is about to bind as well as the account-wide one that is not.
 Monthly remaining uses a 30-day window so percent is comparable across
@@ -16,16 +16,14 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
-from yoke_contracts.session_control.plan_limits import (
-    ALL_MODELS_SCOPE,
-    CURSOR_MODELS_SCOPE,
-    CURSOR_OTHER_MODELS_SCOPE,
-    cursor_scope_for_model,
+from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
+from yoke_core.domain.steering_fleet_report_balance import (
+    plan_meter_selection_cell,
+    plan_meter_selection_labels,
 )
+from yoke_core.domain.steering_fleet_report_capacity import SessionCount
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
-from yoke_core.domain.steering_fleet_report_capacity import SessionCount
-from yoke_core.domain.steering_fleet_report_balance import selection_labels
 
 
 PLAN_LIMIT_HEADING = (
@@ -208,39 +206,11 @@ def _percent(value: float | None) -> str:
     return f"{int(round(value))}%"
 
 
-def _selection_cell(
-    computed: PlanLimitComputation,
-    counts: tuple[SessionCount, ...],
-) -> str:
-    labels = selection_labels(
-        _meter_counts(computed, counts),
-        machine_id=computed.machine_id,
-        surface=computed.surface,
-    )
-    return "<br>".join(labels) if labels else "no live selection"
-
-
-def _meter_counts(
-    row: MachinePlanLimit | PlanLimitComputation,
-    counts: tuple[SessionCount, ...],
-) -> tuple[SessionCount, ...]:
-    if row.surface != "cursor-cli" or row.scope not in {
-        CURSOR_MODELS_SCOPE,
-        CURSOR_OTHER_MODELS_SCOPE,
-    }:
-        return counts
-    return tuple(
-        count
-        for count in counts
-        if cursor_scope_for_model(count.model or count.requested_model) == row.scope
-    )
-
-
 def _markdown_row(
     computed: PlanLimitComputation,
     counts: tuple[SessionCount, ...],
 ) -> str:
-    selection = _selection_cell(computed, counts)
+    selection = plan_meter_selection_cell(computed, counts)
     if computed.status != "ok":
         return (
             f"| {computed.machine_name} | {computed.surface} | {selection} | "
@@ -322,11 +292,7 @@ def plan_limit_dicts(
             "status": row.status,
             "reason": row.reason,
             "live_model_selections": list(
-                selection_labels(
-                    _meter_counts(row, session_counts),
-                    machine_id=row.machine_id,
-                    surface=row.surface,
-                )
+                plan_meter_selection_labels(row, session_counts)
             ),
         }
         if now is not None:

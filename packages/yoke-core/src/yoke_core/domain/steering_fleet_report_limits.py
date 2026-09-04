@@ -16,7 +16,7 @@ from yoke_core.domain import db_backend
 
 @dataclass(frozen=True)
 class MachinePlanLimit:
-    """One (machine, surface, window) meter as the report renders it."""
+    """One vendor meter window for a machine and surface."""
 
     machine_id: str
     #: The machine's registered name, which is what a person reading the report
