@@ -40,6 +40,17 @@ test("Sessions renders resolved local identity and the exact empty state", async
   });
   await settle();
 
+  assert.equal(byClass(root, "page-head")[0].hidden, true);
+  const sections = byClass(root, "overview-section");
+  assert.equal(sections.length, 2);
+  assert.equal(sections.every((node) => node.tagName === "DETAILS"), true);
+  assert.equal(sections.every(
+    (node) => node.children[0].tagName === "SUMMARY",
+  ), true);
+  assert.deepEqual(
+    byClass(root, "overview-section-title").map((node) => node.textContent),
+    ["Machines", "Sessions"],
+  );
   assert.equal(byClass(root, "session-operator")[0].textContent, "Ben");
   assert.equal(byClass(root, "session-actor-avatar").length, 0);
   assert.ok(visibleText(root).includes("No active work claims"));

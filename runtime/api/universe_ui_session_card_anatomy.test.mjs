@@ -130,11 +130,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     (field) => field.children[0].textContent === "State",
   ).children[1];
   assert.equal(state.value, "active");
-  assert.equal(byClass(root, "title")[0].textContent, "Sessions");
-  assert.equal(
-    byClass(root, "subtitle")[0].textContent,
-    "What can run on each machine, and every harness session running "
-    + "against this universe.",
+  assert.equal(byClass(root, "page-head")[0].hidden, true);
+  assert.deepEqual(
+    byClass(root, "overview-section-title").map((node) => node.textContent),
+    ["Machines", "Sessions"],
   );
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children.map(

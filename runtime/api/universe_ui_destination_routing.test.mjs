@@ -35,7 +35,9 @@ function deliveryClient() {
         return okEnvelope({ name: "Yoke" });
       }
       if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, name: "Yoke" }] });
+        return okEnvelope({
+          rows: [{ id: 1, name: "Yoke", public_item_prefix: "YOK" }],
+        });
       }
       if (request.function === "deployment_runs.list") {
         return okEnvelope({ rows: [] });
@@ -115,7 +117,7 @@ test("a deep-linked destination is the active nav item and keeps its scope", asy
   assert.equal(byClass(root, "scope-bar").length, 1);
   assert.deepEqual(
     byClass(root, "scope-chip").map((node) => node.textContent),
-    ["All", "Yoke"],
+    ["All", "YOK"],
   );
   assert.deepEqual(
     client.requests.filter((request) => (
@@ -183,7 +185,9 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
         return okEnvelope({ name: "Yoke" });
       }
       if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, name: "Yoke" }] });
+        return okEnvelope({
+          rows: [{ id: 1, name: "Yoke", public_item_prefix: "YOK" }],
+        });
       }
       if (request.function === "deployment_runs.list") {
         // Engine order: newest first.
@@ -212,7 +216,7 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
   // with the routed project's chip marked selected.
   assert.equal(byClass(root, "scope-bar").length, 1);
   const chips = byClass(root, "scope-chip");
-  assert.deepEqual(chips.map((chip) => chip.textContent), ["All", "Yoke"]);
+  assert.deepEqual(chips.map((chip) => chip.textContent), ["All", "YOK"]);
   assert.deepEqual(
     chips.map((chip) => chip.classList.contains("on")), [false, true],
   );

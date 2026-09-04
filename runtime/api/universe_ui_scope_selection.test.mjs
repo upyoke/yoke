@@ -40,7 +40,7 @@ test("a multi view defaults to the whole universe: All chip on, unfiltered read"
 
   const chips = scopeChips(root);
   assert.deepEqual(
-    chips.map((chip) => chip.textContent), ["All", "alpha", "beta"],
+    chips.map((chip) => chip.textContent), ["All", "ALP", "BET"],
   );
   assert.deepEqual(
     chips.map((chip) => chip.classList.contains("on")),
@@ -76,7 +76,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   };
 
   // One project: the read carries it and the hash names it.
-  const narrowed = await click("alpha");
+  const narrowed = await click("ALP");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=1");
   assert.deepEqual(narrowed.map((request) => request.payload.project), ["1"]);
   assert.deepEqual(
@@ -90,7 +90,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
 
   // A second chip widens to the pair: one read per member, rows merged in
   // call order, with each row retaining its own project for drill-in.
-  const paired = await click("beta");
+  const paired = await click("BET");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=1,2");
   assert.deepEqual(paired.map((request) => request.payload.project), ["1", "2"]);
   const cells = allNodes(root)
@@ -116,9 +116,9 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
 
   // Removing members one at a time: the last removal returns to "all",
   // whose read omits the project filter and whose route has no query.
-  await click("alpha");
+  await click("ALP");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=2");
-  const widened = await click("beta");
+  const widened = await click("BET");
   assert.equal(documentNode.defaultView.location.hash, "#/items");
   assert.deepEqual(widened.map((request) => request.payload.project), [undefined]);
   assert.deepEqual(
@@ -254,8 +254,8 @@ test("a single-scope picker offers radio chips and no All chip", () => {
     entry: navEntry("github"),
     scope: "1",
     projects: [
-      { id: 1, slug: "alpha", name: "Alpha" },
-      { id: 2, slug: "beta", name: "Beta" },
+      { id: 1, slug: "alpha", name: "Alpha", public_item_prefix: "ALP" },
+      { id: 2, slug: "beta", name: "Beta", public_item_prefix: "BET" },
     ],
     renderRoute: () => rendered.push(true),
     scopeSelections: selections,
@@ -265,7 +265,7 @@ test("a single-scope picker offers radio chips and no All chip", () => {
 
   assert.equal(byClass(bar, "scope-label")[0].textContent, "Project");
   const chips = byClass(bar, "scope-chip");
-  assert.deepEqual(chips.map((chip) => chip.textContent), ["alpha", "beta"]);
+  assert.deepEqual(chips.map((chip) => chip.textContent), ["ALP", "BET"]);
   assert.deepEqual(
     chips.map((chip) => chip.classList.contains("on")), [true, false],
   );

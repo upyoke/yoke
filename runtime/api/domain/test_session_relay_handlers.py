@@ -273,6 +273,30 @@ def test_list_projects_only_public_relay_facts_visible_to_actor(monkeypatch) -> 
             "2026-08-22T12:02:00Z",
         ),
     )
+    plan_limits = {"codex-cli": {
+        "plan_tier": "pro",
+        "accessToken": "must-not-project",
+        "observed_at": "2026-08-22T12:01:00Z",
+        "windows": [{
+            "status": "ok", "window_kind": "rolling_5h", "scope": "all",
+            "meter": "primary", "remaining_percent": 80,
+            "resets_at": "2026-08-22T14:00:00Z",
+            "accessToken": "must-not-project",
+        }],
+    }}
+    capacity = {
+        "free_memory_bytes": 8 * 1024**3,
+        "total_memory_bytes": 32 * 1024**3,
+        "load_average_1m": 1.5, "core_count": 8,
+        "max_worker_lanes": 6, "cap_source": "max_worker_lanes",
+        "observed_at": "2026-08-22T12:01:00Z",
+        "secret": "must-not-project",
+    }
+    conn.execute(
+        "UPDATE session_relays SET surface_plan_limits=?,machine_capacity=? "
+        "WHERE relay_id=?",
+        (json.dumps(plan_limits), json.dumps(capacity), "machine:public"),
+    )
     conn.commit()
     from yoke_core.domain import db_helpers
 
@@ -287,6 +311,19 @@ def test_list_projects_only_public_relay_facts_visible_to_actor(monkeypatch) -> 
     assert relay["project_ids"] == [1, 2]
     assert relay["surface_versions"] == {"codex-desktop": "26.814"}
     assert relay["liveness"] == "silent"
+    assert relay["plan_limits"]["codex-cli"]["windows"][0] == {
+        "window_kind": "rolling_5h",
+        "scope": "all",
+        "meter": "primary",
+        "remaining_percent": 80.0,
+        "resets_at": "2026-08-22T14:00:00Z",
+        "status": "ok",
+        "reason": None,
+    }
+    assert relay["capacity"]["max_worker_lanes"] == 6
+    assert relay["capacity"]["live_lanes"] == 0
+    assert "lanes 0/6" in relay["capacity"]["summary"]
+    assert "must-not-project" not in json.dumps(relay)
     assert not (
         {"actor_id", "lease_id", "lease_expires_at", "project_checkouts"} & relay.keys()
     )

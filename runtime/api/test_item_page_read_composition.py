@@ -63,6 +63,18 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
     assert delegated.function == "items.list.run"
     assert delegated.actor == request.actor
     assert "project" not in delegated.payload
+    assert {
+        "priority",
+        "frozen",
+        "blocked",
+        "blocked_reason",
+        "deployed_to",
+        "merged_at",
+        "created_at",
+        "updated_at",
+        "project_id",
+        "project_sequence",
+    } <= set(delegated.payload["fields"])
     assert outcome.result_payload["rows"][0]["public_ref"] == "ACM-22"
     assert outcome.result_payload["rows"][0]["worktrees"][0]["branch"] == "codex/footer"
 

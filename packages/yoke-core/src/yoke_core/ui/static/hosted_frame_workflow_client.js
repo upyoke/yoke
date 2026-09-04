@@ -7,7 +7,10 @@ export function createHostedFrameWorkflowClient(workflows, gates) {
     async call(request) {
       if (request.function === "projects.list") {
         return ok({
-          rows: [{ id: 1, slug: "yoke", name: "Yoke", emoji: "🐄" }],
+          rows: [{
+            id: 1, slug: "yoke", name: "Yoke", emoji: "🐄",
+            public_item_prefix: "YOK",
+          }],
         });
       }
       if (request.function === "workflows.definition.get") {

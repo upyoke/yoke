@@ -100,11 +100,11 @@ export function activationAnswer({
 }
 
 // A one-project universe answering every read the Overview composes; the
-// section reads default non-empty so the ghost rule stays out of the way
-// unless a test overrides one to empty.
+// section reads default non-empty unless a test overrides one to empty.
 export function activationClient(activation, overrides = {}) {
   const requests = [];
   const answers = {
+    "items.overview.list": { rows: [] },
     "frontier.list": {
       ready_rows: [{
         item_id: "YOK-9", project: "yoke", next_step: "advance",
@@ -114,8 +114,12 @@ export function activationClient(activation, overrides = {}) {
     },
     "sessions.list": { rows: [] },
     "strategy.doc.list": {
-      docs: [{ slug: "MISSION", title: "why", updated_at: "today" }],
+      docs: [{
+        slug: "MISSION", summary: "why",
+        updated_at: "2026-07-26T12:00:00Z",
+      }],
     },
+    "strategy.doc_claim.list": { claims: [] },
     "deployment_runs.list": {
       rows: [{
         id: "run-1", project: "yoke", flow: "stage-flow",
@@ -149,7 +153,10 @@ export function activationClient(activation, overrides = {}) {
           status: 200,
           envelope: {
             success: true,
-            result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] },
+            result: { rows: [{
+              id: 1, slug: "yoke", name: "Yoke",
+              public_item_prefix: "YOK",
+            }] },
           },
         };
       }

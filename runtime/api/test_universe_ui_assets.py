@@ -99,22 +99,25 @@ def test_each_css_asset_is_a_self_contained_stylesheet():
         assert declaration in panel_rule.group("body"), declaration
 
 
-def test_phone_shell_gives_the_route_the_full_viewport():
+def test_responsive_shell_uses_a_drawer_and_search_overlay():
     static_root = files("yoke_core.ui").joinpath("static")
-    chrome = static_root.joinpath("universe_chrome.css").read_text()
-    controls = static_root.joinpath("universe_shell_controls.css").read_text()
-
-    phone_rules = chrome.split("@media (max-width: 720px)", 1)[1]
-    assert "grid-template-columns: minmax(0, 1fr)" in phone_rules
-    assert ".universe-app-root .shell > .sidenav" in phone_rules
-    assert "flex-direction: row" in phone_rules
-    assert "overflow-x: auto" in phone_rules
-    assert ".universe-app-root .workbench-body" in phone_rules
-    assert "grid-column: 1" in phone_rules
-
-    compact_controls = controls.split("@media (max-width: 560px)", 1)[1]
-    assert ".universe-app-root .header-search" in compact_controls
-    assert "display: none" in compact_controls
+    responsive = static_root.joinpath("universe_responsive.css").read_text()
+    compact = responsive.split("@media (max-width: 980px)", 1)[1]
+    assert "grid-template-columns: minmax(0, 1fr)" in compact
+    assert ".universe-app-root .shell > .sidenav" in compact
+    assert "transform: translateX(-105%)" in compact
+    assert ".shell.side-open > .sidenav" in compact
+    assert ".header-search-button" in compact
+    assert ".shell-search-inline" in compact
+    phone = responsive.split("@media (max-width: 640px)", 1)[1]
+    assert ".header-project-context" in phone
+    assert (
+        ".universe-app-root .context-side {\n"
+        "    display: contents;\n"
+        "  }"
+    ) in phone
+    assert ".header-search-panel" in phone
+    assert "inset: 0" in phone
 
 
 def test_page_module_exports_the_mount_contract():

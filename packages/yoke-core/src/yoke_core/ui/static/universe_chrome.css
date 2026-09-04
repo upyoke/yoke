@@ -43,8 +43,8 @@
   box-sizing: border-box;
 }
 
-/* Top bar: brand lockup left, org context right. Scope is not a top-bar
-   concern — each view carries its own project picker.
+/* Top bar: brand and search left; labelled universe, project, and actor
+   context right. Scoped views place their prefix chips here.
 
    The frame itself is not declared here. The header element carries the
    shared `.yoke-app-header` class from shell.css alongside `.topbar`, and the
@@ -307,42 +307,4 @@
   overflow: hidden;
   margin-bottom: 14px;
   transition: box-shadow 140ms ease;
-}
-
-/* The prototype's route compositions collapse internally below their own
-   breakpoints. At phone width the shared rail becomes a compact, scrollable
-   route strip so the composition receives the full viewport without making
-   navigation disappear. */
-@media (max-width: 720px) {
-  .universe-app-root .shell {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) 34px;
-  }
-  .universe-app-root .shell > .sidenav {
-    grid-column: 1;
-    grid-row: 1;
-    width: 100%;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 7px 8px;
-    border-right: 0;
-    border-bottom: 1px solid var(--yoke-border);
-    scrollbar-width: thin;
-  }
-  .universe-app-root .nav-link {
-    flex: 0 0 auto;
-    padding: 6px 9px;
-  }
-  .universe-app-root .workbench-body {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .universe-app-root .content {
-    padding: 20px 16px 32px;
-    scrollbar-gutter: auto;
-  }
-  .universe-app-root .page-head {
-    gap: 12px;
-  }
 }

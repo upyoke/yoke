@@ -9,9 +9,11 @@ from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.session_launch_capacity import machine_capacity
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
 from yoke_contracts.session_control.relay_health import sanitize_relay_health
+from yoke_contracts.session_control.plan_limits import sanitize_plan_limits
 
 
 def _value(row: Any, key: str, index: int) -> Any:
@@ -69,7 +71,8 @@ def list_visible_relays(
     rows = conn.execute(
         "SELECT relay_id,machine_id,hostname,relay_version,surface_versions,"
         "project_checkouts,first_seen_at,last_seen_at,connected_until,state,"
-        "last_job_at,actor_id,relay_health FROM session_relays"
+        "last_job_at,actor_id,relay_health,surface_plan_limits,machine_capacity "
+        "FROM session_relays"
         + where
         + " ORDER BY last_seen_at DESC,relay_id",
         tuple(params),
@@ -100,6 +103,13 @@ def list_visible_relays(
         if not visible_projects:
             continue
         connected_until = _value(row, "connected_until", 8)
+        machine_id = str(_value(row, "machine_id", 1))
+        capacity = machine_capacity(
+            conn,
+            machine_id=machine_id,
+            capacity_document=_value(row, "machine_capacity", 14),
+            now=current,
+        )
         result.append(
             {
                 "relay_id": str(_value(row, "relay_id", 0)),
@@ -107,7 +117,7 @@ def list_visible_relays(
                 # to everyone who shares one of its projects, and they need to
                 # know whose machine they are about to launch onto.
                 "owner": owners.get(int(_value(row, "actor_id", 11)), ""),
-                "machine_id": str(_value(row, "machine_id", 1)),
+                "machine_id": machine_id,
                 "hostname": str(_value(row, "hostname", 2)),
                 "relay_version": _value(row, "relay_version", 3),
                 "surface_versions": _document(_value(row, "surface_versions", 4), {}),
@@ -123,6 +133,10 @@ def list_visible_relays(
                 "relay_health": sanitize_relay_health(
                     _document(_value(row, "relay_health", 12), {})
                 ),
+                "plan_limits": sanitize_plan_limits(
+                    _document(_value(row, "surface_plan_limits", 13), {})
+                ),
+                "capacity": capacity.to_dict(),
                 "surface_policies": marks_by_machine.get(
                     str(_value(row, "machine_id", 1)), []
                 ),

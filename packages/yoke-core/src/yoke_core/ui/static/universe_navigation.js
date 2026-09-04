@@ -227,7 +227,7 @@ export function createScopePicker(options) {
   if (multi) chip("All", null, () => apply("all"));
   for (const row of projects) {
     const projectId = String(row.id);
-    chip(row.slug || row.name || projectId, projectId, () => {
+    chip(row.public_item_prefix || projectId, projectId, () => {
       apply(multi ? toggledScope(currentScope, projectId, projects) : projectId);
     });
   }
@@ -241,4 +241,3 @@ export function createScopePicker(options) {
   };
   return bar;
 }
-

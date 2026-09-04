@@ -1,0 +1,256 @@
+.universe-app-root .overview-item-card,
+.universe-app-root .overview-doc-card,
+.universe-app-root .overview-run-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+  padding: 13px 14px;
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-surface);
+  color: var(--yoke-ink);
+  text-decoration: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.universe-app-root .overview-item-card:hover,
+.universe-app-root .overview-doc-card:hover,
+.universe-app-root .overview-run-card:hover {
+  border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
+  box-shadow: var(--yoke-shadow);
+}
+.universe-app-root .overview-item-card:focus-visible,
+.universe-app-root .overview-doc-card:focus-visible,
+.universe-app-root .overview-run-card:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+.universe-app-root .overview-item-card-head,
+.universe-app-root .overview-doc-card-head,
+.universe-app-root .overview-run-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.universe-app-root .overview-item-card-ref,
+.universe-app-root .overview-doc-prefix,
+.universe-app-root .overview-doc-slug,
+.universe-app-root .overview-run-id,
+.universe-app-root .overview-run-flow {
+  overflow-wrap: anywhere;
+  font-family: var(--yoke-font-mono);
+}
+.universe-app-root .overview-item-card-ref,
+.universe-app-root .overview-run-id {
+  color: var(--yoke-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+.universe-app-root .overview-item-card-title {
+  display: block;
+  color: var(--yoke-ink);
+  font-size: 13px;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .overview-item-flag {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  border-left: 3px solid var(--yoke-muted);
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-ink-2);
+  font-size: 11.5px;
+}
+.universe-app-root .overview-item-flag.is-frozen {
+  border-color: #60a5fa;
+}
+.universe-app-root .overview-item-flag.is-blocked {
+  border-color: var(--yoke-crit);
+}
+.universe-app-root .overview-item-flag.is-dependency {
+  border-color: var(--yoke-warn);
+}
+.universe-app-root .overview-item-flag.is-ready {
+  border-color: var(--yoke-accent);
+}
+.universe-app-root .overview-item-flag.is-done {
+  border-color: var(--yoke-good);
+}
+.universe-app-root .overview-item-flag-label,
+.universe-app-root .overview-run-batch-title {
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  font-weight: 720;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.universe-app-root .overview-item-card-meta,
+.universe-app-root .overview-run-card-meta {
+  margin-top: auto;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .overview-item-card.is-cancelled {
+  background: color-mix(in srgb, var(--yoke-crit-bg) 42%, var(--yoke-surface));
+}
+.universe-app-root .overview-more-card {
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  color: var(--yoke-muted);
+  text-align: center;
+}
+.universe-app-root .overview-more-count {
+  color: var(--yoke-ink);
+  font-size: 22px;
+}
+
+.universe-app-root .overview-doc-grid {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 390px));
+}
+.universe-app-root .overview-doc-prefix {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-accent);
+  font-size: 10px;
+  font-weight: 750;
+}
+.universe-app-root .overview-doc-slug {
+  color: var(--yoke-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.universe-app-root .overview-doc-state {
+  padding: 1px 6px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 999px;
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+.universe-app-root .overview-doc-age {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.universe-app-root .overview-doc-age-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--yoke-muted);
+}
+.universe-app-root .overview-doc-age.is-today .overview-doc-age-dot {
+  background: var(--yoke-good);
+}
+.universe-app-root .overview-doc-age.is-week .overview-doc-age-dot {
+  background: #84cc16;
+}
+.universe-app-root .overview-doc-age.is-month .overview-doc-age-dot {
+  background: var(--yoke-warn);
+}
+.universe-app-root .overview-doc-age.is-old .overview-doc-age-dot {
+  background: var(--yoke-crit);
+}
+.universe-app-root .overview-doc-claim {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--yoke-accent);
+  border-radius: 5px;
+  background: var(--yoke-accent-weak);
+  font-size: 11px;
+}
+.universe-app-root .overview-doc-claim.is-blitz {
+  border-color: #8b5cf6;
+}
+.universe-app-root .overview-doc-claim-label {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.universe-app-root .overview-doc-claim-holder {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .overview-doc-summary {
+  margin: 0;
+  color: var(--yoke-ink-2);
+  font-size: 12px;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .overview-doc-summary.is-missing {
+  color: var(--yoke-warn);
+  font-style: italic;
+}
+
+.universe-app-root .overview-run-card {
+  border-top: 3px solid var(--yoke-muted);
+}
+.universe-app-root .overview-run-card.is-succeeded {
+  border-top-color: var(--yoke-good);
+}
+.universe-app-root .overview-run-card.is-executing,
+.universe-app-root .overview-run-card.is-created {
+  border-top-color: var(--yoke-run);
+}
+.universe-app-root .overview-run-card.is-failed,
+.universe-app-root .overview-run-card.is-cancelled {
+  border-top-color: var(--yoke-crit);
+}
+.universe-app-root .overview-run-environment {
+  color: var(--yoke-ink-2);
+  font-size: 11px;
+  font-weight: 650;
+}
+.universe-app-root .overview-run-flow {
+  font-size: 11.5px;
+}
+.universe-app-root .overview-run-release {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .overview-run-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  background: var(--yoke-bg);
+}
+.universe-app-root .overview-run-member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .overview-run-member span {
+  overflow-wrap: anywhere;
+}
+.universe-app-root .overview-run-member-more,
+.universe-app-root .overview-run-derived {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .overview-run-derived {
+  padding-left: 8px;
+  border-left: 2px solid var(--yoke-border);
+}

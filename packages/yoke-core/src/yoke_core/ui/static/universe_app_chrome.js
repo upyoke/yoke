@@ -50,22 +50,38 @@ function createActorChip(documentNode, actor) {
   return chip;
 }
 
+function contextControl(documentNode, label, value, className) {
+  const control = el(
+    documentNode, "div", `header-context-control ${className}`,
+  );
+  control.appendChild(el(
+    documentNode, "span", "header-context-label", label,
+  ));
+  const host = el(documentNode, "div", "header-context-value");
+  if (value) host.appendChild(value);
+  control.appendChild(host);
+  control.valueHost = host;
+  return control;
+}
+
 export function configurePageHead(
   documentNode,
   head,
   { title, summary = null, actions = [] },
 ) {
-  const heading = el(documentNode, "div", "h");
-  heading.appendChild(el(documentNode, "h1", "title", title));
-  if (summary) {
-    heading.appendChild(el(documentNode, "p", "subtitle", summary));
+  head.replaceChildren();
+  if (title || summary) {
+    const heading = el(documentNode, "div", "h");
+    if (title) heading.appendChild(el(documentNode, "h1", "title", title));
+    if (summary) heading.appendChild(el(documentNode, "p", "subtitle", summary));
+    head.appendChild(heading);
   }
-  head.replaceChildren(heading);
   if (actions.length) {
     const actionHost = el(documentNode, "div", "head-actions");
     for (const action of actions) actionHost.appendChild(action);
     head.appendChild(actionHost);
   }
+  head.hidden = !head.children.length;
 }
 
 export function createPageHead(documentNode, entry) {
@@ -159,15 +175,40 @@ export function createWorkbenchChrome({
   );
   const orgContext = !hostFillsTopbarStart && mode === "hosted"
     ? el(documentNode, "span", "org-context", "…")
-    : null;
+    : (!hostFillsTopbarStart
+      ? el(documentNode, "span", "org-context", "local") : null);
   const contextSide = el(
     documentNode, "div", "context-side yoke-header-context",
   );
-  if (orgContext) contextSide.appendChild(orgContext);
-  if (actor) contextSide.appendChild(createActorChip(documentNode, actor));
+  if (orgContext) contextSide.appendChild(contextControl(
+    documentNode, "Universe", orgContext, "header-universe-context",
+  ));
+  const scopeHost = el(documentNode, "div", "header-scope-host");
+  const scopeContext = contextControl(
+    documentNode, "Projects", scopeHost, "header-project-context",
+  );
+  scopeContext.hidden = true;
+  contextSide.appendChild(scopeContext);
+  if (actor) contextSide.appendChild(contextControl(
+    documentNode,
+    "Actor",
+    createActorChip(documentNode, actor),
+    "header-actor-context",
+  ));
   const controls = createShellControls({ documentNode, client, options });
   const spacer = el(documentNode, "span", "header-spacer");
   const header = el(documentNode, "header", "topbar yoke-app-header");
+  const navigationToggle = el(
+    documentNode, "button", "navigation-toggle", "",
+  );
+  navigationToggle.type = "button";
+  navigationToggle.setAttribute("aria-label", "Open navigation");
+  navigationToggle.setAttribute("aria-controls", "universe-navigation");
+  navigationToggle.setAttribute("aria-expanded", "false");
+  for (let index = 0; index < 3; index += 1) {
+    navigationToggle.appendChild(el(documentNode, "span"));
+  }
+  header.appendChild(navigationToggle);
   header.appendChild(brand);
   header.appendChild(controls.search);
   header.appendChild(spacer);
@@ -176,11 +217,19 @@ export function createWorkbenchChrome({
   appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
 
   const navEl = el(documentNode, "nav", "sidenav");
+  navEl.id = "universe-navigation";
+  const navigationScrim = el(
+    documentNode, "button", "navigation-scrim",
+  );
+  navigationScrim.type = "button";
+  navigationScrim.hidden = true;
+  navigationScrim.setAttribute("aria-label", "Close navigation");
   const main = el(documentNode, "main", "content");
   const body = el(documentNode, "div", "workbench-body");
   const shell = el(documentNode, "div", "shell");
   appendSlot(navEl, resolvedSlots.navigationStart, mountedSlotNodes);
   shell.appendChild(navEl);
+  shell.appendChild(navigationScrim);
   appendSlot(body, resolvedSlots.contentBefore, mountedSlotNodes);
   body.appendChild(main);
   appendSlot(body, resolvedSlots.contentAfter, mountedSlotNodes);
@@ -210,13 +259,46 @@ export function createWorkbenchChrome({
   }
   appendSlot(navEl, resolvedSlots.navigationEnd, mountedSlotNodes);
 
+  const setNavigationOpen = (open) => {
+    const shown = Boolean(open);
+    shell.classList.toggle("side-open", shown);
+    documentNode.body?.classList.toggle("side-open", shown);
+    navigationScrim.hidden = !shown;
+    navigationToggle.setAttribute("aria-expanded", String(shown));
+    navigationToggle.setAttribute(
+      "aria-label", shown ? "Close navigation" : "Open navigation",
+    );
+  };
+  navigationToggle.addEventListener("click", () => {
+    setNavigationOpen(
+      navigationToggle.getAttribute("aria-expanded") !== "true",
+    );
+  });
+  navigationScrim.addEventListener("click", () => setNavigationOpen(false));
+  for (const link of navLinks.values()) {
+    link.addEventListener("click", () => setNavigationOpen(false));
+  }
+  const onEscape = (event) => {
+    if (event.key === "Escape") setNavigationOpen(false);
+  };
+  documentNode.defaultView.addEventListener("keydown", onEscape);
+
   return {
     brand,
-    disposeChrome: controls.dispose,
+    disposeChrome() {
+      controls.dispose();
+      documentNode.defaultView.removeEventListener("keydown", onEscape);
+      documentNode.body?.classList.remove("side-open");
+    },
     header,
     main,
     navLinks,
     orgContext,
+    scopeHost,
+    setScopeVisible(visible) {
+      scopeContext.hidden = !visible;
+      if (!visible) scopeHost.replaceChildren();
+    },
     shell,
   };
 }

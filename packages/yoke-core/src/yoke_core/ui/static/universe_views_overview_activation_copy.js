@@ -118,16 +118,3 @@ export const onboardCompleteLine = (outcomes) => (
 export const onboardSupersededLine = (deploymentRunId, at) =>
   `Onboarding done — superseded by deployment ${deploymentRunId}` +
   `${at ? ` on ${String(at).slice(0, 10)}` : ""}.`;
-
-// Day-zero ghost panels: hint line per section, keyed to the module whose
-// activation retires the ghost.
-export const GHOST_HINTS = {
-  strategy: "Strategy · activates as the docs fill via /yoke onboard",
-  frontier: "Frontier · activates when the first items are seeded",
-  delivery: "Delivery · activates on the first deployment run",
-};
-export const GHOST_MODULES = {
-  strategy: "run_onboard",
-  frontier: "run_onboard",
-  delivery: "first_deploy",
-};

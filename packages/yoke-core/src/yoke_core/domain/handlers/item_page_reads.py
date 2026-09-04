@@ -62,7 +62,10 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
         "payload": {
             "fields": [
                 "id", "internal_id", "title", "workflow_id",
-                "workflow_version_id", "status", "project",
+                "workflow_version_id", "status", "priority", "frozen",
+                "blocked", "blocked_reason", "deployed_to", "merged_at",
+                "created_at", "updated_at", "project", "project_id",
+                "project_sequence",
             ],
             **({"project": payload.project} if payload.project else {}),
             **({"limit": payload.limit} if payload.limit else {}),

@@ -1,5 +1,5 @@
 // The Overview activation stack's dismissal flow, the host-facts payload
-// forwarding seam, and the day-zero ghost-panel rule. Module states and
+// forwarding seam, and empty-state coexistence. Module states and
 // drawn copy live in universe_ui_overview_activation.test.mjs.
 
 import assert from "node:assert/strict";
@@ -132,10 +132,11 @@ test("no bound actor: the ✕ never renders even on activated modules", async (t
   mounted.unmount();
 });
 
-test("a day-zero section collapses to its ghost; activation revives it", async (t) => {
+test("empty live bands remain visible beside day-zero activation", async (t) => {
   stubFetch(t);
   const empty = {
     "strategy.doc.list": { docs: [] },
+    "items.overview.list": { rows: [] },
     "frontier.list": { ready_rows: [], blocked_rows: [] },
     "deployment_runs.list": { rows: [] },
   };
@@ -143,47 +144,32 @@ test("a day-zero section collapses to its ghost; activation revives it", async (
     activationClient(activationAnswer(), empty),
   );
 
-  const ghosts = byClass(root, "overview-ghost");
-  assert.equal(ghosts.length, 3);
   assert.deepEqual(
-    byClass(root, "overview-ghost-hint").map((node) => node.textContent),
+    byClass(root, "overview-band-title").map((node) => node.textContent),
     [
-      "Strategy · activates as the docs fill via /yoke onboard",
-      "Frontier · activates when the first items are seeded",
-      "Delivery · activates on the first deployment run",
+      "Standing", "Plans", "Waiting", "Ready", "Active", "Shipping",
+      "Done (24h)",
     ],
   );
-  mounted.unmount();
-
-  // The same empty reads with the backing modules activated render the
-  // ordinary live empty panels, not ghosts.
-  const activated = await mountOverview(activationClient(
-    activationAnswer({ states: ALL_ACTIVATED }), empty,
-  ));
-  assert.equal(byClass(activated.root, "overview-ghost").length, 0);
-  const text = allNodes(activated.root)
+  const text = allNodes(root)
     .map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("no strategy docs yet"));
-  assert.ok(text.includes("No runs in this scope."));
-  activated.mounted.unmount();
+  assert.ok(text.includes("No strategy documents in this band."));
+  assert.ok(text.includes("No deployment run is in flight."));
+  mounted.unmount();
 });
 
-test("a non-empty read keeps its live panel on day zero", async (t) => {
+test("non-empty reads draw cards while activation is still day zero", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountOverview(
     activationClient(activationAnswer()),
   );
 
-  // Default fixtures serve rows for strategy/frontier/delivery, so nothing
-  // ghosts even though no backing module is activated.
-  assert.equal(byClass(root, "overview-ghost").length, 0);
-  assert.deepEqual(
-    byClass(root, "overview-section-icon").map((node) => node.textContent),
-    ["❖", "⚡", "◈", "⬈"],
-  );
   assert.deepEqual(
     byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Strategy", "Waiting and ready", "Active", "Shipping"],
+    ["Strategy", "Frontier"],
   );
+  assert.equal(byClass(root, "overview-doc-card").length, 1);
+  assert.equal(byClass(root, "overview-item-card").length, 1);
+  assert.equal(byClass(root, "overview-run-card").length, 1);
   mounted.unmount();
 });

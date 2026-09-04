@@ -4,6 +4,7 @@ import {
   renderSessionControlFailure,
 } from "./universe_session_control_data.js";
 import { loadMachinesPanel } from "./universe_machines_panel.js";
+import { overviewSection } from "./universe_overview_primitives.js";
 import { appendHoldings } from "./universe_sessions_holdings.js";
 import {
   callFunction,
@@ -190,8 +191,8 @@ function renderSessions(
 export function renderSessionsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const view = el(documentNode, "div", "sessions-view");
-  // Machines first: what can run, before what is running.
-  const machinesHost = el(documentNode, "div", "machines-host");
+  const machines = overviewSection(documentNode, "machines", "Machines");
+  const roster = overviewSection(documentNode, "sessions", "Sessions");
   const actionStatus = el(documentNode, "p", "sessions-action-status");
   actionStatus.hidden = true;
   actionStatus.setAttribute("role", "status");
@@ -239,17 +240,10 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   view.appendChild(filters.host);
   view.appendChild(content);
   view.appendChild(dialogHost);
-  main.replaceChildren(machinesHost, view);
-  loadMachinesPanel(context, machinesHost);
-
-  if (typeof chrome.setPageHead === "function") {
-    chrome.setPageHead({
-      title: "Sessions",
-      summary:
-        "What can run on each machine, and every harness session running "
-        + "against this universe.",
-    });
-  }
+  roster.body.replaceChildren(view);
+  main.replaceChildren(machines, roster);
+  loadMachinesPanel(context, machines.body, { showHeading: false });
+  if (typeof chrome.hidePageHead === "function") chrome.hidePageHead();
 
   const buckets = scopeBuckets(scope, context.projects(), false);
   const reclaimPayload = scope === "all"

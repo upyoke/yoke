@@ -254,36 +254,3 @@
   font-size: 11px;
   text-align: right;
 }
-
-@media (max-width: 760px) {
-  .universe-app-root .header-search {
-    width: min(220px, 42vw);
-    min-width: 0;
-  }
-  .universe-app-root .actor-name,
-  .universe-app-root .actor-kind,
-  .universe-app-root .app-footer-mark {
-    display: none;
-  }
-  .universe-app-root .app-footer {
-    grid-column: 1;
-    grid-row: 3;
-    gap: 8px;
-    padding-inline: 12px;
-  }
-}
-
-@media (max-width: 560px) {
-  .universe-app-root .header-search {
-    display: none;
-  }
-  .universe-app-root .header-search-key,
-  .universe-app-root .app-footer-environment {
-    display: none;
-  }
-  .universe-app-root .app-footer-links {
-    width: 100%;
-    justify-content: space-between;
-    margin-left: 0;
-  }
-}

@@ -208,27 +208,28 @@ test("a beforeScope section sits above the picker, an inView section below", asy
   };
 
   // The hosted org's GitHub connection is not a project's fact, so the
-  // picker must not appear to filter it: the section stands above the
-  // control, between the page head and the chips.
+  // section remains above project-scoped view content while the picker lives
+  // in the labelled header context.
   const above = await mountWith("beforeScope");
   const aboveContent = byClass(above.root, "content")[0];
   const aboveOrder = aboveContent.children.map((node) => node.className);
   assert.deepEqual(
     aboveOrder,
-    ["page-head", "", "view-above-scope", "scope-bar", "view-host"],
+    ["page-head", "", "view-above-scope", "view-host"],
   );
   assert.equal(aboveContent.children[1], above.hostSection);
+  assert.ok(byClass(above.root, "scope-bar")[0].parentNode.classList
+    .contains("header-scope-host"));
   assert.ok(!allNodes(byClass(above.root, "view-host")[0])
     .includes(above.hostSection));
   above.mounted.unmount();
 
-  // The default placement is unchanged: scoped content stays in the view,
-  // under the picker, after whatever the view rendered for itself.
+  // The default placement stays in the view after its own content.
   const below = await mountWith("inView");
   const belowContent = byClass(below.root, "content")[0];
   assert.deepEqual(
     belowContent.children.map((node) => node.className),
-    ["page-head", "view-above-scope", "scope-bar", "view-host"],
+    ["page-head", "view-above-scope", "view-host"],
   );
   const belowHost = byClass(below.root, "view-host")[0];
   assert.equal(belowHost.children[belowHost.children.length - 1],

@@ -207,16 +207,3 @@
   gap: 6px;
   align-items: center;
 }
-
-/* Day-zero ghosts: the collapsed stand-in for a section whose read served
-   nothing while its backing module is not yet activated. */
-.universe-app-root .panel.overview-ghost {
-  border-style: dashed;
-  background: transparent;
-  padding: 10px 15px;
-}
-.universe-app-root .overview-ghost-hint {
-  margin: 0;
-  color: var(--yoke-muted);
-  font-size: 12px;
-}

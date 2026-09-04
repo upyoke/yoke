@@ -267,3 +267,52 @@ test("compact route changes reveal the active destination without moving the des
 
   mounted.unmount();
 });
+
+test("compact chrome opens the navigation drawer and shared search overlay", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.body = documentNode.createElement("body");
+  documentNode.defaultView.innerWidth = 900;
+  const root = documentNode.createElement("div");
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [{
+          id: 1, slug: "yoke", name: "Yoke", public_item_prefix: "YOK",
+        }] } } };
+      }
+      if (request.function === "items.overview.list") {
+        return { status: 200, envelope: { success: true, result: { rows: [] } } };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  const shell = byClass(root, "shell")[0];
+  const navToggle = byClass(root, "navigation-toggle")[0];
+  const scrim = byClass(root, "navigation-scrim")[0];
+  navToggle.dispatchEvent(new Event("click"));
+  assert.equal(shell.classList.contains("side-open"), true);
+  assert.equal(documentNode.body.classList.contains("side-open"), true);
+  assert.equal(navToggle.getAttribute("aria-expanded"), "true");
+  assert.equal(scrim.hidden, false);
+  scrim.dispatchEvent(new Event("click"));
+  assert.equal(shell.classList.contains("side-open"), false);
+
+  const searchButton = byClass(root, "header-search-button")[0];
+  const overlay = byClass(root, "header-search-overlay")[0];
+  searchButton.dispatchEvent(new Event("click"));
+  assert.equal(overlay.hidden, false);
+  assert.equal(documentNode.activeElement, byClass(root, "header-search-input")[0]);
+  byClass(root, "header-search-close")[0].dispatchEvent(new Event("click"));
+  assert.equal(overlay.hidden, true);
+  mounted.unmount();
+  assert.equal(documentNode.body.classList.contains("side-open"), false);
+});

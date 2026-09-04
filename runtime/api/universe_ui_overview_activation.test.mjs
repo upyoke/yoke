@@ -1,8 +1,8 @@
 // The Overview activation-module stack: module states across the signal
 // matrix, the drawn copy for each state, the wizard checklist, and the
 // harness module's lead copy. Per-machine rows live in
-// universe_ui_overview_activation_machines.test.mjs; dismissal, ghosts, and
-// payload forwarding in universe_ui_overview_activation_dismiss.test.mjs.
+// universe_ui_overview_activation_machines.test.mjs; dismissal and payload
+// forwarding in universe_ui_overview_activation_dismiss.test.mjs.
 
 import assert from "node:assert/strict";
 import test from "node:test";

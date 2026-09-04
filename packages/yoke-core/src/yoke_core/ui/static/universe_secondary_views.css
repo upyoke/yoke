@@ -1,6 +1,5 @@
 @import url("./universe_secondary_activity.css");
 @import url("./universe_sessions.css");
-@import url("./universe_overview_legacy.css");
 
 /* Secondary universe screens: dense facts, cards, timelines and progress. */
 
@@ -317,10 +316,6 @@
   .universe-app-root .frontier-view .table-wrap {
     touch-action: pan-x;
   }
-  .universe-app-root .overview-state-grid { grid-template-columns: repeat(3, 1fr); }
-  .universe-app-root .overview-state:nth-child(3) { border-right: 0; }
-  .universe-app-root .overview-state:nth-child(-n+3) { border-bottom: 1px solid var(--yoke-border); }
-  .universe-app-root .momentum-grid { grid-template-columns: 1fr; }
   .universe-app-root .project-settings-grid { grid-template-columns: 1fr; }
   .universe-app-root .sessions-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
