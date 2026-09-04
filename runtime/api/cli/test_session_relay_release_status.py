@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import session_control_relay as relay
@@ -18,6 +19,7 @@ from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_INSTALL_FAILED,
 )
 from yoke_harness import session_relay_daemon
+from yoke_harness import session_relay_process_restart
 
 
 CURRENT_RELEASE = {
@@ -202,6 +204,7 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
         lambda **_kwargs: SimpleNamespace(
             current=True,
             pinned_release="0.1.1+launch.365",
+            python=Path(sys.prefix) / "bin" / "python",
         ),
     )
 
@@ -224,6 +227,47 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
     assert daemon_call["pinned_release"] == "0.1.1+launch.365"
     assert daemon_call["reload_argv"] == ["--env", "stage", "relay", "serve"]
     assert pins == ["v0.1.1+launch.366"]
+
+
+def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -> None:
+    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    pinned_executable = instance.state_dir / "venv" / "bin" / "yoke"
+    replacements: list[tuple[object, object]] = []
+    monkeypatch.setattr(
+        session_relay_instance,
+        "resolve_relay_instance",
+        lambda: instance,
+    )
+    monkeypatch.setattr(
+        session_relay_release,
+        "relay_release_status",
+        lambda **_kwargs: SimpleNamespace(
+            current=True,
+            pinned_release="0.1.1+launch.365",
+            python=instance.state_dir / "venv" / "bin" / "python",
+            executable=pinned_executable,
+        ),
+    )
+    monkeypatch.setattr(
+        session_relay_process_restart,
+        "exec_relay_release",
+        lambda argv, *, executable: replacements.append((argv, executable)),
+    )
+    monkeypatch.setattr(
+        session_relay_daemon,
+        "serve_forever",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("source process ran the standing relay")
+        ),
+    )
+
+    try:
+        release_cli.serve_release_daemon()
+    except session_relay_release.RelayReleaseError as exc:
+        assert "replacement returned" in str(exc)
+    else:
+        raise AssertionError("test replacement unexpectedly returned as success")
+    assert replacements == [(["--env", "prod", "relay", "serve"], pinned_executable)]
 
 
 def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> None:

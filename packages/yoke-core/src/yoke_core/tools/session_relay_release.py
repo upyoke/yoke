@@ -188,7 +188,7 @@ def relay_release_status(
         error_message = str(observed_error)
     executable = relay_release_executable(selected.state_dir)
     python = relay_release_python(selected.state_dir)
-    current = bool(executable.is_file() and pinned and served)
+    current = bool(executable.is_file() and python.is_file() and pinned and served)
     if current:
         try:
             current = pinned == release_version_from_build(served)

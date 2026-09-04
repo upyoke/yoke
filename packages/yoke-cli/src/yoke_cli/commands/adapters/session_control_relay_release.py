@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
+import sys
 from typing import Any
 
 
@@ -55,6 +57,7 @@ def serve_release_daemon() -> Any:
     from yoke_core.tools.session_relay_release_install import pin_relay_release
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_inventory import collect_cached_inventory
+    from yoke_harness.session_relay_process_restart import exec_relay_release
     from yoke_harness.session_relay_surface_probe_cache import (
         refresh_surface_probe_cache,
     )
@@ -66,6 +69,26 @@ def serve_release_daemon() -> Any:
             RELAY_RELEASE_INSTALL_FAILED,
             "relay_release_missing: the standing relay has no pinned release; "
             f"recovery: run `yoke --env {instance.environment} relay install`",
+        )
+    running_prefix = Path(sys.prefix).resolve()
+    pinned_prefix = installed.python.parent.parent.resolve()
+    if running_prefix != pinned_prefix:
+        try:
+            exec_relay_release(
+                ["--env", instance.environment, "relay", "serve"],
+                executable=installed.executable,
+            )
+        except OSError as exc:
+            raise RelayReleaseError(
+                RELAY_RELEASE_INSTALL_FAILED,
+                "relay_release_start_failed: could not start the pinned relay "
+                f"release: {exc}. Recovery: retry `yoke --env "
+                f"{instance.environment} relay install`.",
+            ) from exc
+        raise RelayReleaseError(
+            RELAY_RELEASE_INSTALL_FAILED,
+            "relay_release_start_failed: pinned relay replacement returned "
+            "without starting",
         )
 
     def repin(served_build: str):
