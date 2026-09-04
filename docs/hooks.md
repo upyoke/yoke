@@ -50,6 +50,20 @@ active connection (`yoke_cli.transport.https.resolve_https_connection`):
 - **local transport** (or `--dry-run`, which always stays local): the in-process shared hook runner (`yoke_core.hooks`) dispatches the chain exactly as before.
 - **https transport**: one policy chain evaluates split across the two sides. The CLI reads the hook payload once, detects the executor client-side, then (1) evaluates the `LOCAL_STATE_POLICIES` subset **client-side** via `yoke_harness.hooks.local_subset.evaluate_local_subset` — the packaged client-side policy evaluators — and (2) POSTs `{hook_schema, event_name, stdin, executor, agent_type, entrypoint, model, execution_lane, deadline_ms}` with the machine credential to the active env's `POST /v1/hooks/evaluate`, which evaluates everything else via `evaluate_remote`. The three identity fields are client-owned: the server cannot read the caller's local transcript/cache, entrypoint env, or no-project machine fallback routing inputs. Verdicts compose with **any deny wins, regardless of side**: a client deny renders immediately and skips the POST (the server verdict could not flip it); a server `outcome=denied` relays verbatim and drops client advisories (deny text is never diluted — the in-chain renderer's own rule); two allows merge stdouts via `decision_render.merge_allow_stdout` (sibling advisory envelopes join into one).
 
+**Duplicate lifecycle dispatches collapse.** A harness may deliver one
+lifecycle event twice: Claude Desktop drove `SessionStart`,
+`UserPromptSubmit`, and `Stop` from two driver processes for a single
+conversation while the project settings declared one command per event.
+`yoke_core.hooks.dispatch_dedup` collapses the repeat before the chain
+runs — same session, same event, byte-identical payload, inside
+`DISPATCH_DEDUP_WINDOW_SECONDS` — and records
+`HookDispatchDeduplicated`. The marker is machine-local because the
+duplicate arrives in a different process, and it is scoped by run half so
+the relay's client-side subset and the server's own run never read each
+other's. Tool events (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`,
+`PermissionRequest`) are never deduplicated: each carries its own
+`tool_use_id` and must run its own guardrails.
+
 **Resident lifecycle and recovery.** The client starts the singleton on first
 use. It exits after ten idle minutes, and a request from a different installed
 revision causes an orderly drain followed by re-exec before that request is

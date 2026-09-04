@@ -1,10 +1,13 @@
 """Shared hook-runner dispatch core.
 
 ``run_event`` parses the hook payload, builds a ``HookContext``, resolves the
-registered policy chain, dispatches typed or subprocess modules, renders the
-harness-specific decision, and emits best-effort telemetry. Typed modules run
-under :mod:`yoke_core.hooks.typed_dispatch`'s watchdog; subprocess
-modules use ``subprocess.run(timeout=...)``.
+registered policy chain (:mod:`yoke_core.hooks.runner_chain`), dispatches
+typed or subprocess modules, renders the harness-specific decision, and emits
+best-effort telemetry. Typed modules run under
+:mod:`yoke_core.hooks.typed_dispatch`'s watchdog; subprocess modules use
+``subprocess.run(timeout=...)``. A lifecycle event the harness delivered
+twice is collapsed before dispatch by
+:mod:`yoke_core.hooks.dispatch_dedup`.
 
 Two budgets apply: the per-module ceiling ``hook_runner_module_timeout_ms``
 and the total harness-wait deadline ``hook_runner_total_timeout_ms``. A deny
@@ -19,11 +22,9 @@ runs only that subset with ``flush_tail=False``.
 from __future__ import annotations
 
 import time
-from typing import Any, Optional
+from typing import Optional
 
-from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.failures import FAILURE_PREFIX
-from yoke_contracts.hook_runner.hook_ordering import matchers_for
 from yoke_core.domain.hook_runner_deadline import (
     HookDeadline,
     resolve_module_timeout_ms,
@@ -34,7 +35,13 @@ from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks import guard_denial_identity as _guard_denial_identity
 from yoke_core.hooks import mode_gate as _mode_gate
 from yoke_core.hooks.context import build_context
+from yoke_core.hooks.dispatch_dedup import deduplicated_dispatch
 from yoke_core.hooks.remote_policy import RunControls
+from yoke_core.hooks.runner_chain import (
+    render_dry_run,
+    resolve_chain,
+    resolve_matcher,
+)
 from yoke_core.hooks.skipped_guards import record_skipped_guards
 from yoke_core.hooks.subprocess_policy import run_subprocess_policy
 from yoke_core.hooks.typed_dispatch import audit_only_synthetic, dispatch_typed
@@ -43,32 +50,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 __all__ = ["run_event"]
 _resolve_timeout_ms = resolve_module_timeout_ms
-
-
-def _resolve_matcher(event_name: str, payload: dict[str, Any]) -> Optional[str]:
-    if event_name in {"PreToolUse", "PostToolUse"}:
-        tool_name = payload.get("tool_name")
-        if isinstance(tool_name, str) and tool_name:
-            return tool_name
-    if event_name == "apply_patch":
-        return "apply_patch"
-    return None
-
-
-def _apply_omissions(
-    chain: list[str],
-    *,
-    event_name: str,
-    capability: AdapterCapability,
-) -> list[str]:
-    omitted: frozenset[str] = frozenset()
-    if event_name == "apply_patch":
-        omitted = capability.apply_patch_chain_omissions
-    elif event_name == "PreToolUse":
-        omitted = capability.pretool_omissions
-    if not omitted:
-        return chain
-    return [m for m in chain if m not in omitted]
 
 
 def _dispatch_subprocess(
@@ -88,45 +69,6 @@ def _dispatch_subprocess(
     if failure:
         return None, failure, captured
     return audit_only_synthetic(), None, captured
-
-
-def _format_chain(chain: list[str], capability: AdapterCapability) -> str:
-    if not chain:
-        return ""
-    lines = [
-        f"{'[subproc]' if mid in capability.subprocess_modules else '[typed]'} {mid}"
-        for mid in chain
-    ]
-    return "\n".join(lines) + "\n"
-
-
-def _render_dry_run(
-    event_name: str,
-    matcher: Optional[str],
-    capability: AdapterCapability,
-) -> str:
-    """Print the dry-run chain. With no resolved matcher on a tool-shaped
-    event, enumerate every registered matcher so the operator sees the
-    full per-tool layout.
-    """
-    if matcher is None and event_name in {"PreToolUse", "PostToolUse"}:
-        sections: list[str] = []
-        for tool in matchers_for(event_name) or []:
-            chain = _apply_omissions(
-                chain_for(event_name, tool),
-                event_name=event_name,
-                capability=capability,
-            )
-            body = _format_chain(chain, capability)
-            if body:
-                sections.append(f"# {event_name}:{tool}\n{body.rstrip()}")
-        return "\n\n".join(sections) + "\n" if sections else ""
-    chain = _apply_omissions(
-        chain_for(event_name, matcher),
-        event_name=event_name,
-        capability=capability,
-    )
-    return _format_chain(chain, capability)
 
 
 def _invoke_module(
@@ -220,21 +162,27 @@ def run_event(
     if controls is not None and controls.payload_extra:
         payload = {**payload, **controls.payload_extra}
 
-    matcher = _resolve_matcher(event_name, payload)
+    matcher = resolve_matcher(event_name, payload)
     if dry_run:
-        return _render_dry_run(event_name, matcher, capability), 0
+        return render_dry_run(event_name, matcher, capability), 0
 
-    chain = _apply_omissions(
-        chain_for(event_name, matcher),
-        event_name=event_name,
-        capability=capability,
-    )
+    chain = resolve_chain(event_name, matcher, capability)
     context = build_context(
         event_name=event_name,
         capability=capability,
         payload=payload,
         remote=controls.remote if controls is not None else False,
     )
+    if deduplicated_dispatch(
+        event_name,
+        context=context,
+        stdin_data=stdin_data,
+        controls=controls,
+    ):
+        # The harness delivered this lifecycle event twice; the first
+        # dispatch already ran the chain. Render the empty (allow) decision
+        # so the duplicate changes nothing.
+        return capability.decision_renderer([], event_name)
     from yoke_core.hooks.run_tail import preflight_remote_registration
 
     registration_preflight = preflight_remote_registration(

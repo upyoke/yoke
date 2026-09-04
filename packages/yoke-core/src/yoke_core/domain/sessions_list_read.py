@@ -19,6 +19,11 @@ Liveness is derived server-side so no consumer re-encodes TTL numbers:
   same predicate the stale-session reclaim sweep uses.
 * ``active`` — not ended and the activity timestamp is fresh.
 
+Probe sessions never appear at all: a harness startup process that
+registered, did nothing and ended is excluded by the shared predicate in
+:mod:`yoke_core.domain.session_probe`, whatever the caller's filters say.
+Its row stays in ``harness_sessions`` for audit.
+
 ``ended_cause`` says how an ended session got there — ``killed`` when
 ``terminated_at`` is set (permanently non-reactivatable and non-wakeable),
 ``wound_down`` for an ordinary end (which the SessionEnd defense may still
@@ -50,6 +55,7 @@ from yoke_core.domain.actors import (
 from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_focus_attribution import focus_attribution
+from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.sessions_holdings_read import (
@@ -189,6 +195,10 @@ def list_sessions(
         if normalized_session_id:
             clauses.append("s.session_id = %s")
             where_params.append(normalized_session_id)
+        # Probe sessions — a harness's own startup artifact — are audit rows,
+        # never roster rows. One shared predicate keeps every session reader
+        # on the same definition.
+        clauses.append(not_probe_session_sql("s"))
         if liveness == LIVENESS_ENDED or ended_cause is not None:
             clauses.append(ended_session_sql("s"))
         elif liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):
