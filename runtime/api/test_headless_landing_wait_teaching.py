@@ -87,15 +87,14 @@ def test_dash_close_out_routes_the_landing_by_whether_the_session_is_headless():
     assert "at `reviewing-implementation` with nobody to re-enter" in content
     assert "recoverable rather than lost" in content
     assert "costs a" in content and "steering seat's attention" in content
-    # The wait is the wrapper over the existing readback, never a hand-
-    # authored poll loop and never a blocking bare foreground call.
+    # The wait and the independent point-in-time read both name the queue.
     assert (
         "yoke watch merge --print-streaming-pair merge-item -- ITEM --wait" in content
     )
-    assert "four-fact landing readback" in content
-    assert "armed, queued, eligible, required checks" in content
-    assert "never needs a hand-authored `gh` poll loop" in content
-    assert "never blocks a bare foreground call on the full wait" in content
+    assert "yoke github merge-queue readiness ITEM --json" in content
+    assert "queue-entry=AWAITING_CHECKS" in content
+    assert "consumed and in flight, not cleared" in content
+    assert "never hand-author a `gh` poll" in content
     assert "none of them is silence" in content
 
 
@@ -168,6 +167,11 @@ def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
     assert "operator-opened" in notes
     assert "launched headless worker passes --wait" in notes
     assert "Never block a bare foreground call on the full wait." in notes
+    assert (
+        "yoke github merge-queue readiness PREFIX-N --json"
+        in (_merge_recipe()["recipe"])
+    )
+    assert "null arming is consumed" in notes
     epilog = _words(_read(WATCH_MERGE_SOURCE))
     assert "launched headless workers pass --wait" in epilog
 

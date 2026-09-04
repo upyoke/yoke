@@ -111,10 +111,15 @@ def describe(
         if train.url:
             run = f"{run} ({train.url})"
     merge_state = (state.merge_state_status or "").strip().upper() or "unreported"
+    arming = (
+        "armed"
+        if state.auto_merge_active
+        else ("consumed" if entry_readable and entry is not None else "cleared")
+    )
     narrative = (
         f"pull request {pr_num}: merged=false, "
         f"state={'closed' if state.closed else 'open'}, "
-        f"merge-when-ready={'armed' if state.auto_merge_active else 'cleared'}, "
+        f"merge-when-ready={arming}, "
         f"mergeStateStatus={merge_state}, "
         f"queue-entry={slot}, train-run={run}"
     )

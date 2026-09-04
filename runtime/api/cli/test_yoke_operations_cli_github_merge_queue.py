@@ -97,9 +97,7 @@ def test_https_apply_transports_declaration_content(
                 return_value=str(tmp_path),
             )
         )
-        stack.enter_context(
-            patch("yoke_cli.commands._helpers.ensure_handlers_loaded")
-        )
+        stack.enter_context(patch("yoke_cli.commands._helpers.ensure_handlers_loaded"))
         stack.enter_context(
             patch(
                 "yoke_cli.transport.dispatcher.https_transport."
@@ -118,8 +116,7 @@ def test_https_apply_transports_declaration_content(
         )
         stack.enter_context(
             patch(
-                "yoke_core.domain.project_github_auth."
-                "resolve_project_github_auth",
+                "yoke_core.domain.project_github_auth.resolve_project_github_auth",
                 return_value=SimpleNamespace(
                     repo="upyoke/yoke",
                     token="github-token",
@@ -128,8 +125,7 @@ def test_https_apply_transports_declaration_content(
         )
         stack.enter_context(
             patch(
-                "yoke_core.domain.project_checkout_locations."
-                "checkout_for_project_slug",
+                "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
                 side_effect=AssertionError(
                     "remote control plane must not read the client checkout"
                 ),
@@ -137,8 +133,7 @@ def test_https_apply_transports_declaration_content(
         )
         stack.enter_context(
             patch(
-                "yoke_core.domain.merge_queue_declaration_apply."
-                "apply_declaration",
+                "yoke_core.domain.merge_queue_declaration_apply.apply_declaration",
                 apply,
             )
         )
@@ -168,9 +163,12 @@ def test_invalid_local_json_fails_before_https_dispatch(tmp_path: Path) -> None:
     declaration_path.write_text("{", encoding="utf-8")
     relay = Mock()
 
-    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}), patch(
-        "yoke_cli.transport.dispatcher.https_transport.relay_https", relay
-    ), redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+    with (
+        patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
+        patch("yoke_cli.transport.dispatcher.https_transport.relay_https", relay),
+        redirect_stdout(io.StringIO()),
+        redirect_stderr(io.StringIO()),
+    ):
         rc = cli_main(
             [
                 "github",
@@ -185,3 +183,17 @@ def test_invalid_local_json_fails_before_https_dispatch(tmp_path: Path) -> None:
 
     assert rc == 2
     relay.assert_not_called()
+
+
+def test_readiness_cli_dispatches_the_item_scoped_read() -> None:
+    with patch(
+        "yoke_cli.commands.adapters.github_merge_queue.dispatch_and_emit",
+        return_value=0,
+    ) as dispatch:
+        rc = cli_main(["github", "merge-queue", "readiness", "YOK-2842", "--json"])
+
+    assert rc == 0
+    call = dispatch.call_args.kwargs
+    assert call["function_id"] == "github.merge_queue.readiness"
+    assert call["target"].public_ref == "YOK-2842"
+    assert call["payload"] == {}

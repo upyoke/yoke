@@ -28,6 +28,7 @@ function-call envelope:
 | `items.create` | Global target; Dash title, instruction, project, entry surface, permitted posture, and the operator execution-instruction attestation | `yoke dash "<title>" "<instruction>" --execution-instructions-considered --json` |
 | `workflow.execution_instruction.resolve` | Global target; named workflow and project; read-only matching instructions | `yoke workflow execution-instruction resolve --workflow W --project P` |
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `github.merge_queue.readiness` | Item target; empty payload; reads PR and target-branch queue without mutation | `yoke github merge-queue readiness ITEM --json` |
 | `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
 | `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `items.structured_field.section_upsert` | Item target; a posture-enabled File Budget section | `yoke items structured-field section-upsert ITEM --section "File Budget" ...` |
@@ -74,8 +75,8 @@ for the contract.
 
 - `/yoke dash "instruction"` — author a concise title, file the Dash, and
   execute it in this session.
-- `/yoke dash PREFIX-N` or `/yoke dash N` — execute the already-filed Dash.
-  A bare number resolves as the current project's public item sequence. Do not
+- `/yoke dash PREFIX-N` or `/yoke dash N` — execute the already-filed Dash. A
+  bare number resolves as the current project's public item sequence. Do not
   invent or guess a prefix; pass the operator's token through unchanged.
 
 `yoke dash "title" "instruction" --execution-instructions-considered` files

@@ -5,10 +5,12 @@ surfaces, not Actions surfaces. Carries ``github.pr.create`` so agents
 open pull requests through the bearer-token REST transport with no host
 GitHub CLI binary.
 """
+
 from __future__ import annotations
 
 from yoke_core.domain.handlers import github_pr_create, github_release_tag
 from yoke_core.domain.handlers import github_merge_queue_apply
+from yoke_core.domain.handlers import github_merge_queue_readiness
 
 
 def register(registry) -> None:
@@ -17,5 +19,6 @@ def register(registry) -> None:
         *github_pr_create.REGISTRATIONS,
         *github_release_tag.REGISTRATIONS,
         *github_merge_queue_apply.REGISTRATIONS,
+        *github_merge_queue_readiness.REGISTRATIONS,
     ):
         registry.register(**entry)

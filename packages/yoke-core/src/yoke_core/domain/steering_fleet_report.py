@@ -106,6 +106,10 @@ from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     load_plan_limits,
 )
+from yoke_core.domain.steering_fleet_report_landings import (
+    FleetLandingReadback,
+    landing_readbacks,
+)
 
 
 @dataclass(frozen=True)
@@ -141,6 +145,8 @@ class FleetReport:
     #: to a seat that has ended is not anyone's inbox item until a seat
     #: acquires the scope and drains it.
     messages_awaiting_seat: int = 0
+    #: Open landing pull requests, with the queue entry and arming read together.
+    landings: tuple[FleetLandingReadback, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -171,6 +177,10 @@ class FleetReport:
         """
         return tuple(entry for entry in self.vendor_errors if entry.seat_owed)
 
+    def landings_needing_action(self) -> tuple[FleetLandingReadback, ...]:
+        """Open landing records GitHub is no longer driving or could not read."""
+        return tuple(entry for entry in self.landings if entry.needs_action)
+
     @property
     def actionable(self) -> bool:
         """True when something in this report needs the steerer to act."""
@@ -184,6 +194,7 @@ class FleetReport:
             or self.suspected_orphaned_waiters
             or self.dead_waits
             or self.vendor_errors_needing_action()
+            or self.landings_needing_action()
             or self.messages_awaiting_seat
         )
 
@@ -253,6 +264,14 @@ def compose_report(
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
         plan_limits=load_plan_limits(conn, project_id=project_id, now=now),
         machine_capacity=machine_capacities(conn, project_id=project_id, now=now),
+        landings=landing_readbacks(
+            conn,
+            project_id=project_id,
+            members=members,
+            in_flight_item_ids=frozenset(
+                call.item_id for call in split.in_flight if "merge" in call.command
+            ),
+        ),
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),

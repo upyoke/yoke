@@ -44,8 +44,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     _read_entry(
         function_id="github_actions.run.jobs_count",
         cli_invocation=(
-            "yoke github-actions jobs-count <owner/repo> <run-id> "
-            "--project <project>"
+            "yoke github-actions jobs-count <owner/repo> <run-id> --project <project>"
         ),
         notes="Point-in-time workflow-run attempt job count.",
     ),
@@ -66,8 +65,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     _read_entry(
         function_id="github_actions.failed_log",
         cli_invocation=(
-            "yoke github-actions failed-log <owner/repo> <run-id> "
-            "--project <project>"
+            "yoke github-actions failed-log <owner/repo> <run-id> --project <project>"
         ),
         notes=(
             "Failed-step log tail via gh_rest_transport ZIP path; omit "
@@ -150,12 +148,19 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     AdapterEntry(
         function_id="github.merge_queue.apply",
         cli_invocation=(
-            "yoke github merge-queue apply --project P "
-            "[--declaration PATH] [--preview]"
+            "yoke github merge-queue apply --project P [--declaration PATH] [--preview]"
         ),
         notes=(
             "Idempotently apply .yoke/merge-queue.json (ruleset + "
             "allow_auto_merge); requires Administration: write."
+        ),
+    ),
+    _read_entry(
+        function_id="github.merge_queue.readiness",
+        cli_invocation=("yoke github merge-queue readiness ITEM [--project P]"),
+        notes=(
+            "Read-only landing liveness from the pull request plus the named "
+            "mergeQueue(branch).entries state; consumed arming is not cleared."
         ),
     ),
 )

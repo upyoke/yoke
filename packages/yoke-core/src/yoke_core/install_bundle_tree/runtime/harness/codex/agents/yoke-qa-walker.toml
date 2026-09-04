@@ -372,8 +372,8 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - Doctor must run under this wrapper — bare invocations risk the inverted-redirection trap (`2>&1 > file` silently drops stderr). The wrapper writes raw + filtered captures and auto-exits on its sentinel.
 - _Run merge or done-transition with watcher (main session)_
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
-# merge-item enqueues and exits; a launched worker adds --wait`
-  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. merge-item --wait holds the landing inline: an operator-opened session takes the enqueue/re-enter handoff, while a launched headless worker passes --wait through this wrapper and holds its turn, because it cannot be prompted on the landing-complete message. Never block a bare foreground call on the full wait.
+yoke github merge-queue readiness PREFIX-N --json`
+  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. merge-item --wait holds the landing inline: an operator-opened session takes the enqueue/re-enter handoff, while a launched headless worker passes --wait through this wrapper and holds its turn, because it cannot be prompted on the landing-complete message. Never block a bare foreground call on the full wait. The readiness read is non-mutating and names the queue entry state; null arming is consumed while an entry is AWAITING_CHECKS, UNMERGEABLE, or MERGEABLE, not cleared.
 - _Wait on a commit's CI runs with watcher (main session)_
   - `yoke watch ci-run
 yoke watch ci-run -- <branch-or-sha> --workflow <name>`

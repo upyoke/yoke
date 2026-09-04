@@ -322,6 +322,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `events.query` (read) | `None` | same |
 | `items.get` (read) | `None` | same |
 | `merge_queue.landing_pending.mark` / `merge_queue.landing_pending.clear` | `None` | Internal, session-optional item writes that persist queue admission and clear the handoff only after terminal close-out. No CLI adapter; `yoke merge item` owns both calls. |
+| `github.merge_queue.readiness` (read) | `None` | `yoke_core.domain.handlers.github_merge_queue_readiness` — item-scoped, non-mutating landing liveness read. It composes the pull request with `mergeQueue(branch).entries`, returns the exact `queue_entry_state`, and reports null arming as `consumed` while an entry exists rather than as `cleared`. CLI adapter: `yoke github merge-queue readiness PREFIX-N --json`. |
 | `epic_tasks.list` (read) | `None` | same |
 | `path_claims.conflicts.list` (read) | `None` | same |
 | `checks.file_line.run` / `checks.idea_readiness.run` / `checks.path_claim_coverage.run` / `checks.schema_api_context.run` / `checks.agents_render.run` / `checks.event_registry.run` / `checks.migration_governance.run` | `None` | `yoke_core.domain.handlers.reads.*` |

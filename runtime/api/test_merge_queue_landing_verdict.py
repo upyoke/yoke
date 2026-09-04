@@ -141,7 +141,9 @@ def test_still_queued_after_confirmation_is_pending(monkeypatch):
             QueueMember(pr_num="42", head_ref="YOK-200", state="AWAITING_CHECKS"),
         ),
     )
-    assert _classify().kind == verdict_mod.PENDING
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "merge-when-ready=consumed" in verdict.narrative
 
 
 def test_rearmed_during_confirmation_is_pending(monkeypatch):

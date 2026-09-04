@@ -29,6 +29,7 @@ from yoke_core.domain.steering_fleet_report_render_vendor_errors import (
 )
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
+from yoke_core.domain.steering_fleet_report_landings import landing_lines
 from yoke_core.domain.steering_fleet_report_sections import (
     CLAIMS_HEADING,
     unlisted_holders,
@@ -155,6 +156,13 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             _holder_lines(report.idle),
         ),
         *_in_flight.in_flight_section(report.in_flight),
+        *_section(
+            "landing readbacks — ! means no live landing; queue entry outranks arming",
+            capped(
+                landing_lines(report.landings[:SECTION_LIMIT]),
+                len(report.landings),
+            ),
+        ),
         *_section(
             "suspected orphaned waiter — Monitor completed, waiting past idle",
             _holder_lines(report.suspected_orphaned_waiters, with_wake=True),

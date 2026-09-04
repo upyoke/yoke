@@ -134,7 +134,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch merge "
             "--print-streaming-pair merge-worktree -- PREFIX-N\n"
-            "# merge-item enqueues and exits; a launched worker adds --wait"
+            "yoke github merge-queue readiness PREFIX-N --json"
         ),
         "notes": (
             "watch_merge owns the merge filter regex (section banners, "
@@ -145,7 +145,9 @@ WATCHERS_COMMANDS: list[dict] = [
             "headless worker passes --wait through this wrapper and holds "
             "its turn, because it cannot be prompted on the "
             "landing-complete message. Never block a bare foreground call "
-            "on the full wait."
+            "on the full wait. The readiness read is non-mutating and names "
+            "the queue entry state; null arming is consumed while an entry "
+            "is AWAITING_CHECKS, UNMERGEABLE, or MERGEABLE, not cleared."
         ),
     },
     {

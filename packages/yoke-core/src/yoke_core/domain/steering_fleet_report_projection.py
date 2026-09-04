@@ -168,6 +168,10 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             _holder_dict(holder) for holder in report.suspected_orphaned_waiters
         ],
         "in_flight": _in_flight.in_flight_dicts(report.in_flight),
+        "landings": [entry.to_dict() for entry in report.landings],
+        "landings_needing_action": [
+            entry.to_dict() for entry in report.landings_needing_action()
+        ],
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
         "vendor_errors": [_vendor_error_dict(entry) for entry in report.vendor_errors],
         "launchable": [
