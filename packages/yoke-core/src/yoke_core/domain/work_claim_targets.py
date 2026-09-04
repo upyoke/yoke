@@ -126,6 +126,11 @@ class WorkClaimTarget:
         value = self.scope.get("grant_key")
         return str(value) if value is not None else None
 
+    @property
+    def project_slug(self) -> Optional[str]:
+        value = self.scope.get("project_slug")
+        return str(value) if value is not None else None
+
     def scope_json(self) -> str:
         return encode_scope(self.scope)
 
@@ -159,6 +164,8 @@ class WorkClaimTarget:
             return f"test machine {self.machine_id}"
         if self.kind == TARGET_KIND_ROUTE_QUALIFICATION:
             return f"route qualification for project {self.project_id}"
+        if self.kind == TARGET_KIND_DEPLOY_SERIALIZATION:
+            return f"deployment for project {self.project_slug}"
         return f"process:{self.process_key}"
 
 
