@@ -6,6 +6,9 @@ removed), the OS refuses the spawn and ``yoke hook evaluate Stop`` never
 runs. User hooks spawn from ``~/.cursor`` and still fire — so Yoke keeps a
 machine-local stop/sessionEnd backstop there, and both command shapes
 resolve ``YOKE_ROOT`` to a directory that exists before evaluating.
+
+These two commands also carry no vertical bar at all; see
+:data:`PIPE_FREE_BODY_REASON`.
 """
 
 from __future__ import annotations
@@ -35,6 +38,29 @@ _LIFECYCLE_VERBS: dict[str, str] = {
     "sessionEnd": "SessionEnd",
 }
 
+# Why the stop/sessionEnd bodies avoid ``|`` entirely.
+#
+# Bisected 2026-09-04 on cursor-agent 2026.09.02-c22c1a3 with scratch
+# projects and file-writing capture hooks: a project whose
+# ``.cursor/hooks.json`` carries a vertical bar in BOTH the ``stop`` and
+# ``sessionEnd`` commands runs no tool hook at all — beforeShellExecution,
+# afterShellExecution, preToolUse and postToolUse all stop spawning, while
+# sessionStart and stop still fire, so the file is plainly loaded. Removing
+# either entry, shortening either command, or replacing the case-pattern
+# alternation ``*/.worktrees/*|*/.claude/worktrees/*`` with a bar-free glob
+# restores every tool hook; padding the file back to the same byte size does
+# not, so length is not the trigger. The observed cost was silent: relay
+# Cursor launches never fired a tool hook, never wrote the conversation map,
+# never registered, and died on the 10-minute registration deadline.
+#
+# The bar-free rewrite therefore covers the whole class rather than only the
+# alternation: mutually exclusive ``case`` arms replace the alternation, and
+# ``if`` blocks replace every ``||`` fallback chain.
+PIPE_FREE_BODY_REASON = (
+    "Cursor stops running every tool hook when the stop and sessionEnd "
+    "commands both contain a vertical bar; keep these two bodies bar-free."
+)
+
 
 def cursor_lifecycle_hook_command(
     event_verb: str,
@@ -49,6 +75,7 @@ def cursor_lifecycle_hook_command(
     ``{}`` on these events so the vendor stop contract stays satisfied.
     """
     # The shared wrapper rejects single quotes in this trusted shell body.
+    # No vertical bar anywhere in this body: see PIPE_FREE_BODY_REASON.
     body = (
         'root=""; '
         'for c in "$YOKE_ROOT" "$CURSOR_PROJECT_DIR" "$PWD"; do '
@@ -57,15 +84,18 @@ def cursor_lifecycle_hook_command(
         'if [ -z "$root" ]; then '
         'for c in "$CURSOR_PROJECT_DIR" "$YOKE_ROOT"; do '
         'case "$c" in '
-        "*/.worktrees/*|*/.claude/worktrees/*) "
-        'p="${c%%/.worktrees/*}"; '
+        '*/.worktrees/*) p="${c%%/.worktrees/*}"; '
         'p="${p%%/.claude/worktrees/*}"; '
+        '[ -d "$p" ] && root="$p" && break;; '
+        '*/.claude/worktrees/*) p="${c%%/.claude/worktrees/*}"; '
         '[ -d "$p" ] && root="$p" && break;; '
         "esac; "
         "done; "
         "fi; "
-        '[ -n "$root" ] || root="${HOME:-/tmp}"; '
-        'cd "$root" 2>/dev/null || cd "${HOME:-/tmp}" 2>/dev/null || cd /; '
+        'if [ -z "$root" ]; then root="${HOME:-/tmp}"; fi; '
+        'if ! cd "$root" 2>/dev/null; then '
+        'if ! cd "${HOME:-/tmp}" 2>/dev/null; then cd /; fi; '
+        "fi; "
         f'env YOKE_ROOT="$root" {_CURSOR_IDENTITY_ENV} '
         f"{CURSOR_LIFECYCLE_COMMAND_MARKER} "
         f"{CONFIG_OWNER_ENV_VAR}={config_owner} "
@@ -154,6 +184,7 @@ def ensure_user_lifecycle_hooks_for_executor(executor: str) -> None:
 
 
 __all__ = [
+    "PIPE_FREE_BODY_REASON",
     "USER_LIFECYCLE_EVENTS",
     "cursor_lifecycle_hook_command",
     "ensure_user_lifecycle_hooks",

@@ -128,6 +128,22 @@ def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:
     assert CURSOR_LIFECYCLE_COMMAND_MARKER not in pre
 
 
+def test_cursor_stop_and_session_end_commands_carry_no_pipe() -> None:
+    """A vertical bar in both lifecycle commands kills every Cursor tool hook.
+
+    Bisected 2026-09-04 on cursor-agent 2026.09.02-c22c1a3: with a bar in the
+    rendered ``stop`` AND ``sessionEnd`` commands, Cursor spawns no
+    beforeShellExecution, afterShellExecution, preToolUse or postToolUse hook
+    at all, while sessionStart and stop still fire — so relay Cursor launches
+    never registered and died on the registration deadline. Dropping either
+    entry, or the bar, restores every tool hook; equal-byte padding does not.
+    """
+    block = render_cursor_hooks_block()
+    for event in ("stop", "sessionEnd"):
+        for entry in block["hooks"][event]:
+            assert "|" not in entry["command"], (event, entry["command"])
+
+
 def test_cursor_runner_commands_mark_the_project_config_owner() -> None:
     block = render_cursor_hooks_block()
     commands = [
