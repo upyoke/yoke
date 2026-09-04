@@ -246,9 +246,8 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
 - _Run merge or done-transition with watcher (main session)_
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
 # Queue landing:
-yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait
-yoke github merge-queue readiness PREFIX-N --json`
-  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. merge-item --wait holds the landing inline. The shared wait router emits a background subscription only for a caller with a verified wake route; callers with no or unknown reachability stay in-turn until landing. Readiness names the queue state; null arming with an entry means consumed, not cleared.
+yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait`
+  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. merge-item --wait holds the landing inline. The shared wait router emits a background subscription only for a caller with a verified wake route; callers with no or unknown reachability stay in-turn until landing. `yoke github merge-queue readiness PREFIX-N --json` names the queue state; null arming with an entry means consumed, not cleared.
 - _Wait on a commit's CI runs with watcher (main session)_
   - `yoke watch ci-run
 yoke watch ci-run -- <branch-or-sha> --workflow <name>`
