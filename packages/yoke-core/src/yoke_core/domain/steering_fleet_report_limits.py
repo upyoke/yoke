@@ -27,6 +27,7 @@ class MachinePlanLimit:
     plan_tier: str | None
     window_kind: str
     scope: str
+    meter: str
     remaining_percent: float | None
     resets_at: str | None
     status: str
@@ -123,6 +124,7 @@ def load_plan_limits(
                         plan_tier=plan_tier if isinstance(plan_tier, str) else None,
                         window_kind=str(window.get("window_kind") or "unknown"),
                         scope=str(window.get("scope") or ALL_MODELS_SCOPE),
+                        meter=str(window.get("meter") or "unknown"),
                         remaining_percent=float(remaining)
                         if isinstance(remaining, (int, float))
                         else None,
@@ -147,6 +149,7 @@ def fingerprint_material(limits: tuple[MachinePlanLimit, ...]) -> list[tuple[Any
             row.reason,
             row.window_kind,
             row.scope,
+            row.meter,
             row.remaining_percent,
             row.resets_at,
         )
