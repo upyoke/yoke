@@ -6,6 +6,9 @@ import json
 
 import pytest
 
+from yoke_contracts.session_control.launch_registration import (
+    LAUNCH_ADAPTER_STARTED_CODE,
+)
 from yoke_core.domain.session_launch_execution import reconcile_launch
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
 from yoke_core.domain.session_launch_requests import retry_launch
@@ -169,8 +172,26 @@ def test_late_report_enriches_expired_attempt_without_hiding_expiry() -> None:
     assert evidence["native_diagnostic_ref"] == DIAGNOSTIC_REF
 
 
-def test_successful_launch_state_and_result_remain_unchanged() -> None:
+def test_adapter_start_opens_registration_before_native_result() -> None:
     conn, launch, job = _claimed_launch("successful-launch")
+
+    ready = report_relay_job(
+        conn,
+        actor_id=1,
+        relay_id=RELAY_ID,
+        job_kind="launch",
+        job_id=launch.launch_id,
+        lease_id=job.lease_id,
+        result_code="progress",
+        adapter_revision="codex-relay-v4",
+        evidence={
+            "result_code": LAUNCH_ADAPTER_STARTED_CODE,
+            "native_launch_phase": "adapter_start",
+        },
+        now="2026-08-22T12:00:10Z",
+    )
+
+    assert ready["state"] == "awaiting_registration"
 
     result = report_relay_job(
         conn,
@@ -191,6 +212,9 @@ def test_successful_launch_state_and_result_remain_unchanged() -> None:
 
     assert result["state"] == "awaiting_registration"
     assert result["result_code"] == "native_created"
+    assert get_launch(conn, launch.launch_id).awaiting_registration_at == (
+        "2026-08-22T12:00:10Z"
+    )
 
 
 def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:

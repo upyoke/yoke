@@ -13,6 +13,7 @@ from yoke_contracts.session_control.capabilities import native_create_timeout_se
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.launch_registration import (
     IDENTITY_REGISTRATION_WAIT_CODE,
+    LAUNCH_ADAPTER_STARTED_CODE,
     NATIVE_LAUNCH_WORKSPACE_FIELD,
 )
 from yoke_harness.session_relay_schedule import relay_state_dir
@@ -252,7 +253,7 @@ def checkpoint_launch_start(
         "progress",
         evidence={
             "surface": str(job.get("surface") or ""),
-            "result_code": "adapter_started",
+            "result_code": LAUNCH_ADAPTER_STARTED_CODE,
             "native_launch_phase": "adapter_start",
         },
     )

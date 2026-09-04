@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from yoke_contracts.session_control.launch_registration import (
+    LAUNCH_ADAPTER_STARTED_CODE,
+)
 from yoke_harness import session_relay
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_report_delivery import (
@@ -134,6 +137,9 @@ def test_every_launch_reports_start_and_terminal_phase_before_completion(
         return SimpleNamespace(success=True, result={"state": "outcome_unknown"})
 
     def run(job):
+        assert calls[-1]["payload"]["evidence"]["result_code"] == (
+            LAUNCH_ADAPTER_STARTED_CODE
+        )
         job["_launch_progress_reporter"](
             {
                 "result_code": "native_spawn_pending",
