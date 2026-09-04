@@ -67,7 +67,9 @@ def _machines(harness_module):
 def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_relay(test_db, MACHINE_B, "beta-box")
-    _seed_session(test_db, "s-a", MACHINE_A, tool_calls=2)
+    _seed_session(
+        test_db, "s-a", MACHINE_A, surface="claude-cli", tool_calls=2,
+    )
 
     modules = _modules()
 
@@ -89,12 +91,18 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     assert alpha["connected"]["executor"] == "claude-code"
     assert alpha["surfaces"] == ["claude-cli", "codex-cli"]
     assert {t["key"]: t["hook_health"] for t in alpha["targets"]} == {
-        "claude-code": "green", "claude-cli": "green",
+        "claude-code": "green",
+        "claude-cli": "green",
+        "codex-cli": "orange",
     }
-    # The second box reads nothing of the first box's history.
+    # The second box reads only its relay-reported installation, never the
+    # first box's session history.
     assert beta["state"] == "in_progress" and beta["activated_at"] is None
     assert beta["connected"] is None
-    assert beta["targets"] == []
+    assert {t["key"]: t["hook_health"] for t in beta["targets"]} == {
+        "claude-cli": "orange",
+        "codex-cli": "orange",
+    }
     # Later modules stay locked behind the pending machine.
     assert modules["run_onboard"]["state"] == "not_started"
 

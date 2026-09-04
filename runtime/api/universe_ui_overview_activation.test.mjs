@@ -239,7 +239,7 @@ test("the harness module answers per machine, never for the universe", async (t)
   mounted.unmount();
 });
 
-test("a registered but hookless harness reads warn with its remediation", async (t) => {
+test("an unapproved harness reads red with its remediation", async (t) => {
   stubFetch(t);
   const surface = "Codex's hook-trust prompt";
   const answer = activationAnswer({
@@ -254,7 +254,7 @@ test("a registered but hookless harness reads warn with its remediation", async 
           connected: { executor: "codex", at: new Date().toISOString() },
           targets: harnessTargets(
             { codex: true, "codex-cli": true },
-            { codex: "orange", "codex-cli": "orange" },
+            { codex: "red", "codex-cli": "red" },
             { codex: surface, "codex-cli": surface },
           ),
         })],
@@ -266,12 +266,12 @@ test("a registered but hookless harness reads warn with its remediation", async 
 
   const harness = moduleCards(root)[1];
   const chips = byClass(harness, "activation-target");
-  // Registered, so it is a hit — but never the green a working harness reads.
+  // Registered, so it is a hit — but unapproved hooks are broken, not idle.
   assert.equal(chips[1].textContent, "Codex");
   assert.equal(chips[1].attributes.get("data-hit"), "true");
-  assert.equal(chips[1].attributes.get("data-hook-health"), "orange");
+  assert.equal(chips[1].attributes.get("data-hook-health"), "red");
   const remediation = byClass(harness, "activation-remediation");
-  // One line per approval surface, not one per orange chip.
+  // One line per approval surface, not one per red chip.
   assert.equal(remediation.length, 1);
   assert.equal(
     remediation[0].textContent,

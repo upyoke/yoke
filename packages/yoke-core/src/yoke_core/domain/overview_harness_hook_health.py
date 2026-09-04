@@ -2,14 +2,14 @@
 
 Colours say what the operator should do, not how sure we are:
 
-* ``green`` — hook-fed telemetry is present
-* ``orange`` — glue is present and approval state is readable and untrusted
-* ``red`` — listed, and not yet detected as fully working, after the
-  new-episode grace window
+* ``green`` — hook-fed telemetry is present inside the health window
+* ``orange`` — the harness is installed but has no telemetry in that window
+* ``red`` — a current session stayed silent past grace, or hook approval is
+  explicitly untrusted
 
 Grey is not a colour. A harness with no machine-side evidence and no
-matching session is omitted from the list. Approval colouring is driven
-by ``approval_state == "unapproved"``, not by a harness-id branch.
+matching session is omitted from the list. Historical sessions keep their
+last-seen date without making an installed-but-idle harness look broken.
 """
 
 from __future__ import annotations
@@ -24,21 +24,25 @@ HOOK_HEALTH_GREEN = "green"
 HOOK_HEALTH_ORANGE = "orange"
 HOOK_HEALTH_RED = "red"
 
+#: Telemetry older than this is history, not evidence that the installed
+#: surface is currently working. Five-week-old sessions therefore render as
+#: installed-but-idle instead of either green or broken.
+HOOK_TELEMETRY_WINDOW = timedelta(days=30)
+
 #: A SessionStart-registered row with no tool telemetry is also what a
 #: healthy brand-new episode looks like. Stay uncoloured until this
 #: window elapses.
 NEW_EPISODE_GRACE = timedelta(seconds=120)
 
 MATCH_FAMILY = "family"
-MATCH_BARE_SESSION = "bare_session"
 MATCH_SURFACE_ALIAS = "surface_alias"
 
 HARNESS_TARGETS: Tuple[Tuple[str, str, str, str], ...] = (
     ("claude-code", "Claude Code", "claude-code", MATCH_FAMILY),
     ("codex", "Codex", "codex", MATCH_FAMILY),
     ("cursor", "Cursor", "cursor", MATCH_FAMILY),
-    ("claude-cli", "Claude CLI", "claude-code", MATCH_BARE_SESSION),
-    ("codex-cli", "Codex CLI", "codex", MATCH_BARE_SESSION),
+    ("claude-cli", "Claude CLI", "claude-code", MATCH_SURFACE_ALIAS),
+    ("codex-cli", "Codex CLI", "codex", MATCH_SURFACE_ALIAS),
     ("cursor-cli", "Cursor CLI", "cursor", MATCH_SURFACE_ALIAS),
     ("claude-vscode", "Claude in VS Code", "claude-code", MATCH_SURFACE_ALIAS),
     ("cursor-desktop", "Cursor IDE", "cursor", MATCH_SURFACE_ALIAS),
@@ -53,7 +57,7 @@ def _matches(
         return display == key
     if executor != harness_id:
         return False
-    return rule == MATCH_FAMILY or not display
+    return rule == MATCH_FAMILY
 
 
 def _has_telemetry(row: Mapping[str, Any]) -> bool:
@@ -67,6 +71,29 @@ def _in_grace(row: Mapping[str, Any], *, now: datetime) -> bool:
     if started is None:
         return False
     return (now - started) < NEW_EPISODE_GRACE
+
+
+def _activity_at(row: Mapping[str, Any]) -> Optional[datetime]:
+    candidates = (
+        parse_timestamp_utc(row.get("last_tool_call_at")),
+        parse_timestamp_utc(row.get("seen_at")),
+    )
+    return max((value for value in candidates if value is not None), default=None)
+
+
+def _in_telemetry_window(row: Mapping[str, Any], *, now: datetime) -> bool:
+    activity = _activity_at(row)
+    return activity is not None and (now - activity) <= HOOK_TELEMETRY_WINDOW
+
+
+def _last_seen_at(matched: Sequence[Mapping[str, Any]]) -> Optional[str]:
+    seen = [
+        (parsed, str(value))
+        for row in matched
+        if (value := row.get("seen_at")) is not None
+        if (parsed := parse_timestamp_utc(value)) is not None
+    ]
+    return max(seen, key=lambda entry: entry[0])[1] if seen else None
 
 
 def _report_for(
@@ -93,11 +120,7 @@ def _report_for(
     return merged
 
 
-def _listed(
-    matched: Sequence[Mapping[str, Any]], report: Optional[Mapping[str, Any]],
-) -> bool:
-    if matched:
-        return True
+def _report_lists(report: Optional[Mapping[str, Any]]) -> bool:
     if report is None:
         return False
     return any(
@@ -111,18 +134,33 @@ def _listed(
     )
 
 
+def _listed(
+    matched: Sequence[Mapping[str, Any]],
+    report: Optional[Mapping[str, Any]],
+    *,
+    installed: bool,
+) -> bool:
+    return bool(matched) or installed or _report_lists(report)
+
+
 def _health(
     matched: Sequence[Mapping[str, Any]],
     report: Optional[Mapping[str, Any]],
     *,
+    installed: bool,
     now: datetime,
 ) -> Optional[str]:
-    if any(_has_telemetry(row) for row in matched):
+    recent = [row for row in matched if _in_telemetry_window(row, now=now)]
+    if any(_has_telemetry(row) for row in recent):
         return HOOK_HEALTH_GREEN
     if report is not None and report.get("approval_state") == "unapproved":
-        return HOOK_HEALTH_ORANGE
-    if matched and all(_in_grace(row, now=now) for row in matched):
+        return HOOK_HEALTH_RED
+    if recent and all(_in_grace(row, now=now) for row in recent):
         return None
+    if recent:
+        return HOOK_HEALTH_RED
+    if installed or _report_lists(report):
+        return HOOK_HEALTH_ORANGE
     return HOOK_HEALTH_RED
 
 
@@ -130,17 +168,20 @@ def harness_targets(
     identities: Sequence[Mapping[str, Any]],
     reports: Sequence[Mapping[str, Any]] | None = None,
     *,
+    installed_surfaces: Sequence[str] | None = None,
     now: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
     """Render listed targets with live hook health.
 
     ``identities`` are per-identity maps with ``executor``, ``display``,
     optional ``hook_fed``, ``last_tool_call_at``, and
-    ``episode_started_at``. ``reports`` are machine-report rows keyed by
-    ``harness_id``.
+    ``episode_started_at``, and ``seen_at``. ``reports`` are machine-report
+    rows keyed by ``harness_id``; ``installed_surfaces`` are relay-reported
+    surface aliases for this machine.
     """
     clock = now or datetime.now(timezone.utc)
     stored = list(reports or ())
+    installed = set(installed_surfaces or ())
     targets: List[Dict[str, Any]] = []
     for target in HARNESS_TARGETS:
         key, label, harness_id, _rule = target
@@ -149,21 +190,30 @@ def harness_targets(
             if _matches(target, str(row.get("executor") or ""), str(row.get("display") or ""))
         ]
         report = _report_for(stored, harness_id)
-        if not _listed(matched, report):
+        surface_installed = key in installed
+        if not _listed(matched, report, installed=surface_installed):
             continue
         gate = hook_approval(harness_id)
+        unapproved = (
+            report is not None and report.get("approval_state") == "unapproved"
+        )
         targets.append({
             "key": key,
             "label": label,
             "hit": bool(matched),
-            "hook_health": _health(matched, report, now=clock),
-            "trust_surface": None if gate is None else gate["trust_surface"],
+            "hook_health": _health(
+                matched, report, installed=surface_installed, now=clock,
+            ),
+            "last_seen_at": _last_seen_at(matched),
+            "trust_surface": (
+                gate["trust_surface"] if gate is not None and unapproved else None
+            ),
         })
     return targets
 
 
 def session_identities(rows: Iterable[Sequence[Any]]) -> List[Dict[str, Any]]:
-    """Normalize ``(executor, display, hook_fed, episode, last_tool)`` rows."""
+    """Normalize executor, surface, telemetry, episode, tool, and seen rows."""
     identities: List[Dict[str, Any]] = []
     for row in rows:
         identities.append({
@@ -172,6 +222,7 @@ def session_identities(rows: Iterable[Sequence[Any]]) -> List[Dict[str, Any]]:
             "hook_fed": int(row[2] or 0),
             "episode_started_at": row[3] if len(row) > 3 else None,
             "last_tool_call_at": row[4] if len(row) > 4 else None,
+            "seen_at": row[5] if len(row) > 5 else None,
         })
     return identities
 
@@ -181,7 +232,7 @@ __all__ = [
     "HOOK_HEALTH_GREEN",
     "HOOK_HEALTH_ORANGE",
     "HOOK_HEALTH_RED",
-    "MATCH_BARE_SESSION",
+    "HOOK_TELEMETRY_WINDOW",
     "MATCH_FAMILY",
     "MATCH_SURFACE_ALIAS",
     "NEW_EPISODE_GRACE",

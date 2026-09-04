@@ -68,16 +68,24 @@ def test_two_machines_read_their_own_harness_history(test_db):
     assert [h["executor"] for h in alpha["harnesses"]] == ["codex", "claude-code"]
     assert alpha["connected"] == {"executor": "codex", "at": "2026-08-01T02:00:00Z"}
     assert alpha["last_seen_at"] == "2026-08-01T02:00:00Z"
-    # Targets follow the hook-health matcher: a surfaced session lights its
-    # harness family, and only a bare session lights the CLI target.
+    # Surfaced sessions light their family and their exact alias.
     hits = {t["key"]: t["hit"] for t in alpha["targets"]}
-    assert hits == {"claude-code": True, "codex": True}
-    # The relay-only machine lists with nothing attributed to it.
+    assert hits == {
+        "claude-code": True,
+        "codex": True,
+        "claude-cli": True,
+        "codex-cli": True,
+    }
+    # The relay-only machine reports its installed surface without borrowing
+    # the first machine's session history.
     beta = machines[MACHINE_B]
     assert beta["name"] == "beta-box"
     assert beta["harnesses"] == []
     assert beta["connected"] is None
-    assert beta["targets"] == []
+    assert [
+        (target["key"], target["hit"], target["hook_health"])
+        for target in beta["targets"]
+    ] == [("claude-cli", False, "orange")]
     assert beta["registered_at"] == "2026-08-02T00:00:00Z"
 
 
