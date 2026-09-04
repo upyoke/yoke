@@ -71,10 +71,11 @@ def render_launch_instructions(injection: LaunchRegistrationInjection) -> str:
     )
 
 
-# A launch still ``launching`` has simply not had its relay report land yet,
-# and the sidecar retries until it does. Recording that race would say only
-# that the two sides are milliseconds apart.
-_BENIGN_REFUSALS = frozenset({"invalid_state", "late_registration"})
+# These states are open for registration but may not have the relay's native
+# identity report yet. The sidecar retries on its next event; recording or
+# rendering that short race as supersession would terminate the live native.
+_REGISTRATION_PENDING_STATES = frozenset({"launching", "awaiting_registration"})
+_BENIGN_REFUSALS = frozenset({"late_registration"})
 
 
 def _prepare_or_record_refusal(
@@ -98,7 +99,11 @@ def _prepare_or_record_refusal(
             session_id=session_id,
         )
     except SessionLaunchError as exc:
-        if exc.code not in _BENIGN_REFUSALS:
+        pending = (
+            exc.code == "invalid_state"
+            and exc.launch_state in _REGISTRATION_PENDING_STATES
+        )
+        if exc.code not in _BENIGN_REFUSALS and not pending:
             try:
                 record_registration_refusal(
                     conn,
@@ -126,8 +131,12 @@ _SUPERSEDED_LAUNCH_CODES = frozenset(
 )
 
 
-def _superseded_launch_stop_context(code: str) -> str | None:
+def _superseded_launch_stop_context(
+    code: str, *, launch_state: str | None = None
+) -> str | None:
     """Tell a superseded launch native to stop now, on its first hook."""
+    if code == "invalid_state" and launch_state in _REGISTRATION_PENDING_STATES:
+        return None
     if code not in _SUPERSEDED_LAUNCH_CODES:
         return None
     return (
@@ -166,7 +175,9 @@ def evaluate_launch_attestation(
     except SessionLaunchError as exc:
         audit: dict[str, Any] = {"session_launch_error": exc.code}
         if record.event_name in SESSION_OPENING_STDOUT_EVENTS:
-            stop_context = _superseded_launch_stop_context(exc.code)
+            stop_context = _superseded_launch_stop_context(
+                exc.code, launch_state=exc.launch_state
+            )
             if stop_context is not None:
                 audit["additionalContext"] = stop_context
         return HookDecision(

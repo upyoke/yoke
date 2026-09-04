@@ -68,6 +68,7 @@ def prepare_launch_registration(
                 raise SessionLaunchError(
                     "invalid_state",
                     f"launch in state {launch.state!r} cannot register this session",
+                    launch_state=launch.state,
                 )
             if launch.attestation_consumed_at:
                 raise SessionLaunchError(
@@ -101,6 +102,12 @@ def prepare_launch_registration(
                     session_id=session_id,
                     facts=facts,
                     now=current,
+                )
+            elif not launch.native_session_id and not launch.registered_session_id:
+                raise SessionLaunchError(
+                    "invalid_state",
+                    "launch is awaiting its native identity report; retry on the next hook event",
+                    launch_state=launch.state,
                 )
             # Wake eligibility starts at this send, not deadline_at. A worker
             # that dies on arrival must not sit unwatched until registration

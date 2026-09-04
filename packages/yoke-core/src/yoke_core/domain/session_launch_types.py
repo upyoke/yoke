@@ -22,9 +22,12 @@ MAX_LAUNCH_DEADLINE_SECONDS = 3600
 class SessionLaunchError(ValueError):
     """A launch request or state transition was refused with a typed code."""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(
+        self, code: str, message: str, *, launch_state: str | None = None
+    ) -> None:
         super().__init__(message)
         self.code = code
+        self.launch_state = launch_state
 
 
 @dataclass(frozen=True)

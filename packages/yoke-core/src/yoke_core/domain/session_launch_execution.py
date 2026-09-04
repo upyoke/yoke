@@ -39,6 +39,7 @@ from yoke_core.domain.session_launch_types import (
 
 
 _REPORT_RESULTS = frozenset({"native_created", "not_created", "outcome_unknown"})
+_REPORT_STATES = ("launching", "awaiting_registration", "outcome_unknown")
 
 
 def _attempt_by_lease(conn: Any, launch_id: str, lease_id: str) -> Any:
@@ -262,12 +263,13 @@ def report_launch_attempt(
             raise SessionLaunchError(
                 "report_conflict", "attempt already has another outcome"
             )
-        if launch.state not in {"launching", "outcome_unknown"}:
+        if launch.state not in _REPORT_STATES:
             raise SessionLaunchError(
                 "invalid_state",
                 f"launch in state {launch.state!r} cannot accept a report",
             )
         attempt_id = str(value(attempt, "attempt_id", 0))
+        prior_evidence = value(attempt, "evidence", 6)
         _complete_attempt(
             conn,
             attempt_id=attempt_id,
@@ -276,11 +278,9 @@ def report_launch_attempt(
             result_code=result_code,
             adapter_revision=adapter_revision,
             evidence=evidence,
-            prior_evidence=value(attempt, "evidence", 6),
+            prior_evidence=prior_evidence,
         )
-        result_evidence = merge_redacted_evidence(
-            value(attempt, "evidence", 6), evidence
-        )
+        result_evidence = merge_redacted_evidence(prior_evidence, evidence)
         evidence_code = evidence_result_code(evidence)
         telemetry = native_launch_updates(evidence, observed_at=current)
         if telemetry:
@@ -312,7 +312,7 @@ def report_launch_attempt(
                     launch_id,
                     state="awaiting_registration",
                     native_session_id=native_session_id,
-                    awaiting_registration_at=current,
+                    awaiting_registration_at=launch.awaiting_registration_at or current,
                     result_code="native_created",
                     result_evidence=result_evidence,
                 )

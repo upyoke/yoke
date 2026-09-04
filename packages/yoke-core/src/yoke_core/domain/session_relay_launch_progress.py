@@ -6,12 +6,13 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.launch_registration import (
     IDENTITY_REGISTRATION_WAIT_CODE,
+    LAUNCH_ADAPTER_STARTED_CODE,
 )
 from yoke_core.domain.session_launch_native_progress import native_launch_updates
 from yoke_core.domain.session_launch_registration_candidate import (
     wait_for_launch_registration_candidate,
 )
-from yoke_core.domain.session_launch_store import update_launch
+from yoke_core.domain.session_launch_store import get_launch, update_launch
 from yoke_core.domain.session_relay_evidence import (
     merge_redacted_evidence,
     redacted_evidence_document,
@@ -56,13 +57,20 @@ def report_launch_progress(
             relay_id,
         ),
     )
-    updates = native_launch_updates(evidence, observed_at=now)
+    safe = redacted_evidence_document(evidence)
+    updates = native_launch_updates(safe, observed_at=now)
     if str(row[1] or "") == "relay_lease_expired":
         updates["result_evidence"] = merged
+    elif safe.get("result_code") == LAUNCH_ADAPTER_STARTED_CODE:
+        current = get_launch(conn, launch_id)
+        if current.state == "launching":
+            updates.update(
+                state="awaiting_registration",
+                awaiting_registration_at=now,
+            )
     launch = update_launch(conn, launch_id, **updates) if updates else None
     conn.commit()
     registration = None
-    safe = redacted_evidence_document(evidence)
     if safe.get("result_code") == IDENTITY_REGISTRATION_WAIT_CODE:
         registration = wait_for_launch_registration_candidate(
             conn,

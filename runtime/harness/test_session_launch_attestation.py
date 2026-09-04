@@ -141,10 +141,60 @@ def test_finalize_records_only_actual_render_delivery(monkeypatch) -> None:
 
 
 def test_superseded_launch_code_yields_a_stop_context() -> None:
-    for code in ("invalid_state", "attestation_consumed", "late_registration"):
+    for state in ("succeeded", "failed", "expired"):
+        context = launch_hook._superseded_launch_stop_context(
+            "invalid_state", launch_state=state
+        )
+        assert context is not None and "Stop now" in context
+    for code in ("attestation_consumed", "late_registration"):
         context = launch_hook._superseded_launch_stop_context(code)
         assert context is not None and "Stop now" in context
+    for state in ("launching", "awaiting_registration"):
+        assert (
+            launch_hook._superseded_launch_stop_context(
+                "invalid_state", launch_state=state
+            )
+            is None
+        )
     assert launch_hook._superseded_launch_stop_context("attestation_invalid") is None
+
+
+def test_launching_registration_retries_without_recording_or_stopping(
+    monkeypatch,
+) -> None:
+    from yoke_core.domain.session_launch_types import SessionLaunchError
+
+    attempts = 0
+    refusals = []
+
+    def prepare(conn, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise SessionLaunchError(
+                "invalid_state",
+                "native identity report has not landed",
+                launch_state="launching",
+            )
+        return _injection()
+
+    monkeypatch.setattr(launch_hook, "prepare_launch_registration", prepare)
+    monkeypatch.setattr(
+        launch_hook,
+        "record_registration_refusal",
+        lambda *args, **kwargs: refusals.append((args, kwargs)),
+    )
+
+    early = launch_hook.evaluate_launch_attestation(
+        _record("SessionStart"), connect=_Connection
+    )
+    delivered = launch_hook.evaluate_launch_attestation(_record(), connect=_Connection)
+
+    assert early.outcome == Outcome.WARN
+    assert early.audit_fields == {"session_launch_error": "invalid_state"}
+    assert delivered.outcome == Outcome.AUDIT_ONLY
+    assert "Inspect the assigned work." in delivered.audit_fields["additionalContext"]
+    assert refusals == []
 
 
 def test_superseded_launch_warns_the_opening_native_to_stop(monkeypatch) -> None:

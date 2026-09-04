@@ -9,7 +9,7 @@ from yoke_core.domain.session_launch_execution import (
     report_launch_attempt,
 )
 from yoke_core.domain.session_launch_registration import prepare_launch_registration
-from yoke_core.domain.session_launch_store import get_launch
+from yoke_core.domain.session_launch_store import get_launch, update_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from runtime.api.domain.session_launch_test_support import (
     NOW,
@@ -97,3 +97,61 @@ def test_registration_refuses_a_claude_id_other_than_the_reported_native_id() ->
     assert bound.native_session_id == "claude-allocated-session"
     assert bound.registered_session_id is None
     assert bound.attestation_consumed_at is None
+
+
+@pytest.mark.parametrize("early_state", ("launching", "awaiting_registration"))
+def test_registration_retries_until_native_identity_is_bound(early_state: str) -> None:
+    conn = launch_connection()
+    add_relay(conn, surface="claude-cli", version="2.1.238")
+    launch = assigned_launch(conn, key=f"early-{early_state}", surface="claude-cli")
+    claim = claim_assigned_launch(
+        conn,
+        launch_id=launch.launch_id,
+        relay_id="relay-1",
+        machine_id="machine-1",
+        now=NOW,
+    )
+    if early_state == "awaiting_registration":
+        update_launch(
+            conn,
+            launch.launch_id,
+            state=early_state,
+            awaiting_registration_at="2026-08-22T12:00:01Z",
+        )
+        conn.commit()
+    _register_claude(conn, "claude-early-session")
+
+    with pytest.raises(SessionLaunchError) as pending:
+        prepare_launch_registration(
+            conn,
+            launch_id=launch.launch_id,
+            attestation=claim.attestation,
+            session_id="claude-early-session",
+            now="2026-08-22T12:00:02Z",
+        )
+
+    assert pending.value.code == "invalid_state"
+    assert pending.value.launch_state == early_state
+
+    report_launch_attempt(
+        conn,
+        launch_id=launch.launch_id,
+        lease_id=claim.lease_id,
+        result_code="native_created",
+        native_session_id="claude-early-session",
+        adapter_revision="claude-native-v2",
+        evidence={"duration_ms": 40, "exit_code": 0},
+        now="2026-08-22T12:00:03Z",
+    )
+    injection = prepare_launch_registration(
+        conn,
+        launch_id=launch.launch_id,
+        attestation=claim.attestation,
+        session_id="claude-early-session",
+        now="2026-08-22T12:00:04Z",
+    )
+
+    assert injection.session_id == "claude-early-session"
+    assert get_launch(conn, launch.launch_id).registered_session_id == (
+        "claude-early-session"
+    )
