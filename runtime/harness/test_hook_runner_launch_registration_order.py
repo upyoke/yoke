@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks import runner_invoke
 from yoke_core.hooks import telemetry
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks.decision_render import render_claude_decision
@@ -34,7 +35,7 @@ def test_remote_registration_precedes_attestation_with_sidecar(event_name, monke
         order.append(("attest", None))
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE), None
 
-    monkeypatch.setattr(runner_module, "dispatch_typed", dispatch)
+    monkeypatch.setattr(runner_invoke, "dispatch_typed", dispatch)
     monkeypatch.setattr(
         "yoke_core.hooks.session_turn_posture_tail.persist_accepted_hook_turn_posture",
         lambda **_kwargs: None,

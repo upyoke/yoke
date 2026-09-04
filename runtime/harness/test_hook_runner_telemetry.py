@@ -27,7 +27,6 @@ import yoke_core.hooks.session_model_attestation_write as model_attestation
 import yoke_core.hooks.stdin as stdin
 import yoke_core.hooks.telemetry as telemetry
 from yoke_core.hooks import runner as runner_module
-from yoke_core.hooks import runner_chain
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks.decision_render import render_claude_decision
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
@@ -144,7 +143,7 @@ def test_runner_dispatch_populates_top_level_tool_name(
         return _Mod if name == "mod.allow" else real_import(name)
 
     monkeypatch.setattr(importlib, "import_module", fake_import)
-    monkeypatch.setattr(runner_chain, "chain_for", lambda *a, **k: ["mod.allow"])
+    monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: ["mod.allow"])
 
     captured: list[dict[str, Any]] = []
 

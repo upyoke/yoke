@@ -3,7 +3,7 @@
 Every ``(event_name, matcher)`` key in
 :data:`yoke_contracts.hook_runner.hook_ordering.HOOK_ORDERING` is
 exercised, both for chain equality (claude / codex modulo the runner's
-``apply_omissions`` filter) and for structural reachability (every
+``_apply_omissions`` filter) and for structural reachability (every
 chained module id must be either typed-evaluable or an explicit
 ``subprocess_modules`` carve-out — no third state).
 
@@ -28,7 +28,7 @@ from yoke_contracts.hook_runner.hook_ordering import HOOK_ORDERING, ordered_pipe
 from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
 from yoke_core.hooks.codex_adapter import CAPABILITY as CODEX_CAPABILITY
 from yoke_core.hooks.cursor_adapter import CAPABILITY as CURSOR_CAPABILITY
-from yoke_core.hooks import runner_chain
+from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.adapter_capability import AdapterCapability
 
 
@@ -45,14 +45,14 @@ def _runner_filtered_chain(
     matcher: str,
     capability: AdapterCapability,
 ) -> list[str]:
-    """Apply the runner's ``apply_omissions`` exactly as the runner would.
+    """Apply the runner's ``_apply_omissions`` exactly as the runner would.
 
-    Coupling the parity test to ``runner_chain.apply_omissions`` means
+    Coupling the parity test to ``runner_module._apply_omissions`` means
     that if the omission semantics shift (e.g. Codex starts honoring
     ``apply_patch_chain_omissions`` for ``PreToolUse[apply_patch]``
     directly), this helper picks up the change without test edits.
     """
-    return runner_chain.apply_omissions(
+    return runner_module._apply_omissions(
         chain_for(event_name, matcher),
         event_name=event_name,
         capability=capability,

@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from yoke_core.hooks import runner as runner_module, runner_chain
+from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks import telemetry as telemetry_module
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks.decision_render import render_claude_decision
@@ -33,7 +33,7 @@ def _capability(
     subprocess_modules: frozenset[str] = frozenset(),
 ) -> AdapterCapability:
     """Build a capability + monkeypatch chain_registry to return ``chain``."""
-    monkeypatch.setattr(runner_chain, "chain_for", lambda *a, **k: list(chain))
+    monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: list(chain))
     return AdapterCapability(
         family="claude",
         payload_parser=lambda raw: {},
