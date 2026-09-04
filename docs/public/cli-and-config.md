@@ -82,11 +82,8 @@ permission bypass: Claude Code is launched with
 trust bypassed (`--dangerously-bypass-approvals-and-sandbox` plus
 `--dangerously-bypass-hook-trust`; the app-server route uses equivalent
 thread parameters where available), and Cursor with
-`--force` alongside `--trust` on the CLI route. Cursor's ACP launch route
-takes no such flag: the relay answers each permission request itself and
-owns the terminals commands run in, so it is unattended already. This is
-unconditional for launched sessions and changes nothing about a session you
-start yourself.
+`--force` alongside `--trust`. This is unconditional for launched sessions
+and changes nothing about a session you start yourself.
 
 One native gate can still refuse: Claude Code declines a bypassed background
 launch until the machine has accepted the bypass disclaimer once. The launch

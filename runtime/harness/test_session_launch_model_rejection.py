@@ -13,7 +13,7 @@ from runtime.harness.test_session_relay_codex import (
     context as codex_context,
 )
 from runtime.harness.test_session_relay_cursor import (
-    FakeAcp,
+    FakeSubprocess,
     _adapter as cursor_adapter,
     _launch as cursor_launch,
 )
@@ -72,14 +72,14 @@ def test_codex_runtime_rejection_is_not_retried_with_defaults(tmp_path) -> None:
 
 
 def test_cursor_runtime_rejection_is_not_retried_with_defaults(tmp_path) -> None:
-    acp = FakeAcp()
-    acp.new_result = CursorNativeResult(
+    cli = FakeSubprocess()
+    cli.new_result = CursorNativeResult(
         "not_created", exit_code=2, native_stderr=REJECTION.encode()
     )
 
-    result = cursor_adapter(acp_port=acp)(cursor_launch(tmp_path))
+    result = cursor_adapter(subprocess_port=cli)(cursor_launch(tmp_path))
 
-    assert len(acp.new_requests) == 1
+    assert len(cli.new_requests) == 1
     assert result.result_code == "not_created"
     assert result.evidence["result_code"] == "model_combo_unsupported"
     assert result.evidence["probe_detail"] == REJECTION

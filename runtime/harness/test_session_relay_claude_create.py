@@ -10,7 +10,7 @@ import pytest
 
 from yoke_harness.session_launch_containment import supervised_records
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
-from yoke_harness.session_relay_claude_create import immediate_native_refusal
+from yoke_harness.session_relay_native_create import immediate_native_refusal
 from yoke_harness.session_relay_claude_native import (
     ClaudeNativeInvocation,
     spawn_claude_create,

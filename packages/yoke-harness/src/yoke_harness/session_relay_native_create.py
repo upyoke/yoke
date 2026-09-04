@@ -1,4 +1,4 @@
-"""Whether a relay-owned Claude create refused before it could run.
+"""Whether a relay-owned create refused before its native could run.
 
 A create no longer blocks on the native, so the poll that started it would
 otherwise report every spawn as a success and leave a native that rejected its
@@ -6,6 +6,9 @@ own flags, model, or credentials to occupy the whole registration deadline
 before anything noticed. The supervisor writes the capture the moment it starts
 and marks it exited when the native ends, so a short read of that one file
 separates "already refused" from "running" without waiting on either.
+
+Every harness whose create spawns a supervised native reads the same file in
+the same shape, so the window and the reader live here once.
 """
 
 from __future__ import annotations
@@ -22,14 +25,14 @@ from yoke_harness.session_relay_native_diagnostics import read_native_capture
 #: rejects its own invocation is gone in about a second; one still running at
 #: the end of this window has started, and every later outcome belongs to
 #: registration.
-CLAUDE_CREATE_FAST_FAILURE_SECONDS = 6.0
+NATIVE_CREATE_FAST_FAILURE_SECONDS = 6.0
 _POLL_SECONDS = 0.2
 
 
 def immediate_native_refusal(
     capture_path: Path,
     *,
-    window_seconds: float = CLAUDE_CREATE_FAST_FAILURE_SECONDS,
+    window_seconds: float = NATIVE_CREATE_FAST_FAILURE_SECONDS,
     monotonic: Callable[[], float] = time.monotonic,
     sleeper: Callable[[float], None] = time.sleep,
 ) -> NativeCapture | None:
@@ -46,6 +49,6 @@ def immediate_native_refusal(
 
 
 __all__ = [
-    "CLAUDE_CREATE_FAST_FAILURE_SECONDS",
+    "NATIVE_CREATE_FAST_FAILURE_SECONDS",
     "immediate_native_refusal",
 ]

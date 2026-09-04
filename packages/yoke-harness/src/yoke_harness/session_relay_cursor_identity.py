@@ -1,11 +1,11 @@
-"""Bounded Cursor launch identity from ACP output and the conversation map.
+"""Bounded Cursor launch identity from the conversation map.
 
-``session/new`` on current cursor-agent returns a UUID ``sessionId``.
-Registration still requires the first turn to fire hooks and write the
-conversation map; a map miss is not proof the session registered. The
-map wins when it holds a UUID (including a worktree fold). Unparseable
-output records a bounded snippet and the parse expectation so the
-attempt can fail closed and be retried.
+A create mints the conversation id it starts, so the native identity is
+known from the moment the turn begins. Registration still requires that
+turn to fire hooks and write the conversation map; a map miss is not
+proof the session registered. The map wins when it holds a UUID
+(including a worktree fold). An unmapped id records a bounded snippet
+and the parse expectation so the attempt can fail closed and be retried.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ CURSOR_REGISTRATION_WAIT_SECONDS = 20.0
 CURSOR_REGISTRATION_RETRY_SECONDS = 0.5
 CURSOR_REGISTRATION_TURN_WAIT_SECONDS = 15.0
 IDENTITY_SNIPPET_LIMIT = 512
-ACP_SESSION_PARSE_EXPECTATION = "JSON-RPC session/new result.sessionId UUID"
+CURSOR_SESSION_PARSE_EXPECTATION = "cursor-agent conversation id UUID"
 LaunchAttestationHandoff = Callable[..., bool]
 ConversationLookup = Callable[[str], str | None]
 
@@ -74,24 +74,6 @@ def uuid_session_id(value: object) -> str | None:
         return str(UUID(str(value or "").strip()))
     except (AttributeError, TypeError, ValueError):
         return None
-
-
-def session_id_from_native_payload(payload: object) -> str | None:
-    """Parse the current cursor-agent ACP ``session/new`` identity."""
-    if not isinstance(payload, dict):
-        return None
-    nested = payload.get("session")
-    candidates = (
-        payload.get("sessionId"),
-        payload.get("session_id"),
-        nested.get("sessionId") if isinstance(nested, dict) else None,
-        nested.get("session_id") if isinstance(nested, dict) else None,
-    )
-    for value in candidates:
-        parsed = uuid_session_id(value)
-        if parsed:
-            return parsed
-    return None
 
 
 def conversation_map_lookup(
@@ -146,7 +128,7 @@ def resolve_conversation_session(
         max(0, int((time.monotonic() - started) * 1000)),
         attempts,
         bounded_identity_snippet(last_output or "<empty>", conversation_id),
-        ACP_SESSION_PARSE_EXPECTATION,
+        CURSOR_SESSION_PARSE_EXPECTATION,
     )
 
 
@@ -187,7 +169,7 @@ def wait_for_conversation_session(
         max(0, int((time.monotonic() - started) * 1000)),
         attempts,
         bounded_identity_snippet(last_output or "<empty>", conversation_id),
-        ACP_SESSION_PARSE_EXPECTATION,
+        CURSOR_SESSION_PARSE_EXPECTATION,
     )
 
 
@@ -213,7 +195,7 @@ def bind_launch_session(
             uuid_session_id(conversation_id),
             resolution.duration_ms,
             resolution.output_snippet or bounded_identity_snippet(conversation_id),
-            resolution.parse_expectation or ACP_SESSION_PARSE_EXPECTATION,
+            resolution.parse_expectation or CURSOR_SESSION_PARSE_EXPECTATION,
         )
     token = str(attestation or "").strip()
     if not token or attestation_handoff is None:
@@ -244,7 +226,7 @@ def bind_launch_session(
 
 
 __all__ = [
-    "ACP_SESSION_PARSE_EXPECTATION",
+    "CURSOR_SESSION_PARSE_EXPECTATION",
     "CURSOR_IDENTITY_LOOKUP_ATTEMPTS",
     "CURSOR_IDENTITY_RETRY_SECONDS",
     "CURSOR_REGISTRATION_RETRY_SECONDS",
@@ -259,7 +241,6 @@ __all__ = [
     "bounded_identity_snippet",
     "conversation_map_lookup",
     "resolve_conversation_session",
-    "session_id_from_native_payload",
     "uuid_session_id",
     "wait_for_conversation_session",
 ]

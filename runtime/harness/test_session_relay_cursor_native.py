@@ -1,23 +1,19 @@
-"""Documented Cursor CLI and ACP framing over fake native processes."""
+"""Documented Cursor CLI framing over fake native processes."""
 
 from __future__ import annotations
 
-import io
 from dataclasses import replace
 from pathlib import Path
-import time
-from types import SimpleNamespace
+from uuid import UUID
 
-from yoke_harness import session_relay_cursor_acp as acp_module
 from yoke_harness import session_relay_cursor_cli as cli_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import (
     CursorNativeResult,
     build_cursor_adapter,
 )
-from yoke_harness.session_relay_cursor_acp import CursorAcpTransport
-from yoke_harness.session_relay_cursor_acp_stderr import BoundedStderr
 from yoke_harness.session_relay_cursor_cli import CursorCliTransport
+from yoke_harness.session_relay_native_capture_format import NativeCapture
 from runtime.harness.session_relay_cursor_test_support import (
     ATTEMPT_ID,
     ATTESTATION,
@@ -34,10 +30,91 @@ from runtime.harness.session_relay_cursor_test_support import (
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
-def test_cli_transport_offers_no_create_operation_at_all(tmp_path: Path) -> None:
-    # Removing the print-mode create is the containment fix, not a rename:
-    # nothing may reach a launch through this transport.
-    assert not hasattr(CursorCliTransport(), "create_chat")
+def test_cli_create_starts_the_bootstrap_on_a_conversation_it_minted(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    spawns = []
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "parent-session")
+    monkeypatch.setenv("YOKE_EXECUTOR", "claude-code")
+    monkeypatch.setattr(
+        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+    )
+    local_supervision(monkeypatch, tmp_path)
+
+    def spawn(command, **kwargs):
+        spawns.append((command, kwargs))
+        return RunningProcess()
+
+    result = CursorCliTransport(process_factory=spawn).new_session(
+        create_request(tmp_path)
+    )
+
+    assert result.result_code == "native_created"
+    # The create names the conversation it is about to start, so the relay
+    # knows which one it owns before the turn produces anything.
+    minted = str(result.native_session_id)
+    assert str(UUID(minted)) == minted
+    supervised, options = spawns[0]
+    command = native_argv(supervised)
+    assert command[:3] == ["/opt/cursor-agent", "--resume", minted]
+    assert "--print" in command
+    assert command[command.index("--workspace") + 1] == str(tmp_path)
+    assert "--trust" in command
+    # Nobody is watching this terminal, so an approval prompt is a stall.
+    assert "--force" in command
+    assert command[command.index("--model") + 1] == "composer-2"
+    assert command[-1] == BOOTSTRAP
+    assert options["env"]["YOKE_EXECUTOR"] == "cursor"
+    assert options["env"]["YOKE_MODEL"] == "composer-2"
+    assert "CLAUDE_SESSION_ID" not in options["env"]
+    # The first hook registers the session from the launch it inherits.
+    assert LAUNCH_ID in options["env"][LAUNCH_CONTEXT_ENV]
+    assert ATTESTATION in options["env"][LAUNCH_CONTEXT_ENV]
+    assert ATTESTATION not in " ".join(command)
+
+
+def test_cli_create_reports_a_native_that_refused_its_own_invocation(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+    )
+    local_supervision(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        cli_module,
+        "immediate_native_refusal",
+        lambda _capture, **_options: NativeCapture(
+            state="exited",
+            stdout=b"",
+            stderr=b"Error: model does not support effort max\n",
+            exit_code=2,
+        ),
+    )
+
+    result = CursorCliTransport(
+        process_factory=lambda *_args, **_kwargs: RunningProcess()
+    ).new_session(create_request(tmp_path))
+
+    assert result.result_code == "not_created"
+    assert result.exit_code == 2
+    assert b"does not support effort max" in result.native_stderr
+
+
+def test_cli_create_refuses_before_spawn_without_a_native(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    spawns = []
+    monkeypatch.setattr(cli_module, "resolve_native_cli", lambda _name: None)
+
+    result = CursorCliTransport(
+        process_factory=lambda *args, **kwargs: spawns.append((args, kwargs))
+    ).new_session(create_request(tmp_path))
+
+    assert result.result_code == "not_created"
+    assert spawns == []
 
 
 def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
@@ -125,184 +202,20 @@ def test_cli_wake_refuses_an_inexact_session_before_spawn(
     assert spawns == []
 
 
-class FakeAcpClient:
-    def __init__(self) -> None:
-        self.requests = []
-        self.prompts = []
-        self.closed = False
-        self.new_session_id = None
-        self.new_session_result = None
-        self.refuse_set_model = False
-        self.process = SimpleNamespace(pid=4321)
-
-    def request(self, method, params):
-        self.requests.append((method, params))
-        if method == "session/set_model" and self.refuse_set_model:
-            raise acp_module.CursorAcpError("Invalid model value")
-        if method == "session/new":
-            if self.new_session_result is not None:
-                return self.new_session_result
-            if self.new_session_id:
-                return {"sessionId": self.new_session_id}
-        return {}
-
-    def start_prompt(self, session_id, instruction, turn):
-        self.prompts.append((session_id, instruction))
-        self.turn = turn
-
-    def close(self):
-        self.closed = True
-
-
-def test_acp_idle_wake_loads_and_prompts_the_exact_session(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
-    client = FakeAcpClient()
-    transport = CursorAcpTransport(worker=True)
-    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
-
-    result = transport.prompt_session(wake_request(tmp_path))
-
-    assert result.result_code == "accepted"
-    assert client.requests == [
-        (
-            "session/load",
-            {"cwd": str(tmp_path.resolve()), "mcpServers": [], "sessionId": SESSION_ID},
-        )
-    ]
-    assert client.prompts == [(SESSION_ID, CHECK_INBOX)]
-
-
-def test_acp_launch_creates_a_session_and_makes_it_containable(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
-    recorded = []
-    client = FakeAcpClient()
-    client.new_session_id = SESSION_ID
-    transport = CursorAcpTransport(worker=True)
-    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
-    monkeypatch.setattr(
-        acp_module,
-        "record_supervised_native",
-        lambda launch_id, pid, native_session_id=None: recorded.append(
-            (launch_id, pid, native_session_id)
-        ),
-    )
-
-    result = transport.new_session(create_request(tmp_path))
-
-    assert result.result_code == "native_created"
-    assert result.native_session_id == SESSION_ID
-    assert client.requests == [
-        ("session/new", {"cwd": str(tmp_path.resolve()), "mcpServers": []}),
-        (
-            "session/set_model",
-            {"sessionId": SESSION_ID, "modelId": "composer-2"},
-        ),
-    ]
-    assert client.prompts == [(SESSION_ID, BOOTSTRAP)]
-    # The relay owns the process, so it records what it would have to kill.
-    assert recorded == [(LAUNCH_ID, client.process.pid, SESSION_ID)]
-
-
-def test_acp_launch_survives_a_refused_model_selection(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
-    # session/set_model admits only its own bracket catalog, so a launch
-    # naming a command-line variant is refused there. The session still
-    # launches at its default and records what it actually ran.
-    client = FakeAcpClient()
-    client.new_session_id = SESSION_ID
-    client.refuse_set_model = True
-    transport = CursorAcpTransport(worker=True)
-    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
-    monkeypatch.setattr(
-        acp_module,
-        "record_supervised_native",
-        lambda launch_id, pid, native_session_id=None: None,
-    )
-
-    result = transport.new_session(create_request(tmp_path))
-
-    assert result.result_code == "native_created"
-    assert client.prompts == [(SESSION_ID, BOOTSTRAP)]
-
-
-def test_acp_launch_parse_failure_carries_output_snippet(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
-    client = FakeAcpClient()
-    client.new_session_result = {
-        "modes": {"currentModeId": "agent"},
-        "models": {"currentModelId": "default[]"},
-    }
-    transport = CursorAcpTransport(worker=True)
-    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
-
-    result = transport.new_session(create_request(tmp_path))
-
-    assert result.result_code == "not_created"
-    assert result.native_session_id is None
-    assert "currentModeId" in (result.identity_output_snippet or "")
-    assert result.identity_parse_expectation
-    assert client.closed is True
-    assert client.prompts == []
-
-
-def _drained(payload: bytes) -> BoundedStderr:
-    drain = BoundedStderr(io.BytesIO(payload))
-    for _attempt in range(200):
-        if drain.tail() == payload:
-            break
-        time.sleep(0.01)
-    return drain
-
-
-def test_bounded_stderr_keeps_only_the_recent_tail() -> None:
-    drain = BoundedStderr(io.BytesIO(b"abcdefghij"), limit=4)
-    for _attempt in range(200):
-        if drain.tail() == b"ghij":
-            break
-        time.sleep(0.01)
-    assert drain.tail() == b"ghij"
-
-
-def test_acp_launch_failure_carries_what_the_native_said(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
-    client = FakeAcpClient()
-    client.new_session_result = {"models": {"currentModelId": "default[]"}}
-    client.stderr = _drained(b"cursor-agent: not logged in\n")
-    client.process = SimpleNamespace(pid=4321, poll=lambda: 3)
-    transport = CursorAcpTransport(worker=True)
-    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
-
-    result = transport.new_session(create_request(tmp_path))
-
-    assert result.result_code == "not_created"
-    assert result.native_stderr == b"cursor-agent: not logged in\n"
-    assert result.exit_code == 3
-
-
 def test_failed_create_reaches_the_relay_as_a_private_diagnostic(
     tmp_path: Path,
 ) -> None:
     """Native words never ride the report wire; the relay retains them locally."""
 
-    class FailingAcp:
+    class FailingTransport:
         def new_session(self, request):
             return CursorNativeResult(
                 "not_created",
                 native_stderr=b"no conversation found with session id\n",
             )
 
-        def prompt_session(self, request):
-            raise AssertionError("launch must not prompt")
+        def resume_chat(self, request):
+            raise AssertionError("launch must not resume")
 
     context = RelayExecutionContext(
         job_kind="launch",
@@ -316,7 +229,7 @@ def test_failed_create_reaches_the_relay_as_a_private_diagnostic(
         launch_attestation=ATTESTATION,
     )
     result = build_cursor_adapter(
-        acp_port=FailingAcp(),
+        subprocess_port=FailingTransport(),
         identity_lookup=lambda _conversation_id: None,
         attestation_handoff=lambda *_args, **_kwargs: True,
         sleeper=lambda _seconds: None,

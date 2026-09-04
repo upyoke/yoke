@@ -15,7 +15,6 @@ import pytest
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_BYPASS_DISCLAIMER_RECOVERY,
-    CURSOR_ACP_BYPASS_IS_RELAY_ANSWERED,
     cli_bypass_arguments,
 )
 from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
@@ -36,6 +35,7 @@ from runtime.harness.test_session_relay_codex_cli_process import _request
 from runtime.harness.session_relay_cursor_test_support import (
     SESSION_ID,
     RunningProcess,
+    create_request,
     local_supervision,
     native_argv,
     wake_request,
@@ -109,7 +109,10 @@ def test_codex_app_server_wake_resumes_a_thread_unattended(
     assert resumed["sandbox"] == "danger-full-access"
 
 
-def test_cursor_cli_wake_auto_approves_commands(monkeypatch, tmp_path: Path) -> None:
+@pytest.mark.parametrize("route", ["create", "wake"])
+def test_cursor_cli_routes_auto_approve_commands(
+    monkeypatch, tmp_path: Path, route: str
+) -> None:
     spawns: list[list[str]] = []
     monkeypatch.setattr(
         cursor_cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
@@ -120,19 +123,16 @@ def test_cursor_cli_wake_auto_approves_commands(monkeypatch, tmp_path: Path) -> 
         spawns.append(command)
         return RunningProcess()
 
-    cursor_cli_module.CursorCliTransport(process_factory=spawn).resume_chat(
-        wake_request(tmp_path)
-    )
+    transport = cursor_cli_module.CursorCliTransport(process_factory=spawn)
+    if route == "create":
+        transport.new_session(create_request(tmp_path))
+    else:
+        transport.resume_chat(wake_request(tmp_path))
 
     native = native_argv(spawns[0])
-    assert SESSION_ID in native
     assert "--force" in native
-
-
-def test_cursor_acp_launch_bypass_is_answered_by_the_relay() -> None:
-    # ``cursor-agent acp`` accepts no flags; the relay answers every permission
-    # request itself, so the launch route is unattended without one.
-    assert CURSOR_ACP_BYPASS_IS_RELAY_ANSWERED is True
+    if route == "wake":
+        assert SESSION_ID in native
 
 
 def test_an_unaccepted_bypass_disclaimer_is_named_with_its_recovery() -> None:

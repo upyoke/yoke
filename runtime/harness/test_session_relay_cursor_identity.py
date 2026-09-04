@@ -1,4 +1,4 @@
-"""Cursor conversation-map bind-then-handoff for ACP launches."""
+"""Cursor conversation-map bind-then-handoff for launches."""
 
 from __future__ import annotations
 
@@ -9,12 +9,11 @@ from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness.session_relay_cursor import CursorNativeResult, build_cursor_adapter
 from yoke_harness.session_relay_cursor_identity import (
-    ACP_SESSION_PARSE_EXPECTATION,
     CURSOR_IDENTITY_LOOKUP_ATTEMPTS,
+    CURSOR_SESSION_PARSE_EXPECTATION,
     bind_launch_session,
     conversation_map_lookup,
     resolve_conversation_session,
-    session_id_from_native_payload,
 )
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
@@ -25,15 +24,15 @@ LAUNCH_ID = "33333333-3333-4333-8333-333333333333"
 ATTESTATION = "secret-launch-attestation"
 
 
-class FakeAcp:
+class FakeTransport:
     def new_session(self, request):
         self.request = request
         return CursorNativeResult(
             "native_created", native_session_id=CONVERSATION_ID, duration_ms=25
         )
 
-    def prompt_session(self, request):
-        raise AssertionError("launch must not prompt")
+    def resume_chat(self, request):
+        raise AssertionError("launch must not resume")
 
 
 def _launch(tmp_path: Path) -> RelayExecutionContext:
@@ -83,7 +82,7 @@ def test_lookup_fails_closed_after_the_bounded_missing_map_window() -> None:
     assert calls == [CONVERSATION_ID] * CURSOR_IDENTITY_LOOKUP_ATTEMPTS
     assert len(delays) == CURSOR_IDENTITY_LOOKUP_ATTEMPTS - 1
     assert CONVERSATION_ID in (resolution.output_snippet or "")
-    assert resolution.parse_expectation == ACP_SESSION_PARSE_EXPECTATION
+    assert resolution.parse_expectation == CURSOR_SESSION_PARSE_EXPECTATION
 
 
 def test_bind_stages_attestation_under_the_mapped_session_not_the_conversation() -> (
@@ -148,7 +147,7 @@ def test_adapter_reports_and_stages_the_mapped_session(tmp_path: Path) -> None:
     lookups = []
 
     result = build_cursor_adapter(
-        acp_port=FakeAcp(),
+        subprocess_port=FakeTransport(),
         identity_lookup=lambda conversation_id: (
             lookups.append(conversation_id) or MAPPED_SESSION_ID
         ),
@@ -167,21 +166,7 @@ def test_adapter_reports_and_stages_the_mapped_session(tmp_path: Path) -> None:
     assert ATTESTATION not in repr(result)
 
 
-def test_current_cursor_agent_session_new_payload_parses() -> None:
-    payload = {
-        "sessionId": CONVERSATION_ID,
-        "modes": {
-            "currentModeId": "agent",
-            "availableModes": [{"id": "agent", "name": "Agent"}],
-        },
-        "models": {"currentModelId": "default[]", "availableModels": []},
-    }
-
-    assert session_id_from_native_payload(payload) == CONVERSATION_ID
-    assert session_id_from_native_payload({"modes": payload["modes"]}) is None
-
-
-def test_bind_map_miss_does_not_treat_the_acp_id_as_registered() -> None:
+def test_bind_map_miss_does_not_treat_the_conversation_as_registered() -> None:
     handoffs = []
 
     binding = bind_launch_session(
@@ -203,7 +188,7 @@ def test_bind_map_miss_does_not_treat_the_acp_id_as_registered() -> None:
 def test_adapter_map_miss_hands_over_a_pending_native(tmp_path: Path) -> None:
     handoffs = []
     result = build_cursor_adapter(
-        acp_port=FakeAcp(),
+        subprocess_port=FakeTransport(),
         identity_lookup=lambda _conversation_id: None,
         attestation_handoff=lambda launch_id, secret, **kwargs: (
             handoffs.append((launch_id, secret, kwargs)) or True
@@ -218,7 +203,7 @@ def test_adapter_map_miss_hands_over_a_pending_native(tmp_path: Path) -> None:
 
 
 def test_unparseable_identity_fails_closed_with_snippet(tmp_path: Path) -> None:
-    class UnparseableAcp:
+    class UnparseableTransport:
         def new_session(self, request):
             return CursorNativeResult(
                 "native_created",
@@ -226,11 +211,11 @@ def test_unparseable_identity_fails_closed_with_snippet(tmp_path: Path) -> None:
                 duration_ms=25,
             )
 
-        def prompt_session(self, request):
-            raise AssertionError("launch must not prompt")
+        def resume_chat(self, request):
+            raise AssertionError("launch must not resume")
 
     result = build_cursor_adapter(
-        acp_port=UnparseableAcp(),
+        subprocess_port=UnparseableTransport(),
         identity_lookup=lambda _conversation_id: None,
         attestation_handoff=lambda *_args, **_kwargs: True,
         sleeper=lambda _seconds: None,
@@ -241,6 +226,6 @@ def test_unparseable_identity_fails_closed_with_snippet(tmp_path: Path) -> None:
     assert result.native_session_id is None
     assert result.evidence["result_code"] == "identity_parse_failed"
     assert "not-a-session-id" in str(durable["identity_output_snippet"])
-    assert durable["identity_parse_expectation"] == ACP_SESSION_PARSE_EXPECTATION
+    assert durable["identity_parse_expectation"] == CURSOR_SESSION_PARSE_EXPECTATION
     assert ATTESTATION not in repr(result)
     assert ATTESTATION not in repr(durable)

@@ -1,8 +1,8 @@
 """Cursor launch registration proof and failed-create reap.
 
 Registration is proven from the conversation map alone: launch drives its
-one bootstrap prompt through ACP and nothing else, so a map miss never
-triggers a second turn on a second transport.
+one bootstrap prompt and nothing else, so a map miss never triggers a
+second turn against the conversation already running one.
 """
 
 from __future__ import annotations
@@ -25,18 +25,17 @@ LAUNCH_ID = "33333333-3333-4333-8333-333333333333"
 ATTESTATION = "secret-launch-attestation"
 
 
-class FakeAcp:
+class FakeTransport:
     def new_session(self, request):
         return CursorNativeResult(
             "native_created",
             native_session_id=CONVERSATION_ID,
             duration_ms=25,
             phase="spawn",
-            conversation_store="acp",
         )
 
-    def prompt_session(self, request):
-        raise AssertionError("launch must not prompt")
+    def resume_chat(self, request):
+        raise AssertionError("launch must not resume")
 
 
 def _launch(tmp_path: Path) -> RelayExecutionContext:
@@ -62,9 +61,7 @@ def test_a_later_poll_registers_without_any_second_turn(tmp_path: Path) -> None:
 
     result = complete_bound_launch(
         _launch(tmp_path),
-        CursorNativeResult(
-            "native_created", CONVERSATION_ID, duration_ms=10, conversation_store="acp"
-        ),
+        CursorNativeResult("native_created", CONVERSATION_ID, duration_ms=10),
         lambda _conversation_id: next(listings, MAPPED_SESSION_ID),
         lambda launch_id, secret, **kwargs: (
             handoffs.append((launch_id, secret, kwargs)) or True
@@ -76,7 +73,6 @@ def test_a_later_poll_registers_without_any_second_turn(tmp_path: Path) -> None:
     assert result.result_code == "native_created"
     assert result.native_session_id == MAPPED_SESSION_ID
     assert result.evidence["native_launch_phase"] == "native_running"
-    assert result.evidence["conversation_store"] == "acp"
     assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": MAPPED_SESSION_ID})]
 
 
@@ -101,12 +97,7 @@ def test_unproven_registration_hands_over_a_pending_native(tmp_path: Path) -> No
         )
         result = complete_bound_launch(
             _launch(tmp_path),
-            CursorNativeResult(
-                "native_created",
-                CONVERSATION_ID,
-                duration_ms=10,
-                conversation_store="acp",
-            ),
+            CursorNativeResult("native_created", CONVERSATION_ID, duration_ms=10),
             lambda _conversation_id: None,
             lambda launch_id, secret, **kwargs: (
                 handoffs.append((launch_id, secret, kwargs)) or True
@@ -119,8 +110,7 @@ def test_unproven_registration_hands_over_a_pending_native(tmp_path: Path) -> No
         assert result.result_code == "native_created"
         assert result.native_session_id == CONVERSATION_ID
         assert result.evidence["native_launch_phase"] == "registration_pending"
-        assert result.evidence["conversation_store"] == "acp"
-        # The attestation rides the ACP conversation id, which is the id a
+        # The attestation rides the conversation id, which is the id a
         # Cursor session registers under, so a late first hook can still bind.
         assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
         # Custody stays with the sweep, which reaps only past the deadline.
@@ -175,11 +165,11 @@ def test_adapter_spawn_exception_names_the_spawn_phase(tmp_path: Path) -> None:
         def new_session(self, request):
             raise OSError("spawn refused")
 
-        def prompt_session(self, request):
-            raise AssertionError("launch must not prompt")
+        def resume_chat(self, request):
+            raise AssertionError("launch must not resume")
 
     result = build_cursor_adapter(
-        acp_port=Exploding(),
+        subprocess_port=Exploding(),
         identity_lookup=lambda _conversation_id: None,
         attestation_handoff=lambda *_args, **_kwargs: True,
         sleeper=lambda _seconds: None,
@@ -193,7 +183,7 @@ def test_adapter_spawn_exception_names_the_spawn_phase(tmp_path: Path) -> None:
 
 def test_transport_phase_survives_a_mapped_bind(tmp_path: Path) -> None:
     result = build_cursor_adapter(
-        acp_port=FakeAcp(),
+        subprocess_port=FakeTransport(),
         identity_lookup=lambda _conversation_id: MAPPED_SESSION_ID,
         attestation_handoff=lambda *_args, **_kwargs: True,
         sleeper=lambda _seconds: None,
@@ -201,4 +191,3 @@ def test_transport_phase_survives_a_mapped_bind(tmp_path: Path) -> None:
 
     assert result.result_code == "native_created"
     assert result.evidence["native_launch_phase"] == "native_running"
-    assert result.evidence["conversation_store"] == "acp"

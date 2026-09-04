@@ -2,10 +2,10 @@
 
 Cursor's hook payload names a bare model id (``grok-4.6``) that drops the
 effort tier, and a launch's requested model is a request rather than a
-fact — cursor-agent's ACP ``session/new`` accepts a ``model`` parameter and
-silently ignores it, so a session launched at one variant routinely runs at
-the machine default. The variant that actually served the turn is written
-per conversation by Cursor itself:
+fact — cursor-agent refuses a variant outside its own bracket catalog and
+keeps the machine default instead, so a session launched at one variant can
+run at another. The variant that actually served the turn is written per
+conversation by Cursor itself:
 
     ~/.cursor/chats/<md5(workspace)>/<conversation-id>/store.db
     blobs.data contains {"providerOptions":{"cursor":{"modelName":"..."}}}
@@ -38,9 +38,8 @@ CURSOR_CHATS_DIR = Path("~/.cursor/chats")
 # on the whole ``providerOptions`` prefix so a bare ``modelName`` mentioned
 # in transcript text — an agent quoting this very format, which happens —
 # cannot be mistaken for the conversation's own model.
-_MODEL_NAME = re.compile(
-    rb'"providerOptions":\{"cursor":\{"modelName":"([^"]{1,120})"'
-)
+_MODEL_NAME = re.compile(rb'"providerOptions":\{"cursor":\{"modelName":"([^"]{1,120})"')
+
 
 def conversation_store_paths(
     conversation_id: str,

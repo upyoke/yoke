@@ -1,10 +1,10 @@
 """Closed Cursor adapter for relay-owned session creation and wakeup.
 
-Native framing stays behind two small ports.  The relay passes only the
-server-authored bootstrap or check-inbox sentence to either port; launch
-attestation is a separate repr-hidden field and never enters native argv or
-result evidence.  Until an installed Cursor build proves an exact framing,
-the public default adapter fails closed without starting a process.
+Native framing stays behind one small port.  The relay passes only the
+server-authored bootstrap or check-inbox sentence to it; launch attestation
+is a separate repr-hidden field and never enters native argv or result
+evidence.  Until an installed Cursor build proves an exact framing, the
+public default adapter fails closed without starting a process.
 """
 
 from __future__ import annotations
@@ -69,10 +69,6 @@ class CursorNativeResult:
     identity_output_snippet: str | None = field(default=None, repr=False)
     identity_parse_expectation: str | None = field(default=None, repr=False)
     phase: str | None = None
-    # Which store the conversation lives in ("acp" — the only transport a
-    # launch creates through). Recorded so a later resume knows what to
-    # look for instead of guessing across transports.
-    conversation_store: str | None = None
     # What the native wrote to stderr before it failed. Never reported over
     # the relay wire; the serve loop retains it machine-locally and reports
     # only an opaque reference.
@@ -85,17 +81,11 @@ class CursorNativeResult:
 
 
 class CursorSubprocessPort(Protocol):
-    """Stopped-session resume. Print-mode create is absent; launches use ACP."""
-
-    def resume_chat(self, request: CursorWakeRequest) -> CursorNativeResult: ...
-
-
-class CursorAcpPort(Protocol):
-    """Proven ACP session/new and caller-owned idle-session operations."""
+    """One print-mode turn at an exact conversation id: create or resume."""
 
     def new_session(self, request: CursorCreateRequest) -> CursorNativeResult: ...
 
-    def prompt_session(self, request: CursorWakeRequest) -> CursorNativeResult: ...
+    def resume_chat(self, request: CursorWakeRequest) -> CursorNativeResult: ...
 
 
 def _result(
@@ -189,25 +179,28 @@ def _wake_result(native: CursorNativeResult) -> RelayAdapterResult:
 def build_cursor_adapter(
     *,
     subprocess_port: CursorSubprocessPort | None = None,
-    acp_port: CursorAcpPort | None = None,
     version_gate: SurfaceVersionGate = _contract_version_gate,
     identity_lookup: ConversationLookup | None = None,
     attestation_handoff: LaunchAttestationHandoff | None = None,
     sleeper: Callable[[float], None] = time.sleep,
 ) -> RelayAdapter:
-    """Build one adapter over injected, version-pinned native transports.
+    """Build one adapter over an injected, version-pinned native transport.
 
-    Launch goes only to ``acp_port``: the ACP child stays a child of the
-    process that started it, so an exchange that cannot finish takes the
-    native down with it rather than leaving one running unattended.
-    After create, the adapter binds the conversation-map session and
-    stages the attestation sidecar under that id.
+    Every route is one print-mode turn against an exact conversation id: a
+    create mints the id and starts the launch's bootstrap on it, and a wake
+    resumes an existing one. After create, the adapter binds the
+    conversation-map session and stages the attestation sidecar under that id.
     """
 
     def adapter(context: RelayExecutionContext) -> RelayAdapterResult:
         refused = _validated(context, version_gate)
         if refused is not None:
             return refused
+        if subprocess_port is None:
+            code = "not_created" if context.job_kind == "launch" else "failed"
+            return _result(
+                code, native=CursorNativeResult("native_framing_unavailable")
+            )
         if context.job_kind == "launch":
             request = CursorCreateRequest(
                 checkout=context.checkout,
@@ -217,13 +210,8 @@ def build_cursor_adapter(
                 launch_attestation=str(context.launch_attestation),
                 requested_model=cursor_model_selector(context),
             )
-            if acp_port is None:
-                return _result(
-                    "not_created",
-                    native=CursorNativeResult("native_framing_unavailable"),
-                )
             try:
-                native = acp_port.new_session(request)
+                native = subprocess_port.new_session(request)
             except Exception:
                 return _result(
                     "outcome_unknown",
@@ -256,24 +244,6 @@ def build_cursor_adapter(
             attempt_id=str(context.job_id),
             lease_id=str(context.lease_id),
         )
-        operation = wake_operation(request.wake_mode, request.target_liveness)
-        if operation == "message_idle":
-            if acp_port is None:
-                return _result(
-                    "failed", native=CursorNativeResult("native_framing_unavailable")
-                )
-            try:
-                idle = acp_port.prompt_session(request)
-            except Exception:
-                return _result("outcome_unknown")
-            # ACP session/load is authoritative here: "not_found" means the
-            # store is gone, not a cue to let another transport recreate a
-            # competing conversation under the same id.
-            return _wake_result(idle)
-        if subprocess_port is None:
-            return _result(
-                "failed", native=CursorNativeResult("native_framing_unavailable")
-            )
         try:
             return _wake_result(subprocess_port.resume_chat(request))
         except Exception:
@@ -291,7 +261,6 @@ cursor_relay_adapter: Callable[[RelayExecutionContext], RelayAdapterResult] = (
 __all__ = [
     "CURSOR_ADAPTER_REVISION",
     "CURSOR_CLI_SURFACE",
-    "CursorAcpPort",
     "CursorCreateRequest",
     "CursorNativeResult",
     "CursorSubprocessPort",

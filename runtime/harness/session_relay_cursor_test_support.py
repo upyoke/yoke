@@ -1,4 +1,4 @@
-"""Shared scaffolding for the cursor CLI transport's supervised-resume tests.
+"""Shared scaffolding for the cursor CLI transport's supervised-turn tests.
 
 A supervised spawn writes a custody record and a capture on the machine that
 starts it, so tests that only care about the native's own command line keep
@@ -12,6 +12,10 @@ from pathlib import Path
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness.session_relay_cursor import CursorCreateRequest, CursorWakeRequest
+from yoke_harness.session_relay_native_capture_format import (
+    STATE_RUNNING,
+    compose_capture,
+)
 
 
 ATTEMPT_ID = "33333333-3333-4333-8333-333333333333"
@@ -26,8 +30,18 @@ class RunningProcess:
 
 
 def local_supervision(monkeypatch, tmp_path: Path) -> None:
-    """Keep the supervised spawn's custody and capture inside the test tree."""
+    """Keep the supervised spawn's custody and capture inside the test tree.
+
+    The capture is written as a still-running native, because a create reads
+    it for an exited one and would otherwise wait out its whole
+    fast-failure window against a file the faked supervisor never writes.
+    """
     from yoke_harness import session_relay_native_spawn as spawn_module
+
+    def capture_path(reference, **_options):
+        path = tmp_path / f"{reference}.capture"
+        path.write_bytes(compose_capture(stdout=b"", stderr=b"", state=STATE_RUNNING))
+        return path
 
     monkeypatch.setattr(
         spawn_module, "record_supervised_native", lambda *_a, **_k: True
@@ -35,11 +49,7 @@ def local_supervision(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         spawn_module, "cleanup_native_diagnostics", lambda *_a, **_k: None
     )
-    monkeypatch.setattr(
-        spawn_module,
-        "native_diagnostic_path",
-        lambda reference, **_options: tmp_path / f"{reference}.capture",
-    )
+    monkeypatch.setattr(spawn_module, "native_diagnostic_path", capture_path)
 
 
 def native_argv(command: list[str]) -> list[str]:

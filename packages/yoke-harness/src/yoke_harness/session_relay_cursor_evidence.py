@@ -55,9 +55,6 @@ def cursor_evidence(
     phase = getattr(native, "phase", None)
     if phase:
         evidence["native_launch_phase"] = phase
-    store = getattr(native, "conversation_store", None)
-    if store:
-        evidence["conversation_store"] = store
     return evidence
 
 

@@ -23,13 +23,9 @@ this repository supports:
   (``approvalPolicy`` plus the sandbox mode, which ``turn/start`` spells as a
   tagged policy object). Hook-trust bypass is confined to relay automation;
   project install owns persisted trust for operator-opened sessions.
-* ``cursor`` — the CLI resume route takes ``--force`` (auto-approve commands)
-  alongside the ``--trust`` it already passes. The ACP launch route has no
-  flag to pass: ``cursor-agent acp`` accepts none, and the relay itself
-  answers every ``session/request_permission`` and owns the terminals the
-  agent runs commands in, so that route is already unattended by
-  construction. :data:`CURSOR_ACP_BYPASS_IS_RELAY_ANSWERED` records that as a
-  designed answer rather than a silent gap.
+* ``cursor`` — the CLI takes ``--force`` (auto-approve commands) alongside
+  the ``--trust`` it already passes, on the create and the resume alike,
+  since each is one relay-owned print-mode process carrying its own flags.
 
 An interactive session a *person* opens takes none of those flags: it reads
 whatever the harness has persisted on the machine, and every harness ships
@@ -81,7 +77,6 @@ CODEX_SANDBOX_MODE = "danger-full-access"
 CODEX_TURN_SANDBOX_POLICY: dict[str, str] = {"type": "dangerFullAccess"}
 
 CURSOR_CLI_BYPASS_ARGUMENTS: tuple[str, ...] = ("--force",)
-CURSOR_ACP_BYPASS_IS_RELAY_ANSWERED = True
 
 # --- persistent projection: what each harness's own config must say ---
 
@@ -143,7 +138,6 @@ __all__ = [
     "CODEX_SANDBOX_MODE",
     "CODEX_SANDBOX_MODE_KEY",
     "CODEX_TURN_SANDBOX_POLICY",
-    "CURSOR_ACP_BYPASS_IS_RELAY_ANSWERED",
     "CURSOR_APPROVAL_MODE",
     "CURSOR_APPROVAL_MODE_KEY",
     "CURSOR_CLI_BYPASS_ARGUMENTS",
