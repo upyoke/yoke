@@ -140,13 +140,10 @@ def post_hook_observation_batch(
             "YOKE_HOOK_OBSERVATION_BATCH_FAILED",
             f"observation batch was retained for retry ({type(exc).__name__})",
         )
-    return JSONResponse(
-        content={
-            "hook_schema": 1,
-            "accepted": accepted,
-            HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD: model_confirmations,
-        }
-    )
+    response: dict[str, Any] = {"hook_schema": 1, "accepted": accepted}
+    if model_confirmations:
+        response[HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD] = model_confirmations
+    return JSONResponse(content=response)
 
 
 __all__ = ["router"]
