@@ -31,22 +31,22 @@ def _ready(machine_id: str, surface: str = "codex-cli") -> SurfaceReadiness:
 
 def _count(machine_id: str, count: int) -> SessionCount:
     return SessionCount(
-        machine_id,
-        "codex-cli",
-        count,
-        "gpt-5.6-sol",
-        "high",
-        None,
-        "gpt-5.6-sol",
-        "high",
-        None,
+        machine_id=machine_id,
+        surface="codex-cli",
+        count=count,
+        requested_model="gpt-5.6-sol",
+        requested_reasoning_effort="high",
+        requested_context_window_tokens=None,
+        model="gpt-5.6-sol",
+        reasoning_effort="high",
+        context_window_tokens=None,
     )
 
 
 def _limit(machine_id: str) -> MachinePlanLimit:
     return MachinePlanLimit(
         machine_id=machine_id,
-        hostname="host-a",
+        machine_name="host-a",
         surface="codex-cli",
         plan_tier="pro",
         window_kind="monthly",

@@ -33,11 +33,11 @@ from yoke_core.domain.session_launch_store import marker
 
 
 def launch_requested_facts(launch: LaunchRecord) -> SessionModelFacts:
-    """Return only the launch's explicit typed request fields."""
+    """Return the effective typed selection the launch carried."""
     return SessionModelFacts(
-        requested_model=launch.requested_model,
-        requested_reasoning_effort=launch.requested_reasoning_effort,
-        requested_context_window_tokens=launch.requested_context_window_tokens,
+        requested_model=launch.resolved_model,
+        requested_reasoning_effort=launch.resolved_reasoning_effort,
+        requested_context_window_tokens=launch.resolved_context_window_tokens,
     )
 
 

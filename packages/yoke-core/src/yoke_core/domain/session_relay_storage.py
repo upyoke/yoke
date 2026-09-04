@@ -72,12 +72,16 @@ def heartbeat_relay(
     capacity = json_helper.dumps_compact(dict(heartbeat.machine_capacity))
     preferred = json_helper.dumps_compact(dict(heartbeat.preferred_session_models))
     health = json_helper.dumps_compact(dict(heartbeat.relay_health))
+    preferred_efforts = json_helper.dumps_compact(
+        dict(heartbeat.preferred_session_reasoning_efforts)
+    )
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
-        "machine_capacity,preferred_session_models,relay_health) "
-        f"VALUES ({','.join(p for _ in range(15))}) "
+        "machine_capacity,preferred_session_models,relay_health,"
+        "preferred_session_reasoning_efforts) "
+        f"VALUES ({','.join(p for _ in range(16))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
@@ -88,7 +92,9 @@ def heartbeat_relay(
         "surface_plan_limits=excluded.surface_plan_limits,"
         "machine_capacity=excluded.machine_capacity,"
         "preferred_session_models=excluded.preferred_session_models,"
-        "relay_health=excluded.relay_health",
+        "relay_health=excluded.relay_health,"
+        "preferred_session_reasoning_efforts="
+        "excluded.preferred_session_reasoning_efforts",
         (
             heartbeat.relay_id,
             heartbeat.actor_id,
@@ -105,6 +111,7 @@ def heartbeat_relay(
             capacity,
             preferred,
             health,
+            preferred_efforts,
         ),
     )
     from yoke_core.domain.session_relay_health_events import (

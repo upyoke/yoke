@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_idempotency import deduplicated_outcome
-from yoke_core.domain.session_launch_machine_models import resolve_machine_model
+from yoke_core.domain.session_launch_machine_models import resolve_machine_selection
 from yoke_core.domain import session_launch_native_progress as native_progress
 from yoke_core.domain.session_launch_request_storage import insert_launch_request
 from yoke_core.domain.session_launch_surface_selection import preview_launch
@@ -32,7 +32,6 @@ from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     LaunchCreateOutcome,
     LaunchEligibilityPort,
-    LaunchPreview,
     LaunchRecord,
     LaunchRequest,
     MAX_LAUNCH_DEADLINE_SECONDS,
@@ -244,17 +243,22 @@ def retry_launch(
         )
         relay = preview.selected_relay
         assert relay is not None
+        resolved = resolve_machine_selection(
+            conn,
+            requested_model=launch.requested_model,
+            requested_reasoning_effort=launch.requested_reasoning_effort,
+            requested_context_window_tokens=(launch.requested_context_window_tokens),
+            machine_id=relay.machine_id,
+            surface=relay.surface,
+        )
         result = update_launch(
             conn,
             launch_id,
             state="assigned",
             selected_surface=relay.surface,
-            resolved_model=resolve_machine_model(
-                conn,
-                requested_model=launch.requested_model,
-                machine_id=relay.machine_id,
-                surface=relay.surface,
-            ).model,
+            resolved_model=resolved.model,
+            resolved_reasoning_effort=resolved.reasoning_effort,
+            resolved_context_window_tokens=resolved.context_window_tokens,
             assigned_relay_id=relay.relay_id,
             assigned_machine_id=relay.machine_id,
             placement_reason=preview.placement_reason,

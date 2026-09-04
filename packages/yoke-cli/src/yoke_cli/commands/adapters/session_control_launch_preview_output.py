@@ -46,20 +46,33 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
     selected = result.get("selected_relay")
     selected_row = selected if isinstance(selected, Mapping) else {}
     requested_model = result.get("requested_model")
-    # What the launch would carry, which is what registration verifies. A
-    # payload that names no resolved model falls back to the caller's ask.
+    requested_effort = result.get("requested_reasoning_effort")
+    requested_context = result.get("requested_context_window_tokens")
+    # What the launch would carry is what registration verifies. Older
+    # responses without resolved fields fall back to the caller's ask.
     carried_model = result.get("model") or requested_model
+    carried_effort = result.get("reasoning_effort") or requested_effort
+    carried_context = result.get("context_window_tokens") or requested_context
+    carries_selection = any(
+        value is not None for value in (carried_model, carried_effort, carried_context)
+    )
     write_summary(
         "LAUNCH PREVIEW",
         [
             ("Outcome", humanize(result.get("outcome"))),
             ("Requested surface", result.get("requested_surface")),
             ("Requested model", requested_model),
+            ("Requested effort", requested_effort),
+            ("Requested context tokens", requested_context),
             ("Model this launch would carry", carried_model),
             ("Model decided by", result.get("model_source")),
+            ("Effort this launch would carry", carried_effort),
+            ("Effort decided by", result.get("reasoning_effort_source")),
+            ("Context tokens this launch would carry", carried_context),
+            ("Context decided by", result.get("context_window_source")),
             (
-                "Model verification",
-                "at session registration" if carried_model else "not requested",
+                "Selection verification",
+                "at session registration" if carries_selection else "not requested",
             ),
             ("Selected surface", result.get("selected_surface")),
             ("Fallback used", bool(result.get("fallback_used"))),

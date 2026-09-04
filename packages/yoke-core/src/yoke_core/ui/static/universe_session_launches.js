@@ -119,6 +119,13 @@ function appendAction(documentNode, actions, label, disabled, invoke) {
   actions.appendChild(button);
 }
 
+function selectionLabels(row, emptyModel) {
+  return [
+    displaySessionModel(row, emptyModel),
+    ...sessionModelFactTags(row).map((fact) => fact.label),
+  ];
+}
+
 function launchCard(documentNode, launch, mutate) {
   const card = el(documentNode, "article", "panel session-launch-card");
   card.setAttribute("data-launch-id", String(launch.launch_id || ""));
@@ -137,15 +144,23 @@ function launchCard(documentNode, launch, mutate) {
     "fact-line",
     `${launch.requested_surface || "unknown surface"} requested · ${launch.selected_surface || "unselected"} selected · ${launch.assigned_machine_id || "unassigned"}`,
   ));
-  const requestedSelection = [
-    displaySessionModel(launch, "vendor model default"),
-    ...sessionModelFactTags(launch).map((fact) => fact.label),
-  ];
+  const explicitSelection = selectionLabels(launch, "vendor defaults requested");
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-launch-model-request",
+    `Explicit request · ${explicitSelection.join(" · ")}`,
+  ));
+  const effectiveSelection = selectionLabels({
+    model: launch.resolved_model,
+    reasoning_effort: launch.resolved_reasoning_effort,
+    context_window_tokens: launch.resolved_context_window_tokens,
+  }, "vendor model default");
   body.appendChild(el(
     documentNode,
     "p",
     "fact-line session-launch-model-selection",
-    `Requested selection · ${requestedSelection.join(" · ")}`,
+    `Effective launch selection · ${effectiveSelection.join(" · ")}`,
   ));
   if (
     launch.selected_surface

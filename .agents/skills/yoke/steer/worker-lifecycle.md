@@ -139,30 +139,18 @@ new `session_control.launch.create`.
 Resolve each knob independently: its explicit launch flag > the value
 advertised by the machine the launch was placed on > the vendor default. The
 target machine owns these defaults because it owns the provider account and
-installed models; this seat's config never decides a session running
-elsewhere. Context is encoded in that machine's scalar model selector and
-effort comes from its additive reasoning-effort map. Blank values are unset.
-
-Override per item when the work warrants — a heavier model or effort for
-architecture, migration, or high-risk items; a faster selection for
-mechanical or copy-level dashes. Preview shows the raw request and effective
-selection with its source. The launch retains both, and the session later
-shows the effective ask beside provider-attested served facts. `--list-models`
-reports THIS machine's maps; preview a launch to read another machine's
-defaults.
-
-Only pass combinations the chosen CLI can encode. Claude accepts model,
-effort, and the 1M context tier; Codex accepts model and effort but no
-explicit context window; Cursor accepts all three in its parameterized model
-selector. Preview refuses an unsupported knob with a harness-specific code.
-If the provider rejects a combination after preview, the launch reads
-`model_combo_unsupported` with its bounded CLI detail: choose another
-listed combination and create a new launch. Never remove flags and silently
-fall back to vendor defaults.
-
-```text
-yoke session-control launch preview --project {_project} --surface {_surface} --list-models
-```
+installed models, never this seat's config. Context uses that machine's scalar
+`preferred_session_models` selector and effort uses its additive
+`preferred_session_reasoning_efforts` map. Blank values are unset.
+Override per item when risk warrants. Preview shows the raw request and its
+effective selection; the launch retains both, and the session shows the ask
+beside served facts. `--list-models` reports local maps; preview reads remote defaults.
+Claude accepts model, effort, and the 1M context tier; Codex accepts model and
+effort but no explicit context window; Cursor accepts all three in its
+parameterized model selector. Preview refuses unsupported knobs with a
+harness-specific code. A provider rejection becomes `model_combo_unsupported`
+with bounded CLI detail: choose another listed combination and create a new
+launch. Never remove flags and silently fall back to vendor defaults.
 
 ## 8. Tell a worker to survey a neighbour lane with Git, not prose
 

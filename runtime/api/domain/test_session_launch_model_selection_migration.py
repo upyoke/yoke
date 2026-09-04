@@ -8,7 +8,7 @@ import sqlite3
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE, declared_minimum
 
 
-ENTRY_NAME = "0037_session_launch_model_selection"
+ENTRY_NAME = "0038_session_launch_model_selection"
 
 
 def _entry():
@@ -26,6 +26,7 @@ def test_apply_is_idempotent_and_preserves_existing_launches() -> None:
         "CREATE TABLE session_launches ("
         "launch_id TEXT PRIMARY KEY, state TEXT NOT NULL)"
     )
+    conn.execute("CREATE TABLE session_relays (relay_id TEXT PRIMARY KEY)")
     conn.execute("INSERT INTO session_launches VALUES ('launch-1', 'launching')")
 
     entry.apply(conn)
@@ -37,10 +38,17 @@ def test_apply_is_idempotent_and_preserves_existing_launches() -> None:
     }
     assert columns["requested_reasoning_effort"] == "TEXT"
     assert columns["requested_context_window_tokens"] == "INTEGER"
+    assert columns["resolved_reasoning_effort"] == "TEXT"
+    assert columns["resolved_context_window_tokens"] == "INTEGER"
+    relay_columns = {
+        row[1]: row[2] for row in conn.execute("PRAGMA table_info(session_relays)")
+    }
+    assert relay_columns["preferred_session_reasoning_efforts"] == "TEXT"
     assert conn.execute(
         "SELECT launch_id, state, requested_reasoning_effort, "
-        "requested_context_window_tokens FROM session_launches"
-    ).fetchall() == [("launch-1", "launching", None, None)]
+        "requested_context_window_tokens, resolved_reasoning_effort, "
+        "resolved_context_window_tokens FROM session_launches"
+    ).fetchall() == [("launch-1", "launching", None, None, None, None)]
 
 
 def test_apply_is_a_noop_when_launch_table_is_absent() -> None:

@@ -16,6 +16,9 @@ from yoke_cli.commands.adapters.session_control_common import (
     read_stdin_payload,
     write_launch_result,
 )
+from yoke_cli.commands.adapters.session_control_launch_selection import (
+    selector_payload,
+)
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import LaunchState
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
@@ -88,44 +91,6 @@ def _maybe_list_models(args: List[str]) -> int | None:
     return 0
 
 
-def _preview_payload(parsed: argparse.Namespace) -> dict[str, Any]:
-    """Send only what the caller asked for.
-
-    Unnamed selection fields stay unnamed: the control plane resolves defaults
-    against the machine that will actually run the session.
-    """
-    payload: dict[str, Any] = {
-        "project": parsed.project,
-        "executor_surface": parsed.executor_surface,
-        "allow_surface_fallback": parsed.allow_surface_fallback,
-    }
-    machine_id = getattr(parsed, "machine_id", None)
-    if machine_id:
-        payload["machine_id"] = machine_id
-    model = str(getattr(parsed, "model", None) or "").strip()
-    if model:
-        payload["model"] = model
-    effort = str(getattr(parsed, "reasoning_effort", None) or "").strip().lower()
-    if effort:
-        payload["reasoning_effort"] = effort
-    context = getattr(parsed, "context_window_tokens", None)
-    if context is not None:
-        payload["context_window_tokens"] = context
-    return payload
-
-
-def _selector_payload(parsed: argparse.Namespace) -> dict[str, Any] | None:
-    from yoke_contracts.session_control.model_selection import (
-        LaunchModelSelectionError,
-    )
-
-    try:
-        return _preview_payload(parsed)
-    except LaunchModelSelectionError as exc:
-        usage_error(f"{exc.code}: {exc}")
-        return None
-
-
 def _dispatch_launch(
     parsed: argparse.Namespace,
     *,
@@ -158,7 +123,7 @@ def session_launch_preview(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, LAUNCH_PREVIEW_USAGE)
     if parsed is None:
         return 2
-    payload = _selector_payload(parsed)
+    payload = selector_payload(parsed)
     if payload is None:
         return 2
     return _dispatch_launch(
@@ -214,7 +179,7 @@ def _create(args: List[str], *, alias: bool) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    selector = _selector_payload(parsed)
+    selector = selector_payload(parsed)
     if selector is None:
         return 2
     if alias and parsed.preview:

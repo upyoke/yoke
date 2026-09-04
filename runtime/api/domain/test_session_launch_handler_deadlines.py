@@ -199,6 +199,12 @@ def test_preview_places_an_unpinned_launch_and_names_the_reason(
     assert result.result_payload["requested_reasoning_effort"] == "xhigh"
     assert result.result_payload["model"] == "gpt-5.6-sol"
     assert result.result_payload["model_source"] == "explicit launch request"
+    assert result.result_payload["reasoning_effort"] == "xhigh"
+    assert result.result_payload["reasoning_effort_source"] == (
+        "explicit launch request"
+    )
+    assert result.result_payload["context_window_tokens"] is None
+    assert result.result_payload["context_window_source"] == "vendor default"
     assert result.result_payload["selected_relay"]["machine_id"] == "machine-a"
     assert result.result_payload["placement_reason"]
 

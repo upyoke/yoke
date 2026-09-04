@@ -12,12 +12,9 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.session_control.models import (
     LaunchCreateRequest,
     LaunchListRequest,
-    LaunchListResponse,
     LaunchMutationRequest,
     LaunchPreviewRequest,
-    LaunchPreviewResponse,
     LaunchReconcileRequest,
-    LaunchResponse,
 )
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
@@ -130,7 +127,7 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(parsed, HandlerOutcome):
         return parsed
     from yoke_core.domain.session_launch_machine_models import (
-        resolve_machine_model,
+        resolve_machine_selection,
     )
     from yoke_core.domain.session_launch_requests import preview_launch
 
@@ -156,12 +153,12 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
         payload = preview.to_dict()
         payload.update(preview_model_selection_payload(selection))
         relay = preview.selected_relay
-        # A preview that names a machine can also name the model a launch
-        # there would carry, because the default belongs to that machine.
         payload.update(
-            resolve_machine_model(
+            resolve_machine_selection(
                 conn,
                 requested_model=parsed.model,
+                requested_reasoning_effort=parsed.reasoning_effort,
+                requested_context_window_tokens=parsed.context_window_tokens,
                 machine_id=relay.machine_id if relay else None,
                 surface=relay.surface if relay else parsed.executor_surface,
             ).to_dict()
@@ -337,10 +334,6 @@ def handle_launch_reconcile(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "LaunchListRequest",
-    "LaunchListResponse",
-    "LaunchPreviewResponse",
-    "LaunchResponse",
     "handle_launch_cancel",
     "handle_launch_create",
     "handle_launch_get",

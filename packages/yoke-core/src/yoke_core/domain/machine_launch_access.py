@@ -50,7 +50,7 @@ def filter_by_machine_access(
     details = tuple(sorted(set(snapshot.rejection_details) | set(reasons.values())))
     return (
         EligibilitySnapshot(
-            tuple(kept),
+            relays=tuple(kept),
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=codes,
             machine_capacity=snapshot.machine_capacity,

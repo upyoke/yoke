@@ -5,7 +5,6 @@ import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/stat
 import {
   FakeDocument,
   allNodes,
-  byClass,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -20,6 +19,13 @@ function button(root, label) {
   return allNodes(root).find(
     (node) => node.tagName === "BUTTON" && node.textContent === label,
   );
+}
+
+
+function control(root, label) {
+  return allNodes(root).find(
+    (node) => node.tagName === "LABEL" && node.children[0]?.textContent === label,
+  )?.children[1];
 }
 
 
@@ -70,19 +76,20 @@ test("launch dialog previews and creates one explicit model selection", async (t
     },
   };
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions/launches?project=1";
+  documentNode.defaultView.location.hash = "#/machines?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
   button(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
-  const inputs = byClass(root, "session-control-input");
-  inputs[1].value = "YOK-1";
-  inputs[4].value = "claude-opus-4-8";
-  inputs[5].value = "max";
-  inputs[6].value = "1000000";
-  inputs[7].value = "Run the bounded task.";
+  control(root, "Work item").value = "YOK-1";
+  control(root, "Requested model (verified after launch)").value =
+    "claude-opus-4-8";
+  control(root, "Requested reasoning effort").value = "max";
+  control(root, "Requested context window (tokens)").value = "1000000";
+  control(root, "Optional extras after the composed mandate").value =
+    "Run the bounded task.";
   button(root, "Preview launch").dispatchEvent(new Event("click"));
   await settle();
 
@@ -93,7 +100,9 @@ test("launch dialog previews and creates one explicit model selection", async (t
   assert.equal(preview.payload.reasoning_effort, "max");
   assert.equal(preview.payload.context_window_tokens, 1_000_000);
   assert.match(
-    byClass(root, "session-control-status").at(-1).textContent,
+    allNodes(root).filter(
+      (node) => node.classList.contains("session-control-status"),
+    ).at(-1).textContent,
     /served facts settle independently/,
   );
 

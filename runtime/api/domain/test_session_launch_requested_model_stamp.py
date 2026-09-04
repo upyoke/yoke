@@ -37,9 +37,19 @@ def _registered_launch(
     model: str | None,
     reasoning_effort: str | None = None,
     context_window_tokens: int | None = None,
+    preferred_model: str | None = None,
+    preferred_effort: str | None = None,
 ):
     """Run one launch up to the moment its native session registers."""
-    add_relay(conn, surface=surface, version=version)
+    add_relay(
+        conn,
+        surface=surface,
+        version=version,
+        preferred_models={surface: preferred_model} if preferred_model else None,
+        preferred_reasoning_efforts=(
+            {surface: preferred_effort} if preferred_effort else None
+        ),
+    )
     launch = assigned_launch(
         conn,
         surface=surface,
@@ -99,6 +109,8 @@ def _bind(
     model: str | None,
     reasoning_effort: str | None = None,
     context_window_tokens: int | None = None,
+    preferred_model: str | None = None,
+    preferred_effort: str | None = None,
     **stated,
 ) -> dict:
     launch, claim = _registered_launch(
@@ -108,6 +120,8 @@ def _bind(
         model=model,
         reasoning_effort=reasoning_effort,
         context_window_tokens=context_window_tokens,
+        preferred_model=preferred_model,
+        preferred_effort=preferred_effort,
     )
     _register_session(conn, surface=surface, version=version, **stated)
     prepare_launch_registration(
@@ -130,6 +144,25 @@ def test_claude_binding_stamps_every_supported_requested_knob() -> None:
         model="claude-opus-4-8",
         reasoning_effort="max",
         context_window_tokens=CLAUDE_CONTEXT_TIER_TOKENS,
+    )
+
+    assert facts["requested_model"] == "claude-opus-4-8"
+    assert facts["requested_reasoning_effort"] == "max"
+    assert facts["requested_context_window_tokens"] == CLAUDE_CONTEXT_TIER_TOKENS
+
+
+def test_binding_stamps_the_selected_machines_defaults_when_the_request_is_blank() -> (
+    None
+):
+    conn = launch_connection()
+
+    facts = _bind(
+        conn,
+        surface="claude-cli",
+        version="2.1.259",
+        model=None,
+        preferred_model="claude-opus-4-8[1m]",
+        preferred_effort="max",
     )
 
     assert facts["requested_model"] == "claude-opus-4-8"

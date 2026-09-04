@@ -66,7 +66,15 @@ def test_launch_preview_names_the_machine_that_decided_an_unasked_model() -> Non
             "requested_surface": "codex-cli",
             "requested_model": None,
             "model": "gpt-5.6-sol",
+            "reasoning_effort": "xhigh",
+            "context_window_tokens": 1_000_000,
             "model_source": "machine-roomy preferred_session_models.codex-cli",
+            "reasoning_effort_source": (
+                "machine-roomy preferred_session_reasoning_efforts.codex-cli"
+            ),
+            "context_window_source": (
+                "machine-roomy preferred_session_models.codex-cli"
+            ),
             "selected_surface": "codex-cli",
             "launchable": True,
             "eligible_relays": [],
@@ -92,6 +100,11 @@ def test_launch_preview_names_the_machine_that_decided_an_unasked_model() -> Non
     assert "Model this launch would carry" in rendered
     assert "gpt-5.6-sol" in rendered
     assert "machine-roomy preferred_session_models.codex-cli" in rendered
+    assert "Effort this launch would carry" in rendered
+    assert "xhigh" in rendered
+    assert "machine-roomy preferred_session_reasoning_efforts.codex-cli" in rendered
+    assert "Context tokens this launch would carry" in rendered
+    assert "1000000" in rendered
     assert "at session registration" in rendered
     assert "MACHINES WEIGHED" in rendered
     assert "240% (rolling 5h · all models)" in rendered

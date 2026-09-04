@@ -25,7 +25,8 @@ LAUNCH_COLUMNS = (
     "registered_session_id, deadline_at, created_at, assigned_at, launching_at, "
     "awaiting_registration_at, completed_at, result_code, result_evidence, origin, "
     "native_launch_pid, native_launch_phase, native_launch_observed_at, "
-    "spawn_duration_ms, spawn_hold_reason, placement_reason, resolved_model"
+    "spawn_duration_ms, spawn_hold_reason, placement_reason, resolved_model, "
+    "resolved_reasoning_effort, resolved_context_window_tokens"
 )
 _MUTABLE_LAUNCH_COLUMNS = frozenset(
     {
@@ -51,6 +52,8 @@ _MUTABLE_LAUNCH_COLUMNS = frozenset(
         "spawn_hold_reason",
         "placement_reason",
         "resolved_model",
+        "resolved_reasoning_effort",
+        "resolved_context_window_tokens",
     }
 )
 
@@ -145,6 +148,8 @@ def row_to_launch(row: Any) -> LaunchRecord:
         spawn_hold_reason=value(row, "spawn_hold_reason", 35),
         placement_reason=value(row, "placement_reason", 36),
         resolved_model=value(row, "resolved_model", 37),
+        resolved_reasoning_effort=value(row, "resolved_reasoning_effort", 38),
+        resolved_context_window_tokens=value(row, "resolved_context_window_tokens", 39),
     )
 
 

@@ -84,15 +84,15 @@ def test_worked_target_headroom_matches_format_ruling() -> None:
 
 def test_plan_limit_lines_match_worked_target_table() -> None:
     count = SessionCount(
-        "machine-1",
-        "claude-cli",
-        2,
-        "claude-opus-4-6",
-        "max",
-        1_000_000,
-        "claude-opus-4-6",
-        "max",
-        1_000_000,
+        machine_id="machine-1",
+        surface="claude-cli",
+        count=2,
+        requested_model="claude-opus-4-6",
+        requested_reasoning_effort="max",
+        requested_context_window_tokens=1_000_000,
+        model="claude-opus-4-6",
+        reasoning_effort="max",
+        context_window_tokens=1_000_000,
     )
     lines = plan_limit_lines(
         (

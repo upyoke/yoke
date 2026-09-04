@@ -142,7 +142,7 @@ def test_placement_refuses_by_name_when_no_candidate_is_usable() -> None:
     preview = place_launch(
         conn,
         snapshot=EligibilitySnapshot(
-            snapshot_preview.eligible_relays,
+            relays=snapshot_preview.eligible_relays,
             considered_machine_ids=("machine-a",),
         ),
         surface=SURFACE,

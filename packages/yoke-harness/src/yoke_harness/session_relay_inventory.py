@@ -13,6 +13,7 @@ from yoke_contracts.machine_config.machine_capacity import observe_machine_capac
 from yoke_contracts.machine_config.machine_name import machine_display_name
 from yoke_contracts.machine_config.preferred_session_models import (
     preferred_session_models,
+    preferred_session_reasoning_efforts,
 )
 from yoke_contracts.machine_config.runtime import (
     ensure_machine_id,
@@ -47,6 +48,7 @@ class RelayInventory:
     machine_capacity: dict[str, object] = field(default_factory=dict)
     preferred_session_models: dict[str, str] = field(default_factory=dict)
     relay_health: dict[str, object] = field(default_factory=dict)
+    preferred_session_reasoning_efforts: dict[str, str] = field(default_factory=dict)
 
     def claim_payload(
         self,
@@ -66,6 +68,9 @@ class RelayInventory:
             "capacity": dict(self.machine_capacity),
             "preferred_models": dict(self.preferred_session_models),
             "health": dict(self.relay_health),
+            "preferred_reasoning_efforts": dict(
+                self.preferred_session_reasoning_efforts
+            ),
         }
         if wait_seconds is not None:
             payload["wait_seconds"] = wait_seconds
@@ -116,6 +121,7 @@ def _inventory(
         read_settings(),
         observed_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
+    config = load_config()
     return RelayInventory(
         relay_id=f"machine:{machine_id}",
         machine_id=machine_id,
@@ -128,8 +134,9 @@ def _inventory(
         # This machine's own preferred models travel with the heartbeat so a
         # launch placed here resolves the default this machine named, not the
         # one configured on whichever machine asked for the launch.
-        preferred_session_models=preferred_session_models(load_config()),
+        preferred_session_models=preferred_session_models(config),
         relay_health=observe_relay_health(state_dir),
+        preferred_session_reasoning_efforts=preferred_session_reasoning_efforts(config),
     )
 
 

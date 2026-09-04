@@ -28,6 +28,8 @@ _PUBLIC_FIELDS = (
     "assigned_machine_id",
     "placement_reason",
     "resolved_model",
+    "resolved_reasoning_effort",
+    "resolved_context_window_tokens",
     "native_session_id",
     "attestation_consumed_at",
     "registered_session_id",

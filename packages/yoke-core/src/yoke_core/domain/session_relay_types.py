@@ -48,6 +48,7 @@ class RelayHeartbeat:
     machine_capacity: Mapping[str, Any] = field(default_factory=dict)
     preferred_session_models: Mapping[str, str] = field(default_factory=dict)
     relay_health: Mapping[str, Any] = field(default_factory=dict)
+    preferred_session_reasoning_efforts: Mapping[str, str] = field(default_factory=dict)
 
 
 def advertised_session_models(raw: Any) -> dict[str, str]:
@@ -72,6 +73,17 @@ def advertised_session_models(raw: Any) -> dict[str, str]:
         if name and value:
             models[name] = value
     return models
+
+
+def advertised_session_reasoning_efforts(raw: Any) -> dict[str, str]:
+    """Keep non-blank per-surface effort defaults from a relay heartbeat."""
+    if not isinstance(raw, Mapping):
+        return {}
+    return {
+        str(surface).strip(): effort.strip().lower()
+        for surface, effort in raw.items()
+        if str(surface).strip() and isinstance(effort, str) and effort.strip()
+    }
 
 
 @dataclass(frozen=True)
@@ -165,4 +177,5 @@ __all__ = [
     "WAKE_LEASE_SECONDS",
     "WakeMode",
     "advertised_session_models",
+    "advertised_session_reasoning_efforts",
 ]

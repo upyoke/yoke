@@ -4,42 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.session_launch_machine_models import resolve_machine_model
+from yoke_core.domain.session_launch_machine_models import resolve_machine_selection
 from yoke_core.domain.session_launch_origin import derived_launch_origin
-from yoke_core.domain.session_launch_store import (
-    instruction_message,
-    marker,
-    sha256_text,
-)
+from yoke_core.domain.session_launch_store import marker
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     LaunchPreview,
-    LaunchRecord,
     LaunchRequest,
 )
-
-
-def same_launch_request(
-    conn: Any,
-    launch: LaunchRecord,
-    request: LaunchRequest,
-) -> bool:
-    body, body_hash, _ = instruction_message(conn, launch.message_id)
-    return all(
-        (
-            launch.project_id == request.project_id,
-            launch.requested_surface == request.executor_surface,
-            launch.requested_machine_id == request.machine_id,
-            launch.requested_model == request.model,
-            launch.requested_reasoning_effort == request.reasoning_effort,
-            launch.requested_context_window_tokens == request.context_window_tokens,
-            launch.presentation_preference == request.presentation,
-            launch.session_name == request.session_name,
-            launch.allow_surface_fallback == request.allow_surface_fallback,
-            body_hash == sha256_text(request.instructions),
-            body == request.instructions,
-        )
-    )
 
 
 def insert_launch_request(
@@ -55,6 +27,14 @@ def insert_launch_request(
 ) -> bool:
     relay = preview.selected_relay
     assert relay is not None
+    resolved = resolve_machine_selection(
+        conn,
+        requested_model=request.model,
+        requested_reasoning_effort=request.reasoning_effort,
+        requested_context_window_tokens=request.context_window_tokens,
+        machine_id=relay.machine_id,
+        surface=relay.surface,
+    )
     p = marker(conn)
     columns = (
         "launch_id, requester_actor_id, requester_session_id, project_id, "
@@ -63,7 +43,8 @@ def insert_launch_request(
         "presentation_preference, session_name, allow_surface_fallback, message_id, "
         "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
         "deadline_at, created_at, assigned_at, origin, placement_reason, "
-        "resolved_model"
+        "resolved_model, resolved_reasoning_effort, "
+        "resolved_context_window_tokens"
     )
     values = (
         launch_id,
@@ -93,12 +74,9 @@ def insert_launch_request(
             project_id=request.project_id,
         ),
         preview.placement_reason,
-        resolve_machine_model(
-            conn,
-            requested_model=request.model,
-            machine_id=relay.machine_id,
-            surface=relay.surface,
-        ).model,
+        resolved.model,
+        resolved.reasoning_effort,
+        resolved.context_window_tokens,
     )
     row = conn.execute(
         f"INSERT INTO session_launches ({columns}) "
@@ -109,4 +87,4 @@ def insert_launch_request(
     return row is not None
 
 
-__all__ = ["insert_launch_request", "same_launch_request"]
+__all__ = ["insert_launch_request"]

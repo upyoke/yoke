@@ -35,6 +35,8 @@ def converge_session_control_schema(conn: Any) -> None:
         ("spawn_hold_reason", "TEXT"),
         ("placement_reason", "TEXT"),
         ("resolved_model", "TEXT"),
+        ("resolved_reasoning_effort", "TEXT"),
+        ("resolved_context_window_tokens", "INTEGER"),
     ):
         if not _column_exists(conn, "session_launches", name):
             conn.execute(
@@ -45,6 +47,7 @@ def converge_session_control_schema(conn: Any) -> None:
         "machine_capacity",
         "preferred_session_models",
         "relay_health",
+        "preferred_session_reasoning_efforts",
     ):
         if not _column_exists(conn, "session_relays", name):
             conn.execute(f"ALTER TABLE session_relays ADD COLUMN {name} TEXT")

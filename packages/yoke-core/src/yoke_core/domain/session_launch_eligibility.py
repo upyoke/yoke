@@ -86,7 +86,7 @@ def derive_launch_eligibility(
     """
     capability = capability_for_surface(surface)
     if capability is None or capability.create == "none":
-        return EligibilitySnapshot((), rejection_codes=("unsupported_surface",))
+        return EligibilitySnapshot(relays=(), rejection_codes=("unsupported_surface",))
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     params: list[Any] = []
@@ -160,7 +160,7 @@ def derive_launch_eligibility(
     if not rows:
         rejected.add("relay_absent")
     return EligibilitySnapshot(
-        tuple(selected_by_machine.values()),
+        relays=tuple(selected_by_machine.values()),
         considered_machine_ids=tuple(sorted(considered)),
         rejection_codes=tuple(sorted(rejected)),
         machine_capacity=tuple(capacities[machine] for machine in sorted(capacities)),

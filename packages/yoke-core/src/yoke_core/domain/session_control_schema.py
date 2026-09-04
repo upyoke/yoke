@@ -181,7 +181,9 @@ def create_session_control_tables(conn: Any) -> None:
             spawn_duration_ms INTEGER,
             spawn_hold_reason TEXT,
             placement_reason TEXT,
-            resolved_model TEXT
+            resolved_model TEXT,
+            resolved_reasoning_effort TEXT,
+            resolved_context_window_tokens INTEGER
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_launches_requester_dedupe
             ON session_launches(requester_actor_id, idempotency_key)
@@ -232,7 +234,8 @@ def create_session_control_tables(conn: Any) -> None:
             surface_plan_limits TEXT,
             machine_capacity TEXT,
             preferred_session_models TEXT,
-            relay_health TEXT
+            relay_health TEXT,
+            preferred_session_reasoning_efforts TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_session_relays_machine_connected
             ON session_relays(machine_id, connected_until);

@@ -203,6 +203,8 @@ class LaunchRecord:
     result_evidence: str | None
     placement_reason: str | None = None
     resolved_model: str | None = None
+    resolved_reasoning_effort: str | None = None
+    resolved_context_window_tokens: int | None = None
     origin: str = LAUNCH_ORIGIN_OPERATOR
     native_launch_pid: int | None = None
     native_launch_phase: str | None = None
