@@ -33,11 +33,19 @@ def _universe(*, latched: bool = True) -> sqlite3.Connection:
         "module_key TEXT PRIMARY KEY, activated_at TEXT NOT NULL)"
     )
     conn.execute(
-        f"CREATE TABLE {entry.RUNS_TABLE} (run_id TEXT PRIMARY KEY)"
+        f"CREATE TABLE {entry.RUNS_TABLE} ("
+        "run_id TEXT PRIMARY KEY, project_id INTEGER, "
+        "status TEXT NOT NULL, metadata_json TEXT NOT NULL, "
+        "updated_at TEXT NOT NULL)"
     )
     conn.execute(
         f"CREATE TABLE {entry.ROWS_TABLE} ("
         "run_id TEXT NOT NULL, row_id TEXT NOT NULL, status TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE deployment_runs ("
+        "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, status TEXT NOT NULL, "
+        "created_at TEXT NOT NULL, completed_at TEXT)"
     )
     conn.execute(
         f"INSERT INTO {entry.FACTS_TABLE} VALUES "
@@ -52,7 +60,11 @@ def _universe(*, latched: bool = True) -> sqlite3.Connection:
 
 
 def _run(conn: sqlite3.Connection, run_id: str, statuses: tuple[str, ...]) -> None:
-    conn.execute(f"INSERT INTO {entry.RUNS_TABLE} VALUES ('{run_id}')")
+    conn.execute(
+        f"INSERT INTO {entry.RUNS_TABLE} "
+        "(run_id, project_id, status, metadata_json, updated_at) VALUES "
+        f"('{run_id}', 1, 'open', '{{}}', '2026-08-01T00:00:00Z')"
+    )
     for index, status in enumerate(statuses):
         conn.execute(
             f"INSERT INTO {entry.ROWS_TABLE} VALUES "
@@ -67,6 +79,28 @@ def _latched_modules(conn: sqlite3.Connection) -> set[str]:
             f"SELECT module_key FROM {entry.FACTS_TABLE}"
         ).fetchall()
     }
+
+
+def test_invariants_allow_a_latch_earned_by_a_superseding_deployment() -> None:
+    conn = _universe()
+    _run(conn, "run-stalled", ("verified", "blocked"))
+    conn.execute(
+        "INSERT INTO deployment_runs VALUES "
+        "('run-20260901-001', 1, 'succeeded', "
+        "'2026-09-01T00:00:00Z', '2026-09-01T00:05:00Z')"
+    )
+
+    entry.invariants(conn)
+
+    assert _latched_modules(conn) == {"connect_harness", entry.MODULE_KEY}
+
+
+def test_apply_still_removes_an_unproven_latch() -> None:
+    conn = _universe()
+
+    entry.apply(conn)
+
+    assert _latched_modules(conn) == {"connect_harness"}
 
 
 def test_entry_clears_the_latch_a_blocked_run_once_produced() -> None:
@@ -91,7 +125,7 @@ def test_entry_keeps_the_latch_a_finished_checklist_earned() -> None:
 
 def test_entry_reads_a_run_row_with_no_checklist_as_unfinished() -> None:
     conn = _universe()
-    conn.execute(f"INSERT INTO {entry.RUNS_TABLE} VALUES ('run-empty')")
+    _run(conn, "run-empty", ())
 
     entry.apply(conn)
     entry.invariants(conn)
