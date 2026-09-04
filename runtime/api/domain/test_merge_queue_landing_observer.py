@@ -27,6 +27,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
 )
 from runtime.api.domain.test_session_message_support import NOW
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
+import yoke_core.domain.merge_queue_landing_observer as landing_observer
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
 from yoke_core.domain.merge_queue_landing_record_state import LANDED
@@ -76,6 +77,29 @@ def test_landing_notification_is_sent_once_to_the_claim_holder():
         "SELECT merge_queue_landed_at,merge_queue_notified_at FROM items WHERE id=101"
     ).fetchone()
     assert notified[0] != notified[1]
+
+
+def test_a_repeated_landing_accepts_a_changed_notice_body(monkeypatch):
+    conn = observer_connection()
+    bodies = iter(("first landing notice", "updated landing notice"))
+    monkeypatch.setattr(
+        landing_observer,
+        "landing_message",
+        lambda *_args: next(bodies),
+    )
+
+    first = observe_pending_landings(conn, [1], now=NOW, read_state=merged)
+    repeated = observe_pending_landings(
+        conn,
+        [1],
+        now=INJECTED_AT,
+        read_state=merged,
+    )
+
+    assert first["landed"] == 1
+    assert "notice_errors" not in repeated
+    assert message_count(conn) == 1
+    assert message_body(conn, landed_message_id(conn)) == "first landing notice"
 
 
 def test_a_landing_with_no_queue_admission_is_still_recorded():

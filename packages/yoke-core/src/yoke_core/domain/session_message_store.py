@@ -64,9 +64,9 @@ def _same_intent(
     """Return the existing message, or refuse a key reused for other intent.
 
     ``intent_only`` is what a DERIVED key means: the caller composed the key
-    from the intent itself -- this session's terminal report on this item --
-    so a reworded retry or a second route carrying the same report is the
-    same message rather than a conflict.
+    from the intent itself -- for example, a session's terminal report or a
+    machinery notice keyed by its durable subject -- so a reworded retry or
+    a second route carrying the same notice is not a conflict.
     """
     if intent_only:
         return existing

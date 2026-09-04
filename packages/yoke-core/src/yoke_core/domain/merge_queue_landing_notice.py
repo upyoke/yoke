@@ -3,9 +3,9 @@
 The landing observer decides what GitHub did; this decides who hears about
 it. The two are separate because the answer to "who owns this lane"
 outlives any one observation: a landing whose holder is gone has to reach
-the project's steering seat instead, and a notice that has been created but
-not yet injected must not be treated as delivered — the marker it would
-clear is the only reason the next poll tries again.
+the project's steering seat instead. Notice acceptance and recipient delivery
+stay distinct so the observer can stop resending an accepted intent while the
+ordinary pending-message path owns delivery.
 """
 
 from __future__ import annotations
@@ -125,10 +125,9 @@ def push_notice(
     """Send one notice to whoever owns the lane; report what delivery did.
 
     ``""`` means nobody was addressable and ``"undelivered"`` means the
-    envelope exists but has not reached the recipient yet — both leave the
-    caller's marker alone so the next poll tries again. The body is composed
-    from the resolved route, because a notice to a lane whose holder is gone
-    has to say something different from one the holder will read.
+    envelope was accepted but has not reached the recipient yet. The body is
+    composed from the resolved route, because a notice to a lane whose holder
+    is gone has to say something different from one the holder will read.
     """
     session_id, actor_id, route = resolve_lane_recipient(
         conn,
@@ -144,6 +143,7 @@ def push_notice(
         selector=RecipientSelector(session_ids=[session_id]),
         body=body_for_route(route),
         idempotency_key=idempotency_key,
+        idempotency_intent_only=True,
         now=now,
         commit=False,
     )

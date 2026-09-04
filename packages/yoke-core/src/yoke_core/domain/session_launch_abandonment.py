@@ -266,6 +266,7 @@ def notify_launch_requester(
         selector=RecipientSelector(session_ids=[requester]),
         body=abandonment_notice(launch, session_id),
         idempotency_key=f"launch-abandoned:{launch.launch_id}",
+        idempotency_intent_only=True,
     )
     return True
 

@@ -31,8 +31,10 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
 )
 from runtime.api.domain.test_session_message_support import NOW
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
+import yoke_core.domain.merge_queue_landing_observer as landing_observer
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
+from yoke_core.domain.merge_queue_landing_refresh import read_refresh
 from yoke_core.domain.merge_queue_landing_record_state import (
     CONFLICTED,
     ENTRY_CHECKS_FAILED,
@@ -68,7 +70,7 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
 
     observed = _observe(conn, now=NOW)
     assert observed["landed"] == 0
-    assert observed["ejected"] == 0  # not yet delivered to the holder
+    assert observed["ejected"] == 1
 
     message_id = ejected_message_id(conn)
     body = message_body(conn, message_id)
@@ -76,8 +78,7 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     assert "rebase the lane onto main" in body
     assert "isInMergeQueue=false" in body
     routing_snapshot = conn.execute(
-        "SELECT routing_snapshot FROM session_message_recipients "
-        "WHERE message_id=?",
+        "SELECT routing_snapshot FROM session_message_recipients WHERE message_id=?",
         (message_id,),
     ).fetchone()[0]
     assert json.loads(str(routing_snapshot))[EXPLICIT_WAKE_ROUTING_FLAG] is True
@@ -86,13 +87,8 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     assert record.state == CONFLICTED
     assert "mergeStateStatus=DIRTY" in record.narrative
 
-    inject(conn, message_id)
-    delivered = _observe(conn, now=INJECTED_AT)
-    assert delivered["ejected"] == 1
-    # The queue admission is cleared, so the item is no longer reported as a
-    # pending landing and a fresh `yoke merge item` re-arms it. The pull
-    # request number stays: a re-entry that turns out to be converging on a
-    # merge still reads the merge-group run through it.
+    # Acceptance clears the admission immediately; recipient delivery is the
+    # ordinary pending-message path's responsibility.
     marker = conn.execute(
         "SELECT merge_queue_pr_number,merge_queue_enqueued_at FROM items WHERE id=101"
     ).fetchone()
@@ -101,6 +97,7 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     record = read_landing_record(conn, 101)
     assert record is not None
     assert record.state == CONFLICTED
+    inject(conn, message_id)
     # The item stays a candidate, because a queue that merges the rebased
     # pull request after this is a landing the observer still has to see.
     # Reporting the same ejection again is not.
@@ -110,12 +107,104 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     assert message_count(conn) == 1
 
 
+def test_a_repeated_ejection_accepts_a_changed_notice_body(monkeypatch):
+    conn = observer_connection()
+    original_admission = conn.execute(
+        "SELECT merge_queue_enqueued_at FROM items WHERE id=101"
+    ).fetchone()[0]
+    rendered_bodies: list[str] = []
+    real_ejection_message = landing_observer.ejection_message
+
+    def capture_body(*args):
+        rendered_bodies.append(real_ejection_message(*args))
+        return rendered_bodies[-1]
+
+    monkeypatch.setattr(landing_observer, "ejection_message", capture_body)
+
+    first = _observe(
+        conn,
+        read_state=armed_awaiting_checks,
+        read_membership=not_queued,
+        read_checks=check_failed,
+    )
+    assert first["ejected"] == 1
+    original_body = message_body(conn, ejected_message_id(conn))
+    assert "repo-contracts=failure" in original_body
+
+    # Recreate the stale admission a serving build from before this fix could
+    # leave beside the pending notice. The next read composes a different body.
+    conn.execute(
+        "UPDATE items SET merge_queue_enqueued_at=? WHERE id=101",
+        (original_admission,),
+    )
+    conn.commit()
+    repeated = _observe(conn, now=INJECTED_AT)
+
+    assert repeated["ejected"] == 1
+    assert "notice_errors" not in repeated
+    assert rendered_bodies[0] != rendered_bodies[1]
+    assert message_count(conn) == 1
+    assert message_body(conn, ejected_message_id(conn)) == original_body
+    assert (
+        conn.execute(
+            "SELECT merge_queue_enqueued_at FROM items WHERE id=101"
+        ).fetchone()[0]
+        is None
+    )
+
+
+def test_one_notice_failure_does_not_stop_other_items_from_refreshing(monkeypatch):
+    conn = observer_connection()
+    conn.executescript(
+        """
+        INSERT INTO items (
+          id,project_id,project_sequence,status,merge_queue_pr_number,
+          merge_queue_enqueued_at
+        ) VALUES (
+          102,1,2,'reviewing-implementation','43','2026-08-27T17:00:00Z'
+        );
+        INSERT INTO work_claims (id,session_id,target_kind,scope,claimed_at)
+        VALUES (4,'s1','item','{"item_id":102}','2026-08-22T16:00:00Z');
+        """
+    )
+    conn.commit()
+    real_push_notice = landing_observer.push_notice
+
+    def fail_first_notice(*args, **kwargs):
+        if kwargs["item_id"] == 101:
+            raise RuntimeError("notice transport unavailable")
+        return real_push_notice(*args, **kwargs)
+
+    monkeypatch.setattr(landing_observer, "push_notice", fail_first_notice)
+
+    observed = _observe(conn)
+
+    assert observed["checked"] == 2
+    assert observed["ejected"] == 1
+    assert observed["notice_errors"] == [
+        {
+            "item_id": 101,
+            "pr_number": "42",
+            "error": "notice transport unavailable",
+        }
+    ]
+    markers = {
+        int(row[0]): row[1]
+        for row in conn.execute(
+            "SELECT id,merge_queue_enqueued_at FROM items WHERE id IN (101,102)"
+        )
+    }
+    assert markers == {101: "2026-08-27T17:00:00Z", 102: None}
+    refresh = read_refresh(conn, 1)
+    assert refresh.completed_at
+    assert refresh.last_error == ""
+
+
 def test_a_rebased_pull_request_that_merges_after_an_ejection_is_recorded():
     """The reason an ejection keeps the pull request number on the item."""
     conn = observer_connection()
-    _observe(conn, now=NOW)
+    assert _observe(conn, now=NOW)["ejected"] == 1
     inject(conn, ejected_message_id(conn))
-    assert _observe(conn, now=INJECTED_AT)["ejected"] == 1
 
     landed = observe_pending_landings(
         conn,

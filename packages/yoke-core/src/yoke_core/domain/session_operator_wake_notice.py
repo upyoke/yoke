@@ -117,6 +117,7 @@ def notify_operator_to_wake(
         ),
         selector_snapshot={"actors": [str(actor_id)]},
         idempotency_key=f"{NOTICE_IDEMPOTENCY_PREFIX}:{envelope_id}:{session_id}",
+        idempotency_intent_only=True,
         created_at=now,
         expires_at=now + timedelta(hours=policy.expiry_hours),
         recipients=[],

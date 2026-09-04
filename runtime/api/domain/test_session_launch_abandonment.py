@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 from yoke_core.domain import session_launch_abandonment as launch_abandonment
 from yoke_core.domain.session_launch_abandonment import (
     ABANDONED_RESULT_CODE,
     abandonment_notice,
+    notify_launch_requester,
     settle_abandoned_launch,
     settle_and_notify,
 )
@@ -26,6 +28,7 @@ from runtime.api.domain.session_launch_test_support import (
     assigned_launch,
     launch_connection,
 )
+from runtime.api.domain.test_session_message_support import message_connection
 
 
 WORKER = "session-worker"
@@ -261,3 +264,34 @@ def test_notice_names_the_launch_and_the_session_that_never_started() -> None:
     assert launch.launch_id in notice
     assert WORKER in notice
     assert ABANDONED_RESULT_CODE in notice
+
+
+def test_repeated_abandonment_notice_accepts_a_reworded_body() -> None:
+    launch_conn = launch_connection()
+    add_relay(launch_conn)
+    launch = assigned_launch(launch_conn)
+    conn = message_connection()
+    first = replace(
+        launch,
+        requester_actor_id=10,
+        requester_session_id="s1",
+        project_id=1,
+        result_evidence=json.dumps({"closure_reason": "session_ended"}),
+    )
+    reworded = replace(
+        first,
+        result_evidence=json.dumps(
+            {"closure_reason": "native_process_gone: process exited 1"}
+        ),
+    )
+    assert abandonment_notice(first, WORKER) != abandonment_notice(reworded, WORKER)
+
+    assert notify_launch_requester(conn, first, WORKER)
+    assert notify_launch_requester(conn, reworded, WORKER)
+
+    rows = conn.execute(
+        "SELECT body FROM session_messages WHERE idempotency_key=?",
+        (f"launch-abandoned:{launch.launch_id}",),
+    ).fetchall()
+    assert len(rows) == 1
+    assert str(rows[0][0]) == abandonment_notice(first, WORKER)

@@ -166,6 +166,7 @@ def send_message(
     selector: RecipientSelector,
     body: str,
     idempotency_key: str | None = None,
+    idempotency_intent_only: bool = False,
     supplied_confirmation_token: str | None = None,
     now: datetime | None = None,
     commit: bool = True,
@@ -242,7 +243,9 @@ def send_message(
             body=body,
             selector_snapshot=_selector_snapshot(selector),
             idempotency_key=terminal_key or idempotency_key,
-            idempotency_intent_only=terminal_key is not None,
+            idempotency_intent_only=(
+                terminal_key is not None or idempotency_intent_only
+            ),
             created_at=current,
             expires_at=expires_at,
             recipients=recipients,
