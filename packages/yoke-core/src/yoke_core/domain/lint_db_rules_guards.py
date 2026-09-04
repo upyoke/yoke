@@ -191,6 +191,9 @@ RULE_TEXT_GUARDS_CLI = r"""
 # NOT references to .claude/ directory paths or the word in strings/comments.
 if "claude" in command_stripped:
     from yoke_core.domain.lint_db_remote_claude import (
+        NESTED_CLAUDE_CLI_CHECK_ID,
+        NESTED_CLAUDE_CLI_DENIAL,
+        REMOTE_CLAUDE_CLI_CHECK_ID,
         REMOTE_CLAUDE_DENIAL,
         remote_claude_cli_state,
     )
@@ -201,6 +204,7 @@ if "claude" in command_stripped:
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
                 "permissionDecisionReason": REMOTE_CLAUDE_DENIAL,
+                "check_id": REMOTE_CLAUDE_CLI_CHECK_ID,
             }
         }
         print(json.dumps(result))
@@ -231,11 +235,8 @@ if "claude" in command_stripped:
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "deny",
-                    "permissionDecisionReason": (
-                        "BLOCKED: Do not invoke claude as a CLI command "
-                        "— use the Agent tool for subagent dispatch. "
-                        "Nested claude processes crash Claude Code sessions."
-                    ),
+                    "permissionDecisionReason": NESTED_CLAUDE_CLI_DENIAL,
+                    "check_id": NESTED_CLAUDE_CLI_CHECK_ID,
                 }
             }
             print(json.dumps(result))
