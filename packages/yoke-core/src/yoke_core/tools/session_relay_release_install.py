@@ -130,6 +130,9 @@ def _install_candidate(
     try:
         create_venv(candidate)
         python = candidate / "bin" / "python"
+        # The environment index owns the immutable product wheels. PyPI supplies
+        # third-party dependencies; release metadata pins every Yoke sibling to
+        # the same unforgeable local version as this exact top-level requirement.
         result = runner(
             [
                 str(python),
