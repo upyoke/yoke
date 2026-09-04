@@ -166,9 +166,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
       ["X", "session-harness h-codex"],
     ],
   );
-  // Parked is the only mode the card badges; resume and wait render nothing.
+  // Modes without a quiet reason render no reason badge.
   assert.deepEqual(
-    byClass(root, "session-parked-badge").filter((n) => !n.hidden).map((n) => n.textContent),
+    byClass(root, "session-reason-badge").filter((n) => !n.hidden).map((n) => n.textContent),
     [],
   );
   // The mode pill is gone; the lane names the session beside its harness and
@@ -290,7 +290,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   mounted.unmount();
 });
 
-test("Sessions card exposes the parked reason without rendering it inline", async (t) => {
+test("Sessions card exposes quiet reasons without rendering them inline", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -301,7 +301,7 @@ test("Sessions card exposes the parked reason without rendering it inline", asyn
     {
       session_id: "parked-1", liveness: "active",
       execution_lane: "DARIUS", mode: "parked",
-      parked_reason: "waiting on YOK-2546",
+      quiet_reason: "waiting on a blocking claim",
       executor: "codex", model: "gpt-5.6-sol",
       executor_mark: "X", executor_class_name: "h-codex",
       actor_id: 2, actor_kind: "human", actor_label: "Ben",
@@ -312,6 +312,7 @@ test("Sessions card exposes the parked reason without rendering it inline", asyn
     {
       session_id: "wait-1", liveness: "active",
       execution_lane: "ALTMAN", mode: "wait",
+      quiet_reason: "waiting on merge queue",
       executor: "claude-code", model: "claude-opus-4-8",
       executor_mark: "A", executor_class_name: "h-claude",
       actor_id: 2, actor_kind: "human", actor_label: "Ben",
@@ -325,10 +326,17 @@ test("Sessions card exposes the parked reason without rendering it inline", asyn
   });
   await settle();
   assert.deepEqual(
-    byClass(root, "session-parked-badge").filter((n) => !n.hidden).map(
+    byClass(root, "session-reason-badge").filter((n) => !n.hidden).map(
       (n) => [n.textContent, n.title, n.attributes.get("aria-label")],
     ),
-    [["parked", "waiting on YOK-2546", "parked: waiting on YOK-2546"]],
+    [
+      [
+        "parked",
+        "waiting on a blocking claim",
+        "parked: waiting on a blocking claim",
+      ],
+      ["reason", "waiting on merge queue", "reason: waiting on merge queue"],
+    ],
   );
   mounted.unmount();
 });

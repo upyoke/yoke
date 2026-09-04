@@ -22,6 +22,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_tool_call,
 )
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
+from yoke_core.domain.session_mode import set_session_mode
 from yoke_core.domain.steering_fleet_report_in_flight import (
     IN_FLIGHT_CEILING_SECONDS,
     in_flight_calls,
@@ -98,12 +99,18 @@ def test_a_holder_inside_a_merge_wait_is_in_flight_and_raises_no_idle_alarm(flee
 
 def test_the_in_flight_row_names_the_command_and_when_it_opened(fleet):
     from yoke_core.domain.steering_fleet_report_render import report_body
+    from yoke_core.domain.steering_fleet_report_projection import report_dict
 
+    set_session_mode(fleet, WORKER_SESSION, "dash", reason="waiting on merge queue")
     _open_call(fleet, MERGE_WAIT)
 
-    body = report_body(_compose(fleet))
+    report = _compose(fleet)
+    body = report_body(report)
 
-    assert "in watch merge since 11:40Z" in body
+    assert "in watch merge since 11:40Z, waiting on merge queue" in body
+    assert report_dict(report)["in_flight"][0]["quiet_reason"] == (
+        "waiting on merge queue"
+    )
     assert "idle holders" not in body
 
 

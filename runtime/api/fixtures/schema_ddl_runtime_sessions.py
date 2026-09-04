@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     workspace TEXT NOT NULL,
     project_id INTEGER NOT NULL DEFAULT 1,
     mode TEXT DEFAULT 'wait',
-    parked_reason TEXT DEFAULT NULL,
+    quiet_reason TEXT DEFAULT NULL,
     keepalive_until TEXT DEFAULT NULL,
     keepalive_reason TEXT DEFAULT NULL,
     offered_at TEXT NOT NULL,

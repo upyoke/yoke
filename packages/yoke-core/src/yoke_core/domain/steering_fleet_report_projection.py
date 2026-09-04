@@ -48,6 +48,7 @@ def _holder_dict(holder: ClaimHolder) -> dict[str, Any]:
         "parked": holder.parked,
         "last_activity_at": holder.last_activity_at,
         "idle_seconds": holder.idle_seconds,
+        "quiet_reason": holder.quiet_reason or None,
         "native_process_gone": holder.native_process_gone,
         "native_process_gone_at": holder.native_process_gone_at or None,
         "hand_started": holder.hand_started,

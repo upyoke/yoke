@@ -50,7 +50,7 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("terminated_by_actor_id", "INTEGER DEFAULT NULL"),
         ("terminated_by_session_id", "TEXT DEFAULT NULL"),
         ("termination_reason", "TEXT DEFAULT NULL"),
-        ("parked_reason", "TEXT DEFAULT NULL"),
+        ("quiet_reason", "TEXT DEFAULT NULL"),
         ("keepalive_until", "TEXT DEFAULT NULL"),
         ("keepalive_reason", "TEXT DEFAULT NULL"),
         ("last_steering_report_at", "TEXT DEFAULT NULL"),

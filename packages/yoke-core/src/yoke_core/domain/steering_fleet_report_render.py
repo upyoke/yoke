@@ -73,6 +73,8 @@ def _holder_lines(
             f"  {holder.public_ref}  session {holder.session_id}  mode "
             f"{holder.mode or 'unset'}  quiet {minutes(holder.idle_seconds)}"
         )
+        if holder.quiet_reason:
+            line += f", {holder.quiet_reason}"
         if holder.hand_started:
             line += "  hand-started (no launch record)"
         if holder.native_process_gone:

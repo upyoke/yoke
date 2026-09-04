@@ -19,6 +19,7 @@ from yoke_core.domain.session_activity_state import apply_envelope_state
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED, set_session_mode
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.steering_fleet_report_capacity import SessionCount
+from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -122,10 +123,20 @@ def test_a_quiet_holder_reports_as_idle(steering_scope):
         target=make_item_target(1),
     )
 
+    before_reason = _compose(steering_scope)
+    set_session_mode(
+        steering_scope,
+        WORKER_SESSION,
+        "dash",
+        reason="waiting on merge queue",
+    )
     report = _compose(steering_scope)
 
     assert {holder.item_id for holder in report.idle} == {1}
     assert report.idle[0].session_id == WORKER_SESSION
+    assert report.idle[0].quiet_reason == "waiting on merge queue"
+    assert report_dict(report)["idle"][0]["quiet_reason"] == "waiting on merge queue"
+    assert report.fingerprint() != before_reason.fingerprint()
 
 
 def test_staffing_and_idle_thresholds_answer_separate_questions(steering_scope):

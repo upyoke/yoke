@@ -30,7 +30,7 @@ def test_session_rows_read_the_roster_rows_key() -> None:
                 "activity_at": "2026-08-28T17:00:00Z",
                 "ended_at": None,
                 "terminated_at": None,
-                "parked_reason": None,
+                "quiet_reason": None,
                 "claims": [
                     {"target_kind": "item", "target": "YOK-2571"},
                     {"target_kind": "process", "target": "DOCTOR"},
@@ -54,7 +54,7 @@ def test_session_rows_are_empty_for_an_envelope_without_rows() -> None:
 def test_a_parked_session_and_an_ended_session_are_distinct_facts() -> None:
     result = {
         "rows": [
-            {"session_id": "p", "mode": "parked", "parked_reason": "waiting"},
+            {"session_id": "p", "mode": "parked", "quiet_reason": "waiting"},
             {"session_id": "e", "ended_at": "2026-08-28T16:00:00Z"},
             {
                 "session_id": "t",

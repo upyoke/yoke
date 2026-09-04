@@ -29,6 +29,7 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
                 holder.item_id,
                 holder.native_process_gone,
                 holder.hand_started,
+                holder.quiet_reason,
             )
             for holder in report.holders
         ),

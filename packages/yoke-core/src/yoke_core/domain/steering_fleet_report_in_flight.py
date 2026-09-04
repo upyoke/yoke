@@ -85,6 +85,7 @@ class InFlightCall:
     command: str
     started_at: str
     open_seconds: int
+    quiet_reason: str = ""
 
 
 def long_running_command(command_summary: str | None) -> str | None:
@@ -172,6 +173,7 @@ def in_flight_calls(
                 command=command,
                 started_at=started_at,
                 open_seconds=open_seconds,
+                quiet_reason=str(getattr(holder, "quiet_reason", "") or ""),
             )
         )
     return tuple(calls)
@@ -214,6 +216,7 @@ def in_flight_section(calls: tuple[InFlightCall, ...]) -> list[str]:
         *(
             f"  {call.public_ref}  session {call.session_id}  "
             f"in {call.command} since {parse_stamp(call.started_at):%H:%M}Z"
+            f"{f', {call.quiet_reason}' if call.quiet_reason else ''}"
             for call in calls
         ),
     ]
@@ -228,6 +231,7 @@ def in_flight_dicts(calls: tuple[InFlightCall, ...]) -> list[dict[str, Any]]:
             "command": call.command,
             "started_at": call.started_at,
             "open_seconds": call.open_seconds,
+            "quiet_reason": call.quiet_reason or None,
         }
         for call in calls
     ]

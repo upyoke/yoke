@@ -9,7 +9,7 @@ SESSION_LIST_FIELDS = (
     "lane_label",
     "lane_glyph",
     "mode",
-    "parked_reason",
+    "quiet_reason",
     "keepalive_until",
     "keepalive_reason",
     "actor_id",

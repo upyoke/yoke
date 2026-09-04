@@ -101,7 +101,10 @@ class OfferResponse(BaseModel):
 
 
 def _err(
-    code: str, message: str, *, jsonpath: Optional[str] = None,
+    code: str,
+    message: str,
+    *,
+    jsonpath: Optional[str] = None,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -132,16 +135,11 @@ def handle_touch(request: FunctionCallRequest) -> HandlerOutcome:
 
     with _connect_rw() as conn:
         try:
-            session = heartbeat(conn, sid)
+            session = heartbeat(
+                conn, sid, reason=body.reason if body.mode is None else None
+            )
             if body.mode is not None:
-                session = set_session_mode(
-                    conn, sid, body.mode, reason=body.reason
-                )
-            elif body.reason is not None:
-                return _err(
-                    "reason_requires_parked",
-                    "reason is only valid with mode parked",
-                )
+                session = set_session_mode(conn, sid, body.mode, reason=body.reason)
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)
     return HandlerOutcome(result_payload={"success": True, "session": session})
@@ -224,7 +222,9 @@ def handle_ownership_guard(request: FunctionCallRequest) -> HandlerOutcome:
 
     with _connect_rw() as conn:
         result = evaluate_ownership_guard(
-            conn, session_id=sid, item_id=int(item_id),
+            conn,
+            session_id=sid,
+            item_id=int(item_id),
         )
     return HandlerOutcome(result_payload=asdict(result))
 
@@ -252,10 +252,21 @@ def handle_offer(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "TouchRequest", "TouchResponse", "handle_touch",
-    "CheckpointRequest", "CheckpointResponse", "handle_checkpoint",
-    "CheckpointReadRequest", "handle_checkpoint_read",
-    "OwnershipGuardRequest", "OwnershipGuardResponse", "handle_ownership_guard",
-    "OfferRequest", "OfferResponse", "handle_offer",
-    "ChargeScheduleRequest", "ChargeScheduleResponse", "handle_charge_schedule",
+    "TouchRequest",
+    "TouchResponse",
+    "handle_touch",
+    "CheckpointRequest",
+    "CheckpointResponse",
+    "handle_checkpoint",
+    "CheckpointReadRequest",
+    "handle_checkpoint_read",
+    "OwnershipGuardRequest",
+    "OwnershipGuardResponse",
+    "handle_ownership_guard",
+    "OfferRequest",
+    "OfferResponse",
+    "handle_offer",
+    "ChargeScheduleRequest",
+    "ChargeScheduleResponse",
+    "handle_charge_schedule",
 ]

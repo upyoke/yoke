@@ -190,8 +190,8 @@ test("holder pill and age remain while the lifecycle strip stays item-only", () 
   const rendered = card(new FakeDocument(), {
     mode: "parked",
   });
-  const badge = byClass(rendered, "session-parked-badge")[0];
-  assert.ok(!badge.className.includes("session-parked-badge-empty"));
+  const badge = byClass(rendered, "session-reason-badge")[0];
+  assert.ok(!badge.className.includes("session-reason-badge-empty"));
   assert.equal(badge.hidden, false);
   assert.equal(byClass(rendered, "session-age").length, 1);
   assert.equal(byClass(rendered, "delivery-run-stages").length, 1);

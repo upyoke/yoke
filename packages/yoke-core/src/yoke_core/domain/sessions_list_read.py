@@ -264,7 +264,7 @@ def list_sessions(
                     "execution_lane": row.get("execution_lane"),
                     **presentation,
                     "mode": row.get("mode"),
-                    "parked_reason": row.get("parked_reason"),
+                    "quiet_reason": row.get("quiet_reason"),
                     "keepalive_until": row.get("keepalive_until"),
                     "keepalive_reason": row.get("keepalive_reason"),
                     "actor_id": row.get("actor_id"),

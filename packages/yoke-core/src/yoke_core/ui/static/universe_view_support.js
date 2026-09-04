@@ -96,33 +96,37 @@ export function statePill(documentNode, value, label = value) {
   return pill;
 }
 
-// Parked is the only mode the card and overview display. Other modes
-// already show as work and last-active; a parked badge is the wait.
-export function parkedBadge(documentNode, mode, reason) {
+// Parked remains a distinct posture; every mode may also declare why the
+// session expects to be quiet. Keep the reason available without adding its
+// arbitrary-length text to compact roster rows.
+export function sessionReasonBadge(documentNode, mode, reason) {
   const parked = String(mode || "").toLowerCase() === "parked";
-  const parkedReason = parked ? String(reason ?? "").trim() : "";
+  const quietReason = String(reason ?? "").trim();
+  const visible = parked || Boolean(quietReason);
   const badge = el(
     documentNode,
     "span",
-    parked ? "session-parked-badge" : "session-parked-badge session-parked-badge-empty",
-    parked ? "parked" : "",
+    visible ? "session-reason-badge" : "session-reason-badge session-reason-badge-empty",
+    parked ? "parked" : quietReason ? "reason" : "",
   );
-  if (!parked) {
+  if (!visible) {
     badge.hidden = true;
     return badge;
   }
-  if (parkedReason) {
-    badge.title = parkedReason;
+  if (quietReason) {
+    badge.title = quietReason;
     badge.tabIndex = 0;
     badge.setAttribute("role", "note");
-    badge.setAttribute("aria-label", `parked: ${parkedReason}`);
-    badge.setAttribute("data-reason", parkedReason);
+    badge.setAttribute(
+      "aria-label", `${parked ? "parked" : "reason"}: ${quietReason}`,
+    );
+    badge.setAttribute("data-reason", quietReason);
   }
   return badge;
 }
 
 export function sessionModePill(documentNode, mode, liveness, reason) {
-  return parkedBadge(documentNode, mode, reason);
+  return sessionReasonBadge(documentNode, mode, reason);
 }
 
 export function renderError(body, callResult) {

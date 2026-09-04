@@ -59,7 +59,7 @@ def create_session_tables(conn: Any) -> None:
           workspace TEXT NOT NULL,
           project_id INTEGER NOT NULL REFERENCES projects(id),
           mode TEXT DEFAULT 'wait',
-          parked_reason TEXT DEFAULT NULL,
+          quiet_reason TEXT DEFAULT NULL,
           offered_at TEXT NOT NULL,
           last_heartbeat TEXT NOT NULL,
           turn_posture {TURN_POSTURE_COLUMN_DDL},

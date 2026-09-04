@@ -10,7 +10,7 @@ import {
   el,
   mergedRows,
   scopeBuckets,
-  parkedBadge,
+  sessionReasonBadge,
   settledScopedCalls,
 } from "./universe_view_support.js";
 import {
@@ -130,7 +130,7 @@ export function sessionCard(
     ));
   }
   top.appendChild(laneChip(documentNode, row));
-  top.appendChild(parkedBadge(documentNode, row.mode, row.parked_reason));
+  top.appendChild(sessionReasonBadge(documentNode, row.mode, row.quiet_reason));
   const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);
   card.appendChild(top);
