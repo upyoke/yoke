@@ -55,6 +55,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from yoke_core.domain.machine_registry import machine_names
 from yoke_core.domain.steering_fleet_report_available import (
     FrontierEntry,
     scope_candidates,
@@ -136,6 +137,9 @@ class FleetReport:
     plan_limits: tuple[MachinePlanLimit, ...] = ()
     #: Every connected machine's lanes against its cap, full ones included.
     machine_capacity: tuple[MachineCapacity, ...] = ()
+    #: Registered machine names keyed by machine id, so every per-machine row
+    #: shows the name its operator gave the box rather than a bare UUID.
+    machine_names: tuple[tuple[str, str], ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
@@ -232,6 +236,7 @@ def compose_report(
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     alive_idle = split.alive_idle
+    names = machine_names(conn)
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
@@ -262,7 +267,9 @@ def compose_report(
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
-        plan_limits=load_plan_limits(conn, project_id=project_id, now=now),
+        plan_limits=load_plan_limits(
+            conn, project_id=project_id, now=now, registered_names=names
+        ),
         machine_capacity=machine_capacities(conn, project_id=project_id, now=now),
         landings=landing_readbacks(
             conn,
@@ -272,6 +279,7 @@ def compose_report(
                 call.item_id for call in split.in_flight if "merge" in call.command
             ),
         ),
+        machine_names=tuple(sorted(names.items())),
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),

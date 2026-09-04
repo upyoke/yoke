@@ -40,11 +40,13 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # per-machine Overview activation latch table (overview_machine_activation_facts),
 # the machine-local evidence fetch table, whose every column ships with the
 # table itself: the request, the lease the owning relay takes on it, and the
-# bounded answer that comes back, and the per-operation test-machine receipt
+# bounded answer that comes back, the per-operation test-machine receipt
 # table (test_machine_operation_receipts), which records what was last done to
-# a machine beside the verification row that decides its readiness.
+# a machine beside the verification row that decides its readiness, and the
+# machines table — one row per registered Yoke machine, net-new and
+# pure-additive, so every column is born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "fe6b239d1e5553f4c6ebe41d5785f4ad9b361dee5d39daf020d7cc1685e28b65"
+    "679c9c3606b81370ae65e652f9fc7bdcc87fa00538b0c75c98105d16c3634e78"
 )
 
 

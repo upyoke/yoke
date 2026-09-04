@@ -73,7 +73,7 @@ def window_label(window_kind: str, scope: str) -> str:
 
 @dataclass(frozen=True)
 class PlanLimitComputation:
-    hostname: str
+    machine_name: str
     surface: str
     plan_tier: str | None
     window_kind: str
@@ -150,7 +150,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
     """One surface's raw reading plus window-normalized headroom."""
     if row.status != "ok":
         return PlanLimitComputation(
-            hostname=row.hostname,
+            machine_name=row.machine_name,
             surface=row.surface,
             plan_tier=row.plan_tier,
             window_kind=row.window_kind,
@@ -168,7 +168,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
     remaining = remaining_capacity(row.remaining_percent, window)
     until_reset = time_until_reset(row.resets_at, now)
     return PlanLimitComputation(
-        hostname=row.hostname,
+        machine_name=row.machine_name,
         surface=row.surface,
         plan_tier=row.plan_tier,
         window_kind=row.window_kind,
@@ -197,7 +197,7 @@ def _percent(value: float | None) -> str:
 def _markdown_row(computed: PlanLimitComputation) -> str:
     if computed.status != "ok":
         return (
-            f"| {computed.hostname} | {computed.surface} | {EMPTY} | "
+            f"| {computed.machine_name} | {computed.surface} | {EMPTY} | "
             f"{window_label(computed.window_kind, computed.scope)} | "
             f"{EMPTY} | {EMPTY} | {computed.reason or 'unreadable'} | "
             f"{EMPTY} |"
@@ -208,7 +208,7 @@ def _markdown_row(computed: PlanLimitComputation) -> str:
         else EMPTY
     )
     return (
-        f"| {computed.hostname} | {computed.surface} | "
+        f"| {computed.machine_name} | {computed.surface} | "
         f"{_dash(computed.plan_tier)} | "
         f"{window_label(computed.window_kind, computed.scope)} | "
         f"{_percent(computed.remaining_percent)} | {resets_in} | "
@@ -222,7 +222,7 @@ def _sort_key(row: MachinePlanLimit) -> tuple[str, str, int, str, str]:
         order = _WINDOW_ORDER.index(row.window_kind)
     except ValueError:
         order = len(_WINDOW_ORDER)
-    return (row.hostname, row.surface, order, row.window_kind, row.scope)
+    return (row.machine_name, row.surface, order, row.window_kind, row.scope)
 
 
 def plan_limit_lines(limits: tuple[MachinePlanLimit, ...], *, now: str) -> list[str]:
@@ -247,7 +247,7 @@ def plan_limit_dicts(
     for row in limits:
         payload: dict[str, Any] = {
             "machine_id": row.machine_id,
-            "hostname": row.hostname,
+            "machine_name": row.machine_name,
             "surface": row.surface,
             "plan_tier": row.plan_tier,
             "window_kind": row.window_kind,

@@ -9,6 +9,7 @@ from yoke_core.domain.actor_message_recipient_schema import (
     RECIPIENT_KIND_STATE_PREDICATE,
     converge_role_addressed_recipients,
 )
+from yoke_core.domain.machine_registry_schema import ensure_machine_registry_schema
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
@@ -35,7 +36,12 @@ _SENDER_SURFACE_VALUES = ",".join(f"'{value}'" for value in SENDER_SURFACES)
 
 
 def create_session_control_tables(conn: Any) -> None:
-    """Create additive fleet-control tables and lookup indexes."""
+    """Create additive fleet-control tables and lookup indexes.
+
+    Every table here names a machine, so the registry owning those ids
+    converges first — once here, not once per call site.
+    """
+    ensure_machine_registry_schema(conn, commit=False)
     execute_schema_script(
         conn,
         f"""
@@ -320,13 +326,10 @@ def create_session_control_tables(conn: Any) -> None:
         ("session_relays", "surface_plan_limits", "TEXT"),
         ("session_relays", "machine_capacity", "TEXT"),
         ("session_relays", "preferred_session_models", "TEXT"),
+        ("session_message_recipients", "wake_escalation", "TEXT"),
     ):
         if not _column_exists(conn, table, name):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
-    if not _column_exists(conn, "session_message_recipients", "wake_escalation"):
-        conn.execute(
-            "ALTER TABLE session_message_recipients ADD COLUMN wake_escalation TEXT"
-        )
     if not _column_exists(conn, "session_messages", "sender_surface"):
         conn.execute(
             "ALTER TABLE session_messages ADD COLUMN sender_surface TEXT "

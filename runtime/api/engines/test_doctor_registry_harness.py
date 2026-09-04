@@ -30,6 +30,7 @@ _ENGINE_SESSION_SLUGS = (
 )
 _ENGINE_CONFIG_SLUGS = (
     "launcher-authority",
+    "machine-registry",
     "session-relay",
     "session-relay-orphans",
     "harness-unattended-posture",

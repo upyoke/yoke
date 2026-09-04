@@ -161,9 +161,9 @@ def derive_launch_eligibility(
         rejected.add("relay_absent")
     return EligibilitySnapshot(
         tuple(selected_by_machine.values()),
-        tuple(sorted(considered)),
-        tuple(sorted(rejected)),
-        tuple(capacities[machine] for machine in sorted(capacities)),
+        considered_machine_ids=tuple(sorted(considered)),
+        rejection_codes=tuple(sorted(rejected)),
+        machine_capacity=tuple(capacities[machine] for machine in sorted(capacities)),
     )
 
 

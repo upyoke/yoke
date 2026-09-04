@@ -9,6 +9,7 @@ from yoke_contracts.executor_labels import (
     canonical_harness_id,
 )
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_core.domain.machine_launch_access import filter_by_machine_access
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_placement import place_launch
 from yoke_core.domain.session_launch_store import utc_now
@@ -93,15 +94,25 @@ def preview_launch(
     now: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchPreview:
-    """Prefer the requested surface and use fallback only through both gates."""
+    """Prefer the requested surface and use fallback only through both gates.
+
+    Machine access is applied to every snapshot before a relay is chosen, so a
+    machine the calling actor may not use is never selected by either door.
+    """
     ensure_operator(auth)
     current = now or utc_now()
-    exact = eligibility(
+    exact, _ = filter_by_machine_access(
         conn,
+        eligibility(
+            conn,
+            project_id=project_id,
+            surface=surface,
+            machine_id=machine_id,
+            now=current,
+        ),
+        actor_id=auth.actor_id,
         project_id=project_id,
-        surface=surface,
-        machine_id=machine_id,
-        now=current,
+        is_admin=auth.can_administer_project,
     )
     exact_preview = place_launch(
         conn,
@@ -124,13 +135,19 @@ def preview_launch(
             surface,
             exact_preview.eligible_relays,
         )
-    fallback = _fallback_snapshot(
+    fallback, _ = filter_by_machine_access(
         conn,
+        _fallback_snapshot(
+            conn,
+            project_id=project_id,
+            requested_surface=surface,
+            machine_id=machine_id,
+            now=current,
+            eligibility=eligibility,
+        ),
+        actor_id=auth.actor_id,
         project_id=project_id,
-        requested_surface=surface,
-        machine_id=machine_id,
-        now=current,
-        eligibility=eligibility,
+        is_admin=auth.can_administer_project,
     )
     if not fallback.relays:
         return exact_preview

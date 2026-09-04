@@ -217,7 +217,7 @@ def _machine_plan_limits(
         for row in report.plan_limits:
             if row.machine_id != machine_id:
                 continue
-            key = (row.hostname, row.surface, row.window_kind, row.scope)
+            key = (row.machine_name, row.surface, row.window_kind, row.scope)
             seen.setdefault(key, row)
     return tuple(seen.values())
 
@@ -227,12 +227,17 @@ def _machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[s
     machine_ids = _distinct_machine_ids(reports)
     if not machine_ids:
         return [launchable_line(())]
+    names = {
+        machine_id: name
+        for report in reports
+        for machine_id, name in report.machine_names
+    }
     lines: list[str] = []
     for index, machine_id in enumerate(machine_ids):
         if index:
             lines.append("")
         ready = _machine_launchable(reports, machine_id)
-        lines.append(launchable_line(ready))
+        lines.append(launchable_line(ready, machine_names=names))
         capacity = _machine_capacity(reports, machine_id)
         if capacity is not None:
             lines.append(f"  {capacity_line(capacity)}")

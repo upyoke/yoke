@@ -125,6 +125,31 @@ def authorization(
     )
 
 
+def register_machine_row(
+    conn: sqlite3.Connection,
+    *,
+    machine_id: str,
+    actor_id: int = 1,
+    name: str | None = None,
+    access: dict[str, Any] | None = None,
+) -> None:
+    """Seed one registered machine directly, the way relays are seeded here."""
+    conn.execute(
+        "INSERT OR REPLACE INTO machines "
+        "(machine_id, name, owner_actor_id, access, "
+        "registered_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            machine_id,
+            name or machine_id,
+            actor_id,
+            json.dumps(access or {}),
+            NOW,
+            NOW,
+        ),
+    )
+    conn.commit()
+
+
 def add_relay(
     conn: sqlite3.Connection,
     *,
@@ -139,7 +164,13 @@ def add_relay(
     hostname: str = "relay-host",
     plan_limits: dict[str, Any] | None = None,
     preferred_models: dict[str, str] | None = None,
+    registered: bool = True,
+    access: dict[str, Any] | None = None,
 ) -> None:
+    if registered:
+        register_machine_row(
+            conn, machine_id=machine_id, actor_id=actor_id, access=access
+        )
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id, actor_id, machine_id, hostname, surface_versions, "
@@ -219,5 +250,6 @@ __all__ = [
     "authorization",
     "launch_connection",
     "plan_limit_document",
+    "register_machine_row",
     "relay_connection",
 ]

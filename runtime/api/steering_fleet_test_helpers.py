@@ -30,6 +30,9 @@ ASKER = "asking-worker"
 ANSWERER = "answering-worker"
 PROJECT_ID = 1
 PLAN_LIMIT_HOST = "beebauman-macbook-pro-16"
+#: The host name the seeded relay reports — what an unregistered machine
+#: falls back to on any row that carries the relay's own hostname.
+RELAY_HOSTNAME = "relay-host"
 ACTOR_ID = 2
 
 
@@ -106,10 +109,11 @@ def seed_relay(conn) -> None:
         "INSERT INTO session_relays "
         "(relay_id, actor_id, machine_id, hostname, surface_versions, "
         "project_checkouts, first_seen_at, last_seen_at, connected_until, state) "
-        "VALUES ('relay-1', %s, 'machine-1', 'relay-host', %s, %s, %s, %s, "
+        "VALUES ('relay-1', %s, 'machine-1', %s, %s, %s, %s, %s, "
         "%s, 'active')",
         (
             ACTOR_ID,
+            RELAY_HOSTNAME,
             json.dumps({SURFACE: "0.148.0a15"}),
             json.dumps([PROJECT_ID]),
             NOW,
@@ -184,7 +188,7 @@ def seed_steering_scope(conn):
 def plan_limit_row(
     *,
     machine_id: str = "machine-1",
-    hostname: str = PLAN_LIMIT_HOST,
+    machine_name: str = PLAN_LIMIT_HOST,
     surface: str = "cursor-cli",
     plan_tier: str | None = "Ultra",
     window_kind: str = "monthly",
@@ -197,7 +201,7 @@ def plan_limit_row(
     """One (machine, surface, window) meter for the report renderers."""
     return MachinePlanLimit(
         machine_id=machine_id,
-        hostname=hostname,
+        machine_name=machine_name,
         surface=surface,
         plan_tier=plan_tier,
         window_kind=window_kind,

@@ -103,6 +103,19 @@ def render_human(report: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("  issues: none")
+    machine = report.get("machine") or {}
+    if isinstance(machine, Mapping) and machine.get("machine_id"):
+        if machine.get("registered"):
+            lines.append(
+                f"  machine: {machine.get('name')} "
+                f"({machine.get('machine_id')}) registered"
+            )
+        else:
+            lines.append(
+                f"  machine: {machine.get('machine_id')} not registered "
+                f"({machine.get('reason')}); "
+                "register with `yoke machine register`"
+            )
     policies = report.get("surface_policies") or {}
     marks = policies.get("marks") if isinstance(policies, Mapping) else None
     if isinstance(marks, list) and marks:

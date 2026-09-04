@@ -83,6 +83,11 @@ from yoke_core.engines.doctor_hc_launcher_authority import (
 from yoke_core.engines.doctor_hc_session_lane_mismatch import (
     hc_session_lane_mismatch,
 )
+from yoke_core.engines.doctor_hc_machine_registry import (
+    SLUG as MACHINE_REGISTRY_SLUG,
+    TITLE as MACHINE_REGISTRY_TITLE,
+    hc_machine_registry,
+)
 from yoke_core.engines.doctor_hc_session_relay import (
     TITLE as RELAY_TITLE,
     hc_session_relay,
@@ -145,6 +150,7 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         LAUNCHER_AUTHORITY_TITLE,
         hc_launcher_authority,
     ),
+    HealthCheck(MACHINE_REGISTRY_SLUG, MACHINE_REGISTRY_TITLE, hc_machine_registry),
     HealthCheck("session-relay", RELAY_TITLE, hc_session_relay),
     HealthCheck(RELAY_ORPHANS_SLUG, RELAY_ORPHANS_TITLE, hc_session_relay_orphans),
     HealthCheck(

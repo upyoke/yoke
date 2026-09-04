@@ -4,6 +4,7 @@ from yoke_cli.commands.adapters import (
     direct_workflow_usage,
     harness_machine_report,
     inbox_decisions,
+    machine,
     overview,
     item_pages,
     items_merge_provenance,
@@ -33,9 +34,7 @@ USAGE_BY_FUNCTION_ID = {
     "item_worktrees.create": (item_worktree_create.ITEM_WORKTREES_CREATE_USAGE),
     "item_worktrees.get": item_worktrees.ITEM_WORKTREES_GET_USAGE,
     "item_worktrees.list": item_worktrees.ITEM_WORKTREES_LIST_USAGE,
-    "item_worktrees.path_record": (
-        item_worktrees.ITEM_WORKTREES_PATH_RECORD_USAGE
-    ),
+    "item_worktrees.path_record": (item_worktrees.ITEM_WORKTREES_PATH_RECORD_USAGE),
     "item_worktrees.release": item_worktrees.ITEM_WORKTREES_RELEASE_USAGE,
     "projects.capabilities.list": (
         projects_capabilities_read.PROJECTS_CAPABILITIES_LIST_USAGE
@@ -45,6 +44,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     **direct_workflow_usage.USAGE_BY_FUNCTION_ID,
     **harness_machine_report.USAGE_BY_FUNCTION_ID,
+    **machine.USAGE_BY_FUNCTION_ID,
     **overview.USAGE_BY_FUNCTION_ID,
     **inbox_decisions.USAGE_BY_FUNCTION_ID,
     **item_pages.USAGE_BY_FUNCTION_ID,
