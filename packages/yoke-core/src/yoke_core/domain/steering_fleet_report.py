@@ -111,6 +111,10 @@ from yoke_core.domain.steering_fleet_report_landings import (
     FleetLandingReadback,
     landing_readbacks,
 )
+from yoke_core.domain.steering_fleet_report_relay_health import (
+    RelayHealthCondition,
+    relay_health_conditions,
+)
 
 
 @dataclass(frozen=True)
@@ -144,6 +148,7 @@ class FleetReport:
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
     vendor_errors: tuple[VendorErrorSession, ...] = ()
+    relay_health: tuple[RelayHealthCondition, ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.
     #: Unowned work used to be invisible precisely here: a report addressed
     #: to a seat that has ended is not anyone's inbox item until a seat
@@ -199,6 +204,7 @@ class FleetReport:
             or self.dead_waits
             or self.vendor_errors_needing_action()
             or self.landings_needing_action()
+            or self.relay_health
             or self.messages_awaiting_seat
         )
 
@@ -280,6 +286,7 @@ def compose_report(
             ),
         ),
         machine_names=tuple(sorted(names.items())),
+        relay_health=relay_health_conditions(conn, project_id=project_id, now=now),
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),

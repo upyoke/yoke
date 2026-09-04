@@ -27,6 +27,7 @@ class ObservedServerBuild:
 
     name: str = ""
     comparison: Optional[source_build_skew.BuildComparison] = None
+    observation: int = 0
 
 
 _OBSERVED_SERVER_BUILD: ContextVar[ObservedServerBuild] = ContextVar(
@@ -43,7 +44,18 @@ def observe_server_build(
     current = _OBSERVED_SERVER_BUILD.get()
     if name and name == current.name and comparison is None:
         comparison = current.comparison
-    _OBSERVED_SERVER_BUILD.set(ObservedServerBuild(name=name, comparison=comparison))
+    _OBSERVED_SERVER_BUILD.set(
+        ObservedServerBuild(
+            name=name,
+            comparison=comparison,
+            observation=current.observation + 1,
+        )
+    )
+
+
+def current_server_build() -> ObservedServerBuild:
+    """Return the build identity observed on the latest HTTPS response."""
+    return _OBSERVED_SERVER_BUILD.get()
 
 
 def required_field(payload: Mapping[str, Any], field: str) -> Any:
@@ -74,6 +86,8 @@ def required_field(payload: Mapping[str, Any], field: str) -> Any:
 
 __all__ = [
     "ControlPlanePayloadError",
+    "ObservedServerBuild",
+    "current_server_build",
     "observe_server_build",
     "required_field",
 ]

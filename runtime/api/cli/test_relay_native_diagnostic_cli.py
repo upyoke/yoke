@@ -72,6 +72,33 @@ def test_relay_serve_once_treats_reported_native_failure_as_settled(
     assert "local detail unavailable" in rendered
 
 
+def test_relay_serve_once_exits_nonzero_for_build_refusal(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
+    monkeypatch.setattr(
+        relay,
+        "_serve_once",
+        lambda **_kwargs: ServeOnceOutcome(
+            "relay_newer_than_server",
+            error_code="relay_newer_than_server",
+            error_detail=(
+                "relay_newer_than_server: relay revision aaaaaaaaaaaa is newer "
+                "than server revision v0.1.1+launch.365; recovery: deploy"
+            ),
+            local_revision="aaaaaaaaaaaa",
+            server_revision="v0.1.1+launch.365",
+            recovery="deploy",
+        ),
+    )
+
+    assert relay.relay_serve_once(["--json"]) == 1
+    payload = capsys.readouterr().out
+    assert "relay_newer_than_server" in payload
+    assert "v0.1.1+launch.365" in payload
+
+
 def test_relay_diagnostic_reports_safe_unavailable_error(
     monkeypatch,
     capsys,

@@ -49,6 +49,7 @@ def _holder_dict(holder: ClaimHolder) -> dict[str, Any]:
         "idle_seconds": holder.idle_seconds,
         "native_process_gone": holder.native_process_gone,
         "native_process_gone_at": holder.native_process_gone_at or None,
+        "hand_started": holder.hand_started,
     }
 
 
@@ -183,6 +184,25 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         ),
         "machine_capacity": [entry.to_dict() for entry in report.machine_capacity],
         "origin_counts": list(report.origin_counts),
+        "relay_health": [
+            {
+                "relay_id": entry.relay_id,
+                "machine_id": entry.machine_id,
+                "hostname": entry.hostname,
+                "state": entry.state,
+                "pending_reports": entry.pending_reports,
+                "quarantine_count": entry.quarantine_count,
+                "error_code": entry.error_code,
+                "failure_count": entry.failure_count,
+                "first_failed_at": entry.first_failed_at,
+                "last_failed_at": entry.last_failed_at,
+                "refusal_reason": entry.refusal_reason,
+                "local_revision": entry.local_revision,
+                "server_revision": entry.server_revision,
+                "recovery": entry.recovery,
+            }
+            for entry in report.relay_health
+        ],
         "messages_awaiting_seat": report.messages_awaiting_seat,
     }
 

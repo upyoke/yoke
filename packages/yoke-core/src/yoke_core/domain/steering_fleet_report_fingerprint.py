@@ -24,7 +24,12 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
     return {
         "available": sorted(entry.item_id for entry in report.available),
         "holders": sorted(
-            (holder.session_id, holder.item_id, holder.native_process_gone)
+            (
+                holder.session_id,
+                holder.item_id,
+                holder.native_process_gone,
+                holder.hand_started,
+            )
             for holder in report.holders
         ),
         "idle": sorted((holder.session_id, holder.item_id) for holder in report.idle),
@@ -69,6 +74,20 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
             for c in report.machine_capacity
         ),
         "origin_counts": list(report.origin_counts),
+        "relay_health": sorted(
+            (
+                entry.relay_id,
+                entry.state,
+                entry.pending_reports,
+                entry.quarantine_count,
+                entry.error_code,
+                entry.failure_count,
+                entry.refusal_reason,
+                entry.local_revision,
+                entry.server_revision,
+            )
+            for entry in report.relay_health
+        ),
         "messages_awaiting_seat": report.messages_awaiting_seat,
     }
 

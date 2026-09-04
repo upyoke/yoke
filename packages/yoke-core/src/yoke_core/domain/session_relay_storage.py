@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
 from typing import Any
 
 from yoke_contracts.session_control.wake_delivery import (
@@ -43,7 +44,7 @@ def heartbeat_relay(
     heartbeat = validate_heartbeat(heartbeat)
     p = marker(conn)
     existing = conn.execute(
-        "SELECT actor_id,machine_id,lease_expires_at FROM session_relays "
+        "SELECT actor_id,machine_id,lease_expires_at,relay_health FROM session_relays "
         f"WHERE relay_id={p}",
         (heartbeat.relay_id,),
     ).fetchone()
@@ -70,12 +71,13 @@ def heartbeat_relay(
     plan_limits = json_helper.dumps_compact(dict(heartbeat.surface_plan_limits))
     capacity = json_helper.dumps_compact(dict(heartbeat.machine_capacity))
     preferred = json_helper.dumps_compact(dict(heartbeat.preferred_session_models))
+    health = json_helper.dumps_compact(dict(heartbeat.relay_health))
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
-        "machine_capacity,preferred_session_models) "
-        f"VALUES ({','.join(p for _ in range(14))}) "
+        "machine_capacity,preferred_session_models,relay_health) "
+        f"VALUES ({','.join(p for _ in range(15))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
@@ -85,7 +87,8 @@ def heartbeat_relay(
         "connected_until=excluded.connected_until,state=excluded.state,"
         "surface_plan_limits=excluded.surface_plan_limits,"
         "machine_capacity=excluded.machine_capacity,"
-        "preferred_session_models=excluded.preferred_session_models",
+        "preferred_session_models=excluded.preferred_session_models,"
+        "relay_health=excluded.relay_health",
         (
             heartbeat.relay_id,
             heartbeat.actor_id,
@@ -101,7 +104,24 @@ def heartbeat_relay(
             plan_limits,
             capacity,
             preferred,
+            health,
         ),
+    )
+    from yoke_core.domain.session_relay_health_events import (
+        emit_new_relay_quarantines,
+    )
+
+    try:
+        previous_health = json.loads(str(existing[3] or "{}")) if existing else {}
+    except (TypeError, ValueError):
+        previous_health = {}
+    emit_new_relay_quarantines(
+        conn,
+        relay_id=heartbeat.relay_id,
+        machine_id=heartbeat.machine_id,
+        project_ids=heartbeat.project_ids,
+        previous_health=previous_health,
+        relay_health=heartbeat.relay_health,
     )
     conn.commit()
     return connected_until

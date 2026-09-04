@@ -36,11 +36,7 @@ _SENDER_SURFACE_VALUES = ",".join(f"'{value}'" for value in SENDER_SURFACES)
 
 
 def create_session_control_tables(conn: Any) -> None:
-    """Create additive fleet-control tables and lookup indexes.
-
-    Every table here names a machine, so the registry owning those ids
-    converges first — once here, not once per call site.
-    """
+    """Create fleet-control tables after converging the machine registry."""
     ensure_machine_registry_schema(conn, commit=False)
     execute_schema_script(
         conn,
@@ -233,7 +229,8 @@ def create_session_control_tables(conn: Any) -> None:
             lease_expires_at TEXT,
             surface_plan_limits TEXT,
             machine_capacity TEXT,
-            preferred_session_models TEXT
+            preferred_session_models TEXT,
+            relay_health TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_session_relays_machine_connected
             ON session_relays(machine_id, connected_until);
@@ -327,6 +324,7 @@ def create_session_control_tables(conn: Any) -> None:
         ("session_relays", "machine_capacity", "TEXT"),
         ("session_relays", "preferred_session_models", "TEXT"),
         ("session_message_recipients", "wake_escalation", "TEXT"),
+        ("session_relays", "relay_health", "TEXT"),
     ):
         if not _column_exists(conn, table, name):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")

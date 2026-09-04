@@ -20,6 +20,7 @@ from yoke_contracts.machine_config.runtime import (
     read_settings,
 )
 from yoke_harness.session_relay_plan_limits import observe_plan_limits
+from yoke_harness.session_relay_health import observe_relay_health
 from yoke_harness.session_relay_surface_probe_cache import (
     cached_surface_versions,
 )
@@ -45,6 +46,7 @@ class RelayInventory:
     surface_plan_limits: dict[str, dict[str, object]] = field(default_factory=dict)
     machine_capacity: dict[str, object] = field(default_factory=dict)
     preferred_session_models: dict[str, str] = field(default_factory=dict)
+    relay_health: dict[str, object] = field(default_factory=dict)
 
     def claim_payload(
         self,
@@ -63,6 +65,7 @@ class RelayInventory:
             "plan_limits": dict(self.surface_plan_limits),
             "capacity": dict(self.machine_capacity),
             "preferred_models": dict(self.preferred_session_models),
+            "health": dict(self.relay_health),
         }
         if wait_seconds is not None:
             payload["wait_seconds"] = wait_seconds
@@ -95,6 +98,8 @@ def probe_surface_version(surface: str) -> str | None:
 def _inventory(
     versions: dict[str, str],
     plan_limits: dict[str, dict[str, object]] | None = None,
+    *,
+    state_dir: Path | None = None,
 ) -> RelayInventory:
     project_ids = tuple(
         sorted(
@@ -124,6 +129,7 @@ def _inventory(
         # launch placed here resolves the default this machine named, not the
         # one configured on whichever machine asked for the launch.
         preferred_session_models=preferred_session_models(load_config()),
+        relay_health=observe_relay_health(state_dir),
     )
 
 
@@ -148,7 +154,9 @@ def collect_cached_inventory(*, state_dir: Path | None = None) -> RelayInventory
     """Return cache-backed versions without running a live probe inline."""
     versions = cached_surface_versions(state_dir=state_dir)
     return _inventory(
-        versions, observe_plan_limits(tuple(versions), state_dir=state_dir)
+        versions,
+        observe_plan_limits(tuple(versions), state_dir=state_dir),
+        state_dir=state_dir,
     )
 
 

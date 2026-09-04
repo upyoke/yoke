@@ -200,6 +200,8 @@ def write_relay_summary(
     title: str,
 ) -> None:
     if "supported" in payload:
+        health = payload.get("relay_health")
+        health = health if isinstance(health, Mapping) else {}
         fields = [
             ("Environment", payload.get("environment")),
             ("Launch agent", payload.get("launchd_label")),
@@ -209,6 +211,10 @@ def write_relay_summary(
             ("Configuration current", bool(payload.get("plist_current"))),
             ("Launch agent file", payload.get("plist_path")),
             ("State directory", payload.get("state_dir")),
+            ("Report delivery", humanize(health.get("state"))),
+            ("Pending reports", health.get("pending_reports")),
+            ("Quarantined reports", health.get("quarantine_count")),
+            ("Recovery", payload.get("relay_health_recovery")),
         ]
     else:
         claimed = payload.get("jobs")

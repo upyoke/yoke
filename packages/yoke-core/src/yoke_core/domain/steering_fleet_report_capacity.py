@@ -24,6 +24,9 @@ from yoke_core.domain.session_launch_eligibility import derive_launch_eligibilit
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
 
+MANUAL_SESSION_ORIGIN = "manual"
+
+
 @dataclass(frozen=True)
 class SurfaceReadiness:
     """One ``(machine, surface)`` pair a launch could reach right now."""
@@ -178,26 +181,24 @@ def live_session_counts(
 def live_launch_origin_counts(
     conn: Any, *, project_id: int
 ) -> tuple[tuple[str, int], ...]:
-    """Live sessions joined to their launch origin, including zero counts.
-
-    Sessions with no matching ``session_launches.registered_session_id`` are
-    omitted from the split. Both vocabulary values are always present.
-    """
+    """Live sessions by launch origin; unbound sessions count as manual."""
     p = marker(conn)
     rows = conn.execute(
-        f"""SELECT l.origin AS origin, COUNT(*) AS n
+        f"""SELECT COALESCE(l.origin, {p}) AS origin, COUNT(*) AS n
               FROM harness_sessions s
-              JOIN session_launches l ON l.registered_session_id = s.session_id
+              LEFT JOIN session_launches l ON l.registered_session_id = s.session_id
              WHERE s.ended_at IS NULL AND s.terminated_at IS NULL
                AND s.project_id = {p}
-             GROUP BY l.origin""",
-        (int(project_id),),
+             GROUP BY 1""",
+        (MANUAL_SESSION_ORIGIN, int(project_id)),
     ).fetchall()
     counted = {str(row["origin"]): int(row["n"]) for row in rows}
-    return tuple((origin, counted.get(origin, 0)) for origin in LAUNCH_ORIGINS)
+    origins = (*LAUNCH_ORIGINS, MANUAL_SESSION_ORIGIN)
+    return tuple((origin, counted.get(origin, 0)) for origin in origins)
 
 
 __all__ = [
+    "MANUAL_SESSION_ORIGIN",
     "SurfaceReadiness",
     "capacity_line",
     "launch_balance_lines",

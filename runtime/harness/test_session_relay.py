@@ -208,6 +208,11 @@ def test_serve_once_reports_sanitized_result_and_honors_server_backoff(
     }
 
     def dispatch(**kwargs):
+        if kwargs["function_id"] not in {
+            session_relay.RELAY_CLAIM_FUNCTION_ID,
+            session_relay.RELAY_REPORT_FUNCTION_ID,
+        }:
+            return SimpleNamespace(success=True, result={})
         calls.append(kwargs)
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(
@@ -271,6 +276,8 @@ def test_next_server_poll_adopts_a_shorter_cadence(tmp_path: Path) -> None:
     calls = []
 
     def dispatch(**kwargs):
+        if kwargs["function_id"] != session_relay.RELAY_CLAIM_FUNCTION_ID:
+            return SimpleNamespace(success=True, result={})
         calls.append(kwargs)
         return SimpleNamespace(
             success=True,
