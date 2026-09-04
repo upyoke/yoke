@@ -8,7 +8,7 @@ import sqlite3
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE, declared_minimum
 
 
-ENTRY_NAME = "0036_session_launch_model_selection"
+ENTRY_NAME = "0037_session_launch_model_selection"
 
 
 def _entry():
