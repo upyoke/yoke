@@ -10,6 +10,8 @@ per-project harness inventory, which is the reports table.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
+
 
 HARNESS_TABLES: dict[str, dict] = {
     "machines": {
@@ -28,9 +30,10 @@ HARNESS_TABLES: dict[str, dict] = {
             "per-harness or per-project row. A machine is identified by its "
             "registered id and name; there is no key and no signed proof. "
             "access is the JSON access document "
-            "(use.mode owner_only|actors|project_role|universe, plus an "
-            "offers block) that session_control.launch.preview and .create "
-            "enforce. Read via machine.list / machine.show / "
+            "(use.mode owner_only|actors|project_role|universe, plus a "
+            "reserved offers block). The use half is enforced by "
+            "session_control.launch.preview and .create. "
+            f"{OFFERS_ENFORCEMENT_NOTE} Read via machine.list / machine.show / "
             "machine.settings.get; write via machine.register and "
             "machine.settings.set — never raw SQL."
         ),

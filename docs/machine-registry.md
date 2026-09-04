@@ -76,8 +76,8 @@ is something doctor tells you before a refused launch does.
 `actor_ids`), `project_role` (holders of `role` on `project_id`), or
 `universe` (every member). The owner and an administrator always may — an
 operator locked out of a machine they own would have no recovery short of the
-database. An empty `offers` list narrows nothing; a populated one is
-exhaustive.
+database. The `offers` block is reserved for future restrictions and is not
+enforced or consulted today for placement, deploys, or QA host selection.
 
 Read and change it with:
 
@@ -90,13 +90,13 @@ Only the machine's owner or an administrator may set it.
 
 ## Where access is enforced
 
-At the one place launch capacity is consumed: `session_control.launch.preview`
-and `session_control.launch.create` resolve their relays through one
-eligibility snapshot, and a machine the calling actor may not use is dropped
-from it with the `machine_access_denied` rejection code. The refusal message
-names the setting that decided it (`access.use.mode`), so the operator knows
-which knob to turn. An unregistered machine is never launchable: capacity
-whose owner and settings are unknown cannot be checked.
+The `use` half is enforced at the one place launch capacity is consumed:
+`session_control.launch.preview` and `session_control.launch.create` resolve
+their relays through one eligibility snapshot, and a machine the calling actor
+may not use is dropped from it with the `machine_access_denied` rejection code.
+The refusal message names the setting that decided it (`access.use.mode`), so
+the operator knows which knob to turn. An unregistered machine is never
+launchable: capacity whose owner and settings are unknown cannot be checked.
 
 ## Reading the fleet
 

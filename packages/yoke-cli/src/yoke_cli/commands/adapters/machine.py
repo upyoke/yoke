@@ -13,6 +13,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
 
 
 MACHINE_REGISTER_USAGE = (
@@ -112,7 +113,10 @@ def machine_list(args: List[str]) -> int:
 def machine_show(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke machine show",
-        description="Show one registered machine; defaults to this machine.",
+        description=(
+            "Show one registered machine; defaults to this machine. "
+            f"{OFFERS_ENFORCEMENT_NOTE}"
+        ),
     )
     parser.add_argument("machine_id", nargs="?", default=None)
     add_session_arg(parser)
@@ -136,7 +140,7 @@ def machine_settings_get(args: List[str]) -> int:
             "Read the machine's access document, or one dotted leaf of it "
             "(use.mode, use.actor_ids, use.project_id, use.role, "
             "offers.executor_surfaces, offers.models, offers.qa_host, "
-            "offers.deploys)."
+            f"offers.deploys). {OFFERS_ENFORCEMENT_NOTE}"
         ),
     )
     parser.add_argument("machine_id", nargs="?", default=None)
@@ -164,7 +168,8 @@ def machine_settings_set(args: List[str]) -> int:
         description=(
             "Replace one dotted leaf of the machine's access document. The "
             "value is JSON, so a list is '[1,2]' and a string is '\"universe\"'. "
-            "Only the machine's owner or an administrator may."
+            "Only the machine's owner or an administrator may. "
+            f"{OFFERS_ENFORCEMENT_NOTE}"
         ),
     )
     parser.add_argument("machine_id", nargs="?", default=None)
