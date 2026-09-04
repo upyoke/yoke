@@ -32,10 +32,10 @@ Contract for a module here:
   with guarded statements rather than assuming a predecessor ran.
 - Invariants remain true forever unless a later entry declares
   ``RETIRES_INVARIANTS`` naming those prior entries — because the surface
-  they describe is gone, or because the claim was never an invariant.
-  Correcting one is always a new entry: an applied entry's bytes are
-  recorded in every ledger that ran it, so editing the module in place makes
-  those databases refuse to boot on a content mismatch.
+  they describe is gone. A standing invariant found wrong after apply is
+  retired by name and reason in the fleet re-prover's
+  ``RETIRED_STANDING_INVARIANTS`` map, never by editing the applied module
+  whose bytes every database ledger records.
 - **The body must be safe to re-run.** A database restored from a
   pre-ledger archive replays its history, so guard every statement
   (``IF EXISTS`` / ``IF NOT EXISTS``, or an explicit state check).

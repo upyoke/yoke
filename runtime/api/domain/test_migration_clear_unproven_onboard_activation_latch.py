@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.migration_history import (
     history_dir,
@@ -81,7 +83,7 @@ def _latched_modules(conn: sqlite3.Connection) -> set[str]:
     }
 
 
-def test_invariants_allow_a_latch_earned_by_a_superseding_deployment() -> None:
+def test_standing_invariant_does_not_recognize_deployment_supersession() -> None:
     conn = _universe()
     _run(conn, "run-stalled", ("verified", "blocked"))
     conn.execute(
@@ -90,7 +92,8 @@ def test_invariants_allow_a_latch_earned_by_a_superseding_deployment() -> None:
         "'2026-09-01T00:00:00Z', '2026-09-01T00:05:00Z')"
     )
 
-    entry.invariants(conn)
+    with pytest.raises(AssertionError, match="fully closed checklist"):
+        entry.invariants(conn)
 
     assert _latched_modules(conn) == {"connect_harness", entry.MODULE_KEY}
 

@@ -16,6 +16,14 @@ from __future__ import annotations
 from typing import Any, Callable, Optional, Sequence, Tuple
 
 
+RETIRED_STANDING_INVARIANTS: dict[str, str] = {
+    "0035_clear_unproven_onboard_activation_latch": (
+        "the live run_onboard signal also latches a deployment-superseded "
+        "run, while this entry recognizes only a fully closed checklist"
+    ),
+}
+
+
 def applied_shipped_names(
     history: Sequence[str],
     pending_names: Callable[[Any, Sequence[str]], Tuple[str, ...]],
@@ -52,6 +60,13 @@ def verify_applied_history_invariants(
         for retired_name in getattr(module, "RETIRES_INVARIANTS", ())
     }
     for name in applied:
+        retired_reason = RETIRED_STANDING_INVARIANTS.get(name)
+        if retired_reason is not None:
+            print(
+                f"converging {name}: standing invariant skipped -- "
+                f"{retired_reason}"
+            )
+            continue
         if name in retired:
             continue
         module = modules[name]
@@ -69,6 +84,7 @@ def verify_applied_history_invariants(
 
 
 __all__ = [
+    "RETIRED_STANDING_INVARIANTS",
     "applied_shipped_names",
     "verify_applied_history_invariants",
 ]
