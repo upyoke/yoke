@@ -7,10 +7,40 @@ from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
     land,
     landing_record,
+    ok_response,
     wire_happy_path,
 )
 from yoke_core.domain import merge_queue_landing_wait as wait_mod
 from yoke_core.domain.merge_queue_landing_record_state import PENDING
+
+
+def test_observe_call_uses_the_merge_registry_skew_degradation(monkeypatch):
+    sent = object()
+    announced: list[str] = []
+    observed = landing_record()
+
+    def degraded(**kwargs):
+        assert kwargs["function_id"] == wait_mod.OBSERVE_FUNCTION_ID
+        assert kwargs["dispatch"] is sent
+        kwargs["announce"]("[degraded] same-universe observation")
+        return ok_response({"record": observed})
+
+    monkeypatch.setattr(
+        wait_mod.control_plane_function_degradation,
+        "dispatch_through_paired_admin_on_skew",
+        degraded,
+    )
+
+    record, result, error = wait_mod._read_server_record(
+        sent,
+        item_id=1,
+        announce=announced.append,
+    )
+
+    assert error == ""
+    assert result["record"] == observed
+    assert record is not None and record.state == observed["state"]
+    assert announced == ["[degraded] same-universe observation"]
 
 
 def test_a_concurrent_first_refresh_can_finish_before_a_record_exists(monkeypatch):
@@ -53,9 +83,7 @@ def test_wait_module_has_no_local_github_or_process_reader_dependency():
         for alias in node.names
     }
     imported.update(
-        node.module or ""
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
+        node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
     )
 
     assert "subprocess" not in imported

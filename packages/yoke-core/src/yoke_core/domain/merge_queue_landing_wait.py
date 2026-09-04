@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain import control_plane_function_degradation
 from yoke_core.domain.github_poll_schedule import (
     CI_SUITE_SCHEDULE,
     PollSchedule,
@@ -52,12 +53,15 @@ def _read_server_record(
     dispatch: Callable[..., Any],
     *,
     item_id: int,
+    announce: Callable[[str], None],
 ) -> tuple[LandingRecord | None, dict[str, Any], str]:
     """Refresh the project if due and read this lane through one function."""
-    response = dispatch(
+    response = control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
         function_id=OBSERVE_FUNCTION_ID,
         target=TargetRef(kind="item", item_id=int(item_id)),
         payload={},
+        announce=announce,
+        dispatch=dispatch,
     )
     if not getattr(response, "success", False):
         return None, {}, _response_error(response)
@@ -165,6 +169,7 @@ def wait_for_queue_landing(
         record, result, record_error = _read_server_record(
             dispatch,
             item_id=item_id,
+            announce=emit,
         )
         if record_error:
             return WaitRefusal(

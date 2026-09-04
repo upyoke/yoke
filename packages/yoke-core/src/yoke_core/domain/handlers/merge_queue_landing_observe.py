@@ -70,8 +70,7 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
         with _connect_rw() as conn:
             p = _placeholder(conn)
             row = conn.execute(
-                "SELECT project_id,merge_queue_pr_number FROM items "
-                f"WHERE id={p}",
+                f"SELECT project_id,merge_queue_pr_number FROM items WHERE id={p}",
                 (item_id,),
             ).fetchone()
             if row is None:
@@ -94,16 +93,14 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
             )
             refresh_age = record_age_seconds(after.started_at, now=current)
             if after.in_progress and (
-                refresh_age is not None
-                and refresh_age <= LANDING_RECORD_STALE_SECONDS
+                refresh_age is not None and refresh_age <= LANDING_RECORD_STALE_SECONDS
             ):
                 stale = False
             elif record is not None:
                 stale = age is None or age > LANDING_RECORD_STALE_SECONDS
             else:
                 stale = (
-                    refresh_age is None
-                    or refresh_age > LANDING_RECORD_STALE_SECONDS
+                    refresh_age is None or refresh_age > LANDING_RECORD_STALE_SECONDS
                 )
             stale = stale or bool(observation_error or after.last_error)
     except Exception as exc:  # noqa: BLE001 - named server-side refusal

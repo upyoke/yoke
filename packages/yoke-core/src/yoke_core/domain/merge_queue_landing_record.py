@@ -124,8 +124,7 @@ def from_readback(
         kind = CLOSED_UNMERGED
     elif (
         str(state.merge_state_status or "").strip().lower() == "dirty"
-        or str(readback.membership.mergeable or "").strip().upper()
-        == "CONFLICTING"
+        or str(readback.membership.mergeable or "").strip().upper() == "CONFLICTING"
     ):
         kind = CONFLICTED
     else:
