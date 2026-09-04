@@ -16,6 +16,7 @@ from runtime.api.tools.yoke_migration_fleet import (
 )
 from yoke_core.domain import db_backend, environment_bootstrap
 from yoke_core.domain.migration_fleet_applied_invariants import (
+    RETIRED_STANDING_INVARIANTS,
     applied_shipped_names,
     verify_applied_history_invariants,
 )
@@ -39,6 +40,29 @@ def test_pending_entry_can_retire_an_applied_predecessor() -> None:
     )
 
     assert detail is None
+
+
+def test_retired_standing_invariant_names_its_skip_and_reason(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    name, reason = next(iter(RETIRED_STANDING_INVARIANTS.items()))
+
+    def wrong_standing_invariant(_conn: Any) -> None:
+        raise AssertionError("this invariant must be skipped")
+
+    detail = verify_applied_history_invariants(
+        object(),
+        (name,),
+        history=(name,),
+        load_module=lambda _name: SimpleNamespace(
+            invariants=wrong_standing_invariant
+        ),
+    )
+
+    assert detail is None
+    assert capsys.readouterr().out == (
+        f"converging {name}: standing invariant skipped -- {reason}\n"
+    )
 
 
 def test_empty_database_converges_full_history_and_live_invariants(

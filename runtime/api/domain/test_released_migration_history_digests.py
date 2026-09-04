@@ -18,6 +18,10 @@ from yoke_core.domain.migration_serving_version import (
 
 
 MANIFEST_NAME = "released_history_digests.json"
+VALIDATION_LEDGER_ENTRY = "0035_clear_unproven_onboard_activation_latch"
+VALIDATION_LEDGER_DIGEST = (
+    "1c6a854577ba890eb69882e58030c9af10f4ffcaa4969929fbd51941eb6e52ef"
+)
 
 
 def _history_and_pins():
@@ -35,6 +39,27 @@ def test_released_history_manifest_matches_raw_packaged_bytes() -> None:
         name: (expected, raw_content_sha256(entries[name].path.read_bytes()))
         for name, expected in pins.items()
         if raw_content_sha256(entries[name].path.read_bytes()) != expected
+    }
+    assert mismatches == {}
+
+
+def test_validation_database_ledger_matches_raw_packaged_bytes(test_db) -> None:
+    history, _pins = _history_and_pins()
+    entries = {entry.name: entry for entry in history}
+    ledger = {
+        str(name): str(digest)
+        for name, digest in test_db.execute(
+            "SELECT migration_name, content_sha256 FROM applied_migrations "
+            "WHERE content_sha256 IS NOT NULL"
+        ).fetchall()
+    }
+    assert set(ledger) <= set(entries), "ledger names a missing packaged entry"
+    assert ledger[VALIDATION_LEDGER_ENTRY] == VALIDATION_LEDGER_DIGEST
+    mismatches = {
+        name: (digest, raw_content_sha256(entries[name].path.read_bytes()))
+        for name, digest in ledger.items()
+        if name in entries
+        and raw_content_sha256(entries[name].path.read_bytes()) != digest
     }
     assert mismatches == {}
 
