@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 import sys
 from typing import Any
@@ -46,7 +46,7 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
     )
 
 
-def serve_release_daemon() -> Any:
+def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
     """Run and re-pin the daemon from its environment-owned venv."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
     from yoke_core.tools.session_relay_release import (
@@ -99,6 +99,8 @@ def serve_release_daemon() -> Any:
             ["--env", instance.environment, "relay", "serve"],
             executable=installed.executable,
         )
+    if prepare is not None:
+        prepare()
 
     def repin(served_build: str):
         return pin_relay_release(

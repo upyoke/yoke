@@ -30,6 +30,7 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
     instance = SimpleNamespace(environment="stage", state_dir=tmp_path / "relay")
     pins: list[str] = []
     daemon_call = {}
+    prepared: list[str] = []
 
     monkeypatch.setattr(
         session_relay_instance,
@@ -58,9 +59,12 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
     monkeypatch.setattr(session_relay_release_install, "pin_relay_release", pin)
     monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
 
-    outcome = release_cli.serve_release_daemon()
+    outcome = release_cli.serve_release_daemon(
+        prepare=lambda: prepared.append("contained")
+    )
 
     assert outcome.reason == "served_build_changed"
+    assert prepared == ["contained"]
     assert daemon_call["state_dir"] == instance.state_dir
     assert daemon_call["pinned_release"] == "0.1.1+launch.365"
     assert daemon_call["reload_argv"] == ["--env", "stage", "relay", "serve"]
@@ -71,6 +75,7 @@ def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -
     instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
     pinned_executable = instance.state_dir / "venv" / "bin" / "yoke"
     replacements: list[tuple[object, object]] = []
+    prepared: list[str] = []
     monkeypatch.setattr(
         session_relay_instance,
         "resolve_relay_instance",
@@ -100,13 +105,14 @@ def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -
     )
 
     try:
-        release_cli.serve_release_daemon()
+        release_cli.serve_release_daemon(prepare=lambda: prepared.append("contained"))
     except session_relay_release.RelayReleaseError as exc:
         assert exc.code == RELAY_RELEASE_START_FAILED
         assert "replacement returned" in str(exc)
     else:
         raise AssertionError("test replacement unexpectedly returned as success")
     assert replacements == [(["--env", "prod", "relay", "serve"], pinned_executable)]
+    assert prepared == []
 
 
 def test_post_deploy_restart_preserves_named_start_failure(
@@ -215,10 +221,33 @@ def test_serve_command_preserves_named_release_refusal(monkeypatch, capsys) -> N
     monkeypatch.setattr(
         relay,
         "serve_release_daemon",
-        lambda: (_ for _ in ()).throw(refusal),
+        lambda **_kwargs: (_ for _ in ()).throw(refusal),
     )
 
     assert relay.relay_serve(["--json"]) == 1
     payload = json.loads(capsys.readouterr().err)
     assert payload["code"] == RELAY_RELEASE_INSTALL_FAILED
     assert "run relay install" in payload["message"]
+
+
+def test_serve_command_defers_containment_until_release_start(
+    monkeypatch, capsys
+) -> None:
+    def contained() -> None:
+        pass
+
+    received = []
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
+    monkeypatch.setattr(relay, "_contain_stranded_natives", contained)
+    monkeypatch.setattr(
+        relay,
+        "serve_release_daemon",
+        lambda *, prepare: (
+            received.append(prepare)
+            or session_relay_daemon.DaemonOutcome(reason="signal:SIGTERM")
+        ),
+    )
+
+    assert relay.relay_serve(["--json"]) == 0
+    assert received == [contained]
+    assert json.loads(capsys.readouterr().out)["reason"] == "signal:SIGTERM"
