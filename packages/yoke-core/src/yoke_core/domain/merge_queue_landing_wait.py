@@ -8,8 +8,8 @@ from typing import Any, Callable, Optional
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import control_plane_function_degradation
 from yoke_core.domain.github_poll_schedule import (
-    CI_SUITE_SCHEDULE,
     PollSchedule,
+    STEADY_SCHEDULE,
     next_read_delay,
 )
 from yoke_core.domain.merge_queue_entry_checks import entry_checks_refusal
@@ -152,7 +152,7 @@ def wait_for_queue_landing(
     dispatch: Callable[..., Any],
     sleep: Callable[[float], None],
     monotonic: Callable[[], float],
-    schedule: PollSchedule = CI_SUITE_SCHEDULE,
+    schedule: PollSchedule = STEADY_SCHEDULE,
     deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
     liveness: Optional[SessionLivenessPump] = None,
     emit: Callable[[str], None],

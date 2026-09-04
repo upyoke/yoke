@@ -5,6 +5,7 @@ from pathlib import Path
 
 from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
+    dispatch_for,
     land,
     landing_record,
     ok_response,
@@ -79,6 +80,46 @@ def test_a_stale_record_names_its_refresh_time_and_recovery(monkeypatch):
     assert observed_at in outcome.error
     assert "control plane can reach GitHub" in outcome.error
     assert "must not substitute local gh/git polling" in outcome.error
+
+
+def test_default_wait_invokes_the_server_observer_once_per_minute():
+    elapsed = [0.0]
+    delays: list[float] = []
+    calls: list[str] = []
+    base_dispatch = dispatch_for(
+        {"YOK-200": {}},
+        landing_records=[
+            landing_record(PENDING),
+            landing_record(PENDING),
+            landing_record(PENDING),
+            landing_record(),
+        ],
+    )
+
+    def dispatch(**kwargs):
+        calls.append(str(kwargs["function_id"]))
+        return base_dispatch(**kwargs)
+
+    def sleep(seconds: float):
+        delays.append(seconds)
+        elapsed[0] += seconds
+
+    refusal = wait_mod.wait_for_queue_landing(
+        pr_num="42",
+        target="main",
+        item_id=1,
+        public_ref="YOK-200",
+        resume_command="yoke merge item YOK-200 --wait",
+        dispatch=dispatch,
+        sleep=sleep,
+        monotonic=lambda: elapsed[0],
+        deadline_seconds=240.0,
+        emit=lambda _line: None,
+    )
+
+    assert refusal is None
+    assert delays == [60.0, 60.0, 60.0]
+    assert calls == [wait_mod.OBSERVE_FUNCTION_ID] * 4
 
 
 def test_wait_module_has_no_local_github_or_process_reader_dependency():

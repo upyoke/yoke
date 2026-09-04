@@ -8,8 +8,8 @@ from typing import Any, Callable, Optional
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.github_poll_schedule import (
-    CI_SUITE_SCHEDULE,
     PollSchedule,
+    STEADY_SCHEDULE,
 )
 from yoke_core.domain.merge_queue_admission import evaluate_admission
 from yoke_core.domain.merge_queue_admission_shape import (
@@ -63,7 +63,7 @@ def land_item_through_merge_queue(
     dispatch: Callable[..., Any] = call_dispatcher,
     sleep: Callable[[float], None] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
-    schedule: PollSchedule = CI_SUITE_SCHEDULE,
+    schedule: PollSchedule = STEADY_SCHEDULE,
     deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
     resume_command: str = "",
     liveness: Optional[SessionLivenessPump] = None,

@@ -192,8 +192,8 @@ def test_deadline_expiry_is_recoverable_and_names_the_last_observation(
     assert "queue-entry=AWAITING_CHECKS" in outcome.error
 
 
-def test_landing_reads_server_records_on_the_train_schedule(monkeypatch):
-    """Record reads skip the stretch where the train cannot have concluded."""
+def test_landing_refreshes_server_records_on_the_project_cadence(monkeypatch):
+    """A live waiter remains the once-per-minute trigger when relays are down."""
     wire_happy_path(monkeypatch, landing_states=[ARMED])
     clock = {"now": 0.0}
     sleeps: list[float] = []
@@ -212,8 +212,8 @@ def test_landing_reads_server_records_on_the_train_schedule(monkeypatch):
         ],
     )
     assert outcome.ok
-    # Reads at 0s, 60s, 120s, 180s, 480s, 540s — nothing in between.
-    assert sleeps == [60.0, 60.0, 60.0, 300.0, 60.0]
+    # The server rate-limits all lanes in this project behind the same cadence.
+    assert sleeps == [60.0] * 5
 
 
 def test_record_wait_keeps_the_session_live_so_the_claim_survives(monkeypatch):
