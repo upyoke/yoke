@@ -163,12 +163,12 @@ and reports through the coverage receipt. A batch, or a train built after
 the base moved, is a tree no single run covered and runs the full suite —
 which is exactly when the integration proof is real.
 
-Landing then waits for the queue only while that wait can still produce a
-merge. If the pull request's required checks have already concluded red
-and nothing is in flight for that head sha, `yoke merge item --wait`
-returns a terminal required-check failure immediately — it does not spend
-the poll budget, and it disarms merge-when-ready so a later green cannot
-auto-merge without the gate recording a new verdict.
+Landing then waits through the server's durable queue record only while that
+wait can still produce a merge. If the pull request's required checks have
+already concluded red and nothing is in flight for that head sha, the record
+observer disarms merge-when-ready so a later green cannot auto-merge without
+the gate recording a new verdict, and `yoke merge item --wait` returns that
+terminal failure immediately instead of spending the wait budget.
 
 The floor this reaches: a solo item costs one suite end to end; a batch of
 N costs N entry suites plus one shared train.

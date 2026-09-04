@@ -13,12 +13,13 @@ from runtime.api.merge_queue_landing_test_helpers import (
     UNARMED,
     ctx,
     land,
+    landing_record,
     wire_happy_path,
 )
 
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
-from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
+from yoke_core.domain.merge_queue_landing_record_state import STALLED
 from yoke_core.domain import merge_queue_route_selection as selection_mod
 from yoke_core.domain.merge_queue_route import QueueLandingOutcome
 from yoke_core.domain.standalone_item_merge_receipt import MergeReceipt
@@ -33,7 +34,8 @@ ALREADY_MERGED_HEAD = "b" * 40
 
 def _declared(monkeypatch) -> None:
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (True, None),
     )
 
@@ -44,14 +46,15 @@ def _capture_queue_landing(monkeypatch) -> dict:
     def landing(merge_ctx, **kwargs):
         seen.update(kwargs, ctx=merge_ctx)
         return QueueLandingOutcome(
-            ok=True, exit_code=0, pr_num="42",
-            commit_sha=kwargs["commit_sha"], merge_sha="m" * 40,
+            ok=True,
+            exit_code=0,
+            pr_num="42",
+            commit_sha=kwargs["commit_sha"],
+            merge_sha="m" * 40,
             touched_files=("a.py",),
         )
 
-    monkeypatch.setattr(
-        selection_mod, "land_item_through_merge_queue", landing
-    )
+    monkeypatch.setattr(selection_mod, "land_item_through_merge_queue", landing)
     return seen
 
 
@@ -79,9 +82,7 @@ def test_queue_landing_derives_the_lane_head_the_control_plane_lacks(
     """
     _declared(monkeypatch)
     seen = _capture_queue_landing(monkeypatch)
-    monkeypatch.setattr(
-        selection_mod.git, "head_of", lambda _root, _branch: LANE_SHA
-    )
+    monkeypatch.setattr(selection_mod.git, "head_of", lambda _root, _branch: LANE_SHA)
     outcome = _route()
     assert outcome.ok
     assert seen["commit_sha"] == LANE_SHA
@@ -96,9 +97,12 @@ def test_queue_landing_falls_back_to_the_receipt_once_the_lane_is_pruned(
     seen = _capture_queue_landing(monkeypatch)
     monkeypatch.setattr(selection_mod.git, "head_of", lambda _root, _b: "")
     monkeypatch.setattr(
-        selection_mod.receipts, "load",
+        selection_mod.receipts,
+        "load",
         lambda *_a, **_kw: MergeReceipt(
-            branch="YOK-200", target="main", commit_sha=LANE_SHA,
+            branch="YOK-200",
+            target="main",
+            commit_sha=LANE_SHA,
         ),
     )
     assert _route().ok
@@ -112,9 +116,7 @@ def test_queue_landing_refuses_when_no_lane_head_resolves(monkeypatch):
     def forbidden(*_a, **_kw):
         raise AssertionError("a landing with no lane head must not be queued")
 
-    monkeypatch.setattr(
-        selection_mod, "land_item_through_merge_queue", forbidden
-    )
+    monkeypatch.setattr(selection_mod, "land_item_through_merge_queue", forbidden)
     monkeypatch.setattr(selection_mod.git, "head_of", lambda _root, _b: "")
     monkeypatch.setattr(selection_mod.receipts, "load", lambda *_a, **_kw: None)
     outcome = _route()
@@ -132,20 +134,29 @@ def test_the_lane_head_is_what_declines_a_stale_merged_pull_request(
 
     def lookup(_ctx, lane_head=""):
         seen["lane_head"] = lane_head
-        return None, None, (
-            f"pull request 7 merged head {ALREADY_MERGED_HEAD[:12]}, not the "
-            f"lane head {lane_head[:12]}"
+        return (
+            None,
+            None,
+            (
+                f"pull request 7 merged head {ALREADY_MERGED_HEAD[:12]}, not the "
+                f"lane head {lane_head[:12]}"
+            ),
         )
 
     monkeypatch.setattr(landing_pr_mod, "find_landable_pull_request", lookup)
     monkeypatch.setattr(
-        landing_pr_mod, "create_pr",
+        landing_pr_mod,
+        "create_pr",
         lambda _ctx, *, title, body: PrCreateResult(
-            pr_url="", pr_num="", already_exists=True,
+            pr_url="",
+            pr_num="",
+            already_exists=True,
         ),
     )
     pr_num, error = landing_pr_mod.ensure_landing_pull_request(
-        ctx(), "YOK-200", lane_head=LANE_SHA,
+        ctx(),
+        "YOK-200",
+        lane_head=LANE_SHA,
     )
     assert pr_num == ""
     assert seen["lane_head"] == LANE_SHA
@@ -160,25 +171,28 @@ def _wire_close_out(monkeypatch, *, pr_files) -> dict:
     recorded: dict = {}
     monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda _item: None)
     monkeypatch.setattr(
-        close_out_mod, "observe_batch",
+        close_out_mod,
+        "observe_batch",
         lambda _ctx, *, pr_num, member_snapshot, drift_check=None: (None, None),
     )
     monkeypatch.setattr(
         close_out_mod, "read_pr_changed_files", lambda _ctx, _pr: pr_files
     )
     monkeypatch.setattr(
-        close_out_mod.receipts, "record",
+        close_out_mod.receipts,
+        "record",
         lambda item_id, receipt, **_kw: recorded.update(receipt=receipt) or "",
     )
-    monkeypatch.setattr(
-        close_out_mod, "fast_forward_main_checkout", lambda *_a: ""
-    )
+    monkeypatch.setattr(close_out_mod, "fast_forward_main_checkout", lambda *_a: "")
     return recorded
 
 
 def _close_out(monkeypatch):
     return close_out_mod.record_landing(
-        ctx(repo_root=CHECKOUT), item_id=1, commit_sha=LANE_SHA, pr_num="42",
+        ctx(repo_root=CHECKOUT),
+        item_id=1,
+        commit_sha=LANE_SHA,
+        pr_num="42",
     )
 
 
@@ -186,12 +200,11 @@ def test_close_out_reads_the_merge_when_the_pull_request_cannot_be_read(
     monkeypatch,
 ):
     """A landed merge whose file set is unreadable must not strand the item."""
-    recorded = _wire_close_out(
-        monkeypatch, pr_files=(None, "github graphql refused")
-    )
+    recorded = _wire_close_out(monkeypatch, pr_files=(None, "github graphql refused"))
     monkeypatch.setattr(close_out_mod.git, "fetch_target", lambda *_a: None)
     monkeypatch.setattr(
-        close_out_mod.receipts, "touched_files_from_merge_commit",
+        close_out_mod.receipts,
+        "touched_files_from_merge_commit",
         lambda _root, target, sha: ("a.py", "docs/b.md"),
     )
     result = _close_out(monkeypatch)
@@ -207,13 +220,14 @@ def test_close_out_reads_the_merge_against_the_remote_base_branch(monkeypatch):
     fetched: list = []
     asked: dict = {}
     monkeypatch.setattr(
-        close_out_mod.git, "fetch_target",
+        close_out_mod.git,
+        "fetch_target",
         lambda root, target: fetched.append((root, target)),
     )
     monkeypatch.setattr(
-        close_out_mod.receipts, "touched_files_from_merge_commit",
-        lambda _root, target, sha: asked.update(target=target, sha=sha)
-        or ("a.py",),
+        close_out_mod.receipts,
+        "touched_files_from_merge_commit",
+        lambda _root, target, sha: asked.update(target=target, sha=sha) or ("a.py",),
     )
     _close_out(monkeypatch)
     assert fetched == [(CHECKOUT, "main")]
@@ -237,28 +251,21 @@ def test_close_out_keeps_the_pull_requests_answer_when_it_has_one(monkeypatch):
 
 
 def test_a_landing_with_no_identified_run_says_so(monkeypatch):
-    """No marker match reads as unidentified, never as somebody else's green.
-
-    An unarmed, unqueued pull request with no train carrying its marker is
-    an ejection rather than a wait, so the refusal names what it observed
-    and never attributes another train's outcome to it.
-    """
-    wire_happy_path(
-        monkeypatch, landing_states=[UNARMED, UNARMED], queue_entries=(),
+    """A recorded absent entry is never somebody else's green train."""
+    wire_happy_path(monkeypatch, landing_states=[UNARMED])
+    outcome = land(
+        deadline_seconds=120.0,
+        landing_records=[
+            landing_record(
+                STALLED,
+                narrative=(
+                    "pull request 42: merged=false, state=open, "
+                    "merge-when-ready=cleared, queue-entry=neither, "
+                    "train-run=not identified"
+                ),
+            )
+        ],
     )
-    monkeypatch.setattr(
-        verdict_mod, "read_train_run",
-        lambda _ctx, pr_num: (
-            None,
-            f"no merge_group workflow run identified for pull request {pr_num}",
-        ),
-    )
-
-    outcome = land(deadline_seconds=120.0)
     assert not outcome.ok
     assert "no longer driving" in outcome.error
     assert "train-run=not identified" in outcome.error
-    assert any(
-        "no merge_group workflow run identified" in note
-        for note in outcome.warnings
-    )

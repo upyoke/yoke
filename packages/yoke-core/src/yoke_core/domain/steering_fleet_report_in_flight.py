@@ -23,7 +23,7 @@ Three facts must hold together, because each alone has been observed lying:
   row was simply never closed.
 
 And in flight is bounded. Past :data:`IN_FLIGHT_CEILING_SECONDS` the call has
-outlived every wrapper's own poll budget, so the holder returns to the idle
+outlived every wrapper's own wait budget, so the holder returns to the idle
 alarm where the seat can see it.
 """
 

@@ -28,6 +28,8 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
 from runtime.api.domain.test_session_message_support import NOW
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
+from yoke_core.domain.merge_queue_landing_record import read_landing_record
+from yoke_core.domain.merge_queue_landing_record_state import LANDED
 
 
 def test_landing_notification_is_sent_once_to_the_claim_holder():
@@ -57,6 +59,11 @@ def test_landing_notification_is_sent_once_to_the_claim_holder():
     ).fetchone()
     assert marker[0]
     assert marker[1] is None
+    record = read_landing_record(conn, 101)
+    assert record is not None
+    assert record.state == LANDED
+    assert record.pr_number == "42"
+    assert record.observed_at == "2026-08-22T16:00:00Z"
 
     inject(conn, message_id)
     delivered = observe_pending_landings(conn, [1], now=INJECTED_AT, read_state=merged)

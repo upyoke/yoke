@@ -121,10 +121,14 @@ execution evidence is evaluated. It never republishes the lane or re-enters
 the pull request. Missing proof leaves the already-landed item open with a
 retry instruction, rather than silently classifying it as a local merge. The
 marker makes that handoff visible and idempotent. `--wait` retains the inline
-poll, and which route a session takes follows from whether it can be prompted
-again: an operator-opened session takes the handoff, while a launched worker is
-a headless command that cannot be re-entered on either notice, so it holds its
-turn on the inline poll under the merge watcher wrapper instead. Ending a
+process but consumes the durable record: each client cycle asks a registered
+server function to refresh the whole project's pending landings if its shared
+cadence is due, so the waiting machine performs no GitHub or git read loop and
+the machine relay is not the record's only trigger. Which route a session takes
+follows from whether it can be prompted again: an operator-opened session takes
+the handoff, while a launched worker is a headless command that cannot be
+re-entered on either notice, so it holds its turn on the record wait under the
+merge watcher wrapper instead. Ending a
 launched worker's pass on the handoff left seven branches landed in one night
 with their items at `reviewing-implementation` and nobody to close them out.
 Projects without merge-queue capability keep the local merge engine.

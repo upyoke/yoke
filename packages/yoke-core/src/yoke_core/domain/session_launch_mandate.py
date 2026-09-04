@@ -59,7 +59,9 @@ HEADLESS_LANDING_WAIT_TEACHING = (
     "the turn on the merge watcher wrapper the way your skill's merge step "
     "spells out. Merged closes the item out in that same turn; a stopped "
     "landing rebases, re-runs the verification gate, and re-runs the same "
-    "command; only the poll budget running out ends the turn, and then you "
+    "command. A stale server landing record names its last refresh and repair "
+    "step; never replace it with local GitHub polling. Only that blocker or "
+    "the wait budget running out ends the turn, and then you "
     'stamp `yoke sessions touch --mode parked --reason "<observed landing '
     'state>"` and report a HUMAN_GATE naming the pull request, that reading, '
     "and the resume command. Never end a turn on a landing you did not read."

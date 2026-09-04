@@ -1,15 +1,15 @@
-"""What a landing that exhausted its poll budget tells the operator.
+"""What a landing that exhausted its bounded record wait tells the operator.
 
-Running out of poll budget is not a failure: the queue may still merge the
+Running out of wait budget is not a failure: the queue may still merge the
 pull request, and re-running the landing converges on whatever happened
 meanwhile. What made the printed retry unusable was the item work claim.
-A landing polls for tens of minutes without emitting a line, so the
+A landing can wait for tens of minutes without emitting a line, so the
 stale-session sweep saw a session with no activity, reclaimed it, and
 released the claim the retry needs — then the timeout text said "re-run
 the landing" without mentioning that the retry would now refuse for want
 of a claim, and the operator had to discover an undocumented re-acquire.
 
-Two things keep that from repeating. The poll loop refreshes the session
+Two things keep that from repeating. The record loop refreshes the session
 heartbeat while it waits (:mod:`yoke_core.domain.session_liveness_pump`),
 so the claim survives a wait that is doing exactly what it was asked to
 do; and the message built here reads the claim as it actually is at the

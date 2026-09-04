@@ -1,15 +1,23 @@
 """Red required checks are terminal; a set still running keeps the budget."""
 
-from runtime.api.merge_queue_landing_test_helpers import land, wire_happy_path
-from runtime.api.test_merge_queue_landing_verdict import _classify, _wire
+from runtime.api.merge_queue_landing_test_helpers import (
+    land,
+    landing_record,
+    wire_happy_path,
+)
 from runtime.api.test_merge_queue_route import stalled_clock
 
 from yoke_core.domain import merge_queue_entry_checks as checks_mod
-from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
-from yoke_core.domain import merge_queue_landing_wait as wait_mod
 from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
+from yoke_core.domain.merge_queue_landing_record import from_readback
+from yoke_core.domain.merge_queue_landing_record_state import (
+    ENTRY_CHECKS_FAILED,
+    PENDING,
+)
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, TrainRun
+from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
+from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 
 RED_ARMED = PrLandingState(
     merged=False,
@@ -34,26 +42,49 @@ FAILED_OPTIONAL = LandingCheck(
 )
 
 
-def _required(monkeypatch, module, *checks):
-    monkeypatch.setattr(
-        module, "read_required_checks", lambda _ctx, _pr: (tuple(checks), None)
+NOT_QUEUED = PrQueueMembership(in_queue=False, mergeable="MERGEABLE")
+IN_QUEUE = PrQueueMembership(
+    in_queue=True,
+    entry_state="AWAITING_CHECKS",
+    mergeable="MERGEABLE",
+)
+
+
+def _record(*, state=RED_ARMED, membership=NOT_QUEUED, checks=()):
+    return from_readback(
+        item_id=1,
+        project_id=1,
+        pr_number="42",
+        readback=LandingReadback(
+            state=state,
+            membership=membership,
+            required_checks=checks,
+        ),
+        observed_at="2026-09-04T01:00:00Z",
     )
 
 
 def test_a_red_required_check_ends_the_wait_without_the_poll_budget(monkeypatch):
     """The named case: BLOCKED plus one red required check is not a wait."""
-    wire_happy_path(monkeypatch, landing_states=[RED_ARMED] * 100)
-    _required(monkeypatch, verdict_mod, FAILED_REQUIRED, PENDING_REQUIRED)
-    monkeypatch.setattr(
-        wait_mod,
-        "disarm_merge_when_ready",
-        lambda *_a, **_k: "merge-when-ready disarmed",
-    )
+    wire_happy_path(monkeypatch, landing_states=[RED_ARMED])
     announced: list[str] = []
     outcome = land(
         monotonic=stalled_clock(),
         deadline_seconds=120.0,
         emit=announced.append,
+        landing_records=[
+            landing_record(
+                ENTRY_CHECKS_FAILED,
+                narrative=(
+                    "pull request 42: merged=false, state=open, "
+                    "queue-entry=armed_not_enqueued, "
+                    "concluded-checks=repo-contracts=failure"
+                ),
+                head_sha="a" * 40,
+                failed_checks=(FAILED_REQUIRED,),
+                disarm_note="merge-when-ready disarmed",
+            )
+        ],
     )
     assert not outcome.ok
     assert outcome.exit_code == 1
@@ -68,14 +99,23 @@ def test_a_red_required_check_ends_the_wait_without_the_poll_budget(monkeypatch)
     assert any("concluded-checks=repo-contracts=failure" in x for x in announced)
 
 
-def test_checks_still_running_spend_the_poll_budget(monkeypatch):
+def test_recorded_checks_still_running_spend_the_wait_budget(monkeypatch):
     """BLOCKED with everything pending is the ordinary armed-and-waiting."""
-    wire_happy_path(monkeypatch, landing_states=[RED_ARMED] * 100)
-    _required(monkeypatch, verdict_mod, PENDING_REQUIRED)
+    wire_happy_path(monkeypatch, landing_states=[RED_ARMED])
     outcome = land(
         monotonic=stalled_clock(),
         deadline_seconds=120.0,
         emit=lambda _line: None,
+        landing_records=[
+            landing_record(
+                PENDING,
+                narrative=(
+                    "pull request 42: merged=false, state=open, "
+                    "queue-entry=armed_not_enqueued, "
+                    "pending-checks=test-shard"
+                ),
+            )
+        ],
     )
     assert not outcome.ok
     assert outcome.exit_code == route_mod.RECOVERABLE_QUEUE_EXIT_CODE
@@ -98,63 +138,47 @@ def test_unreadable_or_empty_checks_are_not_red():
     assert checks_mod.failed_required_checks(()) == ()
 
 
-def test_a_red_required_check_is_terminal_on_one_read(monkeypatch):
-    _wire(monkeypatch, states=[RED_ARMED])
-    _required(monkeypatch, verdict_mod, FAILED_REQUIRED, PENDING_REQUIRED)
-    verdict = _classify()
-    assert verdict.kind == verdict_mod.ENTRY_CHECKS_FAILED
-    assert "concluded-checks=repo-contracts=failure" in verdict.narrative
-    assert verdict.head_sha == "a" * 40
-    assert verdict.failed_checks == (FAILED_REQUIRED,)
+def test_a_red_required_check_is_terminal_on_one_record():
+    record = _record(checks=(FAILED_REQUIRED, PENDING_REQUIRED))
+    assert record.state == ENTRY_CHECKS_FAILED
+    assert "failed-required-checks=repo-contracts=failure" in record.narrative
+    assert record.head_sha == "a" * 40
+    assert record.failed_checks == (FAILED_REQUIRED,)
 
 
-def test_checks_still_running_keep_the_poll_budget(monkeypatch):
-    _wire(monkeypatch, states=[RED_ARMED])
-    _required(monkeypatch, verdict_mod, PENDING_REQUIRED)
-    verdict = _classify()
-    assert verdict.kind == verdict_mod.PENDING
-    assert "pending-checks=test-shard" in verdict.narrative
+def test_checks_still_running_keep_the_wait_budget():
+    record = _record(checks=(PENDING_REQUIRED,))
+    assert record.state == PENDING
+    assert "failed-required-checks=none" in record.narrative
 
 
-def test_an_unreadable_rollup_keeps_the_poll_budget(monkeypatch):
+def test_an_unreadable_rollup_keeps_the_wait_budget():
     """An unreadable rollup proves nothing, so it cannot end the wait."""
-    _wire(monkeypatch, states=[RED_ARMED])
-    monkeypatch.setattr(
-        verdict_mod,
-        "read_required_checks",
-        lambda _ctx, _pr: (None, "required-checks read failed: transport"),
+    record = from_readback(
+        item_id=1,
+        project_id=1,
+        pr_number="42",
+        readback=LandingReadback(
+            state=RED_ARMED,
+            membership=NOT_QUEUED,
+            required_checks=None,
+            checks_error="required-checks read failed: transport",
+        ),
+        observed_at="2026-09-04T01:00:00Z",
     )
-    verdict = _classify()
-    assert verdict.kind == verdict_mod.PENDING
-    assert "required-checks read failed" in verdict.warnings[0]
+    assert record.state == PENDING
+    assert "required-checks read failed" in record.narrative
 
 
-def test_unarmed_red_required_checks_are_terminal_after_confirm(monkeypatch):
+def test_unarmed_red_required_checks_are_terminal():
     unarmed = PrLandingState(
         merged=False, closed=False, auto_merge_active=False, head_sha="a" * 40
     )
-    _wire(monkeypatch, states=[unarmed, unarmed])
-    _required(monkeypatch, verdict_mod, FAILED_REQUIRED)
-    verdict = _classify()
-    assert verdict.kind == verdict_mod.ENTRY_CHECKS_FAILED
-    assert verdict.head_sha == "a" * 40
+    record = _record(state=unarmed, checks=(FAILED_REQUIRED,))
+    assert record.state == ENTRY_CHECKS_FAILED
+    assert record.head_sha == "a" * 40
 
 
-def test_red_train_checks_are_not_entry_checks(monkeypatch):
-    """Once a train builds, its commit's checks are not the entry gate."""
-    _wire(
-        monkeypatch,
-        states=[RED_ARMED],
-        train=TrainRun(status="in_progress", head_sha="b" * 40),
-    )
-    monkeypatch.setattr(
-        verdict_mod,
-        "read_landing_checks",
-        lambda _ctx, sha: (
-            ((LandingCheck("ci", "completed", "failure"),), None)
-            if sha == "b" * 40
-            else ((), None)
-        ),
-    )
-    _required(monkeypatch, verdict_mod, FAILED_REQUIRED)
-    assert _classify().kind == verdict_mod.PENDING
+def test_a_queue_entry_outranks_a_stale_red_check_read():
+    """An explicit queue entry means GitHub is still driving the landing."""
+    assert _record(membership=IN_QUEUE, checks=(FAILED_REQUIRED,)).state == PENDING

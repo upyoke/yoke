@@ -23,6 +23,12 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.handlers import merge_queue_marker_writes as markers
+from yoke_core.domain.merge_queue_landing_record import (
+    LandingRecord,
+    read_landing_record,
+    write_landing_record,
+)
+from yoke_core.domain.merge_queue_landing_record_state import CONFLICTED
 
 RECORD = "merge_queue.landing_pull_request.record"
 MARK = "merge_queue.landing_pending.mark"
@@ -199,3 +205,74 @@ class TestLandingPendingMarker:
         assert cleared.primary_success
         markers.ClearLandingPendingResponse(**cleared.result_payload)
         assert _marker(db, item_id) == (None, None, None, None)
+
+    def test_rearming_or_clearing_drops_the_previous_observation(self, db):
+        item_id = _seed(db, 9522)
+        markers.handle_mark_landing_pending(
+            _item_envelope(
+                MARK,
+                item_id=item_id,
+                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:00:00Z"},
+            )
+        )
+        conn = connect_test_db(db)
+        try:
+            project_id = int(
+                conn.execute(
+                    "SELECT project_id FROM items WHERE id=%s", (item_id,)
+                ).fetchone()[0]
+            )
+            write_landing_record(
+                conn,
+                LandingRecord(
+                    item_id=item_id,
+                    project_id=project_id,
+                    pr_number="42",
+                    state=CONFLICTED,
+                    observed_at="2026-08-27T18:01:00Z",
+                    changed_at="2026-08-27T18:01:00Z",
+                ),
+            )
+            conn.execute(
+                "UPDATE items SET merge_queue_enqueued_at=NULL WHERE id=%s",
+                (item_id,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        rearmed = markers.handle_mark_landing_pending(
+            _item_envelope(
+                MARK,
+                item_id=item_id,
+                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:05:00Z"},
+            )
+        )
+        assert rearmed.primary_success
+        conn = connect_test_db(db)
+        try:
+            assert read_landing_record(conn, item_id) is None
+            write_landing_record(
+                conn,
+                LandingRecord(
+                    item_id=item_id,
+                    project_id=project_id,
+                    pr_number="42",
+                    state=CONFLICTED,
+                    observed_at="2026-08-27T18:06:00Z",
+                    changed_at="2026-08-27T18:06:00Z",
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        cleared = markers.handle_clear_landing_pending(
+            _item_envelope(CLEAR, item_id=item_id)
+        )
+        assert cleared.primary_success
+        conn = connect_test_db(db)
+        try:
+            assert read_landing_record(conn, item_id) is None
+        finally:
+            conn.close()

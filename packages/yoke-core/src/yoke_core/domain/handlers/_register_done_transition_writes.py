@@ -17,10 +17,12 @@ writes.
 from __future__ import annotations
 
 from yoke_core.domain.handlers import done_transition_writes as _writes
+from yoke_core.domain.handlers import merge_queue_landing_observe as _observe
 from yoke_core.domain.handlers import merge_queue_marker_writes as _markers
 
 _MODULE = "yoke_core.domain.handlers.done_transition_writes"
 _MARKER_MODULE = "yoke_core.domain.handlers.merge_queue_marker_writes"
+_OBSERVER_MODULE = "yoke_core.domain.handlers.merge_queue_landing_observe"
 
 
 def register(registry) -> None:
@@ -48,6 +50,25 @@ def register(registry) -> None:
         owner_module=_MODULE,
         target_kinds=["item"],
         side_effects=["item_merged_at_write"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "merge_queue.landing.observe",
+        _observe.handle_observe_landing,
+        _observe.ObserveLandingRequest,
+        _observe.ObserveLandingResponse,
+        stability="stable",
+        owner_module=_OBSERVER_MODULE,
+        target_kinds=["item"],
+        side_effects=[
+            "github_merge_queue_read",
+            "item_merge_queue_observation_write",
+            "session_message_write",
+        ],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="internal",

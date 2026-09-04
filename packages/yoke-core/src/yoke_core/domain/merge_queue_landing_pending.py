@@ -5,8 +5,9 @@ pull request is recorded when it is opened, because that is the only moment
 both landing routes share and it is what makes a landing legible to the
 control-plane observer
 (:mod:`yoke_core.domain.merge_queue_landing_observer`) when the process
-waiting for it dies. A queue admission is marked only by the handoff route
-that actually hands the wait off. Close-out clears the whole marker.
+waiting for it dies. Both routes mark a queue admission: the handoff exits,
+while the explicit waiter consumes the server record it refreshes. Close-out
+clears the whole marker.
 """
 
 from __future__ import annotations

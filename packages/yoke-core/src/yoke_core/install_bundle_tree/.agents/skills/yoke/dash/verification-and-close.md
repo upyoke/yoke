@@ -188,10 +188,16 @@ those four it saw. A red required check refuses before anything is armed,
 and names the check and its run.
 
 **Reachability-routed wait.** Pass `--wait` through the merge watcher wrapper.
-That wrapper follows the same four-fact landing readback (armed, queued,
-eligible, required checks) on the documented cadence, streams each reading,
-and writes the exit sentinel that ends the follow. It never needs a
-hand-authored `gh` poll loop:
+On each documented cadence the waiting client calls
+`merge_queue.landing.observe`. The server rate-limits concurrent callers to
+one project-wide GitHub sweep per cadence, refreshes every pending landing,
+and returns this lane's durable record: pull-request state, queue holding,
+named queue-entry state, merge-when-ready state, head SHA, failed checks, and
+refresh/change times. The waiting machine issues no `gh`, GitHub, or `git
+fetch` read loop. Landing-complete/stopped record changes still use the
+existing explicit session wake for a detached holder. The wrapper streams
+changed records and writes the exit sentinel that ends the follow; it never
+needs a hand-authored `gh` poll loop:
 
 ```text
 yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \
@@ -230,7 +236,10 @@ Every way either route ends is named, and none of them is silence:
   converges on the merge if one happened meanwhile.
 - **a required check already red** — exit 1, terminal for this tree. Fix the
   check, re-run the verification gate, then re-run the landing.
-- **poll budget exhausted** — exit 9 with the last observed reading and the
+- **landing record stale** — exit 9 names `landing_record_stale`, the last
+  record/project refresh times, and the control-plane GitHub recovery. Do not
+  substitute local polling; report the blocker with the named repair step.
+- **wait budget exhausted** — exit 9 with the last observed reading and the
   exact resume command. Do not re-arm blindly and do not stop quietly: stamp
   `yoke sessions touch --mode parked --reason "<observed landing state>"`, then
   end the turn with a `HUMAN_GATE` report naming the pull request, that reading,
@@ -239,7 +248,7 @@ Every way either route ends is named, and none of them is silence:
 
 `--wait` returns immediately with a terminal failure when the pull request's
 required checks have already concluded red and nothing is in flight for that
-head sha; the poll budget applies only while checks or the train are genuinely
+head sha; the wait budget applies only while checks or the train are genuinely
 pending.
 
 When deployment posture is selected, merge first without closing out, so the

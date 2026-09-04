@@ -199,7 +199,10 @@ def land_item_through_merge_queue(
                 exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
             )
 
-    if not already_merged and not wait_for_landing:
+    # Both landing routes hand the observation to the control plane. The
+    # explicit waiter keeps its local process alive, but it reads this durable
+    # record instead of issuing its own GitHub polls.
+    if not already_merged:
         enqueued_at, marker_error = mark_landing_pending(
             item_id,
             pr_num,
@@ -212,11 +215,16 @@ def land_item_through_merge_queue(
                 pr_num=pr_num,
                 error=(
                     f"pull request {pr_num} is armed in the merge queue, but "
-                    f"its durable close-out marker was not recorded: {marker_error}. "
-                    "Re-enter with --wait to converge on the landing."
+                    f"its durable landing marker was not recorded: {marker_error}. "
+                    "Repair the control-plane write and re-enter `yoke merge item`; "
+                    "the retry converges if GitHub landed it meanwhile."
                 ),
                 warnings=tuple(warnings),
             )
+    else:
+        enqueued_at = ""
+
+    if not already_merged and not wait_for_landing:
         emit(
             f"[phase:landing] pull request {pr_num} is in the merge queue; "
             "this command is exiting with landing_pending=true. Re-enter on "
@@ -234,9 +242,8 @@ def land_item_through_merge_queue(
             warnings=tuple(warnings),
         )
 
-    # Explicit wait mode keeps the owning session alive through the poll.
+    # Explicit wait mode keeps the owning session alive through the record wait.
     refusal = wait_for_queue_landing(
-        ctx,
         pr_num=pr_num,
         target=target,
         item_id=item_id,
@@ -249,7 +256,6 @@ def land_item_through_merge_queue(
         deadline_seconds=deadline_seconds,
         liveness=liveness,
         emit=emit,
-        warnings=warnings,
     )
     if refusal is not None:
         return fail_landing(

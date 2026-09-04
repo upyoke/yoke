@@ -138,7 +138,7 @@ def route_standalone_landing(
     local engine for a project that may have declared the queue.
 
     ``resume_command`` is what the caller ran, quoted back verbatim when a
-    queue landing runs out of poll budget. Only the caller knows it, and a
+    queue landing runs out of its record wait budget. Only the caller knows it, and a
     resumable outcome that prints a command the operator can paste is the
     difference between resuming and reconstructing.
     """

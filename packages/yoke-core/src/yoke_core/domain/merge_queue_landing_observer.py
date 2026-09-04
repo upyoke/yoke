@@ -11,8 +11,9 @@ hand.
 
 So the pull request is recorded when it is opened
 (:mod:`yoke_core.domain.merge_queue_landing_pending`), and this observer
-reads GitHub for every non-terminal item that has one, on the poll the
-relay already runs. A merge stamps the item's landing facts once and
+reads GitHub for every non-terminal item that has one. Relay upkeep and a
+waiting lane both call it, while the project cadence row makes those callers
+share one GitHub sweep. A merge stamps the item's landing facts once and
 notifies whoever owns the lane
 (:mod:`yoke_core.domain.merge_queue_landing_notice`). Nothing here
 transitions an item: close-out is evidence-bound work that belongs to a
@@ -39,6 +40,18 @@ from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.merge_queue_enqueue_verification import (
     LandingReadback,
     read_landing,
+)
+from yoke_core.domain.merge_queue_entry_checks import disarm_merge_when_ready
+from yoke_core.domain.merge_queue_landing_record import (
+    from_readback,
+    write_landing_record,
+)
+from yoke_core.domain.merge_queue_landing_record_state import ENTRY_CHECKS_FAILED
+from yoke_core.domain.merge_queue_landing_refresh import (
+    REFRESH_CADENCE_SECONDS,
+    claim_due_projects,
+    complete_projects,
+    fail_projects,
 )
 from yoke_core.domain.merge_queue_landing_notice import landing_message, push_notice
 from yoke_core.domain.merge_queue_landing_observation import (
@@ -96,7 +109,7 @@ def _read_candidate(
     read_state: Callable[..., Any],
     read_membership: Callable[..., Any],
     read_checks: Callable[..., Any],
-) -> LandingReadback:
+) -> tuple[MergeContext, LandingReadback]:
     """Ask GitHub only what this candidate's landing route can answer.
 
     An item with a recorded queue admission is owed the full four-fact
@@ -112,15 +125,18 @@ def _read_candidate(
         project=str(row["slug"]),
     )
     if row.get("merge_queue_enqueued_at"):
-        return read_landing(
+        return (
             ctx,
-            pr_number,
-            read_state=read_state,
-            read_membership=read_membership,
-            read_checks=read_checks,
+            read_landing(
+                ctx,
+                pr_number,
+                read_state=read_state,
+                read_membership=read_membership,
+                read_checks=read_checks,
+            ),
         )
     state, state_error = read_state(ctx, pr_number)
-    return LandingReadback(state=state, state_error=state_error or "")
+    return ctx, LandingReadback(state=state, state_error=state_error or "")
 
 
 def observe_pending_landings(
@@ -131,6 +147,8 @@ def observe_pending_landings(
     read_state: Callable[..., Any] = read_pr_landing_state,
     read_membership: Callable[..., Any] = read_pr_queue_membership,
     read_checks: Callable[..., Any] = read_required_checks,
+    disarm: Callable[..., str] = disarm_merge_when_ready,
+    cadence_seconds: float = REFRESH_CADENCE_SECONDS,
 ) -> dict[str, int]:
     """Record every landing that happened, and report how each resolved.
 
@@ -142,29 +160,61 @@ def observe_pending_landings(
     """
     current = now or utc_now()
     current_text = timestamp(current)
-    rows = _pending_rows(conn, project_ids)
-    conn.commit()
+    projects = claim_due_projects(
+        conn,
+        project_ids,
+        now=current,
+        cadence_seconds=cadence_seconds,
+    )
     result = {
-        "checked": len(rows),
+        "checked": 0,
         "landed": 0,
         "notified": 0,
         "ejected": 0,
         "unrouted": 0,
     }
+    if not projects:
+        return result
+    try:
+        rows = _pending_rows(conn, projects)
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        fail_projects(conn, projects, now=current, error=str(exc))
+        raise
+    result["checked"] = len(rows)
     marker = _p(conn)
+    cycle_errors: list[str] = []
     for row in rows:
         item_id = int(row["id"])
         project_id = int(row["project_id"])
         pr_number = str(row["merge_queue_pr_number"])
         target = str(row.get("default_branch") or "main")
-        readback = _read_candidate(
-            row,
-            pr_number,
-            target=target,
-            read_state=read_state,
-            read_membership=read_membership,
-            read_checks=read_checks,
-        )
+        try:
+            ctx, readback = _read_candidate(
+                row,
+                pr_number,
+                target=target,
+                read_state=read_state,
+                read_membership=read_membership,
+                read_checks=read_checks,
+            )
+            if row.get("merge_queue_enqueued_at") or readback.merged:
+                record = from_readback(
+                    item_id=item_id,
+                    project_id=project_id,
+                    pr_number=pr_number,
+                    readback=readback,
+                    observed_at=current_text,
+                )
+                if record.state == ENTRY_CHECKS_FAILED:
+                    record = record.with_disarm_note(disarm(ctx, pr_number))
+                write_landing_record(conn, record)
+                conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            cycle_errors.append(f"item {item_id}: {exc}")
+            continue
         if readback.state_error:
             continue
         observation = classify_pending_landing(readback, target=target)
@@ -259,8 +309,13 @@ def observe_pending_landings(
                 )
                 result["notified"] += 1
             conn.commit()
-        except Exception:
+        except Exception as exc:
             conn.rollback()
+            cycle_errors.append(f"item {item_id}: {exc}")
+    if cycle_errors:
+        fail_projects(conn, projects, now=current, error="; ".join(cycle_errors))
+    else:
+        complete_projects(conn, projects, now=current)
     return result
 
 

@@ -1,4 +1,4 @@
-"""Queue-routed landing orchestration: admission, entry, poll, close-out."""
+"""Queue-routed landing orchestration: admission, record wait, close-out."""
 
 from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
@@ -7,18 +7,25 @@ from runtime.api.merge_queue_landing_test_helpers import (
     UNARMED,
     dispatch_for,
     land,
+    landing_record,
     wire_happy_path,
 )
 
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_failed_train as failed_train_mod
 from yoke_core.domain import merge_queue_landing_timeout as timeout_mod
-from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain import session_liveness_pump as liveness_mod
-from yoke_core.domain.merge_queue_landing_verdict import LandingCheck
+from yoke_core.domain.merge_queue_landing_record_state import PENDING
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
-from yoke_core.engines.merge_worktree_pr_queue import QueueMember, TrainRun
+from yoke_core.engines.merge_worktree_pr_queue import QueueMember
+
+
+AWAITING_CHECKS = (
+    "pull request 42: merged=false, state=open, merge-when-ready=armed, "
+    "queue-entry=AWAITING_CHECKS, mergeStateStatus=BLOCKED, "
+    "failed-required-checks=none"
+)
 
 
 class StubPump:
@@ -115,18 +122,22 @@ def test_queue_unreadable_is_named_error(monkeypatch):
     assert "no merge queue" in outcome.error
 
 
-def test_every_poll_observation_is_announced(monkeypatch):
+def test_every_changed_server_observation_is_announced(monkeypatch):
     """The wait is the longest step, so each observation reaches stdout's
     sibling stream rather than sitting silently in the process."""
     wire_happy_path(
         monkeypatch,
         landing_states=[ARMED, ARMED, MERGED],
-        queue_entries=(
-            QueueMember(pr_num="42", head_ref="YOK-200", state="AWAITING_CHECKS"),
-        ),
     )
     announced: list[str] = []
-    outcome = land(emit=announced.append)
+    outcome = land(
+        emit=announced.append,
+        landing_records=[
+            landing_record(PENDING, narrative=AWAITING_CHECKS),
+            landing_record(PENDING, narrative=AWAITING_CHECKS),
+            landing_record(),
+        ],
+    )
     assert outcome.ok
     assert all(line.startswith(route_mod.POLL_LINE_PREFIX) for line in announced)
     assert "queue-entry=AWAITING_CHECKS" in announced[0]
@@ -137,28 +148,23 @@ def test_every_poll_observation_is_announced(monkeypatch):
     assert len(announced) == 2
 
 
-def test_poll_announces_only_when_the_check_set_changes(monkeypatch):
-    checks = [
-        ((LandingCheck("lint", "in_progress"),), None),
-        ((LandingCheck("lint", "in_progress"),), None),
-        ((LandingCheck("lint", "completed", "success"),), None),
-    ]
+def test_wait_announces_only_when_the_recorded_check_set_changes(monkeypatch):
     wire_happy_path(
         monkeypatch,
         landing_states=[ARMED, ARMED, ARMED, ARMED, MERGED],
-        queue_entries=(
-            QueueMember(pr_num="42", head_ref="YOK-200", state="AWAITING_CHECKS"),
-        ),
-        train=TrainRun(status="in_progress", head_sha="abc123"),
     )
-    monkeypatch.setattr(
-        verdict_mod, "read_landing_checks",
-        lambda *_a, **_k: checks.pop(0) if checks else ((LandingCheck(
-            "lint", "completed", "success",
-        ),), None),
-    )
+    pending = f"{AWAITING_CHECKS}, pending-checks=lint concluded-checks=none"
+    concluded = f"{AWAITING_CHECKS}, pending-checks=none concluded-checks=lint=success"
     announced: list[str] = []
-    outcome = land(emit=announced.append)
+    outcome = land(
+        emit=announced.append,
+        landing_records=[
+            landing_record(PENDING, narrative=pending),
+            landing_record(PENDING, narrative=pending),
+            landing_record(PENDING, narrative=concluded),
+            landing_record(),
+        ],
+    )
     assert outcome.ok
     pending = [line for line in announced if "pending-checks=lint" in line]
     concluded = [line for line in announced if "concluded-checks=lint=success" in line]
@@ -170,24 +176,25 @@ def test_poll_announces_only_when_the_check_set_changes(monkeypatch):
 def test_deadline_expiry_is_recoverable_and_names_the_last_observation(
     monkeypatch,
 ):
-    wire_happy_path(monkeypatch, landing_states=[ARMED] * 100)
+    wire_happy_path(monkeypatch, landing_states=[ARMED])
     outcome = land(
         monotonic=stalled_clock(),
         deadline_seconds=120.0,
         emit=lambda _line: None,
+        landing_records=[landing_record(PENDING, narrative=AWAITING_CHECKS)],
     )
     assert not outcome.ok
     assert outcome.exit_code == route_mod.RECOVERABLE_QUEUE_EXIT_CODE
     assert "did not merge within" in outcome.error
-    # The refusal repeats what the poll kept seeing, so an operator reading
+    # The refusal repeats what the server record kept saying, so an operator
     # only the final error still learns why the landing never moved.
     assert "last observed" in outcome.error
-    assert "queue-entry=absent" in outcome.error
+    assert "queue-entry=AWAITING_CHECKS" in outcome.error
 
 
-def test_landing_reads_on_the_train_schedule(monkeypatch):
-    """The poll skips the stretch where the train cannot have concluded."""
-    wire_happy_path(monkeypatch, landing_states=[ARMED] * 6 + [MERGED])
+def test_landing_reads_server_records_on_the_train_schedule(monkeypatch):
+    """Record reads skip the stretch where the train cannot have concluded."""
+    wire_happy_path(monkeypatch, landing_states=[ARMED])
     clock = {"now": 0.0}
     sleeps: list[float] = []
 
@@ -199,21 +206,30 @@ def test_landing_reads_on_the_train_schedule(monkeypatch):
         sleep=sleep,
         monotonic=lambda: clock["now"],
         liveness=StubPump(),
+        landing_records=[
+            *[landing_record(PENDING, narrative=AWAITING_CHECKS)] * 5,
+            landing_record(),
+        ],
     )
     assert outcome.ok
     # Reads at 0s, 60s, 120s, 180s, 480s, 540s — nothing in between.
     assert sleeps == [60.0, 60.0, 60.0, 300.0, 60.0]
 
 
-def test_poll_keeps_the_session_live_so_the_claim_survives(monkeypatch):
-    """The wait is silent, so the poll itself is the activity signal.
+def test_record_wait_keeps_the_session_live_so_the_claim_survives(monkeypatch):
+    """The wait is silent, so each record cycle is the activity signal.
 
     Without this the stale sweep reclaims the session mid-poll and
     releases the item claim the close-out and any retry depend on.
     """
-    wire_happy_path(monkeypatch, landing_states=[ARMED] * 100)
+    wire_happy_path(monkeypatch, landing_states=[ARMED])
     pump = StubPump()
-    land(monotonic=stalled_clock(), deadline_seconds=120.0, liveness=pump)
+    land(
+        monotonic=stalled_clock(),
+        deadline_seconds=120.0,
+        liveness=pump,
+        landing_records=[landing_record(PENDING, narrative=AWAITING_CHECKS)],
+    )
     assert pump.ticks >= 2
 
 
@@ -221,7 +237,7 @@ def test_queue_wait_refreshes_more_often_than_a_short_stale_ttl(monkeypatch):
     """A long scheduled sleep cannot hide a live landing from cleanup."""
     wire_happy_path(
         monkeypatch,
-        landing_states=[ARMED] * 6 + [MERGED],
+        landing_states=[ARMED],
     )
     clock = {"now": 0.0}
     refreshed_at: list[float] = []
@@ -244,6 +260,10 @@ def test_queue_wait_refreshes_more_often_than_a_short_stale_ttl(monkeypatch):
         sleep=sleep,
         monotonic=lambda: clock["now"],
         liveness=pump,
+        landing_records=[
+            landing_record(PENDING, narrative=AWAITING_CHECKS),
+            landing_record(),
+        ],
     )
 
     assert outcome.ok
@@ -260,7 +280,7 @@ def test_queue_wait_refreshes_more_often_than_a_short_stale_ttl(monkeypatch):
 
 def test_timeout_reports_the_held_claim_and_the_resume_command(monkeypatch):
     """The printed retry has to run as-is from the state it describes."""
-    wire_happy_path(monkeypatch, landing_states=[ARMED] * 100)
+    wire_happy_path(monkeypatch, landing_states=[ARMED])
     monkeypatch.setattr(timeout_mod, "_ambient_session_id", lambda: "sess-1")
     resume = "yoke merge item YOK-200 --result r --verification v"
     outcome = land(
@@ -268,7 +288,11 @@ def test_timeout_reports_the_held_claim_and_the_resume_command(monkeypatch):
         deadline_seconds=120.0,
         liveness=StubPump(),
         resume_command=resume,
-        dispatch=dispatch_for({"YOK-200": {}}, holder=HELD_BY_THIS_SESSION),
+        dispatch=dispatch_for(
+            {"YOK-200": {}},
+            holder=HELD_BY_THIS_SESSION,
+            landing_records=[landing_record(PENDING, narrative=AWAITING_CHECKS)],
+        ),
     )
     assert "still held (claim 77)" in outcome.error
     assert outcome.error.endswith(resume)
@@ -278,11 +302,13 @@ def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
     entered: list[str] = []
     wire_happy_path(monkeypatch, landing_states=[UNARMED, MERGED])
     monkeypatch.setattr(
-        route_mod, "unchanged_failed_train_refusal",
+        route_mod,
+        "unchanged_failed_train_refusal",
         lambda *_a, **_k: f"{failed_train_mod.FAILED_TRAIN_UNCHANGED}: held",
     )
     monkeypatch.setattr(
-        route_mod, "enter_merge_queue",
+        route_mod,
+        "enter_merge_queue",
         lambda _ctx, pr_num: entered.append(pr_num) or None,
     )
     outcome = land()
@@ -290,48 +316,3 @@ def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
     assert outcome.exit_code == 1
     assert failed_train_mod.FAILED_TRAIN_UNCHANGED in outcome.error
     assert entered == []
-
-
-def test_serial_dependency_refuses_against_queued_member(monkeypatch):
-    monkeypatch.setattr(
-        route_mod,
-        "read_queue_members",
-        lambda ctx, base_branch="main": (
-            [QueueMember(pr_num="9", head_ref="YOK-150")],
-            None,
-        ),
-    )
-    shapes = {
-        "YOK-200": {
-            "claims": [],
-            "dependencies": [
-                {
-                    "direction": "depends-on",
-                    "other_item": "YOK-150",
-                    "gate_point": "activation",
-                }
-            ],
-        },
-        "YOK-150": {"claims": []},
-    }
-    outcome = land(dispatch=dispatch_for(shapes))
-    assert not outcome.ok
-    assert "serial-ordering" in outcome.error
-
-
-def test_migration_carrier_shapes_resolve_from_profile(monkeypatch):
-    monkeypatch.setattr(
-        route_mod,
-        "read_queue_members",
-        lambda ctx, base_branch="main": (
-            [QueueMember(pr_num="9", head_ref="YOK-150")],
-            None,
-        ),
-    )
-    shapes = {
-        "YOK-200": {"profile": '{"state":"declared"}'},
-        "YOK-150": {"profile": '{"state":"declared"}'},
-    }
-    outcome = land(dispatch=dispatch_for(shapes))
-    assert not outcome.ok
-    assert "migration-carrier-limit" in outcome.error

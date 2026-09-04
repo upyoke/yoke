@@ -18,6 +18,7 @@ from yoke_core.domain.handlers import __init_register__ as init_register
 
 _MODULE = "yoke_core.domain.handlers.done_transition_writes"
 _MARKER_MODULE = "yoke_core.domain.handlers.merge_queue_marker_writes"
+_OBSERVE_MODULE = "yoke_core.domain.handlers.merge_queue_landing_observe"
 
 # function_id -> (expected side_effects, owning module)
 _DONE_TRANSITION_WRITES = {
@@ -37,6 +38,14 @@ _DONE_TRANSITION_WRITES = {
     "merge_queue.landing_pending.clear": (
         ("item_merge_queue_marker_write",),
         _MARKER_MODULE,
+    ),
+    "merge_queue.landing.observe": (
+        (
+            "github_merge_queue_read",
+            "item_merge_queue_observation_write",
+            "session_message_write",
+        ),
+        _OBSERVE_MODULE,
     ),
 }
 

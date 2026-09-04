@@ -1,12 +1,4 @@
-"""Shared wiring for the queue-routed landing tests.
-
-One landing exercises four collaborators — queue membership, pull-request
-discovery, the pull request's own state, and the close-out — so the tests
-that cover admission and the tests that cover convergence wire the same
-fakes. Both readers of pull-request state share one scripted sequence,
-because call order across them is exactly what the convergence rules are
-about.
-"""
+"""Shared wiring for queue admission, server-record wait, and close-out."""
 
 from __future__ import annotations
 
@@ -15,10 +7,11 @@ from types import SimpleNamespace
 from yoke_contracts.public_ref import parse_public_item_ref
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
-from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
+from yoke_core.domain import merge_queue_landing_wait as wait_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
+from yoke_core.domain.merge_queue_landing_record_state import LANDED
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
     QueueEntryResult,
@@ -34,7 +27,7 @@ LANE_SHA = "1" * 40
 CHECKOUT = "/tmp/repo"
 
 #: The claim a landing holds throughout its poll, which is what the
-#: timeout message reports when the poll budget runs out.
+#: timeout message reports when the record wait budget runs out.
 HELD_BY_THIS_SESSION = {"claim_id": 77, "session_id": "sess-1"}
 
 ARMED = PrLandingState(merged=False, closed=False, auto_merge_active=True)
@@ -53,7 +46,48 @@ def ok_response(result):
     return SimpleNamespace(success=True, result=result, error=None)
 
 
-def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION, merge_queue=None):
+def landing_record(
+    state=LANDED,
+    *,
+    pr_number="42",
+    narrative="pull request 42: merged=true",
+    head_sha="",
+    failed_checks=(),
+    disarm_note="",
+    observed_at="2026-09-04T01:00:00Z",
+):
+    """One server record returned to a waiting lane."""
+    return {
+        "item_id": 1,
+        "project_id": 1,
+        "pr_number": str(pr_number),
+        "state": state,
+        "head_sha": head_sha,
+        "failed_checks": [
+            {
+                "name": check.name,
+                "status": check.status,
+                "conclusion": check.conclusion,
+                "required": check.required,
+                "url": check.url,
+            }
+            for check in failed_checks
+        ],
+        "narrative": narrative,
+        "disarm_note": disarm_note,
+        "observed_at": observed_at,
+        "changed_at": observed_at,
+    }
+
+
+def dispatch_for(
+    shapes,
+    *,
+    holder=HELD_BY_THIS_SESSION,
+    merge_queue=None,
+    landing_records=None,
+    landing_stale=False,
+):
     """Dispatch fake serving claims/profile/dependency reads per item ref.
 
     ``holder`` answers the work-claim lookup the timeout message makes;
@@ -66,11 +100,46 @@ def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION, merge_queue=None):
     the full landing path runs.
     """
 
+    records = list([landing_record()] if landing_records is None else landing_records)
+    last_record = [records[-1] if records else None]
+
     def dispatch(*, function_id, target, payload=None, **_kw):
         if function_id == "claims.work.holder_get":
             return ok_response({"holder": holder})
         if function_id == "items.detail.get":
             return ok_response({"item": {"merge_queue": dict(merge_queue or {})}})
+        if function_id == "merge_queue.landing_pending.mark":
+            return ok_response(
+                {
+                    "item_id": 1,
+                    "pr_number": str((payload or {}).get("pr_number") or "42"),
+                    "enqueued_at": str((payload or {}).get("enqueued_at") or ""),
+                    "landed_at": "",
+                    "notified_at": "",
+                }
+            )
+        if function_id == wait_mod.OBSERVE_FUNCTION_ID:
+            record = records.pop(0) if records else last_record[0]
+            last_record[0] = record
+            observed_at = str((record or {}).get("observed_at") or "")
+            return ok_response(
+                {
+                    "item_id": 1,
+                    "project_id": 1,
+                    "refreshed": True,
+                    "stale": bool(landing_stale),
+                    "age_seconds": 0.0,
+                    "stale_after_seconds": 120.0,
+                    "record": record,
+                    "refresh": {
+                        "project_id": 1,
+                        "started_at": observed_at,
+                        "completed_at": observed_at,
+                        "last_error": "",
+                        "in_progress": False,
+                    },
+                }
+            )
         if function_id == DB_READ_FUNCTION_ID:
             rows = []
             for public_ref, shape in shapes.items():
@@ -107,15 +176,19 @@ def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION, merge_queue=None):
         if function_id == "claims.path.list":
             return ok_response({"claims": shape.get("claims", [])})
         if function_id == "items.get.run":
-            return ok_response({
-                "item_id": 0,
-                "fields": {"db_mutation_profile": shape.get("profile", "")},
-            })
+            return ok_response(
+                {
+                    "item_id": 0,
+                    "fields": {"db_mutation_profile": shape.get("profile", "")},
+                }
+            )
         if function_id == "items.dependency.list":
-            return ok_response({
-                "item_id": 0,
-                "dependencies": list(shape.get("dependencies") or []),
-            })
+            return ok_response(
+                {
+                    "item_id": 0,
+                    "dependencies": list(shape.get("dependencies") or []),
+                }
+            )
         raise AssertionError(f"unexpected function {function_id}")
 
     return dispatch
@@ -126,88 +199,85 @@ def wire_happy_path(
     *,
     members=(),
     landing_states=None,
-    queue_entries=(),
-    train=None,
 ) -> BatchReceipt:
     """Wire every collaborator a landing touches; return the batch receipt."""
     monkeypatch.setattr(
-        route_mod, "read_queue_members",
+        route_mod,
+        "read_queue_members",
         lambda _ctx, base_branch="main": (list(members), None),
-    )
-    monkeypatch.setattr(
-        verdict_mod, "read_queue_members",
-        lambda _ctx, base_branch="main": (list(queue_entries), None),
-    )
-    monkeypatch.setattr(
-        verdict_mod, "read_train_run", lambda _ctx, pr_num: (train, None)
-    )
-    monkeypatch.setattr(
-        verdict_mod, "read_landing_checks",
-        lambda _ctx, _sha: ((), None),
-    )
-    monkeypatch.setattr(
-        verdict_mod, "read_required_checks",
-        lambda _ctx, _pr: ((), None),
     )
     # Nothing red before the arm is the default; the ordering cases say so
     # for themselves.
     monkeypatch.setattr(
-        route_mod, "red_entry_checks_refusal", lambda *_a, **_k: "",
+        route_mod,
+        "red_entry_checks_refusal",
+        lambda *_a, **_k: "",
     )
     monkeypatch.setattr(
-        landing_pr_mod, "find_landable_pull_request",
+        landing_pr_mod,
+        "find_landable_pull_request",
         lambda _ctx, lane_head="": ("url", "42", ""),
     )
     monkeypatch.setattr(
-        landing_pr_mod, "read_pr_landing_state",
+        landing_pr_mod,
+        "read_pr_landing_state",
         lambda _ctx, _pr: (UNARMED, None),
     )
     monkeypatch.setattr(
-        route_mod, "unchanged_failed_train_refusal",
+        route_mod,
+        "unchanged_failed_train_refusal",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        route_mod, "enter_merge_queue",
+        route_mod,
+        "enter_merge_queue",
         lambda _ctx, pr_num: QueueEntryResult(success=True, pr_num=pr_num),
     )
     # GitHub holding the landing is the default these tests assume; the
     # cases about a queue that did not take it override this explicitly.
     monkeypatch.setattr(
-        route_mod, "verify_landing_admitted", lambda *_a, **_k: "",
+        route_mod,
+        "verify_landing_admitted",
+        lambda *_a, **_k: "",
     )
     states = list(landing_states or [MERGED])
-    # One script feeds both readers in call order: the route's pre-entry
-    # convergence check, then every read the verdict takes. An exhausted
-    # script keeps serving its final state.
+    # The route reads GitHub once before arming. Waiting then crosses only
+    # the registered server-record boundary, supplied by ``dispatch_for``.
     states_last = [states[-1]]
 
     def landing(_ctx, pr_num):
         return (states.pop(0) if states else states_last[0]), None
 
     monkeypatch.setattr(route_mod, "read_pr_landing_state", landing)
-    monkeypatch.setattr(verdict_mod, "read_pr_landing_state", landing)
     monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id: None)
     receipt = BatchReceipt(
-        pr_num="42", merge_sha="m" * 40, members=("YOK-200",),
-        head_sha="h" * 40, run_url="https://runs/1",
+        pr_num="42",
+        merge_sha="m" * 40,
+        members=("YOK-200",),
+        head_sha="h" * 40,
+        run_url="https://runs/1",
     )
     monkeypatch.setattr(
-        close_out_mod, "observe_batch",
+        close_out_mod,
+        "observe_batch",
         lambda _ctx, *, pr_num, member_snapshot, drift_check=None: (
             receipt,
             None,
         ),
     )
     monkeypatch.setattr(
-        close_out_mod, "record_batch_evidence",
+        close_out_mod,
+        "record_batch_evidence",
         lambda item_id, receipt, **_kw: None,
     )
     monkeypatch.setattr(
-        close_out_mod, "read_pr_changed_files",
+        close_out_mod,
+        "read_pr_changed_files",
         lambda _ctx, pr_num: (("a.py",), None),
     )
     monkeypatch.setattr(
-        close_out_mod.receipts, "record",
+        close_out_mod.receipts,
+        "record",
         lambda item_id, receipt, **_kw: "",
     )
     return receipt
@@ -215,11 +285,17 @@ def wire_happy_path(
 
 def land(**overrides):
     """Run one landing with the defaults every test starts from."""
+    landing_records = overrides.pop("landing_records", None)
+    landing_stale = overrides.pop("landing_stale", False)
     kwargs = {
         "item_id": 1,
         "public_ref": "YOK-200",
         "commit_sha": LANE_SHA,
-        "dispatch": dispatch_for({"YOK-200": {}}),
+        "dispatch": dispatch_for(
+            {"YOK-200": {}},
+            landing_records=landing_records,
+            landing_stale=landing_stale,
+        ),
         "sleep": lambda _s: None,
     }
     kwargs.update(overrides)
@@ -238,6 +314,7 @@ __all__ = [
     "ctx",
     "dispatch_for",
     "land",
+    "landing_record",
     "ok_response",
     "wire_happy_path",
 ]

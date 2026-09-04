@@ -36,9 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
             "Wait for queue landing inline instead of returning "
             "landing_pending. Invoke through the reachability-routed watch "
             "merge wrapper: no or unknown wake route stays in-turn, while "
-            "only a verified route may release to its subscription. Red "
-            "required checks return immediately; the poll budget is for "
-            "pending checks or trains.",
+            "only a verified route may release to its subscription. Each "
+            "cadence reads the durable server record through "
+            "merge_queue.landing.observe, without worker gh/git polling. "
+            "Red required checks return immediately; pending checks or "
+            "trains spend the record-wait budget, and a stale record names "
+            "its last refresh and recovery.",
         ),
     )
     for flag, help_text in boolean_options:
