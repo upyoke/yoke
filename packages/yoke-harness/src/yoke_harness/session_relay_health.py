@@ -89,6 +89,7 @@ def record_report_failure(
 def record_relay_run_refusal(
     state_dir: Path | None,
     *,
+    pinned_release: str,
     local_revision: str,
     server_revision: str,
     ahead_by: int,
@@ -100,6 +101,7 @@ def record_relay_run_refusal(
         document = _load(path)
         document["run_refusal"] = {
             "reason": RELAY_NEWER_THAN_SERVER,
+            "pinned_release": pinned_release,
             "local_revision": local_revision,
             "server_revision": server_revision,
             "ahead_by": ahead_by,
