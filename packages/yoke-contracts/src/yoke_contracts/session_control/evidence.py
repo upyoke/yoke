@@ -13,6 +13,8 @@ from yoke_contracts.session_control.launch_registration import (
 _TEXT_FIELDS = frozenset(
     {
         "adapter_revision",
+        "background_agent_job_id",
+        "background_agent_recovery",
         "background_agent_result",
         "background_agent_stop",
         # Why the control plane closed an attempt itself, how far the launch
@@ -92,6 +94,7 @@ _TEXT_FIELDS = frozenset(
 _INTEGER_FIELDS = frozenset(
     {
         "background_agent_lookup_attempts",
+        "background_agent_pid",
         "background_agent_stop_duration_ms",
         "diagnostic_expires_at",
         "duration_ms",

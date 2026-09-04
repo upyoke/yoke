@@ -50,7 +50,7 @@ earlier and tried to reach an orchestrator that had long since ended. So a
 host is signalled only when Claude's own job record says `stopped`, and an
 open job is always closed through Claude's stop path instead.
 
-## Why the stop names the job id rather than resolving one
+## Why every stop resolves through the per-pid record
 
 A stop used to start from a native session id and ask `claude agents --all
 --json` which background job carried it. That listing is read under a
@@ -59,9 +59,19 @@ overruns it: the JSON arrives truncated, every resolution fails to parse,
 and the stop is never issued. Observed live at 78 KiB and 275 agents, where
 nine idle hosts were named correctly and none of them stopped.
 
-This path never needs that lookup. The session record it already read to
-identify the host carries the job id, and it is exactly the id `claude stop`
-takes, so the stop is issued from a fact the machine already holds.
+Both relay paths now use one bounded per-pid record resolver. Idle-host
+reclaim already knows the host pid and resolves that exact record. Deliberate
+operator termination starts from Claude's native session id, scans the small
+`sessions/<pid>.json` records individually, and selects the newest valid
+record naming that session. The result carries both the pid and the job id,
+which is exactly the id `claude stop` takes. Neither path reads the aggregate
+agent listing.
+
+A missing target record reports `session_record_missing`; a record set that
+cannot be parsed or validated reports `session_record_invalid`. Both carry
+the recovery to restore or have Claude rewrite the per-pid record and run
+`claude stop <job-id>` from it, and neither falls through to signalling a
+host the daemon may still own.
 
 ## Which hosts are left to reclaim
 
