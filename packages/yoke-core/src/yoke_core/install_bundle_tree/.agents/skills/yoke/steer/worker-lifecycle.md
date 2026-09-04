@@ -240,7 +240,10 @@ worker reports back with
 server resolves it at delivery to whichever seat covers the worker's item,
 and parks it for the next seat when none is live. So a worker launched by a
 seat that later stops still reports to whoever holds the scope, and this seat
-inherits that mail on acquire instead of chasing it. Never put a session id in
+inherits that mail on acquire instead of chasing it. The send says which of
+those happened: its steering recipient reports `awaiting_seat` with the scope
+it is queued for, or `delivered` naming the seat, so a parked report never
+reads as a message that went nowhere. Never put a session id in
 a mandate, and never pad, complete, or expand one by hand — no Yoke surface
 shortens a session id, so a short one did not come from Yoke.
 

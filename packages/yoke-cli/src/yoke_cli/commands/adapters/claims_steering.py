@@ -16,7 +16,8 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 STEERING_ACQUIRE_USAGE = (
-    "yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT] [--json]"
+    "yoke claims steering acquire --project P [--doc SLUG | --plan-doc SLUG] "
+    "[--reason TEXT] [--json]"
 )
 STEERING_RELEASE_USAGE = "yoke claims steering release CLAIM_ID --reason TEXT [--json]"
 STEERING_LIST_USAGE = (
@@ -118,14 +119,31 @@ def claims_steering_acquire(args: List[str]) -> int:
             "covering the whole project."
         ),
     )
+    parser.add_argument(
+        "--plan-doc",
+        default=None,
+        help=(
+            "Standing plan this seat reads and writes: takes that "
+            "document's lock while the seat still covers the whole "
+            "project. Use with a project-wide seat, never beside --doc."
+        ),
+    )
     parser.add_argument("--reason", default=None, help="Optional acquire rationale.")
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_ACQUIRE_USAGE)
     if parsed is None:
         return 2
+    if parsed.doc and parsed.plan_doc:
+        return usage_error(
+            "--doc narrows the seat to a document and already locks it; "
+            "--plan-doc locks a document while the seat covers the whole "
+            "project. Pass one, not both."
+        )
     payload: Dict[str, Any] = {}
     if parsed.doc:
         payload["document"] = parsed.doc
+    if parsed.plan_doc:
+        payload["plan_document"] = parsed.plan_doc
     if parsed.reason:
         payload["reason"] = parsed.reason
     return dispatch_and_emit(

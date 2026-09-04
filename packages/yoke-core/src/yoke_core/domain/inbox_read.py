@@ -18,6 +18,9 @@ from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
 from yoke_core.domain.decision_request_disposition import (
     dispose_ended_decision_requests,
 )
+from yoke_core.domain.session_operator_wake_notice import (
+    settle_operator_wake_notices,
+)
 
 
 def _requester_named(conn: Any, row: dict[str, Any]) -> dict[str, Any]:
@@ -50,7 +53,9 @@ def inbox_for_actor(
     only two: a gate waiting on their decision, and a message someone sent
     them. Rendering the Inbox is where a decision whose subject already
     ended does its damage, so it is also where convergence earns its keep:
-    the reader never sees a gate that gates nothing.
+    the reader never sees a gate that gates nothing. A desktop wake notice
+    converges the same way and for the same reason — it reports an absence,
+    and the absence ends without anyone telling the notice.
 
     Machine approvals are the one gate answered somewhere else. They are
     org-scoped rather than project-scoped, and what an approver needs
@@ -59,6 +64,7 @@ def inbox_for_actor(
     reads them from this one authority rather than a second one.
     """
     dispose_ended_decision_requests(conn, project_ids=project_ids)
+    settle_operator_wake_notices(conn)
     decisions = pending_requests_for_actor(
         conn,
         actor_id,
@@ -68,9 +74,7 @@ def inbox_for_actor(
         conn, actor_id=actor_id, include_read=include_read
     )
     return {
-        "needs_decision": [
-            row for row in decisions if row["kind"] != MACHINE_APPROVAL
-        ],
+        "needs_decision": [row for row in decisions if row["kind"] != MACHINE_APPROVAL],
         "machine_approvals": [
             _requester_named(conn, row)
             for row in decisions

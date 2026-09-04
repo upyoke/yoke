@@ -54,11 +54,30 @@ class ActorMessageRecipient(BaseModel):
     resolution: List[str] = Field(default_factory=list)
 
 
+class SteeringMessageRecipient(BaseModel):
+    """The role-addressed recipient, seated or queued for a covering seat."""
+
+    kind: str = "steering"
+    state: str
+    scope: Dict[str, Any] = Field(default_factory=dict)
+    scope_label: str
+    project_id: int
+    sender_item_id: Optional[int] = None
+    session_id: Optional[str] = None
+    label: str
+    executor_surface: str
+    messageability: Dict[str, Any] = Field(default_factory=dict)
+    delivered_at: Optional[str] = None
+    acknowledged_at: Optional[str] = None
+    summary: str
+
+
 class MessagePreviewResponse(BaseModel):
     recipients: List[MessageRecipient]
     actor_recipients: List[ActorMessageRecipient] = Field(default_factory=list)
     recipient_count: int
     confirmation_token: Optional[str] = None
+    steering_recipient: Optional[SteeringMessageRecipient] = None
 
 
 class MessageSendRequest(BaseModel):
@@ -75,6 +94,7 @@ class MessageSendResponse(BaseModel):
     actor_recipients: List[ActorMessageRecipient] = Field(default_factory=list)
     recipient_count: int
     deduplicated: bool = False
+    steering_recipient: Optional[SteeringMessageRecipient] = None
 
 
 class MessageListRequest(BaseModel):
@@ -243,4 +263,5 @@ __all__ = [
     "RelayReclaimedHost",
     "RelayReportRequest",
     "RelayReportResponse",
+    "SteeringMessageRecipient",
 ]

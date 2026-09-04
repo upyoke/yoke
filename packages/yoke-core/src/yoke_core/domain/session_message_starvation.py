@@ -106,12 +106,14 @@ def turn_in_flight(row: Mapping[str, Any]) -> datetime | None:
     return parse_timestamp(row.get("open_tool_call_since"))
 
 
-def undelivered_since_send(row: Mapping[str, Any], *, now: datetime) -> bool:
+def undelivered_since_send(row: Mapping[str, Any]) -> bool:
     """True when nothing has attached this envelope and no hook has run.
 
     A tool call after the message arrived means a hook ran and declined to
     attach it. That is a delivery defect with its own probe record, not an
-    absent route, and resuming the session would not fix it.
+    absent route, and resuming the session would not fix it. Every fact
+    here is stored on the row, so the answer does not depend on when it is
+    asked.
     """
     if str(row.get("state") or "") != "pending":
         return False
@@ -184,7 +186,7 @@ def starved_hook_route(
     after reserving it, and its own reservation would otherwise read as a
     competing wake and disqualify the escalation it is carrying out.
     """
-    if not undelivered_since_send(row, now=now):
+    if not undelivered_since_send(row):
         return False
     window = timedelta(seconds=grace_seconds)
     silent_since = hook_route_silent_since(row)
@@ -220,7 +222,7 @@ def parked_without_idle_wake(
     conversation — one declaring ``wake_authority: operator``, or no stopped
     route of its own — is never escalated into a forked transcript.
     """
-    if not undelivered_since_send(row, now=now):
+    if not undelivered_since_send(row):
         return False
     if not session_is_parked(row.get("mode")):
         return False

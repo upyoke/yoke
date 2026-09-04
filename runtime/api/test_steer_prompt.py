@@ -44,6 +44,21 @@ class TestSteerSkillContract:
         assert "yoke claims steering acquire --project {_project} --doc {SLUG}" in text
         assert "yoke strategy doc-claim acquire" not in text
 
+    def test_a_project_level_request_locks_the_plan_without_narrowing(self):
+        """The default slug must not shrink what the seat steers."""
+        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        assert (
+            "yoke claims steering acquire --project {_project} --plan-doc {SLUG}"
+        ) in skill
+        assert "Reading a document and covering a scope are two decisions" in skill
+        assert (
+            '`--plan-doc` leaves the scope `{"project_id": N}`, so the seat '
+            "covers every item in the project"
+        ) in skill
+        assert (
+            "choose it only when the operator asked to steer that document"
+        ) in skill
+
     def test_vocabulary_is_steering_not_coordination(self):
         corpus = _corpus()
         assert "steering-scope claim" in corpus

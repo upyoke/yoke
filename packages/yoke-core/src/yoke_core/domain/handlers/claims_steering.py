@@ -1,9 +1,11 @@
 """Registered handlers for session-owned steering claims.
 
-A seat covers a whole project, or one strategy document inside it. The
-document is the payload's ``document``: naming it narrows the seat and
-takes that document's lock in the same transaction; omitting it takes the
-project-wide seat and no lock.
+A seat covers a whole project, or one strategy document inside it, and
+the payload says which with two separate keys. ``document`` narrows the
+seat to that document's linked items and takes its lock in the same
+transaction. ``plan_document`` takes the lock without narrowing anything,
+so a project-wide seat still owns the standing plan it reads and writes.
+Neither key takes the project-wide seat and no lock.
 """
 
 from __future__ import annotations
@@ -53,7 +55,15 @@ class AcquireRequest(BaseModel):
         None,
         min_length=1,
         description=(
-            "Strategy document this seat steers; omit for the whole project."
+            "Strategy document this seat is narrowed to; omit for the whole project."
+        ),
+    )
+    plan_document: Optional[str] = Field(
+        None,
+        min_length=1,
+        description=(
+            "Strategy document this seat locks and writes without "
+            "narrowing its coverage."
         ),
     )
 
@@ -126,6 +136,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 project_id=project_id,
                 reason=body.reason,
                 document=body.document,
+                plan_document=body.plan_document,
                 actor_id=(
                     int(request.actor.actor_id)
                     if request.actor.actor_id is not None
@@ -136,6 +147,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
             code = {
                 "ALREADY_CLAIMED": "already_claimed",
                 "DOCUMENT_ALREADY_CLAIMED": "document_already_claimed",
+                "DOCUMENT_CONFLICT": "document_conflict",
                 "DOCUMENT_NOT_FOUND": "unknown_document",
                 "SCOPE_MISMATCH": "scope_mismatch",
             }.get(exc.code, "claim_failed")

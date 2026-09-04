@@ -46,7 +46,8 @@ def _encode(scope: Mapping[str, Any]) -> str:
     return json.dumps(dict(scope), sort_keys=True, separators=(",", ":"))
 
 
-def _decode(raw: Any) -> dict[str, Any]:
+def decode_steering_scope(raw: Any) -> dict[str, Any]:
+    """The scope object one stored role-addressed row belongs to."""
     try:
         value = json.loads(str(raw))
     except (TypeError, ValueError):
@@ -63,7 +64,7 @@ def row_coverage_target(conn: Any, row: Mapping[str, Any]) -> dict[str, Any]:
     """
     from yoke_core.domain.steering_scope_membership import item_document_slug
 
-    target = _decode(row.get("steering_scope"))
+    target = decode_steering_scope(row.get("steering_scope"))
     item_id = row.get("sender_item_id")
     if item_id is None:
         return target
@@ -316,6 +317,7 @@ __all__ = [
     "TABLE",
     "acknowledge_steering_recipient",
     "awaiting_seat_count",
+    "decode_steering_scope",
     "drainable_rows",
     "hand_to_seat",
     "holding_seat_session_id",

@@ -70,9 +70,7 @@ def _overlapping_rows(conn: Any, scope: dict[str, Any]) -> list[Any]:
         (TARGET_KIND_STEERING,),
     ).fetchall()
     return [
-        row
-        for row in rows
-        if scopes_overlap(decode_scope(dict(row)["scope"]), scope)
+        row for row in rows if scopes_overlap(decode_scope(dict(row)["scope"]), scope)
     ]
 
 
@@ -83,15 +81,27 @@ def acquire(
     project_id: int,
     reason: Optional[str] = None,
     document: Optional[str] = None,
+    plan_document: Optional[str] = None,
     actor_id: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Acquire one steering seat, and its document lock when it has a document.
+    """Acquire one steering seat, and the document lock it steers with.
 
-    Naming a document does two things in one transaction: it narrows the
-    seat's scope to that document's items, and it takes the document lock
-    so the seat is the only writer of the plan it steers. A seat with no
-    document covers the whole project and locks nothing.
+    Coverage and authorship are two decisions, not one. ``document``
+    narrows the seat to that document's linked items AND locks it, so a
+    document seat steers exactly its own work. ``plan_document`` locks a
+    document without narrowing anything: the seat covers the whole
+    project and is still the only writer of the standing plan it reads.
+    Naming neither takes the project-wide seat and locks nothing.
     """
+    if document is not None and plan_document is not None and document != plan_document:
+        raise SessionError(
+            "DOCUMENT_CONFLICT",
+            f"a seat narrowed to {document!r} already locks that document; "
+            f"drop --plan-doc {plan_document} to steer {document!r}, or drop "
+            f"--doc {document} to cover the whole project while holding "
+            f"{plan_document!r}.",
+        )
+    locked_document = document or plan_document
     target = make_steering_target(project_id, document)
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:
@@ -117,13 +127,11 @@ def acquire(
                 conn,
                 claim=payload,
                 project_id=int(project_id),
-                document=document,
+                document=locked_document,
                 actor_id=actor_id,
                 reason=reason,
             )
-            handoff = _drain_role_addressed_messages(
-                conn, claim=payload, target=target
-            )
+            handoff = _drain_role_addressed_messages(conn, claim=payload, target=target)
             payload["message_handoff"] = handoff
             conn.commit()
             _emit_drain(session_id, payload, target, handoff)
@@ -168,7 +176,7 @@ def acquire(
         conn,
         claim=claim,
         project_id=int(project_id),
-        document=document,
+        document=locked_document,
         actor_id=actor_id,
         reason=reason,
     )
@@ -236,11 +244,11 @@ def _acquire_document_pair(
     actor_id: Optional[int],
     reason: Optional[str],
 ) -> Optional[dict[str, Any]]:
-    """Take the document lock a document-scoped seat comes with.
+    """Take the document lock this seat steers with, whatever its scope.
 
-    A seat's scope names its document, so re-acquiring the same seat asks
-    for the same lock it already holds and the acquire is idempotent. A
-    project-wide seat names no document and locks nothing.
+    Re-acquiring the same seat asks for the same lock it already holds, so
+    the acquire is idempotent. A seat that names no document at all --
+    neither as its scope nor as its standing plan -- locks nothing.
     """
     from yoke_core.domain.strategy_docs import StrategyDocMissingError
     from yoke_core.domain.strategy_execution import (
