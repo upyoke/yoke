@@ -189,30 +189,106 @@ def test_reaper_ignores_handles_without_the_target_identity(tmp_path: Path) -> N
             process.wait()
 
 
-def test_claude_termination_reaps_the_relay_owned_process_alone(
+def test_claude_termination_names_a_missing_session_record(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
-    """Nothing but this machine's own records names a Claude session's process.
-
-    While a daemon owned the session, terminating one meant asking that daemon
-    to stop a job first, and a listing that came back empty left the process
-    running with nobody accountable for it.
-    """
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
     result = reap_terminated_session(
         _job(surface="claude-cli", target_native_thread_id=NATIVE_ID),
         state_dir=tmp_path,
     )
 
     assert result.result_code == "not_found"
-    assert result.evidence == {"result_code": "not_found", "handles_considered": 0}
+    assert result.evidence["background_agent_result"] == "session_record_missing"
+    assert "claude stop <job-id>" in result.evidence["background_agent_recovery"]
+    assert result.evidence["handles_considered"] == 0
     assert redacted_evidence_document(result.evidence) == result.evidence
 
 
 class _StopResult:
     """What a stop invocation reports back: only its exit status is read."""
 
-    def __init__(self, returncode: int) -> None:
+    def __init__(self, returncode: int, stdout: str = "") -> None:
         self.returncode = returncode
+        self.stdout = stdout
+
+
+def test_claude_termination_uses_the_per_pid_record_not_the_agent_listing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    claude_root = tmp_path / "claude"
+    sessions = claude_root / "sessions"
+    sessions.mkdir(parents=True)
+    pid = 98127
+    job_id = "7c5dcf5d"
+    (sessions / f"{pid}.json").write_text(
+        json.dumps(
+            {
+                "pid": pid,
+                "sessionId": NATIVE_ID,
+                "kind": "bg",
+                "jobId": job_id,
+                "startedAt": 1_788_484_800_000,
+            }
+        )
+    )
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_root))
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_claude_native.discover_claude_cli",
+        lambda: "/usr/local/bin/claude",
+    )
+    oversized_listing = json.dumps(
+        {"agents": [{"id": str(index)} for index in range(6_000)]}
+    )
+    assert len(oversized_listing.encode()) > 64 * 1024
+    calls: list[tuple[str, ...]] = []
+
+    def run(arguments: tuple[str, ...]) -> _StopResult:
+        calls.append(arguments)
+        if arguments[1] == "agents":
+            return _StopResult(0, oversized_listing)
+        return _StopResult(0)
+
+    result = reap_terminated_session(
+        _job(surface="claude-cli", target_native_thread_id=NATIVE_ID),
+        state_dir=tmp_path,
+        claude_process_runner=run,
+    )
+
+    assert result.result_code == "terminated"
+    assert calls == [("/usr/local/bin/claude", "stop", job_id)]
+    assert result.evidence == {
+        "background_agent_result": "session_record_resolved",
+        "background_agent_pid": pid,
+        "background_agent_job_id": job_id,
+        "background_agent_stop": "completed",
+        "result_code": "terminated",
+        "handles_considered": 0,
+    }
+    assert redacted_evidence_document(result.evidence) == result.evidence
+
+
+def test_claude_termination_names_an_invalid_session_record(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sessions = tmp_path / "claude" / "sessions"
+    sessions.mkdir(parents=True)
+    (sessions / "98127.json").write_text("not json")
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+
+    result = reap_terminated_session(
+        _job(surface="claude-desktop", target_native_thread_id=NATIVE_ID),
+        state_dir=tmp_path,
+    )
+
+    assert result.result_code == "outcome_unknown"
+    assert result.evidence["background_agent_result"] == "session_record_invalid"
+    assert result.evidence["background_agent_pid"] == 98127
+    assert "rewrite its per-pid record" in result.evidence["background_agent_recovery"]
+    assert redacted_evidence_document(result.evidence) == result.evidence
 
 
 def test_a_known_job_id_is_stopped_without_listing_every_agent(monkeypatch) -> None:

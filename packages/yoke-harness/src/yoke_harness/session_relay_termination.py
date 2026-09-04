@@ -11,12 +11,17 @@ import time
 from typing import Any, Callable, Mapping
 
 from yoke_cli.config import machine_config
+from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+from yoke_harness.claude_runtime_records import (
+    SESSION_RECORD_MISSING,
+    resolve_claude_session_record,
+)
 from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
 
 
-ADAPTER_REVISION = "session-termination-v1"
+ADAPTER_REVISION = "session-termination-v2"
 NATIVE_HANDLE_DIRECTORY_NAME = "session-native-handles"
 MAX_RECORD_BYTES = 4096
 TERMINATE_WAIT_SECONDS = 2.0
@@ -153,7 +158,7 @@ def stop_claude_job(
 
     executable = discover_claude_cli()
     if executable is None:
-        return "not_found", {"background_agent_result": "executable_not_found"}
+        return "not_found", {"background_agent_stop": "executable_not_found"}
     arguments = (executable, CLAUDE_STOP_COMMAND, job_id)
     evidence: dict[str, object] = {}
     try:
@@ -176,6 +181,44 @@ def stop_claude_job(
         "completed" if returncode == 0 else "native_exit"
     )
     return ("terminated" if returncode == 0 else "failed"), evidence
+
+
+def _claude_surface(surface: str) -> bool:
+    try:
+        return canonical_harness_id(surface) == "claude-code"
+    except ValueError:
+        return False
+
+
+def _record_is_live(record: Mapping[str, Any]) -> bool:
+    pid = record.get("pid") or record.get("anchor_pid")
+    started = record.get("process_start_time") or record.get("anchor_start_time")
+    return isinstance(pid, int) and pid > 0 and process_start_time(pid) == started
+
+
+def _stop_claude_session(
+    native_session_id: str,
+    process_runner: Callable[[tuple[str, ...]], Any] | None,
+) -> tuple[str, dict[str, object]]:
+    resolution = resolve_claude_session_record(session_id=native_session_id)
+    evidence: dict[str, object] = {
+        "background_agent_result": resolution.result_code,
+    }
+    if resolution.pid is not None:
+        evidence["background_agent_pid"] = resolution.pid
+    if resolution.record is None:
+        evidence["background_agent_recovery"] = resolution.recovery
+        result = (
+            "not_found"
+            if resolution.result_code == SESSION_RECORD_MISSING
+            else "outcome_unknown"
+        )
+        return result, evidence
+    job_id = str(resolution.record["job_id"])
+    evidence["background_agent_job_id"] = job_id
+    result, stop_evidence = stop_claude_job(job_id, process_runner=process_runner)
+    evidence.update(stop_evidence)
+    return result, evidence
 
 
 def _matching_resume_records(
@@ -225,6 +268,7 @@ def reap_terminated_session(
     *,
     state_dir: Path | None = None,
     anchors_dir: Path | None = None,
+    claude_process_runner: Callable[[tuple[str, ...]], Any] | None = None,
 ) -> "Any":
     """Reap launch custody, detached resume, or local process-anchor handles.
 
@@ -251,6 +295,17 @@ def reap_terminated_session(
             records.append((handle, record))
     records.extend(_matching_resume_records(target, native_id, state_dir))
     records.extend(_matching_anchor_records(target, anchors_dir))
+    if (
+        native_id
+        and _claude_surface(str(job.get("surface") or ""))
+        and not any(_record_is_live(record) for _, record in records)
+    ):
+        background_result, background_evidence = _stop_claude_session(
+            native_id,
+            claude_process_runner,
+        )
+        outcomes.append(background_result)
+        evidence.update(background_evidence)
     pids: set[int] = set()
     for path, record in records:
         result = _terminate_record(path, record)
