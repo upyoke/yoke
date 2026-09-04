@@ -6,6 +6,7 @@ import fcntl
 import json
 import os
 import subprocess
+import time
 
 import pytest
 
@@ -34,13 +35,22 @@ def _dead_pid() -> int:
     return finished.pid
 
 
-def test_lock_refuses_while_another_holder_has_it_and_names_them():
+def test_lock_refuses_while_another_holder_has_it_and_names_them(monkeypatch):
     path = _lock_path()
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     # A second descriptor is a second open file description, so this conflicts
     # exactly as another process's would.
     descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
     fcntl.flock(descriptor, fcntl.LOCK_EX)
+    path.write_text(
+        json.dumps({"pid": os.getpid(), "held_since": time.time() - 42}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        coordination,
+        "_process_command",
+        lambda _pid: "python3 -m yoke_core.domain.deploy_pipeline",
+    )
     try:
         with pytest.raises(cer_c.ConnectedEnvUnavailable) as excinfo:
             with coordination.lifecycle_lock(PORT, timeout=0.2):
@@ -51,6 +61,10 @@ def test_lock_refuses_while_another_holder_has_it_and_names_them():
     message = str(excinfo.value)
     assert "still replacing the connected-env tunnel" in message
     assert f"127.0.0.1:{PORT}" in message
+    assert f"holder pid={os.getpid()}" in message
+    assert "command='python3 -m yoke_core.domain.deploy_pipeline'" in message
+    assert "held=42s" in message
+    assert "Wait for it to finish" in message
 
 
 def test_lock_is_available_again_after_the_holder_leaves():
@@ -125,4 +139,6 @@ def test_lease_for_active_tunnel_leases_the_detected_port(monkeypatch):
         ),
     )
     with coordination.use_lease_for_active_tunnel("fleet rehearsal"):
-        assert [lease.pid for lease in coordination.active_leases(PORT)] == [os.getpid()]
+        assert [lease.pid for lease in coordination.active_leases(PORT)] == [
+            os.getpid()
+        ]

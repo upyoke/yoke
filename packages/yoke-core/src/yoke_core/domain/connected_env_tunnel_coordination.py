@@ -31,6 +31,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import subprocess
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -56,6 +57,10 @@ LIFECYCLE_LOCK_TIMEOUT_SECONDS = 180.0
 LIFECYCLE_LOCK_POLL_SECONDS = 0.25
 
 
+class TunnelReplacementContended(ConnectedEnvUnavailable):
+    """Another live process owns the tunnel replacement decision."""
+
+
 def coordination_dir(local_port: int) -> Path:
     """Machine-local directory holding this port's lock and leases."""
     return machine_config.yoke_home() / COORDINATION_DIR_NAME / f"port-{local_port}"
@@ -64,7 +69,9 @@ def coordination_dir(local_port: int) -> Path:
 # --- lifecycle lock --------------------------------------------------------
 @contextmanager
 def lifecycle_lock(
-    local_port: int, *, timeout: float = LIFECYCLE_LOCK_TIMEOUT_SECONDS,
+    local_port: int,
+    *,
+    timeout: float = LIFECYCLE_LOCK_TIMEOUT_SECONDS,
 ) -> Iterator[None]:
     """Serialize probe-and-replace of one local forward, machine-wide.
 
@@ -84,7 +91,7 @@ def lifecycle_lock(
                 break
             except OSError:
                 if time.monotonic() >= deadline:
-                    raise ConnectedEnvUnavailable(
+                    raise TunnelReplacementContended(
                         "another process is still replacing the connected-env "
                         f"tunnel on 127.0.0.1:{local_port} after "
                         f"{int(timeout)}s ({_lock_holder(path)}). Wait for it "
@@ -108,15 +115,31 @@ def _stamp_holder(descriptor: int) -> None:
         return
 
 
+def _process_command(pid: int) -> str:
+    try:
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "command="],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return redact(result.stdout.strip())
+
+
 def _lock_holder(path: Path) -> str:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
         pid = int(payload["pid"])
+        held_since = float(payload["held_since"])
     except (OSError, ValueError, KeyError, TypeError):
         return "holder unknown"
     if not pid_alive(pid):
         return f"last holder pid={pid} is gone"
-    return f"holder pid={pid}"
+    command = _process_command(pid) or "<unknown>"
+    held_seconds = max(0, int(time.time() - held_since))
+    return f"holder pid={pid} command={command!r} held={held_seconds}s"
 
 
 def pid_alive(pid: int) -> bool:
@@ -189,7 +212,9 @@ def use_lease_for_active_tunnel(reason: str) -> Iterator[None]:
 
 
 def active_leases(
-    local_port: int, *, exclude_pid: Optional[int] = None,
+    local_port: int,
+    *,
+    exclude_pid: Optional[int] = None,
 ) -> List[UseLease]:
     """Live leases on this port; a lease whose holder is gone is removed."""
     directory = coordination_dir(local_port) / LEASE_DIR_NAME
@@ -226,6 +251,7 @@ __all__ = [
     "LEASE_DIR_NAME",
     "LIFECYCLE_LOCK_NAME",
     "LIFECYCLE_LOCK_TIMEOUT_SECONDS",
+    "TunnelReplacementContended",
     "UseLease",
     "active_leases",
     "coordination_dir",

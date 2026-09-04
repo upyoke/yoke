@@ -74,11 +74,13 @@ def _probe_postgres(dsn: str, *, timeout: int = PROBE_TIMEOUT_SECONDS) -> None:
 # thing this layer manages — is intact. Declaring these "down" would block
 # connection acquisition, where managed-secret rotation recovery (AWSPREVIOUS)
 # and precise auth errors live.
-_SERVER_ANSWERED_SQLSTATES = frozenset({
-    "28000",  # invalid_authorization_specification
-    "28P01",  # invalid_password
-    "3D000",  # invalid_catalog_name
-})
+_SERVER_ANSWERED_SQLSTATES = frozenset(
+    {
+        "28000",  # invalid_authorization_specification
+        "28P01",  # invalid_password
+        "3D000",  # invalid_catalog_name
+    }
+)
 # Connect-phase psycopg errors do not always carry a sqlstate; the relayed
 # server FATAL text is then the only classification signal. These are the
 # libpq-relayed message bodies for the same three SQLSTATE classes.
@@ -124,8 +126,12 @@ def _probe_failure(dsn: str) -> Optional[str]:
         return redact(f"{type(exc).__name__}: {first_line}"[:300])
 
 
-def _probe_retry(dsn: str, *, attempts: int = PROBE_CONFIRM_ATTEMPTS,
-                 delay: float = PROBE_CONFIRM_DELAY_SECONDS) -> Optional[str]:
+def _probe_retry(
+    dsn: str,
+    *,
+    attempts: int = PROBE_CONFIRM_ATTEMPTS,
+    delay: float = PROBE_CONFIRM_DELAY_SECONDS,
+) -> Optional[str]:
     """Return ``None`` if any probe succeeds across a short confirmation
     window, else the last redacted failure cause.
 
@@ -144,19 +150,24 @@ def _probe_retry(dsn: str, *, attempts: int = PROBE_CONFIRM_ATTEMPTS,
 
 
 # --- core evaluation -------------------------------------------------------
-def _ok(detection: Detection, action: str, message: str,
-        detail: Optional[str] = None) -> ReadinessResult:
+def _ok(
+    detection: Detection, action: str, message: str, detail: Optional[str] = None
+) -> ReadinessResult:
     return ReadinessResult(
-        ok=True, environment=detection.environment,
-        connector_kind=detection.connector_kind, action=action,
-        message=message, redacted_detail=detail,
+        ok=True,
+        environment=detection.environment,
+        connector_kind=detection.connector_kind,
+        action=action,
+        message=message,
+        redacted_detail=detail,
     )
 
 
 def _replace_forward(spec: TunnelSpec, dsn: str) -> str:
     """Coordinate one replacement of the shared forward, and name the action."""
     return _lifecycle.replace_forward(
-        spec, probe=lambda: _probe_failure(dsn) is None,
+        spec,
+        probe=lambda: _probe_failure(dsn) is None,
     )
 
 
@@ -171,27 +182,38 @@ def evaluate(*, allow_restart: bool) -> ReadinessResult:
     """
     detection = detect()
     if detection.connector_kind == CONNECTOR_UNMANAGED:
-        return _ok(detection, ACTION_NOOP_UNMANAGED,
-                   "no managed connected-env tunnel; nothing to do")
+        return _ok(
+            detection,
+            ACTION_NOOP_UNMANAGED,
+            "no managed connected-env tunnel; nothing to do",
+        )
     if detection.connector_kind == CONNECTOR_REMOTE_POSTGRES:
-        return _ok(detection, ACTION_NOOP_UNSUPPORTED,
-                   "connected env is direct/remote Postgres; tunnel readiness "
-                   "is not managed for this connector")
+        return _ok(
+            detection,
+            ACTION_NOOP_UNSUPPORTED,
+            "connected env is direct/remote Postgres; tunnel readiness "
+            "is not managed for this connector",
+        )
 
     # Managed local SSH tunnel.
     dsn = detection.dsn or ""
-    detail = (f"connector={detection.connector_kind} "
-              f"env={detection.environment} "
-              f"local={detection.local_host}:{detection.local_port}")
+    detail = (
+        f"connector={detection.connector_kind} "
+        f"env={detection.environment} "
+        f"local={detection.local_host}:{detection.local_port}"
+    )
     first_failure = _probe_failure(dsn)
     if first_failure is None:
-        return _ok(detection, ACTION_PROBE_OK,
-                   "connected-env Postgres reachable", detail)
+        return _ok(
+            detection, ACTION_PROBE_OK, "connected-env Postgres reachable", detail
+        )
 
     if not allow_restart:
         return ReadinessResult(
-            ok=False, environment=detection.environment,
-            connector_kind=detection.connector_kind, action=ACTION_PROBE_FAILED,
+            ok=False,
+            environment=detection.environment,
+            connector_kind=detection.connector_kind,
+            action=ACTION_PROBE_FAILED,
             message="connected-env Postgres unreachable (probe failed)",
             redacted_detail=f"{detail} cause={first_failure}",
         )
@@ -206,13 +228,20 @@ def evaluate(*, allow_restart: bool) -> ReadinessResult:
         )
 
     spec = detection.spec
+    # Confirm the failure before taking the machine-wide replacement lock.
+    # A loaded but healthy forward can answer during this window, and no other
+    # driver should wait behind a probe that needs no lifecycle change.
+    if _probe_retry(dsn) is None:
+        return _ok(
+            detection,
+            ACTION_PROBE_OK,
+            "connected-env Postgres reachable (recovered before restart)",
+            detail,
+        )
+
     with _coordination.lifecycle_lock(spec.local_port):
-        # Re-probe inside the lock: a neighbour we queued behind may already
-        # have healed the forward, and replacing a working one is the bug.
-        if _probe_retry(dsn) is None:
-            return _ok(detection, ACTION_PROBE_OK,
-                       "connected-env Postgres reachable (recovered before "
-                       "restart)", detail)
+        # ``replace_forward`` re-checks after admission and adopts a forward a
+        # neighbour restored while this process waited for the lock.
         action = _replace_forward(spec, dsn)
 
     restart_failure = _probe_retry(dsn)
@@ -222,8 +251,7 @@ def evaluate(*, allow_restart: bool) -> ReadinessResult:
             if action == ACTION_ADOPTED
             else "connected-env tunnel restarted and Postgres reachable"
         )
-        return _ok(detection, action, message,
-                   f"{detail} tunnel={spec.redacted}")
+        return _ok(detection, action, message, f"{detail} tunnel={spec.redacted}")
 
     raise ConnectedEnvUnavailable(
         f"connected-env tunnel was {action} but Postgres is still unreachable. "
