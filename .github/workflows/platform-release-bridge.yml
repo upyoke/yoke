@@ -97,6 +97,22 @@ jobs:
           python3 -m runtime.api.tools.require_fleet_migration_preflight \
             "$TARGET_ENVIRONMENT" "$PRODUCT_SHA"
 
+      # Also before the tag, and unconditional. The pre-merge check proved
+      # this candidate against the host as it stood then; both trunks have
+      # moved since, and a release publishes whatever main now carries. So
+      # the pair is re-proven here against the exact commit being released
+      # and the host's current trunk, on a dispatch key of this run's own so
+      # no earlier proof can be reused. Platform's promotion-time check
+      # remains the final backstop behind this one.
+      - name: Prove the hosted consumer against the exact release candidate
+        env:
+          YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
+          PRODUCT_SHA: ${{ inputs.product_sha }}
+        run: |
+          python3 -m runtime.api.tools.require_platform_consumer_compatibility \
+            --candidate-sha "$PRODUCT_SHA" \
+            --dispatch-key "release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
       - name: Create or recover the immutable annotated release tag
         id: release
         env:

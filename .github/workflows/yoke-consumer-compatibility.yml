@@ -1,0 +1,102 @@
+name: yoke-consumer-compatibility
+
+# The hosted host consumes this repo's universe app bundle across a declared
+# contract version, so a change to that shared surface is deliverable only
+# once the real host build has run against this exact candidate. A
+# producer-only green run proves the producer and nothing else — which is how
+# a bundle declaring contract 7 reached a host implementing contract 6 and
+# stopped two hosted releases after the artifact had already been published.
+#
+# This is a required context (.yoke/merge-queue.json), so it reports on every
+# pull request and every merge group; when the shared surface is untouched it
+# concludes in one cheap step.
+#
+# Deliberately NOT a job in yoke-ci.yml. That workflow is the public,
+# fork-safe factory: read-only token, no secrets, buildable by any fork. This
+# one reaches a private repository with a scoped credential. GitHub never
+# exposes that credential to a fork, so a fork pull request touching the
+# shared surface reports a named refusal naming the maintainer step rather
+# than pretending the pair was proven.
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  consumer_compatibility:
+    name: consumer-compatibility
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    env:
+      # The candidate is the commit that will land: a pull request proves its
+      # own head, a merge group proves the combined tree GitHub built. Both
+      # are real commits in this repository, which is what the consumer's
+      # checkout needs; the pull request's ephemeral merge ref is not.
+      CANDIDATE_SHA: >-
+        ${{ github.event_name == 'merge_group'
+            && github.event.merge_group.head_sha
+            || github.event.pull_request.head.sha }}
+      # One proof per attempt: a retried step rejoins the consumer run this
+      # attempt dispatched, while a new attempt forces a fresh build against
+      # the consumer's trunk as of then.
+      DISPATCH_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+      BASE_REF: origin/${{ github.event.repository.default_branch }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # The gate measures its scope from the merge-base with the default
+          # branch, so it needs the history that merge-base lives in.
+          fetch-depth: 0
+
+      - name: Decide whether this change touches the host-consumed contract
+        id: scope
+        # Nothing but the standard library and this repo's own contracts, so
+        # the common case costs a checkout and one interpreter start.
+        run: >-
+          PYTHONPATH=packages/yoke-contracts/src python3 -m
+          runtime.api.tools.require_platform_consumer_compatibility
+          --decide-only --applies-when-changed-since "$BASE_REF"
+
+      - name: Set up Python
+        if: steps.scope.outputs.applicable == 'true'
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Install this commit's Yoke client
+        if: steps.scope.outputs.applicable == 'true'
+        run: |
+          python3 -m pip install \
+            -e packages/yoke-contracts \
+            -e packages/yoke-cli \
+            -e packages/yoke-harness \
+            -e packages/yoke-core \
+            -e .
+
+      - name: Prove the hosted consumer against this exact candidate
+        id: proof
+        if: steps.scope.outputs.applicable == 'true'
+        env:
+          # The scoped credential is bound to the one step that needs it, so
+          # no other step in the candidate's own tree ever sees it. A fork
+          # run resolves it to the empty string and the gate refuses with the
+          # maintainer step named.
+          YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
+          # A machine home of this run's own, so the scoped consumer
+          # connection the gate binds never outlives the job.
+          YOKE_MACHINE_HOME: ${{ runner.temp }}/yoke-consumer-compatibility
+        run: >-
+          python3 -m
+          runtime.api.tools.require_platform_consumer_compatibility
+          --candidate-sha "$CANDIDATE_SHA"
+          --dispatch-key "$DISPATCH_KEY"
+          --applies-when-changed-since "$BASE_REF"
