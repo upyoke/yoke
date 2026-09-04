@@ -116,17 +116,20 @@ def selection_fingerprint_rows(
     """Return deterministic requested-and-served selection identity rows."""
     return sorted(
         (
-            row.machine_id,
-            row.surface,
-            row.count,
-            row.requested_model,
-            row.requested_reasoning_effort,
-            row.requested_context_window_tokens,
-            row.model,
-            row.reasoning_effort,
-            row.context_window_tokens,
-        )
-        for row in counts
+            (
+                row.machine_id,
+                row.surface,
+                row.count,
+                row.requested_model,
+                row.requested_reasoning_effort,
+                row.requested_context_window_tokens,
+                row.model,
+                row.reasoning_effort,
+                row.context_window_tokens,
+            )
+            for row in counts
+        ),
+        key=lambda values: tuple((value is None, str(value)) for value in values),
     )
 
 

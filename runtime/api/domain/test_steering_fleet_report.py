@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from runtime.api.steering_fleet_test_helpers import (
@@ -16,6 +18,7 @@ from runtime.api.steering_fleet_test_helpers import (
 from yoke_core.domain.session_activity_state import apply_envelope_state
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED, set_session_mode
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
+from yoke_core.domain.steering_fleet_report_capacity import SessionCount
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -206,6 +209,37 @@ def test_the_fingerprint_ignores_how_old_everything_is(steering_scope):
     later = _compose(steering_scope, now="2026-08-26T12:30:00Z")
 
     assert early.fingerprint() == later.fingerprint()
+
+
+def test_the_fingerprint_orders_rows_with_and_without_a_requested_model(
+    steering_scope,
+):
+    report = _compose(steering_scope)
+    without_requested_model = SessionCount(
+        machine_id="machine-1",
+        surface=SURFACE,
+        count=1,
+        requested_model=None,
+        requested_reasoning_effort="max",
+        requested_context_window_tokens=258_400,
+        model="gpt-5.6-sol",
+        reasoning_effort="max",
+        context_window_tokens=258_400,
+    )
+    with_requested_model = replace(
+        without_requested_model,
+        requested_model="gpt-5.6-sol",
+    )
+    first = replace(
+        report,
+        session_counts=(without_requested_model, with_requested_model),
+    )
+    reversed_rows = replace(
+        report,
+        session_counts=(with_requested_model, without_requested_model),
+    )
+
+    assert first.fingerprint() == reversed_rows.fingerprint()
 
 
 def test_a_frozen_item_is_not_reported_as_available(steering_scope):
