@@ -31,7 +31,21 @@ from yoke_core.domain.sessions_analytics import (
 
 MACHINE = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 OTHER_MACHINE = "3f2504e0-4f89-41d3-9a0c-0305e82c3302"
-EVIDENCE = {"records_considered": 1, "sources": ["launch_handle"], "pids": [4002]}
+LAUNCH_ID = "9f1f2d4e-0f7a-4a71-9a1a-6a0c0b6f2d10"
+EVIDENCE = {
+    "records_considered": 1,
+    "sources": ["launch_handle"],
+    "pids": [4002],
+    "process_start_times": {"4002": "1699999999"},
+    "launch_id": LAUNCH_ID,
+}
+#: What an anchor a hook wrote reports: a pid, and no launch behind it.
+ANCHOR_EVIDENCE = {
+    "records_considered": 1,
+    "sources": ["process_anchor"],
+    "pids": [4003],
+    "process_start_times": {"4003": "1699999998"},
+}
 
 
 @pytest.fixture(autouse=True)
@@ -65,12 +79,24 @@ def _ghost(
     return session_id
 
 
-def _apply(conn, session_id: str, *, projects=(1,), machine_id: str = MACHINE):
+def _apply(
+    conn,
+    session_id: str,
+    *,
+    projects=(1,),
+    machine_id: str = MACHINE,
+    evidence=None,
+):
     return apply_verified_process_death_reports(
         conn,
         machine_id=machine_id,
         authorized_projects=projects,
-        reports=[{"session_id": session_id, "evidence": EVIDENCE}],
+        reports=[
+            {
+                "session_id": session_id,
+                "evidence": EVIDENCE if evidence is None else evidence,
+            }
+        ],
     )
 
 
@@ -177,7 +203,7 @@ def test_the_claimless_terminal_event_names_the_verified_dead_process(
 
 def test_fresh_wrong_machine_and_unauthorized_reports_are_refused(conn):
     _register(conn, session_id="sess-live", machine_id=MACHINE)
-    assert _apply(conn, "sess-live")["skipped"] == [
+    assert _apply(conn, "sess-live", evidence=ANCHOR_EVIDENCE)["skipped"] == [
         {"session_id": "sess-live", "status": "liveness_active"}
     ]
     elsewhere = _ghost(conn, "sess-elsewhere", machine_id=OTHER_MACHINE)

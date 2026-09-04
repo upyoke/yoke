@@ -75,6 +75,9 @@ class SessionProcessRecord:
     source: str
     running: bool
     path: Path
+    # What made the pid checkable. Reported so the control plane's evidence
+    # names the process this record was written for, not merely its number.
+    process_start_time: str = ""
     launch_id: str | None = None
 
 
@@ -124,6 +127,7 @@ def _observed(
         # was written for is gone either way.
         running=start_time_of(pid) == recorded_start,
         path=path,
+        process_start_time=str(recorded_start),
         launch_id=str(launch_id).strip() or None if launch_id else None,
     )
 
@@ -189,6 +193,11 @@ def verified_dead_sessions(
             "records_considered": len(records),
             "sources": sorted({record.source for record in records}),
             "pids": sorted({record.pid for record in records}),
+            "process_start_times": {
+                str(record.pid): record.process_start_time
+                for record in records
+                if record.process_start_time
+            },
         }
         launch_id = next(
             (record.launch_id for record in records if record.launch_id), None

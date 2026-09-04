@@ -248,6 +248,47 @@ def acknowledge_recipient(
     return message_details(conn, message_id)
 
 
+def cancel_open_recipients(
+    conn: Any,
+    *,
+    session_id: str,
+    cancelled_at: datetime,
+    result_code: str,
+) -> int:
+    """Silence one recipient's open envelopes and close their attempts.
+
+    A recipient that can no longer take delivery leaves its senders waiting
+    on an answer that is never coming, so the envelopes are cancelled rather
+    than left pending: the sender reads ``cancelled`` on its own message and
+    ``result_code`` says which absence closed it. Deliberate termination and
+    a relay's verified-dead process both end that way, and they name
+    themselves through *result_code* rather than through two copies of this
+    statement pair drifting apart.
+    """
+    marker = _p(conn)
+    stamp = timestamp(cancelled_at)
+    row = conn.execute(
+        "SELECT COUNT(*) FROM session_message_recipients "
+        f"WHERE session_id = {marker} AND state IN ('pending','injected')",
+        (session_id,),
+    ).fetchone()
+    count = int(row[0]) if row is not None else 0
+    conn.execute(
+        "UPDATE session_message_recipients SET state='cancelled',cancelled_at="
+        f"{marker},injection_lease_id=NULL,injection_leased_at=NULL,"
+        f"injection_lease_expires_at=NULL WHERE session_id={marker} "
+        "AND state IN ('pending','injected')",
+        (stamp, session_id),
+    )
+    conn.execute(
+        f"UPDATE session_message_attempts SET completed_at={marker},"
+        f"result_code={marker} WHERE target_session_id={marker} "
+        "AND completed_at IS NULL",
+        (stamp, result_code, session_id),
+    )
+    return count
+
+
 def cancel_message_rows(
     conn: Any,
     *,
@@ -285,6 +326,7 @@ __all__ = [
     "begin_message_mutation",
     "body_sha256",
     "cancel_message_rows",
+    "cancel_open_recipients",
     "insert_message",
     "list_message_ids",
     "message_details",

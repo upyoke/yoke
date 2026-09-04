@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_message_store import cancel_open_recipients
+from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_operator_authority import (
     require_operator_or_steering_authority,
     session_control_target,
@@ -15,36 +17,12 @@ from yoke_core.domain.sessions_queries import _now_iso
 from yoke_core.domain.sessions_render_end import end_session
 
 
+#: Recorded on a delivery attempt closed by deliberate termination.
+TERMINATED_RESULT_CODE = "session_terminated"
+
+
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _cancel_open_recipients(conn: Any, session_id: str, now: str) -> int:
-    marker = _p(conn)
-    row = conn.execute(
-        "SELECT COUNT(*) FROM session_message_recipients "
-        f"WHERE session_id = {marker} AND state IN ('pending','injected')",
-        (session_id,),
-    ).fetchone()
-    count = int(row[0]) if row is not None else 0
-    conn.execute(
-        "UPDATE session_message_recipients SET state='cancelled',cancelled_at="
-        + marker
-        + ",injection_lease_id=NULL,injection_leased_at=NULL,"
-        "injection_lease_expires_at=NULL WHERE session_id="
-        + marker
-        + " AND state IN ('pending','injected')",
-        (now, session_id),
-    )
-    conn.execute(
-        "UPDATE session_message_attempts SET completed_at="
-        + marker
-        + ",result_code='session_terminated' WHERE target_session_id="
-        + marker
-        + " AND completed_at IS NULL",
-        (now, session_id),
-    )
-    return count
 
 
 def _launch_identity(conn: Any, session_id: str) -> tuple[str | None, str | None]:
@@ -122,7 +100,9 @@ def terminate_session(
     """End, silence, and permanently make one session non-wakeable."""
     termination_reason = reason.strip()
     if not termination_reason:
-        raise SessionError("TERMINATION_REASON_REQUIRED", "Termination reason is required.")
+        raise SessionError(
+            "TERMINATION_REASON_REQUIRED", "Termination reason is required."
+        )
     target = session_control_target(conn, target_session_id)
     authority = require_operator_or_steering_authority(
         conn,
@@ -159,7 +139,12 @@ def terminate_session(
         + f" WHERE session_id={marker}",
         (now, int(actor_id), caller_session_id, termination_reason, target_session_id),
     )
-    cancelled = _cancel_open_recipients(conn, target_session_id, now)
+    cancelled = cancel_open_recipients(
+        conn,
+        session_id=target_session_id,
+        cancelled_at=parse_timestamp(now),
+        result_code=TERMINATED_RESULT_CODE,
+    )
     reap_state = _queue_reap(conn, target=target, requested_at=now)
     was_ended = target.get("ended_at") is not None
     if was_ended:

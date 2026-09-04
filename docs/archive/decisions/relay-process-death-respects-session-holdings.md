@@ -6,10 +6,15 @@ Decision recorded 2026-09-03.
 
 A relay report proving that a session's recorded native process is gone is
 process evidence, not authority to release control-plane holdings. The
-control plane ends a stale reported session immediately only when it holds
-nothing. If it has any current work, steering, coordination, path, or
-strategy-document holding, the report returns `claims_held`, leaves the
-session and every holding open, and stores the process-gone observation.
+control plane ends a reported session only when it holds nothing. If it has
+any current work, steering, coordination, path, or strategy-document
+holding, the report returns `claims_held`, leaves the session and every
+holding open, and stores the process-gone observation.
+
+[`launch-named-process-death-needs-no-ttl.md`](launch-named-process-death-needs-no-ttl.md)
+later added two more states that hold the row the same way — parked, and
+awaiting an answer the session asked the steering role for — and dropped the
+staleness precondition for a report naming the launch the machine started.
 
 Only deliberate termination or the ordinary stale-session holdings TTL may
 end that spared session. The stale-alive status probe likewise gathers

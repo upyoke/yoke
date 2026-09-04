@@ -115,8 +115,13 @@ def test_only_sessions_with_every_record_gone_are_verified_dead(
         "records_considered": 1,
         "sources": [LAUNCH_HANDLE_SOURCE],
         "pids": [4002],
+        # The start time travels with the pid: it is what made the claim
+        # checkable here, so the control plane's evidence can name the
+        # process this record was written for rather than only its number.
+        "process_start_times": {"4002": RECORDED_START},
         # A launch handle names the launch too, which is what lets the control
-        # plane correct a launch still reading succeeded for a dead worker.
+        # plane correct a launch still reading succeeded for a dead worker,
+        # and is the evidence that ends a settled session without a TTL wait.
         "launch_id": "launch-dead",
     }
 
@@ -263,3 +268,25 @@ def test_a_server_that_does_not_serve_the_function_is_survived(
         == ()
     )
     assert dispatcher.calls[0]["function_id"] == "session_control.relay.liveness"
+
+
+def test_a_reused_pid_reads_as_gone_rather_than_as_the_recorded_native(
+    tmp_path: Path,
+) -> None:
+    """Another process holding the number is not the native that was recorded."""
+    anchors = tmp_path / ANCHORS_DIR_NAME
+    anchors.mkdir(parents=True, exist_ok=True)
+    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+
+    def _reused(pid: int) -> str:
+        del pid
+        return LIVE_START
+
+    dead = verified_dead_sessions(
+        state_dir=tmp_path,
+        anchors_dir=anchors,
+        start_time_of=_reused,
+    )
+
+    assert [entry.session_id for entry in dead] == [DEAD_SESSION]
+    assert dead[0].evidence["process_start_times"] == {"4002": RECORDED_START}
