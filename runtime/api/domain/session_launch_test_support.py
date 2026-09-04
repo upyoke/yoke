@@ -166,9 +166,12 @@ def add_relay(
     plan_limits: dict[str, Any] | None = None,
     preferred_models: dict[str, str] | None = None,
     registered: bool = True,
+    access: dict[str, Any] | None = None,
 ) -> None:
     if registered:
-        register_machine_row(conn, machine_id=machine_id, actor_id=actor_id)
+        register_machine_row(
+            conn, machine_id=machine_id, actor_id=actor_id, access=access
+        )
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id, actor_id, machine_id, hostname, surface_versions, "

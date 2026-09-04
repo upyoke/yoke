@@ -35,6 +35,11 @@ NEAR_RESET = "2026-08-22T13:00:00Z"
 COMPARABLE_QUOTA_POINTS = COMPARABLE_HEADROOM_POINTS / 5
 
 
+#: Both machines are shared capacity, so placement is decided by the readings
+#: and by ownership preference rather than by who may use them at all.
+SHARED_ACCESS = {"use": {"mode": "universe"}}
+
+
 def _two_machines(conn, *, roomy_percent: float, tight_percent: float) -> None:
     add_relay(
         conn,
@@ -42,6 +47,7 @@ def _two_machines(conn, *, roomy_percent: float, tight_percent: float) -> None:
         machine_id="machine-roomy",
         surface=SURFACE,
         actor_id=2,
+        access=SHARED_ACCESS,
         plan_limits=plan_limit_document(
             SURFACE, remaining_percent=roomy_percent, resets_at=NEAR_RESET
         ),
@@ -52,6 +58,7 @@ def _two_machines(conn, *, roomy_percent: float, tight_percent: float) -> None:
         machine_id="machine-tight",
         surface=SURFACE,
         actor_id=1,
+        access=SHARED_ACCESS,
         plan_limits=plan_limit_document(
             SURFACE, remaining_percent=tight_percent, resets_at=NEAR_RESET
         ),
@@ -158,6 +165,7 @@ def test_unreadable_meters_still_place_and_say_so() -> None:
         machine_id="machine-a",
         surface=SURFACE,
         actor_id=2,
+        access=SHARED_ACCESS,
     )
     add_relay(
         conn,
@@ -165,6 +173,7 @@ def test_unreadable_meters_still_place_and_say_so() -> None:
         machine_id="machine-b",
         surface=SURFACE,
         actor_id=1,
+        access=SHARED_ACCESS,
     )
 
     preview = preview_launch(

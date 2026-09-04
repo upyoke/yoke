@@ -188,6 +188,7 @@ def place_launch(
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=snapshot.rejection_codes,
             machine_capacity=snapshot.machine_capacity,
+            rejection_details=snapshot.rejection_details,
         )
     weighed = _candidates(
         conn,
@@ -210,6 +211,7 @@ def place_launch(
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=snapshot.rejection_codes,
             machine_capacity=snapshot.machine_capacity,
+            rejection_details=snapshot.rejection_details,
             placement_reason=(
                 f"no eligible machine is usable by this actor ({denials})"
             ),
@@ -223,6 +225,7 @@ def place_launch(
             considered_machine_ids=snapshot.considered_machine_ids,
             rejection_codes=snapshot.rejection_codes,
             machine_capacity=snapshot.machine_capacity,
+            rejection_details=snapshot.rejection_details,
             placement_reason=(
                 f"machine {machine_id} answered with several relays; "
                 "name one relay or retry"
@@ -261,9 +264,10 @@ def place_launch(
         surface,
         relays,
         relay,
-        snapshot.considered_machine_ids,
-        snapshot.rejection_codes,
-        snapshot.machine_capacity,
+        considered_machine_ids=snapshot.considered_machine_ids,
+        rejection_codes=snapshot.rejection_codes,
+        machine_capacity=snapshot.machine_capacity,
+        rejection_details=snapshot.rejection_details,
         placement_reason=reason,
         machine_candidates=candidates,
     )
