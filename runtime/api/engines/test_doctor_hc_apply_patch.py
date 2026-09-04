@@ -92,7 +92,7 @@ def test_observe_smoke_pass_when_no_events_yet(monkeypatch, conn):
     apply_fixture_ddl(
         conn,
         """
-        CREATE TABLE events (event_name TEXT, client_timing_id TEXT, envelope TEXT);
+        CREATE TABLE events (event_name TEXT, envelope TEXT);
         """,
     )
     rec = _record(hc_apply_patch_observe_smoke, conn)
@@ -105,7 +105,7 @@ def test_observe_smoke_pass_when_events_seen(monkeypatch, conn):
     apply_fixture_ddl(
         conn,
         """
-        CREATE TABLE events (event_name TEXT, client_timing_id TEXT, envelope TEXT);
+        CREATE TABLE events (event_name TEXT, envelope TEXT);
         INSERT INTO events VALUES ('HarnessToolCall', '{"tool":"apply_patch"}');
         """,
     )

@@ -61,7 +61,7 @@ def _database() -> sqlite3.Connection:
             id INTEGER PRIMARY KEY, method_config TEXT,
             execution_target_json TEXT, execution_target_digest TEXT
         );
-        CREATE TABLE events (id INTEGER PRIMARY KEY, client_timing_id TEXT, envelope TEXT);
+        CREATE TABLE events (id INTEGER PRIMARY KEY, envelope TEXT);
         INSERT INTO sites VALUES (
             'yoke-api', 1, 'Yoke API', NULL, '2026-01-01', '{}'
         );
