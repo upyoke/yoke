@@ -304,6 +304,15 @@ class TestFunctionProxy:
         envelope = response.json()
         assert envelope["success"] is True
         assert isinstance(envelope["result"]["docs"], list)
+        claims = self._call(
+            ui_client,
+            {
+                "function": "strategy.doc_claim.list",
+                "target": {"kind": "global", "project_id": project_id},
+            },
+        )
+        assert claims.status_code == 200
+        assert isinstance(claims.json()["result"]["claims"], list)
 
     def test_strategy_doc_list_without_project_is_graceful_error(
         self,

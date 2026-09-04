@@ -19,8 +19,14 @@ export function sessionsClient(rows, requests, mutation = null) {
       }
       if (request.function === "projects.list") {
         return ok({
-          rows: [{ id: 1, slug: "yoke", name: "Yoke", emoji: "🛠" }],
+          rows: [{
+            id: 1, slug: "yoke", name: "Yoke", emoji: "🛠",
+            public_item_prefix: "YOK",
+          }],
         });
+      }
+      if (request.function === "session_control.relay.list") {
+        return ok({ relays: [] });
       }
       if (request.function === "sessions.list") {
         return ok({ rows: typeof rows === "function" ? rows() : rows });

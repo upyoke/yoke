@@ -35,8 +35,8 @@ export function twoProjectClient() {
             success: true,
             result: {
               rows: [
-                { id: 1, slug: "alpha", name: "Alpha" },
-                { id: 2, slug: "beta", name: "Beta" },
+                { id: 1, slug: "alpha", name: "Alpha", public_item_prefix: "ALP" },
+                { id: 2, slug: "beta", name: "Beta", public_item_prefix: "BET" },
               ],
             },
           },

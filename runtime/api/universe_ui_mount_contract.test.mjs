@@ -49,15 +49,15 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   assert.ok(topbar.classList.contains("yoke-app-header"));
   assert.ok(shellNode.classList.contains("shell"));
   // Loopback identity is actor-shaped, never the organization.
-  assert.equal(byClass(root, "org-context").length, 0);
+  assert.equal(byClass(root, "org-context")[0].textContent, "Local");
   const actor = byClass(root, "actor-chip")[0];
   assert.equal(byClass(actor, "actor-name")[0].textContent, "local actor");
-  assert.ok(actor.parentNode.classList.contains("context-side"));
+  assert.ok(actor.parentNode.classList.contains("header-context-value"));
   assert.equal(byClass(root, "capability-actions").length, 0);
   const functionFetches = fetches.filter((entry) => entry.init);
   assert.ok(functionFetches.length >= 2);
-  assert.ok(functionFetches.every((entry) => (
-    JSON.parse(entry.init.body).function !== "organizations.get"
+  assert.ok(functionFetches.some((entry) => (
+    JSON.parse(entry.init.body).function === "organizations.get"
   )));
   assert.ok(functionFetches.every(
     (entry) => entry.url === "/api/functions/call",
@@ -66,13 +66,13 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
     .map((entry) => JSON.parse(entry.init.body))
     .find((request) => request.function === "projects.list");
   assert.deepEqual(projectRosterRequest.payload, {
-    fields: ["id", "slug", "name", "emoji"],
+    fields: ["id", "slug", "name", "emoji", "public_item_prefix"],
   });
   const assetFetch = fetches.find((entry) => !entry.init);
   assert.match(assetFetch.url, /\/static\/yoke-wordmark\.svg$/);
   assert.doesNotMatch(assetFetch.url, /\/assets\//);
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 1);
-  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 1);
+  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 2);
   mounted.unmount();
   mounted.unmount();
   assert.equal(root.children.length, 0);
@@ -147,16 +147,18 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.equal(byClass(secondRoot, "capability-actions").length, 0);
   const firstHeader = byClass(firstRoot, "topbar")[0];
   const firstBrand = byClass(firstRoot, "yoke-header-brand")[0];
-  // Search follows the brand; host chrome follows the flexible spacer.
-  assert.equal(firstHeader.children[0], firstBrand);
-  assert.ok(firstHeader.children[1].classList.contains("header-search"));
-  assert.ok(firstHeader.children[2].classList.contains("header-spacer"));
-  assert.equal(firstHeader.children[3], topbarStartSlot);
+  // Drawer control, brand, and search precede host chrome and context.
+  assert.ok(firstHeader.children[0].classList.contains("navigation-toggle"));
+  assert.equal(firstHeader.children[1], firstBrand);
+  assert.ok(firstHeader.children[2].classList.contains("shell-search"));
+  assert.ok(firstHeader.children[3].classList.contains("header-spacer"));
+  assert.equal(firstHeader.children[4], topbarStartSlot);
   assert.equal(firstHeader.children[firstHeader.children.length - 1],
     topbarEndSlot);
-  // Neither local mount substitutes organization identity for its actor.
+  // A host-filled context slot suppresses local identity; a standalone mount
+  // labels its universe beside, and never substitutes it for, the actor.
   assert.equal(byClass(firstRoot, "org-context").length, 0);
-  assert.equal(byClass(secondRoot, "org-context").length, 0);
+  assert.equal(byClass(secondRoot, "org-context")[0].textContent, "second org");
   assert.equal(byClass(secondRoot, "actor-chip").length, 1);
   const firstNavigation = byClass(firstRoot, "sidenav")[0];
   assert.equal(firstNavigation.children[0], navigationStartSlot);
@@ -178,12 +180,13 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   );
   const firstShell = byClass(firstRoot, "shell")[0];
   assert.equal(firstShell.children[0], firstNavigation);
-  const firstBody = firstShell.children[1];
+  assert.ok(firstShell.children[1].classList.contains("navigation-scrim"));
+  const firstBody = firstShell.children[2];
   assert.ok(firstBody.classList.contains("workbench-body"));
   assert.equal(firstBody.children[0], contentBeforeSlot);
   assert.ok(firstBody.children[1].classList.contains("content"));
   assert.equal(firstBody.children[2], contentAfterSlot);
-  assert.ok(firstShell.children[2].classList.contains("app-footer"));
+  assert.ok(firstShell.children[3].classList.contains("app-footer"));
   assert.ok(!allNodes(secondRoot).includes(topbarStartSlot));
   assert.ok(firstClient.requests.every(
     (request) => !secondClient.requests.includes(request),
@@ -279,13 +282,13 @@ test("header identity follows the host boundary and local actor", async (t) => {
     (request) => request.function !== "organizations.get",
   ));
   // An unrelated host slot does not replace local actor identity.
-  assert.equal(byClass(localRoot, "org-context").length, 0);
+  assert.equal(byClass(localRoot, "org-context")[0].textContent, "local org");
   assert.equal(
     byClass(byClass(localRoot, "actor-chip")[0], "actor-name")[0].textContent,
     "local actor",
   );
-  assert.ok(localClient.requests.every(
-    (request) => request.function !== "organizations.get",
+  assert.ok(localClient.requests.some(
+    (request) => request.function === "organizations.get",
   ));
 
   hostedMount.unmount();

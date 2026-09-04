@@ -39,6 +39,7 @@ def test_published_contract_owns_the_cascade_and_host_mapping():
     assert tuple(Path(href).name for href in hosted_hrefs) == tuple(
         entry.asset for entry in contract.entrypoints
     )
+    assert contract.entrypoints[-1].asset == "universe_responsive.css"
 
 
 def test_raw_documents_are_generated_from_the_published_contract():
