@@ -1,10 +1,11 @@
 """Shared hook-runner dispatch core.
 
 ``run_event`` parses the hook payload, builds a ``HookContext``, resolves the
-registered policy chain, dispatches typed or subprocess modules, renders the
-harness-specific decision, and emits best-effort telemetry. Typed modules run
-under :mod:`yoke_core.hooks.typed_dispatch`'s watchdog; subprocess
-modules use ``subprocess.run(timeout=...)``.
+registered policy chain, dispatches each module through
+:mod:`yoke_core.hooks.runner_invoke`, renders the harness-specific decision,
+and emits best-effort telemetry. A lifecycle event the harness delivered
+twice is collapsed before dispatch by
+:mod:`yoke_core.hooks.dispatch_dedup`.
 
 Two budgets apply: the per-module ceiling ``hook_runner_module_timeout_ms``
 and the total harness-wait deadline ``hook_runner_total_timeout_ms``. A deny
@@ -34,11 +35,11 @@ from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks import guard_denial_identity as _guard_denial_identity
 from yoke_core.hooks import mode_gate as _mode_gate
 from yoke_core.hooks.context import build_context
+from yoke_core.hooks.dispatch_dedup import deduplicated_dispatch
 from yoke_core.hooks.remote_policy import RunControls
+from yoke_core.hooks.runner_invoke import invoke_module
 from yoke_core.hooks.skipped_guards import record_skipped_guards
-from yoke_core.hooks.subprocess_policy import run_subprocess_policy
-from yoke_core.hooks.typed_dispatch import audit_only_synthetic, dispatch_typed
-from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookDecision, Next, Outcome
 
 
 __all__ = ["run_event"]
@@ -69,25 +70,6 @@ def _apply_omissions(
     if not omitted:
         return chain
     return [m for m in chain if m not in omitted]
-
-
-def _dispatch_subprocess(
-    module_id: str,
-    *,
-    context: HookContext,
-    stdin_data: str,
-    timeout_ms: int,
-) -> tuple[Optional[HookDecision], Optional[str], str]:
-    """Run a subprocess policy via ``python3 -m <module_id>``."""
-    failure, captured = run_subprocess_policy(
-        module_id,
-        context=context,
-        stdin_data=stdin_data,
-        timeout_ms=timeout_ms,
-    )
-    if failure:
-        return None, failure, captured
-    return audit_only_synthetic(), None, captured
 
 
 def _format_chain(chain: list[str], capability: AdapterCapability) -> str:
@@ -127,68 +109,6 @@ def _render_dry_run(
         capability=capability,
     )
     return _format_chain(chain, capability)
-
-
-def _invoke_module(
-    module_id: str,
-    *,
-    capability: AdapterCapability,
-    context: HookContext,
-    stdin_data: str,
-    timeout_ms: int,
-) -> tuple[HookDecision, str, Optional[str], tuple[str, dict]]:
-    """Invoke one module; return decision, stdout, failure, telemetry record.
-
-    Telemetry is NOT emitted here. A per-module DB write between guardrail
-    evaluations charges its latency against the runner's total deadline and
-    can starve the tail of the chain; ``run_event`` flushes the returned
-    records as a single batched tail step instead.
-    """
-    started = time.monotonic()
-    if module_id in capability.subprocess_modules:
-        decision, failure, captured = _dispatch_subprocess(
-            module_id,
-            context=context,
-            stdin_data=stdin_data,
-            timeout_ms=timeout_ms,
-        )
-    else:
-        decision, failure = dispatch_typed(
-            module_id,
-            context=context,
-            timeout_ms=timeout_ms,
-        )
-        captured = ""
-    duration_ms = int((time.monotonic() - started) * 1000)
-    common = {
-        "module": module_id,
-        "hook_event": context.event_name,
-        "executor": context.executor_family,
-        "session_id": context.session_id or "",
-        "item_id": context.item_id,
-        "tool_name": context.tool_name or "",
-        "duration_ms": duration_ms,
-    }
-    if failure is not None:
-        return (
-            audit_only_synthetic(),
-            captured,
-            failure,
-            (
-                "failed",
-                {**common, "failure": failure},
-            ),
-        )
-    assert decision is not None
-    return (
-        decision,
-        captured,
-        None,
-        (
-            "guardrail",
-            {**common, "decision_outcome": decision.outcome.value},
-        ),
-    )
 
 
 def run_event(
@@ -235,6 +155,16 @@ def run_event(
         payload=payload,
         remote=controls.remote if controls is not None else False,
     )
+    if deduplicated_dispatch(
+        event_name,
+        context=context,
+        stdin_data=stdin_data,
+        controls=controls,
+    ):
+        # The harness delivered this lifecycle event twice; the first
+        # dispatch already ran the chain. Render the empty (allow) decision
+        # so the duplicate changes nothing.
+        return capability.decision_renderer([], event_name)
     from yoke_core.hooks.run_tail import preflight_remote_registration
 
     registration_preflight = preflight_remote_registration(
@@ -262,7 +192,7 @@ def run_event(
             if marker is not None:
                 controls.degraded.append(marker)
                 continue
-        decision, captured, failure, record = _invoke_module(
+        decision, captured, failure, record = invoke_module(
             module_id,
             capability=capability,
             context=context,

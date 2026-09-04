@@ -169,7 +169,7 @@ def test_runner_carries_the_actual_denier_to_the_remote_boundary(monkeypatch) ->
     monkeypatch.setattr(runner, "chain_for", lambda *_args: ["policy.module"])
     monkeypatch.setattr(
         runner,
-        "_invoke_module",
+        "invoke_module",
         lambda *_args, **_kwargs: (
             decision,
             "",

@@ -20,6 +20,7 @@ from yoke_core.domain.session_launch_capacity import (
     machine_capacity,
 )
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
 
@@ -132,8 +133,15 @@ def capacity_line(entry: MachineCapacity) -> str:
 
 
 def live_session_counts(conn: Any, *, project_id: int) -> tuple[SessionCount, ...]:
-    """Live sessions grouped by machine, surface, and model selection."""
+    """Live sessions grouped by machine, surface, and model selection.
+
+    Probe sessions are excluded through the same shared predicate the
+    Sessions page and the Overview band apply, so all three session readers
+    answer from one definition instead of leaving this one correct by
+    coincidence of its live-only filter.
+    """
     p = marker(conn)
+    not_probe = not_probe_session_sql("harness_sessions")
     rows = conn.execute(
         f"""SELECT machine_id, executor_surface,
                    requested_model, requested_reasoning_effort,
@@ -142,6 +150,7 @@ def live_session_counts(conn: Any, *, project_id: int) -> tuple[SessionCount, ..
                    COUNT(*) AS n
               FROM harness_sessions
              WHERE ended_at IS NULL AND terminated_at IS NULL
+               AND {not_probe}
                AND project_id = {p}
                AND COALESCE(machine_id, '') <> ''
                AND COALESCE(executor_surface, '') <> ''

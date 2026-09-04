@@ -18,6 +18,12 @@ from runtime.api.domain.handlers.test_sessions_list_handler import (
 from yoke_core.domain.sessions_list_read import ENDED_CAUSES, list_sessions
 
 
+#: An ended session in this file offered itself well before it ended, so
+#: it reads as a session that did work rather than as a harness startup
+#: probe (:mod:`yoke_core.domain.session_probe`), which is never listed.
+_WORKED_A_WHILE_MINUTES = 60 * 24 * 31
+
+
 def _iso(minutes_ago: int = 0) -> str:
     stamp = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
     return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -31,12 +37,14 @@ class TestLivenessDerivation:
         _insert_session(
             test_db,
             "s-ended",
+            offered_at=_iso(_WORKED_A_WHILE_MINUTES),
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             ended_at=_iso(_LONG_AGO_MINUTES),
         )
         _insert_session(
             test_db,
             "s-killed",
+            offered_at=_iso(_WORKED_A_WHILE_MINUTES),
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             ended_at=_iso(_LONG_AGO_MINUTES),
             terminated_at=_iso(_LONG_AGO_MINUTES),
@@ -95,12 +103,14 @@ class TestLivenessDerivation:
         _insert_session(
             test_db,
             "s-ended",
+            offered_at=_iso(_WORKED_A_WHILE_MINUTES),
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             ended_at=_iso(_LONG_AGO_MINUTES),
         )
         _insert_session(
             test_db,
             "s-killed",
+            offered_at=_iso(_WORKED_A_WHILE_MINUTES),
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             ended_at=_iso(_LONG_AGO_MINUTES),
             terminated_at=_iso(_LONG_AGO_MINUTES),
