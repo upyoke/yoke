@@ -165,9 +165,10 @@ def evaluate_launch_attestation(
             conn.close()
     except SessionLaunchError as exc:
         audit: dict[str, Any] = {"session_launch_error": exc.code}
-        stop_context = _superseded_launch_stop_context(exc.code)
-        if stop_context is not None:
-            audit["additionalContext"] = stop_context
+        if record.event_name in SESSION_OPENING_STDOUT_EVENTS:
+            stop_context = _superseded_launch_stop_context(exc.code)
+            if stop_context is not None:
+                audit["additionalContext"] = stop_context
         return HookDecision(
             outcome=Outcome.WARN,
             message=f"Yoke launch registration refused ({exc.code}).",

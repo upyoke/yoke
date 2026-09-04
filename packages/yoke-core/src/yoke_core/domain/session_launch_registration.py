@@ -47,63 +47,72 @@ def prepare_launch_registration(
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
-        recover_missing_identity = (
-            launch.state == "outcome_unknown"
-            and not launch.native_session_id
-            and not launch.registered_session_id
-        )
-        if launch.state != "awaiting_registration" and not recover_missing_identity:
-            raise SessionLaunchError(
-                "invalid_state",
-                f"launch in state {launch.state!r} cannot register this session",
-            )
-        if launch.attestation_consumed_at:
-            raise SessionLaunchError(
-                "attestation_consumed", "attestation is single-use"
-            )
-        if parse_time(current) >= parse_time(launch.deadline_at):
-            update_launch(
-                conn,
-                launch_id,
-                state="failed",
-                attestation_consumed_at=current,
-                completed_at=current,
-                result_code="late_registration",
-                result_evidence=late_registration_evidence(
-                    conn, launch=launch, session_id=session_id, now=current
-                ),
-            )
-            conn.commit()
-            raise SessionLaunchError(
-                "late_registration", "registration deadline passed"
-            )
+        already_bound_to_session = launch.registered_session_id == session_id
         expected = str(launch.attestation_hash or "")
-        if not expected or not hmac.compare_digest(
+        attestation_is_valid = bool(expected) and hmac.compare_digest(
             expected, attestation_digest(attestation)
-        ):
-            raise SessionLaunchError(
-                "attestation_invalid", "launch attestation is invalid"
+        )
+        if already_bound_to_session:
+            if not attestation_is_valid:
+                raise SessionLaunchError(
+                    "attestation_invalid", "launch attestation is invalid"
+                )
+            require_registered_session_facts(conn, session_id)
+        else:
+            recover_missing_identity = (
+                launch.state == "outcome_unknown"
+                and not launch.native_session_id
+                and not launch.registered_session_id
             )
-        facts = require_registered_session_facts(conn, session_id)
-        if recover_missing_identity:
-            launch = adopt_attested_session_identity(
+            if launch.state != "awaiting_registration" and not recover_missing_identity:
+                raise SessionLaunchError(
+                    "invalid_state",
+                    f"launch in state {launch.state!r} cannot register this session",
+                )
+            if launch.attestation_consumed_at:
+                raise SessionLaunchError(
+                    "attestation_consumed", "attestation is single-use"
+                )
+            if parse_time(current) >= parse_time(launch.deadline_at):
+                update_launch(
+                    conn,
+                    launch_id,
+                    state="failed",
+                    attestation_consumed_at=current,
+                    completed_at=current,
+                    result_code="late_registration",
+                    result_evidence=late_registration_evidence(
+                        conn, launch=launch, session_id=session_id, now=current
+                    ),
+                )
+                conn.commit()
+                raise SessionLaunchError(
+                    "late_registration", "registration deadline passed"
+                )
+            if not attestation_is_valid:
+                raise SessionLaunchError(
+                    "attestation_invalid", "launch attestation is invalid"
+                )
+            facts = require_registered_session_facts(conn, session_id)
+            if recover_missing_identity:
+                launch = adopt_attested_session_identity(
+                    conn,
+                    launch=launch,
+                    session_id=session_id,
+                    facts=facts,
+                    now=current,
+                )
+            # Wake eligibility starts at this send, not deadline_at. A worker
+            # that dies on arrival must not sit unwatched until registration
+            # timeout; later successful sends overwrite the stamp.
+            bind_launch_to_session(
                 conn,
                 launch=launch,
                 session_id=session_id,
                 facts=facts,
                 now=current,
+                wake_after=current,
             )
-        # Wake eligibility starts at this send, not deadline_at. A worker
-        # that dies on arrival must not sit unwatched until registration
-        # timeout; later successful sends overwrite the stamp.
-        bind_launch_to_session(
-            conn,
-            launch=launch,
-            session_id=session_id,
-            facts=facts,
-            now=current,
-            wake_after=current,
-        )
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()
         return LaunchRegistrationInjection(
