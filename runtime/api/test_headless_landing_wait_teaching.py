@@ -1,9 +1,11 @@
-"""Watcher teaching releases only a caller with a verified wake route.
+"""Landing teaching splits a session that can wait from one that cannot.
 
-A launched headless worker is one important no-wake case, but operator-opened
-and unknown surfaces must not be assumed reachable either. These tests hold
-the Dash close-out steps, usher merge step, worker mandate, packet recipe, and
-watcher help to the derived reachability split and every terminal wait
+A relay-launched session never waits: its merge arms the landing and returns,
+and the control-plane notice re-enters it for close-out. Every other caller
+waits, and is released to a background subscription only with a verified wake
+route — operator-opened and unknown surfaces must not be assumed reachable.
+These tests hold the Dash close-out steps, usher merge step, worker mandate,
+packet recipe, and watcher help to that split and to every terminal wait
 outcome. The in-turn wait consumes a cadence-limited server record rather
 than repeating GitHub reads on the worker machine.
 """
@@ -43,8 +45,9 @@ BUNDLE_COMMAND_REFERENCE = (
     / "docs/public/reference/commands.md"
 )
 
-# The blanket prohibition the in-turn wait replaces. A surface still
-# carrying it tells a launched worker the one thing it must not do.
+# Prohibitions keyed on executor name rather than on what the calling
+# session can actually do. A surface still carrying one routes the wait
+# from who the caller is instead of from the landing handoff.
 RETIRED_BLANKET_PROHIBITIONS = (
     "Claude must never pass `--wait`",
     "Claude never passes `--wait`",
@@ -82,15 +85,25 @@ def _merge_recipe() -> dict:
     raise AssertionError("no watch merge recipe in the watcher packet")
 
 
-def test_dash_close_out_routes_the_landing_by_derived_reachability():
+def test_dash_close_out_hands_a_launched_landing_to_its_notice():
     content = _words(_read(DASH_CLOSE))
-    assert "one watcher invocation whose safe wait shape is resolved" in content
+    assert "A relay-launched session arms the landing and stops." in content
+    assert "naming the pull request, whatever you passed" in content
+    assert "a headless command cannot outlive a queue landing" in content
+    assert "say you are waiting on landing" in content
+    assert "recorded pending landing as a legitimate stop" in content
+    assert "The control-plane landing notice wakes you" in content
+
+
+def test_dash_close_out_routes_every_other_landing_by_derived_reachability():
+    content = _words(_read(DASH_CLOSE))
+    assert "**Every other session waits.**" in content
     assert "manifest wake capability and current control-plane reachability" in content
-    assert "Never choose the route from who opened the session" in content
+    assert "never from who opened the session or its executor name" in content
     assert "A verified wake route preserves the background subscription" in content
     assert "no route, or an unknown answer, keeps the wait" in content
-    assert "at `reviewing-implementation` with nobody to close it out" in content
     assert "Reachability-routed wait." in content
+    assert "A relay-launched session takes the arm-and-stop handoff above" in content
     assert (
         "yoke watch merge --print-streaming-pair merge-item -- ITEM --wait" in content
     )
@@ -150,19 +163,20 @@ def test_usher_merge_step_routes_the_landing_the_same_way():
     assert "`in-turn` is already blocking" in content
 
 
-def test_every_launched_worker_mandate_carries_the_in_turn_landing_wait():
+def test_every_launched_worker_mandate_carries_the_landing_handoff():
     assert HEADLESS_LANDING_WAIT_TEACHING in _mandate()
     teaching = HEADLESS_LANDING_WAIT_TEACHING
     assert "headless command that cannot be prompted again" in teaching
-    assert "do not end the pass on it" in teaching
-    assert "pass --wait and hold the turn on the merge watcher wrapper" in teaching
-    assert "Merged closes the item out in that same turn" in teaching
-    assert "a stopped landing rebases, re-runs the verification gate" in teaching
+    assert "arms the landing and returns landing_pending=true" in teaching
+    assert "whether or not you passed --wait" in teaching
+    assert "That is the handoff, not a failure." in teaching
+    assert "Report the pull request, stop deliberately" in teaching
+    assert "say you are waiting on landing" in teaching
+    assert "landing notice wakes you" in teaching
+    assert "re-run the same `yoke merge item` command then" in teaching
+    assert "A stopped landing arrives the same way and names its recovery" in teaching
     assert "stale server landing record names its last refresh" in teaching
-    assert "wait budget running out ends the turn" in teaching
-    assert "--mode parked" in teaching
-    assert "HUMAN_GATE" in teaching
-    assert "Never end a turn on a landing you did not read." in teaching
+    assert "never report a landing you did not read" in teaching
 
 
 def test_worker_lifecycle_copy_of_the_mandate_matches_the_composed_one():
@@ -173,10 +187,12 @@ def test_worker_lifecycle_copy_of_the_mandate_matches_the_composed_one():
         collapsed
     )
     assert "waiting for a re-entry nobody could make" in collapsed
+    assert "the control-plane landing notice is what closes that gap" in collapsed
 
 
 def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
     notes = _merge_recipe()["notes"]
+    assert "A relay-launched session ignores --wait" in notes
     assert "verified wake route" in notes
     assert "callers with no or unknown reachability stay in-turn" in notes
     assert "yoke github merge-queue readiness PREFIX-N --json" in notes
@@ -199,6 +215,8 @@ def test_command_reference_conditions_any_later_completion_message():
 
 def test_merge_wait_help_routes_from_reachability_not_executor_name():
     help_text = _words(build_parser().format_help())
+    assert "Ignored for a relay-launched session" in help_text
+    assert "the landing notice wakes it for close-out" in help_text
     assert "watch merge wrapper" in help_text
     assert "no or unknown wake route stays in-turn" in help_text
     assert "only a verified route may release" in help_text

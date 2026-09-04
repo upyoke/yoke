@@ -7,6 +7,7 @@ import sqlite3
 import pytest
 
 from yoke_core.domain import turn_end_promised_work_gate as gate
+from yoke_core.domain import turn_end_unfinished_work as unfinished
 from yoke_core.domain.session_relay_launch_context import (
     session_was_relay_launched,
 )
@@ -153,7 +154,7 @@ def test_unsupported_continuation_event_is_warn_with_recovery(monkeypatch) -> No
     )
 
     assert emitted[0]["severity"] == "WARN"
-    assert emitted[0]["unfinished_work"] == gate.UNFINISHED_CLAIMED_ITEM
+    assert emitted[0]["unfinished_work"] == unfinished.UNFINISHED_CLAIMED_ITEM
     assert "release the claim" in emitted[0]["recovery"]
 
 

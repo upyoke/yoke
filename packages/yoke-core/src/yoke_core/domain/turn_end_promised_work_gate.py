@@ -14,9 +14,11 @@ from yoke_contracts.turn_end_evidence import (
 )
 from yoke_contracts.session_control import stop_denial_continuation_supported
 from yoke_core.domain.session_relay_launch_context import session_was_relay_launched
-from yoke_core.domain.workflow_runtime import (
-    ENGINE_TERMINAL_STAGE_IDS,
-    ENGINE_WAIT_STAGE_IDS,
+from yoke_core.domain.turn_end_unfinished_work import (
+    DIRECTIVE,
+    recovery_for,
+    stop_is_legitimate,
+    unfinished_work_name,
 )
 from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
@@ -29,20 +31,11 @@ REASON_REINJECTED = "promised_work_reinjected"
 REASON_CAP_REACHED = "reinjection_cap_reached"
 REASON_MONITOR_ARMED = "monitor_waiter_live"
 REASON_CONTINUATION_UNSUPPORTED = "stop_denial_continuation_unsupported"
-UNFINISHED_CLOSE_OUT = "lifecycle_close_out"
-UNFINISHED_CLAIMED_ITEM = "claimed_item_in_progress"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
-DIRECTIVE = (
-    "This session still holds a live work claim. Finish the current step "
-    "if work remains; or release the claim if the work is finished or "
-    "handed off; or stop deliberately and say why (blocked, waiting on "
-    "the operator, parked)."
-)
 MONITOR_DIRECTIVE = (
     "A Monitor waiter is still armed. Do not end this turn. "
     "Ending it kills the waiter with no wake."
 )
-_HOLD_EXEMPT_STATUSES = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | {"done"}
 
 
 def _allow() -> HookDecision:
@@ -99,8 +92,8 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     row = conn.execute(
-        f"""SELECT i.id AS item_id, i.status,
-                    i.merged_at, i.merge_queue_landed_at
+        f"""SELECT i.id AS item_id, i.status, i.merged_at,
+                    i.merge_queue_landed_at, i.merge_queue_enqueued_at
               FROM work_claims wc
               JOIN items i ON i.id = {item_id_scope}
              WHERE wc.session_id = {placeholder}
@@ -117,12 +110,8 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
         "status": row["status"],
         "merged_at": row["merged_at"],
         "merge_queue_landed_at": row["merge_queue_landed_at"],
+        "merge_queue_enqueued_at": row["merge_queue_enqueued_at"],
     }
-
-
-def _item_blocks_hold(status: Any) -> bool:
-    value = str(status or "").strip()
-    return value in _HOLD_EXEMPT_STATUSES
 
 
 def _armed_monitor_blocks_stop(conn: Any, session_id: str) -> bool:
@@ -191,32 +180,6 @@ def _at_reinjection_cap(
     return anchor.astimezone(timezone.utc) < last_hold_at + REINJECTION_COOLDOWN
 
 
-def _landed_but_open(claim: dict[str, Any]) -> bool:
-    return bool(claim.get("merged_at") or claim.get("merge_queue_landed_at"))
-
-
-def unfinished_work_name(claim: dict[str, Any]) -> str:
-    """Name the work the cap is about to abandon."""
-    if _landed_but_open(claim):
-        return UNFINISHED_CLOSE_OUT
-    return UNFINISHED_CLAIMED_ITEM
-
-
-def recovery_for(claim: dict[str, Any]) -> str:
-    """Recovery the next agent can run; status is never the landing signal."""
-    ref = str(claim.get("item_id") or "")
-    status = str(claim.get("status") or "")
-    if _landed_but_open(claim):
-        return (
-            f"item {ref} is still {status} after landing; status is not the "
-            "landing signal. Finish close-out with "
-            f"`yoke merge item {ref}` (Dash) or `/yoke usher {ref}` "
-            "(delivery). Confirm merged_at, the merge receipt, or git "
-            "ancestry of the merge sha."
-        )
-    return DIRECTIVE
-
-
 def _emit_deferred(
     *,
     conn: Any,
@@ -281,7 +244,7 @@ def evaluate(record: HookContext) -> HookDecision:
         claim = _live_claim(conn, session_id)
         if claim is None:
             return _allow()
-        if _item_blocks_hold(claim["status"]):
+        if stop_is_legitimate(claim):
             return _allow()
         surface = record.payload.get("entrypoint") if record.payload else None
         if not stop_denial_continuation_supported(
@@ -343,6 +306,5 @@ def evaluate(record: HookContext) -> HookDecision:
 __all__ = (
     "CHECK_ID DIRECTIVE EVIDENCE_UNAVAILABLE_REASON MONITOR_DIRECTIVE "
     "REASON_CAP_REACHED REASON_CONTINUATION_UNSUPPORTED REASON_MONITOR_ARMED "
-    "REASON_REINJECTED UNFINISHED_CLAIMED_ITEM UNFINISHED_CLOSE_OUT evaluate "
-    "recovery_for unfinished_work_name"
+    "REASON_REINJECTED evaluate"
 ).split()

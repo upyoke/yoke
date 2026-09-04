@@ -58,17 +58,18 @@ COMMITTED_GATE_TEACHING = (
 
 HEADLESS_LANDING_WAIT_TEACHING = (
     "You are a headless command that cannot be prompted again, so a "
-    "merge-queue landing is not a place to stop. When your merge returns "
-    "landing_pending=true, do not end the pass on it: pass --wait and hold "
-    "the turn on the merge watcher wrapper the way your skill's merge step "
-    "spells out. Merged closes the item out in that same turn; a stopped "
-    "landing rebases, re-runs the verification gate, and re-runs the same "
-    "command. A stale server landing record names its last refresh and repair "
-    "step; never replace it with local GitHub polling. Only that blocker or "
-    "the wait budget running out ends the turn, and then you "
-    'stamp `yoke sessions touch --mode parked --reason "<observed landing '
-    'state>"` and report a HUMAN_GATE naming the pull request, that reading, '
-    "and the resume command. Never end a turn on a landing you did not read."
+    "merge-queue landing is not yours to wait out: it outlasts your turn, and "
+    "a wait that dies with the turn leaves the branch landed and the item "
+    "open. Your merge arms the landing and returns landing_pending=true with "
+    "the pull request named, whether or not you passed --wait. That is the "
+    "handoff, not a failure. Report the pull request, stop deliberately, and "
+    "say you are waiting on landing. The control-plane landing notice wakes "
+    "you: re-run the same `yoke merge item` command then and it completes "
+    "close-out. A stopped landing arrives the same way and names its recovery "
+    "(usually rebase, re-run the verification gate, re-run the command); a "
+    "stale server landing record names its last refresh and repair step. "
+    "Never replace either with local GitHub polling, and never report a "
+    "landing you did not read."
 )
 
 
@@ -99,11 +100,15 @@ def compose_single_item_mandate(
     resume of a dead session that acknowledged and never answered, and the
     successor seat had to redirect every live worker by hand.
 
-    Every composed mandate belongs to a launched CLI session, and a launched
-    session of any origin is a headless command that cannot be re-entered on the
-    landing-complete message. A worker that stopped on that handoff left
-    its branch landed and its item at reviewing-implementation with
-    nobody to close it out, seven times in one night.
+    Every composed mandate belongs to a launched CLI session, which is a
+    headless command: it cannot be prompted again inside its own turn, but the
+    relay does re-enter it on a delivered message. That is why the landing
+    handoff is safe to teach here. The failure it replaces was a worker that
+    stopped on the handoff before any notice reached it, leaving its branch
+    landed and its item at reviewing-implementation with nobody to close it
+    out, seven times in one night; the landing observer's notice is what closes
+    that gap, so the mandate names the notice rather than an in-turn wait no
+    launched worker survives.
     """
     close = _DELIBERATE_CLOSE.format(ref=public_ref)
     mandate = (

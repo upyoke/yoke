@@ -129,6 +129,7 @@ def route_standalone_landing(
     resume_command: str = "",
     dispatch: Callable[..., Any] = call_dispatcher,
     wait_for_landing: bool = True,
+    relay_launched: bool = False,
 ) -> StandaloneMergeOutcome:
     """Select the merge boundary for one standalone item branch.
 
@@ -199,6 +200,7 @@ def route_standalone_landing(
         resume_command=resume_command,
         dispatch=dispatch,
         wait_for_landing=wait_for_landing,
+        relay_launched=relay_launched,
     )
     return StandaloneMergeOutcome(
         ok=outcome.ok,

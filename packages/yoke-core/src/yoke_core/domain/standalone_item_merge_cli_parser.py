@@ -34,7 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
         (
             "--wait",
             "Wait for queue landing inline instead of returning "
-            "landing_pending. Invoke through the reachability-routed watch "
+            "landing_pending. Ignored for a relay-launched session, which "
+            "always arms and returns: a headless command cannot outlive the "
+            "landing, and the landing notice wakes it for close-out. Every "
+            "other caller invokes this through the reachability-routed watch "
             "merge wrapper: no or unknown wake route stays in-turn, while "
             "only a verified route may release to its subscription. Each "
             "cadence reads the durable server record through "

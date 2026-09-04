@@ -258,21 +258,22 @@ deliberately sends terminal and other actionable reports with `yoke say
 --steering`.
 
 Every launched worker, whatever its origin, is a headless command, so the
-mandate also tells it that a merge-queue landing is not a place to stop. The
-handoff route — end the pass on `landing_pending=true`, re-enter on the
-landing-complete message — needs a session that can be prompted again, and a
-launched one cannot be. Seven items in one night landed their branches and sat
-at `reviewing-implementation` waiting for a re-entry nobody could make. A
-launched worker holds the turn on the in-turn landing wait instead, and only
-the record-wait budget running out ends that turn, parked with the state it
-observed.
+mandate also tells it what a merge-queue landing is. It cannot be prompted
+again inside its own turn and it cannot outlive the landing either — the turn
+is capped well below one — so `yoke merge item` arms the landing for such a
+worker and returns, whatever the worker passed. Seven items in one night
+landed their branches and sat at `reviewing-implementation` waiting for a
+re-entry nobody could make; the control-plane landing notice is what closes
+that gap, and it re-enters the worker for close-out. The mandate therefore
+tells a launched worker to report the pull request, stop deliberately, and
+re-run the same command when the notice arrives.
 
 ```text
 {ROUTED_ENTRYPOINT}
 
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. If your claim is swept mid-work, reacquire and continue.
 
-You are a headless command that cannot be prompted again, so a merge-queue landing is not a place to stop. When your merge returns landing_pending=true, do not end the pass on it: pass --wait and hold the turn on the merge watcher wrapper the way your skill's merge step spells out. Merged closes the item out in that same turn; a stopped landing rebases, re-runs the verification gate, and re-runs the same command. A stale server landing record names its last refresh and repair step; never replace it with local GitHub polling. Only that blocker or the wait budget running out ends the turn, and then you stamp `yoke sessions touch --mode parked --reason "<observed landing state>"` and report a HUMAN_GATE naming the pull request, that reading, and the resume command. Never end a turn on a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
+You are a headless command that cannot be prompted again, so a merge-queue landing is not yours to wait out: it outlasts your turn, and a wait that dies with the turn leaves the branch landed and the item open. Your merge arms the landing and returns landing_pending=true with the pull request named, whether or not you passed --wait. That is the handoff, not a failure. Report the pull request, stop deliberately, and say you are waiting on landing. The control-plane landing notice wakes you: re-run the same `yoke merge item` command then and it completes close-out. A stopped landing arrives the same way and names its recovery (usually rebase, re-run the verification gate, re-run the command); a stale server landing record names its last refresh and repair step. Never replace either with local GitHub polling, and never report a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
 
 Ending a turn sends no Fleet message. Send the DONE report deliberately with `yoke say --steering` — lead with `DONE <item> <one-line summary>`, then what landed, what is blocked, and what you need — before ending the session.
 ```

@@ -130,13 +130,23 @@ no GitHub or git read loop, the machine relay is not the record's only trigger,
 and a stale record refuses as `landing_record_stale` with its refresh evidence
 and recovery.
 
-The merge watcher chooses its wait shape from the calling session's manifest
-wake capability plus current control-plane reachability, never from executor
-name, who opened the session, or launch origin. A verified wake route gets the
-background subscription; no route or an unknown answer keeps the same watcher
-invocation in-turn until close-out. Ending an unreachable caller on a handoff
-left seven branches landed in one night with their items at
-`reviewing-implementation` and nobody to close them out.
+A relay-launched session never waits for the landing at all. It is a headless
+command whose turn the harness caps well below a queue landing, so the wait it
+was told to hold died with the turn anyway — the branch landed, the item stayed
+at `reviewing-implementation`, and the watcher that was supposed to close it out
+was gone. The landing is already durable before any wait begins, and the
+control-plane observer messages the claim holder when it resolves, so the
+landing notice re-enters the worker and the same command completes close-out.
+Arming and stopping is therefore the shape that matches what such a session can
+actually do; the fear that produced the in-turn wait — seven branches landed in
+one night with nobody to close them out — was a worker stopping *before* that
+notice existed, not the handoff itself.
+
+Every other caller still waits, and the merge watcher chooses its wait shape
+from the calling session's manifest wake capability plus current control-plane
+reachability, never from executor name or who opened the session. A verified
+wake route gets the background subscription; no route or an unknown answer keeps
+the same watcher invocation in-turn until close-out.
 Projects without merge-queue capability keep the local merge engine.
 
 ## Portability

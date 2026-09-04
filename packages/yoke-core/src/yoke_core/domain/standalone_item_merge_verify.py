@@ -23,6 +23,9 @@ from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
 from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
+from yoke_core.domain.session_relay_launch_identity import (
+    calling_session_is_relay_launched,
+)
 from yoke_core.domain.standalone_item_merge_qa import (
     item_for_merge_phase,
     preflight as qa_preflight,
@@ -74,6 +77,7 @@ def verify_and_land(
         local_merge=not args.pr,
         resume_command=_timeout.merge_item_resume_command(public_ref, args),
         wait_for_landing=bool(getattr(args, "wait", False)),
+        relay_launched=calling_session_is_relay_launched(),
     ), ""
 
 
