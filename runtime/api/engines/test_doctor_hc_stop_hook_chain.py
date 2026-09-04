@@ -25,6 +25,7 @@ CREATE TABLE events (
     item_id INTEGER,
     created_at TEXT NOT NULL,
     hook_event_name TEXT,
+    client_timing_id TEXT,
     envelope TEXT DEFAULT '{}'
 );
 """

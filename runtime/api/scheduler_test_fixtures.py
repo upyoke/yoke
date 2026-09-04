@@ -70,6 +70,7 @@ CREATE TABLE events (
     event_outcome TEXT NOT NULL DEFAULT '',
     source_type TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
+    client_timing_id TEXT,
     envelope TEXT NOT NULL DEFAULT '{}'
 );
 """

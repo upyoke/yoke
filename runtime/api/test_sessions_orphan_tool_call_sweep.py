@@ -30,46 +30,10 @@ from yoke_core.domain.sessions_orphan_tool_call_sweep import (
     build_sentinel_reason,
     sweep_orphaned_tool_calls,
 )
-from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
+from runtime.api.sessions_orphan_sweep_test_schema import _seed_events
 from runtime.api.test_sessions import _insert_claimable_item, _register
 
 pytest_plugins = ("runtime.api.test_sessions",)
-
-
-EVENTS_SCHEMA = """
-CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY,
-    event_id TEXT UNIQUE NOT NULL,
-    source_type TEXT,
-    session_id TEXT NOT NULL,
-    severity TEXT,
-    event_kind TEXT,
-    event_type TEXT,
-    event_name TEXT,
-    event_outcome TEXT,
-    service TEXT,
-    project_id INTEGER DEFAULT 1 REFERENCES projects(id),
-    item_id TEXT,
-    task_num INTEGER,
-    agent TEXT,
-    tool_name TEXT,
-    duration_ms INTEGER,
-    exit_code INTEGER,
-    anomaly_flags TEXT,
-    tool_use_id TEXT,
-    turn_id TEXT,
-    hook_event_name TEXT,
-    envelope TEXT,
-    created_at TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_events_tool_use_id_dedup
-    ON events(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL;
-"""
-
-
-def _seed_events(c) -> None:
-    apply_ddl_statements(c, EVENTS_SCHEMA)
-    c.commit()
 
 
 def _now_iso(offset_s: int = 0) -> str:
@@ -99,21 +63,27 @@ def _close_call(c, *, session_id, tool_use_id, outcome="completed"):
     c.commit()
 
 
+SENTINEL_REASON_FIELDS = frozenset(
+    {
+        "ending_session_id",
+        "sentinel_emitted_at",
+        "original_started_at",
+        "lifecycle_reason",
+    }
+)
+
+
 def _open_rows(c, session_id: str) -> list:
-    return list(c.execute(
-        """SELECT tool_use_id, outcome FROM session_tool_calls
-           WHERE session_id = %s AND completed_at IS NULL""",
-        (session_id,),
-    ))
+    sql = """SELECT tool_use_id, outcome FROM session_tool_calls
+             WHERE session_id = %s AND completed_at IS NULL"""
+    return list(c.execute(sql, (session_id,)))
 
 
 def _sentinels(c, session_id: str) -> list:
-    return list(c.execute(
-        """SELECT * FROM events WHERE session_id = %s
+    sql = """SELECT * FROM events WHERE session_id = %s
              AND event_name = 'HarnessToolCallCompleted'
-             AND event_outcome = %s""",
-        (session_id, OUTCOME_INTERRUPTED),
-    ))
+             AND event_outcome = %s"""
+    return list(c.execute(sql, (session_id, OUTCOME_INTERRUPTED)))
 
 
 # ---------------------------------------------------------------------------
@@ -130,8 +100,7 @@ class TestOrphanSweepReason:
             lifecycle_reason="session_end_destructive",
         )
         d = r.as_dict()
-        assert set(d) == {"ending_session_id", "sentinel_emitted_at",
-                          "original_started_at", "lifecycle_reason"}
+        assert set(d) == SENTINEL_REASON_FIELDS
         assert d["lifecycle_reason"] in LIFECYCLE_REASONS
 
     def test_build_sentinel_reason_copies_started_at(self, conn):

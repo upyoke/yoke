@@ -66,6 +66,7 @@ EVENTS_TABLE_FOR_STALE_DETECTION = """
         environment TEXT,
         created_at TEXT NOT NULL,
         session_id TEXT,
+        client_timing_id TEXT,
         envelope TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id);
@@ -117,9 +118,7 @@ def ownership_conn(tmp_path):
         ws = str(tmp_path)
         (tmp_path / ".yoke" / "strategy").mkdir(parents=True, exist_ok=True)
         for sml_file in ("MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md"):
-            (tmp_path / ".yoke" / "strategy" / sml_file).write_text(
-                f"# {sml_file}\n"
-            )
+            (tmp_path / ".yoke" / "strategy" / sml_file).write_text(f"# {sml_file}\n")
         try:
             yield c, ws
         finally:
@@ -171,6 +170,7 @@ _OWNERSHIP_EXTRA_TABLES = """
         tool_use_id TEXT,
         turn_id TEXT,
         hook_event_name TEXT,
+        client_timing_id TEXT,
         envelope TEXT,
         created_at TEXT NOT NULL
     );

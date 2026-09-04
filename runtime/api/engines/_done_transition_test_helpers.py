@@ -100,6 +100,7 @@ def dt_db(tmp_path, monkeypatch):
             event_type TEXT,
             source_type TEXT,
             created_at TEXT,
+            client_timing_id TEXT,
             envelope TEXT
         );
         CREATE TABLE qa_requirements (

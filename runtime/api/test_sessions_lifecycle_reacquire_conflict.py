@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS events (
     item_id TEXT,
     task_num INTEGER,
     context TEXT,
+    client_timing_id TEXT,
     envelope TEXT,
     outcome TEXT,
     severity TEXT,

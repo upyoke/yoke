@@ -64,7 +64,10 @@ def test_deny_smoke_fail_on_nonzero_exit(monkeypatch, conn):
 
     def fail_run(*a, **kw):
         return subprocess.CompletedProcess(
-            args=a, returncode=2, stdout="", stderr="boom",
+            args=a,
+            returncode=2,
+            stdout="",
+            stderr="boom",
         )
 
     monkeypatch.setattr(subprocess, "run", fail_run)
@@ -89,7 +92,7 @@ def test_observe_smoke_pass_when_no_events_yet(monkeypatch, conn):
     apply_fixture_ddl(
         conn,
         """
-        CREATE TABLE events (event_name TEXT, envelope TEXT);
+        CREATE TABLE events (event_name TEXT, client_timing_id TEXT, envelope TEXT);
         """,
     )
     rec = _record(hc_apply_patch_observe_smoke, conn)
@@ -102,7 +105,7 @@ def test_observe_smoke_pass_when_events_seen(monkeypatch, conn):
     apply_fixture_ddl(
         conn,
         """
-        CREATE TABLE events (event_name TEXT, envelope TEXT);
+        CREATE TABLE events (event_name TEXT, client_timing_id TEXT, envelope TEXT);
         INSERT INTO events VALUES ('HarnessToolCall', '{"tool":"apply_patch"}');
         """,
     )

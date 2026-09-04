@@ -178,6 +178,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             event_name TEXT,
             event_type TEXT,
             item_id TEXT,
+            client_timing_id TEXT,
             envelope TEXT,
             created_at TEXT
         );

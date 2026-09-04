@@ -56,6 +56,7 @@ CREATE TABLE events (
     tool_use_id TEXT,
     turn_id TEXT,
     hook_event_name TEXT,
+    client_timing_id TEXT,
     envelope TEXT,
     created_at TEXT
 )

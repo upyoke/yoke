@@ -61,7 +61,7 @@ def _database() -> sqlite3.Connection:
             id INTEGER PRIMARY KEY, method_config TEXT,
             execution_target_json TEXT, execution_target_digest TEXT
         );
-        CREATE TABLE events (id INTEGER PRIMARY KEY, envelope TEXT);
+        CREATE TABLE events (id INTEGER PRIMARY KEY, client_timing_id TEXT, envelope TEXT);
         INSERT INTO sites VALUES (
             'yoke-api', 1, 'Yoke API', NULL, '2026-01-01', '{}'
         );
@@ -113,7 +113,9 @@ def _database() -> sqlite3.Connection:
 def test_migration_rewrites_keys_references_and_stored_payloads(monkeypatch) -> None:
     conn = _database()
     monkeypatch.setattr(
-        flow_init, "create_or_replace_item_progress_view", lambda *_a, **_k: None,
+        flow_init,
+        "create_or_replace_item_progress_view",
+        lambda *_a, **_k: None,
     )
 
     MIGRATION.apply(conn)
@@ -130,12 +132,14 @@ def test_migration_rewrites_keys_references_and_stored_payloads(monkeypatch) -> 
         row["name"]: row["id"]
         for row in conn.execute("SELECT id,name FROM environments")
     }
-    assert conn.execute(
-        "SELECT target_environment_id FROM deployment_runs"
-    ).fetchone()[0] == environments["prod"]
-    assert conn.execute(
-        "SELECT target_environment_id FROM qa_plans"
-    ).fetchone()[0] == environments["stage"]
+    assert (
+        conn.execute("SELECT target_environment_id FROM deployment_runs").fetchone()[0]
+        == environments["prod"]
+    )
+    assert (
+        conn.execute("SELECT target_environment_id FROM qa_plans").fetchone()[0]
+        == environments["stage"]
+    )
 
     settings = json.loads(
         conn.execute("SELECT settings FROM project_capabilities").fetchone()[0]
@@ -167,10 +171,13 @@ def test_postgres_target_constraint_discovery_escapes_like_pattern(
     test_db,
 ) -> None:
     key_helpers._drop_target_constraints(test_db)
-    assert test_db.execute(
-        "SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(%s) AND conname=%s",
-        ("deployment_flows", "deployment_flows_target_tier_vocabulary"),
-    ).fetchone() is None
+    assert (
+        test_db.execute(
+            "SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(%s) AND conname=%s",
+            ("deployment_flows", "deployment_flows_target_tier_vocabulary"),
+        ).fetchone()
+        is None
+    )
 
 
 def test_stored_reference_recode_prefers_the_resolved_row_reference() -> None:
@@ -178,6 +185,6 @@ def test_stored_reference_recode_prefers_the_resolved_row_reference() -> None:
         {"environment": "production", "environment_id": "yoke-api-prod"},
         {"environment_id": "yoke-api-prod", "environment": "production"},
     ):
-        assert json_helpers._recode_value(
-            payload, {"yoke-api-prod": "prod"}, {}
-        ) == {"environment": "prod"}
+        assert json_helpers._recode_value(payload, {"yoke-api-prod": "prod"}, {}) == {
+            "environment": "prod"
+        }

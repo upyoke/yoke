@@ -104,6 +104,7 @@ _EVENTS_DDL = """CREATE TABLE events (
     tool_use_id TEXT,
     turn_id TEXT,
     hook_event_name TEXT,
+    client_timing_id TEXT,
     envelope TEXT,
     created_at TEXT NOT NULL
 )"""
@@ -197,7 +198,9 @@ def make_attribution_db_file(tmp_path):
     """Yield a DB token and repo root for attribution resolution tests."""
     repo_root = Path(tmp_path) / "repo"
     repo_root.mkdir()
-    with init_test_db(Path(tmp_path), apply_schema=_apply_attribution_schema) as db_path:
+    with init_test_db(
+        Path(tmp_path), apply_schema=_apply_attribution_schema
+    ) as db_path:
         yield AttributionDbFile(db_path=db_path, repo_root=repo_root)
 
 

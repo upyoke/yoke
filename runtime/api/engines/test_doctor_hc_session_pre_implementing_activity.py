@@ -56,6 +56,7 @@ def _make_pre_impl_conn() -> Any:
         CREATE TABLE events (
             id INTEGER PRIMARY KEY,
             session_id TEXT, event_name TEXT, created_at TEXT,
+            client_timing_id TEXT,
             envelope TEXT
         );
         """

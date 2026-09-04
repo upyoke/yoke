@@ -239,6 +239,7 @@ class TestStaleSessionSweepEvent:
             project_id INTEGER DEFAULT 1,
             severity TEXT DEFAULT 'INFO',
             outcome TEXT DEFAULT 'completed',
+            client_timing_id TEXT,
             envelope TEXT,
             created_at TEXT
         );
