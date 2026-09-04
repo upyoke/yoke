@@ -1,128 +1,213 @@
-/* The Machines panel on Sessions. Dense on purpose: it is a strip an operator
- * scans before launching, not a report they read. */
-
 .machines-panel { margin-bottom: 22px; }
 .machines-panel-head {
   margin: 0 0 10px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--yoke-ink);
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -0.012em;
 }
-.machines-empty { font-size: 12px; color: var(--muted); }
-
-/* One card is one live host, laid out the way a session card is — the same
- * unit of thing. The minimum is wider, because a surface row carries a light,
- * a name, a version and a state. */
+.machines-empty { font-size: 12px; color: var(--yoke-muted); }
 .machines-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 380px));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 390px));
   gap: 12px;
   align-items: start;
 }
 .machine-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius, 8px);
-  background: var(--surface);
+  min-width: 0;
   overflow: hidden;
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-surface);
 }
 .machine-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
-  padding: 7px 11px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--yoke-border);
+  background: var(--yoke-surface-2);
 }
-.machine-host { font-weight: 650; font-size: 12px; color: var(--ink); }
-.machine-meta { margin-left: auto; font-size: 10.5px; color: var(--muted); }
-
-/* One fact, read at a glance, so a filled disc with a halo — a ring at this
- * size reads as grey at every colour. */
-.machine-light { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.machine-host {
+  min-width: 0;
+  color: var(--yoke-ink);
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.machine-meta {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.machine-light {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
 .machine-light-ok {
-  background: var(--good);
-  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--good) 18%, transparent);
+  background: var(--yoke-good);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--yoke-good) 18%, transparent);
 }
 .machine-light-warn {
-  background: var(--warn);
-  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--warn) 20%, transparent);
+  background: var(--yoke-warn);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--yoke-warn) 20%, transparent);
 }
 .machine-light-crit {
-  background: var(--crit);
-  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--crit) 20%, transparent);
+  background: var(--yoke-crit);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--yoke-crit) 20%, transparent);
 }
-.machine-light-off { background: var(--idle); opacity: 0.5; }
+.machine-light-off { background: var(--yoke-idle); opacity: .5; }
 
-/* What is NOT measured, said once per card rather than as an empty meter per
- * surface. Dashed, because the row is a placeholder for a reading and should
- * never be mistaken for one. */
-.machine-pending {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin: 8px 11px 0;
-  padding: 5px 8px;
-  border: 1px dashed var(--border);
-  border-radius: 5px;
+.machine-capacity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--yoke-border);
 }
-.machine-pending-label {
+.machine-capacity-label {
+  color: var(--yoke-muted);
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-weight: 720;
+  letter-spacing: .07em;
   text-transform: uppercase;
-  color: var(--muted);
 }
-.machine-pending-detail { font-size: 10.5px; color: var(--muted); }
-
-.machine-surface { padding: 8px 11px; border-top: 1px solid var(--border); }
+.machine-capacity-summary {
+  grid-column: 1 / -1;
+  color: var(--yoke-ink-2);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+.machine-capacity-track,
+.machine-headroom-track {
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--yoke-surface-2);
+}
+.machine-capacity-track {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 4px;
+}
+.machine-capacity-fill,
+.machine-headroom-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--yoke-good);
+}
+.machine-surface {
+  padding: 8px 11px;
+  border-top: 1px solid var(--yoke-border);
+}
+.machine-surface:first-of-type { border-top: 0; }
 .machine-surface-head {
   display: flex;
   align-items: center;
-  gap: 7px;
   flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
 }
 .machine-surface-name {
-  font-family: var(--mono, monospace);
+  color: var(--yoke-ink);
+  font-family: var(--yoke-font-mono);
   font-size: 11.5px;
   font-weight: 650;
-  color: var(--ink);
+  overflow-wrap: anywhere;
 }
-.machine-surface-version {
-  font-family: var(--mono, monospace);
+.machine-surface-version,
+.machine-plan-tier {
+  color: var(--yoke-muted);
+  font-family: var(--yoke-font-mono);
   font-size: 10px;
-  color: var(--muted);
 }
-.machine-surface-state { margin-left: auto; font-size: 10.5px; color: var(--muted); }
-.machine-surface-disabled .machine-surface-state { color: var(--crit); font-weight: 650; }
-.machine-surface-silent .machine-surface-state { color: var(--warn); font-weight: 650; }
-.machine-surface-absent .machine-surface-name { color: var(--muted); }
-.machine-surface-reason { margin: 4px 0 0; font-size: 10.5px; color: var(--muted); }
-
-/* A read that failed keeps the heading and says so. Hiding it would make the
- * one state meaning "you cannot trust this" look like the state meaning
- * "there is nothing here". */
+.machine-plan-tier {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--yoke-surface-2);
+}
+.machine-surface-state {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.machine-surface-disabled .machine-surface-state {
+  color: var(--yoke-crit);
+  font-weight: 650;
+}
+.machine-surface-silent .machine-surface-state {
+  color: var(--yoke-warn);
+  font-weight: 650;
+}
+.machine-surface-absent .machine-surface-name { color: var(--yoke-muted); }
+.machine-surface-reason,
+.machine-limit-unavailable {
+  margin: 4px 0 0;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.machine-limit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 7px;
+}
+.machine-limit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  min-width: 0;
+}
+.machine-limit-name {
+  min-width: 0;
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  overflow-wrap: anywhere;
+}
+.machine-limit-value {
+  color: var(--yoke-ink-2);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.machine-headroom-track {
+  grid-column: 1 / -1;
+  height: 5px;
+}
+.machine-limit-row[data-headroom="low"] .machine-headroom-fill {
+  background: var(--yoke-crit);
+}
+.machine-limit-row[data-headroom="tight"] .machine-headroom-fill {
+  background: var(--yoke-warn);
+}
+.machine-limit-row.is-unknown .machine-limit-value {
+  color: var(--yoke-warn);
+}
 .machines-failure {
   display: flex;
   align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 10px;
   padding: 9px 11px;
-  border: 1px solid var(--crit);
-  border-radius: var(--radius, 8px);
-  background: color-mix(in srgb, var(--crit) 7%, transparent);
+  border: 1px solid var(--yoke-crit);
+  border-radius: var(--yoke-radius);
+  background: color-mix(in srgb, var(--yoke-crit) 7%, transparent);
 }
 .machines-failure .error { margin: 0; font-size: 12px; }
 .machines-retry {
+  min-height: 34px;
   margin-left: auto;
   padding: 4px 10px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  background: var(--yoke-surface);
+  color: var(--yoke-ink);
   font: inherit;
   font-size: 11.5px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink);
   cursor: pointer;
 }
-.machines-retry:hover { background: var(--hover); }
+.machines-retry:hover { background: var(--yoke-hover); }

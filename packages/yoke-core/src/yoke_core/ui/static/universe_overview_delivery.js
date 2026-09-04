@@ -1,146 +1,58 @@
-import {
-  el, mergedRows, scopeBuckets, statePill,
-} from "./universe_view_support.js";
-import { holdScopedSection } from "./universe_held_reads.js";
-import { ghostWhenInactive } from "./universe_views_overview_activation.js";
-import { deliveryStageBar } from "./universe_secondary_primitives.js";
-import { relativeTime } from "./universe_time.js";
-import {
-  appendCell,
-  destinationHref,
-  emptyTableRow,
-  makeRowNavigable,
-  overviewTable,
-  projectDisplay,
-  routeCell,
-  SUMMARY_ROW_LIMIT,
-} from "./universe_overview_primitives.js";
+// Shipping renders deployment runs as first-class cards, including the work
+// each release carries and the derivation that produced that membership.
 
-// What is shipping. The engine bounds run history and returns the newest
-// receipts first, so the overview keeps that order before taking its summary.
-export function loadDelivery(context, panel, getScope, activationFacts) {
-  // Fan out per project so each project's own newest-N runs are held: a
-  // universe-wide window would let a busy project crowd a quiet one out. Runs
-  // always carry a project (the projects JOIN), so no null bucket is needed.
-  const buckets = scopeBuckets("all", context.projects(), true);
-  return holdScopedSection(
-    context, panel, buckets,
-    buckets.map((bucket) => ({
-      functionId: "deployment_runs.list",
-      payload: { project: bucket },
-    })),
-    getScope,
-    (body, callResults, scope) => {
-      const documentNode = body.ownerDocument;
-      // Per-project holds are merged newest-first (roster grouping otherwise
-      // interleaves projects) before the summary takes its slice.
-      const rows = mergedRows(callResults, (result) => result.rows).sort(
-        (left, right) => String(right.created_at || "").localeCompare(
-          String(left.created_at || ""),
-        ),
-      );
-      if (!rows.length) {
-        ghostWhenInactive(context, activationFacts, "delivery", panel);
-      }
-      panel.setCount(`${rows.length} run${rows.length === 1 ? "" : "s"}`);
-      const table = overviewTable(
-        documentNode,
-        "overview-delivery-table",
-        ["Run", "Project", "Target", "Stages", "Status", "When"],
-      );
-      const href = destinationHref("deployments", scope);
-      for (const row of rows.slice(0, SUMMARY_ROW_LIMIT)) {
-        const tableRow = el(documentNode, "tr", "overview-delivery-row");
-        routeCell(
-          documentNode,
-          tableRow,
-          row.id || row.run_id || "run",
-          href,
-          "overview-run-id",
-        );
-        appendCell(
-          documentNode,
-          tableRow,
-          projectDisplay(context.projects(), row.project),
-          "overview-project-cell",
-        );
-        appendCell(
-          documentNode, tableRow,
-          row.target_environment || row.target_tier || "—",
-          "overview-target-cell",
-        );
-        const stages = (row.stages || []).length
-          ? deliveryStageBar(documentNode, row.stages)
-          : el(documentNode, "span", "secondary-muted", "—");
-        appendCell(
-          documentNode, tableRow, stages, "overview-delivery-stages",
-        );
-        const status = el(documentNode, "div", "overview-run-status");
-        const statusPill = statePill(
-          documentNode, row.status || "unknown", row.status || "unknown",
-        );
-        if (statusPill) status.appendChild(statusPill);
-        if (row.waiting_on_approval) {
-          status.appendChild(statePill(
-            documentNode, "warning", "⏳ your approval",
-          ));
-        }
-        appendCell(documentNode, tableRow, status);
-        appendCell(
-          documentNode,
-          tableRow,
-          relativeTime(documentNode, row.created_at),
-          "overview-age-cell",
-        );
-        makeRowNavigable(
-          documentNode, tableRow, href, row.id || row.run_id || "Delivery",
-        );
-        table.body.appendChild(tableRow);
-      }
-      if (!rows.length) {
-        emptyTableRow(
-          documentNode, table.body, 6, "No runs in this scope.",
-        );
-      }
-      body.appendChild(table.wrap);
-      renderLatestEnvironments(documentNode, body, rows);
-    },
-  );
+import { overviewRunCard } from "./universe_overview_cards.js";
+import {
+  callError,
+  OVERVIEW_CARD_LIMIT,
+  successfulResult,
+} from "./universe_overview_primitives.js";
+import { settledScopedCalls } from "./universe_view_support.js";
+
+function selectedProjects(projects, scope) {
+  if (scope === "all") return projects;
+  const wanted = new Set((scope || []).map(String));
+  return projects.filter((project) => wanted.has(String(project.id)));
 }
 
-// A concise answer to the question the run history alone makes surprisingly
-// hard: what is the newest receipt for each environment? This mirrors the
-// prototype's environment line and prevents an older red run from looking
-// like the current state when a newer green run already superseded it.
-function renderLatestEnvironments(documentNode, body, rows) {
-  const latest = new Map();
-  const sorted = [...rows].sort((left, right) =>
-    String(right.created_at || "").localeCompare(String(left.created_at || "")),
+export async function loadDelivery(context, band, getScope) {
+  const projects = context.projects();
+  const buckets = projects.length ? projects : [{ id: null }];
+  const { callResults } = await settledScopedCalls(
+    context,
+    buckets.map((project) => ({
+      functionId: "deployment_runs.list",
+      payload: project.id === null ? {} : { project: String(project.id) },
+    })),
   );
-  for (const row of sorted) {
-    const target = String(
-      row.target_environment || row.target_tier || "",
-    ).trim();
-    if (!target) continue;
-    const key = `${row.project || ""}:${target}`;
-    if (!latest.has(key)) latest.set(key, row);
-  }
-  if (!latest.size) return;
-  const line = el(documentNode, "div", "overview-environments");
-  line.setAttribute("aria-label", "Latest by environment");
-  for (const row of [...latest.values()].slice(0, 6)) {
-    const fact = el(documentNode, "span", "overview-environment-fact");
-    const label = [
-      row.project,
-      row.target_environment || row.target_tier,
-    ].filter(Boolean).join(" · ");
-    fact.appendChild(el(documentNode, "strong", null, label || "environment"));
-    fact.appendChild(el(
-      documentNode, "span", null, ` ${row.status || "unknown"} · `,
+  if (!context.isMounted()) return null;
+  const paint = () => {
+    const chosen = projects.length
+      ? selectedProjects(projects, getScope()) : buckets;
+    const rows = [];
+    for (const project of chosen) {
+      const index = buckets.indexOf(project);
+      const result = successfulResult(callResults[index]);
+      if (!result) {
+        band.renderError(callError(
+          callResults[index], "Deployment runs could not be loaded.",
+        ));
+        return;
+      }
+      rows.push(...(result.rows || []));
+    }
+    rows.sort((left, right) => String(right.created_at || "").localeCompare(
+      String(left.created_at || ""),
     ));
-    fact.appendChild(relativeTime(documentNode, row.created_at));
-    fact.setAttribute("data-status", String(row.status || "unknown"));
-    line.appendChild(fact);
-  }
-  body.appendChild(line);
+    band.setCount(rows.length);
+    band.renderCards(
+      rows.slice(0, OVERVIEW_CARD_LIMIT).map((row) => overviewRunCard(
+        context.document, row, getScope(),
+      )),
+      "No deployment run is in flight.",
+      "overview-run-grid",
+    );
+  };
+  paint();
+  return paint;
 }

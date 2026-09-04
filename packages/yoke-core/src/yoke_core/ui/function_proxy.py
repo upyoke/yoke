@@ -41,6 +41,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "items.detail.get",
         "epic_tasks.list.run",
         "strategy.doc.list",
+        "strategy.doc_claim.list",
         "strategy.doc.get",
         "strategy.surface.list",
         "strategy.surface.get",

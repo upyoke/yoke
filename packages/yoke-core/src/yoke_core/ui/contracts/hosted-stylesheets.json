@@ -47,6 +47,9 @@
     },
     {
       "asset": "workflow_instructions.css"
+    },
+    {
+      "asset": "universe_responsive.css"
     }
   ]
 }

@@ -90,7 +90,8 @@ export function mountUniverseApp(rootNode, options = {}) {
   };
 
   const {
-    brand, disposeChrome, header, main, navLinks, orgContext, shell,
+    brand, disposeChrome, header, main, navLinks, orgContext, scopeHost,
+    setScopeVisible, shell,
   } = createWorkbenchChrome({
     client,
     documentNode,
@@ -142,6 +143,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // discarded subtree.
     detachMountedSlots(rootNode, sectionNodes);
     heldScope.reset(); // a full render drops any held scoped view
+    setScopeVisible(false);
     const route = parseUniverseRoute(windowNode.location.hash);
     const entry = navEntry(route.view);
     const scope = scopeForEntry(
@@ -237,18 +239,24 @@ export function mountUniverseApp(rootNode, options = {}) {
       );
       return;
     }
-    // The picker is the view's own chrome; above it sits a view-owned host
-    // (the Overview pins its activation stack there), and the view host below.
+    // The picker lives in the top chrome. A separate view-owned host still
+    // precedes the view (the Overview pins its activation stack there).
     const viewHost = el(documentNode, "div", "view-host"), aboveScope = el(documentNode, "div", "view-above-scope");
     const pageHead = createPageHead(documentNode, entry);
     const picker = createScopePicker({
       documentNode, entry, scope, projects, renderRoute, scopeSelections,
       windowNode, onScopeChange: heldScope.applyScopeInPlace,
     });
+    scopeHost.replaceChildren(picker);
+    setScopeVisible(true);
     main.replaceChildren(
-      pageHead, ...beforeScopeSections(entry), aboveScope, picker, viewHost,
+      pageHead, ...beforeScopeSections(entry), aboveScope, viewHost,
     );
     const handle = renderer(context, viewHost, scope, { aboveScope,
+      hidePageHead() {
+        if (!mounted || main.children[0] !== pageHead) return;
+        configurePageHead(documentNode, pageHead, { title: null });
+      },
       setPageHead(options) {
         if (!mounted || main.children[0] !== pageHead) return;
         configurePageHead(documentNode, pageHead, options);
@@ -261,7 +269,9 @@ export function mountUniverseApp(rootNode, options = {}) {
   windowNode.addEventListener("hashchange", heldScope.onHashChange);
 
   Promise.resolve().then(() => callFunction(
-    client, "projects.list", { fields: ["id", "slug", "name", "emoji"] },
+    client, "projects.list", {
+      fields: ["id", "slug", "name", "emoji", "public_item_prefix"],
+    },
   )).then((callResult) => {
     projects = (callResult.envelope && callResult.envelope.result)?.rows || [];
   })

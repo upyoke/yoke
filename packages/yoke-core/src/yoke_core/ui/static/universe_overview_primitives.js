@@ -1,234 +1,115 @@
-import { buildUniverseRoute, serializeScope } from "./universe_navigation.js";
-import { el, section } from "./universe_view_support.js";
-import { OVERVIEW_SECTIONS } from "./universe_views_overview_signals.js";
+// Native disclosure primitives shared by the Overview's strategy and
+// frontier bands. The browser owns keyboard interaction and accessibility;
+// this module only remembers which disclosures the operator closed when a
+// held read repaints or the route is mounted again.
 
-export const SUMMARY_ROW_LIMIT = 5;
-export const STRATEGY_BADGE_LIMIT = 6;
-export const SESSION_SUMMARY_ROW_LIMIT = 7;
+import { el } from "./universe_view_support.js";
 
-// The link out of a summary and into the full screen, carrying the scope the
-// Overview holds so the destination opens on the same projects.
-export function openLink(documentNode, destination, scope, label) {
-  const link = el(documentNode, "a", "overview-open", `Open ${label} →`);
-  link.href = buildUniverseRoute(destination, serializeScope(scope));
-  return link;
-}
+const CLOSED_DISCLOSURES = new Set();
 
-// A titled summary panel that links to its full screen. The link is a sibling
-// of the body, so a section load replacing the body leaves it in place.
-// `view` is the SECTION key — what the jump strip, the DOM id and the detail
-// line are keyed on. `destination` is where "Open" goes. They were one
-// argument while every section was named for its own view; Frontier is not a
-// destination any more and Delivery is called Deployments, so the two facts
-// separate rather than one of them quietly becoming wrong.
-export function summaryPanel(
-  documentNode, title, view, scope, label, destination = view,
+export const OVERVIEW_CARD_LIMIT = 8;
+
+function disclosure(
+  documentNode,
+  { key, title, className, count = null, empty = "Nothing here." },
 ) {
-  const panel = section(documentNode, title);
-  panel.classList.add("overview-section");
-  panel.setAttribute("id", `overview-${view}`);
-  panel.children[1].classList.add("overview-section-body");
-  const sectionDefinition = OVERVIEW_SECTIONS.find(([id]) => id === view);
-  let detail = null;
-  if (sectionDefinition) {
-    const heading = panel.children[0].children[0];
-    heading.textContent = "";
-    heading.classList.add("overview-section-heading");
-    heading.appendChild(el(
+  const root = el(documentNode, "details", className);
+  root.open = !CLOSED_DISCLOSURES.has(key);
+  root.setAttribute("data-fold", key);
+
+  const summary = el(documentNode, "summary", `${className}-summary`);
+  summary.appendChild(el(documentNode, "span", "overview-fold-chevron"));
+  summary.appendChild(el(documentNode, "span", `${className}-title`, title));
+  const countNode = el(documentNode, "span", `${className}-count`);
+  if (count !== null) countNode.textContent = String(count);
+  summary.appendChild(countNode);
+  summary.appendChild(el(documentNode, "span", "overview-band-rule"));
+  root.appendChild(summary);
+
+  const body = el(documentNode, "div", `${className}-body`);
+  root.appendChild(body);
+  root.addEventListener("toggle", () => {
+    if (root.open) CLOSED_DISCLOSURES.delete(key);
+    else CLOSED_DISCLOSURES.add(key);
+  });
+
+  root.setCount = (value) => {
+    countNode.textContent = value === null || value === undefined
+      ? "" : String(value);
+  };
+  root.renderCards = (cards, message = empty, gridClass = "") => {
+    body.replaceChildren();
+    if (!cards.length) {
+      body.appendChild(el(
+        documentNode, "p", "overview-band-empty", message,
+      ));
+      return;
+    }
+    const grid = el(
       documentNode,
-      "span",
-      "overview-section-icon",
-      sectionDefinition[1],
-    ));
-    heading.appendChild(el(
-      documentNode,
-      "span",
-      "overview-section-title",
-      title,
-    ));
-    detail = el(
-      documentNode, "span", "overview-section-detail", sectionDefinition[3],
+      "div",
+      ["overview-card-grid", gridClass].filter(Boolean).join(" "),
     );
-    panel.children[0].appendChild(detail);
-  }
-  panel.setDetail = (text) => {
-    if (detail) detail.textContent = String(text || "");
+    for (const card of cards) grid.appendChild(card);
+    body.appendChild(grid);
   };
-  const openLinkNode = openLink(documentNode, destination, scope, label);
-  panel.appendChild(openLinkNode);
-  // The panel's own chrome, snapshotted so a day-zero ghost can collapse the
-  // panel and a later scope with data can restore it intact.
-  const chrome = [...panel.children];
-  // The "Open X ->" link carries the view's scope; a held in-place rescope
-  // rewrites it so the destination opens on the newly selected projects.
-  panel.setScope = (newScope) => {
-    // The same distinction the constructor draws: a rescope changes which
-    // projects the link carries, never which destination it opens.
-    openLinkNode.href = buildUniverseRoute(destination, serializeScope(newScope));
-  };
-  panel.ghost = (hintNode) => {
-    panel.classList.add("overview-ghost");
-    panel.replaceChildren(hintNode);
-  };
-  panel.unghost = () => {
-    if (!panel.classList.contains("overview-ghost")) return;
-    panel.classList.remove("overview-ghost");
-    panel.replaceChildren(...chrome);
-  };
-  // A held re-scope that now has data un-ghosts (restoring the openLink child)
-  // before rendering the fresh body. The render generation lets a deferred
-  // ghost detect that a newer paint has superseded it.
-  let renderGeneration = 0;
-  panel.renderGeneration = () => renderGeneration;
-  const baseRenderEnvelopes = panel.renderEnvelopes;
-  panel.renderEnvelopes = (callResults, renderBody) => {
-    renderGeneration += 1;
-    panel.unghost();
-    baseRenderEnvelopes(callResults, renderBody);
-  };
-  return panel;
-}
-
-export function overviewMiniRow(documentNode, primary, detail, trailing) {
-  const row = el(
-    documentNode,
-    "div",
-    "overview-mini-row overview-compact-row",
-  );
-  if (primary && typeof primary === "object" && primary.tagName) {
-    row.appendChild(primary);
-  } else {
-    row.appendChild(el(documentNode, "strong", null, String(primary ?? "")));
-  }
-  if (detail && typeof detail === "object" && detail.tagName) {
-    row.appendChild(detail);
-  } else {
-    row.appendChild(el(
-      documentNode,
-      "span",
-      "secondary-muted",
-      String(detail ?? ""),
+  root.renderError = (message) => {
+    body.replaceChildren(el(
+      documentNode, "p", "error overview-band-error", message,
     ));
-  }
-  if (trailing && typeof trailing === "object" && trailing.tagName) {
-    row.appendChild(trailing);
-  } else {
-    row.appendChild(el(
-      documentNode,
-      "span",
-      "secondary-muted",
-      String(trailing ?? ""),
-    ));
-  }
-  return row;
+  };
+  root.body = body;
+  return root;
 }
 
-export function overviewTable(documentNode, className, headers) {
-  const wrap = el(documentNode, "div", "overview-table-wrap");
-  const table = el(documentNode, "table", `overview-table ${className}`);
-  const head = el(documentNode, "thead");
-  const row = el(documentNode, "tr");
-  for (const label of headers) {
-    row.appendChild(el(documentNode, "th", null, label));
-  }
-  head.appendChild(row);
-  table.appendChild(head);
-  const body = el(documentNode, "tbody");
-  table.appendChild(body);
-  wrap.appendChild(table);
-  return { wrap, body };
-}
-
-export function appendCell(documentNode, row, value, className = null) {
-  const cell = el(documentNode, "td", className);
-  if (value && typeof value === "object" && value.tagName) {
-    cell.appendChild(value);
-  } else {
-    cell.textContent = String(value ?? "");
-  }
-  row.appendChild(cell);
-  return cell;
-}
-
-export function routeCell(documentNode, row, label, href, className = null) {
-  const cell = el(documentNode, "td", className);
-  const link = el(documentNode, "a", "overview-row-link", label || "—");
-  link.href = href;
-  cell.appendChild(link);
-  row.appendChild(cell);
-  return cell;
-}
-
-export function emptyTableRow(documentNode, body, columnCount, message) {
-  const row = el(documentNode, "tr", "overview-empty-row");
-  const cell = el(documentNode, "td", "empty", message);
-  cell.setAttribute("colspan", String(columnCount));
-  row.appendChild(cell);
-  body.appendChild(row);
-}
-
-function eventCameFromControl(event, row) {
-  let target = event.target;
-  while (target && target !== row) {
-    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME", "CODE"].includes(
-      String(target.tagName || "").toUpperCase(),
-    )) return true;
-    target = target.parentNode;
-  }
-  return false;
-}
-
-export function makeRowNavigable(documentNode, row, href, label) {
-  row.tabIndex = 0;
-  row.setAttribute("role", "link");
-  row.setAttribute("aria-label", `Open ${label}`);
-  row.addEventListener("click", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    documentNode.defaultView.location.hash = href;
-  });
-  row.addEventListener("keydown", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    if (!["Enter", " "].includes(event.key)) return;
-    if (typeof event.preventDefault === "function") event.preventDefault();
-    documentNode.defaultView.location.hash = href;
+export function overviewSection(documentNode, key, title) {
+  return disclosure(documentNode, {
+    key: `section:${key}`,
+    title,
+    className: "overview-section",
   });
 }
 
-export function destinationHref(view, scope) {
-  return buildUniverseRoute(view, serializeScope(scope));
+export function overviewBand(documentNode, key, title, empty) {
+  const band = disclosure(documentNode, {
+    key: `band:${key}`,
+    title,
+    className: "overview-band",
+    empty,
+  });
+  band.classList.add(`overview-band-${key}`);
+  return band;
 }
 
-export function projectDisplay(projects, value) {
-  const key = String(value || "");
-  const project = projects.find((row) =>
-    [row.id, row.slug].some((candidate) => String(candidate) === key));
-  if (!project) return key || "—";
-  return [project.emoji, project.slug || project.name].filter(Boolean).join(" ");
+export function rowsInOverviewScope(rows, scope, projects) {
+  if (scope === "all") return rows;
+  const wanted = new Set();
+  for (const projectId of scope || []) {
+    wanted.add(String(projectId));
+    const project = projects.find(
+      (row) => String(row.id) === String(projectId),
+    );
+    if (project?.slug) wanted.add(String(project.slug));
+  }
+  return rows.filter((row) => (
+    wanted.has(String(row.project_id)) || wanted.has(String(row.project))
+  ));
 }
 
-export function ageTone(value) {
-  const timestamp = new Date(value).getTime();
-  if (Number.isNaN(timestamp)) return "unknown";
-  const ageHours = Math.max(0, Date.now() - timestamp) / 3_600_000;
-  if (ageHours < 6) return "fresh";
-  if (ageHours < 24) return "day";
-  if (ageHours < 72) return "three-days";
-  if (ageHours < 168) return "week";
-  return "older";
+export function successfulResult(callResult) {
+  if (callResult?.status === 200 && callResult.envelope?.success) {
+    return callResult.envelope.result || {};
+  }
+  return null;
 }
 
-// One heading over the panels that answer its question. The Overview asks two
-// — where is this universe pointed, and what is happening now — and a panel
-// belongs to exactly one of them. Six equal panels in a row said nothing
-// about which question each one served.
-export function overviewSection(documentNode, id, label, panels) {
-  const node = documentNode.createElement("section");
-  node.className = "overview-group";
-  node.id = `overview-group-${id}`;
-  const head = documentNode.createElement("h2");
-  head.className = "overview-group-head";
-  head.textContent = label;
-  node.appendChild(head);
-  for (const panel of panels) node.appendChild(panel);
-  return node;
+export function callError(callResult, fallback) {
+  return callResult?.envelope?.error?.message || fallback;
+}
+
+// Test isolation without weakening production persistence: the app never
+// invokes this, while DOM tests that deliberately close a section can reset
+// module state before mounting their next independent universe.
+export function resetOverviewDisclosureState() {
+  CLOSED_DISCLOSURES.clear();
 }

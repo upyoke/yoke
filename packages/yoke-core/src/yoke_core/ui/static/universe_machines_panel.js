@@ -1,17 +1,5 @@
-// The Machines panel above the Sessions roster: what can run, before what is
-// running.
-//
-// A session card answers "what is this doing". Only the machine answers "why
-// did that not start", and reading the second from the first is how a surface
-// that was refusing every launch looked like a quiet fleet.
-//
-// The light is DERIVED, never stored. `derive_launch_eligibility` recomputes it
-// server-side on every launch and can refuse for six reasons; four of them are
-// answerable from the relay projection alone — no relay, a silent one, a
-// surface the machine does not advertise, and an operator's disable mark — so
-// each light names which. The remaining two (a version below the create floor,
-// a project the relay does not serve) are settled at launch, and the panel says
-// nothing about them rather than guessing.
+// Machine launch capacity above the Sessions roster: vendor plan windows and
+// local lane capacity, composed from the relay's safe public projection.
 
 import { el } from "./universe_view_support.js";
 import {
@@ -19,15 +7,15 @@ import {
   sessionControlCall,
 } from "./universe_session_control_data.js";
 
-// The three surfaces a launch can create. A desktop surface is present on most
-// machines and declares `create: none`, so a light for one would offer an
-// answer about something no launch can use.
 const LAUNCHABLE_SURFACES = ["claude-cli", "codex-cli", "cursor-cli"];
+const WINDOW_SECONDS = {
+  rolling_5h: 5 * 60 * 60,
+  rolling_7d: 7 * 24 * 60 * 60,
+  monthly: 30 * 24 * 60 * 60,
+};
+const METER_PIVOT = 68;
+const METER_TOP = 1000;
 
-// Green passes what this panel can check. The two non-green states are separate
-// facts with separate recoveries and never share a colour: SILENT is the relay's
-// own condition and clears when it checks in; DISABLED is the operator's mark
-// and only the operator clears it. Grey is a surface the machine does not have.
 const LIGHTS = {
   ok: ["machine-light-ok", "ready"],
   silent: ["machine-light-warn", "relay silent"],
@@ -35,59 +23,155 @@ const LIGHTS = {
   absent: ["machine-light-off", "not installed"],
 };
 
+export function planWindowHeadroom(window, now = Date.now()) {
+  if (window?.status !== "ok") return null;
+  const seconds = WINDOW_SECONDS[window.window_kind];
+  const remaining = Number(window.remaining_percent);
+  const reset = new Date(window.resets_at).getTime();
+  const untilReset = (reset - now) / 1000;
+  if (!seconds || !Number.isFinite(remaining) || !Number.isFinite(reset)) {
+    return null;
+  }
+  if (remaining < 0 || remaining > 100 || untilReset <= 0) return null;
+  return (seconds * remaining / 100) / untilReset * 100;
+}
+
+export function headroomMeterPosition(headroom) {
+  const value = Math.max(0, Number(headroom) || 0);
+  if (value <= 100) return value / 100 * METER_PIVOT;
+  return METER_PIVOT + (100 - METER_PIVOT) * (
+    Math.log10(Math.min(value, METER_TOP) / 100) / Math.log10(METER_TOP / 100)
+  );
+}
+
 function surfaceState(relay, surface) {
   const mark = (relay.surface_policies || []).find(
     (entry) => entry.surface === surface,
   );
   if (mark) return ["disabled", mark.reason || "disabled by an operator"];
-  const version = (relay.surface_versions || {})[surface];
-  if (!version) return ["absent", "surface_absent — not installed on this machine"];
+  if (!(relay.surface_versions || {})[surface]) {
+    return ["absent", "surface_absent — not installed on this machine"];
+  }
   if (String(relay.liveness) !== "connected") {
     return ["silent", "the relay has not checked in; a launch cannot reach it"];
   }
   return ["ok", ""];
 }
 
+function planWindowRow(documentNode, window) {
+  const headroom = planWindowHeadroom(window);
+  const row = el(documentNode, "div", "machine-limit-row");
+  const name = [window.scope, window.meter, window.window_kind]
+    .filter(Boolean).join(" · ");
+  row.appendChild(el(
+    documentNode, "span", "machine-limit-name", name || "plan limit",
+  ));
+  if (headroom === null) {
+    row.classList.add("is-unknown");
+    row.appendChild(el(
+      documentNode,
+      "span",
+      "machine-limit-value",
+      window.reason || "reading unavailable",
+    ));
+    return row;
+  }
+  const rounded = Math.round(headroom);
+  const quota = Math.round(Number(window.remaining_percent));
+  row.setAttribute(
+    "data-headroom",
+    rounded < 100 ? "low" : (rounded < 150 ? "tight" : "healthy"),
+  );
+  const track = el(documentNode, "span", "machine-headroom-track");
+  const fill = el(documentNode, "i", "machine-headroom-fill");
+  fill.style.width = `${headroomMeterPosition(headroom).toFixed(1)}%`;
+  track.appendChild(fill);
+  track.setAttribute("role", "img");
+  track.setAttribute(
+    "aria-label",
+    `${rounded}% headroom; 100% is the sustainable-use pivot`,
+  );
+  row.appendChild(track);
+  row.appendChild(el(
+    documentNode,
+    "span",
+    "machine-limit-value",
+    `${rounded}% headroom · ${quota}% quota left`,
+  ));
+  return row;
+}
+
 function surfaceRow(documentNode, relay, surface) {
   const [state, reason] = surfaceState(relay, surface);
   const [lightClass, label] = LIGHTS[state];
-  const row = el(documentNode, "div", `machine-surface machine-surface-${state}`);
+  const row = el(documentNode, "section", `machine-surface machine-surface-${state}`);
   const head = el(documentNode, "div", "machine-surface-head");
   const light = el(documentNode, "span", `machine-light ${lightClass}`);
   light.title = label;
   head.appendChild(light);
   head.appendChild(el(documentNode, "span", "machine-surface-name", surface));
   const version = (relay.surface_versions || {})[surface];
-  if (version) {
-    head.appendChild(el(documentNode, "span", "machine-surface-version", version));
-  }
+  if (version) head.appendChild(el(
+    documentNode, "span", "machine-surface-version", version,
+  ));
+  const reading = (relay.plan_limits || {})[surface];
+  if (reading?.plan_tier) head.appendChild(el(
+    documentNode, "span", "machine-plan-tier", reading.plan_tier,
+  ));
   head.appendChild(el(documentNode, "span", "machine-surface-state", label));
   row.appendChild(head);
-  // Every non-green light names its reason. A light that only changes colour
-  // tells an operator that something is wrong and nothing about what.
-  if (reason) {
-    row.appendChild(el(documentNode, "p", "machine-surface-reason", reason));
+  if (reason) row.appendChild(el(
+    documentNode, "p", "machine-surface-reason", reason,
+  ));
+  if (reading?.windows?.length) {
+    const limits = el(documentNode, "div", "machine-limit-list");
+    const sorted = [...reading.windows].sort((left, right) => {
+      const leftValue = planWindowHeadroom(left);
+      const rightValue = planWindowHeadroom(right);
+      return (leftValue ?? Infinity) - (rightValue ?? Infinity);
+    });
+    for (const window of sorted) {
+      limits.appendChild(planWindowRow(documentNode, window));
+    }
+    row.appendChild(limits);
+  } else if (state !== "absent") {
+    row.appendChild(el(
+      documentNode,
+      "p",
+      "machine-limit-unavailable",
+      "Plan-limit windows were not reported by this relay.",
+    ));
   }
   return row;
 }
 
-// Quota, headroom and machine capacity are not drawn as numbers, because
-// nothing measures them here yet: the readings sit on the relay row and reach
-// no browser, and headroom is being recomputed against observed burn rather
-// than a window average. An unmeasured meter drawn as a number is worse than an
-// absent one — it is a number an operator would act on.
-function pendingMeasures(documentNode) {
-  const node = el(documentNode, "div", "machine-pending");
-  node.appendChild(el(
-    documentNode, "span", "machine-pending-label", "not measured here yet",
+function capacityLine(documentNode, capacity) {
+  const line = el(documentNode, "div", "machine-capacity");
+  line.appendChild(el(
+    documentNode, "span", "machine-capacity-label", "Machine capacity",
   ));
-  node.appendChild(el(
+  line.appendChild(el(
     documentNode,
     "span",
-    "machine-pending-detail",
-    "plan quota, headroom, and free memory, load and lanes",
+    "machine-capacity-summary",
+    capacity?.summary || "Capacity was not reported by this relay.",
   ));
-  return node;
+  if (Number(capacity?.max_worker_lanes) > 0) {
+    const track = el(documentNode, "span", "machine-capacity-track");
+    const fill = el(documentNode, "i", "machine-capacity-fill");
+    const used = Math.min(
+      100,
+      Number(capacity.live_lanes || 0) / Number(capacity.max_worker_lanes) * 100,
+    );
+    fill.style.width = `${used.toFixed(1)}%`;
+    track.appendChild(fill);
+    track.setAttribute(
+      "aria-label",
+      `${capacity.live_lanes || 0} of ${capacity.max_worker_lanes} lanes in use`,
+    );
+    line.appendChild(track);
+  }
+  return line;
 }
 
 function machineCard(documentNode, relay) {
@@ -106,20 +190,20 @@ function machineCard(documentNode, relay) {
     documentNode, "span", "machine-meta", live ? relay.state : "silent",
   ));
   card.appendChild(head);
-  card.appendChild(pendingMeasures(documentNode));
+  card.appendChild(capacityLine(documentNode, relay.capacity));
   for (const surface of LAUNCHABLE_SURFACES) {
     card.appendChild(surfaceRow(documentNode, relay, surface));
   }
   return card;
 }
 
-export function renderMachinesPanel(context, host, relays) {
+export function renderMachinesPanel(context, host, relays, options = {}) {
   const documentNode = context.document;
   const panel = el(documentNode, "section", "machines-panel");
-  panel.appendChild(el(documentNode, "h2", "machines-panel-head", "Machines"));
+  if (options.showHeading !== false) panel.appendChild(el(
+    documentNode, "h2", "machines-panel-head", "Machines",
+  ));
   if (!relays.length) {
-    // No relay is the first of the six refusals, and the honest one to draw:
-    // nothing can be launched anywhere from here.
     panel.appendChild(el(
       documentNode,
       "p",
@@ -135,16 +219,7 @@ export function renderMachinesPanel(context, host, relays) {
   host.appendChild(panel);
 }
 
-// The relay roster is universe-wide and small, so the panel reads it once and
-// does not re-read on a scope change: a machine does not belong to a project,
-// and filtering it by one would hide the machine a launch would land on.
-//
-// A failed read SAYS SO. Hiding the panel would have been the quiet option and
-// the wrong one: an absent panel is indistinguishable from a universe with no
-// machines, so the one state that means "you cannot trust what you are looking
-// at" would render as the state that means "there is nothing to look at". The
-// failure keeps the heading, names itself, and offers the retry.
-export async function loadMachinesPanel(context, host) {
+export async function loadMachinesPanel(context, host, options = {}) {
   const documentNode = context.document;
   const run = async () => {
     let relays;
@@ -157,7 +232,7 @@ export async function loadMachinesPanel(context, host) {
       if (!context.isMounted()) return;
       host.replaceChildren();
       const panel = el(documentNode, "section", "machines-panel");
-      panel.appendChild(el(
+      if (options.showHeading !== false) panel.appendChild(el(
         documentNode, "h2", "machines-panel-head", "Machines",
       ));
       const failure = el(documentNode, "div", "machines-failure");
@@ -168,7 +243,7 @@ export async function loadMachinesPanel(context, host) {
       );
       const retry = el(documentNode, "button", "machines-retry", "Try again");
       retry.type = "button";
-      retry.addEventListener("click", () => { run(); });
+      retry.addEventListener("click", run);
       failure.appendChild(retry);
       panel.appendChild(failure);
       host.appendChild(panel);
@@ -176,7 +251,7 @@ export async function loadMachinesPanel(context, host) {
     }
     if (!context.isMounted()) return;
     host.replaceChildren();
-    renderMachinesPanel(context, host, relays);
+    renderMachinesPanel(context, host, relays, options);
   };
   await run();
 }

@@ -3,6 +3,7 @@
 
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
+import { createSearchFrame } from "./universe_search_overlay.js";
 import { createFooter } from "./universe_shell_footer.js";
 
 // Items are searched on the server, so the cap travels with the query and
@@ -79,6 +80,7 @@ function sessionResult(row) {
 function createSearch(documentNode, client) {
   const windowNode = documentNode.defaultView;
   const controlId = ++shellControlSequence;
+  const frame = createSearchFrame(documentNode);
   const host = el(documentNode, "div", "header-search");
   const label = el(
     documentNode, "label", "shell-visually-hidden",
@@ -102,6 +104,7 @@ function createSearch(documentNode, client) {
   results.setAttribute("role", "listbox");
   results.hidden = true;
   host.appendChild(results);
+  frame.mount(host, input);
 
   let sessionIndexPromise = null;
   let activeIndex = -1;
@@ -120,6 +123,10 @@ function createSearch(documentNode, client) {
     results.hidden = true;
     input.setAttribute("aria-expanded", "false");
     activeIndex = -1;
+  };
+  const dismiss = () => {
+    close();
+    frame.closeOverlay();
   };
   const open = () => {
     results.hidden = false;
@@ -210,7 +217,7 @@ function createSearch(documentNode, client) {
         documentNode, "span", "header-search-meta", entry.meta || "—",
       ));
       link.appendChild(copy);
-      link.addEventListener("click", close);
+      link.addEventListener("click", dismiss);
       resultLinks.push(link);
       results.appendChild(link);
     }
@@ -256,7 +263,7 @@ function createSearch(documentNode, client) {
   });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      close();
+      dismiss();
       return;
     }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -267,10 +274,10 @@ function createSearch(documentNode, client) {
     if (event.key === "Enter" && activeIndex >= 0) {
       event.preventDefault();
       windowNode.location.hash = resultLinks[activeIndex].href;
-      close();
+      dismiss();
     }
   });
-  return { close, host, input };
+  return { close: dismiss, focus: frame.focus, input, root: frame.root };
 }
 
 export function createShellControls({ documentNode, client, options }) {
@@ -281,7 +288,7 @@ export function createShellControls({ documentNode, client, options }) {
     const key = String(event.key || "").toLowerCase();
     if ((event.metaKey || event.ctrlKey) && key === "k") {
       event.preventDefault();
-      search.input.focus?.();
+      search.focus();
       if (search.input.value.trim()) {
         search.input.dispatchEvent(new Event("input"));
       }
@@ -298,6 +305,6 @@ export function createShellControls({ documentNode, client, options }) {
       windowNode.removeEventListener("keydown", onWindowKeydown);
     },
     footer,
-    search: search.host,
+    search: search.root,
   };
 }

@@ -6,11 +6,9 @@
 // the wizard checklist, hover dismiss, and the restore line (the per-machine
 // harness rows live in universe_views_overview_activation_machines.js). Honesty rules
 // hold throughout: an unresolved read renders a pending line (never
-// fabricated module states), a pending submodule stays ○, and the day-zero
-// ghost panels replace a section only when its read served nothing AND its
-// backing module is not yet activated. Which signal derives a state is a
-// fact about the model, not something a member acts on, so it stays out of
-// the rendered card.
+// fabricated module states), and a pending submodule stays ○. Which signal
+// derives a state is a fact about the model, not something a member acts on,
+// so it stays out of the rendered card.
 
 import {
   callFunction,
@@ -20,8 +18,6 @@ import {
 } from "./universe_view_support.js";
 import {
   DISMISS_HINT,
-  GHOST_HINTS,
-  GHOST_MODULES,
   INSTALL_COMMAND,
   MODULE_COPY,
   MODULE_TITLES,
@@ -242,41 +238,12 @@ function renderStack(context, host, result) {
   draw();
 }
 
-// The one Overview entry point: render the stack into `host` from a single
-// activation read, and hand back a promise of the module-facts lookup that
-// the ghost-panel rule consumes (null when the read did not resolve).
+// The one Overview entry point renders the stack from a single activation read.
 export function loadActivationModules(context, host) {
   const read = readActivation(context);
   read.then((result) => {
     if (!context.isMounted()) return;
     renderStack(context, host, result);
   });
-  return read.then((result) => (
-    result && Array.isArray(result.modules)
-      ? new Map(result.modules.map((module) => [module.key, module]))
-      : null
-  ));
-}
-
-// A section whose read served nothing AND whose backing module is not yet
-// activated collapses to the drawn ghost hint; any resolved activation or a
-// non-empty read keeps the live panel.
-export function ghostWhenInactive(context, activationFacts, view, panel) {
-  // Capture the panel's render generation now; if a later paint (a rescope
-  // that found data) supersedes this empty paint before the activation read
-  // resolves, the deferred collapse is stale and must not fire.
-  const scheduledGeneration = typeof panel.renderGeneration === "function"
-    ? panel.renderGeneration() : null;
-  activationFacts.then((facts) => {
-    if (!context.isMounted() || !facts) return;
-    if (scheduledGeneration !== null
-      && panel.renderGeneration() !== scheduledGeneration) return;
-    const module = facts.get(GHOST_MODULES[view]);
-    if (!module || module.state === "activated") return;
-    // Delegate the collapse to the panel owner so a later re-scope with data
-    // can restore the panel's chrome (including its "Open X ->" link).
-    panel.ghost(el(
-      context.document, "p", "overview-ghost-hint", GHOST_HINTS[view],
-    ));
-  });
+  return read;
 }
