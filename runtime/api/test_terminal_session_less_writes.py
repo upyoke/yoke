@@ -167,6 +167,7 @@ def test_the_install_harness_report_persists_instead_of_warning(
         target=TargetRef(kind="global"),
         payload={
             "project_id": 1,
+            "machine_id": "11111111-1111-4111-8111-111111111111",
             "reports": [{"harness_id": "claude", "glue_written": True}],
         },
     )
