@@ -251,7 +251,7 @@ def test_page_module_wires_the_workbench_shell():
         ),
         "universe_views_sessions.js": ("sessions.list",),
         "universe_views_doctor.js": ("doctor.last_run.get",),
-        "universe_views_frontier.js": ("frontier.list",),
+        "universe_overview_frontier.js": ("frontier.list",),
         "universe_views_capabilities.js": ("projects.capabilities.list",),
     }
     for module_name, references in view_references.items():
@@ -306,31 +306,23 @@ def test_every_nav_destination_is_routable_and_scoped():
         )
         .read_text()
     )
+    # Grouped as the sidebar groups them: focus, then settings, then the
+    # diagnostics drawer.
     for destination in (
-        "overview",
-        "inbox",
-        "strategy",
-        "frontier",
-        "items",
-        "sessions",
-        "delivery",
-        "qa",
-        "workflows",
-        "capabilities",
-        "events",
-        "doctor",
-        "ouroboros",
-        "projects",
-        "access",
-        "members",
-        "billing",
-        "packs",
-        "github",
-        "project",
-        "organization",
+        "overview", "sessions", "inbox",
+        "organization", "workflows", "projects", "github", "access",
+        "members", "billing",
+        "strategy", "items", "deployments", "environments", "flows",
+        "databases", "infrastructure", "qa-methods", "qa-plans",
+        "qa-activity", "capabilities", "packs", "architecture", "messages",
+        "events", "doctor", "ouroboros", "machines",
     ):
         assert f'id: "{destination}"' in page_module, destination
     assert 'id: "board"' not in page_module
+    # Frontier was absorbed by the Overview section of that name, and Project
+    # settings by the Projects row that opens it. Neither is a destination.
+    for absorbed in ("frontier", "project", "delivery", "qa"):
+        assert f'id: "{absorbed}"' not in page_module, absorbed
     # Execution instructions are edited inside the workflows page; a nav
     # entry of their own would lead to a screen that no longer exists.
     assert 'id: "instructions"' not in page_module

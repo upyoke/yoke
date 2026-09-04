@@ -207,8 +207,10 @@ export type UniverseRouteView = "overview" | "sessions" | "inbox" | "organizatio
  */
 export interface UniverseRoute {
     readonly view: UniverseRouteView;
-    /** The resolved tab facet, for a view that declares tabs. */
-    readonly tab: string | null;
+    /** Always null. Tabs are gone: every facet that earned a name is a
+     *  destination, and the field stays so a reader of an older build sees an
+     *  explicit absence rather than a missing key. */
+    readonly tab: null;
     /** The drill-in row within the view, when the route names one. */
     readonly detail: string | null;
     readonly project: string | null;
