@@ -92,9 +92,9 @@ deployment run has succeeded, and the caller retries.
 ### Why queue landing and close-out are separate
 
 A project with merge-queue capability opens and arms a pull request, reads
-back from GitHub that it is holding the landing, records a durable item
-marker, and returns immediately. Admission reads arming, queue membership,
-eligibility, and required checks together. Later liveness reads use
+back from GitHub that it is holding the landing, and records a durable item
+marker. Admission reads arming, queue membership, eligibility, and required
+checks together. Later point-in-time liveness reads use
 `yoke github merge-queue readiness PREFIX-N --json`, which composes the pull
 request with `mergeQueue(branch).entries` and reports its exact entry state.
 GitHub consumes `autoMergeRequest` when the entry forms, so a null field means
@@ -120,17 +120,23 @@ it records the identified merge-group run as the item's `ci_run` proof before
 execution evidence is evaluated. It never republishes the lane or re-enters
 the pull request. Missing proof leaves the already-landed item open with a
 retry instruction, rather than silently classifying it as a local merge. The
-marker makes that handoff visible and idempotent. `--wait` retains the inline
-process but consumes the durable record: each client cycle asks a registered
-server function to refresh the whole project's pending landings if its shared
-cadence is due, so the waiting machine performs no GitHub or git read loop and
-the machine relay is not the record's only trigger. Which route a session takes
-follows from whether it can be prompted again: an operator-opened session takes
-the handoff, while a launched worker is a headless command that cannot be
-re-entered on either notice, so it holds its turn on the record wait under the
-merge watcher wrapper instead. Ending a
-launched worker's pass on the handoff left seven branches landed in one night
-with their items at `reviewing-implementation` and nobody to close them out.
+marker makes that handoff visible and idempotent. The record keeps the named
+`queue_holding`, `queue_entry_state`, and `merge_when_ready` outcomes alongside
+its terminal classification, evidence, observation time, and semantic-change
+time. `--wait` retains the inline process but consumes that record: once per
+minute it asks a registered server function to refresh the whole project's
+pending landings when the shared cadence is due. The waiting machine performs
+no GitHub or git read loop, the machine relay is not the record's only trigger,
+and a stale record refuses as `landing_record_stale` with its refresh evidence
+and recovery.
+
+The merge watcher chooses its wait shape from the calling session's manifest
+wake capability plus current control-plane reachability, never from executor
+name, who opened the session, or launch origin. A verified wake route gets the
+background subscription; no route or an unknown answer keeps the same watcher
+invocation in-turn until close-out. Ending an unreachable caller on a handoff
+left seven branches landed in one night with their items at
+`reviewing-implementation` and nobody to close them out.
 Projects without merge-queue capability keep the local merge engine.
 
 ## Portability
