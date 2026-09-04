@@ -14,9 +14,11 @@ from typing import Any, Sequence
 from rich.markup import escape
 from textual.widgets import Static
 
+from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config.onboard_terminal import RICH_GLYPHS, glyphs
 from yoke_cli.config.onboard_session_relay import RELAY_SETUP_COMPLETE_LINES
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
+from yoke_cli.project_install import hook_trust_report
 
 APPLY_FAILURE_ROWS = [
     SelectionRow("back", "Change answers", "go back and adjust setup"),
@@ -164,11 +166,34 @@ def apply_different_folder_body(
     return widgets
 
 
+def apply_success_body_from_report(
+    report_path: str | None,
+    report: Any,
+) -> list[Static]:
+    """The success screen for one applied report, reading what it recorded."""
+    report = report if isinstance(report, dict) else {}
+    project_report = report.get("project_onboarding")
+    relay = report.get("session_relay")
+    return apply_success_body(
+        report_path,
+        hook_trust_report.report_lines(
+            project_report.get("install")
+            if isinstance(project_report, dict)
+            else None
+        ),
+        relay_installed=bool(isinstance(relay, dict) and relay.get("installed")),
+        registry_lines=onboard_machine_registry.summary_lines(
+            report.get("machine_registry")
+        ),
+    )
+
+
 def apply_success_body(
     report_path: str | None,
     hook_trust: Sequence[str] = (),
     *,
     relay_installed: bool = False,
+    registry_lines: Sequence[str] = (),
 ) -> list[Static]:
     widgets = [
         Static("✓ Setup complete.", classes="onboard-title"),
@@ -184,6 +209,11 @@ def apply_success_body(
             Static(escape(line), classes="onboard-plan-line")
             for line in RELAY_SETUP_COMPLETE_LINES
         )
+    # A machine that connected is set up whatever the registry decided, so a
+    # refusal is named here with its recovery instead of failing the apply.
+    for line in registry_lines:
+        widgets.append(Static("", classes="onboard-spacer"))
+        widgets.append(Static(escape(line), classes="onboard-plan-line"))
     # The one step the wizard wrote glue for but cannot perform itself.
     for teaching in hook_trust:
         widgets.append(Static("", classes="onboard-spacer"))
@@ -227,4 +257,5 @@ __all__ = [
     "apply_different_folder_body",
     "apply_step_line",
     "apply_success_body",
+    "apply_success_body_from_report",
 ]

@@ -202,7 +202,7 @@ No adapter declares `supported_paths` at offer time — the offer surface has no
 
 ## 4b. Machine identity and launcher authority
 
-The machine itself is registered before any of this matters: `yoke status` registers this host's machine id, giving it an owner and a human name, and the `machines` row's `access` document decides which same-universe actors may spend that machine's launch capacity — an unregistered machine is never launchable, and the refusal names the recovery, `yoke machine register`. `HC-machine-registry` checks the local id against the row; the full contract is [`machine-registry.md`](machine-registry.md).
+The machine itself is registered before any of this matters: `yoke onboard` registers this host's machine id at the end of Apply and `yoke status` registers it whenever it runs, giving it an owner and a human name, and the `machines` row's `access` document decides which same-universe actors may spend that machine's launch capacity — an unregistered machine is never launchable, and the refusal names the recovery, `yoke machine register`. `HC-machine-registry` checks the local id against the row; the full contract is [`machine-registry.md`](machine-registry.md).
 
 The login-shell `yoke` on PATH must be the canonical shim (`$XDG_BIN_HOME/yoke` or `~/.local/bin/yoke`) pointing at the registered checkout editable install. `python3 -m yoke_core.tools.install_yoke_launcher` writes it. `--repair` and `yoke doctor run --quick --fix` (HC-launcher-authority) quarantine PATH shadows and never delete them.
 

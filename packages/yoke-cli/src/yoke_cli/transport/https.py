@@ -143,6 +143,7 @@ def relay_https(
     *,
     timeout_s: float = _DEFAULT_TIMEOUT_S,
     handshake: Optional[ServerHandshake] = None,
+    max_attempts: Optional[int] = None,
     sleep=time.sleep,
 ) -> FunctionCallResponse:
     """POST the envelope to the active env; parse the typed response.
@@ -152,7 +153,7 @@ def relay_https(
     """
     response, attempts = _relay_attempts(
         request, connection, timeout_s=timeout_s,
-        handshake=handshake, sleep=sleep,
+        handshake=handshake, max_attempts=max_attempts, sleep=sleep,
     )
     record_outcome(request, response, env=connection.env, attempts=attempts)
     return response
@@ -165,6 +166,7 @@ def _relay_attempts(
     timeout_s: float,
     handshake: Optional[ServerHandshake],
     sleep,
+    max_attempts: Optional[int] = None,
 ) -> tuple[FunctionCallResponse, int]:
     payload = request.model_dump(mode="json")
     sensitive_values = collect_request_secrets(
@@ -181,8 +183,9 @@ def _relay_attempts(
     # Serialized once: every attempt carries the same request_id, which is
     # what makes a repeat safe against a call that already landed.
     body = json.dumps(payload).encode("utf-8")
+    budget = min(max(max_attempts or CONNECTION_ATTEMPTS, 1), CONNECTION_ATTEMPTS)
     attempt = 0
-    for attempt in range(CONNECTION_ATTEMPTS):
+    for attempt in range(budget):
         if attempt:
             deadline = deadline_after(timeout_s)
         http_request = urllib.request.Request(
@@ -212,7 +215,7 @@ def _relay_attempts(
             # bounded read on a reply we are about to ask for again.
             if (
                 http_status_is_transient(getattr(exc, "code", None))
-                and should_retry_connection(attempt)
+                and should_retry_connection(attempt, budget=budget)
             ):
                 backoff = connection_backoff_seconds(attempt)
                 write_retry_notice(f"server returned {exc.code}", attempt, backoff)
@@ -225,7 +228,7 @@ def _relay_attempts(
         except HttpsResponsePolicyError as exc:
             if (
                 str(exc) == _RETRYABLE_RESPONSE_ERROR
-                and attempt + 1 < RESPONSE_DEADLINE_ATTEMPTS
+                and attempt + 1 < min(RESPONSE_DEADLINE_ATTEMPTS, budget)
             ):
                 continue
             return _refuse(
@@ -233,14 +236,14 @@ def _relay_attempts(
                 sensitive_values=sensitive_values,
             ), attempt + 1
         except ResponseOpenDeadlineError:
-            if attempt + 1 < RESPONSE_DEADLINE_ATTEMPTS:
+            if attempt + 1 < min(RESPONSE_DEADLINE_ATTEMPTS, budget):
                 continue
             return _refuse(
                 request, connection, _RETRYABLE_RESPONSE_ERROR,
                 sensitive_values=sensitive_values,
             ), attempt + 1
         except _NETWORK_ERRORS as exc:
-            if should_retry_connection(attempt, connection.api_url, exc):
+            if should_retry_connection(attempt, connection.api_url, exc, budget):
                 backoff = connection_backoff_seconds(attempt)
                 write_retry_notice("relay unreachable", attempt, backoff)
                 sleep(backoff)

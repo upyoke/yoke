@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_github_copy
+from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_project
 from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
 from yoke_cli.config.project_clone_support import (
@@ -83,6 +84,8 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Load the machine relay as a login item"
     if action == "reuse-session-relay-token":
         return "Reuse this machine's existing Yoke API token"
+    if action == onboard_machine_registry.REGISTER_ACTION:
+        return "Register this machine in the machine registry"
     if action == "project-source-choice":
         mode, _, outcome = target.partition(":")
         if mode == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN:

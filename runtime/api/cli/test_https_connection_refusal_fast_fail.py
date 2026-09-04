@@ -100,3 +100,52 @@ def test_relay_still_retries_a_refused_named_endpoint(
     assert len(slept) == CONNECTION_ATTEMPTS - 1
     assert response.success is False
     assert "Retrying is the repair" in response.error.recovery_hint
+
+
+def test_bounded_attempts_stop_a_transient_5xx_after_one_try(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A best-effort caller pays one attempt, not 94 seconds of backoff."""
+    attempts: list[str] = []
+    slept: list[float] = []
+
+    def fake_urlopen(req, timeout=None):
+        attempts.append(req.full_url)
+        raise urllib.error.HTTPError(
+            req.full_url, 501, "Unsupported method", {}, None
+        )
+
+    monkeypatch.setattr(yoke_transport, "open_no_redirect", fake_urlopen)
+    response = relay_https(
+        _request(),
+        HttpsConnection(api_url="https://api.example", token="actor"),
+        max_attempts=1,
+        sleep=slept.append,
+    )
+
+    assert len(attempts) == 1
+    assert slept == []
+    assert response.success is False
+
+
+def test_the_default_budget_still_retries_a_transient_5xx(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts: list[str] = []
+    slept: list[float] = []
+
+    def fake_urlopen(req, timeout=None):
+        attempts.append(req.full_url)
+        raise urllib.error.HTTPError(
+            req.full_url, 503, "Service Unavailable", {}, None
+        )
+
+    monkeypatch.setattr(yoke_transport, "open_no_redirect", fake_urlopen)
+    relay_https(
+        _request(),
+        HttpsConnection(api_url="https://api.example", token="actor"),
+        sleep=slept.append,
+    )
+
+    assert len(attempts) == CONNECTION_ATTEMPTS
+    assert len(slept) == CONNECTION_ATTEMPTS - 1

@@ -6,6 +6,7 @@ import json
 from typing import Any, Mapping
 
 from yoke_cli.config import install_binding
+from yoke_cli.config.machine_registration import REGISTER_RECOVERY_COMMAND
 from yoke_cli.config import status_release_lineage
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config.preferred_session_models import (
@@ -115,7 +116,7 @@ def render_human(report: Mapping[str, Any]) -> str:
             lines.append(
                 f"  machine: {machine.get('machine_id')} not registered "
                 f"({machine.get('reason')}); "
-                "register with `yoke machine register`"
+                f"register with `{REGISTER_RECOVERY_COMMAND}`"
             )
     policies = report.get("surface_policies") or {}
     marks = policies.get("marks") if isinstance(policies, Mapping) else None

@@ -61,13 +61,17 @@ def should_retry_connection(
     attempt: int,
     api_url: str = "",
     error: BaseException | None = None,
+    budget: int = CONNECTION_ATTEMPTS,
 ) -> bool:
     """Whether a connection-level failure is worth another attempt.
 
     Two independent reasons to stop: the attempt budget is spent, or the
-    failure already carries its own final answer.
+    failure already carries its own final answer. A caller whose own answer
+    to a refusal is "report it and carry on" passes a smaller ``budget``:
+    the full ladder is the right patience for a call the caller cannot
+    proceed without, and far too much for one it can.
     """
-    if attempt + 1 >= CONNECTION_ATTEMPTS:
+    if attempt + 1 >= budget:
         return False
     return not connection_refusal_is_conclusive(api_url, error)
 

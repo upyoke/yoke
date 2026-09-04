@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from yoke_cli.config import onboard_path_plan
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
+from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_reuse_feedback
 from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
@@ -81,6 +82,7 @@ _REPO_ACTIONS = {
     "project-write-board-art",
 }
 _CORE_ACTIONS = {
+    onboard_machine_registry.REGISTER_ACTION,
     "project-source-choice",
     "project-github-auth-choice",
     "project-onboard",

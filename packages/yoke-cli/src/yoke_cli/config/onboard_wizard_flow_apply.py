@@ -23,7 +23,6 @@ from yoke_cli.config.onboard_error_friendly import (
 )
 from yoke_cli.config.onboard_wizard import WizardApplyError
 from yoke_cli.config.onboard_wizard_widgets import STEP_FINISH
-from yoke_cli.project_install import hook_trust_report
 
 
 class ApplyFlow:
@@ -127,11 +126,7 @@ class ApplyFlow:
             summary = report.get("apply_report")
             if isinstance(summary, dict):
                 self.report_path = summary.get("path")
-            self._hook_trust = _hook_trust_from_report(report)
-            relay = report.get("session_relay")
-            self._session_relay_installed = bool(
-                isinstance(relay, dict) and relay.get("installed")
-            )
+            self._applied_report = report
         # When the operator designed board art, materialize it into the freshly
         # created checkout and show the payoff instead of exiting straight away.
         try:
@@ -275,9 +270,8 @@ class ApplyFlow:
         )
 
     def _build_apply_success(self) -> list:
-        return steps.apply_success_body(
-            self.report_path, getattr(self, "_hook_trust", ()),
-            relay_installed=getattr(self, "_session_relay_installed", False),
+        return steps.apply_success_body_from_report(
+            self.report_path, getattr(self, "_applied_report", None),
         )
 
     def _on_apply_success(self, choice: str) -> None:
@@ -285,14 +279,6 @@ class ApplyFlow:
             return
         self.exit_code = 0
         self.exit()
-
-
-def _hook_trust_from_report(report: dict) -> list[str]:
-    """The approval sentences the project step's install recorded, if any."""
-    project_report = report.get("project_onboarding")
-    if not isinstance(project_report, dict):
-        return []
-    return hook_trust_report.report_lines(project_report.get("install"))
 
 
 def _apply_error_retryable(message: str | None) -> bool:

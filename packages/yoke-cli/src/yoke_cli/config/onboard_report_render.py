@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from yoke_cli.config import onboard_project, onboard_reuse_feedback
+from yoke_cli.config import (
+    onboard_machine_registry,
+    onboard_project,
+    onboard_reuse_feedback,
+)
 from yoke_cli.project_install import hook_trust_report
 from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
@@ -45,6 +49,12 @@ def render_human(report: Dict[str, Any]) -> str:
     machine_github = report.get("machine_github")
     if isinstance(machine_github, dict):
         lines.extend(["", f"Machine GitHub: {machine_github.get('choice')}"])
+    registry_lines = onboard_machine_registry.summary_lines(
+        report.get("machine_registry")
+    )
+    if registry_lines:
+        lines.append("")
+        lines.extend(f"  {line}" for line in registry_lines)
     project_report = report.get("project_onboarding")
     if isinstance(project_report, dict):
         _append_project_handoff(lines, project_report)
