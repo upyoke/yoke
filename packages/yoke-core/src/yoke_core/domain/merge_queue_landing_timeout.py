@@ -142,9 +142,9 @@ def timeout_message(
     dispatch: Callable[..., Any],
     last_observed: str = "",
 ) -> str:
-    """The operator-facing text for one poll-budget timeout.
+    """The operator-facing text for one record-wait timeout.
 
-    ``last_observed`` is the poll's final reading of the pull request. It
+    ``last_observed`` is the record loop's final reading of the pull request. It
     is what separates a wait worth resuming from one that could never have
     merged, so the message states it rather than sending the operator to
     GitHub to find out whether re-running is the right move at all.
@@ -157,7 +157,7 @@ def timeout_message(
     observed = (
         f"last observed {last_observed}. "
         if last_observed
-        else "The poll read nothing conclusive. "
+        else "The landing record carried no conclusive state. "
     )
     return (
         f"pull request {pr_num} did not merge within "

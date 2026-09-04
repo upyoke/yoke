@@ -1,4 +1,4 @@
-"""What a poll-budget timeout tells the operator about its claim.
+"""What a record-wait timeout tells the operator about its claim.
 
 The message is the whole recovery surface for a resumable outcome, so
 each claim state is covered by what the operator would have to do next:
@@ -104,9 +104,9 @@ def test_the_final_reading_is_stated_so_a_doomed_wait_is_not_re_run():
     assert text.endswith(RESUME)
 
 
-def test_a_poll_that_read_nothing_conclusive_says_that_rather_than_nothing():
+def test_an_empty_record_says_that_it_carried_no_conclusive_state():
     text = message(dispatch_holder(HELD_BY_THIS_SESSION))
-    assert "read nothing conclusive" in text
+    assert "landing record carried no conclusive state" in text
 
 
 def test_missing_caller_command_falls_back_rather_than_inventing_one():
