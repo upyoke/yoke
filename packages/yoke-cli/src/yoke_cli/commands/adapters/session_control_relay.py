@@ -15,6 +15,11 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
     write_relay_probe_summary,
     write_relay_summary,
 )
+from yoke_cli.commands.adapters.session_control_relay_release import (
+    release_status_is_healthy,
+    release_status_payload,
+    serve_release_daemon,
+)
 from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_contracts.session_execution import is_subagent_execution
@@ -116,7 +121,7 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
             json.dumps(
                 {
                     "success": False,
-                    "code": "relay_lifecycle_failed",
+                    "code": str(getattr(exc, "code", "relay_lifecycle_failed")),
                     "message": str(exc),
                 },
                 sort_keys=True,
@@ -143,13 +148,23 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
         health = observe_relay_health(status.state_dir)
         payload["relay_health"] = health
         payload["relay_health_recovery"] = relay_health_recovery(health)
+    release_payload = release_status_payload(
+        status,
+        refresh_served=action == "status",
+    )
+    payload.update(release_payload)
     _emit(payload, json_mode=parsed.json_mode, title=f"RELAY {action.upper()}")
     if not status.supported:
         return 1
-    healthy = payload.get("relay_health", {}).get("state", "healthy") == "healthy"
-    if action == "status" and (
-        not (status.plist_present and status.plist_current and status.loaded)
-        or not healthy
+    health_healthy = (
+        payload.get("relay_health", {}).get("state", "healthy") == "healthy"
+    )
+    if action == "status" and not (
+        status.plist_present
+        and status.plist_current
+        and status.loaded
+        and health_healthy
+        and release_status_is_healthy(release_payload)
     ):
         return 1
     return 0
@@ -232,24 +247,14 @@ def relay_serve(args: List[str]) -> int:
         return 2
     if is_subagent_execution():
         return usage_error(FLEET_OWNERSHIP_GUIDANCE)
-    from yoke_harness.session_relay_daemon import serve_forever
-    from yoke_harness.session_relay_inventory import collect_cached_inventory
-    from yoke_harness.session_relay_surface_probe_cache import (
-        refresh_surface_probe_cache,
-    )
-
-    _contain_stranded_natives()
     try:
-        outcome = serve_forever(
-            inventory_provider=collect_cached_inventory,
-            inventory_refresher=refresh_surface_probe_cache,
-        )
+        outcome = serve_release_daemon(prepare=_contain_stranded_natives)
     except Exception as exc:
         print(
             json.dumps(
                 {
                     "success": False,
-                    "code": "relay_serve_failed",
+                    "code": str(getattr(exc, "code", "relay_serve_failed")),
                     "message": str(exc),
                 },
                 sort_keys=True,

@@ -1,18 +1,30 @@
-# Relay build compatibility
+# Relay release and build compatibility
 
-A machine relay must not execute native work when its source checkout is
-newer than the control-plane build serving it. Request models are strict, and
-silently translating a newer relay into an older wire dialect would hide the
-deployment gap while allowing behavior the server cannot represent.
+The standing machine relay speaks exactly the contract served by its selected
+control-plane environment. Its launch agent executes a relay-owned venv under
+the relay instance state directory, never a source checkout. `yoke relay
+install` installs the environment's exact immutable `yoke-core` build from its
+distribution index; release metadata pins every Yoke sibling wheel to that
+same build.
 
-Before polling for work, the relay performs a stable read through the normal
-function transport. The existing HTTPS handshake relates the loaded source
-checkout to the server build. An `ahead` relationship is persisted locally as
-`relay_newer_than_server`, including both revisions and the `deploy` recovery.
-The relay then publishes that health fact without accepting a job. The server
-stores the heartbeat but returns no work while the refusal is present, so the
-fleet report and `yoke relay status` show an explicit refusal rather than a
-silent liveness gap. A later equal-build observation clears the refusal.
+A successful poll's existing HTTPS handshake is the only deploy-change signal.
+When its served build differs from the installed receipt, the daemon installs
+a candidate beside the working venv, atomically repoints the stable `venv`
+link, stops leasing, drains in-flight jobs, and replaces its process. It has no
+scheduled reload or timer-driven pin check; only fresh handshakes drive it.
+
+If the manifest, index, or wheel cannot be fetched, the named
+`relay_release_fetch_failed` refusal records recovery and preserves the prior
+process and pin. `yoke relay status` shows the pinned release, freshly served
+build, error, and retry command side by side.
+
+Source development uses `yoke relay serve-once` by hand from a claimed lane.
+That one-shot path performs a stable read before polling and refuses native
+work when the checkout is newer than the server. An `ahead` relationship is
+persisted locally as `relay_newer_than_server`, including both revisions and
+the `deploy` recovery. The server stores the heartbeat but returns no work
+while the refusal is present, so the fleet report and status show the refusal
+rather than a silent liveness gap. A later equal-build observation clears it.
 
 Terminal report delivery remains a separate durability boundary. A transport
 failure remains queued indefinitely. A server rejection that proves the

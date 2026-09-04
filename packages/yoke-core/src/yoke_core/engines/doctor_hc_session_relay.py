@@ -19,7 +19,7 @@ from yoke_core.tools.session_relay_plist import relay_launchd_status
 
 
 SLUG = "session-relay"
-TITLE = "Machine relay login item, heartbeat, and API authorization"
+TITLE = "Machine relay launch agent, heartbeat, and API authorization"
 _RELAY_LIST_FUNCTION_ID = RELAY_FUNCTION_IDS[0]
 
 
@@ -96,7 +96,7 @@ def hc_session_relay(
     if not launchd.plist_present:
         problems.append(f"plist missing at {launchd.plist_path}")
     elif not launchd.plist_current:
-        problems.append("plist does not match the current one-shot relay contract")
+        problems.append("plist does not match the release-pinned relay contract")
     if not launchd.loaded:
         problems.append("launchd login item is not loaded")
     machine_id = _machine_id()

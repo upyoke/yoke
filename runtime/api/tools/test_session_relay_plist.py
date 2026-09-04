@@ -62,6 +62,12 @@ def _instance(tmp_path: Path, environment: str):
     )
 
 
+def _pin_release(*, instance) -> None:
+    executable = instance.state_dir / "venv" / "bin" / "yoke"
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    executable.touch()
+
+
 def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(
     tmp_path: Path,
 ) -> None:
@@ -72,8 +78,8 @@ def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(
     that leased it.
     """
     paths = relay_launchd_paths(home=tmp_path, instance=_instance(tmp_path, "prod"))
-    executable = tmp_path / "bin" / "yoke"
-    document = relay_plist_document(executable=executable, paths=paths)
+    executable = paths.state_dir / "venv" / "bin" / "yoke"
+    document = relay_plist_document(paths=paths)
 
     assert document["ProgramArguments"] == [
         str(executable),
@@ -90,14 +96,13 @@ def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(
 
 def test_plist_preserves_only_native_cli_search_directories(tmp_path: Path) -> None:
     paths = relay_launchd_paths(home=tmp_path, instance=_instance(tmp_path, "prod"))
-    executable = tmp_path / "bin" / "yoke"
+    executable = paths.state_dir / "venv" / "bin" / "yoke"
     vendor_bin = tmp_path / "vendor" / "bin"
     vendor_bin.mkdir(parents=True)
     for name in ("claude", "codex", "cursor-agent"):
         command = vendor_bin / name
         command.touch(mode=0o755)
     document = relay_plist_document(
-        executable=executable,
         paths=paths,
         environ={"PATH": str(vendor_bin)},
     )
@@ -111,9 +116,6 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
     tmp_path: Path,
 ) -> None:
     config_path = _config(tmp_path)
-    executable = tmp_path / "bin" / "yoke"
-    executable.parent.mkdir()
-    executable.touch()
     calls: list[list[str]] = []
     loaded = False
 
@@ -132,7 +134,7 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
         yoke_home=tmp_path / ".yoke",
         config_path=config_path,
         environment="prod",
-        executable=executable,
+        pin_release=_pin_release,
         runner=runner,
         platform="darwin",
         uid=501,
@@ -184,13 +186,10 @@ def test_prod_and_stage_have_isolated_labels_paths_and_pinned_commands(
     assert stage_paths.stdout_log != prod_paths.stdout_log
     assert stage_paths.stderr_log != prod_paths.stderr_log
 
-    document = relay_plist_document(
-        executable=tmp_path / "bin" / "yoke",
-        paths=stage_paths,
-    )
+    document = relay_plist_document(paths=stage_paths)
     assert document["Label"] == stage.label
     assert document["ProgramArguments"] == [
-        str(tmp_path / "bin" / "yoke"),
+        str(stage_paths.state_dir / "venv" / "bin" / "yoke"),
         "--env",
         "stage",
         "relay",
@@ -207,9 +206,6 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
     tmp_path: Path,
 ) -> None:
     config_path = _config(tmp_path)
-    executable = tmp_path / "bin" / "yoke"
-    executable.parent.mkdir()
-    executable.touch()
     stage = resolve_relay_instance(
         config_path=config_path,
         environment="stage",
@@ -222,9 +218,7 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
     )
     prod_paths = relay_launchd_paths(home=tmp_path, instance=prod)
     prod_paths.plist.parent.mkdir(parents=True)
-    prod_paths.plist.write_bytes(
-        plistlib.dumps(relay_plist_document(executable=executable, paths=prod_paths))
-    )
+    prod_paths.plist.write_bytes(plistlib.dumps(relay_plist_document(paths=prod_paths)))
     calls: list[list[str]] = []
 
     def runner(command, **_kwargs):
@@ -241,7 +235,7 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
         yoke_home=tmp_path / ".yoke",
         config_path=config_path,
         environment="stage",
-        executable=executable,
+        pin_release=_pin_release,
         runner=runner,
         platform="darwin",
         uid=501,
@@ -256,7 +250,6 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
         yoke_home=tmp_path / ".yoke",
         config_path=config_path,
         environment="prod",
-        executable=executable,
         runner=runner,
         platform="darwin",
         uid=501,
@@ -278,7 +271,6 @@ def test_invalid_connection_is_rejected_before_any_lifecycle_write(
             yoke_home=tmp_path / ".yoke",
             config_path=_config(tmp_path),
             environment="missing",
-            executable=tmp_path / "bin" / "yoke",
             runner=lambda command, **_kwargs: calls.append(list(command)),
             platform="darwin",
         )
@@ -302,9 +294,6 @@ def test_isolated_machine_home_install_writes_no_plist_outside_itself(
     monkeypatch.setattr(Path, "home", staticmethod(lambda: operator_home))
     machine_home = tmp_path / "machine-home"
     config_path = _config(machine_home)
-    executable = tmp_path / "bin" / "yoke"
-    executable.parent.mkdir()
-    executable.touch()
 
     def runner(command, **_kwargs):
         command = list(command)
@@ -315,7 +304,7 @@ def test_isolated_machine_home_install_writes_no_plist_outside_itself(
         yoke_home=machine_home,
         config_path=config_path,
         environment="stage",
-        executable=executable,
+        pin_release=_pin_release,
         runner=runner,
         platform="darwin",
         uid=501,

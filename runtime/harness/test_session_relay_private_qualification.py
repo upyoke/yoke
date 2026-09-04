@@ -218,9 +218,11 @@ def test_launchd_projection_authorizes_connection_derived_stage(
         state_dir=yoke_home / "relay-instances" / "stage-test",
     )
     document = relay_plist_document(
-        executable=tmp_path / "bin" / "yoke",
         paths=relay_launchd_paths(home=tmp_path, instance=instance),
         environ={"PATH": "/usr/bin:/bin"},
+    )
+    assert document["ProgramArguments"][0] == str(
+        instance.state_dir / "venv" / "bin" / "yoke"
     )
     assert document["ProgramArguments"][1:3] == ["--env", "stage"]
     environment = document["EnvironmentVariables"]

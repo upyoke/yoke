@@ -1,4 +1,4 @@
-"""The standing relay outlives its poll cycles, its signals, and its source."""
+"""The standing relay outlives polls and follows the environment release."""
 
 from __future__ import annotations
 
@@ -81,78 +81,6 @@ def test_termination_finishes_in_flight_work_before_returning(tmp_path) -> None:
 
     assert finished == ["wake"]
     assert outcome.reason == "signal:SIGTERM"
-
-
-def test_source_change_replaces_the_process_rather_than_stopping(
-    tmp_path, monkeypatch
-) -> None:
-    """A relay that stops serving is a machine whose wakes stop landing."""
-    import yoke_harness.session_relay_daemon as daemon
-
-    reloaded: list[object] = []
-    monkeypatch.setattr(daemon, "source_fingerprint", lambda roots=None: "before")
-    monkeypatch.setattr(daemon, "source_changed", lambda previous, roots=None: True)
-
-    outcome = serve_forever(
-        state_dir=tmp_path,
-        cycle=_cycle_returning(),
-        idle_tick_seconds=0.01,
-        source_check_interval_seconds=0,
-        install_signals=False,
-        reload_exec=lambda argv=None, **_kw: reloaded.append(argv),
-    )
-
-    assert outcome.reason == "source_changed"
-    assert outcome.cycles == 1
-    assert reloaded == [None]
-
-
-def test_source_is_not_re_fingerprinted_on_every_tick(tmp_path, monkeypatch) -> None:
-    """Stat-walking every module per tick is the burn this daemon removes."""
-    import yoke_harness.session_relay_daemon as daemon
-
-    checks: list[str] = []
-    monkeypatch.setattr(daemon, "source_fingerprint", lambda roots=None: "steady")
-    monkeypatch.setattr(
-        daemon,
-        "source_changed",
-        lambda previous, roots=None: bool(checks.append(previous)) or False,
-    )
-
-    outcome = serve_forever(
-        state_dir=tmp_path,
-        cycle=_cycle_returning(),
-        stop_after_cycles=5,
-        idle_tick_seconds=0.001,
-        source_check_interval_seconds=3600,
-        install_signals=False,
-    )
-
-    assert outcome.cycles == 5
-    assert checks == []
-
-
-def test_unchanged_source_keeps_serving_without_reloading(
-    tmp_path, monkeypatch
-) -> None:
-    import yoke_harness.session_relay_daemon as daemon
-
-    reloaded: list[object] = []
-    monkeypatch.setattr(daemon, "source_fingerprint", lambda roots=None: "steady")
-    monkeypatch.setattr(daemon, "source_changed", lambda previous, roots=None: False)
-
-    outcome = serve_forever(
-        state_dir=tmp_path,
-        cycle=_cycle_returning(),
-        stop_after_cycles=2,
-        idle_tick_seconds=0.001,
-        source_check_interval_seconds=0,
-        install_signals=False,
-        reload_exec=lambda argv=None, **_kw: reloaded.append(argv),
-    )
-
-    assert outcome.reason == "cycle_cap"
-    assert reloaded == []
 
 
 def test_a_second_relay_on_the_machine_declines_the_lock(tmp_path) -> None:

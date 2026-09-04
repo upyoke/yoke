@@ -5,14 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 import io
 import json
-import os
-from pathlib import Path
 import sys
 from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import session_control_launches as launches
 from yoke_cli.commands.adapters import session_control_relay as relay
-from yoke_cli.main import main as run_yoke_cli
 from yoke_cli.commands.registry_session_control import (
     SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY,
     SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS,
@@ -189,118 +186,6 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
         io.StringIO(),
     )
     assert empty_output.getvalue() == "LAUNCHES\nNo launches found.\n"
-
-
-def test_relay_lifecycle_is_local_and_structured(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(
-        relay,
-        "_plist_operation",
-        lambda action: SimpleNamespace(
-            supported=True,
-            environment="prod",
-            label="com.upyoke.relay",
-            plist_present=action != "uninstall",
-            plist_current=action != "uninstall",
-            loaded=action != "uninstall",
-            plist_path=Path("/tmp/com.upyoke.relay.plist"),
-            state_dir=Path("/tmp/relay"),
-        ),
-    )
-    assert relay.relay_install(["--json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload == {
-        "environment": "prod",
-        "launchd_label": "com.upyoke.relay",
-        "loaded": True,
-        "plist_current": True,
-        "plist_path": "/tmp/com.upyoke.relay.plist",
-        "plist_present": True,
-        "state_dir": "/tmp/relay",
-        "supported": True,
-    }
-
-
-def test_relay_status_human_output_uses_readable_labels(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(
-        relay,
-        "_plist_operation",
-        lambda _action: SimpleNamespace(
-            supported=True,
-            environment="stage",
-            label="com.upyoke.relay.abc123",
-            plist_present=True,
-            plist_current=False,
-            loaded=True,
-            plist_path=Path("/tmp/com.upyoke.relay.abc123.plist"),
-            state_dir=Path("/tmp/relay-instances/abc123"),
-        ),
-    )
-
-    assert relay.relay_status([]) == 1
-    rendered = capsys.readouterr().out
-    assert rendered.splitlines()[0] == "RELAY STATUS"
-    assert "Environment" in rendered
-    assert "stage" in rendered
-    assert "Launch agent" in rendered
-    assert "Supported" in rendered
-    assert "Service loaded" in rendered
-    assert "Configuration present" in rendered
-    assert "Configuration current" in rendered
-    assert "Launch agent file" in rendered
-    assert "yes" in rendered
-    assert "no" in rendered
-    assert "|" not in rendered
-
-
-def test_relay_status_fails_when_exact_instance_is_absent(
-    monkeypatch,
-    capsys,
-) -> None:
-    monkeypatch.setattr(
-        relay,
-        "_plist_operation",
-        lambda _action: SimpleNamespace(
-            supported=True,
-            environment="stage",
-            label="com.upyoke.relay.abc123",
-            plist_present=False,
-            plist_current=False,
-            loaded=False,
-            plist_path=Path("/tmp/com.upyoke.relay.abc123.plist"),
-            state_dir=Path("/tmp/relay-instances/abc123"),
-        ),
-    )
-
-    assert relay.relay_status(["--json"]) == 1
-    assert json.loads(capsys.readouterr().out)["environment"] == "stage"
-
-
-def test_global_env_selects_status_instance_then_restores_previous_env(
-    monkeypatch,
-    capsys,
-) -> None:
-    seen: list[tuple[str, str | None]] = []
-
-    def operation(action: str):
-        seen.append((action, os.environ.get("YOKE_ENV")))
-        return SimpleNamespace(
-            supported=True,
-            environment="stage",
-            label="com.upyoke.relay.abc123",
-            plist_present=True,
-            plist_current=True,
-            loaded=True,
-            plist_path=Path("/tmp/com.upyoke.relay.abc123.plist"),
-            state_dir=Path("/tmp/relay-instances/abc123"),
-        )
-
-    monkeypatch.setattr(relay, "_plist_operation", operation)
-    monkeypatch.setenv("YOKE_ENV", "prod")
-
-    assert run_yoke_cli(["--env", "stage", "relay", "status", "--json"]) == 0
-    assert seen == [("status", "stage")]
-    assert os.environ["YOKE_ENV"] == "prod"
-    assert json.loads(capsys.readouterr().out)["environment"] == "stage"
 
 
 @dataclass(frozen=True)

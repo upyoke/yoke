@@ -27,7 +27,7 @@ def test_review_lists_plist_login_item_and_existing_token(monkeypatch) -> None:
     ]
 
 
-def test_setup_complete_repeats_all_three_relay_facts() -> None:
+def test_setup_complete_repeats_all_relay_facts() -> None:
     rendered = _text(apply_success_body(None, relay_installed=True))
 
     for line in onboard_session_relay.RELAY_SETUP_COMPLETE_LINES:
@@ -54,4 +54,5 @@ def test_apply_bridge_runs_packaged_installer_without_credentials(monkeypatch) -
         "install",
     ]
     assert kwargs["capture_output"] is True
+    assert kwargs["timeout"] == onboard_session_relay.RELAY_INSTALL_TIMEOUT_SECONDS
     assert not any("token" in part.lower() for part in command)

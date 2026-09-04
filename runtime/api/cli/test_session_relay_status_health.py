@@ -6,11 +6,25 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_cli.commands.adapters import session_control_relay as relay
 from yoke_harness.session_relay_health import (
     record_relay_run_refusal,
     record_report_failure,
 )
+
+
+@pytest.fixture(autouse=True)
+def _current_release(monkeypatch) -> None:
+    monkeypatch.setattr(
+        relay,
+        "release_status_payload",
+        lambda _status, *, refresh_served: {
+            "release_current": True,
+            "release_error_code": None,
+        },
+    )
 
 
 def test_degraded_report_delivery_is_named_and_exits_nonzero(

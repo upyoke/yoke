@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 
 RELAY_PLIST_TARGET = "~/Library/LaunchAgents/com.upyoke.relay[.<environment-id>].plist"
+RELAY_INSTALL_TIMEOUT_SECONDS = 300
 RELAY_PLAN_STEPS = (
     ("install-session-relay-plist", RELAY_PLIST_TARGET),
     ("load-session-relay-login-item", "com.upyoke.relay"),
@@ -15,7 +16,8 @@ RELAY_PLAN_STEPS = (
 )
 RELAY_SETUP_COMPLETE_LINES = (
     f"Machine relay plist: {RELAY_PLIST_TARGET}",
-    "Machine relay runs as an environment-pinned login item.",
+    "Machine relay runs the release served by its selected environment.",
+    "Machine relay code lives in a relay-owned venv under the Yoke state directory.",
     "Machine relay reuses your existing Yoke API token.",
 )
 
@@ -57,7 +59,7 @@ def install(
             check=False,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=RELAY_INSTALL_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise OnboardSessionRelayError(
@@ -81,6 +83,7 @@ def report_fragment(*, planned: bool, installed: bool) -> dict[str, Any]:
 
 __all__ = [
     "OnboardSessionRelayError",
+    "RELAY_INSTALL_TIMEOUT_SECONDS",
     "RELAY_PLAN_STEPS",
     "RELAY_PLIST_TARGET",
     "RELAY_SETUP_COMPLETE_LINES",

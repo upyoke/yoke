@@ -118,14 +118,14 @@ def test_install_happy_path_writes_launcher(tmp_path: Path, install_env):
     assert (written.stat().st_mode & 0o777) == 0o755
 
 
-def test_install_converges_relay_with_installed_launcher(tmp_path: Path, install_env):
+def test_install_converges_release_pinned_relay(tmp_path: Path, install_env):
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
     observed = []
     install_env.setattr(
         isl,
         "configure_session_relay",
-        lambda **kwargs: observed.append(kwargs["executable"]) or True,
+        lambda **kwargs: observed.append(kwargs) or True,
     )
     target_dir = tmp_path / "bin"
 
@@ -136,7 +136,8 @@ def test_install_converges_relay_with_installed_launcher(tmp_path: Path, install
         stream=io.StringIO(),
     )
 
-    assert observed == [target_dir / isl.LAUNCHER_FILENAME]
+    assert len(observed) == 1
+    assert set(observed[0]) == {"stream"}
 
 
 def test_install_is_idempotent(tmp_path: Path, install_env):
