@@ -52,10 +52,8 @@ WATCHERS_COMMANDS: list[dict] = [
             "yoke watch pytest "
             "--print-streaming-pair -- <project test anchors>\n"
             "# The wrapper prints wait_mode and why. background-wake emits "
-            "the bound background + progress-tail pair; in-turn runs here "
-            "until the command exits.\n"
-            "# After a background-wake completion: tail -80 <raw-capture> "
-            "using the helper-resolved path in the output."
+            "the bound pair; in-turn runs here until exit; after a "
+            "background-wake completion, tail -80 <raw-capture>."
         ),
         "notes": (
             "The impacted selection is the default change-scoped check and "
