@@ -102,7 +102,11 @@ def dump_universe(
         worker.start()
     try:
         process.wait(timeout=remaining_timeout(deadline, "export"))
-        workers[0].join(timeout=5)
+        # Draining stdout and durably flushing the archive are part of the
+        # export's end-to-end budget. A fixed grace period here can turn a
+        # healthy pg_dump into a false timeout when the filesystem takes more
+        # than a few seconds to fsync under load.
+        workers[0].join(timeout=max(0.0, deadline - time.monotonic()))
         if workers[0].is_alive():
             raise subprocess.TimeoutExpired([executable], timeout_s)
     except subprocess.TimeoutExpired as exc:

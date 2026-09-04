@@ -11,10 +11,12 @@ from __future__ import annotations
 import io
 import logging
 import subprocess
+import threading
 
 import pytest
 
 from yoke_core.domain import universe_portability as portability
+from yoke_core.domain import universe_portability_dump as dump_runtime
 
 
 _DSN = "host=localhost port=5432 user=u password=supersecret dbname=d"
@@ -48,6 +50,20 @@ class _ExitedDump(_HungDump):
     exit_code_on_entry = 0
 
 
+class _CompletedDump(_HungDump):
+    """A completed dump whose stdout still has to reach durable storage."""
+
+    exit_code_on_entry = 0
+
+    def __init__(self, *_args, **_kwargs):
+        super().__init__()
+        self.stdout = io.BytesIO(b"portable archive")
+        self.stderr = io.BytesIO()
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+
 def _export(tmp_path, monkeypatch, fake):
     monkeypatch.setattr(subprocess, "Popen", fake)
     destination = tmp_path / "universe.dump"
@@ -78,3 +94,31 @@ def test_export_timeout_names_stalled_archive_write(tmp_path, monkeypatch):
 
     assert "universe export timed out after 1s" in message
     assert "the archive write stalled after pg_dump exited" in message
+
+
+def test_archive_writer_receives_the_remaining_export_budget(
+    tmp_path, monkeypatch
+):
+    joins: list[float | None] = []
+    original_join = threading.Thread.join
+
+    def recording_join(self, timeout=None):
+        joins.append(timeout)
+        return original_join(self, timeout)
+
+    monkeypatch.setattr(subprocess, "Popen", _CompletedDump)
+    monkeypatch.setattr(threading.Thread, "join", recording_join)
+    marker = object()
+    destination = tmp_path / "universe.dump"
+
+    result = dump_runtime.dump_universe(
+        _DSN,
+        destination,
+        timeout_s=30,
+        pg_dump="pg_dump",
+        archive_inspector=lambda *_args, **_kwargs: marker,
+    )
+
+    assert result is marker
+    assert destination.read_bytes() == b"portable archive"
+    assert joins[0] is not None and joins[0] > 20
