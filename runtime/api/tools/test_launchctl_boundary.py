@@ -208,17 +208,18 @@ def test_a_child_process_installing_a_relay_lands_in_the_sandbox(
         ),
         encoding="utf-8",
     )
-    launcher = tmp_path / "bin" / "yoke"
-    launcher.parent.mkdir()
-    launcher.touch()
     program = (
         "from pathlib import Path\n"
         "from yoke_core.tools.session_relay_plist import install_relay_launchd\n"
+        "def pin_release(*, instance):\n"
+        "    executable = instance.state_dir / 'venv' / 'bin' / 'yoke'\n"
+        "    executable.parent.mkdir(parents=True, exist_ok=True)\n"
+        "    executable.touch()\n"
         "status = install_relay_launchd(\n"
         f"    config_path={str(config)!r},\n"
         "    environment='stage',\n"
         f"    yoke_home=Path({str(tmp_path / 'home')!r}),\n"
-        f"    executable=Path({str(launcher)!r}),\n"
+        "    pin_release=pin_release,\n"
         "    platform='darwin',\n"
         "    uid=501,\n"
         ")\n"

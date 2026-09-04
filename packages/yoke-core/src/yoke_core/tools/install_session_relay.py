@@ -11,6 +11,7 @@ from yoke_core.tools.session_relay_plist import (
     relay_launchd_status,
     uninstall_relay_launchd,
 )
+from yoke_core.tools.session_relay_release import relay_release_status
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -40,10 +41,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"loaded={'yes' if status.loaded else 'no'}, "
         f"current={'yes' if status.plist_current else 'no'}"
     )
+    release = relay_release_status(refresh_served=parsed.action != "uninstall")
+    print(
+        "session relay release: "
+        f"pinned={release.pinned_release or 'missing'}, "
+        f"served={release.served_build or 'unavailable'}, "
+        f"current={'yes' if release.current else 'no'}"
+    )
     if parsed.action == "uninstall":
         healthy = not status.plist_present and not status.loaded
     else:
-        healthy = status.plist_present and status.loaded and status.plist_current
+        healthy = (
+            status.plist_present
+            and status.loaded
+            and status.plist_current
+            and release.current
+            and not release.error_code
+        )
     return 0 if status.supported and healthy else 1
 
 

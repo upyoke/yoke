@@ -1,4 +1,4 @@
-"""One standing relay process per machine: poll, supervise, reload, retire.
+"""One release-pinned relay process per machine: poll, supervise, repin.
 
 A relay that is respawned on a timer pays a fresh interpreter for every
 poll and, worse, hands each job a lifetime no longer than the spawn that
@@ -14,15 +14,15 @@ instead:
 * because the loop is never blocked, its own claim keeps the machine's
   ``session_relays`` row and surface inventory continuously published —
   the state gap that appears while a long job holds a one-shot process;
-* a termination signal and a source change both stop *starting* work and
-  then wait for what is in flight, so neither drops a job on the floor.
+* a termination signal and a served-build change both stop *starting* work
+  and wait for what is in flight, so neither drops a job on the floor.
 
 Failure bursts log immediately, periodically, and on recovery. Transient
 cycle exceptions stay visible without ending the relay or flooding its log.
 
-A source change ends in ``exec`` rather than exit: a relay that stops
-serving is a machine whose launches and wakes silently stop landing, so
-replacing the process is the only honest response to new code.
+A new served build is installed beside the running release and ends in
+``exec`` rather than exit. Failed fetches leave the prior process and venv
+working, and the next successful poll handshake retries the pin.
 """
 
 from __future__ import annotations
@@ -37,14 +37,11 @@ import time
 from typing import Callable, Sequence
 
 from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
+from yoke_cli.transport import control_plane_payload
 from yoke_harness.session_relay import ServeOnceOutcome, run_serve_cycle
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_schedule import relay_run_lock
-from yoke_harness.session_relay_source_reload import (
-    exec_reload,
-    source_changed,
-    source_fingerprint,
-)
+from yoke_harness.session_relay_process_restart import exec_relay_release
 
 
 # How long the loop waits between cadence checks. The server owns the poll
@@ -56,13 +53,18 @@ IDLE_TICK_SECONDS = 0.5
 # by its own attempt record, so waiting past this only delays the restart.
 DRAIN_TIMEOUT_SECONDS = 120
 
-# How often the serving source is re-fingerprinted. The check stats every
-# module in the serving packages, so running it on every tick would spend
-# thousands of syscalls a second to answer a question that changes only
-# when someone deploys — the continuous burn this daemon exists to remove.
-SOURCE_CHECK_INTERVAL_SECONDS = 30
-
 _LOGGER = logging.getLogger(__name__)
+
+
+def _observed_server_build() -> str:
+    """Build carried by the latest response in this poll's handshake."""
+    return control_plane_payload.current_server_build().name
+
+
+def _build_differs(pinned_release: str, served_build: str) -> bool:
+    return bool(pinned_release and served_build) and (
+        pinned_release.removeprefix("v") != served_build.removeprefix("v")
+    )
 
 
 @dataclass
@@ -180,12 +182,14 @@ def serve_forever(
     drain_timeout_seconds: float = DRAIN_TIMEOUT_SECONDS,
     max_job_workers: int = 4,
     reload_argv: Sequence[str] | None = None,
-    reload_exec: Callable[..., None] = exec_reload,
-    source_check_interval_seconds: float = SOURCE_CHECK_INTERVAL_SECONDS,
+    reload_exec: Callable[..., None] = exec_relay_release,
+    pinned_release: str = "",
+    pin_served_release: Callable[[str], Path] | None = None,
+    served_build_observer: Callable[[], str] = _observed_server_build,
     install_signals: bool = True,
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
-    """Serve this machine's relay until a signal, a source change, or a cap.
+    """Serve until a signal, a successful release repin, or a direct cap.
 
     ``stop_after_cycles`` bounds the loop for callers that drive it
     directly; the installed service leaves it unset and runs until the
@@ -204,7 +208,9 @@ def serve_forever(
             max_job_workers=max_job_workers,
             reload_argv=reload_argv,
             reload_exec=reload_exec,
-            source_check_interval_seconds=source_check_interval_seconds,
+            pinned_release=pinned_release,
+            pin_served_release=pin_served_release,
+            served_build_observer=served_build_observer,
             **cycle_kwargs,
         )
     finally:
@@ -222,21 +228,22 @@ def _serve_under_lock(
     max_job_workers: int,
     reload_argv: Sequence[str] | None,
     reload_exec: Callable[..., None],
-    source_check_interval_seconds: float,
+    pinned_release: str,
+    pin_served_release: Callable[[str], Path] | None,
+    served_build_observer: Callable[[], str],
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
     """Hold the machine's relay lock for as long as this daemon serves."""
     with relay_run_lock(state_dir) as acquired:
         if not acquired:
             return DaemonOutcome("locked")
-        baseline = source_fingerprint()
         failures = FailureReporter()
         supervisor = _Supervisor(
             ThreadPoolExecutor(max_workers=max_job_workers), failures
         )
         cycles = 0
         last_state = ""
-        next_source_check = time.monotonic() + source_check_interval_seconds
+        replacement: Path | None = None
         try:
             while not stop.is_set():
                 try:
@@ -267,11 +274,20 @@ def _serve_under_lock(
                         if last_state == "reported":
                             failures.recovered("report")
                 cycles += 1
-                now = time.monotonic()
-                if now >= next_source_check:
-                    next_source_check = now + source_check_interval_seconds
-                    if source_changed(baseline):
-                        stop.set("source_changed")
+                served_build = (
+                    served_build_observer() if pin_served_release is not None else ""
+                )
+                if pin_served_release is not None and _build_differs(
+                    pinned_release, served_build
+                ):
+                    try:
+                        replacement = pin_served_release(served_build)
+                    except Exception as exc:  # noqa: BLE001 — keep prior release
+                        code = str(getattr(exc, "code", "release_pin_failed"))
+                        failures.failed("release pin", f"{code}: {exc}")
+                    else:
+                        failures.recovered("release pin")
+                        stop.set("served_build_changed")
                         break
                 if stop_after_cycles is not None and cycles >= stop_after_cycles:
                     stop.set("cycle_cap")
@@ -286,16 +302,15 @@ def _serve_under_lock(
             jobs_settled=supervisor.settled,
             last_state=last_state,
         )
-    if result.reason == "source_changed":
-        # Outside the lock: the replacement process takes it immediately.
-        reload_exec(reload_argv)
+    if result.reason == "served_build_changed" and replacement is not None:
+        # Outside the lock: the pinned replacement takes it immediately.
+        reload_exec(reload_argv, executable=str(replacement))
     return result
 
 
 __all__ = [
     "DRAIN_TIMEOUT_SECONDS",
     "IDLE_TICK_SECONDS",
-    "SOURCE_CHECK_INTERVAL_SECONDS",
     "DaemonOutcome",
     "serve_forever",
 ]

@@ -22,6 +22,10 @@ from yoke_core.tools.session_relay_plist import (
     relay_launchd_paths,
     uninstall_relay_launchd,
 )
+from yoke_core.tools.session_relay_release import (
+    RELAY_RELEASE_FETCH_FAILED,
+    RelayReleaseError,
+)
 
 
 def _write_config(tmp_path: Path) -> Path:
@@ -62,6 +66,12 @@ def _write_config(tmp_path: Path) -> Path:
     return path
 
 
+def _pin_release(*, instance) -> None:
+    executable = instance.state_dir / "venv" / "bin" / "yoke"
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    executable.touch()
+
+
 def test_prod_db_admin_cannot_resolve_a_relay_instance(tmp_path: Path) -> None:
     calls: list[list[str]] = []
     with pytest.raises(RelayInstanceError, match="requires an https"):
@@ -70,10 +80,34 @@ def test_prod_db_admin_cannot_resolve_a_relay_instance(tmp_path: Path) -> None:
             config_path=_write_config(tmp_path),
             environment="prod-db-admin",
             yoke_home=tmp_path / ".yoke",
-            executable=tmp_path / "bin" / "yoke",
             runner=lambda command, **_kwargs: calls.append(list(command)),
             platform="darwin",
         )
+    assert calls == []
+
+
+def test_release_fetch_failure_never_stops_the_loaded_relay(tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def fail_pin(**_kwargs):
+        raise RelayReleaseError(
+            RELAY_RELEASE_FETCH_FAILED,
+            "relay_release_fetch_failed: index unavailable; retry relay install",
+        )
+
+    with pytest.raises(RelayInstallError) as raised:
+        install_relay_launchd(
+            home=tmp_path,
+            config_path=_write_config(tmp_path),
+            environment="prod",
+            yoke_home=tmp_path / ".yoke",
+            pin_release=fail_pin,
+            runner=lambda command, **_kwargs: calls.append(list(command)),
+            platform="darwin",
+        )
+
+    assert raised.value.code == RELAY_RELEASE_FETCH_FAILED
+    assert "retry relay install" in str(raised.value)
     assert calls == []
 
 
@@ -132,7 +166,7 @@ def test_stage_upgrade_retires_the_unpinned_legacy_job(tmp_path: Path) -> None:
         yoke_home=tmp_path / ".yoke",
         config_path=config_path,
         environment="stage",
-        executable=executable,
+        pin_release=_pin_release,
         runner=runner,
         platform="darwin",
         uid=501,
@@ -150,9 +184,6 @@ def test_install_waits_for_unload_and_retries_transient_bootstrap(
     tmp_path: Path,
 ) -> None:
     config_path = _write_config(tmp_path)
-    executable = tmp_path / "bin" / "yoke"
-    executable.parent.mkdir()
-    executable.touch()
     calls: list[list[str]] = []
     print_attempts = 0
     bootstrap_attempts = 0
@@ -178,7 +209,7 @@ def test_install_waits_for_unload_and_retries_transient_bootstrap(
         config_path=config_path,
         environment="prod",
         yoke_home=tmp_path / ".yoke",
-        executable=executable,
+        pin_release=_pin_release,
         runner=runner,
         platform="darwin",
         uid=501,
@@ -199,9 +230,6 @@ def test_terminal_bootstrap_failure_says_relay_is_stopped_and_how_to_recover(
     tmp_path: Path,
 ) -> None:
     config_path = _write_config(tmp_path)
-    executable = tmp_path / "bin" / "yoke"
-    executable.parent.mkdir()
-    executable.touch()
     bootstrap_attempts = 0
 
     def runner(command, **_kwargs):
@@ -221,7 +249,7 @@ def test_terminal_bootstrap_failure_says_relay_is_stopped_and_how_to_recover(
             config_path=config_path,
             environment="prod",
             yoke_home=tmp_path / ".yoke",
-            executable=executable,
+            pin_release=_pin_release,
             runner=runner,
             platform="darwin",
             uid=501,
@@ -278,5 +306,15 @@ def test_legacy_status_helper_uses_the_same_health_contract(
         plist_current=current,
     )
     monkeypatch.setattr(install_session_relay, "relay_launchd_status", lambda: status)
+    monkeypatch.setattr(
+        install_session_relay,
+        "relay_release_status",
+        lambda **_kwargs: SimpleNamespace(
+            pinned_release="0.1.1+launch.365",
+            served_build="v0.1.1+launch.365",
+            current=True,
+            error_code="",
+        ),
+    )
 
     assert install_session_relay.main(["status"]) == expected

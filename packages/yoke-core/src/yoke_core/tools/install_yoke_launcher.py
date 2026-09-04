@@ -148,13 +148,13 @@ def configure_macos_path_for_homebrew(
     )
 
 
-def configure_session_relay(*, executable: Path, stream=None) -> bool:
-    """Converge the launchd relay around the newly installed launcher."""
+def configure_session_relay(*, stream=None) -> bool:
+    """Converge launchd around the environment's served relay release."""
     if sys.platform != "darwin":
         return False
     from yoke_core.tools.session_relay_plist import install_relay_launchd
 
-    status = install_relay_launchd(executable=executable)
+    status = install_relay_launchd()
     if stream is not None:
         stream.write(f"Machine relay installed: {status.plist_path}\n")
     return True
@@ -263,7 +263,7 @@ def install(
         report = converge_machine(cwd, home=home, force=force, stream=out)
         if not skip_harness_permissions:
             configure_harness_unattended_posture(checkout=cwd, stream=out)
-        configure_session_relay(executable=report.canonical, stream=out)
+        configure_session_relay(stream=out)
         return TargetChoice(report.canonical.parent, "canonical_user_local")
     if not skip_pip:
         run_pip_install_deps(
@@ -288,17 +288,14 @@ def install(
         configure_harness_unattended_posture(checkout=cwd, stream=out)
     if not skip_macos_path_fix:
         configure_macos_path_for_homebrew(stream=out)
-    relay_launcher = target_path
     if write_canonical and not repair:
         from yoke_core.tools.install_yoke_launcher_sweep import (
             repair_canonical_launcher,
         )
 
         home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
-        relay_launcher = repair_canonical_launcher(
-            cwd, home=home, force=force, stream=out
-        )
-    configure_session_relay(executable=relay_launcher, stream=out)
+        repair_canonical_launcher(cwd, home=home, force=force, stream=out)
+    configure_session_relay(stream=out)
     py_version = ".".join(str(x) for x in sys.version_info[:3])
     deps_dir = sysconfig.get_path("purelib")
     out.write(

@@ -1,4 +1,4 @@
-"""Convergent launchd plist operations for the one-shot machine relay."""
+"""Convergent launchd operations for the environment-pinned machine relay."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ from yoke_cli.config.session_relay_instance import (
     RelayInstance,
     resolve_relay_instance,
 )
-from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
 from yoke_core.tools.launchctl_boundary import (
     bootstrap_launchd_job,
     launch_agents_dir,
@@ -25,24 +24,23 @@ from yoke_core.tools.launchctl_boundary import (
     run_launchctl,
     wait_for_launchd_unload,
 )
+from yoke_core.tools import session_relay_legacy as relay_legacy
+from yoke_core.tools import session_relay_release as relay_release
 from yoke_core.tools.session_relay_executable import relay_executable_search_path
-from yoke_core.tools.session_relay_legacy import (
-    LegacyRelayError,
-    retire_unpinned_legacy_relay,
-)
+from yoke_core.tools.session_relay_release_install import pin_relay_release
 
 
 RELAY_LAUNCHD_LABEL = PROD_RELAY_LABEL
-# The relay polls on its own internal cadence, so launchd's job is custody,
-# not scheduling: keep the one process alive and restart it if it dies.
-# Scheduling from launchd would recreate the cost this daemon exists to
-# remove — a fresh interpreter per poll, and a job whose lifetime ends with
-# the spawn that leased it.
+# The daemon owns polling cadence; launchd only keeps its process alive.
 RELAY_KEEP_ALIVE = True
 
 
 class RelayInstallError(RuntimeError):
     """The machine relay could not be converged safely."""
+
+    def __init__(self, message: str, *, code: str = "relay_lifecycle_failed") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -101,13 +99,12 @@ def relay_launchd_paths(
 
 def relay_plist_document(
     *,
-    executable: Path | None = None,
     paths: RelayLaunchdPaths | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, object]:
     resolved = paths or relay_launchd_paths()
     source_env = os.environ if environ is None else environ
-    launcher = executable or canonical_shim_path(source_env)
+    launcher = relay_release.relay_release_executable(resolved.state_dir)
     return {
         "Label": resolved.label,
         "ProgramArguments": [
@@ -173,7 +170,6 @@ def relay_launchd_status(
     *,
     home: Path | None = None,
     yoke_home: Path | None = None,
-    executable: Path | None = None,
     environ: Mapping[str, str] | None = None,
     runner: Runner = run_launchctl,
     platform: str = sys.platform,
@@ -189,7 +185,6 @@ def relay_launchd_status(
     )
     paths = relay_launchd_paths(home=home, instance=selected)
     expected = relay_plist_document(
-        executable=executable,
         paths=paths,
         environ=environ,
     )
@@ -219,7 +214,6 @@ def install_relay_launchd(
     *,
     home: Path | None = None,
     yoke_home: Path | None = None,
-    executable: Path | None = None,
     environ: Mapping[str, str] | None = None,
     runner: Runner = run_launchctl,
     platform: str = sys.platform,
@@ -227,6 +221,7 @@ def install_relay_launchd(
     config_path: str | Path | None = None,
     environment: str | None = None,
     instance: RelayInstance | None = None,
+    pin_release: Callable[..., object] = pin_relay_release,
 ) -> RelayLaunchdStatus:
     if platform != "darwin":
         raise RelayInstallError("machine relay launchd install requires macOS")
@@ -237,19 +232,24 @@ def install_relay_launchd(
     )
     paths = relay_launchd_paths(home=home, instance=selected)
     source_env = os.environ if environ is None else environ
-    launcher = executable or canonical_shim_path(source_env)
+    try:
+        pin_release(instance=selected)
+    except relay_release.RelayReleaseError as exc:
+        raise RelayInstallError(str(exc), code=exc.code) from exc
+    launcher = relay_release.relay_release_executable(paths.state_dir)
     if not launcher.is_file():
         raise RelayInstallError(
-            f"canonical yoke launcher is missing at {launcher}; repair it first"
+            f"pinned relay executable is missing at {launcher}; "
+            f"retry `yoke --env {paths.environment} relay install`"
         )
     try:
-        retire_unpinned_legacy_relay(
+        relay_legacy.retire_unpinned_legacy_relay(
             instance=selected,
             home=launch_agents_home(home, yoke_home=selected.yoke_home),
             runner=runner,
             uid=uid,
         )
-    except LegacyRelayError as exc:
+    except relay_legacy.LegacyRelayError as exc:
         raise RelayInstallError(str(exc)) from exc
     paths.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     target = launchd_target(paths.label, uid)
@@ -266,7 +266,6 @@ def install_relay_launchd(
     _write_plist(
         paths.plist,
         relay_plist_document(
-            executable=launcher,
             paths=paths,
             environ=source_env,
         ),
@@ -282,7 +281,6 @@ def install_relay_launchd(
         )
     return relay_launchd_status(
         home=home,
-        executable=launcher,
         environ=source_env,
         runner=runner,
         platform=platform,
