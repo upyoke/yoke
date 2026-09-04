@@ -54,6 +54,7 @@ async function mountMachines(t, { harnessState, machines, wizardMachines }) {
 
 test("a relay-only machine reads next up beside a connected one", async (t) => {
   const seen = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+  const historical = "2026-07-27T12:23:28Z";
   const { wizard, harness, mounted } = await mountMachines(t, {
     harnessState: "in_progress",
     wizardMachines: [
@@ -71,7 +72,12 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
         connected: { executor: "codex", at: seen },
         // The engine lists only targets with evidence; mirror that here.
         targets: harnessTargets(
-          { codex: true, "codex-cli": true }, { codex: "green", "codex-cli": "green" },
+          { codex: true, "codex-cli": true, "claude-vscode": true },
+          {
+            codex: "green", "codex-cli": "green", "claude-vscode": "orange",
+          },
+          {},
+          { "claude-vscode": historical },
         ).filter((target) => target.hit),
       }),
       machineRow({
@@ -79,6 +85,9 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
         name: "beta-box",
         surfaces: ["claude-cli"],
         last_seen_at: seen,
+        targets: harnessTargets(
+          {}, { "claude-cli": "orange" },
+        ).filter((target) => target.key === "claude-cli"),
       }),
     ],
   });
@@ -106,10 +115,17 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
   assert.match(textOf(rows[0]), /codex connected 3m ago\./);
   assert.deepEqual(
     byClass(rows[0], "activation-target").map((chip) => chip.textContent),
-    ["Codex ✓", "Codex CLI ✓"],
+    ["Codex ✓", "Codex CLI ✓", "Claude in VS Code · last seen Jul 27"],
   );
-  // The second box carries none of the first box's chips or connection.
-  assert.equal(byClass(rows[1], "activation-target").length, 0);
+  assert.equal(
+    byClass(rows[0], "activation-target")[2].attributes.get("data-hook-health"),
+    "orange",
+  );
+  // The second box carries only its own installed surface, without a hit.
+  const betaTargets = byClass(rows[1], "activation-target");
+  assert.deepEqual(betaTargets.map((chip) => chip.textContent), ["Claude CLI"]);
+  assert.equal(betaTargets[0].attributes.get("data-hit"), "false");
+  assert.equal(betaTargets[0].attributes.get("data-hook-health"), "orange");
   assert.ok(textOf(rows[1]).includes(
     "Next up — open a supported harness on this machine.",
   ));

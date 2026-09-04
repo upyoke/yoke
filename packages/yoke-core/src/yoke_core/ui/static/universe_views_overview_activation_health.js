@@ -6,16 +6,26 @@ import { hookTrustRemediation } from "./universe_views_overview_activation_copy.
 
 const HEALTH_GREEN = "green";
 const HEALTH_ORANGE = "orange";
+const HEALTH_RED = "red";
 
-function orangeTrustSurfaces(targets) {
+function unapprovedTrustSurfaces(targets) {
   const surfaces = [];
   for (const target of targets || []) {
-    if (target.hook_health !== HEALTH_ORANGE || !target.trust_surface) continue;
+    if (target.hook_health !== HEALTH_RED || !target.trust_surface) continue;
     if (!surfaces.includes(target.trust_surface)) {
       surfaces.push(target.trust_surface);
     }
   }
   return surfaces;
+}
+
+function lastSeenDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short", day: "numeric", timeZone: "UTC",
+  }).format(date);
 }
 
 export function renderHarnessTargets(documentNode, module, body) {
@@ -27,11 +37,17 @@ export function renderHarnessTargets(documentNode, module, body) {
     const lit = Boolean(target.hit) && (
       !target.hook_health || target.hook_health === HEALTH_GREEN
     );
+    const lastSeen = target.hook_health === HEALTH_ORANGE
+      ? lastSeenDate(target.last_seen_at) : null;
+    const label = [
+      `${target.label}${lit ? " ✓" : ""}`,
+      ...(lastSeen ? [`last seen ${lastSeen}`] : []),
+    ].join(" · ");
     const chip = el(
       documentNode,
       "span",
       "activation-target",
-      lit ? `${target.label} ✓` : target.label,
+      label,
     );
     chip.setAttribute("data-hit", String(Boolean(target.hit)));
     if (target.hook_health) {
@@ -40,7 +56,7 @@ export function renderHarnessTargets(documentNode, module, body) {
     targets.appendChild(chip);
   });
   body.appendChild(targets);
-  for (const trustSurface of orangeTrustSurfaces(module.targets)) {
+  for (const trustSurface of unapprovedTrustSurfaces(module.targets)) {
     body.appendChild(el(
       documentNode, "p", "activation-remediation",
       hookTrustRemediation(trustSurface),

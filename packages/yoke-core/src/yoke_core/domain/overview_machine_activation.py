@@ -148,7 +148,11 @@ def read_registered_machines(
                 {"executor": harnesses[0]["executor"], "at": last_session}
                 if harnesses else None
             ),
-            "targets": harness_targets(session_identities(rows), reports),
+            "targets": harness_targets(
+                session_identities(rows),
+                reports,
+                installed_surfaces=relay["surfaces"] if relay else (),
+            ),
         })
     return machines
 
