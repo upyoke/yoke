@@ -1,11 +1,8 @@
 """The one-per-item close-out report a worker sends when its work is done.
 
-A worker writes its terminal DONE report once, but it can reach the
-steering seat through more than one route -- the worker's own `yoke say`
-and the Stop-hook relay of its turn-end text -- and a retry after a
-refusal rewords it. Keying the message plane's existing idempotency on the
-sender session, the item, and the terminal state makes every one of those
-the SAME message, so the seat is told once however many routes ran.
+A retry after a refusal may reword a terminal DONE report. Keying the message
+plane's existing idempotency on the sender session, item, and terminal state
+makes every deliberate attempt the same message, so the seat is told once.
 """
 
 from __future__ import annotations

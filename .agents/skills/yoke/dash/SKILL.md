@@ -177,13 +177,10 @@ reading the codebase, was auto-ended claim-free, and left its item looking
 untouched. Claim before the first read, and that reaping becomes structurally
 impossible.
 
-Your turn-end text may already be the report. When a steering seat launched
-this session, the Stop hook delivers the last assistant text of every turn to
-that seat — including the turn after close-out released your claim — so write
-that text as the report and never re-send it with `yoke say`; keep `yoke say`
-for what cannot wait for a turn end. A session the operator launched or opened
-is not relayed: it reaches the seat with `yoke say --steering`, sent before
-releasing any claim it still holds, when that seat must act.
+Ending a turn sends no Fleet message. When the steering seat must act, reach it
+deliberately with `yoke say --steering`, sent before releasing any claim still
+held. This applies to every launch origin. Reserve the channel for substantive
+updates and terminal reports; keep progress in this session's visible output.
 
 Then read the item detail and workflow-effective projections:
 

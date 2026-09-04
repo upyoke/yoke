@@ -32,16 +32,14 @@ An active steering scope appears on the generated board with its holder,
 project and held strategy documents, claim age, liveness, steering-launched
 worker count, and unacknowledged report count. In Workbench, Steering badges
 show the same scope, steering-launched workers group under their holder, and
-each of those workers shows whether its latest turn-end report was sent or
-acknowledged. Only a steering-launched session is relayed that way: a session
-the operator launched or opened keeps its turns to itself and reaches the seat
-deliberately with `yoke say --steering`. The relay carries only a turn that
-names something to act on — a failure, a blocker, a conflict, a decision, a
-question, or a terminal outcome. A worker stopping on a wait or a status note
-is recorded as a `SteeringReportSkipped` event rather than delivered, so a
-long gate costs the seat no acknowledgements. These views derive from existing
-claims, document locks, launch provenance, and message-recipient receipts;
-they do not create separate state.
+each of those workers shows whether its latest deliberate report was sent or
+acknowledged. Every worker reaches the seat deliberately with `yoke say
+--steering`; ending a turn sends no Fleet message. Workers reserve those
+messages for something the seat must act on — a failure, blocker, conflict,
+decision, question, or terminal outcome — and keep progress in their own
+visible output. These views derive from existing claims, document locks,
+launch provenance, and message-recipient receipts; they do not create separate
+state.
 
 Ambient session identity comes from the harness (env / process anchor /
 conversation mapping) — operators should not invent session IDs.

@@ -82,9 +82,12 @@ def test_default_reminder_anchored_on_observed_failure_modes() -> None:
         "must anchor on the relay-the-matched-line rule"
     )
     injected = hint_monitor_relay.DEFAULT_REMINDER
+    injected_words = " ".join(injected.split())
     assert "SUBSCRIPTION" in injected
     assert "hint_monitor_relay --help" in injected
-    assert "something it would act on" in injected
+    assert "something it would act on" in injected_words
+    assert "Ending a turn sends no" in injected_words
+    assert "yoke say --steering" in injected_words
     assert "Message another session only" in hint_monitor_relay.HELP_REMINDER
 
 

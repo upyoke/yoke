@@ -75,6 +75,7 @@ PURGED_EVENT_NAMES: Tuple[str, ...] = (
     # module, so both emitters and their module were deleted.
     "MigrationModuleRetired",
     "MigrationModuleRetireSkipped",
+    "SteeringReportSkipped",
 )
 
 

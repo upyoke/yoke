@@ -85,11 +85,9 @@ def _terminal_report_key(
 ) -> str | None:
     """The dedupe key a terminal close-out report carries, if it is one.
 
-    A derived key replaces whatever the caller offered, because the routes
-    that carry this one report do not know about each other: the worker's
-    own send and the Stop-hook relay of the same turn-end text are the same
-    report, and a retry after a refusal rewords it. One key per (sender
-    session, item, terminal state) is what makes the seat read it once.
+    A derived key replaces whatever the caller offered because a retry after
+    a refusal may reword the report. One key per (sender session, item,
+    terminal state) is what makes the seat read it once.
     """
     if not sender_session_id or not is_terminal_done_report(body):
         return None

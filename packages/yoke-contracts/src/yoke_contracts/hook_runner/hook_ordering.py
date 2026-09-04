@@ -259,7 +259,6 @@ _FIRST_HOOK_DISPATCH: tuple[str, ...] = (
     *_MODEL_DELIVERY,
 )
 _STOP_CHAIN: tuple[str, ...] = (
-    "yoke_core.domain.turn_end_steering_report",
     "yoke_core.domain.turn_end_promised_work_gate",
     *_TURN_END_DELIVERY,
     "yoke_core.hooks.session_dispatch",

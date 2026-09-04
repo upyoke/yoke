@@ -77,13 +77,13 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   names the document at intake; work it adopts from the frontier gets linked
   before it is staffed, or it stays invisible to this seat's report and its
   worker's `--steering` reports route to the project seat instead.
-- **Workers address this seat as a role, never by its session id.** An
-  unrelayed worker's mandate says `yoke say --steering`; the server resolves
+- **Workers address this seat as a role, never by its session id.** Every
+  worker's mandate says `yoke say --steering`; the server resolves
   that at delivery to whichever seat covers the sending item — the one the
   worker holds, or last held, so a DONE resolves after close-out too, once.
   Nothing routes to an ended session, so releasing this seat strands no
-  report: unattended mail parks and the next seat inherits it. A worker this
-  seat launched sends no DONE at all; its turn-end text is that report.
+  report: unattended mail parks and the next seat inherits it. Ending a turn
+  sends no Fleet message, regardless of who launched the worker.
 - **Strategy doc is both input and output.** There is no doc-less steer mode.
   Read it as the standing-plan source of record for intent, priority, next
   steps, and constraints; write plan-level progress back into the same

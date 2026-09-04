@@ -105,7 +105,7 @@ def _named(rec: RecordCollector, check_id: str):
     return next(row for row in rec.results if row.check_id == check_id)
 
 
-def test_membership_covers_report_router_and_promised_work_gate(conn):
+def test_membership_covers_promised_work_gate_and_dispatch(conn):
     rec = _run_hc(conn)
     assert _named(rec, _MEMBER_NAME).result == "PASS"
 
