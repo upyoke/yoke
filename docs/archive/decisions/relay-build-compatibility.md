@@ -11,7 +11,7 @@ A successful poll's existing HTTPS handshake is the only deploy-change signal.
 When its served build differs from the installed receipt, the daemon installs
 a candidate beside the working venv, atomically repoints the stable `venv`
 link, stops leasing, drains in-flight jobs, and replaces its process. It has no
-source-fingerprint watcher, scheduled reload, or timer-driven pin check.
+scheduled reload or timer-driven pin check; only fresh handshakes drive it.
 
 If the manifest, index, or wheel cannot be fetched, the named
 `relay_release_fetch_failed` refusal records recovery and preserves the prior
