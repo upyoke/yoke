@@ -62,6 +62,9 @@ _SOURCE_DEV = _commands(
     "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets budget get|packets check|packets render|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
 )
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
+_HOOK_HELPERS = frozenset({
+    "helper yoke_cli.commands.adapters.hook_inprocess",
+})
 
 
 def generate_inventory(
@@ -180,7 +183,7 @@ def _disposition(
     command: str, edges: Sequence[ImportEdge], operation: ops.OperationEntry | None
 ) -> str:
     classes = {edge.classification for edge in edges}
-    if command in _HOOKS:
+    if command in _HOOKS or command in _HOOK_HELPERS:
         return HOOK_LOCAL_SUBSET
     if command in _SOURCE_DEV:
         return SOURCE_DEV_ADMIN

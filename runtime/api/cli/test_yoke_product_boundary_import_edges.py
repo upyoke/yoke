@@ -10,7 +10,14 @@ def test_hook_and_operator_boundaries_keep_their_own_dispositions():
     hook = rows["yoke hook evaluate"]
     assert hook.disposition == inventory.HOOK_LOCAL_SUBSET
     assert hook.transport_branch == "hook-local-or-https-relay"
-    assert {(edge.target, edge.classification) for edge in hook.import_edges} == {
+    assert hook.import_edges == ()
+    implementation = rows["helper yoke_cli.commands.adapters.hook_inprocess"]
+    assert implementation.disposition == inventory.HOOK_LOCAL_SUBSET
+    assert implementation.transport_branch == "hook-local-or-https-relay"
+    assert {
+        (edge.target, edge.classification)
+        for edge in implementation.import_edges
+    } == {
         (
             "yoke_core.hooks.local_entry",
             "local_universe_dispatch",
