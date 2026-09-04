@@ -26,6 +26,7 @@ from yoke_contracts.session_model_facts import (
 )
 from yoke_contracts.executor_labels import (
     canonical_harness_id as _contract_canonical_harness_id,
+    surface_alias as _contract_surface_alias,
 )
 from yoke_harness.hooks.identity_codex_runtime import (
     _codex_resolve_entrypoint,
@@ -98,6 +99,9 @@ def _compose_executor(family: str, coarse: str, raw_entrypoint: Optional[str]) -
     normalized = _normalize_surface_token(raw_entrypoint)
     if not normalized:
         return coarse
+    alias = _contract_surface_alias(normalized)
+    if alias and alias.startswith(f"{family}-"):
+        return alias
     if normalized == coarse or normalized.startswith(f"{family}-"):
         return normalized
     return f"{family}-{normalized}"

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.executor_labels import surface_alias
+from yoke_core.domain.sessions_lifecycle_canonicalize import canonicalize_executor
 from yoke_harness.hooks import identity
 
 
@@ -34,8 +36,19 @@ def test_compose_executor_from_entrypoint_preserves_known_family() -> None:
         == "claude-desktop"
     )
     assert (
-        identity.compose_executor_from_entrypoint("custom", "codex-desktop")
-        == "custom"
+        identity.compose_executor_from_entrypoint("custom", "codex-desktop") == "custom"
+    )
+
+
+def test_claude_print_mode_entrypoint_resolves_to_cli_surface() -> None:
+    assert surface_alias("sdk-cli") == "claude-cli"
+    assert (
+        identity.compose_executor_from_entrypoint("claude-code", "sdk-cli")
+        == "claude-cli"
+    )
+    assert canonicalize_executor("claude-code", "sdk-cli") == (
+        "claude-code",
+        "claude-cli",
     )
 
 
