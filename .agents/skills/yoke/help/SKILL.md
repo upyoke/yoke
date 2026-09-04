@@ -25,7 +25,7 @@ COMMANDS
  /yoke charge Direct-mode: pick up next runnable item from frontier
  /yoke feed [--no-new-items] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
  /yoke strategize Direct-mode: guided SML review (research, propose, approve)
- /yoke steer <STRATEGY-DOC-SLUG> [--project P] Direct-mode: itemless steering loop over a required strategy doc
+ /yoke steer [STRATEGY-DOC-SLUG] [--project P ...] Direct-mode: itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN
  /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
  /yoke idea [--workflow issue|epic|blitz|task] {title} Capture a new backlog item
  /yoke dash "instruction" | PREFIX-N File and execute instruction-sized work, or resume a Dash
@@ -77,7 +77,7 @@ AUTONOMOUS MODE
  /yoke charge -> directly pick up and begin work
  /yoke feed -> maintain frontier graph + materialize work from strategy layer
  /yoke strategize -> refresh + research + propose + approve SML changes
- /yoke steer SLUG -> itemless steering loop over a required strategy doc
+ /yoke steer [SLUG] -> itemless steering loop over a strategy doc, default CURRENT-PLAN
 
 TYPICAL FLOW
  1. /yoke idea "my feature" -> PREFIX-N in backlog

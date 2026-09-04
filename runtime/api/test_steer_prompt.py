@@ -31,7 +31,7 @@ class TestSteerSkillContract:
         assert "Avoid the bare phrase" in text
         assert "steer claim" in text
 
-    def test_strategy_doc_is_required_and_offered_if_absent(self):
+    def test_strategy_doc_resolves_and_is_offered_only_when_absent(self):
         text = _read(_STEER_DIR / "SKILL.md")
         assert "STRATEGY-DOC-SLUG" in text
         assert "no doc-less" in text.lower()
@@ -83,7 +83,7 @@ class TestSteerSkillContract:
         assert loop.index("yoke strategy doc get {SLUG}") < loop.index(
             "yoke charge schedule"
         )
-        assert "Each pass reads the claimed document first" in loop_words
+        assert "Each pass reads every claimed document first" in loop_words
         assert "document wins on intended scope, priority, order" in loop_words
         assert "DB wins" in loop_words
         assert "live item status, claims, dependencies" in loop_words
@@ -93,7 +93,10 @@ class TestSteerSkillContract:
         assert "Strategy doc is both input and output" in skill_words
         assert "cold-start refresh" in skill_words
         assert "open-work index" in skill_words
-        assert "standing decision that constrains action" in skill_words
+        assert (
+            "standing decision, hold, scope bound, and deployment gate that "
+            "constrains action"
+        ) in skill_words
 
     def test_negative_space_checks_run_first_and_unconditionally(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
@@ -251,3 +254,77 @@ class TestSteerSkillContract:
             "## Live status — steering snapshot "
             "(refresh or replace on next steering handoff)" in loop
         )
+
+
+class TestNearTermPlanDefault:
+    """An omitted slug selects CURRENT-PLAN instead of asking the operator."""
+
+    def test_omitted_slug_resolves_to_current_plan_without_asking(self):
+        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        assert "`{SLUG}` is `CURRENT-PLAN` for every resolved project" in skill
+        assert "An omitted slug is not a question to ask" in skill
+
+    def test_explicitly_supplied_slug_wins_over_the_default(self):
+        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        assert "An operator-supplied slug wins" in skill
+        assert "an explicitly supplied slug always wins" in skill
+
+    def test_only_a_genuinely_missing_document_reaches_the_create_gate(self):
+        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        assert (
+            "Only a genuinely missing document reaches this gate; an omitted "
+            "slug never does, because it already resolved to `CURRENT-PLAN`"
+        ) in skill
+
+    def test_resolved_document_is_read_before_any_steering_action(self):
+        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        assert (
+            "Read `{SLUG}` before any steering action — before the frontier, "
+            "before acknowledging reports, before staffing anything"
+        ) in skill
+        assert (
+            "standing decisions, holds, scope bounds, and deployment gates"
+        ) in skill
+
+    def test_each_named_project_takes_its_own_document_and_seat(self):
+        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        assert "Several projects mean several seats" in skill
+        assert "There is no multi-project seat" in skill
+        assert (
+            "run steps 2 and 3 once per project so each gets its own resolved "
+            "document and its own seat"
+        ) in skill
+
+    def test_argument_hint_marks_the_slug_optional(self):
+        frontmatter = _read(_STEER_DIR / "SKILL.md").split("---", 2)[1]
+        assert 'argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"' in frontmatter
+        assert "defaulting to CURRENT-PLAN" in frontmatter
+
+
+class TestNearTermPlanDefaultAcrossTeachingSurfaces:
+    """Router, help, command reference, and packet teach the same default."""
+
+    SURFACES = (
+        _REPO_ROOT / ".agents" / "skills" / "yoke" / "SKILL.md",
+        _REPO_ROOT / ".agents" / "skills" / "yoke" / "help" / "SKILL.md",
+        _REPO_ROOT / "docs" / "public" / "reference" / "commands.md",
+        _REPO_ROOT / ".yoke" / "docs" / "reference" / "commands.md",
+        _REPO_ROOT / "docs" / "harness-bootstrap.md",
+        _REPO_ROOT
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "domain"
+        / "schema_api_context_commands_claims.py",
+    )
+
+    def test_no_surface_still_calls_the_strategy_doc_required(self):
+        for path in self.SURFACES:
+            text = _words(_read(path))
+            assert "required strategy doc" not in text, path
+            assert "a strategy doc is required" not in text, path
+
+    def test_every_surface_names_the_default(self):
+        for path in self.SURFACES:
+            assert "CURRENT-PLAN" in _read(path), path

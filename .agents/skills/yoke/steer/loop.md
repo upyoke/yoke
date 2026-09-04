@@ -1,7 +1,7 @@
 # /yoke steer — standing loop
 
-Run this loop after one steering acquire atomically holds the project seat and
-paired strategy-doc lock. Each pass reads the claimed document first, then keeps it current.
+Run this loop after each steering acquire atomically holds a project seat and
+its paired strategy-doc lock. Each pass reads every claimed document first, then keeps it current.
 
 Do not invoke `/yoke feed`.
 

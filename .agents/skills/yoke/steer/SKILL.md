@@ -1,13 +1,14 @@
 ---
 name: steer
-description: "Direct-mode entrypoint — itemless steering loop over a required strategy doc."
-argument-hint: "<STRATEGY-DOC-SLUG> [--project P]"
+description: "Direct-mode entrypoint — itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN."
+argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"
 ---
 
-# /yoke steer {STRATEGY-DOC-SLUG} [--project P]
+# /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
 
 Itemless steering loop. A harness session claims the steering scope of one
-strategy document, holds that document, and keeps that scope moving:
+strategy document — `CURRENT-PLAN` unless the operator names another — holds
+that document, and keeps that scope moving:
 read the standing plan, reconcile it with the live frontier, consume worker
 reports, write plan-level state back into the doc, hand work to executors,
 staff unpicked runnable items, and escalate only decisions that need a human.
@@ -85,9 +86,15 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   report: unattended mail parks and the next seat inherits it. Ending a turn
   sends no Fleet message, regardless of who launched the worker.
 - **Strategy doc is both input and output.** There is no doc-less steer mode.
-  Read it as the standing-plan source of record for intent, priority, next
-  steps, and constraints; write plan-level progress back into the same
+  An omitted slug resolves to `CURRENT-PLAN`, the near-term plan every project
+  seeds; an explicitly supplied slug always wins. Read the resolved document
+  before acting — its standing decisions, holds, scope bounds, and deployment
+  gates included — as the standing-plan source of record for intent, priority,
+  next steps, and constraints; write plan-level progress back into the same
   claimed document.
+- **Several projects mean several seats.** Each explicitly named project
+  resolves its own document and takes its own paired steering-scope claim
+  through the same surfaces. There is no multi-project seat.
 - **Vocabulary is steering.** Identifiers, refusal text, and labels use
   steering-scope claim, steering claim holder, steering scope. "Coordinator"
   is acceptable role prose. Never name a durable identifier coordination
@@ -117,27 +124,37 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 
 ## 1. Parse and stamp
 
-Extract `{STRATEGY-DOC-SLUG}` and optional `--project P`. Resolve the
-project from the checkout map when `--project` is omitted:
+Extract the optional `{STRATEGY-DOC-SLUG}` and every `--project P`. An
+operator-supplied slug wins; with none supplied, `{SLUG}` is `CURRENT-PLAN`
+for every resolved project. An omitted slug is not a question to ask — it
+selects the default. Resolve the project from the checkout map when no
+`--project` is given, and when several are named, run steps 2 and 3 once per
+project so each gets its own resolved document and its own seat:
 
 ```text
 yoke projects checkout-context --field slug
 yoke sessions touch --mode steer
 ```
 
-## 2. Require a strategy document
+## 2. Read the resolved strategy document
+
+Read `{SLUG}` before any steering action — before the frontier, before
+acknowledging reports, before staffing anything:
 
 ```text
 yoke strategy doc list --project {_project}
 yoke strategy doc get {SLUG} --project {_project}
 ```
 
-- Named doc exists → extract its cold-start refresh, open-work index
+- Document exists → extract its cold-start refresh, open-work index
   (`In flight`, `Ready to staff`, `Blocked`, `Awaiting operator decision`),
-  and every standing decision that constrains action. Treat those as the
-  initial next-steps plan.
-- No slug, or `strategy.doc.get` says the slug is absent → **offer to
-  create**. There is no silent create and no doc-less continuation.
+  and every standing decision, hold, scope bound, and deployment gate that
+  constrains action. Treat those as the initial next-steps plan and honor
+  them for the rest of the loop.
+- `strategy.doc.get` reports the resolved slug absent → **offer to create**.
+  There is no silent create and no doc-less continuation. Only a genuinely
+  missing document reaches this gate; an omitted slug never does, because it
+  already resolved to `CURRENT-PLAN`.
 
 Offer shape (wait for an explicit operator yes before creating):
 
@@ -163,8 +180,8 @@ continue as if the doc already existed. On no, stop.
 yoke claims steering acquire --project {_project} --doc {SLUG} --reason "steer {SLUG}"
 ```
 
-This one function call acquires the document's seat and its document lock in
-the same transaction. The seat's scope is `{"project_id": N, "document":
+Run this once per resolved project. It acquires that document's seat and its
+document lock in the same transaction. The seat's scope is `{"project_id": N, "document":
 "{SLUG}"}`, so it covers exactly the items linked to {SLUG}. An overlapping
 seat or a document holder refuses the call and leaves neither half behind —
 the refusal names the holding actor, machine, and session, and a seat on a

@@ -33,7 +33,7 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke charge` | Direct-mode: pick up next runnable item from the frontier |
 | `/yoke feed` | Direct-mode: materialize new work from the strategy layer |
 | `/yoke strategize` | Direct-mode: guided SML review (research, propose, approve) |
-| `/yoke steer <STRATEGY-DOC-SLUG> [--project P]` | Direct-mode: itemless steering loop over a required strategy doc |
+| `/yoke steer [STRATEGY-DOC-SLUG] [--project P ...]` | Direct-mode: itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN |
 | `/yoke onboard [--project P] [--run-id RUN]` | Make a wired project execution-ready: strategy, profile, Packs, hosting, environments, gated first deploy, seeded work |
 | `/yoke idea [--workflow issue\|epic\|blitz\|task] {title}` | Capture a new backlog item; `blitz` for document-led execution, `task` for laneless floor work |
 | `/yoke dash "instruction"` or `/yoke dash PREFIX-N` | File and execute instruction-sized work, or resume a Dash |

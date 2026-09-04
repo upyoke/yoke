@@ -76,7 +76,7 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke charge` | Pick up next runnable item from frontier | Safe: confirms with operator before dispatch |
 | `/yoke feed` | Refresh stale frontier items, reconcile frontier facts, and materialize strategy-backed work | Safe: updates structured item fields, creates idea records, refreshes dependency graph |
 | `/yoke strategize` | Guided Strategic Markdown Layer review | Safe: multi-checkpoint interactive loop with operator approval at each stage |
-| `/yoke steer <STRATEGY-DOC-SLUG>` | Itemless steering loop over a required strategy doc | Safe: claims a steering scope, never implements |
+| `/yoke steer [STRATEGY-DOC-SLUG]` | Itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN | Safe: claims a steering scope, never implements |
 | `/yoke simulate YOK-N` or `/yoke simulate --system` | Trace integration paths or audit system-wide consistency | Safe: read-only harness slash skill; there is no terminal `yoke simulate` adapter |
 
 ## 3. Command Classification
@@ -105,7 +105,7 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 - `/yoke charge` -- frontier execution
 - `/yoke feed` -- strategy materialization and frontier-fact maintenance
 - `/yoke strategize` -- SML review
-- `/yoke steer SLUG` -- itemless steering loop
+- `/yoke steer [SLUG]` -- itemless steering loop, default doc CURRENT-PLAN
 - `/yoke simulate YOK-N` or `/yoke simulate --system` -- integration or system-wide consistency simulation (harness slash skill only)
 
 ### Tier 2: Internal sub-skills
