@@ -38,6 +38,12 @@ installed revision to one resident evaluator for the machine user. The
 resident keeps the canonical engine imported and uses one persistent HTTPS
 connection pool. It applies the caller context while evaluating, so session
 identity and policy behavior remain those of the originating harness process.
+The short-lived client reads the interpreter process start from the operating
+system and stops its monotonic clock immediately before final stdout. It sends
+that completion to the resident on the existing Unix socket; the resident then
+adds `client_wall_ms` to the matching `HookDispatchTelemetry` context without
+putting a second network request on the hook's decision path. The canonical
+in-process path records the same field directly.
 Inside that resident, the canonical evaluator branches on the machine config's
 active connection (`yoke_cli.transport.https.resolve_https_connection`):
 
@@ -69,6 +75,11 @@ heartbeat and tool-activity state advance when the batch commits, so their lag
 is bounded by the same flush interval. An older server does not advertise the
 capability, leaving every hook on the established synchronous path throughout
 a rolling upgrade.
+
+Inspect the resulting hourly split with `yoke sessions hook-overhead
+[--hours N] [--json]`. Its table reports PreToolUse and PostToolUse client
+p50/p90, server p50, client-minus-server remainder, and their combined client
+p50 as overhead per tool call.
 
 **Deadline contract.** One shared ceiling — `hook_runner_total_timeout_ms`, default 10000ms (`yoke_core.domain.hook_runner_deadline`) — spans both halves: the client-side subset fits within the remaining budget (head-starves-tail, identical to one in-process chain), the client's POST socket timeout is the remainder after it, `deadline_ms` propagates that same remainder, and the server stops launching further chain policies once it is exhausted (clamped to its own ceiling). A deny computed before expiry is preserved on either side; otherwise the response marks `deadline_exhausted` in `degraded` and names every skipped guard as `deadline_skipped:N:a,b,c`. Server-side latency telemetry: `yoke.hook.wait_ms` histogram + `yoke.hook.requests` counter with `outcome ∈ completed|timeout|denied` (the same `outcome` field rides the response for the client's composition).
 

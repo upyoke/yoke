@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import socket
 import struct
+import uuid
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -14,6 +15,13 @@ MAX_FRAME_BYTES = 16 * 1024 * 1024
 RESIDENT_IDLE_TIMEOUT_SECONDS = 600
 EVALUATOR_PAYLOAD_KEY = "yoke_hook_evaluator"
 HOOK_OBSERVATION_BATCH_CAPABILITY = "read_only_observation_batch_v1"
+HOOK_CLIENT_WALL_CAPABILITY = "hook_client_wall_v1"
+HOOK_CLIENT_WALL_BATCH_FIELD = "client_wall_reports"
+HOOK_CLIENT_WALL_PATH = "/v1/hooks/telemetry/client-wall"
+HOOK_EVALUATOR_CAPABILITIES = (
+    HOOK_OBSERVATION_BATCH_CAPABILITY,
+    HOOK_CLIENT_WALL_CAPABILITY,
+)
 HOOK_MODEL_CONFIRMATION_FIELD = "model_confirmation"
 HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD = "model_confirmations"
 EVALUATORS = frozenset({"resident", "inprocess"})
@@ -43,6 +51,52 @@ def _string(value: Any, field: str) -> str:
     return value
 
 
+def _event_id(value: Any) -> str:
+    raw = _string(value, "event_id")
+    try:
+        parsed = uuid.UUID(raw)
+    except ValueError:
+        raise HookEvaluatorProtocolError("event_id must be a UUID") from None
+    return str(parsed)
+
+
+@dataclass(frozen=True)
+class HookClientWallReport:
+    """Completion report sent by the short-lived client to its resident."""
+
+    event_id: str
+    client_wall_ms: int
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "protocol": PROTOCOL_VERSION,
+            "kind": "client_wall",
+            "event_id": self.event_id,
+            "client_wall_ms": self.client_wall_ms,
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "HookClientWallReport":
+        if not isinstance(value, Mapping) or value.get("protocol") != PROTOCOL_VERSION:
+            raise HookEvaluatorProtocolError("client wall report protocol is invalid")
+        if value.get("kind") != "client_wall":
+            raise HookEvaluatorProtocolError("client wall report kind is invalid")
+        raw_ms = value.get("client_wall_ms")
+        if isinstance(raw_ms, bool):
+            raise HookEvaluatorProtocolError("client_wall_ms must be an integer")
+        try:
+            elapsed = int(raw_ms)
+        except (TypeError, ValueError):
+            raise HookEvaluatorProtocolError(
+                "client_wall_ms must be an integer"
+            ) from None
+        if elapsed < 0 or elapsed > 600_000:
+            raise HookEvaluatorProtocolError(
+                "client_wall_ms is outside the supported range"
+            )
+        return cls(event_id=_event_id(value.get("event_id")), client_wall_ms=elapsed)
+
+
 @dataclass(frozen=True)
 class HookEvaluatorRequest:
     """One hook invocation plus the originating process context."""
@@ -55,6 +109,7 @@ class HookEvaluatorRequest:
     cwd: str
     environment: dict[str, str]
     revision: str
+    client_timing_id: str = ""
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -67,6 +122,7 @@ class HookEvaluatorRequest:
             "cwd": self.cwd,
             "environment": self.environment,
             "revision": self.revision,
+            "client_timing_id": self.client_timing_id,
         }
 
     @classmethod
@@ -88,6 +144,8 @@ class HookEvaluatorRequest:
         dry_run = value.get("dry_run")
         if not isinstance(dry_run, bool):
             raise HookEvaluatorProtocolError("dry_run must be a boolean")
+        raw_timing_id = value.get("client_timing_id")
+        timing_id = "" if raw_timing_id in (None, "") else _event_id(raw_timing_id)
         return cls(
             event_name=_string(value.get("event_name"), "event_name"),
             stdin=_string(value.get("stdin"), "stdin"),
@@ -97,6 +155,7 @@ class HookEvaluatorRequest:
             cwd=_string(value.get("cwd"), "cwd"),
             environment=dict(raw_environment),
             revision=_string(value.get("revision"), "revision"),
+            client_timing_id=timing_id,
         )
 
 
@@ -146,6 +205,7 @@ def attach_evaluator_metadata(
     evaluator: str,
     warm_duration_ms: int,
     fallback_reason: str = "",
+    client_timing_id: str = "",
 ) -> str:
     """Add evaluator facts without changing any hook policy field."""
     try:
@@ -158,6 +218,11 @@ def attach_evaluator_metadata(
         "evaluator": evaluator,
         "warm_duration_ms": max(0, int(warm_duration_ms)),
     }
+    if client_timing_id:
+        try:
+            metadata["client_timing_id"] = _event_id(client_timing_id)
+        except HookEvaluatorProtocolError:
+            pass
     if fallback_reason:
         metadata["fallback_reason"] = fallback_reason
     payload[EVALUATOR_PAYLOAD_KEY] = metadata
@@ -184,6 +249,10 @@ def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
             warm_duration_ms if evaluator == "resident" else 0
         ),
     }
+    try:
+        fields["client_timing_id"] = _event_id(metadata.get("client_timing_id"))
+    except HookEvaluatorProtocolError:
+        pass
     fallback_reason = metadata.get("fallback_reason")
     if evaluator == "inprocess" and isinstance(fallback_reason, str):
         fields["evaluator_fallback_reason"] = fallback_reason[:240]
@@ -192,9 +261,14 @@ def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
 
 __all__ = [
     "EVALUATOR_PAYLOAD_KEY",
+    "HOOK_CLIENT_WALL_BATCH_FIELD",
+    "HOOK_CLIENT_WALL_CAPABILITY",
+    "HOOK_CLIENT_WALL_PATH",
+    "HOOK_EVALUATOR_CAPABILITIES",
     "HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD",
     "HOOK_MODEL_CONFIRMATION_FIELD",
     "HOOK_OBSERVATION_BATCH_CAPABILITY",
+    "HookClientWallReport",
     "HookEvaluatorProtocolError",
     "HookEvaluatorRequest",
     "MAX_FRAME_BYTES",

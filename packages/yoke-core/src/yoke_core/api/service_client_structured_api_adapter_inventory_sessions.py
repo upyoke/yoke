@@ -55,6 +55,10 @@ SESSION_ADAPTERS = [
             "[--limit N] [--session S]"
         ),
     ),
+    _read_entry(
+        function_id="sessions.hook_overhead",
+        cli_invocation="yoke sessions hook-overhead [--hours N] [--json]",
+    ),
     AdapterEntry(
         function_id="session_control.evidence.get",
         cli_invocation=(

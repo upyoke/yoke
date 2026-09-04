@@ -16,6 +16,9 @@ from yoke_cli.commands.adapters.sessions_maintenance import (
     SESSIONS_RECLAIM_STALE_USAGE,
 )
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
+from yoke_cli.commands.adapters.sessions_hook_overhead import (
+    SESSIONS_HOOK_OVERHEAD_USAGE,
+)
 from yoke_cli.commands.adapters.session_control_usage import (
     SESSION_CONTROL_USAGE_BY_FUNCTION_ID,
 )
@@ -25,6 +28,7 @@ USAGE_BY_FUNCTION_ID = {
     "sessions.begin": SESSIONS_BEGIN_USAGE,
     "sessions.identity": SESSIONS_IDENTITY_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,
+    "sessions.hook_overhead": SESSIONS_HOOK_OVERHEAD_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,

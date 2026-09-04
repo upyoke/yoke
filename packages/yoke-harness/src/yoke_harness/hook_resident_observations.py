@@ -1,4 +1,4 @@
-"""Asynchronous, ordered observation delivery for resident read-only hooks."""
+"""Asynchronous, ordered telemetry delivery for resident hook evaluations."""
 
 from __future__ import annotations
 
@@ -17,7 +17,9 @@ from yoke_cli.transport.bounded_json_http import request_json
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
+    HOOK_CLIENT_WALL_PATH,
 )
+from yoke_harness.hook_resident_client_wall import PendingClientWall
 
 
 OBSERVATION_FLUSH_INTERVAL_SECONDS = 2.0
@@ -66,6 +68,8 @@ class PendingObservation:
     hook_request: dict[str, Any]
     enqueued_at: float
 
+    batch_field = "observations"
+
     def payload(self) -> dict[str, Any]:
         return {
             "observation_id": self.observation_id,
@@ -75,8 +79,11 @@ class PendingObservation:
         }
 
 
+PendingTelemetry = PendingObservation | PendingClientWall
+
+
 def _record_model_confirmations(
-    batch: list[PendingObservation], result: dict[str, Any]
+    batch: list[PendingTelemetry], result: dict[str, Any]
 ) -> None:
     confirmations = result.get(HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD)
     if not isinstance(confirmations, dict):
@@ -86,6 +93,8 @@ def _record_model_confirmations(
     )
 
     for entry in batch:
+        if not isinstance(entry, PendingObservation):
+            continue
         confirmed = confirmations.get(entry.observation_id)
         if not isinstance(confirmed, str):
             continue
@@ -101,11 +110,12 @@ def _record_model_confirmations(
 class DeferredObservationOpener:
     """Capture the normal relay request and return a local allow response."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, client_wall_supported: bool = False) -> None:
         self._endpoint = ""
         self._authorization = ""
         self._body: dict[str, Any] | None = None
         self._observed_at = datetime.now(timezone.utc).isoformat()
+        self._client_wall_supported = client_wall_supported
 
     def __call__(
         self,
@@ -154,15 +164,25 @@ class DeferredObservationOpener:
             enqueued_at=time.monotonic(),
         )
 
+    def client_wall_target(self) -> tuple[str, str] | None:
+        if (
+            not self._client_wall_supported
+            or not self._endpoint
+            or not self._authorization
+        ):
+            return None
+        base = self._endpoint[: -len(_OBSERVATION_PATH)]
+        return base + HOOK_CLIENT_WALL_PATH, self._authorization
+
 
 class ObservationQueue:
-    """Retain failed batches and retry them in original hook order."""
+    """Retain failed telemetry batches and retry in original hook order."""
 
     def __init__(self, opener) -> None:
         self._opener = opener
         self._condition = threading.Condition()
         self._flush_lock = threading.Lock()
-        self._entries: list[PendingObservation] = []
+        self._entries: list[PendingTelemetry] = []
         self._stopping = False
         self._force = False
         self._failure = ""
@@ -173,7 +193,7 @@ class ObservationQueue:
         )
         self._thread.start()
 
-    def enqueue(self, entry: PendingObservation) -> None:
+    def enqueue(self, entry: PendingTelemetry) -> None:
         with self._condition:
             self._entries.append(entry)
             if len(self._entries) >= OBSERVATION_FLUSH_COUNT:
@@ -219,17 +239,18 @@ class ObservationQueue:
             if self._failure:
                 time.sleep(OBSERVATION_FLUSH_INTERVAL_SECONDS)
 
-    def _batch(self) -> list[PendingObservation]:
+    def _batch(self) -> list[PendingTelemetry]:
         with self._condition:
             if not self._entries:
                 return []
             first = self._entries[0]
-            batch: list[PendingObservation] = []
+            batch: list[PendingTelemetry] = []
             size = 32
             for entry in self._entries:
                 if (
                     entry.endpoint != first.endpoint
                     or entry.authorization != first.authorization
+                    or entry.batch_field != first.batch_field
                     or len(batch) >= OBSERVATION_FLUSH_COUNT
                 ):
                     break
@@ -251,7 +272,7 @@ class ObservationQueue:
                 return
             body = {
                 "hook_schema": 1,
-                "observations": [entry.payload() for entry in batch],
+                batch[0].batch_field: [entry.payload() for entry in batch],
             }
             request = urllib.request.Request(
                 batch[0].endpoint,
@@ -285,7 +306,10 @@ class ObservationQueue:
             _record_model_confirmations(batch, result)
             ids = [entry.observation_id for entry in batch]
             with self._condition:
-                if [entry.observation_id for entry in self._entries[: len(ids)]] == ids:
+                queued_ids = [
+                    entry.observation_id for entry in self._entries[: len(ids)]
+                ]
+                if queued_ids == ids:
                     del self._entries[: len(ids)]
                 self._failure = ""
                 self._condition.notify_all()
@@ -319,5 +343,6 @@ __all__ = [
     "OBSERVATION_FLUSH_COUNT",
     "OBSERVATION_FLUSH_INTERVAL_SECONDS",
     "ObservationQueue",
+    "PendingClientWall",
     "PendingObservation",
 ]

@@ -312,7 +312,13 @@ the caller. `driver_origin` says which of the two answered: `client` for a
 relayed self-report, `local` where the evaluating process is itself the
 driver.
 
-It also carries `evaluator` (`resident` or `inprocess`) and `resident_warm_duration_ms`. When resident delivery is unavailable and the canonical in-process fallback runs, `evaluator_fallback_reason` names that degradation. Guard-free read-only hooks retain this exact event contract when the resident persists their tool and dispatch events through the ordered asynchronous observation batch.
+It also carries `evaluator` (`resident` or `inprocess`), `resident_warm_duration_ms`, and `client_wall_ms`. The client-owned wall time
+starts at interpreter process creation and ends immediately before final stdout; it is always at least the dispatch row's server `duration_ms`.
+When resident delivery is unavailable and the canonical in-process fallback
+runs, `evaluator_fallback_reason` names that degradation.
+Guard-free read-only hooks retain this exact event contract when the resident
+persists their tool and dispatch events through the ordered asynchronous
+observation batch.
 
 **Suppression-token audit evidence is NOT a separate event.** Lint guardrails honor `# lint:no-*-check` suppression tokens by recording the attempt on the *existing* `HarnessToolCallDenied` row with `event_outcome='suppression_attempted'`. No separate hook suppression event is registered or emitted; observers querying suppression activity filter `HarnessToolCallDenied` by `event_outcome`.
 

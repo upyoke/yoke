@@ -44,6 +44,10 @@ state.
 Ambient session identity comes from the harness (env / process anchor /
 conversation mapping) — operators should not invent session IDs.
 
+`yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
+PostToolUse client wall time, server time, and their network-plus-startup
+remainder. Add `--json` for the registered result envelope.
+
 ## Overview and Inbox
 
 - **Overview** — glance sections across strategy, frontier, sessions,

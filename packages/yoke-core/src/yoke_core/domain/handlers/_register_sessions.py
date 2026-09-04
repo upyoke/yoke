@@ -9,25 +9,47 @@ from yoke_core.domain.handlers import sessions_orchestration as _so
 from yoke_core.domain.handlers import sessions_reclaim as _sr
 from yoke_core.domain.handlers import sessions_closeout as _sc
 from yoke_core.domain.handlers import sessions_identity as _si
+from yoke_core.domain.handlers import sessions_hook_overhead as _sho
 
 
 def register(registry) -> None:
     registry.register(
-        "sessions.end_if_empty", _sc.handle_sessions_end_if_empty,
-        _sc.SessionsEndIfEmptyRequest, _sc.SessionsEndIfEmptyResponse,
+        "sessions.hook_overhead",
+        _sho.handle_sessions_hook_overhead,
+        _sho.SessionsHookOverheadRequest,
+        _sho.SessionsHookOverheadResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.sessions_hook_overhead",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "sessions.end_if_empty",
+        _sc.handle_sessions_end_if_empty,
+        _sc.SessionsEndIfEmptyRequest,
+        _sc.SessionsEndIfEmptyResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_closeout",
         target_kinds=["global"],
         side_effects=["harness_sessions_update", "events_insert"],
         emitted_event_names=[
-            "HarnessSessionEnded", "ChainEndDeferred", "YokeFunctionCalled",
+            "HarnessSessionEnded",
+            "ChainEndDeferred",
+            "YokeFunctionCalled",
         ],
         guardrails=["self_only", "claimless", "chain_budget_complete"],
-        adapter_status="live", claim_required_kind=None,
+        adapter_status="live",
+        claim_required_kind=None,
     )
     registry.register(
-        "sessions.list", _sl.handle_sessions_list,
-        _sl.SessionsListRequest, _sl.SessionsListResponse,
+        "sessions.list",
+        _sl.handle_sessions_list,
+        _sl.SessionsListRequest,
+        _sl.SessionsListResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_list",
         target_kinds=["global"],
@@ -38,8 +60,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "sessions.reclaim_stale", _sr.handle_sessions_reclaim_stale,
-        _sr.SessionsReclaimStaleRequest, _sr.SessionsReclaimStaleResponse,
+        "sessions.reclaim_stale",
+        _sr.handle_sessions_reclaim_stale,
+        _sr.SessionsReclaimStaleRequest,
+        _sr.SessionsReclaimStaleResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_reclaim",
         target_kinds=["global"],
@@ -66,8 +90,10 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
-        "sessions.identity", _si.handle_identity,
-        _si.IdentityRequest, _si.IdentityResponse,
+        "sessions.identity",
+        _si.handle_identity,
+        _si.IdentityRequest,
+        _si.IdentityResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_identity",
         target_kinds=["global"],
@@ -78,8 +104,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "sessions.touch", _so.handle_touch,
-        _so.TouchRequest, _so.TouchResponse,
+        "sessions.touch",
+        _so.handle_touch,
+        _so.TouchRequest,
+        _so.TouchResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_orchestration",
         target_kinds=["global"],
@@ -90,8 +118,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "sessions.checkpoint", _so.handle_checkpoint,
-        _so.CheckpointRequest, _so.CheckpointResponse,
+        "sessions.checkpoint",
+        _so.handle_checkpoint,
+        _so.CheckpointRequest,
+        _so.CheckpointResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_orchestration",
         target_kinds=["global"],
@@ -102,8 +132,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "sessions.checkpoint_read", _so.handle_checkpoint_read,
-        _so.CheckpointReadRequest, _so.CheckpointResponse,
+        "sessions.checkpoint_read",
+        _so.handle_checkpoint_read,
+        _so.CheckpointReadRequest,
+        _so.CheckpointResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_orchestration",
         target_kinds=["global"],
@@ -114,14 +146,18 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "sessions.begin", _sb.handle_begin,
-        _sb.BeginRequest, _sb.BeginResponse,
+        "sessions.begin",
+        _sb.handle_begin,
+        _sb.BeginRequest,
+        _sb.BeginResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_begin",
         target_kinds=["global"],
         side_effects=[
-            "harness_sessions_insert", "harness_sessions_update",
-            "work_claims_update", "events_insert",
+            "harness_sessions_insert",
+            "harness_sessions_update",
+            "work_claims_update",
+            "events_insert",
         ],
         emitted_event_names=["HarnessSessionStarted", "YokeFunctionCalled"],
         guardrails=["session_creation"],
@@ -130,17 +166,22 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
-        "sessions.offer", _so.handle_offer,
-        _so.OfferRequest, _so.OfferResponse,
+        "sessions.offer",
+        _so.handle_offer,
+        _so.OfferRequest,
+        _so.OfferResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_orchestration",
         target_kinds=["global"],
         side_effects=[
-            "harness_sessions_update", "work_claims_insert",
-            "work_claims_update", "events_insert",
+            "harness_sessions_update",
+            "work_claims_insert",
+            "work_claims_update",
+            "events_insert",
         ],
         emitted_event_names=[
-            "HarnessSessionOffered", "NextActionChosen",
+            "HarnessSessionOffered",
+            "NextActionChosen",
             "YokeFunctionCalled",
         ],
         guardrails=["active_session_required", "offer_ownership_guard"],
@@ -148,8 +189,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "sessions.ownership_guard", _so.handle_ownership_guard,
-        _so.OwnershipGuardRequest, _so.OwnershipGuardResponse,
+        "sessions.ownership_guard",
+        _so.handle_ownership_guard,
+        _so.OwnershipGuardRequest,
+        _so.OwnershipGuardResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_orchestration",
         target_kinds=["item"],
@@ -160,8 +203,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "charge.schedule", _scs.handle_charge_schedule,
-        _scs.ChargeScheduleRequest, _scs.ChargeScheduleResponse,
+        "charge.schedule",
+        _scs.handle_charge_schedule,
+        _scs.ChargeScheduleRequest,
+        _scs.ChargeScheduleResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_charge_schedule",
         target_kinds=["global"],

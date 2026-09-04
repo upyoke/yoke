@@ -16,6 +16,7 @@ from typing import Any
 
 from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.hook_evaluator_protocol import (
+    HookClientWallReport,
     HookEvaluatorProtocolError,
     HookEvaluatorRequest,
     RESIDENT_IDLE_TIMEOUT_SECONDS,
@@ -113,13 +114,15 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
         with self.probe_lock:
             self.last_message_probes[session_id] = time.monotonic()
 
-    def evaluate(self, request: HookEvaluatorRequest) -> dict[str, Any]:
+    def evaluate(
+        self, request: HookEvaluatorRequest
+    ) -> tuple[dict[str, Any], tuple[str, str] | None]:
         if not os.path.isabs(request.cwd) or not os.path.isdir(request.cwd):
             return {
                 "status": "error",
                 "code": "YOKE_HOOK_RESIDENT_CONTEXT_INVALID",
                 "detail": "caller cwd is unavailable; retry from an existing directory",
-            }
+            }, None
         process = HookProcessContext(
             environment=dict(request.environment),
             cwd=request.cwd,
@@ -130,6 +133,7 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
         probe_key = message_probe_key(request.stdin)
         local = read_only and self.should_evaluate_locally(probe_key)
         started = time.monotonic()
+        self.http_opener.begin_hook_request()
         with activate_process_context(process) as capture:
             from yoke_cli.commands.adapters.hook_config_dedup import (
                 is_cursor_config_invocation,
@@ -142,7 +146,9 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
                     DeferredObservationOpener,
                 )
 
-                deferred = DeferredObservationOpener()
+                deferred = DeferredObservationOpener(
+                    client_wall_supported=self.http_opener.client_wall_supported()
+                )
                 opener = deferred
             exit_code = self.evaluate_inprocess(
                 request.event_name,
@@ -154,6 +160,7 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
                 http_opener=opener,
                 evaluator="resident",
                 warm_duration_ms=int((time.monotonic() - self.started_at) * 1000),
+                client_timing_id=request.client_timing_id,
             )
             hook_wait_ms = int((time.monotonic() - started) * 1000)
             if deferred is not None:
@@ -164,12 +171,17 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
                 self.mark_message_probe(probe_key)
             stdout = capture.stdout
             stderr = capture.stderr + self.observations.diagnostic()
+        target = (
+            deferred.client_wall_target()
+            if deferred is not None
+            else self.http_opener.client_wall_target()
+        )
         return {
             "status": "ok",
             "stdout": stdout,
             "stderr": stderr,
             "exit_code": int(exit_code),
-        }
+        }, target
 
 
 class _ResidentHandler(socketserver.BaseRequestHandler):
@@ -177,6 +189,8 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
 
     def handle(self) -> None:
         self.server.begin_request()
+        request = None
+        client_wall_target = None
         try:
             self.request.settimeout(15.0)
             try:
@@ -185,7 +199,7 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
                     send_frame(self.request, {"status": "restart"})
                     self.server.restart_event.set()
                     return
-                response = self.server.evaluate(request)
+                response, client_wall_target = self.server.evaluate(request)
             except HookEvaluatorProtocolError as exc:
                 response = {
                     "status": "error",
@@ -202,7 +216,28 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
             try:
                 send_frame(self.request, response)
             except (HookEvaluatorProtocolError, OSError, socket.timeout):
-                pass
+                return
+            if (
+                response.get("status") != "ok"
+                or request is None
+                or not request.client_timing_id
+            ):
+                return
+            try:
+                self.request.settimeout(0.25)
+                report = HookClientWallReport.from_mapping(receive_frame(self.request))
+            except (HookEvaluatorProtocolError, OSError, socket.timeout):
+                return
+            from yoke_harness.hook_resident_client_wall import (
+                record_resident_client_wall,
+            )
+
+            record_resident_client_wall(
+                queue=self.server.observations,
+                request=request,
+                report=report,
+                target=client_wall_target,
+            )
         finally:
             self.server.end_request()
 

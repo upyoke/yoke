@@ -8,6 +8,7 @@ import sys
 from contextlib import redirect_stderr, redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 import pytest
 
@@ -21,12 +22,7 @@ _RESOLVE = "yoke_cli.transport.https.resolve_https_connection"
 
 @pytest.fixture(autouse=True)
 def local_subset(monkeypatch):
-    """Pin the relay's client-side half to a deterministic allow.
-
-    The relay always evaluates the LOCAL_STATE_POLICIES subset before
-    posting; wire-contract tests must not run the real registry chain on
-    the test machine. Composition tests reassign ``holder.result``.
-    """
+    """Pin the relay's client-side half to a deterministic allow."""
     from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
 
     holder = SimpleNamespace(
@@ -158,6 +154,8 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     assert body["event_name"] == "PreToolUse"
     hook_stdin = json.loads(body["stdin"])
     metadata = hook_stdin.pop("yoke_hook_evaluator")
+    timing_id = metadata.pop("client_timing_id")
+    assert str(UUID(timing_id)) == timing_id
     assert metadata == {"evaluator": "inprocess", "warm_duration_ms": 0}
     assert hook_stdin == dict(
         json.loads(raw_stdin),

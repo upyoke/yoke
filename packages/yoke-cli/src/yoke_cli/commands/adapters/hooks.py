@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import os
 import sys
 from typing import List
@@ -37,19 +39,43 @@ def _evaluate_inprocess(
     dry_run: bool,
     cursor_invocation: bool,
     fallback_reason: str = "",
+    client_timing=None,
 ) -> int:
     from yoke_cli.commands.adapters.hook_inprocess import evaluate_inprocess
+    from yoke_cli.hook_client_wall import record_client_wall
 
-    return evaluate_inprocess(
-        event_name,
-        stdin_data,
-        dry_run=dry_run,
-        cursor_invocation=cursor_invocation,
-        fallback_reason=fallback_reason,
-    )
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        exit_code = evaluate_inprocess(
+            event_name,
+            stdin_data,
+            dry_run=dry_run,
+            cursor_invocation=cursor_invocation,
+            fallback_reason=fallback_reason,
+            client_timing_id=(client_timing.event_id if client_timing else ""),
+            on_complete=(
+                (
+                    lambda: record_client_wall(
+                        client_timing.event_id,
+                        client_timing.elapsed_ms(),
+                    )
+                )
+                if client_timing is not None
+                else None
+            ),
+        )
+    if stdout.getvalue():
+        sys.stdout.write(stdout.getvalue())
+    if stderr.getvalue():
+        sys.stderr.write(stderr.getvalue())
+    return exit_code
 
 
 def hook_evaluate(args: List[str]) -> int:
+    from yoke_cli.hook_client_wall import HookClientWall
+
+    client_timing = HookClientWall.start()
     parser = argparse.ArgumentParser(
         prog="yoke hook evaluate",
         description=HOOK_EVALUATE_USAGE,
@@ -92,6 +118,7 @@ def hook_evaluate(args: List[str]) -> int:
             stdin_data,
             dry_run=parsed.dry_run,
             cursor_invocation=cursor_invocation,
+            client_timing=None if parsed.dry_run else client_timing,
         )
 
     from yoke_cli.hook_resident_client import (
@@ -100,7 +127,12 @@ def hook_evaluate(args: List[str]) -> int:
     )
 
     try:
-        result = evaluate_with_resident(parsed.event_name, stdin_data)
+        result = evaluate_with_resident(
+            parsed.event_name,
+            stdin_data,
+            client_timing_id=client_timing.event_id,
+            client_started_monotonic=client_timing.started_monotonic,
+        )
     except ResidentUnavailable as exc:
         sys.stderr.write(
             f"WARNING: {exc.code}: {exc.detail}; using canonical in-process "
@@ -112,6 +144,7 @@ def hook_evaluate(args: List[str]) -> int:
             dry_run=False,
             cursor_invocation=cursor_invocation,
             fallback_reason=exc.code,
+            client_timing=client_timing,
         )
 
     if result.stdout:

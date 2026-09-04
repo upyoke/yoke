@@ -58,6 +58,8 @@ def evaluate_inprocess(
     evaluator: str = "inprocess",
     warm_duration_ms: int = 0,
     fallback_reason: str = "",
+    client_timing_id: str = "",
+    on_complete: Callable[[], None] | None = None,
 ) -> int:
     """Run the existing hook chain after the caller context is established."""
     original_stdin = stdin_data
@@ -68,6 +70,7 @@ def evaluate_inprocess(
             evaluator=evaluator,
             warm_duration_ms=warm_duration_ms,
             fallback_reason=fallback_reason,
+            client_timing_id=client_timing_id,
         )
     try:
         from yoke_harness.hooks.relay import (
@@ -125,9 +128,10 @@ def evaluate_inprocess(
             extra_context=extra_context,
         )
 
-    if not extra_context:
-        return evaluate()
-    return _evaluate_confirming_orientation(evaluate)
+    result = _evaluate_confirming_orientation(evaluate) if extra_context else evaluate()
+    if on_complete is not None:
+        on_complete()
+    return result
 
 
 def _session_orientation(

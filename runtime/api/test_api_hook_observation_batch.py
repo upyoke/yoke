@@ -133,7 +133,7 @@ def test_batch_persists_ordered_events_activity_and_evaluator(
 ) -> None:
     response = client.post("/v1/hooks/telemetry/batch", json=_batch())
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     assert response.json() == {"hook_schema": 1, "accepted": 2}
     tool_events, dispatches, session = _stored_state(observation_db)
     assert [row["event_name"] for row in tool_events] == [
@@ -165,6 +165,38 @@ def test_batch_retry_is_idempotent(client, observation_db) -> None:
     assert len(tool_events) == 2
     assert len(dispatches) == 2
     assert session["tool_call_count"] == 1
+
+
+def test_client_wall_completion_updates_the_matching_dispatch(
+    client, observation_db
+) -> None:
+    timing_id = "19d10f0d-5971-4270-99e7-aead252843c1"
+    body = _batch()
+    first = json.loads(body["observations"][0]["hook_request"]["stdin"])
+    first["yoke_hook_evaluator"]["client_timing_id"] = timing_id
+    body["observations"][0]["hook_request"]["stdin"] = json.dumps(first)
+    assert client.post("/v1/hooks/telemetry/batch", json=body).status_code == 200
+
+    response = client.post(
+        "/v1/hooks/telemetry/client-wall",
+        json={
+            "hook_schema": 1,
+            "client_wall_reports": [{"event_id": timing_id, "client_wall_ms": 1}],
+        },
+    )
+    assert response.status_code == 200, response.text
+    conn = connect_test_db(observation_db["db_path"])
+    try:
+        row = conn.execute(
+            "SELECT duration_ms,envelope FROM events "
+            "WHERE event_name='HookDispatchTelemetry' "
+            "AND hook_event_name='PreToolUse'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert (
+        json.loads(row["envelope"])["context"]["client_wall_ms"] >= row["duration_ms"]
+    )
 
 
 def test_batch_rejects_guarded_tools_and_invisible_projects(client) -> None:
