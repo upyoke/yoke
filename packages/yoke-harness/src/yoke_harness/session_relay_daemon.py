@@ -56,9 +56,9 @@ DRAIN_TIMEOUT_SECONDS = 120
 _LOGGER = logging.getLogger(__name__)
 
 
-def _observed_server_build() -> str:
+def _observed_server_build() -> control_plane_payload.ObservedServerBuild:
     """Build carried by the latest response in this poll's handshake."""
-    return control_plane_payload.current_server_build().name
+    return control_plane_payload.current_server_build()
 
 
 def _build_differs(pinned_release: str, served_build: str) -> bool:
@@ -185,7 +185,9 @@ def serve_forever(
     reload_exec: Callable[..., None] = exec_relay_release,
     pinned_release: str = "",
     pin_served_release: Callable[[str], Path] | None = None,
-    served_build_observer: Callable[[], str] = _observed_server_build,
+    served_build_observer: Callable[
+        [], control_plane_payload.ObservedServerBuild
+    ] = _observed_server_build,
     install_signals: bool = True,
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
@@ -230,7 +232,7 @@ def _serve_under_lock(
     reload_exec: Callable[..., None],
     pinned_release: str,
     pin_served_release: Callable[[str], Path] | None,
-    served_build_observer: Callable[[], str],
+    served_build_observer: Callable[[], control_plane_payload.ObservedServerBuild],
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
     """Hold the machine's relay lock for as long as this daemon serves."""
@@ -246,6 +248,9 @@ def _serve_under_lock(
         replacement: Path | None = None
         try:
             while not stop.is_set():
+                observation_before = (
+                    served_build_observer() if pin_served_release is not None else None
+                )
                 try:
                     outcome = cycle(
                         state_dir=state_dir,
@@ -274,8 +279,18 @@ def _serve_under_lock(
                         if last_state == "reported":
                             failures.recovered("report")
                 cycles += 1
+                observation_after = (
+                    served_build_observer() if pin_served_release is not None else None
+                )
+                fresh_handshake = bool(
+                    observation_before is not None
+                    and observation_after is not None
+                    and observation_after.observation > observation_before.observation
+                )
                 served_build = (
-                    served_build_observer() if pin_served_release is not None else ""
+                    observation_after.name
+                    if fresh_handshake and observation_after is not None
+                    else ""
                 )
                 if pin_served_release is not None and _build_differs(
                     pinned_release, served_build

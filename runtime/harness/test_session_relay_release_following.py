@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_cli.transport import control_plane_payload
 from yoke_harness.session_relay import ServeOnceOutcome
 from yoke_harness.session_relay_daemon import serve_forever
 
@@ -11,8 +12,12 @@ SERVED_RELEASE = f"v{PINNED_RELEASE}"
 NEXT_SERVED_RELEASE = "v0.1.1+launch.366"
 
 
-def _active_cycle(**_kwargs) -> ServeOnceOutcome:
-    return ServeOnceOutcome("active", 1)
+def _served_cycle(build: str):
+    def cycle(**_kwargs) -> ServeOnceOutcome:
+        control_plane_payload.observe_server_build(build)
+        return ServeOnceOutcome("active", 1)
+
+    return cycle
 
 
 def test_served_build_change_repins_and_replaces_the_process(tmp_path) -> None:
@@ -26,12 +31,11 @@ def test_served_build_change_repins_and_replaces_the_process(tmp_path) -> None:
 
     outcome = serve_forever(
         state_dir=tmp_path,
-        cycle=_active_cycle,
+        cycle=_served_cycle(NEXT_SERVED_RELEASE),
         idle_tick_seconds=0.01,
         install_signals=False,
         pinned_release=PINNED_RELEASE,
         pin_served_release=pin,
-        served_build_observer=lambda: NEXT_SERVED_RELEASE,
         reload_argv=["--env", "prod", "relay", "serve"],
         reload_exec=lambda argv=None, executable=None: reloaded.append(
             (argv, executable)
@@ -55,6 +59,7 @@ def test_checkout_change_does_not_repin_before_the_environment_deploy(
     def change_checkout(**_kwargs) -> ServeOnceOutcome:
         nonlocal cycles
         cycles += 1
+        control_plane_payload.observe_server_build(SERVED_RELEASE)
         if cycles == 1:
             checkout_source.write_text("request = 'new'\n", encoding="utf-8")
         return ServeOnceOutcome("active", 1)
@@ -67,7 +72,6 @@ def test_checkout_change_does_not_repin_before_the_environment_deploy(
         install_signals=False,
         pinned_release=PINNED_RELEASE,
         pin_served_release=lambda build: pins.append(build),
-        served_build_observer=lambda: SERVED_RELEASE,
     )
 
     assert outcome.cycles == 5
@@ -90,16 +94,33 @@ def test_failed_pin_keeps_the_working_process_and_retries_after_each_poll(
 
     outcome = serve_forever(
         state_dir=tmp_path,
-        cycle=_active_cycle,
+        cycle=_served_cycle(NEXT_SERVED_RELEASE),
         stop_after_cycles=2,
         idle_tick_seconds=0.001,
         install_signals=False,
         pinned_release=PINNED_RELEASE,
         pin_served_release=fail,
-        served_build_observer=lambda: NEXT_SERVED_RELEASE,
         reload_exec=lambda argv=None, **_kw: reloaded.append(argv),
     )
 
     assert outcome.reason == "cycle_cap"
     assert pins == [NEXT_SERVED_RELEASE, NEXT_SERVED_RELEASE]
     assert reloaded == []
+
+
+def test_backoff_does_not_retry_a_pin_without_a_fresh_handshake(tmp_path) -> None:
+    pins: list[str] = []
+    control_plane_payload.observe_server_build(NEXT_SERVED_RELEASE)
+
+    outcome = serve_forever(
+        state_dir=tmp_path,
+        cycle=lambda **_kwargs: ServeOnceOutcome("backoff"),
+        stop_after_cycles=2,
+        idle_tick_seconds=0.001,
+        install_signals=False,
+        pinned_release=PINNED_RELEASE,
+        pin_served_release=lambda build: pins.append(build),
+    )
+
+    assert outcome.reason == "cycle_cap"
+    assert pins == []
