@@ -230,7 +230,14 @@ def prepare_ci_lane(
         target=target,
         project=project,
     )
-    return target if queue_routed else None
+    if queue_routed:
+        from yoke_core.domain.authored_file_merge_preflight import (
+            enforce_authored_file_limit,
+        )
+
+        enforce_authored_file_limit(checkout, target=target)
+        return target
+    return None
 
 
 def open_landing_pull_request(
