@@ -37,7 +37,16 @@ def test_structured_adapter_inventory_tracks_wait_run() -> None:
 
 
 def test_conduct_teaching_uses_registered_wait_run_surface() -> None:
-    audit = inventory.generate_teaching_audit(repo_root=REPO_ROOT)
+    conduct = (
+        REPO_ROOT / ".agents" / "skills" / "yoke" / "conduct"
+        / "dispatch-context-ephemeral.md"
+    ).read_text(encoding="utf-8")
+    assert "yoke github-actions wait-run" in conduct
+
+    audit = inventory.generate_teaching_audit(
+        repo_root=REPO_ROOT,
+        include_help=True,
+    )
     by_form = {row.command_form: row for row in audit.surfaces}
 
     row = by_form["yoke github-actions wait-run"]

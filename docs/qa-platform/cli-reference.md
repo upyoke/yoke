@@ -8,8 +8,8 @@ names are code references, not command recipes.
 Cross-link back from [qa-platform.md](../../.yoke/docs/reference/qa-platform.md) for the four-layer
 model, table schemas, success-policy types, and gating semantics that this CLI
 reads and writes. See [`.yoke/docs/reference/db-reference/functions.md`](../../.yoke/docs/reference/db-reference/functions.md)
-for the function-call envelope and [`docs/atlas.md`](../atlas.md) for the
-operator-readable Atlas of registered surfaces.
+for the function-call envelope. Render the operator-readable Atlas of
+registered surfaces locally with `python3 -m yoke_core.tools.atlas_render_docs render`.
 
 ## Public QA Commands
 

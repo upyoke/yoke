@@ -7,6 +7,7 @@ from pathlib import Path
 from yoke_core.tools import _impacted_contract_prefix_families as prefix_families
 from yoke_core.tools import _impacted_contract_tests as contracts
 from yoke_core.tools import _impacted_contract_tests_path_claims as path_claims
+from yoke_core.tools import _impacted_generated_artifact_parity as generated_artifacts
 from yoke_core.tools import (
     _impacted_contract_tests_session_control as session_control_contracts,
 )
@@ -18,6 +19,17 @@ def _write(root: Path, relative: str, body: str = "VALUE = 1\n") -> None:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body)
+
+
+def test_atlas_consumers_are_on_the_generated_artifact_floor() -> None:
+    expected = {
+        "runtime/api/engines/test_doctor_tier_discipline_live_repo.py",
+        "runtime/api/domain/test_path_context.py",
+        "runtime/api/cli/test_yoke_product_boundary_github_actions_wait_run.py",
+    }
+
+    assert expected <= set(generated_artifacts.GENERATED_ARTIFACT_PARITY_TESTS)
+    assert expected <= set(impacted_tests.ALWAYS_RUN_TESTS)
 
 
 def test_contract_companions_survive_bounded_shared_fixture_deferral(

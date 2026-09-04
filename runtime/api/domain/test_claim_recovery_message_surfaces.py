@@ -7,10 +7,10 @@ from pathlib import Path
 from yoke_core.domain.lint_claim_ownership_mutations import _spoof_reason
 from yoke_core.domain.path_claims_dispatch_help import REGISTER_DESCRIPTION
 from yoke_core.domain.path_claims_dispatch_ownership import OwnershipDenial
+from yoke_core.tools.atlas_render_docs import _render_permanent_roster
 
 
 _CORE = Path(__file__).parents[3] / "packages" / "yoke-core" / "src" / "yoke_core"
-_ATLAS = Path(__file__).parents[3] / "docs" / "atlas.md"
 _ACTIVE_RECOVERY_SURFACES = (
     "domain/attestation_rehearsal_dryrun.py",
     "domain/backlog_update_op.py",
@@ -74,7 +74,9 @@ def test_operator_break_glass_guidance_does_not_embed_a_private_recipe() -> None
 
 
 def test_operator_break_glass_recipe_is_present_in_atlas() -> None:
-    text = _ATLAS.read_text(encoding="utf-8")
+    text = "\n".join(_render_permanent_roster({
+        "operation_tracker": {"rows": []},
+    }))
     assert "### Human-only stranded work-claim release" in text
     assert "service_client claim-release" in text
     assert "--claim-id CLAIM_ID" in text
