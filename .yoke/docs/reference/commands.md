@@ -32,7 +32,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `/yoke charge` | Direct-mode entrypoint -- pick up next runnable item from frontier, begin implementation |
 | `/yoke feed [--no-new-items] [PREFIX-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
 | `/yoke strategize` | Direct-mode entrypoint -- guided SML review (research, propose, approve) |
-| `/yoke steer <STRATEGY-DOC-SLUG> [--project P]` | Direct-mode entrypoint -- itemless steering loop over a required strategy doc |
+| `/yoke steer [STRATEGY-DOC-SLUG] [--project P ...]` | Direct-mode entrypoint -- itemless steering loop over a strategy doc; an omitted slug resolves to CURRENT-PLAN per project, read before acting |
 
 ## Local Terminal Helpers
 These are operator-facing `yoke` CLI helpers that run directly in a terminal without a harness session; they are not lifecycle slash commands.

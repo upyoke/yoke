@@ -8,6 +8,7 @@ to name `/yoke steer` for any of it to be reachable.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
@@ -28,6 +29,11 @@ _CLAIMS_PACKET = (
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _packet_prose(path: Path) -> str:
+    """Rejoin adjacent string literals so a sentence spans source line breaks."""
+    return re.sub(r'"\s*\n\s*"', "", _read(path))
 
 
 def _words(text: str) -> str:
@@ -110,9 +116,11 @@ class TestSteerDiscoveryAndPacket:
         assert "/yoke steer" in _read(_HELP)
 
     def test_packet_teaches_steer_loop_and_fleet_report(self):
-        notes = _read(_CLAIMS_PACKET)
-        assert "/yoke steer SLUG" in notes
-        assert "offer to create if absent" in notes
+        notes = _packet_prose(_CLAIMS_PACKET)
+        assert "/yoke steer [SLUG] [--project P ...]" in notes
+        assert "resolves to CURRENT-PLAN per named project" in notes
+        assert "is never a question to ask" in notes
+        assert "only a genuinely missing doc reaches the offer-to-create gate" in notes
         assert "--doc SLUG" in notes
         assert "covers exactly that document's linked items" in notes
         assert "yoke steering report get" in notes
