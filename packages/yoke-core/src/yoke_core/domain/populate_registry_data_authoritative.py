@@ -23,6 +23,8 @@ reorder rows during edits.
 from __future__ import annotations
 from typing import Tuple
 
+from yoke_core.domain.board_rebuild_failure import BOARD_REBUILD_FAILED_EVENT_NAME
+
 from yoke_core.domain.populate_registry_data_lifecycle import (  # noqa: F401
     # Re-exported, not used here: this module is the registry's authoritative
     # front door, and callers read the lifecycle lists through it. The module
@@ -65,6 +67,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("BoardRebuildCommandCompleted", "workflow", "board_rebuild_command", "yoke_cli.commands.adapters.board", "INFO", "Human `yoke board rebuild` command completed. Carries command, repo_root, board_path, force, scope, output_name, print_mode, started_at, completed_at, duration_ms, status, exit_code, targets, pid, and cwd."),
     ("BoardRebuildCommandFailed", "workflow", "board_rebuild_command", "yoke_cli.commands.adapters.board", "WARN", "Human `yoke board rebuild` command failed or returned a nonzero rebuild outcome. Carries command, repo_root, board_path, force, scope, output_name, print_mode, started_at, completed_at, duration_ms, status, exit_code, targets or exception detail, pid, and cwd."),
     ("BoardRebuildCommandStarted", "workflow", "board_rebuild_command", "yoke_cli.commands.adapters.board", "INFO", "Human `yoke board rebuild` command started before the rebuild lock/render path. Carries command, repo_root, board_path, force, scope, output_name, print_mode, started_at, pid, and cwd; paired with completion/failure by trace_id."),
+    (BOARD_REBUILD_FAILED_EVENT_NAME, "workflow", "board_rebuild", "yoke_core.domain.board_rebuild_failure", "WARN", "An automatic board rebuild failed after its primary status mutation committed. Carries the named reason and `yoke board rebuild` recovery command; the generated view never reverses or fails the mutation."),
     ("BranchProtectionCheckFailed", "lifecycle", "branch_protection_drift", "yoke_core.engines.doctor_hc_branch_protection", "WARN", "Emitted by HC-branch-protection-required-check when main-branch protection on the project repo is absent, its required_status_checks.contexts list is missing one or more yoke-ci workflow checks, or branch protection is unavailable due to repo plan/visibility (notify-only mode). Context: repo, branch, expected_checks, actual_contexts, missing_checks, reason (branch_protection_absent|missing_required_checks|branch_protection_unavailable), drift_detected_at."),
     ("ChainBudgetUnused", "workflow", "chain_checkpoint", "backend", "INFO", "Emitted on a /yoke do terminal checkpoint when useful chain budget remained unused (all candidates blocked/stale/disabled/recoverable). Carries session_id, step, max_chain_steps, remaining_budget, terminal_reason, and the candidate filter trail."),
     ("ChainDeclineOverridden", "audit", "chain_checkpoint", "backend", "WARN", "Emitted when session-end is invoked with --override-chain-end and a non-empty --chain-end-rationale, bypassing the structural chain-budget guard. Carries session_id, checkpoint step, max_chain_steps, action, item_id, override_flag, and the operator-supplied rationale."),

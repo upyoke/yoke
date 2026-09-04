@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Tuple
 
+from yoke_core.domain.board_rebuild_failure import BOARD_REBUILD_FAILED_EVENT_NAME
+
 
 DEPRECATE_LIST: Tuple[str, ...] = (
     "BrowserDaemonStarted",
@@ -79,6 +81,7 @@ PURGED_EVENT_NAMES: Tuple[str, ...] = (
 EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "BranchProtectionCheckFailed",
     "BoardRebuildCommandFailed",
+    BOARD_REBUILD_FAILED_EVENT_NAME,
     "BrowserDaemonStartupFailed",
     "ChainEndDeferred",
     "DataLossDetected",

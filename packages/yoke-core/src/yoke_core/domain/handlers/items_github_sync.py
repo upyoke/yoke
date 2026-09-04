@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain import backlog, backlog_github_sync
+from yoke_core.domain import backlog_github_sync
 from yoke_core.domain.backlog_github_sync_cli import check_ownership
 
 
@@ -36,7 +36,6 @@ class GithubDoneSyncRequest(BaseModel):
 class GithubSyncResponse(BaseModel):
     item_id: int
     exit_code: int
-    board_rebuild_requested: bool
 
 
 def _error_outcome(code: str, message: str) -> HandlerOutcome:
@@ -79,11 +78,9 @@ def handle_github_sync(request: FunctionCallRequest) -> HandlerOutcome:
             f"with exit code {rc}.",
         )
 
-    backlog._maybe_rebuild_board(True)
     response = GithubSyncResponse(
         item_id=item_id,
         exit_code=rc,
-        board_rebuild_requested=True,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),
@@ -129,11 +126,9 @@ def handle_github_done_sync(request: FunctionCallRequest) -> HandlerOutcome:
             f"with exit code {rc}.",
         )
 
-    backlog._maybe_rebuild_board(True)
     response = GithubSyncResponse(
         item_id=item_id,
         exit_code=rc,
-        board_rebuild_requested=True,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),
@@ -150,7 +145,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "stability": "stable",
         "owner_module": "yoke_core.domain.handlers.items_github_sync",
         "target_kinds": ["item"],
-        "side_effects": ["github_sync", "rebuild_board"],
+        "side_effects": ["github_sync"],
         "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [
             "allow_unclaimed_ownership_guard",
@@ -170,7 +165,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "stability": "stable",
         "owner_module": "yoke_core.domain.handlers.items_github_sync",
         "target_kinds": ["item"],
-        "side_effects": ["github_sync", "rebuild_board"],
+        "side_effects": ["github_sync"],
         "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [
             "allow_unclaimed_ownership_guard",

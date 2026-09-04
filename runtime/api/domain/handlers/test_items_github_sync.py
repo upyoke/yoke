@@ -19,9 +19,8 @@ def _request(item_id: int = 71) -> FunctionCallRequest:
     )
 
 
-def test_github_sync_reuses_allow_unclaimed_guard_and_rebuilds(monkeypatch):
+def test_github_sync_reuses_allow_unclaimed_guard_and_only_mirrors(monkeypatch):
     sync_calls: list[int] = []
-    rebuild_calls: list[bool] = []
     ownership_calls: list[tuple[int, str | None]] = []
 
     monkeypatch.setattr(
@@ -37,12 +36,6 @@ def test_github_sync_reuses_allow_unclaimed_guard_and_rebuilds(monkeypatch):
         "sync_item",
         lambda raw: (sync_calls.append(raw), 0)[1],
     )
-    monkeypatch.setattr(
-        items_github_sync.backlog,
-        "_maybe_rebuild_board",
-        lambda rebuild_board, **_: rebuild_calls.append(rebuild_board),
-    )
-
     outcome = items_github_sync.handle_github_sync(_request())
 
     assert outcome.primary_success is True
@@ -50,14 +43,12 @@ def test_github_sync_reuses_allow_unclaimed_guard_and_rebuilds(monkeypatch):
     assert outcome.result_payload == {
         "item_id": 71,
         "exit_code": 0,
-        "board_rebuild_requested": True,
     }
     # The guard and the sync entry point must receive the resolved internal
     # id. A stringified id is re-read by the operator-argument parser as a
     # project-local sequence, which resolves a different item.
     assert ownership_calls == [(71, "session-A")]
     assert sync_calls == [71]
-    assert rebuild_calls == [True]
 
 
 def test_github_sync_blocks_when_other_session_holds_claim(monkeypatch):
@@ -83,9 +74,7 @@ def test_github_sync_blocks_when_other_session_holds_claim(monkeypatch):
     assert sync_calls == []
 
 
-def test_github_sync_reports_domain_failure_without_board_rebuild(monkeypatch):
-    rebuild_calls: list[bool] = []
-
+def test_github_sync_reports_domain_failure(monkeypatch):
     monkeypatch.setattr(
         items_github_sync,
         "check_ownership",
@@ -96,15 +85,8 @@ def test_github_sync_reports_domain_failure_without_board_rebuild(monkeypatch):
         "sync_item",
         lambda raw: 1,
     )
-    monkeypatch.setattr(
-        items_github_sync.backlog,
-        "_maybe_rebuild_board",
-        lambda rebuild_board, **_: rebuild_calls.append(rebuild_board),
-    )
-
     outcome = items_github_sync.handle_github_sync(_request())
 
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "github_sync_failed"
-    assert rebuild_calls == []

@@ -36,9 +36,8 @@ from typing import List, Optional, Sequence
 from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
 SESSION_ID_ENV_VAR = "YOKE_SESSION_ID"
 
-# Where a Yoke source checkout keeps the ``yoke_core`` package the seed
-# modules live in. Installed layouts hold the package tail directly under
-# ``site-packages``, so the tail alone identifies the module either way.
+# Where a Yoke source checkout keeps the ``yoke_core`` package. An installed
+# release is deliberately not treated as another checkout.
 _YOKE_CORE_SOURCE_PREFIX = Path("packages/yoke-core/src")
 
 
@@ -249,6 +248,12 @@ def assert_seed_source_under_target_root(
         return
     except ValueError:
         pass
+    if any(
+        part in {"site-packages", "dist-packages"}
+        for part in seed_path.parts
+    ):
+        # An installed release is not a competing source checkout.
+        return
     # External-project targets (an installed project repo with no Yoke
     # source tree — e.g. an external board rebuild over the machine-installed
     # CLI) legitimately load the seed from the CLI's Yoke code, which is
