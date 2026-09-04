@@ -46,6 +46,23 @@ export const INSTALL_COMMAND = "curl -fsSL https://upyoke.com/install | sh";
 export const hookTrustRemediation = (trustSurface) =>
   `Waiting on you — trust this project's hooks in ${trustSurface}.`;
 
+// One line per harness card, saying what we detected on that machine. The
+// STATUS KEYS are engine vocabulary (overview.activation.get target rows);
+// the sentences are the product copy for them. "installed · last seen" is
+// built rather than looked up because it carries the date the engine found.
+export const HARNESS_STATUS_TEXT = {
+  not_installed: "not installed",
+  installed_never_seen: "installed · never seen",
+  active: "active · telemetry seen",
+  hooks_need_trust: "hooks need trust",
+  hooks_trusted: "hooks trusted",
+};
+export const harnessStatusLine = (status, lastSeen) => (
+  status === "installed_last_seen"
+    ? `installed · last seen ${lastSeen}`
+    : HARNESS_STATUS_TEXT[status] || ""
+);
+
 export const MODULE_COPY = {
   connect_harness: {
     in_progress: "Open a supported harness in a project directory:",

@@ -216,18 +216,28 @@ test("the harness module answers per machine, never for the universe", async (t)
   assert.equal(machines[0].attributes.get("data-state"), "activated");
   assert.equal(byClass(machines[0], "activation-machine-name")[0].textContent, "alpha-box");
   assert.match(textOf(machines[0]), /claude-code connected 5m ago\./);
-  const chips = byClass(machines[0], "activation-target");
-  assert.deepEqual(chips.map((chip) => chip.textContent), [
-    "Claude Code ✓", "Codex", "Cursor",
-    "Claude CLI ✓", "Codex CLI", "Cursor CLI",
-    "Claude in VS Code ✓", "Cursor IDE",
-  ]);
+  const cardsForMachine = byClass(machines[0], "activation-card");
   assert.deepEqual(
-    chips.map((chip) => chip.attributes.get("data-hit")),
-    ["true", "false", "false", "true", "false", "false", "true", "false"],
+    cardsForMachine.map((card) => byClass(card, "activation-card-name")[0].textContent),
+    [
+      "Claude Code", "Codex", "Cursor",
+      "Claude CLI", "Codex CLI", "Cursor CLI",
+      "Claude in VS Code", "Cursor IDE",
+    ],
+  );
+  // Every surface says what we detected; the ones with no evidence say so.
+  assert.deepEqual(
+    cardsForMachine.map(
+      (card) => byClass(card, "activation-card-status")[0].textContent,
+    ),
+    [
+      "installed · never seen", "not installed", "not installed",
+      "installed · never seen", "not installed", "not installed",
+      "installed · never seen", "not installed",
+    ],
   );
   // Why the unlit targets are not blockers explains the activation model;
-  // the chips carry that themselves without a note beneath them.
+  // the cards carry that themselves without a note beneath them.
   assert.equal(byClass(harness, "activation-note").length, 0);
   // An activated module lists no project directories to open.
   assert.equal(byClass(harness, "activation-project").length, 0);
@@ -265,11 +275,14 @@ test("an unapproved harness reads red with its remediation", async (t) => {
   const { root, mounted } = await mountOverview(activationClient(answer));
 
   const harness = moduleCards(root)[1];
-  const chips = byClass(harness, "activation-target");
-  // Registered, so it is a hit — but unapproved hooks are broken, not idle.
-  assert.equal(chips[1].textContent, "Codex");
-  assert.equal(chips[1].attributes.get("data-hit"), "true");
-  assert.equal(chips[1].attributes.get("data-hook-health"), "red");
+  const codex = byClass(harness, "activation-card")[1];
+  // Registered, so it is a hit — but unapproved hooks are broken, not idle,
+  // and the card says which in words before it says it in colour.
+  assert.equal(byClass(codex, "activation-card-name")[0].textContent, "Codex");
+  assert.equal(
+    byClass(codex, "activation-card-status")[0].textContent, "hooks need trust",
+  );
+  assert.equal(codex.attributes.get("data-hook-health"), "red");
   const remediation = byClass(harness, "activation-remediation");
   // One line per approval surface, not one per red chip.
   assert.equal(remediation.length, 1);

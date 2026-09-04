@@ -1,9 +1,10 @@
-"""Hook health beside the Overview's harness activation targets.
+"""Worded status and hook health for the Overview's harness targets.
 
-Colours say what the operator should do: green for recent telemetry, orange
-for an installed surface without recent telemetry, and red for a current
-silent session or explicitly unapproved hooks. A brand-new silent episode
-stays uncoloured during its grace window.
+Every supported surface answers, so "not installed" is a card rather than an
+absence. The status says what we detected; the colour only tints it: green
+for recent telemetry, orange for an installed surface without recent
+telemetry, and red for a current silent session or explicitly unapproved
+hooks. A brand-new silent episode stays uncoloured during its grace window.
 """
 
 from __future__ import annotations
@@ -16,6 +17,11 @@ from yoke_core.domain.overview_harness_hook_health import (
     HOOK_HEALTH_ORANGE,
     HOOK_HEALTH_RED,
     NEW_EPISODE_GRACE,
+    STATUS_ACTIVE,
+    STATUS_HOOKS_NEED_TRUST,
+    STATUS_INSTALLED_LAST_SEEN,
+    STATUS_INSTALLED_NEVER_SEEN,
+    STATUS_NOT_INSTALLED,
     harness_targets,
     session_identities,
 )
@@ -65,8 +71,10 @@ def test_current_session_without_telemetry_reports_red_after_grace():
     assert targets["codex"]["hit"] is True
     assert targets["codex"]["hook_health"] == HOOK_HEALTH_RED
     assert targets["codex"]["trust_surface"] is None
-    assert "claude-code" not in targets
-    assert "cursor" not in targets
+    # Surfaces with no evidence still answer, in words and without colour.
+    assert targets["claude-code"]["status"] == STATUS_NOT_INSTALLED
+    assert targets["claude-code"]["hook_health"] is None
+    assert targets["cursor"]["status"] == STATUS_NOT_INSTALLED
 
 
 def test_recent_hook_telemetry_reports_green():
@@ -84,7 +92,7 @@ def test_claude_cli_matches_its_surface_alias_and_not_a_bare_row():
     bare = _by_key(_identities("claude-code", "", telemetry=1))
 
     assert aliased["claude-cli"]["hook_health"] == HOOK_HEALTH_GREEN
-    assert "claude-cli" not in bare
+    assert bare["claude-cli"]["status"] == STATUS_NOT_INSTALLED
 
 
 def test_codex_cli_matches_its_surface_alias_and_not_a_bare_row():
@@ -92,7 +100,7 @@ def test_codex_cli_matches_its_surface_alias_and_not_a_bare_row():
     bare = _by_key(_identities("codex", "", telemetry=1))
 
     assert aliased["codex-cli"]["hook_health"] == HOOK_HEALTH_GREEN
-    assert "codex-cli" not in bare
+    assert bare["codex-cli"]["status"] == STATUS_NOT_INSTALLED
 
 
 def test_unapproved_report_is_red_and_names_its_trust_surface():
@@ -108,6 +116,7 @@ def test_unapproved_report_is_red_and_names_its_trust_surface():
 
     assert targets["codex"]["hook_health"] == HOOK_HEALTH_RED
     assert targets["codex"]["hit"] is False
+    assert targets["codex"]["status"] == STATUS_HOOKS_NEED_TRUST
     assert targets["codex"]["trust_surface"] == (
         HARNESS_HOOK_APPROVAL["codex"]["trust_surface"]
     )
@@ -121,11 +130,16 @@ def test_fresh_episode_without_telemetry_stays_uncoloured():
 
 
 def test_installed_surface_never_seen_is_orange():
-    targets = _by_key([], installed=["claude-vscode"])
+    targets = _by_key([], installed={"claude-vscode": "1.4"})
 
     assert targets["claude-vscode"]["hit"] is False
     assert targets["claude-vscode"]["hook_health"] == HOOK_HEALTH_ORANGE
+    assert targets["claude-vscode"]["status"] == STATUS_INSTALLED_NEVER_SEEN
     assert targets["claude-vscode"]["last_seen_at"] is None
+    # The relay reported a version, and so does the family it belongs to.
+    assert targets["claude-vscode"]["version"] == "1.4"
+    assert targets["claude-code"]["version"] == "1.4"
+    assert targets["claude-code"]["status"] == STATUS_INSTALLED_NEVER_SEEN
 
 
 def test_installed_surface_seen_five_weeks_ago_is_orange_with_last_seen():
@@ -134,12 +148,15 @@ def test_installed_surface_seen_five_weeks_ago_is_orange_with_last_seen():
         _identities(
             "claude-code", "claude-vscode", telemetry=1, seen_at=last_seen,
         ),
-        installed=["claude-vscode"],
+        installed={"claude-vscode": None},
     )
 
     assert targets["claude-vscode"]["hit"] is True
     assert targets["claude-vscode"]["hook_health"] == HOOK_HEALTH_ORANGE
+    assert targets["claude-vscode"]["status"] == STATUS_INSTALLED_LAST_SEEN
     assert targets["claude-vscode"]["last_seen_at"] == last_seen
+    # No version reported for it, so the card shows none.
+    assert targets["claude-vscode"]["version"] is None
 
 
 def test_claude_has_no_hook_trust_surface():
@@ -148,5 +165,6 @@ def test_claude_has_no_hook_trust_surface():
     ))
 
     assert targets["claude-code"]["hook_health"] == HOOK_HEALTH_GREEN
+    assert targets["claude-code"]["status"] == STATUS_ACTIVE
     assert targets["claude-code"]["trust_surface"] is None
     assert "claude-code" not in HARNESS_HOOK_APPROVAL

@@ -2,7 +2,8 @@
 
 Two rows, two questions. ``machines`` answers *which host is this, who owns
 it, and who may spend its capacity*; ``harness_machine_reports`` answers
-*which harnesses are installed and approved for one project on a machine*.
+*which harnesses are installed and approved for one project on one
+machine*.
 Wrong guesses these exist to catch: ``project_installs`` and
 ``harness_installs``, which do not exist; and reading ``machines`` as the
 per-project harness inventory, which is the reports table.
@@ -41,6 +42,7 @@ HARNESS_TABLES: dict[str, dict] = {
     "harness_machine_reports": {
         "columns": [
             ("project_id", "INTEGER"),
+            ("machine_id", "TEXT"),
             ("harness_id", "TEXT"),
             ("glue_written", "INTEGER"),
             ("glue_present", "INTEGER"),
@@ -52,7 +54,11 @@ HARNESS_TABLES: dict[str, dict] = {
             ("reported_at", "TEXT"),
         ],
         "notes": (
-            "PK (project_id, harness_id). No project_installs or "
+            "Keyed (project_id, machine_id, harness_id) by unique index "
+            "ux_harness_machine_reports_key, so two machines report the same "
+            "harness independently and neither answers for the other; a row "
+            "written before the machine column carries machine_id='' and "
+            "matches no machine. No project_installs or "
             "harness_installs table; machine identity, ownership and "
             "access live on the machines row above. approval_state is "
             "approved|unapproved|not_applicable|unknown; unapproved makes "

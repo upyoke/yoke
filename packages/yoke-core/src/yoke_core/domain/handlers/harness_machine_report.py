@@ -25,12 +25,17 @@ class HarnessMachineReportRow(BaseModel):
 
 class HarnessMachineReportUpsertRequest(BaseModel):
     project_id: int
+    #: The machine the reports were collected on. Required: a report that
+    #: names no machine answers for every machine, which is how one box's
+    #: stale hook approval painted the whole fleet.
+    machine_id: str
     reports: List[HarnessMachineReportRow] = Field(default_factory=list)
     pack_prerequisites: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class HarnessMachineReportUpsertResponse(BaseModel):
     project_id: int
+    machine_id: str
     reports: List[Dict[str, Any]]
     pack_prerequisites: List[Dict[str, Any]]
 
@@ -56,7 +61,11 @@ def handle_harness_machine_report_upsert(
             primary_success=False,
             error=FunctionError(
                 code="payload_invalid",
-                message=str(exc),
+                message=(
+                    f"{exc}. Reports are keyed by machine; a client that "
+                    "sends none is behind this control plane — upgrade yoke "
+                    "on the reporting machine."
+                ),
                 jsonpath="$.payload",
             ),
         )
@@ -70,6 +79,7 @@ def handle_harness_machine_report_upsert(
         stored = upsert_harness_machine_reports(
             conn,
             project_id=parsed.project_id,
+            machine_id=parsed.machine_id,
             reports=[row.model_dump() for row in parsed.reports],
         )
     except ValueError as exc:
@@ -83,6 +93,7 @@ def handle_harness_machine_report_upsert(
         primary_success=True,
         result_payload={
             "project_id": parsed.project_id,
+            "machine_id": parsed.machine_id,
             "reports": stored,
             "pack_prerequisites": parsed.pack_prerequisites,
         },

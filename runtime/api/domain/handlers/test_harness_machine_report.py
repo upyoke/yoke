@@ -9,6 +9,9 @@ from yoke_core.domain import db_helpers, harness_machine_state
 from yoke_core.domain.handlers import harness_machine_report
 
 
+MACHINE = "11111111-1111-4111-8111-111111111111"
+
+
 class _Connection:
     def close(self) -> None:
         pass
@@ -29,13 +32,16 @@ def test_machine_report_echoes_current_pack_prerequisite_readiness(monkeypatch) 
     monkeypatch.setattr(
         harness_machine_state,
         "upsert_harness_machine_reports",
-        lambda conn, *, project_id, reports: reports,
+        lambda conn, *, project_id, machine_id, reports: reports,
     )
     request = FunctionCallRequest(
         function="harness.machine_report.upsert",
         actor=ActorContext(actor_id="operator", session_id="session-1"),
         target=TargetRef(kind="global"),
-        payload={"project_id": 7, "reports": [], "pack_prerequisites": rows},
+        payload={
+            "project_id": 7, "machine_id": MACHINE, "reports": [],
+            "pack_prerequisites": rows,
+        },
     )
 
     outcome = harness_machine_report.handle_harness_machine_report_upsert(request)
@@ -43,6 +49,24 @@ def test_machine_report_echoes_current_pack_prerequisite_readiness(monkeypatch) 
     assert outcome.primary_success is True
     assert outcome.result_payload == {
         "project_id": 7,
+        "machine_id": MACHINE,
         "reports": [],
         "pack_prerequisites": rows,
     }
+
+
+def test_a_report_without_a_machine_refuses_and_names_the_fix(monkeypatch) -> None:
+    """A report naming no machine would answer for every machine."""
+    monkeypatch.setattr(db_helpers, "connect", _Connection)
+    request = FunctionCallRequest(
+        function="harness.machine_report.upsert",
+        actor=ActorContext(actor_id="operator", session_id="session-1"),
+        target=TargetRef(kind="global"),
+        payload={"project_id": 7, "reports": []},
+    )
+
+    outcome = harness_machine_report.handle_harness_machine_report_upsert(request)
+
+    assert outcome.primary_success is False
+    assert outcome.error.code == "payload_invalid"
+    assert "upgrade yoke on the reporting machine" in outcome.error.message
