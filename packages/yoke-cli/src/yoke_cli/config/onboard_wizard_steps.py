@@ -40,6 +40,7 @@ from yoke_cli.config.onboard_wizard_apply_steps import (  # noqa: F401
     apply_different_folder_body,
     apply_step_line,
     apply_success_body,
+    apply_success_body_from_report,
 )
 from yoke_cli.config.onboard_wizard import PROJECT_GITHUB_REUSE_MACHINE
 from yoke_cli.config.onboard_wizard_palette import ACCENT
@@ -328,6 +329,7 @@ __all__ = [
     "apply_different_folder_body",
     "apply_step_line",
     "apply_success_body",
+    "apply_success_body_from_report",
     "classify_plan",
     "checking_body",
     "error_body",
