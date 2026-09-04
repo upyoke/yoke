@@ -12,6 +12,10 @@ from runtime.api.merge_queue_landing_test_helpers import (
 )
 from yoke_core.domain import merge_queue_landing_wait as wait_mod
 from yoke_core.domain.merge_queue_landing_record_state import PENDING
+from yoke_core.domain.merge_queue_readiness import (
+    ENQUEUED,
+    MERGE_WHEN_READY_CONSUMED,
+)
 
 
 def test_observe_call_uses_the_merge_registry_skew_degradation(monkeypatch):
@@ -40,6 +44,9 @@ def test_observe_call_uses_the_merge_registry_skew_degradation(monkeypatch):
     assert error == ""
     assert result["record"] == observed
     assert record is not None and record.state == observed["state"]
+    assert record.queue_holding == ENQUEUED
+    assert record.queue_entry_state == "AWAITING_CHECKS"
+    assert record.merge_when_ready == MERGE_WHEN_READY_CONSUMED
     assert announced == ["[degraded] same-universe observation"]
 
 

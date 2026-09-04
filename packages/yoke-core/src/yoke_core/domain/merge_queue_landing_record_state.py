@@ -1,12 +1,14 @@
 """State vocabulary shared by durable landing records and their consumers."""
 
 from yoke_core.domain.merge_queue_entry_checks import ENTRY_CHECKS_FAILED
+from yoke_core.domain.merge_queue_readback_outcomes import (
+    CLOSED_UNMERGED,
+    CONFLICTED,
+    LANDED,
+)
 
 
 PENDING = "pending"
-LANDED = "landed"
-CLOSED_UNMERGED = "closed_unmerged"
-CONFLICTED = "conflicted"
 STALLED = "stalled"
 
 LANDING_RECORD_STATES = (

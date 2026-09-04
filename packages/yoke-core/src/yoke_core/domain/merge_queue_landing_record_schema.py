@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.merge_queue_landing_record_state import LANDING_RECORD_STATES
+from yoke_core.domain.merge_queue_readback_outcomes import UNREADABLE
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -17,6 +18,9 @@ CREATE TABLE IF NOT EXISTS merge_queue_landing_records (
   pr_number TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ({_STATE_SQL})),
   head_sha TEXT NOT NULL DEFAULT '',
+  queue_holding TEXT NOT NULL DEFAULT '{UNREADABLE}',
+  queue_entry_state TEXT NOT NULL DEFAULT '{UNREADABLE}',
+  merge_when_ready TEXT NOT NULL DEFAULT '{UNREADABLE}',
   failed_checks TEXT NOT NULL DEFAULT '[]',
   narrative TEXT NOT NULL DEFAULT '',
   disarm_note TEXT NOT NULL DEFAULT '',

@@ -16,6 +16,17 @@ from yoke_core.domain.merge_queue_landing_record_state import (
     PENDING,
     STALLED,
 )
+from yoke_core.domain.merge_queue_readback_outcomes import (
+    ARMED_NOT_ENQUEUED,
+    ENQUEUED,
+    ENTRY_ABSENT,
+    ENTRY_PRESENT,
+    MERGE_WHEN_READY_ARMED,
+    MERGE_WHEN_READY_CLEARED,
+    MERGE_WHEN_READY_CONSUMED,
+    NEITHER,
+    UNREADABLE,
+)
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 
@@ -29,6 +40,9 @@ class LandingRecord:
     pr_number: str
     state: str
     head_sha: str = ""
+    queue_holding: str = UNREADABLE
+    queue_entry_state: str = UNREADABLE
+    merge_when_ready: str = UNREADABLE
     failed_checks: tuple[LandingCheck, ...] = field(default_factory=tuple)
     narrative: str = ""
     disarm_note: str = ""
@@ -45,6 +59,9 @@ class LandingRecord:
             "pr_number": self.pr_number,
             "state": self.state,
             "head_sha": self.head_sha,
+            "queue_holding": self.queue_holding,
+            "queue_entry_state": self.queue_entry_state,
+            "merge_when_ready": self.merge_when_ready,
             "failed_checks": [_check_payload(check) for check in self.failed_checks],
             "narrative": self.narrative,
             "disarm_note": self.disarm_note,
@@ -100,6 +117,37 @@ def _narrative(readback: LandingReadback, pr_number: str) -> str:
     )
 
 
+def _queue_outcomes(readback: LandingReadback) -> tuple[str, str, str]:
+    """Name the queue-entry facts with the public readiness vocabulary."""
+    state = readback.state
+    membership = readback.membership
+    if membership is not None and membership.in_queue:
+        holding = ENQUEUED
+    elif membership is None or state is None:
+        holding = UNREADABLE
+    elif state.auto_merge_active:
+        holding = ARMED_NOT_ENQUEUED
+    else:
+        holding = NEITHER
+
+    if membership is None:
+        entry_state = UNREADABLE
+    elif membership.in_queue:
+        entry_state = (membership.entry_state or ENTRY_PRESENT).strip().upper()
+    else:
+        entry_state = ENTRY_ABSENT
+
+    if state is None:
+        arming = UNREADABLE
+    elif state.auto_merge_active:
+        arming = MERGE_WHEN_READY_ARMED
+    elif membership is not None and membership.in_queue:
+        arming = MERGE_WHEN_READY_CONSUMED
+    else:
+        arming = MERGE_WHEN_READY_CLEARED
+    return holding, entry_state, arming
+
+
 def from_readback(
     *,
     item_id: int,
@@ -110,6 +158,7 @@ def from_readback(
 ) -> LandingRecord:
     """Classify the four server-read landing facts into a durable record."""
     state = readback.state
+    queue_holding, queue_entry_state, merge_when_ready = _queue_outcomes(readback)
     kind = PENDING
     failed = readback.failed_required
     if state is not None and state.merged:
@@ -135,6 +184,9 @@ def from_readback(
         pr_number=pr_number,
         state=kind,
         head_sha=str(state.head_sha if state is not None else ""),
+        queue_holding=queue_holding,
+        queue_entry_state=queue_entry_state,
+        merge_when_ready=merge_when_ready,
         failed_checks=failed,
         narrative=_narrative(readback, pr_number),
         observed_at=observed_at,
@@ -152,18 +204,25 @@ def write_landing_record(conn: Any, record: LandingRecord) -> None:
     )
     conn.execute(
         "INSERT INTO merge_queue_landing_records "
-        "(item_id,project_id,pr_number,state,head_sha,failed_checks,narrative,"
-        "disarm_note,observed_at,changed_at) "
-        f"VALUES ({','.join([p] * 10)}) "
+        "(item_id,project_id,pr_number,state,head_sha,queue_holding,"
+        "queue_entry_state,merge_when_ready,failed_checks,narrative,disarm_note,"
+        "observed_at,changed_at) "
+        f"VALUES ({','.join([p] * 13)}) "
         "ON CONFLICT(item_id) DO UPDATE SET "
         "project_id=excluded.project_id, pr_number=excluded.pr_number, "
         "state=excluded.state, head_sha=excluded.head_sha, "
+        "queue_holding=excluded.queue_holding, "
+        "queue_entry_state=excluded.queue_entry_state, "
+        "merge_when_ready=excluded.merge_when_ready, "
         "failed_checks=excluded.failed_checks, narrative=excluded.narrative, "
         "disarm_note=excluded.disarm_note, observed_at=excluded.observed_at, "
         "changed_at=CASE WHEN "
         "merge_queue_landing_records.pr_number<>excluded.pr_number OR "
         "merge_queue_landing_records.state<>excluded.state OR "
         "merge_queue_landing_records.head_sha<>excluded.head_sha OR "
+        "merge_queue_landing_records.queue_holding<>excluded.queue_holding OR "
+        "merge_queue_landing_records.queue_entry_state<>excluded.queue_entry_state OR "
+        "merge_queue_landing_records.merge_when_ready<>excluded.merge_when_ready OR "
         "merge_queue_landing_records.failed_checks<>excluded.failed_checks OR "
         "merge_queue_landing_records.narrative<>excluded.narrative OR "
         "merge_queue_landing_records.disarm_note<>excluded.disarm_note "
@@ -174,6 +233,9 @@ def write_landing_record(conn: Any, record: LandingRecord) -> None:
             record.pr_number,
             record.state,
             record.head_sha,
+            record.queue_holding,
+            record.queue_entry_state,
+            record.merge_when_ready,
             checks,
             record.narrative,
             record.disarm_note,
@@ -186,8 +248,9 @@ def write_landing_record(conn: Any, record: LandingRecord) -> None:
 def read_landing_record(conn: Any, item_id: int) -> LandingRecord | None:
     p = _p(conn)
     row = conn.execute(
-        "SELECT item_id,project_id,pr_number,state,head_sha,failed_checks,"
-        "narrative,disarm_note,observed_at,changed_at "
+        "SELECT item_id,project_id,pr_number,state,head_sha,queue_holding,"
+        "queue_entry_state,merge_when_ready,failed_checks,narrative,disarm_note,"
+        "observed_at,changed_at "
         f"FROM merge_queue_landing_records WHERE item_id={p}",
         (int(item_id),),
     ).fetchone()
@@ -200,6 +263,9 @@ def read_landing_record(conn: Any, item_id: int) -> LandingRecord | None:
         pr_number=str(value["pr_number"]),
         state=str(value["state"]),
         head_sha=str(value.get("head_sha") or ""),
+        queue_holding=str(value.get("queue_holding") or UNREADABLE),
+        queue_entry_state=str(value.get("queue_entry_state") or UNREADABLE),
+        merge_when_ready=str(value.get("merge_when_ready") or UNREADABLE),
         failed_checks=_decode_checks(value.get("failed_checks")),
         narrative=str(value.get("narrative") or ""),
         disarm_note=str(value.get("disarm_note") or ""),
@@ -226,6 +292,9 @@ def record_from_payload(payload: Any) -> LandingRecord | None:
         pr_number=str(payload["pr_number"]),
         state=str(payload["state"]),
         head_sha=str(payload.get("head_sha") or ""),
+        queue_holding=str(payload.get("queue_holding") or UNREADABLE),
+        queue_entry_state=str(payload.get("queue_entry_state") or UNREADABLE),
+        merge_when_ready=str(payload.get("merge_when_ready") or UNREADABLE),
         failed_checks=_decode_checks(json.dumps(payload.get("failed_checks") or [])),
         narrative=str(payload.get("narrative") or ""),
         disarm_note=str(payload.get("disarm_note") or ""),

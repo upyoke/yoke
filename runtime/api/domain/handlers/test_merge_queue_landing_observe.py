@@ -15,6 +15,11 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.handlers import merge_queue_landing_observe as handler
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_record_state import PENDING
+from yoke_core.domain.merge_queue_readiness import (
+    ARMED_NOT_ENQUEUED,
+    ENTRY_ABSENT,
+    MERGE_WHEN_READY_ARMED,
+)
 
 
 def _request(item_id: int) -> FunctionCallRequest:
@@ -66,6 +71,9 @@ def test_waiter_call_refreshes_every_pending_landing_once_per_cadence(
     assert first.result_payload["refreshed"] is True
     assert second.result_payload["refreshed"] is False
     assert first.result_payload["record"]["state"] == PENDING
+    assert first.result_payload["record"]["queue_holding"] == ARMED_NOT_ENQUEUED
+    assert first.result_payload["record"]["queue_entry_state"] == ENTRY_ABSENT
+    assert first.result_payload["record"]["merge_when_ready"] == MERGE_WHEN_READY_ARMED
     assert second.result_payload["record"]["pr_number"] == "43"
     assert reads == ["42", "43"]
 

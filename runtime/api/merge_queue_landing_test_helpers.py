@@ -12,6 +12,10 @@ from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_landing_record_state import LANDED
+from yoke_core.domain.merge_queue_readiness import (
+    ENQUEUED,
+    MERGE_WHEN_READY_CONSUMED,
+)
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
     QueueEntryResult,
@@ -55,6 +59,9 @@ def landing_record(
     failed_checks=(),
     disarm_note="",
     observed_at="2026-09-04T01:00:00Z",
+    queue_holding=ENQUEUED,
+    queue_entry_state="AWAITING_CHECKS",
+    merge_when_ready=MERGE_WHEN_READY_CONSUMED,
 ):
     """One server record returned to a waiting lane."""
     return {
@@ -63,6 +70,9 @@ def landing_record(
         "pr_number": str(pr_number),
         "state": state,
         "head_sha": head_sha,
+        "queue_holding": queue_holding,
+        "queue_entry_state": queue_entry_state,
+        "merge_when_ready": merge_when_ready,
         "failed_checks": [
             {
                 "name": check.name,
