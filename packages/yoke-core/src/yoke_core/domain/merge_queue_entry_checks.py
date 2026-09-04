@@ -4,18 +4,20 @@ The pull request's own required checks are the queue-entry gate: GitHub
 will not enqueue until they pass, and it takes the latest run of each
 required name. So one required check that has already concluded red means
 the entry can never happen, whatever the rest of the set is still doing.
-A wait that keeps polling in that state reports a terminal verdict as
-pending — the observed failure was thirteen minutes of "armed and
+Without this terminal classification, the record reports a terminal verdict
+as pending — the observed failure was thirteen minutes of "armed and
 waiting" on a pull request that could never enqueue, because ``BLOCKED``
 with everything else pending looks exactly like the ordinary wait.
 
 Requiredness is what separates the two. A non-required check that fails
 does not stop the entry, so only the required set is terminal, and a
-rollup that cannot be read proves nothing either way.
+rollup that cannot be read proves nothing either way. The server observer
+writes that terminal result into the landing record; the waiting lane
+consumes it without repeating the GitHub read.
 
-A red set also disarms merge-when-ready so a later green on the same
-pull request cannot auto-merge without this gate recording a new verdict.
-Re-running ``yoke merge item`` after a fix re-arms as usual.
+A red set also makes the server observer disarm merge-when-ready so a later
+green on the same pull request cannot auto-merge without this gate recording
+a new verdict. Re-running ``yoke merge item`` after a fix re-arms as usual.
 """
 
 from __future__ import annotations
