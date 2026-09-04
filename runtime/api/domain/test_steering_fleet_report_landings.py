@@ -72,12 +72,8 @@ def test_fleet_marks_a_real_unarmed_landing_for_action(fleet, monkeypatch) -> No
     assert report_dict(report)["landings_needing_action"][0]["item_id"] == 1
 
 
-def test_an_open_verification_pr_is_not_yet_a_fleet_landing(
-    fleet, monkeypatch
-) -> None:
-    fleet.execute(
-        "UPDATE items SET merge_queue_enqueued_at=NULL WHERE id=1"
-    )
+def test_an_open_verification_pr_is_not_yet_a_fleet_landing(fleet, monkeypatch) -> None:
+    fleet.execute("UPDATE items SET merge_queue_enqueued_at=NULL WHERE id=1")
     fleet.commit()
     monkeypatch.setattr(
         readiness_mod,

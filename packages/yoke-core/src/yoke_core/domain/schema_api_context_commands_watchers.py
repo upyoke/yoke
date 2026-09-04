@@ -134,7 +134,6 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch merge "
             "--print-streaming-pair merge-worktree -- PREFIX-N\n"
-            "# merge-item enqueues and exits; a launched worker adds --wait\n"
             "yoke github merge-queue readiness PREFIX-N --json"
         ),
         "notes": (
