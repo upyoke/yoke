@@ -25,12 +25,13 @@ _OBSERVATION_PATH = "/v1/hooks/telemetry/batch"
 
 
 class _MemoryResponse:
-    def __init__(self, payload: dict[str, Any]) -> None:
+    def __init__(self, payload: dict[str, Any], *, url: str) -> None:
         self._stream = io.BytesIO(
             json.dumps(payload, separators=(",", ":")).encode("utf-8")
         )
         self.status = 200
         self.headers: dict[str, str] = {}
+        self._url = url
 
     def read(self, size: int = -1) -> bytes:
         return self._stream.read(size)
@@ -39,7 +40,7 @@ class _MemoryResponse:
         return self.status
 
     def geturl(self) -> str:
-        return "resident://buffered-observation"
+        return self._url
 
     def close(self) -> None:
         self._stream.close()
@@ -110,7 +111,8 @@ class DeferredObservationOpener:
                 "execution_provenance": (
                     provenance if isinstance(provenance, dict) else {}
                 ),
-            }
+            },
+            url=request.full_url,
         )
 
     def observation(self, *, hook_wait_ms: int) -> PendingObservation:
