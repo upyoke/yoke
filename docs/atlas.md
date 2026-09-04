@@ -6,8 +6,8 @@ _Audit generated_at: 2026-09-04T03:55:07Z_
 
 ## 1. Summary
 
-- Function ids registered: **456**
-- Internal dispatch-only functions without CLI adapters: **89**
+- Function ids registered: **457**
+- Internal dispatch-only functions without CLI adapters: **90**
 - `yoke` CLI subcommands: **384** (384 carry usable `--help`)
 - Operation tracker: **360 wrapped**, 14 tool_cli, 137 permanent, 0 pending
 - Skill-body recipes: 331 total (279 template-skipped, 1 failing)

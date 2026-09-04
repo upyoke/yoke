@@ -128,3 +128,28 @@ def test_candidate_created_after_a_recent_sweep_waits_for_the_next_cadence(
     assert outcome.primary_success
     assert outcome.result_payload["record"] is None
     assert outcome.result_payload["stale"] is False
+
+
+def test_item_lookup_uses_the_name_aware_database_row(monkeypatch):
+    conn = observer_connection()
+    converted: list[object] = []
+
+    def convert(row):
+        converted.append(row)
+        return {
+            "project_id": row["project_id"],
+            "merge_queue_pr_number": row["merge_queue_pr_number"],
+        }
+
+    monkeypatch.setattr(handler, "_connect_rw", lambda: conn)
+    monkeypatch.setattr(handler, "row_dict", convert)
+    monkeypatch.setattr(
+        handler,
+        "observe_pending_landings",
+        lambda *_args, **_kwargs: {"checked": 0},
+    )
+
+    outcome = handler.handle_observe_landing(_request(101))
+
+    assert outcome.primary_success
+    assert len(converted) == 1
