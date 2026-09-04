@@ -19,6 +19,12 @@ from typing import Any, Mapping
 
 
 REGISTER_TIMEOUT_S = 10.0
+# One attempt, because the caller's own answer to a refusal is "report it and
+# carry on". A control plane that can only be inventoried answers a function
+# call 5xx, and the relay reads 5xx as a box worth waiting for: the full ladder
+# then spends 94 seconds of backoff inside a connect-time command that had
+# nothing to gain from any of them.
+REGISTER_ATTEMPTS = 1
 # The one command that registers a machine by hand, named by every surface
 # that reports a refusal.
 REGISTER_RECOVERY_COMMAND = "yoke machine register"
@@ -50,6 +56,7 @@ def register_this_machine(
                 "name": machine_display_name(),
             },
             timeout_s=REGISTER_TIMEOUT_S,
+            max_attempts=REGISTER_ATTEMPTS,
         )
     except Exception as exc:  # noqa: BLE001 - reported, never raised
         return {"machine_id": machine, "registered": False, "reason": str(exc)}
@@ -80,6 +87,7 @@ def error_text(error: Any) -> str:
 
 
 __all__ = [
+    "REGISTER_ATTEMPTS",
     "REGISTER_RECOVERY_COMMAND",
     "REGISTER_TIMEOUT_S",
     "error_text",

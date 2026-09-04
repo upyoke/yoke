@@ -114,6 +114,7 @@ def call_dispatcher(
     request_id: Optional[str] = None,
     intent: Optional[str] = None,
     timeout_s: Optional[float] = None,
+    max_attempts: Optional[int] = None,
     local_only: bool = False,
     _local_dispatch: Optional[LocalDispatch] = None,
     _function_hint: Optional[HintResolver] = None,
@@ -153,13 +154,12 @@ def call_dispatcher(
         ), sensitive_values)
     if https is not None:
         handshake = https_transport.ServerHandshake()
-        response = (
-            https_transport.relay_https(
-                request, https, timeout_s=timeout_s, handshake=handshake
-            )
-            if timeout_s is not None
-            else https_transport.relay_https(request, https, handshake=handshake)
-        )
+        relay_kwargs: Dict[str, Any] = {"handshake": handshake}
+        if timeout_s is not None:
+            relay_kwargs["timeout_s"] = timeout_s
+        if max_attempts is not None:
+            relay_kwargs["max_attempts"] = max_attempts
+        response = https_transport.relay_https(request, https, **relay_kwargs)
         return _redact_response(
             _apply_version_skew_gate(
                 response, request, https, handshake, _function_hint
