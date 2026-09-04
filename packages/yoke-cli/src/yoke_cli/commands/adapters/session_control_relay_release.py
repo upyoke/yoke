@@ -66,10 +66,15 @@ def serve_release_daemon() -> Any:
     instance = resolve_relay_instance()
     installed = relay_release_status(instance=instance, refresh_served=False)
     if not installed.current:
+        code = str(installed.error_code or RELAY_RELEASE_INSTALL_FAILED)
+        detail = str(
+            installed.error_message
+            or "the standing relay has no complete pinned release"
+        )
         raise RelayReleaseError(
-            RELAY_RELEASE_INSTALL_FAILED,
-            "relay_release_missing: the standing relay has no pinned release; "
-            f"recovery: run `yoke --env {instance.environment} relay install`",
+            code,
+            f"{detail}. Recovery: run `yoke --env {instance.environment} "
+            "relay install`.",
         )
     running_prefix = Path(sys.prefix).resolve()
     pinned_prefix = installed.python.parent.parent.resolve()

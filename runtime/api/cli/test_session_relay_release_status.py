@@ -282,7 +282,12 @@ def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> 
     monkeypatch.setattr(
         session_relay_release,
         "relay_release_status",
-        lambda **_kwargs: SimpleNamespace(current=False, pinned_release=""),
+        lambda **_kwargs: SimpleNamespace(
+            current=False,
+            pinned_release="",
+            error_code="",
+            error_message="",
+        ),
     )
 
     try:
@@ -292,6 +297,34 @@ def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> 
         assert "relay install" in str(exc)
     else:
         raise AssertionError("relay daemon started without a pinned release")
+
+
+def test_daemon_preserves_the_recorded_pin_failure(monkeypatch, tmp_path) -> None:
+    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    monkeypatch.setattr(
+        session_relay_instance,
+        "resolve_relay_instance",
+        lambda: instance,
+    )
+    monkeypatch.setattr(
+        session_relay_release,
+        "relay_release_status",
+        lambda **_kwargs: SimpleNamespace(
+            current=False,
+            pinned_release="",
+            error_code=RELAY_RELEASE_FETCH_FAILED,
+            error_message="environment wheel index was unavailable",
+        ),
+    )
+
+    try:
+        release_cli.serve_release_daemon()
+    except session_relay_release.RelayReleaseError as exc:
+        assert exc.code == RELAY_RELEASE_FETCH_FAILED
+        assert "wheel index was unavailable" in str(exc)
+        assert "relay install" in str(exc)
+    else:
+        raise AssertionError("recorded relay pin failure was ignored")
 
 
 def test_serve_command_preserves_named_release_refusal(monkeypatch, capsys) -> None:
