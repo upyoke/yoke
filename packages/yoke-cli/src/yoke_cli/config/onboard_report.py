@@ -8,6 +8,7 @@ from typing import Any
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_path_plan
 from yoke_cli.config import onboard_post_checkout_plan
 from yoke_cli.config import onboard_project_modes
@@ -102,6 +103,7 @@ def build_plan(
     if not reuse.get("cache_dir"):
         steps.append({"action": "create-runtime-dir", "target": "cache_dir"})
     steps.extend(onboard_session_relay.plan_steps(local_destination=local_destination))
+    steps.extend(onboard_machine_registry.plan_steps())
     if project_mode == PROJECT_MODE_MACHINE_ONLY:
         steps.append({"action": "stop-before-project-or-github", "target": mode})
     else:

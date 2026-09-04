@@ -19,6 +19,7 @@ from yoke_cli.config import onboard_apply_project_handoff
 from yoke_cli.config import onboard_bridge
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
+from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_credential_replacement
 from yoke_cli.config import onboard_credential_source
 from yoke_cli.config import onboard_project
@@ -274,6 +275,7 @@ def build_report(
             planned=True,
             installed=installed,
         )
+    onboard_machine_registry.apply(cfg_path, progress=progress, report=report)
     if reuse.get("machine_github"):
         report["machine_github"] = dict(machine_github)
     else:

@@ -144,6 +144,7 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
         # still names the (skipped) hosting answer alongside the reused state.
         "hosting-posture",
         "harness-unattended-posture",
+        "register-machine",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",

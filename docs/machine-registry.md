@@ -32,17 +32,20 @@ One row per machine in the control plane:
 
 ## Registering
 
-`yoke status` registers this machine whenever it runs, so an operator does not
-have to know it is a step. `yoke onboard` deliberately does not: onboarding has
-to finish against a control plane that can only be inventoried, where a
-function call answers 5xx and burns the whole connection retry ladder, while
-status already knows whether the plane answered. Run it by hand with:
+Both connect-time paths register this machine, so an operator does not have to
+know it is a step. `yoke onboard` registers at the end of Apply — after the
+connection is verified and the machine relay is installed, when the plane is
+demonstrably answering — and reports a refusal on the Apply summary with its
+recovery rather than failing the apply. `yoke status` registers whenever it
+runs, once it has probed the plane. Neither calls into a control plane it has
+not already seen answer: that is what burns the whole connection retry ladder
+against a plane that can only be inventoried. Run it by hand with:
 
 ```bash
 yoke machine register [--name NAME]
 ```
 
-Registration is idempotent, which is what lets `yoke status` run it every time.
+Registration is idempotent, which is what lets both paths run it every time.
 A machine already registered to another actor is refused as
 `machine_owner_mismatch`; the recovery is to ask its owner or an administrator
 to re-register it, or to clear the copied `machine_id` from
