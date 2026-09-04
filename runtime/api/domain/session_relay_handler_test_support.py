@@ -44,24 +44,9 @@ class NoCloseConnection:
         pass
 
 
-def machine_is_proved(monkeypatch) -> None:
-    """Stand the machine-identity gate down for wire-contract tests.
-
-    Those tests are about actor binding and lease forwarding. The gate itself
-    is covered by ``test_machine_registry_relay_guard`` and by
-    ``test_session_relay_handler_machine_gate``, so stubbing it here keeps
-    each test to one subject.
-    """
-    monkeypatch.setattr(
-        "yoke_core.domain.machine_registry_relay_guard.require_proved_machine",
-        lambda *_args, **_kwargs: None,
-    )
-
-
 __all__ = [
     "Connection",
     "NoCloseConnection",
     "claim_payload",
-    "machine_is_proved",
     "relay_request",
 ]

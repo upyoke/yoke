@@ -8,7 +8,6 @@ against.
 
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 import uuid
@@ -22,7 +21,6 @@ from yoke_core.domain import db_backend, json_helper
 
 
 MAX_NAME_LENGTH = 128
-_ED25519_PUBLIC_KEY_BYTES = 32
 
 
 class MachineRegistryError(ValueError):
@@ -40,7 +38,6 @@ class MachineRecord:
     machine_id: str
     name: str
     owner_actor_id: int
-    proof_public_key: str
     registered_at: str
     last_seen_at: str | None = None
     access: dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_ACCESS))
@@ -50,7 +47,6 @@ class MachineRecord:
             "machine_id": self.machine_id,
             "name": self.name,
             "owner_actor_id": self.owner_actor_id,
-            "proof_public_key": self.proof_public_key,
             "registered_at": self.registered_at,
             "last_seen_at": self.last_seen_at,
             "access": normalize_access(self.access),
@@ -69,7 +65,7 @@ def _cell(row: Any, key: str, index: int) -> Any:
 
 
 def _record(row: Any) -> MachineRecord:
-    raw_access = _cell(row, "access", 4)
+    raw_access = _cell(row, "access", 3)
     if isinstance(raw_access, Mapping):
         access = dict(raw_access)
     else:
@@ -78,20 +74,19 @@ def _record(row: Any) -> MachineRecord:
         except ValueError:
             parsed = {}
         access = parsed if isinstance(parsed, dict) else {}
-    last_seen = _cell(row, "last_seen_at", 6)
+    last_seen = _cell(row, "last_seen_at", 5)
     return MachineRecord(
         machine_id=str(_cell(row, "machine_id", 0)),
         name=str(_cell(row, "name", 1)),
         owner_actor_id=int(_cell(row, "owner_actor_id", 2)),
-        proof_public_key=str(_cell(row, "proof_public_key", 3)),
         access=normalize_access(access),
-        registered_at=str(_cell(row, "registered_at", 5)),
+        registered_at=str(_cell(row, "registered_at", 4)),
         last_seen_at=str(last_seen) if last_seen else None,
     )
 
 
 _SELECT = (
-    "SELECT machine_id,name,owner_actor_id,proof_public_key,access,"
+    "SELECT machine_id,name,owner_actor_id,access,"
     "registered_at,last_seen_at FROM machines"
 )
 
@@ -109,26 +104,6 @@ def canonical_machine_id(value: Any) -> str:
             "machine_id_invalid", "machine id must be a canonical UUID"
         )
     return parsed
-
-
-def validate_public_key(value: Any) -> str:
-    """Return the base64 Ed25519 public key, refusing a malformed one."""
-    text = str(value or "").strip()
-    try:
-        decoded = base64.b64decode(text, validate=True)
-    except (ValueError, TypeError) as exc:
-        raise MachineRegistryError(
-            "machine_public_key_invalid",
-            "machine proof key must be base64. Recovery: re-run "
-            "`yoke machine register` on the machine, which supplies it.",
-        ) from exc
-    if len(decoded) != _ED25519_PUBLIC_KEY_BYTES:
-        raise MachineRegistryError(
-            "machine_public_key_invalid",
-            f"machine proof key must be {_ED25519_PUBLIC_KEY_BYTES} Ed25519 bytes; "
-            f"got {len(decoded)}. Recovery: re-run `yoke machine register`.",
-        )
-    return text
 
 
 def validate_name(value: Any) -> str:
@@ -196,24 +171,18 @@ def register_machine(
     machine_id: str,
     name: str,
     actor_id: int,
-    public_key: str,
     access: Any = None,
     is_admin: bool = False,
-    rotate_key: bool = False,
     now: str,
 ) -> tuple[MachineRecord, bool]:
     """Record or refresh one machine, returning the row and whether it is new.
 
-    Registration is idempotent for the same key, which is what lets the connect
-    flow run it on every ``yoke status``. A *different* key on a known id is
-    refused unless the caller asks for a rotation: a host that copied the
-    machine id but not the private key would otherwise mint its own key,
-    re-register, and quietly take the machine over — the exact hole the proof
-    exists to close.
+    Registration is idempotent, which is what lets the connect flow run it on
+    every ``yoke status``. A machine already registered to another actor is
+    refused unless an administrator is asking.
     """
     canonical = canonical_machine_id(machine_id)
     chosen_name = validate_name(name)
-    key = validate_public_key(public_key)
     existing = get_machine(conn, canonical)
     if existing is not None and int(existing.owner_actor_id) != int(actor_id):
         if not is_admin:
@@ -223,15 +192,6 @@ def register_machine(
                 "ask its owner or an administrator to re-register it, or clear "
                 "this host's copied machine id and register a fresh one.",
             )
-    if existing is not None and existing.proof_public_key != key and not rotate_key:
-        raise MachineRegistryError(
-            "machine_proof_key_conflict",
-            f"machine {canonical} is registered with a different proof key. "
-            "Recovery: on the machine that owns this id run "
-            "`yoke machine register --rotate-key` to replace it; on a host that "
-            "copied the id, clear `machine_id` from ~/.yoke/config.json and "
-            "register this host as its own machine.",
-        )
     document = normalize_access(
         access
         if access is not None
@@ -244,13 +204,12 @@ def register_machine(
     p = marker(conn)
     if existing is None:
         conn.execute(
-            "INSERT INTO machines (machine_id,name,owner_actor_id,proof_public_key,"
-            f"access,registered_at,last_seen_at) VALUES ({','.join(p for _ in range(7))})",
+            "INSERT INTO machines (machine_id,name,owner_actor_id,"
+            f"access,registered_at,last_seen_at) VALUES ({','.join(p for _ in range(6))})",
             (
                 canonical,
                 chosen_name,
                 owner,
-                key,
                 json_helper.dumps_compact(document),
                 now,
                 now,
@@ -258,11 +217,10 @@ def register_machine(
         )
     else:
         conn.execute(
-            f"UPDATE machines SET name={p},proof_public_key={p},access={p},"
+            f"UPDATE machines SET name={p},access={p},"
             f"last_seen_at={p} WHERE machine_id={p}",
             (
                 chosen_name,
-                key,
                 json_helper.dumps_compact(document),
                 now,
                 canonical,
@@ -326,5 +284,4 @@ __all__ = [
     "set_machine_access",
     "touch_machine_seen",
     "validate_name",
-    "validate_public_key",
 ]

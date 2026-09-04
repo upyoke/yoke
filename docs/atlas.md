@@ -577,8 +577,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 49 |
-| claude-code | 1 |
+| codex | 48 |
+| claude-code | 2 |
 
 ## 8. Contradictions
 

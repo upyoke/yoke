@@ -17,7 +17,6 @@ HARNESS_TABLES: dict[str, dict] = {
             ("machine_id", "TEXT"),
             ("name", "TEXT"),
             ("owner_actor_id", "INTEGER"),
-            ("proof_public_key", "TEXT"),
             ("access", "TEXT"),
             ("registered_at", "TEXT"),
             ("last_seen_at", "TEXT"),
@@ -26,13 +25,9 @@ HARNESS_TABLES: dict[str, dict] = {
             "PK machine_id, the same canonical UUID that harness_sessions, "
             "session_relays, session_launches, session_termination_reaps and "
             "session_surface_policies carry — one registered machine, not a "
-            "per-harness or per-project row. proof_public_key is the base64 "
-            "Ed25519 public half; the private half stays in the host's "
-            "~/.yoke/machine-key.json and every relay poll signs a fresh "
-            "proof, so an unregistered or unproved poll is refused "
-            "(machine_unregistered / machine_proof_missing / "
-            "machine_proof_invalid / machine_proof_expired / "
-            "machine_owner_mismatch). access is the JSON access document "
+            "per-harness or per-project row. A machine is identified by its "
+            "registered id and name; there is no key and no signed proof. "
+            "access is the JSON access document "
             "(use.mode owner_only|actors|project_role|universe, plus an "
             "offers block) that session_control.launch.preview and .create "
             "enforce. Read via machine.list / machine.show / "

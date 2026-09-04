@@ -21,35 +21,6 @@ from yoke_cli.config import yoke_token_verify
 from yoke_cli.config import secrets as machine_secrets
 
 
-def _prepare_machine_identity(
-    cfg_path: Path,
-    progress: onboard_apply_progress.ProgressCallback | None,
-    report: Dict[str, Any],
-) -> None:
-    """Mint this machine's identity key now that the connection is active.
-
-    The key is what the relay signs its polls with, so it belongs at connect
-    time. The registration call itself does not: onboarding has to finish
-    against a control plane that can only be inventoried, and a function call
-    there answers 5xx and burns the whole connection retry ladder. `yoke
-    status` already knows whether the plane answered, so it makes that call.
-    """
-    from yoke_cli.config.machine_registration import (
-        PREPARE_IDENTITY_ACTION,
-        prepare_machine_identity,
-    )
-
-    onboard_apply_progress.emit(progress, PREPARE_IDENTITY_ACTION, "", "running")
-    outcome = prepare_machine_identity(cfg_path)
-    report["machine"] = outcome
-    onboard_apply_progress.emit(
-        progress,
-        PREPARE_IDENTITY_ACTION,
-        str(outcome.get("machine_id") or ""),
-        "done" if outcome.get("key_ready") else "failed",
-    )
-
-
 def apply_local_universe(
     cfg_path: Path,
     env_name: str,
@@ -99,7 +70,6 @@ def apply_local_universe(
         if str(local_report.get("active_env") or "") != env_name:
             writer.set_active_env(env_name, path=cfg_path)
         onboard_apply_progress.emit(progress, "set-active-env", env_name, "done")
-    _prepare_machine_identity(cfg_path, progress, report)
 
 
 def apply_sign_in_connection(
@@ -152,7 +122,6 @@ def apply_sign_in_connection(
         onboard_apply_progress.emit(progress, "set-active-env", env_name, "running")
         writer.set_active_env(env_name, path=cfg_path)
         onboard_apply_progress.emit(progress, "set-active-env", env_name, "done")
-    _prepare_machine_identity(cfg_path, progress, report)
 
 
 def _resolve_token_source(

@@ -12,7 +12,6 @@ from runtime.api.domain.session_relay_handler_test_support import (
     Connection as _Connection,
     NoCloseConnection as _NoCloseConnection,
     claim_payload as _claim_payload,
-    machine_is_proved as _machine_is_proved,
     relay_request as _request,
 )
 from runtime.api.domain.test_session_message_support import message_connection
@@ -49,7 +48,6 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
         )
 
     monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
-    _machine_is_proved(monkeypatch)
     monkeypatch.setattr(
         "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
         authorize,
@@ -102,7 +100,6 @@ def test_broker_claim_forwards_exact_lease_and_verified_session(monkeypatch) -> 
         )
 
     monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
-    _machine_is_proved(monkeypatch)
     monkeypatch.setattr(
         "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
         lambda *_args, **_kwargs: None,
@@ -180,7 +177,6 @@ def test_authorized_claim_stamps_actor_and_only_advertised_projects(
     from yoke_core.domain import db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
-    _machine_is_proved(monkeypatch)
     payload = _claim_payload()
     payload["projects"] = [1]
 

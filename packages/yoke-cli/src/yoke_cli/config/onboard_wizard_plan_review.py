@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from yoke_cli.config import machine_registration
 from yoke_cli.config import onboard_path_plan
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
@@ -55,7 +54,6 @@ _MACHINE_ACTIONS = {
     "local-universe-init",
     "store-token-reference",
     "machine-github-connection",
-    machine_registration.PREPARE_IDENTITY_ACTION,
     "create-runtime-dir",
     "project-checkout-register",
     "install-cursor-user-lifecycle-hooks",

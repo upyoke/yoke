@@ -136,13 +136,12 @@ def register_machine_row(
     """Seed one registered machine directly, the way relays are seeded here."""
     conn.execute(
         "INSERT OR REPLACE INTO machines "
-        "(machine_id, name, owner_actor_id, proof_public_key, access, "
-        "registered_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "(machine_id, name, owner_actor_id, access, "
+        "registered_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?)",
         (
             machine_id,
             name or machine_id,
             actor_id,
-            "seeded-public-key",
             json.dumps(access or {}),
             NOW,
             NOW,

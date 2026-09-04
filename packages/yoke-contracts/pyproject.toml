@@ -23,10 +23,6 @@ dependencies = [
     # trust keys. Stdlib tomllib from 3.11; a 3.10 wheel needs the backport,
     # and without it every command crashes at import rather than at use.
     "tomli>=2.0,<3; python_version < '3.11'",
-    # Ed25519 machine-identity proofs: the machine registry stores the public
-    # half and each host signs with the private half it keeps. libsodium
-    # binding, already a product dependency of the engine wheel.
-    "pynacl>=1.5.0,<2.0",
 ]
 
 [project.optional-dependencies]

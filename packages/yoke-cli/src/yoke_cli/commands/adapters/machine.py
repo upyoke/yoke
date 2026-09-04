@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 MACHINE_REGISTER_USAGE = (
-    "yoke machine register [--name NAME] [--rotate-key] "
+    "yoke machine register [--name NAME] "
     "[--access-mode owner_only|actors|project_role|universe] "
     "[--session-id S] [--json]"
 )
@@ -60,33 +60,23 @@ def machine_register(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke machine register",
         description=(
-            "Register this machine so the control plane can prove the id it "
-            "claims. Mints an Ed25519 key under the machine's own Yoke state "
-            "directory on first use and registers its public half; the private "
-            "half never leaves this host."
+            "Register this machine so the control plane knows the id it "
+            "claims, who owns it, and which actors may spend its capacity."
         ),
     )
     parser.add_argument("--name", default=None)
-    parser.add_argument(
-        "--rotate-key",
-        action="store_true",
-        help="mint a fresh key pair — the recovery for a lost or copied key",
-    )
     parser.add_argument("--access-mode", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_REGISTER_USAGE)
     if parsed is None:
         return 2
-    from yoke_contracts.machine_config.machine_identity import ensure_machine_keypair
     from yoke_contracts.machine_config.machine_name import machine_display_name
 
     machine_id = _local_machine_id()
     payload: dict[str, Any] = {
         "machine_id": machine_id,
         "name": parsed.name or machine_display_name(),
-        "proof_public_key": ensure_machine_keypair(rotate=parsed.rotate_key),
-        "rotate_key": parsed.rotate_key,
     }
     if parsed.access_mode:
         payload["access"] = {"use": {"mode": parsed.access_mode}}

@@ -10,10 +10,6 @@ from typing import Callable
 from yoke_cli.config import machine_config
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.machine_config.machine_capacity import observe_machine_capacity
-from yoke_contracts.machine_config.machine_identity import (
-    MachineIdentityError,
-    sign_machine_proof,
-)
 from yoke_contracts.machine_config.machine_name import machine_display_name
 from yoke_contracts.machine_config.preferred_session_models import (
     preferred_session_models,
@@ -36,23 +32,6 @@ from yoke_harness.session_relay_surface_probes import (
     resolve_native_cli,
     resolve_native_cli_source,
 )
-
-
-def machine_proof_fields(machine_id: str) -> dict[str, str]:
-    """Sign this poll's claim to ``machine_id``, or report an unsigned poll.
-
-    An unsigned poll is refused by the control plane with the registration
-    recovery, so a host with no key yet reaches one named refusal rather than
-    crashing the relay loop before it can be told what to do.
-    """
-    try:
-        proof = sign_machine_proof(machine_id)
-    except MachineIdentityError:
-        return {"machine_proof_issued_at": "", "machine_proof_signature": ""}
-    return {
-        "machine_proof_issued_at": proof.issued_at,
-        "machine_proof_signature": proof.signature,
-    }
 
 
 @dataclass(frozen=True)
@@ -84,7 +63,6 @@ class RelayInventory:
             "plan_limits": dict(self.surface_plan_limits),
             "capacity": dict(self.machine_capacity),
             "preferred_models": dict(self.preferred_session_models),
-            **machine_proof_fields(self.machine_id),
         }
         if wait_seconds is not None:
             payload["wait_seconds"] = wait_seconds
@@ -176,7 +154,6 @@ def collect_cached_inventory(*, state_dir: Path | None = None) -> RelayInventory
 
 __all__ = [
     "RelayInventory",
-    "machine_proof_fields",
     "ResolvedNativeCli",
     "collect_cached_inventory",
     "collect_inventory",

@@ -168,13 +168,12 @@ def test_skips_registered_session_while_its_launch_is_pending_binding(conn):
     # Launch capacity is spent on a registered machine, so the fixture
     # registers the one it is about to launch on.
     conn.execute(
-        "INSERT INTO machines (machine_id,name,owner_actor_id,proof_public_key,"
-        "access,registered_at,last_seen_at) VALUES (%s,%s,%s,%s,'{}',%s,%s)",
+        "INSERT INTO machines (machine_id,name,owner_actor_id,"
+        "access,registered_at,last_seen_at) VALUES (%s,%s,%s,'{}',%s,%s)",
         (
             machine_id,
             "relay-host",
             actor_id,
-            "seeded-public-key",
             started_at,
             started_at,
         ),

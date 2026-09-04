@@ -13,7 +13,6 @@ from runtime.api.domain.machine_registry_test_support import (
 )
 
 
-PUBLIC_KEY = "TjTUMzcTBEGJTP4mL9nkPYVJ6djGFCz6WPFVkGuUwSU="
 
 
 def _register(conn, *, access=None, actor_id: int = 1):
@@ -22,7 +21,6 @@ def _register(conn, *, access=None, actor_id: int = 1):
         machine_id=MACHINE_ID,
         name="workshop-mac",
         actor_id=actor_id,
-        public_key=PUBLIC_KEY,
         access=access,
         now=NOW,
     )
@@ -93,9 +91,9 @@ def test_universe_mode_admits_every_member():
 def test_an_unrecognized_mode_admits_nobody_and_says_why():
     conn = registry_connection()
     conn.execute(
-        "INSERT INTO machines (machine_id,name,owner_actor_id,proof_public_key,"
-        "access,registered_at,last_seen_at) VALUES (?,?,?,?,?,?,?)",
-        (MACHINE_ID, "n", 1, PUBLIC_KEY, '{"use": {"mode": "nonsense"}}', NOW, NOW),
+        "INSERT INTO machines (machine_id,name,owner_actor_id,"
+        "access,registered_at,last_seen_at) VALUES (?,?,?,?,?,?)",
+        (MACHINE_ID, "n", 1, '{"use": {"mode": "nonsense"}}', NOW, NOW),
     )
     conn.commit()
     decision = _decide(conn, 2)

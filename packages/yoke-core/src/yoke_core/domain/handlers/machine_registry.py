@@ -25,9 +25,7 @@ class MachineRegisterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     machine_id: str
     name: str
-    proof_public_key: str
     access: Optional[Dict[str, Any]] = None
-    rotate_key: bool = False
 
 
 class MachineRecordResponse(BaseModel):
@@ -171,10 +169,8 @@ def handle_machine_register(request: FunctionCallRequest) -> HandlerOutcome:
             machine_id=parsed.machine_id,
             name=parsed.name,
             actor_id=actor_id,
-            public_key=parsed.proof_public_key,
             access=parsed.access,
             is_admin=_is_admin(conn, actor_id),
-            rotate_key=parsed.rotate_key,
             now=utc_now(),
         )
         return HandlerOutcome(

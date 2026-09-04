@@ -277,9 +277,9 @@ def test_the_report_names_machines_it_registered(test_db) -> None:
     scope = seed_steering_scope(test_db)
     _seed_reading(test_db)
     test_db.execute(
-        "INSERT INTO machines (machine_id, name, owner_actor_id, proof_public_key, "
+        "INSERT INTO machines (machine_id, name, owner_actor_id, "
         "access, registered_at, last_seen_at) "
-        "VALUES ('machine-1', 'workshop-mac', %s, 'seeded-public-key', '{}', %s, %s)",
+        "VALUES ('machine-1', 'workshop-mac', %s, '{}', %s, %s)",
         (ACTOR_ID, NOW, NOW),
     )
     test_db.commit()

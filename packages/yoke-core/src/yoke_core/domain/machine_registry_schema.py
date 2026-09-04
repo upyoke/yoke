@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS machines (
     machine_id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     owner_actor_id INTEGER NOT NULL REFERENCES actors(id),
-    proof_public_key TEXT NOT NULL,
     access TEXT NOT NULL DEFAULT '{}',
     registered_at TEXT NOT NULL,
     last_seen_at TEXT

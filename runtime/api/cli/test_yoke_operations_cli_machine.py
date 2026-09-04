@@ -48,18 +48,11 @@ def test_every_machine_route_names_its_registered_function(route, function_id):
     assert function_id in USAGE_BY_FUNCTION_ID
 
 
-def test_register_sends_the_local_id_name_and_public_half(dispatched, local_machine):
+def test_register_sends_the_local_id_and_name(dispatched, local_machine):
     assert machine.machine_register(["--name", "workshop-mac"]) == 0
     payload = dispatched[0]["payload"]
     assert payload["machine_id"] == MACHINE_ID
     assert payload["name"] == "workshop-mac"
-    assert payload["rotate_key"] is False
-    assert len(payload["proof_public_key"]) > 0
-
-
-def test_rotation_is_explicit_on_the_wire(dispatched, local_machine):
-    assert machine.machine_register(["--rotate-key"]) == 0
-    assert dispatched[0]["payload"]["rotate_key"] is True
 
 
 def test_show_defaults_to_this_machine(dispatched, local_machine):
