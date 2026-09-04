@@ -35,10 +35,13 @@ The browser and the launchd login domain are the machine's other shared resource
   selected connection — is reduced to its host/port endpoint and compared
   with every prod-flagged local-Postgres connection this machine knows. A raw
   DSN aimed at the production SSH forward is therefore refused exactly like
-  `YOKE_ENV=prod-db-admin`, before a database is created. `yoke watch pytest`,
-  the generic runner, and `yoke dev run` also strip the ambient administering
-  selection from their child. The fix is to use `yoke watch pytest` or point
-  the run at a cluster it owns. `yoke watch doctor -- --quick` reports any
+  `YOKE_ENV=prod-db-admin`, before a database is created. `yoke watch pytest`
+  and the generic test runner strip the ambient administering selection from
+  their pytest child. `yoke dev run` deliberately preserves the caller's
+  selection because it changes source resolution only; use the pytest runner
+  rather than a raw source command when the child must own its database. The
+  alternative is to point the run at a cluster it owns.
+  `yoke watch doctor -- --quick` reports any
   existing strays with dry-run and manual removal recipes; Doctor never drops
   them. The fleet migration preflight skips the reserved `yoke_test_run`
   prefix outright so one can never be rehearsed as a tenant.

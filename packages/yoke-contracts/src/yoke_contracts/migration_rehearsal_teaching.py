@@ -24,14 +24,15 @@ PREFLIGHT_HELP_COMMAND = "yoke migration rehearse --help"
 #: Re-enters rehearsal through a claimed Yoke source lane so the patched
 #: package tree, rather than the installed main checkout, owns imports.
 YOKE_SOURCE_REHEARSAL_RECIPE = (
-    "yoke dev run -- yoke --env <name> migration rehearse ITEM"
+    "yoke --env <name> dev run -- yoke migration rehearse ITEM"
 )
 
 #: Provisions, hydrates, and binds the disposable validation database.
 #: In-tree, so it runs through the claimed-lane source runner rather than an
 #: ambient interpreter that resolves a different checkout's packages.
 PROVISION_RECIPE = (
-    "yoke dev run -- python3 -m runtime.api.tools.authority_validation_copy"
+    "yoke --env <name> dev run -- python3 -m "
+    "runtime.api.tools.authority_validation_copy"
 )
 
 #: Rendered as the ``yoke migration rehearse`` help epilog.
@@ -46,6 +47,11 @@ preflight -- rehearsal needs three bindings, in this order:
    `yoke --env <name> migration rehearse ITEM`. A prod flag is valid for that
    metadata authority: migration code still runs only against the distinct
    validation database verified in step 3.
+
+   When the migration imports code authored in a claimed Yoke source lane,
+   preserve that authority selection while binding the lane's source with:
+
+     {YOKE_SOURCE_REHEARSAL_RECIPE}
 
 2. Item universe. Rehearsal is item-bound: it reads the item's mutation
    profile and compatibility attestation from the selected connection's

@@ -7,7 +7,10 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.commands import migration_rehearse as subject
-from yoke_contracts.migration_rehearsal_teaching import PROVISION_RECIPE
+from yoke_contracts.migration_rehearsal_teaching import (
+    PROVISION_RECIPE,
+    YOKE_SOURCE_REHEARSAL_RECIPE,
+)
 
 
 def test_https_connection_is_refused_before_import(monkeypatch, capsys) -> None:
@@ -40,6 +43,7 @@ def test_help_names_every_binding_rehearsal_needs(capsys) -> None:
     assert subject.CONNECTION_READER in rendered
     assert "YOKE_PG_DSN_VALIDATION" in rendered
     assert PROVISION_RECIPE in rendered
+    assert YOKE_SOURCE_REHEARSAL_RECIPE in rendered
 
 
 def test_unexpected_failure_stays_redacted_but_points_at_the_preflight(
