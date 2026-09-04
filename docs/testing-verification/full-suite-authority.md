@@ -164,11 +164,18 @@ the base moved, is a tree no single run covered and runs the full suite —
 which is exactly when the integration proof is real.
 
 Landing then waits through the server's durable queue record only while that
-wait can still produce a merge. If the pull request's required checks have
-already concluded red and nothing is in flight for that head sha, the record
-observer disarms merge-when-ready so a later green cannot auto-merge without
-the gate recording a new verdict, and `yoke merge item --wait` returns that
-terminal failure immediately instead of spending the wait budget.
+wait can still produce a merge. Each live wait invokes the registered observer
+once per minute; the server admits at most one project-wide GitHub sweep per
+cadence, so a machine-relay outage cannot stop record refresh and extra lanes
+do not multiply the reads. The record retains the named `queue_holding`,
+`queue_entry_state`, and `merge_when_ready` outcomes with its refresh and
+semantic-change times. A missed cadence refuses as `landing_record_stale`
+instead of falling back to worker-local GitHub or git polling. If the pull
+request's required checks have already concluded red and nothing is in flight
+for that head sha, the record observer disarms merge-when-ready so a later green
+cannot auto-merge without the gate recording a new verdict, and `yoke merge
+item --wait` returns that terminal failure immediately instead of spending the
+wait budget.
 
 The floor this reaches: a solo item costs one suite end to end; a batch of
 N costs N entry suites plus one shared train.
