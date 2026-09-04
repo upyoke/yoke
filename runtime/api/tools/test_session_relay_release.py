@@ -90,6 +90,10 @@ def test_handshake_build_is_an_exact_immutable_wheel_version() -> None:
             "https://api.stage.upyoke.com/simple/",
         ),
         ("https://relay.example.test/api", "https://relay.example.test/simple/"),
+        (
+            "https://ignored:secret@relay.example.test:8443/api",
+            "https://relay.example.test:8443/simple/",
+        ),
     ),
 )
 def test_distribution_index_belongs_to_the_selected_environment(

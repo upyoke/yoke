@@ -116,7 +116,17 @@ def distribution_index_for_instance(instance: RelayInstance) -> str:
     elif parsed.hostname == hosted_stage:
         base = DISTRIBUTION_STAGE_URL
     else:
-        base = urlunsplit((parsed.scheme, parsed.netloc, "", "", "")).rstrip("/")
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise RelayReleaseError(
+                RELAY_RELEASE_FETCH_FAILED,
+                f"environment {instance.environment!r} has an invalid API port",
+            ) from exc
+        hostname = str(parsed.hostname or "")
+        host = f"[{hostname}]" if ":" in hostname else hostname
+        netloc = f"{host}:{port}" if port else host
+        base = urlunsplit((parsed.scheme, netloc, "", "", "")).rstrip("/")
     return f"{base}/simple/"
 
 
