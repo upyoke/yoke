@@ -19,7 +19,7 @@ from yoke_core.tools.session_relay_plist import relay_launchd_status
 
 
 SLUG = "session-relay"
-TITLE = "Machine relay login item, heartbeat, and API authorization"
+TITLE = "Machine relay launch agent, heartbeat, and API authorization"
 _RELAY_LIST_FUNCTION_ID = RELAY_FUNCTION_IDS[0]
 
 
