@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.board_rebuild_failure import BOARD_REBUILD_FAILED_EVENT_NAME
 from yoke_core.domain.handlers.items_scalar import _map_error_code
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -213,7 +214,10 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
             out=captured,
             expected_status=current,
             originator_actor_id=numeric_actor_id(request.actor.actor_id),
+            rebuild_board=False,
         )
+        if result.get("success"):
+            backlog._maybe_rebuild_board(True, out=captured)
 
     if not result.get("success"):
         legacy_code = result.get("error_code")
@@ -275,6 +279,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
             "epic_task_cascade",
         ],
         "emitted_event_names": [
+            BOARD_REBUILD_FAILED_EVENT_NAME,
             "YokeFunctionCalled",
             "ItemStatusChanged",
         ],

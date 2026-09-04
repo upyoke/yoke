@@ -286,6 +286,12 @@ def run(argv: List[str]) -> int:
             print(json.dumps(envelope, indent=2, sort_keys=True))
             return 1
         envelope["status"] = "done"
+        _announce_close_out("rebuilding board")
+        from yoke_core.domain import backlog
+
+        board_warning = backlog._maybe_rebuild_board(True)
+        if board_warning:
+            envelope["warnings"].append(board_warning)
         _announce_close_out("lane cleanup")
         close = cleanup_terminal_item_lanes(
             {**item, "claim": None},

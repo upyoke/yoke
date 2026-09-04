@@ -211,7 +211,7 @@ def test_done_closeout_relays_instead_of_failing_the_step(monkeypatch) -> None:
 
     def fake_relay(function_id, payload, target=None):
         seen.append((function_id, payload, target.item_id, target.public_ref))
-        return {"item_id": 4242, "exit_code": 0, "board_rebuild_requested": True}
+        return {"item_id": 4242, "exit_code": 0}
 
     monkeypatch.setattr(control_plane_transport, "relay", fake_relay)
 

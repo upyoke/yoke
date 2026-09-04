@@ -310,11 +310,10 @@ def test_seed_source_yoke_checkout_target_still_raises(
     assert "seed-source mismatch" in str(exc.value)
 
 
-def test_seed_source_from_site_packages_yoke_checkout_target_raises(
+def test_seed_source_from_installed_release_yoke_checkout_target_passes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A wheel-installed seed targeting a Yoke checkout that carries its
-    own copy of the module is the same wrong-tree hazard."""
+    """An installed release is the same code source, not another checkout."""
     monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
     monkeypatch.setattr(
         "yoke_core.domain.workspace_authority._is_free_path",
@@ -327,8 +326,6 @@ def test_seed_source_from_site_packages_yoke_checkout_target_raises(
     checkout_seed = checkout / YOKE_CORE_SOURCE_SEED_REL
     checkout_seed.parent.mkdir(parents=True)
     checkout_seed.write_text("# checkout\n")
-    with pytest.raises(RuntimeError) as exc:
-        assert_seed_source_under_target_root(
-            str(installed_seed), checkout, seed_module_name="schema",
-        )
-    assert "seed-source mismatch" in str(exc.value)
+    assert_seed_source_under_target_root(
+        str(installed_seed), checkout, seed_module_name="schema",
+    )

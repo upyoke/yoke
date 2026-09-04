@@ -1,9 +1,4 @@
-"""Backlog rendering, board rebuild, GitHub sync, and event emission helpers.
-
-This module owns the "output" side of the backlog: rendering item bodies,
-rebuilding the board view, syncing state to GitHub, and emitting lifecycle
-events.
-"""
+"""Backlog rendering, board rebuild, GitHub sync, and event helpers."""
 
 from __future__ import annotations
 
@@ -16,6 +11,7 @@ if TYPE_CHECKING:
     from yoke_core.domain.backlog_github_body_budget import SyncMode
 
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.board_rebuild_failure import record_board_rebuild_failure
 from yoke_core.domain.backlog_queries import (
     _is_dry_run,
     _yoke_root,
@@ -26,19 +22,8 @@ from yoke_core.domain.backlog_queries import (
 # Board rebuild
 # ---------------------------------------------------------------------------
 
-def _rebuild_board(out: TextIO = sys.stderr) -> None:
-    """Trigger board rebuild (in-process, zero-shell).
-
-    Skips when ``YOKE_DB`` is set to a path outside the resolved
-    canonical ``repo_root``. That signals a test-isolated fixture DB —
-    rebuilding main's BOARD from main's data while the test wrote to a
-    temp DB is a no-op-for-the-test side effect, and it (correctly)
-    trips ``assert_seed_source_under_target_root`` when the test
-    process imports schema from a checkout outside ``.worktrees/``.
-    Production callers either leave ``YOKE_DB`` unset or point it at
-    the canonical DB (which is under ``repo_root``); both pass the
-    guard and rebuild normally.
-    """
+def _rebuild_board(out: TextIO = sys.stderr) -> str:
+    """Rebuild the generated board; return a recorded failure or ``""``."""
     from yoke_core.domain import rebuild_board as _rebuild_board_mod
 
     try:
@@ -46,7 +31,7 @@ def _rebuild_board(out: TextIO = sys.stderr) -> None:
     except RuntimeError as exc:
         # No checkout: hosted/self-host skip silently; local rootless still warns.
         _rebuild_board_mod.emit_no_checkout_board_skip(exc, out)
-        return
+        return ""
     yoke_db = os.environ.get("YOKE_DB")
     if yoke_db:
         try:
@@ -59,9 +44,19 @@ def _rebuild_board(out: TextIO = sys.stderr) -> None:
                 f"YOKE_DB={yoke_db} is outside repo_root={repo_root}",
                 file=out,
             )
-            return
+            return ""
 
-    _rebuild_board_mod.rebuild(repo_arg=str(repo_root))
+    try:
+        result = _rebuild_board_mod.rebuild(repo_arg=str(repo_root), emit=False)
+    except Exception as exc:
+        return record_board_rebuild_failure(
+            f"{type(exc).__name__}: {exc}",
+            out,
+        )
+    if int(result) != 0:
+        detail = getattr(result, "message", "") or f"exit code {int(result)}"
+        return record_board_rebuild_failure(detail, out)
+    return ""
 
 
 def _maybe_rebuild_board(
@@ -70,11 +65,11 @@ def _maybe_rebuild_board(
     dry_run: bool = False,
     respect_global_dry_run: bool = True,
     out: TextIO = sys.stderr,
-) -> None:
+) -> str:
     """Trigger board rebuild unless suppressed by caller or dry-run mode."""
     if not rebuild_board or dry_run or (respect_global_dry_run and _is_dry_run()):
-        return
-    _rebuild_board(out)
+        return ""
+    return _rebuild_board(out)
 
 
 # ---------------------------------------------------------------------------
