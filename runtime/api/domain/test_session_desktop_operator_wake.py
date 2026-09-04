@@ -208,16 +208,24 @@ def test_the_operator_is_told_which_chat_holds_the_waiting_message() -> None:
     assert "type anything" in notices[0]
 
 
-def test_one_waiting_envelope_produces_one_notice() -> None:
+def test_one_waiting_envelope_accepts_a_reworded_operator_notice() -> None:
     conn = message_connection()
     _add_desktop_session(conn)
     _send_to(conn, CLAUDE_DESKTOP_SESSION_ID)
     _go_quiet(conn, CLAUDE_DESKTOP_SESSION_ID, when=STARVED)
 
     wake_eligible_recipients(conn, now=STARVED)
+    conn.execute(
+        "UPDATE harness_sessions SET executor_surface='codex-desktop' "
+        "WHERE session_id=?",
+        (CLAUDE_DESKTOP_SESSION_ID,),
+    )
+    conn.commit()
     wake_eligible_recipients(conn, now=STARVED + timedelta(seconds=60))
 
-    assert len(_operator_notices(conn)) == 1
+    notices = _operator_notices(conn)
+    assert len(notices) == 1
+    assert "claude-desktop" in notices[0]
 
 
 def test_no_notice_before_the_grace_window_closes() -> None:

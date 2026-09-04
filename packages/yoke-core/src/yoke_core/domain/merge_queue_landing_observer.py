@@ -149,14 +149,15 @@ def observe_pending_landings(
     read_checks: Callable[..., Any] = read_required_checks,
     disarm: Callable[..., str] = disarm_merge_when_ready,
     cadence_seconds: float = REFRESH_CADENCE_SECONDS,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     """Record every landing that happened, and report how each resolved.
 
     A landing that merged is stamped on the item and its holder is told to
     close out. A pull request the queue has dropped notifies the holder to
     rebase and re-gate, and its handoff marker is cleared, because there is
     no queued landing left to wait for. Anything GitHub is still holding
-    stays silent.
+    stays silent. A notice failure is returned under ``notice_errors`` for
+    that item without poisoning the rest of the project refresh.
     """
     current = now or utc_now()
     current_text = timestamp(current)
@@ -226,6 +227,7 @@ def observe_pending_landings(
             row["project_sequence"],
             item_id=item_id,
         )
+        notice_in_progress = False
         try:
             if observation.kind == EJECTED:
                 # An ejection whose admission is already cleared has been
@@ -236,6 +238,7 @@ def observe_pending_landings(
                 # anyway.
                 if not row.get("merge_queue_enqueued_at"):
                     continue
+                notice_in_progress = True
                 delivery = push_notice(
                     conn,
                     item_id=item_id,
@@ -246,26 +249,19 @@ def observe_pending_landings(
                     idempotency_key=f"merge-queue-ejected:{item_id}:{pr_number}",
                     now=current,
                 )
+                notice_in_progress = False
                 if not delivery:
                     conn.commit()
                     result["unrouted"] += 1
                     continue
-                if delivery == "delivered":
-                    # The queue admission is what ended, so that is what is
-                    # cleared: the item stops being reported as an armed
-                    # landing and a fresh `yoke merge item` re-arms it. The
-                    # pull request number stays, because one observation
-                    # cannot separate an ejection from the seconds in which
-                    # a successful train has cleared the slot and the merge
-                    # has not surfaced — and a re-entry that turns out to be
-                    # converging on a merge still needs that number to find
-                    # the merge-group run its evidence is built on.
-                    conn.execute(
-                        f"UPDATE items SET merge_queue_enqueued_at=NULL "
-                        f"WHERE id={marker} AND merge_queue_pr_number={marker}",
-                        (item_id, pr_number),
-                    )
-                    result["ejected"] += 1
+                # Acceptance ends the observer's responsibility. Delivery is
+                # owned by the ordinary pending-message path.
+                conn.execute(
+                    f"UPDATE items SET merge_queue_enqueued_at=NULL "
+                    f"WHERE id={marker} AND merge_queue_pr_number={marker}",
+                    (item_id, pr_number),
+                )
+                result["ejected"] += 1
                 conn.commit()
                 continue
             state = readback.state
@@ -286,6 +282,7 @@ def observe_pending_landings(
                     conn.rollback()
                     continue
                 result["landed"] += 1
+            notice_in_progress = True
             delivery = push_notice(
                 conn,
                 item_id=item_id,
@@ -296,6 +293,7 @@ def observe_pending_landings(
                 idempotency_key=f"merge-queue-landed:{item_id}:{pr_number}",
                 now=current,
             )
+            notice_in_progress = False
             if not delivery:
                 conn.commit()
                 result["unrouted"] += 1
@@ -311,7 +309,13 @@ def observe_pending_landings(
             conn.commit()
         except Exception as exc:
             conn.rollback()
-            cycle_errors.append(f"item {item_id}: {exc}")
+            detail = f"item {item_id}: {exc}"
+            if notice_in_progress:
+                result.setdefault("notice_errors", []).append(
+                    {"item_id": item_id, "pr_number": pr_number, "error": str(exc)}
+                )
+            else:
+                cycle_errors.append(detail)
     if cycle_errors:
         fail_projects(conn, projects, now=current, error="; ".join(cycle_errors))
     else:
