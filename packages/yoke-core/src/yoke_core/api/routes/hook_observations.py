@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from uuid import UUID
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
+    HOOK_CLIENT_WALL_BATCH_FIELD,
 )
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_core.api.http_auth import require_auth_context
@@ -35,6 +37,18 @@ class HookObservation(BaseModel):
 class HookObservationBatchRequest(BaseModel):
     hook_schema: int = 1
     observations: list[HookObservation] = Field(min_length=1, max_length=_BATCH_LIMIT)
+
+
+class HookClientWallUpdate(BaseModel):
+    event_id: UUID
+    client_wall_ms: int = Field(ge=0, le=600_000)
+
+
+class HookClientWallBatchRequest(BaseModel):
+    hook_schema: int = 1
+    client_wall_reports: list[HookClientWallUpdate] = Field(
+        min_length=1, max_length=_BATCH_LIMIT
+    )
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -144,6 +158,48 @@ def post_hook_observation_batch(
     if model_confirmations:
         response[HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD] = model_confirmations
     return JSONResponse(content=response)
+
+
+@router.post("/hooks/telemetry/client-wall")
+def post_hook_client_wall(
+    http_request: Request,
+    batch: HookClientWallBatchRequest,
+) -> JSONResponse:
+    """Complete existing dispatch rows without delaying hook stdout."""
+    if batch.hook_schema != 1:
+        return _error(
+            400,
+            "UNSUPPORTED_HOOK_CLIENT_WALL_SCHEMA",
+            f"hook_schema {batch.hook_schema} is not supported",
+        )
+    auth = require_auth_context(http_request)
+    reports = [
+        (str(entry.event_id), entry.client_wall_ms)
+        for entry in batch.client_wall_reports
+    ]
+    try:
+        from yoke_core.domain.hook_client_wall import record_client_wall_reports
+
+        accepted = record_client_wall_reports(reports, actor_id=auth.actor_id)
+    except PermissionError:
+        return _error(
+            403,
+            "HOOK_CLIENT_WALL_ACTOR_DENIED",
+            "hook telemetry belongs to a different actor",
+        )
+    except Exception as exc:
+        return _error(
+            503,
+            "YOKE_HOOK_CLIENT_WALL_FAILED",
+            f"client wall report was retained for retry ({type(exc).__name__})",
+        )
+    return JSONResponse(
+        content={
+            "hook_schema": 1,
+            "accepted": accepted,
+            "field": HOOK_CLIENT_WALL_BATCH_FIELD,
+        }
+    )
 
 
 __all__ = ["router"]

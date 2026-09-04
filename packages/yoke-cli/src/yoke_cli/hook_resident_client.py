@@ -16,6 +16,7 @@ from pathlib import Path
 from yoke_cli.config import machine_config
 from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.hook_evaluator_protocol import (
+    HookClientWallReport,
     HookEvaluatorProtocolError,
     HookEvaluatorRequest,
     receive_frame,
@@ -84,7 +85,12 @@ def _result_timeout_seconds(environment: dict[str, str]) -> float:
     return max(1.0, timeout_ms / 1000.0 + 2.0)
 
 
-def _request(event_name: str, stdin_data: str, dry_run: bool) -> HookEvaluatorRequest:
+def _request(
+    event_name: str,
+    stdin_data: str,
+    dry_run: bool,
+    client_timing_id: str,
+) -> HookEvaluatorRequest:
     return HookEvaluatorRequest(
         event_name=event_name,
         stdin=stdin_data,
@@ -94,12 +100,15 @@ def _request(event_name: str, stdin_data: str, dry_run: bool) -> HookEvaluatorRe
         cwd=os.getcwd(),
         environment=dict(os.environ),
         revision=str(collect_execution_provenance().get("source_sha") or "unknown"),
+        client_timing_id=client_timing_id,
     )
 
 
 def _round_trip(
     paths: ResidentPaths,
     request: HookEvaluatorRequest,
+    *,
+    client_started_monotonic: float | None = None,
 ) -> dict:
     peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
@@ -107,7 +116,23 @@ def _round_trip(
         peer.connect(str(paths.socket))
         peer.settimeout(_result_timeout_seconds(request.environment))
         send_frame(peer, request.to_mapping())
-        return receive_frame(peer)
+        response = receive_frame(peer)
+        if (
+            response.get("status") == "ok"
+            and request.client_timing_id
+            and client_started_monotonic is not None
+        ):
+            report = HookClientWallReport(
+                event_id=request.client_timing_id,
+                client_wall_ms=max(
+                    0, int((time.monotonic() - client_started_monotonic) * 1000)
+                ),
+            )
+            try:
+                send_frame(peer, report.to_mapping())
+            except (HookEvaluatorProtocolError, OSError, socket.timeout):
+                pass
+        return response
     finally:
         peer.close()
 
@@ -175,8 +200,10 @@ def _validated_result(response: dict, paths: ResidentPaths) -> ResidentEvaluatio
     stdout = response.get("stdout")
     stderr = response.get("stderr")
     exit_code = response.get("exit_code")
-    if not isinstance(stdout, str) or not isinstance(stderr, str) or not isinstance(
-        exit_code, int
+    if (
+        not isinstance(stdout, str)
+        or not isinstance(stderr, str)
+        or not isinstance(exit_code, int)
     ):
         raise ResidentUnavailable(
             "YOKE_HOOK_RESIDENT_PROTOCOL_ERROR",
@@ -191,16 +218,22 @@ def evaluate_with_resident(
     stdin_data: str,
     *,
     dry_run: bool = False,
+    client_timing_id: str = "",
+    client_started_monotonic: float | None = None,
 ) -> ResidentEvaluation:
     """Evaluate through the resident or raise a named fallback reason."""
     paths = resident_paths()
-    request = _request(event_name, stdin_data, dry_run)
+    request = _request(event_name, stdin_data, dry_run, client_timing_id)
     started = time.monotonic()
     start_attempted = False
     last_error = "socket is unreachable"
     while time.monotonic() - started < RESIDENT_CONNECT_GRACE_SECONDS:
         try:
-            response = _round_trip(paths, request)
+            response = _round_trip(
+                paths,
+                request,
+                client_started_monotonic=client_started_monotonic,
+            )
         except HookEvaluatorProtocolError as exc:
             raise ResidentUnavailable(
                 "YOKE_HOOK_RESIDENT_PROTOCOL_ERROR",

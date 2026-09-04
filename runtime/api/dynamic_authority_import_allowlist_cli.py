@@ -114,6 +114,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "compose session orientation from this machine's own git and files",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/hook_client_wall.py",
+        "yoke_core.domain.hook_client_wall",
+    ): (
+        "local_universe_dispatch",
+        "complete hook timing in the active local universe after evaluation",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay.py",
         "yoke_core.tools.session_relay_plist",
     ): (

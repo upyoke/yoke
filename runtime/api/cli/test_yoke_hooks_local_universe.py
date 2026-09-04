@@ -7,6 +7,7 @@ import json
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
+from uuid import UUID
 
 from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
     _FakeResponse,
@@ -26,9 +27,9 @@ def test_bound_local_universe_runs_complete_engine_chain(monkeypatch) -> None:
     monkeypatch.setattr(_ACTIVE, lambda: True)
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
     local_calls: list[tuple] = []
-    monkeypatch.setattr(_LOCAL, lambda *args, **kwargs: local_calls.append(
-        (args, kwargs)
-    ) or 0)
+    monkeypatch.setattr(
+        _LOCAL, lambda *args, **kwargs: local_calls.append((args, kwargs)) or 0
+    )
     with patch(
         "yoke_harness.hooks.relay.evaluate_hook_event",
         side_effect=AssertionError("bound local universe must use yoke-core"),
@@ -41,7 +42,10 @@ def test_bound_local_universe_runs_complete_engine_chain(monkeypatch) -> None:
     assert len(local_calls) == 1
     args, kwargs = local_calls[0]
     assert args[0] == "PreToolUse"
-    assert json.loads(args[1]) == {
+    payload = json.loads(args[1])
+    timing_id = payload["yoke_hook_evaluator"].pop("client_timing_id")
+    assert str(UUID(timing_id)) == timing_id
+    assert payload == {
         "session_id": "s1",
         "yoke_hook_evaluator": {
             "evaluator": "inprocess",
@@ -68,26 +72,38 @@ def test_unbound_machine_retains_client_subset(monkeypatch) -> None:
 
 
 def test_https_relay_skips_local_engine(
-    monkeypatch, https_connection,  # noqa: F811
+    monkeypatch,
+    https_connection,  # noqa: F811
 ) -> None:
     monkeypatch.setattr(
-        sys, "stdin",
+        sys,
+        "stdin",
         io.StringIO('{"session_id": "s1", "tool_name": "Bash"}'),
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay.detect_executor", lambda: "claude-code",
+        "yoke_harness.hooks.relay.detect_executor",
+        lambda: "claude-code",
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay.record_session_anchor", lambda *_a, **_k: None,
+        "yoke_harness.hooks.relay.record_session_anchor",
+        lambda *_a, **_k: None,
     )
     driven: list = []
     monkeypatch.setattr(_LOCAL, lambda *a, **k: driven.append((a, k)))
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(json.dumps({
-            "hook_schema": 1, "stdout": "", "exit_code": 0,
-            "wait_ms": 1, "degraded": [], "outcome": "completed",
-        }).encode("utf-8")),
+        lambda *_a, **_k: _FakeResponse(
+            json.dumps(
+                {
+                    "hook_schema": 1,
+                    "stdout": "",
+                    "exit_code": 0,
+                    "wait_ms": 1,
+                    "degraded": [],
+                    "outcome": "completed",
+                }
+            ).encode("utf-8")
+        ),
     )
     assert cli_main(["hook", "evaluate", "PreToolUse"]) == 0
     assert driven == []
@@ -101,7 +117,9 @@ def test_missing_local_engine_is_loud(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr("importlib.import_module", _missing)
     rc = hooks_mod._evaluate_local_universe_hook(
-        "PreToolUse", '{"session_id": "s1"}', extra_context="",
+        "PreToolUse",
+        '{"session_id": "s1"}',
+        extra_context="",
     )
     assert rc == 1
     assert "YOKE_LOCAL_HOOK_ENGINE_MISSING" in capsys.readouterr().err

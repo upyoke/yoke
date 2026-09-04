@@ -215,6 +215,14 @@ def test_registry_maps_sessions_list_to_function_id() -> None:
     assert SUBCOMMAND_REGISTRY[("sessions", "list")][0] == "sessions.list"
 
 
+def test_sessions_hook_overhead_dispatches_hours() -> None:
+    assert _run("sessions", "hook-overhead", "--hours", "12", "--json") == 0
+    req = _CAPTURED_REQUESTS[-1]
+    assert req.function == "sessions.hook_overhead"
+    assert req.target.kind == "global"
+    assert req.payload == {"hours": 12}
+
+
 def test_session_closeout_and_reclaim_dispatch() -> None:
     assert _run("sessions", "end-if-empty", "--triggered-by", "hook") == 0
     request = _CAPTURED_REQUESTS[-1]
