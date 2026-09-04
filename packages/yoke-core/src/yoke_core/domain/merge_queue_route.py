@@ -69,9 +69,20 @@ def land_item_through_merge_queue(
     liveness: Optional[SessionLivenessPump] = None,
     emit: Callable[[str], None] = _emit_to_stderr,
     wait_for_landing: bool = True,
+    relay_launched: bool = False,
 ) -> QueueLandingOutcome:
-    """Land one verified item branch through the merge queue."""
+    """Land one verified item branch through the merge queue.
+
+    A relay-launched caller never waits, whatever it asked for. It is a
+    headless command that cannot be prompted again, and a queue landing
+    outlasts the turn holding the wait: the wait dies with the turn and
+    leaves the branch landed with its item open. Arming and stopping hands
+    the landing to the record the control-plane observer already watches,
+    and its notice wakes the claim holder for close-out.
+    """
     warnings: list[str] = []
+    if relay_launched:
+        wait_for_landing = False
 
     # A landing already recorded from GitHub leaves nothing to land, so the
     # queue is never consulted again: re-reading membership would find this
@@ -227,10 +238,17 @@ def land_item_through_merge_queue(
     if not already_merged and not wait_for_landing:
         emit(
             f"[phase:landing] pull request {pr_num} is in the merge queue; "
-            "this command is exiting with landing_pending=true. Re-enter on "
-            "a completion message only when the watcher selected a verified "
-            "background-wake route; otherwise run the same merge through "
-            "the reachability-routed watcher with --wait"
+            "this command is exiting with landing_pending=true. "
+            + (
+                "You are waiting on landing: stop deliberately and say so. "
+                "The landing notice wakes you, and re-running this same "
+                "command then completes close-out."
+                if relay_launched
+                else "Re-enter on a completion message only when the watcher "
+                "selected a verified background-wake route; otherwise run "
+                "the same merge through the reachability-routed watcher "
+                "with --wait"
+            )
         )
         return QueueLandingOutcome(
             ok=True,

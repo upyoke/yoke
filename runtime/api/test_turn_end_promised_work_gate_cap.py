@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain import turn_end_promised_work_gate as gate
+from yoke_core.domain import turn_end_unfinished_work as unfinished
 from yoke_core.domain.sessions_render_end_chain_pending import ChainPendingState
 
 
@@ -60,7 +61,7 @@ def test_cap_names_close_out_and_warns(monkeypatch) -> None:
     assert payload["reason"] == gate.REASON_CAP_REACHED
     assert payload["cap_reached"] is True
     assert payload["severity"] == "WARN"
-    assert payload["unfinished_work"] == gate.UNFINISHED_CLOSE_OUT
+    assert payload["unfinished_work"] == unfinished.UNFINISHED_CLOSE_OUT
     assert payload["item_status"] == "reviewing-implementation"
     assert "status is not the landing signal" in payload["recovery"]
     assert "yoke merge item 2652" in payload["recovery"]
@@ -68,5 +69,5 @@ def test_cap_names_close_out_and_warns(monkeypatch) -> None:
 
 def test_cap_without_landing_stamp_names_claimed_item() -> None:
     claim = {"item_id": 9, "status": "implementing"}
-    assert gate.unfinished_work_name(claim) == gate.UNFINISHED_CLAIMED_ITEM
-    assert gate.recovery_for(claim) == gate.DIRECTIVE
+    assert unfinished.unfinished_work_name(claim) == unfinished.UNFINISHED_CLAIMED_ITEM
+    assert unfinished.recovery_for(claim) == gate.DIRECTIVE

@@ -4,9 +4,10 @@ Identity is resolved once, at registration: ``register_session`` stores the
 canonical executor id and its display alias, the provider, the model
 SessionStart observed, the execution lane the project's routing policy maps
 that executor to, the workspace, the project, and the actor. This handler
-reads those stored facts back through the shared projection and adds the two
-policy values derived from them — the downstream paths the session's lane may
-execute, and the chain budget the autonomous loop honors.
+reads those stored facts back through the shared projection and adds the
+values derived from them — the downstream paths the session's lane may
+execute, the chain budget the autonomous loop honors, and whether a Yoke
+relay started this session as a headless command.
 
 Nothing here re-derives, so nothing returned is advisory. A caller that
 cannot reach the authority is refused with its recovery command rather than
@@ -54,6 +55,11 @@ class IdentityResponse(BaseModel):
     actor_label: Optional[str] = None
     mode: Optional[str] = None
     max_chain_steps: int
+    #: True when a Yoke relay started this session as a headless command.
+    #: Such a session cannot be prompted again inside its own turn, so a
+    #: caller that would otherwise block on a long wait hands the work to a
+    #: durable record and stops instead.
+    relay_launched: bool = False
 
 
 def _project_slug(conn: Any, project_id: Optional[int]) -> Optional[str]:
@@ -123,6 +129,9 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
     if not sid:
         return _err("session_required", "session id is required")
 
+    from yoke_core.domain.session_relay_launch_context import (
+        session_was_relay_launched,
+    )
     from yoke_core.domain.sessions import SessionError
     from yoke_core.domain.sessions_ended_recovery import session_ended_message
     from yoke_core.domain.sessions_identity_read import resolve_session_identity
@@ -153,6 +162,7 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "actor_label": _actor_label(conn, identity.actor_id),
             "mode": identity.mode,
             "max_chain_steps": _max_chain_steps(),
+            "relay_launched": session_was_relay_launched(conn, sid),
         }
     return HandlerOutcome(result_payload=payload)
 

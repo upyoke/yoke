@@ -25,14 +25,25 @@ registered claim.
 
 ### 7. Merge, record evidence, and finish
 
-Merge-queue projects use one watcher invocation whose safe wait shape is
+Merge-queue projects land through one of two shapes, and which one you get is
+decided by the merge itself, not by you.
+
+**A relay-launched session arms the landing and stops.** `yoke merge item`
+returns `landing_pending=true` naming the pull request, whatever you passed,
+because a headless command cannot outlive a queue landing: the wait would die
+with the turn and leave the branch landed with the item open. Report the pull
+request, say you are waiting on landing, and end the turn deliberately — the
+Stop gate treats a recorded pending landing as a legitimate stop. The
+control-plane landing notice wakes you, and re-running the same
+`yoke merge item ITEM --result ... --verification ...` command then completes
+close-out, exactly as it does for any landed-but-not-closed-out item. A stopped
+landing arrives the same way and names its recovery.
+
+**Every other session waits.** The watcher invocation's safe wait shape is
 resolved from the calling session's manifest wake capability and current
-control-plane reachability. Never choose the route from who opened the session,
-its executor name, or its launch origin. A verified wake route preserves the
-background subscription; no route, or an unknown answer, keeps the wait in the
-current turn. Ending an unreachable caller on `landing_pending=true` can leave
-the branch landed and the item at `reviewing-implementation` with nobody to
-close it out.
+control-plane reachability, never from who opened the session or its executor
+name. A verified wake route preserves the background subscription; no route, or
+an unknown answer, keeps the wait in the current turn.
 
 Either way the first call opens / rebases / arms the pull request and returns
 `landing_pending=true`, which means GitHub itself reported that it holds the
@@ -46,7 +57,8 @@ those four it saw. A red required check refuses before anything is armed,
 and names the check and its run.
 
 **Reachability-routed wait.** Pass `--wait` through the merge watcher wrapper.
-On each documented cadence the waiting client calls
+A relay-launched session takes the arm-and-stop handoff above instead, so
+nothing below applies to it. On each documented cadence the waiting client calls
 `merge_queue.landing.observe`. The server rate-limits concurrent callers to
 one project-wide GitHub sweep per cadence, refreshes every pending landing,
 and returns this lane's durable record. It preserves the same four-fact landing

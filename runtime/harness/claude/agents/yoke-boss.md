@@ -233,7 +233,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
 # Queue landing:
 yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait`
-  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. merge-item --wait holds the landing inline. The shared wait router emits a background subscription only for a caller with a verified wake route; callers with no or unknown reachability stay in-turn until landing. `yoke github merge-queue readiness PREFIX-N --json` names the queue state; null arming with an entry means consumed, not cleared.
+  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. A relay-launched session ignores --wait: its merge arms the landing, returns landing_pending=true naming the pull request, and the landing notice wakes it to re-run the same command for close-out. For every other caller merge-item --wait holds the landing inline, and the shared wait router emits a background subscription only for a caller with a verified wake route; callers with no or unknown reachability stay in-turn until landing. `yoke github merge-queue readiness PREFIX-N --json` names the queue state; null arming with an entry means consumed, not cleared.
 - _Wait on a commit's CI runs with watcher (main session)_
   - `yoke watch ci-run
 yoke watch ci-run -- <branch-or-sha> --workflow <name>`
