@@ -76,14 +76,10 @@ def serve_release_daemon() -> Any:
             f"{detail}. Recovery: run `yoke --env {instance.environment} "
             "relay install`.",
         )
-    running_prefix = Path(sys.prefix).resolve()
-    pinned_prefix = installed.python.parent.parent.resolve()
-    if running_prefix != pinned_prefix:
+
+    def restart_from_pin(argv=None, *, executable=None):
         try:
-            exec_relay_release(
-                ["--env", instance.environment, "relay", "serve"],
-                executable=installed.executable,
-            )
+            exec_relay_release(argv, executable=executable)
         except OSError as exc:
             raise RelayReleaseError(
                 RELAY_RELEASE_START_FAILED,
@@ -94,6 +90,14 @@ def serve_release_daemon() -> Any:
         raise RelayReleaseError(
             RELAY_RELEASE_START_FAILED,
             "pinned relay replacement returned without starting",
+        )
+
+    running_prefix = Path(sys.prefix).resolve()
+    pinned_prefix = installed.python.parent.parent.resolve()
+    if running_prefix != pinned_prefix:
+        restart_from_pin(
+            ["--env", instance.environment, "relay", "serve"],
+            executable=installed.executable,
         )
 
     def repin(served_build: str):
@@ -109,6 +113,7 @@ def serve_release_daemon() -> Any:
         pinned_release=installed.pinned_release,
         pin_served_release=repin,
         reload_argv=["--env", instance.environment, "relay", "serve"],
+        reload_exec=restart_from_pin,
     )
 
 

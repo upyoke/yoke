@@ -7,6 +7,8 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_cli.commands.adapters import session_control_relay as relay
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
 from yoke_cli.config import session_relay_instance
@@ -105,6 +107,47 @@ def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -
     else:
         raise AssertionError("test replacement unexpectedly returned as success")
     assert replacements == [(["--env", "prod", "relay", "serve"], pinned_executable)]
+
+
+def test_post_deploy_restart_preserves_named_start_failure(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    python = Path(sys.prefix) / "bin" / "python"
+    monkeypatch.setattr(
+        session_relay_instance,
+        "resolve_relay_instance",
+        lambda: instance,
+    )
+    monkeypatch.setattr(
+        session_relay_release,
+        "relay_release_status",
+        lambda **_kwargs: SimpleNamespace(
+            current=True,
+            pinned_release="0.1.1+launch.365",
+            python=python,
+        ),
+    )
+    monkeypatch.setattr(
+        session_relay_process_restart,
+        "exec_relay_release",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("exec denied")),
+    )
+
+    def serve_forever(**kwargs):
+        kwargs["reload_exec"](
+            kwargs["reload_argv"],
+            executable=instance.state_dir / "venv" / "bin" / "yoke",
+        )
+
+    monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
+
+    with pytest.raises(session_relay_release.RelayReleaseError) as raised:
+        release_cli.serve_release_daemon()
+    assert raised.value.code == RELAY_RELEASE_START_FAILED
+    assert "exec denied" in str(raised.value)
+    assert "relay install" in str(raised.value)
 
 
 def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> None:
