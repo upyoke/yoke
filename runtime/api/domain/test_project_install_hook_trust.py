@@ -84,6 +84,18 @@ def test_a_reconcile_that_changed_nothing_rewrites_nothing(
     assert trust["changed"] is False
 
 
+def test_install_without_codex_hooks_records_an_inert_skip(repo, monkeypatch, tmp_path):
+    home = _codex_home(monkeypatch, tmp_path)
+
+    trust = runner._mint_codex_hook_trust(repo)
+
+    assert trust["changed"] is False
+    assert trust["skipped_reason"] == (
+        f"Codex hooks file is absent: {repo / '.codex/hooks.json'}"
+    )
+    assert not (home / "config.toml").exists()
+
+
 def test_config_write_refusal_names_path_and_recovery(repo, monkeypatch, tmp_path):
     home = _codex_home(monkeypatch, tmp_path)
     config = home / "config.toml"

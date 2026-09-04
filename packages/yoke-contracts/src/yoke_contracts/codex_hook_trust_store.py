@@ -165,6 +165,10 @@ def mint_installed_checkout_trust(
     """Replace one Yoke-installed checkout's trust with current hashes."""
     hooks_path = hooks_file_for(checkout)
     selected = config_path or codex_config_path()
+    if not hooks_path.is_file():
+        return TrustMutation(
+            str(selected), skipped_reason=f"Codex hooks file is absent: {hooks_path}"
+        )
     try:
         selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as exc:
