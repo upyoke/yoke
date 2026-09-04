@@ -174,9 +174,7 @@ def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
     notes = _merge_recipe()["notes"]
     assert "verified wake route" in notes
     assert "callers with no or unknown reachability stay in-turn" in notes
-    assert "yoke github merge-queue readiness PREFIX-N --json" in (
-        _merge_recipe()["recipe"]
-    )
+    assert "yoke github merge-queue readiness PREFIX-N --json" in notes
     assert "null arming with an entry means consumed" in notes
     epilog = _words(_read(WATCH_MERGE_SOURCE))
     assert "a verified wake route gets the background" in epilog

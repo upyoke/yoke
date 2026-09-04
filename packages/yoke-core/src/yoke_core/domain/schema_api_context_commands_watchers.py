@@ -135,8 +135,7 @@ WATCHERS_COMMANDS: list[dict] = [
             "--print-streaming-pair merge-worktree -- PREFIX-N\n"
             "# Queue landing:\n"
             "yoke watch merge --print-streaming-pair "
-            "merge-item -- PREFIX-N --wait\n"
-            "yoke github merge-queue readiness PREFIX-N --json"
+            "merge-item -- PREFIX-N --wait"
         ),
         "notes": (
             "watch_merge owns the merge filter regex (section banners, "
@@ -145,7 +144,8 @@ WATCHERS_COMMANDS: list[dict] = [
             "merge-item --wait holds the landing inline. The shared wait "
             "router emits a background subscription only for a caller with "
             "a verified wake route; callers with no or unknown reachability "
-            "stay in-turn until landing. Readiness names the queue state; "
+            "stay in-turn until landing. `yoke github merge-queue readiness "
+            "PREFIX-N --json` names the queue state; "
             "null arming with an entry means consumed, not cleared."
         ),
     },
