@@ -64,6 +64,14 @@ def _machines(harness_module):
     return {row["machine_id"]: row for row in harness_module["machines"]}
 
 
+def _health(machine):
+    """Coloured targets only; an undetected surface carries no colour."""
+    return {
+        target["key"]: target["hook_health"]
+        for target in machine["targets"] if target["hook_health"]
+    }
+
+
 def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_relay(test_db, MACHINE_B, "beta-box")
@@ -90,19 +98,26 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     assert alpha["state"] == "activated" and alpha["activated_at"]
     assert alpha["connected"]["executor"] == "claude-code"
     assert alpha["surfaces"] == ["claude-cli", "codex-cli"]
-    assert {t["key"]: t["hook_health"] for t in alpha["targets"]} == {
+    assert _health(alpha) == {
         "claude-code": "green",
         "claude-cli": "green",
+        "codex": "orange",
         "codex-cli": "orange",
     }
     # The second box reads only its relay-reported installation, never the
     # first box's session history.
     assert beta["state"] == "in_progress" and beta["activated_at"] is None
     assert beta["connected"] is None
-    assert {t["key"]: t["hook_health"] for t in beta["targets"]} == {
+    assert _health(beta) == {
+        "claude-code": "orange",
         "claude-cli": "orange",
+        "codex": "orange",
         "codex-cli": "orange",
     }
+    # Every other supported surface still answers, in words.
+    assert {
+        t["key"] for t in beta["targets"] if t["status"] == "not_installed"
+    } == {"cursor", "cursor-cli", "cursor-desktop", "claude-vscode"}
     # Later modules stay locked behind the pending machine.
     assert modules["run_onboard"]["state"] == "not_started"
 
@@ -161,11 +176,11 @@ def test_hook_health_regresses_per_machine_under_a_held_latch(test_db):
                   tool_calls=4)
     first = _machines(_modules()["connect_harness"])[MACHINE_A]
     assert first["state"] == "activated"
-    assert {t["key"]: t["hook_health"] for t in first["targets"]}["codex"] == "green"
+    assert _health(first)["codex"] == "green"
 
     # A re-keyed approval leaves the harness hookless; the latch holds.
     test_db.execute("UPDATE harness_sessions SET tool_call_count = 0")
     test_db.commit()
     again = _machines(_modules()["connect_harness"])[MACHINE_A]
     assert again["state"] == "activated"
-    assert {t["key"]: t["hook_health"] for t in again["targets"]}["codex"] == "red"
+    assert _health(again)["codex"] == "red"

@@ -26,9 +26,12 @@ export function wizardSubmodules(done = {}, machineDetail = null) {
   ];
 }
 
-// Health, last-seen, and trust maps mirror the engine's target sub-signal.
+// Health, last-seen, trust, and version maps mirror the engine's target
+// sub-signal. The engine answers for every supported surface, so this
+// fixture does too; a surface with no facts reads "not installed".
 export function harnessTargets(
   hits = {}, health = {}, trustSurfaces = {}, lastSeen = {},
+  versions = {}, statuses = {},
 ) {
   return [
     ["claude-code", "Claude Code"], ["codex", "Codex"], ["cursor", "Cursor"],
@@ -39,10 +42,24 @@ export function harnessTargets(
     key,
     label,
     hit: Boolean(hits[key]),
+    version: versions[key] || null,
+    status: statuses[key] || harnessStatus(
+      Boolean(hits[key]), health[key], trustSurfaces[key], lastSeen[key],
+    ),
     hook_health: health[key] || null,
     last_seen_at: lastSeen[key] || null,
     trust_surface: trustSurfaces[key] || null,
   }));
+}
+
+// The engine's status precedence, mirrored so a fixture that sets only
+// hit/health still carries the status the renderer reads.
+function harnessStatus(hit, health, trustSurface, lastSeen) {
+  if (health === "green") return "active";
+  if (health === "red" && trustSurface) return "hooks_need_trust";
+  if (lastSeen) return "installed_last_seen";
+  if (hit || health) return "installed_never_seen";
+  return "not_installed";
 }
 
 // One registered machine under the harness module: the engine's row shape,

@@ -13,6 +13,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.machine_config.runtime import ensure_machine_id
 
 
 HARNESS_MACHINE_REPORT_UPSERT_USAGE = (
@@ -48,6 +49,7 @@ def harness_machine_report_upsert(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload={
             "project_id": parsed.project_id,
+            "machine_id": ensure_machine_id(),
             "reports": reports,
             "pack_prerequisites": pack_prerequisites,
         },

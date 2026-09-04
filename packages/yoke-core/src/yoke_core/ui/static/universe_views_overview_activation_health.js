@@ -1,11 +1,14 @@
-// Overview harness-health chrome: chips, colours, and orange remediation.
-// Extracted so the activation renderer stays under the authored-file cap.
+// Overview harness cards: one card per supported surface, each carrying the
+// name, the version the relay reported, and one sentence saying what we
+// detected there. Colour is a secondary cue on the status line; the words
+// carry the meaning, so a viewer never has to decode a palette.
 
 import { el } from "./universe_view_support.js";
-import { hookTrustRemediation } from "./universe_views_overview_activation_copy.js";
+import {
+  harnessStatusLine,
+  hookTrustRemediation,
+} from "./universe_views_overview_activation_copy.js";
 
-const HEALTH_GREEN = "green";
-const HEALTH_ORANGE = "orange";
 const HEALTH_RED = "red";
 
 function unapprovedTrustSurfaces(targets) {
@@ -28,34 +31,35 @@ function lastSeenDate(value) {
   }).format(date);
 }
 
+function harnessCard(documentNode, target) {
+  const card = el(documentNode, "section", "activation-card");
+  card.setAttribute("data-target", target.key);
+  card.setAttribute("data-status", target.status);
+  if (target.hook_health) {
+    card.setAttribute("data-hook-health", target.hook_health);
+  }
+  const head = el(documentNode, "p", "activation-card-name", target.label);
+  if (target.version) {
+    head.appendChild(el(
+      documentNode, "span", "activation-card-version", target.version,
+    ));
+  }
+  card.appendChild(head);
+  card.appendChild(el(
+    documentNode, "p", "activation-card-status",
+    harnessStatusLine(
+      target.status, lastSeenDate(target.last_seen_at) || target.last_seen_at,
+    ),
+  ));
+  return card;
+}
+
 export function renderHarnessTargets(documentNode, module, body) {
-  const targets = el(documentNode, "p", "activation-targets");
-  (module.targets || []).forEach((target, index) => {
-    if (index) {
-      targets.appendChild(el(documentNode, "span", "activation-target-sep", " · "));
-    }
-    const lit = Boolean(target.hit) && (
-      !target.hook_health || target.hook_health === HEALTH_GREEN
-    );
-    const lastSeen = target.hook_health === HEALTH_ORANGE
-      ? lastSeenDate(target.last_seen_at) : null;
-    const label = [
-      `${target.label}${lit ? " ✓" : ""}`,
-      ...(lastSeen ? [`last seen ${lastSeen}`] : []),
-    ].join(" · ");
-    const chip = el(
-      documentNode,
-      "span",
-      "activation-target",
-      label,
-    );
-    chip.setAttribute("data-hit", String(Boolean(target.hit)));
-    if (target.hook_health) {
-      chip.setAttribute("data-hook-health", target.hook_health);
-    }
-    targets.appendChild(chip);
-  });
-  body.appendChild(targets);
+  const cards = el(documentNode, "div", "activation-cards");
+  for (const target of module.targets || []) {
+    cards.appendChild(harnessCard(documentNode, target));
+  }
+  body.appendChild(cards);
   for (const trustSurface of unapprovedTrustSurfaces(module.targets)) {
     body.appendChild(el(
       documentNode, "p", "activation-remediation",

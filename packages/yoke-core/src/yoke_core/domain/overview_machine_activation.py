@@ -15,6 +15,14 @@ that ran from it). When the machine registry table lands, that function
 switches its identity source to the registry row and nothing else changes;
 do not build a second machine surface beside it.
 
+The read is scoped to the viewing actor. A universe is shared by an
+organization's members, and another member's laptop is not something the
+viewer can act on — it is noise at best and a wrong instruction at worst
+("next up: open a harness on a box you have never touched"). Relays name
+their owner, so the viewer's machines are their own relays plus any machine
+that ran their sessions and has no relay at all. Without a bound actor
+(a local single-actor universe) every machine is the viewer's.
+
 The latch is monotone per ``(machine_id, module_key)`` in
 ``overview_machine_activation_facts``: once a machine has been observed
 satisfying a module, the row keeps it activated for that machine even if the
@@ -49,18 +57,37 @@ RELAY_STATE_REVOKED = "revoked"
 FACTS_TABLE = "overview_machine_activation_facts"
 
 
-def _relay_rows(conn: Any) -> Dict[str, Dict[str, Any]]:
+def _relayed_machine_ids(conn: Any) -> set:
+    """Every machine that has a relay, whoever owns it.
+
+    A machine someone else's relay owns is theirs even if the viewer once
+    ran a session on it, so this set is what session-only identity defers to.
+    """
+    if not _table_exists(conn, "session_relays"):
+        return set()
+    return {
+        str(row[0])
+        for row in conn.execute("SELECT machine_id FROM session_relays").fetchall()
+    }
+
+
+def _relay_rows(conn: Any, actor_id: Optional[int]) -> Dict[str, Dict[str, Any]]:
     if not _table_exists(conn, "session_relays"):
         return {}
     machines: Dict[str, Dict[str, Any]] = {}
+    owned = "" if actor_id is None else "WHERE actor_id = %s "
+    params = () if actor_id is None else (actor_id,)
     for row in conn.execute(
         "SELECT machine_id, hostname, surface_versions, first_seen_at, "
-        "last_seen_at, state FROM session_relays ORDER BY last_seen_at"
+        f"last_seen_at, state FROM session_relays {owned}"
+        "ORDER BY last_seen_at", params,
     ).fetchall():
         machine_id = str(row[0])
         try:
             surfaces = json_helper.loads_text(row[2] or "{}")
         except ValueError:
+            surfaces = {}
+        if not isinstance(surfaces, dict):
             surfaces = {}
         current = machines.get(machine_id)
         registered_at = row[3]
@@ -71,6 +98,9 @@ def _relay_rows(conn: Any) -> Dict[str, Dict[str, Any]]:
             "machine_id": machine_id,
             "name": str(row[1] or "") or None,
             "surfaces": sorted(str(key) for key in surfaces),
+            "surface_versions": {
+                str(key): value for key, value in surfaces.items()
+            },
             "registered_at": registered_at,
             "last_seen_at": row[4],
             "relay_state": str(row[5] or ""),
@@ -78,14 +108,18 @@ def _relay_rows(conn: Any) -> Dict[str, Dict[str, Any]]:
     return machines
 
 
-def _session_rows(conn: Any) -> Dict[str, List[Sequence[Any]]]:
+def _session_rows(
+    conn: Any, actor_id: Optional[int],
+) -> Dict[str, List[Sequence[Any]]]:
     """Session identity rows grouped by machine, in the hook-health shape."""
     grouped: Dict[str, List[Sequence[Any]]] = {}
+    owned = "" if actor_id is None else "AND actor_id = %s "
+    params = () if actor_id is None else (actor_id,)
     for row in conn.execute(
         "SELECT machine_id, executor, COALESCE(executor_surface, ''), "
         "CASE WHEN tool_call_count > 0 OR last_tool_call_at IS NOT NULL "
         "THEN 1 ELSE 0 END, episode_started_at, last_tool_call_at, offered_at "
-        "FROM harness_sessions WHERE machine_id IS NOT NULL"
+        f"FROM harness_sessions WHERE machine_id IS NOT NULL {owned}", params,
     ).fetchall():
         grouped.setdefault(str(row[0]), []).append(tuple(row[1:]))
     return grouped
@@ -109,19 +143,30 @@ def _harnesses(rows: Iterable[Sequence[Any]]) -> List[Dict[str, Any]]:
 
 
 def read_registered_machines(
-    conn: Any, reports: Optional[Sequence[Dict[str, Any]]] = None,
+    conn: Any,
+    reports: Optional[Sequence[Dict[str, Any]]] = None,
+    *,
+    actor_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Every registered machine with the harnesses that ran from it.
+    """The viewing actor's machines, with the harnesses that ran from each.
 
     This is the single machine-identity read for the Overview. Identity
     comes from ``session_relays`` and ``harness_sessions.machine_id`` today;
     when the machine registry table lands, swap the identity source here and
-    keep the returned shape. ``reports`` are the per-project harness machine
-    reports, which are not machine-keyed yet, so every machine's hook health
-    reads the same approval evidence.
+    keep the returned shape. ``reports`` are harness machine reports keyed by
+    machine, so each machine's hook health reads only its own evidence.
+    ``actor_id`` is the viewer; ``None`` means an unscoped universe and lists
+    every machine.
     """
-    relays = _relay_rows(conn)
-    sessions = _session_rows(conn)
+    relays = _relay_rows(conn, actor_id)
+    sessions = _session_rows(conn, actor_id)
+    if actor_id is not None:
+        relayed = _relayed_machine_ids(conn)
+        sessions = {
+            machine_id: rows for machine_id, rows in sessions.items()
+            if machine_id in relays or machine_id not in relayed
+        }
+    stored = list(reports or ())
     machines: List[Dict[str, Any]] = []
     for machine_id in sorted(set(relays) | set(sessions)):
         relay = relays.get(machine_id)
@@ -150,8 +195,10 @@ def read_registered_machines(
             ),
             "targets": harness_targets(
                 session_identities(rows),
-                reports,
-                installed_surfaces=relay["surfaces"] if relay else (),
+                [row for row in stored if row.get("machine_id") == machine_id],
+                installed_surfaces=(
+                    relay["surface_versions"] if relay else {}
+                ),
             ),
         })
     return machines

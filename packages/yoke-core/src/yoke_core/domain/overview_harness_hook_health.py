@@ -1,15 +1,20 @@
-"""Harness activation targets and their live hook health.
+"""Harness activation targets, their worded status, and their hook health.
 
-Colours say what the operator should do, not how sure we are:
+Every supported harness surface is answered for, because "we detect nothing
+here" is itself an answer the viewer needs: a surface the machine never
+reported reads ``not_installed`` rather than vanishing from the list.
+
+The status is the meaning; colour is a secondary cue on top of it:
 
 * ``green`` — hook-fed telemetry is present inside the health window
 * ``orange`` — the harness is installed but has no telemetry in that window
 * ``red`` — a current session stayed silent past grace, or hook approval is
   explicitly untrusted
+* no colour — nothing is detected for this surface, or a brand-new episode
+  is still inside its grace window
 
-Grey is not a colour. A harness with no machine-side evidence and no
-matching session is omitted from the list. Historical sessions keep their
-last-seen date without making an installed-but-idle harness look broken.
+Statuses are engine vocabulary; the words a viewer reads are the web copy
+deck's job, one line per status token.
 """
 
 from __future__ import annotations
@@ -23,6 +28,15 @@ from yoke_core.domain.time_parse import parse_timestamp_utc
 HOOK_HEALTH_GREEN = "green"
 HOOK_HEALTH_ORANGE = "orange"
 HOOK_HEALTH_RED = "red"
+
+#: One status per target, most specific first. Each names what we detected,
+#: never how sure we are.
+STATUS_ACTIVE = "active"
+STATUS_HOOKS_NEED_TRUST = "hooks_need_trust"
+STATUS_INSTALLED_LAST_SEEN = "installed_last_seen"
+STATUS_HOOKS_TRUSTED = "hooks_trusted"
+STATUS_INSTALLED_NEVER_SEEN = "installed_never_seen"
+STATUS_NOT_INSTALLED = "not_installed"
 
 #: Telemetry older than this is history, not evidence that the installed
 #: surface is currently working. Five-week-old sessions therefore render as
@@ -48,6 +62,16 @@ HARNESS_TARGETS: Tuple[Tuple[str, str, str, str], ...] = (
     ("cursor-desktop", "Cursor IDE", "cursor", MATCH_SURFACE_ALIAS),
 )
 
+#: Surface aliases per harness family, so a family target counts as
+#: installed when any of its own surfaces reported a version.
+FAMILY_SURFACES: Dict[str, Tuple[str, ...]] = {
+    harness_id: tuple(
+        key for key, _label, family, rule in HARNESS_TARGETS
+        if family == harness_id and rule == MATCH_SURFACE_ALIAS
+    )
+    for _key, _label, harness_id, _rule in HARNESS_TARGETS
+}
+
 
 def _matches(
     target: Tuple[str, str, str, str], executor: str, display: str,
@@ -58,6 +82,32 @@ def _matches(
     if executor != harness_id:
         return False
     return rule == MATCH_FAMILY
+
+
+def _installed_version(
+    target: Tuple[str, str, str, str], installed: Mapping[str, Any],
+) -> Optional[str]:
+    """The relay-reported version for this target, when it reported one.
+
+    A family target has no surface of its own, so it reads the version of
+    whichever of its surfaces the relay named.
+    """
+    key, _label, harness_id, rule = target
+    keys = (key,) if rule == MATCH_SURFACE_ALIAS else FAMILY_SURFACES[harness_id]
+    for candidate in keys:
+        if candidate in installed:
+            version = installed[candidate]
+            return str(version) if version else None
+    return None
+
+
+def _is_installed(
+    target: Tuple[str, str, str, str], installed: Mapping[str, Any],
+) -> bool:
+    key, _label, harness_id, rule = target
+    if rule == MATCH_SURFACE_ALIAS:
+        return key in installed
+    return any(surface in installed for surface in FAMILY_SURFACES[harness_id])
 
 
 def _has_telemetry(row: Mapping[str, Any]) -> bool:
@@ -134,13 +184,31 @@ def _report_lists(report: Optional[Mapping[str, Any]]) -> bool:
     )
 
 
-def _listed(
+def _approval(report: Optional[Mapping[str, Any]]) -> Optional[str]:
+    return None if report is None else report.get("approval_state")
+
+
+def _status(
     matched: Sequence[Mapping[str, Any]],
     report: Optional[Mapping[str, Any]],
     *,
     installed: bool,
-) -> bool:
-    return bool(matched) or installed or _report_lists(report)
+    last_seen: Optional[str],
+    now: datetime,
+) -> str:
+    """The one thing this target's card says, from what we detected."""
+    recent = [row for row in matched if _in_telemetry_window(row, now=now)]
+    if any(_has_telemetry(row) for row in recent):
+        return STATUS_ACTIVE
+    if _approval(report) == "unapproved":
+        return STATUS_HOOKS_NEED_TRUST
+    if last_seen:
+        return STATUS_INSTALLED_LAST_SEEN
+    if _approval(report) == "approved":
+        return STATUS_HOOKS_TRUSTED
+    if installed or matched or _report_lists(report):
+        return STATUS_INSTALLED_NEVER_SEEN
+    return STATUS_NOT_INSTALLED
 
 
 def _health(
@@ -153,35 +221,35 @@ def _health(
     recent = [row for row in matched if _in_telemetry_window(row, now=now)]
     if any(_has_telemetry(row) for row in recent):
         return HOOK_HEALTH_GREEN
-    if report is not None and report.get("approval_state") == "unapproved":
+    if _approval(report) == "unapproved":
         return HOOK_HEALTH_RED
     if recent and all(_in_grace(row, now=now) for row in recent):
         return None
     if recent:
         return HOOK_HEALTH_RED
-    if installed or _report_lists(report):
+    if installed or matched or _report_lists(report):
         return HOOK_HEALTH_ORANGE
-    return HOOK_HEALTH_RED
+    return None
 
 
 def harness_targets(
     identities: Sequence[Mapping[str, Any]],
     reports: Sequence[Mapping[str, Any]] | None = None,
     *,
-    installed_surfaces: Sequence[str] | None = None,
+    installed_surfaces: Mapping[str, Any] | None = None,
     now: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
-    """Render listed targets with live hook health.
+    """Render every target with its worded status and live hook health.
 
     ``identities`` are per-identity maps with ``executor``, ``display``,
-    optional ``hook_fed``, ``last_tool_call_at``, and
-    ``episode_started_at``, and ``seen_at``. ``reports`` are machine-report
-    rows keyed by ``harness_id``; ``installed_surfaces`` are relay-reported
-    surface aliases for this machine.
+    optional ``hook_fed``, ``last_tool_call_at``, ``episode_started_at``,
+    and ``seen_at``. ``reports`` are this machine's own report rows keyed by
+    ``harness_id``; ``installed_surfaces`` maps a relay-reported surface
+    alias on this machine to the version it reported.
     """
     clock = now or datetime.now(timezone.utc)
     stored = list(reports or ())
-    installed = set(installed_surfaces or ())
+    installed = dict(installed_surfaces or {})
     targets: List[Dict[str, Any]] = []
     for target in HARNESS_TARGETS:
         key, label, harness_id, _rule = target
@@ -190,21 +258,23 @@ def harness_targets(
             if _matches(target, str(row.get("executor") or ""), str(row.get("display") or ""))
         ]
         report = _report_for(stored, harness_id)
-        surface_installed = key in installed
-        if not _listed(matched, report, installed=surface_installed):
-            continue
+        surface_installed = _is_installed(target, installed)
+        last_seen = _last_seen_at(matched)
         gate = hook_approval(harness_id)
-        unapproved = (
-            report is not None and report.get("approval_state") == "unapproved"
-        )
+        unapproved = _approval(report) == "unapproved"
         targets.append({
             "key": key,
             "label": label,
             "hit": bool(matched),
+            "version": _installed_version(target, installed),
+            "status": _status(
+                matched, report, installed=surface_installed,
+                last_seen=last_seen, now=clock,
+            ),
             "hook_health": _health(
                 matched, report, installed=surface_installed, now=clock,
             ),
-            "last_seen_at": _last_seen_at(matched),
+            "last_seen_at": last_seen,
             "trust_surface": (
                 gate["trust_surface"] if gate is not None and unapproved else None
             ),
@@ -228,6 +298,7 @@ def session_identities(rows: Iterable[Sequence[Any]]) -> List[Dict[str, Any]]:
 
 
 __all__ = [
+    "FAMILY_SURFACES",
     "HARNESS_TARGETS",
     "HOOK_HEALTH_GREEN",
     "HOOK_HEALTH_ORANGE",
@@ -236,6 +307,12 @@ __all__ = [
     "MATCH_FAMILY",
     "MATCH_SURFACE_ALIAS",
     "NEW_EPISODE_GRACE",
+    "STATUS_ACTIVE",
+    "STATUS_HOOKS_NEED_TRUST",
+    "STATUS_HOOKS_TRUSTED",
+    "STATUS_INSTALLED_LAST_SEEN",
+    "STATUS_INSTALLED_NEVER_SEEN",
+    "STATUS_NOT_INSTALLED",
     "harness_targets",
     "session_identities",
 ]

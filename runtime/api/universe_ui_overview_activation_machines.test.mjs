@@ -70,7 +70,7 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
         surfaces: ["claude-cli", "codex-cli"],
         last_seen_at: seen,
         connected: { executor: "codex", at: seen },
-        // The engine lists only targets with evidence; mirror that here.
+        // The engine answers for every supported surface, evidence or not.
         targets: harnessTargets(
           { codex: true, "codex-cli": true, "claude-vscode": true },
           {
@@ -78,7 +78,8 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
           },
           {},
           { "claude-vscode": historical },
-        ).filter((target) => target.hit),
+          { "codex-cli": "0.1" },
+        ),
       }),
       machineRow({
         machine_id: BETA,
@@ -86,8 +87,8 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
         surfaces: ["claude-cli"],
         last_seen_at: seen,
         targets: harnessTargets(
-          {}, { "claude-cli": "orange" },
-        ).filter((target) => target.key === "claude-cli"),
+          {}, { "claude-cli": "orange" }, {}, {}, { "claude-cli": "2.1" },
+        ),
       }),
     ],
   });
@@ -113,19 +114,38 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
     "· claude-cli, codex-cli · seen 3m ago",
   );
   assert.match(textOf(rows[0]), /codex connected 3m ago\./);
-  assert.deepEqual(
-    byClass(rows[0], "activation-target").map((chip) => chip.textContent),
-    ["Codex ✓", "Codex CLI ✓", "Claude in VS Code · last seen Jul 27"],
-  );
+  const alphaCards = new Map(byClass(rows[0], "activation-card").map(
+    (card) => [card.attributes.get("data-target"), card],
+  ));
   assert.equal(
-    byClass(rows[0], "activation-target")[2].attributes.get("data-hook-health"),
-    "orange",
+    byClass(alphaCards.get("codex"), "activation-card-status")[0].textContent,
+    "active · telemetry seen",
+  );
+  // The relay's reported version rides beside the name.
+  assert.equal(
+    byClass(alphaCards.get("codex-cli"), "activation-card-name")[0].textContent,
+    "Codex CLI0.1",
+  );
+  const idle = alphaCards.get("claude-vscode");
+  assert.equal(
+    byClass(idle, "activation-card-status")[0].textContent,
+    "installed · last seen Jul 27",
+  );
+  assert.equal(idle.attributes.get("data-hook-health"), "orange");
+  // A surface this machine never reported says so rather than disappearing.
+  assert.equal(
+    byClass(alphaCards.get("cursor"), "activation-card-status")[0].textContent,
+    "not installed",
   );
   // The second box carries only its own installed surface, without a hit.
-  const betaTargets = byClass(rows[1], "activation-target");
-  assert.deepEqual(betaTargets.map((chip) => chip.textContent), ["Claude CLI"]);
-  assert.equal(betaTargets[0].attributes.get("data-hit"), "false");
-  assert.equal(betaTargets[0].attributes.get("data-hook-health"), "orange");
+  const betaClaude = byClass(rows[1], "activation-card").find(
+    (card) => card.attributes.get("data-target") === "claude-cli",
+  );
+  assert.equal(
+    byClass(betaClaude, "activation-card-status")[0].textContent,
+    "installed · never seen",
+  );
+  assert.equal(betaClaude.attributes.get("data-hook-health"), "orange");
   assert.ok(textOf(rows[1]).includes(
     "Next up — open a supported harness on this machine.",
   ));

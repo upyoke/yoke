@@ -97,10 +97,18 @@ def _guarded_exists(conn: Any, table: str, sql: str) -> bool:
     return _exists(conn, sql)
 
 
-def read_signals(conn: Any) -> Dict[str, Any]:
-    """Read every engine-owned activation signal in one pass."""
+def read_signals(conn: Any, actor_id: Optional[int] = None) -> Dict[str, Any]:
+    """Read every engine-owned activation signal in one pass.
+
+    ``actor_id`` scopes the machine reads to the viewer's own machines, so
+    an organization member is never shown, or blocked by, another member's
+    box (``None`` lists every machine).
+    """
     machines = machine_module_rows(
-        conn, read_registered_machines(conn, read_harness_machine_reports(conn)),
+        conn,
+        read_registered_machines(
+            conn, read_harness_machine_reports(conn), actor_id=actor_id,
+        ),
     )
     directories = [
         {"slug": str(row[0]), "workspace": row[1]}
@@ -245,7 +253,7 @@ def compute_activation(
     actor_id: Optional[int],
 ) -> Dict[str, Any]:
     """Derive the full activation-module payload, latching as a side effect."""
-    signals = read_signals(conn)
+    signals = read_signals(conn, actor_id)
     submodules = _wizard_submodules(signals, machine_connected)
     satisfied = {
         MODULE_FINISH_INSTALLATION_WIZARD: (

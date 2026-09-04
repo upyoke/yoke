@@ -1,4 +1,4 @@
-"""Read and upsert per-project harness machine reports."""
+"""Read and upsert harness machine reports, keyed by project and machine."""
 
 from __future__ import annotations
 
@@ -20,11 +20,16 @@ POSTURE_STATES = frozenset({"unattended", "prompts", "absent"})
 
 
 def read_harness_machine_reports(conn: Any) -> list[dict[str, Any]]:
-    """Return every stored machine report, or empty when the table is absent."""
+    """Return every stored machine report, or empty when the table is absent.
+
+    Each row names the machine it was collected on, so a reader answering
+    for one machine keeps only that machine's rows rather than treating the
+    whole project's evidence as its own.
+    """
     if not _table_exists(conn, "harness_machine_reports"):
         return []
     rows = conn.execute(
-        "SELECT project_id, harness_id, glue_written, glue_present, "
+        "SELECT project_id, machine_id, harness_id, glue_written, glue_present, "
         "glue_malformed, config_present, project_entry_present, "
         "approval_state, unattended_posture, reported_at "
         "FROM harness_machine_reports"
@@ -32,15 +37,16 @@ def read_harness_machine_reports(conn: Any) -> list[dict[str, Any]]:
     return [
         {
             "project_id": int(row[0]),
-            "harness_id": str(row[1]),
-            "glue_written": bool(row[2]),
-            "glue_present": bool(row[3]),
-            "glue_malformed": bool(row[4]),
-            "config_present": bool(row[5]),
-            "project_entry_present": bool(row[6]),
-            "approval_state": str(row[7]),
-            "unattended_posture": str(row[8]),
-            "reported_at": row[9],
+            "machine_id": str(row[1]),
+            "harness_id": str(row[2]),
+            "glue_written": bool(row[3]),
+            "glue_present": bool(row[4]),
+            "glue_malformed": bool(row[5]),
+            "config_present": bool(row[6]),
+            "project_entry_present": bool(row[7]),
+            "approval_state": str(row[8]),
+            "unattended_posture": str(row[9]),
+            "reported_at": row[10],
         }
         for row in rows
     ]
@@ -50,12 +56,19 @@ def upsert_harness_machine_reports(
     conn: Any,
     *,
     project_id: int,
+    machine_id: str,
     reports: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Replace the project's reports with ``reports`` and return the stored rows."""
+    """Replace this machine's reports for the project and return the rows."""
     from yoke_core.domain.harness_machine_schema import ensure_harness_machine_schema
 
     ensure_harness_machine_schema(conn, commit=False)
+    machine = str(machine_id or "").strip()
+    if not machine:
+        raise ValueError(
+            "machine_id is required: a report names the machine it was "
+            "collected on, so the Overview can answer for that machine alone"
+        )
     now = iso8601_now()
     stored: list[dict[str, Any]] = []
     for raw in reports:
@@ -70,6 +83,7 @@ def upsert_harness_machine_reports(
             raise ValueError(f"unknown unattended_posture {posture!r}")
         row = {
             "project_id": int(project_id),
+            "machine_id": machine,
             "harness_id": harness_id,
             "glue_written": 1 if raw.get("glue_written") else 0,
             "glue_present": 1 if raw.get("glue_present") else 0,
@@ -82,11 +96,11 @@ def upsert_harness_machine_reports(
         }
         conn.execute(
             "INSERT INTO harness_machine_reports ("
-            "project_id, harness_id, glue_written, glue_present, "
+            "project_id, machine_id, harness_id, glue_written, glue_present, "
             "glue_malformed, config_present, project_entry_present, "
             "approval_state, unattended_posture, reported_at"
-            ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (project_id, harness_id) DO UPDATE SET "
+            ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (project_id, machine_id, harness_id) DO UPDATE SET "
             "glue_written=EXCLUDED.glue_written, "
             "glue_present=EXCLUDED.glue_present, "
             "glue_malformed=EXCLUDED.glue_malformed, "
@@ -97,6 +111,7 @@ def upsert_harness_machine_reports(
             "reported_at=EXCLUDED.reported_at",
             (
                 row["project_id"],
+                row["machine_id"],
                 row["harness_id"],
                 row["glue_written"],
                 row["glue_present"],
@@ -119,6 +134,7 @@ def upsert_harness_machine_reports(
 
 __all__ = [
     "APPROVAL_STATES",
+    "POSTURE_STATES",
     "read_harness_machine_reports",
     "upsert_harness_machine_reports",
 ]
