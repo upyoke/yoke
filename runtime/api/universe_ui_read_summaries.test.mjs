@@ -135,7 +135,7 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   }
   mounted.unmount();
 });
-test("every routed view opens with its prototype page head and scope summary", async (t) => {
+test("section-led views omit duplicate heads while Items restores its head", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -148,7 +148,12 @@ test("every routed view opens with its prototype page head and scope summary", a
         return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
       }
       if (request.function === "projects.list") {
-        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+        return {
+          status: 200,
+          envelope: { success: true, result: {
+            rows: [{ id: 1, name: "Yoke", public_item_prefix: "YOK" }],
+          } },
+        };
       }
       if (request.function === "sessions.list") {
         return { status: 200, envelope: { success: true, result: { rows: [] } } };
@@ -162,26 +167,16 @@ test("every routed view opens with its prototype page head and scope summary", a
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  // The head names the view and carries its NAV summary as the subtitle.
-  const heads = byClass(root, "page-head");
-  assert.equal(heads.length, 1);
-  const title = byClass(heads[0], "title")[0];
-  assert.equal(title.tagName, "H1");
-  assert.equal(title.textContent, "Sessions");
-  assert.equal(
-    byClass(heads[0], "subtitle")[0].textContent,
-    "What can run on each machine, and every harness session running against "
-    + "this universe.",
+  // Machines and Sessions orient this page, so duplicate title/subtitle
+  // chrome stays absent and the project picker lives in the top context.
+  assert.equal(byClass(root, "page-head")[0].hidden, true);
+  assert.deepEqual(
+    byClass(root, "overview-section-title").map((node) => node.textContent),
+    ["Machines", "Sessions"],
   );
-  // The head leads the content column, then the project picker. No facet
-  // strip follows it: Sessions has no facets to strip, because each one that
-  // earned a name is its own destination.
   const content = byClass(root, "content")[0];
-  assert.ok(content.children[0].classList.contains("page-head"));
-  const scopeIndex = content.children.findIndex(
-    (child) => child.classList.contains("scope-bar"),
-  );
-  assert.ok(scopeIndex > 0);
+  assert.ok(byClass(root, "scope-bar")[0].parentNode.classList
+    .contains("header-scope-host"));
   assert.ok(content.children.every(
     (child) => !child.classList.contains("tab-bar"),
   ));
