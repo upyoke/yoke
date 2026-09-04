@@ -56,12 +56,18 @@ def test_sessions_touch_dispatches() -> None:
     assert req.payload == {"mode": "charge"}
 
 
-def test_sessions_touch_dispatches_parked_reason() -> None:
-    assert _run(
-        "sessions", "touch", "--mode", "parked", "--reason", "waiting on YOK-2546",
-    ) == 0
+def test_sessions_touch_dispatches_reason_without_a_mode() -> None:
+    assert (
+        _run(
+            "sessions",
+            "touch",
+            "--reason",
+            "waiting on merge queue",
+        )
+        == 0
+    )
     req = _CAPTURED_REQUESTS[-1]
-    assert req.payload == {"mode": "parked", "reason": "waiting on YOK-2546"}
+    assert req.payload == {"reason": "waiting on merge queue"}
 
 
 def test_sessions_identity_dispatches_with_empty_payload() -> None:

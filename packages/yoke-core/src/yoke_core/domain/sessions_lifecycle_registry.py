@@ -118,9 +118,7 @@ def register_session(
     """
     now = _now_iso()
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
-    resolved_actor_id = resolve_session_actor_id(
-        conn, actor_id, launch_id=launch_id
-    )
+    resolved_actor_id = resolve_session_actor_id(conn, actor_id, launch_id=launch_id)
     resolved_project_id = resolve_session_project_id(conn, project_id)
     executor_version, machine_id = normalize_observed_identity(
         executor_version, machine_id
@@ -309,13 +307,12 @@ def register_session(
     return _get_session(conn, session_id)
 
 
-# ---------------------------------------------------------------------------
-# Heartbeat
-# ---------------------------------------------------------------------------
-
-
-def heartbeat(conn: Any, session_id: str) -> Dict[str, Any]:
-    """Update last_heartbeat on a session and all its active claims.
+def heartbeat(
+    conn: Any,
+    session_id: str,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Update the heartbeat, optional quiet reason, and active claims.
 
     Raises SessionError if the session does not exist or has ended.
     """
@@ -330,10 +327,14 @@ def heartbeat(conn: Any, session_id: str) -> Dict[str, Any]:
     if row["ended_at"] is not None:
         raise SessionError("SESSION_ENDED", session_ended_message(conn, session_id))
 
+    assignments = f"last_heartbeat = {_p(conn)}"
+    values: List[Any] = [now]
+    if reason is not None:
+        assignments += f", quiet_reason = {_p(conn)}"
+        values.append(reason.strip() or None)
     conn.execute(
-        f"UPDATE harness_sessions SET last_heartbeat = {_p(conn)} "
-        f"WHERE session_id = {_p(conn)}",
-        (now, session_id),
+        f"UPDATE harness_sessions SET {assignments} WHERE session_id = {_p(conn)}",
+        (*values, session_id),
     )
     conn.execute(
         f"UPDATE work_claims SET last_heartbeat = {_p(conn)} "
@@ -343,5 +344,3 @@ def heartbeat(conn: Any, session_id: str) -> Dict[str, Any]:
     conn.commit()
 
     return _get_session(conn, session_id)
-
-

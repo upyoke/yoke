@@ -19,7 +19,7 @@ _SELECT = (
     "s.presentation_surface, s.presentation_state, s.presentation_mode, "
     "s.presentation_source, s.presentation_observed_at, "
     "s.execution_lane, "
-    "s.mode, s.parked_reason, s.keepalive_until, s.keepalive_reason, "
+    "s.mode, s.quiet_reason, s.keepalive_until, s.keepalive_reason, "
     "s.workspace, s.project_id, pr.slug AS project, "
     "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
     "s.episode_started_at, s.native_process_gone_at, "

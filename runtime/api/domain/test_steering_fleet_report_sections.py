@@ -22,6 +22,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_tool_call,
 )
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
+from yoke_core.domain.session_mode import set_session_mode
 from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.steering_fleet_report_sections import (
     CLAIMS_HEADING,
@@ -55,10 +56,12 @@ def _rows_naming(body: str, session_id: str) -> list[str]:
 
 
 def test_an_idle_holder_is_named_once_rather_than_twice(fleet):
+    set_session_mode(fleet, WORKER_SESSION, "dash", reason="waiting on CI")
     body = report_body(_compose(fleet))
 
     assert len(_rows_naming(body, WORKER_SESSION)) == 1
     assert "idle holders" in body
+    assert "quiet 3h00m, waiting on CI" in body
     assert CLAIMS_HEADING not in body
 
 

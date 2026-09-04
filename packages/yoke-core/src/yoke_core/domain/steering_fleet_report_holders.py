@@ -36,6 +36,7 @@ class ClaimHolder:
     parked: bool
     last_activity_at: str
     idle_seconds: int
+    quiet_reason: str = ""
     native_process_gone_at: str = ""
     hand_started: bool = False
 
@@ -78,7 +79,7 @@ def claim_holders(
     session_ids = sorted({session_id for session_id, _item_id, _entry in candidates})
     placeholders = ",".join(marker for _ in session_ids)
     rows = conn.execute(
-        "SELECT session_id,mode,last_tool_call_at,last_heartbeat,episode_started_at,"
+        "SELECT session_id,mode,quiet_reason,last_tool_call_at,last_heartbeat,episode_started_at,"
         "native_process_gone_at,native_process_gone_evidence,"
         "EXISTS(SELECT 1 FROM session_launches l "
         "WHERE l.registered_session_id=harness_sessions.session_id) AS launch_recorded "
@@ -111,6 +112,7 @@ def claim_holders(
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,
+                quiet_reason=str(record.get("quiet_reason") or ""),
                 native_process_gone_at=str(process.get("observed_at") or ""),
                 hand_started=not bool(record.get("launch_recorded")),
             )

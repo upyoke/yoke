@@ -156,7 +156,7 @@ test("Sessions keeps its full mode-shaped table and recently-ended region", asyn
   ]);
 });
 
-test("Overview shows a parked badge and nothing for any other mode", async (t) => {
+test("Overview shows parked posture and working-mode reasons", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -164,13 +164,14 @@ test("Overview shows a parked badge and nothing for any other mode", async (t) =
   documentNode.defaultView.location.hash = "#/overview?project=1";
   const root = documentNode.createElement("div");
   const rows = [
-    ["charge", "stale", null], ["parked", "stale", "waiting on YOK-2546"],
+    ["charge", "stale", "waiting on CI"],
+    ["parked", "stale", "waiting on a blocking claim"],
     ["wait", "active", null], ["feed", "stale", null],
-  ].map(([mode, liveness, parked_reason], index) => ({
+  ].map(([mode, liveness, quiet_reason], index) => ({
     session_id: `session-${index + 1}`,
     liveness,
     mode,
-    parked_reason,
+    quiet_reason,
     project: "yoke",
     executor: "codex",
     model: "gpt-5.6-sol",
@@ -184,10 +185,17 @@ test("Overview shows a parked badge and nothing for any other mode", async (t) =
 
   const table = byClass(root, "overview-sessions-table")[0];
   assert.deepEqual(
-    byClass(table, "session-parked-badge").filter((n) => !n.hidden).map(
+    byClass(table, "session-reason-badge").filter((n) => !n.hidden).map(
       (n) => [n.textContent, n.title, n.attributes.get("aria-label")],
     ),
-    [["parked", "waiting on YOK-2546", "parked: waiting on YOK-2546"]],
+    [
+      ["reason", "waiting on CI", "reason: waiting on CI"],
+      [
+        "parked",
+        "waiting on a blocking claim",
+        "parked: waiting on a blocking claim",
+      ],
+    ],
   );
   mounted.unmount();
 });

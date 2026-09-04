@@ -1,5 +1,5 @@
 # ruff: noqa: F811
-"""Stamp parked with a reason, refuse unknown modes, persist across tool calls."""
+"""Stamp session modes with reasons and preserve parked-mode semantics."""
 
 from __future__ import annotations
 
@@ -17,25 +17,23 @@ from yoke_core.domain.sessions import SessionError
 def test_set_session_mode_stamps_parked_with_reason(conn):
     _register(conn)
     result = set_session_mode(
-        conn, "sess-1", SESSION_MODE_PARKED, reason="waiting on YOK-2546"
+        conn, "sess-1", SESSION_MODE_PARKED, reason="waiting on a blocking claim"
     )
     assert result["mode"] == SESSION_MODE_PARKED
-    assert result["parked_reason"] == "waiting on YOK-2546"
+    assert result["quiet_reason"] == "waiting on a blocking claim"
     row = conn.execute(
-        "SELECT mode, parked_reason FROM harness_sessions WHERE session_id = 'sess-1'"
+        "SELECT mode, quiet_reason FROM harness_sessions WHERE session_id = 'sess-1'"
     ).fetchone()
     assert row["mode"] == SESSION_MODE_PARKED
-    assert row["parked_reason"] == "waiting on YOK-2546"
+    assert row["quiet_reason"] == "waiting on a blocking claim"
 
 
-def test_reason_on_a_non_parked_mode_is_refused(conn):
+def test_reason_on_a_working_mode_is_persisted(conn):
     _register(conn)
-    try:
-        set_session_mode(conn, "sess-1", "dash", reason="nope")
-    except SessionError as exc:
-        assert exc.code == "REASON_REQUIRES_PARKED"
-    else:
-        raise AssertionError("expected REASON_REQUIRES_PARKED")
+    result = set_session_mode(conn, "sess-1", "dash", reason="waiting on CI")
+
+    assert result["mode"] == "dash"
+    assert result["quiet_reason"] == "waiting on CI"
 
 
 def test_parked_without_reason_is_refused(conn):
@@ -76,10 +74,10 @@ def test_a_tool_call_does_not_clear_parked(conn):
         },
     )
     row = conn.execute(
-        "SELECT mode, parked_reason FROM harness_sessions WHERE session_id = 'sess-1'"
+        "SELECT mode, quiet_reason FROM harness_sessions WHERE session_id = 'sess-1'"
     ).fetchone()
     assert row["mode"] == SESSION_MODE_PARKED
-    assert row["parked_reason"] == "waiting"
+    assert row["quiet_reason"] == "waiting"
 
 
 def test_stamping_a_working_mode_clears_parked(conn):
@@ -87,7 +85,7 @@ def test_stamping_a_working_mode_clears_parked(conn):
     set_session_mode(conn, "sess-1", SESSION_MODE_PARKED, reason="waiting")
     set_session_mode(conn, "sess-1", "dash")
     row = conn.execute(
-        "SELECT mode, parked_reason FROM harness_sessions WHERE session_id = 'sess-1'"
+        "SELECT mode, quiet_reason FROM harness_sessions WHERE session_id = 'sess-1'"
     ).fetchone()
     assert row["mode"] == "dash"
-    assert row["parked_reason"] is None
+    assert row["quiet_reason"] is None

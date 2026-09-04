@@ -63,14 +63,14 @@
   overflow-wrap: anywhere;
 }
 
-.universe-app-root .session-parked-badge {
+.universe-app-root .session-reason-badge {
   position: relative;
   flex: 0 0 auto; padding: 1px 7px; border-radius: 999px; font-size: 11px;
   background: var(--yoke-warn-bg);
   color: var(--yoke-warn);
 }
-.universe-app-root .session-parked-badge[data-reason] { cursor: help; }
-.universe-app-root .session-parked-badge[data-reason]:focus::after {
+.universe-app-root .session-reason-badge[data-reason] { cursor: help; }
+.universe-app-root .session-reason-badge[data-reason]:focus::after {
   position: absolute;
   z-index: 2;
   top: calc(100% + 6px);
@@ -88,7 +88,7 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
-.universe-app-root .session-parked-badge-empty { display: none; }
+.universe-app-root .session-reason-badge-empty { display: none; }
 
 .universe-app-root .session-harness.h-machine {
   background: var(--yoke-ink-2);

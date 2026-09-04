@@ -53,7 +53,7 @@ def _set_session_posture(
     ended_at: str | None = None,
 ) -> None:
     conn.execute(
-        "UPDATE harness_sessions SET mode=%s, parked_reason=%s, ended_at=%s "
+        "UPDATE harness_sessions SET mode=%s, quiet_reason=%s, ended_at=%s "
         "WHERE session_id=%s",
         (mode, reason, ended_at, session_id),
     )

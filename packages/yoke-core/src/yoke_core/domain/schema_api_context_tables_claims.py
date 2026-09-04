@@ -42,7 +42,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("requested_reasoning_effort", "TEXT"),
             ("requested_context_window_tokens", "INTEGER"),
             ("mode", "TEXT"),
-            ("parked_reason", "TEXT"),
+            ("quiet_reason", "TEXT"),
             ("keepalive_until", "TEXT"),
             ("keepalive_reason", "TEXT"),
             ("execution_lane", "TEXT"),

@@ -46,8 +46,8 @@ def _session_columns(conn: Any) -> set[str]:
         return set()
 
 
-def _parked_reason_present(conn: Any) -> bool:
-    return "parked_reason" in _session_columns(conn)
+def _quiet_reason_present(conn: Any) -> bool:
+    return "quiet_reason" in _session_columns(conn)
 
 
 def _load_session(conn: Any, session_id: str) -> Dict[str, Any]:
@@ -71,7 +71,7 @@ def set_session_mode(
     mode: str,
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Persist mode without touching heartbeat. Reason is parked-only."""
+    """Persist mode and its optional quiet reason without touching heartbeat."""
     row = _load_session(conn, session_id)
     if row.get("ended_at") is not None:
         raise SessionError("SESSION_ENDED", session_ended_message(conn, session_id))
@@ -83,23 +83,16 @@ def set_session_mode(
             f"unknown session mode {stored_mode!r}; accepted values: {accepted}",
         )
     stored_reason = (reason or "").strip() or None
-    if stored_reason and stored_mode != SESSION_MODE_PARKED:
-        raise SessionError(
-            "REASON_REQUIRES_PARKED",
-            "reason is only valid with mode parked",
-        )
     if stored_mode == SESSION_MODE_PARKED and stored_reason is None:
         raise SessionError(
             "PARKED_REASON_REQUIRED",
             "mode parked requires a reason so the next reader knows why",
         )
-    if stored_mode != SESSION_MODE_PARKED:
-        stored_reason = None
     marker = _p(conn)
-    if _parked_reason_present(conn):
+    if _quiet_reason_present(conn):
         conn.execute(
             "UPDATE harness_sessions SET mode = "
-            f"{marker}, parked_reason = {marker} "
+            f"{marker}, quiet_reason = {marker} "
             f"WHERE session_id = {marker}",
             (stored_mode, stored_reason, session_id),
         )
@@ -123,10 +116,10 @@ def clear_parked_mode(conn: Any, session_id: str) -> bool:
     if "mode" not in _session_columns(conn):
         return False
     marker = _p(conn)
-    if _parked_reason_present(conn):
+    if _quiet_reason_present(conn):
         cursor = conn.execute(
             f"UPDATE harness_sessions SET mode = {marker}, "
-            f"parked_reason = NULL WHERE session_id = {marker} "
+            f"quiet_reason = NULL WHERE session_id = {marker} "
             f"AND mode = {marker}",
             (SESSION_MODE_DEFAULT, session_id, SESSION_MODE_PARKED),
         )
