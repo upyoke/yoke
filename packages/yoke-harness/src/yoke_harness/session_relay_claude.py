@@ -6,7 +6,7 @@ from functools import partial
 from typing import Callable
 from uuid import UUID
 
-from yoke_harness.session_relay_claude_create import immediate_native_refusal
+from yoke_harness.session_relay_native_create import immediate_native_refusal
 from yoke_harness.session_relay_claude_native import (
     ClaudeNativeInvocation as ClaudeNativeInvocation,
     ClaudeNativeSpawner,

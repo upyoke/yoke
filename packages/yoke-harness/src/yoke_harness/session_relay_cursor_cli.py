@@ -1,14 +1,19 @@
-"""Documented Cursor CLI exact-session resume transport.
+"""Documented Cursor CLI transport for relay-owned creates and resumes.
 
-Resume prompts a session that already exists and already registered, so a
-detached print-mode turn against it is bounded by a session Yoke can already
-see. Creating a session this way is not: nothing owns the resulting native
-and nothing registers it, which is why launches use the ACP transport.
+Both routes are the same print-mode invocation: ``cursor-agent`` runs one
+turn against an exact conversation id and exits. A create mints the id it is
+about to start, so the relay knows which conversation it owns before the
+turn produces anything, and a resume names one that already exists.
 
-The turn runs under the shared native supervisor, the same one Claude resumes
-use. This transport used to send both of the native's streams to ``/dev/null``,
-so a cursor resume that refused reported a bare exit code and its reason was
-gone the moment the process was.
+The turn runs under the shared native supervisor, the same one Claude creates
+and resumes use, so the native's own account survives the process. A create
+also reads that capture for the moment it takes to see a native reject its
+own flags: a refusal reported now names the model or credential that failed,
+where silence would burn the whole registration deadline instead.
+
+Registration is the native's own: cursor-agent runs the installed hook chain
+in print mode, so the launch attestation it inherits binds the session on its
+first hook exactly as it does for a Claude ``-p`` worker.
 """
 
 from __future__ import annotations
@@ -16,17 +21,19 @@ from __future__ import annotations
 import subprocess
 import time
 from typing import Callable
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from yoke_contracts.session_control.launch_permission_bypass import (
     CURSOR_CLI_BYPASS_ARGUMENTS,
 )
 from yoke_harness.session_relay_cursor import (
+    CursorCreateRequest,
     CursorNativeResult,
     CursorWakeRequest,
 )
 from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_inventory import resolve_native_cli
+from yoke_harness.session_relay_native_create import immediate_native_refusal
 from yoke_harness.session_relay_native_spawn import (
     SupervisedNative,
     spawn_supervised_native,
@@ -49,24 +56,63 @@ def _session_id(value: str) -> str | None:
         return None
 
 
-def _environment(model: str | None) -> dict[str, str]:
+def cursor_environment(
+    request: CursorCreateRequest | CursorWakeRequest,
+) -> dict[str, str]:
     """Build the child environment, naming the model the turn asked for.
 
     ``--model`` tells cursor-agent which variant to run; ``YOKE_MODEL``
     tells the session inside it which variant it was asked for. Codex
     passes both, and a child that gets only the flag reports no ask at all
-    when its own hooks register it.
+    when its own hooks register it. A create also carries the launch
+    context its first hook registers from.
     """
+    launch = request if isinstance(request, CursorCreateRequest) else None
     return native_session_environment(
         executor="cursor",
         provider="cursor",
-        model=model,
+        model=request.requested_model,
         markers={"CURSOR_INVOKED_AS": "cursor-agent"},
+        launch_id=launch.launch_id if launch else None,
+        launch_attestation=launch.launch_attestation if launch else None,
     )
 
 
+def cursor_turn_command(
+    binary: str,
+    *,
+    session_id: str,
+    checkout: str,
+    instruction: str,
+    model: str | None,
+) -> list[str]:
+    """Return the print-mode argv one Cursor turn runs under.
+
+    ``--resume`` names the conversation whether or not it exists yet, so a
+    create and a resume differ only in who minted the id. ``--model`` is the
+    only channel cursor-agent honors for the variant, and naming it sticks —
+    the conversation keeps the variant for later turns that omit it.
+    """
+    command = [
+        binary,
+        "--resume",
+        session_id,
+        "--print",
+        "--output-format",
+        "json",
+        "--workspace",
+        checkout,
+        "--trust",
+        *CURSOR_CLI_BYPASS_ARGUMENTS,
+    ]
+    if model:
+        command.extend(("--model", model))
+    command.append(instruction)
+    return command
+
+
 class CursorCliTransport:
-    """Resume one installed, documented Cursor CLI session at an exact ID."""
+    """Run one Cursor CLI turn at an exact conversation id, create or resume."""
 
     def __init__(
         self,
@@ -82,43 +128,68 @@ class CursorCliTransport:
 
     def _start_turn(
         self,
-        request: CursorWakeRequest,
+        request: CursorCreateRequest | CursorWakeRequest,
         binary: str,
         session_id: str,
+        *,
+        supervision_kind: str,
+        attempt_id: str,
+        lease_id: str,
     ) -> SupervisedNative | None:
-        """Start one supervised print-mode resume, naming the model asked for.
-
-        ``--model`` is the only channel cursor-agent honors for this: the
-        ACP ``session/new`` model parameter is accepted and ignored, so a
-        session created there is born at the machine default and a resume
-        that omits the flag runs the default too. Naming it here sticks —
-        the conversation keeps the variant for later resumes that omit it.
-        """
-        model = request.requested_model
-        command = [
-            binary,
-            "--resume",
-            session_id,
-            "--print",
-            "--output-format",
-            "json",
-            "--workspace",
-            str(request.checkout),
-            "--trust",
-            *CURSOR_CLI_BYPASS_ARGUMENTS,
-        ]
-        if model:
-            command.extend(("--model", model))
-        command.append(request.native_instruction)
         return spawn_supervised_native(
-            command,
+            cursor_turn_command(
+                binary,
+                session_id=session_id,
+                checkout=str(request.checkout),
+                instruction=request.native_instruction,
+                model=request.requested_model,
+            ),
             checkout=request.checkout,
-            environment=_environment(model),
-            attempt_id=request.attempt_id,
+            environment=cursor_environment(request),
+            attempt_id=attempt_id,
             native_session_id=session_id,
             binary_source="path",
-            lease_id=request.lease_id,
+            supervision_kind=supervision_kind,
+            lease_id=lease_id,
             process_factory=self.process_factory,
+        )
+
+    def new_session(self, request: CursorCreateRequest) -> CursorNativeResult:
+        """Start the launch's first turn on a conversation this relay minted."""
+        started = time.monotonic()
+        binary = self._binary()
+        if binary is None or not request.checkout.is_dir():
+            return CursorNativeResult("not_created")
+        session_id = str(uuid4())
+        spawned = self._start_turn(
+            request,
+            binary,
+            session_id,
+            supervision_kind="launch",
+            attempt_id=request.launch_id,
+            lease_id="",
+        )
+        if spawned is None:
+            return CursorNativeResult("not_created", duration_ms=_elapsed_ms(started))
+        refusal = immediate_native_refusal(spawned.capture_path)
+        if refusal is not None and refusal.exit_code != 0:
+            output = refusal.stderr + b"\n" + refusal.stdout
+            return CursorNativeResult(
+                "not_created",
+                exit_code=-1 if refusal.exit_code is None else refusal.exit_code,
+                duration_ms=_elapsed_ms(started),
+                native_stderr=output,
+                phase="spawn",
+                diagnostic_ref=spawned.diagnostic_ref,
+                capture_path=str(spawned.capture_path),
+            )
+        return CursorNativeResult(
+            "native_created",
+            native_session_id=session_id,
+            duration_ms=_elapsed_ms(started),
+            phase="native_running",
+            diagnostic_ref=spawned.diagnostic_ref,
+            capture_path=str(spawned.capture_path),
         )
 
     def resume_chat(self, request: CursorWakeRequest) -> CursorNativeResult:
@@ -134,7 +205,14 @@ class CursorCliTransport:
         session_id = _session_id(request.target_session_id)
         if binary is None or session_id is None or not request.checkout.is_dir():
             return CursorNativeResult("not_found")
-        spawned = self._start_turn(request, binary, session_id)
+        spawned = self._start_turn(
+            request,
+            binary,
+            session_id,
+            supervision_kind="resume",
+            attempt_id=request.attempt_id,
+            lease_id=request.lease_id,
+        )
         if spawned is None:
             return CursorNativeResult("failed", duration_ms=_elapsed_ms(started))
         return CursorNativeResult(
@@ -148,4 +226,6 @@ class CursorCliTransport:
 __all__ = [
     "CURSOR_AGENT_EXECUTABLE",
     "CursorCliTransport",
+    "cursor_environment",
+    "cursor_turn_command",
 ]

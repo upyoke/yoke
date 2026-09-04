@@ -292,20 +292,18 @@ Six consecutive `cursor-cli` launch failures over two days, against a
 `cursor-agent` probing healthy at `2026.08.25-3e8eec8`, resolved into three
 facts — read from control-plane rows, not inferred.
 
-**A launch never creates a Cursor session with `-p`.** `cursor-agent -p` runs
-one print-mode turn against a session that already exists and exits, owning
-and registering nothing — hence `CursorCliTransport` is resume-only and
-launches go through ACP (`session/new` + `session/prompt`). A launched worker
-is therefore not "one response and done": the ACP session keeps taking turns
-while the agent works, and needs no continuation nudge. What bounds the relay's
-attention is `CURSOR_ACP_TURN_SECONDS`, after which its drain thread stops
-following the prompt; measured natives worked for minutes past that (79 and 71
-tool calls over 9 and 6 minutes), so the drain is not what ends a worker.
+**A launch creates a Cursor session by minting the id it starts.**
+`cursor-agent --resume <id> -p` runs one print-mode turn against that exact
+conversation and creates it when the id is new, so `CursorCliTransport` owns
+the create and the resume alike and the relay knows which conversation it
+started before the turn produces anything. A launched worker is not "one
+response and done": the print-mode turn keeps taking tool calls while the
+agent works (measured natives worked for minutes — 79 and 71 tool calls over
+9 and 6 minutes) and needs no continuation nudge.
 
 **A Cursor cold start regularly outlives the relay's registration proof.**
-`complete_bound_launch` waited `CURSOR_REGISTRATION_WAIT_SECONDS`, a
-prompt-mode registration turn, then `CURSOR_REGISTRATION_TURN_WAIT_SECONDS`
-for the conversation map to prove hooks had fired. Launch `e058a2e9` gave up
+`complete_bound_launch` waited `CURSOR_REGISTRATION_WAIT_SECONDS` for the
+conversation map to prove hooks had fired. Launch `e058a2e9` gave up
 at 54s with `registration_unproven` and reaped the native; session `9d8017c0`
 registered ten seconds later and ran 43 tool calls with its launch already
 closed. A map miss is now a created native with
@@ -324,10 +322,10 @@ instruction, and were reaped claim-free while their launch rows read
 `late_registration`. The native session id proves exact identity already, so
 the binding records `requested_model` / `registered_model` as evidence
 instead of refusing — which is also how an operator sees a launch that asked
-for one variant and ran another. ACP `session/new` takes a `model` parameter
-and ignores it (2026.08.25: `cursor-grok-4.6-xhigh` answered
-`grok-4.6[effort=high,fast=true]`), so `--model` on the CLI resume is the
-channel that holds; the conversation then keeps that variant.
+for one variant and ran another. `--model` on the CLI invocation is the
+channel that holds (2026.08.25: `cursor-grok-4.6-xhigh` was recorded as
+`grok-4.6[effort=high,fast=true]`); the conversation then keeps that
+variant.
 
 ## Open questions
 

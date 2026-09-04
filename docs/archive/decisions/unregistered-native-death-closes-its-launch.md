@@ -20,13 +20,14 @@ session is skipped here and stays with the verified-death path, which has a
 session to ask whether the worker ever worked. The ten-minute registration
 deadline is untouched for a process that is still alive.
 
-Every Cursor ACP launch now writes the same capture the supervised harnesses
-write. The relay speaks ACP itself rather than spawning a supervisor, so the
-turn's account existed only in memory: the child's stderr in a bounded drain,
-and the turn's fate in a thread that discarded it inside a bare `except`. Both
-now land in `nd-<launch-id>.capture` — the outcome in the stdout half, the
-child's stderr in the stderr half — written once while the child is alive and
-again once it has exited.
+What the report can say about a dead native comes from the capture the shared
+native supervisor already streams into `nd-<launch-id>.capture`. That is one
+mechanism rather than one per harness: a launch spawned under the supervisor
+carries its exit code and its last words for free, and a launch whose transport
+speaks a protocol in-process instead carries neither, because there is no
+supervised child writing the file. So a create path earns its diagnostics by
+spawning a supervised native, not by teaching each transport to keep its own
+account.
 
 The closed launch is visible where the failed ones already are: its result
 code joins the fleet report's unregistered-launch section, and
@@ -42,10 +43,10 @@ in-flight, the work reading staffed, and the operator with nothing to read.
 
 The observed instance, 2026-09-04: four `cursor-cli` launches ran their first
 turn, fired no hook, and each sat in `registration_pending` for the full ten
-minutes before closing as `registration_deadline` with no captured output. The
-ACP drain thread had terminated each process within seconds of its turn ending
-and swallowed every exception on the way. The relay held the answer the whole
-time and reported none of it.
+minutes before closing as `registration_deadline` with no captured output.
+Their turns had been run by a transport that spawned no supervised child, so
+each process was gone within seconds of its turn ending and left nothing
+behind. The relay held the answer the whole time and reported none of it.
 
 ## Why the record, rather than a new registry
 
@@ -79,7 +80,9 @@ report is settled at spawn, and its lease is gone by the time the native dies.
 The liveness poll already carries "what this machine proved is gone", and a
 launch death is that same fact about a launch instead of a session.
 
-**Giving Cursor a supervisor process like Claude and Codex.** Rejected as far
-larger than the gap: the ACP transport must stay in the relay to speak the
-protocol, and the two facts the capture needs are already in hand where the
-turn ends.
+**Teaching a transport that speaks its protocol in-process to write its own
+capture.** Rejected: it buys one harness a private copy of what the supervisor
+already does for every other one, and the copy has to be kept honest by hand at
+each point the turn can end. The transport that owns those creates is the thing
+to change, and a create that spawns a supervised native inherits this rule and
+its diagnostics without knowing either exists.

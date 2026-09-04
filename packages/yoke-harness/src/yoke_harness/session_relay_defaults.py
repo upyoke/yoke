@@ -23,13 +23,11 @@ def _codex_adapter() -> RelayAdapter:
 @lru_cache(maxsize=1)
 def _cursor_adapter() -> RelayAdapter:
     from yoke_harness.session_relay_cursor import build_cursor_adapter
-    from yoke_harness.session_relay_cursor_acp import CursorAcpTransport
     from yoke_harness.session_relay_cursor_cli import CursorCliTransport
     from yoke_harness.session_relay_cursor_identity import conversation_map_lookup
 
     return build_cursor_adapter(
         subprocess_port=CursorCliTransport(),
-        acp_port=CursorAcpTransport(),
         identity_lookup=conversation_map_lookup,
         attestation_handoff=stage_launch_attestation,
     )
