@@ -137,3 +137,17 @@ def test_wait_module_has_no_local_github_or_process_reader_dependency():
     assert "subprocess" not in imported
     assert not any(name.startswith("yoke_core.engines") for name in imported)
     assert "yoke_core.domain.merge_queue_landing_verdict" not in imported
+
+
+def test_partial_server_record_is_a_named_refresh_failure(monkeypatch):
+    wire_happy_path(monkeypatch, landing_states=[ARMED])
+    partial = landing_record()
+    partial.pop("queue_entry_state")
+
+    outcome = land(landing_records=[partial])
+
+    assert not outcome.ok
+    assert outcome.exit_code == 9
+    assert "landing_record_refresh_failed" in outcome.error
+    assert "landing record response was invalid" in outcome.error
+    assert "queue_entry_state" in outcome.error

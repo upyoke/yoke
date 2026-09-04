@@ -39,10 +39,10 @@ class LandingRecord:
     project_id: int
     pr_number: str
     state: str
+    queue_holding: str
+    queue_entry_state: str
+    merge_when_ready: str
     head_sha: str = ""
-    queue_holding: str = UNREADABLE
-    queue_entry_state: str = UNREADABLE
-    merge_when_ready: str = UNREADABLE
     failed_checks: tuple[LandingCheck, ...] = field(default_factory=tuple)
     narrative: str = ""
     disarm_note: str = ""
@@ -263,9 +263,9 @@ def read_landing_record(conn: Any, item_id: int) -> LandingRecord | None:
         pr_number=str(value["pr_number"]),
         state=str(value["state"]),
         head_sha=str(value.get("head_sha") or ""),
-        queue_holding=str(value.get("queue_holding") or UNREADABLE),
-        queue_entry_state=str(value.get("queue_entry_state") or UNREADABLE),
-        merge_when_ready=str(value.get("merge_when_ready") or UNREADABLE),
+        queue_holding=str(value["queue_holding"]),
+        queue_entry_state=str(value["queue_entry_state"]),
+        merge_when_ready=str(value["merge_when_ready"]),
         failed_checks=_decode_checks(value.get("failed_checks")),
         narrative=str(value.get("narrative") or ""),
         disarm_note=str(value.get("disarm_note") or ""),
@@ -292,9 +292,9 @@ def record_from_payload(payload: Any) -> LandingRecord | None:
         pr_number=str(payload["pr_number"]),
         state=str(payload["state"]),
         head_sha=str(payload.get("head_sha") or ""),
-        queue_holding=str(payload.get("queue_holding") or UNREADABLE),
-        queue_entry_state=str(payload.get("queue_entry_state") or UNREADABLE),
-        merge_when_ready=str(payload.get("merge_when_ready") or UNREADABLE),
+        queue_holding=str(payload["queue_holding"]),
+        queue_entry_state=str(payload["queue_entry_state"]),
+        merge_when_ready=str(payload["merge_when_ready"]),
         failed_checks=_decode_checks(json.dumps(payload.get("failed_checks") or [])),
         narrative=str(payload.get("narrative") or ""),
         disarm_note=str(payload.get("disarm_note") or ""),

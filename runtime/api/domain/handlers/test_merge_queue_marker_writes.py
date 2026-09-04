@@ -29,6 +29,11 @@ from yoke_core.domain.merge_queue_landing_record import (
     write_landing_record,
 )
 from yoke_core.domain.merge_queue_landing_record_state import CONFLICTED
+from yoke_core.domain.merge_queue_readiness import (
+    ENTRY_ABSENT,
+    MERGE_WHEN_READY_CLEARED,
+    NEITHER,
+)
 
 RECORD = "merge_queue.landing_pull_request.record"
 MARK = "merge_queue.landing_pending.mark"
@@ -229,6 +234,9 @@ class TestLandingPendingMarker:
                     project_id=project_id,
                     pr_number="42",
                     state=CONFLICTED,
+                    queue_holding=NEITHER,
+                    queue_entry_state=ENTRY_ABSENT,
+                    merge_when_ready=MERGE_WHEN_READY_CLEARED,
                     observed_at="2026-08-27T18:01:00Z",
                     changed_at="2026-08-27T18:01:00Z",
                 ),
@@ -259,6 +267,9 @@ class TestLandingPendingMarker:
                     project_id=project_id,
                     pr_number="42",
                     state=CONFLICTED,
+                    queue_holding=NEITHER,
+                    queue_entry_state=ENTRY_ABSENT,
+                    merge_when_ready=MERGE_WHEN_READY_CLEARED,
                     observed_at="2026-08-27T18:06:00Z",
                     changed_at="2026-08-27T18:06:00Z",
                 ),
