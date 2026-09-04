@@ -132,6 +132,7 @@ CORE_TABLES: dict[str, dict] = {
             ("tool_use_id", "TEXT"),
             ("turn_id", "TEXT"),
             ("hook_event_name", "TEXT"),
+            ("client_timing_id", "TEXT"),
             ("envelope", "TEXT"),
             ("created_at", "TEXT"),
         ],
@@ -156,6 +157,11 @@ CORE_TABLES: dict[str, dict] = {
             "(bare-numeric text — quote in SQL as `'<id>'`, never INTEGER). "
             "`$.context.detail.actor_role` is present on subagent-delegated "
             "tool-call events and absent on parent-turn calls. "
+            "Correlate a row by an indexed column, never by matching "
+            "`envelope` with LIKE: the hook client's completion key has its "
+            "own indexed `client_timing_id` column for exactly that reason, "
+            "and an unkeyed envelope substring scan over this table took the "
+            "production connection pool down once already. "
             "Working forensic SELECT examples (all runnable via "
             '`yoke db read "..."`): '
             "filter by (item_id, event_name) — "

@@ -75,6 +75,7 @@ def _make_conn() -> Any:
             id INTEGER PRIMARY KEY,
             session_id TEXT,
             event_name TEXT,
+            client_timing_id TEXT,
             envelope TEXT
         );
         """

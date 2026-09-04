@@ -49,6 +49,7 @@ Every event is a row in the `events` table. The canonical columns are:
 | `anomaly_flags` | TEXT | No | Comma-separated anomaly tags |
 | `turn_id` | TEXT | No | Conversation turn within the harness session |
 | `hook_event_name` | TEXT | No | Hook phase that produced this event (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`) |
+| `client_timing_id` | TEXT | No | Correlation key a hook client minted for its own dispatch; cleared once the client's wall time lands |
 | `envelope` | TEXT | No | Full JSON envelope with `context` payload |
 | `created_at` | TEXT | Yes | ISO 8601 timestamp (auto-populated) |
 
@@ -84,16 +85,15 @@ All harness correlation fields are first-class indexed columns on the `events` t
 - `session_id` -- the canonical harness session join key for session-scoped queries
 - `turn_id` -- conversation turn within the session
 - `hook_event_name` -- the hook phase that produced this event (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`)
+- `client_timing_id` -- the key a hook client minted before it ran, so the wall time it reports afterwards finds its dispatch row by an indexed probe (`INDEX ON (client_timing_id) WHERE client_timing_id IS NOT NULL`); the completing update clears it, so the partial index holds only the reports still in flight
 
-These columns are populated at emit time by the observe helper and denial-path observer. Historical rows were backfilled by the events-backfill migration.
+These columns are populated at emit time by the observe helper and denial-path observer. Correlate a row through one of them, never by matching a substring of `envelope` with LIKE: `envelope` has no index over its contents, so such a query reads every row its other predicates admit, which is how one telemetry lookup took the production connection pool. `HC-events-envelope-like-scan` enforces that. Historical rows were backfilled by the events-backfill migration.
 
 ### Envelope JSON Structure
 
 The `envelope` column stores a full JSON object. The `context` key holds event-specific data. Top-level fields mirror queryable columns for downstream consumers that parse JSON.
 
-New envelopes omit the retired human-user key. Historical envelopes are
-immutable and may retain that key with a null value; consumers must ignore it
-and use `actor_id` for engine identity.
+New envelopes omit the retired human-user key. Historical envelopes are immutable and may retain that key with a null value; consumers must ignore it and use `actor_id` for engine identity.
 
 `ItemStatusChanged`, `QARunCompleted`, and `QARunCaptured` override caller-supplied attribution with the emitting call's resolved acting identity (dispatcher binding, then ambient session; `actor_id` from `harness_sessions`). When no session exists, `session_id` and `actor_id` stay empty. Historical unattributed rows remain unchanged and are distinguishable by their empty fields.
 

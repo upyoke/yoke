@@ -26,6 +26,7 @@ _EVENTS_DDL = """
         event_name TEXT NOT NULL,
         service TEXT NOT NULL DEFAULT 'cli',
         project_id INTEGER DEFAULT 1,
+        client_timing_id TEXT,
         envelope TEXT,
         created_at TEXT NOT NULL
     )

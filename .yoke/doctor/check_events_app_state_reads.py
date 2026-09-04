@@ -88,6 +88,8 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_audit_presets.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_prune.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_registry_audit.py",
+    # completes its own dispatch row with the client's wall time
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/hook_client_wall.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/observe_normalization.py",  # pipeline-internal duration join
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_db_catalog.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_db_events_emission.py",

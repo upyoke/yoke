@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 import pytest
 
@@ -175,6 +176,9 @@ def test_client_wall_completion_updates_the_matching_dispatch(
     first = json.loads(body["observations"][0]["hook_request"]["stdin"])
     first["yoke_hook_evaluator"]["client_timing_id"] = timing_id
     body["observations"][0]["hook_request"]["stdin"] = json.dumps(first)
+    # The completion reaches back a bounded number of minutes, so the
+    # dispatch row this batch writes has to be one a live hook just made.
+    body["observations"][0]["observed_at"] = datetime.now(timezone.utc).isoformat()
     assert client.post("/v1/hooks/telemetry/batch", json=body).status_code == 200
 
     response = client.post(

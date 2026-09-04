@@ -42,6 +42,7 @@ def _apply_resync_schema() -> None:
                 event_name TEXT,
                 event_type TEXT,
                 item_id TEXT,
+                client_timing_id TEXT,
                 envelope TEXT,
                 created_at TEXT,
                 source_type TEXT

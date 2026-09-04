@@ -214,14 +214,15 @@ def _insert_claimable_epic_task(conn, epic_id: int, task_num: int) -> None:
     from runtime.api.fixtures.backlog import insert_epic_task, insert_item
     from yoke_core.domain.schema_common import _table_exists
 
-    if not conn.execute(
-        "SELECT 1 FROM items WHERE id=%s", (int(epic_id),)
-    ).fetchone():
+    if not conn.execute("SELECT 1 FROM items WHERE id=%s", (int(epic_id),)).fetchone():
         insert_item(conn, id=int(epic_id), workflow_id="epic", status="implementing")
-    if _table_exists(conn, "epic_tasks") and not conn.execute(
-        "SELECT 1 FROM epic_tasks WHERE epic_id=%s AND task_num=%s",
-        (int(epic_id), int(task_num)),
-    ).fetchone():
+    if (
+        _table_exists(conn, "epic_tasks")
+        and not conn.execute(
+            "SELECT 1 FROM epic_tasks WHERE epic_id=%s AND task_num=%s",
+            (int(epic_id), int(task_num)),
+        ).fetchone()
+    ):
         insert_epic_task(
             conn,
             epic_id=int(epic_id),
@@ -265,7 +266,7 @@ EMIT_PATH_TABLES = """
         service TEXT, project_id INTEGER DEFAULT 1, item_id TEXT,
         task_num INTEGER, agent TEXT, tool_name TEXT, duration_ms INTEGER,
         trace_id TEXT, anomaly_flags TEXT, tool_use_id TEXT,
-        turn_id TEXT, hook_event_name TEXT, envelope TEXT,
+        turn_id TEXT, hook_event_name TEXT, client_timing_id TEXT, envelope TEXT,
         created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS event_registry (

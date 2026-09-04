@@ -64,6 +64,7 @@ _EVENTS_DDL = """CREATE TABLE events (
     tool_use_id TEXT,
     turn_id TEXT,
     hook_event_name TEXT,
+    client_timing_id TEXT,
     envelope TEXT,
     created_at TEXT
 )"""
@@ -80,9 +81,7 @@ _PROJECTS_DDL = """CREATE TABLE projects (
 
 
 def _seed_projects(conn) -> None:
-    conn.execute(
-        _PROJECTS_SEED_DDL
-    )
+    conn.execute(_PROJECTS_SEED_DDL)
 
 
 _PROJECTS_SEED_DDL = (

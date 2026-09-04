@@ -41,7 +41,8 @@ def _add_events_table(conn) -> None:
         "org_id TEXT,environment TEXT,service TEXT,project_id INTEGER,"
         "actor_id INTEGER,item_id TEXT,task_num INTEGER,agent TEXT,tool_name TEXT,"
         "duration_ms INTEGER,exit_code INTEGER,trace_id TEXT,anomaly_flags TEXT,"
-        "tool_use_id TEXT,turn_id TEXT,hook_event_name TEXT,envelope TEXT,"
+        "tool_use_id TEXT,turn_id TEXT,hook_event_name TEXT,client_timing_id TEXT,"
+        "envelope TEXT,"
         "created_at TEXT)"
     )
 

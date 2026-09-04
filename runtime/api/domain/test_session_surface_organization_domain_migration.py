@@ -60,6 +60,7 @@ def _retired_shape() -> sqlite3.Connection:
             event_type TEXT NOT NULL,
             event_name TEXT NOT NULL,
             service TEXT NOT NULL,
+            client_timing_id TEXT,
             envelope TEXT NOT NULL,
             created_at TEXT NOT NULL
         );

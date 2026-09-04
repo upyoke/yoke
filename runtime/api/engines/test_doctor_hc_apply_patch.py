@@ -64,7 +64,10 @@ def test_deny_smoke_fail_on_nonzero_exit(monkeypatch, conn):
 
     def fail_run(*a, **kw):
         return subprocess.CompletedProcess(
-            args=a, returncode=2, stdout="", stderr="boom",
+            args=a,
+            returncode=2,
+            stdout="",
+            stderr="boom",
         )
 
     monkeypatch.setattr(subprocess, "run", fail_run)

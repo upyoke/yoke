@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 from unittest import mock
@@ -28,6 +27,7 @@ CREATE TABLE events (
     event_name TEXT NOT NULL,
     event_outcome TEXT,
     exit_code INTEGER,
+    client_timing_id TEXT,
     envelope TEXT,
     created_at TEXT NOT NULL
 );
@@ -150,14 +150,17 @@ def test_warns_when_completed_audit_row_exists_without_marker(
     db_conn.execute(
         "INSERT INTO migration_audit (migration_name, model_name, state, started_at) "
         "VALUES (%s, %s, %s, %s)",
-        ("backfill_event_outcomes", "primary", "test_apply_failed",
-         "2026-02-01T00:00:00Z"),
+        (
+            "backfill_event_outcomes",
+            "primary",
+            "test_apply_failed",
+            "2026-02-01T00:00:00Z",
+        ),
     )
     db_conn.execute(
         "INSERT INTO migration_audit (migration_name, model_name, state, started_at) "
         "VALUES (%s, %s, %s, %s)",
-        ("backfill_event_outcomes", "primary", "completed",
-         "2026-03-01T00:00:00Z"),
+        ("backfill_event_outcomes", "primary", "completed", "2026-03-01T00:00:00Z"),
     )
     db_conn.commit()
     # A drift-shaped row is not classified post-cutover until the explicit

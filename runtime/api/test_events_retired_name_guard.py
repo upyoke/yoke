@@ -57,10 +57,11 @@ def _create_events_table(conn) -> None:
             duration_ms INTEGER, exit_code INTEGER,
             trace_id TEXT, anomaly_flags TEXT,
             tool_use_id TEXT, turn_id TEXT, hook_event_name TEXT,
+            client_timing_id TEXT,
             envelope TEXT,
             created_at TEXT NOT NULL
         );
-        """
+        """,
     )
 
 
@@ -79,7 +80,7 @@ def _create_event_registry(conn) -> None:
             added_in TEXT,
             status TEXT NOT NULL DEFAULT 'active'
         );
-        """
+        """,
     )
 
 

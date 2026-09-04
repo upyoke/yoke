@@ -62,6 +62,7 @@ CREATE TABLE events (
     exit_code INTEGER,
     trace_id TEXT,
     anomaly_flags TEXT,
+    client_timing_id TEXT,
     envelope TEXT,
     hook_event_name TEXT,
     created_at TEXT NOT NULL
@@ -101,9 +102,7 @@ def _setup_db():
     ``connect_test_db`` calls and the ``cmd_list`` readback share one DB.
     """
     with tempfile.TemporaryDirectory(prefix="yoke-test-") as tmp_dir:
-        with init_test_db(
-            Path(tmp_dir), apply_schema=_apply_events_schema
-        ) as db_path:
+        with init_test_db(Path(tmp_dir), apply_schema=_apply_events_schema) as db_path:
             yield db_path
 
 
@@ -141,7 +140,6 @@ def _insert_event(
 
 
 class TestCurrentEpisodeFlag(unittest.TestCase):
-
     def test_requires_explicit_session_id(self) -> None:
         with self.assertRaises(ValueError) as exc:
             _build_where(["--current-episode"])
@@ -274,9 +272,11 @@ class TestCurrentEpisodeFlag(unittest.TestCase):
             result = cmd_list(
                 db_path,
                 [
-                    "--session-id", "sess-d",
+                    "--session-id",
+                    "sess-d",
                     "--current-episode",
-                    "--event-name", "WorkClaimed",
+                    "--event-name",
+                    "WorkClaimed",
                 ],
             )
             self.assertIn("WorkClaimed", result)

@@ -123,6 +123,7 @@ _SCHEMA = """
         event_type TEXT,
         source_type TEXT,
         created_at TEXT,
+        client_timing_id TEXT,
         envelope TEXT
     );
 """
@@ -147,9 +148,7 @@ def _apply_schema() -> None:
             "(id, slug, name, github_repo, public_item_prefix) "
             "VALUES (1, 'yoke', 'Yoke', 'upyoke/yoke', 'YOK')",
         )
-        conn.execute(
-            "INSERT INTO sites (id, project_id, name) VALUES (10, 1, 'api')"
-        )
+        conn.execute("INSERT INTO sites (id, project_id, name) VALUES (10, 1, 'api')")
         conn.execute(
             "INSERT INTO environments (id, site, project_id, name) "
             "VALUES (101, 10, 1, 'prod')"
@@ -194,14 +193,20 @@ def _seed_flow(conn, flow_id="flow-test", project="yoke", stages=None):
     conn.commit()
 
 
-def _seed_run(conn, run_id="run-test-001", project="yoke", flow="flow-test",
-              status="created", item_ids=None):
+def _seed_run(
+    conn,
+    run_id="run-test-001",
+    project="yoke",
+    flow="flow-test",
+    status="created",
+    item_ids=None,
+):
     conn.execute(
         "INSERT INTO deployment_runs (id, project_id, flow, status) "
         "VALUES (%s, %s, %s, %s)",
         (run_id, 1, flow, status),
     )
-    for item_id in (item_ids or []):
+    for item_id in item_ids or []:
         conn.execute(
             "INSERT INTO deployment_run_items (run_id, item_id) VALUES (%s, %s)",
             (run_id, item_id),
@@ -209,12 +214,19 @@ def _seed_run(conn, run_id="run-test-001", project="yoke", flow="flow-test",
     conn.commit()
 
 
-def _seed_item(conn, item_id=42, title="Test item", status="implemented",
-               project="yoke", flow="flow-test"):
+def _seed_item(
+    conn,
+    item_id=42,
+    title="Test item",
+    status="implemented",
+    project="yoke",
+    flow="flow-test",
+):
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
     workflow_id, workflow_version_id = resolve_current_workflow_pin(
-        conn, "issue",
+        conn,
+        "issue",
     )
     conn.execute(
         "INSERT INTO items "
@@ -236,25 +248,29 @@ def _seed_item(conn, item_id=42, title="Test item", status="implemented",
 
 
 class TestGetRequirement:
-
     def test_found(self, deploy_db):
         deploy_db.execute(
             "INSERT INTO qa_requirements (deployment_run_id, qa_kind, qa_phase) "
             "VALUES ('run-1', 'smoke', 'post_deploy')",
         )
         deploy_db.commit()
-        val = deploy_qa_recorder.cmd_get_requirement("run-1", "smoke", db_path=os.environ["YOKE_DB"])
+        val = deploy_qa_recorder.cmd_get_requirement(
+            "run-1", "smoke", db_path=os.environ["YOKE_DB"]
+        )
         assert val is not None
 
     def test_not_found(self, deploy_db):
-        val = deploy_qa_recorder.cmd_get_requirement("run-1", "smoke", db_path=os.environ["YOKE_DB"])
+        val = deploy_qa_recorder.cmd_get_requirement(
+            "run-1", "smoke", db_path=os.environ["YOKE_DB"]
+        )
         assert val is None
 
 
 class TestRunSmokeStatus:
-
     def test_empty_run(self, deploy_db, capsys):
-        deploy_qa_recorder.cmd_run_smoke_status("run-nonexistent", db_path=os.environ["YOKE_DB"])
+        deploy_qa_recorder.cmd_run_smoke_status(
+            "run-nonexistent", db_path=os.environ["YOKE_DB"]
+        )
         assert capsys.readouterr().out.strip() == ""
 
     def test_with_requirement(self, deploy_db, capsys):
@@ -286,10 +302,16 @@ class TestQaRecorderIntegration:
 
         def mock_flow_db(*args, script_dir=None):
             if "stages" in args:
-                return json.dumps([
-                    {"name": "deploy", "step_runner": "auto"},
-                    {"name": "smoke-test", "step_runner": "auto", "qa_kind": "smoke"},
-                ])
+                return json.dumps(
+                    [
+                        {"name": "deploy", "step_runner": "auto"},
+                        {
+                            "name": "smoke-test",
+                            "step_runner": "auto",
+                            "qa_kind": "smoke",
+                        },
+                    ]
+                )
             return ""
 
         monkeypatch.setattr(deploy_qa_recorder, "_dispatch_db_router", mock_yoke_db)
@@ -318,7 +340,8 @@ class TestQaRecorderIntegration:
         deploy_db.commit()
 
         req_id = deploy_qa_recorder.cmd_get_requirement(
-            "run-1", "smoke",
+            "run-1",
+            "smoke",
             db_path=os.environ["YOKE_DB"],
         )
         assert req_id is not None

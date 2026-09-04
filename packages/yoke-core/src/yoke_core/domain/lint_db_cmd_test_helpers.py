@@ -72,6 +72,7 @@ def _fresh_live_db(tmp_path: Path) -> str:
             event_name TEXT,
             event_type TEXT,
             source_type TEXT,
+            client_timing_id TEXT,
             envelope TEXT,
             created_at TEXT,
             event_outcome TEXT

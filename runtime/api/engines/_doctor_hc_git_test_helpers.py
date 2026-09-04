@@ -85,7 +85,7 @@ def _make_conn():
         CREATE TABLE events (
             id INTEGER PRIMARY KEY, event_id TEXT, source_type TEXT,
             event_name TEXT, event_type TEXT, item_id TEXT,
-            task_num INTEGER, envelope TEXT, created_at TEXT
+            task_num INTEGER, client_timing_id TEXT, envelope TEXT, created_at TEXT
         );
         CREATE TABLE epic_dispatch_chains (
             id INTEGER PRIMARY KEY, epic_id TEXT, item_worktree_id INTEGER,

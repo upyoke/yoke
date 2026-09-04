@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from yoke_core.domain.events_schema import (
+    CLIENT_TIMING_INDEX_NAME,
     STOP_CLEANUP_INDEX_NAME,
     cmd_init,
     ensure_event_schema,
@@ -90,6 +91,26 @@ def test_stop_cleanup_index_is_partial_and_session_first(fresh_db: Path) -> None
         evn_pos = ddl.index("event_name")
         tu_pos = ddl.index("tool_use_id")
         assert sid_pos < evn_pos < tu_pos
+    finally:
+        conn.close()
+
+
+def test_client_timing_index_is_partial_and_keyed(fresh_db: Path) -> None:
+    """The hook client's completion must land on a keyed probe.
+
+    Without this index the completing report has to find its dispatch row
+    by scanning, which is what took the production connection pool once.
+    The partial predicate keeps the index to the reports still in flight,
+    because the completing update clears the column.
+    """
+    conn = _open(fresh_db)
+    try:
+        assert _column_exists(conn, "events", "client_timing_id")
+        assert CLIENT_TIMING_INDEX_NAME in _index_names(conn)
+        ddl = _index_definition(conn, CLIENT_TIMING_INDEX_NAME).lower()
+        assert "(client_timing_id)" in ddl
+        assert "where" in ddl
+        assert "client_timing_id is not null" in ddl
     finally:
         conn.close()
 

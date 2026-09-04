@@ -253,7 +253,7 @@ class TestInsertSqlColumnCount(unittest.TestCase):
         placeholders = val_section.count("%s")
 
         self.assertEqual(len(columns), placeholders)
-        self.assertEqual(len(columns), 26)
+        self.assertEqual(len(columns), 27)
 
         # Verify new columns are present
         self.assertNotIn("user_id", columns)
@@ -263,6 +263,7 @@ class TestInsertSqlColumnCount(unittest.TestCase):
         self.assertIn("exit_code", columns)
         self.assertIn("tool_use_id", columns)
         self.assertIn("turn_id", columns)
+        self.assertIn("client_timing_id", columns)
         self.assertIn("hook_event_name", columns)
 
 
@@ -272,11 +273,16 @@ class TestProductEventCli(unittest.TestCase):
 
         result = events_emit(
             [
-                "--name", "RetiredIdentityEvent",
-                "--kind", "system",
-                "--type", "test",
-                "--source-type", "backend",
-                "--user-id", "user-1",
+                "--name",
+                "RetiredIdentityEvent",
+                "--kind",
+                "system",
+                "--type",
+                "test",
+                "--source-type",
+                "backend",
+                "--user-id",
+                "user-1",
             ]
         )
         self.assertEqual(result, 2)

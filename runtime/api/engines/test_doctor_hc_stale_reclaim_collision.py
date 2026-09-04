@@ -50,6 +50,7 @@ _MAKE_CONN_DDL = """
         event_type TEXT NOT NULL DEFAULT 'system',
         session_id TEXT,
         created_at TEXT NOT NULL,
+        client_timing_id TEXT,
         envelope TEXT
     );
 """

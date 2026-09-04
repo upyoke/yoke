@@ -85,6 +85,7 @@ def test_evaluated_hook_client_wall_is_never_shorter_than_server_duration(
         source_type="hook",
         duration_ms=83,
         hook_event_name="PreToolUse",
+        client_timing_id=timing_id,
         envelope=_dispatch_envelope(timing_id, 83),
     )
 
