@@ -317,7 +317,7 @@ the workstation serves sessions while CI runs tests. `--local` (or
 uncommitted tree and a checkout on the base branch.
 Queue landing (`yoke merge item --wait`) returns immediately when the
 pull request's required checks have already concluded red with nothing in
-flight — that is a terminal required-check failure, not a poll-budget timeout.
+flight — that is a terminal required-check failure, not a record-wait timeout.
 
 Selection output distinguishes pytest files from collected items as
 `files=N of M items=X of Y`; unavailable values are explicit as `unknown`.
