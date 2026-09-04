@@ -1,4 +1,4 @@
-"""Make the landing pull request's entry run the verification gate's run.
+"""Prepare a CI lane and reuse a landing pull request's entry run.
 
 A project whose branches land through the merge queue pays for its suite
 three times when the gate dispatches a workflow run of its own: that
@@ -9,13 +9,11 @@ check run per name, so a dispatch green can never satisfy entry — the
 adoption :mod:`yoke_core.domain.qa_case_ci_covering_run` already knows how
 to do is reachable only when the pull-request run comes *first*.
 
-So for those projects the gate opens the pull request itself and waits for
-the run that opening it produces: rebase the lane onto the base branch,
-push, open (or converge on) the landing pull request, and hand that entry
-run back to the runner as the run whose conclusion is the verdict. The
-landing step later finds the same pull request open and green and simply
-enqueues it. Per-item cost becomes one entry suite plus the train's
-amortized share.
+Every live CI lane first reuses the landing gate's rebase step, then the
+runner publishes it once. For merge-queue projects the gate also opens the
+pull request and waits for the run that opening it produces. The landing
+step later finds the same pull request open and green and simply enqueues
+it. Per-item cost becomes one entry suite plus the train's amortized share.
 
 Rebasing is safe before evidence exists and tests the tree the train will build.
 """
@@ -85,7 +83,10 @@ def _git(checkout: Path, *args: str, timeout: int = 120) -> subprocess.Completed
     skip = {POST_COMMIT_SNAPSHOT_SKIP_ENV: "1"} if args[:1] == ("rebase",) else {}
     with credentialed_git.git_environment(argv, cwd=str(checkout)) as base:
         return process_group_reaping.run_in_process_group(
-            ["git", *argv], capture_output=True, text=True, timeout=timeout,
+            ["git", *argv],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
             env={**base, **skip},
         )
 
@@ -206,31 +207,30 @@ def rebase_lane_onto_base(
     )
 
 
-def prepare_entry_run_lane(
+def prepare_ci_lane(
     checkout: Path,
     *,
     project: str,
     branch: str,
     lane_is_checked_out: bool,
 ) -> Optional[str]:
-    """Return the base a queue project's landing pull request should target.
+    """Rebase a live CI lane, then return its queue target when applicable.
 
-    A live lane is rebased onto that base first. A recovered or recorded
-    commit still takes the pull-request path so the entry run is the
-    verdict — dispatch is only for projects that do not land through the
-    queue. ``None`` means this case keeps the dispatch path.
+    A recovered or recorded commit still takes the pull-request path when
+    the project uses the queue, but cannot be rebased after its lane was
+    released. ``None`` means this case keeps the dispatch path.
     """
-    if not routes_through_merge_queue(project):
-        return None
+    queue_routed = routes_through_merge_queue(project)
+    if not lane_is_checked_out:
+        return base_branch(project, checkout) if queue_routed else None
     target = base_branch(project, checkout)
-    if lane_is_checked_out:
-        rebase_lane_onto_base(
-            checkout,
-            branch=branch,
-            target=target,
-            project=project,
-        )
-    return target
+    rebase_lane_onto_base(
+        checkout,
+        branch=branch,
+        target=target,
+        project=project,
+    )
+    return target if queue_routed else None
 
 
 def open_landing_pull_request(
@@ -333,7 +333,7 @@ __all__ = [
     "base_branch",
     "find_entry_run",
     "open_landing_pull_request",
-    "prepare_entry_run_lane",
+    "prepare_ci_lane",
     "rebase_lane_onto_base",
     "routes_through_merge_queue",
 ]

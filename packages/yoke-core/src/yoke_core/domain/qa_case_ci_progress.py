@@ -121,6 +121,40 @@ def announce_superseded_run_cancelled(
     )
 
 
+def announce_never_started_retry(
+    requirement_id: int,
+    *,
+    repo: str,
+    run_id: str,
+    stream: TextIO | None = None,
+) -> None:
+    """Name the one automatic replacement for a run that never started."""
+    _emit(
+        f"requirement={requirement_id} ci_run_never_started run={run_id} "
+        f"repo={repo}; force-cancel settled; redispatching once",
+        stream=stream,
+    )
+
+
+def announce_never_started_terminal(
+    requirement_id: int,
+    *,
+    repo: str,
+    branch: str,
+    run_id: str,
+    stream: TextIO | None = None,
+) -> str:
+    """Emit and return the named failure after the replacement also stalls."""
+    message = (
+        f"requirement={requirement_id} ci_run_never_started run={run_id} "
+        f"repo={repo}; the automatic redispatch also remained pending with "
+        "zero jobs. Recovery: create an empty commit, then re-run the QA case "
+        f"so the gate can push an empty commit on {branch}; do not push by hand"
+    )
+    _emit(message, stream=stream)
+    return message
+
+
 @contextlib.contextmanager
 def relay_poll_output(stream: TextIO | None = None) -> Iterator[None]:
     """Relay legacy poll narration to flushed stderr for the QA JSON CLI."""
@@ -133,6 +167,8 @@ __all__ = [
     "PROGRESS_PREFIX",
     "announce_covering_wait",
     "announce_dispatch",
+    "announce_never_started_retry",
+    "announce_never_started_terminal",
     "announce_run",
     "announce_superseded_run_cancelled",
     "relay_poll_output",

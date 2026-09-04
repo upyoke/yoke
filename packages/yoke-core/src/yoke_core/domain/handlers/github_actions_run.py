@@ -21,7 +21,10 @@ from yoke_core.domain.handlers.github_actions_set import (
     _validate_and_resolve,
 )
 from yoke_core.domain.github_actions_identifiers import WorkflowRunId
-from yoke_core.domain.github_actions_run_stall import pending_run_message
+from yoke_core.domain.github_actions_run_stall import (
+    CI_RUN_NEVER_STARTED_REASON,
+    pending_run_message,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -32,7 +35,8 @@ class RunGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     run_id: WorkflowRunId = Field(..., description="GitHub Actions run id.")
     project: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description="Project capability owning the GitHub App repo binding.",
     )
 
@@ -79,6 +83,8 @@ def _classify(
                 jobs_count=jobs_count,
                 updated_at=str(data.get("updated_at") or ""),
             )
+            if CI_RUN_NEVER_STARTED_REASON in message:
+                state = "failed"
     elif status == "in_progress":
         state, message = "running", "in_progress"
     else:

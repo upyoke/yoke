@@ -9,6 +9,7 @@ from typing import Optional
 PENDING_ZERO_JOBS_STALL_SECONDS = 120
 PENDING_ZERO_JOBS_STALL_REASON = "pending_zero_jobs_stall"
 STALLED_DISPATCH_TOKEN = "stalled_dispatch"
+CI_RUN_NEVER_STARTED_REASON = "ci_run_never_started"
 
 
 def _timestamp(value: str) -> Optional[datetime]:
@@ -44,6 +45,7 @@ def pending_run_message(
     return (
         f"{STALLED_DISPATCH_TOKEN} "
         f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON} "
+        f"failure_reason={CI_RUN_NEVER_STARTED_REASON} "
         f"run={run_id} status=pending jobs=0 updated_at={updated_at}; "
         "force-cancel with `gh api --method POST "
         f"repos/{repo}/actions/runs/{run_id}/force-cancel`"
@@ -51,6 +53,7 @@ def pending_run_message(
 
 
 __all__ = [
+    "CI_RUN_NEVER_STARTED_REASON",
     "PENDING_ZERO_JOBS_STALL_REASON",
     "PENDING_ZERO_JOBS_STALL_SECONDS",
     "STALLED_DISPATCH_TOKEN",
