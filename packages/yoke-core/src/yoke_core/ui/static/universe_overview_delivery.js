@@ -48,7 +48,7 @@ export function loadDelivery(context, panel, getScope, activationFacts) {
         "overview-delivery-table",
         ["Run", "Project", "Target", "Stages", "Status", "When"],
       );
-      const href = destinationHref("delivery", scope);
+      const href = destinationHref("deployments", scope);
       for (const row of rows.slice(0, SUMMARY_ROW_LIMIT)) {
         const tableRow = el(documentNode, "tr", "overview-delivery-row");
         routeCell(

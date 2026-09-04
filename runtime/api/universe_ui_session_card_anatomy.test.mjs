@@ -133,7 +133,8 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.equal(byClass(root, "title")[0].textContent, "Sessions");
   assert.equal(
     byClass(root, "subtitle")[0].textContent,
-    "Every harness session running against this universe, and what each one holds.",
+    "What can run on each machine, and every harness session running "
+    + "against this universe.",
   );
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children.map(

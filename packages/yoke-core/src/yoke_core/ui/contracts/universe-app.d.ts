@@ -196,7 +196,7 @@ export interface UniverseAppMount {
  * their content is host-owned: each renders the host's `sections` entry as
  * its body, and its nav entry appears exactly when that section is supplied.
  */
-export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" | "items" | "sessions" | "delivery" | "qa" | "workflows" | "capabilities" | "events" | "doctor" | "ouroboros" | "projects" | "access" | "members" | "billing" | "packs" | "github" | "project" | "organization";
+export type UniverseRouteView = "overview" | "sessions" | "inbox" | "organization" | "workflows" | "projects" | "github" | "access" | "members" | "billing" | "strategy" | "items" | "deployments" | "environments" | "flows" | "databases" | "infrastructure" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "events" | "doctor" | "ouroboros" | "machines";
 /**
  * A view's optional second route segment means what the view declares — a
  * tab (one facet of the view's single concept) or a drill-in (one row of the
@@ -207,8 +207,10 @@ export type UniverseRouteView = "overview" | "inbox" | "strategy" | "frontier" |
  */
 export interface UniverseRoute {
     readonly view: UniverseRouteView;
-    /** The resolved tab facet, for a view that declares tabs. */
-    readonly tab: string | null;
+    /** Always null. Tabs are gone: every facet that earned a name is a
+     *  destination, and the field stays so a reader of an older build sees an
+     *  explicit absence rather than a missing key. */
+    readonly tab: null;
     /** The drill-in row within the view, when the route names one. */
     readonly detail: string | null;
     readonly project: string | null;

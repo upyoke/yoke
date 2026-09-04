@@ -278,12 +278,30 @@ export async function loadStrategy(
         badge.appendChild(el(
           documentNode, "strong", null, doc.slug || "Strategy",
         ));
+        // State is drawn only when it is an exception. `active` is the default
+        // wearing a label, and who is actually on a plan right now is a fact
+        // the claim already carries.
+        if (doc.state && doc.state !== "active") {
+          badge.appendChild(el(
+            documentNode, "span", "overview-doc-state", doc.state,
+          ));
+        }
         badge.appendChild(el(documentNode, "span", null, " · "));
         badge.appendChild(el(
           documentNode,
           "span",
           "overview-doc-age",
           relativeAge(doc.updated_at),
+        ));
+        // The document's own summary, authored under a capped `## Summary`
+        // heading. A document without one says which heading is missing rather
+        // than rendering blank: blank reads as a rendering fault, which is the
+        // one thing that state is not.
+        badge.appendChild(el(
+          documentNode,
+          "span",
+          doc.summary ? "overview-doc-summary" : "overview-doc-summary missing",
+          doc.summary || "no ## Summary heading",
         ));
         docStrip.appendChild(badge);
       }

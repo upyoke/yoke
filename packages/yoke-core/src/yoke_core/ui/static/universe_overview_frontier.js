@@ -34,7 +34,9 @@ export function loadFrontier(context, panel, getScope, activationFacts) {
       }
       const blockedItems = new Set(blocked.map((row) => row.item_id));
       panel.setCount(`${ready.length} runnable · ${blockedItems.size} blocked`);
-      const href = destinationHref("frontier", scope);
+      // Frontier is no longer a destination — this panel is what it was — so a
+    // row opens Items, the view that answers the next question.
+    const href = destinationHref("items", scope);
       const table = overviewTable(
         documentNode,
         "overview-frontier-table",

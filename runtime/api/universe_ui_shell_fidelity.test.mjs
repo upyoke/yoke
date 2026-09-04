@@ -132,7 +132,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
     "YOK-2228 · yoke · implementing");
   // A session result opens that session's own page rather than the roster it
   // would have to be found in a second time.
-  assert.equal(links[1].href, "#/sessions/roster/session-shell?project=1");
+  assert.equal(links[1].href, "#/sessions/session-shell?project=1");
   // Items are matched by the server, so the typed query travels with the
   // request — the browser never filters a prefetched roster it could outgrow.
   assert.deepEqual(searchRequests.at(-1), { keywords: "shell", limit: 8 });
@@ -157,7 +157,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   const archived = byClass(root, "header-search-result");
   assert.equal(archived.length, 1);
   assert.equal(archived[0].href,
-    `#/sessions/roster/${ARCHIVED_SESSION_ID}?project=1`);
+    `#/sessions/${ARCHIVED_SESSION_ID}?project=1`);
 
   // A query the client could not have matched locally still resolves: the
   // item's own text says nothing about the number the operator typed.

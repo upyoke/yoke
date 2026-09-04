@@ -1,4 +1,6 @@
 @import url("./universe_chrome.css");
+@import url("./universe_nav_groups.css");
+@import url("./universe_machines_panel.css");
 @import url("./universe_content.css");
 @import url("./universe_overview.css");
 @import url("./universe_secondary_views.css");

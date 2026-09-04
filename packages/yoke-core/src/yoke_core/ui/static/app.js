@@ -1,6 +1,6 @@
 // Read-only, hand-authored universe app. `mountUniverseApp(rootNode, options?)`
 // accepts same-realm clients, host slots, and sections without forking the UI.
-// Hash routes preserve each view's declared scope, tab, and drill-in. NAV owns
+// Hash routes preserve each view's declared scope and drill-in. NAV owns
 // the flat destination arc; host-fed Members and Billing contribute only their
 // body while the workbench retains routing and page chrome.
 
@@ -16,7 +16,6 @@ import {
 import {
   buildUniverseRoute,
   createScopePicker,
-  createTabBar,
   NAV,
   navEntry,
   parseUniverseRoute,
@@ -28,7 +27,7 @@ import {
   universeNavScope,
 } from "./universe_navigation.js";
 import {
-  DETAIL_RENDERERS, TAB_DETAIL_RENDERERS, TAB_RENDERERS, VIEW_RENDERERS,
+  DETAIL_RENDERERS, VIEW_RENDERERS,
 } from "./universe_views.js";
 import {
   callFunction,
@@ -172,89 +171,6 @@ export function mountUniverseApp(rootNode, options = {}) {
       return;
     }
 
-    if (entry.tabs) {
-      // The segment is a tab facet: parse already resolved it to one of the
-      // entry's declared tabs, so the strip and the body agree by construction.
-      const tab = entry.tabs.find((item) => item.id === route.tab);
-      const tabDetailRenderer = route.detail
-        ? (TAB_DETAIL_RENDERERS[entry.id] || {})[tab.id]
-        : null;
-      if (tabDetailRenderer) {
-        const detailHost = el(documentNode, "div", "view-host");
-        if (scope === null && entry.scope !== SCOPE_NONE) {
-          detailHost.appendChild(emptyUniversePanel(documentNode));
-          main.replaceChildren(detailHost);
-          return;
-        }
-        const breadcrumb = createBreadcrumb(
-          documentNode,
-          entry,
-          serializeScope(scope),
-          route.detail,
-          tab,
-        );
-        main.replaceChildren(breadcrumb, detailHost);
-        tabDetailRenderer(
-          context,
-          detailHost,
-          scope,
-          route.detail,
-          breadcrumbNavigation(breadcrumb),
-        );
-        return;
-      }
-      const tabBar = createTabBar(
-        documentNode, entry, tab.id, serializeScope(scope),
-      );
-      const pageHead = createPageHead(documentNode, entry);
-      const tabRenderer = (TAB_RENDERERS[entry.id] || {})[tab.id];
-      if (!tabRenderer) {
-        // An unbuilt facet is honest the same way an unbuilt destination is,
-        // and it carries no picker — a scope control over nothing filters
-        // nothing. The facet's own what-it-will-be line renders inside the
-        // stub: the page head names the view, not the tab.
-        const stubHost = el(documentNode, "div", "view-host");
-        main.replaceChildren(pageHead, tabBar, stubHost);
-        renderStubView(context, stubHost, tab.summary);
-        appendViewSection(entry, stubHost);
-        return;
-      }
-      if (entry.scope === SCOPE_NONE) {
-        const viewHost = el(documentNode, "div", "view-host");
-        main.replaceChildren(pageHead, tabBar, viewHost);
-        tabRenderer(context, viewHost, null);
-        appendViewSection(entry, viewHost);
-        return;
-      }
-      // Only a single-scope view needs a project to exist: an unfiltered
-      // read over an empty universe is honest, an unscoped single view has
-      // nothing to configure.
-      if (scope === null) {
-        const emptyHost = el(documentNode, "div", "view-host");
-        emptyHost.appendChild(emptyUniversePanel(documentNode));
-        appendViewSection(entry, emptyHost);
-        main.replaceChildren(pageHead, tabBar, emptyHost);
-        return;
-      }
-      // A built tab carries its own picker before the facet strip. Project
-      // scope governs every facet, so the scope is chosen before the user
-      // selects which facet of that scoped data to inspect.
-      const viewHost = el(documentNode, "div", "view-host");
-      main.replaceChildren(
-        pageHead,
-        ...beforeScopeSections(entry),
-        createScopePicker({
-          documentNode, entry, scope, projects, renderRoute,
-          scopeSelections, segment: tab.id, windowNode,
-        }),
-        tabBar,
-        viewHost,
-      );
-      tabRenderer(context, viewHost, scope);
-      appendViewSection(entry, viewHost, { scoped: true });
-      return;
-    }
-
     const detailRenderer = route.detail ? DETAIL_RENDERERS[entry.id] : null;
     const renderer = VIEW_RENDERERS[entry.id];
     if (!renderer) {
@@ -265,13 +181,34 @@ export function mountUniverseApp(rootNode, options = {}) {
       return;
     }
     if (entry.scope === SCOPE_NONE) {
+      // An unscoped view can still own drill-ins: Projects is a universe-wide
+      // roster whose rows each open one project. The row carries the project,
+      // so the drill-in needs no picker above it — a breadcrumb back to the
+      // roster is the whole chrome.
+      if (detailRenderer && route.detail) {
+        const detailHost = el(documentNode, "div", "view-host");
+        const breadcrumb = createBreadcrumb(
+          documentNode, entry, serializeScope(scope), route.detail,
+        );
+        main.replaceChildren(breadcrumb, detailHost);
+        detailRenderer(
+          context,
+          detailHost,
+          route.detail,
+          route.detail,
+          breadcrumbNavigation(breadcrumb),
+        );
+        return;
+      }
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
       renderer(context, viewHost, null, route.detail);
       appendViewSection(entry, viewHost);
       return;
     }
-    // Only a single-scope view needs a project to exist (see the tab path).
+    // Only a single-scope view needs a project to exist: an unfiltered read
+    // over an empty universe is honest, an unscoped single view has nothing
+    // to configure.
     if (scope === null) {
       const emptyHost = el(documentNode, "div", "view-host");
       emptyHost.appendChild(emptyUniversePanel(documentNode));

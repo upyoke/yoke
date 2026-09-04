@@ -235,9 +235,8 @@ export function methodsPanel(documentNode, detail) {
       "doc-link test-machine-method",
     );
     link.href = buildUniverseRoute(
-      "qa",
+      "qa-methods",
       String(detail.project_id),
-      "methods",
       method.id,
     );
     link.appendChild(el(

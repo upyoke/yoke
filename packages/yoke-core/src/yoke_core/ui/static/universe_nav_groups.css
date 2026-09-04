@@ -1,0 +1,18 @@
+/* Grouped sidebar navigation.
+ *
+ * The heading separates; it does not compete with the destinations under it.
+ * Focus carries no heading at all — it is the top of the list, which already
+ * says what it is. */
+
+.sidenav .nav-group {
+  margin: 16px 0 5px;
+  padding: 0 10px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.sidenav .nav-group:first-child { margin-top: 0; }

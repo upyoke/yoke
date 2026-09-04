@@ -235,12 +235,12 @@ test("message acknowledgement failures stay visible and retryable", async () => 
 
 test("all four request kinds link to their one subject home", () => {
   const cases = [
-    ["deployment_stage_approval", "deployment_stage", {}, "#/delivery/runs?project=10"],
+    ["deployment_stage_approval", "deployment_stage", {}, "#/deployments?project=10"],
     [
       "qa_needs_review",
       "qa_requirement",
       { plan_id: 7, case_name: "checkout-flow" },
-      "#/qa/plans/7?project=10",
+      "#/qa-plans/7?project=10",
     ],
     ["lifecycle_transition_approval", "item_transition", { item_ref: "YOK-7" }, "#/items/7?project=10"],
     ["machine_approval", "machine_auth_request", {}, "#/access"],
@@ -254,7 +254,7 @@ test("all four request kinds link to their one subject home", () => {
     kind: "qa_needs_review",
     subject_type: "qa_requirement",
     subject_context: {},
-  })), "#/qa/activity?project=10");
+  })), "#/qa-activity?project=10");
   assert.equal(inboxPresentation.subjectHref(requestRow({
     subject_context: { item_id: 2262 },
   })), "#/items?project=10");

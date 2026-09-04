@@ -179,11 +179,11 @@ test("a non-empty read keeps its live panel on day zero", async (t) => {
   assert.equal(byClass(root, "overview-ghost").length, 0);
   assert.deepEqual(
     byClass(root, "overview-section-icon").map((node) => node.textContent),
-    ["❖", "⚡", "◈", "⬈", "≋", "♥"],
+    ["❖", "⚡", "◈", "⬈"],
   );
   assert.deepEqual(
     byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Strategy", "Frontier", "Sessions", "Delivery", "Events", "Doctor"],
+    ["Strategy", "Waiting and ready", "Active", "Shipping"],
   );
   mounted.unmount();
 });

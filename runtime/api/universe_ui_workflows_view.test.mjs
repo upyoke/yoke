@@ -65,7 +65,7 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
     "🔒 Rally",
   ]);
   assert.deepEqual(classText(root, "workflow-home-link"), [
-    "QA →", "Inbox →", "Delivery →",
+    "QA plans →", "Inbox →", "Deployments →",
   ]);
   assert.deepEqual(classText(root, "workflow-posture-value"), [
     "governed migrations on every change",

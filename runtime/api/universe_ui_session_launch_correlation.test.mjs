@@ -95,7 +95,7 @@ test("launch cards show identity correlation and exact registered-session links"
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/sessions/launches?project=1", client,
+    t, "#/machines?project=1", client,
   );
 
   assert.deepEqual(
@@ -125,7 +125,7 @@ test("launch cards show identity correlation and exact registered-session links"
   const link = byClass(root, "session-result-link").find(
     (node) => node.textContent.includes("session-matched"),
   );
-  assert.equal(link.href, "#/sessions/roster/session-matched?project=1");
+  assert.equal(link.href, "#/sessions/session-matched?project=1");
   const rendered = allNodes(root).map((node) => node.textContent).join(" ");
   assert.match(rendered, /adapter revision: adapter-v2/);
   for (const safeFact of [
@@ -175,7 +175,7 @@ test("registered-session drill-in uses the exact session lookup", async (t) => {
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/sessions/roster/session-matched?project=1", client,
+    t, "#/sessions/session-matched?project=1", client,
   );
 
   const lookup = requests.find((request) => request.function === "sessions.list");

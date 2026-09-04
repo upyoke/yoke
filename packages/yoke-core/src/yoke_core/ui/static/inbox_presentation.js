@@ -28,15 +28,15 @@ export function subjectHref(row) {
   const facts = row.subject_context || {};
   if (facts.href) return String(facts.href);
   if (row.kind === "deployment_stage_approval") {
-    return buildUniverseRoute("delivery", row.project_id, "runs");
+    return buildUniverseRoute("deployments", row.project_id);
   }
   if (row.kind === "qa_needs_review") {
     if (facts.plan_id) {
       return buildUniverseRoute(
-        "qa", row.project_id, "plans", String(facts.plan_id),
+        "qa-plans", row.project_id, String(facts.plan_id),
       );
     }
-    return buildUniverseRoute("qa", row.project_id, "activity");
+    return buildUniverseRoute("qa-activity", row.project_id);
   }
   if (row.kind === "lifecycle_transition_approval") {
     return itemDrillInHref({

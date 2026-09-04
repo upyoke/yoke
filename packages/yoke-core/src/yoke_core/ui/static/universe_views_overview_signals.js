@@ -10,11 +10,9 @@ import { el } from "./universe_view_support.js";
 // drift from the summaries it navigates.
 export const OVERVIEW_SECTIONS = [
   ["strategy", "❖", "Strategy", "where this universe has been, and where VISION points it"],
-  ["frontier", "⚡", "Frontier", "what can run now, and why"],
-  ["sessions", "◈", "Sessions", "who is working across the universe"],
-  ["delivery", "⬈", "Delivery", "what is shipping, and where it stands"],
-  ["events", "≋", "Events", "the pulse · newest first"],
-  ["doctor", "♥", "Doctor", "the floor · invariants that hold"],
+  ["frontier", "⚡", "Waiting and ready", "what cannot run yet, and what can"],
+  ["sessions", "◈", "Active", "who is working across the universe"],
+  ["delivery", "⬈", "Shipping", "what is shipping, and where it stands"],
 ];
 
 const STATE_SIGNALS = [

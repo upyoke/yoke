@@ -1,0 +1,128 @@
+/* The Machines panel on Sessions. Dense on purpose: it is a strip an operator
+ * scans before launching, not a report they read. */
+
+.machines-panel { margin-bottom: 22px; }
+.machines-panel-head {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.machines-empty { font-size: 12px; color: var(--muted); }
+
+/* One card is one live host, laid out the way a session card is — the same
+ * unit of thing. The minimum is wider, because a surface row carries a light,
+ * a name, a version and a state. */
+.machines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 380px));
+  gap: 12px;
+  align-items: start;
+}
+.machine-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--surface);
+  overflow: hidden;
+}
+.machine-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.machine-host { font-weight: 650; font-size: 12px; color: var(--ink); }
+.machine-meta { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+
+/* One fact, read at a glance, so a filled disc with a halo — a ring at this
+ * size reads as grey at every colour. */
+.machine-light { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.machine-light-ok {
+  background: var(--good);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--good) 18%, transparent);
+}
+.machine-light-warn {
+  background: var(--warn);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--warn) 20%, transparent);
+}
+.machine-light-crit {
+  background: var(--crit);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--crit) 20%, transparent);
+}
+.machine-light-off { background: var(--idle); opacity: 0.5; }
+
+/* What is NOT measured, said once per card rather than as an empty meter per
+ * surface. Dashed, because the row is a placeholder for a reading and should
+ * never be mistaken for one. */
+.machine-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 8px 11px 0;
+  padding: 5px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+}
+.machine-pending-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.machine-pending-detail { font-size: 10.5px; color: var(--muted); }
+
+.machine-surface { padding: 8px 11px; border-top: 1px solid var(--border); }
+.machine-surface-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.machine-surface-name {
+  font-family: var(--mono, monospace);
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.machine-surface-version {
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  color: var(--muted);
+}
+.machine-surface-state { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+.machine-surface-disabled .machine-surface-state { color: var(--crit); font-weight: 650; }
+.machine-surface-silent .machine-surface-state { color: var(--warn); font-weight: 650; }
+.machine-surface-absent .machine-surface-name { color: var(--muted); }
+.machine-surface-reason { margin: 4px 0 0; font-size: 10.5px; color: var(--muted); }
+
+/* A read that failed keeps the heading and says so. Hiding it would make the
+ * one state meaning "you cannot trust this" look like the state meaning
+ * "there is nothing here". */
+.machines-failure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border: 1px solid var(--crit);
+  border-radius: var(--radius, 8px);
+  background: color-mix(in srgb, var(--crit) 7%, transparent);
+}
+.machines-failure .error { margin: 0; font-size: 12px; }
+.machines-retry {
+  margin-left: auto;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.machines-retry:hover { background: var(--hover); }

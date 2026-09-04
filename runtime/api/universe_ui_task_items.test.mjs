@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { renderWorkflowItemDetail } from "../../packages/yoke-core/src/yoke_core/ui/static/item_view_details.js";
-import { renderFrontierView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_frontier.js";
 import { renderItemsView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_items.js";
 import {
   FakeDocument,
@@ -64,45 +63,4 @@ test("Task roster rows suppress stale QA attention", async () => {
   assert.match(itemText(root), /Refresh inventory/);
   assert.match(itemText(root), /task/);
   assert.doesNotMatch(itemText(root), /QA undetermined|Stale QA projection/);
-});
-
-
-test("Task frontier rows expose the bound harness command only", async () => {
-  const documentNode = new FakeDocument();
-  const root = documentNode.createElement("div");
-  const context = itemContext(documentNode, async (request) => {
-    if (request.function === "frontier.list") {
-      return {
-        status: 200,
-        envelope: {
-          success: true,
-          result: {
-            ready_rows: [{
-              rank: 0, item_id: "ACM-30", title: "Refresh inventory",
-              workflow_id: "task", project: "acme", project_id: 7,
-              project_sequence: 30, status: "idea", next_step: "advance",
-              run_command: "yoke advance ACM-30", stage_index: 0,
-              stage_count: 3, why_ready: "Laneless task is unclaimed.",
-            }],
-            blocked_rows: [], wip_active: 0, waiting_on_you_count: 0,
-          },
-        },
-      };
-    }
-    return {
-      status: 200,
-      envelope: { success: true, result: { rows: [] } },
-    };
-  });
-
-  renderFrontierView(context, root, ["7"]);
-  await settle();
-
-  assert.equal(byClass(root, "workflow-badge")[0].textContent, "task");
-  assert.deepEqual(
-    allNodes(root).filter((node) => node.tagName === "CODE")
-      .map((node) => node.textContent),
-    ["yoke advance ACM-30"],
-  );
-  assert.doesNotMatch(itemText(root), /QA|merge|worktree/);
 });

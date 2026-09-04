@@ -99,7 +99,7 @@ test("uncertain launches require reconciliation before retry", async (t) => {
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/sessions/launches?project=1", client,
+    t, "#/machines?project=1", client,
   );
 
   assert.equal(button(root, "Retry").disabled, true);

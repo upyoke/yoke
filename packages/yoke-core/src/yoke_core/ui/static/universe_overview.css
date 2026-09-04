@@ -284,3 +284,42 @@
     display: none;
   }
 }
+
+/* The Overview asks two questions, and each heading owns the panels that
+ * answer one of them. The panels keep their own chrome; this only groups
+ * them, so it is a heading and spacing and nothing else. */
+.overview-group { display: contents; }
+.overview-group-head {
+  grid-column: 1 / -1;
+  margin: 26px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.overview-group:first-of-type .overview-group-head { margin-top: 0; }
+
+/* A strategy badge carries the document's own authored summary, so it is a
+ * card rather than a chip: slug and age on one line, the sentence under it. */
+.overview-doc-badge { display: flex; flex-direction: column; align-items: flex-start; }
+.overview-doc-summary {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+  white-space: normal;
+}
+/* Missing, not empty. The reader needs to know which heading is absent. */
+.overview-doc-summary.missing { color: var(--muted); font-style: italic; }
+.overview-doc-state {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--hover);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

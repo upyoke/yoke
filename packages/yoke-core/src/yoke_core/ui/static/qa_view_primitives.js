@@ -149,11 +149,14 @@ export function projectIdFor(context, project) {
   return row ? String(row.id) : String(project || "");
 }
 
-export function qaRoute(context, tab, detail = null, project = null) {
+// Each QA facet is its own destination now, so the caller's facet name
+// selects the view rather than a segment under one.
+const QA_VIEWS = { methods: "qa-methods", plans: "qa-plans", activity: "qa-activity" };
+
+export function qaRoute(context, facet, detail = null, project = null) {
   return buildUniverseRoute(
-    "qa",
+    QA_VIEWS[facet] || facet,
     projectIdFor(context, project),
-    tab,
     detail,
   );
 }

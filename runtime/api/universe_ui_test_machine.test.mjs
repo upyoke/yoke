@@ -154,9 +154,9 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
   assert.deepEqual(
     byClass(main, "test-machine-method").map((node) => node.href),
     [
-      "#/qa/methods/terminal-check?project=1",
-      "#/qa/methods/terminal-inspection?project=1",
-      "#/qa/methods/machine-state-check?project=1",
+      "#/qa-methods/terminal-check?project=1",
+      "#/qa-methods/terminal-inspection?project=1",
+      "#/qa-methods/machine-state-check?project=1",
     ],
   );
 });

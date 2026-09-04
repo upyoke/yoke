@@ -228,20 +228,20 @@ test("an explicit QA Activity All route overrides its remembered project scope",
     { id: "yoke", slug: "yoke", name: "Yoke" },
   ];
   const selections = new Map();
-  const entry = navEntry("qa");
+  const entry = navEntry("qa-activity");
 
   assert.deepEqual(
     scopeForEntry(entry, "buzz", projects, selections),
     ["buzz"],
   );
-  const route = parseUniverseRoute("#/qa/activity?project=all");
-  assert.equal(route.tab, "activity");
+  const route = parseUniverseRoute("#/qa-activity?project=all");
+  assert.equal(route.view, "qa-activity");
   assert.equal(route.project, "all");
   assert.equal(
     scopeForEntry(entry, route.project, projects, selections),
     "all",
   );
-  assert.equal(selections.get("qa"), "all");
+  assert.equal(selections.get("qa-activity"), "all");
 });
 
 test("a single-scope picker offers radio chips and no All chip", () => {

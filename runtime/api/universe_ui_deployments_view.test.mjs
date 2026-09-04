@@ -8,10 +8,10 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
   NAV,
+  NAV_GROUPS,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_navigation.js";
 import {
   DETAIL_RENDERERS,
-  TAB_RENDERERS,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views.js";
 import {
   FakeDocument,
@@ -38,34 +38,51 @@ async function mountAt(t, hash, client) {
   return { documentNode, root, mounted };
 }
 
-test("flat navigation matches the canonical prototype arc", () => {
+test("navigation is three groups, and every entry declares one", () => {
   assert.deepEqual(
-    NAV.map(({ id, icon, label, scope }) => [id, icon, label, scope]),
+    NAV.map(({ id, icon, label, scope, group }) => [id, icon, label, scope, group]),
     [
-      ["overview", "⊞", "Overview", "multi"],
-      ["inbox", "✉", "Inbox", "multi"],
-      ["strategy", "❖", "Strategy", "multi"],
-      ["frontier", "⚡", "Frontier", "multi"],
-      ["items", "≣", "Items", "multi"],
-      ["sessions", "◈", "Sessions", "multi"],
-      ["delivery", "⬈", "Delivery", "multi"],
-      ["qa", "◉", "QA", "multi"],
-      ["workflows", "⚗", "Workflows", "none"],
-        ["capabilities", "⚿", "Capabilities", "multi"],
-      ["events", "≋", "Events", "multi"],
-      ["doctor", "♥", "Doctor", "multi"],
-      ["architecture", "▦", "Architecture", "single"],
-      ["ouroboros", "∞", "Ouroboros", "multi"],
-      ["projects", "▤", "Projects", "none"],
-      ["access", "⚇", "Access", "none"],
-      ["packs", "◫", "Packs", "none"],
-      ["github", "⎇", "GitHub", "single"],
-      ["project", "⚙", "Project settings", "single"],
-      ["organization", "⛭", "Universe settings", "none"],
-      ["members", "⚉", "Members", "none"],
-      ["billing", "▧", "Billing", "none"],
+      ["overview", "⊞", "Overview", "multi", "focus"],
+      ["sessions", "◈", "Sessions", "multi", "focus"],
+      ["inbox", "✉", "Inbox", "multi", "focus"],
+
+      ["organization", "⛭", "Universe", "none", "settings"],
+      ["workflows", "⚗", "Workflows", "none", "settings"],
+      ["projects", "▤", "Projects", "none", "settings"],
+      ["github", "⎇", "GitHub", "single", "settings"],
+      ["access", "⚇", "Access", "none", "settings"],
+      ["members", "⚉", "Members", "none", "settings"],
+      ["billing", "▧", "Billing", "none", "settings"],
+
+      ["strategy", "❖", "Strategy", "multi", "diagnostics"],
+      ["items", "≣", "Items", "multi", "diagnostics"],
+      ["deployments", "⬈", "Deployments", "multi", "diagnostics"],
+      ["environments", "◇", "Environments", "multi", "diagnostics"],
+      ["flows", "⇉", "Flows", "multi", "diagnostics"],
+      ["databases", "▤", "Databases", "multi", "diagnostics"],
+      ["infrastructure", "▥", "Infrastructure", "multi", "diagnostics"],
+      ["qa-methods", "◉", "QA methods", "multi", "diagnostics"],
+      ["qa-plans", "◎", "QA plans", "multi", "diagnostics"],
+      ["qa-activity", "◍", "QA activity", "multi", "diagnostics"],
+      ["capabilities", "⚿", "Capabilities", "multi", "diagnostics"],
+      ["packs", "◫", "Packs", "none", "diagnostics"],
+      ["architecture", "▦", "Architecture", "single", "diagnostics"],
+      ["messages", "✦", "Messages", "multi", "diagnostics"],
+      ["events", "≋", "Events", "multi", "diagnostics"],
+      ["doctor", "♥", "Doctor", "multi", "diagnostics"],
+      ["ouroboros", "∞", "Ouroboros", "multi", "diagnostics"],
+      ["machines", "▣", "Machines", "multi", "diagnostics"],
     ],
   );
+});
+
+test("no destination declares tabs, and the group order is fixed", () => {
+  // A tab was one facet of a view's single concept. Every facet that earned a
+  // name is a destination now, so a surviving `tabs` roster would be a second
+  // way to reach something the sidebar already reaches.
+  for (const entry of NAV) assert.equal(entry.tabs, undefined, entry.id);
+  assert.deepEqual(NAV_GROUPS.map((group) => group.id),
+    ["focus", "settings", "diagnostics"]);
 });
 
 test("Runs is the prototype's one seven-column execution table", async (t) => {
@@ -105,7 +122,7 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/delivery/runs", client);
+  const { root, mounted } = await mountAt(t, "#/deployments", client);
 
   // "all" is one unfiltered call over the whole universe.
   assert.deepEqual(
@@ -177,7 +194,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   };
   const { root, mounted } = await mountAt(
     t,
-    "#/delivery/runs?project=1",
+    "#/deployments?project=1",
     client,
   );
 

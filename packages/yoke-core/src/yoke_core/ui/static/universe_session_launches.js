@@ -152,7 +152,6 @@ function launchCard(documentNode, launch, mutate) {
     link.href = buildUniverseRoute(
       "sessions",
       launch.project_id == null ? null : String(launch.project_id),
-      "roster",
       String(launch.registered_session_id),
     );
     body.appendChild(link);

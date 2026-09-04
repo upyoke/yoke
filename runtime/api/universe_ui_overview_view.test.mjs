@@ -12,7 +12,7 @@ import {
 
 import { overviewClient } from "./universe_ui_overview_view_test_support.mjs";
 
-test("Overview is no longer a stub: it composes the six section reads", async (t) => {
+test("Overview asks two questions and groups every panel under one", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -24,17 +24,20 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  // The coming-soon stub is gone; the six summary panels stand in its place.
   assert.equal(byClass(root, "stub-panel").length, 0);
+  // Two headings: where this universe is pointed, and what is happening now.
   assert.deepEqual(
-    byClass(root, "overview-section-icon").map((node) => node.textContent),
-    ["❖", "⚡", "◈", "⬈", "≋", "♥"],
+    byClass(root, "overview-group-head").map((node) => node.textContent),
+    ["Strategy", "Frontier"],
   );
+  // Four panels, each under the heading whose question it answers. Events and
+  // Doctor are not here: both are records you read after something happened,
+  // and each keeps its own destination.
   assert.deepEqual(
     byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Strategy", "Frontier", "Sessions", "Delivery", "Events", "Doctor"],
+    ["Strategy", "Waiting and ready", "Active", "Shipping"],
   );
-  assert.equal(byClass(root, "overview-section-heading").length, 6);
+  assert.equal(byClass(root, "overview-section-heading").length, 4);
   assert.match(
     allNodes(root).map((node) => node.textContent).join(" "),
     /2 runnable · 1 blocked/,
@@ -47,22 +50,15 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
     allNodes(root).map((node) => node.textContent).join(" "),
     /Your Yoke universe at a glance/,
   );
-
-  // The prototype's hierarchy is present: one signal masthead and a compact
-  // final row for pulse + health.
   assert.equal(byClass(root, "overview-masthead").length, 1);
-  const finalPair = byClass(root, "overview-pair");
-  assert.equal(finalPair.length, 1);
-  assert.equal(byClass(finalPair[0], "overview-section").length, 2);
+  assert.equal(byClass(root, "overview-pair").length, 0);
   assert.deepEqual(
     byClass(root, "overview-section-detail").map((node) => node.textContent),
     [
       "where this universe has been, and where VISION points it",
-      "what can run now, and why",
+      "what cannot run yet, and what can",
       "this machine",
       "what is shipping, and where it stands",
-      "the pulse · newest first",
-      "the floor · invariants that hold",
     ],
   );
   assert.deepEqual(
@@ -73,18 +69,16 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
       "· 2 runnable · 1 blocked",
       "· 1 live",
       "· 1 run",
-      "· 1",
-      "· 2 warnings",
     ],
   );
-  assert.equal(byClass(root, "raw-toggle").length, 6);
+  assert.equal(byClass(root, "raw-toggle").length, 4);
 
   // Each section replays the read its full screen runs, plus exactly one
   // Overview-owned read: the activation-module derivation.
   const called = new Set(client.requests.map((request) => request.function));
   for (const functionId of [
     "frontier.list", "sessions.list", "strategy.doc.list",
-    "deployment_runs.list", "events.query.run", "doctor.last_run.get",
+    "deployment_runs.list",
     "overview.activation.get", "overview.vitals.get",
   ]) {
     assert.ok(called.has(functionId), functionId);
@@ -93,13 +87,13 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
   // Every section links out to its full screen, carrying the held scope.
   const openLinks = byClass(root, "overview-open").map((link) => link.href);
   assert.deepEqual(openLinks, [
-    "#/strategy?project=1", "#/frontier?project=1", "#/sessions?project=1",
-    "#/delivery?project=1", "#/events?project=1", "#/doctor?project=1",
+    "#/strategy?project=1", "#/items?project=1", "#/sessions?project=1",
+    "#/deployments?project=1",
   ]);
   mounted.unmount();
 });
 
-test("the Overview jump strip maps and scrolls to all six summaries", async (t) => {
+test("the Overview jump strip maps and scrolls to every summary", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -116,16 +110,18 @@ test("the Overview jump strip maps and scrolls to all six summaries", async (t) 
   assert.equal(jumpStrip[0].attributes.get("aria-label"), "Overview sections");
   const jumps = byClass(jumpStrip[0], "overview-jump");
   assert.deepEqual(jumps.map((jump) => jump.textContent), [
-    "❖ Strategy", "⚡ Frontier", "◈ Sessions",
-    "⬈ Delivery", "≋ Events", "♥ Doctor",
+    "❖ Strategy",
+    "⚡ Waiting and ready",
+    "◈ Active",
+    "⬈ Shipping",
   ]);
   assert.deepEqual(jumps.map((jump) => jump.attributes.get("aria-controls")), [
     "overview-strategy", "overview-frontier", "overview-sessions",
-    "overview-delivery", "overview-events", "overview-doctor",
+    "overview-delivery",
   ]);
 
   const panels = byClass(root, "overview-section");
-  assert.equal(panels.length, 6);
+  assert.equal(panels.length, 4);
   let scrollOptions = null;
   panels[3].scrollIntoView = (options) => { scrollOptions = options; };
   jumps[3].dispatchEvent(new Event("click"));
@@ -235,7 +231,7 @@ test("Strategy and Frontier preserve the prototype anatomy with truthful facts",
   const readyRow = byClass(root, "overview-ready-row")[0];
   assert.equal(readyRow.attributes.get("role"), "link");
   readyRow.dispatchEvent(new Event("click"));
-  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=1");
+  assert.equal(documentNode.defaultView.location.hash, "#/items?project=1");
   assert.deepEqual(
     byClass(root, "overview-command").map((node) => node.textContent),
     ["yoke advance YOK-9", "yoke conduct YOK-8"],
