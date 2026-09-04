@@ -13,7 +13,10 @@ from yoke_core.domain.steering_fleet_report import (
     FleetReport,
     StarvedDelivery,
 )
-from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
+from yoke_core.domain.steering_fleet_report_capacity import (
+    SurfaceReadiness,
+    launch_balance_lines,
+)
 from yoke_core.domain.steering_fleet_report_detectors import landed_recovery
 from yoke_core.domain.steering_fleet_report_render_launches import (
     abandoned_launch_lines,
@@ -219,33 +222,14 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
     ]
 
 
-def _balances_by_machine(report: FleetReport) -> list[tuple[str, str]]:
-    counts = {(machine, surface): n for machine, surface, n in report.session_counts}
-    by_machine: dict[str, list[str]] = {}
-    for ready in report.launchable:
-        by_machine.setdefault(ready.machine_id, []).append(ready.surface)
-    return [
-        (
-            machine,
-            " · ".join(
-                f"{surface} {counts.get((machine, surface), 0)}"
-                for surface in sorted(by_machine[machine])
-            ),
-        )
-        for machine in sorted(by_machine)
-    ]
-
-
 def _launch_balance_lines(report: FleetReport, *, note: bool) -> list[str]:
-    lines: list[str] = []
-    extra = [f"  {LAUNCH_BALANCE_NOTE}"] if note else []
-    for machine, parts in _balances_by_machine(report):
-        lines.extend([f"launch balance  {machine}", f"  {parts}", *extra])
-    if report.origin_counts:
-        lines.append(
-            "origin " + " · ".join(f"{name} {n}" for name, n in report.origin_counts)
-        )
-    return lines
+    return launch_balance_lines(
+        launchable=report.launchable,
+        session_counts=report.session_counts,
+        machine_capacity=report.machine_capacity,
+        origin_counts=report.origin_counts,
+        note=LAUNCH_BALANCE_NOTE if note else None,
+    )
 
 
 def launchable_line(
@@ -300,7 +284,6 @@ __all__ = [
     "REPORT_BEGIN",
     "REPORT_END",
     "REPORT_PREAMBLE",
-    "SECTION_LIMIT",
     "launchable_line",
     "report_body",
     "scope_actionable_digest",

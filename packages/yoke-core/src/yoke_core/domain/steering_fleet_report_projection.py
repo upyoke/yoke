@@ -154,6 +154,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         "plan_limits": _plan_limits.plan_limit_dicts(
             report.plan_limits, now=report.composed_at
         ),
+        "machine_capacity": [entry.to_dict() for entry in report.machine_capacity],
         "origin_counts": list(report.origin_counts),
         "messages_awaiting_seat": report.messages_awaiting_seat,
     }

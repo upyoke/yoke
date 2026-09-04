@@ -117,6 +117,7 @@ def _write_launch_detail(
         ("Recovery", _launch_recovery(launch)),
         *_diagnostic_fields(launch),
         ("Result evidence", _result_evidence(launch)),
+        ("Spawn hold", launch.get("spawn_hold_reason")),
         ("Created (UTC)", utc_time(launch.get("created_at"))),
         ("Deadline (UTC)", utc_time(launch.get("deadline_at"))),
         ("Completed (UTC)", utc_time(launch.get("completed_at"))),
@@ -124,6 +125,20 @@ def _write_launch_detail(
     if deduplicated is not None:
         fields.insert(2, ("Deduplicated", bool(deduplicated)))
     write_summary("LAUNCH", fields, stdout)
+
+
+def _machine_capacity(result: Mapping[str, Any]) -> str | None:
+    """Each considered machine's lanes against its cap, full ones flagged."""
+    entries = result.get("machine_capacity")
+    if not isinstance(entries, list) or not entries:
+        return None
+    parts = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        flag = " AT CAP" if entry.get("at_capacity") else ""
+        parts.append(f"{entry.get('machine_id')}: {entry.get('summary')}{flag}")
+    return "; ".join(parts) or None
 
 
 def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
@@ -161,6 +176,7 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
             ),
             ("Selected relay", selected_row.get("relay_id")),
             ("Selected machine", selected_row.get("machine_id")),
+            ("Machine capacity", _machine_capacity(result)),
         ],
         stdout,
     )

@@ -62,6 +62,14 @@ Read `launchable`, `rejection_codes`, and `eligible_relays`.
 - `surface_disabled` — operator mark; staff onto the other CLI surfaces.
 - `no_eligible_relay` — no live relay for that surface; try another CLI
   surface.
+- `machine_at_capacity` — every eligible machine is already running its
+  lane cap, counting live sessions plus launches assigned there and not
+  yet registered. The refusal names each full machine's lanes, free
+  memory, load, cores, and where its cap came from. Wait for a landing to
+  free a lane, raise `max_worker_lanes` under settings in
+  `~/.yoke/config.json` on that machine, or pass `--machine` to place the
+  launch on a machine with room. Do not retry the same placement: the cap
+  is a memory fact about that box, not a transient race.
 
 A refusal names the surface, not the item. Do not skip remaining work
 because one surface refused.

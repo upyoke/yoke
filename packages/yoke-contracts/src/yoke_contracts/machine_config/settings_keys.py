@@ -36,6 +36,11 @@ MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
         "5",
         "linked worktrees allowed before creation preflight refuses",
     ),
+    "max_worker_lanes": (
+        "",
+        "harness sessions this machine accepts before launch preview refuses; "
+        "empty derives (total memory - 12 GB reserved) / 0.5 GB per lane",
+    ),
     "max_chain_steps": (
         "3",
         "autonomous chain steps allowed before a session checkpoints",

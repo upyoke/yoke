@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
-import uuid
 
-from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
-from yoke_contracts.session_control.plan_limits import sanitize_plan_limits
 from yoke_contracts.session_control.wake_delivery import (
     WAKE_DELIVERY_UNVERIFIED_RESULTS,
 )
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.session_relay_heartbeat_validation import validate_heartbeat
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     SessionRelayError,
@@ -30,64 +28,6 @@ def shifted(timestamp: str, *, seconds: int = 0, minutes: int = 0) -> str:
     parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     return (parsed + timedelta(seconds=seconds, minutes=minutes)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
-    )
-
-
-def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
-    if not heartbeat.relay_id.strip() or len(heartbeat.relay_id) > 128:
-        raise SessionRelayError("relay_id_invalid", "relay_id must be 1-128 characters")
-    try:
-        machine_id = str(uuid.UUID(heartbeat.machine_id))
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise SessionRelayError(
-            "machine_id_invalid", "machine_id must be a canonical UUID"
-        ) from exc
-    if machine_id != heartbeat.machine_id:
-        raise SessionRelayError(
-            "machine_id_invalid", "machine_id must be a canonical UUID"
-        )
-    actor_id = int(heartbeat.actor_id)
-    if actor_id <= 0:
-        raise SessionRelayError(
-            "relay_actor_invalid", "relay actor must be a positive integer"
-        )
-    unknown = sorted(set(heartbeat.surface_versions) - set(KNOWN_SURFACE_LABELS))
-    if unknown:
-        raise SessionRelayError(
-            "surface_invalid", f"unknown relay surfaces: {', '.join(unknown)}"
-        )
-    relay_version = str(heartbeat.relay_version).strip()
-    if not relay_version or len(relay_version) > 128:
-        raise SessionRelayError(
-            "relay_version_invalid", "relay version must be 1-128 characters"
-        )
-    for surface, version in heartbeat.surface_versions.items():
-        if not str(version).strip() or len(str(version)) > 128:
-            raise SessionRelayError(
-                "surface_version_invalid", f"{surface} version must be 1-128 characters"
-            )
-    project_ids = tuple(sorted({int(value) for value in heartbeat.project_ids}))
-    if any(value <= 0 for value in project_ids):
-        raise SessionRelayError(
-            "project_id_invalid", "relay project ids must be positive integers"
-        )
-    hostname = heartbeat.hostname.strip()
-    if not hostname or len(hostname) > 255:
-        raise SessionRelayError(
-            "hostname_invalid", "relay hostname must be 1-255 characters"
-        )
-    return RelayHeartbeat(
-        relay_id=heartbeat.relay_id.strip(),
-        actor_id=actor_id,
-        machine_id=machine_id,
-        hostname=hostname,
-        relay_version=relay_version,
-        surface_versions={
-            surface: str(heartbeat.surface_versions[surface]).strip()
-            for surface in sorted(heartbeat.surface_versions)
-        },
-        project_ids=project_ids,
-        surface_plan_limits=sanitize_plan_limits(heartbeat.surface_plan_limits),
     )
 
 
@@ -128,11 +68,13 @@ def heartbeat_relay(
     surfaces = json_helper.dumps_compact(dict(heartbeat.surface_versions))
     projects = json_helper.dumps_compact(list(heartbeat.project_ids))
     plan_limits = json_helper.dumps_compact(dict(heartbeat.surface_plan_limits))
+    capacity = json_helper.dumps_compact(dict(heartbeat.machine_capacity))
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
-        "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits) "
-        f"VALUES ({','.join(p for _ in range(12))}) "
+        "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
+        "machine_capacity) "
+        f"VALUES ({','.join(p for _ in range(13))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
@@ -140,7 +82,8 @@ def heartbeat_relay(
         "project_checkouts=excluded.project_checkouts,"
         "last_seen_at=excluded.last_seen_at,"
         "connected_until=excluded.connected_until,state=excluded.state,"
-        "surface_plan_limits=excluded.surface_plan_limits",
+        "surface_plan_limits=excluded.surface_plan_limits,"
+        "machine_capacity=excluded.machine_capacity",
         (
             heartbeat.relay_id,
             heartbeat.actor_id,
@@ -154,6 +97,7 @@ def heartbeat_relay(
             connected_until,
             state,
             plan_limits,
+            capacity,
         ),
     )
     conn.commit()

@@ -13,6 +13,10 @@ from uuid import uuid4
 from yoke_contracts.session_control.surface_policy import (
     SURFACE_POLICY_STATE_DISABLED,
 )
+from yoke_core.domain.session_launch_capacity import (
+    MACHINE_AT_CAPACITY,
+    capacity_refusal,
+)
 from yoke_core.domain.session_launch_store import marker, utc_now
 from yoke_core.domain.session_launch_types import LaunchPreview, SessionLaunchError
 
@@ -225,6 +229,8 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
             "whose session-control create capability is supported and retry.",
         )
         return f"{prefix}: {reason}"
+    if preview.outcome == MACHINE_AT_CAPACITY:
+        return f"{prefix}: {capacity_refusal(preview.machine_capacity)}"
     if SURFACE_DISABLED_REJECTION not in preview.rejection_codes:
         codes = ", ".join(preview.rejection_codes) or "no relay evidence"
         return f"{prefix}: {codes}"

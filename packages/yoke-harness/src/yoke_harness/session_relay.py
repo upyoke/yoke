@@ -175,7 +175,6 @@ def _poll(
     state_dir: Path | None = None,
     broker_only: bool = False,
     broker_lease_id: str | None = None,
-    sleep: Callable[[float], None] = time.sleep,
     dispatch_job: JobDispatch | None = None,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
@@ -220,12 +219,8 @@ def _poll(
     jobs = [job for job in claimed if isinstance(job, Mapping)] if claimed else []
     if not jobs:
         return ServeOnceOutcome(str(payload.get("state") or "active"), next_poll)
-    # Native creates land one at a time so a burst never arrives as a spike.
-    stagger = max(0, int(payload.get("launch_stagger_seconds") or 0))
     outcomes: list[ServeOnceJobOutcome] = []
-    for index, job in enumerate(jobs):
-        if index and stagger:
-            sleep(stagger)
+    for job in jobs:
         settle = partial(
             _run_and_report,
             inventory,
@@ -260,7 +255,6 @@ def run_serve_cycle(
     dispatcher: Dispatcher = call_dispatcher,
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
-    sleep: Callable[[float], None] = time.sleep,
     broker_only: bool = False,
     broker_lease_id: str | None = None,
     dispatch_job: JobDispatch | None = None,
@@ -286,7 +280,6 @@ def run_serve_cycle(
             state_dir=state_dir,
             broker_only=broker_only,
             broker_lease_id=broker_lease_id,
-            sleep=sleep,
             dispatch_job=dispatch_job,
         )
     finally:
@@ -315,7 +308,6 @@ def serve_once(
     dispatcher: Dispatcher = call_dispatcher,
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
-    sleep: Callable[[float], None] = time.sleep,
     broker_only: bool = False,
     broker_lease_id: str | None = None,
 ) -> ServeOnceOutcome:
@@ -330,7 +322,6 @@ def serve_once(
             dispatcher=dispatcher,
             runner=runner,
             clock=clock,
-            sleep=sleep,
             broker_only=broker_only,
             broker_lease_id=broker_lease_id,
         )

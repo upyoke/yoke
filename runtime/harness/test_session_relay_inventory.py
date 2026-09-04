@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.machine_config.machine_capacity import (
+    CAP_SOURCE_DERIVED,
+    CAP_SOURCE_SETTING,
+    CAP_SOURCE_UNREADABLE,
+)
 from yoke_harness import session_relay_inventory as inventory_module
 from yoke_harness import session_relay_surface_probes as probe_module
 
@@ -126,3 +131,63 @@ def test_cached_inventory_does_not_probe_during_initial_registration(
     observed = inventory_module.collect_cached_inventory(state_dir=tmp_path)
 
     assert observed.surface_versions == {}
+
+
+def test_claim_payload_carries_the_lane_cap_the_operator_configured(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # The control plane refuses a launch onto a full machine, and the cap it
+    # compares against only ever reaches it inside this heartbeat payload.
+    monkeypatch.setattr(
+        inventory_module,
+        "ensure_machine_id",
+        lambda: "22222222-2222-4222-8222-222222222222",
+    )
+    monkeypatch.setattr(
+        inventory_module.machine_config,
+        "configured_projects",
+        lambda **_kwargs: [],
+    )
+    monkeypatch.setattr(inventory_module, "local_handshake_version", lambda: "source")
+    monkeypatch.setattr(inventory_module, "observe_plan_limits", lambda *_a, **_k: {})
+    monkeypatch.setattr(
+        inventory_module, "read_settings", lambda: {"max_worker_lanes": 7}
+    )
+
+    payload = inventory_module.collect_cached_inventory(
+        state_dir=tmp_path
+    ).claim_payload()
+
+    capacity = payload["capacity"]
+    assert capacity["max_worker_lanes"] == 7
+    assert capacity["cap_source"] == CAP_SOURCE_SETTING
+    assert capacity["observed_at"]
+
+
+def test_claim_payload_derives_a_cap_when_no_setting_names_one(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # An unconfigured machine still publishes a cap; an absent one would read
+    # to the launch plane as "no evidence of room", not as an unlimited box.
+    monkeypatch.setattr(
+        inventory_module,
+        "ensure_machine_id",
+        lambda: "33333333-3333-4333-8333-333333333333",
+    )
+    monkeypatch.setattr(
+        inventory_module.machine_config,
+        "configured_projects",
+        lambda **_kwargs: [],
+    )
+    monkeypatch.setattr(inventory_module, "local_handshake_version", lambda: "source")
+    monkeypatch.setattr(inventory_module, "observe_plan_limits", lambda *_a, **_k: {})
+    monkeypatch.setattr(inventory_module, "read_settings", lambda: {})
+
+    capacity = inventory_module.collect_cached_inventory(
+        state_dir=tmp_path
+    ).claim_payload()["capacity"]
+
+    assert capacity["cap_source"] in (CAP_SOURCE_DERIVED, CAP_SOURCE_UNREADABLE)
+    assert capacity["max_worker_lanes"] is None or capacity["max_worker_lanes"] >= 1

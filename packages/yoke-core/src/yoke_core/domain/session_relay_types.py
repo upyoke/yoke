@@ -13,6 +13,9 @@ from yoke_contracts.session_control.private_route_qualification import (
 
 RelayJobKind = Literal["launch", "wake", "terminate", "evidence"]
 WAKE_LEASE_SECONDS = 90
+# Consecutive native creates on one machine start at least this far apart:
+# a burst of spawns on a loaded box killed three of six in one minute.
+NATIVE_SPAWN_SPACING_SECONDS = 30
 MAX_RELAY_LONG_POLL_SECONDS = 55
 RELAY_LONG_POLL_STEP_SECONDS = 1
 
@@ -42,6 +45,7 @@ class RelayHeartbeat:
     surface_versions: Mapping[str, str]
     project_ids: Sequence[int]
     surface_plan_limits: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    machine_capacity: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -50,8 +54,6 @@ class RelayPolicy:
     idle_after_minutes: int
     idle_poll_minutes: int
     max_wake_attempts: int
-    launch_batch: int
-    launch_stagger_seconds: int
 
     @property
     def idle_poll_seconds(self) -> int:
@@ -102,14 +104,13 @@ class RelayJob:
 
 @dataclass(frozen=True)
 class RelayClaimOutcome:
-    """One poll's leased work: a launch batch, one wake, or nothing."""
+    """One poll's leased work: one launch, one wake, one reap, or nothing."""
 
     relay_id: str
     machine_id: str
     state: Literal["active", "idle"]
     connected_until: str
     next_poll_seconds: int
-    launch_stagger_seconds: int = 0
     jobs: tuple[RelayJob, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
@@ -119,13 +120,13 @@ class RelayClaimOutcome:
             "state": self.state,
             "connected_until": self.connected_until,
             "next_poll_seconds": self.next_poll_seconds,
-            "launch_stagger_seconds": self.launch_stagger_seconds,
             "jobs": [job.to_dict() for job in self.jobs],
         }
 
 
 __all__ = [
     "MAX_RELAY_LONG_POLL_SECONDS",
+    "NATIVE_SPAWN_SPACING_SECONDS",
     "RELAY_LONG_POLL_STEP_SECONDS",
     "RelayClaimOutcome",
     "RelayHeartbeat",

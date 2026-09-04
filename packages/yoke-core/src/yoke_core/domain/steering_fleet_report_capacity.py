@@ -9,11 +9,16 @@ what says whether a worker can be started and where the load already sits.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+import json
+from typing import Any, Iterable
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGINS
+from yoke_core.domain.session_launch_capacity import (
+    MachineCapacity,
+    machine_capacity,
+)
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
@@ -55,6 +60,95 @@ def launchable_surfaces(
         SurfaceReadiness(machine_id=machine, surface=surface)
         for machine, surface in sorted(ready)
     )
+
+
+def _serves(raw: Any, project_id: int) -> bool:
+    try:
+        projects = json.loads(str(raw or "[]")) if not isinstance(raw, list) else raw
+    except (TypeError, ValueError):
+        return False
+    return isinstance(projects, list) and any(
+        str(value) == str(project_id) for value in projects
+    )
+
+
+def machine_capacities(
+    conn: Any, *, project_id: int, now: str
+) -> tuple[MachineCapacity, ...]:
+    """Lanes against cap for every connected machine serving this project.
+
+    Read from the relay rows directly rather than from eligibility, because a
+    machine at its cap is exactly the one eligibility drops and exactly the
+    one the seat needs to see before it launches.
+    """
+    p = marker(conn)
+    rows = conn.execute(
+        "SELECT machine_id, project_checkouts, machine_capacity FROM session_relays "
+        f"WHERE connected_until >= {p} AND state IN ('active','idle') "
+        "ORDER BY last_seen_at DESC, machine_id",
+        (now,),
+    ).fetchall()
+    found: dict[str, MachineCapacity] = {}
+    for row in rows:
+        machine_id = str(row["machine_id"])
+        if machine_id in found or not _serves(row["project_checkouts"], project_id):
+            continue
+        found[machine_id] = machine_capacity(
+            conn,
+            machine_id=machine_id,
+            capacity_document=row["machine_capacity"],
+            now=now,
+        )
+    return tuple(found[machine] for machine in sorted(found))
+
+
+def capacity_line(entry: MachineCapacity) -> str:
+    """The one line a seat reads before launching onto this machine."""
+    if entry.unreported:
+        return (
+            f"capacity {entry.summary()}; update that machine's relay to publish "
+            "memory, load, and its lane cap"
+        )
+    verdict = " · AT CAP, launches refuse" if entry.at_capacity else ""
+    return f"capacity {entry.summary()} · {entry.cap_origin()}{verdict}"
+
+
+def launch_balance_lines(
+    *,
+    launchable: Iterable[SurfaceReadiness],
+    session_counts: Iterable[tuple[str, str, int]],
+    machine_capacity: Iterable[MachineCapacity],
+    origin_counts: Iterable[tuple[str, int]],
+    note: str | None,
+) -> list[str]:
+    """Per-machine surface counts, capacity, and the origin split.
+
+    Machines come from the launchable pairs unioned with the capacity
+    readings, because a machine at its cap has no launchable surface left and
+    would otherwise vanish from the block exactly when the seat needs to see
+    it is full.
+    """
+    counts = {(machine, surface): n for machine, surface, n in session_counts}
+    by_machine: dict[str, list[str]] = {}
+    for ready in launchable:
+        by_machine.setdefault(ready.machine_id, []).append(ready.surface)
+    capacity = {entry.machine_id: entry for entry in machine_capacity}
+    lines: list[str] = []
+    for machine in sorted(set(by_machine) | set(capacity)):
+        surfaces = " · ".join(
+            f"{surface} {counts.get((machine, surface), 0)}"
+            for surface in sorted(by_machine.get(machine, ()))
+        )
+        lines.append(f"launch balance  {machine}")
+        lines.append(f"  {surfaces or 'no launchable surface'}")
+        if machine in capacity:
+            lines.append(f"  {capacity_line(capacity[machine])}")
+        if note:
+            lines.append(f"  {note}")
+    origins = list(origin_counts)
+    if origins:
+        lines.append("origin " + " · ".join(f"{name} {n}" for name, n in origins))
+    return lines
 
 
 def live_session_counts(
@@ -102,7 +196,10 @@ def live_launch_origin_counts(
 
 __all__ = [
     "SurfaceReadiness",
+    "capacity_line",
+    "launch_balance_lines",
     "launchable_surfaces",
+    "machine_capacities",
     "live_launch_origin_counts",
     "live_session_counts",
 ]
