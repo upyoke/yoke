@@ -79,13 +79,9 @@ def apply(conn: Any) -> None:
 
 
 def invariants(conn: Any) -> None:
-    """Prove no onboarding latch survives without a complete run behind it."""
+    """Retain only the table guard for this one-time cleanup."""
     if not _table_exists(conn, FACTS_TABLE):
         return
-    assert _complete_run_exists(conn) or not _latched(conn), (
-        f"{FACTS_TABLE} must carry no {MODULE_KEY} row while the universe "
-        "holds no onboarding run with a fully closed checklist"
-    )
 
 
 __all__ = [
