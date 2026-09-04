@@ -155,6 +155,20 @@ def announce_never_started_terminal(
     return message
 
 
+def announce_wait_not_recorded(
+    requirement_id: int,
+    warning: str,
+    *,
+    stream: TextIO | None = None,
+) -> None:
+    """Say that a stopped turn will not be woken with this run's verdict."""
+    _emit(
+        f"requirement={requirement_id} {warning}; this run's verdict will not "
+        "wake a stopped turn — re-run the case to adopt the concluded run",
+        stream=stream,
+    )
+
+
 @contextlib.contextmanager
 def relay_poll_output(stream: TextIO | None = None) -> Iterator[None]:
     """Relay legacy poll narration to flushed stderr for the QA JSON CLI."""
@@ -171,5 +185,6 @@ __all__ = [
     "announce_never_started_terminal",
     "announce_run",
     "announce_superseded_run_cancelled",
+    "announce_wait_not_recorded",
     "relay_poll_output",
 ]

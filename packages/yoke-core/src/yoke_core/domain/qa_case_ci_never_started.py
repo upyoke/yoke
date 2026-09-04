@@ -1,4 +1,11 @@
-"""Replace one CI run that remained pending without creating any jobs."""
+"""Replace one CI run that remained pending without creating any jobs.
+
+This is also where the gate starts waiting, so it is where the wait is
+recorded: the process polling the run dies with the turn that started it,
+and the recorded wait is what lets the control-plane sweep deliver the
+verdict afterwards. A replacement supersedes the run it replaces, so a
+recovery leaves the session owed one verdict rather than two.
+"""
 
 from __future__ import annotations
 
@@ -34,6 +41,30 @@ def _joined_output(*parts: str) -> str:
     return "\n".join(part for part in parts if part)
 
 
+def _record_wait(
+    requirement_id: int,
+    *,
+    repo: str,
+    run_id: str,
+    head_sha: str,
+    supersedes_run_id: str = "",
+) -> None:
+    """Make this run's verdict reachable if the turn awaiting it ends."""
+    from yoke_core.domain.session_ci_wait_record import record_ci_run_wait
+    from yoke_core.domain.session_ci_wait_schema import CI_WAIT_QA_CASE
+
+    warning = record_ci_run_wait(
+        repo=repo,
+        run_id=run_id,
+        kind=CI_WAIT_QA_CASE,
+        head_sha=head_sha,
+        continue_command=f"yoke qa case run --requirement-id {requirement_id}",
+        supersedes_run_id=supersedes_run_id,
+    )
+    if warning:
+        qa_case_ci_progress.announce_wait_not_recorded(requirement_id, warning)
+
+
 def await_with_one_redispatch(
     *,
     requirement_id: int,
@@ -48,6 +79,7 @@ def await_with_one_redispatch(
     timeout_seconds: int,
 ) -> AwaitedWorkflowRun:
     """Await *run_id*, replacing it once when GitHub never creates jobs."""
+    _record_wait(requirement_id, repo=repo, run_id=run_id, head_sha=head_sha)
     exit_code, output = qa_case_ci_lane.await_workflow(
         project=project,
         repo=repo,
@@ -86,6 +118,13 @@ def await_with_one_redispatch(
         repo=repo,
         run_id=replacement_id,
         source=qa_case_ci_covering_run.DISPATCHED,
+    )
+    _record_wait(
+        requirement_id,
+        repo=repo,
+        run_id=replacement_id,
+        head_sha=head_sha,
+        supersedes_run_id=run_id,
     )
     replacement_code, replacement_output = qa_case_ci_lane.await_workflow(
         project=project,

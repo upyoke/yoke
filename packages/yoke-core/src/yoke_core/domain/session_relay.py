@@ -128,6 +128,20 @@ def claim_relay_job(
             conn.rollback()
             _LOG.warning("merge-queue landing observation skipped: %s", exc)
 
+        from yoke_core.domain.session_ci_wait_observer import (
+            observe_pending_ci_runs,
+        )
+
+        try:
+            observe_pending_ci_runs(
+                conn,
+                heartbeat.project_ids,
+                now=parse_timestamp(current),
+            )
+        except Exception as exc:  # noqa: BLE001 - relay work remains available
+            conn.rollback()
+            _LOG.warning("pending CI verdict observation skipped: %s", exc)
+
     if relay_has_live_batch(conn, relay_id=heartbeat.relay_id, now=current):
         connected = heartbeat_relay(
             conn,

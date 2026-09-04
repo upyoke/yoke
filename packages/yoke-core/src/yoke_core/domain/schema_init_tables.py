@@ -25,6 +25,9 @@ from yoke_core.domain.item_worktree_schema import (
 from yoke_core.domain.merge_queue_landing_record_schema import (
     MERGE_QUEUE_LANDING_RECORDS_CREATE_SQL,
 )
+from yoke_core.domain.session_ci_wait_schema import (
+    SESSION_CI_RUN_WAITS_CREATE_SQL,
+)
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
 from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 from yoke_core.domain.strategy_docs_schema import (
@@ -69,6 +72,7 @@ def create_core_tables(conn: Any) -> None:
           UNIQUE(project_id, project_sequence)
         );
         {MERGE_QUEUE_LANDING_RECORDS_CREATE_SQL}
+        {SESSION_CI_RUN_WAITS_CREATE_SQL}
         CREATE TABLE IF NOT EXISTS ouroboros_entries (
           id INTEGER PRIMARY KEY,
           timestamp TEXT NOT NULL,

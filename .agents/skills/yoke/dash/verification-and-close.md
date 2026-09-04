@@ -77,7 +77,10 @@ free.
   completion wake is expected only because the mode line recorded that route.
 - `in-turn` means the same invocation is already holding the foreground wait
   and will not return until landing finishes. No later completion notice is
-  expected.
+  expected. On Claude, set the Bash tool's `timeout` to `600000` on every
+  `in-turn` watcher invocation: at the 120-second default the harness moves
+  the call to a background task, and reading that task's file ends the turn
+  while the watcher it was holding dies with it.
 
 For a separate point-in-time check, run `yoke github merge-queue readiness
 ITEM --json`. It reads the target branch's named queue entry with arming, so

@@ -35,6 +35,10 @@ PRODUCT_AUTHZ_BY_ID = {
     "overview.module.dismiss": AuthzSpec(ACTOR_SESSION, None),
     "overview.module.restore": AuthzSpec(ACTOR_SESSION, None),
     "sessions.reclaim_stale": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    # A gate records that its own session is owed a CI verdict. The row's
+    # subject is the calling session, so the session it authenticates as is
+    # the whole authority; the project comes from that session's row.
+    "session_ci_wait.record": AuthzSpec(ACTOR_SESSION, None),
     # Promotion materializes a Dash in the note's project (payload.project overrides).
     "ouroboros.field_note.promote": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Merge / done-transition engine-internal writes. Each mutates one
