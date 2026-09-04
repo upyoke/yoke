@@ -31,6 +31,7 @@ RELAY_RELEASE_RECEIPT_NAME = ".yoke-relay-release.json"
 RELAY_RELEASE_ERROR_NAME = "release-pin-error.json"
 RELAY_RELEASE_FETCH_FAILED = "relay_release_fetch_failed"
 RELAY_RELEASE_INSTALL_FAILED = "relay_release_install_failed"
+RELAY_RELEASE_START_FAILED = "relay_release_start_failed"
 
 
 class RelayReleaseError(RuntimeError):
@@ -236,6 +237,7 @@ def write_release_json(path: Path, value: Mapping[str, Any]) -> None:
 __all__ = [
     "RELAY_RELEASE_FETCH_FAILED",
     "RELAY_RELEASE_INSTALL_FAILED",
+    "RELAY_RELEASE_START_FAILED",
     "RelayReleaseError",
     "RelayReleaseStatus",
     "distribution_index_for_instance",

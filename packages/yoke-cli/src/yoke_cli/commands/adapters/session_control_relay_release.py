@@ -51,6 +51,7 @@ def serve_release_daemon() -> Any:
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
     from yoke_core.tools.session_relay_release import (
         RELAY_RELEASE_INSTALL_FAILED,
+        RELAY_RELEASE_START_FAILED,
         RelayReleaseError,
         relay_release_status,
     )
@@ -80,15 +81,14 @@ def serve_release_daemon() -> Any:
             )
         except OSError as exc:
             raise RelayReleaseError(
-                RELAY_RELEASE_INSTALL_FAILED,
-                "relay_release_start_failed: could not start the pinned relay "
+                RELAY_RELEASE_START_FAILED,
+                "could not start the pinned relay "
                 f"release: {exc}. Recovery: retry `yoke --env "
                 f"{instance.environment} relay install`.",
             ) from exc
         raise RelayReleaseError(
-            RELAY_RELEASE_INSTALL_FAILED,
-            "relay_release_start_failed: pinned relay replacement returned "
-            "without starting",
+            RELAY_RELEASE_START_FAILED,
+            "pinned relay replacement returned without starting",
         )
 
     def repin(served_build: str):

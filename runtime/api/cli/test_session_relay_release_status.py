@@ -17,6 +17,7 @@ from yoke_core.tools import session_relay_release_install
 from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_FETCH_FAILED,
     RELAY_RELEASE_INSTALL_FAILED,
+    RELAY_RELEASE_START_FAILED,
 )
 from yoke_harness import session_relay_daemon
 from yoke_harness import session_relay_process_restart
@@ -264,6 +265,7 @@ def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -
     try:
         release_cli.serve_release_daemon()
     except session_relay_release.RelayReleaseError as exc:
+        assert exc.code == RELAY_RELEASE_START_FAILED
         assert "replacement returned" in str(exc)
     else:
         raise AssertionError("test replacement unexpectedly returned as success")
