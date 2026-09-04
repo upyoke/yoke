@@ -146,8 +146,9 @@ class FakeAcpClient:
                 return {"sessionId": self.new_session_id}
         return {}
 
-    def start_prompt(self, session_id, instruction):
+    def start_prompt(self, session_id, instruction, turn):
         self.prompts.append((session_id, instruction))
+        self.turn = turn
 
     def close(self):
         self.closed = True

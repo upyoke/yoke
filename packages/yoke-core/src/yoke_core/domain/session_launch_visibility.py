@@ -6,6 +6,7 @@ from yoke_contracts.session_control.launch_registration import (
     BACKGROUND_IDENTITY_MISSING_CODE,
     IDENTITY_LISTING_FAILED_CODE,
     IDENTITY_LISTING_LAGGED_CODE,
+    NATIVE_EXITED_UNREGISTERED_CODE,
     REGISTERED_SESSION_INVALID_CODE,
     REGISTRATION_AMBIGUOUS_CODE,
     SPAWN_WORKSPACE_MISSING_CODE,
@@ -28,7 +29,13 @@ CORRELATION_FAILURE_CODES = frozenset(
         "surface_mismatch",
     }
 )
-LAUNCH_EXECUTION_FAILURE_CODES = frozenset({"model_combo_unsupported"})
+# A launch whose native never ran its mandate: the vendor refused the
+# requested combination, or the process was gone before any session
+# registered. Both are visible on the fleet report the moment they are
+# recorded, rather than only once the registration deadline passes.
+LAUNCH_EXECUTION_FAILURE_CODES = frozenset(
+    {"model_combo_unsupported", NATIVE_EXITED_UNREGISTERED_CODE}
+)
 
 
 def launch_execution_failure_code(value: object) -> str:

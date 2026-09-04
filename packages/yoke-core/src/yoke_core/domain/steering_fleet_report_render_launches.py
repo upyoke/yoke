@@ -10,6 +10,9 @@ the row itself, for every seat that cannot reach that machine.
 from __future__ import annotations
 
 from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
+from yoke_contracts.session_control.launch_registration import (
+    NATIVE_EXITED_UNREGISTERED_CODE,
+)
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 from yoke_core.domain.steering_fleet_report_abandoned import AbandonedLaunch
 from yoke_core.domain.steering_fleet_report_detectors import UnregisteredLaunch
@@ -33,7 +36,12 @@ def _said(tail: str, exit_code: int | None) -> str:
 def _unregistered_line(entry: UnregisteredLaunch) -> str:
     native = entry.observed_session_id or entry.native_session_id
     died = bool(entry.native_stderr_tail or entry.exit_code)
-    if native and not died:
+    if entry.result_code == NATIVE_EXITED_UNREGISTERED_CODE:
+        # The machine that started this native watched it go, so the launch
+        # is already closed: there is no binding left to reconcile.
+        problem = "native exited before any session registered"
+        recovery = "worker never started — relaunch once the cause is fixed"
+    elif native and not died:
         # The native is up and answering; only the binding is missing.
         problem = f"registered session {native} exists; launch binding is absent"
         recovery = (

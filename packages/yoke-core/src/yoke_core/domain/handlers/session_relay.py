@@ -208,6 +208,9 @@ def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.session_launch_unregistered_death import (
+        apply_unregistered_native_death_reports,
+    )
     from yoke_core.domain.session_process_liveness_report import (
         apply_verified_process_death_reports,
     )
@@ -229,6 +232,18 @@ def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
                 machine_id=payload.machine_id,
                 authorized_projects=payload.projects,
                 reports=[report.model_dump(mode="json") for report in payload.sessions],
+            )
+            # The launches reported here never bound a session, so they carry
+            # no session for the sweep above to reason about.
+            outcome.update(
+                apply_unregistered_native_death_reports(
+                    conn,
+                    machine_id=payload.machine_id,
+                    authorized_projects=payload.projects,
+                    reports=[
+                        report.model_dump(mode="json") for report in payload.launches
+                    ],
+                )
             )
             conn.commit()
         except (SessionRelayError, ValueError) as exc:
