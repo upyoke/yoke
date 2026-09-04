@@ -1,4 +1,4 @@
-"""Operator utility for the macOS one-shot machine-relay login item."""
+"""Operator utility for the macOS served-release machine relay."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from yoke_core.tools.session_relay_release import relay_release_status
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="install_session_relay",
-        description="Install, inspect, or uninstall the macOS Yoke relay login item.",
+        description="Install, inspect, or uninstall the macOS Yoke relay launch agent.",
     )
     parser.add_argument("action", choices=("install", "status", "uninstall"))
     return parser
