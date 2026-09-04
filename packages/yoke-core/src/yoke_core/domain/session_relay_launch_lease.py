@@ -130,7 +130,7 @@ def claim_next_launch(
         project_id=claim.launch.project_id,
         native_instruction=claim.bootstrap_prompt,
         message_id=claim.launch.message_id,
-        requested_model=claim.launch.requested_model,
+        requested_model=claim.launch.resolved_model,
         presentation=claim.launch.presentation_preference,
         session_name=claim.launch.session_name,
         deadline_at=claim.launch.deadline_at,

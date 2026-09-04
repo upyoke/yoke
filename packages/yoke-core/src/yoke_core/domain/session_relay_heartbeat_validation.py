@@ -7,7 +7,11 @@ import uuid
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.machine_config.machine_capacity import sanitize_machine_capacity
 from yoke_contracts.session_control.plan_limits import sanitize_plan_limits
-from yoke_core.domain.session_relay_types import RelayHeartbeat, SessionRelayError
+from yoke_core.domain.session_relay_types import (
+    RelayHeartbeat,
+    SessionRelayError,
+    advertised_session_models,
+)
 
 
 def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
@@ -65,6 +69,9 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
         },
         project_ids=project_ids,
         surface_plan_limits=sanitize_plan_limits(heartbeat.surface_plan_limits),
+        preferred_session_models=advertised_session_models(
+            heartbeat.preferred_session_models
+        ),
         machine_capacity=sanitize_machine_capacity(heartbeat.machine_capacity),
     )
 

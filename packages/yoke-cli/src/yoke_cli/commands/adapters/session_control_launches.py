@@ -74,10 +74,12 @@ def _maybe_list_models(args: List[str]) -> int | None:
 
 
 def _preview_payload(parsed: argparse.Namespace) -> dict[str, Any]:
-    from yoke_contracts.machine_config.preferred_session_models import (
-        resolve_launch_model,
-    )
+    """Send only what the caller asked for.
 
+    An unnamed model is left unnamed: the control plane resolves it against
+    the machine that will actually run the session, so filling in this
+    machine's default here would name a model the target may not even have.
+    """
     payload: dict[str, Any] = {
         "project": parsed.project,
         "executor_surface": parsed.executor_surface,
@@ -86,11 +88,9 @@ def _preview_payload(parsed: argparse.Namespace) -> dict[str, Any]:
     machine_id = getattr(parsed, "machine_id", None)
     if machine_id:
         payload["machine_id"] = machine_id
-    resolved = resolve_launch_model(
-        getattr(parsed, "model", None), parsed.executor_surface
-    )
-    if resolved.model:
-        payload["model"] = resolved.model
+    model = str(getattr(parsed, "model", None) or "").strip()
+    if model:
+        payload["model"] = model
     return payload
 
 

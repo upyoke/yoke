@@ -14,6 +14,9 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     write_summary,
     write_table,
 )
+from yoke_cli.commands.adapters.session_control_launch_preview_output import (
+    write_launch_preview,
+)
 from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
     native_diagnostic_fields,
 )
@@ -108,7 +111,9 @@ def _write_launch_detail(
         ),
         ("Requested machine", launch.get("requested_machine_id")),
         ("Assigned machine", launch.get("assigned_machine_id")),
-        ("Model", launch.get("requested_model")),
+        ("Placement", launch.get("placement_reason")),
+        ("Requested model", launch.get("requested_model")),
+        ("Model", launch.get("resolved_model")),
         ("Fallback allowed", bool(launch.get("allow_surface_fallback"))),
         ("Native session", launch.get("native_session_id")),
         ("Registered session", launch.get("registered_session_id")),
@@ -125,75 +130,6 @@ def _write_launch_detail(
     if deduplicated is not None:
         fields.insert(2, ("Deduplicated", bool(deduplicated)))
     write_summary("LAUNCH", fields, stdout)
-
-
-def _machine_capacity(result: Mapping[str, Any]) -> str | None:
-    """Each considered machine's lanes against its cap, full ones flagged."""
-    entries = result.get("machine_capacity")
-    if not isinstance(entries, list) or not entries:
-        return None
-    parts = []
-    for entry in entries:
-        if not isinstance(entry, Mapping):
-            continue
-        flag = " AT CAP" if entry.get("at_capacity") else ""
-        parts.append(f"{entry.get('machine_id')}: {entry.get('summary')}{flag}")
-    return "; ".join(parts) or None
-
-
-def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
-    selected = result.get("selected_relay")
-    selected_row = selected if isinstance(selected, Mapping) else {}
-    requested_model = result.get("requested_model")
-    write_summary(
-        "LAUNCH PREVIEW",
-        [
-            ("Outcome", humanize(result.get("outcome"))),
-            ("Requested surface", result.get("requested_surface")),
-            ("Requested model", requested_model),
-            (
-                "Model verification",
-                "at session registration" if requested_model else "not requested",
-            ),
-            ("Selected surface", result.get("selected_surface")),
-            ("Fallback used", bool(result.get("fallback_used"))),
-            ("Launchable", bool(result.get("launchable"))),
-            (
-                "Considered machines",
-                ", ".join(result.get("considered_machine_ids") or []),
-            ),
-            (
-                "Eligibility failures",
-                ", ".join(
-                    humanize(code) for code in result.get("rejection_codes") or []
-                ),
-            ),
-            (
-                "Enable command",
-                "surface_disabled" in (result.get("rejection_codes") or [])
-                and "yoke session-control surface-policy enable --machine M --surface S"
-                or None,
-            ),
-            ("Selected relay", selected_row.get("relay_id")),
-            ("Selected machine", selected_row.get("machine_id")),
-            ("Machine capacity", _machine_capacity(result)),
-        ],
-        stdout,
-    )
-    columns: tuple[Column, ...] = (
-        ("RELAY", lambda row: row.get("relay_id"), None),
-        ("MACHINE", lambda row: row.get("machine_id"), None),
-        ("SURFACE", lambda row: row.get("surface"), 20),
-        ("VERSION", lambda row: row.get("version"), 18),
-        ("LAST SEEN (UTC)", lambda row: utc_time(row.get("last_seen_at")), 22),
-    )
-    write_table(
-        "ELIGIBLE RELAYS",
-        columns,
-        result.get("eligible_relays") or [],
-        stdout,
-        empty="No eligible relays found.",
-    )
 
 
 def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
@@ -232,7 +168,7 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         _write_launch_detail(launch, stdout, deduplicated=result.get("deduplicated"))
         return
     if "outcome" in result or "eligible_relays" in result:
-        _write_launch_preview(result, stdout)
+        write_launch_preview(result, stdout)
         return
     print("LAUNCH\nNo launch details returned.", file=stdout)
 

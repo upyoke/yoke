@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol
 
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_OPERATOR
-from yoke_core.domain.session_launch_capacity import (
-    MACHINE_AT_CAPACITY,
-    MachineCapacity,
-)
+from yoke_core.domain.session_launch_capacity import MachineCapacity
 
 
 MAX_LAUNCH_LEASE_SECONDS = 300
@@ -47,6 +44,33 @@ class EligibleRelay:
     surface: str
     version: str
     last_seen_at: str
+    hostname: str = ""
+    owner_actor_id: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class MachineCandidate:
+    """One machine placement weighed, and why it did or did not win.
+
+    ``headroom_percent`` is the least-headroom meter the machine publishes for
+    this surface, because the soonest wall is the one a launch can hit.
+    A machine that publishes no readable meter carries ``None`` and is ranked
+    below any machine that does -- an unknown is not evidence of room.
+    """
+
+    machine_id: str
+    hostname: str
+    surface: str
+    headroom_percent: float | None
+    headroom_window: str | None
+    owned_by_requester: bool
+    may_use: bool
+    capacity_summary: str | None = None
+    denial_reason: str | None = None
+    selected: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -100,6 +124,8 @@ class LaunchPreview:
     considered_machine_ids: tuple[str, ...] = ()
     rejection_codes: tuple[str, ...] = ()
     machine_capacity: tuple[MachineCapacity, ...] = ()
+    placement_reason: str | None = None
+    machine_candidates: tuple[MachineCandidate, ...] = ()
 
     @property
     def launchable(self) -> bool:
@@ -125,6 +151,10 @@ class LaunchPreview:
             "considered_machine_ids": list(self.considered_machine_ids),
             "rejection_codes": list(self.rejection_codes),
             "machine_capacity": [entry.to_dict() for entry in self.machine_capacity],
+            "placement_reason": self.placement_reason,
+            "machine_candidates": [
+                candidate.to_dict() for candidate in self.machine_candidates
+            ],
             "eligible_relays": [relay.to_dict() for relay in self.eligible_relays],
             "selected_relay": (
                 self.selected_relay.to_dict() if self.selected_relay else None
@@ -162,6 +192,8 @@ class LaunchRecord:
     completed_at: str | None
     result_code: str | None
     result_evidence: str | None
+    placement_reason: str | None = None
+    resolved_model: str | None = None
     origin: str = LAUNCH_ORIGIN_OPERATOR
     native_launch_pid: int | None = None
     native_launch_phase: str | None = None
@@ -211,67 +243,6 @@ def ensure_operator(auth: LaunchAuthorization) -> None:
         )
 
 
-def choose_relay(
-    snapshot: EligibilitySnapshot,
-    *,
-    surface: str,
-    machine_id: str | None,
-    fallback: bool = False,
-    auto_select_machine: bool = False,
-) -> LaunchPreview:
-    relays: Sequence[EligibleRelay] = snapshot.relays
-    if not relays:
-        if "unsupported_surface" in snapshot.rejection_codes:
-            outcome = "unsupported_surface"
-        elif MACHINE_AT_CAPACITY in snapshot.rejection_codes:
-            outcome = MACHINE_AT_CAPACITY
-        else:
-            outcome = "no_eligible_relay"
-        return LaunchPreview(
-            outcome,
-            surface,
-            tuple(relays),
-            considered_machine_ids=snapshot.considered_machine_ids,
-            rejection_codes=snapshot.rejection_codes,
-            machine_capacity=snapshot.machine_capacity,
-        )
-    if len(relays) == 1:
-        outcome = "assigned_fallback" if fallback else "assigned"
-        return LaunchPreview(
-            outcome,
-            surface,
-            tuple(relays),
-            relays[0],
-            snapshot.considered_machine_ids,
-            snapshot.rejection_codes,
-            snapshot.machine_capacity,
-        )
-    if not machine_id and auto_select_machine:
-        selected = min(
-            relays,
-            key=lambda relay: (relay.machine_id, relay.relay_id, relay.surface),
-        )
-        outcome = "assigned_fallback" if fallback else "assigned"
-        return LaunchPreview(
-            outcome,
-            surface,
-            tuple(relays),
-            selected,
-            snapshot.considered_machine_ids,
-            snapshot.rejection_codes,
-            snapshot.machine_capacity,
-        )
-    outcome = "relay_ambiguous" if machine_id else "machine_required"
-    return LaunchPreview(
-        outcome,
-        surface,
-        tuple(relays),
-        considered_machine_ids=snapshot.considered_machine_ids,
-        rejection_codes=snapshot.rejection_codes,
-        machine_capacity=snapshot.machine_capacity,
-    )
-
-
 __all__ = [
     "DEFAULT_LAUNCH_DEADLINE_SECONDS",
     "DEFAULT_MAX_BODY_BYTES",
@@ -286,9 +257,9 @@ __all__ = [
     "LaunchRecord",
     "LaunchRegistrationInjection",
     "LaunchRequest",
+    "MachineCandidate",
     "MAX_LAUNCH_DEADLINE_SECONDS",
     "MAX_LAUNCH_LEASE_SECONDS",
     "SessionLaunchError",
-    "choose_relay",
     "ensure_operator",
 ]

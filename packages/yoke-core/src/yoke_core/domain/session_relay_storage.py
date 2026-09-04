@@ -69,12 +69,13 @@ def heartbeat_relay(
     projects = json_helper.dumps_compact(list(heartbeat.project_ids))
     plan_limits = json_helper.dumps_compact(dict(heartbeat.surface_plan_limits))
     capacity = json_helper.dumps_compact(dict(heartbeat.machine_capacity))
+    preferred = json_helper.dumps_compact(dict(heartbeat.preferred_session_models))
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
-        "machine_capacity) "
-        f"VALUES ({','.join(p for _ in range(13))}) "
+        "machine_capacity,preferred_session_models) "
+        f"VALUES ({','.join(p for _ in range(14))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
@@ -83,7 +84,8 @@ def heartbeat_relay(
         "last_seen_at=excluded.last_seen_at,"
         "connected_until=excluded.connected_until,state=excluded.state,"
         "surface_plan_limits=excluded.surface_plan_limits,"
-        "machine_capacity=excluded.machine_capacity",
+        "machine_capacity=excluded.machine_capacity,"
+        "preferred_session_models=excluded.preferred_session_models",
         (
             heartbeat.relay_id,
             heartbeat.actor_id,
@@ -98,6 +100,7 @@ def heartbeat_relay(
             state,
             plan_limits,
             capacity,
+            preferred,
         ),
     )
     conn.commit()

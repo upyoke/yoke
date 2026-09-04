@@ -70,17 +70,27 @@ Read `launchable`, `rejection_codes`, and `eligible_relays`.
   `~/.yoke/config.json` on that machine, or pass `--machine` to place the
   launch on a machine with room. Do not retry the same placement: the cap
   is a memory fact about that box, not a transient race.
+- `machine_access_denied` — no eligible machine is one this actor may use;
+  `placement_reason` says why per machine.
 
 A refusal names the surface, not the item. Do not skip remaining work
 because one surface refused.
 
-Allocate by headroom, not by leveling counts. Read the headroom table in
-the fleet report: keep one session on every surface above 100% so each
-harness stays exercised, then send the rest to the surface with the most
-headroom and run it down. Level counts only when headrooms are comparable,
-and avoid a surface under 100% for long items. There is no per-surface
-session cap. A surface absent from the launch-balance line cannot accept a
-launch — do not read a missing surface as zero.
+**Do not pick the machine.** A launch naming no `--machine` is placed for
+you: among the machines this actor may use that offer the surface, the one
+with the most headroom wins, and the requester's own machine wins a tie.
+Headroom is the lowest meter that machine publishes for the surface — the
+soonest wall is the one a launch can hit. `placement_reason` names the winner,
+the readings it beat and the deciding meter; `machine_candidates` carries those
+per machine. Both land on the launch row. Pass `--machine` only to override.
+
+Choosing the SURFACE is still yours.
+Allocate by headroom, not by leveling counts. Read the headroom table in the
+fleet report: keep one session on every surface above 100% so each harness
+stays exercised, then send the rest to the surface with the most headroom and
+run it down. Level counts only when headrooms are comparable, and avoid a
+surface under 100% for long items. There is no per-surface session cap; a
+surface absent from the launch-balance line cannot accept one at all.
 
 ## 4. Route one item through its pinned workflow, never via `/yoke do`
 
@@ -126,13 +136,18 @@ new `session_control.launch.create`.
 
 ## 7. Choose the model per item at launch
 
-Default resolution: explicit `--model` on the launch > machine-config
-`preferred_session_models` map > vendor default. Blank (or whitespace)
-map values are unset and fall through to the vendor default. Override
-per item when the work warrants — a heavier model for architecture,
-migration, or high-risk items; a faster model for mechanical or
-copy-level dashes. The override is the launch's explicit `--model`.
-The resolved choice is recorded on the launch row.
+Default resolution: explicit `--model` on the launch > the
+`preferred_session_models` map of the machine the launch was PLACED on >
+vendor default. That machine owns the default because it holds the accounts
+and the installed models; this seat's config never decides a model running
+elsewhere. Blank map values are unset. Override per item with an explicit
+`--model` — heavier for architecture or migration, faster for mechanical work.
+
+The preview names the model a launch would carry as `model` with a
+`model_source` naming the machine and key that decided it; the launch row
+keeps the caller's ask as `requested_model` and the result as
+`resolved_model`. `--list-models` reports THIS machine's map; preview a
+launch to read another machine's default.
 
 ```text
 yoke session-control launch preview --project {_project} --surface {_surface} --list-models

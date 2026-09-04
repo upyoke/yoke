@@ -137,19 +137,19 @@ def test_eligibility_accepts_cursor_build_version() -> None:
     assert snapshot.rejection_codes == ()
 
 
-def test_preview_requires_machine_when_multiple_eligible_machines_exist() -> None:
+def test_preview_places_an_unpinned_launch_and_honours_an_explicit_machine() -> None:
     conn = launch_connection()
     add_relay(conn, relay_id="r1", machine_id="m1")
     add_relay(conn, relay_id="r2", machine_id="m2")
 
-    ambiguous = preview_launch(
+    placed = preview_launch(
         conn,
         auth=authorization(),
         project_id=10,
         surface="codex-cli",
         now=NOW,
     )
-    selected = preview_launch(
+    pinned = preview_launch(
         conn,
         auth=authorization(),
         project_id=10,
@@ -157,19 +157,13 @@ def test_preview_requires_machine_when_multiple_eligible_machines_exist() -> Non
         machine_id="m2",
         now=NOW,
     )
-    auto_selected = preview_launch(
-        conn,
-        auth=authorization(),
-        project_id=10,
-        surface="codex-cli",
-        auto_select_machine=True,
-        now=NOW,
-    )
 
-    assert ambiguous.outcome == "machine_required"
-    assert selected.selected_relay and selected.selected_relay.relay_id == "r2"
-    assert auto_selected.selected_relay
-    assert auto_selected.selected_relay.relay_id == "r1"
+    assert placed.outcome == "assigned"
+    assert placed.selected_relay is not None
+    assert placed.placement_reason
+    assert {row.machine_id for row in placed.machine_candidates} == {"m1", "m2"}
+    assert pinned.selected_relay and pinned.selected_relay.relay_id == "r2"
+    assert pinned.placement_reason == "machine m2 pinned by the request"
 
 
 @pytest.mark.parametrize(

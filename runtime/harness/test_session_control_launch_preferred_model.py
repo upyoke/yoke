@@ -1,4 +1,4 @@
-"""Launch create consults the machine-local preferred-model map."""
+"""Launch create leaves an unnamed model for the chosen machine to decide."""
 
 from __future__ import annotations
 
@@ -11,9 +11,7 @@ from yoke_contracts.machine_config.preferred_session_models import (
 )
 
 
-def test_launch_create_without_model_sends_configured_preference(
-    monkeypatch,
-) -> None:
+def _create(monkeypatch, *extra_args: str) -> dict:
     calls = []
 
     def _dispatch(**kwargs):
@@ -43,12 +41,33 @@ def test_launch_create_without_model_sends_configured_preference(
                 "YOK-2580",
                 "--idempotency-key",
                 "launch-preferred",
+                *extra_args,
             ]
         )
         == 0
     )
     assert calls[0]["function_id"] == "session_control.launch.create"
-    assert calls[0]["payload"]["model"] == "cursor-grok-4.6-high-fast"
+    return calls[0]["payload"]
+
+
+def test_launch_create_without_model_leaves_the_machine_to_decide(
+    monkeypatch,
+) -> None:
+    """This machine's map must not name a model for a session running elsewhere.
+
+    The launch is placed on whichever machine has headroom, and that machine
+    resolves its own default; filling it in here would send a model the target
+    may not have installed.
+    """
+    payload = _create(monkeypatch)
+
+    assert "model" not in payload
+
+
+def test_an_explicit_model_still_travels_with_the_launch(monkeypatch) -> None:
+    payload = _create(monkeypatch, "--model", "cursor-grok-4.6-high")
+
+    assert payload["model"] == "cursor-grok-4.6-high"
 
 
 def test_launch_create_list_models_names_source_without_dispatch(

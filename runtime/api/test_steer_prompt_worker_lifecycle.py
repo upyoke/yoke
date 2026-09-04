@@ -53,6 +53,10 @@ class TestSteerWorkerLifecycle:
         assert "codex-cli" in text
         assert "cursor-cli" in text
         assert "Allocate by headroom, not by leveling counts" in text
+        # The seat chooses the surface; the launch plane chooses the machine.
+        assert "Do not pick the machine" in text
+        assert "placement_reason" in text
+        assert "machine_access_denied" in text
         assert "preferred_session_models" in text
         assert "yoke sessions terminate" in text
         assert "reserved for an unresponsive worker" in text

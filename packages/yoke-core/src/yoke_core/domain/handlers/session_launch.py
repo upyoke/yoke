@@ -127,6 +127,9 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchPreviewRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
+    from yoke_core.domain.session_launch_machine_models import (
+        resolve_machine_model,
+    )
     from yoke_core.domain.session_launch_requests import preview_launch
 
     conn = _open()
@@ -142,12 +145,20 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
             surface_fallback_enabled=bool(
                 _fleet_policy(conn, project_id, "fleet.surface_fallback")
             ),
-            auto_select_machine=bool(
-                _fleet_policy(conn, project_id, "fleet.auto_select_machine")
-            ),
         )
         payload = preview.to_dict()
         payload["requested_model"] = parsed.model
+        relay = preview.selected_relay
+        # A preview that names a machine can also name the model a launch
+        # there would carry, because the default belongs to that machine.
+        payload.update(
+            resolve_machine_model(
+                conn,
+                requested_model=parsed.model,
+                machine_id=relay.machine_id if relay else None,
+                surface=relay.surface if relay else parsed.executor_surface,
+            ).to_dict()
+        )
         return HandlerOutcome(result_payload=payload)
     except Exception as exc:
         return _domain_error(exc)
@@ -187,9 +198,6 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
             max_body_bytes=max_body_bytes,
             surface_fallback_enabled=bool(
                 _fleet_policy(conn, project_id, "fleet.surface_fallback")
-            ),
-            auto_select_machine=bool(
-                _fleet_policy(conn, project_id, "fleet.auto_select_machine")
             ),
         )
         return HandlerOutcome(
@@ -290,13 +298,6 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
                         conn,
                         launch_record.project_id,
                         "fleet.surface_fallback",
-                    )
-                ),
-                auto_select_machine=bool(
-                    _fleet_policy(
-                        conn,
-                        launch_record.project_id,
-                        "fleet.auto_select_machine",
                     )
                 ),
             )

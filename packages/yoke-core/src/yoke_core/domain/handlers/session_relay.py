@@ -193,6 +193,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     project_ids=payload.projects,
                     surface_plan_limits=payload.plan_limits,
                     machine_capacity=payload.capacity,
+                    preferred_session_models=payload.preferred_models,
                 ),
                 wait_seconds=payload.wait_seconds,
                 broker_only=payload.broker_only,

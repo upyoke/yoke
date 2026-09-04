@@ -24,7 +24,7 @@ LAUNCH_COLUMNS = (
     "registered_session_id, deadline_at, created_at, assigned_at, launching_at, "
     "awaiting_registration_at, completed_at, result_code, result_evidence, origin, "
     "native_launch_pid, native_launch_phase, native_launch_observed_at, "
-    "spawn_duration_ms, spawn_hold_reason"
+    "spawn_duration_ms, spawn_hold_reason, placement_reason, resolved_model"
 )
 _MUTABLE_LAUNCH_COLUMNS = frozenset(
     {
@@ -48,6 +48,8 @@ _MUTABLE_LAUNCH_COLUMNS = frozenset(
         "native_launch_observed_at",
         "spawn_duration_ms",
         "spawn_hold_reason",
+        "placement_reason",
+        "resolved_model",
     }
 )
 
@@ -136,6 +138,8 @@ def row_to_launch(row: Any) -> LaunchRecord:
         native_launch_observed_at=value(row, "native_launch_observed_at", 31),
         spawn_duration_ms=value(row, "spawn_duration_ms", 32),
         spawn_hold_reason=value(row, "spawn_hold_reason", 33),
+        placement_reason=value(row, "placement_reason", 34),
+        resolved_model=value(row, "resolved_model", 35),
     )
 
 

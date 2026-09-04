@@ -11,7 +11,14 @@ from yoke_cli.config import machine_config
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.machine_config.machine_capacity import observe_machine_capacity
 from yoke_contracts.machine_config.machine_name import machine_display_name
-from yoke_contracts.machine_config.runtime import ensure_machine_id, read_settings
+from yoke_contracts.machine_config.preferred_session_models import (
+    preferred_session_models,
+)
+from yoke_contracts.machine_config.runtime import (
+    ensure_machine_id,
+    load_config,
+    read_settings,
+)
 from yoke_harness.session_relay_plan_limits import observe_plan_limits
 from yoke_harness.session_relay_surface_probe_cache import (
     cached_surface_versions,
@@ -37,6 +44,7 @@ class RelayInventory:
     surface_versions: dict[str, str]
     surface_plan_limits: dict[str, dict[str, object]] = field(default_factory=dict)
     machine_capacity: dict[str, object] = field(default_factory=dict)
+    preferred_session_models: dict[str, str] = field(default_factory=dict)
 
     def claim_payload(
         self,
@@ -54,6 +62,7 @@ class RelayInventory:
             "surfaces": dict(self.surface_versions),
             "plan_limits": dict(self.surface_plan_limits),
             "capacity": dict(self.machine_capacity),
+            "preferred_models": dict(self.preferred_session_models),
         }
         if wait_seconds is not None:
             payload["wait_seconds"] = wait_seconds
@@ -111,6 +120,10 @@ def _inventory(
         surface_versions=versions,
         surface_plan_limits=dict(plan_limits or {}),
         machine_capacity=capacity.to_dict(),
+        # This machine's own preferred models travel with the heartbeat so a
+        # launch placed here resolves the default this machine named, not the
+        # one configured on whichever machine asked for the launch.
+        preferred_session_models=preferred_session_models(load_config()),
     )
 
 

@@ -28,23 +28,31 @@ surface; CLI adapters are the operator/debug shape. Prefer
 environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
-`preferred_session_models` is the surface-to-model map yoke-launched
-sessions consult when create carries no explicit `--model`. Precedence:
-explicit `--model` > this map > the vendor default. Model availability is
-bound to the accounts on this machine, so the map stays machine-local.
+`preferred_session_models` is the surface-to-model map a machine names for
+sessions launched **on it**. Model availability is bound to the accounts on
+that machine, so the map stays machine-local and travels to the control plane
+on the machine's own relay heartbeat. A launch resolves its model against the
+machine it was placed on: explicit `--model` on the launch > that machine's
+map > the vendor default. The caller's own map never decides a launch that
+will run somewhere else — it would name a model the target machine may not
+have installed. `session_control.launch.preview` answers with `model` and
+`model_source`, so a seat can read the exact model a launch would carry
+before creating it, and each launch row records the same pair as
+`resolved_model` beside the caller's own `requested_model`.
+
 A fresh installer/onboard write seeds the real key with every launchable
 harness surface from the session-control registry, each set to a blank
-string. Blank (or whitespace) means unset: the resolver,
-`--list-models`, machine-config validation, and `yoke config status` all
-treat it like an absent entry and fall through to the vendor default, so
-a freshly seeded map resolves credentials on a postgres-authority
-connection. Validation rejects only a non-object map, a blank surface
-name, or a non-string model id. Activation is typing a model id into a
-blank. Existing maps are left untouched; machines without the key are
-not backfilled except on a fresh write or an explicit config repair.
-`yoke status` and `yoke session-control launch create --list-models`
-name the key and the config file. Every launch path — operator create and
-any later worker launcher — must call the same resolver.
+string. Blank (or whitespace) means unset: the resolver, `--list-models`,
+machine-config validation, and `yoke config status` all treat it like an
+absent entry and fall through to the vendor default, so a freshly seeded map
+resolves credentials on a postgres-authority connection. Validation rejects
+only a non-object map, a blank surface name, or a non-string model id.
+Activation is typing a model id into a blank. Existing maps are left
+untouched; machines without the key are not backfilled except on a fresh
+write or an explicit config repair. `yoke status` and
+`yoke session-control launch create --list-models` name the key and the
+config file **of the machine you are typing on** — to read what another
+machine would use, preview a launch against it.
 
 ## Launched sessions run unattended
 

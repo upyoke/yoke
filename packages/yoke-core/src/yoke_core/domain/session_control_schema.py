@@ -175,7 +175,9 @@ def create_session_control_tables(conn: Any) -> None:
             native_launch_phase TEXT,
             native_launch_observed_at TEXT,
             spawn_duration_ms INTEGER,
-            spawn_hold_reason TEXT
+            spawn_hold_reason TEXT,
+            placement_reason TEXT,
+            resolved_model TEXT
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_launches_requester_dedupe
             ON session_launches(requester_actor_id, idempotency_key)
@@ -224,7 +226,8 @@ def create_session_control_tables(conn: Any) -> None:
             lease_id TEXT,
             lease_expires_at TEXT,
             surface_plan_limits TEXT,
-            machine_capacity TEXT
+            machine_capacity TEXT,
+            preferred_session_models TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_session_relays_machine_connected
             ON session_relays(machine_id, connected_until);
@@ -303,28 +306,23 @@ def create_session_control_tables(conn: Any) -> None:
     # CREATE TABLE IF NOT EXISTS never alters an existing table, so a column
     # introduced after a table first shipped must also converge as an additive
     # ALTER for databases born before it.
-    if not _column_exists(conn, "session_launch_attempts", "batch_id"):
-        conn.execute("ALTER TABLE session_launch_attempts ADD COLUMN batch_id TEXT")
-    if not _column_exists(conn, "session_launches", "origin"):
-        conn.execute(
-            f"ALTER TABLE session_launches ADD COLUMN origin {ORIGIN_COLUMN_DDL}"
-        )
-    if not _column_exists(conn, "session_launches", "session_name"):
-        conn.execute("ALTER TABLE session_launches ADD COLUMN session_name TEXT")
-    for name, column_type in (
-        ("native_launch_pid", "INTEGER"),
-        ("native_launch_phase", "TEXT"),
-        ("native_launch_observed_at", "TEXT"),
-        ("spawn_duration_ms", "INTEGER"),
-        ("spawn_hold_reason", "TEXT"),
+    for table, name, column_type in (
+        ("session_launch_attempts", "batch_id", "TEXT"),
+        ("session_launches", "origin", ORIGIN_COLUMN_DDL),
+        ("session_launches", "session_name", "TEXT"),
+        ("session_launches", "native_launch_pid", "INTEGER"),
+        ("session_launches", "native_launch_phase", "TEXT"),
+        ("session_launches", "native_launch_observed_at", "TEXT"),
+        ("session_launches", "spawn_duration_ms", "INTEGER"),
+        ("session_launches", "spawn_hold_reason", "TEXT"),
+        ("session_launches", "placement_reason", "TEXT"),
+        ("session_launches", "resolved_model", "TEXT"),
+        ("session_relays", "surface_plan_limits", "TEXT"),
+        ("session_relays", "machine_capacity", "TEXT"),
+        ("session_relays", "preferred_session_models", "TEXT"),
     ):
-        if not _column_exists(conn, "session_launches", name):
-            conn.execute(
-                f"ALTER TABLE session_launches ADD COLUMN {name} {column_type}"
-            )
-    for name in ("surface_plan_limits", "machine_capacity"):
-        if not _column_exists(conn, "session_relays", name):
-            conn.execute(f"ALTER TABLE session_relays ADD COLUMN {name} TEXT")
+        if not _column_exists(conn, table, name):
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
     if not _column_exists(conn, "session_message_recipients", "wake_escalation"):
         conn.execute(
             "ALTER TABLE session_message_recipients ADD COLUMN wake_escalation TEXT"
