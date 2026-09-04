@@ -49,9 +49,7 @@ def refresh_from_source(
             "source-dev/admin project refresh targets an external project "
             "checkout, not the Yoke source checkout"
         )
-    prior_manifest, manifest_source = _resolve_prior_manifest(
-        root, manifest_from
-    )
+    prior_manifest, manifest_source = _resolve_prior_manifest(root, manifest_from)
     if apply and not prior_manifest:
         raise ProjectInstallError(
             "source-dev/admin refresh apply requires install-manifest lineage: "
@@ -72,9 +70,7 @@ def refresh_from_source(
         raise ProjectInstallError(
             "source bundle project_id does not match the requested project"
         )
-    preserved_files = preserved_manifest_files(
-        root, bundle, prior_manifest
-    )
+    preserved_files = preserved_manifest_files(root, bundle, prior_manifest)
     source_label = f"source-checkout:{source}"
     if not apply:
         return preview_report(
@@ -103,22 +99,28 @@ def refresh_from_source(
         prior_manifest=prior_manifest,
         preserved_manifest_files=preserved_files,
     )
-    report.update({
-        "preview": False,
-        "source_dev_admin": True,
-        "source_checkout": str(source),
-        "manifest_source": manifest_source,
-        "snapshot_sync": {
-            "status": "skipped",
-            "reason": (
-                "source-dev/admin local-source refresh does not write "
-                "external or server snapshot state"
-            ),
-        },
-        "machine_config_newly_registered": False,
-    })
+    report["codex_hook_trust"] = runner._mint_codex_hook_trust(root)
+    report.update(
+        {
+            "preview": False,
+            "source_dev_admin": True,
+            "source_checkout": str(source),
+            "manifest_source": manifest_source,
+            "snapshot_sync": {
+                "status": "skipped",
+                "reason": (
+                    "source-dev/admin local-source refresh does not write "
+                    "external or server snapshot state"
+                ),
+            },
+            "machine_config_newly_registered": False,
+        }
+    )
     report["commit"] = checkout_gate.commit_touched_paths(
-        root, report, skip=not commit, operation="refresh",
+        root,
+        report,
+        skip=not commit,
+        operation="refresh",
     )
     return report
 
@@ -146,7 +148,8 @@ def _resolve_prior_manifest(
 
 
 def _resolve_project_id(
-    explicit: int | None, prior_manifest: dict[str, Any],
+    explicit: int | None,
+    prior_manifest: dict[str, Any],
 ) -> int:
     inherited = prior_manifest.get("project_id")
     if explicit is None:
@@ -160,14 +163,14 @@ def _resolve_project_id(
         raise ProjectInstallError("--project-id must be a positive integer")
     if isinstance(inherited, int) and inherited != explicit:
         raise ProjectInstallError(
-            f"--project-id {explicit} conflicts with manifest project_id "
-            f"{inherited}"
+            f"--project-id {explicit} conflicts with manifest project_id {inherited}"
         )
     return explicit
 
 
 def _resolve_project_slug(
-    explicit: str | None, prior_manifest: dict[str, Any],
+    explicit: str | None,
+    prior_manifest: dict[str, Any],
 ) -> str:
     inherited = str(prior_manifest.get("project_slug") or "").strip()
     selected = str(explicit or "").strip()

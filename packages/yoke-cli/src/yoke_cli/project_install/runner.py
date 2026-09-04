@@ -81,14 +81,11 @@ def install(
     root = files_layer.resolve_repo_root(repo_root)
     resolved_mode, reason = source_dev.resolve_mode(root, mode)
     print(
-        f"yoke project {operation}: delivery strategy = {resolved_mode} "
-        f"({reason})",
+        f"yoke project {operation}: delivery strategy = {resolved_mode} ({reason})",
         file=sys.stderr,
     )
     git_hooks_layer.assert_pre_commit_runtime_available()
-    resolved_id, explicit_given = _resolve_project_id(
-        root, project_id, config_path
-    )
+    resolved_id, explicit_given = _resolve_project_id(root, project_id, config_path)
     bundle, source = _resolve_bundle(
         resolved_id, explicit_env=explicit_env, config_path=config_path
     )
@@ -121,20 +118,20 @@ def install(
         root, resolved_id, config_path, explicit_given
     )
     report = apply_bundle(root, bundle, operation=operation, source=source)
+    report["codex_hook_trust"] = _mint_codex_hook_trust(root)
     # A clean copy install can still be shadowed at commit time: a
     # core.hooksPath override sends git elsewhere, or a missing `yoke`
     # launcher leaves the shims unable to exec. Surface both loudly.
     if resolved_mode == MODE_COPY:
-        report.setdefault("warnings", []).extend(
-            collect_hooks_path_warnings(root)
-        )
+        report.setdefault("warnings", []).extend(collect_hooks_path_warnings(root))
     # Runs after apply so the seeded .yoke/project.config exists to move into.
     report["file_line_config_migration"] = migrate_file_line_exceptions(root)
     # The install writes the managed rules files AND the gate that measures
     # them, so it also owns exempting them — otherwise a project's first
     # commit fails on the install's own output.
     report["file_line_managed_exceptions"] = ensure_managed_file_line_exceptions(
-        root, _managed_markdown_paths(bundle),
+        root,
+        _managed_markdown_paths(bundle),
     )
     report["snapshot_sync"] = sync_local_snapshot_for_write(
         project=str(resolved_id),
@@ -166,9 +163,30 @@ def install(
         )
     report["checkout"] = checkout
     report["commit"] = checkout_gate.commit_touched_paths(
-        root, report, skip=not commit, operation=operation,
+        root,
+        report,
+        skip=not commit,
+        operation=operation,
     )
     return report
+
+
+def _mint_codex_hook_trust(root: Path) -> Dict[str, object]:
+    """Trust only the Codex hooks file the completed install just authored."""
+    from yoke_core.domain.codex_hook_trust_store import (
+        CodexHookTrustStoreError,
+        hooks_file_for,
+        mint_installed_checkout_trust,
+        retrust_recovery,
+    )
+
+    try:
+        return mint_installed_checkout_trust(root).payload()
+    except CodexHookTrustStoreError as exc:
+        raise ProjectInstallError(
+            f"Codex hook trust mint failed for {hooks_file_for(root)}: {exc}. "
+            f"Recovery: {retrust_recovery(root)}"
+        ) from exc
 
 
 def refresh(
@@ -183,12 +201,16 @@ def refresh(
     require_default_branch: bool = True,
 ) -> Dict[str, Any]:
     return install(
-        repo_root, project_id, explicit_env, config_path,
-        operation="refresh", mode=mode, force=force, commit=commit,
+        repo_root,
+        project_id,
+        explicit_env,
+        config_path,
+        operation="refresh",
+        mode=mode,
+        force=force,
+        commit=commit,
         require_default_branch=require_default_branch,
     )
-
-
 
 
 def _resolve_project_id(
@@ -259,7 +281,9 @@ def _other_env_checkout_mappings(
         if _resolved_path_key(Path(entry["checkout"]).expanduser()) not in candidates:
             continue
         if contract.entry_resolves_under_env(
-            entry, env=env, active_env=active,
+            entry,
+            env=env,
+            active_env=active,
         ):
             continue
         other.append(entry)
@@ -307,12 +331,17 @@ def _register_in_machine_config(
         return False
     if machine_config.project_id(repo_root, config_path) is not None:
         return False
-    machine_config_writer.register_project(
-        repo_root, project_id, path=config_path
-    )
+    machine_config_writer.register_project(repo_root, project_id, path=config_path)
     return True
 
 
-__all__ = ["MODE_COPY", "MODE_KEY", "MODE_SOURCE_LINK",
-           "ProjectInstallError", "apply_bundle", "install", "refresh",
-           "uninstall"]
+__all__ = [
+    "MODE_COPY",
+    "MODE_KEY",
+    "MODE_SOURCE_LINK",
+    "ProjectInstallError",
+    "apply_bundle",
+    "install",
+    "refresh",
+    "uninstall",
+]

@@ -78,9 +78,10 @@ bounded vendor message in launch evidence, and never retries under defaults.
 A session the launch plane starts is an autonomous worker with nobody
 watching its terminal, so every launch and every wake engages the harness
 permission bypass: Claude Code is launched with
-`--dangerously-skip-permissions`, Codex with approvals and sandbox bypassed
-(`--dangerously-bypass-approvals-and-sandbox` on the CLI route, the same
-posture as thread parameters on the app-server route), and Cursor with
+`--dangerously-skip-permissions`, Codex CLI with approvals, sandbox, and hook
+trust bypassed (`--dangerously-bypass-approvals-and-sandbox` plus
+`--dangerously-bypass-hook-trust`; the app-server route uses equivalent
+thread parameters where available), and Cursor with
 `--force` alongside `--trust` on the CLI route. Cursor's ACP launch route
 takes no such flag: the relay answers each permission request itself and
 owns the terminals commands run in, so it is unattended already. This is

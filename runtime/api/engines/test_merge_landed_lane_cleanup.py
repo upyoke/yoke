@@ -49,11 +49,15 @@ def landed_lane(tmp_path: Path):
     repo = tmp_path / "repo"
     subprocess.run(
         ["git", "init", "--bare", "--initial-branch=main", str(origin)],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     )
     subprocess.run(
         ["git", "init", "--initial-branch=main", str(repo)],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     )
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
@@ -129,13 +133,19 @@ def test_landed_lane_prunes_against_origin_not_the_local_target(landed_lane):
     _land_on_main(landed_lane.repo)
     local_main = _git(landed_lane.repo, "rev-parse", "main").stdout.strip()
     origin_main = _git(
-        landed_lane.repo, "ls-remote", "origin", "refs/heads/main",
+        landed_lane.repo,
+        "ls-remote",
+        "origin",
+        "refs/heads/main",
     ).stdout.split()[0]
     assert local_main != origin_main
 
     preserved = prune_landed_lane(
-        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
-        run_git=_run_git, emit=lambda *_a, **_kw: None,
+        repo_root=str(landed_lane.repo),
+        branch=BRANCH,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
     )
 
     assert preserved == ()
@@ -145,8 +155,11 @@ def test_landed_lane_prunes_against_origin_not_the_local_target(landed_lane):
 def test_unmerged_lane_is_preserved_with_the_reason_named(landed_lane):
     """Nothing is deleted for a branch the target does not contain."""
     preserved = prune_landed_lane(
-        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
-        run_git=_run_git, emit=lambda *_a, **_kw: None,
+        repo_root=str(landed_lane.repo),
+        branch=BRANCH,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
     )
 
     assert preserved == (
@@ -163,8 +176,11 @@ def test_dirty_worktree_is_preserved_with_the_reason_named(landed_lane):
     (landed_lane.worktree / "scratch.txt").write_text("wip\n", encoding="utf-8")
 
     preserved = prune_landed_lane(
-        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
-        run_git=_run_git, emit=lambda *_a, **_kw: None,
+        repo_root=str(landed_lane.repo),
+        branch=BRANCH,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
     )
 
     assert len(preserved) == 1
@@ -207,8 +223,12 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
     )
 
     preserved = prune_landed_lane(
-        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
-        item_id=7, run_git=_run_git, emit=lambda *_a, **_kw: None,
+        repo_root=str(landed_lane.repo),
+        branch=BRANCH,
+        target="main",
+        item_id=7,
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
     )
 
     assert preserved == ()
@@ -222,14 +242,17 @@ def test_row_release_failure_warns_without_unwinding_the_merge(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
         lambda **_kw: SimpleNamespace(
-            success=False, result=None,
+            success=False,
+            result=None,
             error=SimpleNamespace(message="control plane down"),
         ),
     )
     said: list[str] = []
 
     warning = release_lane_row(
-        7, BRANCH, emit=lambda message, **_kw: said.append(message),
+        7,
+        BRANCH,
+        emit=lambda message, **_kw: said.append(message),
     )
 
     assert warning is not None
@@ -243,7 +266,8 @@ def test_claim_required_release_is_not_a_left_active_warning(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
         lambda **_kw: SimpleNamespace(
-            success=False, result=None,
+            success=False,
+            result=None,
             error=SimpleNamespace(
                 message=(
                     "no active claim by session 's' on item YOK-1; "
@@ -255,7 +279,9 @@ def test_claim_required_release_is_not_a_left_active_warning(monkeypatch):
     said: list[str] = []
 
     warning = release_lane_row(
-        7, BRANCH, emit=lambda message, **_kw: said.append(message),
+        7,
+        BRANCH,
+        emit=lambda message, **_kw: said.append(message),
     )
 
     assert warning is None
@@ -268,14 +294,19 @@ def test_row_release_warning_is_returned_from_prune(landed_lane, monkeypatch):
     monkeypatch.setattr(
         "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
         lambda **_kw: SimpleNamespace(
-            success=False, result=None,
+            success=False,
+            result=None,
             error=SimpleNamespace(message="control plane down"),
         ),
     )
 
     preserved = prune_landed_lane(
-        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
-        item_id=7, run_git=_run_git, emit=lambda *_a, **_kw: None,
+        repo_root=str(landed_lane.repo),
+        branch=BRANCH,
+        target="main",
+        item_id=7,
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
     )
 
     assert any("left active after worktree removal" in note for note in preserved)
@@ -285,11 +316,21 @@ def test_row_release_warning_is_returned_from_prune(landed_lane, monkeypatch):
 def test_locked_worktree_is_preserved_with_git_reason_named(landed_lane):
     """Git's own refusal is the reason an operator needs, so it is relayed."""
     _land_on_main(landed_lane.repo)
-    _git(landed_lane.repo, "worktree", "lock", "--reason", "initializing", str(landed_lane.worktree))
+    _git(
+        landed_lane.repo,
+        "worktree",
+        "lock",
+        "--reason",
+        "initializing",
+        str(landed_lane.worktree),
+    )
 
     preserved = prune_landed_lane(
-        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
-        run_git=_run_git, emit=lambda *_a, **_kw: None,
+        repo_root=str(landed_lane.repo),
+        branch=BRANCH,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
     )
 
     assert len(preserved) == 1

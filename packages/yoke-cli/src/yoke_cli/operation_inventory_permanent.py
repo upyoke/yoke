@@ -187,6 +187,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke vps stop", "vps", REASON_TOOL_SHAPED),
     _p("yoke resync", "resync", REASON_TOOL_SHAPED),
     _p("yoke schema converge", "schema", REASON_TOOL_SHAPED),
+    _p("yoke codex hook-trust sweep", "codex.hook_trust", REASON_TOOL_SHAPED),
     *INSTALLER_LOCAL_PERMANENT_ROWS,
     # Tool-shaped — agent executes via harness; no function id.
     _p(

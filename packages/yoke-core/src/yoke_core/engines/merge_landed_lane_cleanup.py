@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain.codex_hook_trust_store import worktree_cleanup_warning
 from yoke_core.engines.merge_worktree_safe_prune import (
     first_output_line,
     is_managed_worktree_path,
@@ -115,8 +116,7 @@ def _row_release_warning(branch: str, detail: str) -> Optional[str]:
     if any(marker in text for marker in _TERMINAL_OWNED_RELEASE):
         return None
     return (
-        f"WARNING: lane row for {branch} left active after "
-        f"worktree removal: {detail}"
+        f"WARNING: lane row for {branch} left active after worktree removal: {detail}"
     )
 
 
@@ -150,9 +150,7 @@ def release_lane_row(
         if response.success:
             return None
         detail = (
-            response.error.message
-            if response.error is not None
-            else "release refused"
+            response.error.message if response.error is not None else "release refused"
         )
     warning = _row_release_warning(branch, detail)
     if warning:
@@ -319,6 +317,8 @@ def prune_landed_lane(
                 f"{worktree_path} ({first_output_line(removed)})",
             )
         say(f"Pruned merged worktree: {worktree_path}")
+        if warning := worktree_cleanup_warning(worktree_path):
+            say(f"WARNING: {warning}", err=True)
         _remove_empty_parent(worktree_path)
 
     row_warning = release_lane_row(item_id, branch, emit=say)

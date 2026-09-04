@@ -23,36 +23,48 @@ DECLARATION = ".yoke/deployment-flows.json"
 
 #: The shapes real project checkouts carry today, plus an unparseable one.
 INERT_DECLARATIONS = {
-    "schema_2": json.dumps({
-        "schema": 2,
-        "default_flow": "acme-release",
-        "retire_if_present": ["acme-old"],
-        "flows": [{
-            "id": "acme-release",
-            "name": "Acme release",
-            "stages": [{"name": "merged", "step_runner": "auto"}],
-            "target_env": "prod",
-        }],
-    }),
-    "schema_3": json.dumps({
-        "schema": 3,
-        "flows": [{
-            "id": "acme-prod",
-            "name": "Acme prod",
-            "stages": [{"name": "merged", "step_runner": "auto"}],
-            "target_tier": "persistent",
-            "target_environment_id": 4,
-        }],
-    }),
-    "schema_4": json.dumps({
-        "schema": 4,
-        "default_flow": "acme-internal",
-        "flows": [{
-            "id": "acme-internal",
-            "name": "Acme internal",
-            "stages": [{"name": "merged", "step_runner": "auto"}],
-        }],
-    }),
+    "schema_2": json.dumps(
+        {
+            "schema": 2,
+            "default_flow": "acme-release",
+            "retire_if_present": ["acme-old"],
+            "flows": [
+                {
+                    "id": "acme-release",
+                    "name": "Acme release",
+                    "stages": [{"name": "merged", "step_runner": "auto"}],
+                    "target_env": "prod",
+                }
+            ],
+        }
+    ),
+    "schema_3": json.dumps(
+        {
+            "schema": 3,
+            "flows": [
+                {
+                    "id": "acme-prod",
+                    "name": "Acme prod",
+                    "stages": [{"name": "merged", "step_runner": "auto"}],
+                    "target_tier": "persistent",
+                    "target_environment_id": 4,
+                }
+            ],
+        }
+    ),
+    "schema_4": json.dumps(
+        {
+            "schema": 4,
+            "default_flow": "acme-internal",
+            "flows": [
+                {
+                    "id": "acme-internal",
+                    "name": "Acme internal",
+                    "stages": [{"name": "merged", "step_runner": "auto"}],
+                }
+            ],
+        }
+    ),
     "malformed": '{"schema": 3, "flows": [',
 }
 
@@ -63,22 +75,33 @@ def install_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     repo = tmp_path / "repo"
     (repo / ".yoke").mkdir(parents=True)
     monkeypatch.setattr(
-        runner.git_hooks_layer, "assert_pre_commit_runtime_available",
+        runner.git_hooks_layer,
+        "assert_pre_commit_runtime_available",
         lambda: None,
     )
     monkeypatch.setattr(
-        runner, "_resolve_bundle",
+        runner,
+        "_resolve_bundle",
         lambda *_args, **_kwargs: (make_bundle(), "test"),
     )
     monkeypatch.setattr(
-        runner, "_register_in_machine_config",
+        runner,
+        "_register_in_machine_config",
         lambda *_args, **_kwargs: False,
     )
     monkeypatch.setattr(
-        runner, "apply_bundle", lambda *_args, **_kwargs: {},
+        runner,
+        "apply_bundle",
+        lambda *_args, **_kwargs: {},
     )
     monkeypatch.setattr(
-        runner, "sync_local_snapshot_for_write",
+        runner,
+        "_mint_codex_hook_trust",
+        lambda *_args: {"changed": False},
+    )
+    monkeypatch.setattr(
+        runner,
+        "sync_local_snapshot_for_write",
         lambda **_kwargs: {"status": "skipped"},
     )
     return repo

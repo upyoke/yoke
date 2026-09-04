@@ -215,6 +215,7 @@ def test_codex_launches_run_unattended_on_both_transports(
         "--json",
         "--skip-git-repo-check",
         "--dangerously-bypass-approvals-and-sandbox",
+        "--dangerously-bypass-hook-trust",
         "--model",
         "gpt-5.6",
     ]

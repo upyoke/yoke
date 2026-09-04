@@ -328,12 +328,12 @@ Each harness's gate is declared once, in `yoke_contracts.harness_hook_approval`,
 
 | Reader | What it does with the declaration |
 |--------|-----------------------------------|
-| `yoke project install` / `yoke onboard` | Records one approval sentence per harness whose glue the run wrote or updated, under the install report's `harness_hook_trust` key, and renders it in the installer JSON and the wizard's completion screen. |
+| `yoke project install` / `yoke onboard` | Mints exact trust for the Yoke-authored Codex hooks file; records an approval sentence for each remaining operator-owned gate under `harness_hook_trust`. |
 | The Overview's harness activation module | Reports per-target hook health (green / orange / red). Orange remediation names the approval surface when approval state is readable and untrusted. |
 
 Two properties of the gate matter more than the mechanics:
 
-- **Approval is per project, not per machine.** A linked worktree lane is its own approval target, because its hook config lives at its own path.
-- **Approval is re-required whenever the glue changes.** Codex keys each `trusted_hash` to the hook file's content, so any Yoke update that rewrites hook entries silently invalidates approval that was previously granted. This is why the install teaching fires on an update exactly as it does on a fresh write, and why activation's hook health is a live sub-signal rather than a latch: a target that was green legitimately returns to orange after an update.
+- **Approval is per literal checkout path.** Install mints the main checkout's exact current Codex hashes; worktree preparation mirrors them only onto a byte-identical lane.
+- **Approval follows content.** Install replaces the main checkout's stale hashes after writing Yoke-owned glue. A change outside that boundary still invalidates the hash and legitimately returns activation to orange until the operator re-trusts it.
 
-Yoke never grants approval on the operator's behalf, and changing how a harness gates its hooks is the harness's business, not Yoke's. What Yoke owes is naming the step at the moment the glue lands, and telling the truth afterward about whether the hooks are actually firing.
+Yoke grants only the Codex hashes for the hooks file it just authored. Other harness gates and non-Yoke hook changes remain operator-owned. Doctor tells the truth afterward about the main checkout, lanes, and stale deleted-path entries.

@@ -1,4 +1,4 @@
-"""HC asserting linked worktrees are not Codex hook-dead zones.
+"""HC asserting Yoke checkouts are not Codex hook-dead zones.
 
 Codex persists hook trust against the literal path of the hooks file it
 loaded, so a linked worktree — which materializes the checkout's tracked
@@ -7,10 +7,12 @@ checkout's trust. Untrusted hooks do not run, so a Codex thread working in an
 unmirrored worktree registers no session and emits no telemetry, and the
 silence is indistinguishable from a quiet session.
 
-Worktree preparation mirrors that trust (see
+Project install mints trust for the main checkout, and worktree preparation
+mirrors that trust (see
 ``yoke_core.domain.worktree_codex_hook_trust``). This check is the backstop
-for lanes created before the mirroring step ran, whose entries were lost, or
-whose persisted hashes no longer match Codex's normalized handler identity.
+for an untrusted main checkout, lanes created before mirroring ran, persisted
+hashes that no longer match Codex's normalized identity, and trust paths left
+behind after checkout removal.
 """
 
 from __future__ import annotations
@@ -19,6 +21,14 @@ import os
 from pathlib import Path
 from typing import List
 
+from yoke_core.domain.codex_hook_trust_store import (
+    CodexHookTrustStoreError,
+    SWEEP_COMMAND,
+    hooks_file_for,
+    inspect_hook_file_trust,
+    retrust_recovery,
+    stale_trust_scan,
+)
 from yoke_core.domain.worktree_codex_hook_trust import (
     codex_config_path,
     inspect_hook_trust,
@@ -32,6 +42,25 @@ from yoke_core.engines.doctor_report import (
 
 
 _WORKTREES_DIR = ".worktrees"
+
+
+def _main_checkout(repo_root: str) -> str:
+    """Return Git's common checkout when Doctor starts in a linked lane."""
+    result = _run(
+        [
+            "git",
+            "-C",
+            repo_root,
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-common-dir",
+        ],
+        timeout=30,
+    )
+    if result.returncode != 0 or not (result.stdout or "").strip():
+        return repo_root
+    common_dir = Path(result.stdout.strip())
+    return str(common_dir.parent) if common_dir.name == ".git" else repo_root
 
 
 def _linked_worktrees(repo_root: str) -> List[str]:
@@ -56,29 +85,33 @@ def hc_worktree_hook_trust(
     args: DoctorArgs,
     rec: RecordCollector,
 ) -> None:
-    """Linked worktrees carry the checkout's Codex hook trust."""
+    """Main checkout and linked worktrees carry exact Codex hook trust."""
     name = "HC-worktree-hook-trust"
-    desc = "Linked worktrees carry the checkout's Codex hook trust"
-    repo_root = _resolve_repo_root()
-    if not repo_root:
+    desc = "Main checkout and linked worktrees carry exact Codex hook trust"
+    resolved_root = _resolve_repo_root()
+    if not resolved_root:
         rec.record(name, desc, "FAIL", "could not resolve the repo root")
         return
+    repo_root = _main_checkout(resolved_root)
 
     config = codex_config_path()
-    if not config.exists():
+    main = inspect_hook_file_trust(hooks_file_for(repo_root), config_path=config)
+    if not main.approved:
         rec.record(
             name,
             desc,
-            "PASS",
-            f"no Codex config at {config} — no hook trust to mirror",
+            "FAIL",
+            "\n".join(
+                [
+                    "Codex hooks will not fire in the main checkout:",
+                    f"  - {main.summary()}",
+                    f"Recovery: {retrust_recovery(repo_root)}",
+                ]
+            ),
         )
         return
 
     worktrees = _linked_worktrees(str(repo_root))
-    if not worktrees:
-        rec.record(name, desc, "PASS", "no linked worktrees present")
-        return
-
     dead: List[str] = []
     partial: List[str] = []
     blocked: List[str] = []
@@ -88,17 +121,6 @@ def hc_worktree_hook_trust(
         if result.stale:
             partial.append(f"{label}: {result.summary()}")
             continue
-        if not result.source_trusted:
-            # A checkout-wide condition, identical for every lane: there is
-            # no trust to mirror, so there is no checkout-vs-lane delta to
-            # report — Codex may simply be unused against this checkout.
-            rec.record(
-                name,
-                desc,
-                "PASS",
-                result.blocked_reason or "no trusted Codex hook entries to mirror",
-            )
-            return
         if result.blocked_reason:
             blocked.append(f"{label}: {result.blocked_reason}")
         elif result.dead_zone:
@@ -123,8 +145,40 @@ def hc_worktree_hook_trust(
             ),
         )
         return
-    if blocked:
-        rec.record(name, desc, "WARN", "\n".join(f"  - {row}" for row in blocked))
+    try:
+        stale = stale_trust_scan(config_path=config)
+    except CodexHookTrustStoreError as exc:
+        rec.record(
+            name,
+            desc,
+            "WARN",
+            f"Codex stale trust scan refused: {exc}. Recovery: repair "
+            f"{config}, then run `{SWEEP_COMMAND}`.",
+        )
+        return
+    stale_detail = ""
+    if stale.hook_keys or stale.project_paths:
+        stale_detail = "\n".join(
+            [
+                f"Codex trust contains {len(stale.hook_keys)} hook entries "
+                f"across {len(stale.hook_paths)} deleted hooks paths and "
+                f"{len(stale.project_paths)} deleted project entries.",
+                f"Recovery: run `{SWEEP_COMMAND}`.",
+            ]
+        )
+    if blocked or stale_detail:
+        details = [f"  - {row}" for row in blocked]
+        if stale_detail:
+            details.append(stale_detail)
+        rec.record(name, desc, "WARN", "\n".join(details))
+        return
+    if not worktrees:
+        rec.record(
+            name,
+            desc,
+            "PASS",
+            "main checkout carries exact hook trust; no linked worktrees present",
+        )
         return
     rec.record(
         name,
@@ -141,7 +195,7 @@ from yoke_project_checks._declare import (  # noqa: E402
 PROJECT_HEALTH_CHECKS = self_project_checks(
     (
         "worktree-hook-trust",
-        "Linked worktrees carry the checkout's Codex hook trust",
+        "Main checkout and linked worktrees carry exact Codex hook trust",
         hc_worktree_hook_trust,
     ),
 )

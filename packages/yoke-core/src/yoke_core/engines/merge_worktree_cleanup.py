@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_core.domain.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.worktree_import_reseat import reseat_loaded_packages
 from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
@@ -12,8 +15,6 @@ from yoke_core.engines.merge_worktree_post_helpers import (
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-from yoke_core.domain.worktree_import_reseat import reseat_loaded_packages
 
 
 def _parent():
@@ -153,7 +154,8 @@ def _post_merge_cleanup(
         # resolve against a directory that is about to stop existing, so they
         # are repointed at the surviving checkout while it is still possible.
         reseat_loaded_packages(
-            doomed_root=ctx.worktree_path, surviving_root=ctx.repo_root,
+            doomed_root=ctx.worktree_path,
+            surviving_root=ctx.repo_root,
         )
         from yoke_core.engines.merge_worktree_cleanliness import (
             clean_after_disposable_cache_removal,
@@ -177,6 +179,8 @@ def _post_merge_cleanup(
             worktree_removed = wt_remove.returncode == 0
         if worktree_removed:
             _print(f"Cleaned up worktree: {ctx.worktree_path}")
+            if warning := worktree_cleanup_warning(ctx.worktree_path):
+                _print(f"WARNING: {warning}", err=True)
             _release_lane_row(ctx)
             # Clean empty parent
             parent = str(Path(ctx.worktree_path).parent)

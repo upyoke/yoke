@@ -50,9 +50,7 @@ def _patch_post_steps():
     stack.enter_context(
         mock.patch(
             "yoke_core.engines.remote_branch_cleanup.delete_remote_branch_if_merged",
-            return_value=RemoteBranchDeleteResult(
-                "absent", "remote branch is absent"
-            ),
+            return_value=RemoteBranchDeleteResult("absent", "remote branch is absent"),
         )
     )
     return stack
@@ -76,7 +74,15 @@ def test_dirty_or_ignored_worktree_is_preserved(tmp_path):
 
 def test_clean_worktree_uses_normal_remove_before_branch_delete(tmp_path):
     ctx = _ctx(tmp_path)
-    with _patch_post_steps(), mock.patch.object(merge_worktree, "_run_git") as run_git:
+    with (
+        _patch_post_steps(),
+        mock.patch.object(merge_worktree, "_run_git") as run_git,
+        mock.patch.object(
+            merge_worktree_post_local,
+            "worktree_cleanup_warning",
+            return_value="",
+        ) as cleanup_trust,
+    ):
         run_git.side_effect = [
             mock.Mock(returncode=0, stdout=""),  # checkout target
             mock.Mock(returncode=0, stdout=""),  # local merge
@@ -86,6 +92,8 @@ def test_clean_worktree_uses_normal_remove_before_branch_delete(tmp_path):
             mock.Mock(returncode=0, stdout=""),  # branch -d
         ]
         assert merge_worktree_post_local.do_local_merge(ctx) == 0
+
+    cleanup_trust.assert_called_once_with(ctx.worktree_path)
 
     commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
     remove_index = next(
