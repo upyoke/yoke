@@ -9,6 +9,8 @@ armed pull request GitHub is provably not carrying is an ejection.
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.domain.merge_queue_observer_test_helpers import (
     GITHUB_MERGED_AT,
     INJECTED_AT,
@@ -28,6 +30,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     out_of_queue,
 )
 from runtime.api.domain.test_session_message_support import NOW
+from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
 from yoke_core.domain.merge_queue_landing_record_state import (
@@ -72,6 +75,12 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     assert "Landing stopped for ALP-1" in body
     assert "rebase the lane onto main" in body
     assert "isInMergeQueue=false" in body
+    routing_snapshot = conn.execute(
+        "SELECT routing_snapshot FROM session_message_recipients "
+        "WHERE message_id=?",
+        (message_id,),
+    ).fetchone()[0]
+    assert json.loads(str(routing_snapshot))[EXPLICIT_WAKE_ROUTING_FLAG] is True
     record = read_landing_record(conn, 101)
     assert record is not None
     assert record.state == CONFLICTED
