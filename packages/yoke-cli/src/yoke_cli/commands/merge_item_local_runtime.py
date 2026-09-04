@@ -152,14 +152,30 @@ def _confirm_selected_control_plane(authority: str) -> None:
     try:
         result = readiness.status()
         if not result.ok:
-            result = readiness.ensure_ready(force=True)
+            try:
+                result = readiness.ensure_ready(force=True)
+            except Exception as exc:  # noqa: BLE001 - narrowed dynamically
+                contention_type = getattr(readiness, "TunnelReplacementContended", ())
+                if not isinstance(exc, contention_type):
+                    raise
+                wait_limit = int(exc.timeout)
+                print(
+                    "[phase:authority] tunnel_busy "
+                    f"127.0.0.1:{exc.local_port} ({exc.holder}) "
+                    f"elapsed={wait_limit}s/limit={wait_limit}s; waiting "
+                    "through one more bounded replacement window",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                result = readiness.ensure_ready(force=True)
     except Exception as exc:  # noqa: BLE001 - every failure is the same refusal
         contention_type = getattr(readiness, "TunnelReplacementContended", ())
         if isinstance(exc, contention_type):
             raise LocalMergeControlPlaneAuthorityError(
                 f"local merge selected control plane {authority!r}, but its "
-                f"tunnel replacement is busy: {exc} Nothing has been merged; "
-                "wait for the named holder, then re-run the merge."
+                "tunnel replacement stayed busy through the automatic bounded "
+                f"wait: {exc} Nothing has been merged; keep the named holder "
+                "running and re-run this merge after it finishes."
             ) from exc
         raise LocalMergeControlPlaneAuthorityError(
             f"local merge selected control plane {authority!r}, which is not "

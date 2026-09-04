@@ -65,6 +65,12 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \
 
 Read the wrapper's `wait_mode` and reason.
 
+A `[phase:authority] tunnel_busy ... elapsed=.../limit=...` line means a
+sibling merge still owns the machine's connected-environment tunnel lifecycle
+step. Leave that holder running and keep this invocation open: the merge waits
+through one more bounded replacement window and continues when the tunnel is
+free.
+
 - `background-wake` means the caller has a verified route. The selector exits
   after printing the bound background command and subscription; run that pair
   exactly once on the long-command surface your harness rules name. A
