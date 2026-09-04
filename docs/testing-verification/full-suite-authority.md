@@ -21,6 +21,39 @@ Local verification stays change-scoped:
   yoke watch pytest --impacted main --bounded
   ```
 
+  That selection executes on CI, not on this machine. Yoke declares a
+  `ci_workflow_file` capability, so the wrapper and the generic runner
+  behind it push the lane commit, dispatch
+  `.github/workflows/yoke-tests-selection.yml` against it with the merge
+  base the change is measured against, stream the run, and adopt its
+  conclusion (0 success, 1 failure, 2 refused before dispatch, 3 timed
+  out, 4 CI unreachable or dispatch refused, 5 cancelled). The CI job
+  computes the identical selection from the same code, so its
+  `impacted-selection` telemetry line matches what this machine would
+  have printed. A remote dispatch is correlated by a request id derived
+  from the head commit and the arguments, so re-running the same
+  selection on the same commit rejoins the run already in flight rather
+  than paying for a second one.
+
+  It refuses rather than testing the wrong tree: an uncommitted tree (CI
+  tests the pushed commit), and a checkout sitting on the base branch
+  instead of a lane. It drops `-n`/`--numprocesses`/`--rootdir`, which
+  describe this machine, and names the drop.
+
+  A selection workflow only becomes dispatchable once it is on the
+  repository's default branch: GitHub registers `workflow_dispatch`
+  workflows from that branch alone, so while the file exists only on the
+  branch that adds it, the dispatch API answers 404 whatever ref is
+  requested and the wrapper reports CI as unreachable. Routing therefore
+  begins working on the merge that lands the workflow, not on the branch
+  that authors it — until then, verify with `--local`.
+
+  `--local` — or `YOKE_PYTEST_LOCAL=1` for a whole shell — runs it here
+  instead: order-sensitive `-n 0` debugging, a tree you want to try
+  before committing, an unreachable CI. Local runs take their xdist
+  workers from one machine-wide budget rather than each claiming the
+  machine (see below).
+
   Selection is reverse-import reachability, hardened two ways: dotted
   module paths appearing as string literals (subprocess `-m` targets,
   patch targets, registry keys) count as dependency edges, and a small

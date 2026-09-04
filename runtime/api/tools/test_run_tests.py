@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
-from yoke_core.tools import gate_admission, run_tests
+from yoke_core.tools import _run_tests_args, gate_admission, run_tests
 
 
 
@@ -75,7 +75,7 @@ class TestBuildPytestArgv:
 
 class TestCLIParsing:
     def test_no_args_produces_defaults(self):
-        ns = run_tests._parse_args([])
+        ns = _run_tests_args.parse_args([])
         assert ns.paths == []
         assert ns.keyword is None
         assert ns.fail_fast is False
@@ -83,11 +83,11 @@ class TestCLIParsing:
         assert ns.list_only is False
 
     def test_keyword_flag(self):
-        ns = run_tests._parse_args(["-k", "feed"])
+        ns = _run_tests_args.parse_args(["-k", "feed"])
         assert ns.keyword == "feed"
 
     def test_paths_accumulate(self):
-        ns = run_tests._parse_args(
+        ns = _run_tests_args.parse_args(
             ["runtime/api/test_items_query.py", "runtime/api/test_api.py"]
         )
         assert ns.paths == [
@@ -96,13 +96,13 @@ class TestCLIParsing:
         ]
 
     def test_fail_fast_short_and_long(self):
-        ns = run_tests._parse_args(["-x"])
+        ns = _run_tests_args.parse_args(["-x"])
         assert ns.fail_fast is True
-        ns = run_tests._parse_args(["--fail-fast"])
+        ns = _run_tests_args.parse_args(["--fail-fast"])
         assert ns.fail_fast is True
 
     def test_list_flag(self):
-        ns = run_tests._parse_args(["--list"])
+        ns = _run_tests_args.parse_args(["--list"])
         assert ns.list_only is True
 
 

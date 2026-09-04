@@ -298,8 +298,15 @@ Per-project extras, groups, and test-root trees are declared on the
 
 Off-machine CI runs the full three-anchor suite on the pull request, on
 the merge queue's merge_group ref (one gate per train's combined head),
-and on the merged `main` commit. Local verification stays change-scoped:
-impacted selection to iterate; the QA case run is the one full execution.
+and on the merged `main` commit. Verification stays change-scoped while
+implementing: impacted selection to iterate; the QA case run is the one
+full execution. For a project declaring a `ci_workflow_file` capability
+that iteration selection also runs off-machine — `yoke watch pytest` and
+the generic runner push the lane commit, dispatch the project's selection
+workflow against it with the merge base, and adopt its conclusion — so
+the workstation serves sessions while CI runs tests. `--local` (or
+`YOKE_PYTEST_LOCAL=1`) runs one here instead; a remote run refuses an
+uncommitted tree and a checkout on the base branch.
 Queue landing (`yoke merge item --wait`) returns immediately when the
 pull request's required checks have already concluded red with nothing in
 flight — that is a terminal required-check failure, not a poll-budget timeout.
@@ -325,6 +332,10 @@ machine-wide admission slot, how the orphan sweep reclaims what an
 interrupted run left, and why a run that named no cluster of its own may
 not borrow an administered one all live in
 [`testing-verification/concurrent-local-runs.md`](testing-verification/concurrent-local-runs.md).
+Local runs also share one machine-wide pytest-xdist worker budget, since the
+admission slot deliberately lets file-scoped runs past it and their sum is
+what saturates a workstation; that doc covers it too.
+
 Doctor checks every prod-flagged local-Postgres connection this machine knows
 for leftover `yoke_test_run*` databases. A finding stays manual: its report
 prints a dry-run review command and the explicit removal command for that

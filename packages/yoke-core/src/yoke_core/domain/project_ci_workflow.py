@@ -11,8 +11,8 @@ from yoke_core.domain.projects_seed_ci_workflow import (
 )
 
 
-def project_ci_workflow_file(project: str) -> str:
-    """Return the declared workflow filename, or empty when undeclared."""
+def project_ci_workflow_settings(project: str) -> dict:
+    """Return the ``ci_workflow_file`` settings document, or ``{}`` when undeclared."""
     response = call_dispatcher(
         function_id="projects.capability_settings.get",
         target=TargetRef(kind="global"),
@@ -24,7 +24,7 @@ def project_ci_workflow_file(project: str) -> str:
     if not response.success:
         code = (response.error.code if response.error else "unknown") or "unknown"
         if code == "not_found":
-            return ""
+            return {}
         message = (response.error.message if response.error else "") or "read failed"
         raise RuntimeError(f"CI workflow capability read failed ({code}): {message}")
     raw = str((response.result or {}).get("settings_json") or "{}")
@@ -34,7 +34,12 @@ def project_ci_workflow_file(project: str) -> str:
         raise RuntimeError("CI workflow capability returned invalid JSON") from exc
     if not isinstance(settings, dict):
         raise RuntimeError("CI workflow capability must be a JSON object")
-    return str(settings.get("workflow_file") or "").strip()
+    return settings
 
 
-__all__ = ["project_ci_workflow_file"]
+def project_ci_workflow_file(project: str) -> str:
+    """Return the declared workflow filename, or empty when undeclared."""
+    return str(project_ci_workflow_settings(project).get("workflow_file") or "").strip()
+
+
+__all__ = ["project_ci_workflow_file", "project_ci_workflow_settings"]

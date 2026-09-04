@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.tools import impacted_tests, watch_pytest
+from yoke_core.tools import _impacted_unbounded_paths, impacted_tests, watch_pytest
 from yoke_core.tools._impacted_contract_tests import (
     DIRECT_WORKFLOW_PREPARE_TESTS,
     DONE_TRANSITION_CLOSE_OUT_TESTS,
@@ -298,7 +298,7 @@ def test_watcher_footer_reports_collected_items_and_denominator() -> None:
 def test_fallback_rules_covers_every_rule_the_selector_can_emit() -> None:
     # The identifiers are the grouping key for captured telemetry, so the
     # published set and the rule table must not drift apart.
-    from_table = {rule for rule, _paths, _why in impacted_tests._PATH_RULES}
+    from_table = {rule for rule, _paths, _why in _impacted_unbounded_paths.PATH_RULES}
     assert from_table <= set(impacted_tests.FALLBACK_RULES)
     assert len(impacted_tests.FALLBACK_RULES) == len(set(impacted_tests.FALLBACK_RULES))
 

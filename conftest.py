@@ -86,6 +86,23 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _keep_pytest_runs_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the test wrappers to this machine for the whole suite.
+
+    ``watch_pytest`` and ``run_tests`` execute on the project's CI by
+    default, which starts by pushing the tree they are invoked in. A test
+    that calls either entry point in-process is standing in a real
+    checkout, so without this pin it would publish that checkout and
+    dispatch a workflow. It belongs at the root rather than under one
+    anchor: the hazard is a property of the entry points, not of where a
+    test happens to live. Tests of the routing itself delete the variable.
+    """
+    from yoke_core.tools.pytest_remote_selection import LOCAL_ENV
+
+    monkeypatch.setenv(LOCAL_ENV, "1")
+
+
+@pytest.fixture(autouse=True)
 def _forbid_real_browser_launches(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

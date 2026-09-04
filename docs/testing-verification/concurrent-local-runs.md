@@ -65,3 +65,24 @@ that, which is what the orphan sweep backstops.
 cluster. That is an escape hatch for a wedged shared cluster, not the normal
 isolation mechanism — a full `initdb` per run would slow ordinary iteration
 without adding safety the run tag does not already provide.
+
+## The worker budget
+
+The admission slot serialises directory sweeps, but a file-scoped run passes
+it on purpose, and the sum of those is what saturates a workstation: six
+lanes each running a file-scoped impacted selection at `-n 4`, plus the
+`yoke` interpreters their tests shell out to, put 91 Python processes and a
+load of 48 on an 18-core machine. No single run was heavy.
+
+So whichever entry point starts a local run, it takes its worker count from
+one machine-wide budget — by default one worker per core, overridden by
+`YOKE_PYTEST_WORKER_BUDGET` or the machine-config `pytest_worker_budget` key.
+A run takes what is free up to what it asked for and runs with that many
+workers; when nothing is free it waits, naming who holds the budget; when the
+one-minute load already exceeds the core count it asks for half. A pytest a
+test itself spawns rides its ancestor's grant rather than queueing behind it.
+
+The budget is arbitrated the way the admission slot is — session-scoped
+advisory locks on the shared test cluster, one per worker — so a crashed
+run's workers return with its connection, and it fails open when no cluster
+is reachable. It is a throughput guard, not a correctness gate.

@@ -18,22 +18,25 @@ Usage::
     python3 -m yoke_core.tools.run_tests --quiet              # minimal output
     python3 -m yoke_core.tools.run_tests --list               # collect-only, list nodes
     python3 -m yoke_core.tools.run_tests --no-parallel        # serial mode (debug order)
+    python3 -m yoke_core.tools.run_tests --local <paths>      # this machine, not CI
 
-Parallel-by-default: ``-n auto`` (pytest-xdist) is injected unless the
-caller passes ``--no-parallel`` or supplies its own ``-n``/
-``--numprocesses`` after ``--``.
+For a project that declares its CI workflow the run executes on CI by
+default (see :mod:`yoke_core.tools.pytest_remote_selection`); ``--local``
+runs it here under the machine-wide worker budget. Parallel-by-default:
+``-n auto`` (pytest-xdist) is injected unless the caller passes
+``--no-parallel`` or supplies its own ``-n``/``--numprocesses`` after ``--``.
 
 The runner refuses to execute outside the calling session's claim-bound
 worktree (see :mod:`yoke_core.domain.verification_tree_binding`), because
 a run rooted in the wrong tree reports a green for code nobody changed.
 Pass ``--allow-tree-mismatch`` for a deliberate cross-tree run.
 
-Return codes match pytest (0 = all pass, nonzero = failures/errors).
+Return codes match pytest (0 = all pass, nonzero = failures/errors); a
+remote run's mirrors the CI conclusion.
 """
 
 from __future__ import annotations
 
-import argparse
 import sys
 from pathlib import Path
 from typing import List, Sequence, TextIO
@@ -47,15 +50,17 @@ from yoke_core.tools._pytest_parallel import (
     apply_postgres_xdist_auto_env,
     isolate_from_administering_machine_config,
 )
-from yoke_core.tools import _source_pythonpath
+from yoke_core.tools import _source_pythonpath, pytest_remote_selection
+from yoke_core.tools._run_tests_args import (
+    DEFAULT_TESTPATHS,
+    parse_args,
+    split_passthrough,
+)
 from yoke_core.tools.impacted_project_test_roots import (
     UNSUPPORTED_PROJECT_TEST_ROOTS,
     default_testpaths,
 )
 from yoke_core.tools.watch_pytest_project_python import pytest_argv
-
-
-DEFAULT_TESTPATHS: tuple[str, ...] = ("runtime/api", "runtime/harness", "tests")
 
 #: Surface name carried by this runner's tree-binding refusal.
 _TREE_BINDING_SURFACE = "run_tests"
@@ -160,6 +165,23 @@ def _prepare_yoke_backend_env(root: Path, stderr: TextIO = sys.stderr) -> bool:
         return False
 
 
+def _run_remote(route: pytest_remote_selection.RemoteRoute) -> int:
+    """Execute the selection on CI in-process and mirror its conclusion."""
+    from yoke_core.tools.pytest_remote_selection_run import run as remote_run
+
+    return remote_run(
+        root=route.root,
+        project=route.project,
+        workflow=route.workflow,
+        repo=route.repo,
+        branch=route.branch,
+        head_sha=route.head_sha,
+        base_sha=route.base_sha,
+        pytest_args=route.pytest_args,
+        dispatch_id=route.dispatch_id,
+    )
+
+
 def run(
     paths: Sequence[str] | None = None,
     *,
@@ -171,6 +193,7 @@ def run(
     extra: Sequence[str] = (),
     repo_root: Path | None = None,
     allow_tree_mismatch: bool = False,
+    local: bool = False,
 ) -> int:
     """Invoke pytest with the computed argv.
 
@@ -200,10 +223,6 @@ def run(
             print(f"run_tests {UNSUPPORTED_PROJECT_TEST_ROOTS}", file=sys.stderr)
             return 1
 
-    if _is_yoke_backend_verification(root, requested):
-        if not _prepare_yoke_backend_env(root):
-            return 1
-
     argv = build_pytest_argv(
         requested,
         keyword=keyword,
@@ -213,7 +232,20 @@ def run(
         no_parallel=no_parallel,
         extra=extra,
     )
-    cmd = pytest_argv(argv, cwd=root)
+    # Collection alone is cheap on every axis and stays on this machine.
+    route = pytest_remote_selection.resolve_route(
+        root, pytest_args=argv, impacted_base=None, local=local or list_only,
+    )
+    if isinstance(route, pytest_remote_selection.Refusal):
+        print(route.message, file=sys.stderr)
+        return route.exit_code
+    if isinstance(route, pytest_remote_selection.RemoteRoute):
+        return _run_remote(route)
+
+    if _is_yoke_backend_verification(root, requested):
+        if not _prepare_yoke_backend_env(root):
+            return 1
+
     env = isolate_from_administering_machine_config(
         schema_authority.environment_without_administering_selection()
     )
@@ -231,21 +263,31 @@ def run(
 
     import contextlib
 
-    from yoke_core.tools import gate_admission
+    from yoke_core.tools import gate_admission, pytest_worker_budget
 
-    # Collection-only runs are cheap on every axis and never take a slot.
+    # Collection-only runs are cheap on every axis and never take a slot
+    # or a worker.
     admission = (
         contextlib.nullcontext()
         if list_only
         else gate_admission.admitted_gate(list(paths or ()))
     )
-    with admission:
+    budget = (
+        contextlib.nullcontext(pytest_worker_budget.Grant(None, 1))
+        if list_only
+        else pytest_worker_budget.granted_workers(argv, env)
+    )
+    with admission, budget as grant:
+        argv = grant.apply(argv)
+        cmd = pytest_argv(argv, cwd=root)
         # Own the process group so an interrupted run takes its xdist workers
         # down with it. Workers that outlive the runner keep their test
         # databases open, and the next run then blocks on databases nobody is
         # using.
         proc = process_group_reaping.popen_in_process_group(
-            cmd, cwd=str(root), env=gate_admission.admitted_environment(env)
+            cmd,
+            cwd=str(root),
+            env=grant.environment(gate_admission.admitted_environment(env)),
         )
         try:
             with process_group_reaping.interruption_reaps_process_group(proc):
@@ -254,84 +296,10 @@ def run(
             return _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
 
 
-def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog="yoke-run-tests",
-        description="Run Yoke's Python test suite.",
-    )
-    parser.add_argument(
-        "paths",
-        nargs="*",
-        help=(
-            "Optional test paths (defaults to "
-            f"{' '.join(DEFAULT_TESTPATHS)})."
-        ),
-    )
-    parser.add_argument(
-        "-k",
-        "--keyword",
-        default=None,
-        help="pytest -k expression to filter tests by substring/keyword.",
-    )
-    parser.add_argument(
-        "--fail-fast",
-        "-x",
-        action="store_true",
-        help="Stop at first failing test (pytest -x).",
-    )
-    parser.add_argument(
-        "--quiet",
-        "-q",
-        action="store_true",
-        help="Minimal output (pytest -q).",
-    )
-    parser.add_argument(
-        "--list",
-        dest="list_only",
-        action="store_true",
-        help="Collect and list test node IDs without running (pytest --collect-only).",
-    )
-    parser.add_argument(
-        "--no-parallel",
-        dest="no_parallel",
-        action="store_true",
-        help=(
-            "Disable pytest-xdist parallel execution (default is "
-            "``-n auto``). Use to debug order-sensitive failures."
-        ),
-    )
-    parser.add_argument(
-        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
-        dest="allow_tree_mismatch",
-        action="store_true",
-        help=(
-            "Run even when the resolved repo root is outside the session's "
-            "claimed worktree. For a deliberate cross-tree run; the runner "
-            "names both trees so the result is attributable."
-        ),
-    )
-    parser.add_argument(
-        "--",
-        dest="passthrough_separator",
-        nargs=argparse.REMAINDER,
-        help=argparse.SUPPRESS,
-    )
-    return parser.parse_args(list(argv))
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point."""
-    raw = list(sys.argv[1:] if argv is None else argv)
-
-    # argparse's REMAINDER with -- is fiddly; do a manual split so anything
-    # after ``--`` is passed verbatim to pytest.
-    passthrough: List[str] = []
-    if "--" in raw:
-        idx = raw.index("--")
-        passthrough = raw[idx + 1 :]
-        raw = raw[:idx]
-
-    ns = _parse_args(raw)
+    raw, passthrough = split_passthrough(sys.argv[1:] if argv is None else argv)
+    ns = parse_args(raw)
     return run(
         ns.paths,
         keyword=ns.keyword,
@@ -341,7 +309,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         no_parallel=ns.no_parallel,
         extra=passthrough,
         allow_tree_mismatch=ns.allow_tree_mismatch,
+        local=ns.local,
     )
+
+
+__all__ = ["DEFAULT_TESTPATHS", "build_pytest_argv", "main", "run"]
 
 
 if __name__ == "__main__":  # pragma: no cover — exercised via subprocess
