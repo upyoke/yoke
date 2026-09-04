@@ -11,6 +11,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_activity_state import (
     native_thread_id_column_present,
+    open_tool_call_select,
     session_mode_column_present,
 )
 from yoke_core.domain.session_message_authorization import project_policy
@@ -30,6 +31,7 @@ from yoke_core.domain.session_message_starvation import (
     STARVED_HOOK_ROUTE,
     parked_without_idle_wake,
     starved_hook_route,
+    turn_in_flight,
 )
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
@@ -153,11 +155,13 @@ def wake_eligible_recipients(
         # A fixture composed by hand carries no declared posture, so no
         # recipient there reads as parked and the parked absence self-skips.
         mode_select = ",hs.mode" if session_mode_column_present(conn) else ""
+        open_call_select = open_tool_call_select(conn, session_alias="hs")
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
-            f"hs.turn_posture_at{thread_select}{mode_select} "
+            f"hs.turn_posture_at{thread_select}{mode_select}"
+            f"{open_call_select} "
             "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
@@ -213,6 +217,12 @@ def wake_eligible_recipients(
             )
             escalation = ""
             if not explicit_wake and liveness == "active":
+                # A tool call that has started and not returned runs no hook
+                # until it does, so a session inside a long one is silent
+                # and working at the same time. Its hook is coming; a
+                # resume would be a second turn on the same conversation.
+                if turn_in_flight(row) is not None:
+                    continue
                 # An active session is served by its own hooks — unless the
                 # envelope proves that route stopped running, or the session
                 # declared a wait its harness has no way to end, in which

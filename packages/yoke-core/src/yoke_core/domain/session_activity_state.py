@@ -70,6 +70,39 @@ def has_session_tool_calls_table(conn: Any) -> bool:
     return bool(_columns(conn, "session_tool_calls"))
 
 
+#: Column alias every reader of the open-call fact uses, so the predicate
+#: that interprets it does not have to know which query produced it.
+OPEN_TOOL_CALL_COLUMN = "open_tool_call_since"
+
+
+def open_tool_call_select(conn: Any, *, session_alias: str) -> str:
+    """A select expression for when a session's running tool call started.
+
+    ``NULL`` unless the session's *latest* call is still open. Only the
+    latest counts: an older open row belongs to a call whose completion
+    was never recorded, which says nothing about whether the session is
+    executing right now, while the newest one is the session's current
+    stride. Callers use it to tell a silent session from a working one —
+    no hook runs inside a tool call, so a long call and a stopped route
+    are indistinguishable without this.
+
+    The expression is prefixed with a comma for splicing into a select
+    list, and degrades to a constant absence on a fixture with no
+    ``session_tool_calls`` table, matching this module's schema-tolerance
+    contract.
+    """
+    if not has_session_tool_calls_table(conn):
+        return f",NULL AS {OPEN_TOOL_CALL_COLUMN}"
+    return (
+        ",(SELECT tc.started_at FROM session_tool_calls tc "
+        f"WHERE tc.session_id={session_alias}.session_id "
+        "AND tc.completed_at IS NULL "
+        "AND tc.id=(SELECT MAX(tc2.id) FROM session_tool_calls tc2 "
+        f"WHERE tc2.session_id={session_alias}.session_id)) "
+        f"AS {OPEN_TOOL_CALL_COLUMN}"
+    )
+
+
 def session_activity_columns_present(conn: Any) -> bool:
     return "last_tool_call_at" in _columns(conn, "harness_sessions")
 

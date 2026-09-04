@@ -87,6 +87,10 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     suspected_orphaned_waiters,
     unregistered_launches,
 )
+from yoke_core.domain.steering_fleet_report_vendor_errors import (
+    VendorErrorSession,
+    vendor_error_sessions,
+)
 from yoke_core.domain.steering_message_recipients import awaiting_seat_count
 from yoke_core.domain.steering_fleet_report_scope import (
     members_only,
@@ -129,6 +133,9 @@ class FleetReport:
     #: Every connected machine's lanes against its cap, full ones included.
     machine_capacity: tuple[MachineCapacity, ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
+    #: Live sessions whose last turn the model provider ended. Every other
+    #: detector reads one of these as a worker quietly thinking.
+    vendor_errors: tuple[VendorErrorSession, ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.
     #: Unowned work used to be invisible precisely here: a report addressed
     #: to a seat that has ended is not anyone's inbox item until a seat
@@ -143,18 +150,40 @@ class FleetReport:
             if entry.waiting_seconds(self.composed_at) >= self.staffing_after_seconds
         )
 
+    def starved_needing_action(self) -> tuple[StarvedDelivery, ...]:
+        """Starved deliveries the seat can actually do something about.
+
+        A recipient inside an unreturned tool call is reported so the seat
+        can see why its envelope is waiting, but it is not work: the call's
+        own completion hook will deliver it, and resuming that session
+        would start a second turn on the same conversation. Counting it as
+        actionable would raise the alarm for the whole length of every long
+        call, which is how a real finding gets lost.
+        """
+        return tuple(entry for entry in self.starved if not entry.turn_in_flight_since)
+
+    def vendor_errors_needing_action(self) -> tuple[VendorErrorSession, ...]:
+        """Vendor-stopped sessions no further relay poll will pick up.
+
+        A session inside its resume backoff is being handled and reads as
+        context; one whose budget is spent, or whose failure no retry can
+        move, has nobody coming for it and is the seat's.
+        """
+        return tuple(entry for entry in self.vendor_errors if entry.seat_owed)
+
     @property
     def actionable(self) -> bool:
         """True when something in this report needs the steerer to act."""
         return bool(
             self.waited_too_long()
             or self.idle
-            or self.starved
+            or self.starved_needing_action()
             or self.unregistered_launches
             or self.abandoned_launches
             or self.landed_open
             or self.suspected_orphaned_waiters
             or self.dead_waits
+            or self.vendor_errors_needing_action()
             or self.messages_awaiting_seat
         )
 
@@ -218,6 +247,7 @@ def compose_report(
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
+        vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
@@ -236,6 +266,7 @@ __all__ = [
     "FleetReport",
     "FrontierEntry",
     "SurfaceReadiness",
+    "VendorErrorSession",
     "claim_holders",
     "compose_report",
     "launchable_surfaces",

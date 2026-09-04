@@ -5,11 +5,18 @@ recorded skip but not the native's own turn record, which lives on this
 machine. This is the other half: read each named session's record through
 its surface's reader and report the ones whose turn is already over.
 
-The surface branch is deliberately one lookup wide. Codex is the only
-surface with an observed turn ending that fires no hook, so only Codex has
-a reader here; a target naming any other surface is left unread rather than
-guessed at, because a machine that quietly returns nothing is
-indistinguishable from one whose read found nothing.
+Which surfaces have a record is not decided here. Each harness family
+declares it in ``yoke_contracts.harness_turn_record_capability``, and the
+reader table below is derived from that declaration — so the contract, the
+rendered manifest, the control plane's probe set, and this table can never
+disagree about which surfaces are readable. Codex is currently the only
+family that declares one; Claude and Cursor declare, with their evidence,
+that their turn end fires its hook and so needs no record.
+
+A family that declares a record but binds no reader here fails at import
+rather than at the poll: the two halves ship together or the machine says
+so, because a relay that quietly reads nothing is indistinguishable from
+one whose read found nothing.
 """
 
 from __future__ import annotations
@@ -18,6 +25,9 @@ import logging
 from typing import Any, Callable, Iterable, Mapping
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.harness_turn_record_capability import (
+    HARNESS_TURN_RECORD_CAPABILITIES,
+)
 from yoke_contracts.session_control.function_ids import RELAY_TURN_END_FUNCTION_ID
 from yoke_contracts.session_control.native_turn_end import RelayTurnEndProbe
 from yoke_harness.session_relay_codex_turn_record import (
@@ -29,10 +39,37 @@ from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECO
 
 _LOGGER = logging.getLogger(__name__)
 
-#: One reader per surface whose native ends a turn with no hook to say so.
-TURN_RECORD_READERS: dict[str, Callable[[str], ObservedTurnEnd | None]] = {
-    "codex-cli": error_terminal_turn,
+TurnRecordReader = Callable[[str], ObservedTurnEnd | None]
+
+#: The reader implementation for each harness family that declares a record.
+#: Keyed by harness family rather than by surface, because the surface the
+#: reader is verified against is the capability's fact to state.
+_READERS_BY_HARNESS: dict[str, TurnRecordReader] = {
+    "codex": error_terminal_turn,
 }
+
+
+def _readers_by_surface() -> dict[str, TurnRecordReader]:
+    """Bind each declared-readable surface to its reader, or refuse to load."""
+    readers: dict[str, TurnRecordReader] = {}
+    for harness_id, capability in HARNESS_TURN_RECORD_CAPABILITIES.items():
+        if capability.turn_record != "readable":
+            continue
+        reader = _READERS_BY_HARNESS.get(harness_id)
+        if reader is None:
+            raise RuntimeError(
+                f"harness {harness_id!r} declares turn_record='readable' in "
+                "yoke_contracts.harness_turn_record_capability but this "
+                "module binds no reader for it. Add the reader to "
+                "_READERS_BY_HARNESS, or change the capability to 'none' "
+                "with the evidence for why no reader is needed."
+            )
+        readers[capability.verified_on_surface] = reader
+    return readers
+
+
+#: One reader per surface whose native ends a turn with no hook to say so.
+TURN_RECORD_READERS: dict[str, TurnRecordReader] = _readers_by_surface()
 
 
 def observed_turn_ends(

@@ -20,11 +20,28 @@ posture the missing hook would have stamped. Nothing downstream changes:
 
 Only the machine that ran the native can read that record, so this module
 owns the two halves the control plane holds. :func:`probe_targets` names
-the sessions whose wake is demonstrably stuck — read from the recorded
-skip, so the probe only ever runs in a path that has already failed, never
-against a healthy session. :func:`apply_native_turn_ends` applies what the
-machine read back, on the machine's authority over its own sessions and
-nobody else's.
+the sessions worth reading back, and :func:`apply_native_turn_ends`
+applies what the machine read, on the machine's authority over its own
+sessions and nobody else's.
+
+Waiting for a message to prove the session is stuck is too late. That was
+the original trigger — a wake attempt already recorded
+``skipped_operation`` — and it only fires once somebody sends the session
+something. On 2026-09-03 five workers' turns died on an upstream 404
+within eleven minutes and nothing was pending for any of them, so the
+control plane learned nothing until a person sent each one a message
+twenty minutes later. A worker holding a work item is the case where
+silence costs the most and where an observation is worth making
+unprompted, so a live claim holder on a surface that keeps a record is
+read back on the ordinary poll, alongside the sessions whose wake has
+already failed.
+
+The set stays small and self-limiting: only claim holders, only surfaces
+that declare a readable record, only sessions whose posture is not already
+the observed-turn-end posture — so a session drops out of the set the
+moment its end is recorded, and one error-terminal turn is observed
+exactly once. :data:`MAX_PROBE_TARGETS` bounds what any single poll asks
+one machine to read.
 """
 
 from __future__ import annotations
@@ -64,6 +81,37 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+#: The part of the session test both probe sets share: this machine's own
+#: live sessions, on a surface that declares a readable record, whose end
+#: has not already been observed.
+_READABLE_LIVE_SESSION = (
+    "hs.ended_at IS NULL AND hs.terminated_at IS NULL "
+    "AND hs.turn_posture<>{marker} "
+    "AND hs.machine_id={marker} "
+    "AND hs.executor_surface IN ({surfaces}) "
+    "AND hs.project_id IN ({projects})"
+)
+
+
+def _live_session_clause(marker: str, *, projects: Sequence[int]) -> str:
+    return _READABLE_LIVE_SESSION.format(
+        marker=marker,
+        surfaces=",".join(marker for _ in NATIVE_TURN_RECORD_SURFACES),
+        projects=",".join(marker for _ in projects),
+    )
+
+
+def _live_session_params(
+    machine_id: str, *, projects: Sequence[int]
+) -> tuple[Any, ...]:
+    return (
+        NATIVE_TURN_END_POSTURE,
+        machine_id,
+        *NATIVE_TURN_RECORD_SURFACES,
+        *projects,
+    )
+
+
 def probe_targets(
     conn: Any,
     *,
@@ -71,22 +119,38 @@ def probe_targets(
     authorized_projects: Iterable[int],
     now: datetime | None = None,
 ) -> List[Dict[str, str]]:
-    """Name this machine's sessions whose wake is stuck on a stale posture.
+    """Name this machine's sessions worth reading a turn record back for.
 
-    The recorded skip is the trigger and the whole gate: a session appears
-    here only once an envelope for it has already waited out its grace,
-    been considered for a wake, and been refused for want of a supported
-    operation. A healthy session never has such a row, so it is never read
-    back — there is no sweep, no schedule, and no cost until something has
-    already failed.
+    Two sets, unioned. The first is every session holding an unreleased
+    work claim: a worker whose turn died silently is holding an item
+    nobody else can take, and nothing else will reveal that until someone
+    tries to talk to it. The second is every session whose wake has
+    already been refused for want of a supported operation — the shape
+    that first exposed this, kept because it catches a stuck session that
+    holds no claim.
+
+    Both sets are narrowed by the same three facts: the session is this
+    machine's and still live, its surface declares a readable record, and
+    its posture is not already the observed-turn-end one. That last
+    condition is what makes repeated polling cheap and idempotent — a
+    session leaves the set as soon as its end is recorded.
     """
     projects = tuple(sorted({int(value) for value in authorized_projects}))
     if not projects or not machine_id:
         return []
     marker = _p(conn)
-    project_slots = ",".join(marker for _ in projects)
-    surface_slots = ",".join(marker for _ in NATIVE_TURN_RECORD_SURFACES)
-    rows = conn.execute(
+    live = _live_session_clause(marker, projects=projects)
+    live_params = _live_session_params(machine_id, projects=projects)
+    claim_holders = conn.execute(
+        "SELECT DISTINCT hs.session_id,hs.executor_surface "
+        "FROM harness_sessions hs "
+        "JOIN work_claims wc ON wc.session_id=hs.session_id "
+        "AND wc.released_at IS NULL "
+        f"WHERE {live} "
+        "ORDER BY hs.session_id",
+        live_params,
+    ).fetchall()
+    refused_wakes = conn.execute(
         "SELECT DISTINCT hs.session_id,hs.executor_surface "
         "FROM harness_sessions hs "
         "JOIN session_message_recipients r ON r.session_id=hs.session_id "
@@ -96,26 +160,22 @@ def probe_targets(
         "JOIN session_message_attempts a ON a.target_session_id=hs.session_id "
         "AND a.message_id=r.message_id AND a.attempt_kind='wake_relay' "
         "AND a.result_code='skipped_operation' "
-        f"WHERE hs.machine_id={marker} AND hs.ended_at IS NULL "
-        f"AND hs.terminated_at IS NULL AND hs.turn_posture<>{marker} "
-        f"AND hs.executor_surface IN ({surface_slots}) "
-        f"AND hs.project_id IN ({project_slots}) "
+        f"WHERE {live} "
         "ORDER BY hs.session_id",
-        (
-            timestamp(now or utc_now()),
-            machine_id,
-            NATIVE_TURN_END_POSTURE,
-            *NATIVE_TURN_RECORD_SURFACES,
-            *projects,
-        ),
+        (timestamp(now or utc_now()), *live_params),
     ).fetchall()
-    return [
-        {
-            "session_id": str(entry["session_id"]),
-            "executor_surface": str(entry["executor_surface"]),
-        }
-        for entry in (row_dict(raw) for raw in rows)
-    ][:MAX_PROBE_TARGETS]
+    targets: Dict[str, Dict[str, str]] = {}
+    for raw in list(claim_holders) + list(refused_wakes):
+        entry = row_dict(raw)
+        session_id = str(entry["session_id"])
+        targets.setdefault(
+            session_id,
+            {
+                "session_id": session_id,
+                "executor_surface": str(entry["executor_surface"]),
+            },
+        )
+    return [targets[key] for key in sorted(targets)][:MAX_PROBE_TARGETS]
 
 
 def _session_row(conn: Any, session_id: str) -> Dict[str, Any] | None:

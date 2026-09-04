@@ -41,6 +41,10 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
             (holder.session_id, holder.item_id)
             for holder in report.suspected_orphaned_waiters
         ),
+        "vendor_errors": sorted(
+            (entry.session_id, entry.status, entry.attempts)
+            for entry in report.vendor_errors
+        ),
         "in_flight": sorted((c.session_id, c.command) for c in report.in_flight),
         "dead_waits": sorted(
             (entry.session_id, entry.answerer_session_id, entry.reason)

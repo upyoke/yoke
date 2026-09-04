@@ -104,6 +104,13 @@
     "verified_on_surface": "claude-cli",
     "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on."
   },
+  "turn_record": {
+    "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
+    "turn_record": "none",
+    "turn_record_mechanism": "",
+    "verified_on_surface": "claude-cli",
+    "evidence": "No reader is needed and none is built. Claude fires its turn-end hook on every ending observed so far, including failures, so posture is stamped by the hook runner and no wake is left resolving an unsupported operation. A record would be read to answer a question the hook has already answered. Designed deferral: if a Claude ending is ever observed that fires no hook, this entry becomes the gap to close."
+  },
   "worktree_hook_enablement": {
     "config_path": ".claude/settings.json",
     "operations": [

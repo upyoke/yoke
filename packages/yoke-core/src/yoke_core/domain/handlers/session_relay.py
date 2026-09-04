@@ -49,6 +49,30 @@ def _sweep_quiet_claim_holders(conn, *, machine_id: str, projects) -> None:
         )
 
 
+def _resume_vendor_error_sessions(conn, *, machine_id: str, projects, actor_id: int):
+    """Resume this machine's sessions whose backoff since a vendor error is up.
+
+    The poll is the only thing this machine does on a schedule, and the
+    first attempt is deliberately a minute late, so this cannot be a
+    one-shot at observation time — it has to be re-derived every poll from
+    the durable rows. Best-effort like the sweeps above: a refused or
+    failing resume must not cost the relay the job this poll came for.
+    """
+    from yoke_core.domain.session_vendor_error_resume import (
+        resume_vendor_error_sessions,
+    )
+
+    try:
+        resume_vendor_error_sessions(
+            conn,
+            machine_id=machine_id,
+            authorized_projects=projects,
+            actor_id=actor_id,
+        )
+    except Exception:
+        _LOGGER.debug("vendor-error resume sweep skipped", exc_info=True)
+
+
 def _stuck_native_turn_probes(conn, *, machine_id: str, projects) -> list:
     """Name the sessions this machine should read a turn record back for.
 
@@ -150,6 +174,12 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 machine_id=payload.machine_id,
                 projects=payload.projects,
+            )
+            _resume_vendor_error_sessions(
+                conn,
+                machine_id=payload.machine_id,
+                projects=payload.projects,
+                actor_id=actor_id,
             )
             outcome = claim_relay_job(
                 conn,

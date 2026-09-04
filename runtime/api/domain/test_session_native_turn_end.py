@@ -72,6 +72,15 @@ def _targets(conn, *, machine_id: str = MACHINE_ID, projects=(1,)):
     )
 
 
+def _release_claims(conn, session_id: str = "s2") -> None:
+    """Drop the fixture's work claim so only the refused-wake set can match."""
+    conn.execute(
+        "UPDATE work_claims SET released_at=? WHERE session_id=?",
+        (NOW_TEXT, session_id),
+    )
+    conn.commit()
+
+
 def _stuck(conn) -> list[dict[str, str]]:
     """Send, let the wake sweep refuse it, and return the probe targets."""
     _send(conn)
@@ -103,12 +112,19 @@ def _posture(conn, session_id: str = "s2") -> str:
 
 def test_a_refused_wake_names_its_session_for_a_turn_record_read():
     conn = _codex_connection()
+    _release_claims(conn)
     assert _stuck(conn) == [{"session_id": "s2", "executor_surface": "codex-cli"}]
 
 
-def test_a_session_with_no_refused_wake_is_never_read_back():
+def test_a_live_claim_holder_is_read_back_with_nothing_pending():
+    """The case that cost twenty minutes: no envelope, so no refused wake."""
     conn = _codex_connection()
-    _send(conn)
+    assert _targets(conn) == [{"session_id": "s2", "executor_surface": "codex-cli"}]
+
+
+def test_a_session_holding_nothing_and_owed_no_wake_is_never_read_back():
+    conn = _codex_connection()
+    _release_claims(conn)
     assert _targets(conn) == []
 
 

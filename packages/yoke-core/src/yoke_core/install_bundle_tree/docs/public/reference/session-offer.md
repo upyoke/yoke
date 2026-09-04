@@ -249,6 +249,7 @@ and resume correlation without retroactive schema changes to the offer envelope.
  sessions may share an executor identity but will have distinct `session_id` values.
 - **`actor_id`** -- the actor the session acts for, stored in `harness_sessions.actor_id` and never NULL. A session a person opened binds that person; a session another session LAUNCHED binds the launching actor transitively, so a worker carries the authority of whoever started the chain rather than of the machine running it (`docs/archive/decisions/session-actor-follows-the-person.md`).
 - **`execution_lane`** -- execution lane identity. Yoke core resolves the default lane per executor from config, then applies the matching `lane_paths_<lane>` policy before routing.
+- **`executor_version`** -- the client build this session is running, and the one identity field that is *not* stable for the session lifetime. A client can be replaced under a running fleet — an auto-updating desktop app did exactly that mid-incident, which is what ended a provider outage that had stopped five workers — so a native resume records the version the machine reports having at that moment rather than the one the session started with, and corrects this column when the two differ. Read it as "what is running now", never as "what this session was launched with".
 
 ### Codex runtime correlation
 
