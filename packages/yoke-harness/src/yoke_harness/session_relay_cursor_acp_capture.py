@@ -122,7 +122,11 @@ def turn_record(
         reference = diagnostic_reference(launch_id)
         cleanup_native_diagnostics(state_dir)
         return AcpTurnRecord(native_diagnostic_path(reference, state_dir=state_dir))
-    except NativeDiagnosticError as exc:
+    except RuntimeError as exc:
+        # Where the capture lives resolves through this machine's relay
+        # instance, which an unconfigured machine or a test process cannot
+        # answer. Every one of those refusals is a RuntimeError, and none of
+        # them is a reason to fail the turn the capture merely describes.
         _LOGGER.warning("cursor ACP capture could not be opened: %s", exc)
         return AcpTurnRecord()
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_harness import session_relay_cursor_acp_capture as capture_module
 from yoke_harness.session_relay_cursor_acp_capture import turn_record
 from yoke_harness.session_relay_native_capture_format import parse_capture
 from yoke_harness.session_relay_native_diagnostics import native_diagnostic_path
@@ -59,3 +60,20 @@ def test_a_turn_with_no_launch_to_name_writes_nothing(tmp_path: Path) -> None:
 
     assert turn.capture is None
     assert not (tmp_path / "native-diagnostics").exists()
+
+
+def test_a_machine_that_cannot_name_a_capture_still_runs_the_turn(
+    monkeypatch, tmp_path: Path
+) -> None:
+    def unconfigured(*_args, **_kwargs):
+        raise RuntimeError("active env is not configured; run `yoke env use <env>`")
+
+    monkeypatch.setattr(capture_module, "cleanup_native_diagnostics", unconfigured)
+
+    turn = capture_module.turn_record(LAUNCH_ID, state_dir=tmp_path)
+    turn.failed(RuntimeError("ACP exited"))
+    turn.record_exit(b"", 1)
+
+    # The capture is what degrades; the turn it describes still runs.
+    assert turn.capture is None
+    assert "ACP exited" in turn.outcome
