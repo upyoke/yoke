@@ -35,7 +35,7 @@ def test_cli_create_starts_the_bootstrap_on_a_conversation_it_minted(
     tmp_path: Path,
 ) -> None:
     spawns = []
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "parent-session")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-session")
     monkeypatch.setenv("YOKE_EXECUTOR", "claude-code")
     monkeypatch.setattr(
         cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
@@ -67,7 +67,7 @@ def test_cli_create_starts_the_bootstrap_on_a_conversation_it_minted(
     assert command[-1] == BOOTSTRAP
     assert options["env"]["YOKE_EXECUTOR"] == "cursor"
     assert options["env"]["YOKE_MODEL"] == "composer-2"
-    assert "CLAUDE_SESSION_ID" not in options["env"]
+    assert "CLAUDE_CODE_SESSION_ID" not in options["env"]
     # The first hook registers the session from the launch it inherits.
     assert LAUNCH_ID in options["env"][LAUNCH_CONTEXT_ENV]
     assert ATTESTATION in options["env"][LAUNCH_CONTEXT_ENV]
