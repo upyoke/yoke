@@ -125,7 +125,7 @@ Yoke's `external_validation` model, provision it with:
 ```bash
 # In-tree, so it runs through the claimed-lane source runner. Other projects
 # hydrate their declared binding their own way.
-yoke --env <name> dev run -- python3 -m runtime.api.tools.authority_validation_copy
+yoke --env <name> dev run -- python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
 ```
 
 The helper uses a bound target when one exists and otherwise derives one beside
