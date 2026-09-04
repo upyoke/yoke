@@ -1,17 +1,9 @@
 """Run a Command-method QA case on the project's CI workflow.
 
-Push the lane, then let :mod:`yoke_core.domain.qa_case_ci_covering_run`
-say what has already happened to that exact commit: adopt a run that
-already concluded, attach to one still in flight, or dispatch when the
-tree is unexamined. Merge-queue projects open the landing pull request so
-its entry run is the run under consideration. An empty diff against the
-integration target is inapplicable CI
-(:mod:`yoke_core.domain.qa_case_ci_empty_diff`). ``worktree_run`` stays
-the local Command runner and is never a silent downgrade.
-
-Which of the three happened is recorded as ``ci_run_source`` on the
-result and in the run's evidence, so a reader can tell a verdict this
-invocation paid for from one it inherited.
+The gate rebases and publishes the lane once, then adopts, attaches to,
+or dispatches a run for that exact commit. Merge-queue projects use the
+landing pull request's entry run. ``ci_run_source`` records which path
+produced the verdict, and an empty diff is inapplicable CI.
 """
 
 from __future__ import annotations
@@ -29,6 +21,7 @@ from yoke_core.domain import (
     qa_case_ci_empty_diff,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
+    qa_case_ci_never_started,
     qa_case_ci_progress,
     qa_case_ci_superseded_run,
     verification_tree_binding,
@@ -45,11 +38,8 @@ from yoke_core.domain.qa_case_execution import (
 #: Runner id recorded on runs this module produces.
 EXECUTOR_ID = "ci_run"
 
-#: Wall-clock ceiling for one dispatched CI run. A sharded suite finishes
-#: well inside this; the bound exists so a cancelled or never-scheduled
-#: run reports a timeout instead of waiting forever. The budget belongs to
-#: the CI run, not to the local process timeout a ``worktree_run`` case
-#: would apply to its own command.
+#: Wall-clock ceiling for one dispatched CI run, distinct from the local
+#: process timeout a ``worktree_run`` case applies to its command.
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
 
 
@@ -83,10 +73,7 @@ def execute_ci_case(
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Push the lane, reuse or run its CI workflow, and record the verdict."""
-    # Both halves of the contract are judged before anything moves: a case
-    # with no command or no workflow has no runnable path, and saying so
-    # here costs nothing, while saying it after the lane is pushed leaves a
-    # published branch behind an exit that recorded no verdict.
+    # Refuse an incomplete case before publishing anything.
     required_case_command(case)
     workflow = qa_case_ci_lane.workflow_file(case)
     checkout = _resolve_checkout(
@@ -115,7 +102,7 @@ def execute_ci_case(
         else ""
     )
     # Rebase before the head sha is resolved: the rebase is what it names.
-    entry_run_base = qa_case_ci_entry_run.prepare_entry_run_lane(
+    entry_run_base = qa_case_ci_entry_run.prepare_ci_lane(
         checkout,
         project=project,
         branch=branch,
@@ -203,7 +190,8 @@ def execute_ci_case(
                     timeout_seconds=budget,
                 )
             ci_run_source = qa_case_ci_covering_run.classify(
-                covering_run, head_sha=head_sha,
+                covering_run,
+                head_sha=head_sha,
             )
             if ci_run_source == qa_case_ci_covering_run.DISPATCHED:
                 qa_case_ci_progress.announce_dispatch(
@@ -242,12 +230,23 @@ def execute_ci_case(
                 exit_code = 0 if known_conclusion == "success" else 1
                 poll_output = f"adopted completed run: {known_conclusion}"
             else:
-                exit_code, poll_output = qa_case_ci_lane.await_workflow(
+                awaited = qa_case_ci_never_started.await_with_one_redispatch(
+                    requirement_id=requirement_id,
                     project=project,
                     repo=repo,
+                    workflow=workflow,
+                    branch=branch,
+                    head_sha=head_sha,
                     run_id=ci_run_id,
+                    run_url=run_url,
+                    source=ci_run_source,
                     timeout_seconds=budget,
                 )
+                ci_run_id = awaited.run_id
+                run_url = awaited.run_url
+                ci_run_source = awaited.source
+                exit_code = awaited.exit_code
+                poll_output = awaited.output
     except Exception as exc:
         duration_ms = int((time.monotonic() - started) * 1000)
         raw_result = json.dumps(

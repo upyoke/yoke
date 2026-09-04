@@ -167,15 +167,19 @@ already cancelled during the lookup-to-cancel race is a silent no-op.
 
 A run that remains `pending` with zero jobs and an unchanged GitHub
 `updated_at` for two minutes is reported as `stalled_dispatch` with
-`waiting_on=pending_zero_jobs_stall` and the exact force-cancel command. This
-named state is emitted immediately by `yoke watch qa-case`; it is not reported
-as the healthy `waiting_on=progress_throttle` condition used when a child is
-still producing ordinary suppressed progress.
+`waiting_on=pending_zero_jobs_stall` and
+`failure_reason=ci_run_never_started`. The case gate force-cancels that run and
+redispatches once against the same already-pushed head; it does not push the
+lane again. If the replacement also never creates a job, the gate force-cancels
+it and fails immediately as `ci_run_never_started` instead of consuming the
+rest of the case budget. `yoke watch qa-case` emits each named state
+immediately rather than treating it as the healthy
+`waiting_on=progress_throttle` condition.
 
-If normal cancellation leaves the run in progress, use that force-cancel
-recipe. Wait for the original case invocation to observe the cancellation and
-exit, then rerun the same requirement through Yoke so the replacement run and
-its QA evidence remain authoritative:
+The terminal recovery names the next action: create an empty commit, then
+rerun the same requirement. The gate rebases that new head, pushes the empty
+commit once, and records the replacement run as authoritative; do not push the
+lane by hand:
 
 ```sh
 yoke qa case run --requirement-id REQUIREMENT_ID

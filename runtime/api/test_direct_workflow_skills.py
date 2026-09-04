@@ -75,7 +75,7 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
 
 
 def test_dash_commits_before_every_sha_bound_case():
-    content = (CANONICAL / "dash/verification-and-close.md").read_text()
+    content = _skill_corpus("dash")
     commit_rule = "Commit before every SHA-bound QA case."
     assert commit_rule in content
     assert content.index(commit_rule) < content.index("yoke qa case run")
@@ -87,8 +87,8 @@ def test_dash_commits_before_every_sha_bound_case():
 
 def test_dash_rechecks_keep_survey_contacts_advisory():
     skill = (CANONICAL / "dash/SKILL.md").read_text()
-    close = (CANONICAL / "dash/verification-and-close.md").read_text()
-    corpus = f"{skill}\n{close}"
+    close = _skill_corpus("dash")
+    corpus = close
     for retired_stop in (
         "If the survey is blocked, do not commit or run the case.",
         "A stale or newly-blocked survey is a coordination stop",

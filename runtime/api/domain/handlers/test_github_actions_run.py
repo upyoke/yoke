@@ -16,6 +16,7 @@ from yoke_core.domain.handlers.github_actions_run import (
     handle_run_get,
 )
 from yoke_core.domain.github_actions_run_stall import (
+    CI_RUN_NEVER_STARTED_REASON,
     PENDING_ZERO_JOBS_STALL_SECONDS,
     PENDING_ZERO_JOBS_STALL_REASON,
     STALLED_DISPATCH_TOKEN,
@@ -116,7 +117,25 @@ class TestClassify:
 
         assert STALLED_DISPATCH_TOKEN in message
         assert f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON}" in message
+        assert f"failure_reason={CI_RUN_NEVER_STARTED_REASON}" in message
         assert "repos/upyoke/yoke/actions/runs/123/force-cancel" in message
+
+    def test_stale_pending_zero_jobs_is_terminal_for_the_polling_client(self):
+        payload = github_actions_run.RunGetRequest(
+            repo="o/r", run_id="123", project="yoke",
+        )
+        out = _classify(
+            payload,
+            {
+                "id": 123,
+                "status": "pending",
+                "updated_at": "2000-01-01T00:00:00Z",
+            },
+            jobs_count=0,
+        )
+
+        assert out.state == "failed"
+        assert CI_RUN_NEVER_STARTED_REASON in out.message
 
 
 class TestHandleRunGet:

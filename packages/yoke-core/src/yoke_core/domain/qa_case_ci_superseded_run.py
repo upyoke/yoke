@@ -92,6 +92,37 @@ def _race_concluded(*, repo: str, run_id: str, token: str) -> bool:
     )
 
 
+def _force_cancel_run(*, repo: str, run_id: str, token: str) -> bool:
+    """Cancel one active run; a run that concluded in the race is settled."""
+    try:
+        github_actions_rest.rest_post(
+            f"/repos/{repo}/actions/runs/{run_id}/force-cancel",
+            body={},
+            token=token,
+            max_attempts=1,
+        )
+    except RestTransportError as exc:
+        if exc.status in {409, 422} and _race_concluded(
+            repo=repo,
+            run_id=run_id,
+            token=token,
+        ):
+            return False
+        raise QaCaseExecutionError(
+            f"could not force-cancel workflow run {run_id}: {exc}"
+        ) from exc
+    return True
+
+
+def force_cancel_run(*, project: str, repo: str, run_id: str) -> bool:
+    """Force-cancel one CI run with the gate machine's GitHub authority."""
+    return _force_cancel_run(
+        repo=repo,
+        run_id=run_id,
+        token=_machine_token(project=project, repo=repo),
+    )
+
+
 def force_cancel_if_rebased(
     *,
     project: str,
@@ -140,23 +171,8 @@ def force_cancel_if_rebased(
             "inspect the run and retry the gate"
         )
 
-    try:
-        github_actions_rest.rest_post(
-            f"/repos/{repo}/actions/runs/{run_id}/force-cancel",
-            body={},
-            token=token,
-            max_attempts=1,
-        )
-    except RestTransportError as exc:
-        if exc.status in {409, 422} and _race_concluded(
-            repo=repo,
-            run_id=run_id,
-            token=token,
-        ):
-            return ""
-        raise QaCaseExecutionError(
-            f"could not force-cancel superseded workflow run {run_id}: {exc}"
-        ) from exc
+    if not _force_cancel_run(repo=repo, run_id=run_id, token=token):
+        return ""
 
     qa_case_ci_progress.announce_superseded_run_cancelled(
         repo=repo,
@@ -166,4 +182,4 @@ def force_cancel_if_rebased(
     return run_id
 
 
-__all__ = ["force_cancel_if_rebased"]
+__all__ = ["force_cancel_if_rebased", "force_cancel_run"]

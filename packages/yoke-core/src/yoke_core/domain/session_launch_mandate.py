@@ -52,6 +52,12 @@ _REMAINING_LEGS = {
 }
 
 
+COMMITTED_GATE_TEACHING = (
+    "Commit; the verification gate rebases onto the base branch, pushes "
+    "once, and runs CI. Workers do not push the lane by hand."
+)
+
+
 HEADLESS_LANDING_WAIT_TEACHING = (
     "You are a headless command that cannot be prompted again, so a "
     "merge-queue landing is not a place to stop. When your merge returns "
@@ -150,6 +156,7 @@ def compose_single_item_mandate(
         f"instead. {close} If your claim is swept mid-work, reacquire and "
         "continue."
     )
+    mandate = f"{mandate}\n\n{COMMITTED_GATE_TEACHING}"
     mandate = f"{mandate}\n\n{HEADLESS_LANDING_WAIT_TEACHING}"
     if steering_launched:
         mandate = f"{mandate}\n\n{TURN_END_RELAY_TEACHING}"
@@ -258,6 +265,7 @@ def launch_request_for_create(
 
 
 __all__ = [
+    "COMMITTED_GATE_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
     "TURN_END_RELAY_TEACHING",
     "compose_item_launch_instructions",

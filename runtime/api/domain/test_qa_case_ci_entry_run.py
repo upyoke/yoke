@@ -1,11 +1,8 @@
-"""The queue project's gate, piece by piece: rebase, open, await.
+"""The CI gate's shared rebase and queue-entry path, piece by piece.
 
-A project that lands through the merge queue rebases its lane, opens the
-landing pull request, and takes the conclusion of the run GitHub mints for
-it — so the suite executes once for entry instead of once for a dispatched
-gate and again for entry. This file covers each step on its own; the
-sibling ``test_qa_case_ci_run_queue_gate`` drives them through the
-runner.
+Every live lane rebases before its only push. A merge-queue project also
+opens the landing pull request and takes its entry run as the verdict; the
+sibling ``test_qa_case_ci_run_queue_gate`` covers that assembled path.
 """
 
 from __future__ import annotations
@@ -33,11 +30,12 @@ def test_a_project_outside_the_queue_keeps_the_dispatch_path(monkeypatch):
         "routes_through_merge_queue",
         lambda _p: False,
     )
-    rebase = mock.Mock(side_effect=AssertionError("must not rebase"))
+    monkeypatch.setattr(entry_run, "base_branch", lambda _p, _c: "main")
+    rebase = mock.Mock()
     monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
 
     assert (
-        entry_run.prepare_entry_run_lane(
+        entry_run.prepare_ci_lane(
             "/tmp/tree",
             project="widgets",
             branch="PRJ-9",
@@ -45,6 +43,7 @@ def test_a_project_outside_the_queue_keeps_the_dispatch_path(monkeypatch):
         )
         is None
     )
+    assert rebase.call_count == 1
 
 
 def test_a_recorded_commit_on_a_queue_project_still_takes_the_pr_path(
@@ -60,7 +59,7 @@ def test_a_recorded_commit_on_a_queue_project_still_takes_the_pr_path(
     monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
 
     assert (
-        entry_run.prepare_entry_run_lane(
+        entry_run.prepare_ci_lane(
             "/tmp/tree",
             project="yoke",
             branch="PRJ-9",

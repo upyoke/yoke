@@ -9,6 +9,7 @@ import pytest
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_STEERING
 from yoke_core.domain.session_launch_mandate import (
+    COMMITTED_GATE_TEACHING,
     TURN_END_RELAY_TEACHING,
     compose_item_launch_instructions,
     compose_single_item_mandate,
@@ -43,6 +44,13 @@ def test_composed_mandate_names_item_entrypoint_and_the_routed_legs() -> None:
     assert "the Dash leg to its merge/evidence close" in body
     assert "do not chain into other items" in body
     assert "NEVER send progress: no percentages" in body
+
+
+def test_composed_mandate_tells_workers_to_leave_the_only_push_to_the_gate() -> None:
+    body = _mandate(steering_launched=True)
+    assert COMMITTED_GATE_TEACHING in body
+    assert "rebases onto the base branch, pushes once, and runs CI" in body
+    assert "do not push the lane by hand" in body
 
 
 def test_steering_launched_worker_is_told_its_turn_end_is_the_report() -> None:

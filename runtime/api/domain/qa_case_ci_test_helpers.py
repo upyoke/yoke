@@ -112,6 +112,12 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
         qa_case_ci_entry_run, "routes_through_merge_queue", lambda _p: False,
     )
     monkeypatch.setattr(
+        qa_case_ci_entry_run, "base_branch", lambda _p, _c: "main",
+    )
+    monkeypatch.setattr(
+        qa_case_ci_entry_run, "rebase_lane_onto_base", lambda *a, **k: None,
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.qa_artifacts.artifact_file_path",
         lambda *a, **k: artifact,
     )
