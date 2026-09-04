@@ -31,6 +31,7 @@ from yoke_core.domain.hook_runner_deadline import (
 )
 from yoke_core.hooks import telemetry as _telemetry  # noqa: F401
 from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks import guard_denial_identity as _guard_denial_identity
 from yoke_core.hooks import mode_gate as _mode_gate
 from yoke_core.hooks.context import build_context
 from yoke_core.hooks.remote_policy import RunControls
@@ -41,7 +42,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 __all__ = ["run_event"]
-
 _resolve_timeout_ms = resolve_module_timeout_ms
 
 
@@ -269,9 +269,9 @@ def run_event(
             stdin_data=stdin_data,
             timeout_ms=deadline.child_timeout_ms(module_timeout_ms),
         )
-        # Central mode gate (before the STOP check): downgrade block->noop when
-        # the guard is configured warn in .yoke/lint-config.
+        # Apply registered policy mode and denial identity before STOP.
         decision = _mode_gate.apply_mode(decision, module_id, context=context)
+        decision = _guard_denial_identity.bind(decision, module_id)
         if (
             controls is not None
             and decision.outcome is Outcome.DENY

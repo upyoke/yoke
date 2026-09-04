@@ -21,8 +21,9 @@ referenced here MUST exist by the time the renderer runs.
 PreToolUse Bash chain order rationale:
 
 1. ``lint_db_cmd`` — neutral DB-command guard; blocks raw ``sqlite3``
-   invocations early (cheapest deny) while preserving the legacy stable
-   ``lint-sqlite-cmd`` telemetry/check id.
+   invocations early (cheapest deny). DB-command branches preserve the
+   ``lint-sqlite-cmd`` compatibility id; embedded Claude guards report their
+   condition-specific ids.
 2. ``lint_event_registry`` — block emission of unregistered events.
 3. ``lint_main_commit`` — block ``git commit`` on main.
 4. ``lint_tc_label`` — TC-label hygiene.
@@ -124,8 +125,8 @@ _MODEL_DELIVERY: tuple[str, ...] = (
 )
 
 _PRE_BASH: tuple[str, ...] = (
-    # Neutral implementation-facing hook path. The implementation still emits
-    # the legacy stable lint-sqlite-cmd telemetry/check id.
+    # Neutral implementation-facing hook path; each denial binds its
+    # registered check identity before rendering.
     "yoke_core.domain.lint_db_cmd",
     "yoke_core.domain.lint_event_registry",
     "yoke_core.domain.lint_main_commit",

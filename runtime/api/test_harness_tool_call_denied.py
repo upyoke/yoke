@@ -16,7 +16,6 @@ mocking the emit path.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -172,6 +171,36 @@ class TestHarnessToolCallDeniedEndToEnd:
         assert "sqlite3" in detail["command_snippet"]
         assert envelope["event_name"] == "HarnessToolCallDenied"
         assert rows[0]["session_id"] == "sess-sqlite-1"
+
+    def test_nested_claude_denial_and_audit_share_registered_check_id(
+        self, events_db: str
+    ) -> None:
+        from yoke_contracts.hook_runner.hook_guard_catalog import (
+            NESTED_CLAUDE_CLI_CHECK_ID,
+        )
+        from yoke_core.domain import lint_db_cmd as ldc
+
+        payload = {
+            "session_id": "sess-nested-claude-1",
+            "tool_use_id": "tu-nested-claude-1",
+            "tool_name": "Bash",
+            "tool_input": {"command": 'claude -p "summarize this"'},
+        }
+
+        decision = ldc.evaluate(ldc._build_context_from_payload(payload))
+
+        assert decision.audit_fields["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
+        rendered = json.loads(decision.message)["hookSpecificOutput"]
+        reason = rendered["permissionDecisionReason"]
+        assert f"Yoke check id: {NESTED_CLAUDE_CLI_CHECK_ID}" in reason
+        assert "use the Agent tool for subagent dispatch" in reason
+
+        rows = _fetch_denials(events_db)
+        assert len(rows) == 1, f"expected one denial row, got {rows}"
+        detail = json.loads(rows[0]["envelope"])["context"]["detail"]
+        assert detail["hook"] == NESTED_CLAUDE_CLI_CHECK_ID
+        assert detail["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
+        assert "claude -p" in detail["command_snippet"]
 
     def test_lint_main_commit_emits_nothing_when_allowed(
         self, events_db: str, monkeypatch: pytest.MonkeyPatch

@@ -1,7 +1,7 @@
 """Runner for the neutral Bash DB-command policy engine.
 
-``lint-sqlite-cmd`` is retained as the legacy stable telemetry/check id; this
-module is the implementation-facing name. It executes
+``lint-sqlite-cmd`` is retained as the default DB-command compatibility id;
+condition-specific denials may carry their own registered id. This module executes
 :data:`yoke_core.domain.lint_db_rules.HOOK_POLICY_SOURCE` against a
 PreToolUse payload, capturing stdin/stdout so the hook can be driven from tests
 or called programmatically without a subprocess.

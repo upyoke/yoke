@@ -52,7 +52,7 @@ Optional phase. Produces UX spec from item spec + existing UI patterns. Outputs:
 ## Architect
 
 **Tools:** Read, Grep, Glob, Bash (no Write, Edit)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`) + observe hook (PreToolUse), PreToolUse(Write/Edit/Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=architect`, PostToolUseFailure -> observe hook with `agent=architect`, SubagentStop -> `yoke_core.domain.agent_stop`
+**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit/Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=architect`, PostToolUseFailure -> observe hook with `agent=architect`, SubagentStop -> `yoke_core.domain.agent_stop`
 
 The most critical review gate. Produces three artifacts:
 1. `technical_plan` structured field on the item
@@ -107,7 +107,7 @@ The Architect can also operate in **fix mode**, where it revises existing task s
 
 **Tools:** Read, Write, Edit, Bash, Grep, Glob (all tools)
 **Permission Mode:** `bypassPermissions` (required for unattended dispatch)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`) + observe hook (PreToolUse), PreToolUse(Write/Edit/Read) -> observe hook (PreToolUse), PostToolUse(Bash) -> observe hook (Bash PostToolUse), PostToolUse(all tools) -> observe hook with `agent=engineer`, PostToolUseFailure -> observe hook with `agent=engineer`, SubagentStop -> `yoke_core.domain.agent_stop`
+**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit/Read) -> observe hook (PreToolUse), PostToolUse(Bash) -> observe hook (Bash PostToolUse), PostToolUse(all tools) -> observe hook with `agent=engineer`, PostToolUseFailure -> observe hook with `agent=engineer`, SubagentStop -> `yoke_core.domain.agent_stop`
 
 Implements exactly what the task specifies. Commits incrementally. Writes progress notes to the `epic_progress_notes` DB table via `yoke workflow-item epic-progress-note append`. Progress notes auto-synced to GitHub issue comments via hook. Uses the registered reflection path for ouroboros entries so writes land on the main repo root regardless of worktree CWD.
 
@@ -127,7 +127,7 @@ Implements exactly what the task specifies. Commits incrementally. Writes progre
 ## Tester
 
 **Tools:** Read, Grep, Glob, Bash (no Write, Edit -- 3-layer enforcement)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`) + observe hook (PreToolUse), PreToolUse(Write/Edit) -> block commands + observe hook (PreToolUse), PreToolUse(Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=tester`, PostToolUseFailure -> observe hook with `agent=tester`, SubagentStop -> `yoke_core.domain.agent_stop`
+**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit) -> block commands + observe hook (PreToolUse), PreToolUse(Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=tester`, PostToolUseFailure -> observe hook with `agent=tester`, SubagentStop -> `yoke_core.domain.agent_stop`
 
 Validates Engineer's work. Its structured reflection block is captured by the
 PostToolUse Agent-tool hook in
@@ -200,7 +200,7 @@ expiry over SSH are all treated as wrong-session signals.
 ## Simulator
 
 **Tools:** Read, Grep, Glob, Bash (no Write, Edit -- 3-layer enforcement)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`) + observe hook (PreToolUse), PreToolUse(Write/Edit) -> block commands + observe hook (PreToolUse), PreToolUse(Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=simulator`, PostToolUseFailure -> observe hook with `agent=simulator`, SubagentStop -> `yoke_core.domain.agent_stop`
+**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit) -> block commands + observe hook (PreToolUse), PreToolUse(Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=simulator`, PostToolUseFailure -> observe hook with `agent=simulator`, SubagentStop -> `yoke_core.domain.agent_stop`
 
 Epic-level integration gap detection. Runs at two optional points:
 - **Plan simulation** (after plan, before sync) -- traces planned architecture for structural gaps
@@ -230,7 +230,7 @@ The Simulator also supports system-wide consistency auditing via `/yoke simulate
 ## Boss
 
 **Tools:** Read, Grep, Glob, Bash (no Write, Edit)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`), PreToolUse(Write/Edit) -> block commands, SubagentStop -> `yoke_core.domain.agent_stop`
+**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd`, PreToolUse(Write/Edit) -> block commands, SubagentStop -> `yoke_core.domain.agent_stop`
 
 Quality gate agent. Reviews worker artifacts (specs, plans, designs) at pipeline transition points and produces a structured verdict: `VERDICT: READY`, `VERDICT: NOT_READY`, or `VERDICT: CAVEATS`. Used by the Shepherd to gate transitions in the item lifecycle.
 
@@ -299,7 +299,7 @@ PM and Designer do not have this section because they have no Bash tool and cann
 
 ### CLI Prohibition
 
-All 6 Bash-capable agents (Engineer, Tester, Boss, Simulator, Architect, QA Walker) include a prominent `**CRITICAL: NEVER invoke claude as a CLI/Bash command**` rule in their system prompt. This is a belt-and-suspenders defense alongside Check 5 in `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`), which blocks local `claude` CLI invocations at the hook level. Nested Claude Code sessions crash the parent process. The only configurable exception is the project-local `lint_db_cmd_remote_claude_cli=warn` setting for operator-attended remote SSH smoke tests; local `claude` remains blocked. The Shepherd and Conduct SKILL.md files also include this rule for inline execution.
+All 6 Bash-capable agents (Engineer, Tester, Boss, Simulator, Architect, QA Walker) include a prominent `**CRITICAL: NEVER invoke claude as a CLI/Bash command**` rule in their system prompt. This is a belt-and-suspenders defense alongside Check 5 in `yoke_core.domain.lint_db_cmd`, which reports local refusals as `lint-nested-claude-cli` and blocks local `claude` CLI invocations at the hook level. Nested Claude Code sessions crash the parent process. The only configurable exception is the project-local `lint_db_cmd_remote_claude_cli=warn` setting for operator-attended remote SSH smoke tests; a denied remote invocation reports `lint-remote-claude-cli`, while local `claude` remains blocked. The Shepherd and Conduct SKILL.md files also include this rule for inline execution.
 
 ### Work-item Entry Convention
 

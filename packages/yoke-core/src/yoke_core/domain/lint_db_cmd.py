@@ -1,8 +1,8 @@
 """Neutral implementation for the Bash DB-command policy hook.
 
-Every denial still emits the legacy stable ``lint-sqlite-cmd``
-telemetry/check id. That id is an audit-history anchor, not evidence that
-Yoke still runs a SQLite control-plane backend.
+DB-command denials retain the stable ``lint-sqlite-cmd`` telemetry/check id.
+Condition-specific guards embedded in the policy source may report their own
+registered id instead; the nested-Claude guard is one such condition.
 
 Typed entry: ``evaluate(record: HookContext) -> HookDecision`` wraps
 :func:`yoke_core.domain.lint_db_runner.run_hook`. Rule definitions live in
@@ -20,7 +20,10 @@ from typing import Any, Dict, Tuple
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_db_rules import HOOK_POLICY_SOURCE
 from yoke_core.domain.lint_db_runner import run_hook
-from yoke_contracts.hook_runner.lint_policy import DB_COMMAND_STABLE_CHECK_ID
+from yoke_contracts.hook_runner.lint_policy import (
+    DB_COMMAND_STABLE_CHECK_ID,
+    spec_for,
+)
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 # Historical event rows and field-note attribution use this stable id. It is a
@@ -80,27 +83,33 @@ def _extract_command(payload: Dict[str, Any]) -> str:
     return ""
 
 
-def _deny_reason_from_output(output: str) -> Tuple[bool, str]:
-    """Return ``(is_deny, reason)`` for a hook output string."""
+def _deny_reason_from_output(output: str) -> Tuple[bool, str, str]:
+    """Return ``(is_deny, reason, check_id)`` for a hook output string."""
     if not output:
-        return False, ""
+        return False, "", LEGACY_HOOK_ID
     try:
         data = json.loads(output)
     except Exception:
-        return False, ""
+        return False, "", LEGACY_HOOK_ID
     if not isinstance(data, dict):
-        return False, ""
+        return False, "", LEGACY_HOOK_ID
     hook_specific = data.get("hookSpecificOutput")
     if not isinstance(hook_specific, dict):
-        return False, ""
+        return False, "", LEGACY_HOOK_ID
     if hook_specific.get("permissionDecision") != "deny":
-        return False, ""
+        return False, "", LEGACY_HOOK_ID
     reason = hook_specific.get("permissionDecisionReason") or ""
-    return True, str(reason)
+    candidate = hook_specific.get("check_id")
+    spec = spec_for("lint_db_cmd")
+    allowed = spec.report_check_ids if spec is not None else (LEGACY_HOOK_ID,)
+    check_id = (
+        candidate if isinstance(candidate, str) and candidate in allowed else allowed[0]
+    )
+    return True, str(reason), check_id
 
 
-def _emit_legacy_denial(payload: Dict[str, Any], reason: str) -> None:
-    """Emit HarnessToolCallDenied for the stable legacy denial id; fail-open."""
+def _emit_denial(payload: Dict[str, Any], reason: str, check_id: str) -> None:
+    """Emit HarnessToolCallDenied under the condition's registered id."""
     try:
         from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
@@ -111,9 +120,9 @@ def _emit_legacy_denial(payload: Dict[str, Any], reason: str) -> None:
     command_snippet = _extract_command(payload)
     try:
         emit_denial_event(
-            hook=LEGACY_HOOK_ID,
+            hook=check_id,
             tool="Bash",
-            check_id=LEGACY_HOOK_ID,
+            check_id=check_id,
             reason=reason,
             session_id=session_id if isinstance(session_id, str) else "",
             tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
@@ -139,20 +148,28 @@ def evaluate(
     output = runner(raw, yoke_db)
     if not output:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    is_deny, reason = _deny_reason_from_output(output)
+    is_deny, reason, check_id = _deny_reason_from_output(output)
     if not is_deny:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    reason = append_field_note_footer(reason, rule_id=LEGACY_HOOK_ID)
-    output = json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "deny",
-        "permissionDecisionReason": reason,
-    }})
-    _emit_legacy_denial(payload, reason)
+    reason = append_field_note_footer(reason, rule_id=check_id)
+    output = json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        }
+    )
+    _emit_denial(payload, reason, check_id)
     return HookDecision(
         outcome=Outcome.DENY,
         message=output,
-        audit_fields={"reason": reason},
+        audit_fields={
+            "check_id": check_id,
+            "denial_reason": reason,
+            "reason": reason,
+        },
         block=True,
         next=Next.STOP,
     )

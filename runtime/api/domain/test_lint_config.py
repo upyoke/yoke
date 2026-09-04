@@ -49,6 +49,11 @@ def test_catalog_covers_every_pretooluse_bash_denier() -> None:
     )
 
 
+def test_catalog_assigns_every_guard_a_check_identity() -> None:
+    missing = [spec.guard for spec in lint_config.GUARD_CATALOG if not spec.check_id]
+    assert not missing, f"registered guards missing check ids: {missing}"
+
+
 def test_project_lint_config_enumerates_every_catalog_guard() -> None:
     parsed = lint_config._parse(str(_REPO_ROOT / ".yoke" / "lint-config"))
     missing = [g.guard for g in lint_config.GUARD_CATALOG if g.guard not in parsed]
