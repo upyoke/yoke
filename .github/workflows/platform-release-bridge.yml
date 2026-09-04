@@ -105,6 +105,7 @@ jobs:
       # no earlier proof can be reused. Platform's promotion-time check
       # remains the final backstop behind this one.
       - name: Prove the hosted consumer against the exact release candidate
+        id: consumer_proof
         env:
           YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
           PRODUCT_SHA: ${{ inputs.product_sha }}
@@ -211,6 +212,11 @@ jobs:
           RELEASE_MODE: ${{ inputs.release_mode }}
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
           OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
+          # The consumer revision the pre-tag proof actually built against.
+          # Promotion refuses when the trunk revision it is about to
+          # incorporate is not this one, so the release that ships is the
+          # pair that was proven rather than whatever trunk drifted to.
+          PROVEN_CONSUMER_SHA: ${{ steps.consumer_proof.outputs.proven_consumer_sha }}
         run: |
           case "$TARGET_ENVIRONMENT" in
             stage|prod) ;;
@@ -229,6 +235,7 @@ jobs:
               --input "target_environment=$TARGET_ENVIRONMENT" \
               --input "product_ref=$PRODUCT_REF" \
               --input "release_mode=$RELEASE_MODE" \
+              --input "proven_consumer_sha=$PROVEN_CONSUMER_SHA" \
               --request-id "$request_id" \
               --correlation-input yoke_dispatch_id \
               --project platform 2>"$dispatch_error")"; then

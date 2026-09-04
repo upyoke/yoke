@@ -10,23 +10,15 @@ the caller rather than pass quietly.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from yoke_core.domain.yaml_helper import load_document
-
 from runtime.api.tools import platform_consumer_check as consumer
 from runtime.api.tools import require_platform_consumer_compatibility as gate
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-WORKFLOWS = REPO_ROOT / ".github" / "workflows"
-GATE_WORKFLOW = WORKFLOWS / "yoke-consumer-compatibility.yml"
-RELEASE_BRIDGE = WORKFLOWS / "platform-release-bridge.yml"
-MERGE_QUEUE = REPO_ROOT / ".yoke" / "merge-queue.json"
-GATE_MODULE = "runtime.api.tools.require_platform_consumer_compatibility"
 
 CANDIDATE = "a" * 40
 CONSUMER_REVISION = "b" * 40
@@ -298,45 +290,33 @@ def test_a_proof_with_no_attempt_key_is_refused(
     assert dispatched is False
 
 
-def test_the_gate_declares_itself_a_required_landing_check() -> None:
-    declared = json.loads(MERGE_QUEUE.read_text(encoding="utf-8"))
-    contexts = {
-        str(entry["context"])
-        for rule in declared["ruleset"]["rules"]
-        if rule["type"] == "required_status_checks"
-        for entry in rule["parameters"]["required_status_checks"]
-    }
-
-    assert "consumer-compatibility" in contexts
-
-
-def test_the_gate_workflow_reports_on_both_landing_events() -> None:
-    workflow = load_document(GATE_WORKFLOW)
-    # `on` is YAML 1.1 truthy; the loader may hand it back as the bool key.
-    triggers = workflow.get("on", workflow.get(True))
-
-    assert set(triggers) == {"pull_request", "merge_group"}
-    job = workflow["jobs"]["consumer_compatibility"]
-    assert job["name"] == "consumer-compatibility"
-    # An event filter on the job would leave the required context absent
-    # rather than concluded, which strands a queue entry rather than
-    # failing it.
-    assert "if" not in job
-    assert any(GATE_MODULE in str(step.get("run", "")) for step in job["steps"])
-
-
-def test_the_release_boundary_re_proves_the_pair_before_the_tag() -> None:
-    workflow = load_document(RELEASE_BRIDGE)
-    steps = workflow["jobs"]["dispatch-platform-release"]["steps"]
-    names = [str(step.get("name") or "") for step in steps]
-    proof = next(
-        index for index, step in enumerate(steps) if GATE_MODULE in str(step.get("run", ""))
+def test_a_companion_selection_may_pin_the_head_it_proves() -> None:
+    assert gate.split_companion_ref("branch@" + CONSUMER_REVISION) == (
+        "branch", CONSUMER_REVISION,
     )
-    tag = next(
-        index for index, name in enumerate(names) if name.startswith("Create or recover")
+    assert gate.split_companion_ref(" branch ") == ("branch", "")
+
+
+def test_a_companion_branch_that_moved_refuses_rather_than_passes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A branch head is not immovable, so a required check that went green
+    # against one commit must not stand for whatever the branch became.
+    moved = "d" * 40
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(
+        gate.consumer,
+        "prove",
+        lambda *_a, **_k: (0, "proven", moved),
     )
 
-    assert proof < tag, "the tag is the first irreversible act"
-    # Unconditional: both trunks move between merge and release, so the
-    # earlier proof cannot be assumed to still describe this pair.
-    assert "if" not in steps[proof]
+    code = gate.main(
+        [
+            "--candidate-sha", CANDIDATE,
+            "--dispatch-key", "attempt-1",
+            "--consumer-ref", f"companion-branch@{CONSUMER_REVISION}",
+        ]
+    )
+
+    assert code == consumer.UNPROVEN

@@ -38,10 +38,13 @@ consumer's own companion branch cannot be proven against the last published
 product either, so demanding trunk on both sides deadlocks the pair. An
 author therefore names the linked companion branch with a
 ``Consumer-candidate: <branch>`` trailer on a commit in the candidate range,
-which this reads when a scope ref is given. Landing on that proof is safe
-because the release boundary re-proves against trunk unconditionally: a pair
-may merge in either order, and neither half can ship until both are on
-trunk.
+which this reads when a scope ref is given. A workflow dispatch targets a
+branch and never a commit, so the branch is what gets dispatched; append
+``@<40-hex>`` to pin the head it is expected to resolve to, and a branch that
+moved after this required check went green refuses instead of passing on a
+revision nobody reviewed. Landing on that proof is safe because the release
+boundary re-proves against trunk unconditionally: a pair may merge in either
+order, and neither half can ship until both are on trunk.
 
 *decide-only* reports applicability and stops, so a caller can skip an
 expensive setup it does not need. It writes ``applicable=true|false`` to
@@ -115,6 +118,12 @@ def changed_paths(repo_root: Path, base_ref: str) -> Tuple[str, ...]:
 #: the candidate's own commits so the selection is reviewable in the change
 #: that needs it and travels with it.
 _COMPANION_TRAILER = "Consumer-candidate:"
+
+
+def split_companion_ref(value: str) -> Tuple[str, str]:
+    """A companion selection as (branch to dispatch, expected head sha)."""
+    branch, _, pinned = value.strip().partition("@")
+    return branch.strip(), pinned.strip().lower()
 
 
 def companion_consumer_ref(repo_root: Path, base_ref: str) -> str:
@@ -237,9 +246,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             consumer.UNAVAILABLE,
         )
 
-    consumer_ref = args.consumer_ref.strip() or companion_consumer_ref(
+    selection = args.consumer_ref.strip() or companion_consumer_ref(
         _repo_root(), args.applies_when_changed_since,
     ) or consumer.CONSUMER_TRUNK_REF
+    consumer_ref, expected_revision = split_companion_ref(selection)
     code, narrative, proven_revision = consumer.prove(
         candidate,
         dispatch_key=args.dispatch_key.strip(),
@@ -248,6 +258,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     if code:
         return _refuse(narrative, code)
+    if expected_revision and proven_revision != expected_revision:
+        return _refuse(
+            f"consumer branch {consumer_ref} moved: this candidate was "
+            f"reviewed against {expected_revision} and the check ran against "
+            f"{proven_revision}. A branch head is not immovable, so the "
+            "selection pins the head it may prove; re-review against the new "
+            "head and update the pin.",
+            consumer.UNPROVEN,
+        )
     # Named so a later stage can refuse to ship against a different one.
     _write_output("proven_consumer_sha", proven_revision)
     print(narrative)

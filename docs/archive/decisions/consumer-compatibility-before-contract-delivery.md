@@ -78,6 +78,25 @@ That lets the pair merge in either order without waiving anything, because
 the release boundary never accepts a companion: it proves against trunk,
 unconditionally. A half-landed pair can merge; it cannot ship.
 
+A branch head is not immovable, and a required check that went green against
+one commit must not stand for whatever the branch became afterwards. A
+workflow dispatch can only target a branch, so the selection may append
+`@<40-hex>`: the branch is still what gets dispatched, and a run whose head
+is not the pinned commit refuses. The consumer side, whose own override
+names a commit directly, has no such gap to cover.
+
+## Binding the release to the revision that was proven
+
+Proving a pair before the tag is not the same as shipping that pair. The
+release dispatches promotion at the consumer's trunk, and promotion
+materializes its environment branches afterwards, so trunk can move in
+between. The pre-tag proof therefore hands promotion the revision it
+actually read, and promotion refuses when the trunk revision it is about to
+incorporate is not that one — checked before any pin commit exists, because
+the commit finally deployed does not exist yet when the binding is checked.
+The honest statement of what is bound is "the trunk revision this promotion
+incorporates", which is exactly what the proof read.
+
 ## What was deliberately not built
 
 No new queue, receipt table, compatibility framework, negotiation layer, or
