@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
@@ -23,6 +24,7 @@ from yoke_core.domain.observe_parsing import parse_hook_event
 from yoke_core.domain.observe_pre import parse_pre_event
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.context import build_context
+from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
 
 
 _TOOL_EVENTS = frozenset({"PreToolUse", "PostToolUse", "PostToolUseFailure"})
@@ -217,10 +219,37 @@ def _stamp_heartbeat(conn: Any, session_id: str, observed_at: str) -> None:
     )
 
 
-def persist_observation_batch(observations: list[Mapping[str, Any]]) -> int:
+def _refresh_session_identity(
+    conn: Any,
+    *,
+    payload: dict[str, Any],
+    context: Any,
+    actor_id: int,
+) -> None:
+    """Apply wire identity through the ordinary active-session healing path."""
+    from yoke_core.hooks.registration import ensure_registered_from_hook
+
+    transcript = payload.get("transcript_path")
+    ensure_registered_from_hook(
+        conn,
+        json.dumps(payload),
+        context.session_id or "",
+        transcript_path=transcript if isinstance(transcript, str) else "",
+        record_anchor=False,
+        executor_hint=context.executor_family or "",
+        register_in_process=True,
+        actor_id=actor_id,
+        project_id=payload.get("project_id"),
+    )
+
+
+def persist_observation_batch(
+    observations: list[Mapping[str, Any]], *, actor_id: int
+) -> tuple[int, dict[str, str]]:
     """Persist a validated batch; raise so the resident retains failed work."""
     conn = db_backend.connect()
     accepted = 0
+    model_confirmations: dict[str, str] = {}
     try:
         for observation in observations:
             observation_id = str(observation.get("observation_id") or "").strip()
@@ -243,6 +272,9 @@ def persist_observation_batch(observations: list[Mapping[str, Any]]) -> int:
                 payload=payload,
                 remote=True,
             )
+            _refresh_session_identity(
+                conn, payload=payload, context=context, actor_id=actor_id
+            )
             _tool_event(
                 conn,
                 event_name=event_name,
@@ -263,13 +295,18 @@ def persist_observation_batch(observations: list[Mapping[str, Any]]) -> int:
                 hook_wait_ms=hook_wait_ms,
             )
             conn.commit()
+            confirmed = confirmed_served_model(
+                context.session_id, request.get("model"), conn=conn
+            )
+            if confirmed is not None:
+                model_confirmations[observation_id] = confirmed
             accepted += 1
     except Exception:
         conn.rollback()
         raise
     finally:
         conn.close()
-    return accepted
+    return accepted, model_confirmations
 
 
 __all__ = ["ObservationBatchError", "persist_observation_batch"]

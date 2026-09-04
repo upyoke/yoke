@@ -22,6 +22,7 @@ from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
     _FakeResponse,
     cli_main,
 )
+from yoke_contracts.hook_evaluator_protocol import HOOK_MODEL_CONFIRMATION_FIELD
 
 
 pytest_plugins = ("runtime.api.cli.test_yoke_operations_cli_hooks",)
@@ -30,17 +31,20 @@ SESSION = "s-relay-model"
 MODEL = "claude-opus-5"
 
 
-def _server_response(outcome: str = "completed") -> bytes:
-    return json.dumps(
-        {
-            "hook_schema": 1,
-            "stdout": "",
-            "exit_code": 0,
-            "wait_ms": 1,
-            "degraded": [],
-            "outcome": outcome,
-        }
-    ).encode("utf-8")
+def _server_response(
+    outcome: str = "completed", *, model_confirmation: str | None = None
+) -> bytes:
+    response = {
+        "hook_schema": 1,
+        "stdout": "",
+        "exit_code": 0,
+        "wait_ms": 1,
+        "degraded": [],
+        "outcome": outcome,
+    }
+    if model_confirmation is not None:
+        response[HOOK_MODEL_CONFIRMATION_FIELD] = model_confirmation
+    return json.dumps(response).encode("utf-8")
 
 
 def _claude_session(monkeypatch, tmp_path) -> None:
@@ -99,7 +103,7 @@ def test_a_lost_relay_leaves_the_model_to_ride_the_next_hook(
         "urllib.request.urlopen",
         lambda request, timeout=None: (
             posted.append(json.loads(request.data.decode("utf-8")))
-            or _FakeResponse(_server_response())
+            or _FakeResponse(_server_response(model_confirmation=MODEL))
         ),
     )
     assert cli_main(["hook", "evaluate", "PostToolUse"]) == 0
@@ -131,6 +135,23 @@ def test_a_timed_out_relay_does_not_settle_the_session(
     assert not (tmp_path / "relay-model-shipped" / SESSION).exists()
 
 
+def test_a_completed_response_without_a_model_receipt_does_not_settle(
+    monkeypatch,
+    tmp_path,
+    https_connection,
+    local_subset,
+) -> None:
+    """A resident's synthetic allow is not a durable control-plane reply."""
+    _claude_session(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_a, **_k: _FakeResponse(_server_response()),
+    )
+
+    assert cli_main(["hook", "evaluate", "PreToolUse"]) == 0
+    assert not (tmp_path / "relay-model-shipped" / SESSION).exists()
+
+
 def test_a_landed_relay_settles_and_stops_reading_the_transcript(
     monkeypatch,
     capsys,
@@ -142,7 +163,7 @@ def test_a_landed_relay_settles_and_stops_reading_the_transcript(
 
     def accept(request, timeout=None):
         posted.append(json.loads(request.data.decode("utf-8")))
-        return _FakeResponse(_server_response())
+        return _FakeResponse(_server_response(model_confirmation=MODEL))
 
     _claude_session(monkeypatch, tmp_path)
     monkeypatch.setattr("urllib.request.urlopen", accept)

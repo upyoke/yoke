@@ -95,7 +95,7 @@ def test_an_attested_model_stops_resolving_once_its_write_lands(
     unsent = client_model_facts("PostToolUse", payload, "claude-code")
     assert unsent["model"] == "claude-fable-5"
 
-    record_model_facts_shipped(payload, first)
+    record_model_facts_shipped(payload, first["model"])
 
     assert (tmp_path / "relay-model-shipped" / "s-model").exists()
     assert client_model_facts("PostToolUse", payload, "claude-code") == {}

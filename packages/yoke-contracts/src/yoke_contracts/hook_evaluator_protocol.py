@@ -14,6 +14,8 @@ MAX_FRAME_BYTES = 16 * 1024 * 1024
 RESIDENT_IDLE_TIMEOUT_SECONDS = 600
 EVALUATOR_PAYLOAD_KEY = "yoke_hook_evaluator"
 HOOK_OBSERVATION_BATCH_CAPABILITY = "read_only_observation_batch_v1"
+HOOK_MODEL_CONFIRMATION_FIELD = "model_confirmation"
+HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD = "model_confirmations"
 EVALUATORS = frozenset({"resident", "inprocess"})
 
 
@@ -190,6 +192,8 @@ def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
 
 __all__ = [
     "EVALUATOR_PAYLOAD_KEY",
+    "HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD",
+    "HOOK_MODEL_CONFIRMATION_FIELD",
     "HOOK_OBSERVATION_BATCH_CAPABILITY",
     "HookEvaluatorProtocolError",
     "HookEvaluatorRequest",

@@ -30,6 +30,7 @@ from yoke_core.domain.session_ambient_identity import (
     is_conversation_shaped_session_id,
 )
 from yoke_core.hooks.remote_entry import evaluate_remote
+from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
 from yoke_core.api.routes.hooks_denial_audit import router as _denial_audit_router
 from yoke_core.api.routes.hook_observations import router as _observation_router
 
@@ -69,9 +70,7 @@ class HookEvaluateRequest(BaseModel):
 
 
 class HookEvaluateResponse(BaseModel):
-    """Frozen response contract: relayed stdout/exit_code + the structured
-    ``outcome`` (``completed | timeout | denied``) the client's verdict
-    composition keys on."""
+    """Relayed stdout/exit code and the structured composition outcome."""
 
     hook_schema: int = HOOK_WIRE_SCHEMA
     stdout: str
@@ -79,6 +78,7 @@ class HookEvaluateResponse(BaseModel):
     wait_ms: int
     degraded: List[str]
     outcome: str
+    model_confirmation: Optional[str] = None
     capabilities: tuple[str, ...] = (HOOK_OBSERVATION_BATCH_CAPABILITY,)
 
 
@@ -153,6 +153,9 @@ def post_hooks_evaluate(
                 wait_ms=result.wait_ms,
                 degraded=list(result.degraded),
                 outcome=result.outcome,
+                model_confirmation=confirmed_served_model(
+                    _stdin_payload(request).get("session_id"), request.model
+                ),
             ).model_dump()
         )
     )

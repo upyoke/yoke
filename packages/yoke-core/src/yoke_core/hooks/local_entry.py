@@ -15,6 +15,7 @@ from yoke_contracts.hook_runner.failures import render_failure_warning
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner import run_event
+from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
 from yoke_harness.hooks.cursor_lifecycle_hooks import (
     ensure_user_lifecycle_hooks_for_executor,
 )
@@ -69,12 +70,12 @@ def evaluate_local_hook(
         controls=controls,
     )
 
-    # In-process evaluation is the write: a run that finished its chain
-    # inside the budget carried these facts to the row, which is what
-    # settles the session. A timed-out run may have skipped that tail, so
-    # its model facts ride the next hook instead.
+    # Even in-process evaluation settles only from the row's write receipt.
     if not controls.timed_out:
-        record_model_facts_shipped(payload, identity)
+        record_model_facts_shipped(
+            payload,
+            confirmed_served_model(payload.get("session_id"), identity.get("model")),
+        )
 
     failure_warning = render_failure_warning(controls.degraded)
     if failure_warning:

@@ -10,6 +10,9 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field, ValidationError
 
+from yoke_contracts.hook_evaluator_protocol import (
+    HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
+)
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.domain.session_ambient_identity import (
@@ -128,14 +131,19 @@ def post_hook_observation_batch(
             "actor cannot access every project in the observation batch",
         )
     try:
-        accepted = persist_observation_batch(validated)
+        accepted, model_confirmations = persist_observation_batch(
+            validated, actor_id=auth.actor_id
+        )
     except Exception as exc:
         return _error(
             503,
             "YOKE_HOOK_OBSERVATION_BATCH_FAILED",
             f"observation batch was retained for retry ({type(exc).__name__})",
         )
-    return JSONResponse(content={"hook_schema": 1, "accepted": accepted})
+    response: dict[str, Any] = {"hook_schema": 1, "accepted": accepted}
+    if model_confirmations:
+        response[HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD] = model_confirmations
+    return JSONResponse(content=response)
 
 
 __all__ = ["router"]

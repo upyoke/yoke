@@ -18,6 +18,7 @@ from yoke_cli.transport.https import HttpsConnection
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner import lint_policy
+from yoke_contracts.hook_evaluator_protocol import HOOK_MODEL_CONFIRMATION_FIELD
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.hook_runner.failures import render_failure_warning
 
@@ -267,12 +268,9 @@ def relay_hook_event(
             "response body is not the hook contract",
             preserved_stdout=allow_stdout,
         )
-    # The served model settles this session only now that the control plane
-    # has accepted the evaluation carrying it. A timeout means the server's
-    # registration tail may never have run, so those facts stay unsettled
-    # and ride the next hook.
-    if outcome != "timeout":
-        record_model_facts_shipped(payload, identity)
+    # Only the control plane's durable-row receipt settles transcript reads.
+    # A deferred resident response intentionally carries no confirmation.
+    record_model_facts_shipped(payload, response.get(HOOK_MODEL_CONFIRMATION_FIELD))
     server_fp = response.get("execution_provenance")
     if isinstance(server_fp, dict):
         print_execution_provenance(server_fp)
