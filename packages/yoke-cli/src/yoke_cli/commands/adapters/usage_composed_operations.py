@@ -16,6 +16,7 @@ from yoke_cli.commands.adapters.projects_infrastructure import (
 )
 from yoke_cli.commands.adapters.github_merge_queue import (
     GITHUB_MERGE_QUEUE_APPLY_USAGE,
+    GITHUB_MERGE_QUEUE_READINESS_USAGE,
 )
 from yoke_cli.commands.adapters.usage_github_actions import (
     USAGE_BY_FUNCTION_ID as GITHUB_ACTIONS_USAGE_BY_ID,
@@ -25,6 +26,7 @@ from yoke_cli.commands.adapters.usage_github_actions import (
 USAGE_BY_FUNCTION_ID = {
     **GITHUB_ACTIONS_USAGE_BY_ID,
     "github.merge_queue.apply": GITHUB_MERGE_QUEUE_APPLY_USAGE,
+    "github.merge_queue.readiness": GITHUB_MERGE_QUEUE_READINESS_USAGE,
     "deployment_flows.create": DEPLOYMENT_FLOWS_CREATE_USAGE,
     "deployment_flows.update_stages": DEPLOYMENT_FLOWS_UPDATE_STAGES_USAGE,
     "deployment_runs.start_for_item": DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,

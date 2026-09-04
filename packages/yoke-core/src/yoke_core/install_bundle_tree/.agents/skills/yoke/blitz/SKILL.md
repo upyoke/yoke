@@ -55,7 +55,8 @@ The first delegates to the local engine worktree preflight. The second is
 the standalone-item merge boundary shared with Dash. On a queue project its
 default response may be `landing_pending=true`: end the pass, retain the
 claim, and re-enter after the landing message. Codex/Cursor may add `--wait`;
-Claude never does. Non-queue routes still land inline. Each command has no registered
+Claude never does. Inspect liveness with `yoke github merge-queue readiness
+ITEM --json`, never a bare automerge field. Non-queue routes still land inline. Each command has no registered
 `direct_workflow.*` function id —
 use them verbatim; do not invent function ids for them. Contract:
 [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).

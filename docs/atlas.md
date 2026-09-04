@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-04T01:23:31Z_
+_Audit generated_at: 2026-09-04T02:13:56Z_
 
 ## 1. Summary
 
-- Function ids registered: **450**
+- Function ids registered: **451**
 - Internal dispatch-only functions without CLI adapters: **89**
-- `yoke` CLI subcommands: **378** (378 carry usable `--help`)
-- Operation tracker: **354 wrapped**, 14 tool_cli, 137 permanent, 0 pending
+- `yoke` CLI subcommands: **379** (379 carry usable `--help`)
+- Operation tracker: **355 wrapped**, 14 tool_cli, 137 permanent, 0 pending
 - Skill-body recipes: 331 total (279 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **354** (operation tracker confirms 354 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **355** (operation tracker confirms 355 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -89,6 +89,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **354** (operation track
 | events | `yoke events tail` | `events.tail.run` | ok |
 | frontier | `yoke frontier list` | `frontier.list` | ok |
 | github | `yoke github merge-queue apply` | `github.merge_queue.apply` | ok |
+| github | `yoke github merge-queue readiness` | `github.merge_queue.readiness` | ok |
 | github | `yoke github pr create` | `github.pr.create` | ok |
 | github | `yoke github release create-next-tag` | `github.release.create_next_tag` | ok |
 | github_actions | `yoke github-actions check-ci` | `github_actions.check_ci` | ok |
@@ -571,9 +572,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 40 |
-| claude-code | 8 |
-| cursor | 2 |
+| codex | 49 |
+| claude-code | 1 |
 
 ## 8. Contradictions
 

@@ -193,7 +193,7 @@ claim and item non-terminal; end this execution pass. Exactly one of two
 control-plane messages then ends that wait. **Landing
 complete**: re-enter the same command to close out. **Landing stopped**:
 GitHub is no longer going to land it (its base moved and it went dirty, it
-was closed, its arming was cleared without a merge, one of its required
+was closed, its queue entry is absent and arming is cleared, one of its required
 checks concluded red), so do what the message names — usually rebase the
 lane onto the base branch, re-run the verification gate, and re-run
 `yoke merge item`, which re-arms it. Neither message is a
@@ -207,11 +207,11 @@ the exact `git push --force-with-lease` recovery — it never reports the new
 SHA while origin still holds the old one.
 
 **In-turn wait — a launched worker.** Pass `--wait` and hold this turn on it
-through the merge watcher wrapper. That wrapper polls the same four-fact landing
-readback the handoff observer reads (armed, queued, eligible, required checks)
-on the documented cadence, streams each reading, and writes the exit sentinel
-that ends the follow — so a launched worker never needs a hand-authored `gh`
-poll loop, and never blocks a bare foreground call on the full wait:
+through the merge watcher wrapper. For a separate point-in-time check, run
+`yoke github merge-queue readiness ITEM --json`: it reads the target branch's
+named queue entry with arming, so null arming plus `queue-entry=AWAITING_CHECKS`
+means consumed and in flight, not cleared. The watcher polls the fuller landing
+readback and streams it; never hand-author a `gh` poll or block a bare call:
 
 ```text
 yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \

@@ -15,6 +15,7 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
+    item_target,
     parse_or_usage_error,
     usage_error,
 )
@@ -25,6 +26,48 @@ GITHUB_MERGE_QUEUE_APPLY_USAGE = (
     "yoke github merge-queue apply --project P "
     "[--declaration PATH] [--preview] [--session-id S] [--json]"
 )
+GITHUB_MERGE_QUEUE_READINESS_USAGE = (
+    "yoke github merge-queue readiness ITEM [--project P] [--json]"
+)
+
+
+def github_merge_queue_readiness(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke github merge-queue readiness",
+        description=(
+            "Read the recorded pull request together with the target branch's "
+            "queue entry. Does not arm, enqueue, merge, or write state."
+        ),
+    )
+    parser.add_argument("item")
+    parser.add_argument("--project")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser,
+        args,
+        GITHUB_MERGE_QUEUE_READINESS_USAGE,
+    )
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        if not response.success:
+            return None
+        result = response.result or {}
+        print(f"{result.get('public_ref')}: {result.get('narrative')}", file=stdout)
+        for warning in result.get("warnings") or []:
+            print(f"WARNING: {warning}", file=stderr)
+        return None
+
+    return dispatch_and_emit(
+        function_id="github.merge_queue.readiness",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
 
 
 def github_merge_queue_apply(args: List[str]) -> int:
@@ -38,15 +81,15 @@ def github_merge_queue_apply(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--project", required=True,
+        "--project",
+        required=True,
         help="Project owning the GitHub repo binding.",
     )
     parser.add_argument(
         "--declaration",
         default=None,
         help=(
-            "Path to the declared JSON (default: "
-            "<checkout>/.yoke/merge-queue.json)."
+            "Path to the declared JSON (default: <checkout>/.yoke/merge-queue.json)."
         ),
     )
     parser.add_argument(
@@ -57,7 +100,9 @@ def github_merge_queue_apply(args: List[str]) -> int:
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, GITHUB_MERGE_QUEUE_APPLY_USAGE,
+        parser,
+        args,
+        GITHUB_MERGE_QUEUE_APPLY_USAGE,
     )
     if parsed is None:
         return 2
@@ -105,5 +150,7 @@ def github_merge_queue_apply(args: List[str]) -> int:
 
 __all__ = [
     "GITHUB_MERGE_QUEUE_APPLY_USAGE",
+    "GITHUB_MERGE_QUEUE_READINESS_USAGE",
     "github_merge_queue_apply",
+    "github_merge_queue_readiness",
 ]

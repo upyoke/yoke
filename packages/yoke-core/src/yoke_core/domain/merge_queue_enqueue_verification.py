@@ -158,7 +158,13 @@ class LandingReadback:
         if state is None:
             armed = f"unreadable ({self.state_error or 'no reason given'})"
         else:
-            armed = "armed" if state.auto_merge_active else "cleared"
+            armed = (
+                "armed"
+                if state.auto_merge_active
+                else "consumed"
+                if self.membership is not None and self.membership.in_queue
+                else "cleared"
+            )
         if self.required_checks is None:
             checks = f"unreadable ({self.checks_error or 'no reason given'})"
         else:

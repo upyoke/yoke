@@ -219,6 +219,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # (repo-level github family, not github_actions).
     _w("yoke github pr create", "github"),
     _w("yoke github merge-queue apply", "github"),
+    _w("yoke github merge-queue readiness", "github"),
     _w("yoke release-pin record", "release_pin"),
     _w("yoke onboard checklist", "onboard"),
     _w("yoke onboard checklist init", "onboard"),

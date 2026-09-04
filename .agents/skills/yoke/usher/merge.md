@@ -223,7 +223,11 @@ holds the turn on the merge watcher wrapper instead, exactly as
 [`../dash/verification-and-close.md`](../dash/verification-and-close.md)
 step 7 spells out — merged closes out in the same turn, a stopped landing
 rebases and re-gates, and only the poll budget running out parks with the
-state it observed. Never block a bare foreground call on the full wait. Do
+state it observed. A point-in-time check is `yoke github merge-queue readiness
+PREFIX-N --json`; never infer a stop from null `autoMergeRequest`, because an
+`AWAITING_CHECKS`, `UNMERGEABLE`, or `MERGEABLE` queue entry means its arming
+was consumed and the landing remains in flight. Never block a bare foreground call on
+the full wait. Do
 not begin deployment until a re-entry (or the wait) returns a real
 `merge_sha` with `landing_pending=false` or absent.
 

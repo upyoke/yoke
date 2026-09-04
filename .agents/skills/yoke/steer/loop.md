@@ -106,8 +106,7 @@ What the report gives you is a finding; what to do with each one is yours:
   sessions list --json` row while triaging: at `stale_eligible_at` the reclaim
   sweep releases its claims and the item reads as untouched, so a holder
   near reclaim is revived before anything else in the pass.
-- **In flight** — inside a watcher or merge landing wait: quiet because the
-  command holds the turn, so nothing to do. Past 45m it rejoins **Idle holders**.
+- **In flight** — inside a watcher or merge landing wait: quiet because the command holds the turn, so nothing to do. For queue liveness use `yoke github merge-queue readiness PREFIX-N --json`; its named queue-entry state distinguishes consumed arming from a true clear. Past 45m it rejoins **Idle holders**.
 - **Starved delivery** — read which shape the row is. *no delivery attempted*
   means the plane owed a wake and made none; *last attempt failed (reason)*
   names a refusal to fix, and one reason repeating across a machine's rows is
