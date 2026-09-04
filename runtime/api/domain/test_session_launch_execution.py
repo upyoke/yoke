@@ -139,7 +139,7 @@ def _register_candidate(
     conn.commit()
 
 
-def test_registration_is_single_use_and_success_requires_injection_completion() -> None:
+def test_bound_registration_replays_and_success_requires_injection_completion() -> None:
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _awaiting_launch(conn)
@@ -160,15 +160,15 @@ def test_registration_is_single_use_and_success_requires_injection_completion() 
         (launch.message_id,),
     ).fetchone()
     assert receipt[0] == "pending"
-    with pytest.raises(SessionLaunchError) as replay:
-        prepare_launch_registration(
-            conn,
-            launch_id=launch.launch_id,
-            attestation=claim.attestation,
-            session_id="session-binding",
-            now="2026-08-22T12:00:32Z",
-        )
-    assert replay.value.code == "attestation_consumed"
+    replay = prepare_launch_registration(
+        conn,
+        launch_id=launch.launch_id,
+        attestation=claim.attestation,
+        session_id="session-binding",
+        now="2026-08-22T12:00:32Z",
+    )
+    assert replay == injection
+    assert get_launch(conn, launch.launch_id).state == "awaiting_registration"
 
     completed = complete_launch_injection(
         conn,

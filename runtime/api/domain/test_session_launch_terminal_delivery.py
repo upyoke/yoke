@@ -202,15 +202,15 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
     ).fetchone()
     assert tuple(recipient) == ("late-native-session", "pending")
 
-    with pytest.raises(SessionLaunchError) as consumed:
-        prepare_launch_registration(
-            conn,
-            launch_id=launch.launch_id,
-            attestation=claim.attestation,
-            session_id="late-native-session",
-            now="2026-08-22T12:00:23Z",
-        )
-    assert consumed.value.code == "attestation_consumed"
+    injection = prepare_launch_registration(
+        conn,
+        launch_id=launch.launch_id,
+        attestation=claim.attestation,
+        session_id="late-native-session",
+        now="2026-08-22T12:00:23Z",
+    )
+    assert injection.session_id == "late-native-session"
+    assert injection.message_id == launch.message_id
 
 
 def test_deadline_expiry_closes_launch_instruction() -> None:
