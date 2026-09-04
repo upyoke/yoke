@@ -10,6 +10,10 @@ from yoke_core.domain.session_launch_execution import (
     report_launch_attempt,
 )
 from yoke_core.domain.session_launch_pending_delivery import pending_launch_deliveries
+from yoke_core.domain.session_launch_registration import (
+    complete_launch_injection,
+    prepare_launch_registration,
+)
 from yoke_core.domain.session_launch_registration_candidate import (
     registered_candidate_for_reconcile,
     reserve_launch_registration_candidate,
@@ -93,7 +97,7 @@ def _register_candidate(
     conn.commit()
 
 
-def test_registered_session_is_reserved_then_bound_after_listing_lag() -> None:
+def test_registered_session_binding_remains_deliverable_after_marker_expiry() -> None:
     conn = _connection()
     launch, claim = _claimed_launch(conn, "registration-first")
     _register_candidate(conn)
@@ -154,6 +158,40 @@ def test_registered_session_is_reserved_then_bound_after_listing_lag() -> None:
     assert bound.native_session_id == SESSION_ID
     assert bound.registered_session_id == SESSION_ID
     assert bound.result_code == "registration_bound"
+
+    injection = prepare_launch_registration(
+        conn,
+        launch_id=launch.launch_id,
+        attestation=claim.attestation,
+        session_id=SESSION_ID,
+        now="2026-08-22T12:00:05Z",
+    )
+
+    assert injection.launch_id == launch.launch_id
+    assert injection.message_id == launch.message_id
+    assert injection.session_id == SESSION_ID
+    assert injection.body == "Inspect the current work and report evidence."
+    assert get_launch(conn, launch.launch_id).attestation_consumed_at == (
+        "2026-08-22T12:00:04Z"
+    )
+
+    complete_launch_injection(
+        conn,
+        launch_id=launch.launch_id,
+        session_id=SESSION_ID,
+        injected=True,
+        now="2026-08-22T12:00:06Z",
+    )
+    replayed = prepare_launch_registration(
+        conn,
+        launch_id=launch.launch_id,
+        attestation=claim.attestation,
+        session_id=SESSION_ID,
+        now="2026-08-22T14:00:07Z",
+    )
+
+    assert replayed == injection
+    assert get_launch(conn, launch.launch_id).state == "succeeded"
 
 
 @pytest.mark.parametrize(

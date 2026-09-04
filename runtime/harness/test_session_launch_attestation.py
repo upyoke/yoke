@@ -15,10 +15,12 @@ class _Connection:
         pass
 
 
-def _record(event_name: str = "PreToolUse") -> HookContext:
+def _record(
+    event_name: str = "PreToolUse", executor_family: str = "codex"
+) -> HookContext:
     return HookContext(
         event_name=event_name,
-        executor_family="codex",
+        executor_family=executor_family,
         executor_surface="codex-cli",
         payload={
             "yoke_launch": {
@@ -65,14 +67,16 @@ def test_tool_event_uses_existing_additional_context_path(monkeypatch) -> None:
     assert "one-time-secret" not in repr(decision.audit_fields)
 
 
-def test_lifecycle_event_defers_stdout_until_aggregate_settlement(monkeypatch) -> None:
+def test_claude_session_start_defers_stdout_until_aggregate_settlement(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(
         launch_hook,
         "prepare_launch_registration",
         lambda conn, **kwargs: _injection(),
     )
     decision = launch_hook.evaluate_launch_attestation(
-        _record("SessionStart"),
+        _record("SessionStart", "claude"),
         connect=_Connection,
     )
     assert "stdout" not in decision.audit_fields
@@ -143,7 +147,7 @@ def test_superseded_launch_code_yields_a_stop_context() -> None:
     assert launch_hook._superseded_launch_stop_context("attestation_invalid") is None
 
 
-def test_superseded_launch_warns_the_native_to_stop(monkeypatch) -> None:
+def test_superseded_launch_warns_the_opening_native_to_stop(monkeypatch) -> None:
     from yoke_core.domain.session_launch_types import SessionLaunchError
 
     def _raise(conn, **kwargs):
@@ -151,7 +155,7 @@ def test_superseded_launch_warns_the_native_to_stop(monkeypatch) -> None:
 
     monkeypatch.setattr(launch_hook, "_prepare_or_record_refusal", _raise)
     decision = launch_hook.evaluate_launch_attestation(
-        _record(), connect=lambda: _Connection()
+        _record("SessionStart"), connect=lambda: _Connection()
     )
 
     assert decision.outcome == Outcome.WARN
@@ -159,3 +163,20 @@ def test_superseded_launch_warns_the_native_to_stop(monkeypatch) -> None:
     stop = decision.audit_fields["additionalContext"]
     assert "superseded" in stop.lower()
     assert "Stop now" in stop
+
+
+def test_superseded_launch_warns_without_stop_context_at_turn_end(monkeypatch) -> None:
+    from yoke_core.domain.session_launch_types import SessionLaunchError
+
+    def _raise(conn, **kwargs):
+        raise SessionLaunchError("attestation_consumed", "attestation is single-use")
+
+    monkeypatch.setattr(launch_hook, "_prepare_or_record_refusal", _raise)
+
+    for event_name in ("Stop", "SessionEnd"):
+        decision = launch_hook.evaluate_launch_attestation(
+            _record(event_name), connect=lambda: _Connection()
+        )
+
+        assert decision.outcome == Outcome.WARN
+        assert decision.audit_fields == {"session_launch_error": "attestation_consumed"}
