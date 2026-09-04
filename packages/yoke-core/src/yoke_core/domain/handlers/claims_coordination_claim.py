@@ -23,6 +23,10 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.coordination_claim_keys import (
+    CoordinationKeyError,
+    target_for_key,
+)
 from yoke_core.domain.coordination_claim_record import claim_as_dict
 
 
@@ -30,6 +34,7 @@ class AcquireRequest(BaseModel):
     project_id: str
     key: str
     item_id: Optional[int] = None
+    reason: Optional[str] = None
 
 
 class ClaimRow(BaseModel):
@@ -62,7 +67,16 @@ class HeartbeatResponse(BaseModel):
 
 
 class ReleaseRequest(BaseModel):
-    claim_id: int
+    """Address the claim by id, or by the (project, key) it holds.
+
+    A holder that acquired minutes or hours earlier has the key it typed,
+    not the row id the acquire returned, so releasing its own hold must
+    not require a lookup step first.
+    """
+
+    claim_id: Optional[int] = None
+    project_id: Optional[str] = None
+    key: Optional[str] = None
     reason: str = Field(..., min_length=1)
 
 
@@ -114,30 +128,33 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
             "reserved qualification claims open only through session-control",
         )
 
-    from yoke_core.domain.coordination_claim_keys import (
-        CoordinationKeyError,
-        target_for_key,
-    )
     from yoke_core.domain.coordination_claims import (
         CoordinationClaimHeldError,
         CoordinationClaimStaleHolderError,
         acquire,
     )
-    from yoke_core.domain.project_identity import resolve_project_id
+    from yoke_core.domain.project_identity import resolve_project
 
     with _connect_rw() as conn:
         try:
+            identity = resolve_project(conn, body.project_id)
+            assert identity is not None
             target = target_for_key(
                 body.key,
-                project_id=resolve_project_id(conn, body.project_id),
+                project_id=identity.id,
                 item_id=body.item_id,
+                project_slug=identity.slug,
             )
+        except LookupError as exc:
+            return _err("project_not_found", str(exc))
         except CoordinationKeyError as exc:
             return _err("claim_key_unknown", str(exc))
         except ValueError as exc:
             return _err("payload_invalid", str(exc))
         try:
-            claim = acquire(conn, target, request.actor.session_id)
+            claim = acquire(
+                conn, target, request.actor.session_id, reason=body.reason
+            )
         except CoordinationClaimStaleHolderError as exc:
             return _err("claim_stale_holder", str(exc))
         except CoordinationClaimHeldError as exc:
@@ -190,17 +207,49 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
 
     with _connect_rw() as conn:
         try:
-            if _reserved(get_claim(conn, int(body.claim_id)).key):
+            claim_id = _release_target_id(conn, body)
+        except LookupError as exc:
+            return _err("claim_not_found", str(exc))
+        except CoordinationKeyError as exc:
+            return _err("claim_key_unknown", str(exc))
+        except ValueError as exc:
+            return _err("payload_invalid", str(exc))
+        try:
+            if _reserved(get_claim(conn, claim_id).key):
                 return _err(
                     "claim_key_reserved",
                     "reserved qualification claims cannot be released "
                     "generically",
                 )
-            claim = release(conn, int(body.claim_id), body.reason)
+            claim = release(conn, claim_id, body.reason)
         except CoordinationClaimNotFoundError as exc:
             return _err("claim_not_found", str(exc))
 
     return HandlerOutcome(result_payload={"claim": claim_as_dict(claim)})
+
+
+def _release_target_id(conn: Any, body: "ReleaseRequest") -> int:
+    """Resolve the claim row this release names, by id or by key."""
+    if body.claim_id is not None:
+        return int(body.claim_id)
+    if not body.key or not body.project_id:
+        raise ValueError(
+            "release requires claim_id, or project_id together with key"
+        )
+    from yoke_core.domain.coordination_claims import active_claim
+    from yoke_core.domain.project_identity import resolve_project
+
+    identity = resolve_project(conn, body.project_id)
+    assert identity is not None
+    target = target_for_key(
+        body.key, project_id=identity.id, project_slug=identity.slug
+    )
+    claim = active_claim(conn, target)
+    if claim is None:
+        raise LookupError(
+            f"no active coordination claim for {identity.slug}:{body.key}"
+        )
+    return int(claim.id)
 
 
 def handle_list(request: FunctionCallRequest) -> HandlerOutcome:

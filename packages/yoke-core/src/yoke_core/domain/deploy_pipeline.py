@@ -9,6 +9,7 @@ from typing import List, Optional
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.claim_recovery import canonical_item_ref
+from yoke_core.domain.deploy_lock import deploy_lock_refusal
 from yoke_core.domain.deploy_pipeline_step_runners import (
     _dispatch_step_runner,
 )
@@ -100,6 +101,12 @@ def run_pipeline(
 
     if not flow_id:
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
+        return EXIT_USAGE
+    lock_error = deploy_lock_refusal(
+        project, operation="deployment run execution",
+    )
+    if lock_error is not None:
+        print(f"Error: {lock_error}", file=sys.stderr)
         return EXIT_USAGE
     try:
         product_source = validate_itemless_product_source(

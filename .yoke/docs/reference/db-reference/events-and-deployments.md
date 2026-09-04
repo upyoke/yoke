@@ -127,6 +127,25 @@ PRIMARY KEY (run_id, item_id)
 
 Item-bound delivery starts from `/yoke usher PREFIX-N` or `runs start-for-item`, which creates the run and inserts membership rows.
 
+### The deploy lock gates create and execute
+
+Creating a run (`deployment_runs.create`, `deployment_runs.start_for_item`) and executing one (`deployment-runs execute`, and the item form of the same pipeline) each refuse unless the calling session holds the project's deploy lock — the `deploy_serialization` coordination claim addressed by `DEPLOY:<project-slug>`. One driver owns a project's deployments, so a stage promotion cannot overtake the production promotion it precedes. Take it before the pair and release it after:
+
+```text
+yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason "driving the release pair"
+yoke claims coordination-claim release --project P --key DEPLOY:P --reason "release pair complete"
+```
+
+It is per project rather than per environment because a release pair deploys stage and production from one pinned source; both halves run under one hold, so no second driver slips between them. The steering seat takes it when it starts driving a pair and releases it when the pair completes. Refusals name the current holder, the acquire recipe, and the release recipe.
+
+The kind is sticky: nothing reclaims the lock automatically, because a pipeline whose local driver died is still running on CI. A hold stranded by a dead driver is freed by the human-only `yoke coordination-claim release --project P --key DEPLOY:P --reason "..."`, which records a WARN `OperatorLeaseRelease`.
+
+Exclusivity is on `project_id` alone. The slug rides in the claim scope so the operator key renders without a database read, and renaming a project cannot hand out a second live lock.
+
+A claim row is session-bound by foreign key, so there is no session-less deploy lock: a caller that resolves no harness session is refused and told the same recovery every claim-holding operation names — run it from a harness session, or, for an operator driving the deploy from a plain terminal, register one (`yoke sessions begin --help`) and point `$YOKE_SESSION_ID` at it so the acquire and the run share one holder.
+
+Claim storage, stickiness, and the board rendering for every coordination kind: the "Shared-operation coordination claims" section of [`qa-and-sessions.md`](qa-and-sessions.md).
+
 ## Table: deployment_run_qa
 
 Run-level QA requirements materialized at run creation.

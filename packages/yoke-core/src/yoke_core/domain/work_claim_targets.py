@@ -16,6 +16,7 @@ from typing import Any, Dict, Mapping, Optional
 from yoke_core.domain.work_claim_scope_shape import (
     ALL_TARGET_KINDS,
     STEERING_DOCUMENT_KEY,
+    TARGET_KIND_DEPLOY_SERIALIZATION,
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
     TARGET_KIND_MIGRATION_SERIALIZATION,
@@ -28,10 +29,15 @@ from yoke_core.domain.work_claim_scope_shape import (
 )
 from yoke_core.domain.work_processes import conflict_group_for
 
-#: Sticky kinds outlive the taking session (a migration or host suite in
-#: flight); reclaim is the audited operator release, never an auto-sweep.
+#: Sticky kinds outlive the taking session (a migration, a host suite, or
+#: a deployment pipeline in flight); reclaim is the audited operator
+#: release, never an auto-sweep.
 STICKY_TARGET_KINDS = frozenset(
-    {TARGET_KIND_MIGRATION_SERIALIZATION, TARGET_KIND_QA_ADMISSION}
+    {
+        TARGET_KIND_MIGRATION_SERIALIZATION,
+        TARGET_KIND_QA_ADMISSION,
+        TARGET_KIND_DEPLOY_SERIALIZATION,
+    }
 )
 
 
@@ -120,6 +126,11 @@ class WorkClaimTarget:
         value = self.scope.get("grant_key")
         return str(value) if value is not None else None
 
+    @property
+    def project_slug(self) -> Optional[str]:
+        value = self.scope.get("project_slug")
+        return str(value) if value is not None else None
+
     def scope_json(self) -> str:
         return encode_scope(self.scope)
 
@@ -153,6 +164,8 @@ class WorkClaimTarget:
             return f"test machine {self.machine_id}"
         if self.kind == TARGET_KIND_ROUTE_QUALIFICATION:
             return f"route qualification for project {self.project_id}"
+        if self.kind == TARGET_KIND_DEPLOY_SERIALIZATION:
+            return f"deployment for project {self.project_slug}"
         return f"process:{self.process_key}"
 
 
@@ -222,6 +235,22 @@ def make_route_qualification_target(
     )
 
 
+def make_deploy_serialization_target(
+    project_id: int,
+    project_slug: str,
+) -> WorkClaimTarget:
+    """Build the target serializing every deployment run for one project.
+
+    The slug rides in the scope so the operator key renders without a
+    database read; ``project_id`` alone is the exclusivity unit, so a
+    renamed project still conflicts with its own live hold.
+    """
+    return WorkClaimTarget(
+        TARGET_KIND_DEPLOY_SERIALIZATION,
+        {"project_id": int(project_id), "project_slug": str(project_slug)},
+    )
+
+
 def from_row(row: Mapping[str, Any]) -> WorkClaimTarget:
     """Reconstruct and validate a target from a work_claims row."""
     return WorkClaimTarget(
@@ -257,6 +286,7 @@ __all__ = [
     "ALL_TARGET_KINDS",
     "STEERING_DOCUMENT_KEY",
     "STICKY_TARGET_KINDS",
+    "TARGET_KIND_DEPLOY_SERIALIZATION",
     "TARGET_KIND_EPIC_TASK",
     "TARGET_KIND_ITEM",
     "TARGET_KIND_MIGRATION_SERIALIZATION",
@@ -273,6 +303,7 @@ __all__ = [
     "from_row",
     "is_sticky",
     "item_id_from_row",
+    "make_deploy_serialization_target",
     "make_epic_task_target",
     "make_item_target",
     "make_migration_serialization_target",

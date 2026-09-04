@@ -15,6 +15,9 @@ ACTIVE_ROUTE_QUALIFICATION_INDEX_NAME = "idx_work_claims_active_route_qualificat
 ACTIVE_MIGRATION_SERIALIZATION_INDEX_NAME = (
     "idx_work_claims_active_migration_serialization"
 )
+ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME = (
+    "idx_work_claims_active_deploy_serialization"
+)
 
 ACTIVE_ITEM_INDEX_DDL = (
     "CREATE UNIQUE INDEX IF NOT EXISTS "
@@ -64,6 +67,22 @@ def active_migration_serialization_index_ddl(conn: Any) -> str:
     )
 
 
+def active_deploy_serialization_index_ddl(conn: Any) -> str:
+    """Build the per-project deployment exclusivity index.
+
+    The slug rides in the scope so the operator key renders without a
+    database read, but the project id alone is the unit: renaming a
+    project must not hand out a second live deploy lock.
+    """
+    project = scope_text_sql(conn, "scope", "project_id")
+    return (
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        f"{ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME} "
+        f"ON work_claims(({project})) "
+        "WHERE released_at IS NULL AND target_kind='deploy_serialization'"
+    )
+
+
 def active_process_conflict_index_ddl(conn: Any) -> str:
     """Build the backend-specific conflict-group expression index."""
     conflict_group = scope_text_sql(conn, "scope", "conflict_group")
@@ -84,9 +103,11 @@ def create_work_claim_active_uniques(conn: Any) -> None:
     conn.execute(ACTIVE_QA_ADMISSION_INDEX_DDL)
     conn.execute(ACTIVE_ROUTE_QUALIFICATION_INDEX_DDL)
     conn.execute(active_migration_serialization_index_ddl(conn))
+    conn.execute(active_deploy_serialization_index_ddl(conn))
 
 
 __all__ = [
+    "ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME",
     "ACTIVE_EPIC_TASK_INDEX_DDL",
     "ACTIVE_MIGRATION_SERIALIZATION_INDEX_NAME",
     "ACTIVE_QA_ADMISSION_INDEX_DDL",
@@ -99,6 +120,7 @@ __all__ = [
     "ACTIVE_PROCESS_CONFLICT_INDEX_NAME",
     "ACTIVE_STEERING_INDEX_DDL",
     "ACTIVE_STEERING_INDEX_NAME",
+    "active_deploy_serialization_index_ddl",
     "active_migration_serialization_index_ddl",
     "active_process_conflict_index_ddl",
     "create_work_claim_active_uniques",

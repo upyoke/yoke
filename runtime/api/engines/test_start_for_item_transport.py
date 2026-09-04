@@ -178,6 +178,9 @@ def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
         composer, "cmd_validate_composition", lambda *_a, **_k: (True, "ok"),
     )
     monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
+    # Starting a run is gated on the project deploy lock; this test is about
+    # lineage resolution, so it runs as the session that holds it.
+    monkeypatch.setattr(composer, "deploy_lock_refusal", lambda *_a, **_k: None)
     import yoke_core.domain.deploy_pipeline_gates as gates
 
     monkeypatch.setattr(

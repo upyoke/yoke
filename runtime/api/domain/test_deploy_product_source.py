@@ -4,12 +4,25 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
+from unittest import mock
 
 import pytest
 
 from yoke_core.domain import deploy_product_source
 from yoke_core.domain import deploy_pipeline
 
+
+@pytest.fixture(autouse=True)
+def holding_the_deploy_lock():
+    """Run the pipeline as the session holding the project deploy lock.
+
+    Executing a run is gated on that claim; these tests are about the
+    stage machinery, and the gate has its own coverage.
+    """
+    with mock.patch.object(
+        deploy_pipeline, "deploy_lock_refusal", return_value=None,
+    ):
+        yield
 
 def _git(repo: Path, *args: str) -> str:
     result = subprocess.run(

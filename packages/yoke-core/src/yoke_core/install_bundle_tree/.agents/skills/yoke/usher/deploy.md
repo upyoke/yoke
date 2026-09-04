@@ -81,6 +81,22 @@ Exit-code dispatch:
 
 ## Step 8c: Route B — Item-bound deployment flow groups
 
+**Take the project's deploy lock first.** Composing a run and executing one
+both refuse unless this session holds it, so one driver owns a project's
+deployments end to end. Acquire once per project before the first group, and
+release after the last group finishes:
+
+```bash
+yoke claims coordination-claim acquire --project {project} --key DEPLOY:{project} --reason "usher deploy batch"
+```
+
+If the acquire is refused, another session is already driving that project's
+deployments: the refusal names the holder and the acquire recipe. Wait for it,
+or coordinate with that driver — do not work around the lock. A hold stranded
+by a dead driver is freed by the human-only
+`yoke coordination-claim release --project P --key DEPLOY:P --reason "..."`,
+which records a WARN `OperatorLeaseRelease`.
+
 For each `(project, flow)` group:
 
 ### 8c1-8c7: Compose the run
@@ -160,4 +176,15 @@ After release, halt the batch.
 
 ---
 
-After all groups processed, return to router for finalize phase.
+After all groups processed, release the deploy lock for every project this
+batch drove, then return to router for finalize phase:
+
+```bash
+yoke claims coordination-claim release --project {project} --key DEPLOY:{project} --reason "usher deploy batch complete"
+```
+
+Release it on the halt paths too (exit 1 and exit 3 above), after the member
+work-claim releases and before the halt summary — a batch that stopped is no
+longer driving, and a retained lock blocks the next driver. Exit 2 is a
+pending human approval that Usher resumes with `--deploy-only`, so the lock
+stays held across that wait.

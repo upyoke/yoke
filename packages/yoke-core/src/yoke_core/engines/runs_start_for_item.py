@@ -25,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from yoke_core.domain.deploy_lock import AMBIENT_SESSION, deploy_lock_refusal
 from yoke_core.domain.deployment_runs_crud_mutate import (
     cmd_add_item,
     cmd_create_run,
@@ -48,6 +49,7 @@ from yoke_core.engines.runs_release_lineage import (
 
 # Phase identifiers for the structured handle.
 PHASE_RESOLVE = "resolve-target"
+PHASE_DEPLOY_LOCK = "deploy-lock"
 PHASE_VALIDATE_LINEAGE = "validate-release-lineage"
 PHASE_CREATE = "create-run"
 PHASE_ADD_ITEM = "add-item"
@@ -107,11 +109,14 @@ def start_for_item(
     release_lineage: Optional[str] = None,
     project_repo_path: str = "",
     created_by: str = "operator",
+    session_id: Optional[str] = AMBIENT_SESSION,
 ) -> StartForItemResult:
     """Compose deploy-run setup for ``item_id`` into one structured call.
 
     Explicit kwargs override the values pulled from the item row, which
-    matches the equivalent hand-rolled five-step sequence.
+    matches the equivalent hand-rolled five-step sequence. ``session_id``
+    names the session whose deploy lock authorizes the run; the default
+    resolves the ambient session, which is what a terminal caller has.
     """
     db_project = db_flow = None
     if project is None or flow is None:
@@ -136,6 +141,22 @@ def start_for_item(
             item_ids=[item_id],
             error=_describe_missing_flow(item_id, resolved_project),
             error_phase=PHASE_RESOLVE,
+        )
+
+    lock_error = deploy_lock_refusal(
+        resolved_project,
+        operation="deployment_runs.start_for_item",
+        session_id=session_id,
+    )
+    if lock_error is not None:
+        return StartForItemResult(
+            ok=False,
+            project=resolved_project,
+            flow=resolved_flow,
+            item_ids=[item_id],
+            error=lock_error,
+            error_code="deploy_lock_required",
+            error_phase=PHASE_DEPLOY_LOCK,
         )
 
     try:

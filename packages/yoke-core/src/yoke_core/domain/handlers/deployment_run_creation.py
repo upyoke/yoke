@@ -8,6 +8,7 @@ from yoke_core.domain.handlers.deployment_common import (
     pipe_to_dict,
     require_global,
 )
+from yoke_core.domain.deploy_lock import deploy_lock_refusal
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
 )
@@ -80,6 +81,15 @@ def handle_deployment_run_create(
 
     clean_project = project.strip()
     clean_flow = flow.strip()
+
+    lock_error = deploy_lock_refusal(
+        clean_project,
+        operation="deployment_runs.create",
+        session_id=request.actor.session_id,
+    )
+    if lock_error is not None:
+        return error("deploy_lock_required", lock_error)
+
     try:
         if retry_of:
             release_lineage = _retry_lineage(

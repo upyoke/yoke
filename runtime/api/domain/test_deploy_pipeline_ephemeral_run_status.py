@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import (
     deploy_pipeline_run_context,
     deploy_pipeline,
@@ -34,6 +36,18 @@ _STAGES = json.dumps(
     ]
 )
 
+
+@pytest.fixture(autouse=True)
+def holding_the_deploy_lock():
+    """Run the pipeline as the session holding the project deploy lock.
+
+    Executing a run is gated on that claim; these tests are about the
+    stage machinery, and the gate has its own coverage.
+    """
+    with mock.patch.object(
+        deploy_pipeline, "deploy_lock_refusal", return_value=None,
+    ):
+        yield
 
 class _Harness:
     """Mocked-DB pipeline harness recording run mutations + events."""

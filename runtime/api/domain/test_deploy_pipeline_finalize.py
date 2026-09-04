@@ -17,6 +17,18 @@ from yoke_core.domain import (
 )
 
 
+@pytest.fixture(autouse=True)
+def holding_the_deploy_lock():
+    """Run the pipeline as the session holding the project deploy lock.
+
+    Executing a run is gated on that claim; these tests are about the
+    stage machinery, and the gate has its own coverage.
+    """
+    with mock.patch.object(
+        deploy_pipeline, "deploy_lock_refusal", return_value=None,
+    ):
+        yield
+
 def test_run_update_uses_in_process_registered_mutation(monkeypatch):
     update = mock.Mock(return_value=None)
     spawn = mock.Mock(side_effect=AssertionError("must not spawn"))
