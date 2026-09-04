@@ -188,8 +188,7 @@
     flex-wrap: wrap;
   }
   .universe-app-root .overview-doc-age,
-  .universe-app-root .machine-meta,
-  .universe-app-root .machine-surface-state {
+  .universe-app-root .machine-meta {
     margin-left: 0;
   }
 }

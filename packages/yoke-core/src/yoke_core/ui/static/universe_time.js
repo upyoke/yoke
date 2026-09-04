@@ -11,6 +11,20 @@ export function relativeAge(value, now = Date.now()) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+// Seconds-granular age, for a fact that changes faster than a minute: a relay
+// heartbeat is seconds old almost always, and "now" hides whether it is still
+// arriving. `relativeAge` stays the default everywhere a minute is the
+// smallest interval that carries meaning.
+export function preciseAge(value, now = Date.now()) {
+  const timestamp = Date.parse(String(value || ""));
+  if (Number.isNaN(timestamp)) return null;
+  const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
 export function isInstantRelativeTime(value, now = Date.now()) {
   return relativeAge(value, now) === "now";
 }

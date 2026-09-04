@@ -13,18 +13,7 @@ import {
   machineNameOf,
 } from "./universe_views_overview_activation_copy.js";
 import { renderHarnessTargets } from "./universe_views_overview_activation_health.js";
-
-// Minimal relative formatter for "connected <x> ago": the app has no shared
-// clock helper yet and this copy needs only a coarse honest magnitude.
-export function relativeTime(iso) {
-  const then = Date.parse(String(iso || ""));
-  if (Number.isNaN(then)) return null;
-  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86400)}d`;
-}
+import { preciseAge } from "./universe_time.js";
 
 function projectDirectories(documentNode, module, body) {
   for (const project of module.projects || []) {
@@ -52,7 +41,7 @@ function machineRow(documentNode, machine) {
   head.appendChild(el(
     documentNode, "span", "activation-machine-name", machineNameOf(machine),
   ));
-  const meta = machineMetaLine(machine.surfaces, relativeTime(machine.last_seen_at));
+  const meta = machineMetaLine(machine.surfaces, preciseAge(machine.last_seen_at));
   if (meta) {
     head.appendChild(el(documentNode, "span", "activation-machine-meta", meta));
   }
@@ -61,7 +50,7 @@ function machineRow(documentNode, machine) {
     row.appendChild(el(
       documentNode, "p", "activation-copy",
       machineConnectedLine(
-        machine.connected.executor, relativeTime(machine.connected.at),
+        machine.connected.executor, preciseAge(machine.connected.at),
       ),
     ));
   } else {

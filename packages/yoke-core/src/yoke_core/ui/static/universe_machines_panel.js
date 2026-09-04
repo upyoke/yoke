@@ -1,20 +1,29 @@
 // Machine launch capacity above the Sessions roster: vendor plan windows and
-// local lane capacity, composed from the relay's safe public projection.
+// local lane capacity, composed from the relay's safe public projection. A
+// status strip an operator scans before launching, not a report they read —
+// so every fact is a value in a column, and the words that would repeat on
+// every healthy row are left out.
 
 import { el } from "./universe_view_support.js";
+import { preciseAge } from "./universe_time.js";
+import {
+  METER_PIVOT,
+  finiteNumber,
+  formatBytes,
+  headroomMeterPosition,
+  headroomTone,
+  laneTone,
+  loadTone,
+  memoryTone,
+  planWindowHeadroom,
+  windowLabel,
+} from "./universe_machines_meters.js";
 import {
   renderSessionControlFailure,
   sessionControlCall,
 } from "./universe_session_control_data.js";
 
 const LAUNCHABLE_SURFACES = ["claude-cli", "codex-cli", "cursor-cli"];
-const WINDOW_SECONDS = {
-  rolling_5h: 5 * 60 * 60,
-  rolling_7d: 7 * 24 * 60 * 60,
-  monthly: 30 * 24 * 60 * 60,
-};
-const METER_PIVOT = 68;
-const METER_TOP = 1000;
 
 const LIGHTS = {
   ok: ["machine-light-ok", "ready"],
@@ -23,26 +32,8 @@ const LIGHTS = {
   absent: ["machine-light-off", "not installed"],
 };
 
-export function planWindowHeadroom(window, now = Date.now()) {
-  if (window?.status !== "ok") return null;
-  const seconds = WINDOW_SECONDS[window.window_kind];
-  const remaining = Number(window.remaining_percent);
-  const reset = new Date(window.resets_at).getTime();
-  const untilReset = (reset - now) / 1000;
-  if (!seconds || !Number.isFinite(remaining) || !Number.isFinite(reset)) {
-    return null;
-  }
-  if (remaining < 0 || remaining > 100 || untilReset <= 0) return null;
-  return (seconds * remaining / 100) / untilReset * 100;
-}
-
-export function headroomMeterPosition(headroom) {
-  const value = Math.max(0, Number(headroom) || 0);
-  if (value <= 100) return value / 100 * METER_PIVOT;
-  return METER_PIVOT + (100 - METER_PIVOT) * (
-    Math.log10(Math.min(value, METER_TOP) / 100) / Math.log10(METER_TOP / 100)
-  );
-}
+const UNREADABLE_RECOVERY =
+  " — launches still attempt and fail; re-authenticate the CLI";
 
 function surfaceState(relay, surface) {
   const mark = (relay.surface_policies || []).find(
@@ -58,73 +49,122 @@ function surfaceState(relay, surface) {
   return ["ok", ""];
 }
 
-function planWindowRow(documentNode, window) {
-  const headroom = planWindowHeadroom(window);
-  const row = el(documentNode, "div", "machine-limit-row");
-  const name = [window.scope, window.meter, window.window_kind]
-    .filter(Boolean).join(" · ");
-  row.appendChild(el(
-    documentNode, "span", "machine-limit-name", name || "plan limit",
-  ));
-  if (headroom === null) {
-    row.classList.add("is-unknown");
-    row.appendChild(el(
-      documentNode,
-      "span",
-      "machine-limit-value",
-      window.reason || "reading unavailable",
-    ));
-    return row;
-  }
-  const rounded = Math.round(headroom);
-  const quota = Math.round(Number(window.remaining_percent));
-  row.setAttribute(
-    "data-headroom",
-    rounded < 100 ? "low" : (rounded < 150 ? "tight" : "healthy"),
-  );
+// The reason a reading is missing, drawn where the meters would be: an empty
+// meter says nothing is left, and this says nobody knows.
+function limitNote(documentNode, reason) {
+  const note = el(documentNode, "p", "machine-limit-note");
+  note.appendChild(el(documentNode, "span", "machine-limit-reason", reason));
+  note.appendChild(el(documentNode, "span", null, UNREADABLE_RECOVERY));
+  return note;
+}
+
+function headroomTrack(documentNode, headroom, tone) {
   const track = el(documentNode, "span", "machine-headroom-track");
+  track.setAttribute("role", "img");
+  if (tone === "unread") {
+    track.setAttribute("aria-label", "no reading for this window");
+    return track;
+  }
   const fill = el(documentNode, "i", "machine-headroom-fill");
   fill.style.width = `${headroomMeterPosition(headroom).toFixed(1)}%`;
   track.appendChild(fill);
-  track.setAttribute("role", "img");
+  // 100% headroom sits at the same place on every bar, so the tick marking it
+  // means one thing wherever it is read.
+  const pivot = el(documentNode, "i", "machine-headroom-pivot");
+  pivot.style.left = `${METER_PIVOT}%`;
+  pivot.title = "100% headroom";
+  track.appendChild(pivot);
   track.setAttribute(
     "aria-label",
-    `${rounded}% headroom; 100% is the sustainable-use pivot`,
+    tone === "wall"
+      ? "at the wall; no headroom before this window resets"
+      : `${Math.round(headroom)}% headroom; 100% is the sustainable-use pivot`,
   );
-  row.appendChild(track);
+  return track;
+}
+
+// Label, headroom bar, headroom, quota left. The bar and the bold number are
+// the same fact so they cannot disagree; quota left rides behind as the
+// supporting one, because the level alone never says whether a pool can run
+// out before it resets.
+function planWindowRow(documentNode, window) {
+  const headroom = planWindowHeadroom(window);
+  const tone = headroomTone(headroom);
+  const row = el(documentNode, "div", "machine-limit-row");
+  row.setAttribute("data-tone", tone);
+  const unread = tone === "unread";
+  const name = el(
+    documentNode,
+    "span",
+    "machine-limit-name",
+    unread ? "no reading" : windowLabel(window),
+  );
+  // The column caps its width, so the full name stays reachable on hover.
+  name.title = name.textContent;
+  row.appendChild(name);
+  row.appendChild(headroomTrack(documentNode, headroom, tone));
+  const quota = finiteNumber(window.remaining_percent);
   row.appendChild(el(
     documentNode,
     "span",
-    "machine-limit-value",
-    `${rounded}% headroom · ${quota}% quota left`,
+    "machine-limit-headroom",
+    unread ? "—" : (tone === "wall" ? "wall" : `${Math.round(headroom)}%`),
+  ));
+  row.appendChild(el(
+    documentNode,
+    "span",
+    "machine-limit-quota",
+    quota === null ? "—" : `${Math.round(quota)}%`,
   ));
   return row;
 }
 
-function surfaceRow(documentNode, relay, surface) {
-  const [state, reason] = surfaceState(relay, surface);
+// The surface header doubles as the column header: the two numeric columns are
+// the same width here as in the rows below, so the labels sit over what they
+// name without costing a row of their own.
+function limitColumns(documentNode) {
+  const columns = el(documentNode, "span", "machine-limit-columns");
+  columns.appendChild(el(
+    documentNode, "span", "machine-limit-headroom", "headroom",
+  ));
+  columns.appendChild(el(documentNode, "span", "machine-limit-quota", "quota"));
+  return columns;
+}
+
+function surfaceHead(documentNode, relay, surface, state, reading) {
   const [lightClass, label] = LIGHTS[state];
-  const row = el(documentNode, "section", `machine-surface machine-surface-${state}`);
   const head = el(documentNode, "div", "machine-surface-head");
   const light = el(documentNode, "span", `machine-light ${lightClass}`);
   light.title = label;
+  light.setAttribute("role", "img");
+  light.setAttribute("aria-label", label);
   head.appendChild(light);
   head.appendChild(el(documentNode, "span", "machine-surface-name", surface));
+  if (reading?.plan_tier) head.appendChild(el(
+    documentNode, "span", "machine-plan-tier", reading.plan_tier,
+  ));
   const version = (relay.surface_versions || {})[surface];
   if (version) head.appendChild(el(
     documentNode, "span", "machine-surface-version", version,
   ));
+  if (reading?.windows?.length) head.appendChild(limitColumns(documentNode));
+  return head;
+}
+
+function surfaceRow(documentNode, relay, surface) {
+  const [state, reason] = surfaceState(relay, surface);
+  const row = el(
+    documentNode, "section", `machine-surface machine-surface-${state}`,
+  );
   const reading = (relay.plan_limits || {})[surface];
-  if (reading?.plan_tier) head.appendChild(el(
-    documentNode, "span", "machine-plan-tier", reading.plan_tier,
-  ));
-  head.appendChild(el(documentNode, "span", "machine-surface-state", label));
-  row.appendChild(head);
+  row.appendChild(surfaceHead(documentNode, relay, surface, state, reading));
   if (reason) row.appendChild(el(
     documentNode, "p", "machine-surface-reason", reason,
   ));
   if (reading?.windows?.length) {
     const limits = el(documentNode, "div", "machine-limit-list");
+    // Ordered by headroom, so the wall this machine hits first is the top row;
+    // a window nobody could read sorts last, having named no runway at all.
     const sorted = [...reading.windows].sort((left, right) => {
       const leftValue = planWindowHeadroom(left);
       const rightValue = planWindowHeadroom(right);
@@ -132,6 +172,9 @@ function surfaceRow(documentNode, relay, surface) {
     });
     for (const window of sorted) {
       limits.appendChild(planWindowRow(documentNode, window));
+      if (window.status !== "ok" && window.reason) {
+        limits.appendChild(limitNote(documentNode, window.reason));
+      }
     }
     row.appendChild(limits);
   } else if (state !== "absent") {
@@ -145,31 +188,54 @@ function surfaceRow(documentNode, relay, surface) {
   return row;
 }
 
+function capacityFact(documentNode, text, tone) {
+  const fact = el(documentNode, "span", "machine-capacity-fact", text);
+  fact.setAttribute("data-tone", tone);
+  return fact;
+}
+
+// Capacity, which is the same question from the other side: a machine can hold
+// quota and still have no room to run. Free memory and load carry no ceiling
+// the machine publishes, so lanes against the declared cap is the only one
+// that gets a bar.
 function capacityLine(documentNode, capacity) {
   const line = el(documentNode, "div", "machine-capacity");
   line.appendChild(el(
-    documentNode, "span", "machine-capacity-label", "Machine capacity",
+    documentNode, "span", "machine-capacity-label", "machine",
   ));
-  line.appendChild(el(
+  const cap = finiteNumber(capacity?.max_worker_lanes);
+  const lanes = finiteNumber(capacity?.live_lanes) ?? 0;
+  const lanePressure = laneTone(lanes, cap);
+  line.appendChild(capacityFact(
     documentNode,
-    "span",
-    "machine-capacity-summary",
-    capacity?.summary || "Capacity was not reported by this relay.",
+    `${formatBytes(capacity?.free_memory_bytes)} free`,
+    memoryTone(capacity?.free_memory_bytes, capacity?.total_memory_bytes),
   ));
-  if (Number(capacity?.max_worker_lanes) > 0) {
+  const load = finiteNumber(capacity?.load_average_1m);
+  line.appendChild(capacityFact(
+    documentNode,
+    `load ${load === null ? "unknown" : load.toFixed(1)}`,
+    loadTone(capacity?.load_average_1m, capacity?.core_count),
+  ));
+  line.appendChild(capacityFact(
+    documentNode,
+    `lanes ${lanes}/${cap !== null && cap > 0 ? cap : "?"}`,
+    lanePressure,
+  ));
+  if (cap !== null && cap > 0) {
     const track = el(documentNode, "span", "machine-capacity-track");
     const fill = el(documentNode, "i", "machine-capacity-fill");
-    const used = Math.min(
-      100,
-      Number(capacity.live_lanes || 0) / Number(capacity.max_worker_lanes) * 100,
-    );
-    fill.style.width = `${used.toFixed(1)}%`;
+    fill.style.width = `${Math.min(100, lanes / cap * 100).toFixed(1)}%`;
     track.appendChild(fill);
-    track.setAttribute(
-      "aria-label",
-      `${capacity.live_lanes || 0} of ${capacity.max_worker_lanes} lanes in use`,
-    );
+    track.setAttribute("data-tone", lanePressure);
+    track.setAttribute("role", "img");
+    track.setAttribute("aria-label", `${lanes} of ${cap} lanes in use`);
     line.appendChild(track);
+  } else if (capacity?.summary) {
+    // A relay that publishes no cap is an older relay, not a roomy machine.
+    line.appendChild(el(
+      documentNode, "span", "machine-capacity-unreported", capacity.summary,
+    ));
   }
   return line;
 }
@@ -186,8 +252,12 @@ function machineCard(documentNode, relay) {
   head.appendChild(el(
     documentNode, "span", "machine-host", relay.hostname || relay.machine_id,
   ));
+  const age = preciseAge(relay.last_seen_at);
   head.appendChild(el(
-    documentNode, "span", "machine-meta", live ? relay.state : "silent",
+    documentNode,
+    "span",
+    "machine-meta",
+    [live ? relay.state : "silent", age].filter(Boolean).join(" · "),
   ));
   card.appendChild(head);
   card.appendChild(capacityLine(documentNode, relay.capacity));
