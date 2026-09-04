@@ -96,6 +96,28 @@ export function rowsInOverviewScope(rows, scope, projects) {
   ));
 }
 
+// The Active band shows every live-or-stale session in scope. Ready has to
+// agree with that exact set — an item one of those sessions holds is already
+// in flight — so both bands read the roster through this one predicate.
+export function sessionsShownInActive(rows, scope, projects) {
+  return rowsInOverviewScope(rows, scope, projects).filter((row) => (
+    ["active", "stale"].includes(String(row.liveness || "").toLowerCase())
+  ));
+}
+
+// The item references those sessions hold live work claims on.
+export function itemsClaimedBySessions(sessionRows) {
+  const claimed = new Set();
+  for (const row of sessionRows) {
+    for (const claim of row.claims || []) {
+      if (String(claim.target_kind || "") !== "item") continue;
+      const ref = String(claim.public_ref || claim.target || "");
+      if (ref) claimed.add(ref);
+    }
+  }
+  return claimed;
+}
+
 export function successfulResult(callResult) {
   if (callResult?.status === 200 && callResult.envelope?.success) {
     return callResult.envelope.result || {};

@@ -1,4 +1,6 @@
-// Active renders the exact session-card object used by the Sessions roster.
+// Active renders the exact session-card object used by the Sessions roster,
+// from the session roster it shares with Frontier so Ready can omit whatever
+// this band already shows as in flight.
 
 import {
   exactSessionAudience,
@@ -6,17 +8,14 @@ import {
 } from "./session_message_compose_dialog.js";
 import {
   callError,
-  rowsInOverviewScope,
+  sessionsShownInActive,
   successfulResult,
 } from "./universe_overview_primitives.js";
 import { sessionCard } from "./universe_views_sessions.js";
-import { el, settledScopedCalls } from "./universe_view_support.js";
+import { el } from "./universe_view_support.js";
 
-export async function loadSessions(context, band, getScope) {
-  const { callResults } = await settledScopedCalls(context, [{
-    functionId: "sessions.list",
-    payload: { per_project: true },
-  }]);
+export async function loadSessions(context, band, getScope, sessionRoster) {
+  const { callResults } = await sessionRoster;
   if (!context.isMounted()) return null;
   const dialogHost = el(
     context.document, "div", "overview-session-dialog-host",
@@ -34,11 +33,9 @@ export async function loadSessions(context, band, getScope) {
       ));
       return;
     }
-    const rows = rowsInOverviewScope(
+    const rows = sessionsShownInActive(
       result.rows || [], getScope(), context.projects(),
-    ).filter((row) => ["active", "stale"].includes(
-      String(row.liveness || "").toLowerCase(),
-    )).sort((left, right) => String(right.activity_at || "").localeCompare(
+    ).sort((left, right) => String(right.activity_at || "").localeCompare(
       String(left.activity_at || ""),
     ));
     band.setCount(rows.length);

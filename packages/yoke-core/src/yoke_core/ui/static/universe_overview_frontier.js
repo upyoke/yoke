@@ -1,13 +1,17 @@
 // Waiting, Ready, and Done are filters over the same item roster. Frontier is
 // authoritative for runnable work and dependency reasons; the item overview
-// supplies frozen/blocked flags plus terminal timestamps.
+// supplies frozen/blocked flags plus terminal timestamps. Ready also reads the
+// session roster Active renders from, because work a session already holds is
+// in flight rather than ready to pick up.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { overviewItemCard } from "./universe_overview_cards.js";
 import {
   callError,
+  itemsClaimedBySessions,
   OVERVIEW_CARD_LIMIT,
   rowsInOverviewScope,
+  sessionsShownInActive,
   successfulResult,
 } from "./universe_overview_primitives.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
@@ -87,10 +91,13 @@ function moreDoneCard(documentNode, hiddenCount, scope) {
   return card;
 }
 
-export async function loadFrontier(context, bands, getScope) {
-  const { callResults } = await settledScopedCalls(context, [
-    { functionId: "items.overview.list", payload: {} },
-    { functionId: "frontier.list", payload: {} },
+export async function loadFrontier(context, bands, getScope, sessionRoster) {
+  const [{ callResults }, sessionCalls] = await Promise.all([
+    settledScopedCalls(context, [
+      { functionId: "items.overview.list", payload: {} },
+      { functionId: "frontier.list", payload: {} },
+    ]),
+    sessionRoster,
   ]);
   if (!context.isMounted()) return null;
   const paint = () => {
@@ -136,26 +143,6 @@ export async function loadFrontier(context, bands, getScope) {
       { flag: reason.flag, meta: "waiting", timestamp: row.created_at, timeLabel: "filed" },
     )), "Nothing is stopped.");
 
-    const ready = readyRows
-      .map((row) => mergeItemFacts(row, itemsByRef))
-      .filter((row) => !waiting.some((entry) => reference(entry.row) === reference(row)));
-    bands.ready.setCount(ready.length);
-    bands.ready.renderCards(ready.map((row) => overviewItemCard(
-      context.document,
-      row,
-      scope,
-      {
-        flag: {
-          label: "Ready",
-          text: row.why_ready || "No blocker is holding this item.",
-          tone: "ready",
-        },
-        meta: row.run_command || row.next_step,
-        timestamp: row.created_at,
-        timeLabel: "filed",
-      },
-    )), "Nothing is ready to pick up.");
-
     const done = items
       .filter((row) => recentlyDone(row))
       .sort((left, right) => String(completedAt(right)).localeCompare(
@@ -185,6 +172,41 @@ export async function loadFrontier(context, bands, getScope) {
     }
     bands.done.setCount(done.length);
     bands.done.renderCards(visible, "Nothing finished in the last 24 hours.");
+
+    // Ready is work not yet in flight. An item claimed by a session the
+    // Active band is showing is already being worked, so listing it here
+    // too would just repeat that session's row.
+    const sessionsResult = successfulResult(sessionCalls.callResults[0]);
+    if (!sessionsResult) {
+      bands.ready.renderError(callError(
+        sessionCalls.callResults[0],
+        "Ready needs the session roster to tell which items are in flight.",
+      ));
+      return;
+    }
+    const inFlight = itemsClaimedBySessions(sessionsShownInActive(
+      sessionsResult.rows || [], scope, projects,
+    ));
+    const ready = readyRows
+      .map((row) => mergeItemFacts(row, itemsByRef))
+      .filter((row) => !waiting.some((entry) => reference(entry.row) === reference(row)))
+      .filter((row) => !inFlight.has(reference(row)));
+    bands.ready.setCount(ready.length);
+    bands.ready.renderCards(ready.map((row) => overviewItemCard(
+      context.document,
+      row,
+      scope,
+      {
+        flag: {
+          label: "Ready",
+          text: row.why_ready || "No blocker is holding this item.",
+          tone: "ready",
+        },
+        meta: row.run_command || row.next_step,
+        timestamp: row.created_at,
+        timeLabel: "filed",
+      },
+    )), "Nothing is ready to pick up.");
   };
   paint();
   return paint;

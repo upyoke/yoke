@@ -107,6 +107,25 @@ export function multiProjectOverviewClient({ failProject } = {}) {
   };
 }
 
+// The repetitive shape the Overview must not render: the live session in
+// Active holds a work claim on the very item Ready would otherwise offer.
+export function claimingSession() {
+  return {
+    ...session("s-run", "yoke", 1),
+    current_item: "YOK-9",
+    current_item_title: "Ship typed workflows",
+    owns_current_item: true,
+    claims: [{ target_kind: "item", public_ref: "YOK-9", target: "YOK-9" }],
+    holdings: {
+      current: [{
+        holding_kind: "work_claim", target_kind: "item", target: "YOK-9",
+        public_ref: "YOK-9", item_title: "Ship typed workflows", project_id: 1,
+      }],
+      previous: [], previous_remainder: 0,
+    },
+  };
+}
+
 export function descendantText(root) {
   return allNodes(root)
     .filter((node) => node.children.length === 0)
@@ -140,11 +159,13 @@ export function overviewClient(overrides = {}) {
       }],
       blocked_rows: [],
     },
+    // Focused on YOK-9 without holding it, so the base fixture keeps that
+    // item in Ready; claimingSession() below is the claimed counterpart.
     "sessions.list": { rows: [{
       ...session("s-run", "yoke", 1),
       current_item: "YOK-9",
       current_item_title: "Ship typed workflows",
-      owns_current_item: true,
+      owns_current_item: false,
       claims: [],
     }] },
     "strategy.doc.list": { docs: [
