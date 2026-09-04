@@ -73,22 +73,19 @@ def model_facts_settled(event_name: str, session_id: str) -> bool:
 
 def record_model_facts_shipped(
     payload: Mapping[str, Any],
-    identity: Mapping[str, Any],
+    confirmed_model: Any,
 ) -> None:
-    """Settle this session once an evaluation carrying its model landed.
+    """Settle this session once the control plane confirms its served model.
 
-    Call this only where the control plane accepted the write — a relayed
-    evaluation that returned the hook contract without timing out, or an
-    in-process run that completed. A transport failure, a timeout, or a
-    degraded fail-open must NOT reach here: the whole point of the marker
-    is that the served model is recorded somewhere other than this
-    machine, and settling on an unsent read is how a session's model stays
-    NULL for the rest of its life.
+    ``confirmed_model`` is a receipt read from the durable session row, not
+    the client's own transcript reading. A transport failure, an unconfirmed
+    synthetic response, or a degraded fail-open therefore leaves the facts
+    unsettled to ride the next hook.
     """
     session_id = payload.get("session_id")
     if not isinstance(session_id, str) or not session_id:
         return
-    if identity.get("model") is None:
+    if not isinstance(confirmed_model, str) or not confirmed_model.strip():
         return
     _mark_model_shipped(session_id)
 

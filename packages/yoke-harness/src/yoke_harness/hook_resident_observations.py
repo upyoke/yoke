@@ -15,6 +15,9 @@ from typing import Any
 
 from yoke_cli.transport.bounded_json_http import request_json
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.hook_evaluator_protocol import (
+    HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
+)
 
 
 OBSERVATION_FLUSH_INTERVAL_SECONDS = 2.0
@@ -70,6 +73,29 @@ class PendingObservation:
             "hook_wait_ms": self.hook_wait_ms,
             "hook_request": self.hook_request,
         }
+
+
+def _record_model_confirmations(
+    batch: list[PendingObservation], result: dict[str, Any]
+) -> None:
+    confirmations = result.get(HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD)
+    if not isinstance(confirmations, dict):
+        return
+    from yoke_harness.hooks.identity_model_facts import (
+        record_model_facts_shipped,
+    )
+
+    for entry in batch:
+        confirmed = confirmations.get(entry.observation_id)
+        if not isinstance(confirmed, str):
+            continue
+        try:
+            stdin = entry.hook_request.get("stdin")
+            payload = json.loads(stdin) if isinstance(stdin, str) else {}
+        except (TypeError, ValueError):
+            continue
+        if isinstance(payload, dict):
+            record_model_facts_shipped(payload, confirmed)
 
 
 class DeferredObservationOpener:
@@ -252,8 +278,11 @@ class ObservationQueue:
                 failure = f"batch delivery failed ({type(exc).__name__})"
                 with self._condition:
                     self._failure = failure
-                sys.stderr.write(f"ERROR: YOKE_HOOK_TELEMETRY_FLUSH_FAILED: {failure}\n")
+                sys.stderr.write(
+                    f"ERROR: YOKE_HOOK_TELEMETRY_FLUSH_FAILED: {failure}\n"
+                )
                 return
+            _record_model_confirmations(batch, result)
             ids = [entry.observation_id for entry in batch]
             with self._condition:
                 if [entry.observation_id for entry in self._entries[: len(ids)]] == ids:

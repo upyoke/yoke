@@ -168,7 +168,7 @@ def test_a_window_recorded_after_the_model_still_reaches_the_wire(
     first = client_model_facts("PreToolUse", payload, "claude-code")
     assert first["model"] == "claude-opus-5"
     assert "context_window_tokens" not in first
-    record_model_facts_shipped(payload, first)
+    record_model_facts_shipped(payload, first["model"])
 
     claude_status_line.record_context_window(_payload(1_000_000))
     later = client_model_facts("PostToolUse", payload, "claude-code")
@@ -186,7 +186,7 @@ def test_a_settled_session_with_no_recording_reports_nothing(
     }
 
     record_model_facts_shipped(
-        payload, client_model_facts("PreToolUse", payload, "claude-code")
+        payload, client_model_facts("PreToolUse", payload, "claude-code")["model"]
     )
 
     assert client_model_facts("PostToolUse", payload, "claude-code") == {}

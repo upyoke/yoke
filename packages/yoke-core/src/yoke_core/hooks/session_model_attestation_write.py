@@ -1,14 +1,52 @@
-"""Write what a harness transcript proves a session is being served.
+"""Write and confirm what a harness artifact proves a session is being served.
 
-The served columns on ``harness_sessions`` are filled here and nowhere
-else on the hook path: registration and the launch binding stamp the
-request, and this runs from every later hook, once generation has produced
-a transcript that names a model. Split out of :mod:`yoke_core.hooks.service_client`, whose other
-functions are all subprocess/path plumbing — this is the one that opens
-the database directly.
+Local transcript refreshes write here; relayed facts use active-registration
+healing. Both paths confirm the durable row here before a client stops reading
+its artifact. Split out of :mod:`yoke_core.hooks.service_client`, whose other
+functions are subprocess/path plumbing.
 """
 
 from __future__ import annotations
+
+from typing import Any
+
+
+def confirmed_served_model(
+    session_id: Any,
+    expected_model: Any,
+    *,
+    conn: Any = None,
+) -> str | None:
+    """Return the expected model only when the control-plane row holds it.
+
+    A relayed client uses this value as its durable-write receipt.  Missing
+    rows, unavailable authorities, and a different stored model all return
+    ``None`` so the client keeps resolving and sending its artifact evidence.
+    """
+    if not isinstance(session_id, str) or not session_id.strip():
+        return None
+    if not isinstance(expected_model, str) or not expected_model.strip():
+        return None
+    owned = conn is None
+    try:
+        if owned:
+            from yoke_core.domain import db_helpers
+
+            conn = db_helpers.connect()
+        from yoke_core.domain import db_backend
+
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        row = conn.execute(
+            f"SELECT model FROM harness_sessions WHERE session_id = {marker}",
+            (session_id.strip(),),
+        ).fetchone()
+        stored = row.get("model") if hasattr(row, "get") else row[0] if row else None
+        return expected_model if stored == expected_model else None
+    except Exception:
+        return None
+    finally:
+        if owned and conn is not None:
+            conn.close()
 
 
 def attest_served_model_facts(
@@ -22,8 +60,8 @@ def attest_served_model_facts(
     The earliest hook that fires after generation starts is the first
     moment the transcript names a served model, so this runs from every
     later hook and writes whatever the artifact now proves. It is the
-    write path for the served columns; the requested ones are stamped at
-    registration or by the launch binding, and are never touched here.
+    direct write path for the served columns; relayed evidence heals them
+    through registration. The requested columns are never touched here.
 
     No-ops when the transcript attests nothing, when the row already says
     the same thing, or when the DB / schema / session row is unavailable.
@@ -33,7 +71,8 @@ def attest_served_model_facts(
     Emits ``HarnessSessionModelRefreshed`` when a write fires, so which
     hook surface attested and when is answerable from stored rows.
 
-    Returns True when an UPDATE fired, False otherwise.
+    This is the direct transcript write path; relayed facts use duplicate-
+    registration healing. Returns True when an UPDATE fired, False otherwise.
     """
     if not session_id or not transcript_path:
         return False
@@ -111,4 +150,4 @@ def attest_served_model_facts(
     return True
 
 
-__all__ = ["attest_served_model_facts"]
+__all__ = ["attest_served_model_facts", "confirmed_served_model"]
