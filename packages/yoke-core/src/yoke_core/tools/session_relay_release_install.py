@@ -124,8 +124,9 @@ def _install_candidate(
     releases = instance.state_dir / RELAY_RELEASES_DIR_NAME
     releases.mkdir(mode=0o700, parents=True, exist_ok=True)
     token = uuid.uuid4().hex
-    candidate = releases / f".install-{token}"
-    installed = releases / token
+    candidate = releases / token
+    link = instance.state_dir / f".{RELAY_VENV_NAME}-{token}"
+    activated = False
     try:
         create_venv(candidate)
         python = candidate / "bin" / "python"
@@ -186,13 +187,17 @@ def _install_candidate(
                 "installed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
-        candidate.replace(installed)
-        link = instance.state_dir / f".{RELAY_VENV_NAME}-{token}"
-        link.symlink_to(installed, target_is_directory=True)
+        link.symlink_to(candidate, target_is_directory=True)
         os.replace(link, relay_venv_path(instance.state_dir))
+        activated = True
     finally:
-        if candidate.exists():
-            shutil.rmtree(candidate, ignore_errors=True)
+        if not activated:
+            try:
+                link.unlink()
+            except FileNotFoundError:
+                pass
+            if candidate.exists():
+                shutil.rmtree(candidate, ignore_errors=True)
 
 
 def _create_venv(path: Path) -> None:

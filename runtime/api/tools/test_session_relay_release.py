@@ -62,7 +62,7 @@ def _fake_venv(path: Path) -> None:
     binary = path / "bin"
     binary.mkdir(parents=True)
     (binary / "python").touch()
-    (binary / "yoke").touch()
+    (binary / "yoke").write_text(f"#!{binary / 'python'}\n", encoding="utf-8")
 
 
 def _runner_for(release: str, calls: list[list[str]]):
@@ -116,6 +116,7 @@ def test_successful_pin_installs_a_wheel_then_swaps_the_stable_venv(
     assert status.served_build == f"v{RELEASE}"
     assert status.executable == instance.state_dir / "venv" / "bin" / "yoke"
     assert (instance.state_dir / "venv").is_symlink()
+    assert str((instance.state_dir / "venv").resolve()) in status.executable.read_text()
     install = calls[0]
     assert install[-1] == f"yoke-core=={RELEASE}"
     assert install[install.index("--extra-index-url") + 1] == (
