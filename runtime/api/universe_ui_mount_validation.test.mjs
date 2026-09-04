@@ -141,7 +141,7 @@ test("every nav destination declares how it takes project scope", () => {
   // Workflows serves the engine's universe-wide lifecycle definition, so no
   // project narrows it and it draws no picker.
   for (const view of [
-    "projects", "access", "packs", "organization", "workflows",
+    "projects", "actors", "packs", "organization", "workflows",
   ]) {
     assert.equal(universeNavScope(view), "none");
   }

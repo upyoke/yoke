@@ -12,6 +12,7 @@
 // registration record: which machines exist, what they serve, what they ran.
 
 import { el } from "./universe_view_support.js";
+import { renderMachineApprovalsView } from "./universe_machine_approvals.js";
 import { renderSessionLaunchesView } from "./universe_session_launches.js";
 import { renderSessionRelaysView } from "./universe_session_relays.js";
 
@@ -20,9 +21,12 @@ export function renderMachinesView(context, main, scope, chromeArg) {
   // `null` on some render paths — so the guard is explicit.
   const chrome = (chromeArg && typeof chromeArg === "object") ? chromeArg : {};
   const documentNode = context.document;
+  // A machine waiting to be admitted comes first: it is the only thing on
+  // this page that is asking the reader for something.
+  const approvals = el(documentNode, "section", "machines-section");
   const relays = el(documentNode, "section", "machines-section");
   const launches = el(documentNode, "section", "machines-section");
-  main.replaceChildren(relays, launches);
+  main.replaceChildren(approvals, relays, launches);
 
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
@@ -37,6 +41,7 @@ export function renderMachinesView(context, main, scope, chromeArg) {
   // destination passes an inert chrome rather than letting either of them
   // rewrite the page head it does not own.
   const composed = { ...chrome, setPageHead: undefined };
+  renderMachineApprovalsView(context, approvals);
   renderSessionRelaysView(context, relays, scope, composed);
   renderSessionLaunchesView(context, launches, scope, composed);
 }

@@ -243,7 +243,7 @@ test("all four request kinds link to their one subject home", () => {
       "#/qa-plans/7?project=10",
     ],
     ["lifecycle_transition_approval", "item_transition", { item_ref: "YOK-7" }, "#/items/7?project=10"],
-    ["machine_approval", "machine_auth_request", {}, "#/access"],
+    ["machine_approval", "machine_auth_request", {}, "#/machines"],
   ];
   for (const [kind, subjectType, subjectContext, expected] of cases) {
     assert.equal(inboxPresentation.subjectHref(requestRow({

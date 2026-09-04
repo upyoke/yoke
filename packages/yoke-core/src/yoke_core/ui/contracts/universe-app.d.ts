@@ -196,7 +196,7 @@ export interface UniverseAppMount {
  * their content is host-owned: each renders the host's `sections` entry as
  * its body, and its nav entry appears exactly when that section is supplied.
  */
-export type UniverseRouteView = "overview" | "sessions" | "inbox" | "organization" | "workflows" | "projects" | "github" | "access" | "members" | "billing" | "strategy" | "items" | "deployments" | "environments" | "flows" | "databases" | "infrastructure" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "events" | "doctor" | "ouroboros" | "machines";
+export type UniverseRouteView = "overview" | "sessions" | "inbox" | "organization" | "workflows" | "projects" | "github" | "actors" | "members" | "billing" | "strategy" | "items" | "deployments" | "environments" | "flows" | "databases" | "infrastructure" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "events" | "doctor" | "ouroboros" | "machines";
 /**
  * A view's optional second route segment means what the view declares — a
  * tab (one facet of the view's single concept) or a drill-in (one row of the
@@ -223,7 +223,7 @@ export interface UniverseRoute {
  */
 export type UniverseScope = "multi" | "single" | "none";
 /** Canonical value; the runtime module is emitted from this source. */
-export declare const UNIVERSE_APP_CONTRACT_VERSION: 6;
+export declare const UNIVERSE_APP_CONTRACT_VERSION: 7;
 export declare function createHttpFunctionClient(options?: HttpFunctionClientOptions): UniverseFunctionClient;
 export declare function parseUniverseRoute(hash: string): UniverseRoute;
 /** `segment` is the view's second path segment: a tab id for a view that

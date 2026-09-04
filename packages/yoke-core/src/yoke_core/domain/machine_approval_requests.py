@@ -252,6 +252,10 @@ def apply_machine_approval_lifecycle_request(
     context: dict[str, Any] = {}
     if model.expires_at is not None:
         context["expires_at"] = model.expires_at.isoformat()
+    if model.code is not None:
+        context["code"] = model.code
+    if model.machine is not None:
+        context["machine"] = model.machine
     from yoke_core.domain import db_helpers
     from yoke_core.domain.external_identities import (
         default_org_id,

@@ -1,4 +1,4 @@
-import { el } from "./universe_view_support.js";
+import { callFunction, el } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import {
   ACTION_LABELS,
@@ -171,6 +171,46 @@ export function appendDecisionRow(
   wrap.appendChild(actions);
   makeRowNavigable(documentNode, wrap, href, decisionTitle(row));
   body.appendChild(wrap);
+}
+
+// Answering a gate is one act wherever its row is rendered — the Inbox
+// panel, the Machines page — so every caller resolves through this one
+// function rather than repeating the disable/call/reload/report dance and
+// drifting on what a failure says.
+export function createDecisionResolver(context, reload) {
+  const documentNode = context.document;
+  return async (row, action, wrap, note = null) => {
+    const actionButtons = [];
+    const collect = (node) => {
+      if (node.classList?.contains("inbox-action")) actionButtons.push(node);
+      for (const child of node.children || []) collect(child);
+    };
+    collect(wrap);
+    for (const button of actionButtons) button.disabled = true;
+    const resolution = { request_id: row.id, action };
+    if (note) resolution.note = note;
+    let result;
+    try {
+      result = await callFunction(
+        context.client, "decision_requests.resolve", resolution,
+      );
+    } catch (error) {
+      result = {
+        status: 0,
+        envelope: { success: false, error: { message: String(error) } },
+      };
+    }
+    if (result.status === 200 && result.envelope.success) {
+      await reload();
+      return;
+    }
+    for (const button of actionButtons) button.disabled = false;
+    appendRowError(
+      documentNode,
+      wrap,
+      result.envelope.error?.message || "The decision could not be resolved.",
+    );
+  };
 }
 
 export function appendActorMessageRow(context, body, message, acknowledge) {

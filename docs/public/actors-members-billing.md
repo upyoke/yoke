@@ -1,10 +1,17 @@
-# Access, Members, Billing, Universe settings
+# Actors, Members, Billing, Universe settings
 
-## Access
+## Actors
 
 Who and what may act on the universe and per project: machine connect,
-approvals, tokens. On Cloud, CLI connect and machine authorization flow
-through platform routes (`/connect`, `/machine`) and the Access section.
+approvals, tokens. On Cloud, CLI connect and machine authorization start
+at the platform routes (`/connect`, `/machine`).
+
+A machine waiting to be admitted is answered on the **Machines** page,
+not here: approving needs the machine beside the decision — which one,
+who asked for it, and the one-time code the person at that machine is
+reading. Approving admits the machine and nothing more. The machine
+belongs to the actor who installed Yoke and authenticated on it, so an
+admin answering for someone else never becomes its owner.
 
 ## Members (Cloud)
 
@@ -39,5 +46,5 @@ Organization / universe level: export/import portability, founding new orgs
 |---|---|---|
 | Workbench | `yoke ui up` | app.upyoke.com |
 | Members / Billing | N/A | Platform sections |
-| Machine approval | N/A (you are the machine) | Access / connect |
+| Machine approval | N/A (you are the machine) | Machines page / connect |
 | Universe export | Yes | Yes (portability) |

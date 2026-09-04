@@ -12,6 +12,7 @@ import {
   appendActorMessageRow,
   appendPanelHint,
   appendRowError,
+  createDecisionResolver,
   emptyRow,
 } from "./inbox_rows.js";
 
@@ -78,38 +79,7 @@ export function renderInboxView(context, main, scope) {
     }],
   ], [{ functionId: "inbox.list", payload }]);
 
-  const resolve = async (row, action, wrap, note = null) => {
-    const actionButtons = [];
-    const collect = (node) => {
-      if (node.classList?.contains("inbox-action")) actionButtons.push(node);
-      for (const child of node.children || []) collect(child);
-    };
-    collect(wrap);
-    for (const button of actionButtons) button.disabled = true;
-    const resolution = { request_id: row.id, action };
-    if (note) resolution.note = note;
-    let result;
-    try {
-      result = await callFunction(
-        context.client, "decision_requests.resolve", resolution,
-      );
-    } catch (error) {
-      result = {
-        status: 0,
-        envelope: { success: false, error: { message: String(error) } },
-      };
-    }
-    if (result.status === 200 && result.envelope.success) {
-      await load();
-      return;
-    }
-    for (const button of actionButtons) button.disabled = false;
-    appendRowError(
-      documentNode,
-      wrap,
-      result.envelope.error?.message || "The decision could not be resolved.",
-    );
-  };
+  const resolve = createDecisionResolver(context, load);
 
   const acknowledgeMessage = async (messageId, button) => {
     button.disabled = true;

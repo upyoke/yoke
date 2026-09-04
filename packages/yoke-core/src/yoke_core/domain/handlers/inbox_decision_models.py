@@ -19,6 +19,9 @@ class InboxListRequest(BaseModel):
 
 class InboxListResponse(BaseModel):
     needs_decision: List[Dict[str, Any]]
+    # Machine approvals are answered on the Machines page, beside the
+    # machine they admit, rather than in the Inbox panels.
+    machine_approvals: List[Dict[str, Any]] = Field(default_factory=list)
     messages: List[Dict[str, Any]] = Field(default_factory=list)
     pending_actor_message_count: int = 0
 
@@ -61,6 +64,12 @@ class MachineApprovalLifecycleRequest(BaseModel):
     occurred_at: datetime
     expires_at: Optional[datetime] = None
     reason: Optional[str] = Field(default=None, min_length=1, max_length=1000)
+    # What an approver reads before answering: the code the person at that
+    # machine is looking at, and the machine's own name. Both are optional
+    # because a delivery may know neither yet; the approval surface shows
+    # what it was told and says plainly when it was told nothing.
+    code: Optional[str] = Field(default=None, min_length=1, max_length=64)
+    machine: Optional[str] = Field(default=None, min_length=1, max_length=200)
 
     @model_validator(mode="after")
     def require_state_evidence(self):
