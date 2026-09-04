@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -87,6 +88,10 @@ class RemoteRoute:
     base_sha: str
     pytest_args: tuple[str, ...]
     dropped_args: tuple[str, ...] = ()
+    #: The ref the selection was measured against, when there was one. Kept
+    #: so the run can name the command that resumes it — a worker woken with
+    #: the verdict needs the invocation it actually made, not a guess at one.
+    impacted_base: str = ""
 
     @property
     def dispatch_id(self) -> str:
@@ -102,6 +107,13 @@ class RemoteRoute:
         ).hexdigest()[:12]
         return f"watch-pytest:{self.head_sha}:{digest}"
 
+    @property
+    def continue_command(self) -> str:
+        """The invocation that re-enters this run once it has concluded."""
+        if self.impacted_base:
+            return f"yoke watch pytest --impacted {self.impacted_base} --bounded"
+        return f"yoke watch pytest -- {shlex.join(self.pytest_args)}".rstrip()
+
     def engine_argv(self) -> list[str]:
         return [
             sys.executable, "-m", ENGINE_MODULE,
@@ -113,6 +125,7 @@ class RemoteRoute:
             "--head-sha", self.head_sha,
             "--base-sha", self.base_sha,
             "--dispatch-id", self.dispatch_id,
+            "--continue-command", self.continue_command,
             "--", *self.pytest_args,
         ]
 
@@ -283,6 +296,7 @@ def resolve_route(
         base_sha=base_sha,
         pytest_args=kept,
         dropped_args=dropped,
+        impacted_base=impacted_base or "",
     )
 
 

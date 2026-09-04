@@ -186,6 +186,29 @@ def relay_failed_log(*, project: str, repo: str, run_id: str) -> None:
     print(text, flush=True)
 
 
+def record_wait(*, repo: str, run_id: str, head_sha: str, continue_command: str) -> None:
+    """Make this run's verdict reachable if the turn watching it ends.
+
+    The watcher streaming this process dies with the turn that started it,
+    so a worker that stops here would otherwise never learn the conclusion.
+    Recording the wait hands that job to the control-plane sweep. It is
+    advisory: a run started outside a session records nothing, and a
+    control plane that refuses says so without stopping the run.
+    """
+    from yoke_core.domain.session_ci_wait_record import record_ci_run_wait
+    from yoke_core.domain.session_ci_wait_schema import CI_WAIT_SELECTION
+
+    warning = record_ci_run_wait(
+        repo=repo,
+        run_id=run_id,
+        kind=CI_WAIT_SELECTION,
+        head_sha=head_sha,
+        continue_command=continue_command,
+    )
+    if warning:
+        _say(f"{warning}; this run's verdict will not wake a stopped turn")
+
+
 def run(
     *,
     root: Path,
@@ -197,6 +220,7 @@ def run(
     base_sha: str,
     pytest_args: Sequence[str],
     dispatch_id: str,
+    continue_command: str = "",
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> int:
     """Publish, dispatch or rejoin, await, and mirror the conclusion."""
@@ -220,6 +244,12 @@ def run(
             return EXIT_UNREACHABLE
         run_id, source = started
         url = f"https://github.com/{repo}/actions/runs/{run_id}"
+        record_wait(
+            repo=repo,
+            run_id=run_id,
+            head_sha=head_sha,
+            continue_command=continue_command,
+        )
         _say(
             f"{source} run={run_id} {url} head_sha={head_sha} "
             f"selection_base={base_sha or 'explicit paths'} "
@@ -254,6 +284,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for name in ("root", "project", "workflow", "repo", "branch", "head-sha", "dispatch-id"):
         parser.add_argument(f"--{name}", required=True)
     parser.add_argument("--base-sha", default="")
+    parser.add_argument("--continue-command", default="")
     parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("pytest_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
@@ -270,6 +301,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         base_sha=args.base_sha,
         pytest_args=passthrough,
         dispatch_id=args.dispatch_id,
+        continue_command=args.continue_command,
         timeout_seconds=args.timeout_seconds,
     )
 
@@ -285,6 +317,7 @@ __all__ = [
     "failure_detail",
     "main",
     "publish",
+    "record_wait",
     "relay_failed_log",
     "run",
 ]

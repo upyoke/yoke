@@ -44,11 +44,14 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # table (test_machine_operation_receipts), which records what was last done to
 # a machine beside the verification row that decides its readiness, and the
 # machines table — one row per registered Yoke machine, net-new and
-# pure-additive, so every column is born with it — and the landing-record and
+# pure-additive, so every column is born with it — the landing-record and
 # project-refresh tables, which introduce durable queue observations and a
-# shared server-side refresh cadence without altering an existing table.
+# shared server-side refresh cadence without altering an existing table, and
+# the pending-CI-wait table (session_ci_run_waits), where every column
+# describes one run a session is owed the verdict for: who dispatched it,
+# which run it is, and how far the observing sweep has got with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "c2f20760075ecdb23e66a87dbb8df4cd443b93c3984a8e2550ede74ad701ab87"
+    "6ebee82db807c2de694d3e4d01323f2950c800a04ea2f7ea8f551d3a9e2c22b6"
 )
 
 
