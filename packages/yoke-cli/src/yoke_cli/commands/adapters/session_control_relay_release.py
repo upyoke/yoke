@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+import importlib
 from pathlib import Path
 import sys
 from typing import Any
@@ -15,11 +16,12 @@ def release_status_payload(
 ) -> dict[str, Any]:
     """Render the venv pin beside the launchd lifecycle state."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
-    from yoke_core.tools.session_relay_release import relay_release_status
+
+    release = importlib.import_module("yoke_core.tools.session_relay_release")
 
     environment = str(getattr(launchd_status, "environment", "") or "")
     instance = resolve_relay_instance(environment=environment or None)
-    status = relay_release_status(
+    status = release.relay_release_status(
         instance=instance,
         refresh_served=refresh_served,
     )
@@ -49,13 +51,6 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
 def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
     """Run and re-pin the daemon from its environment-owned venv."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
-    from yoke_core.tools.session_relay_release import (
-        RELAY_RELEASE_INSTALL_FAILED,
-        RELAY_RELEASE_START_FAILED,
-        RelayReleaseError,
-        relay_release_status,
-    )
-    from yoke_core.tools.session_relay_release_install import pin_relay_release
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_inventory import collect_cached_inventory
     from yoke_harness.session_relay_process_restart import exec_relay_release
@@ -63,15 +58,19 @@ def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
         refresh_surface_probe_cache,
     )
 
+    release = importlib.import_module("yoke_core.tools.session_relay_release")
+    release_install = importlib.import_module(
+        "yoke_core.tools.session_relay_release_install"
+    )
     instance = resolve_relay_instance()
-    installed = relay_release_status(instance=instance, refresh_served=False)
+    installed = release.relay_release_status(instance=instance, refresh_served=False)
     if not installed.current:
-        code = str(installed.error_code or RELAY_RELEASE_INSTALL_FAILED)
+        code = str(installed.error_code or release.RELAY_RELEASE_INSTALL_FAILED)
         detail = str(
             installed.error_message
             or "the standing relay has no complete pinned release"
         )
-        raise RelayReleaseError(
+        raise release.RelayReleaseError(
             code,
             f"{detail}. Recovery: run `yoke --env {instance.environment} "
             "relay install`.",
@@ -81,14 +80,14 @@ def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
         try:
             exec_relay_release(argv, executable=executable)
         except OSError as exc:
-            raise RelayReleaseError(
-                RELAY_RELEASE_START_FAILED,
+            raise release.RelayReleaseError(
+                release.RELAY_RELEASE_START_FAILED,
                 "could not start the pinned relay "
                 f"release: {exc}. Recovery: retry `yoke --env "
                 f"{instance.environment} relay install`.",
             ) from exc
-        raise RelayReleaseError(
-            RELAY_RELEASE_START_FAILED,
+        raise release.RelayReleaseError(
+            release.RELAY_RELEASE_START_FAILED,
             "pinned relay replacement returned without starting",
         )
 
@@ -103,7 +102,7 @@ def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
         prepare()
 
     def repin(served_build: str):
-        return pin_relay_release(
+        return release_install.pin_relay_release(
             instance=instance,
             served_build=served_build,
         ).executable
