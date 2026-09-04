@@ -240,3 +240,28 @@ def test_status_compares_the_pinned_release_with_a_fresh_handshake(
     assert current.pinned_release == RELEASE
     assert current.served_build == f"v{NEXT_RELEASE}"
     assert not current.current
+
+
+def test_status_never_treats_a_stale_served_build_as_a_fresh_handshake(
+    tmp_path: Path,
+) -> None:
+    instance = _instance(tmp_path)
+    pin_relay_release(
+        instance=instance,
+        served_build=f"v{RELEASE}",
+        create_venv=_fake_venv,
+        runner=_runner_for(RELEASE, []),
+    )
+
+    def fail_handshake(_environment: str):
+        raise TimeoutError("server unavailable")
+
+    observed = relay_release_status(
+        instance=instance,
+        fetch_manifest=fail_handshake,
+    )
+
+    assert observed.pinned_release == RELEASE
+    assert observed.served_build == ""
+    assert not observed.current
+    assert observed.error_code == RELAY_RELEASE_FETCH_FAILED

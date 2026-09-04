@@ -168,6 +168,7 @@ def relay_release_status(
             if not index:
                 index = distribution_index_for_instance(selected)
         except RelayReleaseError as exc:
+            served = ""
             observed_error = exc
     recorded_error = _read_json(selected.state_dir / RELAY_RELEASE_ERROR_NAME)
     error_code = str(recorded_error.get("code") or "")
@@ -177,11 +178,15 @@ def relay_release_status(
         error_message = str(observed_error)
     executable = relay_release_executable(selected.state_dir)
     python = relay_release_python(selected.state_dir)
-    current = bool(executable.is_file() and pinned)
-    if refresh_served:
-        current = (
-            current and bool(served) and pinned == release_version_from_build(served)
-        )
+    current = bool(executable.is_file() and pinned and served)
+    if current:
+        try:
+            current = pinned == release_version_from_build(served)
+        except RelayReleaseError as exc:
+            current = False
+            if not error_code:
+                error_code = RELAY_RELEASE_INSTALL_FAILED
+                error_message = f"installed relay receipt is invalid: {exc}"
     return RelayReleaseStatus(
         pinned_release=pinned,
         served_build=served,
