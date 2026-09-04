@@ -9,7 +9,11 @@ import {
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
-import { overviewClient } from "./universe_ui_overview_view_test_support.mjs";
+import {
+  claimingSession,
+  descendantText,
+  overviewClient,
+} from "./universe_ui_overview_view_test_support.mjs";
 
 function stubFetch(t) {
   const originalFetch = globalThis.fetch;
@@ -77,5 +81,24 @@ test("Overview cards link to their first-class destinations", async (t) => {
   assert.match(text, /Waiting for a product decision/);
   assert.match(text, /No blockers; specification and plan are current/);
   assert.match(text, /Merged and deployed to stage/);
+  mounted.unmount();
+});
+
+test("Ready omits an item a session in Active already holds", async (t) => {
+  stubFetch(t);
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/overview?project=1";
+  const root = documentNode.createElement("div");
+  const mounted = mountUniverseApp(root, {
+    client: overviewClient({ "sessions.list": { rows: [claimingSession()] } }),
+  });
+  await settle();
+
+  const band = (key) => byClass(root, `overview-band-${key}`)[0];
+  assert.deepEqual(
+    byClass(band("ready"), "overview-item-card").map((node) => node.href), [],
+  );
+  assert.equal(byClass(band("active"), "session-card").length, 1);
+  assert.match(descendantText(band("active")), /Ship typed workflows/);
   mounted.unmount();
 });

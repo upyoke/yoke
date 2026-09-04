@@ -9,7 +9,7 @@ import {
 } from "./universe_overview_primitives.js";
 import { loadSessions } from "./universe_overview_sessions.js";
 import { loadStrategy } from "./universe_overview_strategy.js";
-import { el } from "./universe_view_support.js";
+import { el, settledScopedCalls } from "./universe_view_support.js";
 import { loadActivationModules } from "./universe_views_overview_activation.js";
 
 export function renderOverviewView(context, main, scope, options = {}) {
@@ -59,9 +59,16 @@ export function renderOverviewView(context, main, scope, options = {}) {
   const hold = (pending) => Promise.resolve(pending).then((paint) => {
     if (typeof paint === "function") painters.push(paint);
   });
+  // Active and Ready answer the same question from opposite sides, so they
+  // read one session roster: Ready omits every item a session in Active
+  // already holds.
+  const sessionRoster = settledScopedCalls(context, [{
+    functionId: "sessions.list",
+    payload: { per_project: true },
+  }]);
   hold(loadStrategy(context, { standing, plans }, getScope));
-  hold(loadFrontier(context, { waiting, ready, done }, getScope));
-  hold(loadSessions(context, active, getScope));
+  hold(loadFrontier(context, { waiting, ready, done }, getScope, sessionRoster));
+  hold(loadSessions(context, active, getScope, sessionRoster));
   hold(loadDelivery(context, shipping, getScope));
 
   return {
