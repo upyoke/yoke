@@ -13,8 +13,6 @@ from runtime.api.domain.machine_registry_test_support import (
 )
 
 
-
-
 def _register(conn, *, access=None, actor_id: int = 1):
     machine_registry.register_machine(
         conn,
