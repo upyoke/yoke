@@ -204,27 +204,17 @@ No adapter declares `supported_paths` at offer time — the offer surface has no
 
 The machine itself is registered before any of this matters: `yoke status` registers this host's machine id, giving it an owner and a human name, and the `machines` row's `access` document decides which same-universe actors may spend that machine's launch capacity — an unregistered machine is never launchable, and the refusal names the recovery, `yoke machine register`. `HC-machine-registry` checks the local id against the row; the full contract is [`machine-registry.md`](machine-registry.md).
 
-The login-shell `yoke` on PATH must be the canonical shim (`$XDG_BIN_HOME/yoke`
-or `~/.local/bin/yoke`) pointing at the registered checkout editable install.
-`python3 -m yoke_core.tools.install_yoke_launcher` writes it. `--repair` and `yoke doctor run --quick --fix` (HC-launcher-authority) quarantine PATH shadows and never delete them.
+The login-shell `yoke` on PATH must be the canonical shim (`$XDG_BIN_HOME/yoke` or `~/.local/bin/yoke`) pointing at the registered checkout editable install. `python3 -m yoke_core.tools.install_yoke_launcher` writes it. `--repair` and `yoke doctor run --quick --fix` (HC-launcher-authority) quarantine PATH shadows and never delete them.
 
-Hook and guard verdicts print `{source_sha, install_kind, install_path}`
-so version skew is a fingerprint, not a reconstruction. Relayed verdicts
-echo client and server fingerprints; a relay timeout prints
-`fallback=local`. Local path evaluation refuses to POST a payload whose
-stamped `session_id` is missing or still conversation-shaped unless the
-client set `identity_stamped`. Identity-resolution failures deny writes only.
-`YOKE_HOOK_REPLAY=1 yoke hook evaluate <event>` returns the same verdict
-without writing process-anchors, the cursor-session-map, remount-expect
-receipts, or registering a session.
+### Standing relay release authority
 
-A Cursor remount mints a new conversation id and does not name the prior
-session. While the holder is still on the main checkout, each client hook
-refreshes a short-lived remount-expect receipt under
-`cursor-session-map/remount-expect/`. The first hook in the linked
-worktree consumes that receipt before aliasing the new conversation onto
-the holder. A worktree workspace with a live claim holder and no receipt
-is identity-failure, not a folder fold.
+The launchd agent executes `<relay instance state>/venv/bin/yoke`, a relay-owned venv containing the exact immutable `yoke-core` build served by the selected environment and obtained from that environment's distribution index. It never executes a checkout; source development runs `yoke relay serve-once` manually from a claimed lane.
+
+Each successful poll handshake compares the freshly served build with the installed receipt. A change installs beside the active venv, atomically repoints the stable link, drains in-flight jobs, and replaces the process—there is no timer, cron, or source-fingerprint reload. A fetch failure is `relay_release_fetch_failed`, preserves the working process and pin, and records the retry command. `yoke relay status` shows pinned and served builds plus that recovery evidence.
+
+Hook and guard verdicts print `{source_sha, install_kind, install_path}` so version skew is a fingerprint, not a reconstruction. Relayed verdicts echo client and server fingerprints; a relay timeout prints `fallback=local`. Local path evaluation refuses to POST a payload whose stamped `session_id` is missing or still conversation-shaped unless the client set `identity_stamped`. Identity-resolution failures deny writes only. `YOKE_HOOK_REPLAY=1 yoke hook evaluate <event>` returns the same verdict without writing process-anchors, the cursor-session-map, remount-expect receipts, or registering a session.
+
+A Cursor remount mints a new conversation id and does not name the prior session. While the holder is still on the main checkout, each client hook refreshes a short-lived remount-expect receipt under `cursor-session-map/remount-expect/`. The first hook in the linked worktree consumes that receipt before aliasing the new conversation onto the holder. A worktree workspace with a live claim holder and no receipt is identity-failure, not a folder fold.
 
 ## 4c. Unattended permission posture
 
