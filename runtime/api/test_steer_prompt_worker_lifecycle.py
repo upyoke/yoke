@@ -76,18 +76,13 @@ class TestSteerWorkerLifecycle:
         assert "Do not hand-assemble" in text
         assert "the server composes it" in text
 
-    def test_turn_end_relay_is_taught_as_steering_launched_only(self):
+    def test_every_worker_is_taught_to_report_deliberately(self):
         text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
-        assert "it covers exactly the sessions a seat launched" in text
-        assert "origin = 'steering'" in text
-        assert "never re-send it with `yoke say`" in text
-        assert "gives it no manual DONE step at all" in text
-        assert "mailed this seat the same report twice" in text
+        assert "Every worker sends the report deliberately" in text
+        assert "Ending a turn sends no Fleet message" in text
+        assert "Every worker gets the `yoke say --steering` DONE step" in text
         assert "before releasing any claim it still holds" in text
-        assert (
-            "A session the operator launched, and a session a person opened, "
-            "are both outside the relay" in text
-        )
+        assert "Launch origin does not change that boundary" in text
         assert "session_control.launch.preview" in _read(_STEER_DIR / "SKILL.md")
         assert "session_control.launch.list" in _read(_STEER_DIR / "SKILL.md")
 

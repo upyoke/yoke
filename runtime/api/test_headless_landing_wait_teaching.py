@@ -61,12 +61,11 @@ def _words(text: str) -> str:
     return " ".join(text.split())
 
 
-def _mandate(*, steering_launched: bool) -> str:
+def _mandate() -> str:
     return compose_single_item_mandate(
         public_ref="YOK-12",
         entrypoint="/yoke dash YOK-12",
         remaining_legs="the Dash leg to its merge/evidence close",
-        steering_launched=steering_launched,
     )
 
 
@@ -152,11 +151,7 @@ def test_usher_merge_step_routes_the_landing_the_same_way():
 
 
 def test_every_launched_worker_mandate_carries_the_in_turn_landing_wait():
-    """Origin decides the report route; being launched decides this one."""
-    for steering_launched in (True, False):
-        assert HEADLESS_LANDING_WAIT_TEACHING in _mandate(
-            steering_launched=steering_launched
-        )
+    assert HEADLESS_LANDING_WAIT_TEACHING in _mandate()
     teaching = HEADLESS_LANDING_WAIT_TEACHING
     assert "headless command that cannot be prompted again" in teaching
     assert "do not end the pass on it" in teaching

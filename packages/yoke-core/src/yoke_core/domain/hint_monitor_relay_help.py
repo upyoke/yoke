@@ -53,7 +53,9 @@ What you DO do during a Monitor-armed background command:
   you are blocked, your instruction conflicts
   with what you see, you found a defect outside your scope, the item
   reached a terminal state, or you need a decision. A steering seat
-  watches liveness with its own fleet watcher.
+  watches liveness with its own fleet watcher. Ending a turn sends no
+  Fleet message; send terminal and other actionable worker reports
+  deliberately with `yoke say --steering`.
 - A `# watch_<kind> digest ...` line is ONE wake covering every
   signal in it, joined by middle dots in the order they happened.
   Relay it as it stands - do not unpack it into a turn per signal,

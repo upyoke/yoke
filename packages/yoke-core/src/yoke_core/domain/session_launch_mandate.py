@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_STEERING
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.project_identity import resolve_item_id
-from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain.session_launch_store import marker, value
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
 from yoke_core.domain.session_workflow_routing import live_next_step
@@ -74,28 +72,9 @@ HEADLESS_LANDING_WAIT_TEACHING = (
 )
 
 
-TURN_END_RELAY_TEACHING = (
-    "Your DONE report IS the last assistant text of the turn you stop on: "
-    "the Stop hook delivers that text to the steering seat automatically, "
-    "once, and it still reaches the seat after close-out released your item "
-    "claim. Write that text as the report — lead with `DONE <item> "
-    "<one-line summary>`, then what landed, what is blocked, what you need — "
-    "and never re-send it with `yoke say`. Keep `yoke say` for what cannot "
-    "wait for a turn end. Only a turn that names something to act on — a "
-    "failure, a blocker, a conflict, a decision, a question, or a terminal "
-    "outcome — is delivered; a turn ending in a wait, a status verb, or a "
-    "progress note is recorded on the ledger as SteeringReportSkipped "
-    "instead, so stopping on one costs the seat nothing and tells it "
-    "nothing either."
-)
-
-_RELAYED_CLOSE = (
-    "When those legs are complete, END your session — do not pick up further "
-    "work, do not chain into other items."
-)
-
-_SELF_REPORTED_CLOSE = (
-    "When those legs are complete, message the orchestrator "
+_DELIBERATE_CLOSE = (
+    "Ending a turn sends no Fleet message. When those legs are complete, "
+    "message the orchestrator "
     '(printf %s "DONE {ref} <one-line summary>" | yoke say --stdin '
     "--steering) and END your session — do not pick up further work, do not "
     "chain into other items. Send that report before releasing any claim you "
@@ -110,7 +89,6 @@ def compose_single_item_mandate(
     public_ref: str,
     entrypoint: str,
     remaining_legs: str,
-    steering_launched: bool,
     extras: str = "",
 ) -> str:
     """Return the canonical item-bound worker mandate, with optional extras.
@@ -121,28 +99,13 @@ def compose_single_item_mandate(
     resume of a dead session that acknowledged and never answered, and the
     successor seat had to redirect every live worker by hand.
 
-    Only a steering-launched worker is told about the turn-end relay,
-    because only a steering-launched worker gets one: the Stop-hook route
-    covers exactly the sessions a seat launched. Teaching it to an
-    operator-launched worker would promise a delivery that never happens.
-
-    The landing teaching, by contrast, is unconditional: every composed
-    mandate belongs to a launched CLI session, and a launched session of
-    any origin is a headless command that cannot be re-entered on the
+    Every composed mandate belongs to a launched CLI session, and a launched
+    session of any origin is a headless command that cannot be re-entered on the
     landing-complete message. A worker that stopped on that handoff left
     its branch landed and its item at reviewing-implementation with
     nobody to close it out, seven times in one night.
-
-    That worker is also the only one given a manual DONE step. Handing a
-    relayed worker both routes is what delivered the same report twice in
-    one day: its turn-end text reached the seat, and so did the `yoke say`
-    the mandate asked for. A relayed worker stops; an unrelayed one sends.
     """
-    close = (
-        _RELAYED_CLOSE
-        if steering_launched
-        else _SELF_REPORTED_CLOSE.format(ref=public_ref)
-    )
+    close = _DELIBERATE_CLOSE.format(ref=public_ref)
     mandate = (
         f"{entrypoint}\n\n"
         f"Single-item mandate (steering): acquire the {public_ref} work claim "
@@ -158,8 +121,6 @@ def compose_single_item_mandate(
     )
     mandate = f"{mandate}\n\n{COMMITTED_GATE_TEACHING}"
     mandate = f"{mandate}\n\n{HEADLESS_LANDING_WAIT_TEACHING}"
-    if steering_launched:
-        mandate = f"{mandate}\n\n{TURN_END_RELAY_TEACHING}"
     extra = extras.strip()
     return f"{mandate}\n\n{extra}" if extra else mandate
 
@@ -205,15 +166,8 @@ def compose_item_launch_instructions(
     conn: Any,
     parsed: LaunchCreateRequest,
     project_id: int,
-    *,
-    requester_session_id: str | None = None,
 ) -> str:
-    """Compose the persisted launch body, or keep an explicit full body.
-
-    The origin is derived here the same way the inserted row derives it, so
-    the mandate and ``session_launches.origin`` cannot disagree about
-    whether this worker is relayed.
-    """
+    """Compose the persisted launch body, or keep an explicit full body."""
     if not parsed.compose_mandate:
         body = parsed.instructions
         if not str(body or "").strip():
@@ -223,14 +177,10 @@ def compose_item_launch_instructions(
             )
         return body
     entrypoint, remaining_legs = _route_for_item(conn, parsed.item, project_id)
-    origin = derived_launch_origin(
-        conn, session_id=requester_session_id, project_id=project_id
-    )
     return compose_single_item_mandate(
         public_ref=parsed.item,
         entrypoint=entrypoint,
         remaining_legs=remaining_legs,
-        steering_launched=origin == LAUNCH_ORIGIN_STEERING,
         extras=parsed.instructions,
     )
 
@@ -242,15 +192,12 @@ def launch_request_for_create(
     project_id: int,
     session_name: str,
     deadline_seconds: int,
-    requester_session_id: str | None = None,
 ) -> LaunchRequest:
     """Build the domain launch request, composing the mandate when requested."""
     return LaunchRequest(
         project_id=project_id,
         executor_surface=parsed.executor_surface,
-        instructions=compose_item_launch_instructions(
-            conn, parsed, project_id, requester_session_id=requester_session_id
-        ),
+        instructions=compose_item_launch_instructions(conn, parsed, project_id),
         idempotency_key=parsed.idempotency_key,
         sender_surface=parsed.sender_surface,
         machine_id=parsed.machine_id,
@@ -267,7 +214,6 @@ def launch_request_for_create(
 __all__ = [
     "COMMITTED_GATE_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
-    "TURN_END_RELAY_TEACHING",
     "compose_item_launch_instructions",
     "compose_single_item_mandate",
     "launch_request_for_create",

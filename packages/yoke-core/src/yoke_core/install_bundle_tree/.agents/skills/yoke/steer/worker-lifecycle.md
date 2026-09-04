@@ -110,12 +110,11 @@ it Dash-shaped. Chaining `/yoke do` duplicates the steerer-owned selection.
 
 After its `DONE PREFIX-N <one-line summary>` report, the worker must END its
 own session. That non-destructive self-END is the canonical close: no
-lingering, no re-tasking, and no routine termination by the steerer. A worker
-this seat launched writes that report as its last turn-end text and sends
-nothing; a worker outside the relay sends it with `yoke say --steering`,
-before releasing any claim it still holds. Either way one terminal report per
-session and item reaches this seat once — a reworded retry, or the same report
-arriving through both routes, deduplicates instead of arriving twice.
+lingering, no re-tasking, and no routine termination by the steerer. Every
+worker sends the report deliberately with `yoke say --steering`, before
+releasing any claim it still holds. Ending a turn sends no Fleet message. One
+terminal report per session and item reaches this seat once, so a reworded
+retry deduplicates instead of arriving twice.
 
 `yoke sessions terminate` is reserved for an unresponsive worker or explicit
 cleanup. In those exceptional cases, resolve the full session id from the
@@ -186,10 +185,10 @@ the first command named.
 Preview is mandatory. Do not create until preview returns
 `launchable=true` for the chosen CLI surface. CLI surface only. One item.
 `session_control.launch.create` composes the canonical single-item mandate
-server-side from the item ref, the charge-schedule route, and this launch's
-origin, which decides whether the worker reports by stopping (relayed) or
-with `yoke say --steering`. The mandate carries no session id: the report is
-addressed to the steering ROLE. Do not hand-assemble the worker body.
+server-side from the item ref and the charge-schedule route. Every worker
+reports deliberately with `yoke say --steering`. The mandate carries no
+session id: the report is addressed to the steering ROLE. Do not hand-assemble
+the worker body.
 Optional extras append after that mandate via `--stdin`. Use
 `--raw-instructions` only for a non-standard full body.
 
@@ -234,10 +233,9 @@ ids and result codes.
 
 The server emits this single-item mandate (steering) shape — claim first,
 execute only that item through the routed legs, no deployment run, report then
-END. A worker this seat launched is relayed, so its shape closes at END and
-its turn-end text carries the report; a worker outside the relay gets the
-`yoke say --steering` DONE step in the same place. The steerer messages a
-worker with `yoke say --item PREFIX-N --stdin`. The worker reports back with
+END. Every worker gets the `yoke say --steering` DONE step in the same place.
+The steerer messages a worker with `yoke say --item PREFIX-N --stdin`. The
+worker reports back with
 `yoke say --steering`, which addresses the ROLE rather than this seat: the
 server resolves it at delivery to whichever seat covers the worker's item,
 and parks it for the next seat when none is live. So a worker launched by a
@@ -254,26 +252,10 @@ decision. It never forwards progress output upward — a percentage, an
 elapsed-time poll, a watcher heartbeat, a "still green" note. Those belong in
 the worker's own visible output; this seat reads liveness from
 `yoke watch fleet`. Message another session only for something it would act
-on; that is coordination advice, not a send-path refusal.
-
-Most of what this seat reads arrives without a worker sending anything. The
-Stop hook delivers the last assistant text of every turn to the seat holding
-the worker's scope, and it covers exactly the sessions a seat launched:
-`session_launches.registered_session_id` names the session and that launch row
-carries `origin = 'steering'`. So the mandate tells a launched worker to write
-its turn-end text as the report, gives it no manual DONE step at all, and the
-inbox stays a place for the things a turn end cannot carry. Handing a relayed
-worker both routes is what mailed this seat the same report twice. The relay
-carries only a turn that names something to act on: a stop body with no
-failure, blocker, conflict, decision, question, or terminal outcome in it is
-recorded as `SteeringReportSkipped` and never delivered, because a worker
-that stops every few minutes while its gate runs was costing this seat a hand
-acknowledgement per wait note. The inbox holds the reports; read the stops it
-did not carry from the events ledger:
-
-```text
-yoke events query --event-name SteeringReportSkipped --session WORKER-SESSION-ID
-```
+on; that is coordination advice, not a send-path refusal. Ending a turn sends
+no Fleet message. Launch origin does not change that boundary: every worker
+deliberately sends terminal and other actionable reports with `yoke say
+--steering`.
 
 Every launched worker, whatever its origin, is a headless command, so the
 mandate also tells it that a merge-queue landing is not a place to stop. The
@@ -285,20 +267,14 @@ launched worker holds the turn on the in-turn landing wait instead, and only
 the record-wait budget running out ends that turn, parked with the state it
 observed.
 
-A session the operator launched, and a session a person opened, are both
-outside the relay: they reach whichever seat holds their scope with
-`yoke say --steering` when there is something that seat must act on. That
-boundary is why an operator's own conversation no longer mails this seat its
-design discussion turn by turn.
-
 ```text
 {ROUTED_ENTRYPOINT}
 
-Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
+Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. If your claim is swept mid-work, reacquire and continue.
 
 You are a headless command that cannot be prompted again, so a merge-queue landing is not a place to stop. When your merge returns landing_pending=true, do not end the pass on it: pass --wait and hold the turn on the merge watcher wrapper the way your skill's merge step spells out. Merged closes the item out in that same turn; a stopped landing rebases, re-runs the verification gate, and re-runs the same command. A stale server landing record names its last refresh and repair step; never replace it with local GitHub polling. Only that blocker or the wait budget running out ends the turn, and then you stamp `yoke sessions touch --mode parked --reason "<observed landing state>"` and report a HUMAN_GATE naming the pull request, that reading, and the resume command. Never end a turn on a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
 
-Your DONE report IS the last assistant text of the turn you stop on: the Stop hook delivers that text to the steering seat automatically, once, and it still reaches the seat after close-out released your item claim. Write that text as the report — lead with `DONE <item> <one-line summary>`, then what landed, what is blocked, what you need — and never re-send it with `yoke say`. Keep `yoke say` for what cannot wait for a turn end. Only a turn that names something to act on — a failure, a blocker, a conflict, a decision, a question, or a terminal outcome — is delivered; a turn ending in a wait, a status verb, or a progress note is recorded on the ledger as SteeringReportSkipped instead, so stopping on one costs the seat nothing and tells it nothing either.
+Ending a turn sends no Fleet message. Send the DONE report deliberately with `yoke say --steering` — lead with `DONE <item> <one-line summary>`, then what landed, what is blocked, and what you need — before ending the session.
 ```
 
 The server parameterizes that shape from the pinned `workflow_id` and

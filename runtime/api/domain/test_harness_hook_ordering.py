@@ -311,12 +311,12 @@ class TestNonPreEvents(unittest.TestCase):
             ],
         )
 
-    def test_TC_stop_runs_session_hooks(self):
+    def test_TC_stop_omits_report_router_and_runs_session_hooks(self):
         chain = ordered_pipeline_for("Stop")
+        self.assertNotIn("yoke_core.domain.turn_end_steering_report", chain)
         self.assertEqual(
             chain,
             [
-                "yoke_core.domain.turn_end_steering_report",
                 "yoke_core.domain.turn_end_promised_work_gate",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",

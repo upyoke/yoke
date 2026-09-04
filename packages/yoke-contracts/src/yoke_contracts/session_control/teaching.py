@@ -34,8 +34,8 @@ FLEET_STEERING_ADDRESSING_GUIDANCE = (
     "correct across a seat handoff, which a session id cannot. Send the "
     "DONE before releasing a claim you still hold; either way one terminal "
     "report per session and item reaches the seat once, so a reworded "
-    "retry — or the same report arriving through the turn-end relay — is "
-    "deduplicated rather than delivered twice. A sender that has held no "
+    "retry is deduplicated rather than delivered twice. Ending a turn sends "
+    "no Fleet message. A sender that has held no "
     "item names the scope instead with --steering-scope "
     "'{\"project_id\": N}'."
 )
@@ -77,9 +77,10 @@ FLEET_SUBSTANTIVE_ONLY_GUIDANCE = (
     "your scope, a terminal item state, or a decision you need. Progress output is "
     'a percentage, an elapsed-time poll, a watcher heartbeat, or a "still green" '
     "liveness note; keep it in your own visible output. This is coordination advice "
-    "for a deliberate sender, not a send-path admission rule. The automated turn-end "
-    "steering relay separately applies its substance floor before creating durable "
-    "mail, and the recipient watches liveness with its own fleet watcher."
+    "for a deliberate sender, not a send-path admission rule. Ending a turn sends "
+    "no Fleet message; workers send terminal and other actionable reports "
+    "deliberately with `yoke say --steering`, while the recipient watches liveness "
+    "with its own fleet watcher."
 )
 
 

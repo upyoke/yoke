@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_contracts.turn_end_evidence import TurnEndEvidence, UNAVAILABLE
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.domain.sessions_render_end_chain_pending import ChainPendingState
@@ -59,17 +58,9 @@ def _patch_db(monkeypatch, *, claim, at_cap=False, emitted=None):
     return captured
 
 
-def test_stop_chain_registers_gate_before_dispatch() -> None:
-    assert ordered_pipeline_for("Stop") == [
-        "yoke_core.domain.turn_end_steering_report",
-        "yoke_core.domain.turn_end_promised_work_gate",
-        "yoke_core.hooks.session_message_delivery",
-        "yoke_core.hooks.session_launch_attestation",
-        "yoke_core.hooks.session_dispatch",
-    ]
-
-
 def test_session_end_and_subagent_stop_are_untouched() -> None:
+    from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
+
     assert "turn_end_promised_work_gate" not in ordered_pipeline_for("SessionEnd")
     assert "turn_end_promised_work_gate" not in ordered_pipeline_for("SubagentStop")
     decision = gate.evaluate(_ctx(event_name="SessionEnd"))

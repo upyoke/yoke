@@ -213,9 +213,7 @@ def evaluate_local_subset(
     if event_name == "Stop":
         from yoke_contracts.turn_end_evidence import (
             PAYLOAD_KEY,
-            REPORT_PAYLOAD_KEY,
             extract_turn_end_evidence,
-            extract_turn_end_report,
             read_transcript_tail,
         )
 
@@ -225,9 +223,6 @@ def evaluate_local_subset(
             payload=payload,
             transcript_text=text,
         ).as_dict()
-        report = extract_turn_end_report(payload=payload, transcript_text=text)
-        if report is not None:
-            payload_extra[REPORT_PAYLOAD_KEY] = report.as_dict()
     # The driving process names itself on the machine where it actually runs:
     # over the relay the evaluating server's own pid names an API worker, not
     # the harness hook child that ran. Rides to the server in payload_extra.

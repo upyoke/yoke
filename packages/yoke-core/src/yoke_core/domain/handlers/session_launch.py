@@ -197,7 +197,6 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                     conn, public_ref=parsed.item, project_id=project_id
                 ),
                 deadline_seconds=deadline_seconds,
-                requester_session_id=auth.session_id,
             ),
             max_body_bytes=max_body_bytes,
             surface_fallback_enabled=bool(
