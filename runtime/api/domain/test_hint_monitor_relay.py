@@ -80,6 +80,9 @@ class TestDefaultReminderContent(unittest.TestCase):
         text = HELP_REMINDER
         self.assertNotIn("Waiting IS ending the turn", text)
         self.assertIn("waiter dies with no wake", text)
+        self.assertIn("wait_mode=background-wake", text)
+        self.assertIn("wait_mode=in-turn", text)
+        self.assertNotIn("the completion notification was the verification", text)
 
 
 class TestReminderModuleSize(unittest.TestCase):
@@ -143,7 +146,9 @@ class TestInjectedReminderIsShort(unittest.TestCase):
     """The hook injects a few lines; full rules live on ``--help``."""
 
     def test_injected_text_points_at_help(self) -> None:
-        self.assertIn("python3 -m yoke_core.domain.hint_monitor_relay --help", DEFAULT_REMINDER)
+        self.assertIn(
+            "python3 -m yoke_core.domain.hint_monitor_relay --help", DEFAULT_REMINDER
+        )
         self.assertLessEqual(DEFAULT_REMINDER.count("\n"), 12)
         self.assertTrue(DEFAULT_REMINDER.startswith("<system-reminder>"))
 

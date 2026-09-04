@@ -48,15 +48,16 @@ rather than on control-plane state alone:
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow blitz
-yoke merge item ITEM --skip-status
+yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait
 ```
 
 The first delegates to the local engine worktree preflight. The second is
-the standalone-item merge boundary shared with Dash. On a queue project its
-default response may be `landing_pending=true`: end the pass, retain the
-claim, and re-enter after the landing message. Codex/Cursor may add `--wait`;
-Claude never does. Inspect liveness with `yoke github merge-queue readiness
-ITEM --json`, never a bare automerge field. Non-queue routes still land inline. Each command has no registered
+the standalone-item merge boundary shared with Dash. Its watcher reads the
+caller's manifest capability and current reachability: a verified route gets
+the background subscription, while no route or an unknown answer stays
+in-turn. Inspect queue liveness with `yoke github merge-queue readiness ITEM
+--json`, never a bare automerge field. Non-queue routes still land inline.
+Each command has no registered
 `direct_workflow.*` function id —
 use them verbatim; do not invent function ids for them. Contract:
 [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
@@ -241,11 +242,12 @@ For each slice:
    its execution document completes:
 
    ```text
-   yoke merge item ITEM --skip-status --json
+   yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait --json
    ```
 
-   A `landing_pending=true` response is a successful pause, not the slice
-   checkpoint: re-enter after the landing message and continue only once the
+   Follow the reported wait mode. Only a verified `background-wake` route may
+   release to its one subscription; `in-turn` already blocks until the landing
+   finishes and expects no later completion notice. Continue only once the
    response carries `merge_sha`. A
    queue-declared project keeps all registered lanes until the item is done.
    Only a project using the local merge engine needs to re-prepare the lane

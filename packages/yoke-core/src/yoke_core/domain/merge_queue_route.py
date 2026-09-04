@@ -190,9 +190,7 @@ def land_item_through_merge_queue(
     # Arming is a request. What the handoff depends on is GitHub reporting
     # that it holds the landing, which the mutation's own success does not.
     if not already_merged:
-        not_admitted = verify_landing_admitted(
-            ctx, pr_num, target=target, sleep=sleep
-        )
+        not_admitted = verify_landing_admitted(ctx, pr_num, target=target, sleep=sleep)
         if not_admitted:
             return fail_landing(
                 pr_num,
@@ -221,7 +219,10 @@ def land_item_through_merge_queue(
             )
         emit(
             f"[phase:landing] pull request {pr_num} is in the merge queue; "
-            "this command is exiting until the landing-complete notification"
+            "this command is exiting with landing_pending=true. Re-enter on "
+            "a completion message only when the watcher selected a verified "
+            "background-wake route; otherwise run the same merge through "
+            "the reachability-routed watcher with --wait"
         )
         return QueueLandingOutcome(
             ok=True,

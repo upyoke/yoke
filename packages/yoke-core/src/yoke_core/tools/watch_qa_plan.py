@@ -117,8 +117,8 @@ examples:
       Canonical form. Everything after `--` is forwarded to the plan runner.
 
   yoke watch qa-plan --print-streaming-pair -- --item YOK-1 --transition implemented
-      Print a ready-to-paste background command + progress-tail pair
-      and exit.
+      Select the safe wait: a reachable caller gets the background pair;
+      a caller with no or unknown wake route stays in-turn until completion.
 
 Do NOT restate the command in the passthrough — the wrapper supplies it
 and rejects both `yoke qa plan run …` and the module form before any
@@ -127,13 +127,12 @@ process starts.
 
 
 def _parse_args(
-    argv: Sequence[str], prog: str = DEFAULT_PROG,
+    argv: Sequence[str],
+    prog: str = DEFAULT_PROG,
 ) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(
         prog=prog,
-        description=(
-            "Run a QA plan under the shared raw+progress watcher wrapper."
-        ),
+        description=("Run a QA plan under the shared raw+progress watcher wrapper."),
         epilog=HELP_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
@@ -142,8 +141,7 @@ def _parse_args(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help="Print a ready-to-paste background command + progress-tail pair "
-        "and exit. Mints fresh capture paths.",
+        help=_watch_runner.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
@@ -189,17 +187,14 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        _watch_runner.print_streaming_pair(
+        return _watch_runner.run_or_print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=plan_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(
-                flush_seconds
-            ),
+            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
-        return 0
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
 
@@ -209,9 +204,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
-        flush_seconds=_watch_digest.resolve_flush_seconds(
-            ns, flush_seconds
-        ),
+        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 
 

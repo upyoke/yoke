@@ -6,9 +6,10 @@ capture file or sentinel" rule. The shape exists because agents
 otherwise reach for ``run_in_background`` to wait for a paired kickoff
 to finish — the bg-bash buffers stdout exactly the same way the
 foreground tail/cat peek does, just expressed through the
-``run_in_background`` channel. The Monitor on the original capture (or
-the harness completion notification) is the canonical signal; spawning
-another bg whose sole purpose is to wait is a redundant double-watcher.
+``run_in_background`` channel. The Monitor on the original capture is
+the canonical signal when the watcher selected a verified background-wake
+route; an in-turn watcher keeps the original foreground call alive instead.
+Spawning another bg whose sole purpose is to wait is a redundant double-watcher.
 
 Detected waiter shapes (only fire when ``tool_input.run_in_background``
 is true on a Bash call):
@@ -56,9 +57,7 @@ from yoke_core.domain.lint_long_command_polling_extract import (
 __all__ = ["evaluate_bg_waiter"]
 
 
-_TEMP_PREFIX_GROUP = "(?:" + "|".join(
-    re.escape(p) for p in _temp_dir_prefixes()
-) + ")"
+_TEMP_PREFIX_GROUP = "(?:" + "|".join(re.escape(p) for p in _temp_dir_prefixes()) + ")"
 
 # Same widened verb list as :data:`lint_long_command_polling_extract._PEEK_VERB_RE`.
 _PEEK_VERB_ALT = (
@@ -143,7 +142,8 @@ def _existing_capture_files(payload: dict) -> set[str]:
         _recent_bash_commands = None  # type: ignore[assignment]
     if _recent_bash_commands is not None:
         for _tool_use_id, _created_at, command in _recent_bash_commands(
-            db_path, session_id,
+            db_path,
+            session_id,
         ):
             for capture_file in _extract_background_capture_files(command):
                 captures.add(capture_file)
@@ -155,7 +155,8 @@ def _existing_capture_files(payload: dict) -> set[str]:
         _captures_targeted_in_session = None  # type: ignore[assignment]
     if _captures_targeted_in_session is not None:
         for _tool_use_id, capture_file in _captures_targeted_in_session(
-            db_path, session_id,
+            db_path,
+            session_id,
         ):
             captures.add(capture_file)
     return captures
@@ -173,9 +174,10 @@ def _format_reason(
         f"Target capture/sentinel: {target_path}\n\n"
         "Spawning a `Bash(run_in_background=true)` whose body is a waiter "
         "on an existing capture file or sentinel duplicates the work of "
-        "the existing Monitor or background command. The Monitor on the "
-        "capture (or the harness completion notification) IS the progress "
-        "signal — the armed Monitor IS the waiter. A second background "
+        "the existing Monitor or background command. In verified "
+        "background-wake mode, the Monitor on the capture IS the progress "
+        "signal; in in-turn mode, the original foreground call IS the "
+        "waiter. A second background "
         "tail / sleep-then-peek / sentinel-poll / watch_tail is a "
         "redundant double-watcher.\n\n"
         "This rule has NO override — the "
@@ -184,14 +186,15 @@ def _format_reason(
         "Options:\n"
         "  1. Wait for the existing Monitor's next wake — it will fire on "
         "the next matched line\n"
-        "  2. Await the harness completion notification for the original "
-        "background task\n"
+        "  2. Await completion only when the watcher reported a verified "
+        "background-wake route\n"
         "  3. Stop the existing Monitor/background task via `TaskStop` "
         "first if you genuinely need a fresh waiter"
     )
     if suppressed_attempt:
         return (
-            f"{verb}: " + body
+            f"{verb}: "
+            + body
             + f"\n\nSuppression token `{BG_WAITER_SUPPRESSION_TOKEN}` "
             "was detected on this command and recorded for audit, but it "
             "does NOT unblock this rule."
@@ -225,9 +228,7 @@ def evaluate_bg_waiter(
     mode = _read_lint_mode(payload)
     suppressed_attempt = BG_WAITER_SUPPRESSION_TOKEN in command
     ctx = _build_context(tool_name or "Bash", command, target_path)
-    ctx["outcome"] = (
-        "suppression_attempted" if suppressed_attempt else "denied"
-    )
+    ctx["outcome"] = "suppression_attempted" if suppressed_attempt else "denied"
     ctx["waiter_shape"] = shape
     reason = _format_reason(shape, target_path, suppressed_attempt, mode)
     return (mode, reason, ctx)

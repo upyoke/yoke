@@ -138,9 +138,11 @@ def test_blitz_skill_carries_slice_and_document_completion_contract():
         "GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED",
         # Slice merges route through the same named boundary as Dash, and
         # leave the item non-terminal until the document completes.
-        "yoke merge item ITEM --skip-status",
+        "yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait",
     ):
         assert required in normalized
+    assert "verified route gets the background subscription" in normalized
+    assert "no route or an unknown answer stays in-turn" in normalized
     assert "through the project's protected merge path" not in content
 
 

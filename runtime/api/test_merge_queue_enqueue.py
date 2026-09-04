@@ -39,6 +39,11 @@ def test_enqueue_records_marker_and_exits_before_poll_or_close_out(monkeypatch):
     assert outcome.enqueued_at == "2026-08-27T18:00:00Z"
     assert outcome.commit_sha
     assert "in the merge queue" in announced[0]
+    assert "landing_pending=true" in announced[0]
+    assert "only when the watcher selected a verified" in announced[0]
+    assert "background-wake route" in announced[0]
+    assert "reachability-routed watcher with --wait" in announced[0]
+    assert "until the landing-complete notification" not in announced[0]
 
 
 def test_enqueue_refuses_success_when_the_durable_marker_is_missing(monkeypatch):

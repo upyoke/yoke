@@ -140,8 +140,7 @@ def _parse_args(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help="Print a ready-to-paste background command + progress-tail pair "
-        "and exit. Mints fresh capture paths.",
+        help=_watch_runner.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
@@ -194,7 +193,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        _watch_runner.print_streaming_pair(
+        return _watch_runner.run_or_print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=passthrough,
@@ -202,7 +201,6 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             progress_capture=progress_path,
             wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
-        return 0
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
 

@@ -1,24 +1,34 @@
-"""Rendering of the ready-to-paste streaming command pair.
+"""Route a watcher wait and render its background form when safe.
 
 Split from the watcher runtime so each file stays within the authored-
 file line limit: the runner owns running a command under the raw +
-progress contract, while this module owns telling a caller how to run
-one and follow it.
+progress contract, while this module owns keeping the run in-turn or
+rendering the pair a reachable caller can follow.
 """
 
 from __future__ import annotations
 
+import importlib
 import os
 import shlex
 import sys
 from pathlib import Path
-from typing import Optional, Sequence, TextIO
+from typing import Callable, Optional, Sequence, TextIO
 
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.uv_project import uv_project_root
 from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.tools._watch_digest import TIER_HELP
+from yoke_core.tools._watch_wait_mode import WatchWaitMode, resolve_wait_mode
 from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
+
+
+STREAMING_WAIT_HELP = (
+    "Choose the safe streaming wait for this caller. A verified wake route "
+    "prints the background + progress-tail pair and exits; no or unknown "
+    "reachability runs the watcher in this turn until it finishes. Mints "
+    "fresh capture paths."
+)
 
 
 def _anchor_directory(start: Path | None = None) -> Path:
@@ -46,9 +56,7 @@ def _invocation(wrapper_module: str) -> str:
     an interpreter that can import ``yoke_core`` from any directory.
     Wrappers with no CLI adapter fall back to the locked module form.
     """
-    return cli_form(wrapper_module) or (
-        f"uv run --frozen python3 -m {wrapper_module}"
-    )
+    return cli_form(wrapper_module) or (f"uv run --frozen python3 -m {wrapper_module}")
 
 
 def _with_connection_env(invocation: str) -> str:
@@ -74,6 +82,7 @@ def print_streaming_pair(
     raw_capture: Path,
     progress_capture: Path,
     wrapper_options: Sequence[str] = (),
+    wake_mechanism: str = "Monitor",
     out: Optional[TextIO] = None,
 ) -> None:
     """Emit a ready-to-paste background command + progress-tail pair.
@@ -111,47 +120,26 @@ def print_streaming_pair(
     )
     stream.write(f"# watch_{kind}: ready-to-paste streaming pair\n")
     stream.write("\n")
-    stream.write(
-        "# Background command — wrapper writes raw + progress captures\n"
-    )
+    stream.write("# Background command — wrapper writes raw + progress captures\n")
     stream.write(f"{bash_invocation}\n")
     stream.write("\n")
-    stream.write(
-        "# Progress tail — arm Monitor ONCE against this capture file.\n"
-    )
-    stream.write(
-        "# Paste the background command above VERBATIM: the two lines are a\n"
-    )
-    stream.write(
-        "# matched pair, and its --raw-capture/--progress-capture flags are\n"
-    )
-    stream.write(
-        "# exactly what bind that run to this tail. Run the wrapper without\n"
-    )
-    stream.write(
-        "# them and it mints a fresh capture pair, writes its progress and\n"
-    )
+    mechanism = wake_mechanism or "the configured idle-wake subscription"
+    stream.write(f"# Progress tail — arm {mechanism} ONCE against this capture file.\n")
+    stream.write("# Paste the background command above VERBATIM: the two lines are a\n")
+    stream.write("# matched pair, and its --raw-capture/--progress-capture flags are\n")
+    stream.write("# exactly what bind that run to this tail. Run the wrapper without\n")
+    stream.write("# them and it mints a fresh capture pair, writes its progress and\n")
     stream.write(
         "# exit sentinel there, and leaves this tail following a file nothing\n"
     )
+    stream.write("# writes — which watch_tail then refuses, non-zero, once its grace\n")
+    stream.write("# window passes with no writer.\n")
     stream.write(
-        "# writes — which watch_tail then refuses, non-zero, once its grace\n"
+        f"# {mechanism} is a subscription: matched lines arrive as wake events\n"
     )
-    stream.write(
-        "# window passes with no writer.\n"
-    )
-    stream.write(
-        "# Monitor is a subscription: matched lines arrive as wake events\n"
-    )
-    stream.write(
-        "# for the lifetime of the bg command. Do NOT re-arm to 'continue\n"
-    )
-    stream.write(
-        "# tail' — that is the wake-loop bug and is denied at PreToolUse.\n"
-    )
-    stream.write(
-        "# Auto-exits when the wrapper writes its exit sentinel.\n"
-    )
+    stream.write("# for the lifetime of the bg command. Do NOT re-arm to 'continue\n")
+    stream.write("# tail' — that is the wake-loop bug and is denied at PreToolUse.\n")
+    stream.write("# Auto-exits when the wrapper writes its exit sentinel.\n")
     for tier_line in TIER_HELP.rstrip().splitlines():
         stream.write(f"# {tier_line}\n" if tier_line else "#\n")
     stream.write(
@@ -159,8 +147,72 @@ def print_streaming_pair(
         f"{progress_q}\n"
     )
     stream.write("\n")
-    stream.write(
-        "# After completion, inspect the raw capture once for full output\n"
-    )
+    stream.write("# After completion, inspect the raw capture once for full output\n")
     stream.write(f"tail -80 {raw_q}\n")
     stream.flush()
+
+
+def run_or_print_streaming_pair(
+    *,
+    kind: str,
+    wrapper_module: str,
+    wrapper_args: Sequence[str],
+    raw_capture: Path,
+    progress_capture: Path,
+    wrapper_options: Sequence[str] = (),
+    out: Optional[TextIO] = None,
+    wait_mode: WatchWaitMode | None = None,
+    invoke: Callable[[Sequence[str]], int] | None = None,
+) -> int:
+    """Release only a caller that has a verified completion wake.
+
+    Wakeable callers keep the existing pasteable background pair. Everyone
+    else re-enters the same wrapper without ``--print-streaming-pair`` and
+    blocks in this process until the watched command exits.
+    """
+    stream = out or sys.stdout
+    selected = wait_mode or resolve_wait_mode()
+    stream.write(f"# watch_{kind} wait_mode={selected.name}\n")
+    stream.write(f"# watch_{kind} wait_reason={selected.reason}\n")
+    if not selected.waits_in_turn:
+        stream.write(
+            f"# watch_{kind} completion wake is expected only because this "
+            "route is reachable.\n"
+        )
+        print_streaming_pair(
+            kind=kind,
+            wrapper_module=wrapper_module,
+            wrapper_args=wrapper_args,
+            raw_capture=raw_capture,
+            progress_capture=progress_capture,
+            wrapper_options=wrapper_options,
+            wake_mechanism=selected.wake_mechanism,
+            out=stream,
+        )
+        return 0
+
+    stream.write(
+        f"# watch_{kind} holding this turn until the watched command exits; "
+        "no completion wake is expected.\n"
+    )
+    stream.flush()
+    foreground_args = [
+        *wrapper_options,
+        "--raw-capture",
+        str(raw_capture),
+        "--progress-capture",
+        str(progress_capture),
+        "--",
+        *wrapper_args,
+    ]
+    entrypoint = invoke
+    if entrypoint is None:
+        entrypoint = importlib.import_module(wrapper_module).main
+    return int(entrypoint(foreground_args))
+
+
+__all__ = [
+    "STREAMING_WAIT_HELP",
+    "print_streaming_pair",
+    "run_or_print_streaming_pair",
+]

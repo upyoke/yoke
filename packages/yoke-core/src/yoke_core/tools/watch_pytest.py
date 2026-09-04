@@ -73,8 +73,6 @@ from yoke_core.tools._watch_pytest_classify import (  # noqa: F401
 
 WRAPPER_MODULE = "yoke_core.tools.watch_pytest"
 KIND = "pytest"
-# argparse prog for a direct module invocation; the CLI adapter passes the
-# ``yoke watch pytest`` form so help reads back the command as typed.
 DEFAULT_PROG = "watch_pytest"
 
 
@@ -135,7 +133,9 @@ def _route(ns, pytest_args: Sequence[str], run_root: Path):
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     extract = _watch_pytest_args.extract_wrapper_flag
-    raw, print_streaming_pair_flag = extract(raw, _watch_runner.PRINT_STREAMING_PAIR_FLAG)
+    raw, print_streaming_pair_flag = extract(
+        raw, _watch_runner.PRINT_STREAMING_PAIR_FLAG
+    )
     raw, allow_tree_mismatch_flag = extract(
         raw, verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG
     )
@@ -281,7 +281,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_options.append(pytest_remote_selection.LOCAL_FLAG)
         if ns.allow_tree_mismatch:
             wrapper_options.append(verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG)
-        _watch_runner.print_streaming_pair(
+        return _watch_runner.run_or_print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=pytest_args,
@@ -289,7 +289,6 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             raw_capture=raw_path,
             progress_capture=progress_path,
         )
-        return 0
 
     # Bound above, before preflight; the print branch returned already.
     warning = _watch_pytest_rootdir.rootdir_mismatch_warning(pytest_args, str(run_root))
@@ -297,9 +296,14 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         sys.stdout.write(warning)
         sys.stdout.flush()
 
-    with gate_admission.admitted_gate(pytest_args, stream=sys.stdout), (
-        pytest_worker_budget.granted_workers(pytest_args, pytest_env, stream=sys.stdout)
-    ) as grant:
+    with (
+        gate_admission.admitted_gate(pytest_args, stream=sys.stdout),
+        (
+            pytest_worker_budget.granted_workers(
+                pytest_args, pytest_env, stream=sys.stdout
+            )
+        ) as grant,
+    ):
         pytest_args = grant.apply(pytest_args)
         started = time.monotonic()
         collected_items = None
