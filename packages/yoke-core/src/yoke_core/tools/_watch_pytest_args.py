@@ -128,8 +128,7 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help="Print a ready-to-paste background command + progress-tail pair "
-        "and exit. Mints fresh capture paths.",
+        help=_watch_runner.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(

@@ -1,14 +1,9 @@
-"""A headless worker is taught to hold its turn on a merge-queue landing.
+"""Watcher teaching releases only a caller with a verified wake route.
 
-The enqueue-and-re-enter handoff needs a session that can be prompted
-again on the landing-complete message. A launched worker is a headless
-command that cannot be, so ending its pass on ``landing_pending=true``
-leaves the branch landed and the item at ``reviewing-implementation``
-with nobody to close it out. These tests hold every surface that teaches
-the split — the Dash close-out steps, the usher merge step, the composed
-worker mandate, the steering worker-lifecycle copy of it, the packet
-recipe, and the watcher help — to naming both routes and all three ways
-the in-turn wait ends: merged, stopped, and the poll budget running out.
+A launched headless worker is one important no-wake case, but operator-opened
+and unknown surfaces must not be assumed reachable either. These tests hold
+the Dash close-out steps, usher merge step, worker mandate, packet recipe, and
+watcher help to the derived reachability split and every terminal wait outcome.
 """
 
 from __future__ import annotations
@@ -23,6 +18,7 @@ from yoke_core.domain.session_launch_mandate import (
     HEADLESS_LANDING_WAIT_TEACHING,
     compose_single_item_mandate,
 )
+from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 from yoke_core.tools import watch_merge
 
 
@@ -38,6 +34,12 @@ WATCHERS_PACKET_SOURCE = (
     / "packages/yoke-core/src/yoke_core/domain"
     / "schema_api_context_commands_watchers.py"
 )
+COMMAND_REFERENCE = REPO / "docs/public/reference/commands.md"
+BUNDLE_COMMAND_REFERENCE = (
+    REPO
+    / "packages/yoke-core/src/yoke_core/install_bundle_tree"
+    / "docs/public/reference/commands.md"
+)
 
 # The blanket prohibition the in-turn wait replaces. A surface still
 # carrying it tells a launched worker the one thing it must not do.
@@ -46,6 +48,9 @@ RETIRED_BLANKET_PROHIBITIONS = (
     "Claude never passes `--wait`",
     "Claude never blocks on --wait",
     "Claude must not pass merge-item --wait",
+    "Two-call handoff — an operator-opened session.",
+    "A session a person opened takes the two-call handoff.",
+    "process-safe operators and Codex/Cursor, never Claude",
 )
 
 
@@ -76,30 +81,33 @@ def _merge_recipe() -> dict:
     raise AssertionError("no watch merge recipe in the watcher packet")
 
 
-def test_dash_close_out_routes_the_landing_by_whether_the_session_is_headless():
+def test_dash_close_out_routes_the_landing_by_derived_reachability():
     content = _words(_read(DASH_CLOSE))
-    assert "Two-call handoff — an operator-opened session." in content
-    assert "In-turn wait — a launched worker." in content
-    assert "headless command that cannot accept a later prompt" in content
-    # Why the handoff cannot be the launched worker's route: the landing is
-    # recorded from GitHub either way, so the cost is a seat's attention
-    # rather than a lost merge — which is still a cost worth avoiding.
-    assert "at `reviewing-implementation` with nobody to re-enter" in content
-    assert "recoverable rather than lost" in content
-    assert "costs a" in content and "steering seat's attention" in content
-    # The wait and the independent point-in-time read both name the queue.
+    assert "one watcher invocation whose safe wait shape is resolved" in content
+    assert "manifest wake capability and current control-plane reachability" in content
+    assert "Never choose the route from who opened the session" in content
+    assert "A verified wake route preserves the background subscription" in content
+    assert "no route, or an unknown answer, keeps the wait" in content
+    assert "at `reviewing-implementation` with nobody to close it out" in content
+    assert "Reachability-routed wait." in content
     assert (
         "yoke watch merge --print-streaming-pair merge-item -- ITEM --wait" in content
     )
+    assert "four-fact landing readback" in content
+    assert "armed, queued, eligible, required checks" in content
+    assert "never needs a hand-authored `gh` poll loop" in content
+    assert "Read the wrapper's `wait_mode` and reason" in content
+    assert "`background-wake` means the caller has a verified route" in content
+    assert "`in-turn` means the same invocation is already holding" in content
+    assert "No later completion notice is expected" in content
     assert "yoke github merge-queue readiness ITEM --json" in content
     assert "queue-entry=AWAITING_CHECKS" in content
     assert "consumed and in flight, not cleared" in content
-    assert "never hand-author a `gh` poll" in content
     assert "none of them is silence" in content
 
 
 def test_dash_close_out_names_every_way_the_in_turn_wait_ends():
-    wait = _read(DASH_CLOSE).split("**In-turn wait — a launched worker.**", 1)[1]
+    wait = _read(DASH_CLOSE).split("**Reachability-routed wait.**", 1)[1]
     # Merged closes the item out inside the same turn — no second pass.
     merged = _outcome(wait, "merged")
     assert "exit 0" in merged
@@ -127,11 +135,11 @@ def test_dash_close_out_names_every_way_the_in_turn_wait_ends():
 
 def test_usher_merge_step_routes_the_landing_the_same_way():
     content = _words(_read(USHER_MERGE))
-    assert "A session launched from a worker mandate cannot accept that later" in (
-        content
-    )
+    assert "manifest capability plus current reachability" in content
+    assert "Do not choose from the executor, launch origin" in content
     assert "dash/verification-and-close.md" in content
-    assert "Never block a bare foreground call on the full wait." in content
+    assert "Only `background-wake` may release the selector" in content
+    assert "`in-turn` is already blocking" in content
 
 
 def test_every_launched_worker_mandate_carries_the_in_turn_landing_wait():
@@ -164,16 +172,32 @@ def test_worker_lifecycle_copy_of_the_mandate_matches_the_composed_one():
 
 def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
     notes = _merge_recipe()["notes"]
-    assert "operator-opened" in notes
-    assert "launched headless worker passes --wait" in notes
-    assert "Never block a bare foreground call on the full wait." in notes
-    assert (
-        "yoke github merge-queue readiness PREFIX-N --json"
-        in (_merge_recipe()["recipe"])
-    )
-    assert "null arming is consumed" in notes
+    assert "verified wake route" in notes
+    assert "callers with no or unknown reachability stay in-turn" in notes
+    assert "yoke github merge-queue readiness PREFIX-N --json" in notes
+    assert "null arming with an entry means consumed" in notes
     epilog = _words(_read(WATCH_MERGE_SOURCE))
-    assert "launched headless workers pass --wait" in epilog
+    assert "a verified wake route gets the background" in epilog
+    assert "headless, unreachable, or unknown callers stay in-turn" in epilog
+
+
+def test_command_reference_conditions_any_later_completion_message():
+    for path in (COMMAND_REFERENCE, BUNDLE_COMMAND_REFERENCE):
+        content = _words(_read(path))
+        assert (
+            "manifest wake capability and current control-plane reachability" in content
+        )
+        assert "a verified route gets the background subscription" in content
+        assert "no route or an unknown answer blocks in-turn" in content
+        assert "rely on a later completion message only when" in content
+
+
+def test_merge_wait_help_routes_from_reachability_not_executor_name():
+    help_text = _words(build_parser().format_help())
+    assert "watch merge wrapper" in help_text
+    assert "no or unknown wake route stays in-turn" in help_text
+    assert "only a verified route may release" in help_text
+    assert "Codex/Cursor" not in help_text
 
 
 def test_no_teaching_surface_still_carries_the_retired_blanket_prohibition():
@@ -184,6 +208,8 @@ def test_no_teaching_surface_still_carries_the_retired_blanket_prohibition():
         BUNDLE_SKILLS / "dash" / "verification-and-close.md",
         BUNDLE_SKILLS / "usher" / "merge.md",
         BUNDLE_SKILLS / "steer" / "worker-lifecycle.md",
+        COMMAND_REFERENCE,
+        BUNDLE_COMMAND_REFERENCE,
         WATCH_MERGE_SOURCE,
         WATCHERS_PACKET_SOURCE,
     )

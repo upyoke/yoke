@@ -210,9 +210,9 @@ def _parse_args(
             f"  {prog} merge-item -- PREFIX-N --wait --result TEXT --verification TEXT\n"
             f"  {prog} merge-worktree -- PREFIX-N\n"
             f"  {prog} done-transition -- PREFIX-N\n"
-            "--wait holds the landing inline: operator-opened sessions take the\n"
-            "enqueue/re-enter handoff, launched headless workers pass --wait\n"
-            "through this wrapper. Never block a bare foreground call on it."
+            "--wait holds the landing inline. Invoke it with\n"
+            "--print-streaming-pair: a verified wake route gets the background\n"
+            "pair; headless, unreachable, or unknown callers stay in-turn."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
@@ -221,8 +221,7 @@ def _parse_args(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help="Print a ready-to-paste background command + progress-tail pair "
-        "and exit. Mints fresh capture paths.",
+        help=_watch_runner.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
@@ -311,7 +310,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 )
                 return 2
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        _watch_runner.print_streaming_pair(
+        return _watch_runner.run_or_print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=sub_args,
@@ -319,7 +318,6 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             progress_capture=progress_path,
             wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
-        return 0
 
     module, passthrough = _resolve_subcommand(sub_args)
 

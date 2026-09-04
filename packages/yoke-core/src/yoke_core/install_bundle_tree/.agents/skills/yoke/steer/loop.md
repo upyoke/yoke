@@ -11,9 +11,12 @@ Do not invoke `/yoke feed`.
 - A periodic frontier check when no message is waiting.
 
 <!-- YOKE:HARNESS claude start -->
-In a Claude steering session, arm one standing `Monitor` on the fleet-delta
-watcher: `yoke watch fleet --print-streaming-pair -- --project {_project}`
-prints the pair. Keep the `ScheduleWakeup` fallback of at least 1200 seconds.
+In a Claude steering session, invoke
+`yoke watch fleet --print-streaming-pair -- --project {_project}`. When it
+reports `wait_mode=background-wake`, arm the printed standing subscription;
+when it reports `wait_mode=in-turn`, that invocation holds the fleet pass
+foreground because no later notice is reachable. Keep the `ScheduleWakeup`
+fallback of at least 1200 seconds only when that timer route is available.
 <!-- YOKE:HARNESS end -->
 
 Which wake primitives this session actually has is a declared fact, not a

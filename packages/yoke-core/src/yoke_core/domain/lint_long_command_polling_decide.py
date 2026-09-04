@@ -66,7 +66,7 @@ def _format_peek_reason(
         "Never peek faster than 60 seconds.\n\n"
         "Options:\n"
         f"  1. Switch to Monitor — see runtime/harness/claude/rules/session.md '## Tool Constraints'\n"
-        "  2. Await the background-task completion notification instead of polling\n"
+        "  2. In verified background-wake mode, await its Monitor/completion wake\n"
         f"  3. Override with `{SUPPRESSION_TOKEN}` if this is a post-capture inspection"
     )
 
@@ -77,7 +77,7 @@ def _format_sleep_reason(cadence: int, mode: str) -> str:
         f"{verb}: sleep {cadence} && (cat|tail|head) — progress polling with N < 60s.\n\n"
         f"Fallback cadence when no streaming surface exists is 60s -> 90s -> 120s -> max ~300s.\n"
         f"Never check faster than 60 seconds.\n\n"
-        "Prefer Monitor on the capture file or await the background completion notification.\n"
+        "In verified background-wake mode, await Monitor/completion; otherwise keep the original foreground wait active.\n"
         f"Override with `{SUPPRESSION_TOKEN}` only for genuine post-capture inspection."
     )
 
@@ -132,7 +132,8 @@ def _format_monitor_duplicate_reason(
     verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
     if suppressed_attempt:
         return (
-            f"{verb}: " + body
+            f"{verb}: "
+            + body
             + f"\n\nSuppression token `{MONITOR_DUPLICATE_SUPPRESSION_TOKEN}` "
             "was detected on this command and recorded for audit, but it "
             "does NOT unblock this rule."

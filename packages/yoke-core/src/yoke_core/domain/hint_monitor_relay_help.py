@@ -83,10 +83,12 @@ What you DO do during a Monitor-armed background command:
 - Do not infer state that wasn't in a matched line. If the line
   says "[ 65%]", relay "[ 65%]" - not "65%, all green".
 
-When the background command completes, you are released. The
-allowed inspection is exactly ONE `tail -80 <raw-capture>` of the
-raw capture file. Do not arm another Monitor to "verify completion"
-- the completion notification was the verification.
+When `wait_mode=background-wake` says the caller has a reachable wake
+route, completion releases that caller. The allowed inspection is
+exactly ONE `tail -80 <raw-capture>` of the raw capture file. Do not
+arm another Monitor to "verify completion" — the completion event is
+verification only for that reachable mode. `wait_mode=in-turn` keeps
+the original foreground tool call alive instead and expects no notice.
 </system-reminder>"""
 
 

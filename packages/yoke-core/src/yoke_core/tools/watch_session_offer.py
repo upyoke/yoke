@@ -144,7 +144,10 @@ def _is_nested_session_offer_invocation(args: Sequence[str]) -> bool:
 def _session_offer_argv(args: Sequence[str]) -> list[str]:
     """Build the underlying session-offer invocation."""
     return [
-        sys.executable, "-m", UNDERLYING_MODULE, UNDERLYING_SUBCOMMAND,
+        sys.executable,
+        "-m",
+        UNDERLYING_MODULE,
+        UNDERLYING_SUBCOMMAND,
         *list(args),
     ]
 
@@ -162,8 +165,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help="Print a ready-to-paste background command + progress-tail pair "
-        "and exit. Mints fresh capture paths.",
+        help=_watch_runner.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
@@ -232,17 +234,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        _watch_runner.print_streaming_pair(
+        return _watch_runner.run_or_print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=session_offer_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(
-                flush_seconds
-            ),
+            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
-        return 0
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
 
@@ -252,9 +251,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
-        flush_seconds=_watch_digest.resolve_flush_seconds(
-            ns, flush_seconds
-        ),
+        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 
 

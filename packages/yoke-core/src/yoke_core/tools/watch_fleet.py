@@ -80,17 +80,18 @@ examples:
   yoke watch fleet -- --project yoke --project platform --interval 30
   yoke watch fleet --print-streaming-pair -- --project yoke
 
-Two invocation shapes, chosen by whether the calling harness has an
-idle-wake primitive — a manifest fact, not one this help restates:
+`--print-streaming-pair` chooses between two invocation shapes from the
+calling session's derived roster reachability and manifest wake fact:
 
-  with an idle-wake primitive: arm the `--print-streaming-pair` output
-  once. The background line runs the wrapper; the `yoke watch tail`
-  line is the subscription, and it exits on the wrapper's sentinel.
+  with a verified wake route: it reports `wait_mode=background-wake` and
+  prints a background wrapper plus `yoke watch tail` subscription. The
+  subscription exits on the wrapper's sentinel and may wake the caller.
 
-  without one: run the wrapper foreground and read its lines from the
-  harness's own streaming, bounding the pass with `--duration` so it
-  returns to the caller. A foreground pass sees every line the armed
-  shape would, only inside one turn instead of across idle time.
+  without a route, or when reachability is unknown: it reports
+  `wait_mode=in-turn` and immediately runs the wrapper foreground,
+  bounding the pass with `--duration` so it returns to the caller. A
+  foreground pass sees every line the armed shape would, only inside one
+  turn instead of across idle time.
 
 The wrapper is a local read. It delivers nothing to anyone, and no
 report depends on it running.
@@ -114,8 +115,7 @@ def _parse_args(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,
         dest="print_streaming_pair",
         action="store_true",
-        help="Print a ready-to-paste background command + progress-tail pair "
-        "and exit. Mints fresh capture paths.",
+        help=_watch_runner.STREAMING_WAIT_HELP,
     )
     _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
@@ -168,17 +168,14 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        _watch_runner.print_streaming_pair(
+        return _watch_runner.run_or_print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=passthrough,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(
-                flush_seconds
-            ),
+            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
-        return 0
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
 
@@ -188,9 +185,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
-        flush_seconds=_watch_digest.resolve_flush_seconds(
-            ns, flush_seconds
-        ),
+        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 
 

@@ -201,7 +201,7 @@ elif [ "$_usher_generated_children" = "none" ] \
  # operation: it takes the merge lock, lands the branch on the project base
  # branch, stamps merged_at, and publishes. `--skip-status` leaves the
  # lifecycle status to the deploy phase below, which owns it here.
- yoke watch merge merge-item -- PREFIX-N --skip-status
+ yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --skip-status --wait
 else
  echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy"
  exit 1
@@ -212,24 +212,26 @@ fi
 
 A preflight refusal whose only issues are missing or stale commit-bound verdicts is recovered inside `yoke merge item`: it re-records hand acceptance runs (or re-runs SHA-bound Command cases) against the lane head and then lands. That class is not a halt, and it must not roll the item back to `implemented` or release the claim. A later non-recoverable merge failure still follows the exit-code halt rules below.
 
-**Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it runs under the watcher wrapper. `yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --skip-status` prints the background + Monitor pair.
+**Streaming-wrapper form:** A merge is a long command, so per the Command
+Output streaming rule it runs under the watcher wrapper. The canonical call
+above includes `--wait` and reports its safe wait mode from the caller's
+manifest capability plus current reachability: a verified route gets the
+background subscription pair; no route, or an unknown answer, stays in-turn
+until the command finishes. Do not choose from the executor, launch origin, or
+whether a person opened the session.
 
-**Queue handoff:** the default queue call exits successfully with
-`landing_pending=true`. An operator-opened session retains the claim and
-`release` status, ends this usher pass, and re-enters after the
-landing-complete message. A session launched from a worker mandate cannot
-accept that later prompt, so it appends `--wait` after `--skip-status` and
-holds the turn on the merge watcher wrapper instead, exactly as
+**Queue wait:** follow the reported mode exactly as
 [`../dash/verification-and-close.md`](../dash/verification-and-close.md)
-step 7 spells out — merged closes out in the same turn, a stopped landing
-rebases and re-gates, and only the poll budget running out parks with the
-state it observed. A point-in-time check is `yoke github merge-queue readiness
-PREFIX-N --json`; never infer a stop from null `autoMergeRequest`, because an
+step 7 spells out. Only `background-wake` may release the selector and expect
+its one armed subscription to resume the caller; `in-turn` is already blocking
+inside the original invocation and expects no later completion notice. Merged
+continues delivery in the same execution, a stopped landing rebases and
+re-gates, and only the poll budget running out parks with the state it
+observed. A point-in-time check is `yoke github merge-queue readiness PREFIX-N
+--json`; never infer a stop from null `autoMergeRequest`, because an
 `AWAITING_CHECKS`, `UNMERGEABLE`, or `MERGEABLE` queue entry means its arming
-was consumed and the landing remains in flight. Never block a bare foreground call on
-the full wait. Do
-not begin deployment until a re-entry (or the wait) returns a real
-`merge_sha` with `landing_pending=false` or absent.
+was consumed and the landing remains in flight. Do not begin deployment until
+the wait returns a real `merge_sha` with `landing_pending=false` or absent.
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.
 

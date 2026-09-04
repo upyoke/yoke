@@ -17,13 +17,14 @@ Recipe shape doctrine (current):
     operator-debug fallback. ``tail`` / ``grep`` / ``git -C`` shapes
     inside watcher recipes stay command-shaped by design.
 
-The recipes here are also deliberately harness-neutral: the watcher
-wrappers print harness-specific instructions themselves via
-``--print-streaming-pair`` when running under a harness with a
-streaming surface, and run foreground directly under Codex's native
-PTY stream. Recipe text therefore avoids naming any Claude-only
-primitive (the conditional-block renderer enforces this for any seed
-that lands in both ``main_agent`` and cross-harness packets).
+The recipes here are also deliberately harness-neutral:
+``--print-streaming-pair`` reads the caller's derived roster
+reachability and manifest wake fact. A reachable caller gets its
+background subscription recipe; a caller with no route, or an unknown
+answer, is held foreground until the watcher finishes. Recipe text
+therefore avoids naming any Claude-only primitive (the conditional-
+block renderer enforces this for any seed that lands in both
+``main_agent`` and cross-harness packets).
 
 Splitting these into a dedicated topic-sibling keeps the parent
 :mod:`schema_api_context_commands_core` under the 350-line authored-file
@@ -39,7 +40,7 @@ from __future__ import annotations
 WATCHERS_COMMANDS: list[dict] = [
     {
         "topic": "core",
-        "purpose": "Run pytest with background watcher (main session)",
+        "purpose": "Run pytest with a reachability-routed watcher",
         "recipe": (
             "yoke watch pytest "
             "--impacted main --bounded\n"
@@ -50,12 +51,9 @@ WATCHERS_COMMANDS: list[dict] = [
             "project's test anchors:\n"
             "yoke watch pytest "
             "--print-streaming-pair -- <project test anchors>\n"
-            "# Paste both printed lines verbatim into the harness's "
-            "background + progress-tail surfaces — the printed "
-            "--raw-capture/--progress-capture flags are what bind the run "
-            "to the tail.\n"
-            "# After completion: tail -80 <raw-capture> "
-            "(the helper-resolved path the wrapper printed)"
+            "# The wrapper prints wait_mode and why. background-wake emits "
+            "the bound pair; in-turn runs here until exit; after a "
+            "background-wake completion, tail -80 <raw-capture>."
         ),
         "notes": (
             "The impacted selection is the default change-scoped check and "
@@ -82,10 +80,11 @@ WATCHERS_COMMANDS: list[dict] = [
             "for sequential order-sensitive debugging. The wrapper mints "
             "the raw + progress capture pair via "
             "yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair "
-            "under the machine temp root's watcher-captures directory and prints the resolved "
-            "paths; --raw-capture <path> is the operator carve-out for "
+            "under the machine temp root's watcher-captures directory and "
+            "prints the resolved paths; --raw-capture <path> is the "
+            "operator carve-out for "
             "pinning to a known location. Running the wrapper without the "
-            "printed capture flags mints a different pair, so the tail "
+            "background-wake capture flags mints a different pair, so the tail "
             "follows a file the run never writes and refuses once its "
             "grace window passes. Subagents must run the foreground "
             "variant below — backgrounded watchers from subagent context "
@@ -114,18 +113,18 @@ WATCHERS_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Run doctor with background watcher (main session)",
+        "purpose": "Run doctor with a reachability-routed watcher",
         "recipe": (
             "yoke watch doctor "
             "--print-streaming-pair -- --quick\n"
-            "# Paste both printed lines verbatim — the printed "
-            "--raw-capture/--progress-capture flags bind the run to the tail."
+            "# background-wake prints the bound pair; in-turn blocks here."
         ),
         "notes": (
             "Doctor must run under this wrapper — bare invocations risk "
             "the inverted-redirection trap (`2>&1 > file` silently drops "
-            "stderr). The wrapper writes raw + filtered captures and "
-            "auto-exits on its sentinel."
+            "stderr). The wrapper writes raw + filtered captures. Its "
+            "reported wait mode says whether the sentinel wakes the caller "
+            "or the original call stays foreground until exit."
         ),
     },
     {
@@ -134,20 +133,20 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch merge "
             "--print-streaming-pair merge-worktree -- PREFIX-N\n"
-            "yoke github merge-queue readiness PREFIX-N --json"
+            "# Queue landing:\n"
+            "yoke watch merge --print-streaming-pair "
+            "merge-item -- PREFIX-N --wait"
         ),
         "notes": (
             "watch_merge owns the merge filter regex (section banners, "
             "step headers, errors, warnings, RESULT_FILE=). Use for any "
             "merge or done_transition; never hand-author the filter. "
-            "merge-item --wait holds the landing inline: an operator-opened "
-            "session takes the enqueue/re-enter handoff, while a launched "
-            "headless worker passes --wait through this wrapper and holds "
-            "its turn, because it cannot be prompted on the "
-            "landing-complete message. Never block a bare foreground call "
-            "on the full wait. The readiness read is non-mutating and names "
-            "the queue entry state; null arming is consumed while an entry "
-            "is AWAITING_CHECKS, UNMERGEABLE, or MERGEABLE, not cleared."
+            "merge-item --wait holds the landing inline. The shared wait "
+            "router emits a background subscription only for a caller with "
+            "a verified wake route; callers with no or unknown reachability "
+            "stay in-turn until landing. `yoke github merge-queue readiness "
+            "PREFIX-N --json` names the queue state; "
+            "null arming with an entry means consumed, not cleared."
         ),
     },
     {
@@ -174,7 +173,8 @@ WATCHERS_COMMANDS: list[dict] = [
             "tail -80 <PATH>"
         ),
         "notes": (
-            "--print-streaming-pair mints the capture path automatically "
+            "--print-streaming-pair chooses the safe wait mode and mints "
+            "the capture path automatically "
             "via project_scratch_dir.mint_watcher_capture_pair "
             "(machine temp root watcher-captures/...); the explicit "
             "--raw-capture <PATH> form is the operator carve-out for "

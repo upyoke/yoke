@@ -33,9 +33,10 @@ def build_parser() -> argparse.ArgumentParser:
         ("--pr", "Merge through a pull request."),
         (
             "--wait",
-            "Wait for queue landing inline, instead of the enqueue-and-"
-            "re-enter handoff. A launched headless worker uses this: it "
-            "cannot be prompted on the landing-complete message. Red "
+            "Wait for queue landing inline instead of returning "
+            "landing_pending. Invoke through the reachability-routed watch "
+            "merge wrapper: no or unknown wake route stays in-turn, while "
+            "only a verified route may release to its subscription. Red "
             "required checks return immediately; the poll budget is for "
             "pending checks or trains.",
         ),

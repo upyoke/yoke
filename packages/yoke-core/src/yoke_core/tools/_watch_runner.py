@@ -47,7 +47,11 @@ from yoke_core.tools._watch_capture_binding import (  # noqa: F401
     note_claimed_capture,
     refuse_claimed_capture,
 )
-from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
+from yoke_core.tools._watch_streaming_pair import (  # noqa: F401
+    STREAMING_WAIT_HELP,
+    print_streaming_pair,
+    run_or_print_streaming_pair,
+)
 from yoke_core.tools._watch_digest import (  # noqa: F401
     DEFAULT_FLUSH_SECONDS,
     ProgressDigest,

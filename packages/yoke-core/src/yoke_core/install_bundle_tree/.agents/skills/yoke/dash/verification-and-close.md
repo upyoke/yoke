@@ -167,15 +167,14 @@ registered claim.
 
 ### 7. Merge, record evidence, and finish
 
-Merge-queue projects have two landing routes, and which one this session takes
-is settled by whether it can be prompted again. A session a person opened takes
-the two-call handoff. A session launched from a worker mandate is a headless
-command that cannot accept a later prompt, so it takes the in-turn wait below:
-ending a launched worker's pass on `landing_pending=true` leaves the branch
-landed and the item at `reviewing-implementation` with nobody to re-enter. The
-control plane records that landing from GitHub and reports it as landed without
-close-out, so it is recoverable rather than lost — but recovering it costs a
-steering seat's attention.
+Merge-queue projects use one watcher invocation whose safe wait shape is
+resolved from the calling session's manifest wake capability and current
+control-plane reachability. Never choose the route from who opened the session,
+its executor name, or its launch origin. A verified wake route preserves the
+background subscription; no route, or an unknown answer, keeps the wait in the
+current turn. Ending an unreachable caller on `landing_pending=true` can leave
+the branch landed and the item at `reviewing-implementation` with nobody to
+close it out.
 
 Either way the first call opens / rebases / arms the pull request and returns
 `landing_pending=true`, which means GitHub itself reported that it holds the
@@ -188,39 +187,35 @@ checks have already concluded red each refuse instead and name which of
 those four it saw. A red required check refuses before anything is armed,
 and names the check and its run.
 
-**Two-call handoff — an operator-opened session.** The first call leaves the
-claim and item non-terminal; end this execution pass. Exactly one of two
-control-plane messages then ends that wait. **Landing
-complete**: re-enter the same command to close out. **Landing stopped**:
-GitHub is no longer going to land it (its base moved and it went dirty, it
-was closed, its queue entry is absent and arming is cleared, one of its required
-checks concluded red), so do what the message names — usually rebase the
-lane onto the base branch, re-run the verification gate, and re-run
-`yoke merge item`, which re-arms it. Neither message is a
-landing you may assume; a pending landing that resolves always says which way
-it went.
-A re-entry while `landing_pending=true` publishes any new local lane commits
-before the queue is (re)armed. `ok:true` means the reported `commit_sha` is
-the head origin holds and the queue will build. If that push cannot happen,
-the command refuses with the remote head, the unpublished local commits, and
-the exact `git push --force-with-lease` recovery — it never reports the new
-SHA while origin still holds the old one.
-
-**In-turn wait — a launched worker.** Pass `--wait` and hold this turn on it
-through the merge watcher wrapper. For a separate point-in-time check, run
-`yoke github merge-queue readiness ITEM --json`: it reads the target branch's
-named queue entry with arming, so null arming plus `queue-entry=AWAITING_CHECKS`
-means consumed and in flight, not cleared. The watcher polls the fuller landing
-readback and streams it; never hand-author a `gh` poll or block a bare call:
+**Reachability-routed wait.** Pass `--wait` through the merge watcher wrapper.
+That wrapper follows the same four-fact landing readback (armed, queued,
+eligible, required checks) on the documented cadence, streams each reading,
+and writes the exit sentinel that ends the follow. It never needs a
+hand-authored `gh` poll loop:
 
 ```text
 yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \
   --result "<what changed>" --verification "<checks and evidence>"
 ```
 
-Run the printed pair on the long-command surface your harness session rules
-name, and stay in this turn until it exits. Every way it ends is named, and
-none of them is silence:
+Read the wrapper's `wait_mode` and reason.
+
+- `background-wake` means the caller has a verified route. The selector exits
+  after printing the bound background command and subscription; run that pair
+  exactly once on the long-command surface your harness rules name. A
+  completion wake is expected only because the mode line recorded that route.
+- `in-turn` means the same invocation is already holding the foreground wait
+  and will not return until landing finishes. No later completion notice is
+  expected.
+
+For a separate point-in-time check, run `yoke github merge-queue readiness
+ITEM --json`. It reads the target branch's named queue entry with arming, so
+null arming plus `queue-entry=AWAITING_CHECKS` means consumed and in flight,
+not cleared. A retried invocation publishes any new local lane commits before
+the queue is re-armed; it refuses with exact force-with-lease recovery rather
+than report a SHA that origin does not yet hold.
+
+Every way either route ends is named, and none of them is silence:
 
 - **merged** — exit 0. That same command already recorded the evidence and
   closed the item out in this turn; continue at the guardrail-denial report
