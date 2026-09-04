@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 
@@ -52,6 +53,29 @@ _DEFAULT_CONTEXT_LIMIT = DEFAULT_ADDITIONAL_CONTEXT_LIMIT
 
 class _MalformedHooks(ValueError):
     pass
+
+
+class CodexHookIdentityError(ValueError):
+    """The hooks document cannot produce Codex-compatible trust identities."""
+
+
+def codex_hook_hashes(hooks_path: Path) -> Dict[str, str]:
+    """Return normalized hashes for the handlers in ``hooks_path``."""
+    try:
+        document = json.loads(hooks_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise CodexHookIdentityError(str(exc)) from exc
+    return codex_hook_hashes_from_document(document)
+
+
+def codex_hook_hashes_from_document(document: object) -> Dict[str, str]:
+    """Return normalized hashes or reject a malformed hooks document."""
+    hashes = normalized_codex_hook_hashes(document)
+    if hashes is None:
+        raise CodexHookIdentityError(
+            "hooks document cannot produce Codex-compatible trust identities"
+        )
+    return hashes
 
 
 def _optional_string(value: Any, name: str) -> Optional[str]:
@@ -214,4 +238,10 @@ def codex_hooks_are_approved(payload: Any, trusted: Mapping[str, str]) -> bool:
     return bool(current) and current == dict(trusted)
 
 
-__all__ = ["codex_hooks_are_approved", "normalized_codex_hook_hashes"]
+__all__ = [
+    "CodexHookIdentityError",
+    "codex_hook_hashes",
+    "codex_hook_hashes_from_document",
+    "codex_hooks_are_approved",
+    "normalized_codex_hook_hashes",
+]

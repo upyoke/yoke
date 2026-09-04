@@ -28,14 +28,14 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from yoke_contracts.harness_unattended_posture import codex_config_path
-from yoke_core.domain.codex_hook_trust_identity import (
+from yoke_contracts.codex_hook_trust import (
     CodexHookIdentityError,
     codex_hook_hashes,
 )
-from yoke_core.domain.codex_hook_trust_store import (
+from yoke_contracts.codex_hook_trust_store import (
     HOOKS_RELATIVE_PATH,
 )
-from yoke_core.domain.codex_hook_trust_toml import (
+from yoke_contracts.codex_hook_trust_toml import (
     TRUSTED_HASH_KEY,
     entries_for as _entries_for,
     read_trust_state as _read_trust_state,

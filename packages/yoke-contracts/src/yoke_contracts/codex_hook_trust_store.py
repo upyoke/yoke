@@ -13,12 +13,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.harness_unattended_posture import codex_config_path
-from yoke_core.domain.codex_hook_trust_identity import (
+from yoke_contracts.codex_hook_trust import (
     CodexHookIdentityError,
     codex_hook_hashes,
 )
-from yoke_core.domain.codex_hook_trust_toml import (
+from yoke_contracts.codex_hook_trust_toml import (
     CodexHookTrustStoreError,
     TRUSTED_HASH_KEY,
     all_hook_entries as _all_hook_entries,
@@ -32,6 +31,7 @@ from yoke_core.domain.codex_hook_trust_toml import (
     read_config as _read_config,
     read_trust_state,
 )
+from yoke_contracts.harness_unattended_posture import codex_config_path
 
 
 HOOKS_RELATIVE_PATH = Path(".codex/hooks.json")

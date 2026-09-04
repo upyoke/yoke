@@ -21,7 +21,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from yoke_core.domain.codex_hook_trust_store import (
+from yoke_contracts.codex_hook_trust_store import (
     CodexHookTrustStoreError,
     SWEEP_COMMAND,
     hooks_file_for,

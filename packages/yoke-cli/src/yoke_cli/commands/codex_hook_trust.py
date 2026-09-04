@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
 import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_contracts.codex_hook_trust_store import (
+    CodexHookTrustStoreError,
+    SWEEP_COMMAND,
+    sweep_stale_trust,
+)
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -43,13 +47,10 @@ def codex_hook_trust_sweep(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    trust_store = importlib.import_module("yoke_core.domain.codex_hook_trust_store")
     try:
-        receipt = trust_store.sweep_stale_trust(dry_run=parsed.dry_run)
-    except trust_store.CodexHookTrustStoreError as exc:
-        recovery = (
-            f"repair the named Codex config, then rerun `{trust_store.SWEEP_COMMAND}`"
-        )
+        receipt = sweep_stale_trust(dry_run=parsed.dry_run)
+    except CodexHookTrustStoreError as exc:
+        recovery = f"repair the named Codex config, then rerun `{SWEEP_COMMAND}`"
         payload = {
             "error": "codex_hook_trust_sweep_refused",
             "detail": str(exc),

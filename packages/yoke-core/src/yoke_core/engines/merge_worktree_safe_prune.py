@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
 from yoke_core.engines.merge_worktree_cleanliness import (
     clean_after_disposable_cache_removal,
 )

@@ -1,4 +1,4 @@
-"""Lossless TOML table edits for Codex's path-keyed trust store."""
+"""Client-safe TOML table edits for Codex's path-keyed trust store."""
 
 from __future__ import annotations
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,

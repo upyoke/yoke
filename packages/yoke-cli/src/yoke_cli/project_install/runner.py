@@ -173,7 +173,7 @@ def install(
 
 def _mint_codex_hook_trust(root: Path) -> Dict[str, object]:
     """Trust only the Codex hooks file the completed install just authored."""
-    from yoke_core.domain.codex_hook_trust_store import (
+    from yoke_contracts.codex_hook_trust_store import (
         CodexHookTrustStoreError,
         hooks_file_for,
         mint_installed_checkout_trust,

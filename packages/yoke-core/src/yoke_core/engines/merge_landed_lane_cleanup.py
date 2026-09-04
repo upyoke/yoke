@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.domain.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
 from yoke_core.engines.merge_worktree_safe_prune import (
     first_output_line,
     is_managed_worktree_path,

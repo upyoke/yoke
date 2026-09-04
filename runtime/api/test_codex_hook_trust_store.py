@@ -12,8 +12,8 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10 CI
     import tomli as tomllib  # type: ignore[no-redef]
 
-from yoke_core.domain.codex_hook_trust_identity import codex_hook_hashes
-from yoke_core.domain.codex_hook_trust_store import (
+from yoke_contracts.codex_hook_trust import codex_hook_hashes
+from yoke_contracts.codex_hook_trust_store import (
     CodexHookTrustStoreError,
     inspect_hook_file_trust,
     mint_installed_checkout_trust,

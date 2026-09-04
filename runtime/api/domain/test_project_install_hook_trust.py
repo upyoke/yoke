@@ -6,9 +6,9 @@ import pytest
 
 from yoke_cli.project_install.hook_trust_report import REPORT_KEY
 from yoke_cli.project_install import runner
+from yoke_contracts.codex_hook_trust_store import inspect_hook_file_trust
 from yoke_contracts.harness_hook_approval import HARNESS_HOOK_APPROVAL
 from yoke_core.domain.project_install import apply_bundle
-from yoke_core.domain.codex_hook_trust_store import inspect_hook_file_trust
 from yoke_core.domain.project_install_test_helpers import (
     codex_hooks,
     entry,
