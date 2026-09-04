@@ -12,6 +12,10 @@ is caught by the doctor check ``HC-harness-substrate-drift`` (lane R / task 10).
 
 from __future__ import annotations
 
+from yoke_contracts.cursor_hook_command_bytes import (
+    CURSOR_HOOK_COMMAND_BYTE_REASON,
+    CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
+)
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 from yoke_contracts.harness_turn_record_capability import (
     turn_record_capability_for_harness,
@@ -240,6 +244,14 @@ CURSOR_MANIFEST: dict = {
         "environment": {
             "root_variable": "YOKE_ROOT",
             "root_expression": "${CURSOR_PROJECT_DIR:-$PWD}",
+        },
+        "command_byte_restrictions": {
+            "source": (
+                "yoke_contracts.cursor_hook_command_bytes"
+                ".CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES"
+            ),
+            "forbidden_sequences": list(CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES),
+            "reason": CURSOR_HOOK_COMMAND_BYTE_REASON,
         },
     },
     "telemetry": {

@@ -7,8 +7,9 @@ runs. User hooks spawn from ``~/.cursor`` and still fire — so Yoke keeps a
 machine-local stop/sessionEnd backstop there, and both command shapes
 resolve ``YOKE_ROOT`` to a directory that exists before evaluating.
 
-These two commands also carry no vertical bar at all; see
-:data:`PIPE_FREE_BODY_REASON`.
+These two command bodies also stay clear of the byte sequences Cursor's
+JSONC hook loader mishandles; see
+:data:`yoke_contracts.cursor_hook_command_bytes.CURSOR_HOOK_COMMAND_BYTE_REASON`.
 """
 
 from __future__ import annotations
@@ -38,28 +39,35 @@ _LIFECYCLE_VERBS: dict[str, str] = {
     "sessionEnd": "SessionEnd",
 }
 
-# Why the stop/sessionEnd bodies avoid ``|`` entirely.
+# Why these bodies avoid ``|``, ``/*`` and ``*/`` entirely.
 #
 # Bisected 2026-09-04 on cursor-agent 2026.09.02-c22c1a3 with scratch
-# projects and file-writing capture hooks: a project whose
-# ``.cursor/hooks.json`` carries a vertical bar in BOTH the ``stop`` and
-# ``sessionEnd`` commands runs no tool hook at all — beforeShellExecution,
-# afterShellExecution, preToolUse and postToolUse all stop spawning, while
-# sessionStart and stop still fire, so the file is plainly loaded. Removing
-# either entry, shortening either command, or replacing the case-pattern
-# alternation ``*/.worktrees/*|*/.claude/worktrees/*`` with a bar-free glob
-# restores every tool hook; padding the file back to the same byte size does
-# not, so length is not the trigger. The observed cost was silent: relay
-# Cursor launches never fired a tool hook, never wrote the conversation map,
-# never registered, and died on the 10-minute registration deadline.
+# projects and file-writing capture hooks. Two independent silent failures
+# were reproduced there, both costing every tool hook:
 #
-# The bar-free rewrite therefore covers the whole class rather than only the
-# alternation: mutually exclusive ``case`` arms replace the alternation, and
-# ``if`` blocks replace every ``||`` fallback chain.
-PIPE_FREE_BODY_REASON = (
-    "Cursor stops running every tool hook when the stop and sessionEnd "
-    "commands both contain a vertical bar; keep these two bodies bar-free."
-)
+# * a vertical bar in BOTH the ``stop`` and ``sessionEnd`` commands stops
+#   beforeShellExecution, afterShellExecution, preToolUse and postToolUse
+#   spawning, while sessionStart and stop still fire, so the file is plainly
+#   loaded; padding the file back to the same byte size does not restore
+#   them, so length is not the trigger;
+# * ``/*`` anywhere in a command opens a JSONC comment that runs to the next
+#   ``*/`` across JSON string boundaries, deleting every hook entry between
+#   them — a ``sessionEnd`` command carrying ``*/.worktrees/*`` and a later
+#   ``stop`` command carrying ``*/`` swallowed all the tool hooks between.
+#
+# Either way relay Cursor launches never fired a tool hook, never wrote the
+# conversation map, never registered, and died on the 10-minute registration
+# deadline. So the rewrite covers the whole byte class rather than one
+# instance of it: mutually exclusive ``case`` arms replace the pattern
+# alternation, ``if`` blocks replace every ``||`` fallback chain, and the
+# worktree path segments live in variables so no glob in this body ever
+# spells ``/*`` or ``*/`` in the rendered file.
+#
+# The worktree path segments the fallback peels. Held in variables, and
+# expanded unquoted into ``case`` patterns and ``${...%%}`` words, so the
+# rendered command text never carries a JSONC comment delimiter.
+_WORKTREE_SEGMENT = "/.worktrees/"
+_CLAUDE_WORKTREE_SEGMENT = "/.claude/worktrees/"
 
 
 def cursor_lifecycle_hook_command(
@@ -75,8 +83,10 @@ def cursor_lifecycle_hook_command(
     ``{}`` on these events so the vendor stop contract stays satisfied.
     """
     # The shared wrapper rejects single quotes in this trusted shell body.
-    # No vertical bar anywhere in this body: see PIPE_FREE_BODY_REASON.
+    # No ``|``, ``/*`` or ``*/`` anywhere in it either: see
+    # yoke_contracts.cursor_hook_command_bytes.
     body = (
+        f'wt="{_WORKTREE_SEGMENT}"; cwt="{_CLAUDE_WORKTREE_SEGMENT}"; '
         'root=""; '
         'for c in "$YOKE_ROOT" "$CURSOR_PROJECT_DIR" "$PWD"; do '
         '[ -n "$c" ] && [ -d "$c" ] && root="$c" && break; '
@@ -84,10 +94,10 @@ def cursor_lifecycle_hook_command(
         'if [ -z "$root" ]; then '
         'for c in "$CURSOR_PROJECT_DIR" "$YOKE_ROOT"; do '
         'case "$c" in '
-        '*/.worktrees/*) p="${c%%/.worktrees/*}"; '
-        'p="${p%%/.claude/worktrees/*}"; '
+        '*"$wt"*) p="${c%%$wt*}"; '
+        'p="${p%%$cwt*}"; '
         '[ -d "$p" ] && root="$p" && break;; '
-        '*/.claude/worktrees/*) p="${c%%/.claude/worktrees/*}"; '
+        '*"$cwt"*) p="${c%%$cwt*}"; '
         '[ -d "$p" ] && root="$p" && break;; '
         "esac; "
         "done; "
@@ -184,7 +194,6 @@ def ensure_user_lifecycle_hooks_for_executor(executor: str) -> None:
 
 
 __all__ = [
-    "PIPE_FREE_BODY_REASON",
     "USER_LIFECYCLE_EVENTS",
     "cursor_lifecycle_hook_command",
     "ensure_user_lifecycle_hooks",

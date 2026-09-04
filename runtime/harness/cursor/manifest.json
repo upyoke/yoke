@@ -128,6 +128,15 @@
     "environment": {
       "root_variable": "YOKE_ROOT",
       "root_expression": "${CURSOR_PROJECT_DIR:-$PWD}"
+    },
+    "command_byte_restrictions": {
+      "source": "yoke_contracts.cursor_hook_command_bytes.CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES",
+      "forbidden_sequences": [
+        "/*",
+        "*/",
+        "|"
+      ],
+      "reason": "Cursor parses .cursor/hooks.json as JSONC and strips /* ... */ comments inside JSON strings, silently deleting every hook entry between a command containing /* and the next */; a vertical bar in the stop and sessionEnd commands separately stops every tool hook from spawning. Keep /*, */ and | out of every rendered Cursor hook command."
     }
   },
   "telemetry": {
