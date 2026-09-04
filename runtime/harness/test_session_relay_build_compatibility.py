@@ -10,18 +10,22 @@ import pytest
 
 from yoke_cli.transport import control_plane_payload, source_build_skew
 from yoke_contracts.session_control.function_ids import (
-    RELAY_CLAIM_FUNCTION_ID,
     RELAY_LIST_FUNCTION_ID,
+    RELAY_REPORT_FUNCTION_ID,
 )
 from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_harness import session_relay
 from yoke_harness.session_relay_build_compatibility import (
     refresh_relay_build_compatibility,
 )
-from yoke_harness.session_relay_health import observe_relay_health
+from yoke_harness.session_relay_health import (
+    PENDING_REPORT_DIR_NAME,
+    observe_relay_health,
+)
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_daemon import serve_forever
 from yoke_harness.session_relay_outcomes import ServeOnceOutcome
+from yoke_harness.session_relay_report_delivery import deliver_terminal_report
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
@@ -100,9 +104,27 @@ def test_probe_does_not_reuse_an_observation_from_an_earlier_call(
     assert observe_relay_health(tmp_path)["state"] == "healthy"
 
 
-def test_refused_cycle_publishes_health_without_running_a_job(
+def test_refused_cycle_stops_after_compatible_probe_without_running_a_job(
     tmp_path: Path, monkeypatch
 ) -> None:
+    report_payload = {
+        "relay_id": f"machine:{MACHINE_ID}",
+        "job_kind": "launch",
+        "job_id": "22222222-2222-4222-8222-222222222222",
+        "lease_id": "33333333-3333-4333-8333-333333333333",
+        "result": "outcome_unknown",
+    }
+
+    def offline(**_kwargs):
+        raise OSError("offline")
+
+    deliver_terminal_report(
+        offline,
+        RELAY_REPORT_FUNCTION_ID,
+        report_payload,
+        state_dir=tmp_path,
+        timeout_s=10,
+    )
     calls = []
 
     def dispatch(**kwargs):
@@ -128,9 +150,8 @@ def test_refused_cycle_publishes_health_without_running_a_job(
     assert outcome.local_revision == LOCAL_REVISION
     assert outcome.server_revision == SERVER_REVISION
     assert outcome.recovery == "deploy"
-    assert calls[0]["function_id"] == RELAY_LIST_FUNCTION_ID
-    assert calls[-1]["function_id"] == RELAY_CLAIM_FUNCTION_ID
-    assert calls[-1]["payload"]["health"]["state"] == "refused"
+    assert [call["function_id"] for call in calls] == [RELAY_LIST_FUNCTION_ID]
+    assert list((tmp_path / PENDING_REPORT_DIR_NAME).glob("*.json"))
 
 
 def test_equal_server_observation_clears_the_refusal(tmp_path: Path) -> None:

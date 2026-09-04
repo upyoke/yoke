@@ -157,24 +157,9 @@ def _poll(
     dispatch_job: JobDispatch | None = None,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
-    reports_drained = retry_pending_reports(
-        dispatcher,
-        RELAY_REPORT_FUNCTION_ID,
-        state_dir=state_dir,
-        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
-    )
     inventory = replace(inventory, relay_health=observe_relay_health(state_dir))
     refusal = refusal_from_health(inventory.relay_health)
     if refusal is not None:
-        try:
-            dispatcher(
-                function_id=RELAY_CLAIM_FUNCTION_ID,
-                target=TargetRef(kind="global"),
-                payload=inventory.claim_payload(wait_seconds=0),
-                timeout_s=RELAY_DISPATCH_TIMEOUT_SECONDS,
-            )
-        except Exception:
-            pass
         return ServeOnceOutcome(
             RELAY_NEWER_THAN_SERVER,
             int(_POLL_POLICY.default),
@@ -184,6 +169,13 @@ def _poll(
             server_revision=refusal.server_revision,
             recovery=RELAY_NEWER_THAN_SERVER_RECOVERY,
         )
+    reports_drained = retry_pending_reports(
+        dispatcher,
+        RELAY_REPORT_FUNCTION_ID,
+        state_dir=state_dir,
+        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
+    )
+    inventory = replace(inventory, relay_health=observe_relay_health(state_dir))
     if not reports_drained:
         return ServeOnceOutcome(
             "report_failed",
