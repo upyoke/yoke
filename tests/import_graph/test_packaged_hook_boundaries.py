@@ -23,5 +23,9 @@ def test_hook_registries_name_only_packaged_modules() -> None:
     assert findings == []
 
 
+def test_hook_command_adapter_has_no_local_engine_edge() -> None:
+    assert HOOK_CHECK.scan_thin_adapter_engine_edges(REPO_ROOT) == []
+
+
 def test_local_engine_import_cannot_fail_open_silently() -> None:
     assert HOOK_CHECK.scan_local_engine_fail_loud(REPO_ROOT) == []

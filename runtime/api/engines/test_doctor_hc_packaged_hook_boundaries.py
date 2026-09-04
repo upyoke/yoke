@@ -51,6 +51,21 @@ def test_registry_source_namespace_string_is_reported(tmp_path: Path) -> None:
     ]
 
 
+def test_thin_adapter_local_engine_import_is_reported(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "adapter.py",
+        "from yoke_core.hooks import local_entry\n",
+    )
+    findings = hc.scan_thin_adapter_engine_edges(
+        tmp_path,
+        adapter="adapter.py",
+    )
+    assert [finding.detail for finding in findings] == [
+        "thin entrypoint imports local engine module yoke_core.hooks.local_entry",
+    ]
+
+
 def test_silent_local_engine_import_handler_is_reported(tmp_path: Path) -> None:
     _write(
         tmp_path,
