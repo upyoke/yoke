@@ -242,7 +242,7 @@ export interface UniverseAppMount {
  */
 export type UniverseRouteView =
   | "overview" | "sessions" | "inbox" | "organization" | "workflows"
-  | "projects" | "github" | "access" | "members" | "billing"
+  | "projects" | "github" | "actors" | "members" | "billing"
   | "strategy" | "items" | "deployments" | "environments" | "flows"
   | "databases" | "infrastructure" | "qa-methods" | "qa-plans"
   | "qa-activity" | "capabilities" | "packs" | "architecture"
@@ -276,7 +276,7 @@ export interface UniverseRoute {
 export type UniverseScope = "multi" | "single" | "none";
 
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 6 as const;
+export const UNIVERSE_APP_CONTRACT_VERSION = 7 as const;
 
 export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,

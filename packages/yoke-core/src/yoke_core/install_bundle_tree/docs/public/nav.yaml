@@ -20,7 +20,7 @@ sections:
       - qa.md
       - capabilities.md
       - events-doctor-ouroboros.md
-      - access-members-billing.md
+      - actors-members-billing.md
       - operating-with-agents.md
   - title: Reference
     pages:

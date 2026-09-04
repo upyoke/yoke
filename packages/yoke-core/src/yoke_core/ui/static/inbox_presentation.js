@@ -45,7 +45,9 @@ export function subjectHref(row) {
     }) || buildUniverseRoute("items", row.project_id);
   }
   if (row.kind === "machine_approval") {
-    return buildUniverseRoute("access", null);
+    // A machine approval is answered beside the machine it admits, and it
+    // is org-scoped, so no project narrows the destination.
+    return buildUniverseRoute("machines", null);
   }
   return buildUniverseRoute("inbox", row.project_id);
 }
@@ -80,8 +82,16 @@ export function decisionSubtitle(row) {
   } else if (row.kind === "lifecycle_transition_approval") {
     if (facts.policy_summary) details.push(facts.policy_summary);
     else if (facts.transition) details.push(`${facts.transition} transition`);
-  } else if (row.kind === "machine_approval" && facts.code) {
-    details.push(`one-time code ${facts.code}`);
+  } else if (row.kind === "machine_approval") {
+    details.push(facts.machine ? `machine ${facts.machine}` : "machine not named");
+    details.push(
+      facts.code ? `one-time code ${facts.code}` : "no one-time code delivered",
+    );
+    // Whoever installed Yoke on that machine keeps it once it is admitted:
+    // approving never transfers ownership to the approver.
+    if (row.originator_actor_label) {
+      details.push(`requested by ${row.originator_actor_label}`);
+    }
   }
   const progress = decisionProgressText(row);
   if (progress) trailing.push(progress);

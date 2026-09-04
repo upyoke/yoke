@@ -313,7 +313,7 @@ def test_every_nav_destination_is_routable_and_scoped():
     # diagnostics drawer.
     for destination in (
         "overview", "sessions", "inbox",
-        "organization", "workflows", "projects", "github", "access",
+        "organization", "workflows", "projects", "github", "actors",
         "members", "billing",
         "strategy", "items", "deployments", "environments", "flows",
         "databases", "infrastructure", "qa-methods", "qa-plans",

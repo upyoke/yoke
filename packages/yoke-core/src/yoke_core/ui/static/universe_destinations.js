@@ -72,7 +72,7 @@ export const NAV = [
     summary: "How this project binds to its repository, and how they sync.",
   },
   {
-    id: "access", icon: "⚇", label: "Access", scope: SCOPE_NONE,
+    id: "actors", icon: "⚇", label: "Actors", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
     summary: "Who and what may act here, at the universe and per project.",
   },
