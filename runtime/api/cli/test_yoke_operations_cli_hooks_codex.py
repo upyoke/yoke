@@ -43,18 +43,42 @@ def detached_from_runner_session(monkeypatch):
     monkeypatch.setattr(relay, "_record_client_anchor", lambda *_a, **_k: None)
 
 
-def test_hook_evaluate_https_codex_session_start_captures_and_resolves(
-    monkeypatch, https_connection,
+def test_hand_started_codex_exec_uses_its_session_under_a_parent_harness(
+    monkeypatch, https_connection, tmp_path,
 ) -> None:
-    """Codex half of the client-side relocation: the relay writes the
-    runtime cache (the remote-skipped session-dispatch write) and ships
-    payload-thread-resolved model + entrypoint — never env-dependent."""
+    """A shell-started Codex reads its own rollout, not its parent's env."""
+    transcripts = tmp_path / "sessions"
+    transcripts.mkdir()
+    (transcripts / "rollout-codex-thread-1.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "session_meta",
+                "payload": {
+                    "originator": "codex_exec",
+                    "source": "exec",
+                    "cli_version": "0.152.1",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_codex_runtime.codex_transcript_roots",
+        lambda: [transcripts],
+    )
     raw_stdin = json.dumps({
         "session_id": "codex-thread-1",
         "transcript_path": "/t/codex.jsonl",
         "model": "gpt-6-real",
     })
     monkeypatch.setattr(sys, "stdin", io.StringIO(raw_stdin))
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-claude-session")
+    monkeypatch.setenv("CODEX_SESSION_ID", "codex-thread-1")
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_runtime.nearest_harness_family",
+        lambda: "codex",
+    )
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.detect_executor", lambda: "codex",
     )
@@ -72,8 +96,10 @@ def test_hook_evaluate_https_codex_session_start_captures_and_resolves(
         ),
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay._codex_resolve_entrypoint",
-        lambda thread_id=None: "codex-desktop" if thread_id == "codex-thread-1" else None,
+        "yoke_harness.hooks.identity_relay.client_executor_version",
+        lambda executor, surface: (
+            "0.152.1" if (executor, surface) == ("codex", "codex-cli") else None
+        ),
     )
     captured: dict = {}
 
@@ -88,7 +114,8 @@ def test_hook_evaluate_https_codex_session_start_captures_and_resolves(
     assert cli_main(["hook", "evaluate", "SessionStart"]) == 0
     assert cache_writes == [("codex-thread-1", raw_stdin)]
     assert captured["body"]["model"] == "gpt-6-real"
-    assert captured["body"]["entrypoint"] == "codex-desktop"
+    assert captured["body"]["entrypoint"] == "codex-cli"
+    assert captured["body"]["executor_version"] == "0.152.1"
 
 
 def test_hook_evaluate_https_codex_unresolved_model_ships_nothing(

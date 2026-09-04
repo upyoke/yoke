@@ -14,6 +14,11 @@ import re
 import subprocess
 from typing import Any, Optional
 
+from yoke_contracts.harness_family_identity import (
+    YOKE_SESSION_ENV_VAR,
+    family_env_session_id,
+    nearest_harness_family,
+)
 from yoke_contracts.session_identity import resolve_env_session_id
 from yoke_contracts.session_model_facts import (
     PLACEHOLDER_MODEL_VALUES as _PLACEHOLDER_MODEL_VALUES,  # noqa: F401
@@ -140,14 +145,22 @@ def _in_cursor_process() -> bool:
 
 
 def resolve_session_id(stdin_data: str) -> str:
-    """Resolve this hook process's session: canonical env chain, then payload.
+    """Resolve this hook process's session within its harness family.
 
-    The order is the contract's rather than Codex-first: an explicit
-    ``YOKE_SESSION_ID`` pin outranks any harness variable, and within the
-    Codex pair the parent session outranks a subagent's own thread. A
-    Codex hook subprocess normally carries neither and falls through to
-    the payload, where Codex names the parent.
+    An explicit Yoke pin wins. Otherwise the nearest harness process limits
+    environment lookup to that family, so a Codex session started from a
+    Claude shell cannot resolve back to the launching Claude session. Within
+    Codex, the parent session still outranks a subagent's own thread. When no
+    harness process is visible, preserve the family-blind environment fallback.
     """
+    explicit = (os.environ.get(YOKE_SESSION_ENV_VAR) or "").strip()
+    if explicit:
+        return explicit
+    family = nearest_harness_family()
+    if family is not None:
+        return family_env_session_id(family, os.environ) or _payload_field(
+            stdin_data, "session_id"
+        )
     return resolve_env_session_id(os.environ) or _payload_field(
         stdin_data, "session_id"
     )
