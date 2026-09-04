@@ -27,6 +27,9 @@ RELAY_REPORT_FUNCTION_ID = "session_control.relay.report"
 RELAY_LIVENESS_FUNCTION_ID = "session_control.relay.liveness"
 #: The machine's report that a session's native turn is already over.
 RELAY_TURN_END_FUNCTION_ID = "session_control.relay.turn_end"
+#: The machine's question which of its idle native hosts' sessions have
+#: ended, and its report of the hosts it reclaimed.
+RELAY_IDLE_HOSTS_FUNCTION_ID = "session_control.relay.idle_hosts"
 
 RELAY_FUNCTION_IDS = (
     RELAY_LIST_FUNCTION_ID,
@@ -34,6 +37,7 @@ RELAY_FUNCTION_IDS = (
     RELAY_REPORT_FUNCTION_ID,
     RELAY_LIVENESS_FUNCTION_ID,
     RELAY_TURN_END_FUNCTION_ID,
+    RELAY_IDLE_HOSTS_FUNCTION_ID,
 )
 
 #: The any-seat read of one machine-local relay, watcher, or diagnostic file.
@@ -71,6 +75,7 @@ __all__ = [
     "QUALIFICATION_FUNCTION_IDS",
     "RELAY_CLAIM_FUNCTION_ID",
     "RELAY_FUNCTION_IDS",
+    "RELAY_IDLE_HOSTS_FUNCTION_ID",
     "RELAY_LIST_FUNCTION_ID",
     "RELAY_LIVENESS_FUNCTION_ID",
     "RELAY_REPORT_FUNCTION_ID",

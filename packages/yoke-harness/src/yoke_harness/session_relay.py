@@ -21,6 +21,7 @@ from yoke_contracts.session_control.function_ids import (
 )
 from yoke_harness.session_relay_diagnostic_retention import retain_private_diagnostic
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
+from yoke_harness.session_relay_claude_idle_hosts import reclaim_idle_claude_hosts
 from yoke_harness.session_relay_native_turn_end import report_native_turn_ends
 from yoke_harness.session_relay_process_liveness import report_verified_dead_sessions
 from yoke_harness.session_relay_report_delivery import (
@@ -79,9 +80,8 @@ class ServeOnceOutcome:
 
 Dispatcher = Callable[..., Any]
 JobRunner = Callable[[Mapping[str, Any]], RelayAdapterResult]
-# Hands one leased job's settlement off to a caller that owns its lifetime.
-# A caller that supplies one keeps polling while the job runs; the default
-# is to settle inline, which is what a one-shot run must do.
+# Hands one leased job's settlement off to a caller that owns its lifetime and
+# keeps polling meanwhile; the default settles inline, as a one-shot run must.
 JobDispatch = Callable[[Callable[[], "ServeOnceJobOutcome"]], None]
 
 
@@ -199,6 +199,7 @@ def _poll(
     )
     # A native that died reads stale rather than ended; this machine has proof.
     report_verified_dead_sessions(dispatcher, inventory, state_dir=state_dir)
+    reclaim_idle_claude_hosts(dispatcher, inventory)
     response = dispatcher(
         function_id=RELAY_CLAIM_FUNCTION_ID,
         target=TargetRef(kind="global"),
@@ -261,10 +262,9 @@ def run_serve_cycle(
 ) -> ServeOnceOutcome:
     """Run one cadence-respecting batch inside a run lock the caller holds.
 
-    Split from :func:`serve_once` so a caller that holds the lock for many
-    cycles reuses the same transaction body. The lock is what keeps two
-    relays off one machine's jobs; taking it per cycle would let a second
-    process interleave between cycles of the first.
+    Split from :func:`serve_once` so a caller holding the lock for many cycles
+    reuses one body. The lock keeps two relays off one machine's jobs; taking
+    it per cycle would let a second process interleave between cycles.
     """
     started_at = clock()
     if not broker_only and not poll_is_due(state_dir, now=started_at):
