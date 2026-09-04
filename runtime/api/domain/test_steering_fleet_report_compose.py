@@ -104,9 +104,7 @@ def test_a_document_seat_composes_its_own_scope_section(test_db, monkeypatch) ->
     seed_standard_steering_world(test_db)
     seed_strategy_doc(test_db, PROJECT_ALPHA, "AREA-PLAN")
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
-        acquire_steering(
-            test_db, SESSION_ALPHA, PROJECT_ALPHA, document="AREA-PLAN"
-        )
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA, document="AREA-PLAN")
     seen: list[dict] = []
 
     def factory(conn, **kwargs):

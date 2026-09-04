@@ -48,6 +48,13 @@ REPORT_PREAMBLE = (
     "steerer's; nothing here has acted."
 )
 
+LAUNCH_BALANCE_NOTE = (
+    "allocate by headroom: keep one session on every surface above 100% so "
+    "each harness stays exercised, then send the rest to the surface with the "
+    "most headroom and run it down; level counts only when headrooms are "
+    "comparable; no per-surface session cap"
+)
+
 
 def _available_lines(report: FleetReport) -> list[str]:
     now = report.composed_at

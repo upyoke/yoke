@@ -328,13 +328,10 @@ def create_session_control_tables(conn: Any) -> None:
         ("session_relays", "surface_plan_limits", "TEXT"),
         ("session_relays", "machine_capacity", "TEXT"),
         ("session_relays", "preferred_session_models", "TEXT"),
+        ("session_message_recipients", "wake_escalation", "TEXT"),
     ):
         if not _column_exists(conn, table, name):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
-    if not _column_exists(conn, "session_message_recipients", "wake_escalation"):
-        conn.execute(
-            "ALTER TABLE session_message_recipients ADD COLUMN wake_escalation TEXT"
-        )
     if not _column_exists(conn, "session_messages", "sender_surface"):
         conn.execute(
             "ALTER TABLE session_messages ADD COLUMN sender_surface TEXT "
