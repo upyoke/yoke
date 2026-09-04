@@ -8,6 +8,9 @@ rather than fanning the same command out across per-tool matchers.
 
 from __future__ import annotations
 
+from yoke_contracts.cursor_hook_command_bytes import (
+    CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
+)
 from yoke_contracts.hook_runner.config_owner import (
     CURSOR_LIFECYCLE_COMMAND_MARKER,
     CURSOR_NATIVE_RUNNER_EVENTS,
@@ -128,20 +131,25 @@ def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:
     assert CURSOR_LIFECYCLE_COMMAND_MARKER not in pre
 
 
-def test_cursor_stop_and_session_end_commands_carry_no_pipe() -> None:
-    """A vertical bar in both lifecycle commands kills every Cursor tool hook.
+def test_cursor_commands_avoid_the_bytes_its_hook_loader_mishandles() -> None:
+    """Cursor deletes its own hook entries over these byte sequences.
 
-    Bisected 2026-09-04 on cursor-agent 2026.09.02-c22c1a3: with a bar in the
-    rendered ``stop`` AND ``sessionEnd`` commands, Cursor spawns no
-    beforeShellExecution, afterShellExecution, preToolUse or postToolUse hook
-    at all, while sessionStart and stop still fire — so relay Cursor launches
-    never registered and died on the registration deadline. Dropping either
-    entry, or the bar, restores every tool hook; equal-byte padding does not.
+    Bisected 2026-09-04 on cursor-agent 2026.09.02-c22c1a3: ``/*`` in any
+    command opens a JSONC comment that runs to the next ``*/`` across JSON
+    string boundaries and swallows every entry between them, and a vertical
+    bar in the ``stop`` and ``sessionEnd`` commands stops every tool hook
+    spawning. Both are silent — the file still loads and relay Cursor
+    launches simply never register.
     """
     block = render_cursor_hooks_block()
-    for event in ("stop", "sessionEnd"):
-        for entry in block["hooks"][event]:
-            assert "|" not in entry["command"], (event, entry["command"])
+    for event, entries in block["hooks"].items():
+        for entry in entries:
+            for sequence in CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES:
+                assert sequence not in entry["command"], (
+                    event,
+                    sequence,
+                    entry["command"],
+                )
 
 
 def test_cursor_runner_commands_mark_the_project_config_owner() -> None:
