@@ -97,13 +97,14 @@ jobs:
           python3 -m runtime.api.tools.require_fleet_migration_preflight \
             "$TARGET_ENVIRONMENT" "$PRODUCT_SHA"
 
-      # Also before the tag, and unconditional. The pre-merge check proved
-      # this candidate against the host as it stood then; both trunks have
-      # moved since, and a release publishes whatever main now carries. So
-      # the pair is re-proven here against the exact commit being released
-      # and the host's current trunk, on a dispatch key of this run's own so
-      # no earlier proof can be reused. Platform's promotion-time check
-      # remains the final backstop behind this one.
+      # Also before the tag, and unconditional. A producer-only green run
+      # proves the producer and nothing else: a bundle declaring a contract
+      # the host does not implement passes every check on this side and
+      # refuses during promotion, after the artifact is already public. So
+      # the real host is built here against the exact commit being released
+      # and its current trunk, on a dispatch key of this run's own so no
+      # earlier proof can be reused. Platform's promotion-time check remains
+      # the final backstop behind this one.
       - name: Prove the hosted consumer against the exact release candidate
         id: consumer_proof
         env:

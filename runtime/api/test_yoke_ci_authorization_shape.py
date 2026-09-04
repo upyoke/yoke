@@ -25,12 +25,6 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 YOKE_CI = WORKFLOWS / "yoke-ci.yml"
 MERGE_QUEUE = REPO_ROOT / ".yoke" / "merge-queue.json"
 
-# Required contexts produced by a workflow other than yoke-ci. The consumer
-# compatibility gate reaches a private repository with a scoped credential,
-# which is exactly what this fork-safe factory must not carry, so it lives
-# in its own workflow and the yoke-ci assertions below exclude it.
-CONTEXTS_OUTSIDE_YOKE_CI = ("consumer-compatibility",)
-
 
 def _yoke_ci() -> dict:
     return load_document(YOKE_CI)
@@ -82,7 +76,6 @@ def _required_contexts() -> tuple[str, ...]:
         for rule in declared["ruleset"]["rules"]
         if rule["type"] == "required_status_checks"
         for entry in rule["parameters"]["required_status_checks"]
-        if str(entry["context"]) not in CONTEXTS_OUTSIDE_YOKE_CI
     )
 
 

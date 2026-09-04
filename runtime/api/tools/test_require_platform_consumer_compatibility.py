@@ -1,81 +1,54 @@
-"""The consumer-compatibility gate refuses everything short of real proof.
+"""The publication guard refuses everything short of real consumer proof.
 
-The failure this gate exists to prevent is a producer-only green run: the
-product declared a new universe app contract, its own suite passed, and the
-host implementing the previous contract only found out during promotion.
-So the cases that matter here are all negative — a refused pair, absent
-proof, and proof that cannot be attributed to this candidate must each fail
-the caller rather than pass quietly.
+The failure it exists to prevent is a producer-only green run: the product
+declared a new universe app contract, its own suite passed, and the host
+implementing the previous contract only found out during promotion — after
+the artifact was already published. So the cases that matter are negative.
+A refused pair, absent proof, and proof that cannot be attributed to this
+candidate must each stop the release rather than pass quietly.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import pytest
 
-from runtime.api.tools import platform_consumer_check as consumer
+from yoke_core.domain.yaml_helper import load_document
+
 from runtime.api.tools import require_platform_consumer_compatibility as gate
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+RELEASE_BRIDGE = REPO_ROOT / ".github" / "workflows" / "platform-release-bridge.yml"
+GATE_MODULE = "runtime.api.tools.require_platform_consumer_compatibility"
 
 CANDIDATE = "a" * 40
 CONSUMER_REVISION = "b" * 40
-CONTRACT_VERSION_ASSET = (
-    "packages/yoke-core/src/yoke_core/ui/static/contract-version.js"
-)
 
 
-def _succeeded(head_sha: str = CONSUMER_REVISION) -> Dict[str, Any]:
-    return {
-        "state": "success",
-        "conclusion": "success",
-        "head_sha": head_sha,
-        "html_url": "https://example.invalid/run/1",
-    }
+def _recorder(seen: List[List[str]]):
+    def _record(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
+        seen.append(list(argv))
+        return 0, "9001\n", ""
+
+    return _record
 
 
-def test_the_watched_surface_is_derived_from_the_shipped_asset_contract() -> None:
-    # A trigger listing paths by hand goes stale silently: the asset moves,
-    # the list keeps matching nothing, and the gate never fires again.
-    paths = gate.host_consumed_paths()
-
-    assert CONTRACT_VERSION_ASSET in paths
-    for path in paths:
-        assert (REPO_ROOT / path).is_file(), path
+def _bridge_steps() -> List[Dict[str, Any]]:
+    workflow = load_document(RELEASE_BRIDGE)
+    return workflow["jobs"]["dispatch-platform-release"]["steps"]
 
 
-def test_a_contract_change_puts_the_consumer_in_play() -> None:
-    assert gate.touches_host_contract([CONTRACT_VERSION_ASSET])
-    assert gate.touches_host_contract(
-        ["packages/yoke-core/src/yoke_core/ui/contracts/universe-app.ts"]
-    )
+def _step_index(steps: List[Dict[str, Any]], predicate) -> int:
+    return next(index for index, step in enumerate(steps) if predicate(step))
 
 
-def test_an_unrelated_change_does_not_pay_for_a_consumer_build() -> None:
-    assert gate.touches_host_contract(["docs/testing-verification.md"]) == ()
-
-
-def test_an_unreadable_diff_scope_refuses_instead_of_passing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def _explode(_root: Path, _base: str) -> Tuple[str, ...]:
-        raise RuntimeError("no such ref")
-
-    monkeypatch.setattr(gate, "changed_paths", _explode)
-    applies, why = gate.applicability("origin/nowhere")
-
-    assert applies is None
-    assert "unresolvable" in why
-
-
-def test_no_scope_ref_means_prove_unconditionally() -> None:
-    assert gate.applicability("") == (True, "")
-
-
-def test_a_refused_pair_names_both_revisions_and_the_companion_item() -> None:
-    code, narrative, proven = consumer.classify(
+def test_the_known_contract_mismatch_stops_the_release() -> None:
+    # The live shape: the host refuses the bundle's declared contract. That
+    # must be terminal before publication, and it must name both sides so a
+    # reader knows which pair failed.
+    code, narrative, proven = gate.classify(
         {
             "state": "failed",
             "conclusion": "failure",
@@ -86,7 +59,7 @@ def test_a_refused_pair_names_both_revisions_and_the_companion_item() -> None:
         run_id="2",
     )
 
-    assert code == consumer.UNPROVEN
+    assert code == gate.UNPROVEN
     assert proven == ""
     assert CANDIDATE in narrative
     assert CONSUMER_REVISION in narrative
@@ -94,31 +67,16 @@ def test_a_refused_pair_names_both_revisions_and_the_companion_item() -> None:
     assert "never waives adapting it" in narrative
 
 
-def test_success_that_names_no_revision_is_unproven_not_proven() -> None:
-    code, narrative, proven = consumer.classify(
-        _succeeded(head_sha=""), candidate_sha=CANDIDATE, run_id="3",
-    )
-
-    assert code == consumer.UNPROVEN
-    assert proven == ""
-    assert "names no revision it proved" in narrative
-
-
-def test_a_run_that_never_concluded_is_unavailable() -> None:
-    code, narrative, proven = consumer.classify(
-        {"state": "timeout", "html_url": "https://example.invalid/run/4"},
+def test_a_valid_candidate_pair_publishes_and_names_both_identities() -> None:
+    code, narrative, proven = gate.classify(
+        {
+            "state": "success",
+            "conclusion": "success",
+            "head_sha": CONSUMER_REVISION,
+            "html_url": "https://example.invalid/run/1",
+        },
         candidate_sha=CANDIDATE,
-        run_id="4",
-    )
-
-    assert code == consumer.UNAVAILABLE
-    assert proven == ""
-    assert "wait budget" in narrative
-
-
-def test_a_proven_pair_records_both_identities() -> None:
-    code, narrative, proven = consumer.classify(
-        _succeeded(), candidate_sha=CANDIDATE, run_id="5",
+        run_id="1",
     )
 
     assert code == 0
@@ -127,196 +85,139 @@ def test_a_proven_pair_records_both_identities() -> None:
     assert CONSUMER_REVISION in narrative
 
 
-def test_one_candidate_can_never_adopt_another_candidate_s_run(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: List[List[str]] = []
-
-    def _record(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
-        seen.append(list(argv))
-        return 0, "9001\n", ""
-
-    monkeypatch.setattr(consumer, "_yoke", _record)
-    consumer.dispatch(CANDIDATE, "attempt-1")
-    consumer.dispatch("c" * 40, "attempt-1")
-
-    request_ids = [argv[argv.index("--request-id") + 1] for argv in seen]
-    assert request_ids[0] != request_ids[1]
-    assert CANDIDATE in request_ids[0]
-    for argv in seen:
-        assert argv[argv.index("--input") + 1].startswith(
-            f"{consumer.CANDIDATE_INPUT}="
-        )
-
-
-def test_the_same_candidate_and_attempt_rejoin_one_consumer_run(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: List[List[str]] = []
-
-    def _record(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
-        seen.append(list(argv))
-        return 0, "9001\n", ""
-
-    monkeypatch.setattr(consumer, "_yoke", _record)
-    consumer.dispatch(CANDIDATE, "attempt-1")
-    consumer.dispatch(CANDIDATE, "attempt-1")
-
-    request_ids = {argv[argv.index("--request-id") + 1] for argv in seen}
-    assert len(request_ids) == 1
-
-
-def test_a_breaking_pair_can_name_the_companion_branch_to_prove_against(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Trunk still implements the old contract, so a breaking change cannot be
-    # proven against it. Naming the companion branch is what breaks the
-    # otherwise circular ordering; the release boundary still demands trunk.
-    seen: List[List[str]] = []
-
-    def _record(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
-        seen.append(list(argv))
-        return 0, "9001\n", ""
-
-    monkeypatch.setattr(consumer, "_yoke", _record)
-    consumer.dispatch(CANDIDATE, "attempt-1", "companion-branch")
-
-    argv = seen[0]
-    assert argv[argv.index("--ref") + 1] == "companion-branch"
-    assert "companion-branch" in argv[argv.index("--request-id") + 1]
-
-
-def test_the_default_is_the_consumer_trunk(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: List[List[str]] = []
-
-    def _record(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
-        seen.append(list(argv))
-        return 0, "9001\n", ""
-
-    monkeypatch.setattr(consumer, "_yoke", _record)
-    consumer.dispatch(CANDIDATE, "attempt-1")
-
-    argv = seen[0]
-    assert argv[argv.index("--ref") + 1] == consumer.CONSUMER_TRUNK_REF
-
-
-def test_the_companion_branch_is_read_from_the_candidate_s_own_commits(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-) -> None:
-    calls: List[Tuple[str, ...]] = []
-
-    def _fake_git(_root: Path, *args: str) -> str:
-        calls.append(args)
-        if args[0] == "merge-base":
-            return "base\n"
-        return "adapt the host\n\nConsumer-candidate: companion-branch\n"
-
-    monkeypatch.setattr(gate, "_git", _fake_git)
-
-    assert gate.companion_consumer_ref(tmp_path, "origin/main") == "companion-branch"
-
-
-def test_a_candidate_naming_no_companion_falls_back_to_trunk(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-) -> None:
-    monkeypatch.setattr(
-        gate, "_git", lambda _root, *args: "base\n" if args[0] == "merge-base" else "x\n",
+def test_success_that_names_no_revision_is_unproven_not_proven() -> None:
+    code, narrative, proven = gate.classify(
+        {"state": "success", "conclusion": "success", "head_sha": ""},
+        candidate_sha=CANDIDATE,
+        run_id="3",
     )
 
-    assert gate.companion_consumer_ref(tmp_path, "origin/main") == ""
+    assert code == gate.UNPROVEN
+    assert proven == ""
+    assert "names no revision it proved" in narrative
 
 
-def test_a_fork_without_the_scoped_credential_is_told_what_to_do(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv(consumer.CONSUMER_TOKEN_ENV, raising=False)
+def test_a_run_that_never_concluded_leaves_the_candidate_unpublished() -> None:
+    code, narrative, proven = gate.classify(
+        {"state": "timeout", "html_url": "https://example.invalid/run/4"},
+        candidate_sha=CANDIDATE,
+        run_id="4",
+    )
 
-    unavailable = consumer.bind_consumer_authority()
-
-    assert consumer.CONSUMER_TOKEN_ENV in unavailable
-    assert "maintainer" in unavailable
+    assert code == gate.UNAVAILABLE
+    assert proven == ""
+    assert "wait budget" in narrative
 
 
 def test_an_unreadable_verdict_is_unavailable_not_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        consumer,
+        gate,
         "_yoke",
         lambda argv, *, timeout, stdin=None: (1, "not json", "relay down"),
     )
 
-    result, unreadable = consumer.await_verdict("7", timeout_sec=1)
+    result, unreadable = gate.await_verdict("7", timeout_sec=1)
 
     assert result == {}
     assert "unreadable" in unreadable
 
 
-def _run_gate(monkeypatch: pytest.MonkeyPatch, argv: List[str]) -> Tuple[int, bool]:
-    proved: Dict[str, bool] = {"called": False}
+def test_one_candidate_can_never_adopt_another_candidate_s_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: List[List[str]] = []
+    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
 
-    def _prove(*_args: Any, **_kwargs: Any) -> Tuple[int, str, str]:
-        proved["called"] = True
-        return 0, "proven", CONSUMER_REVISION
+    gate.dispatch(CANDIDATE, "attempt-1")
+    gate.dispatch("c" * 40, "attempt-1")
 
-    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
-    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
-    monkeypatch.setattr(consumer, "prove", _prove)
-    monkeypatch.setattr(gate.consumer, "prove", _prove)
-    return gate.main(argv), proved["called"]
+    request_ids = [argv[argv.index("--request-id") + 1] for argv in seen]
+    assert request_ids[0] != request_ids[1]
+    assert CANDIDATE in request_ids[0]
+    assert seen[0][seen[0].index("--input") + 1] == (
+        f"{gate.CANDIDATE_INPUT}={CANDIDATE}"
+    )
+    for argv in seen:
+        assert argv[argv.index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
+
+
+def test_the_same_candidate_and_attempt_rejoin_one_consumer_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: List[List[str]] = []
+    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
+
+    gate.dispatch(CANDIDATE, "attempt-1")
+    gate.dispatch(CANDIDATE, "attempt-1")
+
+    assert len({argv[argv.index("--request-id") + 1] for argv in seen}) == 1
+
+
+def test_a_missing_scoped_credential_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(gate.CONSUMER_TOKEN_ENV, raising=False)
+
+    unavailable = gate.bind_consumer_authority()
+
+    assert gate.CONSUMER_TOKEN_ENV in unavailable
 
 
 def test_a_short_candidate_sha_is_refused_before_anything_is_dispatched(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    code, dispatched = _run_gate(
-        monkeypatch, ["--candidate-sha", "abc1234", "--dispatch-key", "k"],
-    )
+    proved = {"called": False}
 
-    assert code == consumer.UNAVAILABLE
-    assert dispatched is False
+    def _prove(*_args: Any, **_kwargs: Any):
+        proved["called"] = True
+        return 0, "proven", CONSUMER_REVISION
+
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setattr(gate, "prove", _prove)
+
+    code = gate.main(["--candidate-sha", "abc1234", "--dispatch-key", "k"])
+
+    assert code == gate.UNAVAILABLE
+    assert proved["called"] is False
 
 
 def test_a_proof_with_no_attempt_key_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    code, dispatched = _run_gate(
-        monkeypatch, ["--candidate-sha", CANDIDATE, "--dispatch-key", "  "],
-    )
-
-    assert code == consumer.UNAVAILABLE
-    assert dispatched is False
-
-
-def test_a_companion_selection_may_pin_the_head_it_proves() -> None:
-    assert gate.split_companion_ref("branch@" + CONSUMER_REVISION) == (
-        "branch", CONSUMER_REVISION,
-    )
-    assert gate.split_companion_ref(" branch ") == ("branch", "")
-
-
-def test_a_companion_branch_that_moved_refuses_rather_than_passes(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # A branch head is not immovable, so a required check that went green
-    # against one commit must not stand for whatever the branch became.
-    moved = "d" * 40
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
-    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
-    monkeypatch.setattr(
-        gate.consumer,
-        "prove",
-        lambda *_a, **_k: (0, "proven", moved),
+
+    code = gate.main(["--candidate-sha", CANDIDATE, "--dispatch-key", "  "])
+
+    assert code == gate.UNAVAILABLE
+
+
+def test_the_release_proves_the_pair_before_the_tag() -> None:
+    steps = _bridge_steps()
+    proof = _step_index(steps, lambda step: GATE_MODULE in str(step.get("run", "")))
+    tag = _step_index(
+        steps,
+        lambda step: str(step.get("name") or "").startswith("Create or recover"),
     )
 
-    code = gate.main(
-        [
-            "--candidate-sha", CANDIDATE,
-            "--dispatch-key", "attempt-1",
-            "--consumer-ref", f"companion-branch@{CONSUMER_REVISION}",
-        ]
-    )
+    assert proof < tag, "the tag is the first irreversible act"
+    # Unconditional: a release publishes whatever trunk now carries, so
+    # there is no diff for this gate to consult and nothing to skip on.
+    assert "if" not in steps[proof]
 
-    assert code == consumer.UNPROVEN
+
+def test_promotion_is_bound_to_the_revision_the_proof_actually_read() -> None:
+    steps = _bridge_steps()
+    proof = steps[
+        _step_index(steps, lambda step: GATE_MODULE in str(step.get("run", "")))
+    ]
+    promotion = steps[
+        _step_index(
+            steps, lambda step: "yoke-release-promote.yml" in str(step.get("run", "")),
+        )
+    ]
+
+    binding = promotion["env"]["PROVEN_CONSUMER_SHA"]
+    assert f"steps.{proof['id']}.outputs.proven_consumer_sha" in binding
+    assert "proven_consumer_sha=$PROVEN_CONSUMER_SHA" in str(promotion["run"])
