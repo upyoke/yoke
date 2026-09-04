@@ -68,13 +68,13 @@ def pin_relay_release(
         _record_failure(selected, refusal.code, str(refusal), str(served_build or ""))
         raise refusal from exc
 
-    selected.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with _release_lock(selected.state_dir):
-        existing = relay_release_status(instance=selected, refresh_served=False)
-        if existing.pinned_release == release and existing.executable.is_file():
-            _clear_failure(selected.state_dir)
-            return _status(selected, release, observed, index)
-        try:
+    try:
+        selected.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with _release_lock(selected.state_dir):
+            existing = relay_release_status(instance=selected, refresh_served=False)
+            if existing.current and existing.pinned_release == release:
+                _clear_failure(selected.state_dir)
+                return _status(selected, release, observed, index)
             _install_candidate(
                 selected,
                 release=release,
@@ -83,19 +83,19 @@ def pin_relay_release(
                 create_venv=create_venv or _create_venv,
                 runner=runner,
             )
-        except RelayReleaseError as exc:
-            refusal = _with_recovery(selected, exc.code, str(exc))
-            _record_failure(selected, refusal.code, str(refusal), observed)
-            raise refusal from exc
-        except Exception as exc:  # noqa: BLE001 - preserve the working pin
-            refusal = _with_recovery(
-                selected,
-                RELAY_RELEASE_INSTALL_FAILED,
-                f"relay venv install failed: {type(exc).__name__}: {exc}",
-            )
-            _record_failure(selected, refusal.code, str(refusal), observed)
-            raise refusal from exc
-        _clear_failure(selected.state_dir)
+            _clear_failure(selected.state_dir)
+    except RelayReleaseError as exc:
+        refusal = _with_recovery(selected, exc.code, str(exc))
+        _record_failure(selected, refusal.code, str(refusal), observed)
+        raise refusal from exc
+    except Exception as exc:  # noqa: BLE001 - preserve the working pin
+        refusal = _with_recovery(
+            selected,
+            RELAY_RELEASE_INSTALL_FAILED,
+            f"relay venv install failed: {type(exc).__name__}: {exc}",
+        )
+        _record_failure(selected, refusal.code, str(refusal), observed)
+        raise refusal from exc
     return _status(selected, release, observed, index)
 
 
@@ -194,7 +194,7 @@ def _install_candidate(
         if not activated:
             try:
                 link.unlink()
-            except FileNotFoundError:
+            except OSError:
                 pass
             if candidate.exists():
                 shutil.rmtree(candidate, ignore_errors=True)

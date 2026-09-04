@@ -225,6 +225,19 @@ def test_local_install_failure_keeps_the_last_working_release(tmp_path: Path) ->
     assert (instance.state_dir / "venv").resolve() == original_target
 
 
+def test_state_directory_failure_is_named_with_recovery(tmp_path: Path) -> None:
+    instance = _instance(tmp_path)
+    instance.state_dir.parent.mkdir(parents=True)
+    instance.state_dir.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(RelayReleaseError) as raised:
+        pin_relay_release(instance=instance, served_build=f"v{RELEASE}")
+
+    assert raised.value.code == RELAY_RELEASE_INSTALL_FAILED
+    assert "FileExistsError" in str(raised.value)
+    assert "relay install" in str(raised.value)
+
+
 def test_status_compares_the_pinned_release_with_a_fresh_handshake(
     tmp_path: Path,
 ) -> None:
