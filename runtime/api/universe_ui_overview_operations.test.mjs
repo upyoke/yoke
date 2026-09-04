@@ -53,16 +53,20 @@ test("Shipping keeps newest-first run cards and caps the visible set", async (t)
 
 test("Active reuses full session cards and excludes ended sessions", async (t) => {
   stubFetch(t);
+  // The band sorts by activity_at descending, so each row carries its own
+  // distinct time. One `new Date()` per iteration lets a millisecond boundary
+  // between the iterations decide the order the assertion below pins.
+  const now = Date.now();
   const rows = [
-    ["s-active", "active", "charge", null],
-    ["s-parked", "stale", "parked", "waiting on YOK-7"],
-    ["s-ended", "ended", "wait", null],
-  ].map(([session_id, liveness, mode, quiet_reason]) => ({
+    ["s-active", "active", "charge", null, 0],
+    ["s-parked", "stale", "parked", "waiting on YOK-7", 60],
+    ["s-ended", "ended", "wait", null, 120],
+  ].map(([session_id, liveness, mode, quiet_reason, secondsAgo]) => ({
     session_id, liveness, mode, quiet_reason,
     project: "yoke", project_id: 1,
     executor: "codex", model: "gpt-5.6-sol",
     execution_lane: "implementation",
-    activity_at: new Date().toISOString(),
+    activity_at: new Date(now - secondsAgo * 1000).toISOString(),
   }));
   const { mounted, root } = await renderOverview(overviewClient({
     "sessions.list": { rows },
