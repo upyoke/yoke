@@ -264,16 +264,14 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
     assert applied["project_slug"] == "wdgt"
 
 
-def test_body_click_keeps_enter_live() -> None:
-    """Clicking the non-focusable body must not silently disable Enter: on_click
-    refocuses the active SelectionList so the row's Enter binding stays live."""
+def test_every_screen_keeps_enter_live_on_the_active_list() -> None:
+    """The shell focuses the incoming view's list on every swap, so the row's
+    Enter binding is live without any pointer interaction."""
     app, spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.pause()
-            await pilot.click("#onboard-body")  # would clear focus without the fix
             await pilot.pause()
             assert isinstance(app.focused, SelectionList)
             await pilot.press("down")  # github: Skip for now

@@ -48,11 +48,30 @@ def open_browser(
 ) -> BrowserOpenResult:
     """Open the complete approval URL, recording why each attempt failed.
 
+    The complete URL carries the one-time code, so it is the one to open; the
+    bare sign-in page would ask for the code again.
+    """
+    return open_url(
+        authorization.verification_uri_complete,
+        browser_open=browser_open,
+        macos_open=macos_open,
+        platform=platform,
+    )
+
+
+def open_url(
+    url: str,
+    *,
+    browser_open: Callable[[str], Any] | None = None,
+    macos_open: Callable[[str], subprocess.CompletedProcess[str]] | None = None,
+    platform: str = sys.platform,
+) -> BrowserOpenResult:
+    """Hand *url* to a browser, recording why each attempt failed.
+
     ``webbrowser.open`` goes first; when it reports failure (a false return or
     an exception) on macOS, the ``open`` command is tried next. The visible URL
     in the calling view remains the fallback either way.
     """
-    url = authorization.verification_uri_complete
     attempts: list[str] = []
     try:
         if bool((browser_open or webbrowser.open)(url)):
@@ -85,4 +104,4 @@ def _run_macos_open(url: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-__all__ = ["BrowserOpenResult", "MACOS_PLATFORM", "open_browser"]
+__all__ = ["BrowserOpenResult", "MACOS_PLATFORM", "open_browser", "open_url"]

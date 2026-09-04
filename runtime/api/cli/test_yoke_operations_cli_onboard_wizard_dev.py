@@ -151,7 +151,7 @@ def test_stored_yoke_checkout_offers_direct_source_dev_path(
             await pilot.press("enter")  # confirm GitHub connection
             await pilot.pause()
             text = _error_text(app)
-            assert "Use an existing project mapping?" in text
+            assert "Yoke project already set up on this machine." in text
             assert "Develop Yoke itself" in text
             await pilot.press("down")   # direct source-dev row
             await pilot.press("enter")

@@ -297,10 +297,12 @@ def run_wizard(
         ) from exc
 
     app = OnboardWizardApp(defaults=defaults, apply_report=apply_report)
-    # Mouse reporting stays on in every terminal so the wheel and the scrollbar
-    # move an overflowing step. Apple Terminal users who want a native drag
-    # selection toggle View > Allow Mouse Reporting for the moment they need it.
-    app.run()
+    # Mouse reporting stays off: with it on, the terminal hands drags to the
+    # app, so an ordinary drag-select + copy of a URL or one-time code selects
+    # nothing and beeps. The wizard is keyboard-driven — the scroll keys move
+    # an overflowing step, and the copy and open keys carry the strings that
+    # matter — so nothing is lost, and native selection works everywhere.
+    app.run(mouse=False)
     if app.cancelled:
         return WizardRunResult(
             exit_code=130,

@@ -170,38 +170,55 @@ def _recommended_python(*, exclude: Optional[str]) -> Optional[str]:
     return None
 
 
-def render_advisory(result: ProbeResult) -> str:
-    """Render the human-readable advisory for a confirmed probe failure.
+ADVISORY_HEADING = "Yoke interpreter note"
 
-    Returns ``""`` when ``result.ok`` is True so callers can emit the
-    return value unconditionally — the empty advisory is the no-op
-    shape.
+APPLE_PYTHON_PATH = "/usr/bin/python3"
+
+
+def render_advisory(result: ProbeResult) -> str:
+    """Render the advisory for a confirmed probe failure.
+
+    Reads as the advisory it is rather than as a failure: nothing is broken,
+    and the recommended route — ``yoke <subcommand>`` — works regardless.
+    Returns ``""`` when ``result.ok`` is True so callers can emit the return
+    value unconditionally — the empty advisory is the no-op shape.
     """
     if result.ok or not result.missing_module:
         return ""
     resolved = result.resolved_python or "<unresolved>"
+    origin = (
+        "Apple's Python"
+        if resolved == APPLE_PYTHON_PATH
+        else "not the interpreter Yoke's dependencies are installed for"
+    )
     lines = [
         (
-            f"Yoke interpreter check: resolved python3 ({resolved}) is "
-            f"missing `{result.missing_module}`."
+            f"{ADVISORY_HEADING}: bare python3 here is {origin} ({resolved}) "
+            f"and cannot import `{result.missing_module}`. Nothing is broken — "
+            "`yoke <subcommand>` runs on its own interpreter."
         ),
     ]
     recommendation = _recommended_python(exclude=result.resolved_python)
     if recommendation:
         lines.extend([
-            f"Live interpreter: {recommendation}",
             (
-                f"Fix: export {OVERRIDE_ENV_VAR}={recommendation}  "
+                f"For Yoke modules, use `yoke ...` or {recommendation} instead "
+                "of bare python3."
+            ),
+            (
+                f"To make bare python3 work too: export "
+                f"{OVERRIDE_ENV_VAR}={recommendation}  "
                 f"(or adjust PATH so this interpreter resolves first)."
             ),
         ])
     else:
         lines.extend([
-            "No live pydantic-equipped Python interpreter was found.",
+            "No live pydantic-equipped Python interpreter was found, so use "
+            "`yoke ...` for Yoke operations.",
             (
-                "Fix: repair the Yoke launcher or install pydantic, then set "
-                f"{OVERRIDE_ENV_VAR} only to an interpreter that passes "
-                f"`python3 -c 'import {SENTINEL_MODULE}'`."
+                "To run Yoke modules directly: repair the Yoke launcher or "
+                f"install pydantic, then set {OVERRIDE_ENV_VAR} only to an "
+                f"interpreter that passes `python3 -c 'import {SENTINEL_MODULE}'`."
             ),
         ])
     if result.override_used:

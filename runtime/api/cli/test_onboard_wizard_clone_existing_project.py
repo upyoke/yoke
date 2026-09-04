@@ -65,23 +65,26 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
             await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public
             await type_text(pilot, "git@github.com:example-org/externalwebapp.git")
-            await pilot.press("enter")  # remote -> clone-folder input
-            await pilot.press("enter")  # folder -> existing project ready
+            await pilot.press("enter")  # remote -> existing project announced
+            await app.workers.wait_for_complete()
             await pilot.pause()
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
             body = _body_text(app)
-            assert title == "Existing Yoke project found."
+            assert title == "Existing Yoke project found: externalwebapp."
             assert (
                 "The Yoke core database already has a project for this GitHub repo."
                 in body
             )
             assert "Yoke core database: matched GitHub repo example-org/externalwebapp." in body
             assert "Local machine: no existing Yoke project metadata was used." in body
-            assert "Clone target: ~/code/externalwebapp" in body
+            # Announced before a folder has been named, so there is no clone
+            # target to report yet — that is the point of moving it earlier.
+            assert "Clone target:" not in body
             assert "Using existing checkout:" not in body
-            await pilot.press("enter")  # continue -> project GitHub choice
+            await pilot.press("enter")  # connect to it -> clone folder input
+            await pilot.press("enter")  # folder default -> clone, then GitHub choice
             await select_connected_repository(app, pilot)
             await complete_board_art(pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish

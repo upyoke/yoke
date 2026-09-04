@@ -22,11 +22,13 @@ from yoke_contracts import hosting_posture
 from yoke_cli.config import aws_admin_capability as hosting
 from yoke_cli.config import onboard_project_modes as project_modes
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
-from yoke_cli.config.onboard_wizard_state import _FormField
+from yoke_cli.config.onboard_wizard_state import CopyTarget, _FormField
 from yoke_cli.config.onboard_wizard_step_ids import STEP_HOSTING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
+
+STACK_LINK_LABEL = "the AWS stack link"
 
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
@@ -102,6 +104,10 @@ class HostingFlow:
     def _goto_hosting_credentials(self: _Shell, *, guided: bool) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
+        quick_create_url = (
+            hosting.quick_create_url(region=self._hosting_region()) if guided else None
+        )
+
         def builder():
             self._begin_form(
                 hosting_steps.HOSTING_CREDENTIAL_FIELDS,
@@ -112,9 +118,7 @@ class HostingFlow:
             )
             if guided:
                 return hosting_steps.hosting_guided_key_body(
-                    quick_create_url=hosting.quick_create_url(
-                        region=self._hosting_region(),
-                    ),
+                    quick_create_url=quick_create_url,
                     credential_dir=self._hosting_credential_dir(),
                 )
             return hosting_steps.hosting_existing_key_body(
@@ -126,6 +130,14 @@ class HostingFlow:
                 STEP_HOSTING,
                 builder,
                 self._on_hosting_credential_choice,
+                # The stack link is the longest string onboarding shows, and
+                # this screen's text boxes hold focus, so the copy and open
+                # chords are how it leaves the terminal intact.
+                copy_targets=(
+                    (CopyTarget(STACK_LINK_LABEL, quick_create_url, is_url=True),)
+                    if quick_create_url
+                    else ()
+                ),
             )
         )
 

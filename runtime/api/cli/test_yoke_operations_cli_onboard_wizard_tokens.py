@@ -239,7 +239,13 @@ def test_machine_github_connect_uses_browser_app_flow() -> None:
             text = _body_text(app)
             assert "GitHub connected." in text
             assert "GitHub username: machine-user" in text
-            assert "Installed for: machine-user (selected repositories), octo-org (all repositories)" in text
+            # Each installation names its own reach, so nobody is left
+            # wondering why only some repositories are visible.
+            assert "machine-user: selected repositories" in text
+            assert "machine-user/private-tool" in text
+            assert "octo-org: all repositories" in text
+            assert "Change repository access on GitHub" in text
+            assert "user authorization" in text
             assert "Repositories available: 2" in text
             assert "yoke github disconnect" in text
             assert app.query_one(Stepper).active == STEP_GITHUB

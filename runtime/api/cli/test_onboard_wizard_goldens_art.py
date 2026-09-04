@@ -3,8 +3,8 @@
 Each gate drives the real flow to one board-art screen and asserts its exported
 SVG byte-for-byte against ``__snapshots__``. Art generation is seeded off the
 stubbed project slug, so the ASCII/Mixed renders are deterministic; the
-master-map preview and payoff render through the real frontier fill with the
-fixed simulated counts. These are the first emoji-bearing goldens in the tree —
+master-map preview renders through the real frontier fill with the fixed
+simulated counts. These are the first emoji-bearing goldens in the tree —
 bless them with YOKE_WIZARD_GOLDEN_UPDATE=1 after eyeballing alignment.
 """
 
@@ -102,16 +102,3 @@ def test_art_gallery() -> None:
         a._on_board_art_preview("save")
 
     assert_golden("art_gallery", render(app, drive, title=_TITLE))
-
-
-def test_art_payoff() -> None:
-    app = make_app()
-
-    async def drive(a: Any, _pilot: Any) -> None:
-        _seed_project(a)
-        a._goto_board_art_intro()
-        a._on_board_art_style("ascii")
-        a._on_board_art_preview("save")
-        a._goto_board_art_payoff()
-
-    assert_golden("art_payoff", render(app, drive, title="yoke onboard · Done"))

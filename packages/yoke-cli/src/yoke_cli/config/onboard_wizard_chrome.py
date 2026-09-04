@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-
 from yoke_cli.config.onboard_terminal import glyphs
 from yoke_cli.config.onboard_wizard_palette import ACCENT, DIM, TEXT
 
@@ -15,7 +13,13 @@ def _footer_hint(glyph: str, label: str) -> str:
 
 # Key glyphs render bright, their labels dim, so the keys read at a glance while
 # the labels recede.
-_MOUSE_REPORTING_OFF = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l"
+
+# Both keys are control chords so they reach the shell even while a text box
+# holds focus — the Hosting credential screen shows a URL beside its input.
+COPY_KEY = "ctrl+y"
+OPEN_KEY = "ctrl+o"
+COPY_KEY_GLYPH = "^y"
+OPEN_KEY_GLYPH = "^o"
 
 
 def header() -> str:
@@ -27,22 +31,38 @@ def header() -> str:
     )
 
 
-def footer() -> str:
+def footer(
+    *,
+    copy_label: str | None = None,
+    open_label: str | None = None,
+    note: str | None = None,
+) -> str:
+    """Render the key hints, with the copy/open keys only where they act.
+
+    ``note`` leads the line: it reports what the last copy or open key press
+    did, and belongs where the operator's eye already is.
+    """
     marks = glyphs()
-    return "     ".join(
-        _footer_hint(glyph, label)
-        for glyph, label in (
-            (marks.footer_navigate, "navigate"),
-            (marks.footer_select, "select"),
-            ("esc", "back"),
-            ("^c", "quit"),
-        )
-    )
+    hints = [
+        (marks.footer_navigate, "navigate"),
+        (marks.footer_select, "select"),
+    ]
+    if copy_label:
+        hints.append((COPY_KEY_GLYPH, copy_label))
+    if open_label:
+        hints.append((OPEN_KEY_GLYPH, open_label))
+    hints.extend((("esc", "back"), ("^c", "quit")))
+    line = "     ".join(_footer_hint(glyph, label) for glyph, label in hints)
+    if not note:
+        return line
+    return f"[{ACCENT}]{note}[/]     {line}"
 
 
-def disable_mouse_reporting() -> None:
-    sys.stdout.write(_MOUSE_REPORTING_OFF)
-    sys.stdout.flush()
-
-
-__all__ = ["disable_mouse_reporting", "footer", "header"]
+__all__ = [
+    "COPY_KEY",
+    "COPY_KEY_GLYPH",
+    "OPEN_KEY",
+    "OPEN_KEY_GLYPH",
+    "footer",
+    "header",
+]

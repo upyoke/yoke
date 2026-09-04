@@ -205,18 +205,22 @@ def _join_packet_frame(heading: str, body: str) -> str:
     )
 
 
-def render_main_agent_block() -> str:
+def render_main_agent_block(*, include_advisories: bool = True) -> str:
     """Return the compact orientation block for the ``main_agent`` packet.
 
     Layout matches the sibling sections in ``bootstrap.render_compact``:
     a labeled heading, the prefix sentence, an empty line, then the
     packet body. Returns ``""`` when the packet generator is unavailable
     so the caller can simply skip the section.
+
+    ``include_advisories=False`` is for a caller that already leads with the
+    machine-local advisories itself; repeating them inside the packet would
+    show the same interpreter note twice in one delivery.
     """
     body = _render_packet_body()
     if not body:
         return ""
-    parts: list[str] = _render_leading_advisories()
+    parts: list[str] = _render_leading_advisories() if include_advisories else []
     parts.append(_join_packet_frame(f"{_MAIN_AGENT_HEADING}:", body))
     return "\n".join(parts).rstrip()
 

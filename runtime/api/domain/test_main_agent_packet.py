@@ -300,6 +300,7 @@ def test_render_main_agent_block_emits_loud_banner_on_render_failure(
 # covered by test_python_interpreter_probe; these tests verify wiring.
 
 _PR = python_interpreter_probe.ProbeResult
+_HEADING = python_interpreter_probe.ADVISORY_HEADING
 _BAD = _PR(False, "/usr/bin/python3", python_interpreter_probe.SENTINEL_MODULE, False)
 _OK = _PR(True, "/opt/homebrew/bin/python3", None, False)
 
@@ -314,7 +315,7 @@ def test_compact_includes_interpreter_advisory(monkeypatch) -> None:
 
 def test_compact_omits_interpreter_advisory_when_probe_ok(monkeypatch) -> None:
     monkeypatch.setattr(python_interpreter_probe, "probe", lambda: _OK)
-    assert "Yoke interpreter check" not in render_main_agent_block()
+    assert _HEADING not in render_main_agent_block()
 
 
 def test_install_advisory_preserved_when_interpreter_fires(monkeypatch) -> None:
@@ -327,7 +328,7 @@ def test_install_advisory_preserved_when_interpreter_fires(monkeypatch) -> None:
     assert INSTALL_ADVISORY_HEADING in block
     assert INSTALL_ADVISORY_COMMAND in block
     assert INSTALL_ADVISORY_POINTER in block
-    interp_idx = block.find("Yoke interpreter check")
+    interp_idx = block.find(_HEADING)
     install_idx = block.find(INSTALL_ADVISORY_HEADING)
     assert 0 <= interp_idx < install_idx
 
@@ -335,7 +336,7 @@ def test_install_advisory_preserved_when_interpreter_fires(monkeypatch) -> None:
 def test_full_variant_includes_interpreter_advisory(monkeypatch) -> None:
     monkeypatch.setattr(python_interpreter_probe, "probe", lambda: _BAD)
     block = render_main_agent_block_full()
-    assert 0 <= block.find("Yoke interpreter check") < block.find("=== ")
+    assert 0 <= block.find(_HEADING) < block.find("=== ")
 
 
 def test_advisory_fail_open_on_probe_exception(monkeypatch) -> None:

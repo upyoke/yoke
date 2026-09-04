@@ -1,10 +1,10 @@
-"""Every wizard step body scrolls: keys, the wheel, and the scrollbar all reach it.
+"""Every wizard step body scrolls from the keyboard on every terminal.
 
-A step taller than the window used to draw a scrollbar nothing could move: the
-wheel and the bar were dead on Apple Terminal because mouse reporting was off
-there, and the keys had no route to the non-focusable body. The body is now one
-scroll container on every terminal; these gates pin the keyboard route and the
-mouse-reporting decision.
+A step taller than the window used to draw a scrollbar nothing could move,
+because the keys had no route to the non-focusable body. The body is now one
+scroll container on every terminal, and the wizard runs with mouse reporting
+off so ordinary text selection keeps working; these gates pin the keyboard
+route and that mouse-reporting decision.
 """
 
 from __future__ import annotations
@@ -118,9 +118,9 @@ def test_footer_hints_stay_docked_below_a_scrolled_body() -> None:
         asyncio.run(scenario())
 
 
-def test_the_wheel_route_scrolls_the_same_container() -> None:
-    # The wheel lands on whichever child is under the pointer and bubbles to
-    # the body; scrolling for the pointer is the handler the wheel calls.
+def test_the_body_container_itself_scrolls() -> None:
+    # The keyboard bindings drive this container, so it must be the one that
+    # actually scrolls rather than a wrapper that only looks scrollable.
     app = _review_app()
 
     async def scenario() -> None:
@@ -166,7 +166,9 @@ def test_plain_glyph_terminal_keeps_a_scrolling_body_without_scrollbar_glyphs(
 
 
 @pytest.mark.parametrize("term_program", ["Apple_Terminal", "iTerm.app"])
-def test_mouse_reporting_stays_on_in_every_terminal(monkeypatch, term_program) -> None:
+def test_mouse_reporting_stays_off_in_every_terminal(monkeypatch, term_program) -> None:
+    # With mouse reporting on, the terminal hands drags to the app, so an
+    # ordinary drag-select + copy of a URL or code selects nothing.
     calls: list[dict] = []
     monkeypatch.setenv("TERM_PROGRAM", term_program)
     monkeypatch.setattr(
@@ -178,4 +180,4 @@ def test_mouse_reporting_stays_on_in_every_terminal(monkeypatch, term_program) -
 
     run_wizard(defaults=WizardDefaults(), apply_report=lambda **_kwargs: None)
 
-    assert calls == [{}]
+    assert calls == [{"mouse": False}]

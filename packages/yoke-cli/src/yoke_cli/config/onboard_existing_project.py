@@ -80,6 +80,24 @@ def record_match(
     result.board_art_variants = []
 
 
+def clear_match(result: Any) -> None:
+    """Undo :func:`record_match` so the run sets up a new project instead.
+
+    Only the fields the match itself wrote are cleared; the repository and
+    folder the operator chose stay, because they are what the new project
+    will be built from.
+    """
+    result.existing_project_id = None
+    result.existing_project_match_source = None
+    result.existing_project_local_source = None
+    result.project_slug = None
+    result.project_name = None
+    result.project_default_branch = None
+    result.project_public_item_prefix = None
+    result.project_github_adoption = None
+    result.project_github_adoption_preserve = False
+
+
 def lookup_error_hint(*, local_destination: bool) -> str:
     """Explain how to recover from a failed existing-project lookup."""
     if local_destination:
@@ -101,4 +119,10 @@ def _database_label(result: Any) -> str:
     )
 
 
-__all__ = ["lookup_error_hint", "match_lines", "match_summary", "record_match"]
+__all__ = [
+    "clear_match",
+    "lookup_error_hint",
+    "match_lines",
+    "match_summary",
+    "record_match",
+]

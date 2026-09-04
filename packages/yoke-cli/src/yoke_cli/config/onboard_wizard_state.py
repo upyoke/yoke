@@ -8,13 +8,32 @@ from typing import Callable, Iterable
 from textual.widgets import Static
 
 
+@dataclass(frozen=True)
+class CopyTarget:
+    """One exact string a view offers to the clipboard, and to a browser.
+
+    ``label`` names it in the footer hint and the confirmation, so the
+    operator always knows which of a screen's strings the key acted on.
+    ``is_url`` marks the ones the open key can hand to a browser.
+    """
+
+    label: str
+    value: str
+    is_url: bool = False
+
+
 @dataclass
 class _View:
-    """A body view: which step it belongs to, how to build it, what selecting does."""
+    """A body view: which step it belongs to, how to build it, what selecting does.
+
+    ``copy_targets`` are the URLs and one-time codes this view shows; the
+    shell's copy and open keys act on them for as long as it is on screen.
+    """
 
     step: str
     builder: Callable[[], Iterable[Static]]
     on_select: Callable[[str], None] | None = None
+    copy_targets: tuple[CopyTarget, ...] = ()
 
 
 @dataclass
@@ -63,4 +82,4 @@ class _PendingForm:
     on_done: Callable[[dict[str, str]], None]
 
 
-__all__ = ["_FormField", "_PendingForm", "_PendingInput", "_View"]
+__all__ = ["CopyTarget", "_FormField", "_PendingForm", "_PendingInput", "_View"]

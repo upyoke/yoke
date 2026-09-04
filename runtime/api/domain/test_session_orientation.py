@@ -147,6 +147,33 @@ def test_cursor_session_start_carries_every_shared_machine_advisory(
     assert "install advisory" in out
 
 
+def test_orientation_shows_each_machine_advisory_once(
+    project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Orientation leads with the advisories and carries the packet, which
+    # renders its own copy for callers that do not. Showing the interpreter
+    # note twice in one delivery reads as two problems.
+    from yoke_core.domain import main_agent_packet
+
+    monkeypatch.setattr(
+        main_agent_packet,
+        "render_interpreter_advisory_block",
+        lambda: "interpreter advisory",
+    )
+    monkeypatch.setattr(
+        main_agent_packet,
+        "render_install_advisory_block",
+        lambda: "install advisory",
+    )
+
+    out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+
+    assert out is not None
+    assert out.count("interpreter advisory") == 1
+    assert out.count("install advisory") == 1
+
+
 def test_cursor_session_start_carries_generated_packet(project: Path) -> None:
     (project / "AGENTS.md").write_text("# House rules\n", encoding="utf-8")
 

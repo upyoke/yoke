@@ -22,6 +22,13 @@ unsupported; WSL follows the Linux path.
    decide what happens to any Yoke files it already carries — first
 5. **Review** — preview persistent writes, then apply
 
+Anything the wizard already finds — a checkout carrying Yoke files, a
+repository that already has a project, a checkout already mapped on this
+machine — is announced before you answer anything, and connecting to what
+exists is the default. Text selection and copy work normally, and on any
+screen showing a URL or a one-time code the footer names a copy key (`^y`)
+and an open-in-browser key (`^o`).
+
 Flags: `--yes` for non-interactive apply; `--local` or `--connect URL` to skip
 the destination picker.
 

@@ -102,7 +102,7 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert "Existing Yoke project found." in _body_text(app)
+            assert "Existing Yoke project found: legacy." in _body_text(app)
             await pilot.press("enter")  # continue to GitHub adoption
             await pilot.pause()
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)

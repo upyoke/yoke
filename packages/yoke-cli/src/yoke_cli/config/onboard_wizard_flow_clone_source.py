@@ -41,6 +41,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     ) -> None: ...
     def _yoke_token_for_project_lookup(self) -> str | None: ...
     def _goto_existing_project_lookup_error(self, exc, *, retry) -> None: ...
+    def _goto_clone_existing_project_detected(self) -> None: ...
 
 
 class CloneSourceFlow:
@@ -185,10 +186,13 @@ class CloneSourceFlow:
                 match_source=existing_project_lookup.MATCH_SOURCE_GITHUB_REPO,
                 local_source=None,
             )
-        else:
-            self.result.existing_project_id = None
-            self.result.existing_project_match_source = None
-            self.result.existing_project_local_source = None
+            # The match is the headline before the folder is named, not a
+            # confirmation once the repository is already on disk.
+            self._goto_clone_existing_project_detected()
+            return
+        self.result.existing_project_id = None
+        self.result.existing_project_match_source = None
+        self.result.existing_project_local_source = None
         self._goto_clone_folder()
 
     def _goto_clone_remote_error(self: _Shell, value: str, exc: BaseException) -> None:

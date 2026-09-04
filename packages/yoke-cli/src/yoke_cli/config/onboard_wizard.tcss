@@ -39,9 +39,9 @@ Screen {
 }
 
 /* ── Body ───────────────────────────────────────────────── */
-/* The body holds the active SelectionList/Input. A click on empty body space
-   refocuses that child (see OnboardWizardApp.on_click). The selected row shows
-   focus on its own via _OptionRow.-selected, so the body needs no focus border. */
+/* The body holds the active SelectionList/Input, which the shell focuses on
+   every swap. The selected row shows focus on its own via
+   _OptionRow.-selected, so the body needs no focus border. */
 #onboard-body {
     height: 1fr;
     padding: 1 0 0 3;

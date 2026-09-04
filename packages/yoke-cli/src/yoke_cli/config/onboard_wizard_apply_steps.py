@@ -166,11 +166,20 @@ def apply_different_folder_body(
     return widgets
 
 
+BOARD_ART_COMMITTED_LINE = "✓ Board art committed and board rebuilt"
+
+
 def apply_success_body_from_report(
     report_path: str | None,
     report: Any,
+    *,
+    board_art_committed: bool = False,
 ) -> list[Static]:
-    """The success screen for one applied report, reading what it recorded."""
+    """The success screen for one applied report, reading what it recorded.
+
+    Board art is the one thing the report cannot carry: this run commits it
+    after the report is written, so the caller passes that outcome in.
+    """
     report = report if isinstance(report, dict) else {}
     project_report = report.get("project_onboarding")
     relay = report.get("session_relay")
@@ -185,6 +194,7 @@ def apply_success_body_from_report(
         registry_lines=onboard_machine_registry.summary_lines(
             report.get("machine_registry")
         ),
+        board_art_committed=board_art_committed,
     )
 
 
@@ -194,6 +204,7 @@ def apply_success_body(
     *,
     relay_installed: bool = False,
     registry_lines: Sequence[str] = (),
+    board_art_committed: bool = False,
 ) -> list[Static]:
     widgets = [
         Static("✓ Setup complete.", classes="onboard-title"),
@@ -203,6 +214,10 @@ def apply_success_body(
             classes="onboard-plan-line",
         ),
     ]
+    if board_art_committed:
+        widgets.append(
+            Static(BOARD_ART_COMMITTED_LINE, classes="onboard-plan-line")
+        )
     if relay_installed:
         widgets.append(Static("", classes="onboard-spacer"))
         widgets.extend(
@@ -245,6 +260,7 @@ def _apply_failure_rows(
 
 
 __all__ = [
+    "BOARD_ART_COMMITTED_LINE",
     "APPLY_FAILURE_ROWS",
     "APPLY_FAILURE_RESUME_ROW",
     "APPLY_FAILURE_ROWS_RETRYABLE",

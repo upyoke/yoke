@@ -18,6 +18,9 @@ from typing import Any
 
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import onboard_existing_project
+from yoke_cli.config import (
+    onboard_wizard_existing_project_detected as existing_project_detected,
+)
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_local_checkout_identity
@@ -60,6 +63,7 @@ def fetch_repo_owners(api_url: str, token: str) -> list:
 
 class WizardFlow(
     ExistingProjectLookupRecoveryFlow,
+    existing_project_detected.ExistingProjectDetectedFlow,
     FinishBodyFlow,
     ProjectGithubAccessFlow,
     StoredProjectFlow,
@@ -388,43 +392,6 @@ class WizardFlow(
                 pass
         self._goto_existing_project_ready()
 
-    def _goto_existing_project_ready(self: _Shell) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        details = onboard_existing_project.match_lines(self.result) + [
-            f"Project id: {self.result.existing_project_id} "
-            f"(env {self.result.env_name})",
-            f"Project: {self.result.project_slug}",
-        ]
-        if self.result.project_checkout:
-            checkout_label = (
-                "Clone target"
-                if self.result.project_mode in onboard_project.PROJECT_REMOTE_MODES
-                else "Checkout"
-            )
-            details.insert(0, f"{checkout_label}: {self.result.project_checkout}")
-        repo = self.result.project_github_repo
-        if repo:
-            details.append(f"GitHub repo: {repo}")
-        prefix = self.result.project_public_item_prefix
-        if prefix:
-            details.append(f"Issue prefix: {prefix}")
-        branch = self.result.project_default_branch
-        if branch:
-            details.append(f"Default branch: {branch}")
-        self._goto(
-            _View(
-                STEP_PROJECT,
-                lambda: steps.verification_body(
-                    "Existing Yoke project found.",
-                    onboard_existing_project.match_summary(self.result),
-                    details,
-                    steps.VERIFY_OK_ROWS,
-                    ok=True,
-                ),
-                lambda _choice: self._after_existing_project_ready(),
-            )
-        )
 
     def _after_existing_project_ready(self: _Shell) -> None:
         if (

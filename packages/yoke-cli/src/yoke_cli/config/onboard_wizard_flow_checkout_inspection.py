@@ -37,7 +37,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_clone_folder(self) -> None: ...
     def _goto_clone_outcome(self) -> None: ...
-    def _goto_existing_project_ready(self) -> None: ...
+    def _after_existing_project_ready(self) -> None: ...
 
 
 class CheckoutInspectionFlow:
@@ -100,8 +100,10 @@ class CheckoutInspectionFlow:
         self._after_checkout_inspected()
 
     def _after_checkout_inspected(self: _Shell) -> None:
+        # An existing project was announced before the folder was named, so
+        # there is nothing left to confirm about it here.
         if self.result.existing_project_id:
-            self._goto_existing_project_ready()
+            self._after_existing_project_ready()
             return
         self._goto_clone_outcome()
 

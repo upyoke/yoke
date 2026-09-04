@@ -2,8 +2,8 @@
 
 Split out of :mod:`onboard_wizard_steps` to keep each authored module under the
 line budget. These build the board-art step's screens (style picker, preview,
-gallery, payoff) and reuse the shared ``_heading`` primitive from the steps
-module. Consumed by :class:`onboard_wizard_flow_board_art.BoardArtFlow`.
+gallery) and reuse the shared ``_heading`` primitive from the steps module.
+Consumed by :class:`onboard_wizard_flow_board_art.BoardArtFlow`.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from typing import Any
 from rich.text import Text
 from textual.widgets import Static
 
-from yoke_cli.config.onboard_wizard_palette import ACCENT
 from yoke_cli.config.onboard_wizard_steps import _heading
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 
@@ -78,33 +77,10 @@ def board_art_gallery_body(variants: list[Any]) -> list[Static]:
     return widgets
 
 
-def board_art_payoff_body(
-    rendered: str, count: int,
-) -> list[Static]:
-    noun = "header" if count == 1 else "headers"
-    return [
-        Static(f"[{ACCENT}]✓ Your board is ready.[/]", classes="onboard-title"),
-        Static(
-            "Committed .yoke/board-art and rebuilt your board — the checkout is clean.",
-            classes="onboard-subtitle",
-        ),
-        Static("", classes="onboard-spacer"),
-        _art_block(rendered),
-        Static("", classes="onboard-spacer"),
-        Static(
-            f"It rotates with your {count} saved {noun} as work flows. "
-            "Open it any time with `yoke board`.",
-            classes="onboard-note",
-        ),
-        SelectionList([SelectionRow("finish", "Finish", "")]),
-    ]
-
-
 __all__ = [
     "BOARD_ART_IMAGE_RETRY_ROWS",
     "BOARD_ART_INTRO_ROWS",
     "BOARD_ART_STYLE_ROWS",
     "art_screen_body",
     "board_art_gallery_body",
-    "board_art_payoff_body",
 ]
