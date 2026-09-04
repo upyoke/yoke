@@ -246,3 +246,22 @@ def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> 
         assert "relay install" in str(exc)
     else:
         raise AssertionError("relay daemon started without a pinned release")
+
+
+def test_serve_command_preserves_named_release_refusal(monkeypatch, capsys) -> None:
+    refusal = session_relay_release.RelayReleaseError(
+        RELAY_RELEASE_INSTALL_FAILED,
+        "relay release missing; recovery: run relay install",
+    )
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
+    monkeypatch.setattr(relay, "_contain_stranded_natives", lambda: None)
+    monkeypatch.setattr(
+        relay,
+        "serve_release_daemon",
+        lambda: (_ for _ in ()).throw(refusal),
+    )
+
+    assert relay.relay_serve(["--json"]) == 1
+    payload = json.loads(capsys.readouterr().err)
+    assert payload["code"] == RELAY_RELEASE_INSTALL_FAILED
+    assert "run relay install" in payload["message"]

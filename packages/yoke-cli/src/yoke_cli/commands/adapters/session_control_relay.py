@@ -255,7 +255,7 @@ def relay_serve(args: List[str]) -> int:
             json.dumps(
                 {
                     "success": False,
-                    "code": "relay_serve_failed",
+                    "code": str(getattr(exc, "code", "relay_serve_failed")),
                     "message": str(exc),
                 },
                 sort_keys=True,
