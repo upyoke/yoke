@@ -1,12 +1,9 @@
-.universe-app-root .session-roster-filters,
 .universe-app-root .organization-fleet-settings {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }
-
-.universe-app-root .session-roster-filter,
 .universe-app-root .session-control-field {
   display: grid;
   gap: 5px;
@@ -15,33 +12,89 @@
   font-weight: 650;
 }
 
-.universe-app-root {
-  --session-control-height: 34px;
+.universe-app-root { --session-control-height: 34px; }
+
+.universe-app-root .session-roster-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.universe-app-root .session-roster-filter {
+  display: inline-flex;
+  width: max-content;
+  min-width: 0;
+  min-height: var(--session-control-height);
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 9px;
+  background: var(--yoke-bg);
+  cursor: pointer;
+}
+
+.universe-app-root .session-roster-filter:focus-within {
+  border-color: var(--yoke-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yoke-accent) 14%, transparent);
+}
+
+.universe-app-root .session-filter-label {
+  flex: 0 0 auto;
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.universe-app-root .session-filter-search {
+  max-width: 340px;
+  flex: 1 1 240px;
+  cursor: text;
+}
+
+.universe-app-root .session-filter-search-icon {
+  flex: 0 0 auto;
+  color: var(--yoke-muted);
+  font-size: 13px;
+  line-height: 1;
 }
 
 .universe-app-root .session-roster-filter input,
-.universe-app-root .session-roster-filter select,
-.universe-app-root .session-control-input {
+.universe-app-root .session-roster-filter select {
   box-sizing: border-box;
-  width: 100%;
-  min-height: var(--session-control-height);
-  padding: 7px 9px;
-  border: 1px solid var(--yoke-border);
-  border-radius: 7px;
-  background: var(--yoke-surface);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--yoke-ink);
   font: inherit;
 }
 
-/* A native <select> grows past a shared min-height from its own chrome while
-   an <input> sits exactly on it, so the roster filter row only lines up when
-   both are pinned to one fixed height. Only the filter row is pinned: the
-   message textarea keeps its tall, resizable minimum and the session-control
-   panel fields keep the shared minimum. */
+.universe-app-root .session-control-input {
+  box-sizing: border-box; width: 100%; min-height: var(--session-control-height);
+  padding: 7px 9px; border: 1px solid var(--yoke-border); border-radius: 7px;
+  background: var(--yoke-surface); color: var(--yoke-ink); font: inherit;
+}
+
 .universe-app-root .session-roster-filter input,
 .universe-app-root .session-roster-filter select {
-  height: var(--session-control-height);
+  height: auto;
+  outline: none;
+  font-size: 12px;
+  font-weight: 600;
 }
+
+.universe-app-root .session-roster-filter input { flex: 1 1 auto; }
+.universe-app-root .session-roster-filter input::placeholder {
+  color: var(--yoke-muted);
+  font-weight: 400;
+}
+.universe-app-root .session-roster-filter select { cursor: pointer; }
 
 .universe-app-root .session-message-body {
   min-height: 130px;
@@ -247,8 +300,28 @@
 
 .universe-app-root .session-filter-clear,
 .universe-app-root .session-filter-action {
-  align-self: end;
   min-height: 34px;
+}
+
+.universe-app-root .session-filter-clear {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--yoke-muted);
+  font: 500 11.5px/1 var(--yoke-font-sans);
+  cursor: pointer;
+}
+.universe-app-root .session-filter-clear:hover:not(:disabled) {
+  background: var(--yoke-hover);
+  color: var(--yoke-ink-2);
+}
+.universe-app-root .session-filter-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .universe-app-root .session-result-link {

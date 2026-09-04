@@ -2,8 +2,12 @@ import { el } from "./universe_view_support.js";
 
 function input(documentNode, label, kind = "text") {
   const wrapper = el(documentNode, "label", "session-roster-filter");
-  wrapper.appendChild(el(documentNode, "span", null, label));
+  if (label) wrapper.appendChild(el(
+    documentNode, "span", "session-filter-label", label,
+  ));
   const control = el(documentNode, kind === "select" ? "select" : "input");
+  control.className = "session-filter-control";
+  if (kind !== "select") control.type = kind;
   wrapper.appendChild(control);
   return { wrapper, control };
 }
@@ -21,6 +25,21 @@ function includes(value, query) {
 const DEFAULT_STATE = "active";
 const ACTIVE_LIVENESS = new Set([DEFAULT_STATE, "stale"]);
 
+function selectedValues(rows, valueFor) {
+  return [...new Set(rows.map(valueFor).filter(Boolean))].sort(
+    (left, right) => left.localeCompare(right),
+  );
+}
+
+function setOptions(documentNode, control, defaultLabel, values) {
+  const selected = String(control.value || "");
+  control.replaceChildren(option(documentNode, "", defaultLabel));
+  for (const value of values) {
+    control.appendChild(option(documentNode, value, value));
+  }
+  control.value = values.includes(selected) ? selected : "";
+}
+
 function matchesState(liveness, selected) {
   const value = String(liveness || "").toLowerCase();
   if (!selected) return true;
@@ -33,26 +52,32 @@ export function sessionRosterFilters(documentNode, onChange) {
   host.setAttribute("role", "search");
   host.setAttribute("aria-label", "Filter sessions");
   const controls = {};
-  for (const [name, label] of [
-    ["search", "Search"], ["harness", "Harness"], ["machine", "Machine"],
-  ]) {
-    const field = input(documentNode, label);
-    field.control.placeholder = name === "search"
-      ? "Session, item, model, or operator"
-      : `Filter by ${label.toLowerCase()}`;
-    controls[name] = field.control;
-    host.appendChild(field.wrapper);
-  }
+  const search = input(documentNode, null, "search");
+  search.wrapper.classList.add("session-filter-search");
+  search.control.placeholder = "Search sessions, items, models, operators";
+  search.control.setAttribute("aria-label", "Search");
+  search.wrapper.replaceChildren(
+    el(documentNode, "span", "session-filter-search-icon", "⌕"),
+    search.control,
+  );
+  controls.search = search.control;
+  host.appendChild(search.wrapper);
   const state = input(documentNode, "State", "select");
   for (const [value, label] of [
-    ["", "Any state"], ["active", "Active"], ["ended", "Ended"],
+    ["active", "Active"], ["ended", "Ended"], ["", "All"],
   ]) {
     state.control.appendChild(option(documentNode, value, label));
   }
   state.control.value = DEFAULT_STATE;
   controls.state = state.control;
   host.appendChild(state.wrapper);
-  const clear = el(documentNode, "button", "item-button session-filter-clear", "Clear filters");
+  for (const [name, label] of [["harness", "Harness"], ["machine", "Machine"]]) {
+    const field = input(documentNode, label, "select");
+    field.control.appendChild(option(documentNode, "", `Any ${name}`));
+    controls[name] = field.control;
+    host.appendChild(field.wrapper);
+  }
+  const clear = el(documentNode, "button", "session-filter-clear", "Clear");
   clear.type = "button";
   clear.disabled = true;
   const hasChanges = () => String(controls.search.value || "").trim()
@@ -75,8 +100,24 @@ export function sessionRosterFilters(documentNode, onChange) {
     changed();
   });
   host.appendChild(clear);
+  const actions = el(documentNode, "span", "session-filter-actions");
+  host.appendChild(actions);
   return {
+    actions,
     host,
+    setRows(rows) {
+      setOptions(documentNode, controls.harness, "Any harness", selectedValues(
+        rows,
+        (row) => String(
+          row.presentation_surface || row.executor_surface || row.executor || "",
+        ),
+      ));
+      setOptions(documentNode, controls.machine, "Any machine", selectedValues(
+        rows,
+        (row) => String(row.machine_name || row.machine_id || ""),
+      ));
+      clear.disabled = !hasChanges();
+    },
     isRestrictive() {
       return Boolean(
         String(controls.search.value || "").trim()

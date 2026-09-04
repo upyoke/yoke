@@ -156,6 +156,10 @@ export function overviewClient(overrides = {}) {
         slug: "DELIVERY-PLAN", summary: "Ship the next reliable slice.",
         updated_at: recentIso(48), state: "locked",
       },
+      {
+        slug: "OLD-PLAN", summary: "Superseded direction.",
+        updated_at: recentIso(96), state: "available", archived: true,
+      },
     ] },
     "strategy.doc_claim.list": { claims: [
       {

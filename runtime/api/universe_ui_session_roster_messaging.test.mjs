@@ -93,14 +93,15 @@ test("roster defaults to active and exposes only the supported filters", async (
   const { root, mounted } = await mountRoster(t, rows, requests);
   const fields = byClass(root, "session-roster-filter");
   assert.deepEqual(
-    fields.map((field) => field.children[0].textContent),
-    ["Search", "Harness", "Machine", "State"],
+    fields.map((field) => field.classList.contains("session-filter-search")
+      ? "Search" : field.children[0].textContent),
+    ["Search", "State", "Harness", "Machine"],
   );
-  const state = fields.at(-1).children[1];
+  const state = fields[1].children[1];
   assert.equal(state.value, "active");
   assert.deepEqual(
     state.children.map((entry) => [entry.value, entry.textContent]),
-    [["", "Any state"], ["active", "Active"], ["ended", "Ended"]],
+    [["active", "Active"], ["ended", "Ended"], ["", "All"]],
   );
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   const staleCard = byClass(root, "session-card").find(
@@ -142,7 +143,7 @@ test("roster defaults to active and exposes only the supported filters", async (
   assert.deepEqual(cardIds(root), ["stale-cursor", "ended-cursor"]);
   assert.equal(button(root, "Message all").title, "Message all 2 shown sessions");
 
-  button(root, "Clear filters").dispatchEvent(new Event("click"));
+  button(root, "Clear").dispatchEvent(new Event("click"));
   assert.equal(state.value, "active");
   assert.equal(harness.value, "");
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
@@ -174,7 +175,9 @@ test("Message all sends to the exact current roster result without a preview ste
   };
   const { root, mounted } = await mountRoster(t, rows, requests, handlers);
   const fields = byClass(root, "session-roster-filter");
-  const state = fields.at(-1).children[1];
+  const state = fields.find(
+    (field) => field.children[0]?.textContent === "State",
+  ).children[1];
   const harness = fields.find(
     (field) => field.children[0].textContent === "Harness",
   ).children[1];

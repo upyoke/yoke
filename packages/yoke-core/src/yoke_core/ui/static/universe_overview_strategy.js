@@ -144,6 +144,7 @@ export async function loadStrategy(context, bands, getScope) {
         break;
       }
       for (const doc of docResult.docs || []) {
+        if (doc.archived) continue;
         documents.push({ ...doc, project_id: project.id, project });
       }
       claims.push(...(claimResult.claims || []));

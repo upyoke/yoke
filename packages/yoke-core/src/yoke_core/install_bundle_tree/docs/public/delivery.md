@@ -1,14 +1,13 @@
 # Delivery
 
-Workbench **Delivery** has five tabs:
+Workbench **Delivery** has four destinations:
 
-| Tab | Meaning |
+| Destination | Meaning |
 |---|---|
 | **Runs** | Each execution of a flow against an environment |
 | **Environments** | Deploy targets |
 | **Flows** | Pipeline definitions runs execute |
 | **Databases** | Declared DB models, posture, apply records — see [databases-and-migrations.md](databases-and-migrations.md) |
-| **Infrastructure** | What backs an environment and latest operational state (hosting facet) |
 
 ## Item-bound delivery
 
@@ -18,9 +17,8 @@ id (`run-YYYYMMDD-NNN`).
 
 ## Hosting
 
-There is no separate Hosting tab. Hosting shows up as:
+There is no separate Hosting destination. Hosting shows up as:
 
-- Infrastructure under Delivery
 - Packs (production-deploy, runners, environment infra, …)
 - `/yoke onboard` gated first deploy
 - Environment settings (projected scalar reads only — never dump whole

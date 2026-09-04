@@ -60,7 +60,6 @@ test("navigation is three groups, and every entry declares one", () => {
       ["environments", "◇", "Environments", "multi", "diagnostics"],
       ["flows", "⇉", "Flows", "multi", "diagnostics"],
       ["databases", "▤", "Databases", "multi", "diagnostics"],
-      ["infrastructure", "▥", "Infrastructure", "multi", "diagnostics"],
       ["qa-methods", "◉", "QA methods", "multi", "diagnostics"],
       ["qa-plans", "◎", "QA plans", "multi", "diagnostics"],
       ["qa-activity", "◍", "QA activity", "multi", "diagnostics"],

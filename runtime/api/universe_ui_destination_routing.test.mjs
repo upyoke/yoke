@@ -93,6 +93,9 @@ test("routes round-trip, and an unknown view falls back without its segment", ()
   const unknown = parseUniverseRoute("#/nonsense/7?project=2");
   assert.equal(unknown.view, NAV[0].id);
   assert.equal(unknown.detail, null);
+  const removedInfrastructure = parseUniverseRoute("#/infrastructure?project=2");
+  assert.equal(removedInfrastructure.view, NAV[0].id);
+  assert.equal(removedInfrastructure.detail, null);
 });
 
 test("a deep-linked destination is the active nav item and keeps its scope", async (t) => {

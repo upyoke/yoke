@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 // Prove in a real browser that the Sessions roster filter controls line up.
 //
-// The Search, Harness, and Machine text inputs and the State dropdown share
-// one stylesheet rule, yet a native <select> and an <input> resolve their
-// box height differently under a min-height. A stylesheet regex cannot see
-// that; only layout can. This tool renders the real filter module under the
-// real stylesheet cascade in headless Chromium, measures every control, and
-// exits non-zero naming the mismatch when the four heights differ.
+// Search plus the State, Harness, and Machine selects sit in compact bordered
+// wrappers. This tool renders the real module under the product stylesheet
+// cascade in Chromium and proves the four wrappers align.
 //
 // The same rule also sizes the message textarea and the session-control
 // panel inputs, so the tool renders those too and refuses when the filter
@@ -119,28 +116,21 @@ function listen(server) {
   });
 }
 
-// Runs inside the page: one row per control, measured by layout. A control
-// counts as pinned when some stylesheet rule matching it declares a height,
-// because Chromium alone cannot show the min-height drift other engines do.
+// Runs inside the page: one row per control, measured by layout.
 function measureControls() {
-  const styleRules = (sheet) => Array.from(sheet.cssRules).flatMap((rule) =>
-    rule.styleSheet ? styleRules(rule.styleSheet) : [rule],
-  );
-  const rules = Array.from(document.styleSheets).flatMap(styleRules)
-    .filter((rule) => rule.style && rule.style.height);
-  const pinned = (control) => rules.some((rule) => control.matches(rule.selectorText));
   const rows = [];
   for (const wrapper of document.querySelectorAll(".session-roster-filter")) {
     const control = wrapper.querySelector("input, select");
     const style = getComputedStyle(control);
     rows.push({
       group: "filter",
-      label: wrapper.querySelector("span").textContent,
+      label: control.getAttribute("aria-label")
+        || wrapper.querySelector(".session-filter-label").textContent,
       tag: control.tagName.toLowerCase(),
-      height: control.getBoundingClientRect().height,
+      height: wrapper.getBoundingClientRect().height,
+      control_height: control.getBoundingClientRect().height,
       css_height: style.height,
       css_min_height: style.minHeight,
-      pinned: pinned(control),
     });
   }
   for (const control of document.querySelectorAll("[data-probe]")) {
@@ -161,7 +151,7 @@ function measureControls() {
 function judge(rows) {
   const failures = [];
   const filters = rows.filter((row) => row.group === "filter");
-  const expectedLabels = ["Search", "Harness", "Machine", "State"];
+  const expectedLabels = ["Search", "State", "Harness", "Machine"];
   const labels = filters.map((row) => row.label);
   if (JSON.stringify(labels) !== JSON.stringify(expectedLabels)) {
     failures.push(
@@ -171,15 +161,19 @@ function judge(rows) {
   const heights = new Set(filters.map((row) => row.height));
   if (heights.size !== 1) {
     failures.push(
-      "filter control heights differ: "
+      "filter wrapper heights differ: "
       + filters.map((row) => `${row.label} <${row.tag}> ${row.height}px`).join(", "),
     );
   }
-  const unpinned = filters.filter((row) => !row.pinned).map((row) => row.label);
-  if (unpinned.length) {
+  const short = filters.filter((row) => row.height < CONTROL_MIN_HEIGHT_PX);
+  if (short.length) {
     failures.push(
-      `filter controls rely on a min-height instead of a fixed height: ${unpinned.join(", ")}`,
+      `filter wrappers below ${CONTROL_MIN_HEIGHT_PX}px: ${short.map((row) => row.label).join(", ")}`,
     );
+  }
+  const tags = filters.map((row) => row.tag);
+  if (JSON.stringify(tags) !== JSON.stringify(["input", "select", "select", "select"])) {
+    failures.push(`expected search input then three selects; rendered ${tags.join(", ")}`);
   }
   const shared = Object.fromEntries(
     rows.filter((row) => row.group === "shared").map((row) => [row.label, row]),
@@ -227,15 +221,14 @@ async function main() {
       console.error("FAIL session roster filter heights");
       for (const failure of failures) console.error(`  - ${failure}`);
       console.error(
-        "  fix: universe_session_control.css sizes .session-roster-filter input"
-        + " and select; give both the same fixed height without touching the"
-        + " shared .session-control-input minimums.",
+        "  fix: universe_session_control.css must align the compact filter"
+        + " wrappers without touching shared .session-control-input minimums.",
       );
       return 1;
     }
     console.log(
       `PASS all ${rows.filter((row) => row.group === "filter").length} filter controls`
-      + ` render at ${rows[0].height}px; shared controls keep their sizes`,
+      + ` align at ${rows[0].height}px; shared controls keep their sizes`,
     );
     return 0;
   } finally {

@@ -1,4 +1,4 @@
-// Delivery target, database, and infrastructure facets. These reads expose
+// Delivery target and database facets. These reads expose
 // only facts the engine can currently serve; unavailable steering facts stay
 // labelled instead of being inferred from deployment configuration.
 
@@ -252,42 +252,6 @@ export function renderDeliveryDatabasesView(context, main, scope) {
         documentNode,
         "Database steering is only partially readable today. ",
         "Declared models and their readiness come from projects.capabilities.list. Per-model authority, migration posture, apply receipts, claims, and leases have no browser read yet, so this view names the gap instead of implying a safe release.",
-      ));
-    },
-  );
-}
-
-export function renderDeliveryInfrastructureView(context, main, scope) {
-  const documentNode = context.document;
-  const projects = context.projects();
-  const directory = projectDirectory(projects);
-  const panel = deliveryPanel(documentNode, "Infrastructure");
-  main.replaceChildren(panel);
-  loadScopedSection(
-    context,
-    panel,
-    readCalls("projects.infrastructure.list", scope, projects, true),
-    (body, callResults) => {
-      const rows = infrastructureRows(
-        callResults, "environments", directory,
-      );
-      panel.setCount(rows.length);
-      renderTable(
-        body,
-        rows,
-        [
-          { label: "environment", value: (row) => row.name },
-          { label: "project", value: (row) => projectLabel(directory, row) },
-          { label: "what backs it", value: () => "not exposed" },
-          { label: "code source", value: () => "project-owned" },
-          { label: "state", value: () => "declared", pill: true },
-        ],
-        "No infrastructure targets registered in this scope.",
-      );
-      body.appendChild(deliveryNote(
-        documentNode,
-        "Registered metadata is not provider truth. ",
-        "projects.infrastructure.list publishes sites, environments, URLs, deploy methods, and health-check addresses. It does not compare live provider state with project-owned infrastructure, so backing resources and drift remain explicitly unavailable.",
       ));
     },
   );

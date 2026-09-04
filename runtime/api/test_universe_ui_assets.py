@@ -156,7 +156,14 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
         .read_text()
     )
     for platform_marker in (
-        "hosted-org-switcher",
+        "hosted-universe-menu",
+        "hosted-universe-option",
+        "hosted-universe-check",
+        "UNIVERSES YOU BELONG TO",
+        (
+            "Switching universes changes every screen: projects, items and "
+            "sessions all belong to one universe, and your role is per membership."
+        ),
         "hosted-user-menu",
         'dataset.platformSlot = "github-connection"',
     ):
@@ -316,7 +323,7 @@ def test_every_nav_destination_is_routable_and_scoped():
         "organization", "workflows", "projects", "github", "access",
         "members", "billing",
         "strategy", "items", "deployments", "environments", "flows",
-        "databases", "infrastructure", "qa-methods", "qa-plans",
+        "databases", "qa-methods", "qa-plans",
         "qa-activity", "capabilities", "packs", "architecture", "messages",
         "events", "doctor", "ouroboros", "machines",
     ):

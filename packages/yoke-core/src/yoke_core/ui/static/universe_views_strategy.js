@@ -76,10 +76,12 @@ function makeRowNavigable(documentNode, row, href, label) {
   });
 }
 
-function renderStrategyTable(documentNode, body, docs, scope) {
+function renderStrategyTable(
+  documentNode, body, docs, scope, emptyMessage = "No strategy documents yet.",
+) {
   if (docs.length === 0) {
     body.appendChild(el(
-      documentNode, "p", "empty", "No strategy documents yet.",
+      documentNode, "p", "empty", emptyMessage,
     ));
     return;
   }
@@ -208,7 +210,24 @@ export function renderStrategyView(context, main, scope) {
       writesHost.replaceChildren(
         strategyWriteActivity(documentNode, writes),
       );
-      renderStrategyTable(documentNode, body, docs, scope);
+      const activeDocs = docs.filter((doc) => !doc.archived);
+      const archivedDocs = docs.filter((doc) => doc.archived);
+      renderStrategyTable(
+        documentNode, body, activeDocs, scope, "No active strategy documents.",
+      );
+      if (archivedDocs.length) {
+        const archive = el(documentNode, "details", "strategy-archive-group");
+        archive.appendChild(el(
+          documentNode,
+          "summary",
+          "strategy-archive-heading",
+          `Archived (${archivedDocs.length})`,
+        ));
+        const archiveBody = el(documentNode, "div", "strategy-archive-body");
+        renderStrategyTable(documentNode, archiveBody, archivedDocs, scope);
+        archive.appendChild(archiveBody);
+        body.appendChild(archive);
+      }
     },
   );
 }
