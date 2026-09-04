@@ -15,12 +15,14 @@ from yoke_contracts.session_control.function_ids import (
 )
 from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_harness import session_relay
+from yoke_harness import session_relay_build_compatibility as build_compatibility
 from yoke_harness.session_relay_build_compatibility import (
     refresh_relay_build_compatibility,
 )
 from yoke_harness.session_relay_health import (
     PENDING_REPORT_DIR_NAME,
     observe_relay_health,
+    record_relay_run_refusal,
 )
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_daemon import serve_forever
@@ -31,10 +33,16 @@ from yoke_harness.session_relay_report_delivery import deliver_terminal_report
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
 LOCAL_REVISION = "a" * 40
 SERVER_REVISION = "v0.1.1+launch.365"
+PINNED_RELEASE = "0.1.1+launch.368"
 
 
 @pytest.fixture(autouse=True)
-def _clear_observed_server_build():
+def _clear_observed_server_build(monkeypatch):
+    monkeypatch.setattr(
+        build_compatibility,
+        "local_handshake_version",
+        lambda: PINNED_RELEASE,
+    )
     control_plane_payload.observe_server_build("")
     yield
     control_plane_payload.observe_server_build("")
@@ -81,6 +89,7 @@ def test_stable_read_uses_handshake_to_persist_named_refusal(tmp_path: Path) -> 
     assert health["state"] == "refused"
     assert health["run_refusal"] == {
         "reason": RELAY_NEWER_THAN_SERVER,
+        "pinned_release": PINNED_RELEASE,
         "local_revision": LOCAL_REVISION,
         "server_revision": SERVER_REVISION,
         "ahead_by": 30,
@@ -89,13 +98,63 @@ def test_stable_read_uses_handshake_to_persist_named_refusal(tmp_path: Path) -> 
     }
 
 
-def test_probe_does_not_reuse_an_observation_from_an_earlier_call(
+def test_compatible_current_observation_clears_refusal_and_claims(
+    tmp_path: Path, monkeypatch
+) -> None:
+    record_relay_run_refusal(
+        tmp_path,
+        pinned_release=PINNED_RELEASE,
+        local_revision=LOCAL_REVISION,
+        server_revision=SERVER_REVISION,
+        ahead_by=30,
+    )
+    current_server = "v0.1.1+launch.368"
+    control_plane_payload.observe_server_build(
+        current_server,
+        source_build_skew.BuildComparison(
+            source_build_skew.EQUAL,
+            local_head=LOCAL_REVISION,
+            server_build=current_server,
+        ),
+    )
+    calls = []
+
+    def dispatch(**kwargs):
+        calls.append(kwargs["function_id"])
+        if kwargs["function_id"] == RELAY_LIST_FUNCTION_ID:
+            return SimpleNamespace(success=True)
+        return SimpleNamespace(
+            success=True,
+            result={"state": "active", "next_poll_seconds": 60, "jobs": []},
+        )
+
+    monkeypatch.setattr(session_relay, "call_dispatcher", dispatch)
+
+    outcome = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        runner=lambda _job: pytest.fail("a compatible relay should not run jobs"),
+        clock=lambda: 1000.0,
+    )
+
+    assert outcome.state == "active"
+    assert calls == [RELAY_LIST_FUNCTION_ID, session_relay.RELAY_CLAIM_FUNCTION_ID]
+    assert observe_relay_health(tmp_path)["state"] == "healthy"
+
+
+def test_new_release_discards_old_release_refusal_before_a_failed_probe(
     tmp_path: Path,
 ) -> None:
-    control_plane_payload.observe_server_build(SERVER_REVISION, _ahead())
+    record_relay_run_refusal(
+        tmp_path,
+        pinned_release="0.1.1+launch.367",
+        local_revision=LOCAL_REVISION,
+        server_revision=SERVER_REVISION,
+        ahead_by=30,
+    )
 
     refusal = refresh_relay_build_compatibility(
-        lambda **_kwargs: SimpleNamespace(success=True),
+        lambda **_kwargs: (_ for _ in ()).throw(OSError("offline")),
         state_dir=tmp_path,
         timeout_s=10,
     )

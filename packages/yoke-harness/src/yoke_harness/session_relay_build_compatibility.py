@@ -8,6 +8,8 @@ from typing import Any, Callable
 
 from yoke_cli.transport import control_plane_payload, source_build_skew
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.engine_version import local_handshake_version
+from yoke_contracts.runtime_identity import SOURCE_VERSION_LABEL
 from yoke_contracts.session_control.function_ids import RELAY_LIST_FUNCTION_ID
 from yoke_contracts.session_control.relay_health import (
     RELAY_NEWER_THAN_SERVER,
@@ -15,6 +17,7 @@ from yoke_contracts.session_control.relay_health import (
 )
 from yoke_harness.session_relay_health import (
     clear_relay_run_refusal,
+    observe_relay_health,
     record_relay_run_refusal,
 )
 
@@ -78,7 +81,12 @@ def refresh_relay_build_compatibility(
     timeout_s: int,
 ) -> RelayBuildRefusal | None:
     """Probe a stable read so the existing HTTPS handshake can compare builds."""
-    before = control_plane_payload.current_server_build()
+    pinned_release = local_handshake_version() or SOURCE_VERSION_LABEL
+    recorded_refusal = observe_relay_health(state_dir).get("run_refusal")
+    if isinstance(recorded_refusal, dict) and (
+        recorded_refusal.get("pinned_release") != pinned_release
+    ):
+        clear_relay_run_refusal(state_dir)
     try:
         dispatcher(
             function_id=RELAY_LIST_FUNCTION_ID,
@@ -91,8 +99,6 @@ def refresh_relay_build_compatibility(
         # failed probe must not erase a previously grounded build refusal.
         return None
     observed = control_plane_payload.current_server_build()
-    if observed.observation == before.observation:
-        return None
     refusal = refusal_from_observation(observed)
     if refusal is None:
         comparison = observed.comparison
@@ -104,6 +110,7 @@ def refresh_relay_build_compatibility(
         return None
     record_relay_run_refusal(
         state_dir,
+        pinned_release=pinned_release,
         local_revision=refusal.local_revision,
         server_revision=refusal.server_revision,
         ahead_by=refusal.ahead_by,

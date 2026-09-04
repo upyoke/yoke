@@ -64,6 +64,7 @@ def test_build_refusal_status_names_revisions_and_deploy(
 ) -> None:
     record_relay_run_refusal(
         tmp_path,
+        pinned_release="0.1.1+launch.365",
         local_revision="aaaaaaaaaaaa",
         server_revision="v0.1.1+launch.365",
         ahead_by=30,

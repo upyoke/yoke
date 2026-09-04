@@ -68,7 +68,7 @@ def _run_refusal(value: object) -> dict[str, Any]:
     server_revision = _text(value.get("server_revision"))
     if not local_revision or not server_revision:
         return {}
-    return {
+    result = {
         "reason": RELAY_NEWER_THAN_SERVER,
         "local_revision": local_revision,
         "server_revision": server_revision,
@@ -76,6 +76,10 @@ def _run_refusal(value: object) -> dict[str, Any]:
         "observed_at": _text(value.get("observed_at"), limit=32),
         "recovery": RELAY_NEWER_THAN_SERVER_RECOVERY,
     }
+    pinned_release = _text(value.get("pinned_release"))
+    if pinned_release:
+        result["pinned_release"] = pinned_release
+    return result
 
 
 def sanitize_relay_health(value: object) -> dict[str, Any]:
