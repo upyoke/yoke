@@ -23,6 +23,7 @@ from yoke_harness.session_relay_cursor_identity import (
     bounded_identity_snippet,
     session_id_from_native_payload,
 )
+from yoke_harness.session_relay_cursor_acp_capture import AcpTurnRecord, turn_record
 from yoke_harness.session_relay_cursor_acp_stderr import (
     BoundedStderr,
     native_diagnostic_fields,
@@ -39,7 +40,6 @@ from yoke_harness.session_relay_cursor_acp_terminal import (
 
 
 CURSOR_ACP_TIMEOUT_SECONDS = 20.0
-CURSOR_ACP_TURN_SECONDS = 120.0
 _MAX_LINE_BYTES = 4 * 1024 * 1024
 
 
@@ -152,24 +152,31 @@ class _Client:
             if "method" in payload and "id" in payload:
                 self._answer_agent_request(payload)
 
-    def start_prompt(self, session_id: str, instruction: str) -> None:
+    def start_prompt(
+        self, session_id: str, instruction: str, turn: AcpTurnRecord
+    ) -> None:
         request_id = self._request_id(
             "session/prompt", prompt_params(session_id, instruction)
         )
 
         def drain() -> None:
-            deadline = time.monotonic() + CURSOR_ACP_TURN_SECONDS
+            deadline = turn.deadline()
             try:
                 while time.monotonic() < deadline:
                     payload = self._receive(deadline)
                     if payload.get("id") == request_id and "method" not in payload:
+                        turn.answered(payload)
                         break
                     if "method" in payload and "id" in payload:
                         self._answer_agent_request(payload)
-            except Exception:
-                pass
+            except Exception as exc:
+                turn.failed(exc)
             finally:
+                # Written before the child dies as well, so a reader that
+                # arrives between the two still finds the turn's account.
+                turn.record_open(self.stderr.tail())
                 self.close()
+                turn.record_exit(self.stderr.tail(), self.process.poll())
 
         threading.Thread(
             target=drain,
@@ -269,6 +276,7 @@ class CursorAcpTransport:
                     identity_parse_expectation=ACP_SESSION_PARSE_EXPECTATION,
                     **diagnostic,
                 )
+            turn = turn_record(request.launch_id)
             # From here the native can act, so it becomes containable: if it
             # never registers, the sweep has the process it must terminate.
             record_supervised_native(
@@ -292,7 +300,7 @@ class CursorAcpTransport:
                     )
                 except CursorAcpError:
                     pass
-            client.start_prompt(session_id, request.native_instruction)
+            client.start_prompt(session_id, request.native_instruction, turn)
             return CursorNativeResult(
                 "native_created",
                 native_session_id=session_id,
@@ -320,7 +328,9 @@ class CursorAcpTransport:
             params["sessionId"] = request.target_session_id
             client.request("session/load", params)
             loaded = True
-            client.start_prompt(request.target_session_id, request.native_instruction)
+            client.start_prompt(
+                request.target_session_id, request.native_instruction, turn_record(None)
+            )
             return CursorNativeResult(
                 "accepted",
                 duration_ms=max(0, int((time.monotonic() - started) * 1000)),

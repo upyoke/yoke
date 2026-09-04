@@ -76,18 +76,29 @@ class RelayLivenessReport(BaseModel):
     evidence: Dict[str, Any] = Field(default_factory=dict)
 
 
+class RelayLaunchDeathReport(BaseModel):
+    """One launch whose native is gone before any session registered for it."""
+
+    model_config = ConfigDict(extra="forbid")
+    launch_id: str
+    evidence: Dict[str, Any] = Field(default_factory=dict)
+
+
 class RelayLivenessRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relay_id: str
     machine_id: str
     projects: List[int]
     sessions: List[RelayLivenessReport] = Field(default_factory=list, max_length=100)
+    launches: List[RelayLaunchDeathReport] = Field(default_factory=list, max_length=100)
 
 
 class RelayLivenessResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
     ended: List[str] = Field(default_factory=list)
     skipped: List[Dict[str, Any]] = Field(default_factory=list)
+    closed_launches: List[str] = Field(default_factory=list)
+    skipped_launches: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class EvidenceDocument(BaseModel):
@@ -175,6 +186,7 @@ __all__ = [
     "RelayIdleHostsResponse",
     "RelayListRequest",
     "RelayListResponse",
+    "RelayLaunchDeathReport",
     "RelayLivenessReport",
     "RelayLivenessRequest",
     "RelayLivenessResponse",

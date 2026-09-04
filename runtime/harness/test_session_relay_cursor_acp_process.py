@@ -13,6 +13,7 @@ from yoke_harness import session_relay_cursor_acp_process as process_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import CursorCreateRequest, CursorNativeResult
 from yoke_harness.session_relay_acp_tool_gate import ToolGateDecision
+from yoke_harness.session_relay_cursor_acp_capture import turn_record
 from yoke_harness.session_relay_cursor_acp_terminal import (
     CursorAcpTerminalRegistry,
     respond_to_agent_request,
@@ -307,7 +308,7 @@ def test_acp_prompt_owner_thread_is_non_daemon(monkeypatch) -> None:
     monkeypatch.setattr(client, "_request_id", lambda *_args: 1)
     monkeypatch.setattr(acp_module.threading, "Thread", Thread)
 
-    client.start_prompt(SESSION_ID, INSTRUCTION)
+    client.start_prompt(SESSION_ID, INSTRUCTION, turn_record(None))
 
     assert observed["daemon"] is False
     assert observed["started"] is True

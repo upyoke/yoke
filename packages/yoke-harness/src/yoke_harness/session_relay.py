@@ -30,6 +30,9 @@ from yoke_harness.session_relay_build_compatibility import (
 )
 from yoke_harness.session_relay_health import observe_relay_health
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
+from yoke_harness.session_relay_launch_settlement import (
+    report_unregistered_launch_deaths,
+)
 from yoke_harness.session_relay_claude_idle_hosts import reclaim_idle_claude_hosts
 from yoke_harness.session_relay_native_turn_end import report_native_turn_ends
 from yoke_harness.session_relay_outcomes import ServeOnceJobOutcome, ServeOnceOutcome
@@ -192,6 +195,9 @@ def _poll(
     )
     # A native that died reads stale rather than ended; this machine has proof.
     report_verified_dead_sessions(dispatcher, inventory, state_dir=state_dir)
+    # One that died before registering has no session to read at all, and its
+    # launch would otherwise wait out the whole registration deadline.
+    report_unregistered_launch_deaths(dispatcher, inventory, state_dir=state_dir)
     reclaim_idle_claude_hosts(dispatcher, inventory)
     response = dispatcher(
         function_id=RELAY_CLAIM_FUNCTION_ID,
