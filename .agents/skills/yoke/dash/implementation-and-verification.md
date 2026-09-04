@@ -64,9 +64,12 @@ and stays required.
 **When the committed case runs on CI, let the executor publish it.** A project
 that declares its CI workflow binds its registered verification scopes to the
 `command-ci` method. The executor rebases the lane onto the base branch before
-resolving the verified SHA, publishes that committed tree once, and then runs
-CI. Dash branches otherwise stay local until this gate. The recorded verdict
-names the CI run URL and the exact head SHA it covered.
+resolving the verified SHA. For a merge-queue lane, it then runs the local
+authored-file line cap against the refreshed base before publishing anything.
+A base-caused overage names the file, resulting count, limit, and base growth,
+then stops without pushing or opening the landing pull request. A passing lane
+is published once and CI runs. Dash branches otherwise stay local until this
+gate. The recorded verdict names the CI run URL and exact head SHA it covered.
 
 A run that remains `pending` with zero jobs for 120 seconds is
 `ci_run_never_started`. The gate force-cancels it and redispatches once without
