@@ -60,6 +60,7 @@ def evaluate_inprocess(
     fallback_reason: str = "",
 ) -> int:
     """Run the existing hook chain after the caller context is established."""
+    original_stdin = stdin_data
     if not dry_run:
         _touch_detached_resume()
         stdin_data = attach_evaluator_metadata(
@@ -108,6 +109,7 @@ def evaluate_inprocess(
                 event_name,
                 connection,
                 stdin_data=stdin_data,
+                capture_stdin_data=original_stdin,
                 extra_context=extra_context,
                 opener=http_opener,
             )

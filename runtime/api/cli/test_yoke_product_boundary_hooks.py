@@ -99,7 +99,9 @@ def test_bound_local_hook_reports_missing_engine_loudly(
     assert run.stdout == ""
     assert "YOKE_LOCAL_HOOK_ENGINE_MISSING" in run.stderr
     assert run.boundary["caught"] is None
-    assert run.boundary["blocked_attempts"] == ["yoke_core"]
+    # The thin client never imports engine authority. The isolated resident
+    # child encounters the blocked import and returns the named failure.
+    assert run.boundary["blocked_attempts"] == []
     assert run.boundary["forbidden_loaded"] == []
 
 

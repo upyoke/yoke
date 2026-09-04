@@ -141,6 +141,7 @@ def relay_hook_event(
     connection: HttpsConnection,
     *,
     stdin_data: Optional[str] = None,
+    capture_stdin_data: Optional[str] = None,
     extra_context: Optional[str] = None,
     opener: Callable[..., Any] | None = None,
 ) -> int:
@@ -153,7 +154,9 @@ def relay_hook_event(
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    original_stdin = stdin_data
+    original_stdin = (
+        stdin_data if capture_stdin_data is None else capture_stdin_data
+    )
     if anchor_from_payload:
         _record_client_anchor(
             payload,
