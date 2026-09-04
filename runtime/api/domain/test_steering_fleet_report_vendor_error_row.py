@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from runtime.api.domain.test_steering_fleet_report_render import (
+from runtime.api.domain.test_steering_fleet_report_populated_body import (
     _populated_report,
     report_body,
 )
