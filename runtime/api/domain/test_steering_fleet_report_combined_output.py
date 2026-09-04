@@ -51,6 +51,7 @@ def _limit(machine_id: str) -> MachinePlanLimit:
         plan_tier="pro",
         window_kind="monthly",
         scope="all",
+        meter="rateLimitsByLimitId.codex.primary",
         remaining_percent=50.0,
         resets_at="2026-09-30T00:00:00Z",
         status="ok",

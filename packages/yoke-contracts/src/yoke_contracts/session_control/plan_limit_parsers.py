@@ -11,6 +11,8 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.plan_limits import (
     ALL_MODELS_SCOPE,
+    CURSOR_MODELS_SCOPE,
+    CURSOR_OTHER_MODELS_SCOPE,
     iso_from_epoch_ms,
     iso_from_epoch_seconds,
     plan_limit_window,
@@ -76,6 +78,7 @@ def parse_claude_usage(
             plan_limit_window(
                 window_kind=_kind_from_claude(row.get("kind")),
                 scope=_claude_scope(row.get("scope")),
+                meter=f"oauth_usage.limits.{row.get('kind') or 'unknown'}",
                 remaining_percent=remaining,
                 resets_at=str(resets) if resets else None,
             )
@@ -98,7 +101,10 @@ def _codex_from_http_mirror(payload: Mapping[str, Any]) -> Mapping[str, Any]:
         "planType": payload.get("plan_type"),
         "limitName": None,
     }
-    for source, target in (("primary_window", "primary"), ("secondary_window", "secondary")):
+    for source, target in (
+        ("primary_window", "primary"),
+        ("secondary_window", "secondary"),
+    ):
         window = rate_limit.get(source)
         if not isinstance(window, Mapping):
             continue
@@ -160,6 +166,7 @@ def parse_codex_rate_limits(
                 plan_limit_window(
                     window_kind=_kind_from_minutes(window.get("windowDurationMins")),
                     scope=scope,
+                    meter=f"rateLimitsByLimitId.{limit_id}.{key}",
                     remaining_percent=remaining,
                     resets_at=_codex_resets_at(window.get("resetsAt")),
                 )
@@ -179,17 +186,33 @@ def parse_cursor_usage(
     *,
     observed_at: str,
 ) -> dict[str, Any]:
-    """Cursor publishes one meter: plan spend against the billing month."""
+    """Read the two included-usage pools that Cursor bills by model family."""
     info = plan.get("planInfo") if isinstance(plan.get("planInfo"), Mapping) else plan
     plan_tier = info.get("planName") if isinstance(info, Mapping) else None
     plan_tier = str(plan_tier) if plan_tier else None
     spend = usage.get("planUsage")
-    remaining = (
-        remaining_from_used_percent(spend.get("totalPercentUsed"))
-        if isinstance(spend, Mapping)
-        else None
-    )
-    if remaining is None:
+    windows: list[dict[str, Any]] = []
+    for field, scope in (
+        ("autoPercentUsed", CURSOR_MODELS_SCOPE),
+        ("apiPercentUsed", CURSOR_OTHER_MODELS_SCOPE),
+    ):
+        remaining = (
+            remaining_from_used_percent(spend.get(field))
+            if isinstance(spend, Mapping)
+            else None
+        )
+        if remaining is None:
+            continue
+        windows.append(
+            plan_limit_window(
+                window_kind="monthly",
+                scope=scope,
+                meter=f"planUsage.{field}",
+                remaining_percent=remaining,
+                resets_at=iso_from_epoch_ms(usage.get("billingCycleEnd")),
+            )
+        )
+    if not windows:
         return unknown_reading(
             "cursor-cli", _UNREADABLE, observed_at=observed_at, plan_tier=plan_tier
         )
@@ -197,14 +220,7 @@ def parse_cursor_usage(
         "cursor-cli",
         observed_at=observed_at,
         plan_tier=plan_tier,
-        windows=(
-            plan_limit_window(
-                window_kind="monthly",
-                scope=ALL_MODELS_SCOPE,
-                remaining_percent=remaining,
-                resets_at=iso_from_epoch_ms(usage.get("billingCycleEnd")),
-            ),
-        ),
+        windows=windows,
     )
 
 

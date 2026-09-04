@@ -1,7 +1,7 @@
 """Shared plan-capacity computer: raw readings plus window-normalized headroom.
 
 The fleet-report table and any dashboard capacity view are two renderers of
-this computer. One row per (machine, surface, window), because a vendor
+this computer. One row per (machine, surface, meter, window), because a vendor
 publishes several meters at once and the operator needs to see the scoped
 one that is about to bind as well as the account-wide one that is not.
 Monthly remaining uses a 30-day window so percent is comparable across
@@ -17,10 +17,13 @@ from datetime import timedelta
 from typing import Any
 
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
+from yoke_core.domain.steering_fleet_report_balance import (
+    plan_meter_selection_cell,
+    plan_meter_selection_labels,
+)
+from yoke_core.domain.steering_fleet_report_capacity import SessionCount
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
-from yoke_core.domain.steering_fleet_report_capacity import SessionCount
-from yoke_core.domain.steering_fleet_report_balance import selection_labels
 
 
 PLAN_LIMIT_HEADING = (
@@ -35,7 +38,8 @@ HEADROOM_LEGEND = (
     "windows — under 100% can hit a wall before its reset"
 )
 TABLE_HEADER = (
-    "| Machine | Surface | Model / effort / context | Tier | Window | Quota left | Resets in | "
+    "| Machine | Surface | Model / effort / context | Tier | Meter | Window | "
+    "Quota left | Resets in | "
     "Headroom | Reset (UTC) |"
 )
 EMPTY = "-"
@@ -81,6 +85,7 @@ class PlanLimitComputation:
     plan_tier: str | None
     window_kind: str
     scope: str
+    meter: str
     remaining_percent: float | None
     resets_at: str | None
     status: str
@@ -159,6 +164,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
             plan_tier=row.plan_tier,
             window_kind=row.window_kind,
             scope=row.scope,
+            meter=row.meter,
             remaining_percent=row.remaining_percent,
             resets_at=row.resets_at,
             status=row.status,
@@ -178,6 +184,7 @@ def compute_plan_limit(row: MachinePlanLimit, *, now: str) -> PlanLimitComputati
         plan_tier=row.plan_tier,
         window_kind=row.window_kind,
         scope=row.scope,
+        meter=row.meter,
         remaining_percent=row.remaining_percent,
         resets_at=row.resets_at,
         status=row.status,
@@ -199,27 +206,15 @@ def _percent(value: float | None) -> str:
     return f"{int(round(value))}%"
 
 
-def _selection_cell(
-    computed: PlanLimitComputation,
-    counts: tuple[SessionCount, ...],
-) -> str:
-    labels = selection_labels(
-        counts,
-        machine_id=computed.machine_id,
-        surface=computed.surface,
-    )
-    return "<br>".join(labels) if labels else "no live selection"
-
-
 def _markdown_row(
     computed: PlanLimitComputation,
     counts: tuple[SessionCount, ...],
 ) -> str:
-    selection = _selection_cell(computed, counts)
+    selection = plan_meter_selection_cell(computed, counts)
     if computed.status != "ok":
         return (
             f"| {computed.machine_name} | {computed.surface} | {selection} | "
-            f"{EMPTY} | "
+            f"{EMPTY} | {_dash(computed.meter)} | "
             f"{window_label(computed.window_kind, computed.scope)} | "
             f"{EMPTY} | {EMPTY} | {computed.reason or 'unreadable'} | "
             f"{EMPTY} |"
@@ -232,6 +227,7 @@ def _markdown_row(
     return (
         f"| {computed.machine_name} | {computed.surface} | {selection} | "
         f"{_dash(computed.plan_tier)} | "
+        f"{_dash(computed.meter)} | "
         f"{window_label(computed.window_kind, computed.scope)} | "
         f"{_percent(computed.remaining_percent)} | {resets_in} | "
         f"{_percent(computed.headroom_percent)} | "
@@ -239,12 +235,19 @@ def _markdown_row(
     )
 
 
-def _sort_key(row: MachinePlanLimit) -> tuple[str, str, int, str, str]:
+def _sort_key(row: MachinePlanLimit) -> tuple[str, str, int, str, str, str]:
     try:
         order = _WINDOW_ORDER.index(row.window_kind)
     except ValueError:
         order = len(_WINDOW_ORDER)
-    return (row.machine_name, row.surface, order, row.window_kind, row.scope)
+    return (
+        row.machine_name,
+        row.surface,
+        order,
+        row.window_kind,
+        row.scope,
+        row.meter,
+    )
 
 
 def plan_limit_lines(
@@ -282,17 +285,14 @@ def plan_limit_dicts(
             "plan_tier": row.plan_tier,
             "window_kind": row.window_kind,
             "scope": row.scope,
+            "meter": row.meter,
             "window_label": window_label(row.window_kind, row.scope),
             "remaining_percent": row.remaining_percent,
             "resets_at": row.resets_at,
             "status": row.status,
             "reason": row.reason,
             "live_model_selections": list(
-                selection_labels(
-                    session_counts,
-                    machine_id=row.machine_id,
-                    surface=row.surface,
-                )
+                plan_meter_selection_labels(row, session_counts)
             ),
         }
         if now is not None:

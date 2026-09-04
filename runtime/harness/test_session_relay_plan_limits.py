@@ -10,8 +10,11 @@ from yoke_contracts.session_control.plan_limit_parsers import (
     parse_cursor_usage,
 )
 from yoke_contracts.session_control.plan_limits import (
+    CURSOR_MODELS_SCOPE,
+    CURSOR_OTHER_MODELS_SCOPE,
     MAX_WINDOWS_PER_SURFACE,
     RELAY_PREDATES_WINDOWS_REASON,
+    cursor_scope_for_model,
     sanitize_plan_limits,
     unknown_reading,
 )
@@ -67,6 +70,7 @@ def test_claude_parser_keeps_the_session_and_both_weekly_meters() -> None:
         ("rolling_7d", "Fable", 55.0),
     ]
     assert reading["windows"][0]["resets_at"] == "2026-08-30T03:00:00Z"
+    assert reading["windows"][0]["meter"] == "oauth_usage.limits.session"
 
 
 def test_claude_parser_names_no_scope_when_the_vendor_names_none() -> None:
@@ -118,6 +122,7 @@ def test_codex_parser_keeps_every_bucket_and_both_windows() -> None:
         ("rolling_7d", "GPT-5.3-Codex-Spark", 93.0),
     ]
     assert reading["windows"][0]["resets_at"] == "2026-09-05T21:28:12Z"
+    assert reading["windows"][0]["meter"] == "rateLimitsByLimitId.codex.primary"
 
 
 def test_codex_parser_reshapes_both_http_mirror_windows() -> None:
@@ -155,20 +160,35 @@ def test_a_codex_payload_with_no_readable_window_is_named_unreadable() -> None:
     assert reading["windows"][0]["reason"] == "usage_unreadable"
 
 
-def test_cursor_parser_labels_the_monthly_billing_window() -> None:
+def test_cursor_parser_keeps_both_monthly_included_usage_pools() -> None:
     reading = parse_cursor_usage(
         {"planInfo": {"planName": "Ultra"}},
         {
             "billingCycleEnd": "1788742804000",
-            "planUsage": {"totalPercentUsed": 70.94885714285715},
+            "planUsage": {"autoPercentUsed": 100, "apiPercentUsed": 10.084},
         },
         observed_at=NOW,
     )
     assert reading["plan_tier"] == "Ultra"
-    window = reading["windows"][0]
-    assert (window["window_kind"], window["scope"]) == ("monthly", "all")
-    assert round(window["remaining_percent"], 2) == 29.05
-    assert window["resets_at"] == "2026-09-07T01:00:04Z"
+    cursor_models, other_models = reading["windows"]
+    assert (cursor_models["scope"], cursor_models["meter"]) == (
+        CURSOR_MODELS_SCOPE,
+        "planUsage.autoPercentUsed",
+    )
+    assert cursor_models["remaining_percent"] == 0
+    assert (other_models["scope"], other_models["meter"]) == (
+        CURSOR_OTHER_MODELS_SCOPE,
+        "planUsage.apiPercentUsed",
+    )
+    assert round(other_models["remaining_percent"], 3) == 89.916
+    assert other_models["resets_at"] == "2026-09-07T01:00:04Z"
+
+
+def test_cursor_model_prefixes_choose_the_matching_included_usage_pool() -> None:
+    assert cursor_scope_for_model("cursor-grok-4") == CURSOR_MODELS_SCOPE
+    assert cursor_scope_for_model("composer-1.5") == CURSOR_MODELS_SCOPE
+    assert cursor_scope_for_model("claude-4.1-opus") == CURSOR_OTHER_MODELS_SCOPE
+    assert cursor_scope_for_model(None) == CURSOR_OTHER_MODELS_SCOPE
 
 
 def test_sanitize_drops_token_bearing_keys() -> None:
@@ -181,6 +201,7 @@ def test_sanitize_drops_token_bearing_keys() -> None:
                     {
                         "window_kind": "rolling_5h",
                         "scope": "all",
+                        "meter": "oauth_usage.limits.session",
                         "remaining_percent": 80,
                         "status": "ok",
                         "accessToken": "secret-token",
@@ -192,6 +213,9 @@ def test_sanitize_drops_token_bearing_keys() -> None:
     assert "accessToken" not in cleaned["claude-cli"]
     assert "Authorization" not in str(cleaned)
     assert "secret-token" not in str(cleaned)
+    assert cleaned["claude-cli"]["windows"][0]["meter"] == (
+        "oauth_usage.limits.session"
+    )
 
 
 def test_a_reading_without_windows_names_the_relay_that_predates_them() -> None:

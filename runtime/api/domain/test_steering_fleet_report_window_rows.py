@@ -67,7 +67,7 @@ def _fleet_windows() -> tuple[MachinePlanLimit, ...]:
 def test_every_published_window_gets_its_own_row_naming_its_scope() -> None:
     lines = plan_limit_lines(_fleet_windows(), now=_NOW)
     windows = [
-        line.split("|")[5].strip() for line in lines if line.startswith("| " + _HOST)
+        line.split("|")[6].strip() for line in lines if line.startswith("| " + _HOST)
     ]
     assert windows == [
         "rolling 5h · all models",
@@ -82,7 +82,7 @@ def test_every_published_window_gets_its_own_row_naming_its_scope() -> None:
 def test_the_table_compares_windows_by_headroom_not_a_note_column() -> None:
     lines = plan_limit_lines(_fleet_windows(), now=_NOW)
     assert TABLE_HEADER in lines
-    assert TABLE_HEADER.count("|") == 10
+    assert TABLE_HEADER.count("|") == 11
     assert "Model / effort / context" in TABLE_HEADER
     assert "Note" not in TABLE_HEADER
     assert "under 100%" in HEADROOM_LEGEND

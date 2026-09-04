@@ -121,16 +121,17 @@ def test_plan_limit_lines_match_worked_target_table() -> None:
     assert TABLE_HEADER in lines
     assert (
         f"| {_HOST} | claude-cli | claude-opus-4-6 · effort max · context 1m ×2 | "
-        f"max | weekly · all models | 44% | 2d 11h 40m | "
+        f"max | planUsage.totalPercentUsed | weekly · all models | 44% | 2d 11h 40m | "
         f"124% | Sep 4 01:00 |"
     ) in lines
     assert (
-        f"| {_HOST} | cursor-cli | no live selection | Ultra | monthly · all models | "
-        f"22% | 5d 11h 40m | "
+        f"| {_HOST} | cursor-cli | no live selection | Ultra | "
+        f"planUsage.totalPercentUsed | monthly · all models | 22% | 5d 11h 40m | "
         f"120% | Sep 7 01:00 |"
     ) in lines
     assert (
-        f"| {_HOST} | codex-cli | no live selection | {EMPTY} | unknown | {EMPTY} | {EMPTY} | "
+        f"| {_HOST} | codex-cli | no live selection | {EMPTY} | "
+        f"planUsage.totalPercentUsed | unknown | {EMPTY} | {EMPTY} | "
         f"usage_unreadable | {EMPTY} |"
     ) in lines
     assert HEADROOM_LEGEND in lines
@@ -168,6 +169,7 @@ def test_rolling_five_hour_remaining_is_to_the_minute() -> None:
 def test_plan_limit_dicts_carry_numeric_headroom() -> None:
     payload = plan_limit_dicts((_row(),), now=_NOW)[0]
     assert payload["scope"] == "all"
+    assert payload["meter"] == "planUsage.totalPercentUsed"
     assert payload["window_label"] == f"monthly · {ALL_MODELS_LABEL}"
     assert "headroom_percent" in payload
     assert payload["window_seconds"] == MONTHLY_WINDOW.total_seconds()
@@ -194,6 +196,7 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
                             {
                                 "window_kind": "rolling_5h",
                                 "scope": "all",
+                                "meter": "oauth_usage.limits.session",
                                 "remaining_percent": 89.0,
                                 "resets_at": "2026-08-30T03:00:00Z",
                                 "status": "ok",
@@ -202,6 +205,7 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
                             {
                                 "window_kind": "rolling_7d",
                                 "scope": "Fable",
+                                "meter": "oauth_usage.limits.weekly_scoped",
                                 "remaining_percent": 55.0,
                                 "resets_at": "2026-09-04T01:00:00Z",
                                 "status": "ok",
@@ -217,6 +221,7 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
                             {
                                 "window_kind": "unknown",
                                 "scope": "all",
+                                "meter": "unknown",
                                 "remaining_percent": None,
                                 "resets_at": None,
                                 "status": "unknown",
@@ -235,9 +240,13 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
     assert PLAN_LIMIT_HEADING in body
     assert TABLE_HEADER in body
     assert (
-        "claude-cli | no live selection | max | rolling 5h · all models | 89%" in body
+        "claude-cli | no live selection | max | oauth_usage.limits.session | "
+        "rolling 5h · all models | 89%" in body
     )
-    assert "claude-cli | no live selection | max | weekly · Fable | 55%" in body
+    assert (
+        "claude-cli | no live selection | max | "
+        "oauth_usage.limits.weekly_scoped | weekly · Fable | 55%" in body
+    )
     assert "cursor-cli |" in body
     assert "stale_credential" in body
     assert "do not gate launches" in body
@@ -253,6 +262,7 @@ _READING = {
             {
                 "window_kind": "rolling_5h",
                 "scope": "all",
+                "meter": "oauth_usage.limits.session",
                 "remaining_percent": 89.0,
                 "resets_at": "2026-08-30T03:00:00Z",
                 "status": "ok",

@@ -216,12 +216,18 @@ def _machine_launchable(
 def _machine_plan_limits(
     reports: Sequence[FleetReport], machine_id: str
 ) -> tuple[MachinePlanLimit, ...]:
-    seen: dict[tuple[str, str, str, str], MachinePlanLimit] = {}
+    seen: dict[tuple[str, str, str, str, str], MachinePlanLimit] = {}
     for report in reports:
         for row in report.plan_limits:
             if row.machine_id != machine_id:
                 continue
-            key = (row.machine_name, row.surface, row.window_kind, row.scope)
+            key = (
+                row.machine_name,
+                row.surface,
+                row.window_kind,
+                row.scope,
+                row.meter,
+            )
             seen.setdefault(key, row)
     return tuple(seen.values())
 
