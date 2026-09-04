@@ -11,6 +11,7 @@ before yielding, and refuses before anything has merged.
 from __future__ import annotations
 
 import os
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -96,11 +97,17 @@ def test_an_unreachable_sibling_refuses_before_anything_merges(monkeypatch):
 
 
 def test_a_contended_replacement_preserves_the_wait_recovery(monkeypatch) -> None:
+    force_calls = 0
+
     def ensure_ready(*, force: bool):
+        nonlocal force_calls
         if not force:
             return SimpleNamespace(ok=False, message="probe failed")
+        force_calls += 1
         raise TunnelReplacementContended(
-            "holder pid=81775 command='yoke deploy' held=42s. Wait for it."
+            local_port=6547,
+            timeout=180,
+            holder="holder pid=81775 command='yoke deploy' held=42s",
         )
 
     _readiness(monkeypatch, ensure_ready)
@@ -113,8 +120,75 @@ def test_a_contended_replacement_preserves_the_wait_recovery(monkeypatch) -> Non
     assert "holder pid=81775" in message
     assert "command='yoke deploy'" in message
     assert "held=42s" in message
-    assert "wait for the named holder" in message
+    assert "keep the named holder running" in message
     assert "Restore the connection" not in message
+    assert force_calls == 2
+
+
+def test_two_concurrent_merge_authority_checks_wait_and_both_continue(
+    monkeypatch, capsys
+) -> None:
+    holder_started = threading.Event()
+    contention_observed = threading.Event()
+    holder_finished = threading.Event()
+    contender_force_calls = 0
+    successes: list[str] = []
+    failures: list[BaseException] = []
+
+    def ensure_ready(*, force: bool):
+        nonlocal contender_force_calls
+        if not force:
+            return SimpleNamespace(ok=False, message="probe failed")
+        if threading.current_thread().name == "tunnel-holder-merge":
+            holder_started.set()
+            assert contention_observed.wait(timeout=2)
+            holder_finished.set()
+            return SimpleNamespace(ok=True, message="tunnel restored")
+        contender_force_calls += 1
+        if contender_force_calls == 1:
+            assert holder_started.wait(timeout=2)
+            contention_observed.set()
+            raise TunnelReplacementContended(
+                local_port=6547,
+                timeout=180,
+                holder=("holder pid=81775 command='yoke merge item OTHER' held=180s"),
+            )
+        assert holder_finished.wait(timeout=2)
+        return SimpleNamespace(ok=True, message="tunnel adopted")
+
+    _readiness(monkeypatch, ensure_ready)
+
+    def confirm(name: str) -> None:
+        try:
+            local_runtime._confirm_selected_control_plane("prod-db-admin")
+        except BaseException as exc:  # noqa: BLE001 - asserted below
+            failures.append(exc)
+        else:
+            successes.append(name)
+
+    holder = threading.Thread(
+        target=confirm, args=("holder",), name="tunnel-holder-merge"
+    )
+    contender = threading.Thread(
+        target=confirm,
+        args=("contender",),
+        name="tunnel-contender-merge",
+    )
+    holder.start()
+    assert holder_started.wait(timeout=2)
+    contender.start()
+    holder.join(timeout=2)
+    contender.join(timeout=2)
+
+    assert not holder.is_alive()
+    assert not contender.is_alive()
+    assert failures == []
+    assert sorted(successes) == ["contender", "holder"]
+    assert contender_force_calls == 2
+    wait_line = capsys.readouterr().err
+    assert wait_line.count("tunnel_busy") == 1
+    assert "holder pid=81775" in wait_line
+    assert "elapsed=180s/limit=180s" in wait_line
 
 
 def test_a_raising_probe_is_the_same_refusal(monkeypatch) -> None:

@@ -60,6 +60,16 @@ LIFECYCLE_LOCK_POLL_SECONDS = 0.25
 class TunnelReplacementContended(ConnectedEnvUnavailable):
     """Another live process owns the tunnel replacement decision."""
 
+    def __init__(self, *, local_port: int, timeout: float, holder: str) -> None:
+        self.local_port = local_port
+        self.timeout = timeout
+        self.holder = holder
+        super().__init__(
+            "another process is still replacing the connected-env tunnel on "
+            f"127.0.0.1:{local_port} after {int(timeout)}s ({holder}). Keep "
+            "the named holder running and retry after it finishes."
+        )
+
 
 def coordination_dir(local_port: int) -> Path:
     """Machine-local directory holding this port's lock and leases."""
@@ -92,10 +102,9 @@ def lifecycle_lock(
             except OSError:
                 if time.monotonic() >= deadline:
                     raise TunnelReplacementContended(
-                        "another process is still replacing the connected-env "
-                        f"tunnel on 127.0.0.1:{local_port} after "
-                        f"{int(timeout)}s ({_lock_holder(path)}). Wait for it "
-                        "to finish, or stop that process and retry."
+                        local_port=local_port,
+                        timeout=timeout,
+                        holder=_lock_holder(path),
                     ) from None
                 time.sleep(LIFECYCLE_LOCK_POLL_SECONDS)
         _stamp_holder(descriptor)

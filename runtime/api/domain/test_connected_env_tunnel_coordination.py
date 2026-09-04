@@ -64,7 +64,10 @@ def test_lock_refuses_while_another_holder_has_it_and_names_them(monkeypatch):
     assert f"holder pid={os.getpid()}" in message
     assert "command='python3 -m yoke_core.domain.deploy_pipeline'" in message
     assert "held=42s" in message
-    assert "Wait for it to finish" in message
+    assert "Keep the named holder running" in message
+    assert excinfo.value.local_port == PORT
+    assert excinfo.value.timeout == 0.2
+    assert f"holder pid={os.getpid()}" in excinfo.value.holder
 
 
 def test_lock_is_available_again_after_the_holder_leaves():
