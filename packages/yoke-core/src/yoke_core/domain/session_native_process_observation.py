@@ -23,6 +23,12 @@ NATIVE_PROCESS_GONE_EVIDENCE_COLUMN = "native_process_gone_evidence"
 NATIVE_PROCESS_OBSERVATION_COLUMN_DDL = "TEXT DEFAULT NULL"
 NATIVE_PROCESS_GONE_STATE = "gone"
 CLAIMS_HELD_STATUS = "claims_held"
+#: The session declared a wait about itself, so its row is resumable state
+#: rather than debris — the process being gone does not settle that wait.
+PARKED_STATUS = "parked"
+#: The session asked the steering role something and no answer has arrived.
+#: Ending it would drop the question along with the row that carries it.
+AWAITING_SEAT_REPLY_STATUS = "awaiting_seat_reply"
 
 
 def _decoded_evidence(value: Any) -> dict[str, Any]:
@@ -82,11 +88,13 @@ def current_native_process_observation(
 
 
 __all__ = [
+    "AWAITING_SEAT_REPLY_STATUS",
     "CLAIMS_HELD_STATUS",
     "NATIVE_PROCESS_GONE_AT_COLUMN",
     "NATIVE_PROCESS_GONE_EVIDENCE_COLUMN",
     "NATIVE_PROCESS_GONE_STATE",
     "NATIVE_PROCESS_OBSERVATION_COLUMN_DDL",
+    "PARKED_STATUS",
     "current_native_process_observation",
     "record_native_process_gone",
 ]

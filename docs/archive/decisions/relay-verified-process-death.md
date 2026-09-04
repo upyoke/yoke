@@ -3,18 +3,21 @@
 Decision recorded 2026-08-27.
 
 The holdings boundary was refined by
-[`relay-process-death-respects-session-holdings.md`](relay-process-death-respects-session-holdings.md).
+[`relay-process-death-respects-session-holdings.md`](relay-process-death-respects-session-holdings.md),
+and the staleness precondition by
+[`launch-named-process-death-needs-no-ttl.md`](launch-named-process-death-needs-no-ttl.md).
 
 ## Decision
 
 Each poll cycle, a machine's relay scans its own session process records
 and reports to the control plane every session whose recorded pid is no
 longer the recorded process. The control plane applies a report only when
-the session belongs to the reporting machine, sits in a project that relay
-is authorized for, and is already past the short stale TTL. It ends an empty
-session through `end_session` with `end_reason="process_verified_dead"`.
-A session with any current holding returns `claims_held`, records the
-observation, and stays live.
+the session belongs to the reporting machine and sits in a project that
+relay is authorized for. A report naming the launch the machine started
+applies immediately; one resting on a hook-written anchor alone still waits
+for the short stale TTL. It ends a settled session through `end_session`
+with `end_reason="process_verified_dead"`. A session with any current
+holding returns `claims_held`, records the observation, and stays live.
 
 A session with no local record at all proves nothing and is never
 reported. The stale-session cleanup sweep remains the backstop for
@@ -73,10 +76,10 @@ hears about every death observed while it could not.
 ## Why the report is not authority
 
 The relay says what it observed; the control plane decides. Machine
-ownership, project authorization, stale TTL, and the complete shared
-holdings projection all run server-side. A relay cannot end a session it
-does not run, one in a project it does not serve, one touched since the
-process died, or one that still holds authority. A session that fails any
+ownership, project authorization, the staleness precondition on an
+anchor-only report, and the complete shared holdings projection all run
+server-side. A relay cannot end a session it does not run, one in a project
+it does not serve, or one that still holds authority. A session that fails any
 check comes back with a named status rather than silence, because a silent
 no-op here is indistinguishable from the ghost this path exists to remove.
 

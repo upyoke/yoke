@@ -185,6 +185,40 @@ def drainable_rows(
     return drainable
 
 
+def session_awaiting_seat_reply(conn: Any, session_id: str) -> dict[str, Any] | None:
+    """The unanswered question this session asked the steering role, if any.
+
+    Asked, not merely said. A worker's terminal report is the overwhelmingly
+    common thing to send a seat and it waits on nothing, so counting it would
+    keep every finished worker's row alive forever -- the opposite of what
+    reading this predicate is for. :func:`message_asks` draws that line, and
+    an acknowledged row or an answer that already came back settles the rest.
+    """
+    from yoke_core.domain.steering_fleet_report_dead_waits import message_asks
+
+    marker = _marker(conn)
+    rows = conn.execute(
+        "SELECT r.message_id AS message_id, r.state AS state, "
+        "m.body AS body, m.created_at AS sent_at, "
+        "m.sender_session_id AS sender_session_id, "
+        "r.seat_session_id AS seat_session_id "
+        f"FROM {TABLE} r "
+        "JOIN session_messages m ON m.message_id = r.message_id "
+        f"WHERE r.recipient_kind = {marker} AND m.sender_session_id = {marker} "
+        f"AND m.cancelled_at IS NULL AND r.state <> {marker} "
+        "ORDER BY m.created_at DESC, r.message_id DESC",
+        (STEERING_KIND, str(session_id), STATE_ACKNOWLEDGED),
+    ).fetchall()
+    for raw in rows:
+        row = dict(raw)
+        if not message_asks(row.get("body")):
+            continue
+        if row.get("seat_session_id") and _seat_answered(conn, row):
+            continue
+        return {"message_id": str(row["message_id"]), "state": str(row["state"])}
+    return None
+
+
 def awaiting_seat_count(conn: Any, *, project_id: int, scope: Mapping[str, Any]) -> int:
     """How many role-addressed messages in this scope have no live seat."""
     return len(drainable_rows(conn, scope=scope, project_id=project_id))
@@ -288,4 +322,5 @@ __all__ = [
     "record_steering_recipient",
     "role_addressed_message_ids",
     "row_coverage_target",
+    "session_awaiting_seat_reply",
 ]
