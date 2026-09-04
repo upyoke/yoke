@@ -191,13 +191,14 @@ and names the check and its run.
 On each documented cadence the waiting client calls
 `merge_queue.landing.observe`. The server rate-limits concurrent callers to
 one project-wide GitHub sweep per cadence, refreshes every pending landing,
-and returns this lane's durable record: pull-request state, queue holding,
-named queue-entry state, merge-when-ready state, head SHA, failed checks, and
-refresh/change times. The waiting machine issues no `gh`, GitHub, or `git
-fetch` read loop. Landing-complete/stopped record changes still use the
-existing explicit session wake for a detached holder. The wrapper streams
-changed records and writes the exit sentinel that ends the follow; it never
-needs a hand-authored `gh` poll loop:
+and returns this lane's durable record. It preserves the same four-fact landing
+readback (armed, queued, eligible, required checks) as structured pull-request
+state, queue holding, named queue-entry state, merge-when-ready state, head SHA,
+failed checks, and refresh/change times. The waiting machine issues no `gh`,
+GitHub, or `git fetch` read loop. Landing-complete/stopped record changes still
+use the existing explicit session wake for a detached holder. The wrapper
+streams changed records and writes the exit sentinel that ends the follow; it
+never needs a hand-authored `gh` poll loop:
 
 ```text
 yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \

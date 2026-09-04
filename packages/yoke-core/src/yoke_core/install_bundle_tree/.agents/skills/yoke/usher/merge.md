@@ -226,7 +226,7 @@ step 7 spells out. Only `background-wake` may release the selector and expect
 its one armed subscription to resume the caller; `in-turn` is already blocking
 inside the original invocation and expects no later completion notice. Merged
 continues delivery in the same execution, a stopped landing rebases and
-re-gates, and only the poll budget running out parks with the state it
+re-gates, and only the record-wait budget running out parks with the state it
 observed. A point-in-time check is `yoke github merge-queue readiness PREFIX-N
 --json`; never infer a stop from null `autoMergeRequest`, because an
 `AWAITING_CHECKS`, `UNMERGEABLE`, or `MERGEABLE` queue entry means its arming
