@@ -5,6 +5,7 @@ import {
   renderMarkdown,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/markdown_view.js";
 import {
+  preciseAge,
   relativeTime,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_time.js";
 import {
@@ -88,4 +89,23 @@ test("relative timestamps preserve custom instant wording across toggles", () =>
   assert.equal(time.textContent, time.title);
   time.dispatchEvent(new Event("click"));
   assert.equal(time.textContent, "just now");
+});
+
+test("a seconds-granular age keeps the magnitude a minute would round away", () => {
+  const now = Date.parse("2026-09-04T12:00:00Z");
+  const ago = (seconds) => new Date(now - seconds * 1000).toISOString();
+
+  assert.equal(preciseAge(ago(0), now), "0s");
+  assert.equal(preciseAge(ago(12), now), "12s");
+  assert.equal(preciseAge(ago(59), now), "59s");
+  assert.equal(preciseAge(ago(60), now), "1m");
+  assert.equal(preciseAge(ago(3599), now), "59m");
+  assert.equal(preciseAge(ago(3600), now), "1h");
+  assert.equal(preciseAge(ago(86399), now), "23h");
+  assert.equal(preciseAge(ago(86400), now), "1d");
+  // A clock ahead of the record reads as brand new rather than negative.
+  assert.equal(preciseAge(new Date(now + 5000).toISOString(), now), "0s");
+  // Nothing to age is null, so a caller can leave the fact out entirely.
+  assert.equal(preciseAge(null, now), null);
+  assert.equal(preciseAge("not a timestamp", now), null);
 });
