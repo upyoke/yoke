@@ -17,7 +17,22 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional, Sequence
 
+from yoke_contracts.hook_evaluator_protocol import HOOK_CLIENT_TIMING_ID_FIELD
 from yoke_core.domain import db_backend
+
+
+def _client_timing_id(envelope: Dict[str, Any]) -> Optional[str]:
+    """Lift the hook client's correlation key out of the event context.
+
+    The completing wall-time report arrives in a later request and finds its
+    row by this indexed column. Reading it back out of the ``envelope`` JSON
+    would mean a substring scan of every telemetry row in the window.
+    """
+    context = envelope.get("context")
+    if not isinstance(context, dict):
+        return None
+    value = context.get(HOOK_CLIENT_TIMING_ID_FIELD)
+    return value if isinstance(value, str) and value else None
 
 
 def event_insert_params(
@@ -50,6 +65,7 @@ def event_insert_params(
         envelope.get("tool_use_id"),
         envelope.get("turn_id"),
         envelope.get("hook_event_name"),
+        _client_timing_id(envelope),
         envelope_json,
         envelope["created_at"],
     )

@@ -21,12 +21,15 @@ from typing import Iterator, List, Optional, Sequence
 from yoke_core.api.repo_root import find_repo_root
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES, iter_tree_files
+from yoke_project_checks._sql_literal_scan import (
+    python_literal_strings,
+    sql_executable_text,
+)
 
 
 HC_NAME = "HC-add-column-choke-point"
 HC_DESC = (
-    "Executable ADD COLUMN IF NOT EXISTS must go through the "
-    "catalog-then-add helper"
+    "Executable ADD COLUMN IF NOT EXISTS must go through the catalog-then-add helper"
 )
 
 CHOKE_POINT = "packages/yoke-core/src/yoke_core/domain/schema_common.py"
@@ -39,8 +42,6 @@ EXEMPT_RELPATHS = frozenset(
     }
 )
 _PHRASE_RE = re.compile(r"ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS", re.IGNORECASE)
-_SQL_LINE_COMMENT_RE = re.compile(r"--[^\n]*")
-_SQL_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -64,43 +65,6 @@ def _is_test_path(relative: Path) -> bool:
     return "tests" in relative.parts
 
 
-def _docstring_nodes(tree: ast.AST) -> set[int]:
-    nodes: set[int] = set()
-
-    def _first_string(body: list[ast.stmt]) -> None:
-        if (
-            body
-            and isinstance(body[0], ast.Expr)
-            and isinstance(body[0].value, ast.Constant)
-            and isinstance(body[0].value.value, str)
-        ):
-            nodes.add(id(body[0].value))
-
-    if isinstance(tree, ast.Module):
-        _first_string(tree.body)
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            _first_string(node.body)
-    return nodes
-
-
-def _literal_strings(tree: ast.AST) -> Iterator[tuple[int, str]]:
-    docstrings = _docstring_nodes(tree)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if id(node) in docstrings:
-                continue
-            yield node.lineno, node.value
-        elif isinstance(node, ast.JoinedStr):
-            parts = [
-                value.value
-                for value in node.values
-                if isinstance(value, ast.Constant) and isinstance(value.value, str)
-            ]
-            if parts:
-                yield node.lineno, "".join(parts)
-
-
 def _scan_python(repo_root: Path, path: Path) -> List[RawAddColumn]:
     try:
         source = path.read_text(encoding="utf-8")
@@ -115,14 +79,9 @@ def _scan_python(repo_root: Path, path: Path) -> List[RawAddColumn]:
     relpath = path.relative_to(repo_root).as_posix()
     return [
         RawAddColumn(relpath=relpath, line=lineno)
-        for lineno, text in _literal_strings(tree)
+        for lineno, text in python_literal_strings(tree)
         if _PHRASE_RE.search(text)
     ]
-
-
-def _sql_executable_text(source: str) -> str:
-    stripped = _SQL_BLOCK_COMMENT_RE.sub(" ", source)
-    return _SQL_LINE_COMMENT_RE.sub(" ", stripped)
 
 
 def _scan_sql(repo_root: Path, path: Path) -> List[RawAddColumn]:
@@ -130,13 +89,13 @@ def _scan_sql(repo_root: Path, path: Path) -> List[RawAddColumn]:
         source = path.read_text(encoding="utf-8")
     except OSError:
         return []
-    executable = _sql_executable_text(source)
+    executable = sql_executable_text(source)
     if not _PHRASE_RE.search(executable):
         return []
     relpath = path.relative_to(repo_root).as_posix()
     findings: List[RawAddColumn] = []
     for lineno, line in enumerate(source.splitlines(), start=1):
-        if _PHRASE_RE.search(_sql_executable_text(line)):
+        if _PHRASE_RE.search(sql_executable_text(line)):
             findings.append(RawAddColumn(relpath=relpath, line=lineno))
     return findings
 

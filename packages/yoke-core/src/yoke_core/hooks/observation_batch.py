@@ -15,6 +15,9 @@ from yoke_core.domain.events import build_envelope as build_event_envelope
 from yoke_core.domain.events_emit_write import _write_event
 from yoke_core.domain.events_retired_name_guard import assert_event_name_not_retired
 from yoke_core.domain.events_writes import check_severity_conn
+from yoke_core.domain.hook_observation_db_session import (
+    apply_hook_observation_statement_timeout,
+)
 from yoke_core.domain.observe_anomaly import detect_anomalies
 from yoke_core.domain.observe_event_emission import (
     build_envelope as build_tool_envelope,
@@ -251,6 +254,7 @@ def persist_observation_batch(
     accepted = 0
     model_confirmations: dict[str, str] = {}
     try:
+        apply_hook_observation_statement_timeout(conn)
         for observation in observations:
             observation_id = str(observation.get("observation_id") or "").strip()
             if not observation_id:

@@ -32,11 +32,12 @@ exit_code INTEGER -- process exit code
 trace_id TEXT -- distributed trace ID
 anomaly_flags TEXT -- → JSONB on Postgres (array shape); today a comma-separated anomaly-flag list per `docs/event-contract.md` (e.g., 'nonzero_exit,retry_loop')
 tool_use_id TEXT -- target first-class dedup key for tool-call events; current live coverage is still incomplete
+client_timing_id TEXT -- key a hook client minted for its own dispatch, so the wall time it reports afterwards finds this row by index; cleared once that report lands
 envelope TEXT -- → JSONB on Postgres; full JSON envelope for lossless storage
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-**Indexes:** `source_type`, `session_id`, `event_name`, `created_at`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` on DBs with the full correlation surface.
+**Indexes:** `source_type`, `session_id`, `event_name`, `created_at`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` and the partial correlation index `(client_timing_id) WHERE client_timing_id IS NOT NULL` on DBs with the full correlation surface. Correlate through an indexed column; matching a substring of `envelope` with LIKE has no index to use and reads every row the other predicates admit.
 
 Engine identity is actor-only. Historical JSON envelopes may retain a null
 human-user key, but fresh schemas, writers, readers, and filters do not expose

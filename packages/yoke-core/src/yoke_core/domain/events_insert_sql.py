@@ -10,7 +10,7 @@ INSERT INTO events (
     service, project_id,
     actor_id, item_id, task_num, agent, tool_name, duration_ms, exit_code,
     trace_id, anomaly_flags, tool_use_id,
-    turn_id, hook_event_name,
+    turn_id, hook_event_name, client_timing_id,
     envelope, created_at
 ) VALUES (
     %s, %s, %s, %s, %s,
@@ -18,7 +18,7 @@ INSERT INTO events (
     %s, %s,
     %s, %s, %s, %s, %s, %s, %s,
     %s, %s, %s,
-    %s, %s,
+    %s, %s, %s,
     %s, %s
 )
 ON CONFLICT(event_id) DO NOTHING

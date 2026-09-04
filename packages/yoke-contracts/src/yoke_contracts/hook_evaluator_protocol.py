@@ -18,6 +18,10 @@ HOOK_OBSERVATION_BATCH_CAPABILITY = "read_only_observation_batch_v1"
 HOOK_CLIENT_WALL_CAPABILITY = "hook_client_wall_v1"
 HOOK_CLIENT_WALL_BATCH_FIELD = "client_wall_reports"
 HOOK_CLIENT_WALL_PATH = "/v1/hooks/telemetry/client-wall"
+# Correlation key the hook client mints for its own dispatch. It travels in
+# the telemetry context and is copied into the indexed ``events`` column of
+# the same name, which is how the completing wall-time report finds its row.
+HOOK_CLIENT_TIMING_ID_FIELD = "client_timing_id"
 HOOK_EVALUATOR_CAPABILITIES = (
     HOOK_OBSERVATION_BATCH_CAPABILITY,
     HOOK_CLIENT_WALL_CAPABILITY,
@@ -220,7 +224,7 @@ def attach_evaluator_metadata(
     }
     if client_timing_id:
         try:
-            metadata["client_timing_id"] = _event_id(client_timing_id)
+            metadata[HOOK_CLIENT_TIMING_ID_FIELD] = _event_id(client_timing_id)
         except HookEvaluatorProtocolError:
             pass
     if fallback_reason:
@@ -250,7 +254,9 @@ def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
         ),
     }
     try:
-        fields["client_timing_id"] = _event_id(metadata.get("client_timing_id"))
+        fields[HOOK_CLIENT_TIMING_ID_FIELD] = _event_id(
+            metadata.get(HOOK_CLIENT_TIMING_ID_FIELD)
+        )
     except HookEvaluatorProtocolError:
         pass
     fallback_reason = metadata.get("fallback_reason")
@@ -261,6 +267,7 @@ def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
 
 __all__ = [
     "EVALUATOR_PAYLOAD_KEY",
+    "HOOK_CLIENT_TIMING_ID_FIELD",
     "HOOK_CLIENT_WALL_BATCH_FIELD",
     "HOOK_CLIENT_WALL_CAPABILITY",
     "HOOK_CLIENT_WALL_PATH",
