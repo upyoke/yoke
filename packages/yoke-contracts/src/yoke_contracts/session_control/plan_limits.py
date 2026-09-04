@@ -5,9 +5,9 @@ vendor publishes several meters at once and only one of them binds. Claude
 publishes a rolling five-hour session meter plus two weekly meters — one for
 all models and one scoped to a named model family; Codex publishes a primary
 and a secondary window per limit bucket, and one bucket per model family;
-Cursor publishes a single monthly plan-spend meter. Collapsing those to the
-one with the least left is how a scoped weekly wall stayed invisible until an
-operator hit it.
+Cursor publishes separate monthly included-usage pools for Cursor Models and
+Other Models. Collapsing those to one blended percentage hides the pool a
+requested model actually draws from.
 
 Status and reason live on the window rather than the surface, so a surface
 that could not be read is one window that names its own refusal. That also
@@ -28,6 +28,9 @@ PLAN_LIMIT_WINDOW_KINDS = frozenset({"rolling_5h", "rolling_7d", "monthly", "unk
 # The scope sentinel for a meter that covers every model, as opposed to one
 # named for a model family ("Fable", "GPT-5.3-Codex-Spark").
 ALL_MODELS_SCOPE = "all"
+CURSOR_MODELS_SCOPE = "Cursor Models"
+CURSOR_OTHER_MODELS_SCOPE = "Other Models"
+CURSOR_MODELS_PREFIXES = ("cursor-grok-", "composer-")
 
 # A vendor that starts publishing a bucket per model must not be able to grow
 # one machine row without bound.
@@ -43,6 +46,7 @@ WINDOWS_UNREADABLE_REASON = "plan_limit_windows_unreadable"
 _WINDOW_KEYS = (
     "window_kind",
     "scope",
+    "meter",
     "remaining_percent",
     "resets_at",
     "status",
@@ -79,6 +83,7 @@ def plan_limit_window(
     *,
     window_kind: str,
     scope: str,
+    meter: str,
     remaining_percent: float,
     resets_at: str | None,
 ) -> dict[str, Any]:
@@ -86,6 +91,7 @@ def plan_limit_window(
     return {
         "window_kind": window_kind,
         "scope": scope,
+        "meter": meter,
         "remaining_percent": remaining_percent,
         "resets_at": resets_at,
         "status": "ok",
@@ -97,6 +103,7 @@ def unknown_window(reason: str) -> dict[str, Any]:
     return {
         "window_kind": "unknown",
         "scope": ALL_MODELS_SCOPE,
+        "meter": "unknown",
         "remaining_percent": None,
         "resets_at": None,
         "status": "unknown",
@@ -171,11 +178,20 @@ def _sanitize_window(raw: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "window_kind": window_kind,
         "scope": _clip(raw.get("scope")) or ALL_MODELS_SCOPE,
+        "meter": _clip(raw.get("meter")) or "unknown",
         "remaining_percent": remaining_percent,
         "resets_at": _clip(raw.get("resets_at")),
         "status": status,
         "reason": _clip(raw.get("reason")),
     }
+
+
+def cursor_scope_for_model(model: object) -> str:
+    """Resolve Cursor's billed pool with the provider's model-prefix rule."""
+    value = str(model or "").strip().lower()
+    if any(value.startswith(prefix) for prefix in CURSOR_MODELS_PREFIXES):
+        return CURSOR_MODELS_SCOPE
+    return CURSOR_OTHER_MODELS_SCOPE
 
 
 def _sanitize_windows(raw: Any) -> list[dict[str, Any]]:
@@ -217,11 +233,15 @@ def sanitize_plan_limits(raw: Mapping[str, Any] | None) -> dict[str, dict[str, A
 __all__ = [
     "ALL_MODELS_SCOPE",
     "CLI_PLAN_LIMIT_SURFACES",
+    "CURSOR_MODELS_PREFIXES",
+    "CURSOR_MODELS_SCOPE",
+    "CURSOR_OTHER_MODELS_SCOPE",
     "MAX_WINDOWS_PER_SURFACE",
     "PLAN_LIMIT_STATUSES",
     "PLAN_LIMIT_WINDOW_KINDS",
     "RELAY_PREDATES_WINDOWS_REASON",
     "WINDOWS_UNREADABLE_REASON",
+    "cursor_scope_for_model",
     "iso_from_epoch_ms",
     "iso_from_epoch_seconds",
     "plan_limit_window",

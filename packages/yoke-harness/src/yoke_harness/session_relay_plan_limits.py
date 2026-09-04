@@ -35,7 +35,7 @@ PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
 # different shape is discarded rather than reported, so an upgraded relay
 # publishes real windows on its first poll instead of unreadable ones for
 # the rest of the refresh interval.
-PLAN_LIMIT_CACHE_SCHEMA_VERSION = 2
+PLAN_LIMIT_CACHE_SCHEMA_VERSION = 3
 _CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 _CURSOR_RPC = "https://api2.cursor.sh/aiserver.v1.DashboardService/"
 

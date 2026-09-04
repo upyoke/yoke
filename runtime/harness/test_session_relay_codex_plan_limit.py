@@ -111,6 +111,7 @@ def test_app_server_read_uses_the_proven_client_and_returns_the_bucket(
         {
             "window_kind": "rolling_7d",
             "scope": "all",
+            "meter": "rateLimitsByLimitId.codex.primary",
             "remaining_percent": 88.0,
             "resets_at": "2026-09-05T21:28:12Z",
             "status": "ok",
