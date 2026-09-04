@@ -11,6 +11,7 @@ from yoke_core.domain.actors import ActorError
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
+from yoke_contracts.session_control.relay_health import sanitize_relay_health
 
 
 def _value(row: Any, key: str, index: int) -> Any:
@@ -68,7 +69,7 @@ def list_visible_relays(
     rows = conn.execute(
         "SELECT relay_id,machine_id,hostname,relay_version,surface_versions,"
         "project_checkouts,first_seen_at,last_seen_at,connected_until,state,"
-        "last_job_at,actor_id FROM session_relays"
+        "last_job_at,actor_id,relay_health FROM session_relays"
         + where
         + " ORDER BY last_seen_at DESC,relay_id",
         tuple(params),
@@ -119,6 +120,9 @@ def list_visible_relays(
                 else "silent",
                 "state": str(_value(row, "state", 9)),
                 "last_job_at": _value(row, "last_job_at", 10),
+                "relay_health": sanitize_relay_health(
+                    _document(_value(row, "relay_health", 12), {})
+                ),
                 "surface_policies": marks_by_machine.get(
                     str(_value(row, "machine_id", 1)), []
                 ),

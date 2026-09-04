@@ -26,6 +26,9 @@ from yoke_core.domain.handlers import session_relay as _relay
 from yoke_core.domain.handlers import session_relay_idle_hosts as _idle_hosts
 from yoke_contracts.session_control import native_turn_end as _turn_end
 from yoke_core.domain.session_idle_host_report import EVENT_NATIVE_HOST_RECLAIMED
+from yoke_core.domain.session_relay_health_events import (
+    EVENT_RELAY_REPORT_QUARANTINED,
+)
 from yoke_core.domain.session_native_turn_end import EVENT_SESSION_TURN_END_OBSERVED
 from yoke_core.domain.handlers import session_termination as _termination
 from yoke_core.domain.handlers import session_wake as _wake
@@ -209,9 +212,11 @@ def register(registry) -> None:
             "session_relays_upsert",
             "session_control_jobs_lease",
             "work_claims_update_released_at",
+            "events_insert",
         ],
         owner_module=_relay.__name__,
         adapter_status="internal",
+        emitted_event_names=["YokeFunctionCalled", EVENT_RELAY_REPORT_QUARANTINED],
     )
     _register(
         registry,

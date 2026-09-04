@@ -218,6 +218,14 @@ _CREATE_NONE_REASONS = {
     ),
 }
 
+_MANUAL_START_RECOVERY = (
+    "Recovery: verify the machine with `yoke relay status`. If relay launch "
+    "delivery is unavailable, start a normal harness session by hand, run "
+    "`yoke sessions touch --mode MODE`, then acquire the item with "
+    "`yoke claims work acquire --item PREFIX-N --reason REASON`; no launch "
+    "record is expected for that session."
+)
+
 
 def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
     prefix = f"launch refused with outcome {preview.outcome}"
@@ -231,16 +239,21 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
         return f"{prefix}: {reason}"
     if preview.outcome == MACHINE_AT_CAPACITY:
         return f"{prefix}: {capacity_refusal(preview.machine_capacity)}"
+    manual_recovery = preview.outcome == "no_eligible_relay" or (
+        "liveness_expired" in set(preview.rejection_codes)
+    )
     if preview.placement_reason:
         # Placement already refused in a full sentence naming each machine it
         # weighed; the rejection codes describe eligibility, which passed.
-        return f"{prefix}: {preview.placement_reason}"
+        suffix = f" {_MANUAL_START_RECOVERY}" if manual_recovery else ""
+        return f"{prefix}: {preview.placement_reason}{suffix}"
     if SURFACE_DISABLED_REJECTION not in preview.rejection_codes:
         codes = ", ".join(preview.rejection_codes) or "no relay evidence"
         # A code alone ("machine_access_denied") does not tell the operator
         # which setting to change; the detail carries that name.
         detail = "; ".join(preview.rejection_details)
-        return f"{prefix}: {codes}" + (f" — {detail}" if detail else "")
+        message = f"{prefix}: {codes}" + (f" — {detail}" if detail else "")
+        return f"{message}. {_MANUAL_START_RECOVERY}" if manual_recovery else message
     considered = set(preview.considered_machine_ids)
     details = [
         mark_refusal_text(mark)
@@ -249,7 +262,10 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
     ]
     if not details:
         details = [mark_refusal_text(mark) for mark in list_marks(conn)]
-    return f"{prefix}: {'; '.join(details) or SURFACE_DISABLED_REJECTION}"
+    suffix = f" {_MANUAL_START_RECOVERY}" if manual_recovery else ""
+    return (
+        f"{prefix}: {'; '.join(details) or SURFACE_DISABLED_REJECTION}.{suffix}"
+    ).rstrip(".")
 
 
 __all__ = [

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import replace
 from functools import partial
 import logging
 from pathlib import Path
@@ -19,10 +19,20 @@ from yoke_contracts.session_control.function_ids import (
     RELAY_CLAIM_FUNCTION_ID,
     RELAY_REPORT_FUNCTION_ID,
 )
+from yoke_contracts.session_control.relay_health import (
+    RELAY_NEWER_THAN_SERVER,
+    RELAY_NEWER_THAN_SERVER_RECOVERY,
+)
 from yoke_harness.session_relay_diagnostic_retention import retain_private_diagnostic
+from yoke_harness.session_relay_build_compatibility import (
+    refresh_relay_build_compatibility,
+    refusal_from_health,
+)
+from yoke_harness.session_relay_health import observe_relay_health
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
 from yoke_harness.session_relay_claude_idle_hosts import reclaim_idle_claude_hosts
 from yoke_harness.session_relay_native_turn_end import report_native_turn_ends
+from yoke_harness.session_relay_outcomes import ServeOnceJobOutcome, ServeOnceOutcome
 from yoke_harness.session_relay_process_liveness import report_verified_dead_sessions
 from yoke_harness.session_relay_report_delivery import (
     RELAY_REPORT_TIMEOUT_SECONDS,
@@ -31,8 +41,8 @@ from yoke_harness.session_relay_report_delivery import (
     checkpoint_launch_start,
     deliver_terminal_report,
     diagnostic_outcome_fields,
-    retry_pending_reports,
 )
+from yoke_harness.session_relay_report_retry import retry_pending_reports
 from yoke_harness.session_relay_resume_settlement import settle_finished_native_resumes
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
 from yoke_harness.session_relay_schedule import (
@@ -49,39 +59,8 @@ RELAY_DISPATCH_TIMEOUT_SECONDS = int(_POLL_POLICY.default) + int(
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class ServeOnceJobOutcome:
-    """One job's sanitized result; never carries prompts, bodies, or tokens."""
-
-    state: str
-    job_kind: str | None = None
-    job_id: str | None = None
-    result_code: str | None = None
-    error_code: str | None = None
-    relay_id: str | None = None
-    machine_id: str | None = None
-    native_diagnostic_ref: str | None = None
-    native_diagnostic_command: str | None = None
-    diagnostic_expires_at: int | None = None
-    diagnostic_availability: str | None = None
-    native_error_class: str | None = None
-    native_error_step: str | None = None
-
-
-@dataclass(frozen=True)
-class ServeOnceOutcome:
-    """Sanitized process outcome; never carries prompts, bodies, or tokens."""
-
-    state: str
-    next_poll_seconds: int = 0
-    error_code: str | None = None
-    jobs: tuple[ServeOnceJobOutcome, ...] = ()
-
-
 Dispatcher = Callable[..., Any]
 JobRunner = Callable[[Mapping[str, Any]], RelayAdapterResult]
-# Hands one leased job's settlement off to a caller that owns its lifetime and
-# keeps polling meanwhile; the default settles inline, as a one-shot run must.
 JobDispatch = Callable[[Callable[[], "ServeOnceJobOutcome"]], None]
 
 
@@ -178,12 +157,26 @@ def _poll(
     dispatch_job: JobDispatch | None = None,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
-    if not retry_pending_reports(
+    inventory = replace(inventory, relay_health=observe_relay_health(state_dir))
+    refusal = refusal_from_health(inventory.relay_health)
+    if refusal is not None:
+        return ServeOnceOutcome(
+            RELAY_NEWER_THAN_SERVER,
+            int(_POLL_POLICY.default),
+            error_code=RELAY_NEWER_THAN_SERVER,
+            error_detail=refusal.message,
+            local_revision=refusal.local_revision,
+            server_revision=refusal.server_revision,
+            recovery=RELAY_NEWER_THAN_SERVER_RECOVERY,
+        )
+    reports_drained = retry_pending_reports(
         dispatcher,
         RELAY_REPORT_FUNCTION_ID,
         state_dir=state_dir,
         timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
-    ):
+    )
+    inventory = replace(inventory, relay_health=observe_relay_health(state_dir))
+    if not reports_drained:
         return ServeOnceOutcome(
             "report_failed",
             REPORT_RETRY_SECONDS,
@@ -253,7 +246,7 @@ def run_serve_cycle(
     state_dir: Path | None = None,
     inventory_provider: Callable[[], RelayInventory] = collect_inventory,
     inventory_refresher: Callable[[], object] | None = None,
-    dispatcher: Dispatcher = call_dispatcher,
+    dispatcher: Dispatcher | None = None,
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
     broker_only: bool = False,
@@ -269,6 +262,14 @@ def run_serve_cycle(
     started_at = clock()
     if not broker_only and not poll_is_due(state_dir, now=started_at):
         return ServeOnceOutcome("backoff")
+    default_dispatcher = dispatcher is None
+    dispatcher = dispatcher or call_dispatcher
+    if default_dispatcher:
+        refresh_relay_build_compatibility(
+            dispatcher,
+            state_dir=state_dir,
+            timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
+        )
     inventory = inventory_provider()
     pool = ThreadPoolExecutor(max_workers=1) if inventory_refresher else None
     refresh = pool.submit(inventory_refresher) if pool else None
@@ -305,7 +306,7 @@ def serve_once(
     state_dir: Path | None = None,
     inventory_provider: Callable[[], RelayInventory] = collect_inventory,
     inventory_refresher: Callable[[], object] | None = None,
-    dispatcher: Dispatcher = call_dispatcher,
+    dispatcher: Dispatcher | None = None,
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
     broker_only: bool = False,

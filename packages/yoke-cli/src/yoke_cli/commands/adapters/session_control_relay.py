@@ -1,10 +1,4 @@
-"""Machine-local CLI lifecycle for the standing fleet relay.
-
-``serve`` is the installed service: one standing process per machine.
-``serve-once`` remains the manual and broker one-shot — the one-hop
-broker contract hands a peer session an exact lease to serve right now,
-which is a single transaction, not a service.
-"""
+"""Machine-local CLI lifecycle for the standing fleet relay."""
 
 from __future__ import annotations
 
@@ -22,6 +16,7 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
     write_relay_summary,
 )
 from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
+from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_contracts.session_execution import is_subagent_execution
 
 
@@ -48,11 +43,7 @@ def _plist_operation(action: str) -> Any:
 
 
 def _contain_stranded_natives() -> None:
-    """Terminate unsupervised launches and inactive detached resumes.
-
-    The relay owns machine-local custody, so the sweep runs on its cadence
-    rather than waiting for an operator to notice an uncontrolled native.
-    """
+    """Terminate unsupervised launches and inactive detached resumes."""
     from yoke_harness.session_launch_containment_sweep import (
         contain_stranded_launch_natives,
     )
@@ -143,11 +134,22 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
         "plist_path": str(status.plist_path),
         "state_dir": str(status.state_dir) if status.state_dir else None,
     }
+    if action == "status" and status.state_dir:
+        from yoke_harness.session_relay_health import (
+            observe_relay_health,
+            relay_health_recovery,
+        )
+
+        health = observe_relay_health(status.state_dir)
+        payload["relay_health"] = health
+        payload["relay_health_recovery"] = relay_health_recovery(health)
     _emit(payload, json_mode=parsed.json_mode, title=f"RELAY {action.upper()}")
     if not status.supported:
         return 1
-    if action == "status" and not (
-        status.plist_present and status.plist_current and status.loaded
+    healthy = payload.get("relay_health", {}).get("state", "healthy") == "healthy"
+    if action == "status" and (
+        not (status.plist_present and status.plist_current and status.loaded)
+        or not healthy
     ):
         return 1
     return 0
@@ -215,7 +217,8 @@ def relay_serve_once(args: List[str]) -> int:
     _emit(payload, json_mode=parsed.json_mode, title="RELAY POLL")
     # A reported native failure is a settled relay transaction, not a request to
     # rerun the native action. Only a failed control-plane boundary exits nonzero.
-    return 1 if str(payload.get("state") or "").endswith("_failed") else 0
+    state = str(payload.get("state") or "")
+    return 1 if state.endswith("_failed") or state == RELAY_NEWER_THAN_SERVER else 0
 
 
 def relay_serve(args: List[str]) -> int:

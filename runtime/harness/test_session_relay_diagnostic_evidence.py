@@ -43,6 +43,11 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
     }
 
     def dispatch(**kwargs):
+        if kwargs["function_id"] not in {
+            session_relay.RELAY_CLAIM_FUNCTION_ID,
+            session_relay.RELAY_REPORT_FUNCTION_ID,
+        }:
+            return SimpleNamespace(success=True, result={})
         calls.append(kwargs)
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(

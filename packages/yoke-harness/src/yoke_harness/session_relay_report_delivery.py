@@ -17,16 +17,23 @@ from yoke_contracts.session_control.launch_registration import (
 )
 from yoke_harness.session_relay_schedule import relay_state_dir
 from yoke_harness.session_relay_runtime import RelayAdapterResult
+from yoke_harness.session_relay_report_payload import (
+    diagnostic_outcome_fields,
+    launch_payload as _launch_payload,
+)
+from yoke_harness.session_relay_health import (
+    PENDING_REPORT_DIR_NAME,
+    REPORT_QUARANTINE_ATTEMPTS,
+    clear_report_attempt,
+    clear_report_failure_if_drained,
+    quarantine_report,
+    record_rejected_attempt,
+    record_report_failure,
+)
 
 
-PENDING_REPORT_DIR_NAME = "pending-reports"
 REPORT_RETRY_SECONDS = 1
-
-# How long one report dispatch may take. Every relay report is a small
-# control-plane write, so the same bound covers them all.
-RELAY_REPORT_TIMEOUT_SECONDS = 10
-
-
+RELAY_REPORT_TIMEOUT_SECONDS = 10  # Reports are small control-plane writes.
 Dispatcher = Callable[..., Any]
 
 
@@ -113,9 +120,31 @@ def deliver_terminal_report(
     try:
         response = _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)
     except Exception as exc:
+        record_report_failure(state_dir, error_code="transport_error")
         return exc
     if getattr(response, "success", False):
         pending.unlink(missing_ok=True)
+        clear_report_attempt(pending, state_dir)
+        clear_report_failure_if_drained(state_dir)
+        return response
+    from yoke_harness.session_relay_report_retry import (
+        is_permanent_report_rejection,
+        response_error_code,
+    )
+
+    code = response_error_code(response)
+    if is_permanent_report_rejection(response):
+        attempts = record_rejected_attempt(pending, state_dir, error_code=code)
+        if attempts >= REPORT_QUARANTINE_ATTEMPTS:
+            quarantine_report(
+                pending,
+                safe,
+                state_dir,
+                error_code=code,
+                attempts=attempts,
+            )
+    else:
+        record_report_failure(state_dir, error_code=code)
     return response
 
 
@@ -209,23 +238,6 @@ def attach_launch_progress_reporter(
     return runnable
 
 
-def _launch_payload(
-    relay_id: str,
-    job: Mapping[str, object],
-    result: RelayAdapterResult,
-) -> dict[str, object]:
-    return {
-        "relay_id": relay_id,
-        "job_kind": "launch",
-        "job_id": str(job.get("job_id") or ""),
-        "lease_id": str(job.get("lease_id") or ""),
-        "result": result.result_code,
-        "native_id": result.native_session_id,
-        "adapter_revision": result.adapter_revision,
-        "evidence": result.evidence,
-    }
-
-
 def checkpoint_launch_start(
     dispatcher: Dispatcher,
     function_id: str,
@@ -251,7 +263,11 @@ def checkpoint_launch_start(
         timeout_s=timeout_s,
     )
     return attach_launch_progress_reporter(
-        dispatcher, function_id, relay_id, job, timeout_s=timeout_s
+        dispatcher,
+        function_id,
+        relay_id,
+        job,
+        timeout_s=timeout_s,
     )
 
 
@@ -283,68 +299,12 @@ def checkpoint_launch_result(
     return prepared
 
 
-def diagnostic_outcome_fields(
-    relay_id: str,
-    machine_id: str,
-    result: RelayAdapterResult,
-) -> dict[str, object]:
-    evidence = redacted_evidence_document(result.evidence)
-    reference = evidence.get("native_diagnostic_ref")
-    failure_class = evidence.get("native_error_class")
-    availability = evidence.get("diagnostic_availability")
-    if not any((reference, failure_class, availability)):
-        return {}
-    return {
-        "relay_id": relay_id,
-        "machine_id": machine_id,
-        "native_diagnostic_ref": reference if isinstance(reference, str) else None,
-        "native_diagnostic_command": evidence.get("native_diagnostic_command"),
-        "diagnostic_expires_at": evidence.get("diagnostic_expires_at"),
-        "diagnostic_availability": availability,
-        "native_error_class": failure_class,
-        "native_error_step": evidence.get("native_error_step"),
-    }
-
-
-def retry_pending_reports(
-    dispatcher: Dispatcher,
-    function_id: str,
-    *,
-    state_dir: Path | None,
-    timeout_s: int,
-) -> bool:
-    """Drain reports left by a prior transport failure or process exit."""
-    directory = _directory(state_dir)
-    all_delivered = True
-    for path in sorted(directory.glob("*.json")):
-        try:
-            safe = _safe_payload(json.loads(path.read_text(encoding="utf-8")))
-        except (OSError, ValueError):
-            safe = None
-        if safe is None:
-            path.unlink(missing_ok=True)
-            continue
-        try:
-            response = _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)
-        except Exception:
-            all_delivered = False
-            continue
-        if getattr(response, "success", False):
-            path.unlink(missing_ok=True)
-        else:
-            all_delivered = False
-    return all_delivered
-
-
 __all__ = [
     "RELAY_REPORT_TIMEOUT_SECONDS",
     "PENDING_REPORT_DIR_NAME",
     "REPORT_RETRY_SECONDS",
-    "attach_launch_progress_reporter",
     "checkpoint_launch_result",
     "checkpoint_launch_start",
     "deliver_terminal_report",
     "diagnostic_outcome_fields",
-    "report_launch_progress",
-    "retry_pending_reports",
 ]

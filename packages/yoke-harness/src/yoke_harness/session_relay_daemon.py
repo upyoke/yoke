@@ -36,6 +36,7 @@ import threading
 import time
 from typing import Callable, Sequence
 
+from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_harness.session_relay import ServeOnceOutcome, run_serve_cycle
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_schedule import relay_run_lock
@@ -249,9 +250,12 @@ def _serve_under_lock(
                     last_state = "poll_failed"
                 else:
                     last_state = str(getattr(outcome, "state", ""))
-                    if last_state == "claim_failed":
+                    if last_state in {"claim_failed", RELAY_NEWER_THAN_SERVER}:
                         failures.failed(
-                            "poll", getattr(outcome, "error_code", None) or last_state
+                            "poll",
+                            getattr(outcome, "error_detail", None)
+                            or getattr(outcome, "error_code", None)
+                            or last_state,
                         )
                     elif last_state == "report_failed":
                         failures.failed(

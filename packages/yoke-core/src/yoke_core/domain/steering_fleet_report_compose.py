@@ -46,6 +46,7 @@ from yoke_core.domain.steering_fleet_report_render import (
     launchable_line,
     scope_inner_body,
 )
+from yoke_core.domain.steering_fleet_report_relay_health import relay_health_lines
 
 
 COMBINED_PREAMBLE = (
@@ -182,6 +183,8 @@ def _distinct_machine_ids(reports: Sequence[FleetReport]) -> list[str]:
             ids.add(row.machine_id)
         for entry in report.machine_capacity:
             ids.add(entry.machine_id)
+        for entry in report.relay_health:
+            ids.add(entry.machine_id)
     return sorted(ids)
 
 
@@ -243,6 +246,14 @@ def _machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[s
             lines.append(f"  {capacity_line(capacity)}")
         if ready:
             lines.append(f"  {LAUNCH_BALANCE_NOTE}")
+        conditions_by_relay = {
+            entry.relay_id: entry
+            for report in reports
+            for entry in report.relay_health
+            if entry.machine_id == machine_id
+        }
+        conditions = tuple(conditions_by_relay.values())
+        lines.extend(relay_health_lines(conditions, machine_id=machine_id))
         lines.extend(
             _plan_limits.plan_limit_lines(
                 _machine_plan_limits(reports, machine_id), now=now

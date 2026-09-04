@@ -37,6 +37,7 @@ class ClaimHolder:
     last_activity_at: str
     idle_seconds: int
     native_process_gone_at: str = ""
+    hand_started: bool = False
 
     @property
     def native_process_gone(self) -> bool:
@@ -78,7 +79,9 @@ def claim_holders(
     placeholders = ",".join(marker for _ in session_ids)
     rows = conn.execute(
         "SELECT session_id,mode,last_tool_call_at,last_heartbeat,episode_started_at,"
-        "native_process_gone_at,native_process_gone_evidence "
+        "native_process_gone_at,native_process_gone_evidence,"
+        "EXISTS(SELECT 1 FROM session_launches l "
+        "WHERE l.registered_session_id=harness_sessions.session_id) AS launch_recorded "
         "FROM harness_sessions "
         f"WHERE session_id IN ({placeholders}) AND ended_at IS NULL "
         "AND terminated_at IS NULL",
@@ -109,10 +112,10 @@ def claim_holders(
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,
                 native_process_gone_at=str(process.get("observed_at") or ""),
+                hand_started=not bool(record.get("launch_recorded")),
             )
         )
     return tuple(holders)
-
 
 
 __all__ = ["ClaimHolder", "claim_holders"]

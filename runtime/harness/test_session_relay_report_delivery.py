@@ -11,8 +11,8 @@ from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_report_delivery import (
     PENDING_REPORT_DIR_NAME,
     deliver_terminal_report,
-    retry_pending_reports,
 )
+from yoke_harness.session_relay_report_retry import retry_pending_reports
 from yoke_harness.session_relay_runtime import RelayAdapterResult
 
 
@@ -120,6 +120,11 @@ def test_every_launch_reports_start_and_terminal_phase_before_completion(
     calls = []
 
     def dispatch(**kwargs):
+        if kwargs["function_id"] not in {
+            session_relay.RELAY_CLAIM_FUNCTION_ID,
+            session_relay.RELAY_REPORT_FUNCTION_ID,
+        }:
+            return SimpleNamespace(success=True, result={})
         calls.append(kwargs)
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(
@@ -171,6 +176,11 @@ def test_launch_registration_resolver_returns_the_server_candidate(
     calls = []
 
     def dispatch(**kwargs):
+        if kwargs["function_id"] not in {
+            session_relay.RELAY_CLAIM_FUNCTION_ID,
+            session_relay.RELAY_REPORT_FUNCTION_ID,
+        }:
+            return SimpleNamespace(success=True, result={})
         calls.append(kwargs)
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(
@@ -234,6 +244,11 @@ def test_next_poll_drains_a_terminal_report_before_claiming_more_work(
     def dispatch(**kwargs):
         nonlocal claimed, terminal_attempts
         payload = kwargs["payload"]
+        if kwargs["function_id"] not in {
+            session_relay.RELAY_CLAIM_FUNCTION_ID,
+            session_relay.RELAY_REPORT_FUNCTION_ID,
+        }:
+            return SimpleNamespace(success=True, result={})
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             claimed += 1
             jobs = [_job()] if claimed == 1 else []

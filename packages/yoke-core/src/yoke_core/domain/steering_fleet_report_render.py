@@ -35,6 +35,7 @@ from yoke_core.domain.steering_fleet_report_sections import (
     CLAIMS_HEADING,
     unlisted_holders,
 )
+from yoke_core.domain.steering_fleet_report_relay_health import relay_health_lines
 
 
 REPORT_BEGIN = "=== BEGIN YOKE FLEET REPORT ==="
@@ -78,6 +79,8 @@ def _holder_lines(
             f"  {holder.public_ref}  session {holder.session_id}  mode "
             f"{holder.mode or 'unset'}  quiet {minutes(holder.idle_seconds)}"
         )
+        if holder.hand_started:
+            line += "  hand-started (no launch record)"
         if holder.native_process_gone:
             line += "  process gone, claims held — terminate deliberately if dead"
         elif with_wake:
@@ -254,6 +257,7 @@ def report_body(report: FleetReport) -> str:
         "",
         *_scope_work_lines(report),
         launchable_line(report.launchable, machine_names=dict(report.machine_names)),
+        *relay_health_lines(report.relay_health),
         *_launch_balance_lines(report, note=True),
         *_plan_limits.plan_limit_lines(report.plan_limits, now=report.composed_at),
         REPORT_END,

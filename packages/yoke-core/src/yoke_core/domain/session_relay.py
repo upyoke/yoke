@@ -9,6 +9,7 @@ from typing import Any, Callable, Mapping
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
+from yoke_contracts.session_control.relay_health import relay_refuses_jobs
 from yoke_core.domain.session_evidence_fetch import (
     expire_stale_evidence_requests,
 )
@@ -86,13 +87,21 @@ def claim_relay_job(
     )
     policy = effective_relay_policy(conn, heartbeat.project_ids)
     current = now_provider()
-    heartbeat_relay(
+    connected = heartbeat_relay(
         conn,
         heartbeat,
         state="active",
         next_poll_seconds=policy.poll_seconds,
         now=current,
     )
+    if relay_refuses_jobs(heartbeat.relay_health):
+        return RelayClaimOutcome(
+            relay_id=heartbeat.relay_id,
+            machine_id=heartbeat.machine_id,
+            state="active",
+            connected_until=connected,
+            next_poll_seconds=policy.poll_seconds,
+        )
     from yoke_core.domain.session_wake_reconciliation import (
         reconcile_spawned_wake_attempts,
     )
