@@ -155,9 +155,7 @@ yoke test-machine bridge-diagnose --project <project> --machine <resource-name>
 
 The last three are the operations verification is not: **reset** reaches one
 baseline and stops, **golden capture** produces a new restorable baseline, and
-**bridge diagnose** names the host condition behind a bridge failure. What each
-one does, refuses, and records:
-[`testing-verification/test-machine-operations.md`](testing-verification/test-machine-operations.md).
+**bridge diagnose** names the host condition behind a bridge failure. What each does, refuses, and records: [`test-machine-operations.md`](testing-verification/test-machine-operations.md).
 
 Provision the host once before saving the capability. The general procedure —
 disk encryption, automatic login, sleep, remote access and its separate full
@@ -182,10 +180,10 @@ consumes it and breaks the gate (`machine_browser_tab_missing`).
 
 The saved settings document contains `resource_name`, `host`, `user`,
 `host_kind`, `operating_notes`, and an optional `golden_baseline_path`. No
-credentials. `host_kind` names which implementation drives the host — `mac-ssh`
-is the registered kind — and it is declared rather than inferred, because every
-operation that would otherwise guess runs a destructive restore. `ssh_private_key` is the
-only Test Mac credential. Store it on the machine that runs `host_control`:
+credentials. `host_kind` names which implementation drives the host (`mac-ssh`
+is the registered kind), declared rather than inferred because a guessing
+operation runs a destructive restore. `ssh_private_key` is the only Test Mac
+credential. Store it on the machine that runs `host_control`:
 
 ```text
 printf '%s' "$SSH_PRIVATE_KEY" | yoke projects capability secret set \
@@ -211,8 +209,7 @@ continues into the host baselines, so a screenshot problem never leaves the
 machine unrestored while it is being diagnosed; the recorded status is still
 `error`. Every bridge failure names one host condition rather than one umbrella
 code, and the stored check carries the evidence behind it — the same vocabulary
-`yoke test-machine bridge-diagnose` reports per capability, listed in the
-operations companion above.
+`yoke test-machine bridge-diagnose` reports per capability, in that companion.
 
 Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The runner receives resolved
