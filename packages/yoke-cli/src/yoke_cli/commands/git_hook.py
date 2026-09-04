@@ -12,8 +12,8 @@ Transport honesty:
 * ``git pre-commit`` runs the product-safe local gate via
   ``yoke_harness`` (staged git content + file reads). On a Yoke source
   checkout it also spawns the optional Atlas currency refresher as a
-  subprocess (never imports ``yoke_core``) so stale ``docs/atlas.md`` is
-  staged into the same commit. Exit 1 blocks the commit.
+  subprocess (never imports ``yoke_core``) so the ignored local
+  ``docs/atlas.md`` view exists and stays current. Exit 1 blocks the commit.
 * ``git post-commit`` never takes local DB authority. It delegates to the
   product-safe ``yoke project snapshot sync --hook --head-only``
   scanner/dispatcher path and preserves the exit-0 degrade shape so a
@@ -40,8 +40,8 @@ usage: yoke git pre-commit
 
 Run the Yoke pre-commit gate against the staged content of the current
 repo: diverged-files advisory, file-line-limit check, and (on a Yoke
-source checkout) silent Atlas currency refresh when staged inventory
-inputs make docs/atlas.md stale. Exit 1 blocks the commit; bypass with
+source checkout) silent creation or currency refresh of the ignored local
+docs/atlas.md view. Exit 1 blocks the commit; bypass with
 `git commit --no-verify`.
 
 Invoked by the `.git/hooks/pre-commit` shim that `yoke project
@@ -102,8 +102,6 @@ def _refresh_atlas_currency_or_skip() -> None:
     )
     if not module_path.is_file():
         return
-    if not (root / "docs" / "atlas.md").is_file():
-        return
     env = os.environ.copy()
     core_src = str(root / "packages" / "yoke-core" / "src")
     cli_src = str(root / "packages" / "yoke-cli" / "src")
@@ -122,7 +120,6 @@ def _refresh_atlas_currency_or_skip() -> None:
                 "yoke_core.tools.atlas_pre_commit_refresh",
                 "--target-root",
                 str(root),
-                "--stage-if-stale",
             ],
             cwd=str(root),
             env=env,

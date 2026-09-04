@@ -11,9 +11,9 @@ surface (`qa.requirement.add`, `qa.requirement.add_batch`,
 `qa.browser_context.get`, and `qa.case_execution.begin`). The public
 `yoke qa ...` commands (for example `yoke qa requirement list`) are the retained
 operator/debug adapters that dispatch the matching function ids. See
-[.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope
-and, for the operator-readable Atlas of registered
-surfaces, the yoke source-repo doc `docs/atlas.md`.
+[.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope.
+Render the operator-readable Atlas of registered surfaces locally with
+`python3 -m yoke_core.tools.atlas_render_docs render`.
 
 ## Four-Layer Model
 

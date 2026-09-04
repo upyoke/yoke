@@ -145,12 +145,13 @@ def test_render_relationship_map_includes_canonical_body():
 def test_render_relationship_paths_exist_on_live_tree():
     repo_root = Path(__file__).resolve().parents[3]
     relationships = render_relationship_map()
+    on_demand_targets = {ATLAS_RELPATH}
     missing = [
         path
         for path in sorted(
             set(relationships).union(*(set(sources) for sources in relationships.values()))
         )
-        if not (repo_root / path).exists()
+        if path not in on_demand_targets and not (repo_root / path).exists()
     ]
     assert missing == []
 

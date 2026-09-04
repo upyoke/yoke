@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest import mock
 
 from yoke_core.tools import atlas_currency_inputs as inputs
 from yoke_core.tools import atlas_pre_commit_refresh as refresh
@@ -12,9 +11,12 @@ from yoke_core.tools import atlas_pre_commit_refresh as refresh
 def _repo_root() -> Path:
     here = Path(__file__).resolve()
     for parent in (here, *here.parents):
-        if (parent / "docs" / "atlas.md").is_file():
+        if (
+            (parent / "pyproject.toml").is_file()
+            and (parent / "packages" / "yoke-core").is_dir()
+        ):
             return parent
-    raise RuntimeError("could not locate repo root with docs/atlas.md")
+    raise RuntimeError("could not locate the Yoke repository root")
 
 
 class TestCurrencyTriggerPaths:
@@ -63,6 +65,9 @@ class TestRefreshIfStale:
     def test_unrelated_staged_is_silent_noop(
         self, tmp_path: Path, monkeypatch, capsys,
     ) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "atlas.md").write_text("# current\n", encoding="utf-8")
         monkeypatch.setattr(
             refresh, "build_report", lambda _root: (_ for _ in ()).throw(
                 AssertionError("build_report must not run"),
@@ -75,6 +80,27 @@ class TestRefreshIfStale:
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
+
+    def test_missing_atlas_is_rendered_for_an_unrelated_commit(
+        self, tmp_path: Path, monkeypatch,
+    ) -> None:
+        body = "# rendered atlas\n"
+        monkeypatch.setattr(refresh, "build_report", lambda _root: {})
+        monkeypatch.setattr(refresh, "render", lambda _report: body)
+        monkeypatch.setattr(
+            refresh,
+            "staged_touches_currency_inputs",
+            lambda _root, _paths: (_ for _ in ()).throw(
+                AssertionError("a missing Atlas must render unconditionally"),
+            ),
+        )
+
+        written = refresh.refresh_if_stale(
+            tmp_path, staged_paths=["README.md"],
+        )
+
+        assert written == tmp_path / "docs" / "atlas.md"
+        assert written.read_text(encoding="utf-8") == body
 
     def test_current_atlas_is_silent_noop(
         self, tmp_path: Path, monkeypatch, capsys,
@@ -138,32 +164,6 @@ class TestRefreshIfStale:
         assert refresh.refresh_if_stale(tmp_path, staged_paths=["x"]) is not None
         assert refresh.refresh_if_stale(tmp_path, staged_paths=["x"]) is None
 
-    def test_stage_atlas_runs_git_add(
-        self, tmp_path: Path, monkeypatch,
-    ) -> None:
-        written_path = tmp_path / "docs" / "atlas.md"
-        written_path.parent.mkdir()
-        written_path.write_text("# x\n", encoding="utf-8")
-        monkeypatch.setattr(
-            refresh, "refresh_if_stale",
-            lambda root, *, staged_paths=None: written_path,
-        )
-        calls: list[list[str]] = []
-
-        def fake_run(argv, **kwargs):
-            calls.append(list(argv))
-            return mock.Mock(returncode=0)
-
-        monkeypatch.setattr(refresh.subprocess, "run", fake_run)
-        result = refresh.stage_atlas_if_refreshed(
-            tmp_path, staged_paths=["x"],
-        )
-        assert result == written_path
-        assert calls
-        assert calls[0][:3] == ["git", "-C", str(tmp_path.resolve())]
-        assert "docs/atlas.md" in calls[0]
-
-
 class TestCliPreCommitAtlasRefresh:
     def test_pre_commit_invokes_atlas_refresh(self, monkeypatch) -> None:
         from yoke_cli.commands import git_hook as hook
@@ -199,7 +199,7 @@ class TestCliPreCommitAtlasRefresh:
         assert captured.out == ""
         assert captured.err == ""
 
-    def test_spawns_module_when_source_present(
+    def test_spawns_module_when_source_present_and_atlas_missing(
         self, tmp_path, monkeypatch,
     ) -> None:
         from yoke_cli.commands import git_hook as hook
@@ -210,8 +210,6 @@ class TestCliPreCommitAtlasRefresh:
         )
         module.parent.mkdir(parents=True)
         module.write_text("# stub\n", encoding="utf-8")
-        (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "atlas.md").write_text("# atlas\n", encoding="utf-8")
         calls: list[list[str]] = []
 
         def fake_run(argv, **kwargs):
@@ -228,5 +226,5 @@ class TestCliPreCommitAtlasRefresh:
         assert calls[0][1:3] == [
             "-m", "yoke_core.tools.atlas_pre_commit_refresh",
         ]
-        assert "--stage-if-stale" in calls[0]
+        assert "--stage-if-stale" not in calls[0]
         assert "--target-root" in calls[0]

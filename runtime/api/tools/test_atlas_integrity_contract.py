@@ -28,9 +28,12 @@ _EMPTY_SCOPE = crc.ChangedPathScope(base_sha="unused", paths=())
 def _repo_root() -> Path:
     here = Path(__file__).resolve()
     for parent in (here, *here.parents):
-        if (parent / "docs" / "atlas.md").is_file():
+        if (
+            (parent / "pyproject.toml").is_file()
+            and (parent / "packages" / "yoke-core").is_dir()
+        ):
             return parent
-    raise RuntimeError("could not locate repo root with docs/atlas.md")
+    raise RuntimeError("could not locate the Yoke repository root")
 
 
 def _patch_atlas_audit(
@@ -101,6 +104,9 @@ def test_atlas_integrity_ignores_internal_module_inventory_drift(
 def test_atlas_integrity_fails_on_stale_doc_without_drift(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    atlas = tmp_path / "docs" / "atlas.md"
+    atlas.parent.mkdir()
+    atlas.write_text("# stale\n", encoding="utf-8")
     _patch_atlas_audit(
         monkeypatch,
         report={"taught_commands": {"surfaces": []}},
@@ -109,6 +115,21 @@ def test_atlas_integrity_fails_on_stale_doc_without_drift(
     ok, detail = crc.check_atlas_integrity(tmp_path, _EMPTY_SCOPE)
     assert ok is False
     assert "docs/atlas.md is stale" in detail
+
+
+def test_atlas_integrity_allows_an_absent_untracked_render(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_atlas_audit(
+        monkeypatch,
+        report={"taught_commands": {"surfaces": []}},
+        stale=True,
+    )
+
+    ok, detail = crc.check_atlas_integrity(tmp_path, _EMPTY_SCOPE)
+
+    assert ok is True
+    assert "no drift findings" in detail
 
 
 def test_atlas_integrity_passes_when_current_and_clean(

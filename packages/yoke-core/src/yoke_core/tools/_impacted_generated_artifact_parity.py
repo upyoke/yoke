@@ -8,6 +8,9 @@ run. Keep the set fast (roughly 30 seconds).
 
 GENERATED_ARTIFACT_PARITY_TESTS = (
     "runtime/api/engines/test_doctor_hc_atlas.py",
+    "runtime/api/engines/test_doctor_tier_discipline_live_repo.py",
+    "runtime/api/domain/test_path_context.py",
+    "runtime/api/cli/test_yoke_product_boundary_github_actions_wait_run.py",
     "runtime/api/domain/test_agents_render.py",
     "runtime/api/engines/test_doctor_agent_drift.py",
     "runtime/api/domain/test_install_bundle.py",

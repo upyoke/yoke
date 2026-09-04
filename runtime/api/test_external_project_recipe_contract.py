@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 
 from yoke_cli.commands import registry
+from yoke_core.tools.atlas_integrity_collect import collect_operation_tracker
+from yoke_core.tools.atlas_render_docs import _render_permanent_roster
 
 REPO = Path(__file__).resolve().parents[2]
 CHECKOUT_ONLY = re.compile(
@@ -118,7 +120,9 @@ def test_atlas_names_real_pulumi_client_local_source_owners() -> None:
         "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
         "packages/yoke-core/src/yoke_core/tools/pulumi_exec.py",
     )
-    atlas = (REPO / "docs" / "atlas.md").read_text(encoding="utf-8")
+    atlas = "\n".join(_render_permanent_roster({
+        "operation_tracker": collect_operation_tracker(),
+    }))
     for owner in owners:
         assert (REPO / owner).is_file()
         assert owner in atlas

@@ -102,9 +102,10 @@ def _record(report: dict, conn, monkeypatch, *, atlas_stale: bool = False,
 
 class TestPass:
     def test_live_repo_atlas_is_current(
-        self, conn, monkeypatch,
+        self, conn, monkeypatch, tmp_path,
     ) -> None:
         import yoke_core.tools.atlas_integrity_audit as audit_mod
+        import yoke_core.tools.atlas_render_docs as ard_mod
 
         monkeypatch.setattr(
             audit_mod,
@@ -115,6 +116,12 @@ class TestPass:
                 "read_surface_status": "agent_facing",
             },
         )
+        report = mod._build_audit_report()
+        rendered = tmp_path / "docs" / "atlas.md"
+        rendered.parent.mkdir()
+        rendered.write_text(ard_mod.render(report), encoding="utf-8")
+        monkeypatch.setattr(mod, "_build_audit_report", lambda: report)
+        monkeypatch.setattr(mod, "_repo_root", lambda: tmp_path)
         rec = RecordCollector()
 
         hc_atlas_integrity(conn, DoctorArgs(project="yoke"), rec)

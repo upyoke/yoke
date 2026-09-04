@@ -196,14 +196,15 @@ def check_atlas_integrity(
     repo_root: Path, _scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
     from yoke_core.tools.atlas_integrity_audit import build_report
-    from yoke_core.tools.atlas_render_docs import is_stale, render
+    from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH, is_stale, render
 
     report = build_report(repo_root)
     findings = _atlas_drift_findings(report)
     body = render(report)
-    stale = is_stale(repo_root, body=body)
+    atlas_path = repo_root / ATLAS_RELPATH
+    stale = atlas_path.is_file() and is_stale(repo_root, body=body)
     if not findings and not stale:
-        return True, "docs/atlas.md matches the live audit render; no drift findings"
+        return True, "atlas audit has no drift findings; local render is current when present"
     parts: List[str] = []
     if findings:
         parts.append(

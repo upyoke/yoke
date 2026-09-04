@@ -28,7 +28,7 @@ Authored alongside the first Atlas integrity audit (2026-05-27). Each item recor
 
 ## 5. Wrapped roster join: tracker vs CLI registry
 
-- **Evidence in the audit:** Section 2 of `docs/atlas.md` is driven directly from `yoke_cli.rows` (the subcommand registry), while `operation_tracker.rows` records the disposition of each known operation surface. Wrapped tracker rows use the same `yoke ...` shell form as the CLI registry.
+- **Evidence in the audit:** Section 2 of the local Atlas rendered by `python3 -m yoke_core.tools.atlas_render_docs render` is driven directly from `yoke_cli.rows` (the subcommand registry), while `operation_tracker.rows` records the disposition of each known operation surface. Wrapped tracker rows use the same `yoke ...` shell form as the CLI registry.
 - **Question:** Should the hard-fact HC compare exact wrapped forms, or is count parity enough?
 - **Recommended decision:** Compare exact wrapped forms. Count parity is still useful as a summary, but an exact set check catches one-for-one drift where one wrapped row disappears and an unrelated adapter appears.
 
