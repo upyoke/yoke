@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
 from yoke_core.domain.machine_registry import (
     MachineRegistryError,
     list_machines,
@@ -28,7 +29,11 @@ class MachineRegisterRequest(BaseModel):
     access: Optional[Dict[str, Any]] = None
 
 
-class MachineRecordResponse(BaseModel):
+class OffersDisclosureResponse(BaseModel):
+    offers_enforcement_note: str
+
+
+class MachineRecordResponse(OffersDisclosureResponse):
     machine: Dict[str, Any]
     created: bool = False
 
@@ -38,7 +43,7 @@ class MachineListRequest(BaseModel):
     owned_only: bool = False
 
 
-class MachineListResponse(BaseModel):
+class MachineListResponse(OffersDisclosureResponse):
     machines: List[Dict[str, Any]]
     count: int
 
@@ -54,7 +59,7 @@ class MachineSettingsGetRequest(BaseModel):
     path: Optional[str] = None
 
 
-class MachineSettingsGetResponse(BaseModel):
+class MachineSettingsGetResponse(OffersDisclosureResponse):
     machine_id: str
     path: str
     value: Any
@@ -72,6 +77,11 @@ def _failure(code: str, message: str) -> HandlerOutcome:
         primary_success=False,
         error=FunctionError(code=code, message=message, jsonpath="$.payload"),
     )
+
+
+def _with_offers_disclosure(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Add the operator-facing note to every response that renders offers."""
+    return {**payload, "offers_enforcement_note": OFFERS_ENFORCEMENT_NOTE}
 
 
 def _parse(model: Any, request: FunctionCallRequest) -> Any:
@@ -174,7 +184,9 @@ def handle_machine_register(request: FunctionCallRequest) -> HandlerOutcome:
             now=utc_now(),
         )
         return HandlerOutcome(
-            result_payload={"machine": record.to_dict(), "created": created}
+            result_payload=_with_offers_disclosure(
+                {"machine": record.to_dict(), "created": created}
+            )
         )
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
@@ -191,10 +203,12 @@ def handle_machine_list(request: FunctionCallRequest) -> HandlerOutcome:
         owner = _actor_id(request) if parsed.owned_only else None
         records = list_machines(conn, owner_actor_id=owner)
         return HandlerOutcome(
-            result_payload={
-                "machines": [record.to_dict() for record in records],
-                "count": len(records),
-            }
+            result_payload=_with_offers_disclosure(
+                {
+                    "machines": [record.to_dict() for record in records],
+                    "count": len(records),
+                }
+            )
         )
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
@@ -209,7 +223,9 @@ def handle_machine_show(request: FunctionCallRequest) -> HandlerOutcome:
     conn = _open()
     try:
         record = require_machine(conn, parsed.machine_id)
-        return HandlerOutcome(result_payload={"machine": record.to_dict()})
+        return HandlerOutcome(
+            result_payload=_with_offers_disclosure({"machine": record.to_dict()})
+        )
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
     finally:
@@ -226,11 +242,13 @@ def handle_machine_settings_get(request: FunctionCallRequest) -> HandlerOutcome:
         path = (parsed.path or "").strip()
         value = _project(record.access, path) if path else record.access
         return HandlerOutcome(
-            result_payload={
-                "machine_id": record.machine_id,
-                "path": path,
-                "value": value,
-            }
+            result_payload=_with_offers_disclosure(
+                {
+                    "machine_id": record.machine_id,
+                    "path": path,
+                    "value": value,
+                }
+            )
         )
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
@@ -254,7 +272,9 @@ def handle_machine_settings_set(request: FunctionCallRequest) -> HandlerOutcome:
             is_admin=_is_admin(conn, actor_id),
             now=utc_now(),
         )
-        return HandlerOutcome(result_payload={"machine": updated.to_dict()})
+        return HandlerOutcome(
+            result_payload=_with_offers_disclosure({"machine": updated.to_dict()})
+        )
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
     finally:
