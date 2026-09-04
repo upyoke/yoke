@@ -67,13 +67,13 @@ class _Conn:
         if "FROM item_worktrees iw JOIN items i" in sql:
             if params and params[0] == self.branch:
                 if self.mixed_owner:
-                    return _Rows([
-                        (11, 1, "done"),
-                        (12, 2, "implementing"),
-                    ])
-                return _Rows([
-                    (11, 1, "done" if self.terminal else "implementing")
-                ])
+                    return _Rows(
+                        [
+                            (11, 1, "done"),
+                            (12, 2, "implementing"),
+                        ]
+                    )
+                return _Rows([(11, 1, "done" if self.terminal else "implementing")])
             return _Rows()
         if "FROM epic_tasks" in sql or "FROM epic_dispatch_chains" in sql:
             return _Rows()
@@ -173,6 +173,12 @@ def test_clean_terminal_merged_worktree_and_branch_are_pruned(
 ):
     repo, worktree, branch = _repo(tmp_path)
     git_io, lines = _install(monkeypatch, repo, _Conn(branch))
+    cleaned_trust: list[Path] = []
+    monkeypatch.setattr(
+        _safe_prune,
+        "worktree_cleanup_warning",
+        lambda path: cleaned_trust.append(Path(path)) or "",
+    )
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
@@ -182,6 +188,7 @@ def test_clean_terminal_merged_worktree_and_branch_are_pruned(
     assert sweep.removed == (str(worktree.resolve()),)
     assert sweep.preserved == ()
     assert sweep.payload()["skipped"] == ""
+    assert cleaned_trust == [worktree.resolve()]
 
 
 def test_dirty_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
@@ -303,7 +310,8 @@ def test_nonterminal_owner_preserves_merged_worktree(monkeypatch, tmp_path: Path
 
 
 def test_terminal_and_nonterminal_owners_sharing_branch_are_preserved(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ):
     repo, worktree, branch = _repo(tmp_path)
     git_io, _lines = _install(monkeypatch, repo, _Conn(branch, mixed_owner=True))

@@ -1,10 +1,10 @@
 """The harness-approval teaching an install report carries.
 
-Writing hook glue is only half of making it run: every harness with an
-approval gate re-requires the operator's approval for the file that was just
-written, and Codex re-requires it again on any later content change because
-its trust is keyed to the hash. An install that stays silent about that step
-leaves a project whose hooks look installed and never fire.
+Writing hook glue is only half of making it run. Yoke mints Codex trust for
+the exact hooks file it authors, while harnesses whose approval stays
+operator-owned still need an explicit teaching sentence. An install that
+stays silent about an unhandled approval step leaves hooks that look installed
+and never fire.
 
 So a run records one sentence per harness whose glue it wrote or updated,
 and the surfaces that report the run — the installer's own JSON and the
@@ -28,11 +28,15 @@ HARNESS_ID_BY_HOOKS_KEY = {
     "codex_hooks": "codex",
     "cursor_hooks": "cursor",
 }
+INSTALL_MINTED_HARNESSES = frozenset({"codex"})
 
 
 def teaching_for_hooks_key(hooks_key: str) -> Optional[str]:
     """The approval sentence this subtree's harness owes, or ``None``."""
-    return trust_teaching(HARNESS_ID_BY_HOOKS_KEY[hooks_key])
+    harness_id = HARNESS_ID_BY_HOOKS_KEY[hooks_key]
+    return (
+        None if harness_id in INSTALL_MINTED_HARNESSES else trust_teaching(harness_id)
+    )
 
 
 def harness_ids_written(install_report: Any) -> List[str]:
@@ -65,6 +69,7 @@ def report_lines(install_report: Any) -> List[str]:
 
 __all__ = [
     "HARNESS_ID_BY_HOOKS_KEY",
+    "INSTALL_MINTED_HARNESSES",
     "REPORT_KEY",
     "harness_ids_written",
     "report_lines",

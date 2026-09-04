@@ -12,10 +12,9 @@ telemetry is written.
 
 Two surfaces in different packages have to agree about that gate:
 
-* the installer and the onboarding wizard, which write the hook glue and
-  must name the approval step whenever they write or update it — any
-  content change re-keys the hash Codex trusted, so an update re-requires
-  approval exactly like a fresh write;
+* the installer and onboarding wizard, which name operator-owned approval
+  steps after writing hook glue; Yoke's separate install policy mints Codex
+  hashes only for the exact hooks file the install authored;
 * the Overview's harness activation module, which reports hook health and
   needs the remediation to name the harness's own approval surface.
 
@@ -33,9 +32,7 @@ from typing import Dict, Mapping, Optional
 HARNESS_HOOK_APPROVAL: Dict[str, Mapping[str, str]] = {
     "codex": {
         "trust_surface": "Codex's hook-trust prompt",
-        "grant_scope": (
-            "per project checkout and per hook-file content hash"
-        ),
+        "grant_scope": ("per project checkout and per hook-file content hash"),
     },
     "cursor": {
         "trust_surface": "Cursor's hooks approval prompt",
@@ -56,7 +53,7 @@ def hook_approval(harness_id: str) -> Optional[Mapping[str, str]]:
 
 
 def trust_teaching(harness_id: str) -> Optional[str]:
-    """The one sentence every writer of this harness's glue says after writing.
+    """The operator-owned approval sentence for this harness's glue.
 
     ``None`` for a harness with no approval gate, so callers stay free of
     harness-id branching.

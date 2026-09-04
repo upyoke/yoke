@@ -14,37 +14,34 @@ Codex thread working inside a worktree fires no hooks at all: no session
 registration, no telemetry, no guardrails. Worktree provisioning closes that
 gap by mirroring trust onto the worktree's path.
 
-Trust is mirrored, never minted: only byte-identical content receives a hash
-the operator already granted. Changed content needs the operator's own Codex
-trust decision.
+Worktree trust is mirrored, never minted: only byte-identical content receives
+a hash the operator already granted. Project install separately mints trust for
+the Yoke-authored main-checkout file. Changed content needs the operator's own
+Codex trust decision.
 """
 
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from yoke_contracts.harness_unattended_posture import codex_config_path
-from yoke_core.domain.codex_hook_trust_identity import (
+from yoke_contracts.codex_hook_trust import (
     CodexHookIdentityError,
     codex_hook_hashes,
 )
+from yoke_contracts.codex_hook_trust_store import (
+    HOOKS_RELATIVE_PATH,
+)
+from yoke_contracts.codex_hook_trust_toml import (
+    TRUSTED_HASH_KEY,
+    entries_for as _entries_for,
+    read_trust_state as _read_trust_state,
+)
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
-
-#: Where a checkout exposes its Codex hooks, relative to the checkout root.
-HOOKS_RELATIVE_PATH = os.path.join(".codex", "hooks.json")
-_TRUSTED_HASH_KEY = "trusted_hash"
-
-REASON_NO_CONFIG = "Codex config not present"
-REASON_UNREADABLE_CONFIG = "Codex config could not be read"
 REASON_NO_SOURCE_HOOKS = "source checkout exposes no Codex hooks file"
 REASON_NO_TARGET_HOOKS = "worktree exposes no Codex hooks file"
 REASON_UNREADABLE_HOOKS = "Codex hooks file could not be read"
@@ -104,37 +101,6 @@ class HookTrustResult:
 def hooks_file_for(checkout: str) -> Path:
     """Return the Codex hooks path a checkout or worktree exposes."""
     return Path(checkout) / HOOKS_RELATIVE_PATH
-
-
-def _read_trust_state(config_path: Path) -> Tuple[Dict[str, str], str]:
-    """Return every ``key -> trusted hash`` pair, plus a blocking reason."""
-    if not config_path.exists():
-        return {}, f"{REASON_NO_CONFIG}: {config_path}"
-    try:
-        with config_path.open("rb") as handle:
-            data = tomllib.load(handle)
-    except (OSError, ValueError) as exc:
-        return {}, f"{REASON_UNREADABLE_CONFIG}: {exc}"
-    state = ((data.get("hooks") or {}).get("state")) or {}
-    if not isinstance(state, dict):
-        return {}, REASON_UNREADABLE_CONFIG
-    pairs: Dict[str, str] = {}
-    for key, entry in state.items():
-        if isinstance(entry, dict):
-            value = entry.get(_TRUSTED_HASH_KEY)
-            if isinstance(value, str) and value:
-                pairs[key] = value
-    return pairs, ""
-
-
-def _entries_for(state: Dict[str, str], hooks_path: Path) -> Dict[str, str]:
-    """Map ``event:group:hook`` suffix -> trusted hash for one hooks file."""
-    prefix = f"{hooks_path}:"
-    return {
-        key[len(prefix) :]: value
-        for key, value in state.items()
-        if key.startswith(prefix)
-    }
 
 
 def trust_entries_for(
@@ -295,7 +261,7 @@ def _render_entries(hooks_path: str, entries: Dict[str, str]) -> str:
     for suffix in sorted(entries):
         key = _toml_string(f"{hooks_path}:{suffix}")
         value = _toml_string(entries[suffix])
-        lines.append(f"\n[hooks.state.{key}]\n{_TRUSTED_HASH_KEY} = {value}\n")
+        lines.append(f"\n[hooks.state.{key}]\n{TRUSTED_HASH_KEY} = {value}\n")
     return "".join(lines)
 
 

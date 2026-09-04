@@ -53,7 +53,7 @@ def _commands(text: str) -> frozenset[str]:
 
 
 _PRODUCT = _commands(
-    "auth set|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|packs get|packs list|packs relink|packs update|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|self-host teardown|self-host upgrade|status|ui|universe export|universe import|universe validate"
+    "auth set|codex hook-trust sweep|config example|connect|connection remove|connection set|core build|core logs|core start|core status|core stop|core upgrade|env use|github connect|github disconnect|github status|init|local-postgres start|local-postgres status|local-postgres stop|onboard|onboard checklist|onboard checklist init|onboard project|packs get|packs list|packs relink|packs update|project create|project import|project install|project refresh|project register|project snapshot sync|project uninstall|self-host import|self-host init|self-host teardown|self-host upgrade|status|ui|universe export|universe import|universe validate"
 )
 _PROJECT_INSTALL = _commands(
     "project install|project refresh|project snapshot sync|project uninstall"
@@ -62,9 +62,11 @@ _SOURCE_DEV = _commands(
     "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets budget get|packets check|packets render|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
 )
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
-_HOOK_HELPERS = frozenset({
-    "helper yoke_cli.commands.adapters.hook_inprocess",
-})
+_HOOK_HELPERS = frozenset(
+    {
+        "helper yoke_cli.commands.adapters.hook_inprocess",
+    }
+)
 
 
 def generate_inventory(

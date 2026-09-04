@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest import mock
 
 from yoke_core.engines import merge_worktree
@@ -147,6 +148,7 @@ class TestPostMergeRemoteCleanupSafety:
         worktree.mkdir(parents=True)
         ctx.worktree_path = str(worktree)
         timeline: list[str] = []
+        cleaned_trust: list[Path] = []
 
         def run_git(command, cwd=None, capture=False):
             del cwd, capture
@@ -173,6 +175,11 @@ class TestPostMergeRemoteCleanupSafety:
             "delete_remote_branch_if_merged",
             lambda **kwargs: RemoteBranchDeleteResult("deleted", ""),
         )
+        monkeypatch.setattr(
+            merge_worktree_cleanup,
+            "worktree_cleanup_warning",
+            lambda path: cleaned_trust.append(Path(path)) or "",
+        )
         from yoke_core.engines import merge_worktree_cleanliness
 
         monkeypatch.setattr(
@@ -187,6 +194,7 @@ class TestPostMergeRemoteCleanupSafety:
             < timeline.index("sync-target")
             < timeline.index("branch -d YOK-9999")
         )
+        assert cleaned_trust == [worktree]
 
 
 class TestRegenerateViewsSubprocessIsolation:

@@ -17,10 +17,12 @@ this repository supports:
   :data:`CLAUDE_BYPASS_DISCLAIMER_REFUSAL` is what that refusal says and
   :data:`CLAUDE_BYPASS_DISCLAIMER_RECOVERY` is the recovery step reported.
 * ``codex`` — the CLI exec route takes
-  ``--dangerously-bypass-approvals-and-sandbox``; the app-server route has no
-  such flag and carries the same posture as typed thread parameters instead
+  ``--dangerously-bypass-approvals-and-sandbox`` and
+  ``--dangerously-bypass-hook-trust``; the app-server route has no such flags
+  and carries approval posture as typed thread parameters instead
   (``approvalPolicy`` plus the sandbox mode, which ``turn/start`` spells as a
-  tagged policy object).
+  tagged policy object). Hook-trust bypass is confined to relay automation;
+  project install owns persisted trust for operator-opened sessions.
 * ``cursor`` — the CLI resume route takes ``--force`` (auto-approve commands)
   alongside the ``--trust`` it already passes. The ACP launch route has no
   flag to pass: ``cursor-agent acp`` accepts none, and the relay itself
@@ -72,6 +74,7 @@ CLAUDE_BYPASS_DISCLAIMER_RECOVERY = (
 
 CODEX_EXEC_BYPASS_ARGUMENTS: tuple[str, ...] = (
     "--dangerously-bypass-approvals-and-sandbox",
+    "--dangerously-bypass-hook-trust",
 )
 CODEX_APPROVAL_POLICY = "never"
 CODEX_SANDBOX_MODE = "danger-full-access"

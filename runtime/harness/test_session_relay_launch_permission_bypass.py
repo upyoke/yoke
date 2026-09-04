@@ -65,13 +65,14 @@ def test_claude_create_and_resume_both_skip_permissions(resume: bool) -> None:
     assert "--dangerously-skip-permissions" in _claude_invocation(resume=resume).argv
 
 
-def test_codex_exec_bypasses_approvals_and_sandbox_on_create_and_resume(
+def test_codex_exec_bypasses_interactive_gates_on_create_and_resume(
     tmp_path: Path,
 ) -> None:
     command = codex_base_command("/opt/codex", _request(tmp_path))
 
     # The resume route appends to this same base, so one assertion covers both.
     assert "--dangerously-bypass-approvals-and-sandbox" in command
+    assert "--dangerously-bypass-hook-trust" in command
 
 
 def test_codex_app_server_wake_resumes_a_thread_unattended(

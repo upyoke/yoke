@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,
@@ -94,9 +95,7 @@ def _remove_lane(ctx: MergeContext) -> None:
         )
 
         remote_result = delete_remote_branch_if_merged(
-            run_git=lambda command: _run_git(
-                command, cwd=ctx.repo_root, capture=True
-            ),
+            run_git=lambda command: _run_git(command, cwd=ctx.repo_root, capture=True),
             branch=ctx.args.branch,
             target_branch=ctx.args.target,
         )
@@ -141,6 +140,8 @@ def _remove_lane(ctx: MergeContext) -> None:
         return
 
     _print(f"Cleaned up worktree: {ctx.worktree_path}")
+    if warning := worktree_cleanup_warning(ctx.worktree_path):
+        _print(f"WARNING: {warning}", err=True)
     _run_git(["branch", "-d", ctx.args.branch], cwd=ctx.repo_root, capture=True)
 
 
