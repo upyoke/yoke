@@ -48,7 +48,9 @@ DEFAULT_REMINDER = """\
 Monitor is a SUBSCRIPTION, not a poll. Arm once per background capture;
 matched lines arrive as wakes. Do not re-arm, peek the capture, spawn a
 waiter, or Stop while the command runs. On each wake, relay the matched
-line as your own visible output and nothing else. Full relay rules:
+line as your own visible output and nothing else. Message another session
+only for something it would act on; that is advice, not a deliberate-send
+refusal. Full relay rules:
 python3 -m yoke_core.domain.hint_monitor_relay --help
 </system-reminder>"""
 

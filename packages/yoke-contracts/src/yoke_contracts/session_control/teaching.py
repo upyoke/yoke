@@ -71,15 +71,15 @@ FLEET_BODY_TRUST_GUIDANCE = (
 
 
 FLEET_SUBSTANTIVE_ONLY_GUIDANCE = (
-    "Send only substantive updates — something that changes what the recipient "
-    "would do: a gate went red and what failed, what you are blocked on, a "
+    "Message another session only when the body gives it something to act on: "
+    "a gate went red and what failed, what you are blocked on, a "
     "conflict between your instruction and what you are seeing, a defect outside "
     "your scope, a terminal item state, or a decision you need. Progress output is "
-    "never substantive: a percentage, an elapsed-time poll, a watcher heartbeat, or "
-    'a "still green" liveness note. Relaying a matched watcher line into your own '
-    "visible output is required; forwarding it to another session as a durable "
-    "message is not. The recipient watches liveness with its own fleet watcher and "
-    "has no use for a second copy arriving as mail."
+    'a percentage, an elapsed-time poll, a watcher heartbeat, or a "still green" '
+    "liveness note; keep it in your own visible output. This is coordination advice "
+    "for a deliberate sender, not a send-path admission rule. The automated turn-end "
+    "steering relay separately applies its substance floor before creating durable "
+    "mail, and the recipient watches liveness with its own fleet watcher."
 )
 
 

@@ -37,12 +37,14 @@ def _captured_run(payload: str) -> str:
     additional = decision.audit_fields.get("additionalContext")
     if not additional:
         return ""
-    return json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "additionalContext": additional,
+    return json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "additionalContext": additional,
+            }
         }
-    })
+    )
 
 
 def _write_machine_config(tmp_path, monkeypatch, value: str) -> None:
@@ -76,10 +78,14 @@ def test_default_reminder_anchored_on_observed_failure_modes() -> None:
     text = hint_monitor_relay.HELP_REMINDER
     assert "tail" in text.lower(), "must warn against capture-file peeks"
     assert "filler" in text.lower(), "must warn against filler text between wakes"
-    assert "matched line" in text.lower(), "must anchor on the relay-the-matched-line rule"
+    assert "matched line" in text.lower(), (
+        "must anchor on the relay-the-matched-line rule"
+    )
     injected = hint_monitor_relay.DEFAULT_REMINDER
     assert "SUBSCRIPTION" in injected
     assert "hint_monitor_relay --help" in injected
+    assert "something it would act on" in injected
+    assert "Message another session only" in hint_monitor_relay.HELP_REMINDER
 
 
 @pytest.mark.parametrize(
@@ -124,13 +130,19 @@ def test_config_override_replaces_default_reminder(tmp_path, monkeypatch) -> Non
 
 def test_blank_config_override_falls_back_to_default(tmp_path, monkeypatch) -> None:
     _write_machine_config(tmp_path, monkeypatch, "   ")
-    assert hint_monitor_relay.resolve_reminder_text() == hint_monitor_relay.DEFAULT_REMINDER
+    assert (
+        hint_monitor_relay.resolve_reminder_text()
+        == hint_monitor_relay.DEFAULT_REMINDER
+    )
 
 
 def test_missing_config_falls_back_to_default(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(tmp_path))
     monkeypatch.delenv("YOKE_REPO_ROOT", raising=False)
-    assert hint_monitor_relay.resolve_reminder_text() == hint_monitor_relay.DEFAULT_REMINDER
+    assert (
+        hint_monitor_relay.resolve_reminder_text()
+        == hint_monitor_relay.DEFAULT_REMINDER
+    )
 
 
 def test_run_uses_resolved_text_for_monitor_payload(tmp_path, monkeypatch) -> None:

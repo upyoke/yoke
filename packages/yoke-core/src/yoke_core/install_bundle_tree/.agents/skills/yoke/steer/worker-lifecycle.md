@@ -253,8 +253,8 @@ a defect outside its scope, its item reached a terminal state, or it needs a
 decision. It never forwards progress output upward — a percentage, an
 elapsed-time poll, a watcher heartbeat, a "still green" note. Those belong in
 the worker's own visible output; this seat reads liveness from
-`yoke watch fleet`, and the send path refuses a progress tick as
-`body_not_substantive`.
+`yoke watch fleet`. Message another session only for something it would act
+on; that is coordination advice, not a send-path refusal.
 
 Most of what this seat reads arrives without a worker sending anything. The
 Stop hook delivers the last assistant text of every turn to the seat holding
