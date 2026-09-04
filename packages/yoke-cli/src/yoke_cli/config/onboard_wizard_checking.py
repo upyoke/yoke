@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from yoke_cli.config import onboard_wizard_steps as steps
-from yoke_cli.config.onboard_wizard_state import _View
+from yoke_cli.config.onboard_wizard_state import CopyTarget, _View
 
 
 class CheckingFlow:
@@ -28,12 +28,16 @@ class CheckingFlow:
         replace_current: bool = False,
         blocks_quit: bool = False,
         on_cancel: Callable[[], None] | None = None,
+        copy_targets: tuple[CopyTarget, ...] = (),
     ) -> None:
         """Show a checking view while ``work`` runs on a thread.
 
         ``on_cancel`` makes the check abandonable: Esc pops the checking view,
         drops the worker's eventual result, and calls it to route somewhere
         sensible. A check without it ignores Esc until the work finishes.
+
+        ``copy_targets`` are the URLs and codes this waiting screen shows, so
+        the copy and open keys work while the check is still running.
         """
         self._checking = True
         self._checking_blocks_quit = blocks_quit
@@ -45,6 +49,7 @@ class CheckingFlow:
         self._goto(_View(
             step,
             lambda: steps.checking_body(title, message, detail_lines),
+            copy_targets=copy_targets,
         ))
         self.run_worker(
             lambda: self._checking_worker(token, work, on_success, on_error),

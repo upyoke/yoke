@@ -127,11 +127,10 @@ class ApplyFlow:
             if isinstance(summary, dict):
                 self.report_path = summary.get("path")
             self._applied_report = report
-        # When the operator designed board art, materialize it into the freshly
-        # created checkout and show the payoff instead of exiting straight away.
+        # Board art is materialized into the freshly created checkout, and the
+        # Apply summary reports it beside everything else this run did.
         try:
-            if self._board_art_after_apply(report):
-                return
+            self._board_art_committed = self._board_art_after_apply(report)
         except Exception as board_art_exc:  # noqa: BLE001 - route to recovery
             self._show_apply_failure(board_art_exc)
             return
@@ -272,6 +271,7 @@ class ApplyFlow:
     def _build_apply_success(self) -> list:
         return steps.apply_success_body_from_report(
             self.report_path, getattr(self, "_applied_report", None),
+            board_art_committed=getattr(self, "_board_art_committed", False),
         )
 
     def _on_apply_success(self, choice: str) -> None:

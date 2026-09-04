@@ -30,6 +30,61 @@ def success_message(report: Mapping[str, Any]) -> str:
     )
 
 
+AUTHORIZATION_SCOPE_NOTE = (
+    "The one-button Authorize page is GitHub's user authorization; it never "
+    "changes which repositories the App can see."
+)
+
+
+def installation_scope_lines(access: Mapping[str, Any]) -> list[str]:
+    """Say exactly which repositories each installation exposes, and where to change it.
+
+    An App installed on selected repositories is the usual reason a person
+    sees three of their repositories rather than all of them, so each
+    installation names its own selection and carries the GitHub settings page
+    that widens it.
+    """
+    installations = [
+        item for item in access.get("installations") or [] if isinstance(item, Mapping)
+    ]
+    repositories = [str(item) for item in access.get("repos") or [] if str(item)]
+    total = access.get("repo_count")
+    lines: list[str] = []
+    for item in installations:
+        account = str(item.get("account_login") or "").strip()
+        if not account:
+            continue
+        lines.append(f"{account}: {_installation_scope(item, access)}")
+        settings_url = str(item.get("html_url") or "").strip()
+        if settings_url:
+            lines.append(f"  Change repository access on GitHub: {settings_url}")
+    if not lines:
+        lines.append("Installed for: none")
+    lines.append(AUTHORIZATION_SCOPE_NOTE)
+    lines.append(
+        f"Repositories available: "
+        f"{total if isinstance(total, int) else len(repositories)} — "
+        f"{bounded_summary(repositories, total=total if isinstance(total, int) else None)}"
+    )
+    return lines
+
+
+def _installation_scope(item: Mapping[str, Any], access: Mapping[str, Any]) -> str:
+    """One installation's reach: suspended, all repositories, or the selected ones."""
+    if item.get("suspended"):
+        return "suspended"
+    if str(item.get("repository_selection") or "selected") == "all":
+        return "all repositories"
+    named = [
+        str(repo.get("full_name") or "")
+        for repo in access.get("repositories") or []
+        if isinstance(repo, Mapping)
+        and repo.get("installation_id") == item.get("installation_id")
+        and repo.get("full_name")
+    ]
+    return f"selected repositories — {bounded_summary(named)}"
+
+
 def success_details(report: Mapping[str, Any]) -> list[str]:
     """Build detailed verified-connection presentation lines."""
     details: list[str] = []
@@ -41,29 +96,7 @@ def success_details(report: Mapping[str, Any]) -> list[str]:
         details.append(f"GitHub App: {app['slug']}")
     access = report.get("access")
     if isinstance(access, Mapping):
-        installations = [
-            item
-            for item in access.get("installations") or []
-            if isinstance(item, Mapping)
-        ]
-        labels = []
-        for item in installations:
-            account = str(item.get("account_login") or "").strip()
-            if account:
-                selection = str(item.get("repository_selection") or "selected")
-                state = (
-                    "suspended"
-                    if item.get("suspended")
-                    else f"{selection} repositories"
-                )
-                labels.append(f"{account} ({state})")
-        details.append("Installed for: " + bounded_summary(labels))
-        repositories = [str(item) for item in access.get("repos") or [] if str(item)]
-        total = access.get("repo_count")
-        details.append(
-            f"Repositories available: {total if isinstance(total, int) else len(repositories)} — "
-            f"{bounded_summary(repositories, total=total if isinstance(total, int) else None)}"
-        )
+        details.extend(installation_scope_lines(access))
     permissions = report.get("permissions")
     if isinstance(permissions, Mapping) and permissions.get("usable") is True:
         details.append("Required GitHub App permissions: ready.")

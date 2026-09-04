@@ -133,10 +133,15 @@ def _advisory_lines(root: Path) -> list[str]:
 
 
 def _packet_lines() -> list[str]:
-    """The generated main-agent packet delivered with session orientation."""
+    """The generated main-agent packet delivered with session orientation.
+
+    Orientation already leads with the machine-local advisories, and it is
+    delivered once per session, so the packet omits them here rather than
+    repeating the same interpreter note further down the same block.
+    """
     from yoke_core.domain.main_agent_packet import render_main_agent_block
 
-    block = render_main_agent_block()
+    block = render_main_agent_block(include_advisories=False)
     return ["", block] if block else []
 
 

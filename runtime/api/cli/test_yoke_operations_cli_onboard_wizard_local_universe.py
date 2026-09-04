@@ -95,7 +95,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
             body = _body_text(app)
-            assert title == "Existing Yoke project found."
+            assert title == "Existing Yoke project found: externalwebapp."
             assert (
                 "Local project metadata matched a local Yoke database project."
                 in body

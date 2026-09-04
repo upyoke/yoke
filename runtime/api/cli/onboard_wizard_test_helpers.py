@@ -126,18 +126,27 @@ def stub_token_verifiers(monkeypatch) -> None:
             "owners": ["machine-user", "octo-org"],
             "repos": ["machine-user/private-tool", "octo-org/app"],
             "repo_count": 2,
+            "repositories": [
+                {"full_name": "machine-user/private-tool", "installation_id": 1},
+                {"full_name": "octo-org/app", "installation_id": 2},
+            ],
             "installations": [
                 {
                     "installation_id": 1,
                     "account_login": "machine-user",
                     "repository_selection": "selected",
                     "suspended": False,
+                    "html_url": "https://github.com/settings/installations/1",
                 },
                 {
                     "installation_id": 2,
                     "account_login": "octo-org",
                     "repository_selection": "all",
                     "suspended": False,
+                    "html_url": (
+                        "https://github.com/organizations/octo-org"
+                        "/settings/installations/2"
+                    ),
                 },
             ],
         },

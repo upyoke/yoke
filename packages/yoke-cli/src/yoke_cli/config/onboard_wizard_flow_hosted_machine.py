@@ -14,6 +14,7 @@ from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import writer
 from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_destinations import ENV_STAGE
+from yoke_cli.config.onboard_wizard_state import CopyTarget
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 
 
@@ -157,6 +158,17 @@ class HostedMachineConnectFlow:
             browser_line,
         ]
 
+    def _approval_copy_targets(
+        self: _Shell,
+        pending: hosted_machine_authorization.PendingMachineAuthorization,
+    ) -> tuple[CopyTarget, ...]:
+        return (
+            CopyTarget("the one-time code", pending.user_code),
+            CopyTarget(
+                "the approval link", pending.verification_uri_complete, is_url=True,
+            ),
+        )
+
     def _goto_hosted_machine_approval(
         self: _Shell,
         pending: hosted_machine_authorization.PendingMachineAuthorization,
@@ -179,6 +191,7 @@ class HostedMachineConnectFlow:
             lambda _choice: self._poll_hosted_machine_authorization(
                 pending, browser_line,
             ),
+            copy_targets=self._approval_copy_targets(pending),
         ))
 
     def _poll_hosted_machine_authorization(
@@ -249,6 +262,7 @@ class HostedMachineConnectFlow:
             on_cancel=_cancel,
             group="onboard-hosted-machine-poll",
             replace_current=True,
+            copy_targets=self._approval_copy_targets(pending),
         )
 
     def _goto_hosted_machine_denied(self: _Shell, message: str) -> None:

@@ -20,7 +20,6 @@ from yoke_cli.config import onboard_wizard_board_art_steps as board_art_steps
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard import WizardApplyError
 from yoke_cli.config.onboard_wizard_widgets import (
-    STEP_FINISH,
     STEP_PROJECT,
     SelectionRow,
 )
@@ -273,12 +272,13 @@ class BoardArtFlow:
             self._history.pop()
 
     def _board_art_after_apply(self, report: Any) -> bool:
-        """Write, rebuild, and commit the chosen art, then show the payoff.
+        """Write, rebuild, and commit the chosen art; report whether it landed.
 
-        Returns True when a payoff screen is now showing (so the caller must not
-        exit). No saved variants, or no resolvable checkout, means there is
-        nothing to do. The commit is what keeps a freshly installed checkout
-        from being dirty with the installer's own output.
+        Returns True when the art was committed, so the Apply summary can say
+        so on the one screen that reports everything this run did. No saved
+        variants, or no resolvable checkout, means there is nothing to do. The
+        commit is what keeps a freshly installed checkout from being dirty
+        with the installer's own output.
         """
         if not self.result.board_art_variants:
             return False
@@ -317,20 +317,7 @@ class BoardArtFlow:
                     or onboard_apply_report.RESUME_COMMAND
                 ),
             ) from exc
-        self._goto_board_art_payoff()
         return True
-
-    def _goto_board_art_payoff(self) -> None:
-        rendered = art.render_master_map(self.result.board_art_word or "")
-        count = len(self.result.board_art_variants)
-        self._goto(self._board_art_view(
-            STEP_FINISH,
-            lambda: board_art_steps.board_art_payoff_body(rendered, count),
-            self._on_board_art_payoff,
-        ))
-
-    def _on_board_art_payoff(self, _choice: str) -> None:
-        self.exit()
 
 
 __all__ = ["BoardArtFlow"]

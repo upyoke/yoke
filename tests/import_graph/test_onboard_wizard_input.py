@@ -121,10 +121,6 @@ async def _assert_plain_glyph_body_accepts_input_focus_handoff() -> None:
         assert widget.value == "h"
         assert widget.has_focus
 
-        app.set_focus(None)
-        app._refocus_body()
-        assert widget.has_focus
-
 
 def _static_texts(widgets: list[object]) -> list[str]:
     return [str(widget.render()) for widget in widgets if isinstance(widget, Static)]

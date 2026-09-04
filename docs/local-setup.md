@@ -149,7 +149,15 @@ entries selected via `yoke env use` or `--env`.
 
 `yoke onboard` is a full-screen wizard. A fixed header and stepper stay on
 screen — Install/PATH, Account, GitHub, Project, Review — while the body
-changes; you move through it with the arrow keys, redrawing in place. The
+changes; you move through it with the arrow keys, redrawing in place. It runs
+with terminal mouse reporting off, so ordinary text selection and copy work
+everywhere; on any screen showing a URL or a one-time code the footer names a
+copy key (`^y`) and an open-in-browser key (`^o`), and a screen carrying both
+a code and a link cycles to the next one on each copy. Whatever onboarding
+already finds — a checkout that carries a Yoke layer, a repository that
+already has a project, a checkout already mapped here — is announced as the
+headline before any choice, with connecting to it as the default answer and
+replacing it available one row down. The
 Account step opens on the deployment-destination picker (this machine / an
 existing team server / guided self-host server setup / upyoke.com). "This
 machine" replaces sign-in with the local universe above; "A team server"

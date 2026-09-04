@@ -59,11 +59,15 @@ class StoredProjectFlow:
                 "none", "Don't set up a project now", "just the machine",
             ),
         ))
+        # The detection is the headline, and the first saved checkout is the
+        # answer under the cursor; the other paths sit below it.
+        saved = len(self._stored_project_checkouts)
+        noun = "project" if saved == 1 else "projects"
         self._goto(self._selection_view(
             STEP_PROJECT,
-            "Use an existing project mapping?",
-            "Yoke found project mappings saved on this machine. Reuse one, or "
-            "choose another path.",
+            f"{saved} Yoke {noun} already set up on this machine.",
+            "Yoke will use the selected checkout as it stands. Choosing "
+            "another path leaves these mappings untouched.",
             rows,
             self._on_stored_project_choice,
         ))

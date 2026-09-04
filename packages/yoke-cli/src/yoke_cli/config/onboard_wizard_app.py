@@ -28,6 +28,7 @@ from yoke_cli.config.onboard_wizard import (
 )
 from yoke_cli.config.onboard_wizard_body_scroll import BODY_ID, BodyScrollFlow
 from yoke_cli.config.onboard_wizard_checking import CheckingFlow
+from yoke_cli.config.onboard_wizard_copy_open import CopyOpenFlow
 from yoke_cli.config.onboard_wizard_flow import WizardFlow
 from yoke_cli.config.onboard_wizard_flow_apply import ApplyFlow
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow
@@ -56,15 +57,19 @@ class OnboardWizardApp(
     CheckingFlow, PathFlow, DestinationFlow, HostedMachineConnectFlow, ConnectFlow, MachineGithubFlow,
     ProjectGitFlow, WizardFlow, ApplyFlow, CloneFlow, DevFlow, ManualPublishFlow,
     PublishFlow, HostingFlow, BoardArtFlow, InputEntry, BodyScrollFlow,
-    StoredConnectionHydration, ViewHelpers, App[None],
+    CopyOpenFlow, StoredConnectionHydration, ViewHelpers, App[None],
 ):
     CSS_PATH = "onboard_wizard.tcss"
     # The arrow bindings only reach the body when no list or input is focused:
     # a focused SelectionList sits earlier on the binding chain and keeps them.
+    # The copy and open chords take priority so they still reach the shell from
+    # a screen whose text box holds focus.
     BINDINGS = [
         Binding("escape", "back", "back", show=False),
         Binding("ctrl+[", "back", "back", show=False),
         Binding("ctrl+c", "quit_wizard", "quit", show=False, priority=True),
+        Binding(chrome.COPY_KEY, "copy_target", "copy", show=False, priority=True),
+        Binding(chrome.OPEN_KEY, "open_target", "open", show=False, priority=True),
         Binding("pageup", "body_page_up", "scroll up", show=False),
         Binding("pagedown", "body_page_down", "scroll down", show=False),
         Binding("up", "body_line_up", "scroll up", show=False),
@@ -154,10 +159,9 @@ class OnboardWizardApp(
         yield Stepper(id="onboard-stepper")
         yield self._divider()
         # Non-focusable: a scroll container that can take focus would steal it
-        # from the active SelectionList/Input on a body click and leave Enter
-        # dead. on_click then refocuses the active control for header/footer/
-        # label clicks too. Plain-glyph terminals hide the scrollbar in the
-        # stylesheet and keep the keyboard scroll keys.
+        # from the active SelectionList/Input and leave Enter dead. Plain-glyph
+        # terminals hide the scrollbar in the stylesheet and keep the keyboard
+        # scroll keys.
         yield VerticalScroll(id=BODY_ID, can_focus=False)
         yield self._divider()
         yield Static(chrome.footer(), id="onboard-footer", markup=True)
@@ -170,8 +174,6 @@ class OnboardWizardApp(
     async def on_mount(self) -> None:
         if self._plain_glyphs:
             self.screen.add_class("plain-glyphs")
-        if self._screen_compat:
-            chrome.disable_mouse_reporting()
         self._start_front()
         await self._apply_pending_swap()
 
@@ -250,6 +252,10 @@ class OnboardWizardApp(
             # key after the swap always lands); this re-asserts focus for the
             # SelectionList case and is idempotent for the input case.
             self._focus_first(widgets)
+            # The copy and open keys act on whatever the incoming view shows,
+            # so they are rebound with it rather than left pointing at the
+            # screen the operator just left.
+            self._set_copy_targets(view.copy_targets)
 
     def _plainify_widgets(self, widgets: list[Static]) -> None:
         for widget in widgets:
@@ -264,25 +270,6 @@ class OnboardWizardApp(
                 self.set_focus(widget)
                 return widget
         return None
-
-    def _refocus_body(self) -> None:
-        """Move focus to the body's first focusable child (SelectionList/Input).
-
-        The body is a non-focusable VerticalScroll or plain-glyph Vertical.
-        Empty body space would otherwise clear focus off the active list,
-        leaving the highlighted row while Enter silently no-ops. Re-running
-        the body mount focus rule keeps Enter live after any click.
-        """
-        body = self.query_one(f"#{BODY_ID}")
-        self._focus_first(list(body.children))
-
-    def on_click(self, event: Any) -> None:
-        if self._screen_compat:
-            return
-        # Any click that lands on the body chrome (the non-focusable scroll
-        # container, the header/stepper/footer, or a static label) restores
-        # focus to the active control so Enter never goes dead.
-        self._refocus_body()
 
     async def action_back(self) -> None:
         if self._checking:

@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from rich.markup import escape
-
 from yoke_contracts import github_origin
 from yoke_cli.config import github_machine
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_machine_github
+from yoke_cli.config import onboard_wizard_github_progress as github_progress
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_github_repair
 from yoke_cli.config import onboard_wizard_saved_github as saved_github
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
+from yoke_cli.config.onboard_wizard_state import CopyTarget
 from yoke_cli.config.onboard_wizard_step_ids import STEP_GITHUB
 from yoke_cli.config.onboard_wizard_github_presentation import (
     MachineGithubShell as _Shell,
@@ -26,6 +26,13 @@ def _wizard_steps():
     from yoke_cli.config import onboard_wizard_steps as steps
 
     return steps
+
+
+def _install_url_targets(install_url: str | None) -> tuple[CopyTarget, ...]:
+    """The installation link a repair screen shows, ready for copy and open."""
+    if not install_url:
+        return ()
+    return (CopyTarget(github_progress.INSTALL_URL_LABEL, install_url, is_url=True),)
 
 
 class MachineGithubFlow:
@@ -72,9 +79,9 @@ class MachineGithubFlow:
                 return
             try:
                 if event.get("phase") == "device_authorization":
-                    self.call_from_thread(self._show_github_device_code, event)
+                    self.call_from_thread(github_progress.show_device_code, self, event)
                 elif event.get("phase") == "app_installation":
-                    self.call_from_thread(self._show_github_install_url, event)
+                    self.call_from_thread(github_progress.show_install_url, self, event)
             except RuntimeError:
                 return
 
@@ -114,45 +121,6 @@ class MachineGithubFlow:
             replace_current=replace_current,
             blocks_quit=True,
         )
-
-    def _show_github_device_code(self: _Shell, event: dict[str, Any]) -> None:
-        code = str(event.get("user_code") or "").strip()
-        uri = str(event.get("verification_uri") or "").strip()
-        if not (code and uri):
-            return
-        try:
-            body = self.query_one("#onboard-body")
-            lines = [
-                widget
-                for widget in body.children
-                if getattr(widget, "has_class", lambda _name: False)(
-                    "onboard-plan-line"
-                )
-            ]
-            if lines:
-                lines[-1].update(escape(f"Enter code {code} at {uri}"))
-        except Exception:
-            return
-
-    def _show_github_install_url(self: _Shell, event: dict[str, Any]) -> None:
-        install_url = str(event.get("install_url") or "").strip()
-        if not install_url:
-            return
-        try:
-            body = self.query_one("#onboard-body")
-            lines = [
-                widget
-                for widget in body.children
-                if getattr(widget, "has_class", lambda _name: False)(
-                    "onboard-plan-line"
-                )
-            ]
-            if lines:
-                lines[-1].update(
-                    escape(f"Install or configure the App at {install_url}")
-                )
-        except Exception:
-            return
 
     def _after_machine_github_check(self: _Shell, report: Any) -> None:
         if isinstance(report, dict) and report.get("configured"):
@@ -257,6 +225,7 @@ class MachineGithubFlow:
                     ok=False,
                 ),
                 self._on_machine_github_pending,
+                copy_targets=_install_url_targets(install_url),
             )
         )
 
@@ -334,6 +303,7 @@ class MachineGithubFlow:
                     ok=False,
                 ),
                 self._on_machine_github_error,
+                copy_targets=_install_url_targets(install_url),
             )
         )
 

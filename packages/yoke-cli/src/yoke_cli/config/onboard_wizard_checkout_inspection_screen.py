@@ -14,14 +14,16 @@ from yoke_cli.config import project_installed_layer as installed_layer
 from yoke_cli.config.onboard_wizard_steps import verification_body
 from yoke_cli.config.onboard_wizard_widgets import SelectionRow
 
+# Connecting to what is already there is the default; replacing it is the rare
+# answer, so it sits below rather than under the cursor.
 LAYER_ROWS = [
-    SelectionRow(
-        installed_layer.LAYER_DECISION_REMOVE, "Remove them",
-        "delete the Yoke files and commit, then install fresh",
-    ),
     SelectionRow(
         installed_layer.LAYER_DECISION_KEEP, "Keep them",
         "install over what is already there",
+    ),
+    SelectionRow(
+        installed_layer.LAYER_DECISION_REMOVE, "Remove them",
+        "delete the Yoke files and commit, then install fresh",
     ),
 ]
 FETCH_ERROR_ROWS = [
@@ -59,7 +61,12 @@ def inspection_lines(scan: installed_layer.InstalledLayerScan) -> list[str]:
 
 
 def inspection_body(scan: installed_layer.InstalledLayerScan) -> list[Static]:
-    """Report what the fetched repository holds, and ask what to do with it."""
+    """Announce the layer already there, then ask what to do with it.
+
+    Finding an existing operating layer is a discovery, not a fault, so the
+    screen reads as one: the headline names what was found, keeping it is the
+    default answer, and removing it is the option below.
+    """
     release = (
         f" installed by Yoke {scan.source_engine_release}"
         if scan.source_engine_release
@@ -68,11 +75,12 @@ def inspection_body(scan: installed_layer.InstalledLayerScan) -> list[Static]:
     return verification_body(
         "This repository already has Yoke files in it.",
         f"{scan.root} carries a Yoke operating layer{release} — "
-        f"{_file_phrase(scan.file_count)}. Removing them commits the deletion "
-        "first, so the install that follows starts from a clean repository.",
+        f"{_file_phrase(scan.file_count)}. Yoke will keep them and install over "
+        "what is there. Removing them instead commits the deletion first, so "
+        "the install that follows starts from a clean repository.",
         inspection_lines(scan),
         LAYER_ROWS,
-        ok=False,
+        ok=True,
     )
 
 

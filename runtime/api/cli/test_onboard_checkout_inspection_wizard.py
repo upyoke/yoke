@@ -110,7 +110,7 @@ class _InspectionShell(inspection.CheckoutInspectionFlow):
     def _goto_clone_outcome(self) -> None:
         self.outcome_visits += 1
 
-    def _goto_existing_project_ready(self) -> None:
+    def _after_existing_project_ready(self) -> None:
         self.existing_project_visits += 1
 
     def _goto_clone_folder(self) -> None:
