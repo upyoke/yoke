@@ -74,6 +74,7 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
             "resource_name": "test-mac",
             "host": "test-mac.local",
             "user": "tester",
+            "host_kind": "mac-ssh",
             "operating_notes": "",
         },
         cases=[case],

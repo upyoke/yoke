@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-09-04T00:49:02Z_
+_Audit generated_at: 2026-09-04T01:23:31Z_
 
 ## 1. Summary
 
-- Function ids registered: **447**
+- Function ids registered: **450**
 - Internal dispatch-only functions without CLI adapters: **89**
-- `yoke` CLI subcommands: **375** (375 carry usable `--help`)
-- Operation tracker: **351 wrapped**, 14 tool_cli, 137 permanent, 0 pending
+- `yoke` CLI subcommands: **378** (378 carry usable `--help`)
+- Operation tracker: **354 wrapped**, 14 tool_cli, 137 permanent, 0 pending
 - Skill-body recipes: 331 total (279 template-skipped, 1 failing)
-- Recent field-notes inspected: 0
+- Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **351** (operation tracker confirms 351 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **354** (operation tracker confirms 354 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -320,8 +320,11 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **351** (operation track
 | strategy | `yoke strategy seed-defaults` | `strategy.seed_defaults.run` | ok |
 | strategy | `yoke strategy surface get` | `strategy.surface.get` | ok |
 | strategy | `yoke strategy surface list` | `strategy.surface.list` | ok |
+| test_machine | `yoke test-machine bridge-diagnose` | `test_machine.bridge_diagnose` | ok |
 | test_machine | `yoke test-machine get` | `test_machine.get` | ok |
+| test_machine | `yoke test-machine golden-capture` | `test_machine.golden_capture` | ok |
 | test_machine | `yoke test-machine list` | `test_machine.list` | ok |
+| test_machine | `yoke test-machine reset` | `test_machine.reset` | ok |
 | test_machine | `yoke test-machine settings-replace` | `test_machine.settings_replace` | ok |
 | test_machine | `yoke test-machine verify` | `test_machine.verify` | ok |
 | workflow | `yoke workflow execution-instruction create` | `workflow.execution_instruction.create` | ok |
@@ -564,7 +567,13 @@ Lint modules inventoried: **2** (0 reference the field-note footer; 0 carry deni
 
 ## 7. Field-note hotspots
 
-_Field-note read failed: RuntimeError: YOKE_PG_DSN, YOKE_PG_DSN_FILE, managed database secret environment, or a usable ~/.yoke/config.json credential source must be set for postgres authority: no connected environment binding found_
+Recent field-notes inspected: **50** (read surface: `agent_facing`).
+
+| agent | recent count |
+|---|---|
+| codex | 40 |
+| claude-code | 8 |
+| cursor | 2 |
 
 ## 8. Contradictions
 
@@ -575,7 +584,6 @@ _Field-note read failed: RuntimeError: YOKE_PG_DSN, YOKE_PG_DSN_FILE, managed da
 
 ## 9. Next-slice recommendation
 
-- **Field-note hotspot read through the agent-facing surface is unhealthy** _(category: teaching_drift)_
 - **1 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
 
 ## 10. Curl floor — the envelope shape under every family

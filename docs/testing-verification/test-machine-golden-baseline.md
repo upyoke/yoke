@@ -3,7 +3,9 @@
 What the Test Mac's golden baseline is, how its probes sidecar declares which
 programs it must carry signed in, and how to read a probe that fails. Companion
 to
-[`docs/testing-verification.md`](../testing-verification.md).
+[`docs/testing-verification.md`](../testing-verification.md); the command that
+produces one, and what it refuses, is in
+[`test-machine-operations.md`](test-machine-operations.md).
 
 The registered `fresh-host` baseline restores the host's declared golden
 baseline. Its target state is USER-EQUIVALENT, not bare: a real user arrives
@@ -113,7 +115,11 @@ expectations.
 Recapturing a baseline with a new tool updates its probes in the same motion.
 Adding a harness to the host without adding its probe leaves a signed-out
 program the baseline never checks; adding a probe without recapturing leaves a
-baseline that cannot pass. Do both, together.
+baseline that cannot pass. Do both, together — which is what
+`yoke test-machine golden-capture --probes-file <file>` does in one operation:
+it runs the document's probes, refuses unless every one passes, captures the
+home, and seals that same document beside the new golden with its digest
+recorded in the manifest.
 
 ## Reading a failed probe
 
@@ -124,7 +130,7 @@ their recoveries differ:
 | --- | --- | --- |
 | passed | the program reported itself signed in | none |
 | `baseline_probe_failed` | the program ran and did not report itself signed in | recapture the golden with it signed in, or correct the probe argv or expectation |
-| `baseline_probe_bridge_unavailable` | the bridge never delivered the probe, so the program said nothing | repair Terminal.app control on the host, then re-run `yoke test-machine verify --project <project> --machine <resource-name>` |
+| `baseline_probe_bridge_unavailable` | the bridge never delivered the probe, so the program said nothing | run `yoke test-machine bridge-diagnose --project <project> --machine <resource-name>`; it names which bridge capability broke and what to change |
 
 The third row is the one worth knowing about. The bridge reports its own
 failure the way it reports a program's — a synthetic result carrying an exit

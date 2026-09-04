@@ -14,7 +14,11 @@ from yoke_contracts.machine_config.test_machine import (
     validate_test_machine_resource_name,
     validate_test_machine_settings,
 )
-from yoke_contracts.machine_qa_execution import VERIFICATION_BASELINES
+from yoke_contracts.machine_config.test_machine import TEST_MACHINE_HOST_KINDS
+from yoke_contracts.machine_qa_execution import (
+    HOST_BASELINE_END_STATE,
+    HOST_BASELINES,
+)
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_method_capabilities import capability_kinds
@@ -30,6 +34,9 @@ from yoke_core.domain.machine_qa_capability_rows import (
     TestMachineCapabilityRow,
     select_test_machine_row,
     test_machine_capability_rows,
+)
+from yoke_core.domain.machine_operation_recording import (
+    test_machine_operation_receipts,
 )
 from yoke_core.domain.machine_qa_capability_settings import (
     replace_test_machine_settings,
@@ -52,7 +59,7 @@ TEST_MACHINE_FEATURES = (
     "screenshots",
     "post-install shell",
 )
-TEST_MACHINE_BASELINES = VERIFICATION_BASELINES
+TEST_MACHINE_BASELINES = HOST_BASELINES
 
 
 def validate_test_machine_json(raw_json: str) -> str:
@@ -145,6 +152,24 @@ def _holder_item(
     }
 
 
+def host_end_state(checks: list[dict[str, Any]]) -> str | None:
+    """Say plainly what state a recorded run left the machine in.
+
+    Verification reaches both baselines in order, so the box it hands back is
+    whatever the LAST one it reached leaves behind -- which is not fresh. That
+    sentence is derived from the rows rather than assumed, because a run that
+    stopped early left the machine somewhere else entirely.
+    """
+    reached = [
+        str(check["name"])
+        for check in checks
+        if check.get("ok") and str(check.get("name")) in HOST_BASELINE_END_STATE
+    ]
+    if not reached:
+        return None
+    return HOST_BASELINE_END_STATE[reached[-1]]
+
+
 def _test_machine_detail(
     conn: Any,
     *,
@@ -197,13 +222,21 @@ def _test_machine_detail(
         "settings_token": row.settings_token,
         "features": list(TEST_MACHINE_FEATURES),
         "host_baselines": list(TEST_MACHINE_BASELINES),
+        "host_baseline_end_states": dict(HOST_BASELINE_END_STATE),
+        "host_kinds": list(TEST_MACHINE_HOST_KINDS),
         "concurrency": {"limit": 1, "mode": "serial", "scope": "machine"},
         "verification": {
             "status": status,
             "checked_at": verification[1] if verification else row.verified_at,
             "error_code": verification[3] if verification else None,
             "checks": list(receipt.get("checks") or []),
+            "host_end_state": host_end_state(list(receipt.get("checks") or [])),
         },
+        "operations": test_machine_operation_receipts(
+            conn,
+            row.project_id,
+            capability_type=row.capability_type,
+        ),
         "secrets": [
             {"key": key, "stored": key in stored_keys}
             for key in sorted(TEST_MACHINE_SECRET_KEYS)
@@ -263,6 +296,7 @@ def test_machine_list(conn: Any, *, project: str) -> dict[str, Any]:
 
 __all__ = [
     "HOST_CONTROL_EXECUTOR_ID",
+    "host_end_state",
     "TEST_MACHINE_BASELINES",
     "TEST_MACHINE_FEATURES",
     "TestMachineCapabilityError",

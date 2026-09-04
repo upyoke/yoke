@@ -37,7 +37,7 @@ class SshMacHostControl(SshMacTransport):
         self._pending_terminal_size: tuple[int, int] | None = None
 
     def read_text(self, path: str) -> str | None:
-        return self._read_remote_file(path)
+        return self.read_remote_text(path)
 
     def write_text(self, path: str, content: str) -> None:
         if not self._upload_bytes(path, content.encode("utf-8")):

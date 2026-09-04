@@ -29,6 +29,7 @@ TEST_MACHINE_SETTINGS = {
     "resource_name": "mac-mini-lab",
     "host": "test-mac.local",
     "user": "yoke-test",
+    "host_kind": "mac-ssh",
     "operating_notes": "",
 }
 _MACHINE_STATE_CASE_KEYS = frozenset(

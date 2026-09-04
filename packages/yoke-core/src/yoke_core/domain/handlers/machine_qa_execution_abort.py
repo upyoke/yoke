@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.machine_qa import _failure
+from yoke_core.domain.handlers.machine_qa_operation import OperatorOperation
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 
 
@@ -18,12 +19,17 @@ AbortReason = Literal[
 ]
 
 
-class TestMachineVerifyAbortRequest(BaseModel):
+class TestMachineOperationAbortRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     project: str
     lease_id: int = Field(ge=1)
     contract_digest: str = Field(min_length=1)
+    operation: OperatorOperation
+    # The issued shape, echoed back so the abort rebuilds the same contract it
+    # is releasing.
+    baseline: str | None = None
+    destination: str | None = None
     reason: AbortReason
 
 
@@ -49,10 +55,11 @@ def _release(
     lease_id: int,
     contract_digest: str,
     reason: AbortReason,
-    operation: Literal["verify", "case", "baseline_group"],
-    checks: tuple[str, ...] = (),
-    baselines: tuple[str, ...] = (),
-    cases: tuple[dict[str, Any], ...] = (),
+    operation: str,
+    checks: Sequence[str] = (),
+    baselines: Sequence[str] = (),
+    cases: Sequence[dict[str, Any]] = (),
+    golden_destination: str | None = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.machine_qa_execution_protocol import (
         complete_host_control_execution,
@@ -70,6 +77,7 @@ def _release(
         checks=checks,
         baselines=baselines,
         cases=cases,
+        golden_destination=golden_destination,
     )
     complete_host_control_execution(
         conn,
@@ -83,9 +91,10 @@ def _release(
     }
 
 
-def handle_verify_abort(request: FunctionCallRequest) -> HandlerOutcome:
+def handle_operation_abort(request: FunctionCallRequest) -> HandlerOutcome:
+    """Release the lease of an operation whose local execution never finished."""
     try:
-        parsed = TestMachineVerifyAbortRequest.model_validate(
+        parsed = TestMachineOperationAbortRequest.model_validate(
             request.payload or {},
         )
     except ValidationError as exc:
@@ -93,6 +102,10 @@ def handle_verify_abort(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import db_helpers
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
+    )
+    from yoke_core.domain.machine_qa_operation_shape import (
+        TestMachineOperationShapeError,
+        operation_contract_shape,
     )
 
     conn = db_helpers.connect()
@@ -104,13 +117,21 @@ def handle_verify_abort(request: FunctionCallRequest) -> HandlerOutcome:
             lease_id=parsed.lease_id,
             contract_digest=parsed.contract_digest,
             reason=parsed.reason,
-            operation="verify",
-            checks=("connection", "terminal_bridge"),
-            baselines=("fresh-host", "shell-preconfigured"),
+            operation=parsed.operation,
+            **operation_contract_shape(
+                parsed.operation,
+                baseline=parsed.baseline,
+                golden_destination=parsed.destination,
+            ),
         )
-    except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
+    except (
+        MachineQaProtocolError,
+        TestMachineCapabilityError,
+        TestMachineOperationShapeError,
+        ValueError,
+    ) as exc:
         conn.rollback()
-        return _failure("test_machine_verification_abort_failed", str(exc))
+        return _failure("test_machine_operation_abort_failed", str(exc))
     finally:
         conn.close()
     return HandlerOutcome(primary_success=True, result_payload=result)
@@ -213,8 +234,8 @@ def handle_baseline_group_abort(
 __all__ = [
     "TestMachineCaseAbortRequest",
     "TestMachineExecutionAbortResponse",
-    "TestMachineVerifyAbortRequest",
+    "TestMachineOperationAbortRequest",
     "handle_baseline_group_abort",
     "handle_case_abort",
-    "handle_verify_abort",
+    "handle_operation_abort",
 ]

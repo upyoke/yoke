@@ -40,13 +40,16 @@ def test_registered_recipe_url_uses_shared_fetch_gateway(monkeypatch) -> None:
         return True
 
     monkeypatch.setattr(
-        "yoke_core.domain.ssh_mac_terminal_recipe_support.fetch_bytes", fetch,
+        "yoke_core.domain.ssh_mac_terminal_recipe_support.fetch_bytes",
+        fetch,
     )
     result = stage_recipe_files(
-        [{
-            "source_url": "https://api.upyoke.com/install",
-            "remote_path": "/tmp/install",
-        }],
+        [
+            {
+                "source_url": "https://api.upyoke.com/install",
+                "remote_path": "/tmp/install",
+            }
+        ],
         upload_bytes=upload,
     )
 
@@ -288,6 +291,7 @@ def test_machine_lease_redacts_typed_recipe_evidence_before_submission() -> None
                 "resource_name": "test-mac",
                 "host": "test-mac.local",
                 "user": "tester",
+                "host_kind": "mac-ssh",
                 "operating_notes": "",
             },
             secrets={"ssh_private_key": "top-secret"},

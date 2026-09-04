@@ -101,6 +101,20 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
         "test_machine.verify",
         test_machine.test_machine_verify,
     ),
+    ("test-machine", "reset"): (
+        "test_machine.reset",
+        test_machine.test_machine_reset,
+    ),
+    # The grammar key is hyphenated; the space form callers type
+    # (`yoke test-machine golden capture`) is derived from it.
+    ("test-machine", "golden-capture"): (
+        "test_machine.golden_capture",
+        test_machine.test_machine_golden_capture,
+    ),
+    ("test-machine", "bridge-diagnose"): (
+        "test_machine.bridge_diagnose",
+        test_machine.test_machine_bridge_diagnose,
+    ),
 }
 
 INBOX_DECISION_SUBCOMMAND_REGISTRY = {

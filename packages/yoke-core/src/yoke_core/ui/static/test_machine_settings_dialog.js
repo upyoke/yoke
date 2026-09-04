@@ -53,6 +53,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["resource_name", "Resource name"],
     ["host", "Host"],
     ["user", "User"],
+    ["host_kind", "Host kind"],
     ["operating_notes", "Operating notes"],
     ["golden_baseline_path", "Golden baseline path"],
   ]) {
@@ -62,6 +63,11 @@ export function machineSettingsDialog(context, detail, close, saved) {
     if (key === "resource_name") {
       input.readOnly = true;
       input.title = "The resource name is this capability row's identity.";
+    }
+    if (key === "host_kind") {
+      input.title =
+        "Which implementation drives this host. Registered kinds: "
+        + (detail.host_kinds || []).join(", ");
     }
     wrapper.appendChild(input);
     fields.appendChild(wrapper);

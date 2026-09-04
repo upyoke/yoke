@@ -7,6 +7,8 @@ from yoke_core.domain.handlers import machine_qa_list as _list
 from yoke_core.domain.handlers import machine_qa_case as _case
 from yoke_core.domain.handlers import machine_qa_execution_abort as _abort
 from yoke_core.domain.handlers import machine_qa_plan_case as _plan_case
+from yoke_core.domain.handlers import machine_qa_operation as _operation
+from yoke_contracts.machine_qa_execution import TEST_MACHINE_OPERATIONS
 from yoke_core.domain import agent_mission_recording as _agent_mission
 
 
@@ -255,24 +257,28 @@ def register(registry) -> None:
         claim_required_kind=None,
         ambient_session_required=False,
     )
+    for operation in TEST_MACHINE_OPERATIONS:
+        # One operator-facing id per operation, so authorization, the CLI
+        # grammar, and the hosted refusal all name the operation a person
+        # actually asked for.
+        registry.register(
+            f"test_machine.{operation}",
+            _handlers.handle_operation_on_control_plane,
+            _handlers.TestMachineGetRequest,
+            _handlers.TestMachineVerifyResponse,
+            stability="stable",
+            owner_module=__name__,
+            target_kinds=["global"],
+            side_effects=[],
+            emitted_event_names=["YokeFunctionCalled"],
+            guardrails=["credential_owning_client_required"],
+            adapter_status="live",
+            claim_required_kind=None,
+        )
     registry.register(
-        "test_machine.verify",
-        _handlers.handle_verify,
-        _handlers.TestMachineGetRequest,
-        _handlers.TestMachineVerifyResponse,
-        stability="stable",
-        owner_module=__name__,
-        target_kinds=["global"],
-        side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["credential_owning_client_required"],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "test_machine.verify.abort",
-        _abort.handle_verify_abort,
-        _abort.TestMachineVerifyAbortRequest,
+        "test_machine.operation.abort",
+        _abort.handle_operation_abort,
+        _abort.TestMachineOperationAbortRequest,
         _abort.TestMachineExecutionAbortResponse,
         stability="stable",
         owner_module=__name__,
@@ -284,10 +290,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "test_machine.verify.begin",
-        _handlers.handle_verify_begin,
-        _handlers.TestMachineVerifyBeginRequest,
-        _handlers.TestMachineVerifyBeginResponse,
+        "test_machine.operation.begin",
+        _operation.handle_operation_begin,
+        _operation.TestMachineOperationBeginRequest,
+        _operation.TestMachineOperationBeginResponse,
         stability="stable",
         owner_module=__name__,
         target_kinds=["global"],
@@ -302,14 +308,18 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "test_machine.verify.submit",
-        _handlers.handle_verify_submit,
-        _handlers.TestMachineVerifySubmitRequest,
-        _handlers.TestMachineVerifyResponse,
+        "test_machine.operation.submit",
+        _operation.handle_operation_submit,
+        _operation.TestMachineOperationSubmitRequest,
+        _operation.TestMachineOperationResponse,
         stability="stable",
         owner_module=__name__,
         target_kinds=["global"],
-        side_effects=["verification_write", "coordination_claim_release"],
+        side_effects=[
+            "verification_write",
+            "project_capability_write",
+            "coordination_claim_release",
+        ],
         emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
         guardrails=[
             "actor_owned_lease",

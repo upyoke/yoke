@@ -7,24 +7,15 @@ import json
 from pathlib import Path
 from typing import Any, List
 
-from yoke_contracts.api.function_call import (
-    FunctionCallResponse,
-    FunctionError,
-    TargetRef,
-)
+from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
-    ensure_handlers_loaded,
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.transport.dispatcher import (
-    build_actor,
-    call_dispatcher,
-    emit_response,
-)
+from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
 
 
 LIST_USAGE = "yoke test-machine list --project P [--json]"
@@ -35,6 +26,17 @@ SETTINGS_REPLACE_USAGE = (
     "(--base AS_READ_JSON | --new) [--json]"
 )
 VERIFY_USAGE = "yoke test-machine verify --project P [--machine NAME] [--json]"
+RESET_USAGE = (
+    "yoke test-machine reset --project P [--machine NAME] "
+    "[--baseline fresh-host|shell-preconfigured] [--json]"
+)
+GOLDEN_CAPTURE_USAGE = (
+    "yoke test-machine golden-capture --project P [--machine NAME] "
+    "[--destination /abs/path] [--probes-file FILE] [--json]"
+)
+BRIDGE_DIAGNOSE_USAGE = (
+    "yoke test-machine bridge-diagnose --project P [--machine NAME] [--json]"
+)
 
 
 def _parser(prog: str, *, with_machine: bool = True) -> argparse.ArgumentParser:
@@ -104,133 +106,40 @@ def test_machine_settings_replace(args: List[str]) -> int:
 
 
 def test_machine_verify(args: List[str]) -> int:
-    parser = _parser("yoke test-machine verify")
-    parsed = parse_or_usage_error(parser, args, VERIFY_USAGE)
-    if parsed is None:
-        return 2
-    ensure_handlers_loaded()
-    actor = build_actor(session_id=parsed.session_id)
-    begin = call_dispatcher(
-        function_id="test_machine.verify.begin",
-        target=TargetRef(kind="global"),
-        payload={"project": parsed.project, "machine": parsed.machine},
-        actor=actor,
-    )
-    if not begin.success:
-        return emit_response(
-            _as_public_verify_response(begin),
-            json_mode=parsed.json_mode,
-        )
-    execution = (begin.result or {}).get("execution")
-    if not isinstance(execution, dict):
-        return emit_response(
-            _local_execution_error(
-                "verification begin returned no execution contract",
-            ),
-            json_mode=parsed.json_mode,
-        )
-    try:
-        from yoke_harness.test_machine_verification import (
-            execute_verification_contract,
-        )
-
-        submission = execute_verification_contract(execution)
-    except Exception as exc:
-        released = _abort_verification(
-            actor=actor,
-            project=parsed.project,
-            execution=execution,
-            reason="local_execution_failed",
-        )
-        return emit_response(
-            _local_execution_error(
-                "local host-control verification failed "
-                f"({type(exc).__name__}); "
-                + (
-                    "the server lease was released"
-                    if released
-                    else "automatic server-lease release also failed"
-                ),
-                lease_released=released,
-            ),
-            json_mode=parsed.json_mode,
-        )
-    try:
-        submit = call_dispatcher(
-            function_id="test_machine.verify.submit",
-            target=TargetRef(kind="global"),
-            payload={"project": parsed.project, **submission.payload},
-            actor=actor,
-        )
-        if not submit.success:
-            _abort_verification(
-                actor=actor,
-                project=parsed.project,
-                execution=execution,
-                reason="submission_failed",
-            )
-    finally:
-        submission.cleanup_artifacts()
-    return emit_response(
-        _as_public_verify_response(submit),
-        json_mode=parsed.json_mode,
+    return run_host_operation(
+        args,
+        prog="yoke test-machine verify",
+        usage=VERIFY_USAGE,
+        operation="verify",
     )
 
 
-def _abort_verification(
-    *,
-    actor: Any,
-    project: str,
-    execution: dict[str, Any],
-    reason: str,
-) -> bool:
-    lease_id = execution.get("lease_id")
-    contract_digest = execution.get("contract_digest")
-    if not isinstance(lease_id, int) or not isinstance(contract_digest, str):
-        return False
-    response = call_dispatcher(
-        function_id="test_machine.verify.abort",
-        target=TargetRef(kind="global"),
-        payload={
-            "project": project,
-            "lease_id": lease_id,
-            "contract_digest": contract_digest,
-            "reason": reason,
-        },
-        actor=actor,
+def test_machine_reset(args: List[str]) -> int:
+    return run_host_operation(
+        args,
+        prog="yoke test-machine reset",
+        usage=RESET_USAGE,
+        operation="reset",
+        with_baseline=True,
     )
-    return bool(response.success)
 
 
-def _as_public_verify_response(
-    response: FunctionCallResponse,
-) -> FunctionCallResponse:
-    return response.model_copy(update={"function": "test_machine.verify"})
+def test_machine_golden_capture(args: List[str]) -> int:
+    return run_host_operation(
+        args,
+        prog="yoke test-machine golden-capture",
+        usage=GOLDEN_CAPTURE_USAGE,
+        operation="golden_capture",
+        with_destination=True,
+    )
 
 
-def _local_execution_error(
-    message: str,
-    *,
-    lease_released: bool = False,
-) -> FunctionCallResponse:
-    return FunctionCallResponse(
-        success=False,
-        function="test_machine.verify",
-        version="v1",
-        error=FunctionError(
-            code="host_control_local_execution_failed",
-            message=message,
-            recovery_hint=(
-                "Verify this machine owns the test-machine ssh_private_key "
-                "capability secret, then retry the CLI command."
-                + (
-                    ""
-                    if lease_released
-                    else " Inspect and release the named coordination lease "
-                    "before retrying."
-                )
-            ),
-        ),
+def test_machine_bridge_diagnose(args: List[str]) -> int:
+    return run_host_operation(
+        args,
+        prog="yoke test-machine bridge-diagnose",
+        usage=BRIDGE_DIAGNOSE_USAGE,
+        operation="bridge_diagnose",
     )
 
 
@@ -239,17 +148,26 @@ USAGE_BY_FUNCTION_ID = {
     "test_machine.get": GET_USAGE,
     "test_machine.settings_replace": SETTINGS_REPLACE_USAGE,
     "test_machine.verify": VERIFY_USAGE,
+    "test_machine.reset": RESET_USAGE,
+    "test_machine.golden_capture": GOLDEN_CAPTURE_USAGE,
+    "test_machine.bridge_diagnose": BRIDGE_DIAGNOSE_USAGE,
 }
 
 
 __all__ = [
+    "BRIDGE_DIAGNOSE_USAGE",
     "GET_USAGE",
+    "GOLDEN_CAPTURE_USAGE",
     "LIST_USAGE",
+    "RESET_USAGE",
     "SETTINGS_REPLACE_USAGE",
     "USAGE_BY_FUNCTION_ID",
     "VERIFY_USAGE",
+    "test_machine_bridge_diagnose",
     "test_machine_get",
+    "test_machine_golden_capture",
     "test_machine_list",
+    "test_machine_reset",
     "test_machine_settings_replace",
     "test_machine_verify",
 ]

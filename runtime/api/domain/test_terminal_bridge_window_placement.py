@@ -6,21 +6,25 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.scripted_mac_host_test_support import ScriptedMacHost
-from yoke_contracts.machine_qa_execution import (
-    TERMINAL_CAPTURE_RECOVERY,
+from runtime.api.domain.terminal_bridge_host_test_support import (
+    BRIDGE_IDENTITY,
+    FakeMac,
+)
+from yoke_contracts.machine_qa_terminal_bridge import (
+    TERMINAL_BRIDGE_RECOVERY,
     TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE,
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
     TERMINAL_DISPLAY_LOCKED_ERROR_CODE,
+    TERMINAL_KEYSTROKE_UNDELIVERED_ERROR_CODE,
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
+    TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE,
     TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE,
 )
-from yoke_harness import ssh_mac_terminal_bridge_check
+from yoke_harness import ssh_mac_terminal_app, ssh_mac_terminal_bridge_check
 from yoke_harness.ssh_mac_display_frame import DisplayFrame, window_layout
 from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 
 
-_IDENTITY = "b" * 12
 _STANDARD_FRAME = DisplayFrame(
     left=0,
     top=25,
@@ -32,58 +36,11 @@ _STANDARD_FRAME = DisplayFrame(
 )
 
 
-class FakeMac(ScriptedMacHost):
-    """A host that also answers the transcript, keystroke, and capture probes."""
-
-    def __init__(
-        self,
-        *,
-        captures: tuple[str, ...] = ("cG5nLW9uZQ==", "cG5nLXR3bw=="),
-        console_user: str = "yoke-test",
-        locked: bool = False,
-        input_ok: bool = True,
-        placement=None,
-        **kwargs,
-    ) -> None:
-        super().__init__(**kwargs)
-        self.captures = list(captures)
-        self.console_user = console_user
-        self.locked = locked
-        self.input_ok = input_ok
-        self._placement = placement
-        self._transcript_reads = 0
-
-    def place(self, requested, attempt):
-        if self._placement is None:
-            return requested
-        return self._placement(requested, attempt)
-
-    def reply(self, command: str) -> str | None:
-        if "return contents of selected tab" in command:
-            self._transcript_reads += 1
-            if self._transcript_reads == 1 or not self.input_ok:
-                return "terminal-app-ready\n"
-            return f"received-{_IDENTITY}\n"
-        if 'tell application "System Events"' in command:
-            return "true" if self.input_ok else "false"
-        if command.startswith("/bin/test -s "):
-            return self.captures.pop(0) if self.captures else ""
-        if command == "/usr/bin/stat -f%Su /dev/console":
-            return self.console_user
-        if command.startswith("/usr/sbin/ioreg"):
-            return (
-                '    | |   "CGSSessionScreenIsLocked" = Yes'
-                if self.locked
-                else '    | |   "kCGSSessionOnConsoleKey" = Yes'
-            )
-        return None
-
-
 def _check(mac: FakeMac, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         ssh_mac_terminal_bridge_check,
         "uuid4",
-        lambda: SimpleNamespace(hex="b" * 32),
+        lambda: SimpleNamespace(hex=BRIDGE_IDENTITY.ljust(32, "b")),
     )
     control = SshMacHostControl.__new__(SshMacHostControl)
     control._run = mac
@@ -181,7 +138,7 @@ def test_bridge_names_a_window_that_will_not_come_on_screen(
     assert diagnostics["display_size"] == [1920, 1080]
     assert (
         diagnostics["recovery"]
-        == (TERMINAL_CAPTURE_RECOVERY[TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE])
+        == (TERMINAL_BRIDGE_RECOVERY[TERMINAL_WINDOW_OFF_SCREEN_ERROR_CODE])
     )
     assert mac.crop_rectangles() == []
 
@@ -206,7 +163,7 @@ def test_bridge_records_capture_diagnostics_when_frames_never_change(
     assert diagnostics["frames_differed"] is False
     assert (
         diagnostics["recovery"]
-        == (TERMINAL_CAPTURE_RECOVERY[TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE])
+        == (TERMINAL_BRIDGE_RECOVERY[TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE])
     )
 
 
@@ -245,35 +202,75 @@ def test_bridge_names_a_host_that_reports_no_display(
     assert "no display" in diagnostics["error_detail"]
     assert (
         diagnostics["recovery"]
-        == (TERMINAL_CAPTURE_RECOVERY[TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE])
+        == (TERMINAL_BRIDGE_RECOVERY[TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE])
     )
     assert result.evidence["terminal_app_launch"] is False
 
 
-def test_bridge_reports_generic_failure_without_input_delivery(
+def test_bridge_names_a_refused_keystroke(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # The window is frontmost and macOS still refuses the synthetic event.
     mac = FakeMac(input_ok=False)
+
+    result = _check(mac, monkeypatch)
+
+    assert result.ok is False
+    assert result.error_code == TERMINAL_KEYSTROKE_UNDELIVERED_ERROR_CODE
+    assert result.evidence["terminal_app_focus"] is True
+    assert result.evidence["terminal_app_input"] is False
+    assert result.evidence["terminal_app_screenshot"] is False
+    assert (
+        result.evidence["capture_diagnostics"]["recovery"]
+        == TERMINAL_BRIDGE_RECOVERY[TERMINAL_KEYSTROKE_UNDELIVERED_ERROR_CODE]
+    )
+
+
+def test_bridge_names_a_window_that_never_becomes_frontmost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The keys would have landed in whatever window is actually in front, so
+    # the bridge refuses to send them and says which process held focus.
+    mac = FakeMac(frontmost_process="Finder", load_average=0.0)
     clock = {"now": 0.0}
 
     def advance(seconds: float) -> None:
         clock["now"] += seconds
 
     monkeypatch.setattr(
-        ssh_mac_terminal_bridge_check.time,
+        ssh_mac_terminal_app.time,
         "monotonic",
         lambda: clock["now"],
     )
-    monkeypatch.setattr(ssh_mac_terminal_bridge_check.time, "sleep", advance)
+    monkeypatch.setattr(ssh_mac_terminal_app.time, "sleep", advance)
 
     result = _check(mac, monkeypatch)
 
     assert result.ok is False
-    assert result.error_code == (
-        ssh_mac_terminal_bridge_check.TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE
+    assert result.error_code == TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE
+    assert result.evidence["terminal_app_focus"] is False
+    diagnostics = result.evidence["capture_diagnostics"]
+    assert diagnostics["frontmost_process"] == "Finder"
+    assert (
+        diagnostics["recovery"]
+        == TERMINAL_BRIDGE_RECOVERY[TERMINAL_WINDOW_FOCUS_TIMEOUT_ERROR_CODE]
     )
-    assert result.evidence["terminal_app_input"] is False
-    assert result.evidence["terminal_app_screenshot"] is False
+
+
+def test_bridge_scales_its_waits_with_the_hosts_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A loaded Mac takes longer to make a window frontmost and to paint its
+    # output, so the waits stretch rather than expiring on a busy machine.
+    idle = _check(FakeMac(load_average=0.0), monkeypatch)
+    busy = _check(FakeMac(load_average=4.0), monkeypatch)
+
+    assert busy.evidence["host_load_average"] == 4.0
+    assert (
+        busy.evidence["transcript_wait_seconds"]
+        > idle.evidence["transcript_wait_seconds"]
+    )
+    assert busy.evidence["focus_wait_seconds"] > idle.evidence["focus_wait_seconds"]
 
 
 def test_bridge_asks_the_graphical_session_for_the_display_geometry(

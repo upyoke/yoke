@@ -7,6 +7,7 @@ import subprocess
 from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_type,
 )
+from runtime.api.domain.machine_qa_operator_double import FakeOperatorOperations
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
@@ -37,7 +38,7 @@ BASELINE_PATHS = frozenset(
 )
 
 
-class FakeHostControl:
+class FakeHostControl(FakeOperatorOperations):
     home = "/Users/tester"
     shell = "/bin/zsh"
     xdg_bin_home = None
@@ -49,6 +50,8 @@ class FakeHostControl:
         refuse_ssh_state: bool = False,
         refuse_full_reset: bool = False,
         refuse_user_equivalence: bool = False,
+        refuse_capture: str | None = None,
+        bridge_failure: str | None = None,
     ) -> None:
         self.files: dict[str, str] = {
             "/Users/tester/.zprofile": (
@@ -61,6 +64,9 @@ class FakeHostControl:
         self.refuse_ssh_state = refuse_ssh_state
         self.refuse_full_reset = refuse_full_reset
         self.refuse_user_equivalence = refuse_user_equivalence
+        self.refuse_capture = refuse_capture
+        self.bridge_failure = bridge_failure
+        self.captured_destinations: list[str] = []
         self.case_calls = 0
         self.full_reset_calls = 0
         self.commands: list[list[str]] = []
@@ -326,6 +332,7 @@ def register_test_machine(
                     "resource_name": resource_name,
                     "host": "test-mac.local",
                     "user": "yoke-test",
+                    "host_kind": "mac-ssh",
                     "operating_notes": "Do not interrupt an active lease.",
                 },
                 separators=(",", ":"),

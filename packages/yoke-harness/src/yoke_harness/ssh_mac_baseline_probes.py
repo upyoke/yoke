@@ -22,6 +22,8 @@ import json
 from pathlib import PurePosixPath
 from typing import Any, Callable, Sequence
 
+from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
@@ -243,6 +245,52 @@ def run_baseline_probes(
     return HostActionResult(True, {"probes": rows})
 
 
+def prove_probes_document(control: Any, document: str) -> HostActionResult:
+    """Run one probe document in the host's logged-in GUI session."""
+    try:
+        probes = parse_baseline_probes(document)
+    except BaselineProbeError:
+        return HostActionResult(
+            False,
+            {"probes": [], "declared": True},
+            "baseline_probes_invalid",
+        )
+    return run_baseline_probes(
+        probes,
+        run_gui_command=lambda argv, timeout: control.run_command(
+            argv,
+            required_session_context=GUI_SESSION_CONTEXT,
+            timeout=timeout,
+        ),
+    )
+
+
+def prove_declared_probes(control: Any) -> HostActionResult:
+    """Run the probes the host's declared baseline carries beside itself.
+
+    Separate from the restore because they answer different questions. The
+    restore asks whether the home is the captured one; this asks whether that
+    home still works, which structure alone cannot say -- a credential can come
+    back byte-identical and expired.
+    """
+    document = read_declared_probes_document(control)
+    if document is None:
+        return HostActionResult(
+            False,
+            {"probes": [], "declared": False},
+            "baseline_probes_not_declared",
+        )
+    return prove_probes_document(control, document)
+
+
+def read_declared_probes_document(control: Any) -> str | None:
+    """Return the probe document sealed beside the declared golden, if any."""
+    golden = control.golden_baseline_path or ""
+    if not golden:
+        return None
+    return control.read_remote_text(golden + GOLDEN_PROBES_SUFFIX)
+
+
 def reach_user_equivalent_baseline(control: Any) -> HostActionResult:
     """Restore the declared baseline, then prove the restored host works.
 
@@ -269,6 +317,9 @@ __all__ = [
     "BaselineProbe",
     "BaselineProbeError",
     "parse_baseline_probes",
+    "prove_declared_probes",
+    "prove_probes_document",
     "reach_user_equivalent_baseline",
+    "read_declared_probes_document",
     "run_baseline_probes",
 ]

@@ -146,7 +146,16 @@ yoke test-machine settings-replace \
   --project <project> --machine <resource-name> --settings-file <settings.json> \
   (--new | --base '<as-read-json>')
 yoke test-machine verify --project <project> --machine <resource-name>
+yoke test-machine reset --project <project> --machine <resource-name> \
+  [--baseline fresh-host|shell-preconfigured]
+yoke test-machine golden-capture --project <project> --machine <resource-name> \
+  [--destination <abs-path>] [--probes-file <file>]
+yoke test-machine bridge-diagnose --project <project> --machine <resource-name>
 ```
+
+The last three are the operations verification is not: **reset** reaches one
+baseline and stops, **golden capture** produces a new restorable baseline, and
+**bridge diagnose** names the host condition behind a bridge failure. What each does, refuses, and records: [`test-machine-operations.md`](testing-verification/test-machine-operations.md).
 
 Provision the host once before saving the capability. The general procedure —
 disk encryption, automatic login, sleep, remote access and its separate full
@@ -170,8 +179,11 @@ browser action is needed; redeeming the one-time code in another browser
 consumes it and breaks the gate (`machine_browser_tab_missing`).
 
 The saved settings document contains `resource_name`, `host`, `user`,
-`operating_notes`, and an optional `golden_baseline_path`. No credentials. `ssh_private_key` is the
-only Test Mac credential. Store it on the machine that runs `host_control`:
+`host_kind`, `operating_notes`, and an optional `golden_baseline_path`. No
+credentials. `host_kind` names which implementation drives the host (`mac-ssh`
+is the registered kind), declared rather than inferred because a guessing
+operation runs a destructive restore. `ssh_private_key` is the only Test Mac
+credential. Store it on the machine that runs `host_control`:
 
 ```text
 printf '%s' "$SSH_PRIVATE_KEY" | yoke projects capability secret set \
@@ -195,13 +207,9 @@ Only the connection check is a precondition for the rest of the run. A failing
 terminal-bridge check is recorded, names the verdict, and the sequence
 continues into the host baselines, so a screenshot problem never leaves the
 machine unrestored while it is being diagnosed; the recorded status is still
-`error`. A capture failure names the condition to change rather than one
-umbrella code — `terminal_window_off_screen`,
-`terminal_console_user_mismatch`, `terminal_display_locked`,
-`terminal_display_frame_unavailable`, `terminal_screen_capture_failed`, or
-`terminal_screen_recording_required` — and the stored check carries the
-capture command, its exit code and stderr, the window and display bounds, the
-console user, and the recovery step. Read those before going to the console.
+`error`. Every bridge failure names one host condition rather than one umbrella
+code, and the stored check carries the evidence behind it — the same vocabulary
+`yoke test-machine bridge-diagnose` reports per capability, in that companion.
 
 Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The runner receives resolved
@@ -212,8 +220,8 @@ baseline. Its target state is USER-EQUIVALENT, not bare: a real user arrives
 with harness apps installed and signed in, so a machine stripped to nothing is
 not a fresh host. What the golden must carry, which programs it must have
 signed in as declared by its adjacent `.probes` sidecar, the illustrative
-current three-probe snapshot, how to capture one, and how to read a probe that
-fails:
+current three-probe snapshot, what `yoke test-machine golden-capture` writes
+and refuses, and how to read a probe that fails:
 [`testing-verification/test-machine-golden-baseline.md`](testing-verification/test-machine-golden-baseline.md).
 
 ## Evidence

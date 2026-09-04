@@ -17,6 +17,8 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.machine_qa_execution import (
     AGENT_MISSION_ARTIFACT_LIMIT,
+)
+from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_path

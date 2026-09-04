@@ -15,9 +15,10 @@ from yoke_core.domain.machine_qa_operator_gate import (
 )
 from yoke_core.domain.ssh_mac_browser_approval import approve_machine_in_safari
 from yoke_core.domain.qa_artifact_handle import local_handle
-from yoke_contracts.machine_qa_execution import (
+from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
 )
+from yoke_harness.ssh_mac_host_session_state import read_load_average
 from yoke_core.domain.ssh_mac_terminal_app import (
     DisplayFrameUnavailable,
     RunRemote,
@@ -90,6 +91,10 @@ def run_terminal_app_recipe(
     reached: list[str] = []
     screenshot_registry = TerminalScreenshotRegistry()
     window_id: int | None = None
+    # Focus waits are sized by what the host is doing: a recipe that types
+    # into a window the loaded machine has not made frontmost yet types into
+    # whatever is.
+    load_average = read_load_average(run)
     try:
         display_frame = resolve_display_frame(run)
     except DisplayFrameUnavailable as exc:
@@ -126,7 +131,8 @@ def run_terminal_app_recipe(
                 run,
                 window_id=window_id,
                 keys=keys,
-            )
+                load_average=load_average,
+            ).delivered
 
         time.sleep(float(config["start_delay"]))
         for action in config["actions"]:

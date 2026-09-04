@@ -24,6 +24,7 @@ def _settings(*, host: str = "test-mac.local") -> str:
             "resource_name": MACHINE,
             "host": host,
             "user": "yoke-test",
+            "host_kind": "mac-ssh",
             "operating_notes": "",
         },
         separators=(",", ":"),

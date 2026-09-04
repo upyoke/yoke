@@ -78,15 +78,21 @@ def test_terminal_mode_launches_and_drives_terminal_app_without_a_multiplexer(
         command for command in commands if "set bounds of targetWindow" in command
     )
     assert "set miniaturized of targetWindow to false" in placement
-    native_input = next(
-        command for command in commands if 'tell application "System Events"' in command
-    )
+    # The focus poll also talks to System Events, so the keystroke script is
+    # named by the events it sends rather than by the application it tells.
+    native_input = next(command for command in commands if "key code" in command)
     transcript_reads = [
         command for command in commands if "return contents of selected tab" in command
     ]
     assert "key code 125" in native_input
     assert "key code 36" in native_input
-    assert "activate" in native_input
+    # Raising the window is its own call now, because the keys must not be
+    # sent until the window server agrees the window is frontmost.
+    raise_window = next(
+        command for command in commands if "set index of targetWindow to 1" in command
+    )
+    assert "activate" in raise_window
+    assert "key code" not in raise_window
     assert transcript_reads
     assert all("activate" not in command for command in transcript_reads)
     assert all(

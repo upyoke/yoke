@@ -69,7 +69,7 @@ class TestScopeAndSummary:
             summarize_settings(
                 _machine_type("mac-mini-lab"),
                 '{"resource_name":"mac-mini-lab","host":"mac",'
-                '"user":"yoke","operating_notes":""}',
+                '"user":"yoke","host_kind":"mac-ssh","operating_notes":""}',
             )
             == "mac-mini-lab · Terminal + PTY · baselines ×2"
         )

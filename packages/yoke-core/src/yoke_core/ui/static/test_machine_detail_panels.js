@@ -50,6 +50,7 @@ function semanticReceiptRows(detail) {
   const connection = byName.get("connection");
   if (connection) {
     rows.push({
+      kind: "check",
       title: "SSH + runner materialization",
       detail: connection.ok
         ? "secret-free receipt"
@@ -60,6 +61,7 @@ function semanticReceiptRows(detail) {
   const terminalBridge = byName.get("terminal_bridge");
   if (terminalBridge) {
     rows.push({
+      kind: "check",
       title: "Terminal + screenshot bridge",
       detail: terminalBridge.ok
         ? "sample artifact discarded after verification"
@@ -75,6 +77,7 @@ function semanticReceiptRows(detail) {
     const complete = baselineChecks.length === baselineNames.length;
     const ok = complete && baselineChecks.every((check) => check.ok);
     rows.push({
+      kind: "check",
       title: "Host baselines reached + verified",
       detail: ok
         ? `${baselineNames.join(" · ")} — asserted the branch-determining state itself, never a proxy`
@@ -82,7 +85,72 @@ function semanticReceiptRows(detail) {
       ok,
     });
   }
+  const endState = detail.verification?.host_end_state;
+  if (endState) {
+    // A statement about the machine's end state, not a check that passed:
+    // counting it would inflate the health figure beside it.
+    rows.push({
+      kind: "statement",
+      title: "Machine was left",
+      detail: endState,
+      ok: true,
+    });
+  }
   return rows;
+}
+
+const OPERATION_TITLES = {
+  reset: "Reset to a named baseline",
+  golden_capture: "Golden baseline captured",
+  bridge_diagnose: "Terminal bridge diagnosed",
+};
+
+function operationDetail(receipt) {
+  if (receipt.status === "verified") {
+    const failing = (receipt.checks || []).find((check) => check.ok === false);
+    return failing ? `completed with ${failing.name}` : "completed";
+  }
+  return receipt.error_code || "failed";
+}
+
+export function operationsPanel(documentNode, detail) {
+  const built = panel(documentNode, "Last run per operation");
+  built.body.classList.add("timeline");
+  built.body.classList.add("test-machine-operations-body");
+  const receipts = detail.operations || [];
+  for (const receipt of receipts) {
+    const row = el(documentNode, "div", "tl test-machine-check");
+    row.appendChild(el(documentNode, "span", "tl-dot timeline-dot"));
+    const copy = el(documentNode, "div", "test-machine-check-copy");
+    copy.appendChild(el(
+      documentNode,
+      "strong",
+      "tl-title",
+      OPERATION_TITLES[receipt.operation] || receipt.operation,
+    ));
+    copy.appendChild(el(
+      documentNode,
+      "small",
+      "tl-sub",
+      `${operationDetail(receipt)} · ${relativeAge(receipt.performed_at)}`,
+    ));
+    row.appendChild(copy);
+    const result = statePill(
+      documentNode,
+      receipt.status === "verified" ? "pass" : "failed",
+    );
+    if (result) row.appendChild(result);
+    built.body.appendChild(row);
+  }
+  if (!receipts.length) {
+    built.body.appendChild(el(
+      documentNode,
+      "p",
+      "empty",
+      "No reset, capture, or bridge diagnosis has run on this machine.",
+    ));
+  }
+  return built.root;
 }
 
 function availabilityState(detail) {
@@ -110,7 +178,8 @@ export function availabilityPanel(documentNode, detail) {
   built.body.classList.add("stack");
   built.body.classList.add("test-machine-availability-body");
   const active = detail.active_lease;
-  const receiptRows = semanticReceiptRows(detail);
+  const checkRows = semanticReceiptRows(detail)
+    .filter((row) => row.kind === "check");
   const stateRow = el(
     documentNode, "div", "lease test-machine-availability-state",
   );
@@ -143,7 +212,7 @@ export function availabilityPanel(documentNode, detail) {
     ],
     [
       "Health",
-      `${receiptRows.filter((row) => row.ok).length} / 3 checks`,
+      `${checkRows.filter((row) => row.ok).length} / ${checkRows.length} checks`,
     ],
   ]) {
     const card = el(documentNode, "div", "mini test-machine-stat");

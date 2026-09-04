@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 
-from yoke_contracts.machine_qa_execution import (
-    TERMINAL_CAPTURE_RECOVERY,
+from yoke_contracts.machine_qa_terminal_bridge import (
+    TERMINAL_BRIDGE_RECOVERY,
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
 )
 from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
@@ -52,7 +52,7 @@ _WINDOW_MARGIN = 40
 _TARGET_WINDOW_SIZE = (1500, 730)
 _HELPER_WINDOW_SIZE = (900, 120)
 _HELPER_WINDOW_GAP = 20
-DISPLAY_FRAME_RECOVERY = TERMINAL_CAPTURE_RECOVERY[
+DISPLAY_FRAME_RECOVERY = TERMINAL_BRIDGE_RECOVERY[
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE
 ]
 

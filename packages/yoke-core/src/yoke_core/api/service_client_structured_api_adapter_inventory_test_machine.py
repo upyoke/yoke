@@ -26,6 +26,20 @@ TEST_MACHINE_ADAPTERS = [
         function_id="test_machine.verify",
         cli_invocation="yoke test-machine verify --project P --machine NAME",
     ),
+    AdapterEntry(
+        function_id="test_machine.reset",
+        cli_invocation=(
+            "yoke test-machine reset --project P --machine NAME --baseline fresh-host"
+        ),
+    ),
+    AdapterEntry(
+        function_id="test_machine.golden_capture",
+        cli_invocation=("yoke test-machine golden-capture --project P --machine NAME"),
+    ),
+    AdapterEntry(
+        function_id="test_machine.bridge_diagnose",
+        cli_invocation=("yoke test-machine bridge-diagnose --project P --machine NAME"),
+    ),
 ]
 
 
