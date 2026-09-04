@@ -68,16 +68,24 @@
   margin: auto;
 }
 .universe-app-root .header-context-control {
-  display: flex;
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
   min-width: 0;
-  flex-direction: column;
-  gap: 1px;
+  min-height: 30px;
+  align-items: center;
+  flex-direction: row;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 9px;
+  background: var(--yoke-bg);
 }
 .universe-app-root .header-context-label {
   color: var(--yoke-muted);
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: .075em;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .09em;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -93,8 +101,8 @@
 }
 .universe-app-root .header-scope-host .scope-label { display: none; }
 .universe-app-root .header-scope-host .scope-chip {
-  padding: 2px 8px;
-  font-size: 10.5px;
+  padding: 3px 10px;
+  font-size: 11.5px;
 }
 .universe-app-root .navigation-toggle {
   padding: 9px;
@@ -202,11 +210,8 @@
     gap: 7px;
     padding: 8px 10px;
   }
-  /* Let the three labelled contexts take part in the topbar's wrapping.
-     Keeping them inside one flex item makes Projects set that item's
-     intrinsic width, which forces the whole group onto a narrow second row
-     and crushes its labels together. Universe and Actor now stay beside the
-     compact controls while Projects owns the complete row below. */
+  /* Let all three labelled contexts take part in topbar wrapping. Universe
+     and Actor stay on the compact first row; Projects owns the row below. */
   .universe-app-root .context-side {
     display: contents;
   }

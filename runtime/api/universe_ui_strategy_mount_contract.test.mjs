@@ -5,6 +5,7 @@ import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/stat
 import {
   FakeDocument,
   allNodes,
+  byClass,
   cellText,
   response,
   settle,
@@ -73,9 +74,15 @@ test("strategy rows render the prototype corpus facts", async (t) => {
     "Revisions", "Execution",
     "MISSION", "yoke", "Mission statement", "b",
     relativeAge("2026-07-01"), "4", "available",
+    "Doc", "project", "Purpose / ancestry", "Last editor", "Last write",
+    "Revisions", "Execution",
     "VISION", "yoke", "Vision", "",
     relativeAge("2026-06-30"), "2", "archived",
   ]);
+  assert.equal(
+    byClass(root, "strategy-archive-heading")[0].textContent,
+    "Archived (1)",
+  );
   assert.ok(requests.some(
     (request) => request.function === "strategy.surface.list",
   ));

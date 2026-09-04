@@ -211,17 +211,17 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
     }),
   });
   const search = byClass(root, "session-roster-filter")[0].children[1];
-  assert.equal(search.placeholder, "Session, item, model, or operator");
+  assert.equal(search.placeholder, "Search sessions, items, models, operators");
   search.value = "no match";
   search.dispatchEvent(new Event("input"));
   assert.equal(
     byClass(root, "sessions-empty")[0].textContent,
     "No sessions match the current filters.",
   );
-  assert.equal(button(root, "Clear filters").disabled, false);
-  button(root, "Clear filters").dispatchEvent(new Event("click"));
+  assert.equal(button(root, "Clear").disabled, false);
+  button(root, "Clear").dispatchEvent(new Event("click"));
   assert.equal(byClass(root, "session-card").length, 1);
-  assert.equal(button(root, "Clear filters").disabled, true);
+  assert.equal(button(root, "Clear").disabled, true);
   mounted.unmount();
 });
 
@@ -250,15 +250,13 @@ test("roster State uses accepted liveness values while kill cause stays on the c
         : [],
     }),
   });
-  const stateFields = byClass(root, "session-roster-filter").filter(
-    (field) => field.children[1]?.tagName === "SELECT",
+  const stateField = byClass(root, "session-roster-filter").find(
+    (field) => field.children[0]?.textContent === "State",
   );
-  assert.equal(stateFields.length, 1);
-  assert.equal(stateFields[0].children[0].textContent, "State");
-  const state = stateFields[0].children[1];
+  const state = stateField.children[1];
   assert.deepEqual(
     state.children.map((option) => option.value),
-    ["", "active", "ended"],
+    ["active", "ended", ""],
   );
   assert.equal(byClass(root, "session-card").length, 0);
   state.value = "ended";

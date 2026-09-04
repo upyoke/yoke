@@ -74,11 +74,31 @@ test("Sessions renders resolved local identity and the exact empty state", async
     ),
     ["0", "0", "0"],
   );
-  const filterButtons = byClass(emptyRoot, "session-roster-filters")[0].children
-    .filter((node) => node.tagName === "BUTTON");
+  const filterHost = byClass(emptyRoot, "session-roster-filters")[0];
+  assert.deepEqual(
+    filterHost.children.map((node) => node.tagName),
+    ["LABEL", "LABEL", "LABEL", "LABEL", "BUTTON", "SPAN"],
+  );
+  const filterControls = byClass(filterHost, "session-filter-control");
+  assert.deepEqual(
+    filterControls.map((control) => control.tagName),
+    ["INPUT", "SELECT", "SELECT", "SELECT"],
+  );
+  assert.equal(
+    filterControls[0].placeholder,
+    "Search sessions, items, models, operators",
+  );
+  assert.deepEqual(
+    byClass(filterHost, "session-filter-label").map((node) => node.textContent),
+    ["State", "Harness", "Machine"],
+  );
+  const filterButtons = [
+    byClass(filterHost, "session-filter-clear")[0],
+    ...byClass(filterHost, "session-filter-action"),
+  ];
   assert.deepEqual(
     filterButtons.map((button) => button.textContent),
-    ["Clear filters", "Message all", "Reclaim stale"],
+    ["Clear", "Message all", "Reclaim stale"],
   );
   assert.equal(
     filterButtons.at(-1).className,
@@ -205,6 +225,10 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
     css,
     /\.sessions-stats \{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/,
   );
+  assert.match(css, /\.sessions-stats \.stat \{[^}]*padding: 9px 13px;/s);
+  assert.match(css, /\.sessions-stats \.stat \.n \{ font-size: 17px; font-weight: 700; \}/);
+  assert.match(css, /\.sessions-stats \.stat \.l \{[^}]*font-weight: 400; \}/);
+  assert.match(css, /\.session-item-title \{[^}]*font-weight: 700;/s);
   assert.match(
     css,
     /\.session-latest-message \{[^}]*flex-wrap: nowrap;[^}]*line-height: 1\.2;[^}]*white-space: nowrap;/,
@@ -227,25 +251,22 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
   );
 });
 
-test("The roster filter inputs and State dropdown share one fixed height", () => {
+test("The roster toolbar uses compact prototype controls without flattening fields", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_control.css",
     import.meta.url,
   ), "utf8");
-  // A native <select> outgrows a shared min-height while an <input> sits on
-  // it; only a fixed height on both keeps the filter row level.
   assert.match(css, /\.universe-app-root \{\s*--session-control-height: 34px;\s*\}/);
   assert.match(
     css,
-    /\.universe-app-root \.session-roster-filter input,\n\.universe-app-root \.session-roster-filter select \{[^}]*height: var\(--session-control-height\);/,
+    /\.session-roster-filter \{[^}]*min-height: var\(--session-control-height\);[^}]*border: 1px solid var\(--yoke-border\);[^}]*border-radius: 9px;/s,
   );
-  // The shared rule keeps its minimum so the message textarea stays tall and
-  // resizable and the session-control panel fields keep their size.
+  assert.match(css, /\.session-filter-search \{[^}]*max-width: 340px;[^}]*flex: 1 1 240px;/s);
+  assert.match(css, /\.session-filter-actions \{[^}]*margin-left: auto;/s);
   const shared = css.match(
     /\.universe-app-root \.session-control-input \{([^}]*)\}/,
   )[1];
   assert.match(shared, /min-height: var\(--session-control-height\);/);
-  assert.doesNotMatch(shared, /\n\s*height:/);
   assert.match(
     css,
     /\.universe-app-root \.session-message-body \{[^}]*min-height: 130px;[^}]*resize: vertical;/,

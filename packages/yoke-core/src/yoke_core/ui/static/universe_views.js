@@ -15,7 +15,6 @@ import {
 import {
   renderDeliveryDatabasesView,
   renderDeliveryEnvironmentsView,
-  renderDeliveryInfrastructureView,
 } from "./universe_views_delivery_inventory.js";
 import { renderDoctorView } from "./universe_views_doctor.js";
 import { renderEventsView } from "./universe_views_events.js";
@@ -99,7 +98,6 @@ export const VIEW_RENDERERS = {
   environments: renderDeliveryEnvironmentsView,
   flows: renderDeliveryFlowsView,
   databases: renderDeliveryDatabasesView,
-  infrastructure: renderDeliveryInfrastructureView,
   "qa-methods": renderQaMethods,
   "qa-plans": renderQaPlans,
   "qa-activity": renderQaActivity,

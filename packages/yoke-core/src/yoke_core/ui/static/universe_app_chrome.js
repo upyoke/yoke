@@ -164,15 +164,17 @@ export function createWorkbenchChrome({
   brand.style.color = "var(--yoke-ink)";
   const hostFillsTopbarStart =
     slots.topbarStart !== undefined && slots.topbarStart !== null;
+  const hostFillsTopbarEnd =
+    slots.topbarEnd !== undefined && slots.topbarEnd !== null;
   const mode = options.capabilities?.data?.portability?.mode || "local";
-  const actor = options.currentActor || (
+  const actor = !hostFillsTopbarEnd && (options.currentActor || (
     !hostFillsTopbarStart && mode !== "hosted"
       ? {
           kind: "human",
           label: mode === "selfhost" ? "actor unavailable" : "local actor",
         }
       : null
-  );
+  ));
   const orgContext = !hostFillsTopbarStart && mode === "hosted"
     ? el(documentNode, "span", "org-context", "…")
     : (!hostFillsTopbarStart
@@ -180,15 +182,20 @@ export function createWorkbenchChrome({
   const contextSide = el(
     documentNode, "div", "context-side yoke-header-context",
   );
-  if (orgContext) contextSide.appendChild(contextControl(
-    documentNode, "Universe", orgContext, "header-universe-context",
-  ));
   const scopeHost = el(documentNode, "div", "header-scope-host");
   const scopeContext = contextControl(
     documentNode, "Projects", scopeHost, "header-project-context",
   );
   scopeContext.hidden = true;
   contextSide.appendChild(scopeContext);
+  if (hostFillsTopbarStart) {
+    appendSlot(contextSide, resolvedSlots.topbarStart, mountedSlotNodes);
+  } else if (orgContext) contextSide.appendChild(contextControl(
+    documentNode, "Universe", orgContext, "header-universe-context",
+  ));
+  if (hostFillsTopbarEnd) {
+    appendSlot(contextSide, resolvedSlots.topbarEnd, mountedSlotNodes);
+  }
   if (actor) contextSide.appendChild(contextControl(
     documentNode,
     "Actor",
@@ -212,9 +219,7 @@ export function createWorkbenchChrome({
   header.appendChild(brand);
   header.appendChild(controls.search);
   header.appendChild(spacer);
-  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(contextSide);
-  appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
 
   const navEl = el(documentNode, "nav", "sidenav");
   navEl.id = "universe-navigation";

@@ -125,11 +125,6 @@ export const NAV = [
     summary: "Declared database models, their posture, and the apply records.",
   },
   {
-    id: "infrastructure", icon: "▥", label: "Infrastructure", scope: SCOPE_MULTI,
-    group: GROUP_DIAGNOSTICS,
-    summary: "What backs an environment and its latest operational state.",
-  },
-  {
     id: "qa-methods", icon: "◉", label: "QA methods", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
     summary: "The registered contracts each case uses to prove its claim.",

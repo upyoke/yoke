@@ -104,33 +104,52 @@
       return node;
     }
 
-    // topbarStart — the platform's org switcher.
+    // topbarStart — the platform's Universe membership menu.
     function sampleOrgSwitcher() {
-      const label = el("label", "hosted-org-switcher");
-      label.appendChild(el("span", null, "Organization"));
-      const select = document.createElement("select");
-      select.setAttribute("aria-label", "Organization");
-      for (const name of ["Acme (sample)", "Second Org (sample)"]) {
-        const option = el("option", null, name);
-        select.appendChild(option);
+      const details = el("details", "hosted-universe-menu hosted-context-control");
+      const summary = el("summary");
+      summary.appendChild(el("span", "hosted-context-label", "UNIVERSE"));
+      summary.appendChild(el("span", "hosted-universe-current", SAMPLE_ORG.name));
+      const panel = el("div", "hosted-universe-panel");
+      panel.appendChild(el(
+        "span", "hosted-universe-panel-title", "UNIVERSES YOU BELONG TO",
+      ));
+      const list = el("div", "hosted-universe-list");
+      for (const [name, meta, current] of [
+        [SAMPLE_ORG.name, "admin · 3 projects · your org", true],
+        ["Second Org (sample)", "member · 1 project · invited by Dana", false],
+      ]) {
+        const option = el("button", `hosted-universe-option${current ? " is-current" : ""}`);
+        const copy = el("span", "hosted-universe-option-copy");
+        copy.appendChild(el("span", "hosted-universe-option-name", name));
+        copy.appendChild(el("span", "hosted-universe-option-meta", meta));
+        option.appendChild(copy);
+        if (current) option.appendChild(el("span", "hosted-universe-check", "✓"));
+        list.appendChild(option);
       }
-      label.appendChild(select);
-      return label;
+      panel.appendChild(list);
+      panel.appendChild(el(
+        "p", "hosted-universe-note",
+        "Switching universes changes every screen: projects, items and sessions all belong to one universe, and your role is per membership.",
+      ));
+      details.append(summary, panel);
+      return details;
     }
 
-    // topbarEnd — the platform's user menu: an avatar-mark chip whose full
-    // name rides the accessible label and the opened panel.
+    // topbarEnd — the platform's inline Actor identity and account menu.
     function sampleUserMenu() {
-      const details = el("details", "hosted-user-menu");
+      const details = el("details", "hosted-user-menu hosted-context-control");
       const summary = el("summary");
       summary.setAttribute("aria-label", "Ben (sample)");
+      summary.appendChild(el("span", "hosted-context-label", "ACTOR"));
       summary.appendChild(el("span", "hosted-user-avatar", "B"));
+      const identity = el("span", "hosted-actor-identity");
+      identity.appendChild(el("span", "hosted-actor-name", "Ben (sample)"));
+      identity.appendChild(el("span", "hosted-actor-meta", "admin · Acme (sample)"));
+      summary.appendChild(identity);
       details.appendChild(summary);
       const panel = el("div", "hosted-user-menu-panel");
       panel.appendChild(el("p", null, "Ben (sample) · ben@example.com"));
-      const dashboard = el("a", null, "All organizations");
-      dashboard.href = "/dashboard";
-      panel.appendChild(dashboard);
       const form = document.createElement("form");
       form.addEventListener("submit", (event) => event.preventDefault());
       const signOut = el("button", null, "Sign out");

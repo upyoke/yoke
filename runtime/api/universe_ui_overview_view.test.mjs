@@ -48,7 +48,7 @@ test("Overview asks Strategy and Frontier without duplicate page chrome", async 
   );
   const contextLabels = byClass(root, "header-context-label")
     .map((node) => node.textContent);
-  assert.deepEqual(contextLabels, ["Universe", "Projects", "Actor"]);
+  assert.deepEqual(contextLabels, ["Projects", "Universe", "Actor"]);
   mounted.unmount();
 });
 
@@ -73,6 +73,7 @@ test("Overview cards link to their first-class destinations", async (t) => {
     ["#/deployments?project=1"],
   );
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
+  assert.doesNotMatch(text, /OLD-PLAN|Superseded direction/);
   assert.match(text, /Waiting for a product decision/);
   assert.match(text, /No blockers; specification and plan are current/);
   assert.match(text, /Merged and deployed to stage/);

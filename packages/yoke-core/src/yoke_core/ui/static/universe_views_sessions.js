@@ -227,8 +227,8 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       : "No sessions match the current filters";
   };
   filters = sessionRosterFilters(documentNode, renderRoster);
-  filters.host.appendChild(messageAll);
-  filters.host.appendChild(reclaim);
+  filters.actions.appendChild(messageAll);
+  filters.actions.appendChild(reclaim);
   messageAll.addEventListener("click", () => {
     const rows = currentRows();
     if (!rows.length) return;
@@ -285,6 +285,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       }
     }
     visibleRows = [...rowsBySession.values()];
+    filters.setRows(visibleRows);
     staleCount = visibleRows.filter((row) => row.liveness === "stale").length;
     reclaim.disabled = staleCount === 0;
     reclaim.title = staleCount

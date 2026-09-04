@@ -289,33 +289,3 @@ test("Databases renders declared models and labels every unserved steering fact"
     .includes("claims, and leases have no browser read"));
   mounted.unmount();
 });
-
-test("Infrastructure is structurally complete but does not claim provider parity", async (t) => {
-  const client = deliveryClient();
-  const { root, mounted } = await mountAt(
-    t, "#/infrastructure?project=1", client,
-  );
-
-  assert.deepEqual(
-    client.requests.find(
-      (request) => request.function === "projects.infrastructure.list",
-    ),
-    {
-      function: "projects.infrastructure.list",
-      payload: { project: "1" },
-    },
-  );
-  assert.deepEqual(
-    allNodes(root).filter((node) => node.tagName === "TH")
-      .map((node) => node.textContent),
-    ["environment", "project", "what backs it", "code source", "state"],
-  );
-  assert.deepEqual(
-    allNodes(root).filter((node) => node.tagName === "TD").map(cellText),
-    ["prod", "yoke", "not exposed", "project-owned", "declared"],
-  );
-  assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
-    .includes("does not compare live provider state"));
-  assert.equal(byClass(root, "table-wrap").length, 1);
-  mounted.unmount();
-});

@@ -15,7 +15,6 @@ import {
   settle,
   visibleText,
 } from "./universe_ui_dom_test_support.mjs";
-
 const BLITZ_POLICIES = {
   file_budget: "optional",
   path_claims: "optional",
@@ -23,11 +22,7 @@ const BLITZ_POLICIES = {
   generated_children: "none",
   delivery: "continuous",
 };
-
-function text(root) {
-  return visibleText(root, " ");
-}
-
+function text(root) { return visibleText(root, " "); }
 function context(documentNode, client) {
   return {
     document: documentNode,
@@ -36,7 +31,6 @@ function context(documentNode, client) {
     projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
   };
 }
-
 function strategyDocument() {
   const now = Date.now();
   return {
@@ -92,7 +86,6 @@ function strategyDocument() {
     ],
   };
 }
-
 test("Strategy corpus matches the prototype hierarchy with real read facts", async () => {
   const documentNode = new FakeDocument();
   const main = documentNode.createElement("main");
@@ -117,6 +110,10 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
               execution_state: "claimed",
               execution_item_id: 2001,
               execution_item_ref: "YOK-2001",
+            }, {
+              slug: "OLD-PLAN", title: "Prior workflow", parent_slug: null,
+              updated_by: "ben", updated_at: "yesterday", revisions: 1,
+              recent_writes: 0, archived: true, execution_state: "available",
             }],
             writes: [{ day: new Date().toISOString().slice(0, 10), writes: 1 }],
           },
@@ -131,12 +128,20 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   const rendered = text(main);
   assert.match(rendered, /Review and approve here/);
   assert.match(rendered, /Strategy corpus\s+· scoped to yoke/);
-  assert.match(rendered, /1 writes this week/);
+  assert.deepEqual(
+    byClass(main, "strategy-stats")[0].children
+      .map((tile) => tile.children[0].textContent),
+    ["2", "1", "1", "1"],
+  );
   assert.match(rendered, /Purpose \/ ancestry/);
   assert.match(rendered, /child of\s+MASTER-PLAN/);
   assert.match(rendered, /claimed · YOK-2001/);
   assert.match(rendered, /Writes\s+last 120 days/);
   assert.match(rendered, /Strategy-doc writes 1 this week/);
+  const archive = byClass(main, "strategy-archive-group")[0];
+  assert.equal(byClass(archive, "strategy-archive-heading")[0].textContent, "Archived (1)");
+  assert.match(text(archive), /OLD-PLAN/);
+  assert.doesNotMatch(text(byClass(main, "strategy-corpus-table")[0]), /OLD-PLAN/);
   assert.deepEqual(
     allNodes(byClass(main, "strategy-corpus-table")[0])
       .filter((node) => node.tagName === "TH")

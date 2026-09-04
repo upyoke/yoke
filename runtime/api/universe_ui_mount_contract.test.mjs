@@ -99,6 +99,22 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   const secondClient = injectedClient("second");
   const topbarStartSlot = documentNode.createElement("aside");
   const topbarEndSlot = documentNode.createElement("aside");
+  topbarStartSlot.className = "header-context-control hosted-context-control";
+  const membershipList = documentNode.createElement("div");
+  membershipList.className = "hosted-universe-options";
+  for (const label of ["Owner universe", "Member universe"]) {
+    const membership = documentNode.createElement("button");
+    membership.className = "hosted-universe-option";
+    membership.textContent = label;
+    membershipList.appendChild(membership);
+  }
+  const menuFooter = documentNode.createElement("p");
+  menuFooter.className = "hosted-universe-menu-footer";
+  menuFooter.textContent = "Switching universes changes every screen.";
+  topbarStartSlot.appendChild(membershipList);
+  topbarStartSlot.appendChild(menuFooter);
+  topbarEndSlot.className = "header-context-control hosted-context-control";
+  topbarEndSlot.textContent = "Actor ben owner · Owner universe";
   const navigationStartSlot = documentNode.createElement("aside");
   const navigationEndSlot = documentNode.createElement("aside");
   const contentBeforeSlot = documentNode.createElement("aside");
@@ -152,12 +168,22 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.equal(firstHeader.children[1], firstBrand);
   assert.ok(firstHeader.children[2].classList.contains("shell-search"));
   assert.ok(firstHeader.children[3].classList.contains("header-spacer"));
-  assert.equal(firstHeader.children[4], topbarStartSlot);
-  assert.equal(firstHeader.children[firstHeader.children.length - 1],
-    topbarEndSlot);
+  const firstContext = firstHeader.children[4];
+  assert.ok(firstContext.classList.contains("context-side"));
+  assert.equal(firstContext.children[1], topbarStartSlot);
+  assert.equal(firstContext.children[2], topbarEndSlot);
+  assert.deepEqual(
+    byClass(firstRoot, "hosted-universe-option").map((node) => node.textContent),
+    ["Owner universe", "Member universe"],
+  );
+  assert.equal(
+    byClass(firstRoot, "hosted-universe-menu-footer")[0].textContent,
+    "Switching universes changes every screen.",
+  );
   // A host-filled context slot suppresses local identity; a standalone mount
   // labels its universe beside, and never substitutes it for, the actor.
   assert.equal(byClass(firstRoot, "org-context").length, 0);
+  assert.equal(byClass(firstRoot, "actor-chip").length, 0);
   assert.equal(byClass(secondRoot, "org-context")[0].textContent, "second org");
   assert.equal(byClass(secondRoot, "actor-chip").length, 1);
   const firstNavigation = byClass(firstRoot, "sidenav")[0];
@@ -269,7 +295,7 @@ test("header identity follows the host boundary and local actor", async (t) => {
   const localClient = injectedClient("local");
   const localMount = mountUniverseApp(localRoot, {
     client: localClient,
-    slots: { topbarEnd: documentNode.createElement("aside") },
+    slots: { navigationEnd: documentNode.createElement("aside") },
   });
   await settle();
 
