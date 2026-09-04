@@ -239,3 +239,16 @@ def test_a_shipped_prose_edit_still_selects_its_neutrality_check(
         token.startswith("install_bundle_shipped_surface_contract:")
         for token in selection.widening_triggers
     )
+
+
+def test_source_recipe_prose_selects_its_contract(tmp_path: Path) -> None:
+    source = prefix_families.SOURCE_RECIPE_SOURCE_PREFIXES[0]
+    _write(tmp_path, source, "prose\n")
+    expected = set(prefix_families.SOURCE_RECIPE_CONTRACT_TESTS)
+    for test_path in {*impacted_tests.ALWAYS_RUN_TESTS, *expected}:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select([source], build_import_index(tmp_path), bounded=True)
+
+    assert expected <= set(selection.files)
+    assert f"source_recipe_contract:{source}" in selection.widening_triggers

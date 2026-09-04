@@ -22,8 +22,10 @@ When an item mutates a declared authoritative DB:
 
 1. Amend the DB claim (profile + compatibility attestation as required)
 2. Author the migration module in history
-3. `yoke migration rehearse PREFIX-N` from a local-postgres / db-admin
-   connection (holds the live migration lease)
+3. Rehearse from a local-postgres / db-admin connection (holds the live
+   migration lease). In a claimed Yoke source lane, run
+   `yoke --env <name> dev run -- yoke migration rehearse PREFIX-N`; other
+   projects run `yoke --env <name> migration rehearse PREFIX-N` directly.
 4. Ship; boot converge applies pending entries fail-hard
 
 Never apply destructive migrations without a named restore point. Never use

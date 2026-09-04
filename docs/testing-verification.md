@@ -244,11 +244,11 @@ be reached or verified.
 ## Source verification recipes
 
 Run a direct command against the current session's claimed lane with
-`yoke dev run -- <command>`. It reports every checkout-owned import origin
-before execution. The child receives the same non-administering machine
-environment as the sanctioned pytest runners, so a source command cannot
-inherit a `*-db-admin` selection. Ruff and changed-test fallback recipes live in
-[source-development.md](testing-verification/source-development.md).
+`yoke dev run -- <command>`. It reports every checkout-owned import origin and
+preserves the caller's connected-environment selection: source location changes,
+control-plane selection does not. Prod-flagged schema guards still apply.
+Pytest runners isolate their test environment; Ruff and changed-test fallback
+recipes live in [source-development.md](testing-verification/source-development.md).
 
 ## Which tree a run verified
 

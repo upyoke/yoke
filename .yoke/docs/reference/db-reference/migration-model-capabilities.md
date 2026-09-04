@@ -125,7 +125,7 @@ Yoke's `external_validation` model, provision it with:
 ```bash
 # In-tree, so it runs through the claimed-lane source runner. Other projects
 # hydrate their declared binding their own way.
-yoke dev run -- python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
+yoke --env <name> dev run -- python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
 ```
 
 The helper uses a bound target when one exists and otherwise derives one beside
@@ -144,7 +144,7 @@ history**: `NNNN_slug.py` entries, permanent, each exposing `apply(conn)` and
 optionally `invariants(conn)`.
 
 ```bash
-python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N
+yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
 ```
 
 Rehearsal runs the declared entries against the validation surface and records
@@ -338,4 +338,3 @@ The pack's `packs/webapp-scaffold/versions/1.1.2/settings-reference.json`
   }
 }
 ```
-

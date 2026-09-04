@@ -16,14 +16,20 @@ prints the resolved origins for `yoke_contracts`, `yoke_cli`, `yoke_core`,
 This makes the recipe independent of the shell's current directory and exposes
 partial source binding immediately.
 
-The child also receives the same non-administering machine environment as
-`yoke watch pytest` and the generic test runner. A selected prod
-`*-db-admin` connection is replaced with its served sibling and the child
-cannot reopen the parent's machine config. It receives only a sanitized
-host/port inventory of administered clusters, never their credentials. An
-explicit raw DSN is still judged by that target inventory, so spelling the
-administered SSH forward as `YOKE_PG_DSN` cannot bypass scratch-database or
-migration-history guards.
+The child receives the caller's connected-environment selection and machine
+config unchanged. `dev run` changes where source resolves; it does not change
+which control plane or database the command uses. Put an explicit selection on
+the outer command so the lane-sourced child inherits it:
+
+```bash
+yoke --env <name> dev run -- <command>
+```
+
+Prod-flagged schema and administered-cluster guards still judge that selected
+connection inside the child. Pytest is different: `yoke watch pytest` and the
+generic test runner isolate fixture-owned databases from any administering
+selection, so use those runners for tests instead of relying on `dev run` to
+sanitize their environment.
 
 For example, validate the agent renderer from the lane with:
 

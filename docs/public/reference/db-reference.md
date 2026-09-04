@@ -298,7 +298,7 @@ known mismatched permanent migration bytes.
 A work item authors the entry and rehearses it:
 
 ```bash
-python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N
+yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
 ```
 
 Rehearsal runs the entry against the model's validation surface, records the
