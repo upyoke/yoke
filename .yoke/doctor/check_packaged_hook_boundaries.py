@@ -29,8 +29,11 @@ PACKAGE_SOURCE_ROOTS = (
     "packages/yoke-harness/src",
 )
 HOOK_REGISTRY_ROOT = "packages/yoke-contracts/src/yoke_contracts/hook_runner"
-LOCAL_HOOK_ADAPTER = (
+THIN_HOOK_ADAPTER = (
     "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py"
+)
+LOCAL_HOOK_IMPLEMENTATION = (
+    "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_inprocess.py"
 )
 LOCAL_ENGINE_MODULE = "yoke_core.hooks.local_entry"
 SOURCE_HOOK_PREFIX = "runtime.harness"
@@ -125,6 +128,52 @@ def _dynamic_import_target(node: ast.Call) -> str:
     return ""
 
 
+def scan_thin_adapter_engine_edges(
+    repo_root: Path,
+    *,
+    adapter: str = THIN_HOOK_ADAPTER,
+) -> List[HookBoundaryFinding]:
+    """Find direct local-engine imports in the thin command entrypoint."""
+    path = repo_root / adapter
+    lines = set()
+    for node in ast.walk(_parse(path)):
+        if isinstance(node, ast.Import):
+            if any(
+                alias.name == LOCAL_ENGINE_MODULE
+                or alias.name.startswith(LOCAL_ENGINE_MODULE + ".")
+                for alias in node.names
+            ):
+                lines.add(node.lineno)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            imports_entry = (
+                module == LOCAL_ENGINE_MODULE
+                or module.startswith(LOCAL_ENGINE_MODULE + ".")
+                or (
+                    module == LOCAL_ENGINE_MODULE.rpartition(".")[0]
+                    and any(
+                        alias.name == LOCAL_ENGINE_MODULE.rpartition(".")[2]
+                        for alias in node.names
+                    )
+                )
+            )
+            if imports_entry:
+                lines.add(node.lineno)
+        elif (
+            isinstance(node, ast.Call)
+            and _dynamic_import_target(node) == LOCAL_ENGINE_MODULE
+        ):
+            lines.add(node.lineno)
+    return [
+        HookBoundaryFinding(
+            adapter,
+            line,
+            f"thin entrypoint imports local engine module {LOCAL_ENGINE_MODULE}",
+        )
+        for line in sorted(lines)
+    ]
+
+
 def _writes_stderr(node: ast.AST) -> bool:
     if not isinstance(node, ast.Call):
         return False
@@ -162,7 +211,7 @@ def _handler_failures(handler: ast.ExceptHandler) -> List[str]:
 def scan_local_engine_fail_loud(
     repo_root: Path,
     *,
-    adapter: str = LOCAL_HOOK_ADAPTER,
+    adapter: str = LOCAL_HOOK_IMPLEMENTATION,
 ) -> List[HookBoundaryFinding]:
     """Find a missing or silently permissive local-engine import handler."""
     path = repo_root / adapter
@@ -205,6 +254,7 @@ def scan_packaged_hook_boundaries(repo_root: Path) -> List[HookBoundaryFinding]:
     """Return every installed-hook architecture or fail-loud violation."""
     return [
         *scan_source_namespace_edges(repo_root),
+        *scan_thin_adapter_engine_edges(repo_root),
         *scan_local_engine_fail_loud(repo_root),
     ]
 
@@ -222,7 +272,8 @@ def hc_packaged_hook_boundaries(
             HC_NAME,
             "PASS",
             "Hook registries and packaged modules name only shipped code, and "
-            "a missing local engine entry reports the defect and returns nonzero.",
+            "the thin command adapter delegates to an implementation whose "
+            "missing local engine entry reports the defect and returns nonzero.",
         )
         return
     detail = "\n".join(
@@ -244,4 +295,5 @@ __all__ = [
     "scan_local_engine_fail_loud",
     "scan_packaged_hook_boundaries",
     "scan_source_namespace_edges",
+    "scan_thin_adapter_engine_edges",
 ]

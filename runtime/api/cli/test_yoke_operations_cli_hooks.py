@@ -1,7 +1,4 @@
-"""Tests for ``yoke hook evaluate`` (local delegation + https relay).
-
-Verdict-composition coverage lives in ``test_yoke_hooks_relay_compose.py``.
-"""
+"""Tests for local delegation and HTTPS relay in ``yoke hook evaluate``."""
 
 from __future__ import annotations
 
@@ -84,7 +81,7 @@ def test_hook_evaluate_dry_run_delegates_flag_and_skips_transport(
             rc = cli_main(["hook", "evaluate", "Stop", "--dry-run"])
 
     assert rc == 0
-    hook_main.assert_called_once_with("Stop", dry_run=True)
+    hook_main.assert_called_once_with("Stop", dry_run=True, stdin_data="")
 
 
 def test_hook_evaluate_missing_event_returns_two() -> None:
@@ -159,7 +156,10 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     body = json.loads(request.data.decode("utf-8"))
     assert body["hook_schema"] == 1
     assert body["event_name"] == "PreToolUse"
-    assert json.loads(body["stdin"]) == dict(
+    hook_stdin = json.loads(body["stdin"])
+    metadata = hook_stdin.pop("yoke_hook_evaluator")
+    assert metadata == {"evaluator": "inprocess", "warm_duration_ms": 0}
+    assert hook_stdin == dict(
         json.loads(raw_stdin),
         session_id="sid-stamped",
         identity_stamped=True,
@@ -169,7 +169,6 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     assert body["agent_type"] == "engineer"
     assert body["payload_extra"] == {}
     assert "entrypoint" in body
-    # An unstated fact ships no key; a null would read as an attestation.
     assert "model" not in body, "tool-call relays never pay the transcript read"
     assert 0 < body["deadline_ms"] <= 10000
     assert 0 < captured["timeout"] <= 10.0
@@ -338,7 +337,8 @@ def test_hook_evaluate_half_configured_https_degrades_to_noop(
 def test_hook_evaluate_refreshes_detached_resume_custody(monkeypatch) -> None:
     touched = []
     monkeypatch.setattr(
-        hooks_adapter, "_touch_detached_resume", lambda: touched.append(True)
+        "yoke_cli.commands.adapters.hook_inprocess._touch_detached_resume",
+        lambda: touched.append(True),
     )
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
     monkeypatch.setattr(

@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field
 
+from yoke_contracts.hook_evaluator_protocol import HOOK_OBSERVATION_BATCH_CAPABILITY
 from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
@@ -30,6 +31,7 @@ from yoke_core.domain.session_ambient_identity import (
 )
 from yoke_core.hooks.remote_entry import evaluate_remote
 from yoke_core.api.routes.hooks_denial_audit import router as _denial_audit_router
+from yoke_core.api.routes.hook_observations import router as _observation_router
 
 
 router = APIRouter()
@@ -77,6 +79,7 @@ class HookEvaluateResponse(BaseModel):
     wait_ms: int
     degraded: List[str]
     outcome: str
+    capabilities: tuple[str, ...] = (HOOK_OBSERVATION_BATCH_CAPABILITY,)
 
 
 @router.post("/hooks/evaluate")
@@ -337,6 +340,7 @@ def _authorize_project(
 
 
 router.include_router(_denial_audit_router)
+router.include_router(_observation_router)
 
 
 __all__ = ["HOOK_WIRE_SCHEMA", "router"]

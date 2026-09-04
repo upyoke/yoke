@@ -299,12 +299,7 @@ For the full catalog with descriptions, see `docs/event-catalog.md` (auto-genera
 
 `HookGuardrailEvaluated`, `HookExecutionFailed`, and `HookDispatchTelemetry` are runner-native emissions from `yoke_core.hooks.telemetry` (see `emit_hook_guardrail_evaluated`, `emit_hook_execution_failed`, `emit_hook_dispatch_telemetry`). They are the only hook-runner telemetry names that exist as registered events.
 
-These three flush together over ONE shared connection (`hook_emit_connection`)
-and pass `transactional=True`; that explicit batch boundary commits before it
-closes. Normal `emit_event(conn=...)` calls commit successful rows themselves,
-so closing or rolling back the caller connection cannot silently discard an
-event. Use `transactional=True` only when the event must ride the caller's
-state transaction, whose owner then commits or rolls back both together.
+Ordinary in-process and relayed chains flush these three together over ONE shared connection (`hook_emit_connection`) and pass `transactional=True`; that explicit batch boundary commits before it closes. A resident read-only chain uses the observation endpoint's ordered, idempotent batch instead. Normal `emit_event(conn=...)` calls commit successful rows themselves, so closing or rolling back the caller connection cannot silently discard an event. Use `transactional=True` only when the event must ride the caller's state transaction, whose owner then commits or rolls back both together.
 QA requirement creation is the worked example: the plan-case snapshot, the merge-gate CI requirement, and the seeded no-tests floor each write their row into a transaction a later caller commits, so `QARequirementCreated` rides it too and no requirement is durable while dark; that mode raises rather than returning when it cannot record.
 `HC-event-family-liveness` compares recent durable activity with expected event names strictly as a telemetry audit, and no product path reads events as state. A pair may name the column separating its table's write paths; the check then pairs each row with its own event and groups by that column, so one emitting path cannot answer for a silent sibling sharing the table.
 
@@ -316,6 +311,8 @@ the evaluating server's `os.getpid()` names a shared API worker rather than
 the caller. `driver_origin` says which of the two answered: `client` for a
 relayed self-report, `local` where the evaluating process is itself the
 driver.
+
+It also carries `evaluator` (`resident` or `inprocess`) and `resident_warm_duration_ms`. When resident delivery is unavailable and the canonical in-process fallback runs, `evaluator_fallback_reason` names that degradation. Guard-free read-only hooks retain this exact event contract when the resident persists their tool and dispatch events through the ordered asynchronous observation batch.
 
 **Suppression-token audit evidence is NOT a separate event.** Lint guardrails honor `# lint:no-*-check` suppression tokens by recording the attempt on the *existing* `HarnessToolCallDenied` row with `event_outcome='suppression_attempted'`. No separate hook suppression event is registered or emitted; observers querying suppression activity filter `HarnessToolCallDenied` by `event_outcome`.
 

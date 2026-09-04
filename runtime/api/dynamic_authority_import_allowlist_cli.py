@@ -100,14 +100,14 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "explicit attended GitHub Actions bootstrap dispatcher",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py",
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_inprocess.py",
         "yoke_core.hooks.local_entry",
     ): (
         "local_universe_dispatch",
         "run the complete packaged hook chain for a bound local universe",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py",
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_inprocess.py",
         "yoke_core.domain.session_orientation",
     ): (
         "client_local_diagnostics",

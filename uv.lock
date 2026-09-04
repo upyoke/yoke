@@ -2171,12 +2171,14 @@ provides-extras = ["test"]
 name = "yoke-harness"
 source = { editable = "packages/yoke-harness" }
 dependencies = [
+    { name = "httpx" },
     { name = "yoke-cli" },
     { name = "yoke-contracts" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = "==0.28.1" },
     { name = "yoke-cli", editable = "packages/yoke-cli" },
     { name = "yoke-contracts", editable = "packages/yoke-contracts" },
 ]
