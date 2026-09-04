@@ -92,9 +92,7 @@ def _machine_authority() -> tuple[GitHubApiEndpoint, Callable[[], str]]:
 
     def access_token() -> str:
         if not selection.resolved:
-            raise LocalMergeGithubAuthorityError(
-                merge_path_binding.RECONNECT_RECOVERY
-            )
+            raise LocalMergeGithubAuthorityError(merge_path_binding.RECONNECT_RECOVERY)
         try:
             token = github_local_user_access.access_token(
                 service_api_url=selection.service_api_url,
@@ -110,9 +108,7 @@ def _machine_authority() -> tuple[GitHubApiEndpoint, Callable[[], str]]:
             ) from exc
         value = str(token or "").strip()
         if not value:
-            raise LocalMergeGithubAuthorityError(
-                merge_path_binding.RECONNECT_RECOVERY
-            )
+            raise LocalMergeGithubAuthorityError(merge_path_binding.RECONNECT_RECOVERY)
         return value
 
     return selection.endpoint, access_token
@@ -147,17 +143,24 @@ def _confirm_selected_control_plane(authority: str) -> None:
     an unrecoverable one into a refusal that costs nothing.
     """
     try:
-        readiness = importlib.import_module(
-            "yoke_core.domain.connected_env_readiness"
-        )
+        readiness = importlib.import_module("yoke_core.domain.connected_env_readiness")
     except ImportError as exc:
         raise LocalMergeControlPlaneAuthorityError(
             "local merge requires matching yoke-cli and yoke-core releases; "
             "repair the Yoke installation, then retry"
         ) from exc
     try:
-        result = readiness.ensure_ready(force=True)
+        result = readiness.status()
+        if not result.ok:
+            result = readiness.ensure_ready(force=True)
     except Exception as exc:  # noqa: BLE001 - every failure is the same refusal
+        contention_type = getattr(readiness, "TunnelReplacementContended", ())
+        if isinstance(exc, contention_type):
+            raise LocalMergeControlPlaneAuthorityError(
+                f"local merge selected control plane {authority!r}, but its "
+                f"tunnel replacement is busy: {exc} Nothing has been merged; "
+                "wait for the named holder, then re-run the merge."
+            ) from exc
         raise LocalMergeControlPlaneAuthorityError(
             f"local merge selected control plane {authority!r}, which is not "
             f"reachable: {exc}. Restore the connection, then re-run the merge; "

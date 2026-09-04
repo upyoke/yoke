@@ -172,6 +172,7 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
         if name == "yoke_core.domain.connected_env_readiness":
             return SimpleNamespace(
                 ensure_ready=lambda **_k: SimpleNamespace(ok=True, message="ready"),
+                status=lambda: SimpleNamespace(ok=True, message="ready"),
             )
         return real_import(name)
 

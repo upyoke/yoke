@@ -63,6 +63,9 @@ from yoke_core.domain.connected_env_readiness_connector import (
     redact,
 )
 from yoke_core.domain import connected_env_readiness_tunnel as _tunnel
+from yoke_core.domain.connected_env_tunnel_coordination import (
+    TunnelReplacementContended,
+)
 from yoke_core.domain import yoke_connected_env
 from yoke_core.domain.connected_env_selected_readiness import (
     SelectedPostgresAuthority,
@@ -92,9 +95,12 @@ def _cached_result() -> Optional[ReadinessResult]:
     if _CACHE is None or (_now() - _CACHE_AT) > CACHE_TTL_SECONDS:
         return None
     return ReadinessResult(
-        ok=_CACHE.ok, environment=_CACHE.environment,
-        connector_kind=_CACHE.connector_kind, action=ACTION_CACHED,
-        message=_CACHE.message, redacted_detail=_CACHE.redacted_detail,
+        ok=_CACHE.ok,
+        environment=_CACHE.environment,
+        connector_kind=_CACHE.connector_kind,
+        action=ACTION_CACHED,
+        message=_CACHE.message,
+        redacted_detail=_CACHE.redacted_detail,
     )
 
 
@@ -115,7 +121,9 @@ def _noop_explicit_dsn() -> ReadinessResult:
     except Exception:  # noqa: BLE001 - readiness fallback stays best-effort
         pass
     return ReadinessResult(
-        ok=True, environment=None, connector_kind=CONNECTOR_UNMANAGED,
+        ok=True,
+        environment=None,
+        connector_kind=CONNECTOR_UNMANAGED,
         action=ACTION_NOOP_EXPLICIT_DSN,
         message=message,
     )
@@ -126,9 +134,10 @@ def ensure_ready(*, force: bool = False) -> ReadinessResult:
     """Ensure the connected-env Postgres authority is reachable.
 
     Cheap on the happy path: an explicit operator/test DSN short-circuits to a
-    noop, and a warm cache returns without probing. On a cold cache (or
-    ``force``) it probes real Postgres and, for the managed local-SSH-tunnel
-    connector, restarts the forward and re-probes once. Raises
+    noop, and a warm cache returns without probing. On a cold cache it probes
+    real Postgres without replacing the forward. ``force`` authorizes a
+    replacement after the probe confirms the managed local SSH tunnel is down;
+    callers reserve it for a known failure. Raises
     :class:`ConnectedEnvUnavailable` (loud, redacted) when a managed tunnel
     cannot be restored.
     """
@@ -144,7 +153,7 @@ def ensure_ready(*, force: bool = False) -> ReadinessResult:
             cached = _cached_result()
             if cached is not None:
                 return cached
-        result = _tunnel.evaluate(allow_restart=True)
+        result = _tunnel.evaluate(allow_restart=force)
         _store_cache(result)
         return result
 
@@ -162,7 +171,9 @@ def status() -> ReadinessResult:
         return _tunnel.evaluate(allow_restart=False)
     except yoke_connected_env.ConnectedEnvError as exc:
         return ReadinessResult(
-            ok=False, environment=None, connector_kind=CONNECTOR_UNMANAGED,
+            ok=False,
+            environment=None,
+            connector_kind=CONNECTOR_UNMANAGED,
             action=ACTION_PROBE_FAILED,
             message=f"connected-env binding is unusable: {exc}",
         )
@@ -266,8 +277,10 @@ def registration_failure_remediation(error_text: str) -> Optional[str]:
 # --- operator-debug CLI ----------------------------------------------------
 def _print_result(result: ReadinessResult) -> None:
     flag = "ok" if result.ok else "UNAVAILABLE"
-    print(f"[{flag}] connector={result.connector_kind} "
-          f"environment={result.environment} action={result.action}")
+    print(
+        f"[{flag}] connector={result.connector_kind} "
+        f"environment={result.environment} action={result.action}"
+    )
     print(f"  {result.message}")
     if result.redacted_detail:
         print(f"  {result.redacted_detail}")
@@ -280,8 +293,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(__doc__)
         return 0
     if command not in {"status", "activate"}:
-        print(f"unknown command: {command!r} (expected 'status' or 'activate')",
-              file=sys.stderr)
+        print(
+            f"unknown command: {command!r} (expected 'status' or 'activate')",
+            file=sys.stderr,
+        )
         return 2
     try:
         result = ensure_ready(force=True) if command == "activate" else status()
@@ -294,6 +309,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 __all__ = [
     "ConnectedEnvUnavailable",
+    "TunnelReplacementContended",
     "ReadinessResult",
     "SelectedPostgresAuthority",
     "SelectedPostgresError",

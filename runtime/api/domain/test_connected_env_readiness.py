@@ -30,12 +30,18 @@ def _reset_readiness_cache():
     cer.reset_cache()
 
 
-def _write_binding(tmp_path: Path, *, with_tunnel: bool = True,
-                   host: str = "127.0.0.1", port: int = 6547,
-                   backend: str = "postgres") -> Path:
+def _write_binding(
+    tmp_path: Path,
+    *,
+    with_tunnel: bool = True,
+    host: str = "127.0.0.1",
+    port: int = 6547,
+    backend: str = "postgres",
+) -> Path:
     dsn_file = tmp_path / "test.dsn"
-    dsn_file.write_text(f"host={host} port={port} user=u dbname=test_db\n",
-                        encoding="utf-8")
+    dsn_file.write_text(
+        f"host={host} port={port} user=u dbname=test_db\n", encoding="utf-8"
+    )
     connection: dict = {"host": host, "port": port}
     if with_tunnel:
         connection["tunnel"] = {
@@ -147,7 +153,9 @@ def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
 # --- 4. restart fails -> raises ConnectedEnvUnavailable, redacted ----------
 def test_restart_then_still_down_raises_redacted(managed_env, monkeypatch):
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
-    monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement([]))  # "started" but still down
+    monkeypatch.setattr(
+        cer_t, "_replace_forward", _record_replacement([])
+    )  # "started" but still down
 
     with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
         cer.ensure_ready(force=True)
@@ -212,16 +220,21 @@ def test_reset_cache_forces_reprobe(managed_env, monkeypatch):
 
 
 # --- status ----------------------------------------------------------------
-def test_status_reports_down_without_restarting(managed_env, monkeypatch):
+@pytest.mark.parametrize("check", [cer.status, lambda: cer.ensure_ready(force=False)])
+def test_probe_only_checks_report_down_without_restarting(
+    managed_env,
+    monkeypatch,
+    check,
+):
     restarts: list = []
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
     monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement(restarts))
 
-    result = cer.status()
+    result = check()
 
     assert result.ok is False
     assert result.action == cer_c.ACTION_PROBE_FAILED
-    assert restarts == []  # status never restarts
+    assert restarts == []
     # A failed probe names its cause so an auth/TLS refusal is
     # distinguishable from a dead forward without a manual psycopg probe.
     assert "cause=down (test)" in (result.redacted_detail or "")
@@ -298,7 +311,9 @@ def test_cli_unknown_command_returns_usage_error(capsys):
     assert cer.main(["bogus"]) == 2
 
 
-def test_cli_activate_unavailable_returns_nonzero_redacted(managed_env, monkeypatch, capsys):
+def test_cli_activate_unavailable_returns_nonzero_redacted(
+    managed_env, monkeypatch, capsys
+):
     monkeypatch.setattr(cer_t, "_probe_failure", lambda dsn: "down (test)")
     monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement([]))
     rc = cer.main(["activate"])
@@ -316,8 +331,11 @@ def test_is_local_tunnel_connection_error_classifies(managed_env):
     )
     assert cer.is_local_tunnel_connection_error(refused) is True
     # OperationalError without a connection marker -> not ours.
-    assert cer.is_local_tunnel_connection_error(
-        psycopg.OperationalError("disk full")) is False
+    assert (
+        cer.is_local_tunnel_connection_error(psycopg.OperationalError("disk full"))
+        is False
+    )
     # Our own heal-failure must not loop.
-    assert cer.is_local_tunnel_connection_error(
-        cer.ConnectedEnvUnavailable("x")) is False
+    assert (
+        cer.is_local_tunnel_connection_error(cer.ConnectedEnvUnavailable("x")) is False
+    )

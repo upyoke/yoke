@@ -39,7 +39,9 @@ def machine_home(tmp_path, monkeypatch):
 
 
 def _completed(stdout: str = "", returncode: int = 0) -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr="")
+    return subprocess.CompletedProcess(
+        args=[], returncode=returncode, stdout=stdout, stderr=""
+    )
 
 
 def _write_lease(port: int, pid: int, reason: str) -> None:
@@ -114,7 +116,14 @@ def test_transient_probe_failure_recovers_before_restart(machine_home, monkeypat
     )
     monkeypatch.setattr(tunnel, "_probe_failure", lambda dsn: next(results))
     monkeypatch.setattr(
-        tunnel, "_replace_forward", lambda spec, dsn: replacements.append(spec),
+        tunnel,
+        "_replace_forward",
+        lambda spec, dsn: replacements.append(spec),
+    )
+    monkeypatch.setattr(
+        coordination,
+        "lifecycle_lock",
+        lambda _port: pytest.fail("a recovered probe cannot take the lock"),
     )
     monkeypatch.setattr(tunnel.time, "sleep", lambda delay: sleeps.append(delay))
 
@@ -147,8 +156,12 @@ def test_replace_forward_fails_loudly_on_foreign_port_owner(machine_home, monkey
     monkeypatch.setattr(lifecycle, "_find_tunnel_pids", lambda _spec: [])
     monkeypatch.setattr(lifecycle, "_terminate_pids", lambda pids: None)
     monkeypatch.setattr(lifecycle, "_listening_pids", lambda port: [222])
-    monkeypatch.setattr(lifecycle, "_process_command", lambda pid: "python3 local-dev-server.py")
-    monkeypatch.setattr(lifecycle, "_start_tunnel", lambda _spec: pytest.fail("should not start"))
+    monkeypatch.setattr(
+        lifecycle, "_process_command", lambda pid: "python3 local-dev-server.py"
+    )
+    monkeypatch.setattr(
+        lifecycle, "_start_tunnel", lambda _spec: pytest.fail("should not start")
+    )
 
     with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
         lifecycle.replace_forward(spec, probe=lambda: False)
@@ -163,9 +176,13 @@ def test_replace_forward_terminates_dead_forward_then_starts(machine_home, monke
     spec = _spec()
     calls: list[object] = []
     monkeypatch.setattr(lifecycle, "_find_tunnel_pids", lambda _spec: [123])
-    monkeypatch.setattr(lifecycle, "_terminate_pids", lambda pids: calls.append(("term", tuple(pids))))
+    monkeypatch.setattr(
+        lifecycle, "_terminate_pids", lambda pids: calls.append(("term", tuple(pids)))
+    )
     monkeypatch.setattr(lifecycle, "_port_blocker_detail", lambda _spec: "")
-    monkeypatch.setattr(lifecycle, "_start_tunnel", lambda _spec: calls.append(("start", _spec)))
+    monkeypatch.setattr(
+        lifecycle, "_start_tunnel", lambda _spec: calls.append(("start", _spec))
+    )
 
     action = lifecycle.replace_forward(spec, probe=lambda: False)
 
@@ -178,22 +195,30 @@ def test_replace_forward_adopts_a_forward_that_answers(machine_home, monkeypatch
     spec = _spec()
     monkeypatch.setattr(lifecycle, "_find_tunnel_pids", lambda _spec: [123])
     monkeypatch.setattr(
-        lifecycle, "_terminate_pids", lambda pids: pytest.fail("must not terminate"),
+        lifecycle,
+        "_terminate_pids",
+        lambda pids: pytest.fail("must not terminate"),
     )
-    monkeypatch.setattr(lifecycle, "_start_tunnel", lambda _spec: pytest.fail("must not start"))
+    monkeypatch.setattr(
+        lifecycle, "_start_tunnel", lambda _spec: pytest.fail("must not start")
+    )
 
     action = lifecycle.replace_forward(spec, probe=lambda: True)
 
     assert action == cer_c.ACTION_ADOPTED
 
 
-def test_replace_forward_adopts_a_forward_bound_after_termination(machine_home, monkeypatch):
+def test_replace_forward_adopts_a_forward_bound_after_termination(
+    machine_home, monkeypatch
+):
     """The bind race: a neighbour claims the port while we are terminating."""
     spec = _spec()
     answers = iter([False, True])
     monkeypatch.setattr(lifecycle, "_find_tunnel_pids", lambda _spec: [123])
     monkeypatch.setattr(lifecycle, "_terminate_pids", lambda pids: None)
-    monkeypatch.setattr(lifecycle, "_start_tunnel", lambda _spec: pytest.fail("must not start"))
+    monkeypatch.setattr(
+        lifecycle, "_start_tunnel", lambda _spec: pytest.fail("must not start")
+    )
 
     action = lifecycle.replace_forward(spec, probe=lambda: next(answers))
 
@@ -201,14 +226,17 @@ def test_replace_forward_adopts_a_forward_bound_after_termination(machine_home, 
 
 
 def test_replace_forward_waits_out_a_lease_and_adopts_the_forward(
-        machine_home, monkeypatch):
+    machine_home, monkeypatch
+):
     """A forward under a bulk transfer is usually slow, not dead."""
     spec = _spec()
     _write_lease(spec.local_port, os.getppid(), "fleet migration rehearsal of prod")
     answers = iter([False, True])
     monkeypatch.setattr(lifecycle.time, "sleep", lambda delay: None)
     monkeypatch.setattr(
-        lifecycle, "_terminate_pids", lambda pids: pytest.fail("must not terminate"),
+        lifecycle,
+        "_terminate_pids",
+        lambda pids: pytest.fail("must not terminate"),
     )
 
     action = lifecycle.replace_forward(spec, probe=lambda: next(answers))
@@ -217,16 +245,21 @@ def test_replace_forward_waits_out_a_lease_and_adopts_the_forward(
 
 
 def test_replace_forward_refuses_while_another_process_holds_a_lease(
-        machine_home, monkeypatch):
+    machine_home, monkeypatch
+):
     """The observed outage: a restart killed a forward mid bulk transfer."""
     spec = _spec()
     _write_lease(spec.local_port, os.getppid(), "fleet migration rehearsal of prod")
     monkeypatch.setattr(lifecycle, "LEASE_WAIT_SECONDS", 0.0)
     monkeypatch.setattr(
-        lifecycle, "_find_tunnel_pids", lambda _spec: pytest.fail("must not enumerate"),
+        lifecycle,
+        "_find_tunnel_pids",
+        lambda _spec: pytest.fail("must not enumerate"),
     )
     monkeypatch.setattr(
-        lifecycle, "_terminate_pids", lambda pids: pytest.fail("must not terminate"),
+        lifecycle,
+        "_terminate_pids",
+        lambda pids: pytest.fail("must not terminate"),
     )
 
     with pytest.raises(cer.ConnectedEnvUnavailable) as excinfo:
@@ -248,14 +281,20 @@ def test_replace_forward_ignores_this_process_own_lease(machine_home, monkeypatc
     monkeypatch.setattr(lifecycle, "_port_blocker_detail", lambda _spec: "")
     monkeypatch.setattr(lifecycle, "_start_tunnel", lambda _spec: started.append(_spec))
 
-    assert lifecycle.replace_forward(spec, probe=lambda: False) == cer_c.ACTION_RESTARTED
+    assert (
+        lifecycle.replace_forward(spec, probe=lambda: False) == cer_c.ACTION_RESTARTED
+    )
     assert started == [spec]
 
 
 def test_build_ssh_argv_matches_operator_shape():
     spec = cer.TunnelSpec(
-        local_host="127.0.0.1", local_port=6547, bastion="ubuntu@1.2.3.4",
-        identity_file="/keys/k.pem", remote_host="aurora.x", remote_port=5432,
+        local_host="127.0.0.1",
+        local_port=6547,
+        bastion="ubuntu@1.2.3.4",
+        identity_file="/keys/k.pem",
+        remote_host="aurora.x",
+        remote_port=5432,
     )
     argv = lifecycle._build_ssh_argv(spec)
 
