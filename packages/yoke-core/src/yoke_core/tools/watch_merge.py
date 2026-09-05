@@ -211,8 +211,9 @@ def _parse_args(
             f"  {prog} merge-worktree -- PREFIX-N\n"
             f"  {prog} done-transition -- PREFIX-N\n"
             "--wait holds the landing inline. Invoke it with\n"
-            "--print-streaming-pair: a verified wake route gets the background\n"
-            "pair; headless, unreachable, or unknown callers stay in-turn."
+            "--print-streaming-pair: a native idle-wake primitive gets the\n"
+            "background pair; headless relay-launched workers, and harnesses\n"
+            "with no or unverified idle wake, stay in-turn."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,

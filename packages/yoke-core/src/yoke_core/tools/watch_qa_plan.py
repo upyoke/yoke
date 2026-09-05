@@ -117,8 +117,8 @@ examples:
       Canonical form. Everything after `--` is forwarded to the plan runner.
 
   yoke watch qa-plan --print-streaming-pair -- --item YOK-1 --transition implemented
-      Select the safe wait: a reachable caller gets the background pair;
-      a caller with no or unknown wake route stays in-turn until completion.
+      Select the safe wait: a native idle-wake primitive gets the background
+      pair; no or unverified idle wake stays in-turn until completion.
 
 Do NOT restate the command in the passthrough — the wrapper supplies it
 and rejects both `yoke qa plan run …` and the module form before any

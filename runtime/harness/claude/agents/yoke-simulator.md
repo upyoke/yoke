@@ -245,7 +245,7 @@ uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -
 - _authored-file line limit (file_line_check)_
   - `yoke check file-line --staged`
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and a project overrides it with a `file_line_limit=N` key in `.yoke/project.config` (checked in, read off disk, so the offline hook agrees); comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `file_line_exception` entries are for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
-- _Run pytest with a reachability-routed watcher_
+- _Run pytest with a wake-routed watcher_
   - `yoke watch pytest --impacted main --bounded
 # Default change-scoped check (--bounded is a no-op). Runs on the project's CI when it declares ci_workflow_file; --local runs it on this machine. Full sweep (CI's job; local --widen / CI-outage fallback) — pass your project's test anchors:
 yoke watch pytest --print-streaming-pair -- <project test anchors>
@@ -255,7 +255,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - `yoke watch pytest -- <project-test-path>/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
   - Subagent tool-call turns are atomic — backgrounded watcher patterns strand processes. Enforced by lint-subagent-background.
-- _Run doctor with a reachability-routed watcher_
+- _Run doctor with a wake-routed watcher_
   - `yoke watch doctor --print-streaming-pair -- --quick
 # background-wake prints the bound pair; in-turn blocks here.`
   - Doctor must run under this wrapper — bare invocations risk the inverted-redirection trap (`2>&1 > file` silently drops stderr). The wrapper writes raw + filtered captures. Its reported wait mode says whether the sentinel wakes the caller or the original call stays foreground until exit.
@@ -263,7 +263,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
 # Queue landing:
 yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait`
-  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. A relay-launched session ignores --wait: its merge arms the landing, returns landing_pending=true naming the pull request, and the landing notice wakes it to re-run the same command for close-out. For every other caller merge-item --wait holds the landing inline, and the shared wait router emits a background subscription only for a caller with a verified wake route; callers with no or unknown reachability stay in-turn until landing. `yoke github merge-queue readiness PREFIX-N --json` names the queue state; null arming with an entry means consumed, not cleared.
+  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. A relay-launched session ignores --wait: its merge arms the landing, returns landing_pending=true naming the pull request, and the landing notice wakes it to re-run the same command for close-out. For every other caller merge-item --wait holds the landing inline, and the shared wait router emits a background subscription only for a harness with a native idle-wake primitive; callers with no or unverified idle wake stay in-turn until landing. `yoke github merge-queue readiness PREFIX-N --json` names the queue state; null arming with an entry means consumed, not cleared.
 - _Wait on a commit's CI runs with watcher (main session)_
   - `yoke watch ci-run
 yoke watch ci-run -- <branch-or-sha> --workflow <name>`

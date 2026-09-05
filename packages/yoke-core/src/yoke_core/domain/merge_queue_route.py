@@ -245,8 +245,8 @@ def land_item_through_merge_queue(
                 "command then completes close-out."
                 if relay_launched
                 else "Re-enter on a completion message only when the watcher "
-                "selected a verified background-wake route; otherwise run "
-                "the same merge through the reachability-routed watcher "
+                "selected a background-wake route; otherwise run "
+                "the same merge through the wake-routed watcher "
                 "with --wait"
             )
         )

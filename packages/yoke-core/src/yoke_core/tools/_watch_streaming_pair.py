@@ -3,7 +3,7 @@
 Split from the watcher runtime so each file stays within the authored-
 file line limit: the runner owns running a command under the raw +
 progress contract, while this module owns keeping the run in-turn or
-rendering the pair a reachable caller can follow.
+rendering the pair a natively wakeable caller can follow.
 """
 
 from __future__ import annotations
@@ -24,10 +24,11 @@ from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
 
 
 STREAMING_WAIT_HELP = (
-    "Choose the safe streaming wait for this caller. A verified wake route "
-    "prints the background + progress-tail pair and exits; no or unknown "
-    "reachability runs the watcher in this turn until it finishes. Mints "
-    "fresh capture paths."
+    "Choose the safe streaming wait for this caller. A harness with a native "
+    "idle-wake primitive prints the background + progress-tail pair and "
+    "exits; a headless relay-launched worker, and a harness with no or "
+    "unverified idle wake, run the watcher in this turn until it finishes. "
+    "Mints fresh capture paths."
 )
 
 
@@ -164,11 +165,11 @@ def run_or_print_streaming_pair(
     wait_mode: WatchWaitMode | None = None,
     invoke: Callable[[Sequence[str]], int] | None = None,
 ) -> int:
-    """Release only a caller that has a verified completion wake.
+    """Release only a caller whose harness can resume an ended turn.
 
-    Wakeable callers keep the existing pasteable background pair. Everyone
-    else re-enters the same wrapper without ``--print-streaming-pair`` and
-    blocks in this process until the watched command exits.
+    Natively wakeable callers keep the existing pasteable background pair.
+    Everyone else re-enters the same wrapper without ``--print-streaming-pair``
+    and blocks in this process until the watched command exits.
     """
     stream = out or sys.stdout
     selected = wait_mode or resolve_wait_mode()
@@ -177,7 +178,7 @@ def run_or_print_streaming_pair(
     if not selected.waits_in_turn:
         stream.write(
             f"# watch_{kind} completion wake is expected only because this "
-            "route is reachable.\n"
+            "harness has a native idle-wake primitive.\n"
         )
         print_streaming_pair(
             kind=kind,

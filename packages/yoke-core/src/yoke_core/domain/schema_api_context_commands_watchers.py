@@ -18,13 +18,13 @@ Recipe shape doctrine (current):
     inside watcher recipes stay command-shaped by design.
 
 The recipes here are also deliberately harness-neutral:
-``--print-streaming-pair`` reads the caller's derived roster
-reachability and manifest wake fact. A reachable caller gets its
-background subscription recipe; a caller with no route, or an unknown
-answer, is held foreground until the watcher finishes. Recipe text
-therefore avoids naming any Claude-only primitive (the conditional-
-block renderer enforces this for any seed that lands in both
-``main_agent`` and cross-harness packets).
+``--print-streaming-pair`` reads the caller's manifest wake fact. A
+harness with a native idle-wake primitive gets its background
+subscription recipe; a headless relay-launched worker, and a harness
+with no or unverified idle wake, are held foreground until the watcher
+finishes. Recipe text therefore avoids naming any Claude-only primitive
+(the conditional-block renderer enforces this for any seed that lands
+in both ``main_agent`` and cross-harness packets).
 
 Splitting these into a dedicated topic-sibling keeps the parent
 :mod:`schema_api_context_commands_core` under the 350-line authored-file
@@ -40,7 +40,7 @@ from __future__ import annotations
 WATCHERS_COMMANDS: list[dict] = [
     {
         "topic": "core",
-        "purpose": "Run pytest with a reachability-routed watcher",
+        "purpose": "Run pytest with a wake-routed watcher",
         "recipe": (
             "yoke watch pytest "
             "--impacted main --bounded\n"
@@ -113,7 +113,7 @@ WATCHERS_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Run doctor with a reachability-routed watcher",
+        "purpose": "Run doctor with a wake-routed watcher",
         "recipe": (
             "yoke watch doctor "
             "--print-streaming-pair -- --quick\n"
@@ -146,9 +146,9 @@ WATCHERS_COMMANDS: list[dict] = [
             "and the landing notice wakes it to re-run the same command for "
             "close-out. For every other caller merge-item --wait holds the "
             "landing inline, and the shared wait router emits a background "
-            "subscription only for a caller with a verified wake route; "
-            "callers with no or unknown reachability stay in-turn until "
-            "landing. `yoke github merge-queue readiness "
+            "subscription only for a harness with a native idle-wake "
+            "primitive; callers with no or unverified idle wake stay in-turn "
+            "until landing. `yoke github merge-queue readiness "
             "PREFIX-N --json` names the queue state; "
             "null arming with an entry means consumed, not cleared."
         ),
