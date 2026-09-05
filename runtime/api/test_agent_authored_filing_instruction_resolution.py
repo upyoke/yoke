@@ -50,7 +50,9 @@ def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
         f'{ATTESTATION} --json',
     )
 
-    escalation = text.split("## Escalate", 1)[1]
+    # The Escalate section is a short pointer; its recipe and ordering live
+    # in the companion file it names (dash/escalate.md).
+    escalation = text.split("## Escalate", 1)[1] + _read("dash/escalate.md")
     _ordered(
         escalation,
         f"{RESOLVER} --workflow issue --project PROJECT",

@@ -97,6 +97,11 @@ for the laneless, merge-free alternative with no optional gate posture.
   `/yoke refine` on acquire; release is conditional on what close-out
   already did.
 - Perform all writes in the registered item worktree, never in main.
+- Keep the survey in step 2 minimal: read only enough to name the touch
+  set, not to understand or fix it. Record the survey and prepare the
+  worktree (step 3) immediately afterward, before any deeper reading or
+  edit — a long investigation that never paused to record survey and
+  isolate is a Dash that started implementing on main.
 - An item belonging to another project prepares its lane in THAT
   project's checkout: worktree preparation resolves the item's project
   machine mapping (`yoke project register <checkout> --project-id <id>`
@@ -201,6 +206,12 @@ The 350-line authored-file limit remains on in all combinations.
 
 ### 2. Infer and survey the touch set
 
+**Bounded discovery only.** This step exists to name candidate files, not to
+read, trace, or fix them. The moment you can name the likely touch set, stop
+and move to recording the survey below, then step 3 — deep reading,
+call-chain tracing, and edits belong inside the worktree that step creates,
+never here.
+
 Discover this project's source and test roots before grepping — read them
 from the project rules file, or derive tracked top-level roots with
 `git ls-files | cut -d/ -f1 | sort -u`. Enumerate candidates from those
@@ -272,6 +283,9 @@ Never remove a required file merely to make the survey clear.
 
 ### 3. Claim and isolate
 
+Run this immediately after recording the survey above — before reading
+further file contents, tracing implementation details, or making any edit.
+
 Prepare the ordinary item lane:
 
 ```text
@@ -316,40 +330,7 @@ and terminal close-out sequence.
 
 ## Escalate
 
-Halt as soon as the required outcome needs crafted acceptance criteria,
-substantial design, durable multi-file coordination, or multiple delivery
-slices. Escalation files a new Issue and cancels the Dash, so it is a scope
-judgment the operator owns — a deliberate exception to the
-kick-off-and-walk-away default. Before drafting the proposed Issue title and
-findings, take `PROJECT` from the Dash item detail and read the issue-workflow
-projection through registered `workflow.execution_instruction.resolve`:
-
-```text
-yoke workflow execution-instruction resolve --workflow issue --project PROJECT
-```
-
-Apply every returned instruction, then stop Dash execution at the trigger and
-present to the operator:
-
-- the grounded findings and what the instruction turned out to require;
-- the remaining outcome that is no longer instruction-sized;
-- the proposed Issue title and framing;
-- that escalating cancels this Dash.
-
-Then ask whether to escalate, and wait. Do not file the Issue, cancel the
-Dash, or continue implementing past the trigger while the answer is pending.
-
-Only after the operator explicitly agrees, run:
-
-```text
-yoke direct-workflow dash escalate ITEM \
-  --issue-title "<specific title>" \
-  --findings "<grounded findings and remaining outcome>"
-```
-
-The operation is idempotent: it preserves one link to the absorbing Issue
-and cancels the Dash. Stop Dash execution after it succeeds and release the
-work claim if the operation did not already do so.
-
-If the operator declines escalation, follow their direction — continue,
-narrow, or park the Dash — without filing an Issue.
+Read [`escalate.md`](escalate.md) completely as soon as the required outcome
+needs crafted acceptance criteria, substantial design, durable multi-file
+coordination, or multiple delivery slices, then follow its halt-and-propose
+sequence before any Issue is filed or the Dash is cancelled.

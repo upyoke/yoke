@@ -75,6 +75,10 @@ use them verbatim; do not invent function ids for them. Contract:
   universal 350-line authored-file limit, surveys before activation and every
   slice merge, judges each survey contact (proceed or yield), and runs every
   write in a registered isolated worktree.
+- Keep the survey in step 2 minimal: enough to name candidate paths from the
+  document's affected areas, not to read them end to end. Prepare and
+  activate the worktree (step 3) immediately afterward, before any deeper
+  reading or edit.
 - The main session owns slice boundaries, integration order, full
   verification, document completion, and parent reconciliation.
 - Core invariants run on every action. A continuous delivery model never
@@ -116,6 +120,10 @@ do not require that section. The universal 350-line check always applies.
 
 ### 2. Survey before activation
 
+**Bounded discovery only.** Name candidate paths from the document's
+affected areas — do not read them end to end here. Record the survey, then
+move to step 3 before any deeper investigation or edit.
+
 Translate the document's affected areas into likely file or directory
 paths and record them:
 
@@ -142,6 +150,9 @@ Apply File Budget and path claims as this matrix:
   artifact.
 
 ### 3. Claim, isolate, and activate atomically
+
+Run this immediately after recording the survey above, before reading
+further file contents or making any edit.
 
 Prepare the item worktree:
 
