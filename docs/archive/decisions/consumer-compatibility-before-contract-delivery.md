@@ -39,17 +39,50 @@ Three properties make that real rather than aspirational:
   required and adopts the consumer's conclusion. It does not re-implement
   compatibility, compare version literals, or hold a second opinion.
 
+## What it invokes
+
+The consumer's existing required check, not a new one. That project already
+runs a release-pin check on its own pull requests, which builds its host
+against the pinned product wheel. Passing a candidate commit to it redirects
+what it builds against — the checked-out product source instead of the
+published wheel — and leaves everything else, including its own pin
+validation, exactly as it was. So there is no second compatibility workflow,
+no second job, and no second definition of compatible: the gate dispatches
+the check that already exists and reads its conclusion.
+
+The candidate identity survives that redirection because the consumer passes
+the commit straight to its product checkout and then reads the checked-out
+head back, failing if it is not the commit that was asked for. A green run
+therefore cannot have tested a different product.
+
 ## Where it runs
 
-One place: the release bridge, before it allocates the annotated tag. The
-tag is the first irreversible act — a release refused after it leaves a tag
-naming a build that never deployed — and everything downstream of it
-publishes. The gate is unconditional there, because a release publishes
-whatever trunk carries and there is no candidate diff to consult.
+The mandatory boundary is the release bridge, before it allocates the
+annotated tag. The tag is the first irreversible act — a release refused
+after it leaves a tag naming a build that never deployed — and everything
+downstream of it publishes. The gate is unconditional there, because a
+release publishes whatever trunk carries and there is no candidate diff to
+consult.
+
+An author can run the same gate earlier, at the merge attempt, by attaching
+it to the work item as its verification case: a QA requirement bound to the
+built-in `command` method, at the `reviewing-implementation` transition.
+That case executes client-side in the lane, on a machine that already holds
+the control-plane connection, so it reaches the consumer without putting a
+credential anywhere near the public fork-safe CI. The lifecycle gate then
+refuses the transition until it passes, which is what puts the answer in
+front of the person merging rather than the person releasing.
+
+That earlier run is honestly a warning rather than a wall: it is per-item
+and opt-in, because the only automatic pre-merge mechanisms available are a
+required status context plus a ruleset entry — deliberately not built — and
+QA project defaults, which the Dash workflow's `optional_item_attachment`
+policy does not consult. Publication remains the mandatory blocker either
+way, so a change that skips the earlier warning still cannot be published.
 
 The consumer's own promotion-time check remains the final backstop behind
-it. That check is what caught the mismatch originally; what it could not do
-was catch it *before* publication, which is the whole gap this closes.
+both. That check is what caught the mismatch originally; what it could not
+do was catch it *before* publication, which is the whole gap this closes.
 
 ## Binding the release to the revision that was proven
 
@@ -67,16 +100,19 @@ so nothing here claims to bind that.
 
 ## What this deliberately does not do
 
-It does not gate a landing. A change that breaks the shared contract can
-still merge; what it cannot do is get published without the host having been
-built against it. That is the smallest shape that closes the observed
-failure, and it keeps the ordering simple: a producer change and its
-consumer companion can land in either order, and the release is where the
-pair has to be real.
+It does not gate a landing automatically. An item that attaches the
+verification case cannot transition past it while the pair is red, but an
+item that attaches nothing still merges; what neither can do is get
+published without the host having been built against the candidate. That is
+the smallest shape that closes the observed failure, and it keeps the
+ordering simple: a producer change and its consumer companion can land in
+either order, and the release is where the pair has to be real.
 
 No new queue, receipt table, compatibility framework, negotiation layer,
-second validator, required check, or repository-ruleset change. No private
-dependency inside the engine other projects install: the gate is
-repository-local tooling under `runtime/api/tools/`, invoked by the release
-bridge that already holds the scoped credential, so the public fork-safe
-factory workflows keep their read-only token and stay buildable by any fork.
+second validator, second consumer workflow, required status context,
+repository-ruleset change, commit trailer, or companion-branch pairing
+protocol. No private dependency inside the engine other projects install:
+the gate is repository-local tooling under `runtime/api/tools/`, invoked by
+the release bridge that already holds the scoped credential, so the public
+fork-safe factory workflows keep their read-only token and stay buildable by
+any fork.

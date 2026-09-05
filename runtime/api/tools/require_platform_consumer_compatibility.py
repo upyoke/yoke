@@ -9,10 +9,18 @@ had been asked to look for.
 
 A producer-only green run proves the producer and nothing else. So before
 the release train allocates its annotated tag — the first irreversible act —
-the consumer's own compatibility workflow builds the real host against this
-exact candidate, and its conclusion is the answer. This is not a second
-validator: the consumer owns what compatible means, and this side owns only
-that the answer is required before publication.
+the consumer's own release-pin check builds the real host against this exact
+candidate, and its conclusion is the answer. That is the check the consumer
+already requires on its own pull requests; passing a candidate commit only
+redirects what it builds against, so this adds no second validator and no
+second workflow. The consumer owns what compatible means; this side owns
+only that the answer is required before publication.
+
+The same gate is what an author runs earlier, from the verification case
+attached to a work item that changes the shared surface, so a contract
+mismatch surfaces at the merge attempt rather than at the release. That
+earlier run is a warning in the sense that it is per-item and opt-in;
+publication is the mandatory blocker either way.
 
 Usage::
 
@@ -54,11 +62,13 @@ from yoke_contracts.github_workflow_dispatch import (
 )
 
 #: The consumer that builds against this repo's universe bundle, and the
-#: workflow it exposes for proving one unpublished candidate. Agreed with
-#: the consumer side; changing either name is a change to both repos.
+#: check it already requires on its own pull requests. Passing a candidate
+#: commit redirects what that check builds against; absent one it is the
+#: ordinary pinned-wheel check. Agreed with the consumer side; changing
+#: either name is a change to both repos.
 CONSUMER_REPO = "upyoke/platform"
 CONSUMER_PROJECT = "platform"
-CONSUMER_CHECK_WORKFLOW = "platform-product-compatibility.yml"
+CONSUMER_CHECK_WORKFLOW = "platform-release-pin-check.yml"
 CONSUMER_TRUNK_REF = "main"
 CANDIDATE_INPUT = "product_ref"
 

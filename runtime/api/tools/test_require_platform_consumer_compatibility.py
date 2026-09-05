@@ -143,6 +143,21 @@ def test_one_candidate_can_never_adopt_another_candidate_s_run(
         assert argv[argv.index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
 
 
+def test_the_gate_reuses_the_consumer_s_own_required_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A bespoke compatibility workflow would be a second definition of
+    # compatible. The consumer's existing required check already builds its
+    # host; a candidate commit only redirects what it builds against.
+    seen: List[List[str]] = []
+    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
+
+    gate.dispatch(CANDIDATE, "attempt-1")
+
+    assert gate.CONSUMER_CHECK_WORKFLOW == "platform-release-pin-check.yml"
+    assert seen[0][seen[0].index("trigger") + 2] == gate.CONSUMER_CHECK_WORKFLOW
+
+
 def test_the_same_candidate_and_attempt_rejoin_one_consumer_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
