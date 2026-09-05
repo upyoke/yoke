@@ -8,6 +8,8 @@ instead:
 
 * the run lock is taken once, for the daemon's whole life, so a second
   relay on the machine cannot interleave between cycles of the first;
+* machine-local maintenance runs before every poll, so custody cleanup also
+  reaches natives created after daemon startup;
 * leased jobs settle on a supervised worker pool whose lifetime is the
   job's, so the poll loop is never blocked behind one and a job finishes
   even though several cycles roll past it;
@@ -177,6 +179,7 @@ def serve_forever(
     *,
     state_dir: Path | None = None,
     cycle: Callable[..., ServeOnceOutcome] = run_serve_cycle,
+    cycle_maintenance: Callable[[], None] | None = None,
     stop_after_cycles: int | None = None,
     idle_tick_seconds: float = IDLE_TICK_SECONDS,
     drain_timeout_seconds: float = DRAIN_TIMEOUT_SECONDS,
@@ -204,6 +207,7 @@ def serve_forever(
             stop,
             state_dir=state_dir,
             cycle=cycle,
+            cycle_maintenance=cycle_maintenance,
             stop_after_cycles=stop_after_cycles,
             idle_tick_seconds=idle_tick_seconds,
             drain_timeout_seconds=drain_timeout_seconds,
@@ -224,6 +228,7 @@ def _serve_under_lock(
     *,
     state_dir: Path | None,
     cycle: Callable[..., ServeOnceOutcome],
+    cycle_maintenance: Callable[[], None] | None,
     stop_after_cycles: int | None,
     idle_tick_seconds: float,
     drain_timeout_seconds: float,
@@ -252,6 +257,8 @@ def _serve_under_lock(
                     served_build_observer() if pin_served_release is not None else None
                 )
                 try:
+                    if cycle_maintenance is not None:
+                        cycle_maintenance()
                     outcome = cycle(
                         state_dir=state_dir,
                         dispatch_job=supervisor.dispatch,

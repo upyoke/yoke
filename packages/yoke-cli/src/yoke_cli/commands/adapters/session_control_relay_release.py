@@ -48,8 +48,8 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
     )
 
 
-def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
-    """Run and re-pin the daemon from its environment-owned venv."""
+def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None) -> Any:
+    """Run, maintain, and re-pin the daemon from its environment-owned venv."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_inventory import collect_cached_inventory
@@ -98,8 +98,6 @@ def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
             ["--env", instance.environment, "relay", "serve"],
             executable=installed.executable,
         )
-    if prepare is not None:
-        prepare()
 
     def repin(served_build: str):
         return release_install.pin_relay_release(
@@ -111,6 +109,7 @@ def serve_release_daemon(*, prepare: Callable[[], None] | None = None) -> Any:
         state_dir=instance.state_dir,
         inventory_provider=collect_cached_inventory,
         inventory_refresher=refresh_surface_probe_cache,
+        cycle_maintenance=cycle_maintenance,
         pinned_release=installed.pinned_release,
         pin_served_release=repin,
         reload_argv=["--env", instance.environment, "relay", "serve"],

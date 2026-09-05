@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import threading
 import time
@@ -10,6 +11,11 @@ import time
 import pytest
 
 from yoke_harness.session_relay import ServeOnceJobOutcome, ServeOnceOutcome
+from yoke_harness.session_launch_containment import (
+    record_supervised_native,
+    supervision_record_path,
+)
+from yoke_harness import session_launch_containment_sweep as containment_sweep
 from yoke_harness.session_relay_daemon import serve_forever
 
 
@@ -18,6 +24,55 @@ def _cycle_returning(state: str = "active"):
         return ServeOnceOutcome(state, 1)
 
     return cycle
+
+
+def test_cycle_maintenance_contains_a_native_created_after_startup(
+    monkeypatch, tmp_path
+) -> None:
+    expired_id = "11111111-1111-4111-8111-111111111111"
+    live_id = "22222222-2222-4222-8222-222222222222"
+    current_time = [1_000.0]
+    terminated: list[int] = []
+    cycles = 0
+
+    monkeypatch.setattr(
+        containment_sweep,
+        "_terminate",
+        lambda pid: terminated.append(pid) or "terminated",
+    )
+
+    def maintain() -> None:
+        containment_sweep.contain_stranded_launch_natives(
+            state_dir=tmp_path,
+            now=current_time[0],
+        )
+
+    def cycle(**_kwargs) -> ServeOnceOutcome:
+        nonlocal cycles
+        cycles += 1
+        if cycles == 1:
+            assert record_supervised_native(
+                expired_id, os.getpid(), state_dir=tmp_path, now=current_time[0]
+            )
+            current_time[0] += containment_sweep.CONTAINMENT_TTL_SECONDS + 1
+            assert record_supervised_native(
+                live_id, os.getpid(), state_dir=tmp_path, now=current_time[0]
+            )
+        return ServeOnceOutcome("active", 1)
+
+    outcome = serve_forever(
+        state_dir=tmp_path,
+        cycle=cycle,
+        cycle_maintenance=maintain,
+        stop_after_cycles=2,
+        idle_tick_seconds=0,
+        install_signals=False,
+    )
+
+    assert outcome.cycles == 2
+    assert terminated == [os.getpid()]
+    assert not supervision_record_path(expired_id, tmp_path).exists()
+    assert supervision_record_path(live_id, tmp_path).exists()
 
 
 def test_leased_job_survives_the_poll_cycle_that_leased_it(tmp_path) -> None:

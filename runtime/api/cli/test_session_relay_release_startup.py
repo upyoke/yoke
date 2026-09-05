@@ -53,6 +53,8 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
 
     def serve_forever(**kwargs):
         daemon_call.update(kwargs)
+        kwargs["cycle_maintenance"]()
+        kwargs["cycle_maintenance"]()
         replacement = kwargs["pin_served_release"]("v0.1.1+launch.366")
         return SimpleNamespace(reason="served_build_changed", replacement=replacement)
 
@@ -60,11 +62,11 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
     monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
 
     outcome = release_cli.serve_release_daemon(
-        prepare=lambda: prepared.append("contained")
+        cycle_maintenance=lambda: prepared.append("contained")
     )
 
     assert outcome.reason == "served_build_changed"
-    assert prepared == ["contained"]
+    assert prepared == ["contained", "contained"]
     assert daemon_call["state_dir"] == instance.state_dir
     assert daemon_call["pinned_release"] == "0.1.1+launch.365"
     assert daemon_call["reload_argv"] == ["--env", "stage", "relay", "serve"]
@@ -105,7 +107,9 @@ def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -
     )
 
     try:
-        release_cli.serve_release_daemon(prepare=lambda: prepared.append("contained"))
+        release_cli.serve_release_daemon(
+            cycle_maintenance=lambda: prepared.append("contained")
+        )
     except session_relay_release.RelayReleaseError as exc:
         assert exc.code == RELAY_RELEASE_START_FAILED
         assert "replacement returned" in str(exc)
@@ -230,7 +234,7 @@ def test_serve_command_preserves_named_release_refusal(monkeypatch, capsys) -> N
     assert "run relay install" in payload["message"]
 
 
-def test_serve_command_defers_containment_until_release_start(
+def test_serve_command_routes_containment_to_each_daemon_cycle(
     monkeypatch, capsys
 ) -> None:
     def contained() -> None:
@@ -242,8 +246,8 @@ def test_serve_command_defers_containment_until_release_start(
     monkeypatch.setattr(
         relay,
         "serve_release_daemon",
-        lambda *, prepare: (
-            received.append(prepare)
+        lambda *, cycle_maintenance: (
+            received.append(cycle_maintenance)
             or session_relay_daemon.DaemonOutcome(reason="signal:SIGTERM")
         ),
     )
