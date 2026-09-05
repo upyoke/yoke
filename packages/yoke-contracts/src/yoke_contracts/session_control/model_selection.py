@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import re
 import shutil
 import subprocess
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Literal, Mapping, Sequence
 
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 from yoke_contracts.session_model_facts import (
@@ -64,6 +64,23 @@ DOCUMENTED_MODELS: Mapping[str, tuple[str, ...]] = {
         "gpt-5.4",
     ),
 }
+
+ResumeSelectionMode = Literal["native", "explicit"]
+RESUME_SELECTION_MODES: Mapping[str, ResumeSelectionMode] = {
+    "claude-cli": "native",
+    "codex-cli": "explicit",
+    "cursor-cli": "native",
+}
+
+
+def resume_selection_mode(surface: str) -> ResumeSelectionMode | None:
+    """Name how a supported CLI keeps model selection across resume.
+
+    Native surfaces restore the conversation's latest selection themselves.
+    Explicit surfaces re-send the current attested selection because their
+    ambient configuration would otherwise be consulted again.
+    """
+    return RESUME_SELECTION_MODES.get(surface)
 
 
 class LaunchModelSelectionError(ValueError):
@@ -302,11 +319,14 @@ __all__ = [
     "LaunchModelSelection",
     "LaunchModelSelectionError",
     "ModelCatalog",
+    "RESUME_SELECTION_MODES",
+    "ResumeSelectionMode",
     "SURFACE_CONTEXT_WINDOWS",
     "SURFACE_EFFORT_LEVELS",
     "model_catalog",
     "native_model_selector",
     "parse_context_window_tokens",
     "parse_cursor_model_catalog",
+    "resume_selection_mode",
     "validate_launch_model_selection",
 ]

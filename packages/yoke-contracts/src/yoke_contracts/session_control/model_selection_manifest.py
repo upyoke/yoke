@@ -6,6 +6,7 @@ from yoke_contracts.session_control.model_selection import (
     DOCUMENTED_MODELS,
     SURFACE_CONTEXT_WINDOWS,
     SURFACE_EFFORT_LEVELS,
+    resume_selection_mode,
 )
 
 
@@ -38,6 +39,7 @@ def launch_model_selection_manifest(surface: str) -> dict[str, object]:
         "reasoning_efforts": list(SURFACE_EFFORT_LEVELS.get(surface, ())),
         "context_windows": list(SURFACE_CONTEXT_WINDOWS.get(surface, ())),
         "native_encoding": _ENCODING.get(surface, {}),
+        "resume_selection": resume_selection_mode(surface),
     }
 
 

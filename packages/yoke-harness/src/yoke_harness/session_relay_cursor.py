@@ -36,7 +36,7 @@ from yoke_harness.session_relay_runtime import (
 )
 
 
-CURSOR_ADAPTER_REVISION = "cursor-native-v3"
+CURSOR_ADAPTER_REVISION = "cursor-native-v4"
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
 
 _LAUNCH_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
@@ -226,7 +226,9 @@ def build_cursor_adapter(
             target_liveness=context.target_liveness,
             wake_mode=wake_mode,
             native_instruction=context.native_instruction,
-            requested_model=cursor_model_selector(context),
+            # Cursor resume restores the conversation's latest selection.
+            # Sending a selector here would overwrite an in-session change.
+            requested_model=None,
             attempt_id=str(context.job_id),
             lease_id=str(context.lease_id),
         )

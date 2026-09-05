@@ -43,9 +43,10 @@ class CursorCreateRequest:
 class CursorWakeRequest:
     """One exact-session resume carrying only the check-inbox sentence.
 
-    ``requested_model`` is the variant this turn must run under. cursor-agent
-    resumes a session at whichever model it last ran, so naming it on the
-    launch's native new-chat turn makes later wakes inherit it.
+    ``requested_model`` stays optional for compatibility with the shared
+    transport shape. The adapter leaves it empty because cursor-agent resumes
+    at the conversation's latest selection; naming the launch selection here
+    would undo a later in-session change.
     """
 
     checkout: Path

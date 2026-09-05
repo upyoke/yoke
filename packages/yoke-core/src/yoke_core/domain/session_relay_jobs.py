@@ -18,6 +18,7 @@ from yoke_core.domain.session_relay_evidence import (
     redacted_evidence_document,
 )
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
+from yoke_core.domain.session_model_columns import resume_model_selection
 from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
     mark_relay_batch,
@@ -108,6 +109,11 @@ def claim_wake_job(
         )
 
         consume_qualification_grant(conn, qualification, now=now)
+    selection = resume_model_selection(
+        conn,
+        session_id=session_id,
+        surface=execution[0],
+    )
     mark_relay_batch(
         conn,
         relay_id=heartbeat.relay_id,
@@ -128,6 +134,9 @@ def claim_wake_job(
         message_id=str(message_id),
         target_session_id=str(session_id),
         target_native_thread_id=str(selected.get("native_thread_id") or "") or None,
+        requested_model=selection.model,
+        requested_reasoning_effort=selection.reasoning_effort,
+        requested_context_window_tokens=selection.context_window_tokens,
         presentation=managed_presentation.managed_session_presentation(
             conn,
             session_id=session_id,
