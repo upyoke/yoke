@@ -13,8 +13,8 @@ from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_balance import session_selection_label
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
-from yoke_core.domain.steering_fleet_report_starvation import (
-    StarvedDelivery,
+from yoke_core.domain.steering_fleet_report_undelivered import (
+    UndeliveredMessages,
 )
 from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
@@ -55,17 +55,20 @@ def _holder_dict(holder: ClaimHolder) -> dict[str, Any]:
     }
 
 
-def _starved_dict(entry: StarvedDelivery) -> dict[str, Any]:
+def _undelivered_dict(entry: UndeliveredMessages) -> dict[str, Any]:
     return {
         "session_id": entry.session_id,
+        "delivery_state": entry.delivery_state,
+        "needs_seat_action": entry.needs_seat_action,
         "envelope_count": entry.envelope_count,
         "oldest_seconds": entry.oldest_seconds,
+        "message_ids": list(entry.message_ids),
         "wake_escalation": entry.wake_escalation,
         "operator_wake": entry.operator_wake,
-        "attempt_count": entry.attempt_count,
         "diagnostic": entry.diagnostic,
         "evidence_id": entry.evidence_id,
         "turn_in_flight_since": entry.turn_in_flight_since,
+        "recipient_gone_at": entry.recipient_gone_at,
     }
 
 
@@ -149,7 +152,10 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
         ],
         "holders": [_holder_dict(holder) for holder in report.holders],
         "idle": [_holder_dict(holder) for holder in report.idle],
-        "starved": [_starved_dict(entry) for entry in report.starved],
+        "undelivered": [_undelivered_dict(entry) for entry in report.undelivered],
+        "undelivered_needing_action": [
+            _undelivered_dict(entry) for entry in report.undelivered_needing_action()
+        ],
         "unregistered_launches": [
             _launch_dict(entry) for entry in report.unregistered_launches
         ],

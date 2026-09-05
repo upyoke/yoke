@@ -2,8 +2,8 @@
 
 Queries reveal unregistered launches, frozen Monitor waiters, and merged
 work lacking close-out. Launches corrected after delivery live in
-:mod:`steering_fleet_report_abandoned`. Stuck delivery lives in
-:mod:`steering_fleet_report_starvation`; dead waits that need judgment live
+:mod:`steering_fleet_report_abandoned`. Undelivered mail lives in
+:mod:`steering_fleet_report_undelivered`; dead waits that need judgment live
 in :mod:`steering_fleet_report_dead_waits`.
 
 Shared timestamp parsing stays here. Data comes from

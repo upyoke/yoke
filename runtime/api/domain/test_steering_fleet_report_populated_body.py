@@ -35,7 +35,12 @@ def _populated_report():
         LandedItem,
         UnregisteredLaunch,
     )
-    from yoke_core.domain.steering_fleet_report_starvation import StarvedDelivery
+    from yoke_core.domain.steering_fleet_report_delivery_states import (
+        NEVER_ATTEMPTED,
+    )
+    from yoke_core.domain.steering_fleet_report_undelivered import (
+        UndeliveredMessages,
+    )
 
     quiet = ClaimHolder(
         session_id="holder-session",
@@ -80,9 +85,12 @@ def _populated_report():
         ),
         holders=(quiet, working),
         idle=(quiet,),
-        starved=(
-            StarvedDelivery(
-                session_id="starved-session", envelope_count=2, oldest_seconds=2400
+        undelivered=(
+            UndeliveredMessages(
+                session_id="undelivered-session",
+                delivery_state=NEVER_ATTEMPTED,
+                envelope_count=2,
+                oldest_seconds=2400,
             ),
         ),
         unregistered_launches=(
@@ -153,7 +161,7 @@ def test_every_section_renders_in_the_order_a_steerer_reads_them():
         "available —",
         "idle holders —",
         "suspected orphaned waiter —",
-        "starved delivery —",
+        "undelivered messages —",
         "unregistered launches —",
         "landed without close-out —",
         "dead waits —",

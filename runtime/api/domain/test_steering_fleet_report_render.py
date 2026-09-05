@@ -183,7 +183,7 @@ def test_a_quiet_detector_renders_nothing_at_all(steering_scope):
     body = report_body(_compose(steering_scope))
 
     for absent in (
-        "starved delivery",
+        "undelivered messages",
         "unregistered launches",
         "landed without close-out",
         "suspected orphaned waiter",

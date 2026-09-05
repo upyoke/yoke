@@ -118,7 +118,7 @@ def test_only_a_session_nobody_is_coming_for_makes_the_report_actionable():
         _populated_report(),
         available=(),
         idle=(),
-        starved=(),
+        undelivered=(),
         unregistered_launches=(),
         landed_open=(),
         suspected_orphaned_waiters=(),

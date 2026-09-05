@@ -34,7 +34,15 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
             for holder in report.holders
         ),
         "idle": sorted((holder.session_id, holder.item_id) for holder in report.idle),
-        "starved": sorted(entry.session_id for entry in report.starved),
+        # Only settled deliveries count toward identity: an envelope the
+        # plane is still inside its window for passes through this section
+        # on every ordinary send, and hashing that would report the fleet as
+        # changed for mail that is about to arrive by itself.
+        "undelivered": sorted(
+            (entry.session_id, entry.delivery_state)
+            for entry in report.undelivered
+            if not entry.in_delivery
+        ),
         "unregistered_launches": sorted(
             (entry.launch_id, entry.native_launch_phase, entry.spawn_duration_ms)
             for entry in report.unregistered_launches
