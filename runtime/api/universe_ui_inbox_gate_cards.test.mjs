@@ -67,6 +67,10 @@ test("a deployment approval carrying no items says what it is still shipping", a
     body,
   );
   assert.ok(body.includes("In this release · 0 items"), body);
+  // The producer's own one-line summary says the count and destination the
+  // card has already given twice. Echoing it puts "0 item(s)" back on a card
+  // whose whole point is that the count is not what is shipping.
+  assert.ok(!body.includes("0 item(s) ship to stage"), body);
 });
 
 test("a QA review shows the evidence it is backed by, counted by type", async () => {
@@ -116,12 +120,15 @@ test("a lifecycle approval shows what changed on the branch", async () => {
   assert.ok(body.includes("What changed on the branch"), body);
   assert.ok(body.includes("+412 −87 across 9 files"), body);
   assert.ok(body.includes("runtime/api/inbox.py"), body);
-  // Why the transition was gated at all, named by the pinned version and the
-  // policy entry that asked.
+  // Why the transition was gated at all: the pinned version and the policy
+  // entry that asked. The subtitle carries it, and it names the version a
+  // person can look up rather than that version's row id.
+  const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
   assert.ok(
-    body.includes("gated by dash@3 · approval_defaults.reviewing-implementation"),
-    body,
+    subtitle.includes("dash@3 · approval_defaults.reviewing-implementation"),
+    subtitle,
   );
+  assert.ok(!subtitle.includes("v41"), subtitle);
 });
 
 test("a laneless transition says so rather than showing an empty diff", async () => {

@@ -45,7 +45,7 @@ test("Inbox renders the two content types and their served counts", async () => 
       .filter((node) => node.tagName === "SPAN")
       .map((node) => node.textContent),
     [
-      "dash v3 · approval_defaults.reviewing-implementation",
+      "dash@3 · approval_defaults.reviewing-implementation",
       " · ",
       "requested ",
       " · ",

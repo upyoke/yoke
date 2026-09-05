@@ -88,12 +88,10 @@ const SUBTITLE_BUILDERS = {
     ];
   },
   lifecycle_transition_approval(facts) {
-    const version = facts.workflow_id
-      ? `${facts.workflow_id}${
-        facts.workflow_version_id ? ` v${facts.workflow_version_id}` : ""
-      }`
-      : "";
-    return [version, facts.approval_source?.entry];
+    // policy_summary names the pinned version and the entry that gated this
+    // transition. workflow_version_id beside it is the row id of that
+    // version, which points the approver at a version that does not exist.
+    return [facts.policy_summary || facts.workflow_id];
   },
   machine_approval(facts, row) {
     return [

@@ -169,17 +169,6 @@ function appendLifecycleBody(documentNode, host, facts) {
       "No branch changes were recorded for this transition.",
     ));
   }
-  // Which pinned version gated this, and at which entry. Without it the
-  // approver can see the decision but not why it was asked of them, and a
-  // gate nobody can account for is one they learn to wave through.
-  if (facts.policy_summary) {
-    changed.appendChild(el(
-      documentNode,
-      "div",
-      "gate-block-more",
-      `gated by ${facts.policy_summary}`,
-    ));
-  }
 }
 
 function appendDeploymentBody(documentNode, host, facts) {
@@ -212,13 +201,14 @@ function appendDeploymentBody(documentNode, host, facts) {
       "This run carries no recorded items.",
     ));
   }
-  const shipping = facts.shipping || {};
-  const trailer = [
-    shipping.summary ? String(shipping.summary) : "",
-    shipping.release_lineage ? `release ${shipping.release_lineage}` : "",
-  ].filter(Boolean).join(" · ");
-  if (trailer) {
-    release.appendChild(el(documentNode, "div", "gate-block-more", trailer));
+  // The lineage, and only the lineage: the count and the destination are
+  // already the first thing the approver reads, and repeating them under
+  // the item list is how "0 items" ends up asserted twice on one card.
+  const lineage = (facts.shipping || {}).release_lineage;
+  if (lineage) {
+    release.appendChild(el(
+      documentNode, "div", "gate-block-more", `release ${lineage}`,
+    ));
   }
 }
 
