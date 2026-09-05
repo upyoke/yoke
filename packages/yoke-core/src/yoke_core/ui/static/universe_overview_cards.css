@@ -214,6 +214,24 @@
 .universe-app-root .overview-run-card.is-cancelled {
   border-top-color: var(--yoke-crit);
 }
+.universe-app-root .overview-run-card.is-awaiting-approval,
+.universe-app-root .overview-run-card.is-awaiting-review {
+  border-top-color: var(--yoke-warn);
+}
+/* The card's readable half is a link to the run; the gates below it are
+   not, so the link carries the content layout and the card carries the box. */
+.universe-app-root .overview-run-card-link {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+  color: inherit;
+  text-decoration: none;
+}
+.universe-app-root .overview-run-card:focus-within {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
 .universe-app-root .overview-run-environment {
   color: var(--yoke-ink-2);
   font-size: 11px;

@@ -73,6 +73,10 @@ const FAMILIES = {
   planned: "idle",
   drafted: "idle",
   "needs review": "warn",
+  // A run halted on a person is not idle and not failing; the generic
+  // vocabulary had no word for it, so a gated card wore a grey pill.
+  "awaiting approval": "warn",
+  "awaiting review": "warn",
   "blocked on precondition": "crit",
   installed: "good",
   success: "good",

@@ -65,6 +65,11 @@ def decision_request_connection():
             workflow_id TEXT NOT NULL,
             workflow_version_id INTEGER NOT NULL
         );
+        CREATE TABLE workflow_versions (
+            id INTEGER PRIMARY KEY,
+            workflow_id TEXT NOT NULL,
+            version INTEGER NOT NULL
+        );
     """)
     ensure_event_schema(value)
     create_decision_request_tables(value)
@@ -91,6 +96,14 @@ def decision_request_connection():
         "INSERT INTO actor_project_roles VALUES (4, 10, 4, 'now')"
     )
     value.execute("INSERT INTO actor_org_roles VALUES (5, 1, 3, 'now')")
+    # Row 7 carries version 1 on purpose: an item pins a workflow_versions
+    # row id, and a fixture where id and version happen to match cannot tell
+    # which of the two a reader-facing string names.
+    for version_row_id, workflow_id, version in ((1, "issue", 1), (7, "issue", 1)):
+        value.execute(
+            "INSERT INTO workflow_versions VALUES (?, ?, ?)",
+            (version_row_id, workflow_id, version),
+        )
     value.commit()
     try:
         yield value

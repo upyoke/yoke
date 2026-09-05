@@ -179,7 +179,7 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
       },
     ],
     member_items: [],
-    waiting_on_approval: false,
+    gates: [],
   });
   const client = {
     async call(request) {

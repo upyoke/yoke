@@ -114,7 +114,7 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
               { name: "build", state: "complete" },
               { name: "release", state: "complete" },
             ],
-            member_items: [], waiting_on_approval: false,
+            member_items: [], gates: [],
           }],
         });
       }
@@ -184,7 +184,23 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
               title: "Ship the release", project_id: 1,
               project: "yoke", status: "implemented",
             }],
-            waiting_on_approval: true,
+            gates: [{
+              request_id: 4471,
+              kind: "deployment_stage_approval",
+              subject_context: {
+                run_id: "run-20260726-001",
+                stage: "approval",
+                flow: { name: "hosted-release" },
+                batch: { item_count: 1 },
+                shipping: { target_environment: "prod" },
+              },
+              actions: ["approve", "reject"],
+              approval_progress: {},
+              can_act: true,
+              authority_reason: "project owner",
+              your_decision: null,
+              decided_by_you: false,
+            }],
           }],
         });
       }

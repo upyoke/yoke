@@ -7,6 +7,7 @@ from typing import Any, Optional
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+from yoke_core.domain.deployment_run_gates import run_gates
 from yoke_core.domain.deployment_runs_schema import _run_named_columns
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.workflows_definition_read import _stage_names
@@ -17,7 +18,7 @@ RUN_PRESENTATION_FIELDS = (
     "stages",
     "stage_index",
     "stage_count",
-    "waiting_on_approval",
+    "gates",
 )
 
 
@@ -86,27 +87,19 @@ def _member_items(
     return result
 
 
-def _pending_approvals(conn: Any, run_ids: list[str]) -> set[str]:
-    if not run_ids:
-        return set()
-    clauses = " OR ".join("subject_key LIKE %s" for _ in run_ids)
-    rows = conn.execute(
-        "SELECT subject_key FROM decision_requests "
-        "WHERE kind = 'deployment_stage_approval' "
-        "AND subject_type = 'deployment_stage' AND status = 'pending' "
-        f"AND ({clauses})",
-        tuple(f"{run_id}:%" for run_id in run_ids),
-    ).fetchall()
-    return {str(row["subject_key"]).rsplit(":", 1)[0] for row in rows}
-
-
 def list_deployment_runs(
     *,
     project: Optional[str],
     status: Optional[str],
     limit: int,
+    actor_id: Optional[int] = None,
 ) -> list[dict[str, Any]]:
-    """Return newest runs with member, stage, and approval relationships."""
+    """Return newest runs with member, stage, and gate relationships.
+
+    ``actor_id`` decides only whether each gate offers this reader its
+    actions; the gate itself is reported either way, because a run halted
+    on somebody else is still halted.
+    """
     conn = connect()
     try:
         clauses: list[str] = []
@@ -132,7 +125,7 @@ def list_deployment_runs(
         base = [dict(row) for row in rows]
         run_ids = [str(row["id"]) for row in base]
         members = _member_items(conn, run_ids)
-        pending = _pending_approvals(conn, run_ids)
+        gates = run_gates(conn, run_ids, actor_id=actor_id)
         result: list[dict[str, Any]] = []
         for row in base:
             run_id = str(row["id"])
@@ -153,7 +146,7 @@ def list_deployment_runs(
                     "stages": stages,
                     "stage_index": stage_index,
                     "stage_count": len(stage_names),
-                    "waiting_on_approval": run_id in pending,
+                    "gates": gates.get(run_id, []),
                 }
             )
         return result

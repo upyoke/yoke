@@ -106,10 +106,14 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
             f"limit must be from 1 to {MAX_RUN_LIST_LIMIT}",
             jsonpath="$.payload.limit",
         )
+    actor_id = request.actor.actor_id
     rows = list_deployment_runs(
         project=project,
         status=status,
         limit=resolved_limit,
+        actor_id=(
+            int(actor_id) if actor_id is not None and str(actor_id).isdigit() else None
+        ),
     )
     return HandlerOutcome(
         result_payload={

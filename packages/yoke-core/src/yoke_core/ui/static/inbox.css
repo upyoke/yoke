@@ -164,10 +164,147 @@
   padding: 6px 2px;
 }
 
+/* A gate that has evidence to show stops being a one-line row: the icon and
+   title hold the first line, the body spans the card, and the answer sits at
+   the bottom, under the thing it is answering. */
+.universe-app-root .inbox-row-gate {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+}
+
+.universe-app-root .gate-body,
+.universe-app-root .inbox-row-gate .inbox-actions {
+  flex: 1 1 100%;
+  margin-left: 41px;
+}
+
+.universe-app-root .gate-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 9px;
+}
+
+.universe-app-root .gate-what-label {
+  display: block;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.universe-app-root :is(.gate-what-copy, .gate-verdict-reason) {
+  color: var(--yoke-ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.universe-app-root :is(.gate-block, .gate-evidence) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-bg);
+}
+
+.universe-app-root .gate-block-head {
+  color: var(--yoke-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.universe-app-root .gate-block-row {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.universe-app-root .gate-block-code {
+  flex: 0 0 auto;
+  color: var(--yoke-ink);
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+}
+
+.universe-app-root :is(.gate-block-copy, .gate-block-more) {
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.universe-app-root .gate-block-copy {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .gate-verdict-reason {
+  font-style: italic;
+}
+
+/* Evidence is a count over the artifacts the run actually recorded, so a
+   request backed by screenshots and one backed by nothing stop looking the
+   same at a glance. */
+.universe-app-root .gate-evidence {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.universe-app-root .gate-evidence .gate-block-head {
+  flex: 1 1 100%;
+}
+
+.universe-app-root .gate-evidence-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-ink);
+  font-size: 11px;
+}
+
+.universe-app-root .gate-evidence-count {
+  font-family: var(--yoke-font-mono);
+  font-weight: 600;
+}
+
+/* The refusal rather than silence: approving here would be a verdict on
+   nothing, and the row says so instead of looking like every other row. */
+.universe-app-root .gate-evidence-none {
+  display: flex;
+  gap: 7px;
+  padding: 9px 11px;
+  border: 1px solid var(--yoke-warn);
+  border-radius: 8px;
+  background: var(--yoke-warn-bg);
+  color: var(--yoke-ink);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.universe-app-root .gate-evidence-warn {
+  flex: 0 0 auto;
+  color: var(--yoke-warn);
+}
+
 @media (max-width: 720px) {
   .universe-app-root .inbox-row {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .universe-app-root .gate-body,
+  .universe-app-root .inbox-row-gate .inbox-actions {
+    margin-left: 0;
   }
 
   .universe-app-root .inbox-row-main {

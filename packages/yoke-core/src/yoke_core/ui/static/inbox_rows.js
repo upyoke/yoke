@@ -9,6 +9,7 @@ import {
   subjectHref,
   yourDecisionText,
 } from "./inbox_presentation.js";
+import { appendGateBody } from "./decision_gate_body.js";
 import { senderDescription } from "./universe_session_message_actors.js";
 
 function eventCameFromControl(event, row) {
@@ -103,6 +104,13 @@ export function appendDecisionRow(
     projectLabel,
   ));
   wrap.appendChild(main);
+  // The body goes in before the actions so a gate that shows evidence reads
+  // top to bottom -- what it is, what you are approving, then the answer.
+  // A kind with nothing to show (a machine, answered on the Machines page)
+  // stays the one-line row it already was.
+  if (appendGateBody(documentNode, wrap, row)) {
+    wrap.className += " inbox-row-gate";
+  }
   const actions = el(documentNode, "div", "inbox-actions");
   if (row.decided_by_you) {
     // A decision is final for the person who made it; under an all-approvers
@@ -181,8 +189,11 @@ export function createDecisionResolver(context, reload) {
   const documentNode = context.document;
   return async (row, action, wrap, note = null) => {
     const actionButtons = [];
+    // Every button in the row, not one surface's styling class: the same
+    // resolver answers a gate drawn as an Inbox row and one drawn inside a
+    // deployment card, and both must go inert while the call is in flight.
     const collect = (node) => {
-      if (node.classList?.contains("inbox-action")) actionButtons.push(node);
+      if (node.tagName === "BUTTON") actionButtons.push(node);
       for (const child of node.children || []) collect(child);
     };
     collect(wrap);

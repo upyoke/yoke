@@ -13,6 +13,7 @@ import {
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import { renderStageStrip } from "./universe_stage_strip.js";
+import { runGateStatus } from "./universe_run_gates.js";
 import {
   isTerminalizable,
   terminalizationDialog,
@@ -98,7 +99,10 @@ function renderRunsTable(body, rows, projects, onTerminalized) {
     stages.appendChild(renderStageStrip(documentNode, row.stages));
     tr.appendChild(stages);
     const status = el(documentNode, "td", "delivery-run-status");
-    const pill = statePill(documentNode, row.status, row.status);
+    // A suspended run keeps whatever status it held when it stopped, so the
+    // table reports the gate instead — the same string the run card shows.
+    const shown = runGateStatus(row) || row.status;
+    const pill = statePill(documentNode, shown, shown);
     if (pill) status.appendChild(pill);
     if (isTerminalizable(row)) {
       const terminalize = el(
@@ -144,7 +148,12 @@ export function renderDeliveryRunsView(context, main, scope) {
         context,
         reload: () => renderDeliveryRunsView(context, main, scope),
       });
-      const waiting = rows.filter((row) => row.waiting_on_approval).length;
+      // Only the runs this reader can actually answer: the link offers to
+      // take them somewhere they can act, and a run halted on somebody else
+      // would send them to an empty Inbox.
+      const waiting = rows.filter(
+        (row) => (row.gates || []).some((gate) => gate.can_act),
+      ).length;
       if (!waiting) return;
       const inbox = el(
         documentNode,

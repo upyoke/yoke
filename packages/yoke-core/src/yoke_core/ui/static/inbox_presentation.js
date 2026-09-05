@@ -67,32 +67,50 @@ export function yourDecisionText(row) {
   return `you chose ${ACTION_LABELS[action] || action || "an action"}`;
 }
 
+// Each kind's identifying facts, read from the payload its own gate writes.
+// These builders are the single place that knows a subject_context shape, so
+// a producer that changes its facts breaks here rather than silently
+// rendering a row that describes nothing.
+const SUBTITLE_BUILDERS = {
+  deployment_stage_approval(facts) {
+    return [
+      facts.run_id,
+      facts.flow?.name ? `flow ${facts.flow.name}` : "",
+      facts.stage ? `stage ${facts.stage}` : "",
+    ];
+  },
+  qa_needs_review(facts) {
+    return [
+      facts.plan_name,
+      facts.method_name,
+      facts.run_id ? `run ${facts.run_id}` : "",
+      "undetermined",
+    ];
+  },
+  lifecycle_transition_approval(facts) {
+    // policy_summary names the pinned version and the entry that gated this
+    // transition. workflow_version_id beside it is the row id of that
+    // version, which points the approver at a version that does not exist.
+    return [facts.policy_summary || facts.workflow_id];
+  },
+  machine_approval(facts, row) {
+    return [
+      facts.machine ? `machine ${facts.machine}` : "machine not named",
+      facts.code ? `one-time code ${facts.code}` : "no one-time code delivered",
+      // Whoever installed Yoke on that machine keeps it once it is admitted:
+      // approving never transfers ownership to the approver.
+      row.originator_actor_label ? `requested by ${row.originator_actor_label}` : "",
+    ];
+  },
+};
+
 export function decisionSubtitle(row) {
   const facts = row.subject_context || {};
-  const details = [];
+  const build = SUBTITLE_BUILDERS[row.kind];
+  const details = (build ? build(facts, row) : [])
+    .map((value) => (value == null ? "" : String(value)))
+    .filter(Boolean);
   const trailing = [];
-  if (facts.summary) details.push(facts.summary);
-  else if (row.kind === "deployment_stage_approval") {
-    if (facts.run_id) details.push(facts.run_id);
-    if (facts.stage) details.push(`${facts.stage} stage`);
-  } else if (row.kind === "qa_needs_review") {
-    for (const value of [
-      facts.plan_name, facts.case_name, facts.method_name, facts.evidence_summary,
-    ]) if (value) details.push(value);
-  } else if (row.kind === "lifecycle_transition_approval") {
-    if (facts.policy_summary) details.push(facts.policy_summary);
-    else if (facts.transition) details.push(`${facts.transition} transition`);
-  } else if (row.kind === "machine_approval") {
-    details.push(facts.machine ? `machine ${facts.machine}` : "machine not named");
-    details.push(
-      facts.code ? `one-time code ${facts.code}` : "no one-time code delivered",
-    );
-    // Whoever installed Yoke on that machine keeps it once it is admitted:
-    // approving never transfers ownership to the approver.
-    if (row.originator_actor_label) {
-      details.push(`requested by ${row.originator_actor_label}`);
-    }
-  }
   const progress = decisionProgressText(row);
   if (progress) trailing.push(progress);
   const decided = yourDecisionText(row);
@@ -106,16 +124,33 @@ export function decisionSubtitle(row) {
   };
 }
 
+// Titles are composed from the facts rather than read from the stored
+// `title` string. Every producer writes one, and QA's is a fixed sentence
+// that names no case, so preferring the stored value made a reviewer's list
+// of pending reviews read identically for all of them.
+const TITLE_BUILDERS = {
+  deployment_stage_approval(facts) {
+    const target = facts.shipping?.target_environment;
+    if (!target) return "";
+    return `Deploy to ${target} — approve the ${facts.stage || "next"} stage`;
+  },
+  qa_needs_review(facts) {
+    const subject = facts.case_name || facts.plan_name;
+    return subject ? `${subject} needs your review` : "";
+  },
+  lifecycle_transition_approval(facts) {
+    if (!facts.item_ref) return "";
+    return `${facts.item_ref} — approve the ${facts.to_stage || "next"} transition`;
+  },
+};
+
 export function decisionTitle(row) {
   const facts = row.subject_context || {};
+  const build = TITLE_BUILDERS[row.kind];
+  const composed = build ? build(facts) : "";
+  if (composed) return composed;
   if (facts.title) return String(facts.title);
   const presentation = KIND_PRESENTATION[row.kind] || {};
-  if (facts.item_ref && row.kind === "lifecycle_transition_approval") {
-    return `${facts.item_ref} — approve the ${facts.transition || "next"} transition`;
-  }
-  if (facts.case_name && row.kind === "qa_needs_review") {
-    return `${facts.case_name} needs your review`;
-  }
   return presentation.fallback || row.subject_key;
 }
 

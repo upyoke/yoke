@@ -39,7 +39,7 @@ def conn():
 def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
     conn.execute(
         "INSERT INTO items VALUES "
-        "(1907, 10, 4200, 'Identity shell', 'implementing', 'issue', 1)"
+        "(1907, 10, 4200, 'Identity shell', 'implementing', 'issue', 7)"
     )
     verdict = evaluate_lifecycle_approval(
         conn,
@@ -62,7 +62,7 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
         "from_stage": "implementing",
         "to_stage": "reviewing-implementation",
         "workflow_id": "issue",
-        "workflow_version_id": 1,
+        "workflow_version_id": 7,
         "branch_changes": {
             "branch": None,
             "commit_sha": None,
@@ -70,6 +70,8 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
             "summary": "No implementation branch is recorded for this transition.",
         },
         "approval_source": WORKFLOW_APPROVAL,
+        # The item pins version row 7; the approver is told version 1, which
+        # is the number they can look the workflow up by.
         "policy_summary": "issue@1 · approval_defaults.reviewing-implementation",
     }
     assert (

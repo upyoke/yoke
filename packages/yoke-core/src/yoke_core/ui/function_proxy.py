@@ -114,6 +114,13 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
     }
 )
 
+#: Reads the operator's identity SHAPES but does not define: the rows are
+#: the same for everyone, and knowing who is reading only decides which of
+#: them offer an action. They bind the operator when one resolves and stay
+#: answerable when none does, because refusing them would blank a whole
+#: page over an action nobody was going to take.
+UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset({"deployment_runs.list"})
+
 #: The only mutations the local proxy may dispatch. All act as the resolved
 #: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
 #: refused when no operator resolves; every other mutation stays 403.
@@ -190,6 +197,7 @@ def proxy_function_call(
         is_mutation
         or function_id in UI_ACTIVATION_LATCH_FUNCTIONS
         or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS
+        or function_id in UI_OPERATOR_OPTIONAL_READ_FUNCTIONS
     ):
         from yoke_core.ui.local_operator_actor import (
             resolve_local_operator_actor,
@@ -258,6 +266,7 @@ __all__ = [
     "UI_ACTIVATION_LATCH_FUNCTIONS",
     "UI_ACTOR_BOUND_READ_FUNCTIONS",
     "UI_MUTATION_FUNCTION_ALLOWLIST",
+    "UI_OPERATOR_OPTIONAL_READ_FUNCTIONS",
     "UI_READ_FUNCTION_ALLOWLIST",
     "proxy_function_call",
 ]

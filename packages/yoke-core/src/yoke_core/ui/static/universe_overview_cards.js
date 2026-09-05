@@ -5,6 +5,7 @@ import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives.js";
 import { relativeAge } from "./universe_time.js";
+import { appendRunGates, runGateStatus } from "./universe_run_gates.js";
 import { el, statePill } from "./universe_view_support.js";
 
 function itemReference(row) {
@@ -79,14 +80,21 @@ function carriedReference(item) {
   return item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
 }
 
-export function overviewRunCard(documentNode, row, scope) {
-  const status = String(row.status || "unknown");
+export function overviewRunCard(documentNode, row, scope, options = {}) {
+  // A run stopped at a gate is not executing and not failed. Its own status
+  // still says whichever it was when the pipeline suspended, so the gate is
+  // what the card reports: one string drives the edge and the pill together.
+  const status = runGateStatus(row) || String(row.status || "unknown");
   const card = el(
     documentNode,
-    "a",
+    "div",
     `overview-run-card is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
   );
-  card.href = buildUniverseRoute(
+  // The informational card is a link to the run; a gate's Approve and Reject
+  // are buttons inside it. Nesting those in the anchor would be invalid, so
+  // the link wraps what is readable and the gates sit beside it.
+  const link = el(documentNode, "a", "overview-run-card-link");
+  link.href = buildUniverseRoute(
     "deployments", scope === "all" ? null : scope.join(","),
   );
   const head = el(documentNode, "div", "overview-run-card-head");
@@ -101,15 +109,12 @@ export function overviewRunCard(documentNode, row, scope) {
   ));
   const statusNode = statePill(documentNode, status, status);
   if (statusNode) head.appendChild(statusNode);
-  if (row.waiting_on_approval) {
-    head.appendChild(statePill(documentNode, "warning", "your approval"));
-  }
-  card.appendChild(head);
-  card.appendChild(el(
+  link.appendChild(head);
+  link.appendChild(el(
     documentNode, "strong", "overview-run-flow", row.flow || "flow unavailable",
   ));
   if ((row.stages || []).length) {
-    card.appendChild(deliveryStageBar(documentNode, row.stages));
+    link.appendChild(deliveryStageBar(documentNode, row.stages));
   }
 
   if (row.release_lineage) {
@@ -118,7 +123,7 @@ export function overviewRunCard(documentNode, row, scope) {
     release.appendChild(el(
       documentNode, "code", null, String(row.release_lineage).slice(0, 12),
     ));
-    card.appendChild(release);
+    link.appendChild(release);
   }
 
   const items = carriedItems(row);
@@ -148,12 +153,12 @@ export function overviewRunCard(documentNode, row, scope) {
         `+${items.length - 6} more carried by this release`,
       ));
     }
-    card.appendChild(batch);
+    link.appendChild(batch);
   }
 
   const derivation = row.carried_work?.derivation;
   if (derivation) {
-    card.appendChild(el(
+    link.appendChild(el(
       documentNode,
       "div",
       "overview-run-derived",
@@ -161,11 +166,13 @@ export function overviewRunCard(documentNode, row, scope) {
     ));
   }
   const timing = row.completed_at || row.started_at || row.created_at;
-  card.appendChild(el(
+  link.appendChild(el(
     documentNode,
     "span",
     "overview-run-card-meta",
     timing ? `${status} ${relativeAge(timing)} ago` : status,
   ));
+  card.appendChild(link);
+  appendRunGates(documentNode, card, row.gates, options.onGateAction);
   return card;
 }
