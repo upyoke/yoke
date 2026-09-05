@@ -104,6 +104,7 @@ def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
         "baseline_state",
         "path_state",
         "process_state",
+        "relay_service_state",
         "self_host_state",
     }
     assert result.evidence["baseline_state"] == {

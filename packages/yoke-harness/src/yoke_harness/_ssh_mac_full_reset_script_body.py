@@ -178,6 +178,16 @@ verify_restored_home() {
     return 1
   done
   self_host_stack_is_absent || return 1
+  # The service was booted out before the clear. Asserting it again here is
+  # what names the relay when a home comes back carrying state, instead of
+  # reporting only that some absent path was present and leaving the operator
+  # to discover launchd by hand.
+  if ! relay_services_are_absent; then
+    failure_detail="$relay_service_prefix$relay_service_kind_unload_failed $(
+      relay_service_report_label
+    )"
+    return 1
+  fi
 }
 
 cleanup_scratch() {
@@ -228,6 +238,7 @@ reap_user="${home#/Users/}"
 reap_target_count=0
 reap_failed_count=0
 reap_match_count=0
+relay_unloaded_count=0
 load_average_1min=""
 cpu_count=0
 self_host_containers_removed=0
@@ -239,6 +250,9 @@ trap 'exit 1' HUP INT TERM
 
 run_reset_step "$reset_phase_assert_full_disk_access" assert_full_disk_access
 run_reset_step "$reset_phase_validate_golden" validate_golden
+# Before the reap and the clear: a job launchd still holds can restart and
+# rewrite the home either of them just emptied.
+run_reset_step "$reset_phase_unload_relay_service" unload_relay_service
 run_reset_step "$reset_phase_reap_processes" reap_processes
 run_reset_step "$reset_phase_stop_self_host_stack" stop_self_host_stack
 run_reset_step "$reset_phase_clear_home" clear_home
@@ -249,6 +263,7 @@ reset_step="$reset_phase_emit_outcomes"
 count_reap_matches
 record_load_average
 print -r -- "$restored_entries_prefix$restored_entry_count"
+print -r -- "$relay_unloaded_prefix$relay_unloaded_count"
 print -r -- "$self_host_containers_prefix$self_host_containers_removed"
 print -r -- "$self_host_volumes_prefix$self_host_volumes_removed"
 print -r -- "$self_host_images_prefix$self_host_images_removed"

@@ -227,6 +227,10 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
         "yoke_absent_files=()",
         "yoke_absent_temp_files=()",
         "container_runtime_paths=()",
+        # No test reads the operator's own launchd domain: an unreachable
+        # launchctl is how this host reports that nothing is loaded, the same
+        # way an absent container runtime reports an idle self-host stack.
+        _assignment("launchctl_path", str(tmp_path / "absent-launchctl")),
     )
 
     clean = _run_functions(

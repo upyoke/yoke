@@ -12,6 +12,8 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
     FullResetPathContract,
     PRESERVED_HOME_ENTRIES,
+    RELAY_SERVICE_LABEL,
+    RELAY_SERVICE_LABEL_PREFIX,
     RESET_ABSENT_KINDS,
     RESET_ABSENT_PATH_PREFIX,
     RESET_ABSENT_RECOVERY,
@@ -20,6 +22,10 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_PHASES,
     RESET_PROCESS_REAPED_PREFIX,
     RESET_RECOVERY_FAILURE_MARKER,
+    RESET_RELAY_SERVICE_KINDS,
+    RESET_RELAY_SERVICE_PREFIX,
+    RESET_RELAY_SERVICE_RECOVERY,
+    RESET_RELAY_UNLOADED_PREFIX,
     RESET_RESTORED_ENTRIES_PREFIX,
     RESET_RESTORE_UNRESTORED_PREFIX,
     SELF_HOST_COMPOSE_PROJECT,
@@ -33,6 +39,7 @@ from yoke_harness.ssh_mac_full_reset_contract import (
 
 _COUNT_PREFIXES = {
     RESET_RESTORED_ENTRIES_PREFIX: "restored_entries",
+    RESET_RELAY_UNLOADED_PREFIX: "relay_services_unloaded",
     RESET_PROCESS_REAPED_PREFIX: "reaped_processes",
     RESET_SELF_HOST_CONTAINERS_PREFIX: "self_host_containers_removed",
     RESET_SELF_HOST_VOLUMES_PREFIX: "self_host_volumes_removed",
@@ -40,7 +47,11 @@ _COUNT_PREFIXES = {
 }
 #: One line per counted outcome, plus the load average and the closing marker.
 _RECEIPT_LINE_COUNT = len(_COUNT_PREFIXES) + 2
-_UNRESTORED_NAME_CHARACTERS = frozenset(
+#: The character set every name reduced for the closed output contract is
+#: reduced to. The program applies the matching substitution before a captured
+#: entry name or a service label travels, so anything outside this set means
+#: the receipt was not produced by the program that owns the contract.
+_CLOSED_NAME_CHARACTERS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
 )
 
@@ -52,9 +63,30 @@ def unrestored_detail(detail: str) -> dict[str, object] | None:
     if not count.isdigit():
         return None
     entries = tuple(name for name in names.split(" ") if name)
-    if any(set(entry) - _UNRESTORED_NAME_CHARACTERS for entry in entries):
+    if any(set(entry) - _CLOSED_NAME_CHARACTERS for entry in entries):
         return None
     return {"unrestored_entry_count": int(count), "unrestored_entries": list(entries)}
+
+
+def relay_service_detail(detail: str) -> dict[str, str] | None:
+    """Parse the relay service a bootout could not remove from launchd."""
+    body = detail.removeprefix(RESET_RELAY_SERVICE_PREFIX)
+    kind, separator, label = body.partition(" ")
+    names_relay = label == RELAY_SERVICE_LABEL or label.startswith(
+        RELAY_SERVICE_LABEL_PREFIX
+    )
+    if (
+        not separator
+        or kind not in RESET_RELAY_SERVICE_KINDS
+        or not names_relay
+        or set(label) - _CLOSED_NAME_CHARACTERS
+    ):
+        return None
+    return {
+        "label": label,
+        "reason": kind,
+        "recovery": RESET_RELAY_SERVICE_RECOVERY[kind].format(label=label),
+    }
 
 
 def absent_path_detail(detail: str) -> dict[str, str] | None:
@@ -133,6 +165,9 @@ def failure_outcome(stdout: str) -> tuple[str, bool, str | None] | None:
     elif detail is not None and detail.startswith(RESET_ABSENT_PATH_PREFIX):
         if absent_path_detail(detail) is None:
             return None
+    elif detail is not None and detail.startswith(RESET_RELAY_SERVICE_PREFIX):
+        if relay_service_detail(detail) is None:
+            return None
     elif detail is not None and not recovery_failed:
         parts = tuple(detail.split())
         if len(parts) != 3 or any(not part.isdigit() for part in parts[:2]):
@@ -203,6 +238,14 @@ def success_evidence(
             "surviving_matches": 0,
             "load_average": outcomes["load_average"],
         },
+        # A host that had no relay loaded and one whose relay was booted out
+        # both reach the same end state, and only this count tells them apart.
+        "relay_service_state": {
+            "label": RELAY_SERVICE_LABEL,
+            "instance_label_prefix": RELAY_SERVICE_LABEL_PREFIX,
+            "services_unloaded": outcomes["relay_services_unloaded"],
+            "services_loaded": False,
+        },
         "self_host_state": {
             "compose_project": SELF_HOST_COMPOSE_PROJECT,
             "containers_removed": outcomes["self_host_containers_removed"],
@@ -217,6 +260,7 @@ __all__ = [
     "absent_path_detail",
     "closed_outcomes",
     "failure_outcome",
+    "relay_service_detail",
     "success_evidence",
     "unrestored_detail",
 ]

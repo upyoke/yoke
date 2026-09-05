@@ -17,6 +17,7 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
     RESET_LOAD_AVERAGE_PREFIX,
     RESET_PROCESS_REAPED_PREFIX,
+    RESET_RELAY_UNLOADED_PREFIX,
     RESET_RESTORED_ENTRIES_PREFIX,
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
@@ -57,6 +58,7 @@ def closed_reset_stdout(
     *,
     restored_entries: int = 22,
     reaped: int = 0,
+    relay_services_unloaded: int = 0,
     load_average: str = "1.20",
     self_host_containers: int = 0,
     self_host_volumes: int = 0,
@@ -66,6 +68,7 @@ def closed_reset_stdout(
     return "\n".join(
         (
             f"{RESET_RESTORED_ENTRIES_PREFIX}{restored_entries}",
+            f"{RESET_RELAY_UNLOADED_PREFIX}{relay_services_unloaded}",
             f"{RESET_PROCESS_REAPED_PREFIX}{reaped}",
             f"{RESET_SELF_HOST_CONTAINERS_PREFIX}{self_host_containers}",
             f"{RESET_SELF_HOST_VOLUMES_PREFIX}{self_host_volumes}",

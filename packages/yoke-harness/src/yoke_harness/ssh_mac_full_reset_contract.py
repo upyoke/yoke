@@ -18,6 +18,11 @@ from yoke_cli.config.path_doctor import (
     SUPPORTED_SHELLS,
     resolve_path_state_contract,
 )
+from yoke_cli.config.session_relay_instance import (
+    LAUNCHD_USER_DOMAIN,
+    NON_PROD_RELAY_LABEL_PREFIX,
+    PROD_RELAY_LABEL,
+)
 from yoke_cli.self_host.bundle import DEFAULT_BUNDLE_DIR
 
 
@@ -29,6 +34,7 @@ RESET_PHASES = {
     "validate_home": "VALIDATE_HOME",
     "assert_full_disk_access": "ASSERT_FULL_DISK_ACCESS",
     "validate_golden": "VALIDATE_GOLDEN",
+    "unload_relay_service": "UNLOAD_RELAY_SERVICE",
     "reap_processes": "REAP_PROCESSES",
     "stop_self_host_stack": "STOP_SELF_HOST_STACK",
     "clear_home": "CLEAR_HOME",
@@ -141,6 +147,41 @@ SELF_HOST_COMPOSE_PROJECT = DEFAULT_BUNDLE_DIR
 RESET_SELF_HOST_CONTAINERS_PREFIX = "YOKE_RESET_SELF_HOST_CONTAINERS_REMOVED_"
 RESET_SELF_HOST_VOLUMES_PREFIX = "YOKE_RESET_SELF_HOST_VOLUMES_REMOVED_"
 RESET_SELF_HOST_IMAGES_PREFIX = "YOKE_RESET_SELF_HOST_IMAGES_REMOVED_"
+
+# launchd holds a loaded job in its own registry, which no home restore can
+# reach: booting the machine relay out is the only way to stop it. A relay left
+# loaded rewrote the state directory seconds after the clear removed it, so the
+# home came back clean and the verifier still failed on residue the service had
+# just recreated. The labels come from the relay's own naming authority rather
+# than from an observed instance, because the suffix is a digest of the machine
+# config the job was installed for and differs on every host.
+RELAY_SERVICE_LABEL = PROD_RELAY_LABEL
+RELAY_SERVICE_LABEL_PREFIX = NON_PROD_RELAY_LABEL_PREFIX
+RELAY_SERVICE_DOMAIN = LAUNCHD_USER_DOMAIN
+# Absolute path, like every other primitive the program calls: it runs with a
+# deliberately clean PATH, and a launchctl it cannot see is a service it would
+# silently leave loaded.
+LAUNCHCTL_PATH = "/bin/launchctl"
+# launchd removes a job asynchronously. The wait is bounded and the surviving
+# label is reported, because a bootout that reports success while the job is
+# still registered is the silent failure this phase exists to end.
+RELAY_UNLOAD_TIMEOUT_SECONDS = 10
+RESET_RELAY_UNLOADED_PREFIX = "YOKE_RESET_RELAY_UNLOADED_"
+# Closed failure detail for a relay service still loaded after its bootout.
+# Kind plus the exact label ride stdout; the recovery sentence is rebuilt from
+# the same kind so the output contract stays closed.
+RESET_RELAY_SERVICE_PREFIX = "YOKE_RESET_RELAY_SERVICE_"
+RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED = "unload_failed"
+RESET_RELAY_SERVICE_KINDS = (RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED,)
+RESET_RELAY_SERVICE_RECOVERY = {
+    RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED: (
+        "The Yoke relay service {label} is still loaded in the test account's "
+        "launchd domain and would recreate its state after the clear. Unload "
+        "it as that account (`launchctl bootout "
+        f"{LAUNCHD_USER_DOMAIN}/$(id -u)/{{label}}`), then retry the Test "
+        "Machine reset."
+    ),
+}
 
 # A restore that stops names WHICH captured entries it could not return. The
 # phase marker alone sent the last operator back to reproduce a multi-gigabyte
@@ -266,7 +307,12 @@ __all__ = [
     "GOLDEN_MANIFEST_SUFFIX",
     "GOLDEN_PROBES_SUFFIX",
     "INSTALLER_TEMP_PATH",
+    "LAUNCHCTL_PATH",
     "PRESERVED_HOME_ENTRIES",
+    "RELAY_SERVICE_DOMAIN",
+    "RELAY_SERVICE_LABEL",
+    "RELAY_SERVICE_LABEL_PREFIX",
+    "RELAY_UNLOAD_TIMEOUT_SECONDS",
     "RESET_ABSENT_KIND_LEFTOVER",
     "RESET_ABSENT_KIND_LIVE_PROCESS",
     "RESET_ABSENT_KINDS",
@@ -280,6 +326,11 @@ __all__ = [
     "RESET_REAP_MARKER_SUFFIX",
     "RESET_REAP_ONBOARD_ANCHOR",
     "RESET_RECOVERY_FAILURE_MARKER",
+    "RESET_RELAY_SERVICE_KINDS",
+    "RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED",
+    "RESET_RELAY_SERVICE_PREFIX",
+    "RESET_RELAY_SERVICE_RECOVERY",
+    "RESET_RELAY_UNLOADED_PREFIX",
     "RESET_RESTORED_ENTRIES_PREFIX",
     "RESET_TOOL_AUXILIARY_FILES",
     "STARTUP_FILE_NAMES",

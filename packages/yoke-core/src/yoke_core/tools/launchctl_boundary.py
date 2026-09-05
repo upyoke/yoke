@@ -23,7 +23,10 @@ import time
 from typing import Any, Callable
 
 from yoke_cli.config.machine_config import default_yoke_home
-from yoke_cli.config.session_relay_instance import PROD_RELAY_LABEL
+from yoke_cli.config.session_relay_instance import (
+    LAUNCHD_USER_DOMAIN,
+    PROD_RELAY_LABEL,
+)
 
 
 CANONICAL_RELAY_LABEL = PROD_RELAY_LABEL
@@ -82,7 +85,8 @@ def real_launchd_opted_in(environ: Mapping[str, str] | None = None) -> bool:
 
 
 def launchd_target(label: str, uid: int | None = None) -> str:
-    return f"gui/{os.getuid() if uid is None else uid}/{label}"
+    resolved = os.getuid() if uid is None else uid
+    return f"{LAUNCHD_USER_DOMAIN}/{resolved}/{label}"
 
 
 def names_canonical_relay(command: Sequence[str]) -> bool:

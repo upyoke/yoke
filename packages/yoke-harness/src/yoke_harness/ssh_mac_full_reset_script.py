@@ -8,6 +8,7 @@ import shlex
 from yoke_cli.config.path_doctor import resolve_path_state_contract
 
 from yoke_harness._ssh_mac_full_reset_reap_body import REAP_FUNCTIONS
+from yoke_harness._ssh_mac_full_reset_relay_body import RELAY_SERVICE_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_script_body import SCRIPT_BODY
 from yoke_harness._ssh_mac_full_reset_self_host_body import SELF_HOST_FUNCTIONS
 from yoke_harness.ssh_mac_full_reset_contract import (
@@ -19,7 +20,12 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_RESET_MARKER,
     FullResetPathContract,
     GOLDEN_MANIFEST_SUFFIX,
+    LAUNCHCTL_PATH,
     PRESERVED_HOME_ENTRIES,
+    RELAY_SERVICE_DOMAIN,
+    RELAY_SERVICE_LABEL,
+    RELAY_SERVICE_LABEL_PREFIX,
+    RELAY_UNLOAD_TIMEOUT_SECONDS,
     RESET_ABSENT_KIND_LEFTOVER,
     RESET_ABSENT_KIND_LIVE_PROCESS,
     RESET_ABSENT_PATH_PREFIX,
@@ -30,6 +36,9 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_REAP_MARKER_ANCHOR,
     RESET_REAP_MARKER_SUFFIX,
     RESET_REAP_ONBOARD_ANCHOR,
+    RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED,
+    RESET_RELAY_SERVICE_PREFIX,
+    RESET_RELAY_UNLOADED_PREFIX,
     RESET_RESTORED_ENTRIES_PREFIX,
     RESET_RESTORE_UNRESTORED_PREFIX,
     RESET_SELF_HOST_CONTAINERS_PREFIX,
@@ -199,6 +208,15 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             "container_runtime_stop_timeout="
             + str(CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS),
             f"container_runtime_paths={_array(CONTAINER_RUNTIME_PATHS)}",
+            f"launchctl_path={shlex.quote(LAUNCHCTL_PATH)}",
+            f"relay_label={shlex.quote(RELAY_SERVICE_LABEL)}",
+            f"relay_label_prefix={shlex.quote(RELAY_SERVICE_LABEL_PREFIX)}",
+            f"relay_domain={shlex.quote(RELAY_SERVICE_DOMAIN)}",
+            f"relay_unload_timeout={RELAY_UNLOAD_TIMEOUT_SECONDS}",
+            f"relay_unloaded_prefix={shlex.quote(RESET_RELAY_UNLOADED_PREFIX)}",
+            "relay_service_prefix=" + shlex.quote(RESET_RELAY_SERVICE_PREFIX),
+            "relay_service_kind_unload_failed="
+            + shlex.quote(RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED),
             *(
                 f"reset_phase_{name}={shlex.quote(value)}"
                 for name, value in RESET_PHASES.items()
@@ -213,6 +231,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             "reset_absent_kind_live_process="
             + shlex.quote(RESET_ABSENT_KIND_LIVE_PROCESS),
             REAP_FUNCTIONS.lstrip(),
+            RELAY_SERVICE_FUNCTIONS.lstrip(),
             SELF_HOST_FUNCTIONS.lstrip(),
             TYPE_RECONCILIATION_FUNCTIONS.lstrip(),
             render_level_functions(preserved_levels()),
