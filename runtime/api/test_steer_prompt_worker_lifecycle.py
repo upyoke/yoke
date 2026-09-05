@@ -122,7 +122,8 @@ class TestSteerDiscoveryAndPacket:
         assert "is never a question to ask" in notes
         assert "only a genuinely missing doc reaches the offer-to-create gate" in notes
         assert "--doc SLUG" in notes
-        assert "covers exactly that document's linked items" in notes
+        assert "narrows the seat to that document's linked items" in notes
+        assert "`--plan-doc` locks the standing plan" in notes
         assert "yoke steering report get" in notes
         assert "optional `--project P`" in notes
         assert "never `/yoke do`" in notes
