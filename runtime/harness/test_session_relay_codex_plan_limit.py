@@ -10,10 +10,7 @@ import pytest
 
 from yoke_contracts.session_control.plan_limits import reading_is_ok
 from yoke_harness import session_relay_codex_plan_limit as codex_limits
-from yoke_harness.session_relay_codex_app_server_client import (
-    CodexAppServerError,
-    _Client,
-)
+from yoke_harness.session_relay_codex_app_server_client import CodexAppServerError
 from yoke_harness.session_relay_failure_log import FailureReporter
 
 
@@ -150,6 +147,45 @@ def test_each_client_failure_code_names_its_own_reason(
 
     assert not reading_is_ok(reading)
     assert _only_reason(reading) == f"{expected_reason}+codex_auth_missing_tokens"
+
+
+_AUTH_RPC_FAILURE = CodexAppServerError(
+    "account/rateLimits/read failed: Not authenticated",
+    code="rpc_error",
+    rpc_error_code=-32001,
+)
+
+
+def test_an_arbitrary_rpc_failure_falls_back_and_keeps_its_own_code(
+    monkeypatch,
+) -> None:
+    """field-note 46471: this must not collapse into "unsupported_on_this_build"."""
+    _install_client(monkeypatch, _FakeClient(failure=_AUTH_RPC_FAILURE))
+    _install_mirror(monkeypatch, None, "codex_auth_missing_tokens")
+
+    reading = codex_limits.probe_codex_cli(observed_at=NOW)
+
+    assert not reading_is_ok(reading)
+    assert _only_reason(reading) == (
+        "app_server_rpc_error:-32001+codex_auth_missing_tokens"
+    )
+
+
+def test_an_rpc_errors_message_still_reaches_the_relay_log(monkeypatch, caplog) -> None:
+    """The short reason is a category; the real message stays in the evidence."""
+    _install_client(monkeypatch, _FakeClient(failure=_AUTH_RPC_FAILURE))
+    _install_mirror(
+        monkeypatch,
+        {"surface": "codex-cli", "plan_tier": None, "observed_at": NOW, "windows": []},
+        "",
+    )
+    caplog.set_level(logging.WARNING, logger="yoke_harness.session_relay_failure_log")
+
+    codex_limits.probe_codex_cli(observed_at=NOW)
+
+    logged = " ".join(record.getMessage() for record in caplog.records)
+    assert "app_server_rpc_error:-32001" in logged
+    assert "Not authenticated" in logged
 
 
 def test_spawn_failure_carries_the_class_that_actually_raised(monkeypatch) -> None:
@@ -310,20 +346,3 @@ def test_a_missing_credential_file_names_the_read_error(
 
     assert reading is None
     assert reason == "codex_auth_unreadable_FileNotFoundError"
-
-
-def test_the_client_keeps_the_failing_child_stderr_tail() -> None:
-    client = object.__new__(_Client)
-    import tempfile
-
-    client.stderr_file = tempfile.TemporaryFile()
-    client.stderr_file.write(b"codex: app-server refused the connection\n")
-
-    assert "refused the connection" in client.stderr_tail()
-
-
-def test_the_client_reports_no_tail_when_capture_is_off() -> None:
-    client = object.__new__(_Client)
-    client.stderr_file = None
-
-    assert client.stderr_tail() == ""

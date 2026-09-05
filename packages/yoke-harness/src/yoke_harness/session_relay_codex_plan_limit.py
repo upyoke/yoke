@@ -51,6 +51,11 @@ _APP_SERVER_REASONS = {
     "timeout": "app_server_timeout",
     "response_oversize": "app_server_response_oversize",
     "stdout_unavailable": "app_server_stdout_unavailable",
+    # The client raises this code only for the peer's JSON-RPC "method not
+    # found" error — the one signal that actually means this build lacks
+    # the operation. Every other RPC error raises "rpc_error" instead (see
+    # _failure_reason), so it keeps its own code rather than reading as
+    # this.
     "method_error": "unsupported_on_this_build",
 }
 
@@ -58,7 +63,18 @@ _failures = FailureReporter()
 
 
 def _failure_reason(failure: CodexAppServerError) -> str:
-    """Name the app-server failure, keeping the class that actually raised."""
+    """Name the app-server failure, keeping the class that actually raised.
+
+    An ``rpc_error`` carries whatever code the peer's own JSON-RPC error
+    named (authentication, invalid params, an internal error, …). Losing
+    that code is what used to let an unrelated RPC failure read as
+    "unsupported build" (field-note 46471), so it stays in the reason
+    instead of collapsing into one bucket.
+    """
+    if failure.code == "rpc_error":
+        if failure.rpc_error_code is not None:
+            return f"app_server_rpc_error:{failure.rpc_error_code}"
+        return "app_server_rpc_error"
     reason = _APP_SERVER_REASONS.get(failure.code, f"app_server_{failure.code}")
     cause = failure.__cause__
     if cause is None or isinstance(cause, CodexAppServerError):

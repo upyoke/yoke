@@ -5,6 +5,18 @@ three outcomes from that call: the document, a named credential problem, or
 a named transport problem. Returning a reason string instead of raising
 keeps each probe's failure taxonomy in one place rather than in a chain of
 except clauses.
+
+Diagnostic rule for this whole usage-probe path (Claude and Cursor here, the
+Codex usage mirror below, and the JSON-RPC-based Codex app-server client
+alongside it): preserve the vendor's actual error when wrapping or
+categorizing a failure — keep its safe code, message, and other useful
+detail rather than collapsing it into a reason built for a different,
+unrelated failure. Redact credentials and sensitive request values before a
+message is surfaced. A short reason string is still a category, not an
+invented cause: assert only what the upstream error actually establishes,
+and reserve an "unsupported" reading for an explicit unsupported-operation
+response — never a stand-in for "the call failed for some other reason"
+(field-note 46471).
 """
 
 from __future__ import annotations
