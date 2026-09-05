@@ -43,13 +43,15 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
         lambda **_kwargs: SimpleNamespace(
             current=True,
             pinned_release="0.1.1+launch.365",
-            python=Path(sys.prefix) / "bin" / "python",
+            runtime_python=Path(sys.prefix) / "bin" / "python",
         ),
     )
 
     def pin(*, instance, served_build):
         pins.append(served_build)
-        return SimpleNamespace(executable=instance.state_dir / "venv" / "bin" / "yoke")
+        return SimpleNamespace(
+            launch_executable=instance.state_dir / "venv" / "bin" / "yoke"
+        )
 
     def serve_forever(**kwargs):
         daemon_call.update(kwargs)
@@ -89,8 +91,8 @@ def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -
         lambda **_kwargs: SimpleNamespace(
             current=True,
             pinned_release="0.1.1+launch.365",
-            python=instance.state_dir / "venv" / "bin" / "python",
-            executable=pinned_executable,
+            runtime_python=instance.state_dir / "runtime" / "bin" / "python",
+            launch_executable=pinned_executable,
         ),
     )
     monkeypatch.setattr(
@@ -119,6 +121,60 @@ def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -
     assert prepared == []
 
 
+def test_existing_release_entrypoint_converges_before_stable_runtime_restart(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    prior_release = instance.state_dir / "releases" / "prior"
+    prior_release.mkdir(parents=True)
+    (instance.state_dir / "venv").symlink_to(prior_release, target_is_directory=True)
+    launch_executable = instance.state_dir / "venv" / "bin" / "yoke"
+    converged: list[object] = []
+    replacements: list[tuple[object, object]] = []
+    monkeypatch.setattr(
+        session_relay_instance,
+        "resolve_relay_instance",
+        lambda: instance,
+    )
+    monkeypatch.setattr(
+        session_relay_release,
+        "relay_release_status",
+        lambda **_kwargs: SimpleNamespace(
+            current=False,
+            pinned_release="",
+            error_code="",
+            error_message="",
+        ),
+    )
+
+    def converge(*, instance):
+        converged.append(instance)
+        runtime = instance.state_dir / "runtime"
+        (runtime / "bin").mkdir(parents=True)
+        (instance.state_dir / "venv").unlink()
+        (instance.state_dir / "venv").symlink_to(runtime, target_is_directory=True)
+        return SimpleNamespace(
+            current=True,
+            pinned_release="0.1.1+launch.366",
+            runtime_python=runtime / "bin" / "python",
+            launch_executable=launch_executable,
+        )
+
+    monkeypatch.setattr(session_relay_release_install, "pin_relay_release", converge)
+    monkeypatch.setattr(
+        session_relay_process_restart,
+        "exec_relay_release",
+        lambda argv, *, executable: replacements.append((argv, executable)),
+    )
+
+    with pytest.raises(session_relay_release.RelayReleaseError, match="returned"):
+        release_cli.serve_release_daemon()
+
+    assert converged == [instance]
+    assert replacements == [(["--env", "prod", "relay", "serve"], launch_executable)]
+
+
 def test_post_deploy_restart_preserves_named_start_failure(
     monkeypatch,
     tmp_path,
@@ -136,7 +192,7 @@ def test_post_deploy_restart_preserves_named_start_failure(
         lambda **_kwargs: SimpleNamespace(
             current=True,
             pinned_release="0.1.1+launch.365",
-            python=python,
+            runtime_python=python,
         ),
     )
     monkeypatch.setattr(

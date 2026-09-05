@@ -16,6 +16,7 @@ from yoke_core.tools.session_relay_release import (
     distribution_index_for_instance,
     relay_release_status,
     release_version_from_build,
+    write_release_json,
 )
 from yoke_core.tools.session_relay_release_install import pin_relay_release
 
@@ -102,7 +103,7 @@ def test_distribution_index_belongs_to_the_selected_environment(
     assert distribution_index_for_instance(_instance(tmp_path, api_url)) == expected
 
 
-def test_successful_pin_installs_a_wheel_then_swaps_the_stable_venv(
+def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
     tmp_path: Path,
 ) -> None:
     instance = _instance(tmp_path)
@@ -118,9 +119,18 @@ def test_successful_pin_installs_a_wheel_then_swaps_the_stable_venv(
     assert status.current
     assert status.pinned_release == RELEASE
     assert status.served_build == f"v{RELEASE}"
-    assert status.executable == instance.state_dir / "venv" / "bin" / "yoke"
+    assert status.launch_executable == instance.state_dir / "venv" / "bin" / "yoke"
+    assert status.runtime_executable == instance.state_dir / "runtime" / "bin" / "yoke"
+    assert status.runtime_python == instance.state_dir / "runtime" / "bin" / "python"
+    assert status.runtime_python.resolve().is_relative_to(
+        (instance.state_dir / "runtime").resolve()
+    )
     assert (instance.state_dir / "venv").is_symlink()
-    assert str((instance.state_dir / "venv").resolve()) in status.executable.read_text()
+    assert (instance.state_dir / "venv").resolve() == instance.state_dir / "runtime"
+    assert (instance.state_dir / "release").is_symlink()
+    assert status.runtime_executable.read_text().startswith(
+        f"#!{status.runtime_python} -I\n"
+    )
     install = calls[0]
     assert install[-1] == f"yoke-core=={RELEASE}"
     assert install[install.index("--extra-index-url") + 1] == (
@@ -138,7 +148,7 @@ def test_same_served_build_reuses_the_verified_install(tmp_path: Path) -> None:
         create_venv=_fake_venv,
         runner=_runner_for(RELEASE, calls),
     )
-    original_target = (instance.state_dir / "venv").resolve()
+    original_target = (instance.state_dir / "release").resolve()
 
     reused = pin_relay_release(
         instance=instance,
@@ -148,20 +158,69 @@ def test_same_served_build_reuses_the_verified_install(tmp_path: Path) -> None:
     )
 
     assert reused.current
-    assert (instance.state_dir / "venv").resolve() == original_target
+    assert (instance.state_dir / "release").resolve() == original_target
+
+
+def test_existing_release_link_converges_to_the_stable_runtime(
+    tmp_path: Path,
+) -> None:
+    instance = _instance(tmp_path)
+    prior_release = instance.state_dir / "releases" / "prior"
+    _fake_venv(prior_release)
+    write_release_json(
+        prior_release / ".yoke-relay-release.json",
+        {
+            "schema": 1,
+            "pinned_release": RELEASE,
+            "served_build": f"v{RELEASE}",
+            "distribution_index": "https://relay.example.test/simple/",
+        },
+    )
+    instance.state_dir.mkdir(parents=True, exist_ok=True)
+    (instance.state_dir / "venv").symlink_to(prior_release, target_is_directory=True)
+
+    with pytest.raises(RelayReleaseError, match="runtime unavailable"):
+        pin_relay_release(
+            instance=instance,
+            served_build=f"v{RELEASE}",
+            create_runtime=lambda _path: (_ for _ in ()).throw(
+                OSError("runtime unavailable")
+            ),
+        )
+    assert (instance.state_dir / "venv").resolve() == prior_release
+    assert (instance.state_dir / "release").resolve() == prior_release
+    assert not (instance.state_dir / "runtime").exists()
+
+    status = pin_relay_release(
+        instance=instance,
+        served_build=f"v{RELEASE}",
+        create_venv=lambda _path: pytest.fail("working release was reinstalled"),
+    )
+
+    assert status.current
+    assert (instance.state_dir / "venv").is_symlink()
+    assert (instance.state_dir / "venv").resolve() == instance.state_dir / "runtime"
+    assert (instance.state_dir / "release").resolve() == prior_release
+    assert status.runtime_python.resolve().is_relative_to(
+        (instance.state_dir / "runtime").resolve()
+    )
+    assert status.runtime_executable.read_text().startswith(
+        f"#!{status.runtime_python} -I\n"
+    )
 
 
 def test_fetch_failure_keeps_the_last_working_install_and_records_recovery(
     tmp_path: Path,
 ) -> None:
     instance = _instance(tmp_path)
-    pin_relay_release(
+    installed = pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
         create_venv=_fake_venv,
         runner=_runner_for(RELEASE, []),
     )
-    original_target = (instance.state_dir / "venv").resolve()
+    original_target = (instance.state_dir / "release").resolve()
+    runtime_identity = installed.runtime_python.stat()
 
     def fail(command, **_kwargs):
         argv = list(command)
@@ -178,8 +237,10 @@ def test_fetch_failure_keeps_the_last_working_install_and_records_recovery(
     assert raised.value.code == RELAY_RELEASE_FETCH_FAILED
     assert "kept pinned release" in str(raised.value)
     assert "relay install" in str(raised.value)
-    assert (instance.state_dir / "venv").resolve() == original_target
+    assert (instance.state_dir / "release").resolve() == original_target
     observed = relay_release_status(instance=instance, refresh_served=False)
+    assert observed.runtime_python.stat().st_ino == runtime_identity.st_ino
+    assert observed.runtime_python.stat().st_dev == runtime_identity.st_dev
     assert observed.pinned_release == RELEASE
     assert observed.error_code == RELAY_RELEASE_FETCH_FAILED
     assert "Recovery:" in observed.error_message
@@ -209,7 +270,7 @@ def test_local_install_failure_keeps_the_last_working_release(tmp_path: Path) ->
         create_venv=_fake_venv,
         runner=_runner_for(RELEASE, []),
     )
-    original_target = (instance.state_dir / "venv").resolve()
+    original_target = (instance.state_dir / "release").resolve()
 
     with pytest.raises(RelayReleaseError) as raised:
         pin_relay_release(
@@ -222,7 +283,7 @@ def test_local_install_failure_keeps_the_last_working_release(tmp_path: Path) ->
 
     assert raised.value.code == RELAY_RELEASE_INSTALL_FAILED
     assert "venv directory unavailable" in str(raised.value)
-    assert (instance.state_dir / "venv").resolve() == original_target
+    assert (instance.state_dir / "release").resolve() == original_target
 
 
 def test_state_directory_failure_is_named_with_recovery(tmp_path: Path) -> None:

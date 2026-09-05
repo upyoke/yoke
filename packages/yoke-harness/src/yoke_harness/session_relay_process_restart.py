@@ -1,4 +1,4 @@
-"""Replace a standing relay with the executable from a newly pinned release."""
+"""Restart a standing relay through its stable runtime entrypoint."""
 
 from __future__ import annotations
 

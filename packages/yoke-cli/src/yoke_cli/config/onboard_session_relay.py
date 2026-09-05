@@ -17,7 +17,7 @@ RELAY_PLAN_STEPS = (
 RELAY_SETUP_COMPLETE_LINES = (
     f"Machine relay plist: {RELAY_PLIST_TARGET}",
     "Machine relay runs the release served by its selected environment.",
-    "Machine relay code lives in a relay-owned venv under the Yoke state directory.",
+    "Machine relay uses one stable relay-owned Python with isolated release packages.",
     "Machine relay reuses your existing Yoke API token.",
 )
 

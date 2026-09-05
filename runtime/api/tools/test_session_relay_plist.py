@@ -24,6 +24,7 @@ from yoke_core.tools.session_relay_plist import (
     relay_plist_document,
     uninstall_relay_launchd,
 )
+from yoke_core.tools.session_relay_release import relay_launch_executable
 
 
 def _config(tmp_path: Path) -> Path:
@@ -63,7 +64,7 @@ def _instance(tmp_path: Path, environment: str):
 
 
 def _pin_release(*, instance) -> None:
-    executable = instance.state_dir / "venv" / "bin" / "yoke"
+    executable = relay_launch_executable(instance.state_dir)
     executable.parent.mkdir(parents=True, exist_ok=True)
     executable.touch()
 
@@ -78,7 +79,7 @@ def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(
     that leased it.
     """
     paths = relay_launchd_paths(home=tmp_path, instance=_instance(tmp_path, "prod"))
-    executable = paths.state_dir / "venv" / "bin" / "yoke"
+    executable = relay_launch_executable(paths.state_dir)
     document = relay_plist_document(paths=paths)
 
     assert document["ProgramArguments"] == [
@@ -96,7 +97,7 @@ def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(
 
 def test_plist_preserves_only_native_cli_search_directories(tmp_path: Path) -> None:
     paths = relay_launchd_paths(home=tmp_path, instance=_instance(tmp_path, "prod"))
-    executable = paths.state_dir / "venv" / "bin" / "yoke"
+    executable = relay_launch_executable(paths.state_dir)
     vendor_bin = tmp_path / "vendor" / "bin"
     vendor_bin.mkdir(parents=True)
     for name in ("claude", "codex", "cursor-agent"):
@@ -189,7 +190,7 @@ def test_prod_and_stage_have_isolated_labels_paths_and_pinned_commands(
     document = relay_plist_document(paths=stage_paths)
     assert document["Label"] == stage.label
     assert document["ProgramArguments"] == [
-        str(stage_paths.state_dir / "venv" / "bin" / "yoke"),
+        str(relay_launch_executable(stage_paths.state_dir)),
         "--env",
         "stage",
         "relay",
