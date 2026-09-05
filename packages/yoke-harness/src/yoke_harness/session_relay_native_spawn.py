@@ -4,7 +4,9 @@ Every harness that resumes a session by spawning a command shares this shape:
 the turn outlives the relay poll that started it, so the poll cannot report
 how it ended and must not block waiting. The native therefore runs under the
 supervisor in its own process group, streaming its whole account into the one
-per-attempt capture, and the relay reports only the safe spawn facts.
+per-attempt capture, and the relay reports only the safe spawn facts. The spawner
+first replaces that capture with the current attempt's running state, so a retry
+cannot expose the previous attempt's settled outcome while the supervisor starts.
 
 The identifier the caller passes IS the capture's name — a wake attempt id for
 a resume, a launch id for a spawn — so nothing has to record where the file
@@ -29,12 +31,17 @@ from typing import Callable, Mapping, Sequence
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_harness import session_relay_native_supervisor
 from yoke_harness.session_launch_containment import record_supervised_native
-from yoke_harness.session_relay_native_capture_format import utc_stamp
+from yoke_harness.session_relay_native_capture_format import (
+    STATE_RUNNING,
+    compose_capture,
+    utc_stamp,
+)
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     cleanup_native_diagnostics,
     diagnostic_reference,
     native_diagnostic_path,
+    write_native_capture,
 )
 
 
@@ -118,6 +125,10 @@ def spawn_supervised_native(
         reference = diagnostic_reference(attempt_id)
         cleanup_native_diagnostics(state_dir, now=now)
         capture_path = native_diagnostic_path(reference, state_dir=state_dir)
+        write_native_capture(
+            capture_path,
+            compose_capture(stdout=b"", stderr=b"", state=STATE_RUNNING),
+        )
     except NativeDiagnosticError:
         return None
     supervised = [

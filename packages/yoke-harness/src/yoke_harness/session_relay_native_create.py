@@ -3,9 +3,10 @@
 A create no longer blocks on the native, so the poll that started it would
 otherwise report every spawn as a success and leave a native that rejected its
 own flags, model, or credentials to occupy the whole registration deadline
-before anything noticed. The supervisor writes the capture the moment it starts
-and marks it exited when the native ends, so a short read of that one file
-separates "already refused" from "running" without waiting on either.
+before anything noticed. The shared spawner first writes the current attempt's
+running capture synchronously, and the supervisor marks it exited when the native
+ends, so a short read of that one file separates "already refused" from "running"
+without waiting on either or observing an earlier attempt's exit.
 
 Every harness whose create spawns a supervised native reads the same file in
 the same shape, so the window and the reader live here once.
