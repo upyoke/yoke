@@ -98,7 +98,7 @@ def spawn_supervised_native(
     checkout: Path,
     environment: Mapping[str, str],
     attempt_id: str,
-    native_session_id: str,
+    native_session_id: str | None,
     binary_source: str,
     supervision_kind: str = "resume",
     lease_id: str = "",
@@ -107,7 +107,12 @@ def spawn_supervised_native(
     process_factory: ProcessFactory = subprocess.Popen,
     clock: Callable[[], float] = time.time,
 ) -> SupervisedNative | None:
-    """Spawn one supervised native in its own process group and return at once."""
+    """Spawn one supervised native in its own process group and return at once.
+
+    A native that assigns its own identity may leave ``native_session_id``
+    unset until its opening hook registers that identity with the control
+    plane. Custody remains keyed by ``attempt_id`` throughout that gap.
+    """
     now = clock()
     try:
         reference = diagnostic_reference(attempt_id)

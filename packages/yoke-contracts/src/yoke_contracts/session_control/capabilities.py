@@ -21,6 +21,7 @@ InterfaceClass = Literal["supported", "private", "none"]
 #: the next sentence they type continues the branch they can see.
 WakeAuthority = Literal["native", "operator"]
 CURSOR_LIVENESS_PROCESS_NAMES = ("cursor-agent", "cursor")
+_SUPERVISED_NATIVE_CREATE_TIMEOUT_SECONDS = 180
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "private",
         "supported",
         relay_stop_denial_continuation="none",
-        native_create_timeout_seconds=180,
+        native_create_timeout_seconds=_SUPERVISED_NATIVE_CREATE_TIMEOUT_SECONDS,
     ),
     "claude-desktop": SessionSurfaceCapability(
         "1.32885.1",
@@ -129,6 +130,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         stop_denial_continuation="none",
         relay_stop_denial_continuation="none",
         liveness_process_names=CURSOR_LIVENESS_PROCESS_NAMES,
+        native_create_timeout_seconds=_SUPERVISED_NATIVE_CREATE_TIMEOUT_SECONDS,
     ),
     "cursor-desktop": SessionSurfaceCapability(
         "3.17.8",

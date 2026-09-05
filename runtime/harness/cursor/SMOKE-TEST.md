@@ -32,8 +32,9 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
      `store.db` records for the run — including the effort tier, and never
      the launch's `requested_model`. A run whose store names no model yet
      records `unknown` and heals on a later hook event.
-   - A launch naming a model puts `--model` on the resume it drives; confirm
-     with `ps` on the live native and against the store's `modelName`.
+   - A launch naming a model puts `--model` on its native new-chat print run
+     and does not pass `--resume`; confirm with `ps` on the live native and
+     against the store's `modelName`. An actual wake must pass `--resume`.
    - The registered row's `native_thread_id` equals the hook payload's
      top-level `conversation_id`, and its machine anchor records the
      `cursor-agent` pid plus start time for relay liveness.

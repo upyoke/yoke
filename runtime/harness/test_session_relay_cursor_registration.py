@@ -1,163 +1,92 @@
-"""Cursor launch registration proof and failed-create reap.
-
-Registration is proven from the conversation map alone: launch drives its
-one bootstrap prompt and nothing else, so a map miss never triggers a
-second turn against the conversation already running one.
-"""
+"""Cursor create identity resolution through native hook registration."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.session_control.capabilities import native_create_timeout_seconds
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
-from yoke_harness.session_launch_containment import record_supervised_native
-from yoke_harness.session_relay_cursor import (
-    CursorNativeResult,
-    build_cursor_adapter,
-)
+from yoke_harness.session_relay_cursor import CursorNativeResult, build_cursor_adapter
 from yoke_harness.session_relay_cursor_registration import complete_bound_launch
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
-CONVERSATION_ID = "11111111-1111-4111-8111-111111111111"
-MAPPED_SESSION_ID = "22222222-2222-4222-8222-222222222222"
+SESSION_ID = "22222222-2222-4222-8222-222222222222"
 LAUNCH_ID = "33333333-3333-4333-8333-333333333333"
 ATTESTATION = "secret-launch-attestation"
+DIAGNOSTIC_REF = f"nd-{LAUNCH_ID}"
 
 
-class FakeTransport:
-    def new_session(self, request):
-        return CursorNativeResult(
-            "native_created",
-            native_session_id=CONVERSATION_ID,
-            duration_ms=25,
-            phase="spawn",
-        )
-
-    def resume_chat(self, request):
-        raise AssertionError("launch must not resume")
-
-
-def _launch(tmp_path: Path) -> RelayExecutionContext:
+def _launch(tmp_path: Path, resolver=None) -> RelayExecutionContext:
     return RelayExecutionContext(
         job_kind="launch",
         job_id=LAUNCH_ID,
         lease_id="lease-launch",
         surface="cursor-cli",
-        surface_version="2026.08.11-e8db854",
+        surface_version="2026.09.02-c22c1a3",
         project_id=7,
         checkout=tmp_path,
         native_instruction=native_launch_bootstrap(LAUNCH_ID),
         message_id="44444444-4444-4444-8444-444444444444",
         launch_attestation=ATTESTATION,
+        launch_registration_resolver=resolver,
     )
 
 
-def test_a_later_poll_registers_without_any_second_turn(tmp_path: Path) -> None:
-    """A map miss on the first poll still resolves within the same wait —
-    with no second turn on any other transport."""
-    listings = iter((None, MAPPED_SESSION_ID))
-    handoffs = []
+def _spawned(tmp_path: Path) -> CursorNativeResult:
+    return CursorNativeResult(
+        "native_created",
+        duration_ms=10,
+        phase="registration_pending",
+        diagnostic_ref=DIAGNOSTIC_REF,
+        capture_path=str(tmp_path / "native.capture"),
+        native_pid=4321,
+    )
+
+
+def test_cursor_uses_the_shared_supervised_create_registration_window() -> None:
+    assert native_create_timeout_seconds("cursor-cli") == (
+        native_create_timeout_seconds("claude-cli")
+    )
+
+
+def test_registered_candidate_binds_vendor_created_identity(tmp_path: Path) -> None:
+    calls = []
+    results = iter(
+        (
+            {"status": "registration_pending"},
+            {"status": "registered_but_unbound", "session_id": SESSION_ID},
+        )
+    )
 
     result = complete_bound_launch(
-        _launch(tmp_path),
-        CursorNativeResult("native_created", CONVERSATION_ID, duration_ms=10),
-        lambda _conversation_id: next(listings, MAPPED_SESSION_ID),
-        lambda launch_id, secret, **kwargs: (
-            handoffs.append((launch_id, secret, kwargs)) or True
-        ),
-        sleeper=lambda _seconds: None,
-        wait_seconds=1.0,
+        _launch(tmp_path, lambda workspace: calls.append(workspace) or next(results)),
+        _spawned(tmp_path),
     )
 
+    assert calls == [str(tmp_path), str(tmp_path)]
     assert result.result_code == "native_created"
-    assert result.native_session_id == MAPPED_SESSION_ID
-    assert result.evidence["native_launch_phase"] == "native_running"
-    assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": MAPPED_SESSION_ID})]
+    assert result.native_session_id == SESSION_ID
+    assert result.evidence["result_code"] == "registered_but_unbound"
+    assert result.evidence["native_launch_phase"] == "registration_pending"
+    assert result.evidence["native_launch_pid"] == 4321
+    assert result.evidence["native_diagnostic_ref"] == DIAGNOSTIC_REF
+    assert result.evidence["native_capture_path"] == str(tmp_path / "native.capture")
 
 
-def test_unproven_registration_hands_over_a_pending_native(tmp_path: Path) -> None:
-    """A slow cold start is a native still coming up, not a failed create."""
-    import subprocess
-    import sys
-
-    handoffs = []
-    process = subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
+def test_pending_registration_keeps_native_custody_evidence(tmp_path: Path) -> None:
+    result = complete_bound_launch(
+        _launch(tmp_path, lambda _workspace: {"status": "registration_pending"}),
+        _spawned(tmp_path),
     )
-    try:
-        assert record_supervised_native(
-            LAUNCH_ID,
-            process.pid,
-            native_session_id=CONVERSATION_ID,
-            state_dir=tmp_path,
-        )
-        result = complete_bound_launch(
-            _launch(tmp_path),
-            CursorNativeResult("native_created", CONVERSATION_ID, duration_ms=10),
-            lambda _conversation_id: None,
-            lambda launch_id, secret, **kwargs: (
-                handoffs.append((launch_id, secret, kwargs)) or True
-            ),
-            sleeper=lambda _seconds: None,
-            wait_seconds=0.5,
-            state_dir=tmp_path,
-        )
 
-        assert result.result_code == "native_created"
-        assert result.native_session_id == CONVERSATION_ID
-        assert result.evidence["native_launch_phase"] == "registration_pending"
-        # The attestation rides the conversation id, which is the id a
-        # Cursor session registers under, so a late first hook can still bind.
-        assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
-        # Custody stays with the sweep, which reaps only past the deadline.
-        assert process.poll() is None
-        assert (tmp_path / "session-launch-supervision" / f"{LAUNCH_ID}.json").exists()
-    finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait()
-
-
-def test_unparseable_native_identity_still_reaps_the_supervised_native(
-    tmp_path: Path,
-) -> None:
-    import subprocess
-    import sys
-
-    process = subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    try:
-        assert record_supervised_native(
-            LAUNCH_ID,
-            process.pid,
-            native_session_id="not-a-uuid",
-            state_dir=tmp_path,
-        )
-        result = complete_bound_launch(
-            _launch(tmp_path),
-            CursorNativeResult("native_created", "not-a-uuid", duration_ms=10),
-            lambda _conversation_id: None,
-            lambda *_args, **_kwargs: True,
-            sleeper=lambda _seconds: None,
-            wait_seconds=0.5,
-            state_dir=tmp_path,
-        )
-
-        assert result.result_code == "not_created"
-        assert result.evidence["result_code"] == "identity_parse_failed"
-        assert process.poll() is not None
-    finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait()
+    assert result.result_code == "outcome_unknown"
+    assert result.native_session_id is None
+    assert result.evidence["result_code"] == "registration_pending"
+    assert result.evidence["native_launch_phase"] == "registration_pending"
+    assert result.evidence["native_launch_pid"] == 4321
+    assert result.evidence["native_diagnostic_ref"] == DIAGNOSTIC_REF
+    assert result.evidence["native_capture_path"] == str(tmp_path / "native.capture")
 
 
 def test_adapter_spawn_exception_names_the_spawn_phase(tmp_path: Path) -> None:
@@ -168,12 +97,7 @@ def test_adapter_spawn_exception_names_the_spawn_phase(tmp_path: Path) -> None:
         def resume_chat(self, request):
             raise AssertionError("launch must not resume")
 
-    result = build_cursor_adapter(
-        subprocess_port=Exploding(),
-        identity_lookup=lambda _conversation_id: None,
-        attestation_handoff=lambda *_args, **_kwargs: True,
-        sleeper=lambda _seconds: None,
-    )(_launch(tmp_path))
+    result = build_cursor_adapter(subprocess_port=Exploding())(_launch(tmp_path))
 
     assert result.result_code == "outcome_unknown"
     assert result.evidence["result_code"] == "transport_exception"
@@ -181,13 +105,26 @@ def test_adapter_spawn_exception_names_the_spawn_phase(tmp_path: Path) -> None:
     assert ATTESTATION not in repr(result)
 
 
-def test_transport_phase_survives_a_mapped_bind(tmp_path: Path) -> None:
-    result = build_cursor_adapter(
-        subprocess_port=FakeTransport(),
-        identity_lookup=lambda _conversation_id: MAPPED_SESSION_ID,
-        attestation_handoff=lambda *_args, **_kwargs: True,
-        sleeper=lambda _seconds: None,
-    )(_launch(tmp_path))
+def test_adapter_resolves_the_create_only_after_native_registration(
+    tmp_path: Path,
+) -> None:
+    class NewChatTransport:
+        def new_session(self, request):
+            return _spawned(tmp_path)
+
+        def resume_chat(self, request):
+            raise AssertionError("launch must not resume")
+
+    result = build_cursor_adapter(subprocess_port=NewChatTransport())(
+        _launch(
+            tmp_path,
+            lambda _workspace: {
+                "status": "registration_bound",
+                "session_id": SESSION_ID,
+            },
+        )
+    )
 
     assert result.result_code == "native_created"
-    assert result.evidence["native_launch_phase"] == "native_running"
+    assert result.native_session_id == SESSION_ID
+    assert result.evidence["result_code"] == "registration_bound"

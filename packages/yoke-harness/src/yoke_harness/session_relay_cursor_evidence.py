@@ -39,6 +39,8 @@ def cursor_evidence(
         evidence["exit_code"] = native.exit_code
     if native.duration_ms is not None:
         evidence["duration_ms"] = max(0, native.duration_ms)
+    if isinstance(native.native_pid, int) and native.native_pid > 0:
+        evidence["native_launch_pid"] = native.native_pid
     for source, reported in (
         ("diagnostic_ref", "native_diagnostic_ref"),
         ("capture_path", "native_capture_path"),
