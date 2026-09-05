@@ -88,6 +88,11 @@ UNPROVEN = 1
 UNAVAILABLE = 2
 
 
+def is_full_commit_sha(value: str) -> bool:
+    """Whether *value* is a full 40-hex commit the consumer cannot re-resolve."""
+    return bool(_FULL_SHA.match(str(value or "").strip().lower()))
+
+
 def _detail(stdout: str, stderr: str) -> str:
     parts = [text.strip() for text in (stderr, stdout) if text.strip()]
     return " | ".join(parts) or "no output"

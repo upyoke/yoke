@@ -64,21 +64,26 @@ downstream of it publishes. The gate is unconditional there, because a
 release publishes whatever trunk carries and there is no candidate diff to
 consult.
 
-An author can run the same gate earlier, at the merge attempt, by attaching
-it to the work item as its verification case: a QA requirement bound to the
-built-in `command` method, at the `reviewing-implementation` transition.
-That case executes client-side in the lane, on a machine that already holds
-the control-plane connection, so it reaches the consumer without putting a
-credential anywhere near the public fork-safe CI. The lifecycle gate then
-refuses the transition until it passes, which is what puts the answer in
-front of the person merging rather than the person releasing.
+The same pair is advised earlier, at the merge attempt, from a step inside
+the repo-contracts job that already runs on every pull request and merge
+group. That job resolves one changed-path scope for every event, and the
+advisory reuses it rather than deciding applicability a second way: when the
+change touches the host-consumed surface it asks the consumer, and otherwise
+it says so and stops.
 
-That earlier run is honestly a warning rather than a wall: it is per-item
-and opt-in, because the only automatic pre-merge mechanisms available are a
-required status context plus a ruleset entry — deliberately not built — and
-QA project defaults, which the Dash workflow's `optional_item_attachment`
-policy does not consult. Publication remains the mandatory blocker either
-way, so a change that skips the earlier warning still cannot be published.
+It is advisory in the literal sense — it never decides that job's verdict,
+so nothing about the merge path becomes conditional on a private repository
+being reachable. Reaching for a required status context and a ruleset entry
+instead was considered and rejected: those would make every landing depend
+on a credential a fork cannot have.
+
+Three outcomes, and keeping them distinct is the point. *Not applicable* is
+an honest absence. *Checked* carries the consumer's own conclusion with both
+revisions. *Not checked* is what a fork run reports, because a run with no
+scoped credential has not proven anything and saying nothing would read as a
+clean answer. Public CI stays fully usable without that credential; the
+credential is bound to the single step that spends it, and the read-only
+`GITHUB_TOKEN` is untouched.
 
 The consumer's own promotion-time check remains the final backstop behind
 both. That check is what caught the mismatch originally; what it could not
@@ -100,13 +105,11 @@ so nothing here claims to bind that.
 
 ## What this deliberately does not do
 
-It does not gate a landing automatically. An item that attaches the
-verification case cannot transition past it while the pair is red, but an
-item that attaches nothing still merges; what neither can do is get
-published without the host having been built against the candidate. That is
-the smallest shape that closes the observed failure, and it keeps the
-ordering simple: a producer change and its consumer companion can land in
-either order, and the release is where the pair has to be real.
+It does not gate a landing. The earlier report warns; it never blocks, so a
+change that breaks the shared contract can still merge. What it cannot do is
+get published without the host having been built against the candidate. That
+keeps the ordering simple: a producer change and its consumer companion can
+land in either order, and the release is where the pair has to be real.
 
 No new queue, receipt table, compatibility framework, negotiation layer,
 second validator, second consumer workflow, required status context,

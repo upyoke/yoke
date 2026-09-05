@@ -43,8 +43,8 @@ env:
   REUSE_WINDOW_HOURS: "24"
 
 jobs:
-  # Tree-only contracts on one runner before the shard matrix. Shards keep
-  # their own copies (defense in depth); this job is the fast-fail front.
+  # Tree-only contracts on one runner before the shard matrix; shards keep
+  # their own copies as defense in depth.
   repo_contracts:
     name: repo-contracts
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
@@ -77,20 +77,37 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
 
+      # Advisory: a producer-only green run proves the producer and nothing
+      # else, so an author changing the surface the hosted host consumes hears
+      # it here rather than at the release. It never decides this job's
+      # verdict, the build stays in the consumer's own required check, and
+      # GITHUB_TOKEN is untouched. The scoped credential is bound to this one
+      # step and absent on a fork, where the step says the pair was not
+      # checked instead of implying a clean answer.
+      - name: Advise whether the hosted consumer builds against this candidate
+        continue-on-error: true
+        env:
+          YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
+          YOKE_MACHINE_HOME: ${{ runner.temp }}/yoke-consumer-advisory
+        run: >-
+          uv run python -m runtime.api.tools.consumer_compatibility_advisory
+          --base "origin/${{ github.event.repository.default_branch }}"
+          --candidate-sha "${{ github.event.pull_request.head.sha || github.sha }}"
+          --dispatch-key "${{ github.run_id }}-${{ github.run_attempt }}"
+
       - name: Run repo contracts
         # One changed-path scope for every event: the merge-base with the
-        # default branch. Scoping by event lets a dispatched gate and the
-        # pull-request entry run disagree about one tree, and a green gate
-        # then stops predicting merge-queue entry.
+        # default branch. Scoping by event would let a dispatched gate and a
+        # pull-request entry run disagree about one tree.
         run: >-
           uv run python -m yoke_core.tools.ci_repo_contracts
           --base "origin/${{ github.event.repository.default_branch }}"
 
   reuse_coverage:
     name: reuse-coverage
-    # A main push re-proves the tree that produced it; a train carrying one
-    # rebased item builds the tree its entry run proved. Consumers skip per
-    # step, never per job: see test_shard.
+    # A main push re-proves its own tree; a train carrying a rebased item
+    # builds the tree its entry run proved. Consumers skip per step, never
+    # per job: see test_shard.
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
       || github.event_name == 'merge_group'
@@ -136,13 +153,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          # Full history (NOT shallow). No test reads this repo's own commit
-          # history — Yoke's git/merge/worktree tests boot their own tmp repos —
-          # so shallow would be test-safe. But every package derives its version
-          # from git via setuptools_scm (dynamic version; tag v0.1.0 in history),
-          # and a depth-1 clone drops tags+history, collapsing the editable
-          # installs to the 0.1.0 fallback. The ~18s a shallow fetch would save
-          # isn't worth degraded version derivation.
+          # Full history (NOT shallow). Every package derives its version from
+          # git via setuptools_scm, and a depth-1 clone drops tags+history,
+          # collapsing the editable installs to the 0.1.0 fallback — worth far
+          # more than the ~18s a shallow fetch saves. No test reads this repo's
+          # own commit history; the git/merge/worktree suites boot tmp repos.
           # test_ci_builds_container_without_registry_push pins this value.
           fetch-depth: 0
 
@@ -175,17 +190,13 @@ jobs:
         run: npm ci --prefix packages/yoke-core/src/yoke_core/ui
 
       - name: Register libpython with the system loader cache
-        # The setup-python interpreter is a --enable-shared build whose libpython
-        # lives in ${pythonLocation}/lib. setup-python adds LD_LIBRARY_PATH for
-        # normal workflow steps, but tests intentionally spawn python3 with a
-        # cleaned env (merge engine, update_status, installer shim,
-        # product-boundary probes). Those subprocesses need the system loader
-        # cache to know where libpython lives.
-        #
-        # Matrix lanes can share one self-hosted runner, and ldconfig updates
-        # the host-global /etc/ld.so.cache via a fixed /etc/ld.so.cache~ temp
-        # path. Serialize the conf write + cache update so parallel lanes cannot
-        # race that rename.
+        # setup-python's --enable-shared interpreter keeps libpython in
+        # ${pythonLocation}/lib and exports LD_LIBRARY_PATH only for ordinary
+        # steps, but tests spawn python3 with a cleaned env (merge engine,
+        # update_status, installer shim, product-boundary probes), so the
+        # system loader cache has to know. Matrix lanes can share a self-hosted
+        # runner and ldconfig rewrites host-global /etc/ld.so.cache through a
+        # fixed temp path, so serialize the conf write and cache update.
         run: |
           lib_dir="${pythonLocation}/lib"
           if ! compgen -G "${lib_dir}/libpython*.so*" >/dev/null; then
@@ -209,14 +220,11 @@ jobs:
           git config --global init.defaultBranch main
 
       - name: Start Postgres (durability off, dynamic host port)
-        # Launch the throwaway cluster ourselves so we can disable durability:
-        # the data is disposable, so fsync / full_page_writes / WAL streaming are
-        # pure overhead that dominate this Postgres-heavy suite's write cost.
-        # `-c` server flags are impossible through GitHub `services:`, which is
-        # why we run docker directly. Dynamic host port (`-p 5432`, no host side)
-        # so two matrix lanes sharing one self-hosted instance never collide on a
-        # fixed 5432 ("port is already allocated"). The host port is read back in
-        # the next step.
+        # Launched directly rather than through `services:`, which cannot pass
+        # `-c` server flags: the data is disposable, so fsync / full_page_writes
+        # / WAL streaming are pure overhead on this Postgres-heavy suite. The
+        # dynamic host port (`-p 5432`, no host side) keeps two matrix lanes on
+        # one self-hosted instance off a fixed 5432; the next step reads it back.
         run: |
           docker run -d \
             --name "$PG_CONTAINER" \
@@ -232,12 +240,10 @@ jobs:
             -c max_wal_senders=0
 
       - name: Resolve Postgres DSN (dynamic host port)
-        # `services:` is gone, so read the mapped host port from the container we
-        # started. `docker port <name> 5432` prints "0.0.0.0:NNNNN" (plus an IPv6
-        # "[::]:NNNNN" line); take the first line and strip everything up to the
-        # last colon. Set the DSN for all later steps via $GITHUB_ENV. libpq tries
-        # every address `localhost` resolves to, so it connects regardless of
-        # whether the IPv4 or IPv6 publish is listed first.
+        # `docker port <name> 5432` prints "0.0.0.0:NNNNN" (plus an IPv6
+        # "[::]:NNNNN" line); take the first line and strip to the last colon,
+        # then set the DSN for later steps via $GITHUB_ENV. libpq tries every
+        # address `localhost` resolves to, so publish order does not matter.
         run: |
           set -o pipefail
           host_port="$(docker port "$PG_CONTAINER" 5432 | head -n1 | sed 's/.*://')"
@@ -249,18 +255,16 @@ jobs:
           echo "YOKE_PG_DSN=host=localhost port=${host_port} user=yoke password=yoke dbname=postgres" >> "$GITHUB_ENV"
 
       - name: Wait for Postgres
-        # Mirror the local pg_testcluster readiness gate for the GitHub Actions
-        # postgres service. conftest's setup_ambient_test_db opens an admin
-        # connection at collection time with NO retry, so a transient service
-        # hiccup (or the window where pg_isready reports healthy a beat before
-        # the postmaster accepts CREATE DATABASE) would otherwise surface as a
-        # cryptic xdist collection crash instead of a clear, early failure.
+        # conftest's setup_ambient_test_db opens an admin connection at
+        # collection time with NO retry, so the window where pg_isready reports
+        # healthy a beat before CREATE DATABASE is accepted would surface as a
+        # cryptic xdist collection crash rather than a clear early failure.
         run: uv run python -m yoke_core.tools.wait_for_pg
 
       - name: Verify Postgres CREATEDB
-        # The suite gives each pytest-xdist worker its own disposable database
-        # and creates a fresh one per isolated test. Probe that exact privilege
-        # through the same helper the suite uses before the worker fan-out.
+        # Each xdist worker gets its own disposable database and each isolated
+        # test a fresh one, so probe that privilege through the suite's own
+        # helper before the worker fan-out.
         run: |
           uv run python - <<'PY'
           from runtime.api.fixtures.pg_testdb import (
@@ -298,10 +302,9 @@ jobs:
           if-no-files-found: warn
 
       - name: Stop Postgres
-        # Self-hosted runner instances can serve more than one job before the
-        # idle reaper terminates them, so remove the manually-started container
-        # (a `services:` container would be auto-reaped). `|| true` keeps a
-        # missing/already-gone container from failing the job.
+        # A self-hosted instance can serve several jobs before the idle reaper
+        # takes it, so remove the manually-started container a `services:` one
+        # would have had reaped. `|| true` tolerates an already-gone container.
         if: always()
         run: docker rm -f "$PG_CONTAINER" || true
 
@@ -333,10 +336,8 @@ jobs:
           echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build Yoke core image
-        # Retry with backoff: the build starts by pulling base images from
-        # Docker Hub, and a transient registry network failure should cost a
-        # retry, not the gate. Deterministic build failures still fail after
-        # the last attempt.
+        # Retry with backoff so a transient Docker Hub pull failure costs a
+        # retry rather than the gate; deterministic failures still fail.
         run: |
           for delay in 15 60 0; do
             docker build \
