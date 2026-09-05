@@ -9,6 +9,9 @@ from typing import List, Optional
 
 _READ_START_WORDS = frozenset({"SELECT", "EXPLAIN", "WITH"})
 _WRITE_WORDS = frozenset({"INSERT", "UPDATE", "DELETE", "MERGE", "COPY", "CALL", "DO"})
+# LABEL is deliberately absent: it is only a DDL keyword as the second word of
+# SECURITY LABEL, and SECURITY alone already refuses that statement. Listing
+# LABEL as its own token refused any bare `label` column/alias reference.
 _DDL_WORDS = frozenset({
     "ALTER",
     "ATTACH",
@@ -20,7 +23,6 @@ _DDL_WORDS = frozenset({
     "GRANT",
     "IMPORT",
     "INTO",
-    "LABEL",
     "LISTEN",
     "LOCK",
     "NOTIFY",
