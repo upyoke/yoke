@@ -214,9 +214,7 @@ def undelivered_messages(
     sla = timedelta(
         seconds=int(effective_relay_policy(conn, [int(project_id)]).poll_seconds)
     )
-    attempts = _last_attempts(
-        conn, project_id=project_id, marker=placeholder, now=now
-    )
+    attempts = _last_attempts(conn, project_id=project_id, marker=placeholder, now=now)
     open_call = open_tool_call_select(conn, session_alias="s")
     rows = conn.execute(
         f"""SELECT r.message_id AS message_id,

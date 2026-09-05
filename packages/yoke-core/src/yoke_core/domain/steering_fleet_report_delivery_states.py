@@ -147,9 +147,7 @@ def delivery_state(
         if delivery_attempt_failed(result_code):
             return ATTEMPT_FAILED
         return ATTEMPT_IN_FLIGHT
-    if _attempt_owed(
-        record, sent_at=sent_at, grace=grace, sla=sla, current=current
-    ):
+    if _attempt_owed(record, sent_at=sent_at, grace=grace, sla=sla, current=current):
         return NEVER_ATTEMPTED
     return AWAITING_ATTEMPT
 

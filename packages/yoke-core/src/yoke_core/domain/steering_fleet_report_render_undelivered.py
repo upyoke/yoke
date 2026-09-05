@@ -45,9 +45,7 @@ _STATE_PHRASES = {
 
 #: States where naming a wake would be wrong: one has a hook already coming,
 #: and two have no recipient left to wake.
-_NO_WAKE_STATES = frozenset(
-    {TURN_IN_FLIGHT, RECIPIENT_ENDED, RECIPIENT_TERMINATED}
-)
+_NO_WAKE_STATES = frozenset({TURN_IN_FLIGHT, RECIPIENT_ENDED, RECIPIENT_TERMINATED})
 
 
 def _references(entry: UndeliveredMessages) -> str:

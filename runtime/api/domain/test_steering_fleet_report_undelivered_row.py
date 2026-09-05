@@ -81,7 +81,9 @@ def test_a_delivery_still_under_way_reads_as_waiting_not_as_a_failure():
 
 def test_a_recipient_mid_call_is_left_alone():
     """Nothing is owed, nothing failed, and the seat should not resume it."""
-    line = _row(delivery_state=TURN_IN_FLIGHT, turn_in_flight_since="2026-08-26T11:39:00Z")
+    line = _row(
+        delivery_state=TURN_IN_FLIGHT, turn_in_flight_since="2026-08-26T11:39:00Z"
+    )
 
     assert "recipient turn in flight since 2026-08-26T11:39:00Z" in line
     assert "no resume" in line
@@ -94,7 +96,9 @@ def test_a_gone_recipient_names_the_loss_and_proposes_no_revival():
     that suggested waking a terminated session would be proposing something
     that cannot happen.
     """
-    ended = _row(delivery_state=RECIPIENT_ENDED, recipient_gone_at="2026-08-26T11:58:00Z")
+    ended = _row(
+        delivery_state=RECIPIENT_ENDED, recipient_gone_at="2026-08-26T11:58:00Z"
+    )
     terminated = _row(
         delivery_state=RECIPIENT_TERMINATED,
         recipient_gone_at="2026-08-26T11:58:00Z",
@@ -112,8 +116,6 @@ def test_a_gone_recipient_names_the_loss_and_proposes_no_revival():
 
 def test_a_row_names_the_envelopes_it_counts():
     """A seat that cannot look the message up cannot assess it."""
-    line = _row(
-        envelope_count=5, message_ids=("msg-1", "msg-2", "msg-3")
-    )
+    line = _row(envelope_count=5, message_ids=("msg-1", "msg-2", "msg-3"))
 
     assert "5 message(s) [msg-1 msg-2 msg-3 +2]" in line
