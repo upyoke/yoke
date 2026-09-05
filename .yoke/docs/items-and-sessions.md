@@ -37,9 +37,13 @@ acknowledged. Every worker reaches the seat deliberately with `yoke say
 --steering`; ending a turn sends no Fleet message. Workers reserve those
 messages for something the seat must act on — a failure, blocker, conflict,
 decision, question, or terminal outcome — and keep progress in their own
-visible output. These views derive from existing claims, document locks,
-launch provenance, and message-recipient receipts; they do not create separate
-state.
+visible output. A report addressed to the role has a recipient whether or not
+a seat is live, so sending, previewing, reading, and listing one all report
+that recipient's own state: `awaiting_seat` with the scope it is queued for,
+`delivered` naming the seat holding it, or `acknowledged`. A queued report is
+therefore never a message that went nowhere. These views derive from existing
+claims, document locks, launch provenance, and message-recipient receipts;
+they do not create separate state.
 
 Ambient session identity comes from the harness (env / process anchor /
 conversation mapping) — operators should not invent session IDs.
@@ -60,3 +64,9 @@ remainder. Add `--json` for the registered result envelope.
   many of the checked approvers have decided, and who it is still waiting
   on. A gate you already answered reports your own decision instead of
   offering an action you cannot take twice; any rejection ends it outright
+- A desktop conversation cannot be resumed for you, so a message waiting in
+  one raises a notice asking you to open that chat. The notice is derived
+  from the waiting message, so it settles itself the moment the wait ends —
+  the message was delivered, acknowledged, cancelled, or expired, or that
+  conversation ended — and the card leaves the Inbox with the reason on
+  record. Nothing else is dismissed for you

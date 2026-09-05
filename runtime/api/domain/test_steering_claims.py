@@ -90,6 +90,63 @@ def test_document_seat_narrows_the_scope_and_takes_the_lock(steering_db) -> None
     assert document_claim["owner_session_id"] == SESSION_ALPHA
 
 
+def test_plan_document_locks_the_plan_without_narrowing_coverage(
+    steering_db,
+) -> None:
+    """The whole-project seat still owns the standing plan it reads."""
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        claim = acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            plan_document=NEAR_TERM_PLAN_SLUG,
+        )
+
+    assert claim["scope"] == {"project_id": PROJECT_ALPHA}
+    assert claim["document_claim"]["strategy_doc_slug"] == NEAR_TERM_PLAN_SLUG
+    document_claim = active_paired_session_doc_claim(steering_db, claim["id"])
+    assert document_claim is not None
+    assert document_claim["strategy_doc_slug"] == NEAR_TERM_PLAN_SLUG
+    assert document_claim["owner_session_id"] == SESSION_ALPHA
+
+
+def test_a_plan_locked_seat_still_refuses_a_second_seat_in_the_project(
+    steering_db,
+) -> None:
+    seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            plan_document=NEAR_TERM_PLAN_SLUG,
+        )
+        with pytest.raises(SessionError) as refusal:
+            acquire_steering(
+                steering_db,
+                SESSION_BETA,
+                PROJECT_ALPHA,
+                document="AREA-PLAN",
+            )
+    assert refusal.value.code == "ALREADY_CLAIMED"
+
+
+def test_naming_both_a_scope_document_and_a_plan_document_refuses(
+    steering_db,
+) -> None:
+    seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
+    with pytest.raises(SessionError) as refusal:
+        acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            document="AREA-PLAN",
+            plan_document=NEAR_TERM_PLAN_SLUG,
+        )
+    assert refusal.value.code == "DOCUMENT_CONFLICT"
+    assert "already locks that document" in str(refusal.value)
+
+
 def test_two_document_seats_on_different_documents_coexist(steering_db) -> None:
     seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):

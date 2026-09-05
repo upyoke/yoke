@@ -48,12 +48,15 @@ TEST_ANCHORS = YOKE_SEEDED_TEST_ROOTS
 #: registry keys). Single-segment names are far too noisy to count.
 _DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
 
-#: A string literal shaped like a repo-relative path to a Python file is
-#: also a dependency reference. Contract rosters name their subjects that
-#: way — the field-note consumer list and the workspace-anchored writer
-#: list both do — so without this edge, editing a file a roster names
-#: leaves the test guarding that roster unreachable, and CI is the first
-#: thing to notice.
+#: A string literal shaped like a path to a Python file is also a
+#: dependency reference. Contract rosters name their subjects that way —
+#: the field-note consumer list and the workspace-anchored writer list
+#: both do — so without this edge, editing a file a roster names leaves
+#: the test guarding that roster unreachable, and CI is the first thing to
+#: notice. A bare file name counts too, because a caller that assembles
+#: its subject a segment at a time (``root / "pkg" / "thing.py"``) never
+#: writes the whole path down; the caller resolves those only when the
+#: name is unambiguous, so a ``conftest.py`` literal links to nothing.
 _REPO_RELATIVE_PY = re.compile(r"^[\w.\-/]+\.py$")
 
 
@@ -151,7 +154,7 @@ def _string_module_references(tree: ast.AST) -> set[str]:
 
 
 def _string_path_references(tree: ast.AST) -> set[str]:
-    """Repo-relative ``.py`` path literals, as posix paths.
+    """``.py`` path literals — full repo-relative paths and bare names.
 
     Resolved against the index's own file list by the caller, so a literal
     naming no real file is simply dropped rather than becoming an inert
@@ -162,7 +165,7 @@ def _string_path_references(tree: ast.AST) -> set[str]:
         if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
             continue
         value = node.value.strip()
-        if len(value) > 200 or "/" not in value:
+        if len(value) > 200:
             continue
         if _REPO_RELATIVE_PY.match(value):
             found.add(value)
@@ -264,12 +267,36 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         named_paths = _string_path_references(tree)
         if named_paths:
             path_references.append((rel, named_paths))
+    by_file_name: dict[str, set[str]] = {}
+    for rel in module_of:
+        by_file_name.setdefault(rel.rsplit("/", 1)[-1], set()).add(rel)
     for rel, named_paths in path_references:
         for named in named_paths:
-            referenced_module = module_of.get(named)
+            referenced_module = _referenced_module(named, module_of, by_file_name)
             if referenced_module:
                 importers.setdefault(referenced_module, set()).add(rel)
     return ImportIndex(importers=importers, module_of=module_of)
+
+
+def _referenced_module(
+    named: str,
+    module_of: dict[str, str],
+    by_file_name: dict[str, set[str]],
+) -> "str | None":
+    """The module one path literal names, or ``None`` when it names none.
+
+    A bare file name resolves only when exactly one file carries it. The
+    common ambiguous names — ``__init__.py``, ``conftest.py`` — would
+    otherwise link one literal to every package in the repository, which
+    is a widening rather than a reference.
+    """
+    module = module_of.get(named)
+    if module is not None or "/" in named:
+        return module
+    candidates = by_file_name.get(named, set())
+    if len(candidates) != 1:
+        return None
+    return module_of.get(next(iter(candidates)))
 
 
 __all__ = [

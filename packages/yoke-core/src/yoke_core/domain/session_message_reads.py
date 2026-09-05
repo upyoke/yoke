@@ -1,4 +1,4 @@
-"""Read projections over Fleet messages and both recipient lifecycles."""
+"""Read projections over Fleet messages and every recipient lifecycle."""
 
 from __future__ import annotations
 
@@ -15,6 +15,15 @@ from yoke_core.domain.actor_render import actor_render_label
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
     row_dict,
+)
+from yoke_core.domain.steering_message_recipients import (
+    STATE_ACKNOWLEDGED,
+    STATE_AWAITING_SEAT,
+    STATE_DELIVERED,
+    STEERING_KIND,
+)
+from yoke_core.domain.steering_recipient_projection import (
+    stored_steering_recipient,
 )
 
 
@@ -77,6 +86,9 @@ def message_details(conn: Any, message_id: str) -> dict[str, Any]:
         recipient["routing_snapshot"] = _decode(recipient["routing_snapshot"], {})
     message["recipients"] = recipients
     message["actor_recipients"] = actor_recipients_for_message(conn, message_id)
+    steering = stored_steering_recipient(conn, message_id)
+    if steering is not None:
+        message["steering_recipient"] = steering
     message.update(
         sender_identity_projection(
             conn,
@@ -111,6 +123,28 @@ def _actor_state_clause(marker: str, state: str | None) -> tuple[str, list[Any]]
     return "1=1", []
 
 
+#: How a session-recipient state filter reads against a role-addressed row.
+#: A steering row is unacknowledged while it is parked or sitting with a
+#: seat, and settled once that seat acknowledges it; the delivery-mechanics
+#: states have no counterpart on a role address at all.
+_STEERING_STATES_BY_FILTER: dict[str, tuple[str, ...]] = {
+    "unacknowledged": (STATE_AWAITING_SEAT, STATE_DELIVERED),
+    "pending": (STATE_AWAITING_SEAT,),
+    "injected": (STATE_DELIVERED,),
+    "acknowledged": (STATE_ACKNOWLEDGED,),
+}
+
+
+def _steering_state_clause(marker: str, state: str | None) -> tuple[str, list[Any]]:
+    if state is None:
+        return "1=1", []
+    states = _STEERING_STATES_BY_FILTER.get(state)
+    if not states:
+        return "1=0", []
+    slots = ",".join(marker for _ in states)
+    return f"sr.state IN ({slots})", list(states)
+
+
 def list_message_ids(
     conn: Any,
     *,
@@ -125,6 +159,19 @@ def list_message_ids(
     if session_id is not None:
         session_filter = f" AND r.session_id={marker}"
         session_params.append(session_id)
+    steering_branch = "1=0"
+    steering_params: list[Any] = []
+    if session_id is not None:
+        # A seat holds role-addressed mail through the durable steering row,
+        # not through a session recipient, so filtering on sessions alone
+        # hides exactly the messages an acquire just handed it.
+        steering_state, steering_state_params = _steering_state_clause(marker, state)
+        steering_branch = (
+            "EXISTS (SELECT 1 FROM actor_message_recipients sr "
+            f"WHERE sr.message_id=m.message_id AND sr.recipient_kind={marker} "
+            f"AND sr.seat_session_id={marker} AND {steering_state})"
+        )
+        steering_params = [STEERING_KIND, session_id, *steering_state_params]
     actor_state, actor_params = _actor_state_clause(marker, state)
     actor_branch = "1=0"
     if session_id is None:
@@ -137,11 +184,18 @@ def list_message_ids(
         actor_params = [ACTOR_KIND, actor_id, actor_id, *actor_params]
     else:
         actor_params = []
-    params = [*session_params, *actor_params, max(1, min(int(limit), 500))]
+    params = [
+        *session_params,
+        *steering_params,
+        *actor_params,
+        max(1, min(int(limit), 500)),
+    ]
     rows = conn.execute(
         "SELECT m.message_id,m.created_at FROM session_messages m WHERE "
         "EXISTS (SELECT 1 FROM session_message_recipients r WHERE "
         f"r.message_id=m.message_id AND {session_state}{session_filter}) OR "
+        + steering_branch
+        + " OR "
         + actor_branch
         + " ORDER BY m.created_at DESC,m.message_id LIMIT "
         + marker,

@@ -7,7 +7,7 @@ from datetime import timedelta
 import pytest
 
 from yoke_core.domain.session_message_receipts import acknowledge_message
-from yoke_core.domain.session_message_service import preview_message, send_message
+from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_steering import ADDRESS_UNRESOLVED_CODE
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.steering_message_drain import DIGEST_BEGIN, drain_to_seat
@@ -154,7 +154,7 @@ def test_no_live_seat_parks_the_message_instead_of_refusing() -> None:
 
     sent = _say_steering(conn)
 
-    assert sent["recipient_count"] == 0
+    assert sent["recipients"] == []
     row = _steering_row(conn, sent["message_id"])
     assert row["state"] == STATE_AWAITING_SEAT
     assert row["seat_session_id"] is None
@@ -167,7 +167,8 @@ def test_an_ended_seat_parks_rather_than_routing_into_a_dead_session() -> None:
 
     sent = _say_steering(conn)
 
-    assert sent["recipient_count"] == 0
+    assert sent["recipients"] == []
+    assert sent["steering_recipient"]["state"] == STATE_AWAITING_SEAT
     assert _steering_row(conn, sent["message_id"])["state"] == STATE_AWAITING_SEAT
 
 
@@ -226,21 +227,6 @@ def test_an_explicit_scope_addresses_a_seat_without_a_held_item() -> None:
 
     assert [r["session_id"] for r in sent["recipients"]] == ["s2"]
     assert _steering_row(conn, sent["message_id"])["sender_item_id"] is None
-
-
-def test_preview_reports_the_scope_and_whether_it_would_park() -> None:
-    conn = message_connection()
-
-    preview = preview_message(
-        conn,
-        actor_id=10,
-        selector=selector(steering=True),
-        sender_session_id="s1",
-        now=NOW,
-    )
-
-    assert preview["steering_scope"] == PROJECT_SCOPE
-    assert preview["parked"] is True
 
 
 def test_acquiring_the_scope_drains_parked_and_stranded_mail() -> None:

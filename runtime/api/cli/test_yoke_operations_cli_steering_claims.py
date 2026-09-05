@@ -126,6 +126,40 @@ def test_acquire_without_doc_takes_the_whole_project_seat() -> None:
     assert "inherited 0 steering message(s)" in out
 
 
+def test_acquire_with_plan_doc_keeps_the_whole_project_seat() -> None:
+    """A project-wide seat still locks the standing plan it writes."""
+    rc, out, err = _run(
+        "claims",
+        "steering",
+        "acquire",
+        "--project",
+        "alpha",
+        "--plan-doc",
+        NEAR_TERM_PLAN_SLUG,
+    )
+    assert rc == 0, err
+    assert _CAPTURED[-1].payload == {"plan_document": NEAR_TERM_PLAN_SLUG}
+    assert "scope=7 (whole project)" in out
+    assert f"doc={NEAR_TERM_PLAN_SLUG}" in out
+
+
+def test_acquire_refuses_a_scope_document_beside_a_plan_document() -> None:
+    rc, _out, err = _run(
+        "claims",
+        "steering",
+        "acquire",
+        "--project",
+        "alpha",
+        "--doc",
+        "AREA-PLAN",
+        "--plan-doc",
+        NEAR_TERM_PLAN_SLUG,
+    )
+    assert rc == 2
+    assert "Pass one, not both." in err
+    assert _CAPTURED == []
+
+
 def test_release_dispatches_claim_target_and_reason() -> None:
     rc, out, err = _run(
         "claims",

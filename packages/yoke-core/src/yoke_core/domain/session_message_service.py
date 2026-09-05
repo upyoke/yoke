@@ -46,6 +46,10 @@ from yoke_core.domain.session_message_steering import (
     seat_session_id,
 )
 from yoke_core.domain.session_message_zero_recipients import require_recipients
+from yoke_core.domain.steering_recipient_projection import (
+    previewed_steering_recipient,
+    stored_steering_recipient,
+)
 
 
 def _public_recipients(recipients: list[ResolvedRecipient]) -> list[dict[str, Any]]:
@@ -127,19 +131,22 @@ def preview_message(
         authorize_universe(conn, actor_id=actor_id, policies=policies.values())
     public = _public_recipients(recipients)
     public_actors = _public_actor_recipients(actor_recipients)
+    steering = (
+        previewed_steering_recipient(
+            conn, address, seat_session_id=seat_session_id(conn, address)[0]
+        )
+        if address
+        else None
+    )
     return {
         "recipients": public,
         "actor_recipients": public_actors,
-        "recipient_count": len(public) + len(public_actors),
+        "recipient_count": len(public) + len(public_actors) + (1 if steering else 0),
         "applied_liveness": list(applied_liveness(selector)),
         "confirmation_token": confirmation_token(
             selector, recipients, actor_recipients=actor_recipients
         ),
-        **(
-            {"steering_scope": dict(address.scope), "parked": not recipients}
-            if address
-            else {}
-        ),
+        **({"steering_recipient": steering} if steering else {}),
     }
 
 
@@ -262,13 +269,19 @@ def send_message(
             if created
             else details.get("actor_recipients", [])
         )
-        return {
+        steering = stored_steering_recipient(conn, str(details["message_id"]))
+        result = {
             "message_id": details["message_id"],
             "recipients": selected,
             "actor_recipients": selected_actors,
-            "recipient_count": len(selected) + len(selected_actors),
+            "recipient_count": (
+                len(selected) + len(selected_actors) + (1 if steering else 0)
+            ),
             "deduplicated": not created,
         }
+        if steering is not None:
+            result["steering_recipient"] = steering
+        return result
     except Exception:
         conn.rollback()
         raise

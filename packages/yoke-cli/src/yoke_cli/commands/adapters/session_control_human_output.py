@@ -20,6 +20,7 @@ from yoke_cli.commands.adapters.session_control_recipient_output import (
     recipient_project,
     recipient_states,
     recipient_surface,
+    steering_summary,
 )
 
 
@@ -187,8 +188,9 @@ def _write_recipients(
     stdout: TextIO,
     *,
     actor_recipients: Iterable[Mapping[str, Any]] = (),
+    steering_recipient: Mapping[str, Any] | None = None,
 ) -> None:
-    rows = display_recipients(recipients, actor_recipients)
+    rows = display_recipients(recipients, actor_recipients, steering_recipient)
     columns: tuple[Column, ...] = (
         ("SESSION / ACTOR", recipient_party, None),
         ("PROJECT", recipient_project, 14),
@@ -240,8 +242,16 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         fields.insert(
             -1, ("Cancellation reason", humanize(message["cancellation_reason"]))
         )
+    summary = steering_summary(message)
+    if summary:
+        fields.insert(-1, ("Steering", summary))
     write_summary("MESSAGE", fields, stdout)
-    _write_recipients(recipients, stdout, actor_recipients=actor_recipients)
+    _write_recipients(
+        recipients,
+        stdout,
+        actor_recipients=actor_recipients,
+        steering_recipient=message.get("steering_recipient"),
+    )
     write_attempts(message.get("attempts") or [], stdout)
 
 
@@ -259,6 +269,9 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             fields.append(("Deduplicated", bool(result.get("deduplicated"))))
         if result.get("confirmation_token"):
             fields.append(("Confirmation token", result["confirmation_token"]))
+        summary = steering_summary(result)
+        if summary:
+            fields.append(("Steering", summary))
         write_summary(
             "MESSAGE SENT" if message_id else "MESSAGE PREVIEW", fields, stdout
         )
@@ -266,6 +279,7 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             result.get("recipients") or [],
             stdout,
             actor_recipients=result.get("actor_recipients") or [],
+            steering_recipient=result.get("steering_recipient"),
         )
         if message_id:
             print(f"Track delivery: yoke messages get {message_id}", file=stdout)

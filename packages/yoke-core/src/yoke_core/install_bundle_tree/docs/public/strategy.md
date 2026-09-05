@@ -32,12 +32,19 @@ yoke strategy ingest <SLUG> --target-root <checkout> [--project P] --dry-run
 
 ## Link to items, and to a steering seat
 
-An item belongs to one strategy document. That link is what a steering seat
-covers: `yoke claims steering acquire --project P --doc SLUG` takes the seat
-for one document and steers exactly the items linked to it, so two people
-steer two documents in one project at once without either owning the whole
-project. Acquiring with `--project` alone takes the whole-project seat
-instead and locks no document.
+An item belongs to one strategy document. That link is what a document-scoped
+steering seat covers: `yoke claims steering acquire --project P --doc SLUG`
+takes the seat for one document and steers exactly the items linked to it, so
+two people steer two documents in one project at once without either owning
+the whole project.
+
+Reading a document and covering a scope are separate choices. A seat that
+steers the whole project still writes a standing plan, so
+`yoke claims steering acquire --project P --plan-doc SLUG` locks that document
+while the scope stays project-wide — the shape a project-level steering
+request takes, and the reason an item needs no link to reach that seat.
+Acquiring with `--project` alone covers the project and locks no document;
+passing `--doc` and `--plan-doc` together is refused.
 
 Write the link either at intake or afterwards:
 

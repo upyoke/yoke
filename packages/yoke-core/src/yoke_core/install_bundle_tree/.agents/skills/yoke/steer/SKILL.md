@@ -30,7 +30,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 | Function id | CLI adapter |
 |---|---|
-| `claims.steering.acquire` | `yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT]` |
+| `claims.steering.acquire` | `yoke claims steering acquire --project P [--doc SLUG \| --plan-doc SLUG] [--reason TEXT]` |
 | `claims.steering.release` | `yoke claims steering release CLAIM_ID --reason TEXT` |
 | `claims.steering.list` | `yoke claims steering list --project P --active-only` |
 | `strategy.doc.get` | `yoke strategy doc get SLUG [--project P]` |
@@ -64,10 +64,14 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Itemless.** This session holds no work item. One atomic steering acquire
   pairs the steering-scope claim with its strategy-doc lock; together they
   are its authority. The doc and its linked items ARE the surviving state.
-- **A seat covers a scope, not a project.** `--doc SLUG` takes the seat for
-  that document, covering exactly the items linked to it; `--project` alone
-  takes the whole project and locks no document. Two people steer two
-  documents in one project at once, neither owning the whole project.
+- **Reading a document and covering a scope are two decisions.** `--doc
+  SLUG` narrows the seat to that document, covering exactly the items linked
+  to it. `--plan-doc SLUG` locks that document for writing while the seat
+  still covers the whole project — the shape a project-level request takes,
+  because the standing plan is what the seat reads, not a filter on the work
+  it steers. `--project` alone covers the project and locks nothing. Two
+  people steer two documents in one project at once, neither owning the
+  whole project.
 - **No two live steering claims with overlapping scopes.** Acquire refuses on
   overlap and names the holder by actor, machine, and session. The project is
   the outer key, so a project seat and any document seat inside it are the
@@ -176,20 +180,33 @@ continue as if the doc already existed. On no, stop.
 
 ## 3. Acquire the paired steering authority
 
+Which flag carries `{SLUG}` follows how the operator asked, and the two
+are never both passed:
+
 ```text
+# The operator named projects, so {SLUG} resolved to CURRENT-PLAN:
+yoke claims steering acquire --project {_project} --plan-doc {SLUG} --reason "steer {SLUG}"
+
+# The operator named a document, so the seat is that document's:
 yoke claims steering acquire --project {_project} --doc {SLUG} --reason "steer {SLUG}"
 ```
 
-Run this once per resolved project. It acquires that document's seat and its
-document lock in the same transaction. The seat's scope is `{"project_id": N, "document":
-"{SLUG}"}`, so it covers exactly the items linked to {SLUG}. An overlapping
-seat or a document holder refuses the call and leaves neither half behind —
-the refusal names the holding actor, machine, and session, and a seat on a
-different document in the same project is always available. Do not proceed
-without both halves. Keep the returned `claim_id` for wrapup release.
+Run this once per resolved project. Either form acquires the seat and the
+{SLUG} document lock in the same transaction; they differ only in coverage.
+`--plan-doc` leaves the scope `{"project_id": N}`, so the seat covers every
+item in the project and reports on all of it while still being the only
+writer of {SLUG}. `--doc` narrows the scope to `{"project_id": N, "document":
+"{SLUG}"}`, so the seat covers exactly the items linked to {SLUG} — choose it
+only when the operator asked to steer that document. An overlapping seat or a
+document holder refuses the call and leaves neither half behind — the refusal
+names the holding actor, machine, and session, and a seat on a different
+document in the same project is always available. Do not proceed without both
+halves. Keep the returned `claim_id` for wrapup release.
 
 Acquire also hands over every role-addressed message this scope covers that
-no live seat was acting on and no previous seat acknowledged — the ones that
+no live seat was acting on and no previous seat acknowledged. A project-wide
+seat therefore inherits reports from items linked to no document at all and
+from items already closed out, which a document-narrowed seat does not — the ones that
 parked with no seat at all, and unacknowledged ones left by an ended seat.
 Acknowledgement settles a report: successors never inherit it or count it as
 awaiting a seat. The remaining mail arrives as one handoff digest, grouped by

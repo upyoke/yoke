@@ -48,6 +48,7 @@ def acquire_steering(
     project_id: int,
     *,
     document: str | None = None,
+    plan_document: str | None = None,
 ):
     return acquire(
         conn,
@@ -55,6 +56,7 @@ def acquire_steering(
         project_id=project_id,
         reason="steering work",
         document=document,
+        plan_document=plan_document,
         actor_id=2,
     )
 
