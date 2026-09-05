@@ -79,6 +79,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     # org/project grants; local source-dev calls without a numeric actor remain
     # unfiltered.
     "projects.list": AuthzSpec(ACTOR_SESSION, None),
+    # Carved out of the deployment_runs.* org-admin prefix below: a run's
+    # gate already resolves which actions this reader may take per row, so
+    # listing runs needs no more than items/projects inventory does.
+    "deployment_runs.list": AuthzSpec(ACTOR_SESSION, None),
     # The org identity card (slug/name/created_at) is instance identity, not
     # tenant content — readable by any authenticated actor.
     "organizations.get": AuthzSpec(ACTOR_SESSION, None),
