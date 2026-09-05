@@ -87,7 +87,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                 "stages": [],
                 "stage_index": -1,
                 "stage_count": 0,
-                "waiting_on_approval": False,
+                "gates": [],
             }
         ]
         with patch(
@@ -109,6 +109,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             project="yoke",
             status="created",
             limit=7,
+            actor_id=None,
         )
         self.assertEqual(outcome.result_payload["rows"][0]["project"], "yoke")
         self.assertEqual(outcome.result_payload["limit"], 7)
@@ -127,8 +128,25 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             project=None,
             status=None,
             limit=20,
+            actor_id=None,
         )
         self.assertEqual(outcome.result_payload["limit"], 20)
+
+    def test_run_list_names_the_reader_so_gates_can_offer_their_actions(self):
+        """Whether a gate offers its actions depends on who is reading."""
+        with patch(
+            "yoke_core.domain.deployment_run_list_read.list_deployment_runs",
+            return_value=[],
+        ) as list_runs:
+            deployment_runs.handle_deployment_run_list(
+                _request(
+                    function="deployment_runs.list",
+                    payload={},
+                    actor_id="41",
+                ),
+            )
+
+        self.assertEqual(list_runs.call_args.kwargs["actor_id"], 41)
 
     def test_run_list_rejects_invalid_limit(self):
         outcome = deployment_runs.handle_deployment_run_list(

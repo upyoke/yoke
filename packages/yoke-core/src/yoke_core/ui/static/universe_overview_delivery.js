@@ -1,6 +1,7 @@
 // Shipping renders deployment runs as first-class cards, including the work
 // each release carries and the derivation that produced that membership.
 
+import { createDecisionResolver } from "./inbox_rows.js";
 import { overviewRunCard } from "./universe_overview_cards.js";
 import {
   callError,
@@ -26,6 +27,15 @@ export async function loadDelivery(context, band, getScope) {
     })),
   );
   if (!context.isMounted()) return null;
+  // Answering a gate changes what the server would send, so the band reloads
+  // rather than repainting the rows it already has.
+  const resolve = createDecisionResolver(
+    context,
+    () => loadDelivery(context, band, getScope),
+  );
+  const onGateAction = (gate, action, wrap) => resolve(
+    { id: gate.request_id }, action, wrap,
+  );
   const paint = () => {
     const chosen = projects.length
       ? selectedProjects(projects, getScope()) : buckets;
@@ -47,7 +57,7 @@ export async function loadDelivery(context, band, getScope) {
     band.setCount(rows.length);
     band.renderCards(
       rows.slice(0, OVERVIEW_CARD_LIMIT).map((row) => overviewRunCard(
-        context.document, row, getScope(),
+        context.document, row, getScope(), { onGateAction },
       )),
       "No deployment run is in flight.",
       "overview-run-grid",

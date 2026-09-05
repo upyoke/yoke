@@ -1,4 +1,5 @@
 @import url("./universe_overview_cards.css");
+@import url("./universe_run_gates.css");
 
 /* Native details/summary is the one disclosure device for both levels. */
 .universe-app-root .overview-section {

@@ -1,0 +1,86 @@
+/* The Gates region on a deployment run card: what the run is halted
+   on, and the control that ends it. Its own sheet beside its own
+   module, so the run card's styles stay about the card. */
+.universe-app-root .run-gates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.universe-app-root .run-gates-head {
+  color: var(--yoke-ink-2);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.universe-app-root .run-gates-count {
+  color: var(--yoke-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.universe-app-root .run-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--yoke-warn);
+  border-radius: 6px;
+  background: var(--yoke-warn-bg);
+}
+.universe-app-root .run-gate-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 10.5px;
+}
+.universe-app-root .run-gate-kind {
+  color: var(--yoke-ink);
+  font-weight: 700;
+}
+.universe-app-root .run-gate-name {
+  font-family: var(--yoke-font-mono);
+  color: var(--yoke-ink-2);
+}
+.universe-app-root .run-gate-state {
+  color: var(--yoke-warn);
+  font-weight: 650;
+}
+.universe-app-root .run-gate-note {
+  margin-left: auto;
+  color: var(--yoke-muted);
+}
+.universe-app-root .run-gate-why {
+  margin: 0;
+  color: var(--yoke-ink-2);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.universe-app-root .run-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.universe-app-root .run-gate-action {
+  padding: 4px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 5px;
+  background: var(--yoke-surface);
+  color: var(--yoke-ink);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.universe-app-root .run-gate-action:hover {
+  border-color: var(--yoke-accent);
+}
+.universe-app-root .run-gate-action.is-primary {
+  border-color: var(--yoke-accent);
+  background: var(--yoke-accent);
+  color: var(--yoke-surface);
+}
+.universe-app-root .run-gate-action[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
