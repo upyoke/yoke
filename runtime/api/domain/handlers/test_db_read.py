@@ -37,6 +37,15 @@ def test_sql_guard_refuses_writes_ddl_and_multiple_statements() -> None:
     assert _refusal_code("CREATE TABLE scratch (id int)") == "sql_ddl_refused"
 
 
+def test_sql_guard_allows_label_as_a_column_but_refuses_security_label() -> None:
+    assert _refusal_code("SELECT al.label FROM actor_labels al LIMIT 1") is None
+    assert _refusal_code("SELECT label FROM actor_labels") is None
+    assert (
+        _refusal_code("SECURITY LABEL ON TABLE actor_labels IS 'text'")
+        == "sql_ddl_refused"
+    )
+
+
 def test_runner_returns_columns_rows_and_truncation() -> None:
     with pg_testdb.test_database() as conn:
         conn.execute("CREATE TABLE sample (id INTEGER, title TEXT)")
