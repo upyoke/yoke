@@ -248,7 +248,7 @@ def relay_serve(args: List[str]) -> int:
     if is_subagent_execution():
         return usage_error(FLEET_OWNERSHIP_GUIDANCE)
     try:
-        outcome = serve_release_daemon(prepare=_contain_stranded_natives)
+        outcome = serve_release_daemon(cycle_maintenance=_contain_stranded_natives)
     except Exception as exc:
         print(
             json.dumps(
