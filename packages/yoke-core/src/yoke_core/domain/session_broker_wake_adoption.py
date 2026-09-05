@@ -17,6 +17,7 @@ from yoke_core.domain.session_broker_wake_settlement import (
 )
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.domain.session_model_columns import resume_model_selection
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_relay_storage import (
     mark_relay_batch,
@@ -145,6 +146,11 @@ def _adopt_attempt(
             )
 
             consume_qualification_grant(conn, qualification, now=now)
+        selection = resume_model_selection(
+            conn,
+            session_id=str(candidate["session_id"]),
+            surface=execution[0],
+        )
         conn.commit()
         return RelayJob(
             job_kind="wake",
@@ -160,6 +166,9 @@ def _adopt_attempt(
             target_native_thread_id=(
                 str(candidate.get("native_thread_id") or "") or None
             ),
+            requested_model=selection.model,
+            requested_reasoning_effort=selection.reasoning_effort,
+            requested_context_window_tokens=selection.context_window_tokens,
             presentation=managed_session_presentation(
                 conn,
                 session_id=str(candidate["session_id"]),

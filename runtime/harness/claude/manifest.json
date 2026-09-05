@@ -117,7 +117,8 @@
         "model": "--model MODEL",
         "reasoning_effort": "--effort EFFORT",
         "context_window_tokens": "--model MODEL[1m]"
-      }
+      },
+      "resume_selection": "native"
     }
   },
   "agent_wake": {

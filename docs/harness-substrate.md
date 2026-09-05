@@ -94,6 +94,33 @@ read-only — it does not touch claim, lifecycle, or session state.
 
 The target extractor lives in `yoke_core.domain.lint_session_cwd_target_extract`; the validator lives in `yoke_core.domain.lint_session_cwd_validate`; the policy glue + deny envelope rendering live in `yoke_core.domain.lint_session_cwd`. Destructive shell shapes (`xargs rm`, `git reset --hard`, `git clean -f`) are still blocked by the separate `yoke_core.domain.lint_destructive_git` guard.
 
+## Native resume model selection
+
+A wake always targets the existing native conversation identity. Model
+selection follows the thin per-surface contract exposed by
+`launch_model_selection_manifest` as `resume_selection`:
+
+- Claude CLI uses `native`: its resume command restores the conversation's
+  latest model selection, so Yoke omits model, effort, and context selectors.
+- Codex CLI and Cursor CLI use `explicit`: Yoke passes the target session's
+  current attested model and the effort/context knobs the surface can express.
+  Codex reads ambient user config again. Cursor restores last-used-model
+  metadata written by interactive turns but not by print-mode turns, and its
+  parameter restoration reads shared configuration. Omission therefore cannot
+  preserve selection for every relay-owned conversation. Codex has no resume
+  context-window knob, so that fact is not sent.
+
+Before a provider has attested any served fact, explicit replay may use the
+stored launch request. After the first attestation, omissions are part of the
+current truth: Yoke never fills them from the older request or from relay
+machine preferences. Unsupported fields stay absent rather than being
+silently translated into a different selection.
+
+Claude Desktop, Codex Desktop, and Cursor Desktop declare operator-owned
+wakes and no native stopped-session resume. Their pending messages arrive
+through a hook when the operator continues the existing chat; Yoke does not
+start a separate native turn or apply a model selector to those windows.
+
 ## SessionEnd defense: claim- and chain-aware refusal
 
 Claude Desktop fires `SessionEnd` on transient signals (laptop sleep, app reload,

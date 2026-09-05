@@ -26,12 +26,19 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Tuple
 
+from yoke_contracts.session_control.model_selection import (
+    LaunchModelSelection,
+    SURFACE_CONTEXT_WINDOWS,
+    SURFACE_EFFORT_LEVELS,
+    resume_selection_mode,
+)
 from yoke_contracts.session_model_facts import (
     MODEL_FACT_FIELDS as MODEL_COLUMNS,
     REQUESTED_FIELDS as REQUESTED_COLUMNS,
     SERVED_FIELDS as SERVED_COLUMNS,
     SessionModelFacts,
 )
+from yoke_core.domain.session_relay_storage import marker
 
 
 def facts_values(facts: SessionModelFacts) -> List[Any]:
@@ -99,6 +106,65 @@ def changed_columns(
     return columns, values
 
 
+def resume_selection_for_facts(
+    surface: str, facts: SessionModelFacts
+) -> LaunchModelSelection:
+    """Return only the session selection a native resume must re-send.
+
+    An attestation is current-session truth, including its omissions. Once
+    any served fact exists, the original launch request is therefore never
+    mixed back in. Unsupported knobs remain absent instead of being replaced
+    with a machine preference.
+    """
+    if resume_selection_mode(surface) != "explicit":
+        return LaunchModelSelection()
+    if facts.attested():
+        model = facts.model
+        effort = facts.reasoning_effort
+        context = facts.context_window_tokens
+    else:
+        model = facts.requested_model
+        effort = facts.requested_reasoning_effort
+        context = facts.requested_context_window_tokens
+    normalized_model = str(model or "").strip() or None
+    normalized_effort = str(effort or "").strip().lower() or None
+    if normalized_effort not in SURFACE_EFFORT_LEVELS.get(surface, ()):
+        normalized_effort = None
+    if context not in SURFACE_CONTEXT_WINDOWS.get(surface, ()):
+        context = None
+    if surface == "cursor-cli" and normalized_model is None:
+        normalized_effort = None
+        context = None
+    return LaunchModelSelection(normalized_model, normalized_effort, context)
+
+
+def resume_model_selection(
+    conn: Any, *, session_id: str, surface: str
+) -> LaunchModelSelection:
+    """Read one target session and resolve its native-resume selection."""
+    if resume_selection_mode(surface) != "explicit":
+        return LaunchModelSelection()
+    p = marker(conn)
+    row = conn.execute(
+        "SELECT model,reasoning_effort,context_window_tokens,"
+        "requested_model,requested_reasoning_effort,"
+        "requested_context_window_tokens FROM harness_sessions "
+        f"WHERE session_id={p}",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return LaunchModelSelection()
+    facts = SessionModelFacts(
+        model=row[0],
+        reasoning_effort=row[1],
+        context_window_tokens=row[2],
+        requested_model=row[3],
+        requested_reasoning_effort=row[4],
+        requested_context_window_tokens=row[5],
+    )
+    return resume_selection_for_facts(surface, facts)
+
+
 def _value(row: Any, column: str) -> Optional[Any]:
     if row is None:
         return None
@@ -115,5 +181,7 @@ __all__ = [
     "changed_columns",
     "facts_values",
     "merged_facts",
+    "resume_model_selection",
+    "resume_selection_for_facts",
     "stored_facts",
 ]
