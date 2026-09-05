@@ -104,7 +104,7 @@ def relay_plist_document(
 ) -> dict[str, object]:
     resolved = paths or relay_launchd_paths()
     source_env = os.environ if environ is None else environ
-    launcher = relay_release.relay_release_executable(resolved.state_dir)
+    launcher = relay_release.relay_launch_executable(resolved.state_dir)
     return {
         "Label": resolved.label,
         "ProgramArguments": [
@@ -236,7 +236,7 @@ def install_relay_launchd(
         pin_release(instance=selected)
     except relay_release.RelayReleaseError as exc:
         raise RelayInstallError(str(exc), code=exc.code) from exc
-    launcher = relay_release.relay_release_executable(paths.state_dir)
+    launcher = relay_release.relay_launch_executable(paths.state_dir)
     if not launcher.is_file():
         raise RelayInstallError(
             f"pinned relay executable is missing at {launcher}; "

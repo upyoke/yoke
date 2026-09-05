@@ -26,7 +26,9 @@ from yoke_contracts.api_urls import (
 )
 
 
-RELAY_VENV_NAME = "venv"
+RELAY_LAUNCH_LINK_NAME = "venv"
+RELAY_RUNTIME_NAME = "runtime"
+RELAY_ACTIVE_RELEASE_NAME = "release"
 RELAY_RELEASE_RECEIPT_NAME = ".yoke-relay-release.json"
 RELAY_RELEASE_ERROR_NAME = "release-pin-error.json"
 RELAY_RELEASE_FETCH_FAILED = "relay_release_fetch_failed"
@@ -49,8 +51,10 @@ class RelayReleaseStatus:
     pinned_release: str
     served_build: str
     distribution_index: str
-    executable: Path
-    python: Path
+    launch_executable: Path
+    runtime_executable: Path
+    runtime_python: Path
+    package_ready: bool
     current: bool
     error_code: str = ""
     error_message: str = ""
@@ -59,16 +63,46 @@ class RelayReleaseStatus:
 ManifestFetcher = Callable[[str], Mapping[str, Any] | None]
 
 
-def relay_venv_path(state_dir: Path) -> Path:
-    return Path(state_dir) / RELAY_VENV_NAME
+def relay_active_release_path(state_dir: Path) -> Path:
+    return Path(state_dir) / RELAY_ACTIVE_RELEASE_NAME
 
 
-def relay_release_executable(state_dir: Path) -> Path:
-    return relay_venv_path(state_dir) / "bin" / "yoke"
+def relay_launch_path(state_dir: Path) -> Path:
+    return Path(state_dir) / RELAY_LAUNCH_LINK_NAME
 
 
-def relay_release_python(state_dir: Path) -> Path:
-    return relay_venv_path(state_dir) / "bin" / "python"
+def relay_launch_executable(state_dir: Path) -> Path:
+    return relay_launch_path(state_dir) / "bin" / "yoke"
+
+
+def relay_runtime_path(state_dir: Path) -> Path:
+    return Path(state_dir) / RELAY_RUNTIME_NAME
+
+
+def relay_runtime_executable(state_dir: Path) -> Path:
+    return relay_runtime_path(state_dir) / "bin" / "yoke"
+
+
+def relay_runtime_python(state_dir: Path) -> Path:
+    return relay_runtime_path(state_dir) / "bin" / "python"
+
+
+def relay_launch_targets_runtime(state_dir: Path) -> bool:
+    launch = relay_launch_path(state_dir)
+    try:
+        return launch.is_symlink() and launch.resolve(
+            strict=True
+        ) == relay_runtime_path(state_dir).resolve(strict=True)
+    except OSError:
+        return False
+
+
+def relay_package_executable(state_dir: Path) -> Path:
+    return relay_active_release_path(state_dir) / "bin" / "yoke"
+
+
+def relay_package_python(state_dir: Path) -> Path:
+    return relay_active_release_path(state_dir) / "bin" / "python"
 
 
 def release_version_from_build(build: str) -> str:
@@ -164,10 +198,10 @@ def relay_release_status(
     refresh_served: bool = True,
     fetch_manifest: ManifestFetcher = manifest.fetch_env_manifest,
 ) -> RelayReleaseStatus:
-    """Inspect the current venv receipt and optionally refresh the served build."""
+    """Inspect the active release receipt and optionally refresh the served build."""
     selected = instance or resolve_relay_instance()
     receipt = _read_json(
-        relay_venv_path(selected.state_dir) / RELAY_RELEASE_RECEIPT_NAME
+        relay_active_release_path(selected.state_dir) / RELAY_RELEASE_RECEIPT_NAME
     )
     pinned = str(receipt.get("pinned_release") or "")
     index = str(receipt.get("distribution_index") or "")
@@ -187,9 +221,21 @@ def relay_release_status(
     if observed_error is not None:
         error_code = observed_error.code
         error_message = str(observed_error)
-    executable = relay_release_executable(selected.state_dir)
-    python = relay_release_python(selected.state_dir)
-    current = bool(executable.is_file() and python.is_file() and pinned and served)
+    launch_executable = relay_launch_executable(selected.state_dir)
+    runtime_executable = relay_runtime_executable(selected.state_dir)
+    runtime_python = relay_runtime_python(selected.state_dir)
+    package_executable = relay_package_executable(selected.state_dir)
+    package_python = relay_package_python(selected.state_dir)
+    package_ready = bool(
+        package_executable.is_file() and package_python.is_file() and pinned and served
+    )
+    current = bool(
+        package_ready
+        and relay_launch_targets_runtime(selected.state_dir)
+        and launch_executable.is_file()
+        and runtime_executable.is_file()
+        and runtime_python.is_file()
+    )
     if current:
         try:
             current = pinned == release_version_from_build(served)
@@ -202,8 +248,10 @@ def relay_release_status(
         pinned_release=pinned,
         served_build=served,
         distribution_index=index,
-        executable=executable,
-        python=python,
+        launch_executable=launch_executable,
+        runtime_executable=runtime_executable,
+        runtime_python=runtime_python,
+        package_ready=package_ready,
         current=current,
         error_code=error_code,
         error_message=error_message,
@@ -242,10 +290,16 @@ __all__ = [
     "RelayReleaseStatus",
     "distribution_index_for_instance",
     "fetch_served_build",
-    "relay_release_executable",
-    "relay_release_python",
+    "relay_active_release_path",
+    "relay_launch_executable",
+    "relay_launch_path",
+    "relay_launch_targets_runtime",
+    "relay_package_executable",
+    "relay_package_python",
     "relay_release_status",
-    "relay_venv_path",
+    "relay_runtime_executable",
+    "relay_runtime_path",
+    "relay_runtime_python",
     "release_version_from_build",
     "write_release_json",
 ]

@@ -14,7 +14,7 @@ def release_status_payload(
     *,
     refresh_served: bool,
 ) -> dict[str, Any]:
-    """Render the venv pin beside the launchd lifecycle state."""
+    """Render the active release pin beside the launchd lifecycle state."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
 
     release = importlib.import_module("yoke_core.tools.session_relay_release")
@@ -49,7 +49,7 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
 
 
 def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None) -> Any:
-    """Run, maintain, and re-pin the daemon from its environment-owned venv."""
+    """Run the selected release on the relay-owned stable runtime."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_inventory import collect_cached_inventory
@@ -64,6 +64,13 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     )
     instance = resolve_relay_instance()
     installed = release.relay_release_status(instance=instance, refresh_served=False)
+    unconverged_launch = release.relay_launch_path(instance.state_dir)
+    if (
+        not installed.current
+        and unconverged_launch.is_symlink()
+        and not release.relay_launch_targets_runtime(instance.state_dir)
+    ):
+        installed = release_install.pin_relay_release(instance=instance)
     if not installed.current:
         code = str(installed.error_code or release.RELAY_RELEASE_INSTALL_FAILED)
         detail = str(
@@ -92,18 +99,18 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         )
 
     running_prefix = Path(sys.prefix).resolve()
-    pinned_prefix = installed.python.parent.parent.resolve()
+    pinned_prefix = installed.runtime_python.parent.parent.resolve()
     if running_prefix != pinned_prefix:
         restart_from_pin(
             ["--env", instance.environment, "relay", "serve"],
-            executable=installed.executable,
+            executable=installed.launch_executable,
         )
 
     def repin(served_build: str):
         return release_install.pin_relay_release(
             instance=instance,
             served_build=served_build,
-        ).executable
+        ).launch_executable
 
     return serve_forever(
         state_dir=instance.state_dir,

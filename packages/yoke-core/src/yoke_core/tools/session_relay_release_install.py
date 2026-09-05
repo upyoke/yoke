@@ -1,4 +1,4 @@
-"""Atomic installer for the environment-pinned machine-relay venv."""
+"""Atomically activate isolated relay packages beside its stable runtime."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ import shutil
 import subprocess
 from typing import Iterator
 import uuid
-import venv
 
 from yoke_cli import manifest
 from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
@@ -22,17 +21,25 @@ from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_FETCH_FAILED,
     RELAY_RELEASE_INSTALL_FAILED,
     RELAY_RELEASE_RECEIPT_NAME,
-    RELAY_VENV_NAME,
+    RELAY_ACTIVE_RELEASE_NAME,
     RelayReleaseError,
     RelayReleaseStatus,
     distribution_index_for_instance,
     fetch_served_build,
-    relay_release_executable,
-    relay_release_python,
+    relay_active_release_path,
+    relay_launch_executable,
+    relay_runtime_executable,
+    relay_runtime_python,
     relay_release_status,
-    relay_venv_path,
     release_version_from_build,
     write_release_json,
+)
+from yoke_core.tools.session_relay_runtime_install import (
+    VenvCreator,
+    activate_relay_runtime,
+    create_release_venv,
+    ensure_relay_runtime,
+    subprocess_failure_detail,
 )
 
 
@@ -41,7 +48,6 @@ RELAY_RELEASE_LOCK_NAME = "release-pin.lock"
 PRODUCT_REQUIREMENT = "yoke-core"
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-VenvCreator = Callable[[Path], None]
 
 
 def pin_relay_release(
@@ -50,9 +56,10 @@ def pin_relay_release(
     served_build: str | None = None,
     fetch_manifest: ManifestFetcher = manifest.fetch_env_manifest,
     create_venv: VenvCreator | None = None,
+    create_runtime: VenvCreator | None = None,
     runner: Runner = subprocess.run,
 ) -> RelayReleaseStatus:
-    """Converge the stable venv symlink without replacing a good pin on failure."""
+    """Converge stable runtime identity and the atomic release pointer."""
     selected = instance or resolve_relay_instance()
     try:
         observed = served_build or fetch_served_build(
@@ -71,8 +78,13 @@ def pin_relay_release(
     try:
         selected.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         with _release_lock(selected.state_dir):
+            runtime_python = ensure_relay_runtime(
+                selected.state_dir,
+                create_runtime=create_runtime,
+            )
             existing = relay_release_status(instance=selected, refresh_served=False)
-            if existing.current and existing.pinned_release == release:
+            if existing.package_ready and existing.pinned_release == release:
+                activate_relay_runtime(selected.state_dir)
                 _clear_failure(selected.state_dir)
                 return _status(selected, release, observed, index)
             _install_candidate(
@@ -80,9 +92,11 @@ def pin_relay_release(
                 release=release,
                 served_build=observed,
                 index=index,
-                create_venv=create_venv or _create_venv,
+                create_venv=create_venv
+                or (lambda path: create_release_venv(path, runtime_python)),
                 runner=runner,
             )
+            activate_relay_runtime(selected.state_dir)
             _clear_failure(selected.state_dir)
     except RelayReleaseError as exc:
         refusal = _with_recovery(selected, exc.code, str(exc))
@@ -92,7 +106,7 @@ def pin_relay_release(
         refusal = _with_recovery(
             selected,
             RELAY_RELEASE_INSTALL_FAILED,
-            f"relay venv install failed: {type(exc).__name__}: {exc}",
+            f"relay release install failed: {type(exc).__name__}: {exc}",
         )
         _record_failure(selected, refusal.code, str(refusal), observed)
         raise refusal from exc
@@ -106,8 +120,10 @@ def _status(
         pinned_release=release,
         served_build=served_build,
         distribution_index=index,
-        executable=relay_release_executable(instance.state_dir),
-        python=relay_release_python(instance.state_dir),
+        launch_executable=relay_launch_executable(instance.state_dir),
+        runtime_executable=relay_runtime_executable(instance.state_dir),
+        runtime_python=relay_runtime_python(instance.state_dir),
+        package_ready=True,
         current=True,
     )
 
@@ -125,7 +141,7 @@ def _install_candidate(
     releases.mkdir(mode=0o700, parents=True, exist_ok=True)
     token = uuid.uuid4().hex
     candidate = releases / token
-    link = instance.state_dir / f".{RELAY_VENV_NAME}-{token}"
+    link = instance.state_dir / f".{RELAY_ACTIVE_RELEASE_NAME}-{token}"
     activated = False
     try:
         create_venv(candidate)
@@ -191,7 +207,7 @@ def _install_candidate(
             },
         )
         link.symlink_to(candidate, target_is_directory=True)
-        os.replace(link, relay_venv_path(instance.state_dir))
+        os.replace(link, relay_active_release_path(instance.state_dir))
         activated = True
     finally:
         if not activated:
@@ -201,10 +217,6 @@ def _install_candidate(
                 pass
             if candidate.exists():
                 shutil.rmtree(candidate, ignore_errors=True)
-
-
-def _create_venv(path: Path) -> None:
-    venv.EnvBuilder(with_pip=True).create(path)
 
 
 @contextmanager
@@ -262,8 +274,7 @@ def _clear_failure(state_dir: Path) -> None:
 
 
 def _command_detail(result: subprocess.CompletedProcess[str]) -> str:
-    value = str(result.stderr or result.stdout or f"exit {result.returncode}").strip()
-    return value[-1200:]
+    return subprocess_failure_detail(result)
 
 
 __all__ = ["pin_relay_release"]

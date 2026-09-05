@@ -25,6 +25,7 @@ from yoke_core.tools.session_relay_plist import (
 from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_FETCH_FAILED,
     RelayReleaseError,
+    relay_launch_executable,
 )
 
 
@@ -67,7 +68,7 @@ def _write_config(tmp_path: Path) -> Path:
 
 
 def _pin_release(*, instance) -> None:
-    executable = instance.state_dir / "venv" / "bin" / "yoke"
+    executable = relay_launch_executable(instance.state_dir)
     executable.parent.mkdir(parents=True, exist_ok=True)
     executable.touch()
 
