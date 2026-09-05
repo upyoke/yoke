@@ -40,9 +40,9 @@ def test_enqueue_records_marker_and_exits_before_poll_or_close_out(monkeypatch):
     assert outcome.commit_sha
     assert "in the merge queue" in announced[0]
     assert "landing_pending=true" in announced[0]
-    assert "only when the watcher selected a verified" in announced[0]
+    assert "only when the watcher selected a" in announced[0]
     assert "background-wake route" in announced[0]
-    assert "reachability-routed watcher with --wait" in announced[0]
+    assert "wake-routed watcher with --wait" in announced[0]
     assert "until the landing-complete notification" not in announced[0]
 
 

@@ -40,10 +40,12 @@ close-out, exactly as it does for any landed-but-not-closed-out item. A stopped
 landing arrives the same way and names its recovery.
 
 **Every other session waits.** The watcher invocation's safe wait shape is
-resolved from the calling session's manifest wake capability and current
-control-plane reachability, never from who opened the session or its executor
-name. A verified wake route preserves the background subscription; no route, or
-an unknown answer, keeps the wait in the current turn.
+resolved from the calling session's manifest wake capability, never from who
+opened the session, its executor name, or whether Yoke can reach it over a
+relay. A native idle-wake primitive preserves the background subscription; a
+harness with no or unverified idle wake keeps the wait in the current turn.
+The primitive resumes the turn in place, so a desktop conversation waits
+exactly as its CLI sibling does.
 
 Either way the first call opens / rebases / arms the pull request and returns
 `landing_pending=true`, which means GitHub itself reported that it holds the
@@ -56,7 +58,7 @@ checks have already concluded red each refuse instead and name which of
 those four it saw. A red required check refuses before anything is armed,
 and names the check and its run.
 
-**Reachability-routed wait.** Pass `--wait` through the merge watcher wrapper.
+**Wake-routed wait.** Pass `--wait` through the merge watcher wrapper.
 A relay-launched session takes the arm-and-stop handoff above instead, so
 nothing below applies to it. On each documented cadence the waiting client calls
 `merge_queue.landing.observe`. The server rate-limits concurrent callers to
@@ -83,10 +85,11 @@ step. Leave that holder running and keep this invocation open: the merge waits
 through one more bounded replacement window and continues when the tunnel is
 free.
 
-- `background-wake` means the caller has a verified route. The selector exits
-  after printing the bound background command and subscription; run that pair
-  exactly once on the long-command surface your harness rules name. A
-  completion wake is expected only because the mode line recorded that route.
+- `background-wake` means the caller's harness can resume an ended turn. The
+  selector exits after printing the bound background command and subscription;
+  run that pair exactly once on the long-command surface your harness rules
+  name. A completion wake is expected only because the mode line recorded that
+  primitive.
 - `in-turn` means the same invocation is already holding the foreground wait
   and will not return until landing finishes. No later completion notice is
   expected. On Claude, set the Bash tool's `timeout` to `600000` on every

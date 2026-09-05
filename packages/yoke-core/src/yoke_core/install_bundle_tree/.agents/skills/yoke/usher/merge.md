@@ -215,10 +215,11 @@ A preflight refusal whose only issues are missing or stale commit-bound verdicts
 **Streaming-wrapper form:** A merge is a long command, so per the Command
 Output streaming rule it runs under the watcher wrapper. The canonical call
 above includes `--wait` and reports its safe wait mode from the caller's
-manifest capability plus current reachability: a verified route gets the
-background subscription pair; no route, or an unknown answer, stays in-turn
-until the command finishes. Do not choose from the executor, launch origin, or
-whether a person opened the session.
+manifest wake capability: a native idle-wake primitive gets the background
+subscription pair; a harness with no or unverified idle wake stays in-turn
+until the command finishes. Do not choose from the executor, launch origin,
+whether a person opened the session, or whether Yoke can reach it over a
+relay.
 
 **Queue wait:** follow the reported mode exactly as
 [`../dash/verification-and-close.md`](../dash/verification-and-close.md)

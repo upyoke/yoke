@@ -1,11 +1,21 @@
 """Choose whether a watcher may release its caller's model turn.
 
-The background streaming shape is safe only when the current session can be
-resumed after watcher output or completion.  The session roster already owns
-that reachability answer, while the harness wake registry owns whether the
-model-facing runtime has an idle-wake primitive.  A missing fact holds the
-turn: waiting too long is recoverable; returning to a caller that cannot be
-woken is not.
+The background streaming shape is safe only when the model-facing runtime can
+resume a turn that has already ended.  That is a property of the harness the
+conversation runs in — its own native background-command notification
+primitive — so the harness wake registry is the sole authority for an
+interactive caller.  Yoke's ability to reach the session over a relay is a
+different question and does not gate this one: Claude's ``Monitor`` and
+Cursor's ``notify_on_output`` resume the turn in place, needing nothing from
+the control plane.  The registry records capability per harness family, so a
+desktop conversation selects exactly what its CLI sibling does.
+
+A relay-launched worker is the one caller that cannot be resumed in place,
+because it is a headless command whose turn is its whole life.  That case is
+settled from the launch context before any harness fact is read.
+
+A missing fact holds the turn: waiting too long is recoverable; returning to a
+caller that cannot be woken is not.
 """
 
 from __future__ import annotations
@@ -48,10 +58,10 @@ def _background(reason: str, mechanism: str) -> WatchWaitMode:
 
 
 def wait_mode_for_session(row: Mapping[str, Any] | None) -> WatchWaitMode:
-    """Choose a wait mode from one complete ``sessions.list`` roster row."""
+    """Choose a wait mode from the harness named by one roster row."""
     if row is None:
         return _in_turn(
-            "session reachability is unknown because sessions.list returned no row"
+            "harness identity is unknown because sessions.list returned no row"
         )
 
     executor = str(row.get("executor") or "").strip()
@@ -59,7 +69,7 @@ def wait_mode_for_session(row: Mapping[str, Any] | None) -> WatchWaitMode:
         harness_id = canonical_harness_id(executor)
     except ValueError:
         return _in_turn(
-            f"session reachability is unknown for executor {executor or '<empty>'}"
+            f"harness identity is unknown for executor {executor or '<empty>'}"
         )
 
     wake = wake_capability_for_harness(harness_id)
@@ -67,37 +77,15 @@ def wait_mode_for_session(row: Mapping[str, Any] | None) -> WatchWaitMode:
         return _in_turn(f"{harness_id} records agent_wake.idle_wake=none")
     if wake.idle_wake != "supported":
         return _in_turn(f"{harness_id} agent_wake.idle_wake is unverified")
-
-    routing = row.get("messageability")
-    if not isinstance(routing, Mapping):
-        return _in_turn(
-            "session reachability is unknown because messageability is absent"
-        )
-    surface = str(row.get("executor_surface") or "unknown-surface")
-    if routing.get("wake_authority") == "operator":
-        return _in_turn(
-            f"{surface} is operator-woken and has no autonomous completion wake"
-        )
-
-    available = routing.get("wake_available")
-    route_reason = str(routing.get("reason") or "unspecified")
-    if available is True:
-        return _background(
-            f"sessions.list reports a reachable wake route for {surface}",
-            wake.idle_wake_mechanism,
-        )
-    if available is False and route_reason not in {
-        "unknown_surface",
-        "version_below_floor_or_unknown",
-    }:
-        return _in_turn(
-            f"sessions.list reports no wake route for {surface} ({route_reason})"
-        )
-    return _in_turn(f"session reachability is unknown for {surface} ({route_reason})")
+    return _background(
+        f"{harness_id} records agent_wake.idle_wake=supported "
+        f"via {wake.idle_wake_mechanism}",
+        wake.idle_wake_mechanism,
+    )
 
 
 def _current_session_row() -> Mapping[str, Any] | None:
-    """Read this caller's authoritative roster projection."""
+    """Read the roster row that names which harness this caller runs in."""
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         build_actor,
@@ -112,7 +100,7 @@ def _current_session_row() -> Mapping[str, Any] | None:
         target=TargetRef(kind="global"),
         payload={"session_id": actor.session_id},
         actor=actor,
-        intent="choose watcher wait mode from caller reachability",
+        intent="choose watcher wait mode from the caller's harness",
     )
     if not response.success:
         return None
@@ -141,9 +129,9 @@ def resolve_wait_mode(
         return _in_turn("relay launch context marks this caller as a headless command")
     try:
         row = session_reader()
-    except Exception as exc:  # noqa: BLE001 - unknown reachability waits safely
+    except Exception as exc:  # noqa: BLE001 - an unknown harness waits safely
         return _in_turn(
-            "session reachability lookup failed "
+            "harness identity lookup failed "
             f"({type(exc).__name__}); keeping the wait in this turn"
         )
     return wait_mode_for_session(row)

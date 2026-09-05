@@ -2,12 +2,13 @@
 
 A relay-launched session never waits: its merge arms the landing and returns,
 and the control-plane notice re-enters it for close-out. Every other caller
-waits, and is released to a background subscription only with a verified wake
-route — operator-opened and unknown surfaces must not be assumed reachable.
-These tests hold the Dash close-out steps, usher merge step, worker mandate,
-packet recipe, and watcher help to that split and to every terminal wait
-outcome. The in-turn wait consumes a cadence-limited server record rather
-than repeating GitHub reads on the worker machine.
+waits, and is released to a background subscription only when its harness has
+a native idle-wake primitive — a fact about the harness, not about whether
+Yoke can reach the session over a relay. These tests hold the Dash close-out
+steps, usher merge step, worker mandate, packet recipe, and watcher help to
+that split and to every terminal wait outcome. The in-turn wait consumes a
+cadence-limited server record rather than repeating GitHub reads on the worker
+machine.
 """
 
 from __future__ import annotations
@@ -58,6 +59,21 @@ RETIRED_BLANKET_PROHIBITIONS = (
     "process-safe operators and Codex/Cursor, never Claude",
 )
 
+# Wait selection keyed on Yoke's own relay reachability rather than on the
+# harness primitive that actually resumes the turn. A surface still carrying
+# one holds a natively wakeable conversation foreground for nothing, because
+# Monitor and notify_on_output need no control-plane route to fire.
+RETIRED_REACHABILITY_GATING = (
+    "manifest wake capability and current control-plane reachability",
+    "manifest capability plus current reachability",
+    "a verified wake route gets the background",
+    "a verified route gets the background subscription",
+    "callers with no or unknown reachability stay in-turn",
+    "no or unknown wake route stays in-turn",
+    "no route, or an unknown answer, keeps the wait",
+    "Reachability-routed wait.",
+)
+
 
 def _words(text: str) -> str:
     """Collapse wrapping so prose assertions do not depend on line breaks."""
@@ -95,14 +111,20 @@ def test_dash_close_out_hands_a_launched_landing_to_its_notice():
     assert "The control-plane landing notice wakes you" in content
 
 
-def test_dash_close_out_routes_every_other_landing_by_derived_reachability():
+def test_dash_close_out_routes_every_other_landing_by_harness_wake_capability():
     content = _words(_read(DASH_CLOSE))
     assert "**Every other session waits.**" in content
-    assert "manifest wake capability and current control-plane reachability" in content
-    assert "never from who opened the session or its executor name" in content
-    assert "A verified wake route preserves the background subscription" in content
-    assert "no route, or an unknown answer, keeps the wait" in content
-    assert "Reachability-routed wait." in content
+    assert "resolved from the calling session's manifest wake capability" in content
+    assert (
+        "never from who opened the session, its executor name, or whether "
+        "Yoke can reach it over a relay" in content
+    )
+    assert "A native idle-wake primitive preserves the background subscription" in (
+        content
+    )
+    assert "harness with no or unverified idle wake keeps the wait" in content
+    assert "a desktop conversation waits exactly as its CLI sibling does" in content
+    assert "Wake-routed wait." in content
     assert "A relay-launched session takes the arm-and-stop handoff above" in content
     assert (
         "yoke watch merge --print-streaming-pair merge-item -- ITEM --wait" in content
@@ -111,7 +133,9 @@ def test_dash_close_out_routes_every_other_landing_by_derived_reachability():
     assert "armed, queued, eligible, required checks" in content
     assert "never needs a hand-authored `gh` poll loop" in content
     assert "Read the wrapper's `wait_mode` and reason" in content
-    assert "`background-wake` means the caller has a verified route" in content
+    assert "`background-wake` means the caller's harness can resume an ended turn" in (
+        content
+    )
     assert "`in-turn` means the same invocation is already holding" in content
     assert "No later completion notice is expected" in content
     assert "yoke github merge-queue readiness ITEM --json" in content
@@ -124,7 +148,7 @@ def test_dash_close_out_routes_every_other_landing_by_derived_reachability():
 
 
 def test_dash_close_out_names_every_way_the_in_turn_wait_ends():
-    wait = _read(DASH_CLOSE).split("**Reachability-routed wait.**", 1)[1]
+    wait = _read(DASH_CLOSE).split("**Wake-routed wait.**", 1)[1]
     # Merged closes the item out inside the same turn — no second pass.
     merged = _outcome(wait, "merged")
     assert "exit 0" in merged
@@ -156,7 +180,9 @@ def test_dash_close_out_names_every_way_the_in_turn_wait_ends():
 
 def test_usher_merge_step_routes_the_landing_the_same_way():
     content = _words(_read(USHER_MERGE))
-    assert "manifest capability plus current reachability" in content
+    assert "safe wait mode from the caller's manifest wake capability" in content
+    assert "a native idle-wake primitive gets the background subscription" in content
+    assert "harness with no or unverified idle wake stays in-turn" in content
     assert "Do not choose from the executor, launch origin" in content
     assert "dash/verification-and-close.md" in content
     assert "Only `background-wake` may release the selector" in content
@@ -193,33 +219,37 @@ def test_worker_lifecycle_copy_of_the_mandate_matches_the_composed_one():
 def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
     notes = _merge_recipe()["notes"]
     assert "A relay-launched session ignores --wait" in notes
-    assert "verified wake route" in notes
-    assert "callers with no or unknown reachability stay in-turn" in notes
+    assert "only for a harness with a native idle-wake primitive" in notes
+    assert "callers with no or unverified idle wake stay in-turn" in notes
     assert "yoke github merge-queue readiness PREFIX-N --json" in notes
     assert "null arming with an entry means consumed" in notes
+    # Phrases stay inside one source line: this reads the module text, where
+    # adjacent string literals keep their quotes and escapes.
     epilog = _words(_read(WATCH_MERGE_SOURCE))
-    assert "a verified wake route gets the background" in epilog
-    assert "headless, unreachable, or unknown callers stay in-turn" in epilog
+    assert "a native idle-wake primitive gets the" in epilog
+    assert "with no or unverified idle wake, stay in-turn." in epilog
 
 
 def test_command_reference_conditions_any_later_completion_message():
     for path in (COMMAND_REFERENCE, BUNDLE_COMMAND_REFERENCE):
         content = _words(_read(path))
-        assert (
-            "manifest wake capability and current control-plane reachability" in content
+        assert "The shared selector reads the caller's manifest wake capability" in (
+            content
         )
-        assert "a verified route gets the background subscription" in content
-        assert "no route or an unknown answer blocks in-turn" in content
+        assert "a native idle-wake primitive gets the background subscription" in (
+            content
+        )
+        assert "harness with no or unverified idle wake blocks in-turn" in content
         assert "rely on a later completion message only when" in content
 
 
-def test_merge_wait_help_routes_from_reachability_not_executor_name():
+def test_merge_wait_help_routes_from_harness_capability_not_executor_name():
     help_text = _words(build_parser().format_help())
     assert "Ignored for a relay-launched session" in help_text
     assert "the landing notice wakes it for close-out" in help_text
     assert "watch merge wrapper" in help_text
-    assert "no or unknown wake route stays in-turn" in help_text
-    assert "only a verified route may release" in help_text
+    assert "no or unverified idle wake stays in-turn" in help_text
+    assert "only a native idle-wake primitive may release" in help_text
     assert "Codex/Cursor" not in help_text
 
 
@@ -239,4 +269,6 @@ def test_no_teaching_surface_still_carries_the_retired_blanket_prohibition():
     for path in surfaces:
         content = _read(path)
         for retired in RETIRED_BLANKET_PROHIBITIONS:
+            assert retired not in content, f"{path} still teaches {retired!r}"
+        for retired in RETIRED_REACHABILITY_GATING:
             assert retired not in content, f"{path} still teaches {retired!r}"

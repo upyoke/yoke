@@ -81,14 +81,15 @@ examples:
   yoke watch fleet --print-streaming-pair -- --project yoke
 
 `--print-streaming-pair` chooses between two invocation shapes from the
-calling session's derived roster reachability and manifest wake fact:
+calling session's manifest wake fact:
 
-  with a verified wake route: it reports `wait_mode=background-wake` and
-  prints a background wrapper plus `yoke watch tail` subscription. The
+  with a native idle-wake primitive: it reports `wait_mode=background-wake`
+  and prints a background wrapper plus `yoke watch tail` subscription. The
   subscription exits on the wrapper's sentinel and may wake the caller.
 
-  without a route, or when reachability is unknown: it reports
-  `wait_mode=in-turn` and immediately runs the wrapper foreground,
+  as a headless relay-launched worker, or with no or unverified idle
+  wake: it reports `wait_mode=in-turn` and immediately runs the wrapper
+  foreground,
   bounding the pass with `--duration` so it returns to the caller. A
   foreground pass sees every line the armed shape would, only inside one
   turn instead of across idle time.

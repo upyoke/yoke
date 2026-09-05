@@ -200,8 +200,8 @@ examples:
       Narrow to named checks.
 
   yoke watch doctor --print-streaming-pair -- --quick
-      Select the safe wait: a reachable caller gets the background pair;
-      a caller with no or unknown wake route stays in-turn until completion.
+      Select the safe wait: a native idle-wake primitive gets the background
+      pair; no or unverified idle wake stays in-turn until completion.
 
 Scope is required: pass exactly one of ``--quick``, ``--full``, or
 ``--only <slug[,slug...]>``. ``--project NAME`` targets another project,
