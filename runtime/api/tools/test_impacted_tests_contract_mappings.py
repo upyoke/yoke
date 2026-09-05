@@ -32,6 +32,21 @@ def test_atlas_consumers_are_on_the_generated_artifact_floor() -> None:
     assert expected <= set(impacted_tests.ALWAYS_RUN_TESTS)
 
 
+def test_harness_manifest_parity_survives_bounded_document_deferral(
+    tmp_path: Path,
+) -> None:
+    changed = "docs/harness-substrate.md"
+    consumer = "runtime/api/test_harness_cli_manifest.py"
+    _write(tmp_path, changed, "Harness resume contract\n")
+    for test_path in {*impacted_tests.ALWAYS_RUN_TESTS, consumer}:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select([changed], build_import_index(tmp_path), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert consumer in selection.files
+
+
 def test_contract_companions_survive_bounded_shared_fixture_deferral(
     tmp_path: Path,
 ) -> None:

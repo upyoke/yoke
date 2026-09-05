@@ -132,6 +132,9 @@ def resume_selection_for_facts(
         normalized_effort = None
     if context not in SURFACE_CONTEXT_WINDOWS.get(surface, ()):
         context = None
+    if surface == "cursor-cli" and normalized_model is None:
+        normalized_effort = None
+        context = None
     return LaunchModelSelection(normalized_model, normalized_effort, context)
 
 

@@ -100,20 +100,26 @@ A wake always targets the existing native conversation identity. Model
 selection follows the thin per-surface contract exposed by
 `launch_model_selection_manifest` as `resume_selection`:
 
-- Claude CLI and Cursor CLI use `native`: their resume commands restore the
-  conversation's latest model selection, so Yoke omits model, effort, and
-  context selectors. An explicit selector would overwrite a legitimate model
-  change made after launch.
-- Codex CLI uses `explicit`: its resume process reads ambient user config
-  again, so Yoke passes the target session's current attested model and any
-  effort the surface can express. Codex has no resume context-window knob, so
-  that fact is not sent.
+- Claude CLI uses `native`: its resume command restores the conversation's
+  latest model selection, so Yoke omits model, effort, and context selectors.
+- Codex CLI and Cursor CLI use `explicit`: Yoke passes the target session's
+  current attested model and the effort/context knobs the surface can express.
+  Codex reads ambient user config again. Cursor restores last-used-model
+  metadata written by interactive turns but not by print-mode turns, and its
+  parameter restoration reads shared configuration. Omission therefore cannot
+  preserve selection for every relay-owned conversation. Codex has no resume
+  context-window knob, so that fact is not sent.
 
 Before a provider has attested any served fact, explicit replay may use the
 stored launch request. After the first attestation, omissions are part of the
 current truth: Yoke never fills them from the older request or from relay
 machine preferences. Unsupported fields stay absent rather than being
 silently translated into a different selection.
+
+Claude Desktop, Codex Desktop, and Cursor Desktop declare operator-owned
+wakes and no native stopped-session resume. Their pending messages arrive
+through a hook when the operator continues the existing chat; Yoke does not
+start a separate native turn or apply a model selector to those windows.
 
 ## SessionEnd defense: claim- and chain-aware refusal
 

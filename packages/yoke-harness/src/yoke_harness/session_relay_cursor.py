@@ -226,9 +226,7 @@ def build_cursor_adapter(
             target_liveness=context.target_liveness,
             wake_mode=wake_mode,
             native_instruction=context.native_instruction,
-            # Cursor resume restores the conversation's latest selection.
-            # Sending a selector here would overwrite an in-session change.
-            requested_model=None,
+            requested_model=cursor_model_selector(context),
             attempt_id=str(context.job_id),
             lease_id=str(context.lease_id),
         )

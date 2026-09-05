@@ -12,6 +12,7 @@ GENERATED_ARTIFACT_PARITY_TESTS = (
     "runtime/api/domain/test_path_context.py",
     "runtime/api/cli/test_yoke_product_boundary_github_actions_wait_run.py",
     "runtime/api/domain/test_agents_render.py",
+    "runtime/api/test_harness_cli_manifest.py",
     "runtime/api/engines/test_doctor_agent_drift.py",
     "runtime/api/domain/test_install_bundle.py",
     "runtime/api/domain/test_install_bundle_tree_sync.py",

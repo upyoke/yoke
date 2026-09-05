@@ -69,7 +69,7 @@ ResumeSelectionMode = Literal["native", "explicit"]
 RESUME_SELECTION_MODES: Mapping[str, ResumeSelectionMode] = {
     "claude-cli": "native",
     "codex-cli": "explicit",
-    "cursor-cli": "native",
+    "cursor-cli": "explicit",
 }
 
 

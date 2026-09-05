@@ -106,7 +106,7 @@ not author a second capability matrix.
 | `surfaces` | object | Closed mapping for only this harness family's known surfaces. |
 | `inline_context_source` | string | Canonical Python contract for the inline hook-context ceiling. |
 | `inline_context_bytes` | integer | That ceiling in bytes; runtime composition reads the Python contract, not this JSON. |
-| `launch_model_selection` | object | Accepted launch-time model knobs and their exact native CLI encodings, projected from the shared model-selection contract. |
+| `launch_model_selection` | object | Accepted model knobs, exact native CLI encodings, and the resume selection mode, projected from the shared model-selection contract. |
 
 Each surface value carries `minimum_version`, `inject_events`, `create`,
 `message_active`, `message_idle`, `message_stopped`,
@@ -157,6 +157,12 @@ encoding for each knob. An encoding of `null` means the surface cannot express
 that knob; preview refuses it instead of dropping it. Cursor's model catalog is
 read from `cursor-agent --list-models`, while the other two CLI catalogs are
 documented in the shared contract.
+
+Its `resume_selection` is `native` when the CLI restores the conversation's
+selection, `explicit` when the relay must replay current session facts, and
+`null` when no resume model contract is declared. Claude CLI uses native
+restoration; Codex CLI and Cursor CLI use explicit replay. Desktop surfaces
+remain governed by their operator-owned wake authority.
 
 ## Agent wake
 
