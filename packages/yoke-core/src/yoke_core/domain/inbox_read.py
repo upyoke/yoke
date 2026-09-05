@@ -64,7 +64,7 @@ def inbox_for_actor(
     reads them from this one authority rather than a second one.
     """
     dispose_ended_decision_requests(conn, project_ids=project_ids)
-    settle_operator_wake_notices(conn)
+    settle_operator_wake_notices(conn, actor_id=actor_id)
     decisions = pending_requests_for_actor(
         conn,
         actor_id,

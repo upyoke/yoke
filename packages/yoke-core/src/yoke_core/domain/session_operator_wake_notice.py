@@ -30,7 +30,13 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_message_recipients import ResolvedActorRecipient
+from yoke_core.domain.actor_message_recipient_schema import (
+    TABLE as ACTOR_RECIPIENT_TABLE,
+)
+from yoke_core.domain.actor_message_recipients import (
+    ACTOR_KIND,
+    ResolvedActorRecipient,
+)
 from yoke_core.domain.actor_render import actor_render_label
 from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE, seed_system_actor
 from yoke_core.domain.session_message_authorization import project_policy
@@ -56,6 +62,15 @@ def wake_notice_settled_reason(row: Mapping[str, Any]) -> str | None:
     send" evidence a native escalation reads. Naming which one answered is
     what the settled notice records, so a reader learns why the card went
     away rather than only that it did.
+
+    The names are held apart on purpose. A receipt that left ``pending``,
+    or that a hook attached, is the message actually arriving. A tool call
+    after the send is a weaker fact: it proves the person came back to that
+    chat, which is exactly what the notice asked them to do, while the
+    envelope itself is still waiting on a delivery defect with its own
+    probe record. Settling on ``conversation_resumed`` retires the ask
+    without claiming a delivery that has not happened, and nothing here
+    touches the original receipt either way.
     """
     if native_wake_supported(str(row.get("executor_surface") or "")):
         return "surface_wakes_natively"
@@ -68,7 +83,9 @@ def wake_notice_settled_reason(row: Mapping[str, Any]) -> str | None:
     state = str(row.get("state") or "")
     if state and state != "pending":
         return f"original_{state}"
-    return "original_delivered"
+    if int(row.get("injection_count") or 0) > 0:
+        return "original_injected"
+    return "conversation_resumed"
 
 
 def operator_wake_notice_due(
@@ -175,12 +192,23 @@ def _noticed_envelope(idempotency_key: str) -> tuple[str, str] | None:
     return parts[1], parts[2]
 
 
-def _standing_notices(conn: Any) -> list[dict[str, Any]]:
+def _standing_notices(conn: Any, *, actor_id: int) -> list[dict[str, Any]]:
+    """Notices still presented to one person, and nobody else's.
+
+    Convergence happens where an Inbox is composed, so it is bounded by the
+    Inbox being composed: the reader's own pending actor receipts. Sweeping
+    every standing notice in the universe on a per-person read would make
+    one person's page load do work on behalf of everyone.
+    """
     marker = _p(conn)
     rows = conn.execute(
-        "SELECT message_id, idempotency_key FROM session_messages "
-        f"WHERE cancelled_at IS NULL AND idempotency_key LIKE {marker}",
-        (f"{NOTICE_IDEMPOTENCY_PREFIX}:%",),
+        "SELECT m.message_id AS message_id, "
+        "m.idempotency_key AS idempotency_key FROM session_messages m "
+        f"JOIN {ACTOR_RECIPIENT_TABLE} r ON r.message_id = m.message_id "
+        f"WHERE m.cancelled_at IS NULL AND m.idempotency_key LIKE {marker} "
+        f"AND r.recipient_kind = {marker} AND r.actor_id = {marker} "
+        f"AND r.state = {marker}",
+        (f"{NOTICE_IDEMPOTENCY_PREFIX}:%", ACTOR_KIND, int(actor_id), "pending"),
     ).fetchall()
     return [dict(row) for row in rows]
 
@@ -226,20 +254,26 @@ def _envelope_settled_reason(
     return wake_notice_settled_reason(receipt)
 
 
-def settle_operator_wake_notices(conn: Any, *, now: datetime | None = None) -> int:
-    """Cancel every standing notice whose envelope no longer needs a wake.
+def settle_operator_wake_notices(
+    conn: Any,
+    *,
+    actor_id: int,
+    now: datetime | None = None,
+) -> int:
+    """Cancel this person's standing notices whose envelope needs no wake.
 
     Called wherever the Inbox is composed, for the same reason the ended
     decision sweep is: rendering is when a card that asks for nothing does
     its damage. Cancelling keeps the notice and its reason on record while
-    taking it out of the Inbox, and it touches only messages this module
-    raised -- a person's own waiting decision is never dismissed here.
+    taking it out of the Inbox, and it touches only the notices this module
+    raised for ``actor_id`` -- another person's notice, and anyone's own
+    waiting decision, are never dismissed here.
     """
     from yoke_core.domain.session_message_store import cancel_message_rows
 
     current = now or datetime.now(timezone.utc)
     settled = 0
-    for notice in _standing_notices(conn):
+    for notice in _standing_notices(conn, actor_id=actor_id):
         noticed = _noticed_envelope(notice["idempotency_key"])
         if noticed is None:
             continue

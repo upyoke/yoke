@@ -107,8 +107,12 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
     )
     monkeypatch.setattr(
         inbox_read,
+        "settle_operator_wake_notices",
+        lambda *_args, **_kwargs: 0,
+    )
+    monkeypatch.setattr(
+        inbox_read,
         "pending_requests_for_actor",
-
         lambda *_args, **_kwargs: [
             {"kind": "machine_approval"},
             {"kind": "qa_needs_review"},
@@ -129,9 +133,7 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
     )
 
     assert outcome.primary_success is True
-    assert outcome.result_payload["needs_decision"] == [
-        {"kind": "qa_needs_review"}
-    ]
+    assert outcome.result_payload["needs_decision"] == [{"kind": "qa_needs_review"}]
     assert outcome.result_payload["messages"] == []
     assert outcome.result_payload["pending_actor_message_count"] == 0
 

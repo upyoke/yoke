@@ -70,9 +70,14 @@ def test_claims_packet_teaches_scoped_steering_claim_lifecycle() -> None:
     assert "items linked to that document in item_strategy_docs" in body
     assert "Strategy-document locks remain in strategy_doc_claims" in body
     assert (
-        "yoke claims steering acquire --project P [--doc SLUG] [--reason TEXT]" in body
+        "yoke claims steering acquire --project P "
+        "[--doc SLUG | --plan-doc SLUG] [--reason TEXT]" in body
     )
-    assert "the seat covers exactly that document's linked items" in body
+    assert "narrows the seat to that document's linked items and locks it" in body
+    assert (
+        "`--plan-doc` locks the standing plan while the seat still covers "
+        "the whole project" in body
+    )
     assert "releases the paired document too" in body
     assert "yoke claims steering list --project P --active-only" in body
     assert "yoke claims steering release CLAIM_ID --reason TEXT" in body
