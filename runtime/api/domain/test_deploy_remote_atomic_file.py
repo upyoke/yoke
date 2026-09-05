@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import fcntl
+import os
 import subprocess
+import time
 
 import pytest
 
@@ -196,6 +199,58 @@ class TestPushRemoteFile:
         assert not list(tmp_path.glob(f"{target.name}.*.tmp"))
         assert not list(tmp_path.glob(f".{target.name}.*.tmp"))
         assert not (tmp_path / f"{target.name}.lock").exists()
+
+    def test_writer_waiting_on_a_lock_the_holder_unlinks_takes_a_live_lock(
+        self,
+        tmp_path,
+    ):
+        target = tmp_path / "github-app-private-key.pem"
+        lock = tmp_path / f"{target.name}.lock"
+        runner = FakeRunner()
+        push_remote_file(
+            runner,
+            _env(),
+            content="unused",
+            remote_path=str(target),
+            mode="600",
+            sudo=False,
+        )
+        command = runner.calls[0]["argv"][-1]
+        # Stand in for a holder that finishes and unlinks its lock while the
+        # writer is still queued behind it.
+        held = os.open(lock, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
+        fcntl.flock(held, fcntl.LOCK_EX)
+        writer = subprocess.Popen(
+            ["sh", "-c", command],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            time.sleep(1)
+            os.unlink(lock)
+        finally:
+            os.close(held)
+
+        deadline = time.monotonic() + 20
+        while not lock.exists() and writer.poll() is None:
+            if time.monotonic() > deadline:
+                # The writer only reads stdin once it holds a lock, so draining
+                # its pipes means ending it first.
+                writer.kill()
+                break
+            time.sleep(0.05)
+        if not lock.exists():
+            raise AssertionError(
+                "writer kept a detached lock instead of the live one: "
+                + writer.communicate()[1]
+            )
+
+        _written, refusal = writer.communicate("current-key\n", timeout=20)
+        assert writer.returncode == 0, refusal
+        assert target.read_text(encoding="utf-8") == "current-key\n"
+        assert not lock.exists()
 
     def test_remove_cleans_target_and_stranded_writer_temp(self, tmp_path):
         target = tmp_path / "github-app-private-key.pem"
