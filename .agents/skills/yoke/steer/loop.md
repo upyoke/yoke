@@ -110,10 +110,11 @@ What the report gives you is a finding; what to do with each one is yours:
   sweep releases its claims and the item reads as untouched, so a holder
   near reclaim is revived before anything else in the pass.
 - **In flight** — inside a watcher or merge landing wait: quiet because the command holds the turn, so nothing to do. For queue liveness use `yoke github merge-queue readiness PREFIX-N --json`; its named queue-entry state distinguishes consumed arming from a true clear. Past 45m it rejoins **Idle holders**.
-- **Starved delivery** — read which shape the row is. *no delivery attempted*
-  means the plane owed a wake and made none; *last attempt failed (reason)*
-  names a refusal to fix, and one reason repeating across a machine's rows is
-  that relay. The reason is a code; the diagnosis behind it sits on the
+- **Undelivered messages** — every envelope nobody has read yet, and the row
+  names which of three kinds it is. **You owe a move** on *no delivery
+  attempted* (the plane owed a wake and made none) and on *last attempt failed
+  (reason)* (a refusal to fix; one reason repeating across a machine's rows is
+  that relay). The reason is a code; the diagnosis behind it sits on the
   recipient's machine, so pull it with the row's own `evidence` clause before
   guessing — it round-trips through that machine's relay and is read-only:
 
@@ -121,10 +122,14 @@ What the report gives you is a finding; what to do with each one is yours:
   yoke session-control evidence get --session {SESSION_ID}
   ```
 
-  *recipient turn in flight* is no failure: the worker is inside an
-  unreturned tool call, the envelope lands on that call's own hook, and a wake
-  would start a second turn — leave it. Otherwise use the wake or **Revive**
-  bridge below.
+  **Still on its way, so leave it** — *delivery attempt in flight*, *queued
+  for the recipient's next hook*, and *recipient turn in flight* all end in
+  *waiting*: none is a failure, and a wake would start a second turn.
+  **Beyond reach** — *recipient session ended* or *terminated* means the
+  envelope was addressed to a session that no longer exists and *no delivery
+  route remains*; the row proposes nothing because nothing can be done to
+  that session. Re-send the content to whoever should have it now. For the
+  two you owe, use the wake or **Revive** bridge below.
 - **Vendor-stopped sessions** — the model provider ended that worker's turn,
   not the worker. The end of the row says who moves next: an attempt and a
   time is the relay's, so leave it. A row naming you has no retry coming — an

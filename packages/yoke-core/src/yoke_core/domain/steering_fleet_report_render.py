@@ -19,7 +19,9 @@ from yoke_core.domain.steering_fleet_report_render_launches import (
     abandoned_launch_lines,
     unregistered_launch_lines,
 )
-from yoke_core.domain.steering_fleet_report_render_starved import starved_lines
+from yoke_core.domain.steering_fleet_report_render_undelivered import (
+    undelivered_lines,
+)
 from yoke_core.domain.steering_fleet_report_render_text import (
     OVERDUE_MARK,
     SECTION_LIMIT,
@@ -168,8 +170,9 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             _holder_lines(report.suspected_orphaned_waiters, with_wake=True),
         ),
         *_section(
-            "starved delivery — sent, never injected, recipient silent since",
-            starved_lines(report),
+            "undelivered messages — sent, not yet read, with why each is "
+            "waiting, failed, or lost",
+            undelivered_lines(report),
         ),
         *_section(
             "vendor-stopped sessions — turn ended by the model provider, not "

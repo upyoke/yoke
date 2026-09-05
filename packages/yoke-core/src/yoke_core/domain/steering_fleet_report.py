@@ -74,9 +74,9 @@ from yoke_core.domain.steering_fleet_report_in_flight import (
     InFlightCall,
     partition_quiet,
 )
-from yoke_core.domain.steering_fleet_report_starvation import (
-    StarvedDelivery,
-    starved_deliveries,
+from yoke_core.domain.steering_fleet_report_undelivered import (
+    UndeliveredMessages,
+    undelivered_messages,
 )
 from yoke_core.domain.steering_fleet_report_abandoned import (
     AbandonedLaunch,
@@ -129,7 +129,7 @@ class FleetReport:
     available: tuple[FrontierEntry, ...]
     holders: tuple[ClaimHolder, ...]
     idle: tuple[ClaimHolder, ...]
-    starved: tuple[StarvedDelivery, ...]
+    undelivered: tuple[UndeliveredMessages, ...]
     unregistered_launches: tuple[UnregisteredLaunch, ...]
     landed_open: tuple[LandedItem, ...]
     dead_waits: tuple[DeadWait, ...]
@@ -166,17 +166,19 @@ class FleetReport:
             if entry.waiting_seconds(self.composed_at) >= self.staffing_after_seconds
         )
 
-    def starved_needing_action(self) -> tuple[StarvedDelivery, ...]:
-        """Starved deliveries the seat can actually do something about.
+    def undelivered_needing_action(self) -> tuple[UndeliveredMessages, ...]:
+        """Undelivered envelopes the seat can actually do something about.
 
-        A recipient inside an unreturned tool call is reported so the seat
-        can see why its envelope is waiting, but it is not work: the call's
-        own completion hook will deliver it, and resuming that session
-        would start a second turn on the same conversation. Counting it as
-        actionable would raise the alarm for the whole length of every long
-        call, which is how a real finding gets lost.
+        Most of the section is reported so the seat can see why an envelope
+        is waiting, not because it is work. A recipient inside an unreturned
+        tool call has a hook coming, and resuming that session would start a
+        second turn on the same conversation; a recipient still inside the
+        delivery window is simply mid-delivery; a recipient that has ended
+        cannot be revived. Counting any of those as actionable would raise
+        the alarm for ordinary fleet traffic, which is how a real finding
+        gets lost.
         """
-        return tuple(entry for entry in self.starved if not entry.turn_in_flight_since)
+        return tuple(entry for entry in self.undelivered if entry.needs_seat_action)
 
     def vendor_errors_needing_action(self) -> tuple[VendorErrorSession, ...]:
         """Vendor-stopped sessions no further relay poll will pick up.
@@ -197,7 +199,7 @@ class FleetReport:
         return bool(
             self.waited_too_long()
             or self.idle
-            or self.starved_needing_action()
+            or self.undelivered_needing_action()
             or self.unregistered_launches
             or self.abandoned_launches
             or self.landed_open
@@ -255,8 +257,8 @@ def compose_report(
         ),
         holders=holders,
         idle=split.idle,
-        starved=sessions_only(
-            starved_deliveries(conn, project_id=project_id, now=now),
+        undelivered=sessions_only(
+            undelivered_messages(conn, project_id=project_id, now=now),
             session_ids=(holder.session_id for holder in holders),
             members=members,
         ),

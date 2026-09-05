@@ -39,7 +39,7 @@ try:
     nofollow = getattr(os, "O_NOFOLLOW", None)
     if nofollow is None:
         raise OSError("remote platform cannot safely open the file lock")
-    for _attempt in range(3):
+    for _attempt in range(8):
         try:
             lock_descriptor = os.open(
                 lock_name,
@@ -48,7 +48,6 @@ try:
                 0o600,
                 dir_fd=directory_descriptor,
             )
-            break
         except FileExistsError:
             try:
                 lock_descriptor = os.open(
@@ -56,20 +55,39 @@ try:
                     os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | nofollow,
                     dir_fd=directory_descriptor,
                 )
-                break
             except FileNotFoundError:
                 continue
+        lock_stat = os.fstat(lock_descriptor)
+        if (
+            not stat.S_ISREG(lock_stat.st_mode)
+            or lock_stat.st_uid != os.geteuid()
+            or lock_stat.st_nlink > 1
+            or stat.S_IMODE(lock_stat.st_mode) & 0o077
+        ):
+            raise PermissionError("remote file lock is not owner-only")
+        # Whoever holds the lock unlinks it on completion, so an inode reached
+        # by name can be detached before this process opens it, and can be
+        # replaced by a newer lock before this process is granted it. Either
+        # way the descriptor excludes nobody, so drop it and race for the lock
+        # that currently carries the name.
+        if lock_stat.st_nlink == 1:
+            fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+            try:
+                named_lock = os.stat(
+                    lock_name,
+                    dir_fd=directory_descriptor,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                named_lock = None
+            if named_lock is not None and (
+                named_lock.st_dev, named_lock.st_ino,
+            ) == (lock_stat.st_dev, lock_stat.st_ino):
+                break
+        os.close(lock_descriptor)
+        lock_descriptor = -1
     else:
         raise FileNotFoundError("remote file lock changed during open")
-    lock_stat = os.fstat(lock_descriptor)
-    if (
-        not stat.S_ISREG(lock_stat.st_mode)
-        or lock_stat.st_uid != os.geteuid()
-        or lock_stat.st_nlink != 1
-        or stat.S_IMODE(lock_stat.st_mode) & 0o077
-    ):
-        raise PermissionError("remote file lock is not owner-only")
-    fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
 
     removed_temporary = False
     with os.scandir(target.parent) as entries:

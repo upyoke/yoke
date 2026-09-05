@@ -55,7 +55,7 @@ def _empty_report(project_id: int, now: str) -> FleetReport:
         available=(),
         holders=(),
         idle=(),
-        starved=(),
+        undelivered=(),
         unregistered_launches=(),
         landed_open=(),
         dead_waits=(),

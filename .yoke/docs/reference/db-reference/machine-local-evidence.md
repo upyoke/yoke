@@ -49,6 +49,6 @@ Only the machine named on the row may lease it, and only the lease it was grante
 
 ## Where the link appears
 
-The fleet report's [starved-delivery and unregistered-launch rows](steering-fleet-report.md) end with an `evidence` clause naming `yoke session-control evidence get --session <id>`, carrying `--evidence-id` when that row's attempt recorded a diagnostic reference. Both rows render it through one contract helper (`evidence_pull_suffix`), so a row naming a failure on another machine always names the read that brings it here.
+The fleet report's [undelivered-message and unregistered-launch rows](steering-fleet-report.md) end with an `evidence` clause naming `yoke session-control evidence get --session <id>`, carrying `--evidence-id` when that row's attempt recorded a diagnostic reference. Both rows render it through one contract helper (`evidence_pull_suffix`), so a row naming a failure on another machine always names the read that brings it here.
 
 The machine-local route still exists and still works: `yoke relay diagnostic <nd-ref>` reads a capture directly, which is what an operator standing on that machine wants and what still answers when the relay is down.

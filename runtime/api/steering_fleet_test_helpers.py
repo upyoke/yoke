@@ -21,6 +21,9 @@ NOW = "2026-08-26T12:00:00Z"
 LONG_AGO = "2026-08-26T09:00:00Z"
 BEFORE_THAT = "2026-08-26T08:00:00Z"
 JUST_NOW = "2026-08-26T11:58:00Z"
+#: Well past every seeded message's expiry, so an envelope sent at
+#: :data:`LONG_AGO` is still deliverable at :data:`NOW`.
+NOT_YET_EXPIRED = "2026-08-26T23:00:00Z"
 STAFFING_SECONDS = 5 * 60
 IDLE_SECONDS = 20 * 60
 SURFACE = "codex-cli"
@@ -100,6 +103,72 @@ def seed_denial(conn, session_id: str, *, tool_use_id: str, at: str) -> None:
         "VALUES (%s, 'hook', %s, 'audit', 'tool_call', "
         "'HarnessToolCallDenied', 'Bash', %s, %s)",
         (f"denial-{tool_use_id}", session_id, tool_use_id, at),
+    )
+
+
+def seed_message(
+    conn,
+    message_id: str,
+    *,
+    sender: str,
+    to: str,
+    at: str,
+    state: str = "pending",
+    expires_at: str = NOT_YET_EXPIRED,
+    cancelled_at: str | None = None,
+) -> None:
+    """One envelope and its single receipt, undelivered by default."""
+    conn.execute(
+        "INSERT INTO session_messages "
+        "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
+        "selector_snapshot, created_at, expires_at, cancelled_at) "
+        "VALUES (%s, %s, %s, 'a question', 'sha', %s, %s, %s, %s)",
+        (
+            message_id,
+            ACTOR_ID,
+            sender,
+            json.dumps({}),
+            at,
+            expires_at,
+            cancelled_at,
+        ),
+    )
+    conn.execute(
+        "INSERT INTO session_message_recipients "
+        "(message_id, session_id, project_id, resolution_evidence, "
+        "routing_snapshot, state, created_at, wake_after, injection_count) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)",
+        (message_id, to, PROJECT_ID, json.dumps({}), json.dumps({}), state, at, at),
+    )
+
+
+def seed_delivery_attempt(
+    conn,
+    attempt_id: str,
+    *,
+    message_id: str,
+    to: str,
+    result_code: str,
+    evidence: dict | None = None,
+    started_at: str = JUST_NOW,
+    kind: str = "wake_relay",
+) -> None:
+    """One settled delivery attempt against a receipt."""
+    conn.execute(
+        "INSERT INTO session_message_attempts "
+        "(attempt_id, message_id, target_session_id, attempt_kind, started_at, "
+        "completed_at, result_code, evidence) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            attempt_id,
+            message_id,
+            to,
+            kind,
+            started_at,
+            started_at,
+            result_code,
+            json.dumps(evidence or {}),
+        ),
     )
 
 
@@ -223,6 +292,7 @@ __all__ = [
     "IDLE_SECONDS",
     "JUST_NOW",
     "LONG_AGO",
+    "NOT_YET_EXPIRED",
     "NOW",
     "PLAN_LIMIT_HOST",
     "PROJECT_ID",
@@ -233,7 +303,9 @@ __all__ = [
     "compose",
     "plan_limit_row",
     "quiet_holder",
+    "seed_delivery_attempt",
     "seed_denial",
+    "seed_message",
     "seed_relay",
     "seed_session",
     "seed_steering_scope",

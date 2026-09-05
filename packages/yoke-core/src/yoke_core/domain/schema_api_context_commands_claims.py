@@ -94,7 +94,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "not a send-path refusal. The fleet report arrives appended "
             "to the messages this session receives — one combined report "
             "covering every live steering claim, available work first, then "
-            "idle holders, starved delivery, unregistered launches, "
+            "idle holders, undelivered messages, unregistered launches, "
             "items landed without close-out, dead waits, and mail awaiting a "
             "seat; pull it between wakes with `yoke steering report get` "
             "(optional `--project P` keeps a single scope)."

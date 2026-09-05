@@ -144,7 +144,7 @@ class TestSteerSkillContract:
             "**Available work**",
             "**Unacked injected (this session)**",
             "**Idle holders**",
-            "**Starved delivery**",
+            "**Undelivered messages**",
             "**Vendor-stopped sessions**",
             "**Unregistered launches**",
             "**Landed without close-out**",
