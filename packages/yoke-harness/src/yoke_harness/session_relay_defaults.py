@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from yoke_harness.session_launch_handoff import stage_launch_attestation
 from yoke_harness.session_relay_runtime import RelayAdapter, register_relay_adapter
 
 
@@ -24,13 +23,8 @@ def _codex_adapter() -> RelayAdapter:
 def _cursor_adapter() -> RelayAdapter:
     from yoke_harness.session_relay_cursor import build_cursor_adapter
     from yoke_harness.session_relay_cursor_cli import CursorCliTransport
-    from yoke_harness.session_relay_cursor_identity import conversation_map_lookup
 
-    return build_cursor_adapter(
-        subprocess_port=CursorCliTransport(),
-        identity_lookup=conversation_map_lookup,
-        attestation_handoff=stage_launch_attestation,
-    )
+    return build_cursor_adapter(subprocess_port=CursorCliTransport())
 
 
 def _claude_cli_adapter(context):

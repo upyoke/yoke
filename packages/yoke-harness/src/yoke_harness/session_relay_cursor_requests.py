@@ -44,8 +44,8 @@ class CursorWakeRequest:
     """One exact-session resume carrying only the check-inbox sentence.
 
     ``requested_model`` is the variant this turn must run under. cursor-agent
-    resumes a session at whichever model it last ran, so naming it once on
-    the launch's first resume makes later wakes inherit it.
+    resumes a session at whichever model it last ran, so naming it on the
+    launch's native new-chat turn makes later wakes inherit it.
     """
 
     checkout: Path

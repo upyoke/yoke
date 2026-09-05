@@ -21,11 +21,10 @@ from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
 ATTESTATION = "secret-launch-attestation"
+NATIVE_ID = "44444444-4444-4444-8444-444444444444"
 
 
 def _adapter(**kwargs):
-    kwargs.setdefault("identity_lookup", lambda conversation_id: conversation_id)
-    kwargs.setdefault("attestation_handoff", lambda *_args, **_kwargs: True)
     return build_cursor_adapter(**kwargs)
 
 
@@ -33,9 +32,7 @@ class FakeSubprocess:
     def __init__(self) -> None:
         self.new_requests = []
         self.resume_requests = []
-        self.new_result = CursorNativeResult(
-            "native_created", native_session_id="cursor-conversation-new"
-        )
+        self.new_result = CursorNativeResult("native_created")
         self.resume_result = CursorNativeResult("accepted", exit_code=0, duration_ms=8)
 
     def new_session(self, request):
@@ -47,7 +44,13 @@ class FakeSubprocess:
         return self.resume_result
 
 
-def _launch(tmp_path: Path, *, surface: str = "cursor-cli", instruction=None):
+def _launch(
+    tmp_path: Path,
+    *,
+    surface: str = "cursor-cli",
+    instruction=None,
+    registration_resolver=None,
+):
     launch_id = "11111111-1111-4111-8111-111111111111"
     expected = native_launch_bootstrap(launch_id)
     return RelayExecutionContext(
@@ -62,6 +65,13 @@ def _launch(tmp_path: Path, *, surface: str = "cursor-cli", instruction=None):
         message_id="22222222-2222-4222-8222-222222222222",
         launch_attestation=ATTESTATION,
         requested_model="composer-2",
+        launch_registration_resolver=registration_resolver
+        or (
+            lambda _workspace: {
+                "status": "registered_but_unbound",
+                "session_id": NATIVE_ID,
+            }
+        ),
     )
 
 
@@ -99,13 +109,15 @@ def test_launch_without_a_native_transport_creates_no_native_at_all(tmp_path):
     assert result.native_session_id is None
 
 
-def test_launch_creates_a_conversation_and_carries_a_separate_attestation(tmp_path):
+def test_launch_binds_the_registered_chat_and_carries_a_separate_attestation(
+    tmp_path,
+):
     cli = FakeSubprocess()
 
     result = _adapter(subprocess_port=cli)(_launch(tmp_path))
 
     assert result.result_code == "native_created"
-    assert result.native_session_id == "cursor-conversation-new"
+    assert result.native_session_id == NATIVE_ID
     assert len(cli.new_requests) == 1
     request = cli.new_requests[0]
     assert request.native_instruction == native_launch_bootstrap(request.launch_id)
@@ -190,7 +202,7 @@ def test_native_output_and_secrets_cannot_enter_report_evidence(tmp_path):
     cli = FakeSubprocess()
     cli.new_result = SimpleNamespace(
         result_code="native_created",
-        native_session_id="cursor-session-safe",
+        native_session_id=None,
         exit_code=0,
         duration_ms=10,
         stdout="secret stdout",
@@ -200,7 +212,7 @@ def test_native_output_and_secrets_cannot_enter_report_evidence(tmp_path):
 
     result = _adapter(subprocess_port=cli)(_launch(tmp_path))
 
-    assert result.native_session_id == "cursor-session-safe"
+    assert result.native_session_id == NATIVE_ID
     rendered = repr(result)
     assert "stdout" not in rendered
     assert "stderr" not in rendered

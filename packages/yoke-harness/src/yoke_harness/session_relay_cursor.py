@@ -10,18 +10,12 @@ public default adapter fails closed without starting a process.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import time
 from typing import Callable, Protocol
 
 from yoke_harness.session_relay_cursor_evidence import (
     CURSOR_CLI_SURFACE,
     cursor_evidence,
     cursor_private_diagnostic,
-)
-from yoke_harness.session_relay_cursor_identity import (
-    ConversationLookup,
-    LaunchAttestationHandoff,
-    conversation_map_lookup,
 )
 from yoke_harness.session_relay_cursor_requests import (
     CursorCreateRequest,
@@ -42,7 +36,7 @@ from yoke_harness.session_relay_runtime import (
 )
 
 
-CURSOR_ADAPTER_REVISION = "cursor-native-v2"
+CURSOR_ADAPTER_REVISION = "cursor-native-v3"
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
 
 _LAUNCH_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
@@ -78,10 +72,11 @@ class CursorNativeResult:
     # the reference is what lets any later reader find what it said.
     diagnostic_ref: str | None = None
     capture_path: str | None = None
+    native_pid: int | None = None
 
 
 class CursorSubprocessPort(Protocol):
-    """One print-mode turn at an exact conversation id: create or resume."""
+    """One native new-chat create or exact-session print-mode resume."""
 
     def new_session(self, request: CursorCreateRequest) -> CursorNativeResult: ...
 
@@ -180,16 +175,13 @@ def build_cursor_adapter(
     *,
     subprocess_port: CursorSubprocessPort | None = None,
     version_gate: SurfaceVersionGate = _contract_version_gate,
-    identity_lookup: ConversationLookup | None = None,
-    attestation_handoff: LaunchAttestationHandoff | None = None,
-    sleeper: Callable[[float], None] = time.sleep,
 ) -> RelayAdapter:
     """Build one adapter over an injected, version-pinned native transport.
 
-    Every route is one print-mode turn against an exact conversation id: a
-    create mints the id and starts the launch's bootstrap on it, and a wake
-    resumes an existing one. After create, the adapter binds the
-    conversation-map session and stages the attestation sidecar under that id.
+    A create uses Cursor's native new-chat print path so ``sessionStart`` can
+    register the vendor-created identity. A wake alone resumes an exact
+    existing conversation. The launch adapter resolves the registered create
+    through the relay's shared control-plane registration candidate surface.
     """
 
     def adapter(context: RelayExecutionContext) -> RelayAdapterResult:
@@ -222,13 +214,7 @@ def build_cursor_adapter(
                 complete_bound_launch,
             )
 
-            return complete_bound_launch(
-                context,
-                native,
-                identity_lookup or conversation_map_lookup,
-                attestation_handoff,
-                sleeper,
-            )
+            return complete_bound_launch(context, native)
 
         wake_mode = normalize_wake_mode(context.wake_mode)
         if wake_mode is None:

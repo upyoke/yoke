@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from uuid import UUID
 
 from yoke_harness import session_relay_cursor_cli as cli_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
@@ -30,17 +29,25 @@ from runtime.harness.session_relay_cursor_test_support import (
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
-def test_cli_create_starts_the_bootstrap_on_a_conversation_it_minted(
+def test_cli_create_uses_native_new_chat_without_resume(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    from yoke_harness import session_relay_native_spawn as spawn_module
+
     spawns = []
+    custody = []
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-session")
     monkeypatch.setenv("YOKE_EXECUTOR", "claude-code")
     monkeypatch.setattr(
         cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
     )
     local_supervision(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        spawn_module,
+        "record_supervised_native",
+        lambda *_args, **kwargs: custody.append(kwargs) or True,
+    )
 
     def spawn(command, **kwargs):
         spawns.append((command, kwargs))
@@ -51,14 +58,12 @@ def test_cli_create_starts_the_bootstrap_on_a_conversation_it_minted(
     )
 
     assert result.result_code == "native_created"
-    # The create names the conversation it is about to start, so the relay
-    # knows which one it owns before the turn produces anything.
-    minted = str(result.native_session_id)
-    assert str(UUID(minted)) == minted
+    assert result.native_session_id is None
+    assert result.native_pid == RunningProcess.pid
     supervised, options = spawns[0]
     command = native_argv(supervised)
-    assert command[:3] == ["/opt/cursor-agent", "--resume", minted]
-    assert "--print" in command
+    assert command[:3] == ["/opt/cursor-agent", "--print", "--output-format"]
+    assert "--resume" not in command
     assert command[command.index("--workspace") + 1] == str(tmp_path)
     assert "--trust" in command
     # Nobody is watching this terminal, so an approval prompt is a stall.
@@ -72,6 +77,7 @@ def test_cli_create_starts_the_bootstrap_on_a_conversation_it_minted(
     assert LAUNCH_ID in options["env"][LAUNCH_CONTEXT_ENV]
     assert ATTESTATION in options["env"][LAUNCH_CONTEXT_ENV]
     assert ATTESTATION not in " ".join(command)
+    assert custody[0]["native_session_id"] is None
 
 
 def test_cli_create_reports_a_native_that_refused_its_own_invocation(
@@ -230,9 +236,6 @@ def test_failed_create_reaches_the_relay_as_a_private_diagnostic(
     )
     result = build_cursor_adapter(
         subprocess_port=FailingTransport(),
-        identity_lookup=lambda _conversation_id: None,
-        attestation_handoff=lambda *_args, **_kwargs: True,
-        sleeper=lambda _seconds: None,
     )(context)
 
     assert result.result_code == "not_created"

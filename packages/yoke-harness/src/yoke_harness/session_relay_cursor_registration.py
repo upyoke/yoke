@@ -1,170 +1,63 @@
-"""Bind a Cursor launch to its session, or say the proof is outstanding."""
+"""Bind a native Cursor create to the identity its opening hook registered."""
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Callable
+from dataclasses import replace
 
-from yoke_harness.session_launch_containment_sweep import contain_launch_native
-from yoke_harness.session_relay_cursor_identity import (
-    CURSOR_SESSION_PARSE_EXPECTATION,
-    CURSOR_REGISTRATION_WAIT_SECONDS,
-    ConversationLookup,
-    LaunchAttestationHandoff,
-    bind_launch_session,
-    bounded_identity_snippet,
-    uuid_session_id,
-    wait_for_conversation_session,
+from yoke_harness.session_relay_cursor import (
+    CursorNativeResult,
+    _launch_result,
+    _result,
 )
-from yoke_harness.session_relay_runtime import (
-    RelayAdapterResult,
-    RelayExecutionContext,
-)
+from yoke_harness.session_relay_cursor_identity import resolve_registered_session
+from yoke_harness.session_relay_runtime import RelayAdapterResult, RelayExecutionContext
 
 
 def complete_bound_launch(
     context: RelayExecutionContext,
     native: object,
-    identity_lookup: ConversationLookup,
-    attestation_handoff: LaunchAttestationHandoff | None,
-    sleeper: Callable[[float], None],
-    *,
-    wait_seconds: float = CURSOR_REGISTRATION_WAIT_SECONDS,
-    state_dir: Path | None = None,
 ) -> RelayAdapterResult:
-    """Bind only after the conversation map proves hooks fired.
+    """Resolve a vendor-created identity without inventing another protocol.
 
-    A create returns the conversation id it minted while the spawned agent
-    has not yet run a hook-firing turn. Wait for the map — the launch's one
-    bootstrap prompt is already running inside that conversation, so a map
-    that still misses gets no second turn (that would fork a competing
-    conversation against the running one). It is reported as a created
-    native with its registration outstanding instead: see
-    :func:`_registration_pending`.
+    The transport starts Cursor's native new-chat print path with no selected
+    id. Its opening hook registers the id Cursor assigned. The relay's shared
+    registration-candidate callback then resolves that session by launch,
+    machine, surface, workspace, and time window. A still-missing candidate is
+    an uncertain live native under existing supervision and deadline custody,
+    not proof of either registration or failure.
     """
-    from yoke_harness.session_relay_cursor import (
-        CursorNativeResult,
-        _launch_result,
-        _result,
-    )
+    typed = _as_native(native)
+    if typed.result_code != "native_created":
+        phase = typed.phase or "spawn"
+        return _phased(_launch_result(typed), phase)
 
-    typed = _as_native(native, CursorNativeResult)
-    launched = _launch_result(typed)
-    phase = typed.phase or (
-        "native_running" if launched.result_code == "native_created" else "spawn"
+    resolution = resolve_registered_session(
+        context.launch_registration_resolver,
+        str(context.checkout),
     )
-    conversation_id = launched.native_session_id
-    if launched.result_code != "native_created" or not conversation_id:
-        return _phased(launched, phase)
-    resolution = wait_for_conversation_session(
-        conversation_id,
-        identity_lookup,
-        wait_seconds=wait_seconds,
-        sleeper=sleeper,
-    )
-    if resolution.session_id is None:
-        if uuid_session_id(conversation_id) is None:
-            contain_launch_native(str(context.job_id), state_dir=state_dir)
-            return _result(
-                "not_created",
-                native=CursorNativeResult(
-                    "identity_parse_failed",
-                    identity_output_snippet=bounded_identity_snippet(conversation_id),
-                    identity_parse_expectation=CURSOR_SESSION_PARSE_EXPECTATION,
-                    phase="spawn",
-                ),
-                evidence_code="identity_parse_failed",
-            )
-        return _registration_pending(
-            context,
-            typed,
-            conversation_id,
-            attestation_handoff,
-        )
-    binding = bind_launch_session(
-        conversation_id,
-        lambda _conversation_id: resolution.session_id,
-        attestation_handoff,
-        context.job_id,
-        str(context.launch_attestation or ""),
-        sleeper=sleeper,
-    )
-    combined = CursorNativeResult(
-        binding.result_code,
-        binding.session_id,
-        typed.exit_code,
-        max(0, int(typed.duration_ms or 0) + binding.duration_ms),
-        identity_output_snippet=binding.output_snippet,
-        identity_parse_expectation=binding.parse_expectation,
-        phase="native_running" if binding.result_code == "native_created" else phase,
-    )
-    if binding.result_code != "native_created":
-        contain_launch_native(str(context.job_id), state_dir=state_dir)
-        report = (
-            "not_created"
-            if binding.result_code == "identity_parse_failed"
-            else "outcome_unknown"
-        )
-        return _result(
-            report,
-            native=combined,
-            native_session_id=binding.session_id,
-            evidence_code=binding.result_code,
-        )
-    return _result(
-        "native_created",
-        native=combined,
-        native_session_id=binding.session_id,
-    )
-
-
-def _registration_pending(
-    context: RelayExecutionContext,
-    typed: object,
-    conversation_id: str,
-    attestation_handoff: LaunchAttestationHandoff | None,
-) -> RelayAdapterResult:
-    """Report a created native whose first hook has not landed yet.
-
-    A Cursor cold start regularly outlives this adapter's map-proof window,
-    and a native reaped at that moment is a healthy worker killed for being
-    slow — measured: the relay gave up at 54s and the session registered ten
-    seconds later, then ran unattested because its launch was already closed.
-    The control plane already owns a registration deadline, and the machine
-    already owns a supervision record that reaps a native which never
-    registers, so the answer is to hand both the created native and say the
-    proof is still outstanding, not to invent a third verdict here.
-
-    The attestation is staged under the conversation id, which is the id a
-    Cursor session registers under, so a late first hook can still bind even
-    where the environment channel is unavailable.
-    """
-    from yoke_harness.session_relay_cursor import CursorNativeResult, _result
-
-    token = str(context.launch_attestation or "").strip()
-    if token and attestation_handoff is not None:
-        try:
-            attestation_handoff(context.job_id, token, binding_id=conversation_id)
-        except Exception:
-            pass
-    pending = CursorNativeResult(
-        "native_created",
-        conversation_id,
-        getattr(typed, "exit_code", None),
-        getattr(typed, "duration_ms", None),
+    pending = replace(
+        typed,
+        native_session_id=resolution.session_id,
         phase="registration_pending",
     )
+    if resolution.session_id is None:
+        return _result(
+            "outcome_unknown",
+            native=pending,
+            evidence_code=resolution.result_code,
+        )
     return _result(
         "native_created",
         native=pending,
-        native_session_id=conversation_id,
+        native_session_id=resolution.session_id,
+        evidence_code=resolution.result_code,
     )
 
 
-def _as_native(native: object, cls: type) -> object:
-    if isinstance(native, cls):
+def _as_native(native: object) -> CursorNativeResult:
+    if isinstance(native, CursorNativeResult):
         return native
-    return cls(
+    return CursorNativeResult(
         str(getattr(native, "result_code", "outcome_unknown")),
         getattr(native, "native_session_id", None),
         getattr(native, "exit_code", None),
@@ -172,6 +65,10 @@ def _as_native(native: object, cls: type) -> object:
         identity_output_snippet=getattr(native, "identity_output_snippet", None),
         identity_parse_expectation=getattr(native, "identity_parse_expectation", None),
         phase=getattr(native, "phase", None),
+        native_stderr=getattr(native, "native_stderr", b""),
+        diagnostic_ref=getattr(native, "diagnostic_ref", None),
+        capture_path=getattr(native, "capture_path", None),
+        native_pid=getattr(native, "native_pid", None),
     )
 
 

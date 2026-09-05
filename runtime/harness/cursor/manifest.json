@@ -58,7 +58,8 @@
           "cursor-agent",
           "cursor"
         ],
-        "wake_authority": "native"
+        "wake_authority": "native",
+        "native_create_timeout_seconds": 180
       },
       "cursor-desktop": {
         "minimum_version": "3.17.8",

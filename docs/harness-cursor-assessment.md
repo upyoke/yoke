@@ -292,24 +292,22 @@ Six consecutive `cursor-cli` launch failures over two days, against a
 `cursor-agent` probing healthy at `2026.08.25-3e8eec8`, resolved into three
 facts — read from control-plane rows, not inferred.
 
-**A launch creates a Cursor session by minting the id it starts.**
-`cursor-agent --resume <id> -p` runs one print-mode turn against that exact
-conversation and creates it when the id is new, so `CursorCliTransport` owns
-the create and the resume alike and the relay knows which conversation it
-started before the turn produces anything. A launched worker is not "one
-response and done": the print-mode turn keeps taking tool calls while the
-agent works (measured natives worked for minutes — 79 and 71 tool calls over
-9 and 6 minutes) and needs no continuation nudge.
+**A launch must use Cursor's native new-chat path.** `cursor-agent -p` starts
+one new print-mode conversation and lets Cursor assign its id. `--resume` is
+only for an existing conversation: even a fresh id selects the resume branch
+and suppresses the `sessionStart` hook the launch needs for registration. The
+new-chat process inherits the launch attestation, and the shared registration
+candidate surface binds the hook-registered identity by launch window,
+machine, surface, and workspace. The print-mode turn keeps taking tool calls
+while the agent works and needs no continuation nudge.
 
-**A Cursor cold start regularly outlives the relay's registration proof.**
-`complete_bound_launch` waited `CURSOR_REGISTRATION_WAIT_SECONDS` for the
-conversation map to prove hooks had fired. Launch `e058a2e9` gave up
-at 54s with `registration_unproven` and reaped the native; session `9d8017c0`
-registered ten seconds later and ran 43 tool calls with its launch already
-closed. A map miss is now a created native with
-`native_launch_phase=registration_pending`: the registration deadline decides
-the outcome, and the supervision record still reaps a native that never
-registers.
+**Create and registration remain separate events.** The relay records the
+native pid, capture, and diagnostic reference as soon as the new-chat process
+starts, then performs bounded reads through the existing server-side
+registration-candidate resolver. A candidate binds normally. A still-missing
+candidate is `registration_pending` with an uncertain outcome, not a claim
+that the native registered or failed; its supervision record and the launch's
+existing registration deadline remain authoritative.
 
 **A requested model and a recorded model are different facts, and equality
 between them refused every correctly-bound launch.** A launch requests the
@@ -335,8 +333,8 @@ variant.
   reopening (episode model).
 - Print-mode subagent lifecycle: `Task` dispatch fires no
   `subagentStart`/`subagentStop` in `-p` mode — vendor gap or intended?
-- Whether the conversation map can land early enough to be launch
-  registration proof again, rather than the optimistic fast path it now is.
+- How quickly new Cursor builds expose a new-chat identity to the shared
+  registration-candidate lookup; the registration deadline remains the bound.
 - Minimum Cursor version for the hook surface (the manifest's
   `hook_enhanced` floor) — the measured builds are single data points.
 - `beforeShellExecution` vs `preToolUse(Shell)`: run the Bash chain on one,
