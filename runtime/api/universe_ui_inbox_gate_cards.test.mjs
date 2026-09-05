@@ -42,6 +42,33 @@ test("a deployment approval names the items it releases, not just the run", asyn
   assert.ok(body.includes("release 0.1.1+launch.379"), body);
 });
 
+test("a deployment approval carrying no items says what it is still shipping", async () => {
+  const { main } = renderInbox("all", [deploymentRequestRow({
+    subject_context: {
+      ...deploymentRequestRow().subject_context,
+      batch: { item_count: 0, items: [] },
+      shipping: {
+        release_lineage: null,
+        target_environment: "stage",
+        summary: "0 item(s) ship to stage.",
+      },
+    },
+  })]);
+  await settle();
+
+  // "Releases 0 items" reads as though approving were free. The approver is
+  // still advancing a pipeline, and the honest answer is that the run's
+  // commits are the payload nobody filed work for.
+  const body = gateText(main);
+  assert.ok(!body.includes("releases 0 items"), body);
+  assert.ok(
+    body.includes("carries no recorded items, so what ships to stage is "
+      + "whatever its commits contain"),
+    body,
+  );
+  assert.ok(body.includes("In this release · 0 items"), body);
+});
+
 test("a QA review shows the evidence it is backed by, counted by type", async () => {
   const { main } = renderInbox("all", [qaRequestRow()]);
   await settle();
@@ -89,6 +116,36 @@ test("a lifecycle approval shows what changed on the branch", async () => {
   assert.ok(body.includes("What changed on the branch"), body);
   assert.ok(body.includes("+412 −87 across 9 files"), body);
   assert.ok(body.includes("runtime/api/inbox.py"), body);
+  // Why the transition was gated at all, named by the pinned version and the
+  // policy entry that asked.
+  assert.ok(
+    body.includes("gated by dash@3 · approval_defaults.reviewing-implementation"),
+    body,
+  );
+});
+
+test("a laneless transition says so rather than showing an empty diff", async () => {
+  // A workflow with no git lane records the absence in the same field a
+  // branch would fill, so the gate reads it out instead of drawing a blank
+  // block that looks like a failed lookup.
+  const { main } = renderInbox("all", [requestRow({
+    subject_context: {
+      ...requestRow().subject_context,
+      branch_changes: {
+        branch: null,
+        commit_sha: null,
+        touched_files: [],
+        summary: "No implementation branch is recorded for this transition.",
+      },
+    },
+  })]);
+  await settle();
+
+  const body = gateText(main);
+  assert.ok(
+    body.includes("No implementation branch is recorded for this transition."),
+    body,
+  );
 });
 
 // The same four kinds, seen from the delivery end. A gate on a run card is
@@ -143,13 +200,20 @@ test("a run stopped on an approval says so and carries the answer", () => {
       "This run releases 2 items together to prod",
     ),
   );
+  // Same labels, same order, same emphasis as the Inbox draws for this
+  // decision: the run card is a second view of one gate, not a second
+  // recommendation about it.
   const buttons = byClass(card, "run-gate-action");
-  assert.deepEqual(buttons.map((node) => node.textContent), ["approve", "reject"]);
+  assert.deepEqual(buttons.map((node) => node.textContent), ["Reject", "Approve"]);
+  assert.deepEqual(
+    buttons.map((node) => node.className.includes("is-primary")),
+    [false, true],
+  );
 
   // Answered here, not on the way to the run: the card is a link, and the
   // gate's own controls must not navigate out of the answer. What is answered
   // is the decision request, which is why the handler is handed its id.
-  buttons[0].dispatchEvent(new Event("click"));
+  buttons[1].dispatchEvent(new Event("click"));
   assert.deepEqual(acted, [[deploymentRequestRow().id, "approve"]]);
 });
 

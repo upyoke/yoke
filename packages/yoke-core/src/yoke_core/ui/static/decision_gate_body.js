@@ -49,12 +49,19 @@ export function approvalProse(row_) {
   const facts = row_.subject_context || {};
   if (row_.kind === "deployment_stage_approval") {
     const count = Number(facts.batch?.item_count || 0);
-    const noun = count === 1 ? "item" : "items";
     const target = facts.shipping?.target_environment;
-    return `This run releases ${count} ${noun} together${
-      target ? ` to ${target}` : ""
-    }. Approving advances the pipeline, which is suspended at this stage `
-      + "until it resolves.";
+    const advance = "Approving advances the pipeline, which is suspended at "
+      + "this stage until it resolves.";
+    // A run with no recorded items is still shipping something -- bare
+    // commits nobody filed work for. Saying it "releases 0 items" reads as
+    // if approving were free, which is the opposite of what it means.
+    if (!count) {
+      return `This run carries no recorded items, so what ships${
+        target ? ` to ${target}` : ""
+      } is whatever its commits contain. ${advance}`;
+    }
+    return `This run releases ${count} ${count === 1 ? "item" : "items"} `
+      + `together${target ? ` to ${target}` : ""}. ${advance}`;
   }
   if (row_.kind === "lifecycle_transition_approval") {
     return `Moving ${facts.item_ref || "this item"} from ${
@@ -160,6 +167,17 @@ function appendLifecycleBody(documentNode, host, facts) {
       "div",
       "gate-block-copy",
       "No branch changes were recorded for this transition.",
+    ));
+  }
+  // Which pinned version gated this, and at which entry. Without it the
+  // approver can see the decision but not why it was asked of them, and a
+  // gate nobody can account for is one they learn to wave through.
+  if (facts.policy_summary) {
+    changed.appendChild(el(
+      documentNode,
+      "div",
+      "gate-block-more",
+      `gated by ${facts.policy_summary}`,
     ));
   }
 }

@@ -33,6 +33,7 @@ export function requestRow(overrides = {}) {
         kind: "workflow_approval_default",
         entry: "approval_defaults.reviewing-implementation",
       },
+      policy_summary: "dash@3 · approval_defaults.reviewing-implementation",
       title: "YOK-1907 — approve the reviewing-implementation transition",
     },
     project_id: 10,

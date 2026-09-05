@@ -11,6 +11,7 @@
 // reader to skip the one place the answer eventually appears.
 
 import { appendEvidence, approvalProse } from "./decision_gate_body.js";
+import { ACTION_LABELS, ACTION_RANK } from "./inbox_presentation.js";
 import { el } from "./universe_view_support.js";
 
 // A gate's label and its state are read from the kind, so the run card and
@@ -43,13 +44,21 @@ function gateNote(gate) {
 function appendActions(documentNode, host, gate, onAct) {
   if (!gate.can_act || !onAct) return;
   const actions = el(documentNode, "div", "run-gate-actions");
-  const available = Array.isArray(gate.actions) ? gate.actions : [];
-  available.forEach((action, index) => {
+  // Order and emphasis come from the action itself, not its position in
+  // whatever order the server listed them: the affirmative answer is the
+  // primary control on both surfaces, and a card that emphasised "reject"
+  // while the Inbox emphasised "approve" would be two recommendations for
+  // one decision.
+  const available = [...(Array.isArray(gate.actions) ? gate.actions : [])].sort(
+    (left, right) => Number(ACTION_RANK[left] ?? 1) -
+      Number(ACTION_RANK[right] ?? 1),
+  );
+  available.forEach((action) => {
     const button = el(
       documentNode,
       "button",
-      `run-gate-action${index === available.length - 1 ? " is-primary" : ""}`,
-      action,
+      `run-gate-action${action === "approve" ? " is-primary" : ""}`,
+      ACTION_LABELS[action] || action,
     );
     button.type = "button";
     button.addEventListener("click", (event) => {

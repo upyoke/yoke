@@ -21,9 +21,10 @@ def load_lifecycle_item(conn: Any, item_id: int) -> dict[str, Any]:
     """Load the item and workflow facts that define one transition snapshot."""
     row = conn.execute(
         "SELECT i.id, i.project_sequence, i.title, i.status, i.project_id, "
-        "i.workflow_id, i.workflow_version_id, p.slug AS project, "
-        "p.public_item_prefix, p.org_id "
+        "i.workflow_id, i.workflow_version_id, wv.version AS workflow_version, "
+        "p.slug AS project, p.public_item_prefix, p.org_id "
         "FROM items i JOIN projects p ON p.id = i.project_id "
+        "LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id "
         f"WHERE i.id = {_p(conn)}",
         (item_id,),
     ).fetchone()
@@ -122,8 +123,11 @@ def build_lifecycle_subject_context(
         "workflow_version_id": int(item["workflow_version_id"]),
         "branch_changes": _branch_changes(conn, int(item["id"])),
         "approval_source": dict(approval_source),
+        # The approver reads the version a person can look up. The row id
+        # this item pins is a different number, and naming it here sends
+        # them to a version that does not exist.
         "policy_summary": (
-            f"{item['workflow_id']}@{item['workflow_version_id']} · "
+            f"{item['workflow_id']}@{item.get('workflow_version') or '?'} · "
             f"{approval_source.get('entry') or ''}"
         ),
     }

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from yoke_core.domain.actors import seed_human_actor, set_actor_label
 from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.domain import session_actor_binding
+from yoke_core.domain import yoke_function_dispatch
 from yoke_core.ui import local_operator_actor, server as ui_server
 
 
@@ -303,6 +304,32 @@ class TestProxyMutations:
         envelope = activation.json()
         assert envelope["success"] is True
         assert envelope["result"]["dismiss_available"] is False
+
+    def test_run_list_names_the_reader_but_serves_without_one(
+        self, ui_client, test_db, monkeypatch,
+    ):
+        # A run card offers its gate's actions only to a reader the gate
+        # names. Dispatching this read anonymously makes every gate report
+        # "waiting on another approver" to everyone, and refusing it instead
+        # would blank the delivery section over an action nobody could take.
+        seen: list[str | None] = []
+        original = yoke_function_dispatch.dispatch
+
+        def recording_dispatch(request, **kwargs):
+            seen.append(request.actor.actor_id)
+            return original(request, **kwargs)
+
+        monkeypatch.setattr(yoke_function_dispatch, "dispatch", recording_dispatch)
+        operator = local_operator_actor.resolve_local_operator_actor()
+        assert _call(ui_client, {"function": "deployment_runs.list"}).status_code == 200
+        assert seen == [str(operator)]
+
+        seed_human_actor(test_db)
+        monkeypatch.setattr(session_actor_binding, "os_login", lambda: "nobody-known")
+        anonymous = _call(ui_client, {"function": "deployment_runs.list"})
+        assert anonymous.status_code == 200
+        assert anonymous.json()["success"] is True
+        assert seen[1] is None
 
     def test_latch_persists_through_the_proxy(self, ui_client, test_db):
         first = _call(
