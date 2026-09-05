@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from yoke_core.api import oidc_client
 from yoke_core.domain import json_helper
 
 
@@ -47,7 +48,8 @@ class StubOidcProvider:
         self.kid = "stub-signing-key-1"
         self.declared_issuer_override = declared_issuer_override
         self._private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048,
+            public_exponent=65537,
+            key_size=2048,
         )
         self._codes: Dict[str, Dict[str, Any]] = {}
         self.token_requests: List[Dict[str, str]] = []
@@ -100,7 +102,8 @@ class StubOidcProvider:
 
         self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self._thread = threading.Thread(
-            target=self._server.serve_forever, daemon=True,
+            target=self._server.serve_forever,
+            daemon=True,
         )
         self._thread.start()
 
@@ -119,14 +122,17 @@ class StubOidcProvider:
 
     def jwks_document(self) -> Dict[str, Any]:
         jwk = jwt.algorithms.RSAAlgorithm.to_jwk(
-            self._private_key.public_key(), as_dict=True,
+            self._private_key.public_key(),
+            as_dict=True,
         )
         jwk.update({"kid": self.kid, "use": "sig", "alg": "RS256"})
         return {"keys": [jwk]}
 
     def sign(self, claims: Dict[str, Any]) -> str:
         return jwt.encode(
-            claims, self._private_key, algorithm="RS256",
+            claims,
+            self._private_key,
+            algorithm="RS256",
             headers={"kid": self.kid},
         )
 
@@ -134,7 +140,9 @@ class StubOidcProvider:
         """An HS256 token signed with the shared client secret — must
         never satisfy JWKS-based verification (algorithm confusion)."""
         return jwt.encode(
-            claims, self.client_secret, algorithm="HS256",
+            claims,
+            self.client_secret,
+            algorithm="HS256",
             headers={"kid": self.kid},
         )
 
@@ -166,6 +174,9 @@ class StubOidcProvider:
     def close(self) -> None:
         self._server.shutdown()
         self._server.server_close()
+        # A later stub can reuse this port with a different signing key.
+        oidc_client._DISCOVERY_CACHE.pop(self.issuer, None)
+        oidc_client._JWKS_CLIENT_CACHE.pop(self.issuer + "/jwks", None)
 
 
 __all__ = ["StubOidcProvider"]
