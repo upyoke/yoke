@@ -16,11 +16,10 @@ redirects what it builds against, so this adds no second validator and no
 second workflow. The consumer owns what compatible means; this side owns
 only that the answer is required before publication.
 
-The same gate is what an author runs earlier, from the verification case
-attached to a work item that changes the shared surface, so a contract
-mismatch surfaces at the merge attempt rather than at the release. That
-earlier run is a warning in the sense that it is per-item and opt-in;
-publication is the mandatory blocker either way.
+:mod:`consumer_compatibility_advisory` asks the same question earlier, from
+the tree-contracts job, so a mismatch surfaces at the merge attempt rather
+than at the release. That earlier report is advisory and never blocks;
+publication is the mandatory blocker.
 
 Usage::
 
