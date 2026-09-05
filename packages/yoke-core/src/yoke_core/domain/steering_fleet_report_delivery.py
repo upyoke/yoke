@@ -18,6 +18,7 @@ then the one that mattered is skimmed too.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -108,18 +109,39 @@ def _held_project_ids(conn: Any, session_id: str) -> tuple[int, ...]:
     return tuple(ids)
 
 
-def steering_report_for_delivery(
+@dataclass(frozen=True)
+class SteeringReportCandidate:
+    """A composed report this session is owed, pending confirmed delivery.
+
+    Composition and eligibility are decided at :func:`steering_report_candidate`
+    time; the interval is not spent until :func:`confirm_steering_report_delivery`
+    runs, so a reply that turns out denied or malformed leaves the next hook
+    free to retry instead of losing this session's report for a whole
+    interval to a delivery that never reached the model.
+    """
+
+    text: str
+    session_id: str
+    fingerprint: str
+    claimed_at: str
+    not_after: str
+
+
+def steering_report_candidate(
     conn: Any,
     *,
     session_id: str,
     now: datetime | None = None,
-) -> str | None:
-    """The report block to append to this session's delivery, or ``None``.
+) -> SteeringReportCandidate | None:
+    """The report this session is owed right now, without claiming the interval.
 
     Returns ``None`` for every session that is not steering, for a steering
     session still inside its report interval, and for a report whose content
-    neither needs a decision nor differs from the one that session last saw.
-    The attached body covers every scope the session holds.
+    neither needs a decision nor differs from the one that session last saw
+    (that quiet case still takes the interval immediately, exactly as
+    before — there is no reply for a sibling denial to drop, since nothing
+    is being attached). A genuine report defers its claim to the caller
+    confirming the reply actually carried it.
     """
     project_ids = _held_project_ids(conn, session_id)
     if not project_ids:
@@ -156,15 +178,52 @@ def steering_report_for_delivery(
             fingerprint=fingerprint,
         )
         return None
-    if not _claim_interval(
-        conn,
+    return SteeringReportCandidate(
+        text=combined_hook_digest(combined),
         session_id=session_id,
-        now=_stamp(current),
-        not_after=not_after,
         fingerprint=fingerprint,
-    ):
+        claimed_at=_stamp(current),
+        not_after=not_after,
+    )
+
+
+def confirm_steering_report_delivery(
+    conn: Any, candidate: SteeringReportCandidate
+) -> bool:
+    """Claim the interval now that the reply is confirmed to carry the report."""
+    return _claim_interval(
+        conn,
+        session_id=candidate.session_id,
+        now=candidate.claimed_at,
+        not_after=candidate.not_after,
+        fingerprint=candidate.fingerprint,
+    )
+
+
+def steering_report_for_delivery(
+    conn: Any,
+    *,
+    session_id: str,
+    now: datetime | None = None,
+) -> str | None:
+    """Compose and immediately confirm delivery in one call.
+
+    The synchronous, single-call shape every direct caller wants. The hook
+    delivery port instead defers confirmation until it knows the rendered
+    reply actually carried the candidate (see ``steering_report_candidate``).
+    """
+    candidate = steering_report_candidate(conn, session_id=session_id, now=now)
+    if candidate is None:
         return None
-    return combined_hook_digest(combined)
+    if not confirm_steering_report_delivery(conn, candidate):
+        return None
+    return candidate.text or None
 
 
-__all__ = ["steered_project_id", "steering_report_for_delivery"]
+__all__ = [
+    "SteeringReportCandidate",
+    "confirm_steering_report_delivery",
+    "steered_project_id",
+    "steering_report_candidate",
+    "steering_report_for_delivery",
+]

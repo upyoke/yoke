@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from yoke_contracts.hook_context_compose import token_delivered
 from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
@@ -122,7 +123,7 @@ def settle_after_render(
         token = str(raw.get("render_token") or "").strip()
         if not lease_id:
             continue
-        delivered = bool(not denied and token and token in rendered_text)
+        delivered = not denied and token_delivered(rendered_text, token)
         result = (
             "dropped_by_sibling_denial"
             if denied

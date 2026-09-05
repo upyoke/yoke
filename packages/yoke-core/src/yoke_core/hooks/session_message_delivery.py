@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 from yoke_contracts.hook_context_compose import (
     FLEET_REPORT_CONTEXT_FIELD,
     POINTER_BEGIN,
+    compose_context_list,
     overflow_lease_marker,
+    reply_is_well_formed,
+    token_delivered,
 )
 from yoke_contracts.hook_runner.model_context_channel import (
     SESSION_OPENING_STDOUT_EVENTS,
@@ -34,17 +36,18 @@ from yoke_core.hooks.session_message_delivery_port import (
     SessionMessageDeliveryPort,
     SessionMessageLease,
 )
+from yoke_core.hooks.session_message_report_only import report_only_decision
 from yoke_core.hooks.session_message_rendering import (
     render_child_view,
     render_lease,
 )
+from yoke_core.hooks.session_message_wake_eligibility import wake_eligible
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 DELIVERY_AUDIT_FIELD = "session_message_delivery"
 DEFAULT_LEASE_LIMIT = 10
 _STDOUT_EVENTS = SESSION_OPENING_STDOUT_EVENTS | frozenset({"Stop"})
-_DELIVERABLE_STATES = frozenset({"pending"})
 
 
 def _delivery_port() -> SessionMessageDeliveryPort:
@@ -113,15 +116,33 @@ def _decision_for_event(
         lease,
         session_id=str(context.session_id or ""),
     )
-    extra = {}
+    audit: dict[str, object] = {"lease_id": lease.lease_id, "render_token": token}
+    extra: dict[str, object] = {}
     if lease.report:
-        extra[FLEET_REPORT_CONTEXT_FIELD] = lease.report
-    return _context_decision(
-        context,
-        rendered,
-        {"lease_id": lease.lease_id, "render_token": token},
-        extra_fields=extra or None,
-    )
+        audit.update(
+            report_session_id=str(context.session_id or ""),
+            report_fingerprint=lease.report_fingerprint,
+            report_claimed_at=lease.report_claimed_at,
+            report_not_after=lease.report_not_after,
+        )
+        output_field = model_context_channel(
+            executor_family=context.executor_family,
+            event_name=context.event_name,
+            stdout_events=_STDOUT_EVENTS,
+        )
+        if output_field == STDOUT_CHANNEL:
+            # The message already committed to this event's raw-stdout wire
+            # format; a report riding the additionalContext channel beside it
+            # would concatenate a JSON envelope with raw text into one
+            # invalid reply. Fold both into the single coherent block this
+            # event actually reads, keeping compose_hook_context's
+            # delivery-then-report order and inline cap.
+            rendered = compose_context_list(
+                [rendered, lease.report], harness_id=context.executor_family
+            )
+        else:
+            extra[FLEET_REPORT_CONTEXT_FIELD] = lease.report
+    return _context_decision(context, rendered, audit, extra_fields=extra or None)
 
 
 def _child_decision_for_event(
@@ -215,14 +236,24 @@ def evaluate(context: HookContext) -> HookDecision:
     if lease is None:
         return _declined(port, context, session_id, PROBE_SESSION_NOT_DELIVERABLE)
     if not lease.messages:
-        try:
-            port.complete_hook_lease(
-                lease_id=lease.lease_id,
-                injected=False,
-                result="empty_lease",
+        if lease.lease_id:
+            try:
+                port.complete_hook_lease(
+                    lease_id=lease.lease_id,
+                    injected=False,
+                    result="empty_lease",
+                )
+            except Exception:
+                pass
+        if lease.report:
+            # An empty inbox is not the same question as an empty report: a
+            # steering session owed a report still receives it here.
+            return report_only_decision(
+                lease,
+                context,
+                delivery_audit_field=DELIVERY_AUDIT_FIELD,
+                stdout_events=_STDOUT_EVENTS,
             )
-        except Exception:
-            pass
         return _declined(port, context, session_id, PROBE_NO_LEASABLE_RECEIPT)
     return _decision_for_event(lease, context)
 
@@ -241,61 +272,55 @@ def settle_after_render(
         if not isinstance(raw, dict):
             continue
         lease_id = str(raw.get("lease_id") or "").strip()
-        token = str(raw.get("render_token") or "").strip()
-        if not lease_id:
-            continue
-        if delivery_port is None:
-            delivery_port = _delivery_port()
-        injected = bool(not denied and token and token in rendered_text)
-        overflow = bool(
-            POINTER_BEGIN in rendered_text
-            and overflow_lease_marker(lease_id) in rendered_text
-        )
-        if overflow:
-            injected = False
-        if denied:
-            result = "dropped_by_sibling_denial"
-        elif overflow:
-            result = "inline_overflow"
-        elif injected:
-            result = HOOK_INJECTED_RESULT
-        else:
-            result = "render_output_missing"
-        try:
-            delivery_port.complete_hook_lease(
-                lease_id=lease_id,
-                injected=injected,
-                result=result,
+        if lease_id:
+            if delivery_port is None:
+                delivery_port = _delivery_port()
+            token = str(raw.get("render_token") or "").strip()
+            # A substring match alone is not proof of delivery: a report
+            # envelope followed by an unrelated raw message body satisfies
+            # it while the harness's own parser never reaches the second
+            # value. token_delivered also checks the reply parses cleanly.
+            injected = not denied and token_delivered(rendered_text, token)
+            overflow = bool(
+                POINTER_BEGIN in rendered_text
+                and overflow_lease_marker(lease_id) in rendered_text
             )
-        except Exception:
-            pass
-
-
-def _as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def wake_eligible(
-    *,
-    recipient_state: str,
-    last_activity_at: datetime | None,
-    now: datetime,
-    idle_threshold: timedelta,
-) -> bool:
-    """Return whether a recipient may enter idle-timeout native wake routing.
-
-    The wake sweep uses one idleness clock: time since the latest hook, tool
-    call, injection, or heartbeat. A session still inside that window is
-    left to hook injection; once idleness reaches the threshold, wake may
-    run. ``wake_after`` is stamped at send so eligibility is not delayed.
-    """
-    if recipient_state not in _DELIVERABLE_STATES:
-        return False
-    if last_activity_at is None:
-        return True
-    return _as_utc(now) - _as_utc(last_activity_at) >= idle_threshold
+            if overflow:
+                injected = False
+            if denied:
+                result = "dropped_by_sibling_denial"
+            elif overflow:
+                result = "inline_overflow"
+            elif injected:
+                result = HOOK_INJECTED_RESULT
+            else:
+                result = "render_output_missing"
+            try:
+                delivery_port.complete_hook_lease(
+                    lease_id=lease_id,
+                    injected=injected,
+                    result=result,
+                )
+            except Exception:
+                pass
+        fingerprint = str(raw.get("report_fingerprint") or "").strip()
+        # A malformed or denied reply must not spend the report's interval:
+        # the composed candidate is best-effort until this confirms the
+        # reply that carried it was actually well-formed and undenied, so a
+        # dropped report leaves the next hook free to retry instead of
+        # waiting out a whole interval for nothing.
+        if fingerprint and not denied and reply_is_well_formed(rendered_text):
+            if delivery_port is None:
+                delivery_port = _delivery_port()
+            try:
+                delivery_port.confirm_report_delivered(
+                    session_id=str(raw.get("report_session_id") or ""),
+                    fingerprint=fingerprint,
+                    claimed_at=str(raw.get("report_claimed_at") or ""),
+                    not_after=str(raw.get("report_not_after") or ""),
+                )
+            except Exception:
+                pass
 
 
 __all__ = [

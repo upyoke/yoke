@@ -31,13 +31,20 @@ class SessionMessageLease:
 
     ``report`` carries a control-plane block composed for this recipient and
     rendered alongside the messages. It is empty for every recipient that is
-    not owed one, which is almost all of them.
+    not owed one, which is almost all of them. The ``report_*`` fields are
+    populated exactly when ``report`` is non-empty, and are the identity the
+    hook layer hands back to :meth:`SessionMessageDeliveryPort.confirm_report_delivered`
+    once it knows the rendered reply actually carried the text — composing a
+    report does not by itself spend its delivery interval.
     """
 
     lease_id: str
     messages: tuple[LeasedSessionMessage, ...]
     remaining_count: int = 0
     report: str = ""
+    report_fingerprint: str = ""
+    report_claimed_at: str = ""
+    report_not_after: str = ""
 
 
 class SessionMessageDeliveryPort(Protocol):
@@ -65,6 +72,15 @@ class SessionMessageDeliveryPort(Protocol):
         lease_id: str,
         injected: bool,
         result: str,
+    ) -> None: ...
+
+    def confirm_report_delivered(
+        self,
+        *,
+        session_id: str,
+        fingerprint: str,
+        claimed_at: str,
+        not_after: str,
     ) -> None: ...
 
     def probe_undelivered(
@@ -180,28 +196,74 @@ class CoreSessionMessageDeliveryPort:
                     limit=limit,
                 )
             )
-            if lease is None or not lease.messages:
+            candidate = self._report_candidate(conn, session_id)
+            if candidate is None:
                 return lease
-            return replace(lease, report=self._steering_report(conn, session_id))
+            report_fields = dict(
+                report=candidate.text,
+                report_fingerprint=candidate.fingerprint,
+                report_claimed_at=candidate.claimed_at,
+                report_not_after=candidate.not_after,
+            )
+            if lease is not None:
+                return replace(lease, **report_fields)
+            # No message lease at all, but a report is owed independently of
+            # one — a steering session with an empty inbox is still owed its
+            # fleet report at model-visible hook boundaries.
+            return SessionMessageLease(lease_id="", messages=(), **report_fields)
         finally:
             conn.close()
 
     @staticmethod
-    def _steering_report(conn: Any, session_id: str) -> str:
-        """Compose the fleet report this delivery owes its recipient.
+    def _report_candidate(conn: Any, session_id: str) -> Any:
+        """Peek the fleet report this delivery may owe its recipient, if any.
 
         Composed after the lease commits so the ranking read never runs
-        inside the lease's lock window, and best-effort because a report is
-        an advisory: losing one must never cost the recipient its messages.
+        inside the lease's lock window. Read-only and best-effort: composing
+        never claims the delivery interval, so a report lost to a sibling
+        denial or a malformed reply leaves the next hook free to retry
+        rather than costing the recipient its messages OR a whole interval.
         """
         from yoke_core.domain.steering_fleet_report_delivery import (
-            steering_report_for_delivery,
+            steering_report_candidate,
         )
 
         try:
-            return steering_report_for_delivery(conn, session_id=session_id) or ""
+            return steering_report_candidate(conn, session_id=session_id)
         except Exception:
-            return ""
+            return None
+
+    def confirm_report_delivered(
+        self,
+        *,
+        session_id: str,
+        fingerprint: str,
+        claimed_at: str,
+        not_after: str,
+    ) -> None:
+        """Claim the report interval now that the reply confirms delivery."""
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.steering_fleet_report_delivery import (
+            SteeringReportCandidate,
+            confirm_steering_report_delivery,
+        )
+
+        conn = db_backend.connect(busy_timeout_ms=2000)
+        try:
+            confirm_steering_report_delivery(
+                conn,
+                SteeringReportCandidate(
+                    text="",
+                    session_id=session_id,
+                    fingerprint=fingerprint,
+                    claimed_at=claimed_at,
+                    not_after=not_after,
+                ),
+            )
+        except Exception:
+            pass
+        finally:
+            conn.close()
 
     def complete_hook_lease(
         self,
