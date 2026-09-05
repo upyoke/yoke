@@ -44,6 +44,10 @@ def _verify_bindings(home: Path, binary: str) -> tuple[str, ...]:
         "yoke_absent_directories=(.yoke)",
         "yoke_absent_files=()",
         "container_runtime_paths=()",
+        # No test reads the operator's own launchd domain: an unreachable
+        # launchctl is how this host reports that nothing is loaded, the same
+        # way an absent container runtime reports an idle self-host stack.
+        _assignment("launchctl_path", str(home.parent / "absent-launchctl")),
     )
 
 
@@ -81,9 +85,7 @@ def test_verify_names_the_exact_unmet_temp_path(
     residue = tmp_path / "yoke-install"
     residue.write_text("stale installer\n")
     error_log = tmp_path / "restore-errors.log"
-    expected = (
-        RESET_ABSENT_PATH_PREFIX + RESET_ABSENT_KIND_LEFTOVER + f" {residue}"
-    )
+    expected = RESET_ABSENT_PATH_PREFIX + RESET_ABSENT_KIND_LEFTOVER + f" {residue}"
 
     result = _run_functions(
         (
@@ -108,9 +110,7 @@ def test_clear_refuses_while_a_live_process_holds_the_temp_file(
     residue = tmp_path / "yoke-install"
     residue.write_text("held installer\n")
     quoted = shlex.quote(str(residue))
-    expected = (
-        RESET_ABSENT_PATH_PREFIX + RESET_ABSENT_KIND_LIVE_PROCESS + f" {residue}"
-    )
+    expected = RESET_ABSENT_PATH_PREFIX + RESET_ABSENT_KIND_LIVE_PROCESS + f" {residue}"
 
     result = _run_functions(
         (
@@ -138,7 +138,10 @@ def test_clear_refuses_while_a_live_process_holds_the_temp_file(
 
 def test_absent_path_detail_names_path_reason_and_recovery() -> None:
     leftover = (
-        RESET_ABSENT_PATH_PREFIX + RESET_ABSENT_KIND_LEFTOVER + " " + INSTALLER_TEMP_PATH
+        RESET_ABSENT_PATH_PREFIX
+        + RESET_ABSENT_KIND_LEFTOVER
+        + " "
+        + INSTALLER_TEMP_PATH
     )
     live = (
         RESET_ABSENT_PATH_PREFIX
@@ -161,7 +164,7 @@ def test_absent_path_detail_names_path_reason_and_recovery() -> None:
         ),
     }
     assert absent_path_detail(RESET_ABSENT_PATH_PREFIX + "leftover relative") is None
-    assert absent_path_detail(RESET_ABSENT_PATH_PREFIX + "mystery /tmp/yoke-install") is (
-        None
-    )
+    assert absent_path_detail(
+        RESET_ABSENT_PATH_PREFIX + "mystery /tmp/yoke-install"
+    ) is (None)
     assert absent_path_detail(RESET_ABSENT_PATH_PREFIX + "leftover /tmp/../etc") is None

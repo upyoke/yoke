@@ -13,6 +13,11 @@ from yoke_contracts.machine_config import schema as machine_schema
 
 PROD_RELAY_LABEL = "com.upyoke.relay"
 NON_PROD_RELAY_LABEL_PREFIX = f"{PROD_RELAY_LABEL}."
+#: launchd's per-user domain, the one a relay LaunchAgent bootstraps into. It
+#: lives beside the labels it qualifies because every caller that addresses a
+#: relay service names both together: the local lifecycle target and the Test
+#: Mac reset, which reaches the same domain over its own shell.
+LAUNCHD_USER_DOMAIN = "gui"
 PROD_RELAY_STATE_DIR_NAME = "relay"
 #: The service's own streams, in the state dir. The launchd plist points
 #: at them and the evidence read serves them back, so the names live once.
@@ -139,6 +144,7 @@ def resolve_relay_instance(
 
 
 __all__ = [
+    "LAUNCHD_USER_DOMAIN",
     "NON_PROD_RELAY_LABEL_PREFIX",
     "NON_PROD_RELAY_STATE_ROOT_NAME",
     "PROD_RELAY_LABEL",

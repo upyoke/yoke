@@ -26,7 +26,7 @@ server walk puts most of its residue there: the bundle directory with its
 owner-only `secrets/`, the minted API tokens, the local universe's Postgres
 cluster, and — on a default macOS install — the container runtime's own data.
 
-Three things are still outside the restore's reach, and the reset handles each
+Four things are still outside the restore's reach, and the reset handles each
 before it reports the home restored. The running server is one: containers,
 volumes, and images can only be named by a daemon that is up, and a runtime
 whose data root was moved outside the home would keep them whatever the restore
@@ -60,6 +60,18 @@ contract, not a reset enumeration. The home-relative walker client token under
 The receipt reports what the teardown freed — containers, volumes, and images,
 alongside the Compose project it selected — so a walk that left nothing behind
 is distinguishable from one whose teardown never ran.
+
+The fourth is launchd's own job registry, which no home restore can reach. A
+Yoke relay LaunchAgent loaded under the test account survives the clear
+because launchd — not the home — holds the record of it, and a job left
+loaded rewrites the state directory the clear just emptied the moment it next
+runs: the home comes back clean and the verifier still finds Yoke state the
+service recreated seconds later. So the reset boots the account's relay out
+before the reap and the clear run, addressing it by the relay's own label
+naming rather than an observed instance, and leaves every other launchd job
+on the host alone. A host with no relay loaded passes cleanly; one still
+loaded after its bootout stops the reset with the home intact and names the
+label plus its recovery (`relay_service_state`).
 
 ## Reading a stopped restore
 
