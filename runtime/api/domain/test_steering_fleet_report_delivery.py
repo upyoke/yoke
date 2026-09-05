@@ -10,7 +10,9 @@ from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 from yoke_core.domain.steering_fleet_report_delivery import (
+    confirm_steering_report_delivery,
     steered_project_id,
+    steering_report_candidate,
     steering_report_for_delivery,
 )
 
@@ -99,6 +101,51 @@ def test_the_steering_seat_receives_the_report(steering_scope):
     stamped_at, fingerprint = _last_report(steering_scope, STEERING_SESSION)
     assert stamped_at
     assert fingerprint
+
+
+def test_an_unconfirmed_candidate_does_not_take_the_interval(steering_scope):
+    """Peeking a candidate composes it without spending its delivery slot.
+
+    A reply that turns out denied or malformed must not cost the recipient
+    a whole interval's report — the next hook has to see the SAME candidate
+    again rather than a suppressed one, because nothing was ever confirmed.
+    """
+    first = steering_report_candidate(
+        steering_scope, session_id=STEERING_SESSION, now=NOW
+    )
+    assert first is not None
+    assert "=== BEGIN YOKE FLEET REPORT ===" in first.text
+    stamped_at, fingerprint = _last_report(steering_scope, STEERING_SESSION)
+    assert stamped_at == ""
+    assert fingerprint == ""
+
+    second = steering_report_candidate(
+        steering_scope, session_id=STEERING_SESSION, now=NOW + timedelta(minutes=1)
+    )
+
+    assert second is not None
+    assert second.fingerprint == first.fingerprint
+
+
+def test_confirming_a_candidate_takes_the_interval_for_the_next_peek(steering_scope):
+    candidate = steering_report_candidate(
+        steering_scope, session_id=STEERING_SESSION, now=NOW
+    )
+    assert candidate is not None
+
+    assert confirm_steering_report_delivery(steering_scope, candidate) is True
+    stamped_at, fingerprint = _last_report(steering_scope, STEERING_SESSION)
+    assert stamped_at
+    assert fingerprint == candidate.fingerprint
+
+    assert (
+        steering_report_candidate(
+            steering_scope,
+            session_id=STEERING_SESSION,
+            now=NOW + timedelta(minutes=1),
+        )
+        is None
+    )
 
 
 def test_a_second_delivery_inside_the_interval_carries_nothing(steering_scope):

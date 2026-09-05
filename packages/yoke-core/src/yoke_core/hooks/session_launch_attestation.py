@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
+from yoke_contracts.hook_context_compose import token_delivered
 from yoke_contracts.hook_runner.model_context_channel import (
     SESSION_OPENING_STDOUT_EVENTS,
     STDOUT_CHANNEL,
@@ -260,7 +261,7 @@ def settle_after_render(
         if not isinstance(delivery, dict):
             continue
         token = str(delivery.get("render_token") or "")
-        delivered = bool(not denied and token and token in rendered_text)
+        delivered = not denied and token_delivered(rendered_text, token)
         try:
             finalize_launch_attestation(
                 decision, delivered=delivered, connect=connection_factory

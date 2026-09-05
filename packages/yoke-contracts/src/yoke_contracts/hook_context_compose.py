@@ -9,6 +9,7 @@ overflow to a file cannot hide the delivery behind a preview of a hint.
 from __future__ import annotations
 
 from collections.abc import Callable
+import json
 import re
 
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
@@ -25,9 +26,7 @@ REPORT_OMITTED_NOTICE = (
 )
 
 _LEASE_RE = re.compile(r"YOKE_SESSION_MESSAGE_LEASE:([^\s=]+)")
-_MESSAGE_RE = re.compile(
-    r"--- BEGIN YOKE SESSION MESSAGE ([0-9a-fA-F-]{36}) ---"
-)
+_MESSAGE_RE = re.compile(r"--- BEGIN YOKE SESSION MESSAGE ([0-9a-fA-F-]{36}) ---")
 
 
 def classify_hook_context(text: str) -> str:
@@ -65,9 +64,7 @@ def compose_context_list(contexts: list[str], *, harness_id: str) -> str:
             reports.append(raw)
         else:
             hints.append(raw)
-    return compose_hook_context(
-        deliveries, hints, reports, harness_id=harness_id
-    )
+    return compose_hook_context(deliveries, hints, reports, harness_id=harness_id)
 
 
 def compose_hook_context(
@@ -164,6 +161,42 @@ def _fit_deliveries(
     return fitted
 
 
+def reply_is_well_formed(rendered_text: str) -> bool:
+    """Whether *rendered_text* is one coherent reply, not JSON plus trailing bytes.
+
+    A harness that reads a structured reply for this event parses the whole
+    process stdout as one JSON value; bytes trailing a complete value
+    (``json.JSONDecodeError: Extra data``) never reach the model even though
+    they are technically present in the string. Plain text that never looks
+    like a JSON value has no such parser standing between it and the model,
+    so it is always well-formed here.
+    """
+    if not rendered_text:
+        return True
+    if rendered_text.lstrip()[:1] not in ("{", "["):
+        return True
+    try:
+        json.loads(rendered_text)
+    except (json.JSONDecodeError, ValueError):
+        return False
+    return True
+
+
+def token_delivered(rendered_text: str, token: str) -> bool:
+    """Whether *token* rides a well-formed reply, not just a raw substring.
+
+    Settlement used to treat "token is a substring of stdout" as proof of
+    delivery. A report envelope followed by an unrelated raw message block
+    satisfies that substring check while the harness's own parser reads only
+    the first JSON value and never reaches the second — a receipt for a
+    delivery that did not happen. Require both: the token is present, and
+    the reply it rides is not silently truncated by the harness's parser.
+    """
+    if not token or not rendered_text or token not in rendered_text:
+        return False
+    return reply_is_well_formed(rendered_text)
+
+
 __all__ = [
     "FLEET_REPORT_CONTEXT_FIELD",
     "OVERFLOW_LEASE_PREFIX",
@@ -175,4 +208,6 @@ __all__ = [
     "compose_hook_context",
     "overflow_lease_marker",
     "render_overflow_pointer",
+    "reply_is_well_formed",
+    "token_delivered",
 ]
