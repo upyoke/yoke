@@ -104,7 +104,20 @@ What the report gives you is a finding; what to do with each one is yours:
 - **Idle holders** — probe and revive. A holder that stamped `--mode parked`
   declared its wait, one inside a long call is listed under **In flight**, and
   one the provider stopped under **Vendor-stopped sessions**; none of the
-  three appears here. A starved holder is also burning down its stale clock,
+  three appears here. Verify the recorded state before dismissing an idle or
+  stale row as an already-explained wait: read the holder's live `mode` and
+  `quiet_reason` (`yoke sessions list --json`), not a memory of an earlier
+  pass or a note already sitting in {SLUG} — knowing the reason, or having
+  written it into the doc, is not the state change; only the mode stamp is.
+  Once the blocker a parked holder named has actually cleared, send an
+  item-addressed resume and confirm the holder's `mode` leaves `parked`
+  before treating it as revived:
+
+  ```text
+  printf '%s' "RESUME PREFIX-N: <blocker> cleared, resume the routed leg" | yoke say --item PREFIX-N --stdin
+  ```
+
+  A starved holder is also burning down its stale clock,
   so read `stale_eligible_at` and `effective_stale_ttl_minutes` from its `yoke
   sessions list --json` row while triaging: at `stale_eligible_at` the reclaim
   sweep releases its claims and the item reads as untouched, so a holder
@@ -386,8 +399,9 @@ it at the next steering handoff rather than accumulating stale snapshots:
 ```
 
 It carries current seat holdings, in-flight lanes, deploy-batch state, the
-dependency-edge queue, and the recipes currently in force. A successor must
-be able to cold-start the scope from the claimed document alone.
+dependency-edge queue, any live outstanding operator action and what it
+blocks, and the recipes currently in force. A successor must be able to
+cold-start the scope from the claimed document alone.
 
 ### 8. Escalate only human decisions
 
