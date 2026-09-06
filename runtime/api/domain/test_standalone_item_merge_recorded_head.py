@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -42,7 +43,8 @@ def repo(tmp_path: Path) -> Path:
 
 
 def test_stale_same_named_ref_merges_the_recorded_head(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorded = _git(repo, "rev-parse", "lane")
     _git(repo, "checkout", "-q", "main")
@@ -75,7 +77,8 @@ def test_stale_same_named_ref_merges_the_recorded_head(
 
 
 def test_terminal_transition_refuses_an_unreachable_recorded_head(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     unreachable = _git(repo, "rev-parse", "lane")
     _git(repo, "checkout", "-q", "main")
@@ -149,41 +152,75 @@ def test_divergent_recorded_head_refuses_without_rewinding(repo: Path) -> None:
     assert _git(repo, "rev-parse", "lane") == diverged
 
 
-def test_record_lane_head_after_merge_persists_worktree_head(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+def test_merge_records_the_engines_actual_tested_head_not_the_stale_source(
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Runs right after the engine's own rebase/merge: head-only, best-effort."""
-    from yoke_core.engines.merge_worktree_recorded_source import (
-        record_lane_head_after_merge,
-    )
-    import yoke_cli.commands.adapters.project_snapshot as project_snapshot
+    """Evidence must name what was actually tested and pushed.
 
-    calls: list[dict] = []
+    The engine may find the branch already advanced past the caller's
+    pre-computed (here stale) commit_sha -- a prior interrupted run's own
+    progress it correctly declines to rewind -- merge that more advanced
+    tree, and persist the advance to the lane's own recorded commit. The
+    recorded receipt and outcome must reflect that real tested identity,
+    re-read from the lane, not the value resolved before the engine ran.
+    """
+    stale = _git(repo, "rev-parse", "lane")
+    (repo / "more.txt").write_text("more work\n")
+    _git(repo, "add", "more.txt")
+    _git(repo, "commit", "-q", "-m", "more work")
+    advanced = _git(repo, "rev-parse", "lane")
+    assert stale != advanced
+    recorded_calls: list[str] = []
+    monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
     monkeypatch.setattr(
-        project_snapshot,
-        "sync_local_snapshot_for_write",
-        lambda **kwargs: calls.append(kwargs) or {"status": "ok"},
+        merge_boundary.receipts,
+        "record",
+        lambda _item, receipt, **_k: recorded_calls.append(receipt.commit_sha),
     )
-    context = MergeContext(
-        args=MergeArgs(branch="lane"),
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a: None)
+    monkeypatch.setattr(merge_boundary.git, "publish", lambda *_a: (False, ""))
+
+    def merge_reports_advanced(**kwargs):
+        assert kwargs["source_sha"] == stale
+        _git(repo, "checkout", "-q", "main")
+        _git(repo, "merge", "-q", "--no-edit", "lane")
+        return 0, ""
+
+    monkeypatch.setattr(merge_boundary, "_run_merge_engine", merge_reports_advanced)
+    monkeypatch.setattr(
+        merge_boundary,
+        "call_dispatcher",
+        lambda **_k: SimpleNamespace(
+            success=True,
+            result={
+                "item": {
+                    "worktrees": [
+                        {"state": "active", "branch": "lane", "commit_sha": advanced},
+                    ]
+                }
+            },
+            error=None,
+        ),
+    )
+
+    outcome = merge_boundary.merge_standalone_branch(
+        item_id=7,
+        branch="lane",
+        commit_sha=stale,
+        target="main",
         repo_root=str(repo),
-        worktree_path=str(repo),
         project="yoke",
     )
 
-    record_lane_head_after_merge(context)
-
-    assert calls == [{
-        "project": "yoke",
-        "repo_root": str(repo),
-        "integration_target": None,
-        "session_id": None,
-        "head_only": True,
-    }]
+    assert outcome.ok is True
+    assert outcome.commit_sha == advanced
+    assert recorded_calls[-1] == advanced
 
 
 def test_unrecorded_head_falls_back_to_the_branch(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # A control plane older than item_worktrees.commit_sha records nothing,
     # and the deploy that would teach it to is itself work that has to merge.
@@ -217,7 +254,8 @@ def test_unrecorded_head_falls_back_to_the_branch(
 
 
 def test_unrecorded_head_says_the_value_was_derived(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Silently substituting a weaker guarantee would be the worse failure."""
     monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
@@ -239,7 +277,8 @@ def test_unrecorded_head_says_the_value_was_derived(
 
 
 def test_an_unresolvable_branch_still_refuses(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # The fallback derives a real commit or it fails; it never invents one.
     monkeypatch.setattr(merge_boundary.git, "branch_exists", lambda *_a: True)

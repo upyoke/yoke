@@ -153,6 +153,7 @@ def run(args: MergeArgs) -> int:
     from yoke_core.engines.merge_worktree_recorded_source import (
         bind_recorded_source,
     )
+
     if source_error := bind_recorded_source(ctx, verify.stdout.strip()):
         _print(f"Error: {source_error}.", err=True)
         return 1
@@ -291,6 +292,7 @@ def run(args: MergeArgs) -> int:
         from yoke_core.engines.merge_worktree_recorded_source import (
             record_lane_head_after_merge,
         )
+
         record_lane_head_after_merge(ctx)
 
         # Tests

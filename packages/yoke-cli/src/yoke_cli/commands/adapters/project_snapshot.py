@@ -141,6 +141,11 @@ def sync_local_snapshot_for_write(
             integration_target=integration_target,
             head_only=head_only,
             hook_mode=True,
+            # The CLI's own `--hook --head-only` invocation (the git
+            # post-commit shim) defers file contents the same way; a
+            # caller asking for head-only wants that same identity-only
+            # speed, not a full blob scan of the whole tree.
+            include_contents=not head_only,
         )
     except ProjectSnapshotScanError as exc:
         return _sync_status(False, "skipped", str(exc), repair_command)

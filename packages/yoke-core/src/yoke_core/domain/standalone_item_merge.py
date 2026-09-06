@@ -30,6 +30,7 @@ from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
+from yoke_core.domain.standalone_item_merge_lane import merge_source_lane
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can
@@ -280,6 +281,11 @@ def merge_standalone_branch(
                     ),
                     output=output,
                 )
+            # The engine may have merged a more advanced, already-persisted lane.
+            tested_sha = _recorded_lane_head(item_id)
+            if tested_sha and tested_sha != commit_sha:
+                commit_sha = tested_sha
+                observed = git.changed_files(repo_root, commit_sha, target)
 
     return _complete(
         item_id=item_id,
@@ -301,6 +307,20 @@ def merge_standalone_branch(
         warnings=warnings,
         resume_command=resume_command,
     )
+
+
+def _recorded_lane_head(item_id: int) -> str:
+    """Re-read the item's active lane's recorded commit, or ``""``."""
+    target_ref = TargetRef(kind="item", item_id=int(item_id))
+    detail = call_dispatcher(
+        function_id="items.detail.get",
+        target=target_ref,
+        payload={},
+    )
+    if not detail.success:
+        return ""
+    item = (detail.result or {}).get("item") or {}
+    return str((merge_source_lane(item) or {}).get("commit_sha") or "").strip()
 
 
 def sync_item_to_github(item_id: int) -> Optional[str]:
