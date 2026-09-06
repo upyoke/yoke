@@ -42,7 +42,8 @@ def repo(tmp_path: Path) -> Path:
 
 
 def test_stale_same_named_ref_merges_the_recorded_head(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorded = _git(repo, "rev-parse", "lane")
     _git(repo, "checkout", "-q", "main")
@@ -75,7 +76,8 @@ def test_stale_same_named_ref_merges_the_recorded_head(
 
 
 def test_terminal_transition_refuses_an_unreachable_recorded_head(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     unreachable = _git(repo, "rev-parse", "lane")
     _git(repo, "checkout", "-q", "main")
@@ -109,8 +111,95 @@ def test_engine_rebinds_a_stale_lane_ref_to_recorded_head(repo: Path) -> None:
     assert _git(repo, "rev-parse", "lane") == recorded
 
 
+def test_ancestor_recorded_head_leaves_advanced_branch_untouched(repo: Path) -> None:
+    """Reproduces the interrupted-merge/retry incident.
+
+    The lane already contains the recorded commit and has moved past it --
+    a prior interrupted run's own progress. Rewinding to the stale record
+    would discard that progress and desync the checked-out worktree's
+    index/files from the ref this rewinds behind them.
+    """
+    recorded = _git(repo, "rev-parse", "main")  # the older, now-stale record
+    advanced = _git(repo, "rev-parse", "lane")  # lane already contains it
+    context = MergeContext(
+        args=MergeArgs(branch="lane", source_sha=recorded),
+        repo_root=str(repo),
+    )
+
+    assert bind_recorded_source(context, advanced) == ""
+    assert _git(repo, "rev-parse", "lane") == advanced
+
+
+def test_divergent_recorded_head_refuses_without_rewinding(repo: Path) -> None:
+    """Neither side is an ancestor of the other -- refuse, don't guess."""
+    recorded = _git(repo, "rev-parse", "lane")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "checkout", "-q", "-b", "other")
+    (repo / "other.txt").write_text("unrelated\n")
+    _git(repo, "add", "other.txt")
+    _git(repo, "commit", "-q", "-m", "other")
+    _git(repo, "branch", "-f", "lane", "other")
+    diverged = _git(repo, "rev-parse", "lane")
+    context = MergeContext(
+        args=MergeArgs(branch="lane", source_sha=recorded),
+        repo_root=str(repo),
+    )
+
+    error = bind_recorded_source(context, diverged)
+
+    assert "diverged" in error
+    assert _git(repo, "rev-parse", "lane") == diverged
+
+
+def test_merge_keeps_the_resolved_commit_sha_as_the_tested_identity(
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """commit_sha binds to what was verified, not to wherever HEAD lands.
+
+    ``do_rebase_or_merge`` always folds target into the lane via a merge
+    commit when a recorded source is set (the standalone case, always) --
+    so the branch's own HEAD advances past commit_sha on every merge, by
+    design, whether or not a prior interrupted run is involved. Re-reading
+    that later HEAD and using it as evidence would silently replace the
+    QA-bound identity with an untested amalgam of the lane and target; the
+    resolved commit_sha must survive unchanged.
+    """
+    stale = _git(repo, "rev-parse", "lane")
+    _git(repo, "checkout", "-q", "main")
+    (repo / "target.txt").write_text("target moved on independently\n")
+    _git(repo, "add", "target.txt")
+    _git(repo, "commit", "-q", "-m", "target progress")
+    _git(repo, "checkout", "-q", "lane")
+    monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
+    monkeypatch.setattr(merge_boundary.receipts, "record", lambda *_a, **_k: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a: None)
+    monkeypatch.setattr(merge_boundary.git, "publish", lambda *_a: (False, ""))
+
+    def merge_folds_target_in(**kwargs):
+        assert kwargs["source_sha"] == stale
+        _git(repo, "merge", "-q", "--no-edit", "main")  # the engine's own merge commit
+        return 0, ""
+
+    monkeypatch.setattr(merge_boundary, "_run_merge_engine", merge_folds_target_in)
+
+    outcome = merge_boundary.merge_standalone_branch(
+        item_id=7,
+        branch="lane",
+        commit_sha=stale,
+        target="main",
+        repo_root=str(repo),
+        project="yoke",
+    )
+
+    assert outcome.ok is True
+    assert outcome.commit_sha == stale
+    assert _git(repo, "rev-parse", "lane") != stale
+
+
 def test_unrecorded_head_falls_back_to_the_branch(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # A control plane older than item_worktrees.commit_sha records nothing,
     # and the deploy that would teach it to is itself work that has to merge.
@@ -144,7 +233,8 @@ def test_unrecorded_head_falls_back_to_the_branch(
 
 
 def test_unrecorded_head_says_the_value_was_derived(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Silently substituting a weaker guarantee would be the worse failure."""
     monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
@@ -166,7 +256,8 @@ def test_unrecorded_head_says_the_value_was_derived(
 
 
 def test_an_unresolvable_branch_still_refuses(
-    repo: Path, monkeypatch: pytest.MonkeyPatch,
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # The fallback derives a real commit or it fails; it never invents one.
     monkeypatch.setattr(merge_boundary.git, "branch_exists", lambda *_a: True)

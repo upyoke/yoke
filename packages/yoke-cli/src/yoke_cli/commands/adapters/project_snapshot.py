@@ -122,6 +122,7 @@ def sync_local_snapshot_for_write(
     repo_root: Optional[str] = None,
     integration_target: Optional[str],
     session_id: Optional[str],
+    head_only: bool = False,
     stderr: TextIO = sys.stderr,
 ) -> dict[str, Any]:
     project_id = _project_context(project)
@@ -138,7 +139,13 @@ def sync_local_snapshot_for_write(
             repo_root,
             project_id=project_id,
             integration_target=integration_target,
+            head_only=head_only,
             hook_mode=True,
+            # The CLI's own `--hook --head-only` invocation (the git
+            # post-commit shim) defers file contents the same way; a
+            # caller asking for head-only wants that same identity-only
+            # speed, not a full blob scan of the whole tree.
+            include_contents=not head_only,
         )
     except ProjectSnapshotScanError as exc:
         return _sync_status(False, "skipped", str(exc), repair_command)
