@@ -109,6 +109,79 @@ def test_engine_rebinds_a_stale_lane_ref_to_recorded_head(repo: Path) -> None:
     assert _git(repo, "rev-parse", "lane") == recorded
 
 
+def test_ancestor_recorded_head_leaves_advanced_branch_untouched(repo: Path) -> None:
+    """Reproduces the interrupted-merge/retry incident.
+
+    The lane already contains the recorded commit and has moved past it --
+    a prior interrupted run's own progress. Rewinding to the stale record
+    would discard that progress and desync the checked-out worktree's
+    index/files from the ref this rewinds behind them.
+    """
+    recorded = _git(repo, "rev-parse", "main")  # the older, now-stale record
+    advanced = _git(repo, "rev-parse", "lane")  # lane already contains it
+    context = MergeContext(
+        args=MergeArgs(branch="lane", source_sha=recorded),
+        repo_root=str(repo),
+    )
+
+    assert bind_recorded_source(context, advanced) == ""
+    assert _git(repo, "rev-parse", "lane") == advanced
+
+
+def test_divergent_recorded_head_refuses_without_rewinding(repo: Path) -> None:
+    """Neither side is an ancestor of the other -- refuse, don't guess."""
+    recorded = _git(repo, "rev-parse", "lane")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "checkout", "-q", "-b", "other")
+    (repo / "other.txt").write_text("unrelated\n")
+    _git(repo, "add", "other.txt")
+    _git(repo, "commit", "-q", "-m", "other")
+    _git(repo, "branch", "-f", "lane", "other")
+    diverged = _git(repo, "rev-parse", "lane")
+    context = MergeContext(
+        args=MergeArgs(branch="lane", source_sha=recorded),
+        repo_root=str(repo),
+    )
+
+    error = bind_recorded_source(context, diverged)
+
+    assert "diverged" in error
+    assert _git(repo, "rev-parse", "lane") == diverged
+
+
+def test_record_lane_head_after_merge_persists_worktree_head(
+    repo: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runs right after the engine's own rebase/merge: head-only, best-effort."""
+    from yoke_core.engines.merge_worktree_recorded_source import (
+        record_lane_head_after_merge,
+    )
+    import yoke_cli.commands.adapters.project_snapshot as project_snapshot
+
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        project_snapshot,
+        "sync_local_snapshot_for_write",
+        lambda **kwargs: calls.append(kwargs) or {"status": "ok"},
+    )
+    context = MergeContext(
+        args=MergeArgs(branch="lane"),
+        repo_root=str(repo),
+        worktree_path=str(repo),
+        project="yoke",
+    )
+
+    record_lane_head_after_merge(context)
+
+    assert calls == [{
+        "project": "yoke",
+        "repo_root": str(repo),
+        "integration_target": None,
+        "session_id": None,
+        "head_only": True,
+    }]
+
+
 def test_unrecorded_head_falls_back_to_the_branch(
     repo: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -287,6 +287,12 @@ def run(args: MergeArgs) -> int:
             exit_code = merge_result[0]
             return exit_code
 
+        # Persist the advanced HEAD before push/CI can be interrupted.
+        from yoke_core.engines.merge_worktree_recorded_source import (
+            record_lane_head_after_merge,
+        )
+        record_lane_head_after_merge(ctx)
+
         # Tests
         test_result = run_tests(ctx)
         if test_result:

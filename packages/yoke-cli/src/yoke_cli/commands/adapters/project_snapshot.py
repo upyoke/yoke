@@ -122,6 +122,7 @@ def sync_local_snapshot_for_write(
     repo_root: Optional[str] = None,
     integration_target: Optional[str],
     session_id: Optional[str],
+    head_only: bool = False,
     stderr: TextIO = sys.stderr,
 ) -> dict[str, Any]:
     project_id = _project_context(project)
@@ -138,6 +139,7 @@ def sync_local_snapshot_for_write(
             repo_root,
             project_id=project_id,
             integration_target=integration_target,
+            head_only=head_only,
             hook_mode=True,
         )
     except ProjectSnapshotScanError as exc:
