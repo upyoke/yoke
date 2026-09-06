@@ -126,11 +126,10 @@ def record_lane_head_after_merge(ctx: MergeContext) -> None:
     Goes through the same registered ``project.snapshot.sync`` surface the
     git post-commit hook drives on every ordinary commit -- the transport-
     universal recording path, correct on both a local-Postgres and an
-    https-authority machine, and the one an earlier PLAT-71 recovery already
-    proved fixes exactly this record. ``head_only=True`` requests that
-    hook's own fast identity-only shape (HEAD's commit identity, no full
-    tree content scan). Best-effort like that hook: a write failure is
-    reported, never silent, but never fails an otherwise-landed merge.
+    https-authority machine. ``head_only=True`` requests that hook's own
+    fast identity-only shape (HEAD's commit identity, no full tree content
+    scan). Best-effort like that hook: a write failure is reported, never
+    silent, but never fails an otherwise-landed merge.
     """
     from yoke_cli.commands.adapters.project_snapshot import (
         sync_local_snapshot_for_write,

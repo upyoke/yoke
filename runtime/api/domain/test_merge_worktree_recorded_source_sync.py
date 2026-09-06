@@ -107,7 +107,8 @@ def test_forward_rebind_refuses_when_checked_out_worktree_is_dirty(
 
 
 def test_interrupted_merge_retry_preserves_progress_and_worktree(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     """Reproduces the interrupted-merge/retry incident end to end.
 
@@ -136,19 +137,23 @@ def test_interrupted_merge_retry_preserves_progress_and_worktree(
     _git(lane_dir, "add", "feature.txt")
     _git(lane_dir, "commit", "-q", "-m", "feature")
     first = _git(lane_dir, "rev-parse", "HEAD")
-    record_lane_head_after_merge(MergeContext(
-        args=MergeArgs(branch="lane"),
-        repo_root=str(repo),
-        worktree_path=str(lane_dir),
-        project="yoke",
-    ))
-    assert persisted == [{
-        "project": "yoke",
-        "repo_root": str(lane_dir),
-        "integration_target": None,
-        "session_id": None,
-        "head_only": True,
-    }]
+    record_lane_head_after_merge(
+        MergeContext(
+            args=MergeArgs(branch="lane"),
+            repo_root=str(repo),
+            worktree_path=str(lane_dir),
+            project="yoke",
+        )
+    )
+    assert persisted == [
+        {
+            "project": "yoke",
+            "repo_root": str(lane_dir),
+            "integration_target": None,
+            "session_id": None,
+            "head_only": True,
+        }
+    ]
 
     (lane_dir / "more.txt").write_text("more work\n")
     _git(lane_dir, "add", "more.txt")

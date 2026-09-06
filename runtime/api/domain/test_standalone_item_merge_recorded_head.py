@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -152,57 +151,37 @@ def test_divergent_recorded_head_refuses_without_rewinding(repo: Path) -> None:
     assert _git(repo, "rev-parse", "lane") == diverged
 
 
-def test_merge_records_the_engines_actual_tested_head_not_the_stale_source(
+def test_merge_keeps_the_resolved_commit_sha_as_the_tested_identity(
     repo: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Evidence must name what was actually tested and pushed.
+    """commit_sha binds to what was verified, not to wherever HEAD lands.
 
-    The engine may find the branch already advanced past the caller's
-    pre-computed (here stale) commit_sha -- a prior interrupted run's own
-    progress it correctly declines to rewind -- merge that more advanced
-    tree, and persist the advance to the lane's own recorded commit. The
-    recorded receipt and outcome must reflect that real tested identity,
-    re-read from the lane, not the value resolved before the engine ran.
+    ``do_rebase_or_merge`` always folds target into the lane via a merge
+    commit when a recorded source is set (the standalone case, always) --
+    so the branch's own HEAD advances past commit_sha on every merge, by
+    design, whether or not a prior interrupted run is involved. Re-reading
+    that later HEAD and using it as evidence would silently replace the
+    QA-bound identity with an untested amalgam of the lane and target; the
+    resolved commit_sha must survive unchanged.
     """
     stale = _git(repo, "rev-parse", "lane")
-    (repo / "more.txt").write_text("more work\n")
-    _git(repo, "add", "more.txt")
-    _git(repo, "commit", "-q", "-m", "more work")
-    advanced = _git(repo, "rev-parse", "lane")
-    assert stale != advanced
-    recorded_calls: list[str] = []
+    _git(repo, "checkout", "-q", "main")
+    (repo / "target.txt").write_text("target moved on independently\n")
+    _git(repo, "add", "target.txt")
+    _git(repo, "commit", "-q", "-m", "target progress")
+    _git(repo, "checkout", "-q", "lane")
     monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
-    monkeypatch.setattr(
-        merge_boundary.receipts,
-        "record",
-        lambda _item, receipt, **_k: recorded_calls.append(receipt.commit_sha),
-    )
+    monkeypatch.setattr(merge_boundary.receipts, "record", lambda *_a, **_k: None)
     monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a: None)
     monkeypatch.setattr(merge_boundary.git, "publish", lambda *_a: (False, ""))
 
-    def merge_reports_advanced(**kwargs):
+    def merge_folds_target_in(**kwargs):
         assert kwargs["source_sha"] == stale
-        _git(repo, "checkout", "-q", "main")
-        _git(repo, "merge", "-q", "--no-edit", "lane")
+        _git(repo, "merge", "-q", "--no-edit", "main")  # the engine's own merge commit
         return 0, ""
 
-    monkeypatch.setattr(merge_boundary, "_run_merge_engine", merge_reports_advanced)
-    monkeypatch.setattr(
-        merge_boundary,
-        "call_dispatcher",
-        lambda **_k: SimpleNamespace(
-            success=True,
-            result={
-                "item": {
-                    "worktrees": [
-                        {"state": "active", "branch": "lane", "commit_sha": advanced},
-                    ]
-                }
-            },
-            error=None,
-        ),
-    )
+    monkeypatch.setattr(merge_boundary, "_run_merge_engine", merge_folds_target_in)
 
     outcome = merge_boundary.merge_standalone_branch(
         item_id=7,
@@ -214,8 +193,8 @@ def test_merge_records_the_engines_actual_tested_head_not_the_stale_source(
     )
 
     assert outcome.ok is True
-    assert outcome.commit_sha == advanced
-    assert recorded_calls[-1] == advanced
+    assert outcome.commit_sha == stale
+    assert _git(repo, "rev-parse", "lane") != stale
 
 
 def test_unrecorded_head_falls_back_to_the_branch(

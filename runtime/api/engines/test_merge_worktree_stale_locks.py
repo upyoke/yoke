@@ -20,6 +20,7 @@ from typing import Optional
 import pytest
 
 from yoke_core.engines import merge_worktree
+from yoke_core.engines import merge_worktree_recorded_source
 from yoke_core.engines import merge_worktree_runner
 from yoke_core.engines.merge_worktree import MergeArgs, MergeContext
 from yoke_core.engines.merge_worktree_runner import (
@@ -89,17 +90,23 @@ def stale_lock_repo(tmp_path, mw_db):
     repo.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True, capture_output=True)
     subprocess.run(
-        ["git", "-C", str(repo), "config", "user.name", "T"], check=True, capture_output=True
+        ["git", "-C", str(repo), "config", "user.name", "T"],
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
-        ["git", "-C", str(repo), "config", "user.email", "t@e"], check=True, capture_output=True
+        ["git", "-C", str(repo), "config", "user.email", "t@e"],
+        check=True,
+        capture_output=True,
     )
     (repo / "README.md").write_text("init\n")
     subprocess.run(
         ["git", "-C", str(repo), "add", "README.md"], check=True, capture_output=True
     )
     subprocess.run(
-        ["git", "-C", str(repo), "commit", "-q", "-m", "init"], check=True, capture_output=True
+        ["git", "-C", str(repo), "commit", "-q", "-m", "init"],
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "-C", str(repo), "branch", "STALE-LOCK-BRANCH"],
@@ -121,7 +128,9 @@ class TestRunnerStaleLockRetry:
         ctx.epic_id = None
         return ctx
 
-    def _install_pre_lock_stubs(self, monkeypatch, ctx: MergeContext, messages: list[str]):
+    def _install_pre_lock_stubs(
+        self, monkeypatch, ctx: MergeContext, messages: list[str]
+    ):
         """Make every pre-lock step a no-op so the lock block is reached."""
         monkeypatch.setattr(
             merge_worktree,
@@ -176,7 +185,9 @@ class TestRunnerStaleLockRetry:
         def fake_check(*_a, **_kw):
             check_calls["n"] += 1
             if check_calls["n"] == 1:
-                return "Merge lock held by session 99999-1 on branch 'STALE-LOCK-BRANCH'"
+                return (
+                    "Merge lock held by session 99999-1 on branch 'STALE-LOCK-BRANCH'"
+                )
             return None
 
         from yoke_core.domain import merge_lock as ml
@@ -208,16 +219,21 @@ class TestRunnerStaleLockRetry:
         # Stub the body so the runner returns 0 cleanly after acquire.
         monkeypatch.setattr(merge_worktree, "_emit_merge_event", lambda *a, **kw: None)
         monkeypatch.setattr(merge_worktree, "preflight_checks", lambda c: None)
-        monkeypatch.setattr(merge_worktree, "check_and_clean_root_dirty_state", lambda c: None)
         monkeypatch.setattr(
-            merge_worktree, "prune_agent_worktrees", lambda *args: None
+            merge_worktree, "check_and_clean_root_dirty_state", lambda c: None
         )
+        monkeypatch.setattr(merge_worktree, "prune_agent_worktrees", lambda *args: None)
         monkeypatch.setattr(merge_worktree, "extract_generated_files", lambda c: [])
         monkeypatch.setattr(merge_worktree, "_pre_merge_integration", lambda c: None)
         monkeypatch.setattr(merge_worktree, "_ensure_target_pushed", lambda c: None)
         monkeypatch.setattr(merge_worktree, "_stash_classify_gate", lambda c: None)
         monkeypatch.setattr(merge_worktree, "trial_merge", lambda c: None)
         monkeypatch.setattr(merge_worktree, "do_rebase_or_merge", lambda c: None)
+        monkeypatch.setattr(
+            merge_worktree_recorded_source,
+            "record_lane_head_after_merge",
+            lambda c: None,
+        )
         monkeypatch.setattr(merge_worktree, "run_tests", lambda c: None)
         monkeypatch.setattr(merge_worktree, "do_pr_merge", lambda c: 0)
 
@@ -239,7 +255,9 @@ class TestRunnerStaleLockRetry:
 
         from yoke_core.domain import merge_lock as ml
 
-        block_template = "Merge lock held by session 999-{i} on branch 'STALE-LOCK-BRANCH'"
+        block_template = (
+            "Merge lock held by session 999-{i} on branch 'STALE-LOCK-BRANCH'"
+        )
         call_idx = {"n": 0}
 
         def fake_check(*_a, **_kw):
@@ -250,7 +268,9 @@ class TestRunnerStaleLockRetry:
 
         def fake_acquire(*a, **kw):
             acquired_called["yes"] = True
-            raise AssertionError("acquire must not be called when retries are exhausted")
+            raise AssertionError(
+                "acquire must not be called when retries are exhausted"
+            )
 
         monkeypatch.setattr(ml, "check", fake_check)
         monkeypatch.setattr(ml, "acquire", fake_acquire)
@@ -273,6 +293,4 @@ class TestRunnerStaleLockRetry:
             "retryable merge-lock condition" in m and "STALE-LOCK-BRANCH" in m
             for m in messages
         )
-        assert any(
-            "pre-acquire retry budget exhausted" in m for m in messages
-        )
+        assert any("pre-acquire retry budget exhausted" in m for m in messages)
