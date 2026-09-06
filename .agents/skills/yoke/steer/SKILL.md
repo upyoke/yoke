@@ -117,10 +117,25 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.
-- **A worker blocked on an upstream item stamps parked before going quiet.**
+- **A worker in any intentional external wait stamps parked before going
+  quiet** — blocked on an upstream item, waiting on operator sign-in,
+  waiting on an approval, or holding at an explicit operator instruction —
+  with a concrete reason:
   `yoke sessions touch --mode parked --reason "waiting on PREFIX-N"`. That
-  write persists; reporting or reading the control plane does not unpark.
-  Leave parked by stamping a working mode (`yoke sessions touch --mode dash`).
+  write persists; reporting the wait, or writing its reason into the doc,
+  does not unpark — only the mode stamp does, and reading the control
+  plane never unparks it either. Leave parked by stamping a working mode
+  (`yoke sessions touch --mode dash`) once the wait clears. A genuinely
+  parked, in-flight, or merge-queue-landing worker is not terminated or
+  restaffed for being quiet; verify the recorded reason, then resume it
+  once its blocker actually clears.
+- **Every response the operator sees states a live outstanding operator
+  action** — the item it blocks and what it unblocks — until it resolves
+  or the operator asks to mute reminders; fold this into the reply and the
+  standing-plan snapshot already produced each pass, never a separate
+  alert or an extra turn spent only to repeat it. The moment a server or
+  system failure explains the same block, correct the attribution there
+  instead of continuing to ask for the human action.
 - **Autonomous.** Invoking `/yoke steer` authorizes the loop. Do not wait
   for confirmation before claiming, reading the frontier, acknowledging
   reports, launching workers, or writing the doc — except the documented

@@ -299,16 +299,22 @@ binding. If the next bound leg would create a deployment run, stop at the
 merge or release boundary and report; the steerer performs batch delivery.
 One worker remains responsible for the one item throughout.
 
-When a worker is blocked on an upstream item, stamp parked before going
-quiet so the stale-alive probe leaves it alone:
+When a worker enters any intentional external wait — blocked on an
+upstream item, waiting on operator sign-in, waiting on an approval, or
+holding at an explicit operator instruction — stamp parked with a
+concrete reason before going quiet, so the stale-alive probe leaves it
+alone:
 
 ```text
 yoke sessions touch --mode parked --reason "waiting on PREFIX-N"
+yoke sessions touch --mode parked --reason "waiting on operator sign-in"
+yoke sessions touch --mode parked --reason "waiting on approval: <what>"
 ```
 
 That write persists until the worker stamps a working mode
-(`yoke sessions touch --mode dash`). Reporting and control-plane reads
-do not unpark.
+(`yoke sessions touch --mode dash`) once the wait clears. Reporting the
+wait, or knowing its reason, is not the state change and does not unpark
+— only the mode stamp does, and control-plane reads never unpark either.
 
 Parking also shields what the worker holds. A QA plan execution whose owner
 is parked is not reaped as stale, so a walker told to hold keeps its mission
