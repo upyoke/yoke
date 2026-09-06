@@ -160,6 +160,7 @@ def test_create_environment_carries_the_launch_context_not_the_parent(
     assert calls[0]["attempt_id"] == LAUNCH_ID
     assert calls[0]["native_session_id"] == NATIVE_ID
     assert calls[0]["supervision_kind"] == "launch"
+    assert environment["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] == "0"
 
 
 def test_wake_environment_carries_no_launch_context(
@@ -184,3 +185,4 @@ def test_wake_environment_carries_no_launch_context(
     assert LAUNCH_CONTEXT_ENV not in calls[0]["environment"]
     assert calls[0]["native_session_id"] == NATIVE_ID
     assert "supervision_kind" not in calls[0]
+    assert calls[0]["environment"]["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] == "0"
