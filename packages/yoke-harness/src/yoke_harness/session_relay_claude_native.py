@@ -44,7 +44,16 @@ def _environment(invocation: ClaudeNativeInvocation) -> dict[str, str]:
         executor="claude-code",
         provider="anthropic",
         model=invocation.model,
-        markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
+        markers={
+            "CLAUDE_CODE_ENTRYPOINT": "cli",
+            # Print-mode Claude enforces its own background-task wait
+            # ceiling and kills anything still running past it, which races
+            # a relay-owned session's own supervision. Disabling the native
+            # ceiling here (create and wake share this builder) leaves
+            # background-task lifetime to the process this relay already
+            # supervises.
+            "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS": "0",
+        },
         launch_id=invocation.launch_id,
         launch_attestation=invocation.launch_attestation,
     )
