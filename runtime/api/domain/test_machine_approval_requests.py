@@ -6,6 +6,9 @@ from runtime.api.domain.decision_request_test_support import (
     decision_request_connection,
 )
 from yoke_core.domain import machine_approval_requests as approvals
+from yoke_core.domain.decision_request_disposition import (
+    dispose_ended_decision_requests,
+)
 
 
 def test_machine_approval_is_idempotent_org_admin_request(monkeypatch) -> None:
@@ -273,6 +276,47 @@ def test_terminal_withdrawal_replay_is_idempotent(conn, status: str) -> None:
     ]
     assert [row[1] for row in events] == [5, 5]
     assert events[1][2] == "2026-07-28T12:05:00Z"
+
+
+@pytest.mark.parametrize(
+    ("context", "expect_converged"),
+    (
+        ({"expires_at": "2020-01-01T00:05:00Z"}, True),
+        ({"ended_at": "2020-01-01T00:00:01Z"}, False),
+        ({"expires_at": "2020-01-01", "cancelled_at": "2019-01-01"}, False),
+    ),
+)
+def test_cleanup_then_delivery_converges_only_on_expiry_evidence(
+    conn, context: dict, expect_converged: bool,
+) -> None:
+    approvals.apply_machine_approval_lifecycle(
+        conn,
+        auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
+        org_id=1,
+        state="pending",
+        occurred_at="2020-01-01T00:00:00Z",
+        actor_id=5,
+        context=context,
+    )
+    assert dispose_ended_decision_requests(conn)["withdrawn_count"] == 1
+
+    def deliver_expired():
+        return approvals.apply_machine_approval_lifecycle(
+            conn,
+            auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
+            org_id=1,
+            state="expired",
+            occurred_at="2020-01-01T00:06:00Z",
+            actor_id=5,
+            context={},
+        )
+
+    if expect_converged:
+        delivered, created, applied = deliver_expired()
+        assert (delivered["status"], created, applied) == ("withdrawn", False, False)
+    else:
+        with pytest.raises(ValueError, match="already withdrawn, not expired"):
+            deliver_expired()
 
 
 def test_old_org_withdrawal_allows_one_new_org_request(conn) -> None:

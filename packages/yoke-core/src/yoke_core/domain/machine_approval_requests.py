@@ -16,6 +16,11 @@ from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
     withdraw_decision_request,
 )
+from yoke_core.domain.decision_request_subject_state import (
+    _instant,
+    _MACHINE_END_TIMESTAMPS,
+    _MACHINE_ENDED_STATES,
+)
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
@@ -56,15 +61,36 @@ def _matching_request(
     )
 
 
+def _withdrawn_by_expiry(context: Mapping[str, Any], withdrawn_at: Any) -> bool:
+    """Replay the disposal sweep's own expiry-vs-other-cause precedence so a
+    later ``expired`` delivery converges instead of colliding with the
+    generic ``withdrawn`` write that sweep made without stamping context.
+    """
+    state = str(context.get("status") or context.get("state") or "").lower()
+    observed = _instant(withdrawn_at)
+    if state in _MACHINE_ENDED_STATES or observed is None:
+        return False
+    if any(
+        (instant := _instant(context.get(key))) is not None and instant <= observed
+        for key in _MACHINE_END_TIMESTAMPS
+    ):
+        return False
+    expires_at = _instant(context.get("expires_at"))
+    return expires_at is not None and expires_at <= observed
+
+
 def _terminal_state(request: Mapping[str, Any]) -> Optional[str]:
     if request.get("status") == "resolved":
         action = str(request.get("resolution_action") or "")
         return {"approve": "approved", "deny": "denied"}.get(action)
     if request.get("status") == "withdrawn":
         context = request.get("subject_context")
-        if isinstance(context, Mapping):
-            state = str(context.get("status") or "").lower()
-            return state if state in _WITHDRAWAL_STATES else "withdrawn"
+        context = context if isinstance(context, Mapping) else {}
+        state = str(context.get("status") or "").lower()
+        if state in _WITHDRAWAL_STATES:
+            return state
+        if _withdrawn_by_expiry(context, request.get("withdrawn_at")):
+            return "expired"
         return "withdrawn"
     return None
 
