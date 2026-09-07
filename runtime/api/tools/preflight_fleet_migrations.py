@@ -45,7 +45,10 @@ environment whose fleet was rehearsed, a release targeting an environment
 requires that environment's receipt, and one environment's receipt never satisfies another.
 The receipt names the history entries covered, the schema-shape digest of
 the boot-converge sources in the selected engine, and whether that engine
-was the source tree or a wheel. Receipts always write to the release-gate control plane.
+was the source tree or a wheel. It is stored on that environment's own
+settings document under ``release.fleet_rehearsal``, so coverage outlives
+telemetry retention and cannot be read for the wrong environment.
+Receipts always write to the release-gate control plane.
 The selected admin connection changes the covered fleet, not the receipt
 plane. Receipts are recorded only on passing runs, so they cannot exist for
 fleets this did not clear.
@@ -81,6 +84,9 @@ from yoke_contracts.machine_config.schema import (
 )
 
 _RECEIPT_TIMEOUT_SECONDS = 120
+
+#: The project whose environments own Yoke's own fleet rehearsal coverage.
+RECEIPT_PROJECT = "yoke"
 
 
 def _split_flags(args: List[str]) -> Tuple[List[str], bool, str, str, str]:
@@ -134,34 +140,34 @@ def _record_receipt(
     entries: Sequence[str],
     engine_artifact: Mapping[str, str],
     schema_shape_digest: str,
-) -> str:
-    """Write the pass to the control plane; return a reason on failure."""
+    database_count: int,
+) -> Tuple[str, str]:
+    """Write the pass to the control plane; return the run id and any reason."""
     from yoke_core.domain import migration_preflight_receipt as receipt
 
-    context = receipt.receipt_context(
-        environment,
-        product_sha,
-        entries,
-        engine_artifact=engine_artifact,
-        schema_shape_digest=schema_shape_digest,
-    )
+    covered_env = receipt.target_environment_for_admin_env(environment)
+    try:
+        run, assignments = receipt.receipt_assignments(
+            product_sha,
+            entries,
+            engine_artifact=engine_artifact,
+            schema_shape_digest=schema_shape_digest,
+            database_count=database_count,
+        )
+    except receipt.ReceiptPathError as exc:
+        return "", str(exc)
     argv = [
         "yoke",
-        "events",
-        "emit",
-        "--name",
-        receipt.EVENT_NAME,
-        "--kind",
-        receipt.EVENT_KIND,
-        "--type",
-        receipt.EVENT_TYPE,
-        "--source-type",
-        receipt.SOURCE_TYPE,
+        "projects",
+        "environment-settings",
+        "merge",
         "--project",
-        "yoke",
-        "--context",
-        json.dumps(context),
+        RECEIPT_PROJECT,
+        "--environment",
+        covered_env,
     ]
+    for path, value in assignments.items():
+        argv += ["--set", f"{path}={json.dumps(value)}"]
     # The receipt belongs to the control plane the release gate will read, not
     # the separately selected admin cluster, so the child gets its own env.
     child_env = dict(os.environ, YOKE_ENV=receipt_env)
@@ -174,10 +180,10 @@ def _record_receipt(
             env=child_env,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        return f"could not run: {exc}"
+        return "", f"could not run: {exc}"
     if result.returncode != 0:
-        return f"exited {result.returncode}: {(result.stderr or '').strip()}"
-    return ""
+        return "", f"exited {result.returncode}: {(result.stderr or '').strip()}"
+    return run, ""
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -308,13 +314,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             file=sys.stderr,
         )
         return 1
-    unwritten = _record_receipt(
+    run, unwritten = _record_receipt(
         receipt_env=receipt_env,
         environment=admin_env,
         product_sha=product_sha,
         entries=entries,
         engine_artifact=engine_artifact.evidence(),
         schema_shape_digest=schema_digest,
+        database_count=len(verdicts),
     )
     if unwritten:
         # A pass nobody recorded reads to the operator as an unblocked release
@@ -327,7 +334,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 1
     print(
-        f"receipt recorded on {receipt_env} covering {covered_env} via "
+        f"receipt {run} recorded on {receipt_env} covering {covered_env} via "
         f"{engine_artifact.display()}; {len(entries)} history entries "
         f"and schema-shape {schema_digest}"
     )

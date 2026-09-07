@@ -44,15 +44,9 @@ def _dispatch(stage: dict) -> tuple[int, str]:
     )
 
 
-def _row() -> dict:
-    return {
-        "envelope": {
-            "context": {
-                receipt.ENVIRONMENT_KEY: "prod",
-                receipt.SCHEMA_SHAPE_DIGEST_KEY: _DIGEST,
-            }
-        }
-    }
+def _covered() -> dict:
+    """The coverage leaves a prod rehearsal of this digest leaves behind."""
+    return {receipt.schema_shape_coverage_path(_DIGEST): "20260101T000000Z"}
 
 
 def _stable_release(monkeypatch) -> None:
@@ -78,11 +72,11 @@ def test_uncovered_digest_rehearses_records_then_dispatches(monkeypatch) -> None
     events: list[str] = []
     query_count = 0
 
-    def rows(_project: str):
+    def coverage(_project: str, _environment: str, _digest: str):
         nonlocal query_count
         query_count += 1
         events.append("query")
-        return ([], "") if query_count == 1 else ([_row()], "")
+        return ({}, "") if query_count == 1 else (_covered(), "")
 
     def run_preflight(args: list[str]) -> int:
         events.append("rehearsal")
@@ -100,7 +94,7 @@ def test_uncovered_digest_rehearses_records_then_dispatches(monkeypatch) -> None
         events.append("dispatch")
         return 0, ""
 
-    monkeypatch.setattr(rehearsal, "_receipt_rows", rows)
+    monkeypatch.setattr(rehearsal, "_coverage", coverage)
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
     monkeypatch.setattr(
         deploy_pipeline_step_runners,
@@ -116,7 +110,9 @@ def test_covered_digest_skips_rehearsal_and_dispatches(monkeypatch) -> None:
     _stable_release(monkeypatch)
     run_preflight = mock.Mock(return_value=0)
     workflow = mock.Mock(return_value=(0, ""))
-    monkeypatch.setattr(rehearsal, "_receipt_rows", lambda _project: ([_row()], ""))
+    monkeypatch.setattr(
+        rehearsal, "_coverage", lambda *_a: (_covered(), "")
+    )
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
     monkeypatch.setattr(
         deploy_pipeline_step_runners,
@@ -132,7 +128,7 @@ def test_covered_digest_skips_rehearsal_and_dispatches(monkeypatch) -> None:
 def test_rehearsal_failure_stops_before_workflow_dispatch(monkeypatch) -> None:
     _stable_release(monkeypatch)
     workflow = mock.Mock(return_value=(0, ""))
-    monkeypatch.setattr(rehearsal, "_receipt_rows", lambda _project: ([], ""))
+    monkeypatch.setattr(rehearsal, "_coverage", lambda *_a: ({}, ""))
     monkeypatch.setattr(rehearsal, "_run_preflight", lambda _args: 7)
     monkeypatch.setattr(
         deploy_pipeline_step_runners,
@@ -152,7 +148,7 @@ def test_passing_rehearsal_without_covering_receipt_stops_dispatch(
 ) -> None:
     _stable_release(monkeypatch)
     workflow = mock.Mock(return_value=(0, ""))
-    monkeypatch.setattr(rehearsal, "_receipt_rows", lambda _project: ([], ""))
+    monkeypatch.setattr(rehearsal, "_coverage", lambda *_a: ({}, ""))
     monkeypatch.setattr(rehearsal, "_run_preflight", lambda _args: 0)
     monkeypatch.setattr(
         deploy_pipeline_step_runners,
@@ -168,9 +164,9 @@ def test_passing_rehearsal_without_covering_receipt_stops_dispatch(
 
 
 def test_other_workflows_do_not_enter_the_internal_rehearsal(monkeypatch) -> None:
-    receipt_rows = mock.Mock(side_effect=AssertionError("unexpected receipt read"))
+    coverage = mock.Mock(side_effect=AssertionError("unexpected receipt read"))
     workflow = mock.Mock(return_value=(0, ""))
-    monkeypatch.setattr(rehearsal, "_receipt_rows", receipt_rows)
+    monkeypatch.setattr(rehearsal, "_coverage", coverage)
     monkeypatch.setattr(
         deploy_pipeline_step_runners,
         "_dispatch_github_actions_workflow",
@@ -178,5 +174,60 @@ def test_other_workflows_do_not_enter_the_internal_rehearsal(monkeypatch) -> Non
     )
 
     assert _dispatch(_stage(workflow="customer-release.yml")) == (0, "")
-    receipt_rows.assert_not_called()
+    coverage.assert_not_called()
     workflow.assert_called_once()
+
+
+def test_unreadable_coverage_stops_dispatch_rather_than_rehearsing(
+    monkeypatch,
+) -> None:
+    # Not knowing whether the shape was rehearsed is not the same as knowing
+    # it was not, and dispatching on an unanswered question is how an
+    # unrehearsed shape reaches the fleet.
+    _stable_release(monkeypatch)
+    workflow = mock.Mock(return_value=(0, ""))
+    run_preflight = mock.Mock(return_value=0)
+    monkeypatch.setattr(
+        rehearsal,
+        "read_coverage",
+        lambda **_kwargs: ({}, "permission_denied: items.read"),
+    )
+    monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
+    monkeypatch.setattr(
+        deploy_pipeline_step_runners,
+        "_dispatch_github_actions_workflow",
+        workflow,
+    )
+
+    rc, diagnostic = _dispatch(_stage())
+
+    assert rc == 1
+    assert "could not read fleet schema rehearsal receipts" in diagnostic
+    assert "items.read" in diagnostic
+    run_preflight.assert_not_called()
+    workflow.assert_not_called()
+
+
+def test_coverage_is_read_for_the_environment_being_released(monkeypatch) -> None:
+    _stable_release(monkeypatch)
+    asked: list[dict] = []
+
+    def read(**kwargs):
+        asked.append(kwargs)
+        return {receipt.schema_shape_coverage_path(_DIGEST): "20260101T000000Z"}, ""
+
+    monkeypatch.setattr(rehearsal, "read_coverage", read)
+    monkeypatch.setattr(
+        deploy_pipeline_step_runners,
+        "_dispatch_github_actions_workflow",
+        mock.Mock(return_value=(0, "")),
+    )
+
+    assert _dispatch(_stage()) == (0, "")
+    assert asked == [
+        {
+            "project": "yoke",
+            "environment": "prod",
+            "paths": (receipt.schema_shape_coverage_path(_DIGEST),),
+        }
+    ]

@@ -1,9 +1,11 @@
-"""Semantic-verifier and receipt diagnostics for the hosted release gate."""
+"""Fleet rehearsal coverage as the hosted release gate reads it.
+
+The packaged-content half of the same gate lives in
+``test_release_gate_migration_content_identity``.
+"""
 
 from __future__ import annotations
 
-import json
-import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -33,6 +35,29 @@ def _history(monkeypatch, *names: str) -> tuple[SimpleNamespace, ...]:
     return entries
 
 
+def _coverage(monkeypatch, covered_by_environment: dict, unreadable: str = "") -> None:
+    """Stand in for each environment's own coverage document.
+
+    Keyed by environment because that is how the store is keyed: a gate can
+    only ever read the environment it asked about.
+    """
+    from yoke_core.domain import migration_preflight_receipt as receipt
+
+    def read(*, project, environment, paths):
+        del project, paths
+        if unreadable:
+            return {}, unreadable
+        entries = covered_by_environment.get(environment, ())
+        return (
+            {receipt.entry_coverage_path(name): "20260101T000000Z" for name in entries},
+            "",
+        )
+
+    monkeypatch.setattr(
+        "yoke_core.domain.migration_preflight_receipt_store.read_coverage", read
+    )
+
+
 def _verified(monkeypatch, count: int) -> None:
     monkeypatch.setattr(
         preflight,
@@ -48,134 +73,11 @@ def _verified(monkeypatch, count: int) -> None:
     )
 
 
-def test_query_failure_preserves_advisory_stderr_and_api_error_stdout(
-    monkeypatch,
-) -> None:
-    result = subprocess.CompletedProcess(
-        args=["yoke", "events", "query"],
-        returncode=1,
-        stdout=json.dumps({"success": False, "error": {"code": "permission_denied"}}),
-        stderr="this checkout is ahead of the server's build",
-    )
-    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
-
-    rows, unreadable = preflight._query_receipts("ReceiptPassed", "yoke")
-
-    assert rows == []
-    assert "stderr: this checkout is ahead of the server's build" in unreadable
-    assert 'stdout: {"success": false' in unreadable
-    assert "permission_denied" in unreadable
-
-
-def test_query_success_reads_stdout_despite_advisory_stderr(monkeypatch) -> None:
-    expected = [{"event_name": "ReceiptPassed"}]
-    result = subprocess.CompletedProcess(
-        args=["yoke", "events", "query"],
-        returncode=0,
-        stdout=json.dumps({"success": True, "result": {"rows": expected}}),
-        stderr="this checkout is ahead of the server's build",
-    )
-    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
-
-    rows, unreadable = preflight._query_receipts("ReceiptPassed", "yoke")
-
-    assert rows == expected
-    assert unreadable == ""
-
-
-def test_content_verifier_submits_typed_digests_without_raw_sql(monkeypatch) -> None:
-    calls = []
-    verdict = {
-        "status": "verified",
-        "verified_count": 1,
-        "mismatched_entries": [],
-    }
-    result = subprocess.CompletedProcess(
-        args=[],
-        returncode=0,
-        stdout=json.dumps({"success": True, "result": verdict}),
-        stderr="this checkout is ahead of the server's build",
-    )
-
-    def _run(argv, **_kwargs):
-        calls.append(argv)
-        return result
-
-    monkeypatch.setattr(preflight.subprocess, "run", _run)
-    candidate = [{"name": "0015_entry", "content_sha256": "a" * 64}]
-
-    status, unavailable = preflight._verify_applied_migrations(candidate)
-
-    assert status == verdict
-    assert unavailable == ""
-    assert calls[0][:4] == ["yoke", "migration", "content-identity", "verify"]
-    assert "db" not in calls[0]
-    assert json.loads(calls[0][5]) == candidate
-
-
-def test_content_verifier_rejects_a_malformed_semantic_verdict(monkeypatch) -> None:
-    result = subprocess.CompletedProcess(
-        args=[],
-        returncode=0,
-        stdout=json.dumps({"success": True, "result": {"rows": []}}),
-        stderr="",
-    )
-    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
-
-    status, unavailable = preflight._verify_applied_migrations(
-        [{"name": "0015_entry", "content_sha256": "a" * 64}]
-    )
-
-    assert status == {}
-    assert unavailable == "migration identity verifier returned a malformed verdict"
-
-
-@pytest.mark.parametrize(
-    "payload",
-    [
-        [],
-        {"success": True, "result": []},
-        {
-            "success": True,
-            "result": {
-                "status": "verified",
-                "verified_count": 1,
-                "mismatched_entries": ["0015_entry"],
-            },
-        },
-    ],
-)
-def test_content_verifier_types_malformed_envelopes_as_unavailable(
-    monkeypatch, payload
-) -> None:
-    result = subprocess.CompletedProcess(
-        args=[], returncode=0, stdout=json.dumps(payload), stderr=""
-    )
-    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
-
-    status, unavailable = preflight._verify_applied_migrations(
-        [{"name": "0015_entry", "content_sha256": "a" * 64}]
-    )
-
-    assert status == {}
-    assert "malformed" in unavailable
-
-
-def test_receipt_query_types_a_malformed_envelope_as_unavailable(monkeypatch) -> None:
-    result = subprocess.CompletedProcess(args=[], returncode=0, stdout="[]", stderr="")
-    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
-
-    rows, unavailable = preflight._query_receipts("Receipt", "yoke")
-
-    assert rows == []
-    assert unavailable == "receipt query returned a malformed envelope"
-
-
 def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> None:
     monkeypatch.setenv("YOKE_ENV", "prod")
     _history(monkeypatch, "0005_x")
     _verified(monkeypatch, 0)
-    monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
+    _coverage(monkeypatch, {})
 
     assert preflight.main(["prod", "abc123"]) == 1
 
@@ -194,7 +96,7 @@ def test_refusal_recipe_requires_explicit_connection_without_ambient_env(
     monkeypatch.delenv("YOKE_ENV", raising=False)
     _history(monkeypatch, "0005_x")
     _verified(monkeypatch, 0)
-    monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
+    _coverage(monkeypatch, {})
 
     assert preflight.main(["prod-db-admin", "abc123"]) == 1
 
@@ -208,14 +110,7 @@ def test_receipt_coverage_uses_the_registered_environment_name(
 ) -> None:
     _history(monkeypatch, "0005_x")
     _verified(monkeypatch, 1)
-    monkeypatch.setattr(
-        preflight,
-        "_query_receipts",
-        lambda *_args: (
-            [{"envelope": {"context": {"environment": "prod", "entries": ["0005_x"]}}}],
-            "",
-        ),
-    )
+    _coverage(monkeypatch, {"prod": ("0005_x",)})
 
     assert preflight.main(["prod", "abc123"]) == 0
 
@@ -227,7 +122,7 @@ def test_receipt_coverage_uses_the_registered_environment_name(
 def test_refusal_names_every_environment_missing_a_receipt(monkeypatch, capsys) -> None:
     _history(monkeypatch, "0005_x")
     _verified(monkeypatch, 0)
-    monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
+    _coverage(monkeypatch, {})
 
     assert preflight.main(["prod", "abc123"]) == 1
 
@@ -243,14 +138,7 @@ def test_refusal_names_every_environment_missing_a_receipt(monkeypatch, capsys) 
 def test_one_environment_receipt_does_not_cover_the_other(monkeypatch, capsys) -> None:
     _history(monkeypatch, "0005_x")
     _verified(monkeypatch, 1)
-    monkeypatch.setattr(
-        preflight,
-        "_query_receipts",
-        lambda *_args: (
-            [{"envelope": {"context": {"environment": "prod", "entries": ["0005_x"]}}}],
-            "",
-        ),
-    )
+    _coverage(monkeypatch, {"prod": ("0005_x",)})
 
     assert preflight.main(["stage", "abc123"]) == 1
 
@@ -261,69 +149,12 @@ def test_one_environment_receipt_does_not_cover_the_other(monkeypatch, capsys) -
     assert "yoke watch preflight -- stage-db-admin" in refusal
 
 
-def test_content_mismatch_is_unsafe_and_hides_digest_values(
-    monkeypatch, capsys
-) -> None:
-    entry = _history(monkeypatch, "0015_entry")[0]
-    monkeypatch.setattr(
-        preflight,
-        "_verify_applied_migrations",
-        lambda _entries: (
-            {
-                "status": "mismatch",
-                "verified_count": 0,
-                "mismatched_entries": [entry.name],
-            },
-            "",
-        ),
-    )
-
-    def _receipt_query_must_not_run(*_args):
-        raise AssertionError("receipt query ran after content mismatch")
-
-    monkeypatch.setattr(preflight, "_query_receipts", _receipt_query_must_not_run)
-
-    assert preflight.main(["prod", "abc123"]) == 1
-
-    refusal = capsys.readouterr().err
-    assert "release unsafe before tag" in refusal
-    assert entry.name in refusal
-    assert entry.content_sha256 not in refusal
-
-
-def test_unavailable_identity_verification_is_not_reported_as_unsafe(
-    monkeypatch, capsys
-) -> None:
-    _history(monkeypatch, "0015_entry")
-    monkeypatch.setattr(
-        preflight,
-        "_verify_applied_migrations",
-        lambda _entries: ({}, "permission_denied"),
-    )
-
-    def _receipt_query_must_not_run(*_args):
-        raise AssertionError("receipt query ran after unavailable verification")
-
-    monkeypatch.setattr(preflight, "_query_receipts", _receipt_query_must_not_run)
-
-    assert preflight.main(["prod", "abc123"]) == 2
-
-    refusal = capsys.readouterr().err
-    assert "release verification unavailable before tag" in refusal
-    assert "permission_denied" in refusal
-    assert "release unsafe" not in refusal
-
-
 def test_unavailable_receipt_query_is_not_reported_as_unsafe(
     monkeypatch, capsys
 ) -> None:
     _history(monkeypatch, "0015_entry")
     _verified(monkeypatch, 1)
-    monkeypatch.setattr(
-        preflight,
-        "_query_receipts",
-        lambda *_args: ([], "transport unavailable"),
-    )
+    _coverage(monkeypatch, {}, unreadable="transport unavailable")
 
     assert preflight.main(["prod", "abc123"]) == 2
 
@@ -331,3 +162,74 @@ def test_unavailable_receipt_query_is_not_reported_as_unsafe(
     assert "release verification unavailable before tag" in refusal
     assert "transport unavailable" in refusal
     assert "release unsafe" not in refusal
+
+
+def test_coverage_survives_with_no_telemetry_at_all(monkeypatch, capsys) -> None:
+    # The whole point of the durable store: a fleet that was rehearsed stays
+    # rehearsed when every event row for it is gone.
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 1)
+    _coverage(monkeypatch, {"prod": ("0005_x",), "stage": ("0005_x",)})
+
+    def _events_must_not_be_read(*_args, **_kwargs):
+        raise AssertionError("the release gate read telemetry")
+
+    monkeypatch.setattr(preflight.subprocess, "run", _events_must_not_be_read)
+
+    assert preflight.main(["prod", "abc123"]) == 0
+    assert "covered by a passing fleet preflight: 1 of 1" in capsys.readouterr().out
+
+
+def test_each_environment_is_read_from_its_own_document(monkeypatch) -> None:
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 1)
+    asked: list[str] = []
+
+    def read(*, project, environment, paths):
+        del project, paths
+        asked.append(environment)
+        return {}, ""
+
+    monkeypatch.setattr(
+        "yoke_core.domain.migration_preflight_receipt_store.read_coverage", read
+    )
+
+    assert preflight.main(["prod", "abc123"]) == 1
+    assert sorted(asked) == ["prod", "stage"]
+
+
+def test_an_environment_outside_the_release_set_is_still_read(monkeypatch) -> None:
+    # A release bound for an environment the shared list does not name still
+    # needs that environment's own coverage, not a neighbour's.
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 1)
+    asked: list[str] = []
+
+    def read(*, project, environment, paths):
+        del project, paths
+        asked.append(environment)
+        return {}, ""
+
+    monkeypatch.setattr(
+        "yoke_core.domain.migration_preflight_receipt_store.read_coverage", read
+    )
+
+    assert preflight.main(["sandbox", "abc123"]) == 1
+    assert "sandbox" in asked
+
+
+def test_a_denied_coverage_read_is_unavailable_rather_than_unsafe(
+    monkeypatch, capsys
+) -> None:
+    # The deploy identity needs the project read that owns coverage; without
+    # it the gate does not know, and saying "unrehearsed" would send the
+    # operator to rehearse a fleet that is already clean.
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 1)
+    _coverage(monkeypatch, {}, unreadable="permission_denied: items.read")
+
+    assert preflight.main(["prod", "abc123"]) == 2
+
+    refusal = capsys.readouterr().err
+    assert "release verification unavailable before tag" in refusal
+    assert "prod: permission_denied: items.read" in refusal
