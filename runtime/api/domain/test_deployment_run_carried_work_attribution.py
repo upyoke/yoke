@@ -9,7 +9,6 @@ credits a neighbour's release to work that has not shipped.
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -17,8 +16,6 @@ from typing import Any
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_run_carried_work, deployment_runs
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
-from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
-from yoke_core.domain.item_merge_receipt_document import record_entry
 
 
 def _git(repo: Path, *args: str) -> str:
