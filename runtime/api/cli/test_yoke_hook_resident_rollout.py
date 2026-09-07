@@ -10,7 +10,7 @@ from yoke_contracts.hook_evaluator_protocol import (
 )
 from yoke_core.api.routes.hooks import HookEvaluateResponse
 from yoke_harness.hook_resident_http import ResidentHttpOpener
-from yoke_harness.hook_resident_observations import DeferredObservationOpener
+from yoke_harness.hook_observation_capture import DeferredObservationOpener
 
 
 def test_server_response_advertises_observation_batch_capability() -> None:

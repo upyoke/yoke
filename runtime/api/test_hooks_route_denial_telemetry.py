@@ -67,11 +67,28 @@ def test_conversation_shaped_session_id_denies_and_emits() -> None:
 
 
 def test_stamped_identity_allows_without_emitting() -> None:
-    request = _request({"identity_stamped": True})
+    # A stamped id is not re-litigated by shape: for a self-mapped Cursor
+    # session the canonical id equals the conversation alias beside it.
+    request = _request(
+        {
+            "identity_stamped": True,
+            "session_id": "sid-1",
+            "conversation_id": "sid-1",
+        }
+    )
     with mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical:
         response = _refuse_conversation_shaped(request)
     assert response is None
     canonical.assert_not_called()
+
+
+def test_a_stamp_without_an_identity_still_denies() -> None:
+    """The stamp is a claim about a session id, not a substitute for one."""
+    request = _request({"identity_stamped": True})
+    with mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical:
+        response = _refuse_conversation_shaped(request)
+    assert response is not None
+    canonical.assert_called_once()
 
 
 def test_missing_project_id_denies_and_emits() -> None:

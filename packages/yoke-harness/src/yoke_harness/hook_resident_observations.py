@@ -1,23 +1,33 @@
-"""Asynchronous, ordered telemetry delivery for resident hook evaluations."""
+"""Asynchronous, ordered telemetry delivery for resident hook evaluations.
+
+Ordered delivery is what makes a rejected batch dangerous: it sits at the
+head and everything behind it waits. So the queue distinguishes a batch
+the control plane will never take — dropped, loudly — from one it might,
+which is retried a bounded number of times, and it caps its own depth. No
+observation is worth stalling the hooks of every session on the machine.
+"""
 
 from __future__ import annotations
 
-import io
 import json
 import sys
 import threading
 import time
 import urllib.request
-import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from yoke_cli.transport.bounded_json_http import request_json
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
-    HOOK_CLIENT_WALL_PATH,
+)
+from yoke_harness.hook_observation_delivery import (
+    MAX_TRANSIENT_ATTEMPTS,
+    OBSERVATION_BACKLOG_LIMIT,
+    backlog_diagnostic,
+    classify_delivery_failure,
+    retry_delay_seconds,
 )
 from yoke_harness.hook_resident_client_wall import PendingClientWall
 
@@ -26,36 +36,7 @@ OBSERVATION_FLUSH_INTERVAL_SECONDS = 2.0
 OBSERVATION_FLUSH_COUNT = 32
 OBSERVATION_BATCH_MAX_BYTES = 1024 * 1024
 MESSAGE_PROBE_INTERVAL_SECONDS = 2.0
-_OBSERVATION_PATH = "/v1/hooks/telemetry/batch"
-
-
-class _MemoryResponse:
-    def __init__(self, payload: dict[str, Any], *, url: str) -> None:
-        self._stream = io.BytesIO(
-            json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        )
-        self.status = 200
-        self.headers: dict[str, str] = {}
-        self._url = url
-
-    def read(self, size: int = -1) -> bytes:
-        return self._stream.read(size)
-
-    def getcode(self) -> int:
-        return self.status
-
-    def geturl(self) -> str:
-        return self._url
-
-    def close(self) -> None:
-        self._stream.close()
-
-    def __enter__(self) -> "_MemoryResponse":
-        return self
-
-    def __exit__(self, *_args) -> bool:
-        self.close()
-        return False
+OBSERVATION_PATH = "/v1/hooks/telemetry/batch"
 
 
 @dataclass(frozen=True)
@@ -107,74 +88,6 @@ def _record_model_confirmations(
             record_model_facts_shipped(payload, confirmed)
 
 
-class DeferredObservationOpener:
-    """Capture the normal relay request and return a local allow response."""
-
-    def __init__(self, *, client_wall_supported: bool = False) -> None:
-        self._endpoint = ""
-        self._authorization = ""
-        self._body: dict[str, Any] | None = None
-        self._observed_at = datetime.now(timezone.utc).isoformat()
-        self._client_wall_supported = client_wall_supported
-
-    def __call__(
-        self,
-        request: urllib.request.Request,
-        timeout: float | None = None,  # noqa: ARG002
-    ) -> _MemoryResponse:
-        suffix = "/v1/hooks/evaluate"
-        if not request.full_url.endswith(suffix):
-            raise OSError("resident observation intercepted an unknown endpoint")
-        try:
-            body = json.loads((request.data or b"").decode("utf-8"))
-        except (UnicodeDecodeError, ValueError) as exc:
-            raise OSError("resident observation request is not valid JSON") from exc
-        if not isinstance(body, dict):
-            raise OSError("resident observation request must be an object")
-        headers = {key.casefold(): value for key, value in request.header_items()}
-        self._endpoint = request.full_url[: -len(suffix)] + _OBSERVATION_PATH
-        self._authorization = headers.get("authorization", "")
-        self._body = body
-        provenance = body.get("execution_provenance")
-        return _MemoryResponse(
-            {
-                "hook_schema": 1,
-                "stdout": "",
-                "exit_code": 0,
-                "wait_ms": 0,
-                "degraded": [],
-                "outcome": "completed",
-                "execution_provenance": (
-                    provenance if isinstance(provenance, dict) else {}
-                ),
-            },
-            url=request.full_url,
-        )
-
-    def observation(self, *, hook_wait_ms: int) -> PendingObservation:
-        if self._body is None or not self._endpoint or not self._authorization:
-            raise RuntimeError("read-only hook produced no relay observation")
-        return PendingObservation(
-            observation_id=str(uuid.uuid4()),
-            endpoint=self._endpoint,
-            authorization=self._authorization,
-            observed_at=self._observed_at,
-            hook_wait_ms=max(0, hook_wait_ms),
-            hook_request=self._body,
-            enqueued_at=time.monotonic(),
-        )
-
-    def client_wall_target(self) -> tuple[str, str] | None:
-        if (
-            not self._client_wall_supported
-            or not self._endpoint
-            or not self._authorization
-        ):
-            return None
-        base = self._endpoint[: -len(_OBSERVATION_PATH)]
-        return base + HOOK_CLIENT_WALL_PATH, self._authorization
-
-
 class ObservationQueue:
     """Retain failed telemetry batches and retry in original hook order."""
 
@@ -186,6 +99,9 @@ class ObservationQueue:
         self._stopping = False
         self._force = False
         self._failure = ""
+        self._recovery = ""
+        self._attempts = 0
+        self._dropped = 0
         self._thread = threading.Thread(
             target=self._run,
             name="yoke-hook-observation-flush",
@@ -196,6 +112,11 @@ class ObservationQueue:
     def enqueue(self, entry: PendingTelemetry) -> None:
         with self._condition:
             self._entries.append(entry)
+            # A backlog only grows when delivery is failing, and the newest
+            # observations describe the failure best. Shed from the head.
+            while len(self._entries) > OBSERVATION_BACKLOG_LIMIT:
+                del self._entries[0]
+                self._dropped += 1
             if len(self._entries) >= OBSERVATION_FLUSH_COUNT:
                 self._force = True
             self._condition.notify_all()
@@ -205,14 +126,29 @@ class ObservationQueue:
             return len(self._entries)
 
     def diagnostic(self) -> str:
+        """Report delivery health on the hook's own stderr, never blocking."""
         with self._condition:
-            if not self._failure:
+            if not self._failure and not self._dropped:
                 return ""
-            return (
+            pending = len(self._entries)
+            oldest = time.monotonic() - self._entries[0].enqueued_at if pending else 0.0
+            failure = self._failure
+            recovery = self._recovery
+            dropped = self._dropped
+        lines = []
+        if failure:
+            lines.append(
                 "WARNING: YOKE_HOOK_TELEMETRY_FLUSH_FAILED: "
-                f"{self._failure}; retained {len(self._entries)} observation(s) "
-                "for ordered retry\n"
+                f"{failure}; {backlog_diagnostic(pending=pending, oldest_age_seconds=oldest)}"
+                f"; {recovery}"
             )
+        if dropped:
+            lines.append(
+                f"WARNING: YOKE_HOOK_TELEMETRY_DROPPED: {dropped} observation(s) "
+                "were discarded so later reports could flush; telemetry is "
+                "disposable and no operational state was lost"
+            )
+        return "".join(f"{line}\n" for line in lines)
 
     def _due_wait_locked(self, now: float) -> float | None:
         if not self._entries:
@@ -236,8 +172,12 @@ class ObservationQueue:
                     continue
                 self._force = False
             self._flush_once()
-            if self._failure:
-                time.sleep(OBSERVATION_FLUSH_INTERVAL_SECONDS)
+            with self._condition:
+                attempts = self._attempts if self._failure else 0
+            if attempts:
+                time.sleep(
+                    retry_delay_seconds(attempts, OBSERVATION_FLUSH_INTERVAL_SECONDS)
+                )
 
     def _batch(self) -> list[PendingTelemetry]:
         with self._condition:
@@ -295,13 +235,8 @@ class ObservationQueue:
                 ).payload
                 if not isinstance(result, dict) or result.get("accepted") != len(batch):
                     raise RuntimeError("batch endpoint returned an incomplete receipt")
-            except Exception as exc:  # retained for the next ordered retry
-                failure = f"batch delivery failed ({type(exc).__name__})"
-                with self._condition:
-                    self._failure = failure
-                sys.stderr.write(
-                    f"ERROR: YOKE_HOOK_TELEMETRY_FLUSH_FAILED: {failure}\n"
-                )
+            except Exception as exc:
+                self._record_failure(exc, batch)
                 return
             _record_model_confirmations(batch, result)
             ids = [entry.observation_id for entry in batch]
@@ -312,9 +247,47 @@ class ObservationQueue:
                 if queued_ids == ids:
                     del self._entries[: len(ids)]
                 self._failure = ""
+                self._recovery = ""
+                self._attempts = 0
                 self._condition.notify_all()
         finally:
             self._flush_lock.release()
+
+    def _record_failure(
+        self, exc: BaseException, batch: list[PendingTelemetry]
+    ) -> None:
+        """Drop a batch this endpoint will never take; retry one it might."""
+        failure = classify_delivery_failure(exc)
+        summary = failure.summary()
+        drop = failure.permanent
+        with self._condition:
+            self._attempts += 1
+            if not drop and self._attempts >= MAX_TRANSIENT_ATTEMPTS:
+                drop = True
+                summary = f"{summary}; gave up after {self._attempts} attempts"
+            if drop:
+                ids = [entry.observation_id for entry in batch]
+                queued = [entry.observation_id for entry in self._entries[: len(ids)]]
+                if queued == ids:
+                    del self._entries[: len(ids)]
+                self._dropped += len(ids)
+                self._attempts = 0
+                self._failure = ""
+                self._recovery = ""
+                self._condition.notify_all()
+            else:
+                self._failure = summary
+                self._recovery = failure.recovery
+        level = "ERROR" if drop else "WARNING"
+        name = (
+            "YOKE_HOOK_TELEMETRY_BATCH_REJECTED"
+            if drop
+            else ("YOKE_HOOK_TELEMETRY_FLUSH_FAILED")
+        )
+        sys.stderr.write(
+            f"{level}: {name}: {summary}; {failure.recovery}"
+            f"{'; batch dropped so later reports flush' if drop else ''}\n"
+        )
 
     def drain(self, timeout: float) -> bool:
         deadline = time.monotonic() + max(0.0, timeout)
@@ -338,7 +311,6 @@ class ObservationQueue:
 
 
 __all__ = [
-    "DeferredObservationOpener",
     "MESSAGE_PROBE_INTERVAL_SECONDS",
     "OBSERVATION_FLUSH_COUNT",
     "OBSERVATION_FLUSH_INTERVAL_SECONDS",

@@ -66,13 +66,30 @@ other's. Tool events (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`,
 
 **Resident lifecycle and recovery.** The client starts the singleton on first
 use. It exits after ten idle minutes, and a request from a different installed
-revision causes an orderly drain followed by re-exec before that request is
-retried. Concurrent connections evaluate in isolated caller contexts. An
-unreachable socket, protocol error, startup refusal, or mid-request crash is
-named on stderr and falls back to the same canonical in-process evaluator for
-that invocation; `HookDispatchTelemetry` records `evaluator=inprocess` and the
-fallback reason. Absence of the resident can therefore never manufacture an
-allow verdict.
+revision makes it leave the accept loop and re-exec; the restart handshake
+names both the loaded and the requested revision so a stuck upgrade reads from
+one line. **Neither exit consults the telemetry queue.** Retained observations
+are drained once at shutdown under their own two-second bound, and a drain that
+times out warns rather than cancelling the upgrade — telemetry is disposable,
+and one undeliverable batch must never pin a machine to an old revision or keep
+an idle resident alive. In-flight evaluations still finish first: handler
+threads are non-daemon and are joined on close. Concurrent connections evaluate
+in isolated caller contexts. An unreachable socket, protocol error, startup
+refusal, or mid-request crash is named on stderr and falls back to the same
+canonical in-process evaluator for that invocation; `HookDispatchTelemetry`
+records `evaluator=inprocess` and the fallback reason. Absence of the resident
+can therefore never manufacture an allow verdict.
+
+**The connect grace is a total budget.** `RESIDENT_CONNECT_GRACE_SECONDS`
+(2s) bounds the whole phase of reaching a usable resident — connecting,
+starting one, and re-trying after a restart handshake — as an absolute
+deadline imposed on every socket operation those attempts make, not a glance
+taken at the top of the retry loop. Once a request is under way the response
+wait keeps the hook's own deadline (`YOKE_HOOK_TOTAL_TIMEOUT_MS` plus two
+seconds of slack for the resident to stop itself first), measured from the
+client process start so retries can never push one invocation past its own
+budget. A legitimate evaluation is unaffected: at send time a healthy hook has
+spent milliseconds.
 
 **Read-only hot path.** After an HTTPS server advertises
 `read_only_observation_batch_v1`, tool events whose complete canonical chains
@@ -83,12 +100,56 @@ a session, and another at least every two seconds, still relays so pending
 messages can be injected. Events between those probes return locally and queue
 their unchanged `HarnessToolCallStarted`/`HarnessToolCallCompleted` and
 `HookDispatchTelemetry` effects. The resident flushes the ordered queue every
-two seconds or 32 observations, retries a failed prefix without dropping it,
-and emits `YOKE_HOOK_TELEMETRY_FLUSH_FAILED` while work is retained. Session
-heartbeat and tool-activity state advance when the batch commits, so their lag
-is bounded by the same flush interval. An older server does not advertise the
-capability, leaving every hook on the established synchronous path throughout
-a rolling upgrade.
+two seconds or 32 observations. Session heartbeat and tool-activity state
+advance when the batch commits, so their lag is bounded by the same flush
+interval. An older server does not advertise the capability, leaving every
+hook on the established synchronous path throughout a rolling upgrade.
+
+**A rejected batch is dropped, not retried forever.** Delivery is ordered, so
+whatever sits at the head of the queue decides whether anything behind it is
+ever sent. A 4xx other than 408 or 429 means the control plane understood the
+batch and will not take it, so resending the same bytes cannot succeed: the
+batch is discarded and `YOKE_HOOK_TELEMETRY_BATCH_REJECTED` names the HTTP
+status, the server's rejection code, and the step that fixes it. A transient
+failure is retried with geometric backoff to a thirty-second ceiling for a
+bounded number of attempts and then dropped the same way, and the queue length
+is capped so one unreachable endpoint cannot grow the resident without limit.
+While work is retained, `YOKE_HOOK_TELEMETRY_FLUSH_FAILED` carries the queue
+depth and the age of its oldest entry; anything discarded is summarized as
+`YOKE_HOOK_TELEMETRY_DROPPED`. Events are disposable and operational state has
+its own durable owners, so no observation is worth stalling the hooks of every
+session on the machine.
+
+**One identity gate serves both hook routes.** `POST /v1/hooks/evaluate` and
+`POST /v1/hooks/telemetry/batch` decide "may this payload's `session_id` act as
+a Yoke session?" through the single predicate in
+`yoke_core.hooks.relayed_session_identity`. They must agree, because the batch
+carries payloads a live hook already relayed: when the batch route additionally
+applied the conversation-alias shape test, it refused with HTTP 400 the very
+payloads evaluate had accepted. Only the client can answer the question — the
+machine-local Cursor session map legitimately records a conversation as its own
+session, so a canonical id can equal the alias beside it — and the client
+already refuses the raw case, folding an unmapped conversation to empty, which
+never sets `identity_stamped`. The shape test therefore applies to unstamped
+payloads only. The batch route then proves the stamp it trusts: a stamped id
+whose `harness_sessions` row belongs to another actor is refused
+`HOOK_OBSERVATION_SESSION_DENIED`, while an id with no row yet is accepted,
+because that observation is what registers the session. That authorization is
+batch-only on purpose — a false refusal there costs one disposable telemetry
+batch, where the same refusal on the evaluate route would block a live tool
+call on every machine at once.
+
+**A degraded hook says which phase was slow.** When the resident cannot answer
+and the canonical in-process fallback runs, the hook writes one
+`YOKE_HOOK_PHASE_TIMING` line to stderr carrying `resident_wait_ms` (connect,
+restart handshakes, and response wait), `fallback_ms` (the in-process
+evaluation, including any synchronous telemetry reporting it performs on
+completion), `client_wall_ms` (the hook process end to end), and
+`fallback_reason`. A phase that was not measured reads `not-measured` rather
+than zero, so a coverage gap cannot pass for an instant phase. Set
+`YOKE_HOOK_PHASE_TIMING=1` to get the same line on healthy invocations. It
+carries durations and one refusal code only — never a payload, an environment,
+or a credential — and rendering cannot delay or fail the tool call.
 
 Inspect the resulting hourly split with `yoke sessions hook-overhead
 [--hours N] [--json]`. Its table reports PreToolUse and PostToolUse client

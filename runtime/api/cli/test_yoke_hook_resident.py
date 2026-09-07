@@ -27,11 +27,7 @@ from yoke_contracts.hook_evaluator_protocol import (
 )
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_contracts.hook_runner.hook_ordering import event_types
-from yoke_harness.hook_resident_observations import (
-    MESSAGE_PROBE_INTERVAL_SECONDS,
-    ObservationQueue,
-    PendingObservation,
-)
+from yoke_harness.hook_resident_observations import MESSAGE_PROBE_INTERVAL_SECONDS
 
 
 def _context_evaluator(barrier: threading.Barrier):
@@ -233,7 +229,11 @@ def test_revision_change_requests_resident_reexec(resident_process, tmp_path) ->
         cwd=str(tmp_path),
         revision=f"different-{revision}",
     )
-    assert _round_trip(socket_path, request) == {"status": "restart"}
+    response = _round_trip(socket_path, request)
+    assert response["status"] == "restart"
+    # Both revisions ride the handshake so a stuck upgrade is readable.
+    assert response["loaded_revision"] == revision
+    assert response["requested_revision"] == f"different-{revision}"
 
 
 @pytest.mark.parametrize("tool", ["Read", "Grep", "Glob", "WebSearch"])
@@ -276,61 +276,6 @@ def test_client_falls_back_with_named_reason(monkeypatch, tmp_path, capsys) -> N
     assert "using canonical in-process fallback" in capsys.readouterr().err
 
 
-class _BatchResponse:
-    def __init__(self, accepted: int) -> None:
-        self.status = 200
-        self.headers = {}
-        self._body = io.BytesIO(json.dumps({"accepted": accepted}).encode())
-
-    def read(self, size: int = -1) -> bytes:
-        return self._body.read(size)
-
-    def geturl(self) -> str:
-        return "https://example.test/v1/hooks/telemetry/batch"
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args):
-        return False
-
-
-def _pending(index: int) -> PendingObservation:
-    return PendingObservation(
-        observation_id=f"observation-{index}",
-        endpoint="https://example.test/v1/hooks/telemetry/batch",
-        authorization="Bearer test",
-        observed_at="2026-09-03T20:00:00+00:00",
-        hook_wait_ms=index,
-        hook_request={"event_name": "PreToolUse", "stdin": "{}"},
-        enqueued_at=time.monotonic(),
-    )
-
-
-def test_observation_flush_retains_failure_then_retries_in_order() -> None:
-    calls = []
-
-    def opener(request, timeout=None):  # noqa: ARG001
-        calls.append(json.loads(request.data))
-        if len(calls) == 1:
-            raise OSError("offline")
-        return _BatchResponse(2)
-
-    queue = ObservationQueue(opener)
-    queue.enqueue(_pending(1))
-    queue.enqueue(_pending(2))
-    queue._flush_once()
-    assert queue.pending_count() == 2
-    assert "retained 2 observation(s)" in queue.diagnostic()
-    queue._flush_once()
-    assert queue.pending_count() == 0
-    assert [item["observation_id"] for item in calls[1]["observations"]] == [
-        "observation-1",
-        "observation-2",
-    ]
-    assert queue.close()
-
-
 def test_message_probe_interval_is_bounded() -> None:
     from yoke_harness.hook_resident import _ResidentServer
 
@@ -347,3 +292,34 @@ def test_message_probe_interval_is_bounded() -> None:
     server.http_opener.observation_batch_supported.return_value = False
     server.mark_message_probe("session-1")
     assert not server.should_evaluate_locally("session-1")
+
+
+def test_concurrent_hooks_are_admitted_without_a_serial_wait(
+    resident_process,
+) -> None:
+    """Five callers must not queue behind one another's half-second waits."""
+    socket_path, revision = resident_process()
+    responses: list[dict] = []
+    lock = threading.Lock()
+
+    def call() -> None:
+        response = _round_trip(
+            socket_path,
+            _request("PreToolUse", cwd="/tmp", revision=revision),
+        )
+        with lock:
+            responses.append(response)
+
+    started = time.monotonic()
+    threads = [threading.Thread(target=call) for _ in range(5)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    elapsed = time.monotonic() - started
+
+    assert len(responses) == 5
+    assert all(response.get("status") == "ok" for response in responses)
+    # The removed drain cost 0.5s of admission per request; five sequential
+    # admissions could not finish inside this bound.
+    assert elapsed < 2.5, f"admission took {elapsed:.2f}s"
