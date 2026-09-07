@@ -26,6 +26,7 @@ TOOL_CLI_ROWS: Tuple[_Row, ...] = (
     _t("yoke watch preflight", "tools.watch"),
     _t("yoke release-pin verify", "tools.release_pin"),
     _t("yoke hook status-line", "tools.claude_status_line"),
+    _t("yoke hook benchmark", "tools.hook_latency_benchmark"),
 )
 
 

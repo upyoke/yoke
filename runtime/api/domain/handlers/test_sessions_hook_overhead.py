@@ -34,15 +34,25 @@ def _use_fixture_database(monkeypatch, test_db) -> None:
     )
 
 
-def _dispatch_envelope(timing_id: str, duration_ms: int) -> str:
+def _dispatch_envelope(
+    timing_id: str,
+    duration_ms: int | None,
+    *,
+    executor: str = "cursor",
+    client_wall_ms: int | None = None,
+) -> str:
+    context = {
+        "hook_wait_ms": duration_ms,
+        "client_timing_id": timing_id,
+        "executor": executor,
+    }
+    if client_wall_ms is not None:
+        context["client_wall_ms"] = client_wall_ms
     return json.dumps(
         {
             "event_name": "HookDispatchTelemetry",
             "duration_ms": duration_ms,
-            "context": {
-                "hook_wait_ms": duration_ms,
-                "client_timing_id": timing_id,
-            },
+            "context": context,
         }
     )
 
@@ -60,11 +70,14 @@ def test_handler_validates_the_hour_window_and_returns_registered_shape(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(hook_overhead, "hook_overhead_rows", lambda hours: [])
+    monkeypatch.setattr(hook_overhead, "tool_latency_rows", lambda hours: [])
     accepted = sessions_hook_overhead.handle_sessions_hook_overhead(_request(12))
     assert accepted.primary_success is True
     assert accepted.result_payload == {
         "fields": hook_overhead.HOOK_OVERHEAD_FIELDS,
         "rows": [],
+        "tool_fields": hook_overhead.TOOL_LATENCY_FIELDS,
+        "tool_rows": [],
     }
 
     refused = sessions_hook_overhead.handle_sessions_hook_overhead(_request(0))
@@ -109,8 +122,7 @@ def test_hourly_projection_splits_client_server_and_remainder(
         ("post-b", "PostToolUse", 50, 90),
     ]
     for event_id, hook_event, server_ms, client_ms in samples:
-        envelope = json.loads(_dispatch_envelope(event_id, server_ms))
-        envelope["context"]["client_wall_ms"] = client_ms
+        envelope = _dispatch_envelope(event_id, server_ms, client_wall_ms=client_ms)
         insert_event(
             test_db,
             event_id=event_id,
@@ -119,17 +131,101 @@ def test_hourly_projection_splits_client_server_and_remainder(
             source_type="hook",
             duration_ms=server_ms,
             hook_event_name=hook_event,
-            envelope=json.dumps(envelope),
+            envelope=envelope,
         )
 
     rows = hook_overhead.hook_overhead_rows(1)
-    assert len(rows) == 1
-    row = rows[0]
+    assert len(rows) == 2
+    row = next(row for row in rows if row["scope"] == "global")
     assert row["hook_count"] == 4
+    assert row["evaluator_timed_count"] == 4
+    assert row["evaluator_timing_coverage_pct"] == 100.0
+    assert row["client_timed_count"] == 4
+    assert row["client_timing_coverage_pct"] == 100.0
+    assert row["comparison_status"] == "comparable"
     assert row["pre_client_p50_ms"] == 120
-    assert row["pre_server_p50_ms"] == 50
+    assert row["pre_client_mean_ms"] == 120
+    assert row["pre_evaluator_p50_ms"] == 50
     assert row["pre_remainder_p50_ms"] == 70
     assert row["post_client_p50_ms"] == 80
-    assert row["post_server_p50_ms"] == 40
+    assert row["post_client_mean_ms"] == 80
+    assert row["post_evaluator_p50_ms"] == 40
     assert row["post_remainder_p50_ms"] == 40
     assert row["overhead_per_tool_call_ms"] == 200
+
+
+def test_missing_durations_are_coverage_gaps_while_zero_is_timed(
+    test_db, monkeypatch
+) -> None:
+    _use_fixture_database(monkeypatch, test_db)
+    samples = [
+        ("zero", "PreToolUse", 0, 0),
+        ("missing-server", "PreToolUse", None, 25),
+        ("missing-client", "PostToolUse", 30, None),
+    ]
+    for event_id, hook_event, server_ms, client_ms in samples:
+        insert_event(
+            test_db,
+            event_id=event_id,
+            event_name="HookDispatchTelemetry",
+            event_type="hook_dispatch",
+            source_type="hook",
+            duration_ms=server_ms,
+            hook_event_name=hook_event,
+            session_id=f"session-{event_id}",
+            envelope=_dispatch_envelope(event_id, server_ms, client_wall_ms=client_ms),
+        )
+
+    row = next(
+        row for row in hook_overhead.hook_overhead_rows(1) if row["scope"] == "global"
+    )
+    assert row["evaluator_timed_count"] == 2
+    assert row["evaluator_timing_coverage_pct"] == 66.7
+    assert row["client_timed_count"] == 2
+    assert row["client_timing_coverage_pct"] == 66.7
+    assert row["pre_evaluator_p50_ms"] == 0
+    assert row["pre_client_p50_ms"] == 12
+    assert row["comparison_status"] == "incomplete"
+    assert row["tool_active_session_count"] == 3
+
+
+def test_tool_latency_reports_timed_total_globally_and_per_harness(
+    test_db, monkeypatch
+) -> None:
+    _use_fixture_database(monkeypatch, test_db)
+    samples = [
+        ("cursor-zero", "cursor", 0),
+        ("cursor-missing", "cursor", None),
+        ("codex-timed", "codex", 120),
+    ]
+    for event_id, executor, duration_ms in samples:
+        insert_event(
+            test_db,
+            event_id=event_id,
+            event_name="HarnessToolCallCompleted",
+            event_type="tool_call",
+            source_type="hook",
+            duration_ms=duration_ms,
+            session_id=f"session-{event_id}",
+            envelope=json.dumps({"context": {"executor": executor}}),
+        )
+
+    rows = hook_overhead.tool_latency_rows(1)
+    global_row = next(row for row in rows if row["scope"] == "global")
+    cursor_row = next(
+        row for row in rows if row["scope"] == "harness" and row["harness"] == "cursor"
+    )
+    codex_row = next(
+        row for row in rows if row["scope"] == "harness" and row["harness"] == "codex"
+    )
+
+    assert global_row["timed_count"] == 2
+    assert global_row["call_count"] == 3
+    assert global_row["timing_coverage_pct"] == 66.7
+    assert global_row["mean_ms"] == 60
+    assert global_row["comparison_status"] == "incomplete"
+    assert cursor_row["timed_count"] == 1
+    assert cursor_row["call_count"] == 2
+    assert cursor_row["mean_ms"] == 0
+    assert codex_row["timing_coverage_pct"] == 100.0
+    assert codex_row["comparison_status"] == "comparable"
