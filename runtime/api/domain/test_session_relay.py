@@ -37,7 +37,9 @@ def _connection():
     return relay_connection()
 
 
-def _heartbeat(**versions: str) -> RelayHeartbeat:
+def _heartbeat(
+    *, confirmed_absent: tuple[str, ...] = (), **versions: str
+) -> RelayHeartbeat:
     return RelayHeartbeat(
         relay_id=RELAY_ID,
         actor_id=1,
@@ -45,6 +47,7 @@ def _heartbeat(**versions: str) -> RelayHeartbeat:
         hostname="relay-host",
         relay_version="0.1.1",
         surface_versions=versions or {"codex-cli": "0.148.0a15"},
+        surface_confirmed_absent=confirmed_absent,
         project_ids=(10,),
     )
 
@@ -93,7 +96,9 @@ def test_idle_launch_capable_heartbeat_keeps_active_cadence() -> None:
 
     outcome = claim_relay_job(
         conn,
-        _heartbeat(),
+        # A surface confirmed absent alongside one that heartbeats normally
+        # covers the storage round-trip for both facts in the same write.
+        _heartbeat(confirmed_absent=("claude-cli",)),
         wait_seconds=0,
         now_provider=_clock(),
     )
@@ -102,7 +107,7 @@ def test_idle_launch_capable_heartbeat_keeps_active_cadence() -> None:
     assert outcome.next_poll_seconds == 60
     row = conn.execute(
         "SELECT actor_id,hostname,relay_version,surface_versions,"
-        "project_checkouts,connected_until "
+        "project_checkouts,connected_until,surface_confirmed_absent "
         "FROM session_relays WHERE relay_id=?",
         (RELAY_ID,),
     ).fetchone()
@@ -112,6 +117,7 @@ def test_idle_launch_capable_heartbeat_keeps_active_cadence() -> None:
     assert json.loads(row[3]) == {"codex-cli": "0.148.0a15"}
     assert json.loads(row[4]) == [10]
     assert row[5] == "2026-08-22T12:02:00Z"
+    assert json.loads(row[6]) == ["claude-cli"]
 
 
 def test_idle_non_launch_heartbeat_uses_backoff() -> None:

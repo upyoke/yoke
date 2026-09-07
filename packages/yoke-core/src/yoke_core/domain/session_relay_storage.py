@@ -67,6 +67,9 @@ def heartbeat_relay(
         str(existing[2] or "") if existing is not None else "",
     )
     surfaces = json_helper.dumps_compact(dict(heartbeat.surface_versions))
+    confirmed_absent = json_helper.dumps_compact(
+        list(heartbeat.surface_confirmed_absent)
+    )
     projects = json_helper.dumps_compact(list(heartbeat.project_ids))
     plan_limits = json_helper.dumps_compact(dict(heartbeat.surface_plan_limits))
     capacity = json_helper.dumps_compact(dict(heartbeat.machine_capacity))
@@ -77,15 +80,17 @@ def heartbeat_relay(
     )
     conn.execute(
         "INSERT INTO session_relays "
-        "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
+        "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,"
+        "surface_confirmed_absent,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
         "machine_capacity,preferred_session_models,relay_health,"
         "preferred_session_reasoning_efforts) "
-        f"VALUES ({','.join(p for _ in range(16))}) "
+        f"VALUES ({','.join(p for _ in range(17))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
         "surface_versions=excluded.surface_versions,"
+        "surface_confirmed_absent=excluded.surface_confirmed_absent,"
         "project_checkouts=excluded.project_checkouts,"
         "last_seen_at=excluded.last_seen_at,"
         "connected_until=excluded.connected_until,state=excluded.state,"
@@ -102,6 +107,7 @@ def heartbeat_relay(
             heartbeat.hostname,
             heartbeat.relay_version or None,
             surfaces,
+            confirmed_absent,
             projects,
             now,
             now,

@@ -130,6 +130,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     hostname=payload.hostname,
                     relay_version=payload.relay_version,
                     surface_versions=payload.surfaces,
+                    surface_confirmed_absent=payload.surfaces_confirmed_absent,
                     project_ids=payload.projects,
                     surface_plan_limits=payload.plan_limits,
                     machine_capacity=payload.capacity,

@@ -71,7 +71,8 @@ def list_visible_relays(
     rows = conn.execute(
         "SELECT relay_id,machine_id,hostname,relay_version,surface_versions,"
         "project_checkouts,first_seen_at,last_seen_at,connected_until,state,"
-        "last_job_at,actor_id,relay_health,surface_plan_limits,machine_capacity "
+        "last_job_at,actor_id,relay_health,surface_plan_limits,machine_capacity,"
+        "surface_confirmed_absent "
         "FROM session_relays"
         + where
         + " ORDER BY last_seen_at DESC,relay_id",
@@ -121,6 +122,9 @@ def list_visible_relays(
                 "hostname": str(_value(row, "hostname", 2)),
                 "relay_version": _value(row, "relay_version", 3),
                 "surface_versions": _document(_value(row, "surface_versions", 4), {}),
+                "surface_confirmed_absent": _document(
+                    _value(row, "surface_confirmed_absent", 15), []
+                ),
                 "project_ids": visible_projects,
                 "first_seen_at": _value(row, "first_seen_at", 6),
                 "last_seen_at": _value(row, "last_seen_at", 7),

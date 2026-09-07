@@ -18,6 +18,7 @@ class RelayClaimRequest(BaseModel):
     relay_version: str
     projects: List[int]
     surfaces: Dict[str, str]
+    surfaces_confirmed_absent: List[str] = Field(default_factory=list)
     plan_limits: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     capacity: Dict[str, Any] = Field(default_factory=dict)
     preferred_models: Dict[str, str] = Field(default_factory=dict)

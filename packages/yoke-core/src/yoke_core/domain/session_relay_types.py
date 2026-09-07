@@ -44,6 +44,7 @@ class RelayHeartbeat:
     relay_version: str
     surface_versions: Mapping[str, str]
     project_ids: Sequence[int]
+    surface_confirmed_absent: Sequence[str] = ()
     surface_plan_limits: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     machine_capacity: Mapping[str, Any] = field(default_factory=dict)
     preferred_session_models: Mapping[str, str] = field(default_factory=dict)

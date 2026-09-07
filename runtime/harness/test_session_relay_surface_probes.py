@@ -8,6 +8,7 @@ from threading import Event
 from types import SimpleNamespace
 
 from yoke_harness import session_relay
+from yoke_harness import session_relay_surface_identity as identity_module
 from yoke_harness import session_relay_surface_probe_cache as probe_cache
 from yoke_harness import session_relay_surface_probes as probes
 from yoke_harness.session_relay_inventory import RelayInventory
@@ -88,6 +89,57 @@ def test_last_known_good_expires_at_the_bounded_age(tmp_path: Path) -> None:
 
     expired_at = 100 + probe_cache.SURFACE_VERSION_MAX_AGE_SECONDS + 1
     assert probe_cache.cached_surface_versions(state_dir=tmp_path, now=expired_at) == {}
+
+
+def test_cached_surface_state_keeps_identity_past_the_freshness_window(
+    tmp_path: Path,
+) -> None:
+    # A cache-read heartbeat must not republish an empty inventory the
+    # moment a version reading goes stale (a machine waking from sleep
+    # before its next live probe runs, for one) — unlike the freshness-gated
+    # read above, identity survives any age.
+    probe_cache.update_surface_probe_cache(
+        [_result(verdict="ok", version="2.1.241", observed_at=100)],
+        state_dir=tmp_path,
+    )
+
+    versions, confirmed_absent = identity_module.cached_surface_state(
+        state_dir=tmp_path
+    )
+
+    assert versions == {"claude-cli": "2.1.241"}
+    assert confirmed_absent == ()
+
+
+def test_cached_surface_state_names_a_confirmed_removal(tmp_path: Path) -> None:
+    # A surface once installed and then actively found missing is reported as
+    # removed, not kept alive by masking it behind its last-known version.
+    probe_cache.update_surface_probe_cache(
+        [_result(verdict="ok", version="2.1.241", observed_at=100)],
+        state_dir=tmp_path,
+    )
+    probe_cache.update_surface_probe_cache(
+        [_result(verdict="missing", observed_at=200)],
+        state_dir=tmp_path,
+    )
+
+    versions, confirmed_absent = identity_module.cached_surface_state(
+        state_dir=tmp_path
+    )
+
+    assert "claude-cli" not in versions
+    assert confirmed_absent == ("claude-cli",)
+
+
+def test_cached_surface_state_reports_nothing_for_a_never_seen_surface(
+    tmp_path: Path,
+) -> None:
+    versions, confirmed_absent = identity_module.cached_surface_state(
+        state_dir=tmp_path
+    )
+
+    assert versions == {}
+    assert confirmed_absent == ()
 
 
 def test_one_unexpected_probe_failure_does_not_discard_other_results() -> None:

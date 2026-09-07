@@ -14,6 +14,7 @@ from yoke_contracts.machine_config.preferred_session_models import (
     PREFERRED_SESSION_REASONING_EFFORTS_KEY,
 )
 from yoke_harness import session_relay_inventory as inventory_module
+from yoke_harness import session_relay_surface_probe_cache as probe_cache
 from yoke_harness import session_relay_surface_probes as probe_module
 
 
@@ -135,6 +136,7 @@ def test_cached_inventory_does_not_probe_during_initial_registration(
     observed = inventory_module.collect_cached_inventory(state_dir=tmp_path)
 
     assert observed.surface_versions == {}
+    assert observed.surface_confirmed_absent == ()
 
 
 def test_claim_payload_carries_the_lane_cap_the_operator_configured(
@@ -229,3 +231,45 @@ def test_claim_payload_advertises_this_machines_selection_defaults(
 
     assert payload["preferred_models"] == {"claude-cli": "claude-opus-4-8[1m]"}
     assert payload["preferred_reasoning_efforts"] == {"claude-cli": "max"}
+
+
+def test_claim_payload_names_a_confirmed_removal_without_masking_it(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # A surface actively found missing must reach the heartbeat as removed,
+    # not silently disappear behind an empty `surfaces` map indistinguishable
+    # from "cache expired" or "never probed".
+    probe_cache.update_surface_probe_cache(
+        [
+            probe_module.SurfaceProbeResult(
+                surface="claude-cli",
+                source="exec",
+                verdict="missing",
+                version=None,
+                duration_ms=5,
+                error="claude was not found",
+                observed_at=100,
+            )
+        ],
+        state_dir=tmp_path,
+    )
+    monkeypatch.setattr(
+        inventory_module,
+        "ensure_machine_id",
+        lambda: "55555555-5555-4555-8555-555555555555",
+    )
+    monkeypatch.setattr(
+        inventory_module.machine_config,
+        "configured_projects",
+        lambda **_kwargs: [],
+    )
+    monkeypatch.setattr(inventory_module, "local_handshake_version", lambda: "source")
+    monkeypatch.setattr(inventory_module, "observe_plan_limits", lambda *_a, **_k: {})
+
+    payload = inventory_module.collect_cached_inventory(
+        state_dir=tmp_path
+    ).claim_payload()
+
+    assert "claude-cli" not in payload["surfaces"]
+    assert payload["surfaces_confirmed_absent"] == ["claude-cli"]

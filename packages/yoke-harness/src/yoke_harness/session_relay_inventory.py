@@ -22,9 +22,7 @@ from yoke_contracts.machine_config.runtime import (
 )
 from yoke_harness.session_relay_plan_limits import observe_plan_limits
 from yoke_harness.session_relay_health import observe_relay_health
-from yoke_harness.session_relay_surface_probe_cache import (
-    cached_surface_versions,
-)
+from yoke_harness.session_relay_surface_identity import cached_surface_state
 from yoke_harness.session_relay_surface_probes import (
     APP_SURFACE_PROBES,
     CLI_SURFACE_PROBES,
@@ -44,6 +42,7 @@ class RelayInventory:
     relay_version: str
     project_ids: tuple[int, ...]
     surface_versions: dict[str, str]
+    surface_confirmed_absent: tuple[str, ...] = ()
     surface_plan_limits: dict[str, dict[str, object]] = field(default_factory=dict)
     machine_capacity: dict[str, object] = field(default_factory=dict)
     preferred_session_models: dict[str, str] = field(default_factory=dict)
@@ -64,6 +63,7 @@ class RelayInventory:
             "relay_version": self.relay_version,
             "projects": list(self.project_ids),
             "surfaces": dict(self.surface_versions),
+            "surfaces_confirmed_absent": list(self.surface_confirmed_absent),
             "plan_limits": dict(self.surface_plan_limits),
             "capacity": dict(self.machine_capacity),
             "preferred_models": dict(self.preferred_session_models),
@@ -105,6 +105,7 @@ def _inventory(
     plan_limits: dict[str, dict[str, object]] | None = None,
     *,
     state_dir: Path | None = None,
+    confirmed_absent: tuple[str, ...] = (),
 ) -> RelayInventory:
     project_ids = tuple(
         sorted(
@@ -129,6 +130,7 @@ def _inventory(
         relay_version=local_handshake_version() or "source",
         project_ids=project_ids,
         surface_versions=versions,
+        surface_confirmed_absent=confirmed_absent,
         surface_plan_limits=dict(plan_limits or {}),
         machine_capacity=capacity.to_dict(),
         # This machine's own preferred models travel with the heartbeat so a
@@ -158,12 +160,22 @@ def collect_inventory(
 
 
 def collect_cached_inventory(*, state_dir: Path | None = None) -> RelayInventory:
-    """Return cache-backed versions without running a live probe inline."""
-    versions = cached_surface_versions(state_dir=state_dir)
+    """Return cache-backed identity without running a live probe inline.
+
+    ``versions`` survives past the cache's freshness window: a surface this
+    machine has ever installed keeps naming its last-known version here even
+    once that reading has gone stale, so a heartbeat sent between probe
+    cycles (a machine just woken from sleep, for one) never republishes an
+    empty inventory that reads as "nothing is installed". ``confirmed_absent``
+    carries the surfaces actively found missing, so a real removal still
+    reports as removed rather than being masked by a stale version.
+    """
+    versions, confirmed_absent = cached_surface_state(state_dir=state_dir)
     return _inventory(
         versions,
         observe_plan_limits(tuple(versions), state_dir=state_dir),
         state_dir=state_dir,
+        confirmed_absent=confirmed_absent,
     )
 
 

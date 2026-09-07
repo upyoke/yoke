@@ -16,6 +16,7 @@ import {
   loadTone,
   memoryTone,
   planWindowHeadroom,
+  readingIsStale,
   windowLabel,
 } from "./universe_machines_meters.js";
 import {
@@ -40,7 +41,14 @@ function surfaceState(relay, surface) {
     (entry) => entry.surface === surface,
   );
   if (mark) return ["disabled", mark.reason || "disabled by an operator"];
-  if (!(relay.surface_versions || {})[surface]) {
+  // Never installed and confirmed removed both read as absent, but neither
+  // is inferred from the other: `surface_versions` now keeps naming a
+  // surface's last-known version past its cache going stale, so only an
+  // active removal (its own field, set by the relay's most recent probe) or
+  // a version this machine has truly never reported earns this light.
+  const neverSeen = !(relay.surface_versions || {})[surface];
+  const removed = (relay.surface_confirmed_absent || []).includes(surface);
+  if (neverSeen || removed) {
     return ["absent", "surface_absent — not installed on this machine"];
   }
   if (String(relay.liveness) !== "connected") {
@@ -87,9 +95,12 @@ function headroomTrack(documentNode, headroom, tone) {
 // the same fact so they cannot disagree; quota left rides behind as the
 // supporting one, because the level alone never says whether a pool can run
 // out before it resets.
-function planWindowRow(documentNode, window) {
-  const headroom = planWindowHeadroom(window);
-  const tone = headroomTone(headroom);
+function planWindowRow(documentNode, window, stale) {
+  // A stale reading's headroom is not recomputed from a possibly long-passed
+  // `resets_at` — it reads exactly like a window nobody could read, reusing
+  // the same "no reading" presentation rather than a second one.
+  const headroom = stale ? null : planWindowHeadroom(window);
+  const tone = stale ? "unread" : headroomTone(headroom);
   const row = el(documentNode, "div", "machine-limit-row");
   row.setAttribute("data-tone", tone);
   const unread = tone === "unread";
@@ -114,7 +125,10 @@ function planWindowRow(documentNode, window) {
     documentNode,
     "span",
     "machine-limit-quota",
-    quota === null ? "—" : `${Math.round(quota)}%`,
+    // A stale reading omits its quota outright rather than presenting a
+    // number that may be days old as current; a fresh reading still shows
+    // its percent even when headroom itself could not be computed above.
+    stale || quota === null ? "—" : `${Math.round(quota)}%`,
   ));
   return row;
 }
@@ -131,7 +145,7 @@ function limitColumns(documentNode) {
   return columns;
 }
 
-function surfaceHead(documentNode, relay, surface, state, reading) {
+function surfaceHead(documentNode, relay, surface, state, reading, stale) {
   const [lightClass, label] = LIGHTS[state];
   const head = el(documentNode, "div", "machine-surface-head");
   const light = el(documentNode, "span", `machine-light ${lightClass}`);
@@ -140,11 +154,16 @@ function surfaceHead(documentNode, relay, surface, state, reading) {
   light.setAttribute("aria-label", label);
   head.appendChild(light);
   head.appendChild(el(documentNode, "span", "machine-surface-name", surface));
-  if (reading?.plan_tier) head.appendChild(el(
+  // A stale tier is omitted with the quota it came from, rather than shown
+  // as a badge the reading can no longer back up.
+  if (reading?.plan_tier && !stale) head.appendChild(el(
     documentNode, "span", "machine-plan-tier", reading.plan_tier,
   ));
+  // A confirmed removal never shows its last-known version beside the
+  // light that says the surface is gone — that string is exactly what
+  // would otherwise mask the removal.
   const version = (relay.surface_versions || {})[surface];
-  if (version) head.appendChild(el(
+  if (version && state !== "absent") head.appendChild(el(
     documentNode, "span", "machine-surface-version", version,
   ));
   if (reading?.windows?.length) head.appendChild(limitColumns(documentNode));
@@ -157,7 +176,10 @@ function surfaceRow(documentNode, relay, surface) {
     documentNode, "section", `machine-surface machine-surface-${state}`,
   );
   const reading = (relay.plan_limits || {})[surface];
-  row.appendChild(surfaceHead(documentNode, relay, surface, state, reading));
+  // One freshness verdict for the whole reading, applied consistently to its
+  // tier, its headroom, and its quota below — never three separate guesses.
+  const stale = reading ? readingIsStale(reading.observed_at) : false;
+  row.appendChild(surfaceHead(documentNode, relay, surface, state, reading, stale));
   if (reason) row.appendChild(el(
     documentNode, "p", "machine-surface-reason", reason,
   ));
@@ -171,7 +193,7 @@ function surfaceRow(documentNode, relay, surface) {
       return (leftValue ?? Infinity) - (rightValue ?? Infinity);
     });
     for (const window of sorted) {
-      limits.appendChild(planWindowRow(documentNode, window));
+      limits.appendChild(planWindowRow(documentNode, window, stale));
       if (window.status !== "ok" && window.reason) {
         limits.appendChild(limitNote(documentNode, window.reason));
       }
