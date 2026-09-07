@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 
 from yoke_project_checks.check_events_app_state_reads import (
     ALLOWED_EVENTS_READERS,
-    ALLOWED_REGISTERED_QUERY_READERS,
+    ALLOWED_INDIRECT_EVENTS_READERS,
     REGISTERED_EVENTS_QUERY,
     _OPTIONAL_MATCH_READER_PREFIXES,
     scan_events_reads,
@@ -102,7 +102,6 @@ class TestScanEventsReads(unittest.TestCase):
         reader_suffixes = (
             "yoke_contracts/board/widgets_velocity_meter.py",
             "yoke_core/domain/board_momentum_signals.py",
-            "yoke_core/domain/source_authority_receipts.py",
             ".yoke/doctor/check_session_identity_provenance.py",
             ".yoke/doctor/check_silent_hooks.py",
         )
@@ -168,7 +167,7 @@ class TestScanEventsReads(unittest.TestCase):
         # entry in the current permanent history.
         expected = tuple(
             e
-            for e in (*ALLOWED_EVENTS_READERS, *ALLOWED_REGISTERED_QUERY_READERS)
+            for e in (*ALLOWED_EVENTS_READERS, *ALLOWED_INDIRECT_EVENTS_READERS)
             if e not in _OPTIONAL_MATCH_READER_PREFIXES
         )
         self.assertEqual(tuple(stale), expected)
@@ -192,8 +191,56 @@ class TestScanEventsReads(unittest.TestCase):
             root = Path(td)
             _write(
                 root,
-                ALLOWED_REGISTERED_QUERY_READERS[0],
+                ALLOWED_INDIRECT_EVENTS_READERS[0],
                 f'FUNCTION = "{REGISTERED_EVENTS_QUERY}"\n',
+            )
+            violations, _ = scan_events_reads(root)
+        self.assertEqual(violations, [])
+
+    def test_flags_composed_and_cli_read_shapes(self):
+        """The same read through a helper or the CLI, not naming the table."""
+        unallowlisted = "packages/yoke-core/src/yoke_core/domain/new_feature.py"
+        shapes = {
+            "composed": ("from yoke_core.domain.events_queries import _query_events\n"),
+            "cli": 'run([yoke, "events", "query", "--limit", "1"])\n',
+        }
+        for shape, body in shapes.items():
+            with self.subTest(shape=shape), TemporaryDirectory() as td:
+                root = Path(td)
+                _write(root, unallowlisted, body)
+                violations, _ = scan_events_reads(root)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn(f"[{shape}]", violations[0])
+
+    def test_flags_every_registered_read_id_not_only_query(self):
+        """Tailing, counting and anomaly-scanning read the same rows."""
+        for function_id in (
+            "events.tail.run",
+            "events.count.run",
+            "events.anomalies.run",
+        ):
+            with self.subTest(function_id=function_id), TemporaryDirectory() as td:
+                root = Path(td)
+                _write(
+                    root,
+                    "packages/yoke-core/src/yoke_core/domain/some_reader.py",
+                    f'call_dispatcher(function_id="{function_id}")\n',
+                )
+                violations, _ = scan_events_reads(root)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("[registered]", violations[0])
+
+    def test_prose_about_the_events_readers_is_not_a_read(self):
+        """A docstring naming the helper module is not a call into it."""
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            _write(
+                root,
+                "packages/yoke-core/src/yoke_core/domain/new_feature.py",
+                '"""Mirrors events_queries.py for the filter grammar.\n\n'
+                "    :func:`yoke_core.domain.events_queries._build_where`\n"
+                '    """\n'
+                'READ_ONLY_PATHS = (("events", "list"), ("items", "get"))\n',
             )
             violations, _ = scan_events_reads(root)
         self.assertEqual(violations, [])

@@ -17,10 +17,11 @@ retention policy. This HC is the permanent backstop.
 Contract
 --------
 Any non-test runtime Python file that reads the events table must be on an
-allowlist below. A reader is either shape: SQL against the table
-(``FROM events`` / ``JOIN events``), or the registered ``events.query.run``
-function, which reaches the same rows through the dispatcher and is invisible
-to a SQL-only scan. Each shape has its own allowlist because their sanctioned
+allowlist below. Reads come in two families: SQL against the table
+(``FROM events`` / ``JOIN events``), and the indirect forms that reach the
+same rows without naming it — the query helper module, a registered
+``events.*.run`` function id, or the ``yoke events`` CLI — which a SQL-only
+scan cannot see. Each family has its own allowlist because their sanctioned
 reader classes differ; the SQL allowlist enumerates:
 
 - **Telemetry-admin surfaces** — the events platform itself (queries,
@@ -30,18 +31,19 @@ reader classes differ; the SQL allowlist enumerates:
   application state.
 - **Keep-as-audit doctor surfaces** — checks whose PURPOSE is verifying
   behavior against the telemetry record (the audit-inspection carve-out).
-- **Portability audit receipts** — bounded telemetry watermarks carried as
-  source-authority comparison evidence.
 - **Emission-side capability probes** — write-path probes, not reads.
 - **Governed migration backfills** — permanent ordered-history modules that
   perform one-time loads into state tables (the exact ``migrations/``
-  prefix). Applied modules remain in history; a history may simply contain
-  no event-reading backfill.
+  prefix). A history may simply contain no event-reading backfill.
 
-The registered-query allowlist is narrower: the events platform's own CLI,
-API, and UI surfaces, plus the tooling and teaching that quote the function
-id. An operational module that answers an application-state question through
-``events.query.run`` belongs on neither list — it belongs on a durable owner.
+The indirect allowlist is narrower: the events platform itself, the surfaces
+that publish its read operations, bounded diagnostics, and the tooling and
+teaching that quote the call. An operational module that answers an
+application-state question indirectly belongs on neither list — it belongs on
+a durable owner. Source-authority portability receipts once sat on the SQL
+list as an "audit watermark" while in fact feeding telemetry counts into an
+operational equality predicate; the fix was to take telemetry out of that
+predicate, not to keep the exemption.
 
 Maintenance
 -----------
@@ -96,6 +98,9 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_audit_presets.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_prune.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_registry_audit.py",
+    # bounds an audit filter's own elided-row count; the episode boundary
+    # itself comes from harness_sessions
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/events_current_episode.py",
     # completes its own dispatch row with the client's wall time
     f"{_CORE_DOMAIN_SOURCE_ROOT}/hook_client_wall.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/observe_normalization.py",  # pipeline-internal duration join
@@ -110,6 +115,8 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     # -- telemetry-observability: views over the event record itself
     f"{_CONTRACTS_BOARD_SOURCE_ROOT}/widgets_velocity_meter.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/board_momentum_signals.py",
+    # hook dispatch duration percentiles over a bounded window
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/hook_overhead.py",
     # -- keep-as-audit: doctor surfaces that verify behavior against telemetry
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_agents_sessions.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_stop_hook_chain.py",
@@ -125,33 +132,64 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_correlation.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_cutoff.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_select.py",
-    # -- portability audit: telemetry watermark in source-authority receipts
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/source_authority_receipts.py",
     # -- emission-side capability probes (SELECT 1 ... LIMIT 1)
     f"{_CORE_DOMAIN_SOURCE_ROOT}/epic_cascade.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/observe_event_emission.py",
-    # -- teaching: telemetry-recipe SQL examples in the events packet entry
+    # -- teaching: packet prose whose sentences name the table it tells
+    # agents NOT to read. These modules execute no SQL.
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_core.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_claims.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_harness_session_notes.py",
     # -- governed one-time backfills in permanent ordered migration history.
     # The exact prefix sanctions event-reading backfill modules when present;
     # a history with no such entry may leave this class unmatched.
     f"{_CORE_DOMAIN_SOURCE_ROOT}/migrations/",
 )
 
-#: The registered read of the same rows. A SQL-only scan cannot see it, so a
-#: module that dispatches this function is reading events just as surely as one
-#: that writes ``FROM events``.
+#: The registered read of the same rows. A module that dispatches this
+#: function is reading events just as surely as one that writes
+#: ``FROM events``. Filtering, tailing, counting and anomaly-scanning all
+#: reach the same rows, so every verb below is a read.
 REGISTERED_EVENTS_QUERY = "events.query.run"
+_READ_VERBS = "query|tail|count|anomalies"
 
-#: Where quoting that function id is the surface's own subject rather than an
-#: application-state dependency: the events CLI adapter and its usage text, the
-#: dispatcher registration, the function inventory, the UI's events views, and
-#: the tooling and packets that teach the call.
+# Importing or calling the query/handler helpers. Prose mentions carry no
+# call parentheses and no import keyword, so they do not match.
+EVENTS_COMPOSED_READ_PATTERN = re.compile(
+    r"\b(?:events_queries|events_reads)\.\w+\s*\("
+    r"|^\s*(?:from|import)\b.*\b(?:events_queries|events_reads)\b",
+    re.MULTILINE,
+)
+# Dispatching one of the registered read function ids.
+EVENTS_REGISTERED_READ_PATTERN = re.compile(rf"\bevents\.(?:{_READ_VERBS})\.run\b")
+# An argv pair invoking one of the same reads through ``yoke events``.
+EVENTS_CLI_READ_PATTERN = re.compile(
+    rf"""["']events["']\s*,\s*["'](?:{_READ_VERBS})["']"""
+)
+
+#: Every read shape, with the name reported on a violation and whether the
+#: indirect allowlist sanctions it.
+EVENTS_READ_SHAPES: tuple[tuple[str, "re.Pattern[str]", bool], ...] = (
+    ("sql", EVENTS_READ_PATTERN, False),
+    ("composed", EVENTS_COMPOSED_READ_PATTERN, True),
+    ("registered", EVENTS_REGISTERED_READ_PATTERN, True),
+    ("cli", EVENTS_CLI_READ_PATTERN, True),
+)
+
+#: Where reaching events indirectly is the surface's own subject rather than
+#: an application-state dependency: the events platform, the CLI/API/UI
+#: surfaces that publish its reads, bounded diagnostics, and the tooling and
+#: packets that teach the call.
 _CLI_SOURCE_ROOT = "packages/yoke-cli/src/yoke_cli"
 _CORE_API_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/api"
 _CORE_UI_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/ui"
-ALLOWED_REGISTERED_QUERY_READERS: tuple[str, ...] = (
+ALLOWED_INDIRECT_EVENTS_READERS: tuple[str, ...] = (
     # -- telemetry-admin: the events query surface itself
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/events_queries.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/events_crud.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/events_crud_cli.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/events_current_episode.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/handlers/events_reads.py",
     f"{_CLI_SOURCE_ROOT}/commands/adapters/events.py",
     f"{_CLI_SOURCE_ROOT}/commands/adapters/usage.py",
     f"{_CLI_SOURCE_ROOT}/commands/registry.py",
@@ -164,6 +202,10 @@ ALLOWED_REGISTERED_QUERY_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_core_operational.py",
     f"{_CORE_TOOLS_SOURCE_ROOT}/atlas_render_docs_sections.py",
     f"{_CORE_TOOLS_SOURCE_ROOT}/verify_env_auth_boundary.py",
+    # -- bounded diagnostics: one recent event proves a transport works
+    f"{_CORE_TOOLS_SOURCE_ROOT}/checkout_clean_room_smoke_core.py",
+    f"{_CORE_TOOLS_SOURCE_ROOT}/product_cli_no_checkout_smoke_steps.py",
+    f"{_CORE_TOOLS_SOURCE_ROOT}/product_cli_remote_steps.py",
 )
 
 # Structural reader prefixes whose class may legitimately have no matching
@@ -201,9 +243,11 @@ def _allowlisted(rel_str: str, allowed: tuple[str, ...]) -> bool:
 def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
     """Return (violations, stale_allowlist_entries) for ``repo_root``.
 
-    Violations are ``path:line: text`` strings for events reads outside the
-    allowlist. Stale entries are allowlist rows that matched no file with a
-    read — a removed or misclassified exact reader path the owner should drop.
+    Violations are ``path:line: [shape] text`` strings for events reads
+    outside the allowlist, where ``shape`` names which of
+    :data:`EVENTS_READ_SHAPES` matched. Stale entries are allowlist rows that
+    matched no file with a read — a removed or misclassified exact reader path
+    the owner should drop.
     """
     violations: list[str] = []
     matched_entries: set[str] = set()
@@ -225,31 +269,28 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
                 text = f.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            if REGISTERED_EVENTS_QUERY in text:
-                if _allowlisted(rel_of(f), ALLOWED_REGISTERED_QUERY_READERS):
-                    for entry in ALLOWED_REGISTERED_QUERY_READERS:
-                        if rel_of(f).startswith(entry):
-                            matched_entries.add(entry)
-                else:
-                    for i, line in enumerate(text.splitlines(), start=1):
-                        if REGISTERED_EVENTS_QUERY in line:
-                            violations.append(
-                                f"{rel_of(f)}:{i}: {line.strip()[:160]}"
-                            )
-            if not EVENTS_READ_PATTERN.search(text):
-                continue
             rel_str = rel_of(f)
-            if _allowlisted(rel_str, ALLOWED_EVENTS_READERS):
-                for entry in ALLOWED_EVENTS_READERS:
-                    if rel_str.startswith(entry):
-                        matched_entries.add(entry)
-                continue
-            for i, line in enumerate(text.splitlines(), start=1):
-                if EVENTS_READ_PATTERN.search(line):
-                    violations.append(f"{rel_str}:{i}: {line.strip()[:160]}")
+            for shape, pattern, indirect in EVENTS_READ_SHAPES:
+                if not pattern.search(text):
+                    continue
+                allowed = (
+                    ALLOWED_INDIRECT_EVENTS_READERS
+                    if indirect
+                    else ALLOWED_EVENTS_READERS
+                )
+                if _allowlisted(rel_str, allowed):
+                    for entry in allowed:
+                        if rel_str.startswith(entry):
+                            matched_entries.add(entry)
+                    continue
+                for i, line in enumerate(text.splitlines(), start=1):
+                    if pattern.search(line):
+                        violations.append(
+                            f"{rel_str}:{i}: [{shape}] {line.strip()[:160]}"
+                        )
     stale = [
         e
-        for e in (*ALLOWED_EVENTS_READERS, *ALLOWED_REGISTERED_QUERY_READERS)
+        for e in (*ALLOWED_EVENTS_READERS, *ALLOWED_INDIRECT_EVENTS_READERS)
         if e not in matched_entries and e not in _OPTIONAL_MATCH_READER_PREFIXES
     ]
     return violations, stale
@@ -272,10 +313,13 @@ def hc_events_app_state_reads(conn, args: DoctorArgs, rec: RecordCollector) -> N
             "HC-events-app-state-reads",
             "Events table reads outside telemetry allowlist",
             "FAIL",
-            "events is telemetry-only post telemetry-only-events; give the concept a table owner "
-            "(see the .yoke/doctor/check_events_app_state_reads docstring) "
-            "or add a sanctioned reader-class allowlist entry.\n"
-            + "\n".join(violations[:40]),
+            "events is disposable telemetry; give the concept a durable table "
+            "owner (see the .yoke/doctor/check_events_app_state_reads "
+            "docstring). Routing the read through the query helpers, an "
+            "events.*.run function id, or the yoke events CLI is the same "
+            "dependency in another shape, and an allowlist entry is only for "
+            "a sanctioned reader class — never to turn an operational "
+            "dependency green.\n" + "\n".join(violations[:40]),
         )
         return
     detail = ""

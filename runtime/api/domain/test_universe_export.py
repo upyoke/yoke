@@ -101,7 +101,7 @@ def test_export_produces_one_receipt_carrying_tar_artifact(tmp_path):
     dump, receipt = _unpack(artifact, tmp_path / "unpacked")
     # The receipt travels inside the artifact and binds the exact payload.
     intent = receipt["freeze_intent"]
-    assert intent["schema"] == "yoke.source-freeze/v1"
+    assert intent["schema"] == "yoke.source-freeze/v2"
     assert intent["database"]["org"] == "default"
     assert intent["archive"]["sha256"] == file_sha256(dump) == report["sha256"]
     assert intent["archive"]["bytes"] == dump.stat().st_size

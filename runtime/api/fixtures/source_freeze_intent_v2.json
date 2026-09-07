@@ -15,19 +15,14 @@
     "oid": 16384,
     "org": "yoke-production"
   },
-  "event_watermark": {
-    "count": 1870000,
-    "max_created_at": "2026-07-14T12:00:00Z",
-    "max_id": 1870000
-  },
   "frozen_at": "2026-07-14T12:00:01Z",
-  "receipt_id": "b0f32ca6c8ff75db7bfb7bf429d798f7f9da719a0c06826ec99bc0b65dedc525",
   "project_capabilities": {
     "schema": "yoke.project-capabilities/v1",
     "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "types": {}
   },
-  "schema": "yoke.source-freeze/v1",
+  "receipt_id": "85df84230b3e8ba229b3b425930341e5f3dd88966fc5e2b83d06611f47437a79",
+  "schema": "yoke.source-freeze/v2",
   "strategy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "updated_at_watermark": "2026-07-14T11:59:59Z",
   "zero_writable_app_sessions": true

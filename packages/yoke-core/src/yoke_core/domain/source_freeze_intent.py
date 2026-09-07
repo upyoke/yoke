@@ -1,4 +1,12 @@
-"""Compact cross-service source-freeze intent contract."""
+"""Compact cross-service source-freeze intent contract.
+
+The intent is authority evidence about one frozen source universe, so it
+carries no telemetry figures: an event count or watermark can differ
+between two receipts of the same authority without the authority having
+moved. :data:`FREEZE_INTENT_SCHEMA` names the exact key set a consumer may
+expect, so a change to that set is a version change a pinned consumer
+fails on rather than a silently missing key.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 
-FREEZE_INTENT_SCHEMA = "yoke.source-freeze/v1"
+FREEZE_INTENT_SCHEMA = "yoke.source-freeze/v2"
 
 
 def freeze_intent(
@@ -23,7 +31,6 @@ def freeze_intent(
     ``True``; a machine-local export cannot prove session absence and
     passes ``False``.
     """
-    events = authority.get("tables", {}).get("events", {})
     updated_values = [
         str(receipt["max_updated_at"])
         for receipt in authority.get("tables", {}).values()
@@ -44,13 +51,6 @@ def freeze_intent(
         "authority_digest": str(authority["receipt_digest"]),
         "project_capabilities": authority["project_capabilities"],
         "capability_secrets": authority["capability_secrets"],
-        "event_watermark": {
-            "count": int(events.get("count", 0)),
-            "max_id": (
-                int(events["max_id"]) if events.get("max_id") is not None else None
-            ),
-            "max_created_at": authority.get("event_max_created_at"),
-        },
         "updated_at_watermark": max(updated_values) if updated_values else None,
         "strategy_sha256": strategy_sha,
         "archive": {
