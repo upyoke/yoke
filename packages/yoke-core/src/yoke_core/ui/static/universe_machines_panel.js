@@ -7,18 +7,20 @@
 import { el } from "./universe_view_support.js";
 import { preciseAge } from "./universe_time.js";
 import {
-  METER_PIVOT,
   finiteNumber,
   formatBytes,
-  headroomMeterPosition,
-  headroomTone,
   laneTone,
   loadTone,
   memoryTone,
   planWindowHeadroom,
   readingIsStale,
-  windowLabel,
 } from "./universe_machines_meters.js";
+import {
+  limitColumns,
+  limitNote,
+  planWindowRow,
+} from "./universe_machines_limits.js";
+import { appendMachineUsage } from "./universe_machines_usage.js";
 import {
   renderSessionControlFailure,
   sessionControlCall,
@@ -33,8 +35,6 @@ const LIGHTS = {
   absent: ["machine-light-off", "not installed"],
 };
 
-const UNREADABLE_RECOVERY =
-  " — launches still attempt and fail; re-authenticate the CLI";
 
 function surfaceState(relay, surface) {
   const mark = (relay.surface_policies || []).find(
@@ -55,94 +55,6 @@ function surfaceState(relay, surface) {
     return ["silent", "the relay has not checked in; a launch cannot reach it"];
   }
   return ["ok", ""];
-}
-
-// The reason a reading is missing, drawn where the meters would be: an empty
-// meter says nothing is left, and this says nobody knows.
-function limitNote(documentNode, reason) {
-  const note = el(documentNode, "p", "machine-limit-note");
-  note.appendChild(el(documentNode, "span", "machine-limit-reason", reason));
-  note.appendChild(el(documentNode, "span", null, UNREADABLE_RECOVERY));
-  return note;
-}
-
-function headroomTrack(documentNode, headroom, tone) {
-  const track = el(documentNode, "span", "machine-headroom-track");
-  track.setAttribute("role", "img");
-  if (tone === "unread") {
-    track.setAttribute("aria-label", "no reading for this window");
-    return track;
-  }
-  const fill = el(documentNode, "i", "machine-headroom-fill");
-  fill.style.width = `${headroomMeterPosition(headroom).toFixed(1)}%`;
-  track.appendChild(fill);
-  // 100% headroom sits at the same place on every bar, so the tick marking it
-  // means one thing wherever it is read.
-  const pivot = el(documentNode, "i", "machine-headroom-pivot");
-  pivot.style.left = `${METER_PIVOT}%`;
-  pivot.title = "100% headroom";
-  track.appendChild(pivot);
-  track.setAttribute(
-    "aria-label",
-    tone === "wall"
-      ? "at the wall; no headroom before this window resets"
-      : `${Math.round(headroom)}% headroom; 100% is the sustainable-use pivot`,
-  );
-  return track;
-}
-
-// Label, headroom bar, headroom, quota left. The bar and the bold number are
-// the same fact so they cannot disagree; quota left rides behind as the
-// supporting one, because the level alone never says whether a pool can run
-// out before it resets.
-function planWindowRow(documentNode, window, stale) {
-  // A stale reading's headroom is not recomputed from a possibly long-passed
-  // `resets_at` — it reads exactly like a window nobody could read, reusing
-  // the same "no reading" presentation rather than a second one.
-  const headroom = stale ? null : planWindowHeadroom(window);
-  const tone = stale ? "unread" : headroomTone(headroom);
-  const row = el(documentNode, "div", "machine-limit-row");
-  row.setAttribute("data-tone", tone);
-  const unread = tone === "unread";
-  const name = el(
-    documentNode,
-    "span",
-    "machine-limit-name",
-    unread ? "no reading" : windowLabel(window),
-  );
-  // The column caps its width, so the full name stays reachable on hover.
-  name.title = name.textContent;
-  row.appendChild(name);
-  row.appendChild(headroomTrack(documentNode, headroom, tone));
-  const quota = finiteNumber(window.remaining_percent);
-  row.appendChild(el(
-    documentNode,
-    "span",
-    "machine-limit-headroom",
-    unread ? "—" : (tone === "wall" ? "wall" : `${Math.round(headroom)}%`),
-  ));
-  row.appendChild(el(
-    documentNode,
-    "span",
-    "machine-limit-quota",
-    // A stale reading omits its quota outright rather than presenting a
-    // number that may be days old as current; a fresh reading still shows
-    // its percent even when headroom itself could not be computed above.
-    stale || quota === null ? "—" : `${Math.round(quota)}%`,
-  ));
-  return row;
-}
-
-// The surface header doubles as the column header: the two numeric columns are
-// the same width here as in the rows below, so the labels sit over what they
-// name without costing a row of their own.
-function limitColumns(documentNode) {
-  const columns = el(documentNode, "span", "machine-limit-columns");
-  columns.appendChild(el(
-    documentNode, "span", "machine-limit-headroom", "headroom",
-  ));
-  columns.appendChild(el(documentNode, "span", "machine-limit-quota", "quota"));
-  return columns;
 }
 
 function surfaceHead(documentNode, relay, surface, state, reading, stale) {
@@ -262,7 +174,7 @@ function capacityLine(documentNode, capacity) {
   return line;
 }
 
-function machineCard(documentNode, relay) {
+function machineCard(documentNode, relay, sessions) {
   const card = el(documentNode, "article", "machine-card");
   const head = el(documentNode, "div", "machine-head");
   const live = String(relay.liveness) === "connected";
@@ -283,6 +195,7 @@ function machineCard(documentNode, relay) {
   ));
   card.appendChild(head);
   card.appendChild(capacityLine(documentNode, relay.capacity));
+  appendMachineUsage(documentNode, card, relay, sessions);
   for (const surface of LAUNCHABLE_SURFACES) {
     card.appendChild(surfaceRow(documentNode, relay, surface));
   }
@@ -306,13 +219,19 @@ export function renderMachinesPanel(context, host, relays, options = {}) {
     return;
   }
   const grid = el(documentNode, "div", "machines-grid");
-  for (const relay of relays) grid.appendChild(machineCard(documentNode, relay));
+  // The sessions accessor is read at render time so a redraw picks up the
+  // roster's current rows rather than whatever it held when first mounted.
+  const sessions = typeof options.sessions === "function" ? options.sessions() : [];
+  for (const relay of relays) {
+    grid.appendChild(machineCard(documentNode, relay, sessions));
+  }
   panel.appendChild(grid);
   host.appendChild(panel);
 }
 
 export async function loadMachinesPanel(context, host, options = {}) {
   const documentNode = context.document;
+  let fetched = null;
   const run = async () => {
     let relays;
     try {
@@ -342,8 +261,19 @@ export async function loadMachinesPanel(context, host, options = {}) {
       return;
     }
     if (!context.isMounted()) return;
+    fetched = relays;
     host.replaceChildren();
     renderMachinesPanel(context, host, relays, options);
   };
   await run();
+  // Redrawing reuses the relays already fetched: the roster re-renders on
+  // every filter change, and the machine tiles that sum it must follow
+  // without asking the control plane for the relay list again.
+  return {
+    redraw: () => {
+      if (!fetched || !context.isMounted()) return;
+      host.replaceChildren();
+      renderMachinesPanel(context, host, fetched, options);
+    },
+  };
 }

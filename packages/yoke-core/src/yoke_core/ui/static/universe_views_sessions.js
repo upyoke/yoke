@@ -20,6 +20,7 @@ import {
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import { appendSessionPresentation } from "./universe_session_presentation.js";
+import { appendSessionUsage } from "./universe_session_usage.js";
 import { appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
@@ -138,6 +139,7 @@ export function sessionCard(
 
   const body = el(documentNode, "div", "session-card-body");
   appendModel(documentNode, body, row);
+  appendSessionUsage(documentNode, body, row);
   appendSteeringHoldings(documentNode, body, row, projects);
   appendSessionPresentation(documentNode, body, row);
   appendHoldings(documentNode, body, row, projects);
@@ -199,6 +201,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   const content = el(documentNode, "div", "sessions-content", "loading sessions…");
   const dialogHost = el(documentNode, "div", "session-control-dialog-host");
   let visibleRows = [];
+  let machinesPanel = Promise.resolve(null);
   const messageAll = el(
     documentNode, "button", "item-button session-filter-action", "Message all",
   );
@@ -221,6 +224,9 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       context.projects(),
       filters.isRestrictive(),
     );
+    // Machine tiles sum the rows currently shown, so they redraw whenever
+    // filtering changes which rows those are.
+    machinesPanel.then((panel) => panel?.redraw()).catch(() => {});
     messageAll.disabled = rows.length === 0;
     messageAll.title = rows.length
       ? `Message all ${rows.length} shown session${rows.length === 1 ? "" : "s"}`
@@ -242,7 +248,10 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   view.appendChild(dialogHost);
   roster.body.replaceChildren(view);
   main.replaceChildren(machines, roster);
-  loadMachinesPanel(context, machines.body, { showHeading: false });
+  machinesPanel = loadMachinesPanel(context, machines.body, {
+    showHeading: false,
+    sessions: currentRows,
+  });
   if (typeof chrome.hidePageHead === "function") chrome.hidePageHead();
 
   const buckets = scopeBuckets(scope, context.projects(), false);

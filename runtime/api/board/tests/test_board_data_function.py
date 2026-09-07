@@ -250,6 +250,7 @@ class TestBoardDataOverHttpBoundary:
                     " reasoning_effort TEXT, context_window_tokens INTEGER,"
                     " requested_model TEXT, requested_reasoning_effort TEXT,"
                     " requested_context_window_tokens INTEGER,"
+                    " usage_totals TEXT,"
                     " mode TEXT, execution_lane TEXT, workspace TEXT,"
                     " project_id INTEGER, offered_at TEXT,"
                     " last_heartbeat TEXT, last_tool_call_at TEXT,"

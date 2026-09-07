@@ -14,6 +14,7 @@ def test_active_and_closed_rows_render_the_same_holdings_shape(monkeypatch) -> N
         "codex-cli",
         "model",
         "requested-model",
+        None,
         "dash",
         "ALTMAN",
         "2026-08-28T12:00:00Z",
@@ -27,6 +28,7 @@ def test_active_and_closed_rows_render_the_same_holdings_shape(monkeypatch) -> N
         "codex-cli",
         "model",
         "requested-model",
+        None,
         "dash",
         "ALTMAN",
         "2026-08-28T10:00:00Z",
@@ -53,7 +55,7 @@ def test_active_and_closed_rows_render_the_same_holdings_shape(monkeypatch) -> N
     monkeypatch.setattr(
         sections_sessions,
         "session_common_cells",
-        lambda *_args: ["session", "project", "executor", "model"],
+        lambda *_args: ["session", "project", "executor", "model", "usage"],
     )
     monkeypatch.setattr(
         sections_sessions, "session_lane_presentation", lambda *_args: None
@@ -76,6 +78,7 @@ def test_recent_future_ended_age_clamps_at_zero(monkeypatch) -> None:
         "codex-cli",
         "model",
         "requested-model",
+        None,
         "dash",
         "ALTMAN",
         (now - timedelta(minutes=1)).isoformat(),
@@ -95,7 +98,7 @@ def test_recent_future_ended_age_clamps_at_zero(monkeypatch) -> None:
     monkeypatch.setattr(
         sections_sessions,
         "session_common_cells",
-        lambda *_args: ["session", "project", "executor", "model"],
+        lambda *_args: ["session", "project", "executor", "model", "usage"],
     )
     monkeypatch.setattr(
         sections_sessions, "session_lane_presentation", lambda *_args: None

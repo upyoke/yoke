@@ -63,6 +63,9 @@ def apply_harness_session_columns(conn: Any) -> None:
         # Provider-attested served truth; NULL means not attested.
         ("reasoning_effort", "TEXT DEFAULT NULL"),
         ("context_window_tokens", "INTEGER DEFAULT NULL"),
+        # What the harness artifact says this session consumed, as one
+        # reading document; NULL means nothing has been read yet.
+        ("usage_totals", "TEXT DEFAULT NULL"),
     ):
         _add_column_if_not_exists(conn, "harness_sessions", column, ddl)
     conn.commit()

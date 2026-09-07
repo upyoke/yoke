@@ -1,0 +1,51 @@
+/* What a session consumed, and what a machine's shown sessions add up to.
+   Split from the session and machine sheets because the two surfaces render
+   one feature and its rules belong together rather than half in each. */
+
+.universe-app-root .session-usage-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-usage {
+  color: var(--yoke-muted);
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+}
+
+/* A partial figure is dimmed rather than hidden: it is still the best answer
+   available, and the trailing mark plus this weight say so without costing
+   the row a word of explanation. */
+.universe-app-root .session-usage.is-partial,
+.universe-app-root .machine-usage-total.is-partial {
+  color: color-mix(in srgb, var(--yoke-muted) 70%, transparent);
+}
+
+.universe-app-root .session-usage-cost::before {
+  content: "\00b7";
+  margin-right: 6px;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .machine-usage {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.universe-app-root .machine-usage-total {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+}
+
+/* The scope is part of the reading, not a caption: a sum whose membership is
+   unstated gets read as a lifetime total. */
+.universe-app-root .machine-usage-scope {
+  color: var(--yoke-muted);
+  font-size: 10px;
+}

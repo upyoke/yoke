@@ -38,6 +38,7 @@ from yoke_harness.hooks.identity_model_facts import (
     record_model_facts_shipped,
     resolve_model_facts,
 )
+from yoke_harness.hooks.identity_usage_facts import client_usage_facts
 
 
 _EXECUTOR_PREFIX = "executor_default_lane_"
@@ -205,6 +206,7 @@ def relay_identity_payload(
     return {
         "entrypoint": entrypoint,
         **client_model_facts(event_name, payload, executor),
+        **client_usage_facts(payload, executor),
         "execution_lane": client_lane(event_name, executor),
         "project_id": client_project_id(payload),
         "executor_version": client_executor_version(executor, entrypoint),
@@ -225,6 +227,7 @@ __all__ = [
     "client_lane",
     "client_machine_id",
     "client_model_facts",
+    "client_usage_facts",
     "model_facts_settled",
     "record_model_facts_shipped",
     "resolve_model_facts",
