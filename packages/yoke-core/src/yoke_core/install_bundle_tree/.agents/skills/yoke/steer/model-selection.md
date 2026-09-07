@@ -11,10 +11,10 @@ live one.
 Judge the item you are about to staff against these three. There is no
 complexity field to fill in, no score to compute, and no fourth case:
 
-| The work is | Ask for | At effort |
+| The work is | Default tier | At effort |
 |---|---|---|
 | Simple edits, documentation, routine cleanup | tier 2 | `medium` |
-| Normal development, research, steering | tier 1 | `high` |
+| Normal development or research | tier 1 | `high` |
 | Difficult debugging or architectural decisions | tier 1 | `xhigh` |
 
 The ceiling is deliberate. `max` is never an automatic choice: buying the
@@ -22,10 +22,19 @@ vendor's highest level for work that does not need it changes nothing about
 the outcome and empties a shared allowance faster. Where `xhigh` is not
 published for the model you chose, ask for `high` instead.
 
-Tier 1 is the operator's model for demanding, ambiguous, or high-consequence
-work. Tier 2 is for bounded work whose quality bar a cheaper model already
-clears. Anything ranked below tier 2 is excluded, not ranked — a model nobody
+Tier 1 is the operator's premium model. Tier 2 is the ordinary-worker model
+where the operator reserves tier 1 for steering. The configured worker tier
+changes only the model tier: normal and difficult work still ask for `high`
+and `xhigh`. Difficulty alone never promotes a worker above that configured
+tier. Anything ranked below tier 2 is excluded, not ranked — a model nobody
 would choose does not need a score.
+
+On this installation, `claude-cli` and `codex-cli` set `worker_tier` to
+`tier2`. Their new worker launches therefore use tier 2 for all three work
+kinds. Steering may use tier 1, and an explicit operator request for tier 1
+or a specific tier-1 model is direct authorization for that launch. If the
+configured tier-2 model is unavailable, report that fact; never promote
+silently. Cursor has no worker-tier override and keeps the policy below.
 
 ## Which model each tier means
 
@@ -34,6 +43,12 @@ The operator's per-surface routing preference answers that, in
 
 ```json
 "session_model_routing": {
+  "claude-cli": {
+    "worker_tier": "tier2"
+  },
+  "codex-cli": {
+    "worker_tier": "tier2"
+  },
   "cursor-cli": {
     "tier1": "cursor-grok-4.6-high",
     "tier2": "cursor-grok-4.6",

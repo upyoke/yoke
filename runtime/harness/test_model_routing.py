@@ -33,6 +33,8 @@ from yoke_contracts.session_control.model_routing import (
 )
 
 CURSOR = "cursor-cli"
+CLAUDE = "claude-cli"
+CODEX = "codex-cli"
 GROK = "cursor-grok-4.6-high"
 OPUS = "claude-opus-5"
 
@@ -56,7 +58,9 @@ ROUTING_CONFIG = {
             "tier2": "cursor-grok-4.6",
             "excluded": ["cursor-auto"],
             "fallbacks": [OPUS],
-        }
+        },
+        CLAUDE: {"tier1": OPUS, "tier2": "claude-sonnet-5", "worker_tier": TIER2},
+        CODEX: {"tier1": "gpt-6-astra", "tier2": "gpt-5.6-sol", "worker_tier": TIER2},
     }
 }
 
@@ -161,7 +165,7 @@ def test_a_model_scoped_meter_outranks_the_account_wide_one_beside_it():
 def test_preference_names_a_model_per_tier_and_reads_blank_when_unset():
     assert preferred_model_for_tier(ROUTING_CONFIG, CURSOR, TIER1) == GROK
     assert preferred_model_for_tier(ROUTING_CONFIG, CURSOR, TIER2) == "cursor-grok-4.6"
-    assert preferred_model_for_tier(ROUTING_CONFIG, "claude-cli", TIER1) is None
+    assert preferred_model_for_tier(ROUTING_CONFIG, "claude-other", TIER1) is None
     assert preferred_model_for_tier({}, CURSOR, TIER1) is None
     assert preferred_model_for_tier(ROUTING_CONFIG, CURSOR, "tier3") is None
 
@@ -170,6 +174,7 @@ def test_an_unconfigured_surface_answers_with_a_complete_blank():
     assert routing_preference(None, CURSOR) == {
         "tier1": None,
         "tier2": None,
+        "worker_tier": None,
         "excluded": (),
         "fallbacks": (),
     }
@@ -182,8 +187,17 @@ def test_exclusion_is_case_insensitive_and_ignores_the_unnamed():
 
 
 def test_normalizing_drops_surfaces_that_configure_nothing():
-    payload = {"session_model_routing": {CURSOR: {"tier1": GROK}, "codex-cli": {}}}
-    assert normalize_session_model_routing(payload) == {CURSOR: {"tier1": GROK}}
+    payload = {
+        "session_model_routing": {
+            CURSOR: {"tier1": GROK},
+            CODEX: {"worker_tier": TIER2},
+            "claude-other": {},
+        }
+    }
+    assert normalize_session_model_routing(payload) == {
+        CURSOR: {"tier1": GROK},
+        CODEX: {"worker_tier": TIER2},
+    }
     assert normalize_session_model_routing({}) == {}
 
 
@@ -260,7 +274,7 @@ def test_routine_work_takes_the_cheaper_tier_at_a_middling_level():
     assert (model, effort) == ("cursor-grok-4.6", "medium")
 
 
-def test_ordinary_development_takes_the_operator_tier1_model():
+def test_cursor_ordinary_development_keeps_its_tier1_model():
     model, effort = routed_selection(ROUTING_CONFIG, CURSOR, "normal")
     assert (model, effort) == (GROK, "high")
 
@@ -268,6 +282,26 @@ def test_ordinary_development_takes_the_operator_tier1_model():
 def test_difficult_work_asks_for_the_higher_level_on_the_same_tier():
     model, effort = routed_selection(ROUTING_CONFIG, CURSOR, "difficult")
     assert (model, effort) == (GROK, "xhigh")
+
+
+@pytest.mark.parametrize(
+    "surface,work_kind,model,effort",
+    [
+        (CLAUDE, "normal", "claude-sonnet-5", "high"),
+        (CLAUDE, "difficult", "claude-sonnet-5", "xhigh"),
+        (CODEX, "normal", "gpt-5.6-sol", "high"),
+        (CODEX, "difficult", "gpt-5.6-sol", "xhigh"),
+    ],
+)
+def test_configured_workers_stay_on_tier2(surface, work_kind, model, effort):
+    assert routed_selection(ROUTING_CONFIG, surface, work_kind) == (model, effort)
+
+
+def test_steering_uses_tier1_despite_the_worker_reservation():
+    assert routed_selection(ROUTING_CONFIG, CODEX, "normal", steering=True) == (
+        "gpt-6-astra",
+        "high",
+    )
 
 
 def test_an_unnamed_work_kind_decides_nothing():

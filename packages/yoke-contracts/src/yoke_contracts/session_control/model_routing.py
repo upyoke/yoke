@@ -5,11 +5,11 @@ what a surface can actually run right now (native availability), what is
 known about a model (the researched reference), and what the operator
 prefers. This module owns only the rule that combines them.
 
-Two tiers carry the whole policy. Demanding, ambiguous, or high-consequence
-work asks for the operator's tier-1 model; bounded work whose quality bar a
-cheaper model already clears asks for tier-2. Anything the operator ranks
-below tier-2 is excluded rather than ranked, because a model nobody would
-choose does not need a score.
+Two tiers carry the whole policy. The work kind supplies a default tier, and
+an operator may reserve a surface's tier-1 model for steering by configuring
+ordinary workers to use tier-2. Anything the operator ranks below tier-2 is
+excluded rather than ranked, because a model nobody would choose does not
+need a score.
 
 Three named kinds of work pair those tiers with a reasoning level, and that
 is the whole routing table. Nothing here classifies work into one: the kind
@@ -57,6 +57,7 @@ EFFORT_SUBSTITUTES: Mapping[str, str] = {"xhigh": "high"}
 SESSION_MODEL_ROUTING_KEY = "session_model_routing"
 _TIER_KEYS = ROUTING_TIERS
 _LIST_KEYS = ("excluded", "fallbacks")
+_WORKER_TIER_KEY = "worker_tier"
 
 
 def routing_preference(
@@ -73,11 +74,15 @@ def routing_preference(
         if isinstance(raw, Mapping):
             entry = raw.get(surface)
     values: dict[str, Any] = {key: None for key in _TIER_KEYS}
+    values[_WORKER_TIER_KEY] = None
     values.update({key: () for key in _LIST_KEYS})
     if not isinstance(entry, Mapping):
         return values
     for key in _TIER_KEYS:
         values[key] = str(entry.get(key) or "").strip() or None
+    worker_tier = str(entry.get(_WORKER_TIER_KEY) or "").strip()
+    if worker_tier in ROUTING_TIERS:
+        values[_WORKER_TIER_KEY] = worker_tier
     for key in _LIST_KEYS:
         raw_list = entry.get(key)
         if isinstance(raw_list, Sequence) and not isinstance(raw_list, (str, bytes)):
@@ -99,8 +104,10 @@ def normalize_session_model_routing(
     normalized: dict[str, Any] = {}
     for surface in raw:
         entry = routing_preference(payload, str(surface))
-        if any(entry[key] for key in _TIER_KEYS) or any(
-            entry[key] for key in _LIST_KEYS
+        if (
+            entry[_WORKER_TIER_KEY]
+            or any(entry[key] for key in _TIER_KEYS)
+            or any(entry[key] for key in _LIST_KEYS)
         ):
             normalized[str(surface)] = {
                 key: value for key, value in entry.items() if value
@@ -165,6 +172,8 @@ def routed_selection(
     surface: str,
     work_kind: str,
     model_entry: Mapping[str, Any] | None = None,
+    *,
+    steering: bool = False,
 ) -> tuple[str | None, str | None]:
     """Resolve one work kind into the model and effort a new launch asks for.
 
@@ -180,6 +189,11 @@ def routed_selection(
     if work_kind not in WORK_KINDS:
         return None, None
     tier, effort = WORK_KINDS[work_kind]
+    preference = routing_preference(payload, surface)
+    if steering:
+        tier = TIER1
+    elif preference[_WORKER_TIER_KEY]:
+        tier = preference[_WORKER_TIER_KEY]
     model = preferred_model_for_tier(payload, surface, tier)
     if model_excluded(payload, surface, model):
         model = None
