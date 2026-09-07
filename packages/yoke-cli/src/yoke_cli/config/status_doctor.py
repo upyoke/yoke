@@ -3,6 +3,10 @@
 Reads ``doctor.last_run.get`` when a control plane is already reachable.
 Never runs Doctor inline. A missing receipt is ``health unverified`` and
 does not flip ``ok``.
+
+The summary names the receipt's own scope and warning count, so a narrow
+``--only`` run is never read as whole-machine health, and a receipt that
+recorded no scope says so rather than implying one.
 """
 
 from __future__ import annotations
@@ -14,6 +18,12 @@ from yoke_cli.config.status_surface_policy import _control_plane_ready
 
 _UNVERIFIED = "health unverified — run yoke doctor run --quick"
 _TIMEOUT_S = 8.0
+_SCOPE_UNRECORDED = "scope not recorded (coverage unknown)"
+_SCOPE_LABELS = {
+    "quick": "quick scope",
+    "full": "full scope",
+    "only": "narrow --only run (not whole-machine)",
+}
 
 
 def attach_doctor(report: dict[str, Any]) -> dict[str, Any]:
@@ -52,8 +62,21 @@ def _summarize(last_run: Mapping[str, Any] | None) -> str:
         return _UNVERIFIED
     fail_count = int(last_run.get("fail_count") or 0)
     pass_count = int(last_run.get("pass_count") or 0)
+    warn_count = int(last_run.get("warn_count") or 0)
+    scope = _scope_label(last_run.get("scope"))
     age = _age_label(str(last_run.get("ran_at") or ""))
-    return f"{fail_count} FAIL / {pass_count} PASS, {age} — run yoke doctor run --quick"
+    return (
+        f"{fail_count} FAIL / {pass_count} PASS / {warn_count} WARN, "
+        f"{scope}, {age} — run yoke doctor run --quick"
+    )
+
+
+def _scope_label(scope: Any) -> str:
+    """Name what the receipt actually covered, never implying more than it did."""
+    text = str(scope or "").strip()
+    if not text:
+        return _SCOPE_UNRECORDED
+    return _SCOPE_LABELS.get(text, f"{text} scope (not whole-machine)")
 
 
 def _age_label(ran_at: str) -> str:
