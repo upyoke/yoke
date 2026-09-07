@@ -21,9 +21,7 @@ export function renderItemDetailView(
     renderNewItemView(context, main, projectId);
     return;
   }
-  const loading = section(
-    context.document, String(itemRef), { showRaw: false },
-  );
+  const loading = section(context.document, String(itemRef));
   main.replaceChildren(loading);
   const target = {
     kind: "item",

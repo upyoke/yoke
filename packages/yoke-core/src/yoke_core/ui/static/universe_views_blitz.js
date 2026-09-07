@@ -80,9 +80,7 @@ function executionDocumentPanel(documentNode, item, document) {
 }
 
 function worktreeLanesPanel(documentNode, item) {
-  const panel = section(
-    documentNode, "Worktree lanes", { showRaw: false },
-  );
+  const panel = section(documentNode, "Worktree lanes");
   const rows = item.worktrees || [];
   panel.setCount(rows.length);
   panel.renderEnvelope(

@@ -73,6 +73,7 @@ test("a destination's second segment is a drill-in, and only where one exists", 
   // There is no facet segment left to compete with a drill-in: every facet
   // that earned a name is a destination with its own entry.
   for (const entry of NAV) assert.equal(entry.tabs, undefined, entry.id);
+  for (const entry of NAV) assert.equal(entry.summary, undefined, entry.id);
   // A drill-in renderer only hangs off a destination that exists.
   for (const viewId of Object.keys(DETAIL_RENDERERS)) {
     assert.ok(NAV.some((entry) => entry.id === viewId), viewId);
@@ -153,10 +154,7 @@ test("a destination's page head names the destination, not a parent view", async
   ));
   const head = content.children[0];
   assert.equal(byClass(head, "title")[0].textContent, "Deployments");
-  assert.equal(
-    byClass(head, "subtitle")[0].textContent,
-    "Each run of a flow against a target environment.",
-  );
+  assert.equal(byClass(head, "subtitle").length, 0);
   mounted.unmount();
 });
 

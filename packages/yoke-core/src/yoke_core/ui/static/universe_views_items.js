@@ -245,7 +245,7 @@ function filterControls(documentNode, rows, state, rerender) {
 export function renderItemsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const projects = context.projects();
-  const panel = section(documentNode, "Items", { showRaw: false });
+  const panel = section(documentNode, "Items");
   const filterButton = el(documentNode, "button", "item-button", "Filter ▾");
   filterButton.type = "button";
   filterButton.setAttribute("aria-expanded", "false");
@@ -260,7 +260,6 @@ export function renderItemsView(context, main, scope, chrome = {}) {
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Items",
-      summary: itemsScopeSummary(scope, projects),
       actions: [filterButton, newItem],
     });
   }

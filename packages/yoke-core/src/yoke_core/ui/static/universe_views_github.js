@@ -177,10 +177,9 @@ export function renderGithubView(context, main, scope) {
         return;
       }
       renderBindingFacts(body, result);
-      // The remaining panels are facets of the same read: each shows the
-      // one envelope behind its raw-JSON toggle. They exist only for a
-      // bound project — an unbound one has no installation, no permission
-      // verdict, and no receipts to stand a panel on.
+      // The remaining panels are facets of the same read. They exist only
+      // for a bound project — an unbound one has no installation, no
+      // permission verdict, and no receipts to stand a panel on.
       for (const [title, renderFacts] of [
         ["Installation behind this binding", renderInstallationFacts],
         ["Permissions & automation", renderAccessFacts],

@@ -88,7 +88,6 @@ export function renderSessionRelaysView(context, main, scope, chrome = {}) {
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Machine relays",
-      summary: "Connected machines, supported surfaces, and heartbeat state.",
     });
   }
   const load = async () => {

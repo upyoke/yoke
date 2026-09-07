@@ -155,9 +155,7 @@ export function renderCapabilitiesView(context, main, scope) {
     "Connection, Terminal control, screenshot capture, named host baselines, supported features, and secret references stay together in one row per machine. Machines keep independent settings, verification receipts, and serial leases. A baseline is a registered operation on the capability's executor — reached and verified by code, never instructions a reader is trusted to follow.",
   ));
   callout.appendChild(calloutCopy);
-  const panel = section(
-    documentNode, "Capabilities", { showRaw: false },
-  );
+  const panel = section(documentNode, "Capabilities");
   panel.children[0].appendChild(el(
     documentNode,
     "span",

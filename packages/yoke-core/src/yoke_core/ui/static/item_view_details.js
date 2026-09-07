@@ -84,7 +84,7 @@ function renderEpicTasks(context, item, panel, progress) {
 }
 
 function epicPanels(context, documentNode, item) {
-  const tasks = section(documentNode, "Tasks", { showRaw: false });
+  const tasks = section(documentNode, "Tasks");
   tasks.className += " item-epic-tasks";
   const progress = el(
     documentNode, "span", "workflow-panel-detail", "loading progress…",

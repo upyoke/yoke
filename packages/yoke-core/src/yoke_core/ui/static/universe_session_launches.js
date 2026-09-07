@@ -267,7 +267,6 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Session launches",
-      summary: "Explicit surface selection, launch progress, retry, and cancellation.",
       actions: [create],
     });
   }

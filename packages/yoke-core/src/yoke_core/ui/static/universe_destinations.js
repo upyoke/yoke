@@ -32,19 +32,14 @@ export const NAV = [
   {
     id: "overview", icon: "⊞", label: "Overview", scope: SCOPE_MULTI,
     group: GROUP_FOCUS,
-    summary: "Your Yoke universe at a glance",
   },
   {
     id: "sessions", icon: "◈", label: "Sessions", scope: SCOPE_MULTI,
     group: GROUP_FOCUS,
-    summary:
-      "What can run on each machine, and every harness session running against "
-      + "this universe.",
   },
   {
     id: "inbox", icon: "✉", label: "Inbox", scope: SCOPE_MULTI,
     group: GROUP_FOCUS,
-    summary: "The gates waiting on your decision, and the messages sent to you.",
   },
 
   // A workflow definition is configuration: it is authored once and every item
@@ -53,39 +48,31 @@ export const NAV = [
   {
     id: "organization", icon: "⛭", label: "Universe", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
-    summary: "This organization and its universe, including export and import.",
   },
   {
     id: "workflows", icon: "⚗", label: "Workflows", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
-    summary:
-      "The versioned definitions every work item follows — lifecycle, posture, gates, testing and delivery.",
   },
   {
     id: "projects", icon: "▤", label: "Projects", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
-    summary: "Every project in this universe. Open one for its settings.",
   },
   {
     id: "github", icon: "⎇", label: "GitHub", scope: SCOPE_SINGLE,
     group: GROUP_SETTINGS,
-    summary: "How this project binds to its repository, and how they sync.",
   },
   {
     id: "actors", icon: "⚇", label: "Actors", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
-    summary: "Who and what may act here, at the universe and per project.",
   },
   {
     id: "members", icon: "⚉", label: "Members", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
-    summary: "The people in your organization, managed by the hosting platform.",
     hostFed: true,
   },
   {
     id: "billing", icon: "▧", label: "Billing", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
-    summary: "Your plan and payments, managed by the hosting platform.",
     hostFed: true,
   },
 
@@ -97,8 +84,6 @@ export const NAV = [
   {
     id: "strategy", icon: "❖", label: "Strategy", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary:
-      "The authoritative planning corpus — authored through a harness, reviewable and traceable here.",
   },
   {
     id: "items", icon: "≣", label: "Items", scope: SCOPE_MULTI,
@@ -107,63 +92,48 @@ export const NAV = [
   {
     id: "deployments", icon: "⬈", label: "Deployments", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "Each run of a flow against a target environment.",
   },
   {
     id: "environments", icon: "◇", label: "Environments", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "The deploy targets runs ship to.",
   },
   {
     id: "flows", icon: "⇉", label: "Flows", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "The pipeline definitions runs execute.",
   },
   {
     id: "databases", icon: "▤", label: "Databases", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "Declared database models, their posture, and the apply records.",
   },
   {
     id: "qa-methods", icon: "◉", label: "QA methods", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "The registered contracts each case uses to prove its claim.",
   },
   {
     id: "qa-plans", icon: "◎", label: "QA plans", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "Project-scoped ordered cases and where they are attached.",
   },
   {
     id: "qa-activity", icon: "◍", label: "QA activity", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "Readable case outcomes folded from requirements, runs and evidence.",
   },
   {
     id: "capabilities", icon: "⚿", label: "Capabilities", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary:
-      "The configured providers, declared models, and test resources Yoke can use on your behalf.",
     pageAction: { label: "Add capability", view: "projects" },
   },
   {
     id: "packs", icon: "◫", label: "Packs", scope: SCOPE_NONE,
     group: GROUP_DIAGNOSTICS,
-    summary:
-      "Reusable capabilities whose installed code belongs to the project.",
   },
   {
     id: "architecture", icon: "▦", label: "Architecture", scope: SCOPE_SINGLE,
     group: GROUP_DIAGNOSTICS,
-    summary:
-      "The project's declared map — layers, areas, gateways — and how "
-      + "much of the tree honors it.",
   },
   // Fleet-wide traffic, which is not the Inbox: the Inbox is yours.
   {
     id: "messages", icon: "✦", label: "Messages", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "Compose confirmed deliveries and inspect per-recipient receipts.",
   },
   {
     id: "events", icon: "≋", label: "Events", scope: SCOPE_MULTI,
@@ -172,7 +142,6 @@ export const NAV = [
   {
     id: "doctor", icon: "♥", label: "Doctor", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary: "The health checks and what they found.",
   },
   {
     id: "ouroboros", icon: "∞", label: "Ouroboros", scope: SCOPE_MULTI,
@@ -184,8 +153,5 @@ export const NAV = [
   {
     id: "machines", icon: "▣", label: "Machines", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
-    summary:
-      "Connected machines, the native surfaces they serve, and the launches "
-      + "they have run.",
   },
 ];
