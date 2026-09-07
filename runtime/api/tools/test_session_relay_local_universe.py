@@ -139,6 +139,7 @@ def test_local_relay_install_refuses_by_name_without_an_installed_launcher(
     # The refusal lands before launchd is touched, so a loaded relay survives.
     assert calls == []
 
+
 def test_local_install_never_boots_out_a_healthy_prod_relay(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -147,7 +148,7 @@ def test_local_install_never_boots_out_a_healthy_prod_relay(
     Both are installable now, so the local install must leave the pinned prod
     job and its plist exactly where they are.
     """
-    launcher = _installed_launcher(tmp_path, monkeypatch)
+    _installed_launcher(tmp_path, monkeypatch)
     config_path = _config(tmp_path)
     local = resolve_relay_instance(
         config_path=config_path,
