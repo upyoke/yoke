@@ -67,6 +67,7 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
                 "created_at", "updated_at", "project", "project_id",
                 "project_sequence",
             ],
+            "relevance": "overview",
             **({"project": payload.project} if payload.project else {}),
             **({"limit": payload.limit} if payload.limit else {}),
         },

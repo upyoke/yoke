@@ -143,6 +143,7 @@ class DeploymentRunListRequest(BaseModel):
     project: Optional[str] = None
     status: Optional[str] = None
     limit: Optional[int] = None
+    relevance: Optional[str] = None
 
 
 class DeploymentRunListResponse(BaseModel):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
@@ -10,7 +11,28 @@ from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_run_gates import run_gates
 from yoke_core.domain.deployment_runs_schema import _run_named_columns
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.workflows_definition_read import _stage_names
+
+
+OVERVIEW_RUN_WINDOW = timedelta(hours=24)
+
+
+def append_overview_run_window(
+    clauses: list[str],
+    params: list[Any],
+) -> None:
+    """Keep every non-terminal run plus terminals completed in the last 24h."""
+    cutoff = (
+        datetime.now(timezone.utc) - OVERVIEW_RUN_WINDOW
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    statuses = tuple(sorted(TERMINAL_RUN_STATUSES))
+    markers = ", ".join("%s" for _ in statuses)
+    finished = "NULLIF(dr.completed_at, '')"
+    clauses.append(
+        f"(dr.status NOT IN ({markers}) OR {finished} >= %s)"
+    )
+    params.extend([*statuses, cutoff])
 
 
 RUN_PRESENTATION_FIELDS = (
@@ -93,12 +115,16 @@ def list_deployment_runs(
     status: Optional[str],
     limit: int,
     actor_id: Optional[int] = None,
+    relevance: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Return newest runs with member, stage, and gate relationships.
 
     ``actor_id`` decides only whether each gate offers this reader its
     actions; the gate itself is reported either way, because a run halted
     on somebody else is still halted.
+
+    ``relevance='overview'`` keeps every non-terminal run plus terminals
+    completed in the last 24 hours, applied before ``limit``.
     """
     conn = connect()
     try:
@@ -110,6 +136,8 @@ def list_deployment_runs(
         if status:
             clauses.append("dr.status = %s")
             params.append(status)
+        if relevance == "overview":
+            append_overview_run_window(clauses, params)
         where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
         run_columns, env_join = _run_named_columns(conn)
         rows = conn.execute(
@@ -154,4 +182,8 @@ def list_deployment_runs(
         conn.close()
 
 
-__all__ = ["RUN_PRESENTATION_FIELDS", "list_deployment_runs"]
+__all__ = [
+    "RUN_PRESENTATION_FIELDS",
+    "append_overview_run_window",
+    "list_deployment_runs",
+]

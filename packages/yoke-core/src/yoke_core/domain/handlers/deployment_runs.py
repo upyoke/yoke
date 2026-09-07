@@ -75,6 +75,7 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     project = payload.get("project")
     status = payload.get("status")
     limit = payload.get("limit")
+    relevance = payload.get("relevance")
     for key, value in (("project", project), ("status", status)):
         if value is not None and not isinstance(value, str):
             return error(
@@ -82,6 +83,12 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
                 f"{key} must be a string when present",
                 jsonpath=f"$.payload.{key}",
             )
+    if relevance is not None and relevance != "overview":
+        return error(
+            "payload_invalid",
+            "relevance must be 'overview' when present",
+            jsonpath="$.payload.relevance",
+        )
     if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int)):
         return error(
             "payload_invalid",
@@ -114,6 +121,7 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
         actor_id=(
             int(actor_id) if actor_id is not None and str(actor_id).isdigit() else None
         ),
+        relevance=relevance,
     )
     return HandlerOutcome(
         result_payload={

@@ -45,6 +45,14 @@ test("Overview asks Strategy and Frontier without duplicate page chrome", async 
     "strategy.doc.list", "strategy.doc_claim.list", "deployment_runs.list",
     "overview.activation.get",
   ]) assert.ok(called.has(functionId), functionId);
+  assert.deepEqual(
+    client.requests.find((request) => request.function === "sessions.list").payload,
+    { per_project: true, open: true },
+  );
+  assert.deepEqual(
+    client.requests.find((request) => request.function === "deployment_runs.list").payload,
+    { project: "1", relevance: "overview" },
+  );
 
   assert.deepEqual(
     byClass(root, "scope-chip").map((node) => node.textContent),
