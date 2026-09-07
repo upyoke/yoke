@@ -130,9 +130,7 @@ def coverage_paths(
     history: Sequence[str], schema_shape_digest: str = ""
 ) -> Tuple[str, ...]:
     """Every leaf a gate must read to answer coverage in one request."""
-    paths = [
-        entry_coverage_path(name) for name in history if str(name or "").strip()
-    ]
+    paths = [entry_coverage_path(name) for name in history if str(name or "").strip()]
     digest = str(schema_shape_digest or "").strip()
     if digest:
         paths.append(schema_shape_coverage_path(digest))
@@ -149,9 +147,7 @@ def _is_recorded(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def covered_entries(
-    values: Mapping[str, Any], history: Sequence[str]
-) -> frozenset:
+def covered_entries(values: Mapping[str, Any], history: Sequence[str]) -> frozenset:
     """Every history entry this environment's coverage document records."""
     covered = set()
     for name in history:
@@ -167,17 +163,13 @@ def covered_entries(
     return frozenset(covered)
 
 
-def uncovered(
-    history: Sequence[str], values: Mapping[str, Any]
-) -> Tuple[str, ...]:
+def uncovered(history: Sequence[str], values: Mapping[str, Any]) -> Tuple[str, ...]:
     """History entries no rehearsal covers here, in history order."""
     covered = covered_entries(values, history)
     return tuple(name for name in history if name not in covered)
 
 
-def uncovered_schema_shape(
-    digest: str, values: Mapping[str, Any]
-) -> Tuple[str, ...]:
+def uncovered_schema_shape(digest: str, values: Mapping[str, Any]) -> Tuple[str, ...]:
     """The current digest when no rehearsal covers it here, else empty."""
     wanted = str(digest or "").strip()
     if not wanted:

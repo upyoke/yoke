@@ -35,10 +35,7 @@ class TestEnvironmentNaming:
 
 class TestCoveragePaths:
     def test_a_history_entry_addresses_one_leaf_under_the_entry_namespace(self):
-        assert (
-            receipt.entry_coverage_path("0001_a")
-            == f"{receipt.ENTRY_PREFIX}.0001_a"
-        )
+        assert receipt.entry_coverage_path("0001_a") == f"{receipt.ENTRY_PREFIX}.0001_a"
 
     def test_a_digest_addresses_one_leaf_under_the_schema_shape_namespace(self):
         assert (

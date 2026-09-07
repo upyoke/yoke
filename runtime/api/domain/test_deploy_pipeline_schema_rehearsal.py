@@ -110,9 +110,7 @@ def test_covered_digest_skips_rehearsal_and_dispatches(monkeypatch) -> None:
     _stable_release(monkeypatch)
     run_preflight = mock.Mock(return_value=0)
     workflow = mock.Mock(return_value=(0, ""))
-    monkeypatch.setattr(
-        rehearsal, "_coverage", lambda *_a: (_covered(), "")
-    )
+    monkeypatch.setattr(rehearsal, "_coverage", lambda *_a: (_covered(), ""))
     monkeypatch.setattr(rehearsal, "_run_preflight", run_preflight)
     monkeypatch.setattr(
         deploy_pipeline_step_runners,

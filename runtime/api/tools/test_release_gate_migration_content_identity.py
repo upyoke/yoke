@@ -162,5 +162,3 @@ def test_unavailable_identity_verification_is_not_reported_as_unsafe(
     assert "release verification unavailable before tag" in refusal
     assert "permission_denied" in refusal
     assert "release unsafe" not in refusal
-
-

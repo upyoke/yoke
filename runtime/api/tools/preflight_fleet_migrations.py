@@ -334,8 +334,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 1
     print(
-        f"receipt {run} recorded on {receipt_env} covering {covered_env} via "
-        f"{engine_artifact.display()}; {len(entries)} history entries "
+        f"receipt recorded on {receipt_env} covering {covered_env} as {run} "
+        f"via {engine_artifact.display()}; {len(entries)} history entries "
         f"and schema-shape {schema_digest}"
     )
     return 0

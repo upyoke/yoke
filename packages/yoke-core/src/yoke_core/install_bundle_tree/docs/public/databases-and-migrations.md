@@ -51,9 +51,12 @@ Fleet preflight exists for release trains that carry unapplied history or a
 schema-shape change no current receipt covers; after converging each
 throwaway copy of a live database it also re-runs callable invariants for
 every shipped entry that already has ledger membership so a green membership
-row cannot hide a historical verification failure. The pre-tag release gate
-refuses unless both the history names and this build's schema-shape digest
-are covered for the target environment.
+row cannot hide a historical verification failure. A passing run records what
+it covered on the rehearsed environment's own settings document, so coverage
+is durable state rather than telemetry that can expire out from under a build
+that was already rehearsed. The pre-tag release gate refuses unless both the
+history names and this build's schema-shape digest are covered for the target
+environment.
 
 The fleet is tenant databases only. Names carrying the reserved
 `yoke_test_run` scratch prefix are disposable by construction — a test or

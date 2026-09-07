@@ -97,7 +97,8 @@ def test_deployment_ci_denies_install_onboarding_and_project_admin_mutations(
 
 
 def test_project_structure_patch_still_requires_project_admin(
-    client, ci_auth_db,
+    client,
+    ci_auth_db,
 ) -> None:
     response = client.post(
         "/v1/functions/call",

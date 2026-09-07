@@ -15,9 +15,7 @@ _OTHER = "b" * 64
 
 def _coverage_values(entries=(), *, digest: str = _DIGEST) -> dict:
     """The coverage leaves one rehearsal leaves on its own environment."""
-    values = {
-        receipt.entry_coverage_path(name): "20260101T000000Z" for name in entries
-    }
+    values = {receipt.entry_coverage_path(name): "20260101T000000Z" for name in entries}
     if digest:
         values[receipt.schema_shape_coverage_path(digest)] = "20260101T000000Z"
     return values
@@ -66,9 +64,7 @@ class TestReceiptSchemaShape:
     def test_a_blank_digest_is_omitted_rather_than_recorded_as_coverage(self) -> None:
         _run, assignments = receipt.receipt_assignments("abc", ["0001_a"])
         assert not [
-            path
-            for path in assignments
-            if path.startswith(receipt.SCHEMA_SHAPE_PREFIX)
+            path for path in assignments if path.startswith(receipt.SCHEMA_SHAPE_PREFIX)
         ]
 
     def test_coverage_is_the_union_across_rehearsals(self) -> None:

@@ -225,12 +225,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     # Target first, so an unreadable store names the environment this
     # release is actually bound for rather than whichever sibling came first.
-    environments = tuple(
-        dict.fromkeys((environment, *receipt.RELEASE_ENVIRONMENTS))
-    )
-    coverage, unreadable = _read_coverage(
-        project, environments, history, schema_digest
-    )
+    environments = tuple(dict.fromkeys((environment, *receipt.RELEASE_ENVIRONMENTS)))
+    coverage, unreadable = _read_coverage(project, environments, history, schema_digest)
     if unreadable:
         print(
             "release verification unavailable before tag: fleet-preflight "
