@@ -165,10 +165,10 @@ def test_an_attached_run_is_announced_as_attached_before_the_wait(
     assert result["verdict"] == "pass"
 
 
-def test_the_run_announcement_teaches_the_interrupted_recovery(
+def test_the_run_announcement_separates_backgrounding_from_interruption(
     monkeypatch, tmp_path, capsys,
 ):
-    """An interrupted gate is why adoption exists; the run line says so."""
+    """The recovery line is reached for by an agent that cannot tell them apart."""
     checkout, _, _ = wire_ci_case(tmp_path, monkeypatch)
     monkeypatch.setattr(
         qa_case_ci_lane, "dispatch_workflow", lambda **kwargs: "9182736",
@@ -179,7 +179,10 @@ def test_the_run_announcement_teaches_the_interrupted_recovery(
 
     qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
 
-    recovery = capsys.readouterr().err
-    assert "if this invocation is interrupted".casefold() in recovery.casefold()
-    assert "yoke qa case run --requirement-id 41" in recovery
-    assert "re-executed" in recovery
+    announced = capsys.readouterr().err.casefold()
+    assert "outlives a single tool-call budget" in announced
+    assert "not an interruption" in announced
+    assert "rather than starting a second one" in announced
+    assert "once this process really is gone" in announced
+    assert "yoke qa case run --requirement-id 41" in announced
+    assert "before anything is rebased" in announced
