@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_browser_write_models import (
     QaArtifactAddRequest,
     QaArtifactAddResponse,
@@ -79,17 +80,26 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 "-- use browser_substrate",
                 jsonpath="$.payload.performed_by",
             )
-        if issue := _review_evidence.agent_undetermined_evidence_error(conn, performed_by=performed_by, verdict=verdict):
+        if issue := _review_evidence.agent_undetermined_evidence_error(
+            conn, performed_by=performed_by, verdict=verdict
+        ):
             return _error(issue.code, str(issue), jsonpath="$.payload.verdict")
         from yoke_core.domain.qa_run_commit_binding import bind_recorded_raw_result
 
         raw_result, bind_error = bind_recorded_raw_result(
-            verdict=verdict, raw_result=raw_result, performed_by=performed_by,
-            blocking_mode=row["blocking_mode"], waived_at=row["waived_at"],
-            head_sha=payload.get("head_sha"), item_id=row["item_id"], conn=conn,
+            verdict=verdict,
+            raw_result=raw_result,
+            performed_by=performed_by,
+            blocking_mode=row["blocking_mode"],
+            waived_at=row["waived_at"],
+            head_sha=payload.get("head_sha"),
+            item_id=row["item_id"],
+            conn=conn,
         )
         if bind_error:
-            return _error("payload_invalid", bind_error, jsonpath="$.payload.raw_result")
+            return _error(
+                "payload_invalid", bind_error, jsonpath="$.payload.raw_result"
+            )
         now_iso = iso8601_now()
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None
@@ -131,7 +141,8 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             run_id=run_id,
             requirement_id=int(req_id),
             qa_kind=stored_kind,
-            verdict=verdict, verdict_reason=verdict_reason,
+            verdict=verdict,
+            verdict_reason=verdict_reason,
         )
     finally:
         conn.close()
@@ -201,7 +212,9 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 f"{row['qa_requirement_id']}, not {req_id}",
             )
         if issue := _review_evidence.agent_undetermined_evidence_error(
-            conn, performed_by=str(row["performed_by"]), verdict=verdict,
+            conn,
+            performed_by=str(row["performed_by"]),
+            verdict=verdict,
             run_ids=(int(run_id),),
         ):
             return _error(issue.code, str(issue), jsonpath="$.payload.verdict")
@@ -237,101 +250,13 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             run_id=int(run_id),
             requirement_id=int(req_id),
             qa_kind=str(row["qa_kind"]),
-            verdict=verdict, verdict_reason=verdict_reason,
+            verdict=verdict,
+            verdict_reason=verdict_reason,
         )
     finally:
         conn.close()
     return HandlerOutcome(
         result_payload={"qa_run_id": int(run_id)},
-        primary_success=True,
-    )
-
-
-def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, iso8601_now
-    from yoke_core.domain.qa_artifact_handle import (
-        ArtifactHandleError,
-        parse_handle,
-        serialize_handle,
-    )
-    from yoke_core.domain.qa_artifact_ops import (
-        BARE_PATH_GUIDANCE,
-        QaArtifactLimitError,
-        ensure_artifact_capacity,
-    )
-
-    req_id = request.target.qa_requirement_id
-    if req_id is None:
-        return _error(
-            "target_invalid",
-            "qa.artifact.add requires target.qa_requirement_id",
-        )
-    payload = request.payload or {}
-    run_id = payload.get("run_id")
-    artifact_type = payload.get("artifact_type")
-    content_type = payload.get("content_type")
-    metadata = payload.get("metadata")
-    if not isinstance(run_id, int):
-        return _error(
-            "payload_invalid",
-            "run_id is required",
-            jsonpath="$.payload.run_id",
-        )
-    if not isinstance(artifact_type, str) or not artifact_type:
-        return _error(
-            "payload_invalid",
-            "artifact_type is required",
-            jsonpath="$.payload.artifact_type",
-        )
-    if "storage_path" in payload:
-        return _error(
-            "payload_invalid",
-            f"storage_path is retired; {BARE_PATH_GUIDANCE}",
-            jsonpath="$.payload.storage_path",
-        )
-    try:
-        handle_text = serialize_handle(parse_handle(payload.get("artifact_handle")))
-    except ArtifactHandleError as exc:
-        return _error(
-            "payload_invalid",
-            f"{exc}. {BARE_PATH_GUIDANCE}",
-            jsonpath="$.payload.artifact_handle",
-        )
-    conn = connect()
-    try:
-        p = _p(conn)
-        try:
-            stored_requirement_id = ensure_artifact_capacity(conn, run_id)
-        except QaArtifactLimitError as exc:
-            return _error("policy_violation", str(exc))
-        if stored_requirement_id is None:
-            return _error("not_found", f"run {run_id} not found")
-        if stored_requirement_id != int(req_id):
-            return _error(
-                "target_invalid",
-                f"run {run_id} belongs to requirement "
-                f"{stored_requirement_id}, not {req_id}",
-            )
-        cur = conn.execute(
-            "INSERT INTO qa_artifacts "
-            "(qa_run_id, artifact_type, content_type, artifact_handle, "
-            "metadata, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
-            (
-                int(run_id),
-                artifact_type,
-                content_type,
-                handle_text,
-                metadata,
-                iso8601_now(),
-            ),
-        )
-        artifact_id = int(cur.fetchone()[0])
-        conn.commit()
-    finally:
-        conn.close()
-    return HandlerOutcome(
-        result_payload={"qa_artifact_id": artifact_id},
         primary_success=True,
     )
 

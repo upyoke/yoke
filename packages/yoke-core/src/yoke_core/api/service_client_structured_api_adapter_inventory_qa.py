@@ -193,7 +193,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.artifact.add",
-        "yoke qa artifact add --requirement-id N --run-id N --artifact-type TYPE --artifact-handle JSON",
+        "yoke qa artifact add --requirement-id N --run-id N --artifact-type TYPE "
+        "(--artifact-handle JSON | --content-base64 B64 --filename NAME | --content-file PATH)",
     ),
     _read_entry(
         function_id="qa.artifact.presign",

@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import (
+    qa_artifact_add as _add,
     qa_artifact_presign as _presign,
     qa_artifact_read as _read,
-    qa_browser_writes as _writes,
 )
 
 
 def register(registry) -> None:
     registry.register(
         "qa.artifact.add",
-        _writes.handle_qa_artifact_add,
-        _writes.QaArtifactAddRequest,
-        _writes.QaArtifactAddResponse,
+        _add.handle_qa_artifact_add,
+        _add.QaArtifactAddRequest,
+        _add.QaArtifactAddResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.qa_browser_writes",
+        owner_module="yoke_core.domain.handlers.qa_artifact_add",
         target_kinds=["qa_requirement"],
         side_effects=["qa_artifacts_insert"],
         emitted_event_names=["YokeFunctionCalled"],

@@ -65,6 +65,11 @@ yoke qa artifact add \
  --requirement-id 1 --run-id 1 --artifact-type screenshot \
  --artifact-handle '{"backend":"local","path":"/tmp/img.png"}'
 
+# Attach inline screenshot bytes (mutually exclusive with --artifact-handle)
+yoke qa artifact add \
+ --requirement-id 1 --run-id 1 --artifact-type screenshot \
+ --content-type image/png --filename capture.png --content-file PATH
+
 # Preview blocking QA gaps before a reviewed-implementation transition
 yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 ```
@@ -85,7 +90,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa run get` | `--run-id N [--project P]` | Get one run |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
-| `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T --artifact-handle JSON [opts]` | Insert an artifact row |
+| `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T (--artifact-handle JSON \| --content-base64 B64 --filename NAME \| --content-file PATH) [opts]` | Insert an artifact row from a typed handle or inline bytes |
 | `yoke qa gate-summary` | `(--item PREFIX-N \| --epic-id N --task-num K) --target reviewed-implementation\|implemented` | Read blocking QA gaps for a transition |
 
 No public QA init or artifact-list adapter is registered. Schema

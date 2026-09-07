@@ -8,14 +8,13 @@ Browser run command:
 * ``qa.run.add`` — insert a ``qa_runs`` row (two-phase shape; verdict may
   land later via complete).
 * ``qa.run.complete`` — finalize a run in place.
-* ``qa.artifact.add`` — insert a ``qa_artifacts`` row (typed handle).
-* ``qa.artifact.presign`` — mint a presigned S3 PUT for one artifact.
+
+Artifact add/presign live in ``qa_artifact_cli``.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -24,6 +23,12 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
+)
+from yoke_cli.commands.adapters.qa_artifact_cli import (
+    QA_ARTIFACT_ADD_USAGE,
+    QA_ARTIFACT_PRESIGN_USAGE,
+    qa_artifact_add,
+    qa_artifact_presign,
 )
 from yoke_contracts.api.function_call import TargetRef
 
@@ -39,13 +44,22 @@ def qa_browser_context_get(args: List[str]) -> int:
         prog="yoke qa browser-context get",
         description=QA_BROWSER_CONTEXT_GET_USAGE,
     )
-    parser.add_argument("--item", required=True,
-                        help="Target item (PREFIX-N or project-local number).")
-    parser.add_argument("--requirement-id", dest="requirement_id", type=int,
-                        required=True, help="Materialized Browser case id.")
-    parser.add_argument("--expected-branch", dest="expected_branch",
-                        default=None,
-                        help="Also return the branch's latest deployed_sha.")
+    parser.add_argument(
+        "--item", required=True, help="Target item (PREFIX-N or project-local number)."
+    )
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        required=True,
+        help="Materialized Browser case id.",
+    )
+    parser.add_argument(
+        "--expected-branch",
+        dest="expected_branch",
+        default=None,
+        help="Also return the branch's latest deployed_sha.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_CONTEXT_GET_USAGE)
@@ -61,7 +75,8 @@ def qa_browser_context_get(args: List[str]) -> int:
         function_id="qa.browser_context.get",
         target=item_target("item", parsed.item, parsed.project),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
@@ -81,34 +96,70 @@ QA_RUN_ADD_USAGE = (
 
 def qa_run_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke qa run add", description=QA_RUN_ADD_USAGE,
+        prog="yoke qa run add",
+        description=QA_RUN_ADD_USAGE,
         epilog=AGENT_UNDETERMINED_HELP,
     )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="Target qa_requirements.id.")
-    parser.add_argument("--performed-by", dest="performed_by", required=True,
-                        help="Runner that runs the QA check.")
-    parser.add_argument("--qa-kind", dest="qa_kind", default=None,
-                        help="Must match the requirement's stored kind.")
-    parser.add_argument("--verdict", default=None,
-                        help="Optional verdict (omitted for started runs).")
-    parser.add_argument("--verdict-reason", dest="verdict_reason", default=None,
-                        help="Required with undetermined; see evidence rule below.")
-    parser.add_argument("--execution-status", dest="execution_status",
-                        default=None, help="Optional execution status.")
-    parser.add_argument("--raw-result", dest="raw_result", default=None,
-                        help="Optional raw output snippet.")
-    parser.add_argument("--duration-ms", dest="duration_ms",
-                        type=int, default=None,
-                        help="Optional duration in milliseconds.")
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        required=True,
+        help="Target qa_requirements.id.",
+    )
+    parser.add_argument(
+        "--performed-by",
+        dest="performed_by",
+        required=True,
+        help="Runner that runs the QA check.",
+    )
+    parser.add_argument(
+        "--qa-kind",
+        dest="qa_kind",
+        default=None,
+        help="Must match the requirement's stored kind.",
+    )
+    parser.add_argument(
+        "--verdict", default=None, help="Optional verdict (omitted for started runs)."
+    )
+    parser.add_argument(
+        "--verdict-reason",
+        dest="verdict_reason",
+        default=None,
+        help="Required with undetermined; see evidence rule below.",
+    )
+    parser.add_argument(
+        "--execution-status",
+        dest="execution_status",
+        default=None,
+        help="Optional execution status.",
+    )
+    parser.add_argument(
+        "--raw-result",
+        dest="raw_result",
+        default=None,
+        help="Optional raw output snippet.",
+    )
+    parser.add_argument(
+        "--duration-ms",
+        dest="duration_ms",
+        type=int,
+        default=None,
+        help="Optional duration in milliseconds.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_ADD_USAGE)
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {"performed_by": parsed.performed_by}
-    for key in ("qa_kind", "verdict", "verdict_reason", "execution_status", "raw_result"):
+    for key in (
+        "qa_kind",
+        "verdict",
+        "verdict_reason",
+        "execution_status",
+        "raw_result",
+    ):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value
@@ -121,7 +172,8 @@ def qa_run_add(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         ),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
@@ -134,25 +186,50 @@ QA_RUN_COMPLETE_USAGE = (
 
 def qa_run_complete(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke qa run complete", description=QA_RUN_COMPLETE_USAGE,
+        prog="yoke qa run complete",
+        description=QA_RUN_COMPLETE_USAGE,
         epilog=AGENT_UNDETERMINED_HELP,
     )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="The run's owning qa_requirements.id.")
-    parser.add_argument("--run-id", dest="run_id", type=int, required=True,
-                        help="Target qa_runs.id.")
-    parser.add_argument("--verdict", default=None,
-                        help="Verdict to set (at least one of verdict/status).")
-    parser.add_argument("--verdict-reason", dest="verdict_reason", default=None,
-                        help="Required with undetermined; see evidence rule below.")
-    parser.add_argument("--execution-status", dest="execution_status",
-                        default=None, help="Execution status to set.")
-    parser.add_argument("--raw-result", dest="raw_result", default=None,
-                        help="Optional raw output snippet.")
-    parser.add_argument("--duration-ms", dest="duration_ms",
-                        type=int, default=None,
-                        help="Optional duration in milliseconds.")
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        required=True,
+        help="The run's owning qa_requirements.id.",
+    )
+    parser.add_argument(
+        "--run-id", dest="run_id", type=int, required=True, help="Target qa_runs.id."
+    )
+    parser.add_argument(
+        "--verdict",
+        default=None,
+        help="Verdict to set (at least one of verdict/status).",
+    )
+    parser.add_argument(
+        "--verdict-reason",
+        dest="verdict_reason",
+        default=None,
+        help="Required with undetermined; see evidence rule below.",
+    )
+    parser.add_argument(
+        "--execution-status",
+        dest="execution_status",
+        default=None,
+        help="Execution status to set.",
+    )
+    parser.add_argument(
+        "--raw-result",
+        dest="raw_result",
+        default=None,
+        help="Optional raw output snippet.",
+    )
+    parser.add_argument(
+        "--duration-ms",
+        dest="duration_ms",
+        type=int,
+        default=None,
+        help="Optional duration in milliseconds.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_COMPLETE_USAGE)
@@ -172,120 +249,21 @@ def qa_run_complete(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         ),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
-    )
-
-
-QA_ARTIFACT_ADD_USAGE = (
-    "yoke qa artifact add --requirement-id N --run-id N "
-    "--artifact-type TYPE --artifact-handle JSON [--content-type CT] "
-    "[--metadata JSON] [--session-id S] [--json]"
-)
-
-
-def qa_artifact_add(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa artifact add", description=QA_ARTIFACT_ADD_USAGE,
-    )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="The run's owning qa_requirements.id.")
-    parser.add_argument("--run-id", dest="run_id", type=int, required=True,
-                        help="Owning qa_runs.id.")
-    parser.add_argument("--artifact-type", dest="artifact_type", required=True,
-                        help="Artifact type (e.g. screenshot).")
-    parser.add_argument("--content-type", dest="content_type", default=None,
-                        help="MIME content type (e.g. image/png).")
-    parser.add_argument(
-        "--artifact-handle", dest="artifact_handle", required=True,
-        help=(
-            "Typed handle JSON naming where the evidence lives: "
-            "{\"backend\":\"s3\",\"bucket\":B,\"key\":K} for uploaded "
-            "evidence, {\"backend\":\"local\",\"path\":P} for explicit "
-            "machine-local evidence. Bare paths are refused."
-        ),
-    )
-    parser.add_argument("--metadata", default=None,
-                        help="Optional metadata JSON string.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, QA_ARTIFACT_ADD_USAGE)
-    if parsed is None:
-        return 2
-    try:
-        handle = json.loads(parsed.artifact_handle)
-    except json.JSONDecodeError as exc:
-        print(
-            f"yoke qa artifact add: --artifact-handle is not valid JSON "
-            f"({exc}); pass a typed handle object, not a bare path.",
-        )
-        return 2
-    payload: Dict[str, Any] = {
-        "run_id": int(parsed.run_id),
-        "artifact_type": parsed.artifact_type,
-        "artifact_handle": handle,
-    }
-    for key in ("content_type", "metadata"):
-        value = getattr(parsed, key)
-        if value is not None:
-            payload[key] = value
-    return dispatch_and_emit(
-        function_id="qa.artifact.add",
-        target=TargetRef(
-            kind="qa_requirement",
-            qa_requirement_id=int(parsed.requirement_id),
-        ),
-        payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
-    )
-
-
-QA_ARTIFACT_PRESIGN_USAGE = (
-    "yoke qa artifact presign --requirement-id N --run-id N "
-    "--filename NAME [--content-type CT] [--session-id S] [--json]"
-)
-
-
-def qa_artifact_presign(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa artifact presign",
-        description=QA_ARTIFACT_PRESIGN_USAGE,
-    )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="The run's owning qa_requirements.id.")
-    parser.add_argument("--run-id", dest="run_id", type=int, required=True,
-                        help="Owning qa_runs.id (keys the S3 object).")
-    parser.add_argument("--filename", required=True,
-                        help="Artifact filename (single path segment).")
-    parser.add_argument("--content-type", dest="content_type", default=None,
-                        help="MIME content type for the upload (e.g. image/png).")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, QA_ARTIFACT_PRESIGN_USAGE)
-    if parsed is None:
-        return 2
-    payload: Dict[str, Any] = {
-        "run_id": int(parsed.run_id),
-        "filename": parsed.filename,
-    }
-    if parsed.content_type is not None:
-        payload["content_type"] = parsed.content_type
-    return dispatch_and_emit(
-        function_id="qa.artifact.presign",
-        target=TargetRef(
-            kind="qa_requirement",
-            qa_requirement_id=int(parsed.requirement_id),
-        ),
-        payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
 __all__ = [
-    "AGENT_UNDETERMINED_HELP", "QA_BROWSER_CONTEXT_GET_USAGE", "QA_RUN_ADD_USAGE",
-    "QA_RUN_COMPLETE_USAGE", "QA_ARTIFACT_ADD_USAGE",
+    "AGENT_UNDETERMINED_HELP",
+    "QA_BROWSER_CONTEXT_GET_USAGE",
+    "QA_RUN_ADD_USAGE",
+    "QA_RUN_COMPLETE_USAGE",
+    "QA_ARTIFACT_ADD_USAGE",
     "QA_ARTIFACT_PRESIGN_USAGE",
-    "qa_browser_context_get", "qa_run_add", "qa_run_complete",
-    "qa_artifact_add", "qa_artifact_presign",
+    "qa_browser_context_get",
+    "qa_run_add",
+    "qa_run_complete",
+    "qa_artifact_add",
+    "qa_artifact_presign",
 ]
