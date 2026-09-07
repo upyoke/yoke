@@ -1,9 +1,11 @@
 """Run a Command-method QA case on the project's CI workflow.
 
-The gate rebases and publishes the lane once, then adopts, attaches to,
-or dispatches a run for that exact commit. Merge-queue projects use the
-landing pull request's entry run. ``ci_run_source`` records which path
-produced the verdict, and an empty diff is inapplicable CI.
+The gate asks what already covers the lane's candidate, and only an
+unexamined one is rebased and published; either way it then adopts,
+attaches to, or dispatches a run for that exact commit. Merge-queue
+projects use the landing pull request's entry run. ``ci_run_source``
+records which path produced the verdict, and an empty diff is
+inapplicable CI.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from yoke_core.domain import (
     qa_case_ci_lane,
     qa_case_ci_never_started,
     qa_case_ci_progress,
+    qa_case_ci_resume,
     qa_case_ci_superseded_run,
     verification_tree_binding,
 )
@@ -43,12 +46,7 @@ EXECUTOR_ID = "ci_run"
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
 
 
-def _resolve_checkout(
-    case: dict,
-    checkout_path: Optional[str | Path],
-    *,
-    allow_tree_mismatch: bool = False,
-) -> Path:
+def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
     from yoke_core.domain.qa_case_execution import _execution_checkout
 
     checkout = (
@@ -76,11 +74,7 @@ def execute_ci_case(
     # Refuse an incomplete case before publishing anything.
     required_case_command(case)
     workflow = qa_case_ci_lane.workflow_file(case)
-    checkout = _resolve_checkout(
-        case,
-        checkout_path,
-        allow_tree_mismatch=allow_tree_mismatch,
-    )
+    checkout = _resolve_checkout(case, checkout_path)
     selected_budget = qa_case_budget.resolve_command_case_budget(
         case["method_config"],
         explicit_override=timeout_seconds,
@@ -101,13 +95,20 @@ def execute_ci_case(
         if checked_out_branch == branch
         else ""
     )
-    # Rebase before the head sha is resolved: the rebase is what it names.
-    entry_run_base = qa_case_ci_entry_run.prepare_ci_lane(
+    # Ask what already covers this candidate before rebasing it away: on
+    # re-entry the run found here is this gate's own earlier invocation, and
+    # rebasing would supersede it for a second identical answer.
+    lane = qa_case_ci_resume.prepare_lane_preserving_covering_run(
         checkout,
         project=project,
+        repo=repo,
+        workflow=workflow,
         branch=branch,
         lane_is_checked_out=checked_out_branch == branch,
+        requirement_id=requirement_id,
+        timeout_seconds=budget,
     )
+    entry_run_base = lane.queue_target
     tree = verification_tree_binding.resolve_tree_identity(checkout)
     if not checked_out_branch:
         checked_out_branch = branch if tree else "HEAD"
@@ -154,6 +155,9 @@ def execute_ci_case(
     try:
         qa_case_ci_lane.push_lane(checkout, branch, source_ref=source_ref)
         with qa_case_ci_lane.github_actions_authority():
+            # A resumed run is the lookup lane preparation already made, so
+            # neither route asks GitHub the same question a second time.
+            covering_run = lane.resumed_run
             if entry_run_base is not None:
                 qa_case_ci_entry_run.open_landing_pull_request(
                     checkout,
@@ -163,25 +167,26 @@ def execute_ci_case(
                     lane_head=head_sha,
                     item_id=int(case["item_id"]),
                 )
-                superseded_ci_run_id = (
-                    qa_case_ci_superseded_run.force_cancel_if_rebased(
+                if covering_run is None:
+                    superseded_ci_run_id = (
+                        qa_case_ci_superseded_run.force_cancel_if_rebased(
+                            project=project,
+                            repo=repo,
+                            workflow=workflow,
+                            branch=branch,
+                            previous_head_sha=previous_head_sha,
+                            current_head_sha=head_sha,
+                        )
+                    )
+                    covering_run = qa_case_ci_entry_run.find_entry_run(
+                        requirement_id=requirement_id,
                         project=project,
                         repo=repo,
                         workflow=workflow,
-                        branch=branch,
-                        previous_head_sha=previous_head_sha,
-                        current_head_sha=head_sha,
+                        head_sha=head_sha,
+                        timeout_seconds=budget,
                     )
-                )
-                covering_run = qa_case_ci_entry_run.find_entry_run(
-                    requirement_id=requirement_id,
-                    project=project,
-                    repo=repo,
-                    workflow=workflow,
-                    head_sha=head_sha,
-                    timeout_seconds=budget,
-                )
-            else:
+            elif covering_run is None:
                 covering_run = qa_case_ci_covering_run.find_run_for_tree(
                     project=project,
                     repo=repo,

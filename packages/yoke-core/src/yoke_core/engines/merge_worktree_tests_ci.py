@@ -2,9 +2,11 @@
 
 When the candidate tree differs from covering QA evidence and the project
 declares a ``ci_workflow_file`` capability, the merge gate pushes the
-integrated candidate to the item lane, dispatches that workflow, waits for
-the conclusion, asserts the CI-reported head matches the candidate tree,
-and records a ``qa_runs`` row so a later same-tree attempt can skip.
+integrated candidate to the item lane, adopts or attaches to a run of that
+workflow already on the exact candidate commit and dispatches only when
+there is none, waits for the conclusion, asserts the CI-reported head
+matches the candidate tree, and records a ``qa_runs`` row so a later
+same-tree attempt can skip.
 
 Dispatching, polling, and reading the run's head all reach GitHub through
 the control plane that holds the project's App authority. None of them
@@ -21,20 +23,23 @@ offline local execution — never a silent fallback when CI is unreachable.
 from __future__ import annotations
 
 import json
-import re
 import time
 from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain import qa_case_ci_lane, verification_tree_binding
+from yoke_core.domain import (
+    qa_case_ci_covering_run,
+    qa_case_ci_lane,
+    verification_tree_binding,
+)
 from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
+from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.engines import merge_worktree_tree_coverage
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
-_CONCLUSION_PATTERN = re.compile(r"failed:\s*(?P<conclusion>[a-z_]+)")
 DEFAULT_MERGE_CI_TIMEOUT_SECONDS = 5400
 
 
@@ -42,32 +47,6 @@ def _parent():
     from yoke_core.engines import merge_worktree as _mw
 
     return _mw
-
-
-def _ci_conclusion(exit_code: int, output: str) -> str:
-    if exit_code == 0:
-        return "success"
-    match = _CONCLUSION_PATTERN.search(output.casefold())
-    if match:
-        conclusion = match.group("conclusion")
-        return (
-            conclusion
-            if conclusion
-            in {
-                "cancelled",
-                "failure",
-                "neutral",
-                "skipped",
-                "stale",
-                "startup_failure",
-                "success",
-                "timed_out",
-            }
-            else "failure"
-        )
-    if "timed out" in output.casefold():
-        return "timed_out"
-    return "error"
 
 
 def _should_route_ci(ctx: MergeContext) -> bool:
@@ -197,6 +176,8 @@ def run_ci_verification(
     )
     started = time.monotonic()
     ci_run_id = ""
+    ci_run_source = qa_case_ci_covering_run.DISPATCHED
+    known_conclusion = ""
     repo = ""
     try:
         repo = qa_case_ci_lane.repo_slug(cwd)
@@ -206,20 +187,47 @@ def run_ci_verification(
         # authority, and one of them resolving credentials on its own is how
         # the gate broke on a machine whose control plane is remote.
         with qa_case_ci_lane.github_actions_authority():
-            ci_run_id = qa_case_ci_lane.dispatch_workflow(
+            # A run already on this exact commit answers for this candidate
+            # however it was triggered — a re-entered merge, or the QA gate
+            # that verified the same tree minutes ago. Dispatching a second
+            # one buys the same verdict for another full suite.
+            existing = qa_case_ci_covering_run.find_run_for_tree(
                 project=project,
                 repo=repo,
                 workflow=workflow,
-                branch=branch,
-                request_id=f"merge-gate:{ctx.item_id}:{tree.head_sha}",
+                head_sha=tree.head_sha,
                 timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
             )
-            exit_code, poll_output = qa_case_ci_lane.await_workflow(
-                project=project,
-                repo=repo,
-                run_id=ci_run_id,
-                timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
+            ci_run_source = qa_case_ci_covering_run.classify(
+                existing, head_sha=tree.head_sha,
             )
+            if ci_run_source == qa_case_ci_covering_run.DISPATCHED:
+                ci_run_id = qa_case_ci_lane.dispatch_workflow(
+                    project=project,
+                    repo=repo,
+                    workflow=workflow,
+                    branch=branch,
+                    request_id=f"merge-gate:{ctx.item_id}:{tree.head_sha}",
+                    timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
+                )
+            else:
+                ci_run_id = existing.run_id
+                _print(
+                    f"[phase:tests] {ci_run_source} CI run {ci_run_id} already "
+                    f"covering candidate {tree.head_sha[:12]}; not dispatching "
+                    "a second suite"
+                )
+            if ci_run_source == qa_case_ci_covering_run.ADOPTED:
+                known_conclusion = existing.conclusion
+                exit_code = 0 if known_conclusion == "success" else 1
+                poll_output = f"adopted completed run: {known_conclusion}"
+            else:
+                exit_code, poll_output = qa_case_ci_lane.await_workflow(
+                    project=project,
+                    repo=repo,
+                    run_id=ci_run_id,
+                    timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
+                )
             ci_head = _covered_head_sha(
                 project=project,
                 repo=repo,
@@ -237,6 +245,7 @@ def run_ci_verification(
                 "branch": branch,
                 "ci_run_id": ci_run_id or None,
                 "ci_conclusion": "error",
+                "ci_run_source": ci_run_source,
                 "failure_class": "infrastructure_transient",
                 "error": str(exc),
                 "verification_tree": tree.as_payload(),
@@ -268,7 +277,7 @@ def run_ci_verification(
         return (1, "ci unreachable")
 
     duration_ms = int((time.monotonic() - started) * 1000)
-    conclusion = _ci_conclusion(exit_code, poll_output)
+    conclusion = known_conclusion or conclusion_from_poll(exit_code, poll_output)
     run_url = f"https://github.com/{repo}/actions/runs/{ci_run_id}"
     verdict = "pass" if conclusion == "success" else "fail"
     raw_result = json.dumps(
@@ -280,6 +289,7 @@ def run_ci_verification(
             "run_url": run_url,
             "exit_code": exit_code,
             "ci_conclusion": conclusion,
+            "ci_run_source": ci_run_source,
             "verification_tree": covered.as_payload(),
         },
         sort_keys=True,

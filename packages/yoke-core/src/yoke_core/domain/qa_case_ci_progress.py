@@ -98,13 +98,64 @@ def announce_run(
     _emit(
         "if cancellation stalls, force-cancel with "
         f"`gh api --method POST repos/{repo}/actions/runs/{run_id}/"
-        f"force-cancel`. If this invocation is interrupted before the run "
-        f"concludes, re-run `yoke qa case run --requirement-id "
-        f"{requirement_id}` on the same commit: the run above is adopted "
-        "or rejoined rather than re-executed",
+        "force-cancel`",
+        stream=stream,
+    )
+    # A backgrounded invocation reads exactly like an interrupted one, and
+    # the recovery line below is what an agent reaches for when it cannot
+    # tell them apart. Say which this is before naming the recovery.
+    _emit(
+        f"requirement={requirement_id} this gate outlives a single "
+        "tool-call budget, so a harness moving this invocation to the "
+        "background or handing back a continuation handle is normal and is "
+        "NOT an interruption: the run above keeps going and this process "
+        "keeps polling it. Continue this invocation through whatever "
+        "continuation surface your harness declares rather than starting a "
+        "second one",
+        stream=stream,
+    )
+    _emit(
+        f"requirement={requirement_id} once this process really is gone, "
+        f"re-run `yoke qa case run --requirement-id {requirement_id}`: the "
+        "run above is looked up by its exact commit before anything is "
+        "rebased, so an unchanged candidate rejoins that run instead of "
+        "superseding it",
         stream=stream,
     )
     return run_url
+
+
+def announce_resumed_candidate(
+    requirement_id: int,
+    *,
+    repo: str,
+    branch: str,
+    head_sha: str,
+    run_id: str,
+    stream: TextIO | None = None,
+) -> None:
+    """Say the lane kept its candidate because a run already covers it."""
+    _emit(
+        f"requirement={requirement_id} resuming run={run_id} already covering "
+        f"{repo}@{branch} {head_sha[:12]}; not rebasing, so this candidate is "
+        "not superseded and no second suite is dispatched",
+        stream=stream,
+    )
+
+
+def announce_resume_probe_failed(
+    requirement_id: int,
+    *,
+    detail: str,
+    stream: TextIO | None = None,
+) -> None:
+    """Name an unreachable covering-run lookup before the rebase."""
+    _emit(
+        f"requirement={requirement_id} could not check for a run already "
+        f"covering this candidate ({detail}); rebasing as usual — the same "
+        "lookup runs again below and records its failure",
+        stream=stream,
+    )
 
 
 def announce_superseded_run_cancelled(
@@ -183,6 +234,8 @@ __all__ = [
     "announce_dispatch",
     "announce_never_started_retry",
     "announce_never_started_terminal",
+    "announce_resume_probe_failed",
+    "announce_resumed_candidate",
     "announce_run",
     "announce_superseded_run_cancelled",
     "announce_wait_not_recorded",

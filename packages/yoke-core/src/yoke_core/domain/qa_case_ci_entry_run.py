@@ -9,13 +9,15 @@ check run per name, so a dispatch green can never satisfy entry — the
 adoption :mod:`yoke_core.domain.qa_case_ci_covering_run` already knows how
 to do is reachable only when the pull-request run comes *first*.
 
-Every live CI lane first reuses the landing gate's rebase step, then the
-runner publishes it once. For merge-queue projects the gate also opens the
+Every live CI lane the gate still has to examine reuses the landing
+gate's rebase step, then the runner publishes it once. For merge-queue projects the gate also opens the
 pull request and waits for the run that opening it produces. The landing
 step later finds the same pull request open and green and simply enqueues
 it. Per-item cost becomes one entry suite plus the train's amortized share.
 
-Rebasing is safe before evidence exists and tests the tree the train will build.
+Rebasing is safe before evidence exists, and tests the tree the train will
+build; a candidate a run already covers has evidence, so
+:mod:`yoke_core.domain.qa_case_ci_resume` keeps it off this step.
 """
 
 from __future__ import annotations
