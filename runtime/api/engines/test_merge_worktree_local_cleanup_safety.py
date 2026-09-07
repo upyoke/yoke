@@ -38,13 +38,6 @@ def _patch_post_steps():
     )
     stack.enter_context(mock.patch.object(merge_worktree_post_local, "_schema_refresh"))
     stack.enter_context(
-        mock.patch.object(
-            merge_worktree_post_local,
-            "_regenerate_views_advisory",
-            return_value=None,
-        )
-    )
-    stack.enter_context(
         mock.patch.object(merge_worktree_post_local, "_ensure_target_branch")
     )
     stack.enter_context(
@@ -127,13 +120,6 @@ def test_lane_removal_runs_after_every_step_that_reads_from_it(tmp_path):
             )
         stack.enter_context(
             mock.patch.object(
-                merge_worktree_post_local,
-                "_regenerate_views_advisory",
-                side_effect=lambda _ctx: order.append("_regenerate_views"),
-            )
-        )
-        stack.enter_context(
-            mock.patch.object(
                 merge_worktree_post_local, "_chdir_out_of_doomed_worktree"
             )
         )
@@ -158,7 +144,6 @@ def test_lane_removal_runs_after_every_step_that_reads_from_it(tmp_path):
     assert order == [
         "_ensure_snapshot_for_project",
         "_schema_refresh",
-        "_regenerate_views",
         "_ensure_target_branch",
         "remove_lane",
     ]

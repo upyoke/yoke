@@ -168,10 +168,6 @@ def test_handle_thaw_revalidates_before_clearing_frozen(test_db, monkeypatch):
         lambda item_id: seen.append(int(item_id)) or (),
     )
     monkeypatch.setattr(backlog_update_op, "run_post_db_sync", lambda **_kwargs: 0)
-    monkeypatch.setattr(
-        backlog_update_op._rendering,
-        lambda *_args, **_kwargs: None,
-    )
     now = iso8601_now()
     test_db.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model, "

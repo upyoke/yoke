@@ -98,10 +98,6 @@ def _isolate_status_effects(monkeypatch) -> None:
         "run_post_db_sync",
         lambda **_kwargs: 0,
     )
-    monkeypatch.setattr(
-        backlog_update_op._rendering,
-        lambda *_args, **_kwargs: None,
-    )
 
 
 def test_default_only_approval_is_create_once_and_resolves_on_both_handlers(
