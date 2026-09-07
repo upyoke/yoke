@@ -35,6 +35,12 @@ RELAY_RELEASE_FETCH_FAILED = "relay_release_fetch_failed"
 RELAY_RELEASE_INSTALL_FAILED = "relay_release_install_failed"
 RELAY_RELEASE_START_FAILED = "relay_release_start_failed"
 
+# Every relay child interpreter runs isolated. The relay entrypoint exports
+# PYTHONPATH and VIRTUAL_ENV so its own imports resolve to the running
+# release; inherited, those make a child Python read the running release
+# instead of the one it was launched to build, install into, or verify.
+PYTHON_ISOLATION_FLAG = "-I"
+
 
 class RelayReleaseError(RuntimeError):
     """A served relay release could not be installed without losing fallback."""

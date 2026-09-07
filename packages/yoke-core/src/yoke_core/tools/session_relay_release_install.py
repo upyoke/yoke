@@ -17,6 +17,7 @@ from yoke_cli import manifest
 from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
 from yoke_core.tools.session_relay_release import (
     ManifestFetcher,
+    PYTHON_ISOLATION_FLAG,
     RELAY_RELEASE_ERROR_NAME,
     RELAY_RELEASE_FETCH_FAILED,
     RELAY_RELEASE_INSTALL_FAILED,
@@ -198,6 +199,7 @@ def _install_candidate(
         result = runner(
             [
                 str(python),
+                PYTHON_ISOLATION_FLAG,
                 "-m",
                 "pip",
                 "--isolated",
@@ -223,6 +225,7 @@ def _install_candidate(
         verified = runner(
             [
                 str(python),
+                PYTHON_ISOLATION_FLAG,
                 "-c",
                 "from importlib.metadata import version; print(version('yoke-core'))",
             ],
