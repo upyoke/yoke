@@ -113,6 +113,10 @@ def list_preferred_models(
     belongs to the relay rather than to a configuration reader.
     """
     from yoke_contracts.machine_config.runtime import config_path
+    from yoke_contracts.session_control.model_selection import (
+        SURFACE_CONTEXT_WINDOWS,
+        SURFACE_EFFORT_LEVELS,
+    )
 
     payload = _load_payload()
     surfaces = (surface,) if surface else launchable_preferred_surfaces()
@@ -138,6 +142,15 @@ def list_preferred_models(
         "config_file": str(config_path()),
         "entries": entries,
         "selected": selected,
+        # What each surface's flags accept is the same on every machine, so it
+        # is declared. Which models it can select is not, so that is observed.
+        "accepted": {
+            item: {
+                "reasoning_efforts": list(SURFACE_EFFORT_LEVELS.get(item, ())),
+                "context_windows": list(SURFACE_CONTEXT_WINDOWS.get(item, ())),
+            }
+            for item in surfaces
+        },
         "availability": [
             dict(
                 (availability or {}).get(item) or {"surface": item, "status": "unknown"}
@@ -168,6 +181,16 @@ def render_list_models(report: Mapping[str, Any], *, json_mode: bool) -> str:
             f"effort={entry.get('reasoning_effort') or '(none)'}  "
             f"context={_context_label(entry.get('context_window_tokens'))}"
         )
+    for surface, accepted in (report.get("accepted") or {}).items():
+        lines.append(f"{surface} accepted by the CLI flags:")
+        lines.append(
+            "  effort: "
+            + (", ".join(accepted.get("reasoning_efforts") or ()) or "(unsupported)")
+        )
+        contexts = [
+            _context_label(value) for value in accepted.get("context_windows") or ()
+        ]
+        lines.append("  context: " + (", ".join(contexts) or "(unsupported)"))
     for reading in report.get("availability") or ():
         source = reading.get("source") or "not observed"
         lines.append(

@@ -219,6 +219,7 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
     verbs = (
         "diagnostic",
         "install",
+        "probe-models",
         "probe-surface",
         "uninstall",
         "status",

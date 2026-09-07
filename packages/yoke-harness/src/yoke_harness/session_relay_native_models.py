@@ -76,8 +76,21 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _cache_path(state_dir: Path | None) -> Path:
-    return (state_dir or relay_state_dir()) / NATIVE_MODEL_CACHE_FILE_NAME
+def _cache_path(state_dir: Path | None) -> Path | None:
+    """Where readings are cached, or ``None`` when this machine has no relay.
+
+    Resolving the relay's own state directory needs a configured environment,
+    and a machine that has not been pointed at one yet still runs the command
+    that lists what it can select. Losing the cache costs a probe per call;
+    raising here would cost the caller its answer, and on the heartbeat path
+    it would cost the machine its poll.
+    """
+    if state_dir is not None:
+        return state_dir / NATIVE_MODEL_CACHE_FILE_NAME
+    try:
+        return relay_state_dir() / NATIVE_MODEL_CACHE_FILE_NAME
+    except Exception:  # noqa: BLE001 - an unresolvable relay state dir is not fatal
+        return None
 
 
 def _read_cache(state_dir: Path | None) -> dict[str, Any]:
@@ -86,8 +99,11 @@ def _read_cache(state_dir: Path | None) -> dict[str, Any]:
         "probed_at": 0.0,
         "surfaces": {},
     }
+    path = _cache_path(state_dir)
+    if path is None:
+        return empty
     try:
-        payload = json.loads(_cache_path(state_dir).read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return empty
     if not isinstance(payload, Mapping):
@@ -108,6 +124,8 @@ def _read_cache(state_dir: Path | None) -> dict[str, Any]:
 
 def _write_cache(document: Mapping[str, Any], state_dir: Path | None) -> None:
     path = _cache_path(state_dir)
+    if path is None:
+        return
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
@@ -295,14 +313,20 @@ def observe_native_models(
     merged = dict(cached)
     merged.update(readings)
     kept = {surface: merged[surface] for surface in wanted if surface in merged}
-    _write_cache(
-        {
-            "schema_version": NATIVE_MODEL_CACHE_SCHEMA_VERSION,
-            "probed_at": current,
-            "surfaces": kept,
-        },
-        state_dir,
-    )
+    try:
+        _write_cache(
+            {
+                "schema_version": NATIVE_MODEL_CACHE_SCHEMA_VERSION,
+                "probed_at": current,
+                "surfaces": kept,
+            },
+            state_dir,
+        )
+    except OSError as exc:
+        # These readings are already in hand; only the next caller's saved
+        # probe is lost. This runs on the heartbeat path, where an unwritable
+        # cache must not cost the machine its poll.
+        _failures.failed("native model cache write", f"{type(exc).__name__}: {exc}")
     return sanitize_native_models(kept)
 
 

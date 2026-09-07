@@ -6,6 +6,7 @@ import io
 import sys
 
 from yoke_cli.commands.adapters import session_control_launches as launches
+from yoke_contracts.session_control.native_models import NO_ADAPTER_REASON
 from yoke_contracts.machine_config.preferred_session_models import (
     PREFERRED_SESSION_MODELS_KEY,
     PREFERRED_SESSION_REASONING_EFFORTS_KEY,
@@ -107,4 +108,8 @@ def test_launch_create_list_models_names_source_without_dispatch(
     rendered = capsys.readouterr().out
     assert PREFERRED_SESSION_MODELS_KEY in rendered
     assert "claude-opus-4-8" in rendered
-    assert "documented CLI contract" in rendered
+    # The listing names where each half of the answer came from: the config
+    # file for the default, and the surface's own listing route — or its
+    # absence — for what can be selected.
+    assert "claude-cli available (unsupported, not observed)" in rendered
+    assert NO_ADAPTER_REASON in rendered
