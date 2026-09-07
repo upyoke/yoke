@@ -11,6 +11,10 @@ from yoke_contracts.api.function_call import ActorContext, TargetRef
 class MachinePlanCaseDispatchError(RuntimeError):
     """A plan-scoped host-control case cannot complete its protocol."""
 
+    def __init__(self, message: str, *, host_contact_possible: bool = True) -> None:
+        super().__init__(message)
+        self.host_contact_possible = host_contact_possible
+
 
 def _report_selection(begun: Mapping[str, Any], execution: Mapping[str, Any]) -> None:
     reason = execution.get("selection_reason")
@@ -24,6 +28,7 @@ def _dispatch(
     target: TargetRef,
     actor: ActorContext,
     payload: dict[str, Any],
+    host_contact_possible: bool = True,
 ) -> dict[str, Any]:
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 
@@ -36,7 +41,10 @@ def _dispatch(
     if not response.success:
         code = response.error.code if response.error else "unknown"
         message = response.error.message if response.error else ""
-        raise MachinePlanCaseDispatchError(f"{function_id} failed ({code}): {message}")
+        raise MachinePlanCaseDispatchError(
+            f"{function_id} failed ({code}): {message}",
+            host_contact_possible=host_contact_possible,
+        )
     return dict(response.result or {})
 
 
@@ -75,6 +83,7 @@ def execute_plan_machine_case(
         target=target,
         actor=actor,
         payload=request,
+        host_contact_possible=False,
     )
     if begun.get("state") == "waiting":
         return {
@@ -166,6 +175,7 @@ def execute_plan_agent_mission_case(
         target=target,
         actor=actor,
         payload=request,
+        host_contact_possible=False,
     )
     if begun.get("state") == "waiting":
         return {

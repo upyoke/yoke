@@ -89,27 +89,6 @@ def _assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
         raise ValueError("ordered plan case snapshot changed during execution")
 
 
-def _contract_args(
-    execution: dict[str, Any],
-    case: dict[str, Any],
-    *,
-    ordinal: int,
-) -> dict[str, Any]:
-    from yoke_core.domain.qa_plan_execution_continuation import contract_baselines
-
-    contract_case = {key: value for key, value in case.items() if key != "ordinal"}
-    return {
-        "operation": "plan_case",
-        "baselines": contract_baselines(execution, case),
-        "cases": (contract_case,),
-        "plan_execution_id": str(execution["id"]),
-        "roster_digest": str(execution["roster_digest"]),
-        "ordinal": ordinal,
-        "case_position": int(case["case_position"]),
-        "baseline_position": int(case["baseline_position"]),
-    }
-
-
 def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
     target = target_plan_subject(request, "test_machine.plan_case.begin")
     if isinstance(target, HandlerOutcome):
@@ -129,6 +108,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
     )
     from yoke_core.domain.machine_qa_plan_protocol import (
         continue_plan_host_control_execution,
+        plan_case_contract_arguments,
     )
     from yoke_core.domain.qa_plan_execution_state import (
         finish_plan_execution,
@@ -148,12 +128,13 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if case.get("runner_id") not in {"host_control", "agent_mission"}:
             raise ValueError("the ordered plan case is not machine-backed")
-        arguments = _contract_args(execution, case, ordinal=parsed.ordinal)
+        arguments = plan_case_contract_arguments(
+            execution, case, ordinal=parsed.ordinal
+        )
         from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
 
         machine = resolve_case_machine(case, parsed.machine)
         lease_id = execution.get("machine_lease_id")
-        selection_new = lease_id is None
         try:
             if lease_id is None:
                 contract = begin_host_control_execution(
@@ -178,6 +159,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     baselines=arguments["baselines"],
                     cases=arguments["cases"],
                     plan_execution_id=arguments["plan_execution_id"],
+                    continues_execution_id=arguments["continues_execution_id"],
                     roster_digest=arguments["roster_digest"],
                     ordinal=arguments["ordinal"],
                     case_position=arguments["case_position"],
@@ -215,7 +197,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             "execution_id": str(execution["id"]),
             "cursor_ordinal": int(execution["cursor_ordinal"]),
             "execution": contract.model_dump(mode="json"),
-            "selection_new": selection_new,
+            "selection_new": lease_id is None,
         },
     )
 
@@ -264,7 +246,13 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
             deployment_run_id,
             replay=True,
         )
-        arguments = _contract_args(execution, case, ordinal=parsed.ordinal)
+        from yoke_core.domain.machine_qa_plan_protocol import (
+            plan_case_contract_arguments,
+        )
+
+        arguments = plan_case_contract_arguments(
+            execution, case, ordinal=parsed.ordinal
+        )
         lease, contract = validate_host_control_submission(
             conn,
             project=str(case["project"]),

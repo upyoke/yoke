@@ -9,7 +9,6 @@ from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.machine_qa import _failure
 from yoke_core.domain.handlers.machine_qa_plan_case import (
     _assert_current_snapshot,
-    _contract_args,
     _owned_case,
 )
 from yoke_core.domain.handlers.machine_qa_plan_case_models import (
@@ -22,6 +21,7 @@ from yoke_core.domain.handlers.machine_qa_plan_case_request import (
     parse_plan_case_request,
     target_plan_subject,
 )
+from yoke_core.domain.machine_qa_plan_protocol import plan_case_contract_arguments
 
 
 def _recorded_result(
@@ -139,7 +139,9 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
             replay=True,
             expected_runner="agent_mission",
         )
-        arguments = _contract_args(execution, case, ordinal=parsed.ordinal)
+        arguments = plan_case_contract_arguments(
+            execution, case, ordinal=parsed.ordinal
+        )
         lease, _contract = validate_host_control_submission(
             conn,
             project=str(case["project"]),
@@ -256,7 +258,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             raise ValueError("mission case has no active plan machine lease")
         ordinal, case = matches[0]
         _assert_current_snapshot(conn, case)
-        arguments = _contract_args(execution, case, ordinal=ordinal)
+        arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
         contract = continue_plan_host_control_execution(
             conn,
             project=str(case["project"]),
@@ -266,6 +268,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             baselines=arguments["baselines"],
             cases=arguments["cases"],
             plan_execution_id=arguments["plan_execution_id"],
+            continues_execution_id=arguments["continues_execution_id"],
             roster_digest=arguments["roster_digest"],
             ordinal=arguments["ordinal"],
             case_position=arguments["case_position"],
