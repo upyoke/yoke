@@ -75,7 +75,8 @@ def _token_matches(candidate: str, token: str) -> bool:
     on the clean 401 path, never a 500.
     """
     return secrets.compare_digest(
-        candidate.encode("utf-8"), token.encode("utf-8"),
+        candidate.encode("utf-8"),
+        token.encode("utf-8"),
     )
 
 
@@ -148,7 +149,23 @@ def _local_host_identity_json() -> str:
         portability_mode=PORTABILITY_LOCAL,
         install=detect_install(yoke_core.__file__),
     )
-    return json.dumps(mount_fields(packet), separators=(",", ":"))
+    fields = mount_fields(packet)
+    from yoke_core.ui.local_operator_actor import local_selection_identity
+
+    try:
+        identity = local_selection_identity()
+        if identity is not None:
+            fields["selectionIdentity"] = identity
+            fields["currentActor"] = {"id": identity["actorId"], "kind": "human"}
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "project_selection_identity_unavailable: browser preferences will "
+            "not persist; restore the local universe connection and reload",
+            exc_info=True,
+        )
+    return json.dumps(fields, separators=(",", ":"))
 
 
 def _inject_host_identity(html: str) -> str:
@@ -160,11 +177,7 @@ def _inject_host_identity(html: str) -> str:
     end = html.find(_HOST_IDENTITY_MARKER, content_start)
     if end < 0:
         return html
-    return (
-        html[:content_start]
-        + _local_host_identity_json()
-        + html[end:]
-    )
+    return html[:content_start] + _local_host_identity_json() + html[end:]
 
 
 def create_ui_app(token: str):
@@ -191,13 +204,15 @@ def create_ui_app(token: str):
         )
         if not _token_matches(candidate, token):
             return JSONResponse(
-                {"error": {
-                    "code": "session_token_required",
-                    "message": (
-                        "this UI server admits only the per-run session "
-                        "token printed by `yoke ui`"
-                    ),
-                }},
+                {
+                    "error": {
+                        "code": "session_token_required",
+                        "message": (
+                            "this UI server admits only the per-run session "
+                            "token printed by `yoke ui`"
+                        ),
+                    }
+                },
                 status_code=401,
             )
         return await call_next(request)
@@ -216,8 +231,10 @@ def create_ui_app(token: str):
             # request, and the tokened URL drops out of browser history.
             redirect: Response = RedirectResponse(url="/", status_code=303)
             redirect.set_cookie(
-                SESSION_COOKIE_NAME, token,
-                httponly=True, samesite="strict",
+                SESSION_COOKIE_NAME,
+                token,
+                httponly=True,
+                samesite="strict",
             )
             return redirect
         # No (valid) query token here means the session cookie admitted

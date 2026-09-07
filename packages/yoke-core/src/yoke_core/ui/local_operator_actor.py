@@ -30,4 +30,28 @@ def resolve_local_operator_actor() -> Optional[int]:
         conn.close()
 
 
-__all__ = ["resolve_local_operator_actor"]
+def local_selection_identity() -> Optional[dict]:
+    """Bind browser preferences to the universe birth and resolved operator."""
+    import json
+
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.session_actor_binding import resolve_operating_actor
+
+    conn = db_helpers.connect()
+    try:
+        actor_id = resolve_operating_actor(conn).actor_id
+        org = db_helpers.query_one(
+            conn,
+            "SELECT slug, created_at FROM organizations ORDER BY id LIMIT 1",
+        )
+        if actor_id is None or org is None:
+            return None
+        return {
+            "universeId": json.dumps([str(org["slug"]), str(org["created_at"])]),
+            "actorId": str(actor_id),
+        }
+    finally:
+        conn.close()
+
+
+__all__ = ["resolve_local_operator_actor", "local_selection_identity"]

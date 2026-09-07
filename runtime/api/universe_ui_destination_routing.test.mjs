@@ -81,11 +81,11 @@ test("a destination's second segment is a drill-in, and only where one exists", 
 
 test("routes round-trip, and an unknown view falls back without its segment", () => {
   assert.deepEqual(parseUniverseRoute("#/flows?project=3"), {
-    view: "flows", tab: null, detail: null, project: "3",
+    view: "flows", tab: null, detail: null, project: "3", selection: null,
   });
   assert.equal(buildUniverseRoute("flows", "3"), "#/flows?project=3");
   assert.deepEqual(parseUniverseRoute("#/deployments"), {
-    view: "deployments", tab: null, detail: null, project: null,
+    view: "deployments", tab: null, detail: null, project: null, selection: null,
   });
   // A second segment is a drill-in now, so it survives on a view that exists…
   assert.equal(parseUniverseRoute("#/qa-plans/7?project=2").detail, "7");

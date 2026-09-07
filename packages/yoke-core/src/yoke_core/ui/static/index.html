@@ -49,8 +49,8 @@
     }/*YOKE_HOST_IDENTITY*/;
     mountUniverseApp(document.getElementById("universe-root"), {
       // The loopback door authenticates a machine session rather than an
-      // account. Until the server projects the resolved actor, name that
-      // fact honestly instead of presenting the organization as the viewer.
+      // account. A resolved operator in hostIdentity replaces this label;
+      // unidentified viewers keep preferences only for this mount.
       currentActor: { kind: "human", label: "local actor" },
       ...hostIdentity,
       docsUrl: "https://github.com/upyoke/yoke/tree/main/docs",

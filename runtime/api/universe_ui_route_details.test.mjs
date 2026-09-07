@@ -27,7 +27,7 @@ import {
 
 test("a drill-in route survives the round trip and never outlives its view", () => {
   assert.deepEqual(parseUniverseRoute("#/items/42?project=3"), {
-    view: "items", tab: null, detail: "42", project: "3",
+    view: "items", tab: null, detail: "42", project: "3", selection: null,
   });
   assert.equal(buildUniverseRoute("items", "3", "42"), "#/items/42?project=3");
   const odd = "YOK 7/a";
@@ -35,7 +35,7 @@ test("a drill-in route survives the round trip and never outlives its view", () 
     parseUniverseRoute(buildUniverseRoute("items", "3", odd)).detail, odd,
   );
   assert.deepEqual(parseUniverseRoute("#/unknown/42"), {
-    view: "overview", tab: null, detail: null, project: null,
+    view: "overview", tab: null, detail: null, project: null, selection: null,
   });
   assert.equal(buildUniverseRoute("unknown", null, "42"), "#/overview");
 });
