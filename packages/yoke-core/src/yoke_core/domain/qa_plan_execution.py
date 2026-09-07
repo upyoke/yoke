@@ -23,6 +23,7 @@ from yoke_core.domain.qa_plan_execution_dispatch import (
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
 from yoke_core.domain.qa_project_execution_target import resolve_execution_base_url
 from yoke_core.domain.machine_qa_case_machine import resolve_plan_machine
+from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
 
 _call_plan_function = call_plan_function
 
@@ -296,7 +297,7 @@ def execute_plan(
                     target=target,
                     payload={
                         "execution_id": execution_id,
-                        "reason": "case-execution-or-recording-error",
+                        "reason": continuation_abort_reason(execution, exc),
                     },
                     actor=resolved_actor,
                 )

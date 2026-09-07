@@ -20,7 +20,12 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
-from yoke_core.domain.qa_plan_execution_continuation import contract_baselines
+from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
+from yoke_core.domain.qa_plan_execution_continuation import (
+    CASE_EXECUTION_ERROR_REASON,
+    CONTINUATION_PRE_HOST_ERROR_REASON,
+    contract_baselines,
+)
 from yoke_core.domain.qa_plan_execution_lifecycle import (
     reap_stale_plan_executions,
 )
@@ -167,6 +172,55 @@ def test_continuing_a_swept_mission_reaches_no_host_baseline(
     assert continued["cursor_ordinal"] == 0
     assert contract_baselines(continued, continued["roster"][0]) == ()
     assert _state(test_db, str(settled["id"])) == "aborted"
+    begun = handle_plan_case_begin(
+        FunctionCallRequest(
+            function="test_machine.plan_case.begin",
+            actor=MISSION_ACTOR,
+            target=TargetRef(kind="item", item_id=4903),
+            payload={
+                "execution_id": str(continued["id"]),
+                "ordinal": 0,
+                "requirement_id": int(continued["roster"][0]["requirement_id"]),
+            },
+        )
+    )
+    assert begun.primary_success, begun.error
+    contract = begun.result_payload["execution"]
+    assert contract["baselines"] == []
+    assert contract["continues_execution_id"] == str(settled["id"])
+
+
+@pytest.mark.parametrize(
+    "reason", [CONTINUATION_PRE_HOST_ERROR_REASON, CASE_EXECUTION_ERROR_REASON]
+)
+def test_failed_pre_host_continuation_keeps_the_swept_source_eligible(
+    test_db: Any,
+    tmp_path: Any,
+    monkeypatch: Any,
+    reason: str,
+) -> None:
+    item_id = 4908
+    _requirement_id, settled = _swept_mission(
+        test_db, tmp_path, monkeypatch, item_id=item_id
+    )
+    failed = begin_plan_execution(
+        test_db,
+        item_id=item_id,
+        transition_id=MISSION_TRANSITION,
+        continue_mission=True,
+        actor_id=MISSION_ACTOR.actor_id,
+        session_id=MISSION_ACTOR.session_id,
+    )
+    finish_plan_execution(test_db, failed, state="aborted", reason=reason)
+    retried = begin_plan_execution(
+        test_db,
+        item_id=item_id,
+        transition_id=MISSION_TRANSITION,
+        continue_mission=True,
+        actor_id=MISSION_ACTOR.actor_id,
+        session_id=MISSION_ACTOR.session_id,
+    )
+    assert str(retried["continues_execution_id"]) == str(settled["id"])
 
 
 def test_continuation_is_refused_when_the_sweep_did_not_settle_the_prior_walk(
@@ -187,10 +241,12 @@ def test_continuation_is_refused_when_the_sweep_did_not_settle_the_prior_walk(
         test_db,
         execution,
         state="aborted",
-        reason="case-execution-or-recording-error",
+        reason=CASE_EXECUTION_ERROR_REASON,
     )
 
-    with pytest.raises(QaPlanExecutionStateError, match="not because the stale sweep"):
+    with pytest.raises(
+        QaPlanExecutionStateError, match="Preserve the Test Machine state"
+    ) as raised:
         begin_plan_execution(
             test_db,
             item_id=4904,
@@ -199,6 +255,7 @@ def test_continuation_is_refused_when_the_sweep_did_not_settle_the_prior_walk(
             actor_id=MISSION_ACTOR.actor_id,
             session_id=MISSION_ACTOR.session_id,
         )
+    assert "run the plan fresh" not in str(raised.value)
     test_db.rollback()
 
 

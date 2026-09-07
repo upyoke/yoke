@@ -12,6 +12,25 @@ from yoke_core.domain.machine_qa_execution_protocol import (
     _issue,
     _validate_lease_owner,
 )
+from yoke_core.domain.qa_plan_execution_continuation import contract_baselines
+
+
+def plan_case_contract_arguments(
+    execution: dict[str, Any], case: dict[str, Any], *, ordinal: int
+) -> dict[str, Any]:
+    """Build the execution-bound arguments for one immutable plan case."""
+    contract_case = {key: value for key, value in case.items() if key != "ordinal"}
+    return {
+        "operation": "plan_case",
+        "baselines": contract_baselines(execution, case),
+        "cases": (contract_case,),
+        "plan_execution_id": str(execution["id"]),
+        "continues_execution_id": execution.get("continues_execution_id"),
+        "roster_digest": str(execution["roster_digest"]),
+        "ordinal": ordinal,
+        "case_position": int(case["case_position"]),
+        "baseline_position": int(case["baseline_position"]),
+    }
 
 
 def continue_plan_host_control_execution(
@@ -24,6 +43,7 @@ def continue_plan_host_control_execution(
     baselines: Sequence[str],
     cases: Sequence[dict[str, Any]],
     plan_execution_id: str,
+    continues_execution_id: str | None,
     roster_digest: str,
     ordinal: int,
     case_position: int,
@@ -54,6 +74,7 @@ def continue_plan_host_control_execution(
         baselines=baselines,
         cases=cases,
         plan_execution_id=plan_execution_id,
+        continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,
         ordinal=ordinal,
         case_position=case_position,
@@ -61,4 +82,4 @@ def continue_plan_host_control_execution(
     )
 
 
-__all__ = ["continue_plan_host_control_execution"]
+__all__ = ["continue_plan_host_control_execution", "plan_case_contract_arguments"]

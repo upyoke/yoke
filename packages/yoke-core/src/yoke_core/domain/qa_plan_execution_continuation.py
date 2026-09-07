@@ -34,6 +34,8 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 
 CONTINUATION_FLAG = "--continue-mission"
+CASE_EXECUTION_ERROR_REASON = "case-execution-or-recording-error"
+CONTINUATION_PRE_HOST_ERROR_REASON = "continuation-pre-host-error"
 
 
 def skips_host_baseline(execution: Mapping[str, Any]) -> bool:
@@ -57,6 +59,34 @@ def contract_baselines(
         return ()
     baseline = str(case.get("host_baseline") or "")
     return (baseline,) if baseline else ()
+
+
+def continuation_abort_reason(
+    execution: Mapping[str, Any], error: BaseException
+) -> str:
+    """Return a durable reason that preserves proven pre-host retries."""
+    if skips_host_baseline(execution) and not getattr(
+        error, "host_contact_possible", True
+    ):
+        return CONTINUATION_PRE_HOST_ERROR_REASON
+    return CASE_EXECUTION_ERROR_REASON
+
+
+def _failed_before_host(conn: Any, execution: Mapping[str, Any]) -> bool:
+    """Recognize explicit failures and the original zero-result row shape."""
+    if not execution.get("continues_execution_id"):
+        return False
+    reason = str(execution.get("release_reason") or "")
+    if reason == CONTINUATION_PRE_HOST_ERROR_REASON:
+        return True
+    if reason != CASE_EXECUTION_ERROR_REASON or int(execution["cursor_ordinal"]):
+        return False
+    row = conn.execute(
+        f"SELECT 1 FROM qa_plan_execution_results WHERE execution_id={marker(conn)} "
+        "LIMIT 1",
+        (str(execution["id"]),),
+    ).fetchone()
+    return row is None
 
 
 def _mission_ordinals(execution: Mapping[str, Any]) -> list[int]:
@@ -128,6 +158,10 @@ def require_continuable_execution(
             f"{CONTINUATION_FLAG} found no prior QA plan execution for this "
             "subject; run the plan without it to start one"
         )
+    if _failed_before_host(conn, prior):
+        prior = select_plan_execution(
+            conn, str(prior["continues_execution_id"]), lock=False
+        )
     state = str(prior["state"])
     reason = str(prior.get("release_reason") or "")
     if state not in TERMINAL_PLAN_EXECUTION_STATES:
@@ -139,8 +173,9 @@ def require_continuable_execution(
         raise QaPlanExecutionStateError(
             f"QA plan execution {prior['id']} ended as {state!r} because "
             f"{reason!r}, not because the stale sweep settled a parked walk; "
-            f"only a swept execution may be continued, so drop "
-            f"{CONTINUATION_FLAG} and run the plan fresh"
+            "continuation is unsafe without a settled source. Preserve the "
+            "Test Machine state, inspect this execution's release evidence, "
+            f"and repair that evidence before retrying {CONTINUATION_FLAG}"
         )
     if not _mission_ordinals(prior):
         raise QaPlanExecutionStateError(
@@ -256,8 +291,11 @@ def _project_slug(execution: Mapping[str, Any]) -> str:
 
 
 __all__ = [
+    "CASE_EXECUTION_ERROR_REASON",
     "CONTINUATION_FLAG",
+    "CONTINUATION_PRE_HOST_ERROR_REASON",
     "contract_baselines",
+    "continuation_abort_reason",
     "continuation_recipe",
     "latest_plan_execution",
     "mission_access_refusal",

@@ -142,6 +142,7 @@ class HostControlExecutionContract(BaseModel):
     # captured state anywhere and still submit a contract-shaped receipt.
     golden_destination: str | None = None
     plan_execution_id: str | None = None
+    continues_execution_id: str | None = None
     roster_digest: str | None = None
     ordinal: int | None = Field(default=None, ge=0)
     case_position: int | None = Field(default=None, ge=1)
@@ -174,7 +175,11 @@ class HostControlExecutionContract(BaseModel):
             if self.checks:
                 raise ValueError("case contracts cannot contain checks")
             expected = (
-                [self.cases[0].host_baseline] if self.cases[0].host_baseline else []
+                []
+                if self.continues_execution_id
+                else (
+                    [self.cases[0].host_baseline] if self.cases[0].host_baseline else []
+                )
             )
             if self.baselines != expected:
                 raise ValueError("case contract baseline does not match its case")
@@ -215,7 +220,10 @@ class HostControlExecutionContract(BaseModel):
                 or case.baseline_position != self.baseline_position
             ):
                 raise ValueError("plan-case contract positions do not match its case")
-        elif any(value is not None for value in plan_fields):
+        elif (
+            any(value is not None for value in plan_fields)
+            or self.continues_execution_id
+        ):
             raise ValueError(
                 "non-plan host-control contracts cannot name plan cursor context"
             )
@@ -262,6 +270,7 @@ def issue_execution_contract(
     cases: list[dict[str, Any]] | None = None,
     golden_destination: str | None = None,
     plan_execution_id: str | None = None,
+    continues_execution_id: str | None = None,
     roster_digest: str | None = None,
     ordinal: int | None = None,
     case_position: int | None = None,
@@ -282,6 +291,7 @@ def issue_execution_contract(
         cases=[MachineQaCaseContract.model_validate(case) for case in (cases or [])],
         golden_destination=golden_destination,
         plan_execution_id=plan_execution_id,
+        continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,
         ordinal=ordinal,
         case_position=case_position,
