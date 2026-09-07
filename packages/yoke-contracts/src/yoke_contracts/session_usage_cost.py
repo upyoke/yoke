@@ -13,9 +13,11 @@ Prices come from the shared model reference and nowhere else. There is no
 price table here, no fallback rate, and no "close enough" default: an
 unknown model or an unpriced bucket produces a partial or unavailable
 cost that names what is missing, because a confidently wrong dollar
-figure is worse than an honest gap. Raw token capture never depends on
-any of this — a session records what it consumed whether or not anyone
-has ever researched its price.
+figure is worse than an honest gap. A rate the reference labels an
+estimate is used and then named in the same breath, so the figure it
+produces is never read as one the provider published. Raw token capture
+never depends on any of this — a session records what it consumed whether
+or not anyone has ever researched its price.
 """
 
 from __future__ import annotations
@@ -105,13 +107,17 @@ def session_cost(
         if prices is None:
             gaps.append(f"no researched price for {entry.model}")
             continue
-        amount, missing, approximated = _model_cost(entry, prices)
+        amount, missing, approximated, estimated = _model_cost(entry, prices)
         if amount is None:
             gaps.append(f"no priced tokens for {entry.model}")
             continue
         priced_any = True
         total += amount
         gaps.extend(f"{bucket} price unknown for {entry.model}" for bucket in missing)
+        gaps.extend(
+            f"{bucket} for {entry.model} priced at a labelled estimate"
+            for bucket in estimated
+        )
         if approximated:
             gaps.append(
                 f"long-lifetime cache writes for {entry.model} priced at the "
@@ -137,27 +143,42 @@ def session_cost(
 
 def _model_cost(
     entry: ModelUsage, prices: object
-) -> tuple[Optional[float], list[str], bool]:
-    """Return one model's cost, the buckets it could not price, and whether
-    a long-lifetime cache-write rate was substituted."""
+) -> tuple[Optional[float], list[str], bool, list[str]]:
+    """Return one model's cost, the buckets it could not price, whether a
+    long-lifetime cache-write rate was substituted, and the buckets whose
+    rate the reference labels an estimate rather than a published figure."""
     total = 0.0
     missing: list[str] = []
+    estimated: list[str] = []
     approximated = False
     counted = False
+    labelled = _estimated_fields(prices)
     for bucket in USAGE_BUCKETS:
         tokens = getattr(entry, bucket)
         if tokens <= 0:
             continue
-        rate = _rate(prices, BUCKET_PRICE_FIELDS[bucket])
+        field = BUCKET_PRICE_FIELDS[bucket]
+        rate = _rate(prices, field)
         if rate is None and bucket == "cache_write_long":
-            rate = _rate(prices, BUCKET_PRICE_FIELDS[LONG_CACHE_WRITE_FALLBACK])
+            field = BUCKET_PRICE_FIELDS[LONG_CACHE_WRITE_FALLBACK]
+            rate = _rate(prices, field)
             approximated = rate is not None
         if rate is None:
             missing.append(bucket)
             continue
+        if field in labelled:
+            estimated.append(bucket)
         total += tokens * rate / TOKENS_PER_PRICE_UNIT
         counted = True
-    return (total if counted else None), missing, approximated
+    return (total if counted else None), missing, approximated, estimated
+
+
+def _estimated_fields(prices: object) -> frozenset[str]:
+    """Name the price fields the reference labels estimates, if any."""
+    value = getattr(prices, "estimated_fields", ())
+    if isinstance(value, str) or not isinstance(value, (tuple, list, frozenset, set)):
+        return frozenset()
+    return frozenset(str(item) for item in value)
 
 
 def _rate(prices: object, field: str) -> Optional[float]:

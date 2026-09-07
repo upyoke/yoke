@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+import pytest
+
 from yoke_contracts.session_usage_cost import (
     COST_COMPLETE,
     COST_PARTIAL,
@@ -206,3 +208,26 @@ def test_the_note_explains_an_absent_estimate_rather_than_going_quiet() -> None:
     note = usage_title(usage, session_cost(usage, lambda _model: None))
 
     assert "no cost estimate" in note
+
+
+def test_a_labelled_estimated_rate_is_named_rather_than_shown_as_published() -> None:
+    @dataclass(frozen=True)
+    class _EstimatedPrice(_Price):
+        estimated_fields: tuple = ("cache_write_per_million_usd",)
+        estimate_basis: str = "1.25x input, the published multiple on this list"
+
+    usage = _usage(input=1_000_000, cache_write=1_000_000)
+    cost = session_cost(usage, lambda _model: _EstimatedPrice())
+
+    assert cost.usd == pytest.approx(11.25)
+    assert cost.status == COST_PARTIAL
+    assert "cache_write for claude-opus-5 priced at a labelled estimate" in cost.reason
+    assert "input" not in cost.reason.replace("cached_input", "")
+
+
+def test_published_rates_alone_stay_a_complete_cost() -> None:
+    usage = _usage(input=1_000_000, cache_write=1_000_000)
+    cost = session_cost(usage, _priced)
+
+    assert cost.status == COST_COMPLETE
+    assert cost.reason == ""
