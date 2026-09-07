@@ -57,6 +57,43 @@ Two invariants follow from that failure and are enforced by the observer:
   a reader that cannot answer says why.
 
 The fallback is scoped to the version *observation* readers use at
-registration. The relay inventory that advertises which surfaces a machine can
-wake still answers from age-bounded cache entries and live probes, so a stale
-version never advertises a capability the machine cannot currently perform.
+registration; the relay inventory that advertises which surfaces a machine
+can wake answers from the same shared cache, at any age, for a related but
+distinct reason below.
+
+## Why the heartbeat's inventory keeps naming a surface past its freshness window
+
+The relay's cache-backed heartbeat (`collect_cached_inventory`) does not
+itself probe — it publishes whatever the background probe cycle last
+recorded, on a schedule independent of the heartbeat. Reading that record
+through the same age bound the fresh-observation path uses (previously
+`cached_surface_versions`) meant a heartbeat sent in the gap between "a
+machine wakes from sleep" and "the next scheduled probe runs" published an
+empty `surfaces` map for every surface whose reading had merely gone stale.
+The Machines panel read that emptiness as `surface_absent` — a confirmed
+"not installed on this machine" claim the relay had no evidence for.
+
+`collect_cached_inventory` now reads through
+`session_relay_surface_identity.cached_surface_state`, which returns two
+facts kept deliberately apart:
+
+- **Last-known identity, at any age.** A surface this machine has ever
+  reported a version for keeps naming that version in `surfaces` regardless
+  of how long ago the reading was taken. This is the fact that changed: it
+  used to be age-bounded like the registration-time observation above, and
+  now it is not.
+- **Confirmed absence**, named separately, only when the most recent probe
+  actively found the executable missing (`verdict == "missing"`, e.g. a
+  `FileNotFoundError`). A confirmed removal overrides the last-known version
+  rather than being masked by it, so an operator uninstalling a CLI still
+  sees it reported as removed.
+
+A surface whose probes are failing for some other reason (a timeout, an
+auth error) is neither of these: it keeps its last-known version until
+either a live probe succeeds again or one actively confirms it gone. That is
+a narrower version of the risk the invariant above exists to prevent — a
+stale version could in principle outlive a silent, non-removal failure for
+as long as the background probe cycle takes to notice — traded deliberately
+against the alternative already observed in production: a machine that
+merely slept through one freshness window reporting six installed harnesses
+as uninstalled.

@@ -222,6 +222,7 @@ def create_session_control_tables(conn: Any) -> None:
             hostname TEXT NOT NULL,
             relay_version TEXT,
             surface_versions TEXT NOT NULL,
+            surface_confirmed_absent TEXT,
             project_checkouts TEXT NOT NULL,
             first_seen_at TEXT NOT NULL,
             last_seen_at TEXT NOT NULL,

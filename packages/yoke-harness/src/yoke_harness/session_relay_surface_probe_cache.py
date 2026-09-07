@@ -100,7 +100,7 @@ def update_surface_probe_cache(
     return document
 
 
-def _last_good_version(entry: Mapping[str, object]) -> str | None:
+def last_good_version(entry: Mapping[str, object]) -> str | None:
     """Return the newest version this surface ever reported, at any age."""
     version = entry.get("last_good_version")
     return version if isinstance(version, str) and version.strip() else None
@@ -109,7 +109,7 @@ def _last_good_version(entry: Mapping[str, object]) -> str | None:
 def _last_good(
     entry: Mapping[str, object], now: float
 ) -> tuple[str | None, int | None]:
-    version = _last_good_version(entry)
+    version = last_good_version(entry)
     try:
         age = max(0, round(now - float(entry.get("last_good_at"))))
     except (TypeError, ValueError):
@@ -117,6 +117,11 @@ def _last_good(
     if version is None:
         return None, age
     return (version if age <= SURFACE_VERSION_MAX_AGE_SECONDS else None), age
+
+
+def cache_entries(state_dir: Path | None = None) -> Mapping[str, Mapping[str, object]]:
+    """Return each surface's raw cache entry, for callers building richer facts."""
+    return _read_cache(state_dir)["surfaces"]
 
 
 def cached_surface_versions(
@@ -202,7 +207,7 @@ def _cache_fallback_version(
         return None, f"shared probe cache was unreadable: {type(exc).__name__}: {exc}"
     if not isinstance(entry, Mapping):
         return None, f"shared probe cache holds no entry for surface {surface!r}"
-    version = _last_good_version(entry)
+    version = last_good_version(entry)
     if version is None:
         return None, f"surface {surface!r} has never reported a version"
     return version, None
@@ -318,7 +323,9 @@ __all__ = [
     "SURFACE_VERSION_PROBE_BUDGET_SECONDS",
     "SurfaceVersionObservation",
     "bounded_surface_probe",
+    "cache_entries",
     "cached_surface_versions",
+    "last_good_version",
     "observe_surface_version",
     "observed_surface_version",
     "refresh_surface_probe_cache",

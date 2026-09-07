@@ -39,6 +39,13 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
         raise SessionRelayError(
             "surface_invalid", f"unknown relay surfaces: {', '.join(unknown)}"
         )
+    unknown_absent = sorted(
+        set(heartbeat.surface_confirmed_absent) - set(KNOWN_SURFACE_LABELS)
+    )
+    if unknown_absent:
+        raise SessionRelayError(
+            "surface_invalid", f"unknown relay surfaces: {', '.join(unknown_absent)}"
+        )
     relay_version = str(heartbeat.relay_version).strip()
     if not relay_version or len(relay_version) > 128:
         raise SessionRelayError(
@@ -69,6 +76,7 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
             surface: str(heartbeat.surface_versions[surface]).strip()
             for surface in sorted(heartbeat.surface_versions)
         },
+        surface_confirmed_absent=tuple(sorted(set(heartbeat.surface_confirmed_absent))),
         project_ids=project_ids,
         surface_plan_limits=sanitize_plan_limits(heartbeat.surface_plan_limits),
         preferred_session_models=advertised_session_models(

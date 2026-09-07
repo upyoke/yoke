@@ -121,6 +121,7 @@ test("a machine card draws capacity and every launchable surface pool", () => {
     plan_limits: {
       "codex-cli": {
         plan_tier: "pro",
+        observed_at: new Date().toISOString(),
         windows: [
           windowReading({
             resets_at: new Date(Date.now() + 2.5 * 60 * 60 * 1000).toISOString(),
@@ -178,6 +179,7 @@ test("a surface table carries HEADROOM and QUOTA columns and a pivot per bar", (
     plan_limits: {
       "claude-cli": {
         plan_tier: "max",
+        observed_at: new Date().toISOString(),
         windows: [
           windowReading({
             remaining_percent: 75,
@@ -238,6 +240,7 @@ test("an exhausted pool draws the wall, and an unreadable one says so", () => {
     plan_limits: {
       "cursor-cli": {
         plan_tier: "Ultra",
+        observed_at: new Date().toISOString(),
         windows: [
           windowReading({
             window_kind: "monthly",

@@ -8,11 +8,19 @@ from yoke_core.domain.session_relay_read import list_visible_relays
 from runtime.api.domain.test_session_message_support import message_connection
 
 
-def _relay(conn, relay_id: str, actor_id: int, hostname: str) -> None:
+def _relay(
+    conn,
+    relay_id: str,
+    actor_id: int,
+    hostname: str,
+    *,
+    confirmed_absent: list[str] | None = None,
+) -> None:
     conn.execute(
         "INSERT INTO session_relays (relay_id,actor_id,machine_id,hostname,"
         "relay_version,surface_versions,project_checkouts,first_seen_at,"
-        "last_seen_at,connected_until,state) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "last_seen_at,connected_until,state,surface_confirmed_absent) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             relay_id,
             actor_id,
@@ -25,6 +33,7 @@ def _relay(conn, relay_id: str, actor_id: int, hostname: str) -> None:
             "2026-08-22T12:01:00Z",
             "2026-08-22T12:03:00Z",
             "active",
+            json.dumps(confirmed_absent) if confirmed_absent is not None else None,
         ),
     )
     conn.commit()
@@ -72,3 +81,22 @@ def test_owner_resolution_is_one_lookup_per_owner_not_one_per_relay() -> None:
     assert len(relays) == 6
     assert {relay["owner"] for relay in relays} == {"Ada"}
     assert sum("actor_labels" in sql for sql in executed) == 1
+
+
+def test_confirmed_absent_surfaces_reach_the_roster_distinct_from_versions() -> None:
+    conn = message_connection()
+    _relay(conn, "machine:ada", 10, "ada-studio", confirmed_absent=["claude-cli"])
+
+    relays = list_visible_relays(conn, actor_id=10, now="2026-08-22T12:02:00Z")
+
+    assert relays[0]["surface_confirmed_absent"] == ["claude-cli"]
+    assert "claude-cli" not in relays[0]["surface_versions"]
+
+
+def test_confirmed_absent_defaults_to_empty_when_the_column_is_unset() -> None:
+    conn = message_connection()
+    _relay(conn, "machine:ada", 10, "ada-studio")
+
+    relays = list_visible_relays(conn, actor_id=10, now="2026-08-22T12:02:00Z")
+
+    assert relays[0]["surface_confirmed_absent"] == []
