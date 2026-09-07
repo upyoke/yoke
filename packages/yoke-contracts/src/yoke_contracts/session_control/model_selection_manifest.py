@@ -26,8 +26,8 @@ _ENCODING = {
     },
     "cursor-cli": {
         "model": "--model MODEL",
-        "reasoning_effort": "--model 'MODEL[effort=EFFORT]'",
-        "context_window_tokens": "--model 'MODEL[context=1m]'",
+        "reasoning_effort": "--model ADVERTISED_VARIANT (effort encoded once)",
+        "context_window_tokens": "--model ADVERTISED_VARIANT (native label must name window)",
     },
 }
 

@@ -156,6 +156,14 @@ context windows, and the native encoding for each knob. An encoding of `null`
 means the surface cannot express that knob; preview refuses it instead of
 dropping it.
 
+Cursor's context windows are model-specific, so its surface-wide list is
+empty. Its encoding names the advertised native variant: preview resolves
+effort to a published selector and requires the exact variant's native label
+to name any requested window. A repeated matching effort is encoded once;
+conflicting efforts and unadvertised combinations refuse before spawning.
+Native display labels establish selectable options, never served-session
+context attestation. Missing context remains unknown.
+
 It names no model tokens. Which models a surface can select is a per-machine
 observation rather than a build-time fact, so `model_discovery` names the route
 each surface is listed through — `cursor-agent --list-models`, `codex

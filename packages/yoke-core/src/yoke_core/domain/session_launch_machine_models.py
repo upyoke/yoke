@@ -26,6 +26,9 @@ from yoke_contracts.session_control.model_selection import (
     LaunchModelSelectionError,
 )
 from yoke_contracts.session_control.native_models import sanitize_native_models
+from yoke_contracts.session_control.observed_model_selection import (
+    resolve_observed_model_selection,
+)
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.session_relay_types import (
@@ -161,6 +164,13 @@ def resolve_machine_selection(
             surface,
             payload=payload,
         )
+        selected = resolved.selection()
+        if machine_id:
+            selected = resolve_observed_model_selection(
+                surface,
+                selected,
+                machine_native_models(conn, machine_id=machine_id).get(surface),
+            )
     except LaunchModelSelectionError as exc:
         raise SessionLaunchError(exc.code, str(exc)) from exc
     sources = {
@@ -172,9 +182,9 @@ def resolve_machine_selection(
         for field, source in resolved.sources.items()
     }
     return ResolvedMachineSelection(
-        model=resolved.model,
-        reasoning_effort=resolved.reasoning_effort,
-        context_window_tokens=resolved.context_window_tokens,
+        model=selected.model,
+        reasoning_effort=selected.reasoning_effort,
+        context_window_tokens=selected.context_window_tokens,
         sources=sources,
     )
 

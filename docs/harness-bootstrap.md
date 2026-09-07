@@ -171,7 +171,7 @@ When a harness connects to Yoke, Yoke needs to know certain facts about the sess
 
 A managed launch persists typed model, reasoning-effort, and context-window requests separately from provider-attested served identity; registration stamps missing requested values, while UI and fleet views label requests and show both values when they differ.
 
-Adapter encoding is manifest-declared: Claude uses `--model`, `--effort`, and a `[1m]` model selector; Codex uses `--model` and `-c model_reasoning_effort=...` without context selection; Cursor uses its bracketed model selector with `effort=...` and `context=1m` parameters.
+Adapter encoding is manifest-declared: Claude uses `--model`, `--effort`, and a `[1m]` model selector; Codex uses `--model` and `-c model_reasoning_effort=...` without context selection. Cursor passes the advertised native model selector unchanged. Preview resolves effort to an observed variant, rejects conflicting effort, and accepts an explicit context window only when that exact variant's native label names it. Native labels describe selectable options; they never attest a running session's context window.
 
 Preview validates every knob and reports a harness-specific refusal. Cursor discovers models through `cursor-agent --list-models`; Claude and Codex expose documented identifiers. Runtime rejections become `model_combo_unsupported` with bounded safe detail and never trigger silent fallback.
 

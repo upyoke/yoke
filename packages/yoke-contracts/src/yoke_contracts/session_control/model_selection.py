@@ -13,7 +13,10 @@ from dataclasses import dataclass
 import re
 from typing import Literal, Mapping, Sequence
 
-from yoke_contracts.session_control.native_model_parsers import CURSOR_EFFORT_LEVELS
+from yoke_contracts.session_control.native_model_parsers import (
+    CURSOR_EFFORT_LEVELS,
+    cursor_token_effort,
+)
 from yoke_contracts.session_model_facts import (
     CLAUDE_CONTEXT_TIER_SUFFIX,
     CLAUDE_CONTEXT_TIER_TOKENS,
@@ -40,7 +43,7 @@ SURFACE_EFFORT_LEVELS: Mapping[str, tuple[str, ...]] = {
 SURFACE_CONTEXT_WINDOWS: Mapping[str, tuple[int, ...]] = {
     "claude-cli": (CLAUDE_CONTEXT_TIER_TOKENS,),
     "codex-cli": (),
-    "cursor-cli": (CLAUDE_CONTEXT_TIER_TOKENS,),
+    "cursor-cli": (),  # Context is model-specific native availability, not a flag.
 }
 ResumeSelectionMode = Literal["native", "explicit"]
 RESUME_SELECTION_MODES: Mapping[str, ResumeSelectionMode] = {
@@ -112,7 +115,8 @@ def validate_launch_model_selection(
     if model and (_MODEL_TOKEN.fullmatch(model) is None or len(model) > 160):
         raise LaunchModelSelectionError(
             f"{prefix}_model_invalid",
-            f"{surface} model must be one bounded CLI model token",
+            f"{surface} model must be one bounded CLI model token; use an exact "
+            "native model listing selector and pass supported knobs separately",
         )
     levels = SURFACE_EFFORT_LEVELS.get(surface, ())
     if effort and effort not in levels:
@@ -122,11 +126,12 @@ def validate_launch_model_selection(
             f"accepted: {', '.join(levels) or 'none'}",
         )
     windows = SURFACE_CONTEXT_WINDOWS.get(surface, ())
-    if context is not None and context not in windows:
+    if context is not None and surface != "cursor-cli" and context not in windows:
         raise LaunchModelSelectionError(
             f"{prefix}_context_window_unsupported",
             f"{surface} does not accept a {context}-token context window; "
-            f"accepted: {', '.join(str(item) for item in windows) or 'none'}",
+            f"accepted: {', '.join(str(item) for item in windows) or 'none'}; "
+            "omit --context-window or choose a supported window",
         )
     if surface in {"claude-cli", "cursor-cli"} and context and not model:
         raise LaunchModelSelectionError(
@@ -138,10 +143,18 @@ def validate_launch_model_selection(
             "cursor_model_required_for_reasoning_effort",
             "cursor-cli needs --model to express --reasoning-effort",
         )
+    if surface == "cursor-cli" and model and effort:
+        encoded = cursor_token_effort(model)
+        if encoded and encoded != effort:
+            raise LaunchModelSelectionError(
+                "cursor_reasoning_effort_conflict",
+                f"cursor-cli selector {model!r} encodes {encoded!r}, which "
+                f"conflicts with {effort!r}; omit --reasoning-effort or choose "
+                "the published selector for the intended effort",
+            )
     if accepted_models is not None and model:
         exact = set(accepted_models)
-        base_is_published = any(item.startswith(f"{model}-") for item in exact)
-        if model not in exact and not base_is_published:
+        if model not in exact:
             raise LaunchModelSelectionError(
                 f"{prefix}_model_unsupported",
                 f"{surface} did not publish model {model!r}; refresh this "
@@ -159,15 +172,11 @@ def native_model_selector(surface: str, selection: LaunchModelSelection) -> str 
         return None
     if surface == "claude-cli" and selected.context_window_tokens:
         return f"{selected.model}{CLAUDE_CONTEXT_TIER_SUFFIX}"
-    if surface == "cursor-cli" and (
-        selected.reasoning_effort or selected.context_window_tokens
-    ):
-        parameters: list[str] = []
-        if selected.context_window_tokens:
-            parameters.append("context=1m")
-        if selected.reasoning_effort:
-            parameters.append(f"effort={selected.reasoning_effort}")
-        return f"{selected.model}[{','.join(parameters)}]"
+    if surface == "cursor-cli" and selected.reasoning_effort:
+        if not cursor_token_effort(selected.model):
+            base = selected.model.removesuffix("-fast")
+            speed = "-fast" if selected.model.endswith("-fast") else ""
+            return f"{base}-{selected.reasoning_effort}{speed}"
     return selected.model
 
 
