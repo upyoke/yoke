@@ -227,30 +227,9 @@ def claim_heartbeat_is_stale(
     return activity_is_stale(value, executor=None)
 
 
-def stranded_advisory_already_recorded(
-    conn: Any,
-    *,
-    session_id: str,
-    item_id: int,
-) -> bool:
-    """True when this session+item already has a stranded-lane advisory."""
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    try:
-        row = conn.execute(
-            "SELECT 1 FROM events "
-            f"WHERE event_name = {marker} AND session_id = {marker} "
-            f"AND item_id = {marker} LIMIT 1",
-            ("LaneMainWriteStrandedLane", session_id, str(int(item_id))),
-        ).fetchone()
-    except db_backend.operational_error_types(conn):
-        return False
-    return row is not None
-
-
 __all__ = [
     "claim_heartbeat_is_stale",
     "emit_denied",
     "emit_escape_used",
     "emit_stranded_lane_advisory",
-    "stranded_advisory_already_recorded",
 ]
