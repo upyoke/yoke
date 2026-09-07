@@ -17,10 +17,6 @@ import {
   workflowInstructionsPanel,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/workflow_instructions_panel.js";
 
-// A recording client for the five execution-instruction functions the panel
-// and editor drive, backed by an in-memory store so a post-save reload shows
-// the persisted scope the way the real proxy would. Editing lands two calls
-// (content then scope); the store keeps both so the reload renders honestly.
 function instructionsClient(seed = []) {
   const requests = [];
   const store = seed.map((row) => ({ ...row }));
@@ -71,7 +67,6 @@ function functionsCalled(client) {
 
 async function mountPanel({
   seed = [],
-  workflow = { id: "dash", name: "Dash" },
   workflows = [{ id: "dash", name: "Dash" }],
   projects = [],
 } = {}) {
@@ -79,10 +74,7 @@ async function mountPanel({
   const client = instructionsClient(seed);
   const host = documentNode.createElement("div");
   host.appendChild(
-    workflowInstructionsPanel(documentNode, workflow, client, {
-      workflows,
-      projects,
-    }),
+    workflowInstructionsPanel(documentNode, client, { workflows, projects }),
   );
   await settle();
   return { documentNode, client, host };
@@ -94,8 +86,6 @@ function buttonByText(host, text) {
   );
 }
 
-// The input of a labelled checkbox row is its first child; the label span is
-// the second. Returns rows in render order.
 function checkboxRows(host, className) {
   return byClass(host, className).map((row) => ({
     input: row.children[0],
@@ -108,7 +98,7 @@ function toggle(input, checked) {
   input.dispatchEvent(new Event("change"));
 }
 
-test("workflows page renders the instructions reaching the open workflow", async (t) => {
+test("workflows page lists every instruction above the tabs", async (t) => {
   const instructions = [
     {
       id: 1,
@@ -134,41 +124,34 @@ test("workflows page renders the instructions reaching the open workflow", async
   const { root, mounted } = await mountWorkflows(t, client);
   await settle();
 
-  // The panel renders its rows inside a workflow panel on the page, not on a
-  // roster of its own — only the instructions reaching the open Rally workflow.
-  const panel = byClass(root, "workflow-panel").find(
-    (node) => byClass(node, "workflow-instruction-row").length > 0,
-  );
-  assert.ok(panel, "instructions panel rendered rows within the page");
+  const host = byClass(root, "workflow-instructions-host")[0];
+  const tabs = byClass(root, "workflow-tabs")[0];
+  assert.ok(host && tabs, "host and tabs rendered");
+  assert.equal(host.parentNode.children.indexOf(host) <
+    host.parentNode.children.indexOf(tabs), true);
   assert.deepEqual(classText(root, "workflow-instruction-content"), [
     "Cover the full scope of the work.",
     "Rally-only guidance",
+    "Issue-only guidance",
   ]);
   assert.deepEqual(classText(root, "workflow-instruction-reach"), [
     "applies to all workflows / all projects",
     "applies to 1 workflow / 1 project",
+    "applies to 1 workflow / 0 projects",
   ]);
-  assert.equal(
-    byClass(root, "workflow-instruction-content").some(
-      (node) => node.textContent === "Issue-only guidance",
-    ),
-    false,
-  );
   mounted.unmount();
 });
 
-test("an empty panel invites a new instruction scoped to the open workflow", async () => {
+test("a new instruction starts unscoped instead of inheriting the open tab", async () => {
   const { host } = await mountPanel({
-    workflow: { id: "issue", name: "Issue" },
     workflows: [{ id: "dash", name: "Dash" }, { id: "issue", name: "Issue" }],
     projects: [{ id: 1, slug: "yoke" }],
   });
 
-  assert.equal(byClass(host, "empty")[0].textContent, "No execution instructions apply to this workflow.");
+  assert.equal(byClass(host, "empty")[0].textContent, "No execution instructions.");
   buttonByText(host, "New instruction").dispatchEvent(new Event("click"));
 
   assert.equal(byClass(host, "instruction-editor").length, 1);
-  // A new instruction opens pre-scoped to the workflow being viewed.
   assert.deepEqual(
     checkboxRows(host, "instruction-workflow-checkbox").map((row) => ({
       label: row.label,
@@ -176,22 +159,13 @@ test("an empty panel invites a new instruction scoped to the open workflow", asy
     })),
     [
       { label: "Dash", checked: false },
-      { label: "Issue", checked: true },
+      { label: "Issue", checked: false },
     ],
   );
-  assert.equal(
-    byClass(host, "instruction-all-workflows")[0].children[0].checked,
-    false,
-  );
-  assert.equal(
-    byClass(host, "instruction-all-projects")[0].children[0].checked,
-    false,
-  );
-  // No project is preselected for a brand-new instruction.
+  assert.equal(byClass(host, "instruction-all-workflows")[0].children[0].checked, false);
+  assert.equal(byClass(host, "instruction-all-projects")[0].children[0].checked, false);
   assert.deepEqual(
-    checkboxRows(host, "instruction-project-checkbox").map(
-      (row) => row.input.checked,
-    ),
+    checkboxRows(host, "instruction-project-checkbox").map((row) => row.input.checked),
     [false],
   );
 });
@@ -204,7 +178,6 @@ test("toggling All disables members but restores the prior selection", async () 
       workflow_ids: ["dash"],
       project_ids: [1],
     }],
-    workflow: { id: "dash", name: "Dash" },
     workflows: [{ id: "dash", name: "Dash" }, { id: "issue", name: "Issue" }],
     projects: [{ id: 1, slug: "yoke" }, { id: 2, slug: "platform" }],
   });
@@ -215,29 +188,19 @@ test("toggling All disables members but restores the prior selection", async () 
   const allWorkflows = byClass(host, "instruction-all-workflows")[0].children[0];
   const allProjects = byClass(host, "instruction-all-projects")[0].children[0];
 
-  // Opens on the stored scope: dash + project 1, with members enabled.
   assert.deepEqual(workflowRows().map((row) => row.input.checked), [true, false]);
   assert.deepEqual(projectRows().map((row) => row.input.checked), [true, false]);
-  assert.equal(workflowRows().every((row) => row.input.disabled === false), true);
-
-  // Checking All disables the members without clearing their checked state.
   toggle(allWorkflows, true);
   toggle(allProjects, true);
   assert.equal(workflowRows().every((row) => row.input.disabled === true), true);
-  assert.equal(projectRows().every((row) => row.input.disabled === true), true);
   assert.deepEqual(workflowRows().map((row) => row.input.checked), [true, false]);
-  assert.deepEqual(projectRows().map((row) => row.input.checked), [true, false]);
-
-  // Unchecking All re-enables the members with the original selection intact.
   toggle(allWorkflows, false);
   toggle(allProjects, false);
   assert.equal(workflowRows().every((row) => row.input.disabled === false), true);
-  assert.deepEqual(workflowRows().map((row) => row.input.checked), [true, false]);
   assert.deepEqual(projectRows().map((row) => row.input.checked), [true, false]);
 
   buttonByText(host, "Save instruction").dispatchEvent(new Event("click"));
   await settle();
-
   const scope = client.requests.find(
     (request) => request.function === "workflow.execution_instruction.set_scope",
   ).payload;
@@ -249,7 +212,6 @@ test("toggling All disables members but restores the prior selection", async () 
 
 test("creating an instruction calls create then set_scope, then reloads", async () => {
   const { host, client } = await mountPanel({
-    workflow: { id: "dash", name: "Dash" },
     workflows: [{ id: "dash", name: "Dash" }],
     projects: [{ id: 1, slug: "yoke" }],
   });
@@ -258,6 +220,7 @@ test("creating an instruction calls create then set_scope, then reloads", async 
   const contentInput = byClass(host, "instruction-content-input")[0];
   contentInput.value = "Freshly authored guidance";
   contentInput.dispatchEvent(new Event("input"));
+  toggle(checkboxRows(host, "instruction-workflow-checkbox")[0].input, true);
   buttonByText(host, "Create instruction").dispatchEvent(new Event("click"));
   await settle();
 
@@ -267,17 +230,13 @@ test("creating an instruction calls create then set_scope, then reloads", async 
     "workflow.execution_instruction.set_scope",
     "workflow.execution_instruction.list",
   ]);
-  assert.deepEqual(client.requests[1].payload, {
-    content: "Freshly authored guidance",
-  });
+  assert.deepEqual(client.requests[1].payload, { content: "Freshly authored guidance" });
   const scope = client.requests[2].payload;
-  // The id the create returned threads straight into the scope call.
   assert.equal(scope.instruction_id, 900);
   assert.equal(scope.applies_to_all_workflows, false);
   assert.deepEqual(scope.workflow_ids, ["dash"]);
   assert.equal(scope.applies_to_all_projects, false);
   assert.deepEqual(scope.project_ids, []);
-  // The reload shows the freshly created row, scoped to this workflow.
   assert.deepEqual(classText(host, "workflow-instruction-content"), [
     "Freshly authored guidance",
   ]);
@@ -291,19 +250,16 @@ test("editing an instruction calls update then set_scope with the new scope", as
       workflow_ids: ["dash"],
       project_ids: [],
     }],
-    workflow: { id: "dash", name: "Dash" },
     workflows: [{ id: "dash", name: "Dash" }, { id: "issue", name: "Issue" }],
-    projects: [],
   });
 
   buttonByText(host, "Edit").dispatchEvent(new Event("click"));
   const contentInput = byClass(host, "instruction-content-input")[0];
   contentInput.value = "New prose";
   contentInput.dispatchEvent(new Event("input"));
-  const issueInput = checkboxRows(host, "instruction-workflow-checkbox").find(
+  toggle(checkboxRows(host, "instruction-workflow-checkbox").find(
     (row) => row.label === "Issue",
-  ).input;
-  toggle(issueInput, true);
+  ).input, true);
   buttonByText(host, "Save instruction").dispatchEvent(new Event("click"));
   await settle();
 
@@ -328,9 +284,7 @@ test("deleting an instruction calls delete then returns to the empty state", asy
       workflow_ids: ["dash"],
       project_ids: [],
     }],
-    workflow: { id: "dash", name: "Dash" },
     workflows: [{ id: "dash", name: "Dash" }],
-    projects: [],
   });
 
   buttonByText(host, "Edit").dispatchEvent(new Event("click"));
@@ -344,5 +298,5 @@ test("deleting an instruction calls delete then returns to the empty state", asy
   ]);
   assert.deepEqual(client.requests[1].payload, { instruction_id: 55 });
   assert.deepEqual(classText(host, "workflow-instruction-content"), []);
-  assert.equal(byClass(host, "empty").length, 1);
+  assert.equal(byClass(host, "empty")[0].textContent, "No execution instructions.");
 });

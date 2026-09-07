@@ -55,6 +55,12 @@ export function openExecutionInstructionEditor({
   ));
 
   body.appendChild(fieldLabel(documentNode, "Workflows"));
+  if (!existing) {
+    body.appendChild(el(
+      documentNode, "p", "workflow-field-help",
+      "Choose the workflows this applies to. The selected tab is not assigned automatically.",
+    ));
+  }
   const workflowGroup = el(
     documentNode, "div", "instruction-checkbox-group instruction-workflows",
   );

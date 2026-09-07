@@ -50,8 +50,9 @@ test("the four workflow tabs and lifecycle shapes follow the prototype", async (
     assert.deepEqual(
       panelTitles(root),
       [
+        "Execution instructions",
         "Stages", "Execution posture", "Mechanics",
-        "Execution instructions", "Version history",
+        "Version history",
       ],
     );
   }
@@ -298,6 +299,7 @@ test("a non-entry stage with no gate explains that nothing is checked", async (t
 test("empty registry and empty version history keep explicit product states", async (t) => {
   const empty = await mountWorkflows(t, workflowsClient([]));
   assert.deepEqual(classText(empty.root, "empty"), [
+    "No execution instructions.",
     "No workflows declared.",
   ]);
   empty.mounted.unmount();
@@ -308,7 +310,7 @@ test("empty registry and empty version history keep explicit product states", as
     t, workflowsClient([noVersions]),
   );
   assert.deepEqual(classText(mounted.root, "empty"), [
-    "No execution instructions apply to this workflow.",
+    "No execution instructions.",
     "No published versions.",
   ]);
   mounted.mounted.unmount();
@@ -330,8 +332,9 @@ test("a rejected secondary mechanics read leaves the registry readable", async (
   assert.deepEqual(
     panelTitles(root),
     [
+      "Execution instructions",
       "Stages", "Execution posture", "Mechanics",
-      "Execution instructions", "Version history",
+      "Version history",
     ],
   );
   assert.equal(

@@ -6,7 +6,11 @@ function countNoun(count, noun) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-/** How far beyond this workflow an instruction reaches. */
+function roster(value) {
+  return typeof value === "function" ? value() : (value || []);
+}
+
+/** How far an instruction reaches, independent of the tab in view. */
 export function instructionReachHint(instruction) {
   const workflowsPart = instruction.applies_to_all_workflows
     ? "all workflows"
@@ -17,16 +21,27 @@ export function instructionReachHint(instruction) {
   return `applies to ${workflowsPart} / ${projectsPart}`;
 }
 
-/** Whether *instruction* is one an item on this workflow would receive. */
+/** Whether *instruction* would reach an item on this workflow. */
 export function instructionReaches(instruction, workflowId) {
+  if (workflowId == null || workflowId === "") return true;
   return Boolean(instruction.applies_to_all_workflows) ||
     (instruction.workflow_ids || []).includes(workflowId);
 }
 
-function firstLine(content) {
+function instructionReachesProject(instruction, projectId) {
+  if (projectId == null || projectId === "") return true;
+  return Boolean(instruction.applies_to_all_projects) ||
+    (instruction.project_ids || []).map(Number).includes(Number(projectId));
+}
+
+function previewText(content) {
   const text = String(content || "").trim();
   const line = text.split("\n", 1)[0];
   return line.length > 90 ? `${line.slice(0, 89)}…` : line;
+}
+
+function bodyNeedsExpand(content) {
+  return String(content || "").trim() !== previewText(content);
 }
 
 async function call(client, functionId, payload) {
@@ -67,21 +82,37 @@ async function persist(client, instruction, draft) {
   });
 }
 
+function addFilter(documentNode, host, className, label, value, options, apply) {
+  const select = el(documentNode, "select", className);
+  select.setAttribute("aria-label", label);
+  for (const option of options) {
+    const node = el(documentNode, "option", null, option.label);
+    node.value = option.value;
+    if (option.value === value) node.selected = true;
+    select.appendChild(node);
+  }
+  select.value = value;
+  select.addEventListener("change", () => apply(select.value));
+  host.appendChild(select);
+}
+
 /**
- * The operator-authored instructions that reach this workflow, edited here.
+ * Page-level roster of operator-authored instructions.
  *
- * Editing lives next to the workflow the instruction acts on rather than on a
- * roster of its own: the scope that decides whether an instruction applies is
- * the same thing the reader came here to understand, so splitting them put the
- * question and the answer on different screens.
+ * Scope lives on each instruction. The selected workflow tab does not own
+ * this list, hide rows, or assign scope to a newly created instruction.
  */
-export function workflowInstructionsPanel(
-  documentNode, workflow, client, context = {},
-) {
+export function workflowInstructionsPanel(documentNode, client, context = {}) {
   const { panel, body } = workflowPanel(
     documentNode, "Execution instructions",
   );
   body.textContent = "loading…";
+  const expandedIds = new Set();
+  let workflowFilter = "";
+  let projectFilter = "";
+  let listed = [];
+  const workflows = () => roster(context.workflows);
+  const projects = () => roster(context.projects);
 
   const reload = () => {
     body.textContent = "loading…";
@@ -92,7 +123,7 @@ export function workflowInstructionsPanel(
           renderError(body, callResult);
           return;
         }
-        render((callResult.envelope.result || {}).instructions || []);
+        paint((callResult.envelope.result || {}).instructions || []);
       })
       .catch((failure) => {
         body.replaceChildren();
@@ -112,8 +143,8 @@ export function workflowInstructionsPanel(
       documentNode,
       host,
       instruction,
-      workflows: context.workflows || [workflow],
-      projects: context.projects || [],
+      workflows: workflows(),
+      projects: projects(),
       save: async (draft) => {
         await persist(client, instruction, draft);
         reload();
@@ -128,45 +159,105 @@ export function workflowInstructionsPanel(
     });
   };
 
-  const render = (instructions) => {
-    const reaching = instructions.filter(
-      (instruction) => instructionReaches(instruction, workflow.id),
+  const paint = (instructions) => {
+    listed = instructions;
+    body.replaceChildren();
+    const filters = el(documentNode, "div", "workflow-instruction-filters");
+    addFilter(
+      documentNode, filters, "workflow-instruction-workflow-filter",
+      "Filter by workflow", workflowFilter,
+      [
+        { value: "", label: "All workflows" },
+        ...workflows().map((row) => ({
+          value: row.id, label: row.name || row.id,
+        })),
+      ],
+      (value) => { workflowFilter = value; paint(listed); },
     );
+    addFilter(
+      documentNode, filters, "workflow-instruction-project-filter",
+      "Filter by project", projectFilter,
+      [
+        { value: "", label: "All projects" },
+        ...projects().map((row) => ({
+          value: String(row.id),
+          label: row.slug || row.name || String(row.id),
+        })),
+      ],
+      (value) => { projectFilter = value; paint(listed); },
+    );
+    body.appendChild(filters);
+
+    const reaching = instructions.filter(
+      (row) => instructionReaches(row, workflowFilter) &&
+        instructionReachesProject(row, projectFilter),
+    );
+    const list = el(documentNode, "div", "workflow-instructions-list");
     if (!reaching.length) {
-      body.appendChild(el(
+      list.appendChild(el(
         documentNode, "p", "empty",
-        "No execution instructions apply to this workflow.",
+        instructions.length
+          ? "No execution instructions match this filter."
+          : "No execution instructions.",
       ));
     }
-    for (const instruction of reaching) {
-      const row = el(documentNode, "div", "workflow-instruction-row");
-      const summary = el(documentNode, "div", "workflow-instruction-summary");
-      summary.appendChild(el(
-        documentNode, "div", "workflow-instruction-content",
-        firstLine(instruction.content),
-      ));
-      summary.appendChild(el(
-        documentNode, "span", "workflow-instruction-reach",
-        instructionReachHint(instruction),
-      ));
-      row.appendChild(summary);
-      const editButton = button(
-        documentNode, "Edit", "workflow-button compact",
-      );
-      editButton.addEventListener("click", () => edit(instruction));
-      row.appendChild(editButton);
-      body.appendChild(row);
-    }
+    for (const instruction of reaching) list.appendChild(renderRow(instruction));
+    body.appendChild(list);
     const add = button(
-      documentNode, "New instruction", "workflow-button compact",
+      documentNode, "New instruction",
+      "workflow-button compact workflow-instructions-new",
     );
     add.addEventListener("click", () => edit({
-      // A new instruction starts scoped to the workflow being viewed, because
-      // that is the one the operator is looking at when they ask for it.
-      workflow_ids: [workflow.id],
+      workflow_ids: [],
       project_ids: [],
     }));
     body.appendChild(add);
+  };
+
+  const renderRow = (instruction) => {
+    const row = el(documentNode, "div", "workflow-instruction-row");
+    const summary = el(documentNode, "div", "workflow-instruction-summary");
+    const expanded = expandedIds.has(instruction.id);
+    const preview = el(
+      documentNode, "div",
+      expanded ? "workflow-instruction-body" : "workflow-instruction-content",
+      expanded
+        ? String(instruction.content || "")
+        : previewText(instruction.content),
+    );
+    if (instruction.id != null) {
+      preview.id = `instruction-body-${instruction.id}`;
+      preview.setAttribute("id", preview.id);
+    }
+    summary.appendChild(preview);
+    summary.appendChild(el(
+      documentNode, "span", "workflow-instruction-reach",
+      instructionReachHint(instruction),
+    ));
+    row.appendChild(summary);
+    const actions = el(documentNode, "div", "workflow-instruction-actions");
+    if (bodyNeedsExpand(instruction.content)) {
+      const toggle = button(
+        documentNode,
+        expanded ? "Show less" : "Show more",
+        "workflow-button compact workflow-instruction-expand",
+      );
+      toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+      if (preview.id) toggle.setAttribute("aria-controls", preview.id);
+      toggle.addEventListener("click", () => {
+        if (expanded) expandedIds.delete(instruction.id);
+        else expandedIds.add(instruction.id);
+        paint(listed);
+      });
+      actions.appendChild(toggle);
+    }
+    const editButton = button(
+      documentNode, "Edit", "workflow-button compact",
+    );
+    editButton.addEventListener("click", () => edit(instruction));
+    actions.appendChild(editButton);
+    row.appendChild(actions);
+    return row;
   };
 
   reload();
