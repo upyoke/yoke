@@ -7,6 +7,10 @@ import sqlite3
 
 import pytest
 
+from yoke_core.domain.item_merge_receipt_document import (
+    build_failure,
+    record_entry,
+)
 from yoke_core.domain.session_item_stage_states import (
     item_stage_states,
     primary_item_stages_by_session,
@@ -161,11 +165,15 @@ def _connection() -> sqlite3.Connection:
             qa_requirement_id INTEGER,
             verdict TEXT
         );
-        CREATE TABLE events (
-            id INTEGER PRIMARY KEY,
-            item_id TEXT,
-            event_name TEXT,
-            created_at TEXT
+        CREATE TABLE item_sections (
+            item_id INTEGER,
+            section_name TEXT,
+            content TEXT,
+            ordering INTEGER,
+            source TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            UNIQUE (item_id, section_name)
         );
         CREATE TABLE session_launches (
             launch_id TEXT PRIMARY KEY,
@@ -197,6 +205,15 @@ def _connection() -> sqlite3.Connection:
     return conn
 
 
+def _merge_receipt(conn: sqlite3.Connection, **fields) -> None:
+    """What a merge attempt left on the item's receipt for its stage strip."""
+    record_entry(conn, item_id=7, branch="YOK-20", target="main", **fields)
+
+
+def _record_merge_failure(conn: sqlite3.Connection, label: str) -> None:
+    _merge_receipt(conn, failure=build_failure(label=label, phase="pr-checks"))
+
+
 def _project(conn: sqlite3.Connection) -> list[dict[str, object]]:
     return primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
 
@@ -221,10 +238,7 @@ def test_projection_marks_only_real_failure_signals_red(
         )
         conn.execute("INSERT INTO qa_runs VALUES (1,1,'fail')")
     elif signal == "merge":
-        conn.execute(
-            "INSERT INTO events VALUES "
-            "(1,7,'MergePullRequestCiFailed','2026-09-01T12:01:00Z')"
-        )
+        _record_merge_failure(conn, "CI checks failed")
     elif signal == "launch":
         conn.execute(
             "INSERT INTO session_launches VALUES "
@@ -313,3 +327,18 @@ def test_projection_omits_a_session_without_an_item() -> None:
     assert (
         primary_item_stages_by_session(conn, [{"session_id": "steering-session"}]) == {}
     )
+
+
+def test_a_landed_merge_clears_the_strip_its_failed_attempt_reddened() -> None:
+    """The receipt records current state, so the landing settles the strip.
+
+    Nothing here consults telemetry: a chronology reconstructed from events
+    could keep the failure standing after its resolution expired.
+    """
+    conn = _connection()
+    _record_merge_failure(conn, "CI checks failed")
+    assert [stage for stage in _project(conn) if stage["state"] == "failed"]
+
+    _merge_receipt(conn, merge_sha="a" * 40)
+
+    assert not [stage for stage in _project(conn) if stage["state"] == "failed"]

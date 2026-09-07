@@ -229,7 +229,16 @@ class TestPostPushProofUsesTheMergesAuthority:
         monkeypatch.setattr(merge_boundary.git, "changed_files", lambda *_a: ("f.py",))
         monkeypatch.setattr(merge_boundary.git, "is_ancestor", lambda *_a: True)
         monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item: None)
-        monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
+        # An already-contained branch proves the merge its receipt recorded,
+        # not whatever commit the target has since moved to.
+        monkeypatch.setattr(
+            merge_boundary.receipts,
+            "load",
+            lambda *_a, **_k: merge_boundary.receipts.MergeReceipt(
+                branch="YOK-1", target="main", commit_sha="c" * 40,
+                merge_sha="m" * 40,
+            ),
+        )
         monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
         monkeypatch.setattr(
             post_push,

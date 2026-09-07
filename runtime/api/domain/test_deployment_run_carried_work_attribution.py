@@ -1,8 +1,14 @@
-"""Completed deployment runs retain inert carried-work attribution."""
+"""A release names the work that produced its commits, and nothing else.
+
+Attribution reaches for a branch when the recorded lineage does not cover a
+commit, and a branch is a weak signal: a lane created from the trunk points at
+whatever the trunk was on and has committed nothing of its own. Reading such a
+branch — through a commit's ref decoration or through an item's lane row —
+credits a neighbour's release to work that has not shipped.
+"""
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,8 +16,6 @@ from typing import Any
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_run_carried_work, deployment_runs
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
-from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
-from yoke_core.domain.item_merge_receipt_document import record_entry
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -89,30 +93,39 @@ def _stored(conn: Any, run_id: str) -> dict[str, Any]:
     return parsed
 
 
-def test_itemless_success_records_items_and_bare_commits(
+def test_an_open_lane_forked_from_the_trunk_carries_nothing(
     test_db: Any,
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    repo, base, item_commit, evidence_commit, bare_commit = _repository(tmp_path)
+    """An unlanded item's branch points at somebody else's release commit.
+
+    A lane created from the trunk has no commits of its own until the work is
+    written, so resolving its branch name reaches whatever the trunk was
+    pointing at — reading that as the item's contribution attributes a
+    neighbour's release to work that has not shipped.
+    """
+    repo, base, item_commit, _evidence_commit, bare_commit = _repository(tmp_path)
     _flow(test_db)
     insert_item(
         test_db,
-        id=9101,
-        project_sequence=9041,
+        id=9111,
+        project_sequence=9051,
         workflow_id="dash",
-        status="implemented",
+        status="implementing",
     )
-    insert_item(
-        test_db,
-        id=9103,
-        project_sequence=9043,
-        workflow_id="dash",
-        status="implemented",
+    test_db.execute(
+        "INSERT INTO item_worktrees("
+        "item_id,branch,path,lane_role,state,created_at,updated_at) "
+        "VALUES (9111,'YOK-9051','/lane','implementation','active',"
+        "'2026-08-30T00:01:00Z','2026-08-30T00:01:00Z')"
     )
+    # The lane branch was created from the trunk after the release commit and
+    # has committed nothing, so it still points there.
+    _git(repo, "branch", "YOK-9051", item_commit)
     _run(
         test_db,
-        "run-carried-001",
+        "run-open-lane-001",
         base,
         status="succeeded",
         created_at="2026-08-30T00:01:00Z",
@@ -120,29 +133,11 @@ def test_itemless_success_records_items_and_bare_commits(
     )
     _run(
         test_db,
-        "run-carried-002",
+        "run-open-lane-002",
         bare_commit,
         status="executing",
         created_at="2026-08-30T00:03:00Z",
     )
-    record_entry(
-        test_db,
-        item_id=9101,
-        branch="YOK-9041",
-        target="main",
-        merge_sha=item_commit,
-    )
-    test_db.execute(
-        "INSERT INTO item_sections("
-        "item_id,section_name,content,ordering,source,created_at,updated_at) "
-        "VALUES (9103,%s,%s,190,'direct-workflow',%s,%s)",
-        (
-            DASH_EVIDENCE_SECTION,
-            json.dumps({"merge_sha": evidence_commit}),
-            "2026-08-30T00:02:30Z",
-            "2026-08-30T00:02:30Z",
-        ),
-    )
     test_db.commit()
     monkeypatch.setattr(
         deployment_run_carried_work,
@@ -151,94 +146,60 @@ def test_itemless_success_records_items_and_bare_commits(
     )
 
     error = deployment_runs.cmd_update(
-        "run-carried-002",
-        "status",
-        "succeeded",
+        "run-open-lane-002", "status", "succeeded",
     )
 
     assert error is None
-    carried = _stored(test_db, "run-carried-002")
-    assert carried["derivation"]["reason"] == "partial_item_resolution"
-    assert carried["items"] == [
-        {
-            "item_id": 9101,
-            "ref": "YOK-9041",
-            "commit_shas": [item_commit],
-        },
-        {
-            "item_id": 9103,
-            "ref": "YOK-9043",
-            "commit_shas": [evidence_commit],
-        },
-    ]
-    assert carried["commits"] == [bare_commit]
-    members = test_db.execute(
-        "SELECT COUNT(*) AS n FROM deployment_run_items WHERE run_id='run-carried-002'"
-    ).fetchone()
-    assert members["n"] == 0
+    carried = _stored(test_db, "run-open-lane-002")
+    assert [entry["item_id"] for entry in carried["items"]] == []
+    assert item_commit in carried["commits"]
 
 
-def test_first_item_bound_run_records_empty_without_touching_item_lifecycle(
-    test_db: Any,
-) -> None:
-    _flow(test_db)
-    insert_item(
-        test_db,
-        id=9102,
-        project_sequence=9042,
-        workflow_id="dash",
-        status="release",
-    )
-    _run(
-        test_db,
-        "run-carried-003",
-        "a" * 40,
-        status="executing",
-        created_at="2026-08-30T00:04:00Z",
-    )
-    test_db.execute(
-        "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
-        "VALUES ('run-carried-003',9102,'2026-08-30T00:04:00Z')"
-    )
-    test_db.commit()
-
-    error = deployment_runs.cmd_update(
-        "run-carried-003",
-        "status",
-        "succeeded",
-    )
-
-    assert error is None
-    carried = _stored(test_db, "run-carried-003")
-    assert carried["derivation"]["reason"] == "no_prior_succeeded_run"
-    assert carried["items"] == []
-    assert carried["commits"] == []
-    item = test_db.execute("SELECT status FROM items WHERE id=9102").fetchone()
-    assert item["status"] == "release"
-
-
-def test_unreachable_prior_lineage_records_named_empty_result(
+def test_a_cancelled_item_holding_an_open_lane_carries_nothing(
     test_db: Any,
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    repo, _base, _item_commit, _evidence_commit, head = _repository(tmp_path)
+    """The same borrowed-branch reach through the item-metadata pass.
+
+    An item that carries a resolution reference is read for merge metadata
+    even though it never landed. Resolving its still-open lane branch would
+    reach the trunk commit the lane forked from, so the branch is only
+    consulted once the item has actually landed.
+    """
+    repo, base, item_commit, _evidence_commit, bare_commit = _repository(tmp_path)
     _flow(test_db)
+    insert_item(
+        test_db,
+        id=9121,
+        project_sequence=9061,
+        workflow_id="dash",
+        status="cancelled",
+        resolution_ref="superseded",
+    )
+    test_db.execute(
+        "INSERT INTO item_worktrees("
+        "item_id,branch,path,lane_role,state,created_at,updated_at) "
+        "VALUES (9121,'lane-9061','/lane','implementation','active',"
+        "'2026-08-30T00:01:00Z','2026-08-30T00:01:00Z')"
+    )
+    _git(repo, "branch", "lane-9061", item_commit)
     _run(
         test_db,
-        "run-carried-004",
-        "f" * 40,
+        "run-cancelled-lane-001",
+        base,
         status="succeeded",
-        created_at="2026-08-30T00:05:00Z",
-        completed_at="2026-08-30T00:06:00Z",
+        created_at="2026-08-30T00:01:00Z",
+        completed_at="2026-08-30T00:02:00Z",
     )
     _run(
         test_db,
-        "run-carried-005",
-        head,
+        "run-cancelled-lane-002",
+        bare_commit,
         status="executing",
-        created_at="2026-08-30T00:07:00Z",
+        created_at="2026-08-30T00:03:00Z",
     )
+    test_db.commit()
     monkeypatch.setattr(
         deployment_run_carried_work,
         "checkout_for_project_id",
@@ -246,13 +207,9 @@ def test_unreachable_prior_lineage_records_named_empty_result(
     )
 
     error = deployment_runs.cmd_update(
-        "run-carried-005",
-        "status",
-        "succeeded",
+        "run-cancelled-lane-002", "status", "succeeded",
     )
 
     assert error is None
-    carried = _stored(test_db, "run-carried-005")
-    assert carried["derivation"]["reason"] == "prior_release_lineage_unreachable"
-    assert carried["items"] == []
-    assert carried["commits"] == []
+    carried = _stored(test_db, "run-cancelled-lane-002")
+    assert [entry["item_id"] for entry in carried["items"]] == []

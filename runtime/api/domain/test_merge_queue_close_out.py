@@ -6,7 +6,7 @@ import pytest
 
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
-from yoke_core.domain.standalone_item_merge_receipt import MergeReceipt
+from yoke_core.domain.item_merge_receipts import MergeReceipt
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40
@@ -49,8 +49,8 @@ def _wire(
         lambda ctx, pr_num: (touched, files_error),
     )
 
-    def record(item_id, receipt: MergeReceipt, *, project: str) -> str:
-        recorded.update(item_id=item_id, receipt=receipt, project=project)
+    def record(item_id, receipt: MergeReceipt) -> str:
+        recorded.update(item_id=item_id, receipt=receipt)
         return ""
 
     monkeypatch.setattr(close_out_mod.receipts, "record", record)
@@ -81,7 +81,6 @@ def test_landing_records_the_merge_receipt_the_terminal_gate_reads(monkeypatch):
     assert outcome.ci_evidence_error == ""
     assert outcome.warnings == ()
     assert recorded["item_id"] == 7
-    assert recorded["project"] == "yoke"
     assert recorded["receipt"] == MergeReceipt(
         branch="YOK-200", target="main",
         commit_sha=LANE_SHA, merge_sha=MERGE_SHA,

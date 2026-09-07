@@ -13,29 +13,6 @@ _FAIL_VERDICTS = tuple(
     verdict for verdict in VALID_VERDICTS if verdict in {"fail", "error"}
 )
 _LAUNCH_FAILURE_STATES = frozenset({"expired", "failed", "outcome_unknown"})
-_MERGE_FAILURE_LABELS = {
-    "MergePullRequestCiFailed": "CI checks failed",
-    "MergeBlockedNoVerificationEvidence": "verification missing",
-}
-_MERGE_FAILURE_EVENTS = frozenset(
-    {
-        *_MERGE_FAILURE_LABELS,
-        "MergeBranchPushFailed",
-        "MergeEngineFailed",
-        "MergePullRequestCreateFailed",
-        "MergePullRequestMergeFailed",
-        "MergeTargetPushFailed",
-        "MergeTargetStale",
-        "MergeVerificationFailed",
-    }
-)
-_MERGE_SUCCESS_EVENTS = frozenset(
-    {
-        "MergeEngineSucceeded",
-        "MergePullRequestCiPassed",
-        "MergeVerificationPassed",
-    }
-)
 
 
 def _p(conn: Any) -> str:
@@ -72,32 +49,18 @@ def qa_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
 
 
 def merge_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
-    """The label of the newest unsettled merge failure, per item."""
-    if not item_ids or not _table_exists(conn, "events"):
+    """The label of the newest unresolved merge failure, per item.
+
+    Read from the merge receipt each item owns, which records the failure a
+    merge attempt ended on and drops it once a merge on that identity lands.
+    The strip therefore paints what the merge is doing now, rather than a
+    state reconstructed from the order telemetry happened to arrive in.
+    """
+    from yoke_core.domain.item_merge_receipt_document import current_failures
+
+    if not item_ids:
         return {}
-    marker = _p(conn)
-    names = tuple(sorted(_MERGE_FAILURE_EVENTS | _MERGE_SUCCESS_EVENTS))
-    records = conn.execute(
-        "SELECT item_id,event_name FROM events WHERE item_id IN ("
-        + ",".join(marker for _ in item_ids)
-        + ") AND event_name IN ("
-        + ",".join(marker for _ in names)
-        + ") ORDER BY created_at DESC,id DESC",
-        tuple(str(item_id) for item_id in item_ids) + names,
-    ).fetchall()
-    failures: dict[int, str] = {}
-    settled: set[int] = set()
-    for record in records:
-        item_id = int(record["item_id"])
-        if item_id in settled:
-            continue
-        name = str(record["event_name"])
-        if name in _MERGE_SUCCESS_EVENTS:
-            settled.add(item_id)
-        else:
-            failures[item_id] = _MERGE_FAILURE_LABELS.get(name, "merge failed")
-            settled.add(item_id)
-    return failures
+    return current_failures(conn, item_ids)
 
 
 def launch_failures(

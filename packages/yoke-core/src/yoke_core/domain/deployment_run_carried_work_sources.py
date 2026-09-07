@@ -10,7 +10,7 @@ from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.json_helper import loads_text
-from yoke_core.domain.standalone_item_merge_receipt import RECEIPT_EVENT_NAME
+from yoke_core.domain.item_merge_receipt_document import merge_identities
 
 
 LANDING_TIME_TOLERANCE_SECONDS = 600
@@ -34,18 +34,18 @@ def _object(value: Any) -> dict[str, Any]:
     return dict(parsed) if isinstance(parsed, Mapping) else {}
 
 
-def _safe_rows(
+def _safe_read(
     conn: Any,
-    sql: str,
-    params: Sequence[Any],
+    read: Any,
     *,
     reason: str,
     recovery: str,
     warnings: list[dict[str, str]],
 ) -> list[Any]:
+    """Run one optional evidence read, warning instead of failing the run."""
     conn.execute("SAVEPOINT carried_work_optional_read")
     try:
-        rows = list(conn.execute(sql, tuple(params)).fetchall())
+        rows = list(read())
     except Exception as exc:  # noqa: BLE001 - optional evidence source
         conn.execute("ROLLBACK TO SAVEPOINT carried_work_optional_read")
         conn.execute("RELEASE SAVEPOINT carried_work_optional_read")
@@ -59,6 +59,24 @@ def _safe_rows(
         return []
     conn.execute("RELEASE SAVEPOINT carried_work_optional_read")
     return rows
+
+
+def _safe_rows(
+    conn: Any,
+    sql: str,
+    params: Sequence[Any],
+    *,
+    reason: str,
+    recovery: str,
+    warnings: list[dict[str, str]],
+) -> list[Any]:
+    return _safe_read(
+        conn,
+        lambda: conn.execute(sql, tuple(params)).fetchall(),
+        reason=reason,
+        recovery=recovery,
+        warnings=warnings,
+    )
 
 
 def _match_commit(value: Any, commits: Sequence[str]) -> str:
@@ -122,17 +140,22 @@ def _resolve_recorded_evidence(
     resolved: dict[str, set[int]],
     warnings: list[dict[str, str]],
 ) -> None:
+    """Attribute range commits from records that name the item outright.
+
+    The item's merge receipt leads: it binds a merge and its implementation
+    commit to the item that produced them, and it outlives the branch and
+    lane the merge removed, so it is the exact lineage to read before any
+    commit-message heuristic.
+    """
+    for item_id, sha in _safe_read(
+        conn,
+        lambda: merge_identities(conn, project_id),
+        reason="merge_receipts_unavailable",
+        recovery="Restore item-section reads, then retry run completion.",
+        warnings=warnings,
+    ):
+        _add_resolution(resolved, commits, sha, item_id, known_items)
     sources = (
-        (
-            "SELECT e.item_id,e.envelope FROM events e "
-            "WHERE e.project_id=%s "
-            "AND e.event_name=%s",
-            (project_id, RECEIPT_EVENT_NAME),
-            "merge_receipts_unavailable",
-            "Restore events-ledger read authority, then retry run completion.",
-            "envelope",
-            ("context.merge_sha", "context.commit_sha"),
-        ),
         (
             "SELECT qr.item_id,qrun.raw_result FROM qa_runs qrun "
             "JOIN qa_requirements qr ON qr.id=qrun.qa_requirement_id "
@@ -225,14 +248,16 @@ def _resolve_item_metadata(
         resolution_ref = str(_cell(row, "resolution_ref", 3) or "").strip()
         if _HEX_REF.fullmatch(resolution_ref):
             _add_resolution(
-                resolved,
-                commits,
-                resolution_ref,
-                item_id,
-                known_items,
+                resolved, commits, resolution_ref, item_id, known_items,
             )
+        landed_at = _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
         lane_commit = ""
-        for raw_token in (_cell(row, "commit_sha", 5), _cell(row, "branch", 4)):
+        # A lane branch names its item's contribution only once the item has
+        # landed: an open lane forked from the trunk points at somebody else's
+        # commit until it has one of its own. The recorded lane head needs no
+        # such proof — it is already the item's own commit.
+        branch_token = [_cell(row, "branch", 4)] if landed_at else []
+        for raw_token in (_cell(row, "commit_sha", 5), *branch_token):
             lane_token = str(raw_token or "").strip()
             if lane_token:
                 lane_commit = git.git_out(
@@ -258,9 +283,7 @@ def _resolve_item_metadata(
         numeric_item_id = int(item_id)
         if any(numeric_item_id in item_ids for item_ids in resolved.values()):
             continue
-        landed = _parse_time(
-            _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
-        )
+        landed = _parse_time(landed_at)
         if landed is None:
             continue
         distances = sorted(
@@ -297,13 +320,11 @@ def resolve_carried_items(
         warnings=warnings,
     )
     for commit in commits:
-        source = git.git_out(
-            repo_root,
-            "show",
-            "-s",
-            "--format=%B%n%D",
-            commit,
-        )
+        # The message only. A ref pointing at a commit says where someone
+        # forked, not who wrote it: a lane branch created from the trunk
+        # decorates whatever commit the trunk was on, and reading that
+        # decoration attributes a neighbour's release to the new lane.
+        source = git.git_out(repo_root, "show", "-s", "--format=%B", commit)
         for token in _ITEM_REF.findall(source.upper()):
             if token in item_tokens:
                 resolved.setdefault(commit, set()).add(item_tokens[token])

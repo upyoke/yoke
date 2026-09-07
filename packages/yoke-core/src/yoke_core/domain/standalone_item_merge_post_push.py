@@ -26,7 +26,7 @@ from yoke_contracts.github_app_installation_permissions import (
 from yoke_contracts.machine_config.settings_keys import machine_setting_default
 from yoke_core.domain import gh_rest_transport, runtime_settings
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     RestTransportError,
@@ -265,7 +265,14 @@ def complete(
         stamp_merged_at,
     )
 
-    merge_sha = git.git_out(repo_root, "rev-parse", target)
+    merge_sha = receipts.landed_merge_identity(
+        item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=repo_root,
+        already=already,
+        commit_sha=commit_sha,
+    )
     notes = list(warnings)
     pushed, push_warning = git.publish(repo_root, target)
     if push_warning:
@@ -282,13 +289,22 @@ def complete(
                 merge_sha=merge_sha, touched_files=touched,
                 check_runs=check_runs,
             ),
-            project=project,
         )
         if note:
             notes.append(note)
 
     record()
-    if pushed:
+    if pushed and not merge_sha:
+        # There is no commit to ask GitHub about, so the proof is skipped
+        # rather than run against an empty ref. Say so: a silent skip reads
+        # like a clean proof.
+        notes.append(
+            f"post-push checks skipped: no merge commit records {branch!r} "
+            f"landing on {target!r}, so there is nothing to prove. Re-run "
+            "the merge once the branch has a commit the target does not "
+            "already contain."
+        )
+    if pushed and merge_sha:
         verdict = await_post_push_checks(project, merge_sha, authority)
         if verdict.runs:
             record(verdict.evidence)

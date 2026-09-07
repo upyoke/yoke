@@ -18,7 +18,7 @@ from yoke_core.domain import merge_queue_close_out as queue_close_out
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 

@@ -28,6 +28,7 @@ DEPRECATE_LIST: Tuple[str, ...] = (
     "QAArtifactAttached",
     "SessionExecutionScopeChanged",
     "SessionOfferLaneOverrideIgnored",
+    "StandaloneMergeReceiptRecorded",
     "WorktreeHandoffEmitted",
 )
 

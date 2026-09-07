@@ -10,7 +10,7 @@ from yoke_core.domain import standalone_item_merge as merge_boundary
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_post_push as post_push
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_INSTALLATION,
 )
@@ -219,7 +219,7 @@ def test_lane_retirement_uses_the_local_target_without_a_remote(
 
 
 def test_receipt_loader_preserves_observed_check_conclusions(monkeypatch) -> None:
-    row = {"envelope": json.dumps({"context": {
+    entry = {
         "branch": "ITEM-7",
         "target": "main",
         "commit_sha": LANE_SHA,
@@ -229,14 +229,16 @@ def test_receipt_loader_preserves_observed_check_conclusions(monkeypatch) -> Non
             "name": "suite", "status": "completed",
             "conclusion": "success", "url": "https://runs/green",
         }],
-    }})}
+    }
     monkeypatch.setattr(
         receipts,
         "call_dispatcher",
-        lambda **_k: SimpleNamespace(success=True, result={"rows": [row]}),
+        lambda **_k: SimpleNamespace(
+            success=True, result={"found": True, "entry": entry},
+        ),
     )
 
-    receipt = receipts.load(7, "ITEM-7", "main", project="yoke")
+    receipt = receipts.load(7, "ITEM-7", "main")
 
     assert receipt is not None
     assert receipt.check_runs[0]["conclusion"] == "success"

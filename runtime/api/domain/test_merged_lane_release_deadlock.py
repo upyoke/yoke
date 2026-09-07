@@ -16,7 +16,6 @@ is already gone only when the branch demonstrably landed.
 
 from __future__ import annotations
 
-import json
 from types import SimpleNamespace
 
 import pytest
@@ -205,28 +204,33 @@ def test_ci_executor_does_not_consult_local_tree_binding(monkeypatch, tmp_path):
 # --- releasing a lane whose directory is already gone ---
 
 
-def _receipt_rows(monkeypatch, rows: list[dict]) -> None:
-    """Stand in for the ledger the merge receipt rides on."""
-    monkeypatch.setattr(
-        "yoke_cli.transport.dispatcher.call_dispatcher",
-        lambda **_kwargs: SimpleNamespace(success=True, result={"rows": rows}),
-    )
+def _receipt_entry(monkeypatch, entry: dict | None) -> None:
+    """Stand in for the item's merge receipt document behind the dispatcher.
+
+    The query narrows to the lane's branch server-side, so a receipt for a
+    different branch answers as no entry at all.
+    """
+    calls: list[dict] = []
+
+    def answer(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            success=True,
+            result={"found": entry is not None, "entry": entry},
+        )
+
+    monkeypatch.setattr("yoke_cli.transport.dispatcher.call_dispatcher", answer)
     monkeypatch.setattr(
         "yoke_cli.transport.dispatcher.build_actor",
         lambda **_kwargs: SimpleNamespace(session_id="test-session"),
     )
-
-
-def _receipt_row(branch: str, *, merge_sha: str) -> dict:
-    return {
-        "envelope": json.dumps(
-            {"context": {"branch": branch, "merge_sha": merge_sha}}
-        )
-    }
+    return calls
 
 
 def test_removed_lane_releases_when_its_branch_landed(monkeypatch, tmp_path) -> None:
-    _receipt_rows(monkeypatch, [_receipt_row("feature", merge_sha="abc123")])
+    calls = _receipt_entry(
+        monkeypatch, {"branch": "feature", "merge_sha": "abc123"},
+    )
     lane = {
         "id": 7,
         "branch": "feature",
@@ -238,11 +242,13 @@ def test_removed_lane_releases_when_its_branch_landed(monkeypatch, tmp_path) -> 
     assert error is None
     assert attestation is not None
     assert attestation["evidence"] == lane_evidence.EVIDENCE_MERGED_AND_REMOVED
+    assert calls[0]["function_id"] == "merge_receipt.get"
+    assert calls[0]["payload"] == {"branch": "feature"}
 
 
 def test_removed_lane_refuses_without_a_merge_receipt(monkeypatch, tmp_path) -> None:
     """A missing directory is never trivially clean on its own."""
-    _receipt_rows(monkeypatch, [])
+    _receipt_entry(monkeypatch, None)
     lane = {
         "id": 8,
         "branch": "feature",
@@ -258,7 +264,7 @@ def test_removed_lane_refuses_without_a_merge_receipt(monkeypatch, tmp_path) -> 
 
 def test_removed_lane_refuses_on_a_pre_merge_receipt(monkeypatch, tmp_path) -> None:
     """The pre-merge receipt carries no merge sha, so the branch never landed."""
-    _receipt_rows(monkeypatch, [_receipt_row("feature", merge_sha="")])
+    _receipt_entry(monkeypatch, {"branch": "feature", "merge_sha": ""})
     lane = {
         "id": 9,
         "branch": "feature",
@@ -273,7 +279,8 @@ def test_removed_lane_refuses_on_a_pre_merge_receipt(monkeypatch, tmp_path) -> N
 
 
 def test_removed_lane_ignores_another_branchs_receipt(monkeypatch, tmp_path) -> None:
-    _receipt_rows(monkeypatch, [_receipt_row("other-branch", merge_sha="abc123")])
+    """The query is branch-scoped, so another lane's receipt is no receipt."""
+    _receipt_entry(monkeypatch, None)
     lane = {
         "id": 10,
         "branch": "feature",

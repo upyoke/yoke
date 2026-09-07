@@ -1,4 +1,4 @@
-"""HC-events-app-state-reads: events is telemetry-only — no app-state SQL reads.
+"""HC-events-app-state-reads: events is telemetry-only — no app-state reads.
 
 Background
 ----------
@@ -16,9 +16,12 @@ retention policy. This HC is the permanent backstop.
 
 Contract
 --------
-Any non-test runtime Python file containing a SQL read of the events table
-(``FROM events`` / ``JOIN events``) must be on the allowlist below. The
-allowlist enumerates the sanctioned reader classes:
+Any non-test runtime Python file that reads the events table must be on an
+allowlist below. A reader is either shape: SQL against the table
+(``FROM events`` / ``JOIN events``), or the registered ``events.query.run``
+function, which reaches the same rows through the dispatcher and is invisible
+to a SQL-only scan. Each shape has its own allowlist because their sanctioned
+reader classes differ; the SQL allowlist enumerates:
 
 - **Telemetry-admin surfaces** — the events platform itself (queries,
   prune, registry audit, severity tooling, ledger-hygiene HCs).
@@ -34,6 +37,11 @@ allowlist enumerates the sanctioned reader classes:
   perform one-time loads into state tables (the exact ``migrations/``
   prefix). Applied modules remain in history; a history may simply contain
   no event-reading backfill.
+
+The registered-query allowlist is narrower: the events platform's own CLI,
+API, and UI surfaces, plus the tooling and teaching that quote the function
+id. An operational module that answers an application-state question through
+``events.query.run`` belongs on neither list — it belongs on a durable owner.
 
 Maintenance
 -----------
@@ -130,6 +138,34 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/migrations/",
 )
 
+#: The registered read of the same rows. A SQL-only scan cannot see it, so a
+#: module that dispatches this function is reading events just as surely as one
+#: that writes ``FROM events``.
+REGISTERED_EVENTS_QUERY = "events.query.run"
+
+#: Where quoting that function id is the surface's own subject rather than an
+#: application-state dependency: the events CLI adapter and its usage text, the
+#: dispatcher registration, the function inventory, the UI's events views, and
+#: the tooling and packets that teach the call.
+_CLI_SOURCE_ROOT = "packages/yoke-cli/src/yoke_cli"
+_CORE_API_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/api"
+_CORE_UI_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/ui"
+ALLOWED_REGISTERED_QUERY_READERS: tuple[str, ...] = (
+    # -- telemetry-admin: the events query surface itself
+    f"{_CLI_SOURCE_ROOT}/commands/adapters/events.py",
+    f"{_CLI_SOURCE_ROOT}/commands/adapters/usage.py",
+    f"{_CLI_SOURCE_ROOT}/commands/registry.py",
+    f"{_CLI_SOURCE_ROOT}/operation_inventory_data.py",
+    f"{_CORE_API_SOURCE_ROOT}/service_client_structured_api_adapter_inventory.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/handlers/_register_events_reads.py",
+    f"{_CORE_UI_SOURCE_ROOT}/function_proxy.py",
+    # -- teaching: packets and doc renderers that quote the function id
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_core.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_core_operational.py",
+    f"{_CORE_TOOLS_SOURCE_ROOT}/atlas_render_docs_sections.py",
+    f"{_CORE_TOOLS_SOURCE_ROOT}/verify_env_auth_boundary.py",
+)
+
 # Structural reader prefixes whose class may legitimately have no matching
 # event read. Migration modules are permanent ordered history; an unmatched
 # prefix means the current history has no event-reading backfill, never that
@@ -158,8 +194,8 @@ def _is_scan_target(path: Path) -> bool:
     return True
 
 
-def _allowlisted(rel_str: str) -> bool:
-    return any(rel_str.startswith(entry) for entry in ALLOWED_EVENTS_READERS)
+def _allowlisted(rel_str: str, allowed: tuple[str, ...]) -> bool:
+    return any(rel_str.startswith(entry) for entry in allowed)
 
 
 def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
@@ -171,6 +207,13 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
     """
     violations: list[str] = []
     matched_entries: set[str] = set()
+
+    def rel_of(path: Path) -> str:
+        try:
+            return str(path.resolve().relative_to(repo_root.resolve()))
+        except ValueError:
+            return str(path)
+
     for rel_root in SCAN_SOURCE_ROOTS:
         source_root = repo_root / rel_root
         if not source_root.is_dir():
@@ -182,14 +225,21 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
                 text = f.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
+            if REGISTERED_EVENTS_QUERY in text:
+                if _allowlisted(rel_of(f), ALLOWED_REGISTERED_QUERY_READERS):
+                    for entry in ALLOWED_REGISTERED_QUERY_READERS:
+                        if rel_of(f).startswith(entry):
+                            matched_entries.add(entry)
+                else:
+                    for i, line in enumerate(text.splitlines(), start=1):
+                        if REGISTERED_EVENTS_QUERY in line:
+                            violations.append(
+                                f"{rel_of(f)}:{i}: {line.strip()[:160]}"
+                            )
             if not EVENTS_READ_PATTERN.search(text):
                 continue
-            try:
-                rel = f.resolve().relative_to(repo_root.resolve())
-            except ValueError:
-                rel = f
-            rel_str = str(rel)
-            if _allowlisted(rel_str):
+            rel_str = rel_of(f)
+            if _allowlisted(rel_str, ALLOWED_EVENTS_READERS):
                 for entry in ALLOWED_EVENTS_READERS:
                     if rel_str.startswith(entry):
                         matched_entries.add(entry)
@@ -199,7 +249,7 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
                     violations.append(f"{rel_str}:{i}: {line.strip()[:160]}")
     stale = [
         e
-        for e in ALLOWED_EVENTS_READERS
+        for e in (*ALLOWED_EVENTS_READERS, *ALLOWED_REGISTERED_QUERY_READERS)
         if e not in matched_entries and e not in _OPTIONAL_MATCH_READER_PREFIXES
     ]
     return violations, stale

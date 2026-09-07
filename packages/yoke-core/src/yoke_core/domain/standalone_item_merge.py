@@ -10,7 +10,7 @@ GitHub sync, the lifecycle status flip — stays with the caller so it runs
 through the item's own gates.
 
 The reads live in :mod:`yoke_core.domain.standalone_item_merge_git` and the
-receipt in :mod:`yoke_core.domain.standalone_item_merge_receipt`, because
+receipt in :mod:`yoke_core.domain.item_merge_receipts`, because
 what git can answer changes as the merge proceeds while the receipt does not.
 
 Rationale and portability constraints: ``docs/archive/decisions/
@@ -28,7 +28,7 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
 
 # Exit code for a merge the engine refused because another session holds the
@@ -188,7 +188,7 @@ def merge_standalone_branch(
     # The route decides the authority, and the proof after the merge reads
     # checks under that same one rather than the strictest available.
     authority = classify_merge_authority(local_merge=local_merge).authority
-    recorded = receipts.load(item_id, branch, target, project=project)
+    recorded = receipts.load(item_id, branch, target)
     if not git.branch_exists(repo_root, branch):
         return _converge_from_receipt(
             item_id=item_id,
@@ -239,7 +239,6 @@ def merge_standalone_branch(
                 commit_sha=commit_sha,
                 touched_files=observed,
             ),
-            project=project,
         )
         if receipt_note:
             warnings.append(receipt_note)

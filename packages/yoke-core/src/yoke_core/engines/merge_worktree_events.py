@@ -1,4 +1,10 @@
-"""Structured lifecycle event helpers for merge-worktree."""
+"""Merge outcome recording for merge-worktree: durable receipt plus telemetry.
+
+Every merge failure and every settling success passes through
+:func:`_emit_merge_event`, so it is the one place that records the outcome
+where a reader can still find it later. The durable half lands on the merged
+item's own merge receipt; the event is the disposable telemetry beside it.
+"""
 
 from __future__ import annotations
 
@@ -25,15 +31,91 @@ def _parent():
 def _print(msg: str, *, err: bool = False) -> None:
     return _parent()._print(msg, err=err)
 
-def _emit_merge_event(
+#: What a merge outcome means for the item's stage strip. Failures record the
+#: label a reader sees; a settling success clears whatever failure the last
+#: attempt on that branch and target left behind.
+_FAILURE_LABELS = {
+    "MergeBlockedNoVerificationEvidence": "verification missing",
+    "MergePullRequestCiFailed": "CI checks failed",
+}
+_FAILURE_EVENTS = frozenset(
+    {
+        *_FAILURE_LABELS,
+        "MergeBranchPushFailed",
+        "MergeEngineFailed",
+        "MergePullRequestCreateFailed",
+        "MergePullRequestMergeFailed",
+        "MergeTargetPushFailed",
+        "MergeTargetStale",
+        "MergeVerificationFailed",
+    }
+)
+_SETTLING_EVENTS = frozenset(
+    {
+        "MergeEngineSucceeded",
+        "MergePullRequestCiPassed",
+        "MergeVerificationPassed",
+    }
+)
+
+
+def _failure_reason(context: dict[str, Any]) -> str:
+    """The most specific detail this failure carried, for the receipt."""
+    for key in ("stderr", "error_type", "extra"):
+        detail = str(context.get(key) or "").strip()
+        if detail:
+            return detail
+    exit_code = context.get("exit_code")
+    return f"exit {exit_code}" if exit_code not in (None, "") else ""
+
+
+def _record_merge_outcome(
+    event_name: str,
+    item_id: Optional[str | int],
+    context: Optional[dict[str, Any]],
+) -> None:
+    """Record this outcome on the item's merge receipt.
+
+    A merge that never named an item, or an outcome that is neither a failure
+    nor a settling success, has nothing to record. A store that refuses is
+    reported to the operator and never unwinds the merge: losing the strip's
+    colour is a smaller failure than losing the merge.
+    """
+    if item_id in (None, "") or event_name not in (_FAILURE_EVENTS | _SETTLING_EVENTS):
+        return
+    body = context or {}
+    branch = str(body.get("branch") or "").strip()
+    target = str(body.get("target") or "").strip()
+    if not (branch and target):
+        return
+    from yoke_core.domain import item_merge_receipts as receipts
+
+    if event_name in _SETTLING_EVENTS:
+        note = receipts.record_settlement(
+            int(item_id), branch=branch, target=target,
+        )
+    else:
+        note = receipts.record_failure(
+            int(item_id),
+            branch=branch,
+            target=target,
+            label=_FAILURE_LABELS.get(event_name, "merge failed"),
+            phase=str(body.get("phase") or "").strip(),
+            reason=_failure_reason(body),
+        )
+    if note:
+        _print(note, err=True)
+
+
+def _emit_telemetry(
     event_name: str,
     *,
-    severity: str = "INFO",
-    outcome: str = "",
-    item_id: Optional[str | int] = None,
-    context: Optional[dict[str, Any]] = None,
+    severity: str,
+    outcome: str,
+    item_id: Optional[str | int],
+    context: Optional[dict[str, Any]],
 ) -> None:
-    """Emit a structured merge lifecycle event.  Never raises."""
+    """Publish one merge lifecycle event.  Never raises."""
     try:
         from yoke_core.domain import emit_event as _emit_module  # local import to avoid cycles
         import argparse as _argparse
@@ -77,6 +159,29 @@ def _emit_merge_event(
         # Telemetry failures are non-fatal.  We intentionally swallow them so
         # a misconfigured events registry or missing DB cannot break a merge.
         pass
+
+
+def _emit_merge_event(
+    event_name: str,
+    *,
+    severity: str = "INFO",
+    outcome: str = "",
+    item_id: Optional[str | int] = None,
+    context: Optional[dict[str, Any]] = None,
+) -> None:
+    """Record this merge outcome, then emit its telemetry.  Never raises.
+
+    The durable write happens first: it is the half a later reader depends
+    on, and the event beside it is free to fail.
+    """
+    _record_merge_outcome(event_name, item_id, context)
+    _emit_telemetry(
+        event_name,
+        severity=severity,
+        outcome=outcome,
+        item_id=item_id,
+        context=context,
+    )
 
 
 def _fail_merge_rest(

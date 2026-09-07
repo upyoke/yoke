@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 
 
@@ -61,7 +61,7 @@ def _describe(
     source: str,
 ) -> LandedLane:
     """Name the commit, merge, and files this landing is answerable for."""
-    recorded = receipts.load(item_id, branch, target, project=project)
+    recorded = receipts.load(item_id, branch, target)
     commit_sha = landed_sha
     if (
         recorded is not None
@@ -116,7 +116,7 @@ def landed_lane(
             containing=containing, source="lane branch",
         )
     candidates = [(recorded_head, "recorded lane head")]
-    receipt = receipts.load(item_id, branch, target, project=project)
+    receipt = receipts.load(item_id, branch, target)
     if receipt is not None:
         candidates.append((receipt.commit_sha, "merge receipt"))
         candidates.append((receipt.merge_sha, "merge receipt"))
@@ -224,7 +224,6 @@ def converge(
             commit_sha=lane.commit_sha, merge_sha=merge_sha,
             touched_files=lane.touched_files,
         ),
-        project=project,
     )
     if receipt_note:
         warnings.append(receipt_note)

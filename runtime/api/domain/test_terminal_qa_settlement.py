@@ -5,13 +5,12 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.backlog import (
-    insert_event,
     insert_item,
     insert_item_worktree,
     insert_qa_requirement,
     insert_qa_run,
 )
-from yoke_core.domain.standalone_item_merge_receipt import RECEIPT_EVENT_NAME
+from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
@@ -212,15 +211,13 @@ def _tree_result(sha: str) -> str:
 
 def _seed_merge_receipt(test_db, *, landing_sha: str, merge_sha: str) -> None:
     """Record the receipt a merge boundary writes as the branch lands."""
-    insert_event(
+    record_entry(
         test_db,
-        event_id=f"evt-receipt-{landing_sha[:8]}",
-        event_name=RECEIPT_EVENT_NAME,
-        item_id="10",
-        envelope=(
-            '{"context": {"branch": "YOK-10", "target": "main", '
-            f'"commit_sha": "{landing_sha}", "merge_sha": "{merge_sha}"}}}}'
-        ),
+        item_id=10,
+        branch="YOK-10",
+        target="main",
+        commit_sha=landing_sha,
+        merge_sha=merge_sha,
     )
 
 

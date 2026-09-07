@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from typing import Mapping, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.close_out_control_plane_authority import (
     record_merge_queue_ci_evidence as record_batch_evidence,
 )
@@ -160,7 +160,6 @@ def record_landing(
             merge_sha=merge_sha,
             touched_files=touched_files,
         ),
-        project=ctx.project,
     )
     if receipt_note:
         warnings.append(receipt_note)
