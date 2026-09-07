@@ -117,7 +117,7 @@ test("QA methods is its own destination and opens contract detail", async (t) =>
     );
   }
   const text = allNodes(root).map((node) => node.textContent).join(" ");
-  assert.match(
+  assert.doesNotMatch(
     text,
     /The registered contracts each case uses to prove its claim/,
   );
