@@ -79,9 +79,17 @@ test("Active reuses full session cards and excludes ended sessions", async (t) =
     ["s-active", "s-parked"],
   );
   assert.equal(byClass(root, "session-model-line").length, 2);
-  const badge = byClass(root, "session-reason-badge")
-    .find((node) => !node.hidden);
-  assert.equal(badge.title, "waiting on YOK-7");
+  assert.deepEqual(
+    byClass(root, "session-quiet-explanation").map((node) => [
+      node.children[0].textContent, node.children[1].textContent,
+    ]),
+    [["Why quiet", "waiting on YOK-7"]],
+  );
+  assert.deepEqual(
+    byClass(root, "pill").filter((node) => node.attributes.get("data-state") === "parked")
+      .map((node) => node.textContent),
+    ["parked"],
+  );
   mounted.unmount();
 });
 

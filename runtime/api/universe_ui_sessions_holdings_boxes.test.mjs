@@ -186,13 +186,14 @@ test("the failed segment carries its failure without a second red line", () => {
   );
 });
 
-test("holder pill and age remain while the lifecycle strip stays item-only", () => {
+test("parked state and age remain while the lifecycle strip stays item-only", () => {
   const rendered = card(new FakeDocument(), {
     mode: "parked",
   });
-  const badge = byClass(rendered, "session-reason-badge")[0];
-  assert.ok(!badge.className.includes("session-reason-badge-empty"));
-  assert.equal(badge.hidden, false);
+  const badge = byClass(rendered, "pill").find(
+    (node) => node.attributes.get("data-state") === "parked",
+  );
+  assert.equal(badge.textContent, "parked");
   assert.equal(byClass(rendered, "session-age").length, 1);
   assert.equal(byClass(rendered, "delivery-run-stages").length, 1);
 });
