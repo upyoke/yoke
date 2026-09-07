@@ -196,6 +196,7 @@ def test_recorded_payload_folds_new_pair_read_and_preserves_old_rows(
         "codex-cli",
         "model",
         None,
+        None,
         "steer",
         "ALTMAN",
         "2026-08-26T11:00:00Z",
@@ -211,7 +212,7 @@ def test_recorded_payload_folds_new_pair_read_and_preserves_old_rows(
     monkeypatch.setattr(
         sections_sessions,
         "session_common_cells",
-        lambda *_args: ["session", "project", "executor", "model"],
+        lambda *_args: ["session", "project", "executor", "model", "usage"],
     )
     monkeypatch.setattr(
         sections_sessions, "session_lane_presentation", lambda *_args: None

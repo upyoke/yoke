@@ -104,7 +104,9 @@ def usage_title(usage: Optional[SessionUsage], cost: Optional[SessionCost]) -> s
         if cost.price_basis:
             parts.append(f"prices from {cost.price_basis}")
         if cost.effective_date:
-            parts.append(f"checked {cost.effective_date}")
+            parts.append(f"effective {cost.effective_date}")
+        if cost.checked_date:
+            parts.append(f"checked {cost.checked_date}")
         if cost.status != COST_COMPLETE and cost.reason:
             parts.append(f"partial: {cost.reason}")
     elif cost is not None and cost.reason:

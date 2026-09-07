@@ -19,6 +19,7 @@ import {
   readingIsStale,
   windowLabel,
 } from "./universe_machines_meters.js";
+import { appendMachineUsage } from "./universe_machines_usage.js";
 import {
   renderSessionControlFailure,
   sessionControlCall,
@@ -262,7 +263,7 @@ function capacityLine(documentNode, capacity) {
   return line;
 }
 
-function machineCard(documentNode, relay) {
+function machineCard(documentNode, relay, sessions) {
   const card = el(documentNode, "article", "machine-card");
   const head = el(documentNode, "div", "machine-head");
   const live = String(relay.liveness) === "connected";
@@ -283,6 +284,7 @@ function machineCard(documentNode, relay) {
   ));
   card.appendChild(head);
   card.appendChild(capacityLine(documentNode, relay.capacity));
+  appendMachineUsage(documentNode, card, relay, sessions);
   for (const surface of LAUNCHABLE_SURFACES) {
     card.appendChild(surfaceRow(documentNode, relay, surface));
   }
@@ -306,13 +308,19 @@ export function renderMachinesPanel(context, host, relays, options = {}) {
     return;
   }
   const grid = el(documentNode, "div", "machines-grid");
-  for (const relay of relays) grid.appendChild(machineCard(documentNode, relay));
+  // The sessions accessor is read at render time so a redraw picks up the
+  // roster's current rows rather than whatever it held when first mounted.
+  const sessions = typeof options.sessions === "function" ? options.sessions() : [];
+  for (const relay of relays) {
+    grid.appendChild(machineCard(documentNode, relay, sessions));
+  }
   panel.appendChild(grid);
   host.appendChild(panel);
 }
 
 export async function loadMachinesPanel(context, host, options = {}) {
   const documentNode = context.document;
+  let fetched = null;
   const run = async () => {
     let relays;
     try {
@@ -342,8 +350,19 @@ export async function loadMachinesPanel(context, host, options = {}) {
       return;
     }
     if (!context.isMounted()) return;
+    fetched = relays;
     host.replaceChildren();
     renderMachinesPanel(context, host, relays, options);
   };
   await run();
+  // Redrawing reuses the relays already fetched: the roster re-renders on
+  // every filter change, and the machine tiles that sum it must follow
+  // without asking the control plane for the relay list again.
+  return {
+    redraw: () => {
+      if (!fetched || !context.isMounted()) return;
+      host.replaceChildren();
+      renderMachinesPanel(context, host, fetched, options);
+    },
+  };
 }

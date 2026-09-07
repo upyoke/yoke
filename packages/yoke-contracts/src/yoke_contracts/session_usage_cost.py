@@ -68,8 +68,12 @@ class SessionCost:
     reason: str = ""
     #: Where the rates came from, as the reference states it.
     price_basis: str = ""
-    #: When those rates were last checked, as the reference states it.
+    #: When the provider's own prices took effect. Distinct from
+    #: ``checked_date``: a rate can be months old and still current.
     effective_date: str = ""
+    #: When the reference last verified those rates against the source,
+    #: which is the date that answers "are these stale?".
+    checked_date: str = ""
 
     def priced(self) -> bool:
         """True when at least some tokens were converted to dollars."""
@@ -93,7 +97,8 @@ def session_cost(
     total = 0.0
     gaps: list[str] = []
     bases: list[str] = []
-    dates: list[str] = []
+    effective: list[str] = []
+    checked: list[str] = []
     priced_any = False
     for entry in usage.models:
         prices = prices_for_model(entry.model)
@@ -113,7 +118,8 @@ def session_cost(
                 "ordinary cache-write rate"
             )
         _collect(bases, _text(prices, "source_url"), _text(prices, "conditions"))
-        _collect(dates, _text(prices, "checked_at"))
+        _collect(effective, _text(prices, "effective_at"))
+        _collect(checked, _text(prices, "checked_at"))
     if not priced_any:
         return SessionCost(reason="; ".join(gaps) or "no prices available")
     complete = not gaps and usage.status == USAGE_COMPLETE
@@ -122,7 +128,10 @@ def session_cost(
         status=COST_COMPLETE if complete else COST_PARTIAL,
         reason="" if complete else "; ".join(gaps or [usage.reason]),
         price_basis=" · ".join(bases),
-        effective_date=min(dates) if dates else "",
+        # A session priced from several models is only as current as its
+        # oldest rate, so the earliest date is the one that describes it.
+        effective_date=min(effective) if effective else "",
+        checked_date=min(checked) if checked else "",
     )
 
 

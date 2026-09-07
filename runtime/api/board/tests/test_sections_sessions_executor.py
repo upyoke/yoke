@@ -33,6 +33,7 @@ _RENDER_SCHEMA = """
         requested_model TEXT DEFAULT NULL,
         requested_reasoning_effort TEXT DEFAULT NULL,
         requested_context_window_tokens INTEGER DEFAULT NULL,
+        usage_totals TEXT DEFAULT NULL,
         execution_lane TEXT DEFAULT 'primary',
         mode TEXT DEFAULT 'wait',
         workspace TEXT DEFAULT '',

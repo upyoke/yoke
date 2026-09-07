@@ -39,6 +39,7 @@ class _Price:
     cache_write_long_per_million_usd: Optional[float] = 10.0
     conditions: str = "standard tier"
     source_url: str = "https://example.invalid/pricing"
+    effective_at: str = "2026-08-15"
     checked_at: str = "2026-09-01"
 
 
@@ -79,12 +80,14 @@ def test_reasoning_tokens_are_never_billed_on_top_of_output() -> None:
     )
 
 
-def test_the_price_basis_and_check_date_travel_with_the_estimate() -> None:
+def test_the_price_basis_and_both_dates_travel_with_the_estimate() -> None:
+    """When a rate took effect and when it was last verified differ."""
     cost = session_cost(_usage(input=1_000_000), _priced)
 
     assert "https://example.invalid/pricing" in cost.price_basis
     assert "standard tier" in cost.price_basis
-    assert cost.effective_date == "2026-09-01"
+    assert cost.effective_date == "2026-08-15"
+    assert cost.checked_date == "2026-09-01"
 
 
 def test_a_model_the_reference_does_not_know_is_named_not_zeroed() -> None:
@@ -193,7 +196,8 @@ def test_the_note_states_the_estimate_is_not_plan_consumption() -> None:
     note = usage_title(usage, session_cost(usage, _priced))
 
     assert "not plan consumption" in note
-    assert "2026-09-01" in note
+    assert "effective 2026-08-15" in note
+    assert "checked 2026-09-01" in note
 
 
 def test_the_note_explains_an_absent_estimate_rather_than_going_quiet() -> None:
