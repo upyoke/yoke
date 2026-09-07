@@ -1,4 +1,9 @@
-"""Release-pin support for the standing machine-relay CLI."""
+"""Build-source support for the standing machine-relay CLI.
+
+An https relay follows the release its control plane serves; a local-universe
+relay runs the machine's own installed Yoke, because that machine is also the
+one serving the plane. Both shapes answer the same status and daemon calls.
+"""
 
 from __future__ import annotations
 
@@ -14,13 +19,15 @@ def release_status_payload(
     *,
     refresh_served: bool,
 ) -> dict[str, Any]:
-    """Render the active release pin beside the launchd lifecycle state."""
+    """Render this relay's build source beside the launchd lifecycle state."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
 
     release = importlib.import_module("yoke_core.tools.session_relay_release")
 
     environment = str(getattr(launchd_status, "environment", "") or "")
     instance = resolve_relay_instance(environment=environment or None)
+    if not instance.follows_served_release:
+        return _local_build_payload()
     status = release.relay_release_status(
         instance=instance,
         refresh_served=refresh_served,
@@ -42,6 +49,32 @@ def release_status_payload(
     }
 
 
+def _local_build_payload() -> dict[str, Any]:
+    """Report the installed launcher a local-universe relay runs.
+
+    A local universe pins nothing and serves no wheel index, so those fields
+    are absent rather than reported missing; readiness is whether the machine
+    holds the launcher launchd was pointed at.
+    """
+    local_install = importlib.import_module(
+        "yoke_core.tools.session_relay_local_install"
+    )
+    launcher = local_install.local_launcher_path()
+    ready = local_install.local_launcher_ready(launcher)
+    return {
+        "pinned_release": None,
+        "served_build": None,
+        "release_current": ready,
+        "distribution_index": None,
+        "local_launcher": str(launcher),
+        "release_error_code": None if ready else local_install.LOCAL_LAUNCHER_MISSING,
+        "release_error": (
+            None if ready else local_install.local_launcher_missing_message(launcher)
+        ),
+        "release_recovery": None if ready else local_install.LOCAL_LAUNCHER_RECOVERY,
+    }
+
+
 def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
     return bool(payload.get("release_current")) and not payload.get(
         "release_error_code"
@@ -49,7 +82,7 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
 
 
 def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None) -> Any:
-    """Run the selected release on the relay-owned stable runtime."""
+    """Run this relay's build: a pinned release, or the machine's own Yoke."""
     from yoke_cli.config.session_relay_instance import resolve_relay_instance
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_inventory import collect_cached_inventory
@@ -63,6 +96,15 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         "yoke_core.tools.session_relay_release_install"
     )
     instance = resolve_relay_instance()
+    if not instance.follows_served_release:
+        # Nothing to follow: this machine serves the plane it polls, so the
+        # running process is already the build the universe has.
+        return serve_forever(
+            state_dir=instance.state_dir,
+            inventory_provider=collect_cached_inventory,
+            inventory_refresher=refresh_surface_probe_cache,
+            cycle_maintenance=cycle_maintenance,
+        )
     installed = release.relay_release_status(instance=instance, refresh_served=False)
     unconverged_launch = release.relay_launch_path(instance.state_dir)
     if (

@@ -42,6 +42,11 @@ class RelayInstance:
     prod: bool
     label: str
     state_dir: Path
+    #: Whether this relay tracks the build its control plane serves. An https
+    #: plane serves a release the relay must fetch and pin; a local universe is
+    #: served by the same machine the relay runs on, so the installed Yoke is
+    #: already the served build and there is nothing to follow.
+    follows_served_release: bool = True
 
     @property
     def stdout_log(self) -> Path:
@@ -112,14 +117,26 @@ def resolve_relay_instance(
         raise RelayInstanceError(str(exc)) from exc
 
     transport = str(connection.get("transport") or "").strip()
-    if transport != machine_schema.TRANSPORT_HTTPS:
-        raise RelayInstanceError(
-            "machine relay requires an https control-plane connection; "
-            f"env {selected_environment!r} uses {transport!r}"
-        )
+    is_prod = machine_schema.connection_is_prod(connection)
+    follows_served_release = transport == machine_schema.TRANSPORT_HTTPS
+    if not follows_served_release:
+        if transport not in machine_schema.POSTGRES_TRANSPORTS:
+            raise RelayInstanceError(
+                "machine relay requires an https or local-postgres control-plane "
+                f"connection; env {selected_environment!r} uses {transport!r}"
+            )
+        if is_prod:
+            # A prod-flagged local-postgres connection is direct database
+            # authority into a universe an https connection already serves, so
+            # its relay belongs to that connection. Standing one up here would
+            # poll one universe from two relays on one machine.
+            raise RelayInstanceError(
+                "machine relay refuses a prod local-postgres connection; env "
+                f"{selected_environment!r} is direct database authority for a "
+                "hosted universe, whose relay runs on its https connection"
+            )
 
     selected_home = _canonical(yoke_home or machine_config.yoke_home())
-    is_prod = machine_schema.connection_is_prod(connection)
     if is_prod:
         prod_environments = prod_https_environments(payload)
         if prod_environments != (selected_environment,):
@@ -140,6 +157,7 @@ def resolve_relay_instance(
         prod=is_prod,
         label=label,
         state_dir=state_dir,
+        follows_served_release=follows_served_release,
     )
 
 

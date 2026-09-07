@@ -27,7 +27,7 @@ from yoke_core.tools.launchctl_boundary import (
 from yoke_core.tools import session_relay_legacy as relay_legacy
 from yoke_core.tools import session_relay_release as relay_release
 from yoke_core.tools.session_relay_executable import relay_executable_search_path
-from yoke_core.tools.session_relay_release_install import pin_relay_release
+from yoke_core.tools import session_relay_release_install as relay_install
 
 
 RELAY_LAUNCHD_LABEL = PROD_RELAY_LABEL
@@ -53,6 +53,7 @@ class RelayLaunchdPaths:
     label: str = RELAY_LAUNCHD_LABEL
     config_path: Path | None = None
     yoke_home: Path | None = None
+    follows_served_release: bool = True
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class RelayLaunchdStatus:
     environment: str = ""
     label: str = RELAY_LAUNCHD_LABEL
     state_dir: Path | None = None
+    follows_served_release: bool = True
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
@@ -94,6 +96,7 @@ def relay_launchd_paths(
         label=selected.label,
         config_path=selected.config_path,
         yoke_home=selected.yoke_home,
+        follows_served_release=selected.follows_served_release,
     )
 
 
@@ -104,7 +107,10 @@ def relay_plist_document(
 ) -> dict[str, object]:
     resolved = paths or relay_launchd_paths()
     source_env = os.environ if environ is None else environ
-    launcher = relay_release.relay_launch_executable(resolved.state_dir)
+    launcher = relay_install.relay_launcher_path(
+        resolved.state_dir,
+        follows_served_release=resolved.follows_served_release,
+    )
     return {
         "Label": resolved.label,
         "ProgramArguments": [
@@ -207,6 +213,7 @@ def relay_launchd_status(
         environment=paths.environment,
         label=paths.label,
         state_dir=paths.state_dir,
+        follows_served_release=paths.follows_served_release,
     )
 
 
@@ -221,7 +228,7 @@ def install_relay_launchd(
     config_path: str | Path | None = None,
     environment: str | None = None,
     instance: RelayInstance | None = None,
-    pin_release: Callable[..., object] = pin_relay_release,
+    pin_release: Callable[..., object] = relay_install.pin_relay_release,
 ) -> RelayLaunchdStatus:
     if platform != "darwin":
         raise RelayInstallError("machine relay launchd install requires macOS")
@@ -233,15 +240,9 @@ def install_relay_launchd(
     paths = relay_launchd_paths(home=home, instance=selected)
     source_env = os.environ if environ is None else environ
     try:
-        pin_release(instance=selected)
+        relay_install.converge_relay_launcher(selected, pin_release=pin_release)
     except relay_release.RelayReleaseError as exc:
         raise RelayInstallError(str(exc), code=exc.code) from exc
-    launcher = relay_release.relay_launch_executable(paths.state_dir)
-    if not launcher.is_file():
-        raise RelayInstallError(
-            f"pinned relay executable is missing at {launcher}; "
-            f"retry `yoke --env {paths.environment} relay install`"
-        )
     try:
         relay_legacy.retire_unpinned_legacy_relay(
             instance=selected,

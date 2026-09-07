@@ -16,7 +16,7 @@ from textual.widgets import Static
 
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config.onboard_terminal import RICH_GLYPHS, glyphs
-from yoke_cli.config.onboard_session_relay import RELAY_SETUP_COMPLETE_LINES
+from yoke_cli.config import onboard_session_relay
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 from yoke_cli.project_install import hook_trust_report
 
@@ -190,7 +190,7 @@ def apply_success_body_from_report(
             if isinstance(project_report, dict)
             else None
         ),
-        relay_installed=bool(isinstance(relay, dict) and relay.get("installed")),
+        relay_lines=onboard_session_relay.report_complete_lines(relay),
         registry_lines=onboard_machine_registry.summary_lines(
             report.get("machine_registry")
         ),
@@ -202,7 +202,7 @@ def apply_success_body(
     report_path: str | None,
     hook_trust: Sequence[str] = (),
     *,
-    relay_installed: bool = False,
+    relay_lines: Sequence[str] = (),
     registry_lines: Sequence[str] = (),
     board_art_committed: bool = False,
 ) -> list[Static]:
@@ -218,11 +218,10 @@ def apply_success_body(
         widgets.append(
             Static(BOARD_ART_COMMITTED_LINE, classes="onboard-plan-line")
         )
-    if relay_installed:
+    if relay_lines:
         widgets.append(Static("", classes="onboard-spacer"))
         widgets.extend(
-            Static(escape(line), classes="onboard-plan-line")
-            for line in RELAY_SETUP_COMPLETE_LINES
+            Static(escape(line), classes="onboard-plan-line") for line in relay_lines
         )
     # A machine that connected is set up whatever the registry decided, so a
     # refusal is named here with its recovery instead of failing the apply.

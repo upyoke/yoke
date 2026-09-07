@@ -193,6 +193,7 @@ def build_report(
                 local_destination=local_destination
             ),
             installed=False,
+            local_destination=local_destination,
         ),
     }
     if normalized_project_mode != PROJECT_MODE_MACHINE_ONLY:
@@ -266,7 +267,9 @@ def build_report(
             harness_posture_install.apply_reported()
         )
         onboard_apply_progress.emit(progress, *posture_step, "done")
-    relay_steps = tuple(onboard_session_relay.RELAY_PLAN_STEPS)
+    relay_steps = onboard_session_relay.progress_steps(
+        local_destination=local_destination
+    )
     if onboard_session_relay.is_supported(local_destination=local_destination):
         onboard_apply_progress.emit_many(progress, relay_steps, "running")
         installed = onboard_session_relay.install(local_destination=local_destination)
@@ -274,6 +277,7 @@ def build_report(
         report["session_relay"] = onboard_session_relay.report_fragment(
             planned=True,
             installed=installed,
+            local_destination=local_destination,
         )
     onboard_machine_registry.apply(cfg_path, progress=progress, report=report)
     if reuse.get("machine_github"):

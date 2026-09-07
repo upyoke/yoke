@@ -7,7 +7,12 @@ import sys
 from typing import Any, Mapping
 
 from yoke_cli.config import machine_config
+from yoke_cli.config.session_relay_instance import (
+    RelayInstanceError,
+    resolve_relay_instance,
+)
 from yoke_contracts.machine_config.credential_sources import (
+    CREDENTIAL_KIND_DSN_FILE,
     CREDENTIAL_KIND_TOKEN_FILE,
 )
 from yoke_contracts.session_control.function_ids import RELAY_FUNCTION_IDS
@@ -30,23 +35,37 @@ def _machine_id() -> str:
         return ""
 
 
-def _token_reference_active() -> bool:
-    """Check credential presence only; never read or expose the token value."""
+def _missing_credential_reference(*, follows_served_release: bool) -> str:
+    """Name the missing credential, checking presence only, never its value.
+
+    The two planes authorize differently: an https relay carries an owner-only
+    API token, while a local relay reaches the universe this machine serves
+    through its recorded DSN. Demanding a token of a local install would fail a
+    correctly wired machine.
+    """
+    expected_kind = (
+        CREDENTIAL_KIND_TOKEN_FILE
+        if follows_served_release
+        else CREDENTIAL_KIND_DSN_FILE
+    )
+    described = (
+        "owner-only API token reference"
+        if follows_served_release
+        else "local universe DSN reference"
+    )
     try:
         connection: Mapping[str, Any] = machine_config.active_connection()
     except Exception:
-        return False
+        return f"active connection could not be read for its {described}"
     source = connection.get("credential_source")
-    if not isinstance(source, Mapping):
-        return False
-    if str(source.get("kind") or "") != CREDENTIAL_KIND_TOKEN_FILE:
-        return False
+    if not isinstance(source, Mapping) or str(source.get("kind") or "") != expected_kind:
+        return f"active connection has no {described}"
     raw_path = source.get("path")
-    return bool(
-        isinstance(raw_path, str)
-        and raw_path.strip()
-        and Path(raw_path).expanduser().is_file()
-    )
+    if not (isinstance(raw_path, str) and raw_path.strip()):
+        return f"active connection has no {described}"
+    if not Path(raw_path).expanduser().is_file():
+        return f"{described} names a file that is not present"
+    return ""
 
 
 def _recent_relay(conn: Any, machine_id: str, now: str) -> tuple[str, str] | None:
@@ -91,12 +110,19 @@ def hc_session_relay(
             "launchd relay support is macOS-only; systemd is not shipped",
         )
         return
-    launchd = relay_launchd_status()
+    try:
+        instance = resolve_relay_instance()
+    except RelayInstanceError as exc:
+        # The active connection is not one that owns a relay. Say which, rather
+        # than crashing the check on the refusal.
+        rec.record(SLUG, TITLE, NOT_APPLICABLE, str(exc))
+        return
+    launchd = relay_launchd_status(instance=instance)
     problems: list[str] = []
     if not launchd.plist_present:
         problems.append(f"plist missing at {launchd.plist_path}")
     elif not launchd.plist_current:
-        problems.append("plist does not match the release-pinned relay contract")
+        problems.append("plist does not match this relay's current contract")
     if not launchd.loaded:
         problems.append("launchd login item is not loaded")
     machine_id = _machine_id()
@@ -105,8 +131,11 @@ def hc_session_relay(
         problems.append("machine config has no canonical machine id")
     elif recent is None:
         problems.append("control plane has no currently connected relay heartbeat")
-    if not _token_reference_active():
-        problems.append("active connection has no owner-only API token reference")
+    missing_credential = _missing_credential_reference(
+        follows_served_release=instance.follows_served_release,
+    )
+    if missing_credential:
+        problems.append(missing_credential)
     if problems:
         rec.record(
             SLUG,
