@@ -22,13 +22,11 @@ class _CallRecorder:
         self.calls: list[tuple[int, str]] = []
         self.bypass_seen: list[str] = []
         self.source_seen: list[str] = []
-        self.rebuild_board_seen: list[bool] = []
 
-    def __call__(self, item_id, status, out, *, rebuild_board=True):
+    def __call__(self, item_id, status, out):
         self.calls.append((item_id, status))
         self.bypass_seen.append(os.environ.get("YOKE_CLAIM_BYPASS", ""))
         self.source_seen.append(os.environ.get("YOKE_STATUS_SOURCE", ""))
-        self.rebuild_board_seen.append(rebuild_board)
         return {"success": True}
 
 

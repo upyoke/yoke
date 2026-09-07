@@ -87,7 +87,6 @@ def _find_fields_with_section(
 def _section_upsert_in_field(
     *, item_id: int, section: str, heading_norm: str, field: str,
     field_content: str, new_section_content: str, source: Optional[str],
-    rebuild_board: bool = True,
 ) -> "TransformResult":
     from yoke_core.domain.backlog_structured_write_op import (
         execute_structured_write,
@@ -107,7 +106,7 @@ def _section_upsert_in_field(
         )
     write_result = execute_structured_write(
         item_id=item_id, field=field, content=new_field_content,
-        source=source or "", rebuild_board=rebuild_board, out=_NullSink(),
+        source=source or "", out=_NullSink(),
     )
     if not write_result.get("success"):
         err = str(write_result.get("error") or "structured write failed")
@@ -135,7 +134,6 @@ def section_upsert(
     content: str,
     ordering: Optional[int] = None,
     source: Optional[str] = None,
-    rebuild_board: bool = True,
 ) -> TransformResult:
     """Upsert a top-level ``## heading`` section.
 
@@ -183,7 +181,6 @@ def section_upsert(
                 item_id=item_id, section=section, heading_norm=heading_norm,
                 field=field, field_content=field_content,
                 new_section_content=content, source=source,
-                rebuild_board=rebuild_board,
             )
 
     try:

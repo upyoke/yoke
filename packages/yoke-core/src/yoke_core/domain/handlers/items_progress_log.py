@@ -126,7 +126,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "stability": "stable",
         "owner_module": "yoke_core.domain.handlers.items_progress_log",
         "target_kinds": ["item"],
-        "side_effects": ["render_body", "github_sync", "rebuild_board"],
+        "side_effects": ["render_body", "github_sync"],
         "emitted_event_names": ["SectionAppended"],
         "guardrails": ["empty_body"],
         "adapter_status": "live",

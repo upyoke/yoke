@@ -285,7 +285,7 @@ class DispatcherOverheadStructuredFieldReplaceTests(unittest.TestCase):
             target=TargetRef(kind="item", item_id=1),
             payload={"field": "spec", "content": "# microbench spec"},
             preconditions={"allow_empty": False, "allow_shrinkage": True},
-            options={"sync_github_body": False, "rebuild_board": False, "dry_run": True},
+            options={"sync_github_body": False, "dry_run": True},
         )
         fake_result = {
             "success": True, "item_id": 1, "field": "spec",

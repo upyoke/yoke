@@ -170,40 +170,10 @@ class TestExecuteBatchUpdateCli:
         assert called["item_ids"] == [1, 2]
         assert "Batch updated" in data["log"]
 
-    def test_execute_batch_update_cli_honors_no_rebuild(self, monkeypatch, capsys):
-        import yoke_core.api.service_client as service_client
-        from yoke_core.api import service_client_backlog_batch_update
-        from yoke_core.domain import backlog
-
-        called: dict = {}
-
-        def _record_execute_batch_update(**kwargs):
-            called.update(kwargs)
-            print("Batch updated", file=kwargs["out"])
-            return {"success": True, "updated_count": len(kwargs["item_ids"])}
-
-        monkeypatch.setattr(backlog, "execute_batch_update", _record_execute_batch_update)
-        monkeypatch.setattr(
-            service_client_backlog_batch_update,
-            "_parse_item_id_arg",
-            lambda ref: {"YOK-1": 1, "YOK-2": 2}[ref],
-        )
-
-        rc = service_client.cmd_execute_batch_update_cli(
-            ["frozen=true", "YOK-1", "--no-rebuild", "YOK-2"]
-        )
-
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
-        assert rc == 0
-        assert data["success"] is True
-        assert called["item_ids"] == [1, 2]
-        assert called["rebuild_board"] is False
-
     def test_execute_batch_update_cli_requires_item_ids_after_flags(self, capsys):
         import yoke_core.api.service_client as service_client
 
-        rc = service_client.cmd_execute_batch_update_cli(["frozen=true", "--no-rebuild"])
+        rc = service_client.cmd_execute_batch_update_cli(["frozen=true"])
 
         captured = capsys.readouterr()
         assert rc == 2

@@ -17,7 +17,6 @@ from yoke_core.domain.backlog_queries import (
     _resolve_deploy_envs,
     _resolve_write_db_path,
 )
-from yoke_core.domain import backlog_rendering as _rendering
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
@@ -46,7 +45,6 @@ def _execute_update_once(
     qa_bypass: bool = False,
     session_id: Optional[str] = None,
     dry_run: bool = False,
-    rebuild_board: bool = True,
     no_github: bool = False,
     out: TextIO = sys.stdout,
     expected_status: Optional[str] = None,
@@ -322,8 +320,6 @@ def _execute_update_once(
             f"Note: {sync_fail_count} GitHub sync operation(s) failed — items may need resync",
             file=out,
         )
-
-    _rendering._maybe_rebuild_board(rebuild_board, dry_run=dry_run, out=out)
 
     return {"success": True}
 

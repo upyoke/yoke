@@ -265,8 +265,9 @@ read-only.
 
 ## Orchestration: board, packets, agents render
 
-Board rebuild — function-call equivalent of the prior
-`service_client backlog-cli rebuild-board` recipe:
+Board rebuild — the operator-requested refresh of `.yoke/BOARD.md`.
+Nothing rebuilds the board automatically; dispatch this (or run
+`yoke board rebuild`) only when the operator asks for a refresh:
 
 ```json
 {

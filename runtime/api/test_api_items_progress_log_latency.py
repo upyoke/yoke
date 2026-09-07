@@ -78,8 +78,7 @@ def test_structured_write_skips_body_sync_when_content_unchanged(monkeypatch):
     )
 
     with patch.object(_structured._rendering, "_render_body") as render_body, \
-            patch.object(_structured._rendering, "_sync_body") as sync_body, \
-            patch.object(_structured._rendering, "_maybe_rebuild_board") as rebuild:
+            patch.object(_structured._rendering, "_sync_body") as sync_body:
         result = _structured.execute_structured_write(
             item_id=1903,
             field="spec",
@@ -99,4 +98,3 @@ def test_structured_write_skips_body_sync_when_content_unchanged(monkeypatch):
     fake_conn.close.assert_called_once()
     render_body.assert_not_called()
     sync_body.assert_not_called()
-    rebuild.assert_not_called()

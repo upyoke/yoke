@@ -151,7 +151,7 @@ def test_conduct_status_pipeline_dispatches_claim_bypass() -> None:
         "conduct", "epic-task", "update-status",
         "--epic", "501", "--task-num", "3",
         "--status", "implementing", "--note", "retry",
-        "--no-rebuild", "--claim-bypass", "simulation-autofix:epic-501",
+        "--claim-bypass", "simulation-autofix:epic-501",
     ) == 0
     req = _CAPTURED[-1]
     assert req.function == "conduct.epic_task.update_status"
@@ -159,7 +159,6 @@ def test_conduct_status_pipeline_dispatches_claim_bypass() -> None:
     assert req.payload == {
         "status": "implementing",
         "note": "retry",
-        "no_rebuild": True,
         "no_github": False,
         "no_derive": False,
         "claim_bypass": "simulation-autofix:epic-501",

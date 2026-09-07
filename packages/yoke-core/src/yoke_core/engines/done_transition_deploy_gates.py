@@ -245,10 +245,8 @@ def _redirect_to_delivery_stage(
         "status",
         delivery_stage_id,
         env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
-        rebuild_board=False,
         public_ref=public_ref,
     )
-    _parent()._rebuild_board_direct()
     print(
         f"\nNext step: run '/yoke usher {public_ref}' to execute "
         "the deployment pipeline."

@@ -58,7 +58,7 @@ class TestDoneGuardContextVar:
              ):
             rc = update_status.update_task_status(
                 test_db, "42", "1", "done", "",
-                no_rebuild=True, no_github=True, no_derive=True,
+                no_github=True, no_derive=True,
                 stdout=out, stderr=err,
             )
         assert rc == 0
@@ -74,7 +74,7 @@ class TestDoneGuardContextVar:
              mock.patch.object(update_status, "_verify_claim"):
             rc = update_status.update_task_status(
                 test_db, "43", "1", "done", "",
-                no_rebuild=True, no_github=True, no_derive=True,
+                no_github=True, no_derive=True,
                 stdout=out, stderr=err,
             )
         assert rc == 0
@@ -87,7 +87,7 @@ class TestDoneGuardContextVar:
         out, err = io.StringIO(), io.StringIO()
         rc = update_status.update_task_status(
             test_db, "44", "1", "done", "",
-            no_rebuild=True, no_github=True, no_derive=True,
+            no_github=True, no_derive=True,
             stdout=out, stderr=err,
         )
         assert rc == 4
@@ -128,7 +128,7 @@ class TestTransitionSourceContextVar:
              ):
             update_status.update_task_status(
                 test_db, "45", "1", "implementing", "",
-                no_rebuild=True, no_github=True, no_derive=True,
+                no_github=True, no_derive=True,
                 stdout=out, stderr=err,
             )
         assert seen["source"] == "my-cascade-source"
@@ -142,7 +142,7 @@ class TestTransitionSourceContextVar:
              mock.patch.object(update_status, "_verify_claim"):
             update_status.update_task_status(
                 test_db, "46", "1", "implementing", "",
-                no_rebuild=True, no_github=True, no_derive=True,
+                no_github=True, no_derive=True,
                 stdout=out, stderr=err,
             )
         assert seen["source"] == "env-source"
@@ -155,7 +155,7 @@ class TestTransitionSourceContextVar:
              mock.patch.object(update_status, "_verify_claim"):
             update_status.update_task_status(
                 test_db, "47", "1", "implementing", "",
-                no_rebuild=True, no_github=True, no_derive=True,
+                no_github=True, no_derive=True,
                 stdout=out, stderr=err,
             )
         assert seen["source"] == "update-status"

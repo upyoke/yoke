@@ -75,7 +75,6 @@ def _complete(conn, item_id: int) -> tuple[dict, str]:
         force=True,
         qa_bypass=True,
         no_github=True,
-        rebuild_board=False,
         out=output,
     )
     return result, output.getvalue()

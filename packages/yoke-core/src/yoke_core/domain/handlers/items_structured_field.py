@@ -181,7 +181,6 @@ def handle_replace(request: FunctionCallRequest) -> HandlerOutcome:
         content=payload.content,
         source=payload.source,
         force=payload.force,
-        rebuild_board=False,
         out=_NullSink(),
     )
     if not result.get("success"):
@@ -231,7 +230,6 @@ def handle_append_addendum(request: FunctionCallRequest) -> HandlerOutcome:
         heading=payload.heading,
         content=payload.content,
         source=payload.source,
-        rebuild_board=False,
     )
     if not result.success:
         return _guard_failed(
@@ -271,7 +269,6 @@ def handle_section_upsert(request: FunctionCallRequest) -> HandlerOutcome:
         content=payload.content,
         ordering=payload.ordering,
         source=payload.source,
-        rebuild_board=False,
     )
     if not result.success:
         return _guard_failed(

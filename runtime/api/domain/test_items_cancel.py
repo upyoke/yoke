@@ -41,9 +41,6 @@ def _isolate_write_side_effects(monkeypatch) -> None:
     monkeypatch.setattr(
         backlog_close_op._rendering, "_close_issue", lambda *_a, **_k: None
     )
-    monkeypatch.setattr(
-        backlog_close_op._rendering, "_maybe_rebuild_board", lambda *_a, **_k: None
-    )
 
 
 def _seed_session(conn: Any, session_id: str) -> None:

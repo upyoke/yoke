@@ -159,7 +159,7 @@ def epic_task_history_insert(args: List[str]) -> int:
 
 CONDUCT_EPIC_TASK_UPDATE_STATUS_USAGE = (
     "yoke conduct epic-task update-status --epic N --task-num N "
-    "--status STATUS [--note TEXT | --note-file PATH] [--no-rebuild] "
+    "--status STATUS [--note TEXT | --note-file PATH] "
     "[--no-github] [--no-derive] [--claim-bypass SOURCE] "
     "[--session-id S] [--json]"
 )
@@ -174,7 +174,6 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
     parser.add_argument("--status", required=True)
     group = parser.add_mutually_exclusive_group()
     add_text_file_pair(group, "--note", "--note-file", dest="note")
-    parser.add_argument("--no-rebuild", action="store_true")
     parser.add_argument("--no-github", action="store_true")
     parser.add_argument("--no-derive", action="store_true")
     parser.add_argument("--claim-bypass", default="")
@@ -194,7 +193,6 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
         {
             "status": parsed.status,
             "note": note or "",
-            "no_rebuild": parsed.no_rebuild,
             "no_github": parsed.no_github,
             "no_derive": parsed.no_derive,
             "claim_bypass": parsed.claim_bypass,

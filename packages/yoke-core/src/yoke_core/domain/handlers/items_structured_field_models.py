@@ -96,7 +96,7 @@ def build_registrations():
     )
 
     owner = "yoke_core.domain.handlers.items_structured_field"
-    side_effects = ["render_body", "github_sync", "rebuild_board"]
+    side_effects = ["render_body", "github_sync"]
     guardrails = ["empty_body", "shrinkage", "freeze_lock", "invalid_field"]
 
     return [

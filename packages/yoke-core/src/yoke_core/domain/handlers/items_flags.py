@@ -318,7 +318,7 @@ def _descriptor(
         "stability": "stable",
         "owner_module": "yoke_core.domain.handlers.items_flags",
         "target_kinds": ["item"],
-        "side_effects": ["render_body", "rebuild_board", "github_sync", summary],
+        "side_effects": ["render_body", "github_sync", summary],
         "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": ["implicit_item_claim", "done_item_block"],
         "adapter_status": "live",

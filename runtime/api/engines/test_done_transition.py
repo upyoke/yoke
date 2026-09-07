@@ -290,7 +290,6 @@ class TestDeploymentFlowGuard:
         assert args[1] == "status"
         assert args[2] == "ship-ready"
         assert kwargs["env_overrides"] == {"YOKE_STATUS_SOURCE": "done-transition"}
-        assert kwargs["rebuild_board"] is False
 
 
 class TestRunStageConsistency:

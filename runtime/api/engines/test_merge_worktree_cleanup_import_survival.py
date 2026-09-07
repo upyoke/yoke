@@ -57,9 +57,6 @@ class TestImportsSurviveLaneRemoval:
         monkeypatch.setattr(merge_worktree_cleanup, "reseat_loaded_packages", reseat)
         monkeypatch.setattr(merge_worktree, "_sync_local_target", lambda _ctx: True)
         monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
-        monkeypatch.setattr(
-            merge_worktree, "_regenerate_views_advisory", lambda _ctx: None
-        )
         monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
         monkeypatch.setattr(
             merge_worktree, "_emit_merge_event", lambda *args, **kwargs: None

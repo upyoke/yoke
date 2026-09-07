@@ -75,7 +75,6 @@ class TestExecuteClose:
         patched["_close_issue"].return_value = True
         patched["_post_comment"].assert_called_once_with(10, "idea", "cancelled", out)
         patched["_close_issue"].assert_called_once_with(10, out)
-        patched["_rebuild_board"].assert_called_once_with(out)
 
     def test_basic_close_preserves_context_free_numeric_resolution_ref(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")
@@ -254,4 +253,3 @@ class TestExecuteClose:
         assert "[DRY-RUN] Skipping GitHub: close + comment for YOK-10" in out.getvalue()
         patched["_post_comment"].assert_not_called()
         patched["_close_issue"].assert_not_called()
-        patched["_rebuild_board"].assert_called_once_with(out)

@@ -186,7 +186,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "target_kinds": ["item"],
         "side_effects": [
             "render_body",
-            "rebuild_board",
             "github_sync",
             "cancel_item",
         ],

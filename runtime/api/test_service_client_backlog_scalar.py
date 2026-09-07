@@ -98,7 +98,6 @@ def test_freeze_dispatches_frozen_true(capsys: pytest.CaptureFixture[str]) -> No
     assert envelope["payload"] == {"field": "frozen", "value": True}
     assert envelope["intent"] == "freeze"
     assert envelope["actor"]["session_id"] == "test-sid"
-    assert envelope["options"]["rebuild_board"] is True
     out = capsys.readouterr().out
     assert "1685: frozen" in out
 

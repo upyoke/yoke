@@ -118,91 +118,32 @@ class TestPostMergeCheckout:
 
 
 # ===========================================================================
-# Tests: post-merge cleanup exit-code class (exit 5)
+# Tests: post-merge cleanup
 # ===========================================================================
-class TestPostMergeViewRegeneration:
-    """A generated-view failure cannot overturn a committed merge."""
+class TestPostMergeCleanup:
+    """Cleanup runs after a committed merge and never rebuilds the board."""
 
     def test_exit_0_clean_path_still_works(self, merge_env: MergeEnv) -> None:
-        """The happy path — merge + schema refresh + view
-        regen + board rebuild all succeed — still returns 0 and prints
-        the ``YOKE_REPO_ROOT={path}`` contract line last."""
+        """The happy path — merge + schema refresh + cleanup all succeed —
+        still returns 0 and prints the ``YOKE_REPO_ROOT={path}`` contract
+        line last."""
         result = run_merge(merge_env)
         assert result.exit_code == 0
-        assert "Regenerating DB-sourced views" in result.stdout
         assert f"YOKE_REPO_ROOT={merge_env.repo}" in result.stdout
         assert not (merge_env.repo / "data" / "config").exists()
-        assert (merge_env.repo / ".yoke" / "BOARD.md").is_file()
 
-    def test_regeneration_failure_is_deferred_after_committed_merge(
-        self, merge_env: MergeEnv
-    ) -> None:
-        """A forced refresh failure is retried, reported, and non-fatal."""
-        result = run_merge(
-            merge_env,
-            extra_env={"YOKE_MERGE_TEST_FORCE_REGEN_FAILURE": "1"},
-        )
+    def test_merge_never_rebuilds_the_board(self, merge_env: MergeEnv) -> None:
+        """The board refreshes only on an explicit ``yoke board rebuild``.
 
-        assert result.exit_code == 0, (
-            f"expected success, got {result.exit_code}\n"
-            f"stdout={result.stdout}\nstderr={result.stderr}"
-        )
+        A merge is one of the entry points that used to trigger a rebuild;
+        it must now leave the generated view entirely alone.
+        """
+        board = merge_env.repo / ".yoke" / "BOARD.md"
+        before = board.read_text() if board.is_file() else None
 
-        # The merge itself landed: 'Successfully merged' appears BEFORE
-        # the cleanup failure banner.
-        assert "Successfully merged" in result.stdout
-        # And the merge commit really exists on the target branch.
-        branch_log = _git(merge_env.repo, "log", "main", "--oneline", check=False)
-        assert "feature work" in branch_log.stdout
+        result = run_merge(merge_env)
+        assert result.exit_code == 0
 
-        assert result.stderr.count("retrying once") == 1
-        assert "refresh deferred" in result.stderr
-        assert "item close-out will continue" in result.stderr
-
-        # The YOKE_REPO_ROOT output contract still appears so
-        # done_transition can re-locate the Yoke repo (exit-5 path
-        # must not break the stdout contract).
-        assert f"YOKE_REPO_ROOT={merge_env.repo}" in result.stdout
-
-        # The deferred-refresh event records the advisory failure without
-        # classifying the successful merge boundary as failed.
-        from runtime.api.fixtures.file_test_db import connect_test_db
-
-        conn = connect_test_db(str(merge_env.db_path))
-        try:
-            rows = conn.execute(
-                "SELECT envelope FROM events "
-                "WHERE event_name='PostMergeViewRegenerationDeferred' "
-                "ORDER BY id DESC"
-            ).fetchall()
-        finally:
-            conn.close()
-
-        assert rows, "no deferred view-regeneration event found"
-
-        import json as _json
-
-        # Envelopes wrap the caller-supplied context dict under
-        # ``context.detail``; top-level ``context`` carries framing
-        # metadata added by the event emitter.
-        post_merge_cleanup_details = []
-        for (envelope_json,) in rows:
-            try:
-                envelope = _json.loads(envelope_json)
-            except (TypeError, _json.JSONDecodeError):
-                continue
-            detail = (envelope.get("context") or {}).get("detail") or {}
-            if detail.get("phase") == "post_merge_cleanup":
-                post_merge_cleanup_details.append(detail)
-
-        assert len(post_merge_cleanup_details) >= 1, (
-            "expected at least one deferred view-regeneration event with "
-            f"phase=post_merge_cleanup; found envelopes: {[r[0] for r in rows]}"
-        )
-        cleanup_detail = post_merge_cleanup_details[0]
-        assert cleanup_detail.get("merge_committed") is True
-        assert cleanup_detail.get("attempts") == 2
-        assert cleanup_detail.get("error_type") == "RuntimeError"
-        assert "YOKE_MERGE_TEST_FORCE_REGEN_FAILURE" in cleanup_detail.get("error", "")
-        assert cleanup_detail.get("branch") == TEST_BRANCH
-        assert cleanup_detail.get("target") == "main"
+        assert "Regenerating DB-sourced views" not in result.stdout
+        after = board.read_text() if board.is_file() else None
+        assert after == before

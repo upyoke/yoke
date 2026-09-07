@@ -69,9 +69,6 @@ from yoke_core.engines.merge_worktree_post import (  # noqa: F401
     _post_merge_cleanup,
     _sync_local_target,
     _schema_refresh,
-    _yoke_state_dir,
-    _regenerate_views,
-    _regenerate_views_advisory,
     _ensure_target_branch,
 )
 from yoke_core.engines.merge_worktree_runner import run

@@ -226,7 +226,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "stability": "stable",
         "owner_module": "yoke_core.domain.handlers.items_create",
         "target_kinds": ["global"],
-        "side_effects": ["item_insert", "github_sync", "rebuild_board"],
+        "side_effects": ["item_insert", "github_sync"],
         "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [
             "workflow_entry_surface",

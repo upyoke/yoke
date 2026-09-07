@@ -70,7 +70,7 @@ mirroring backlog content to that repo's issue tracker. This is the
   skip fires before auth resolution and is never reported as an auth failure.
 - **Structured-field writes with `options.sync_github_body=true` no-op
   cleanly.** The body-sync step reports success (no `sync_warning`); the
-  DB write and board rebuild proceed as normal.
+  DB write proceeds as normal.
 - **`yoke resync` names the exclusion.** Disabled projects are
   excluded from the GitHub fetch and from classification: their items are
   never local orphans (so `--fix` can never mass-create them as issues),

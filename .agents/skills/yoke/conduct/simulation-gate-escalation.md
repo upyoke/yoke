@@ -135,4 +135,4 @@ Read and follow `.agents/skills/yoke/conduct/simulation-autofix.md`. Pass inheri
 
 ---
 
-**Handoff:** After simulation processing, always read `.agents/skills/yoke/conduct/cleanup-report.md` for board rebuild, main-repo cleanup, and final report.
+**Handoff:** After simulation processing, always read `.agents/skills/yoke/conduct/cleanup-report.md` for main-repo cleanup and final report.

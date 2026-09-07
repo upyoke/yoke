@@ -15,7 +15,6 @@ from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 import json
 import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
@@ -243,32 +242,6 @@ def _history_insert(
         pass
 
 
-# ---------------------------------------------------------------------------
-# Board rebuild
-# ---------------------------------------------------------------------------
-
-
-def _rebuild_board(out: TextIO = sys.stderr) -> None:
-    """Trigger board rebuild (in-process, zero-shell).
-
-    Best-effort: the board is a generated client-local view, so a rebuild
-    failure (no checkout, schema/data hiccup, lock contention) is non-fatal
-    to the status transition — it never propagates. Hosted/self-host skip
-    silently; a local rootless client still gets the no-checkout advisory.
-    """
-    from yoke_core.domain import rebuild_board as _rebuild_board_mod
-
-    try:
-        repo_root = _repo_root()
-    except (RuntimeError, FileNotFoundError) as exc:
-        _rebuild_board_mod.emit_no_checkout_board_skip(exc, out)
-        return
-    try:
-        _rebuild_board_mod.rebuild(repo_arg=str(repo_root))
-    except Exception:
-        pass
-
-
 __all__ = [
     "InvalidToken",
     "ProjectGithubAuthError",
@@ -278,7 +251,6 @@ __all__ = [
     "_history_insert",
     "_is_dry_run",
     "_now_iso",
-    "_rebuild_board",
     "_repo_args",
     "_repo_root",
     "_resolve_repo_for_epic",

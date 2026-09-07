@@ -63,7 +63,6 @@ class TestCoreUpdate:
         out = io.StringIO()
         err = io.StringIO()
         with mock.patch.object(update_status, "_history_insert"), \
-             mock.patch.object(update_status, "_rebuild_board"), \
              mock.patch.object(update_status, "_verify_claim"), \
              mock.patch.dict(os.environ, {"YOKE_TASK_DONE_VERIFIED": "1"}):
             update_status.update_task_status(
@@ -109,7 +108,6 @@ class TestDoneGuard:
         out = io.StringIO()
         err = io.StringIO()
         with mock.patch.object(update_status, "_history_insert"), \
-             mock.patch.object(update_status, "_rebuild_board"), \
              mock.patch.object(update_status, "_verify_claim"), \
              mock.patch.dict(os.environ, {"YOKE_TASK_DONE_VERIFIED": "1"}):
             rc = update_status.update_task_status(
@@ -131,7 +129,6 @@ class TestAutoUnblock:
         insert_epic_task(test_db, epic_id=42, task_num=2, status="blocked", dependencies="1")
         out = io.StringIO()
         with mock.patch.object(update_status, "_history_insert"), \
-             mock.patch.object(update_status, "_rebuild_board"), \
              mock.patch.object(update_status, "_verify_claim"):
             update_status.auto_unblock(
                 test_db, "42", "1", "reviewed-implementation", stdout=out,
@@ -152,7 +149,6 @@ class TestAutoUnblock:
         insert_epic_task(test_db, epic_id=42, task_num=3, status="blocked", dependencies="1,2")
         out = io.StringIO()
         with mock.patch.object(update_status, "_history_insert"), \
-             mock.patch.object(update_status, "_rebuild_board"), \
              mock.patch.object(update_status, "_verify_claim"):
             update_status.auto_unblock(
                 test_db, "42", "1", "reviewed-implementation", stdout=out,

@@ -195,5 +195,4 @@ def _advance_status(db_path: str, item_id: int, target: str) -> dict:
                 item_id=item_id,
                 field="status",
                 value=target,
-                rebuild_board=False,
             )

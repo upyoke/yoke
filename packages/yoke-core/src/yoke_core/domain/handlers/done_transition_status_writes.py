@@ -46,7 +46,6 @@ class ItemStatusSetRequest(BaseModel):
     qa_bypass: Optional[bool] = None
     done_nonce_verified: bool = False
     no_github: bool = False
-    rebuild_board: bool = False
 
 
 class ItemStatusSetResponse(BaseModel):
@@ -64,7 +63,6 @@ class EpicTaskStatusSetRequest(BaseModel):
     claim_bypass: str = ""
     status_source: str = ""
     task_done_verified: bool = False
-    no_rebuild: bool = True
     no_github: bool = True
     no_derive: bool = True
 
@@ -91,9 +89,8 @@ def handle_item_status_set(request: FunctionCallRequest) -> HandlerOutcome:
 
     Posts the ``(claim_bypass, status_source)`` override on the request-scoped
     ContextVar around the UNCHANGED :func:`backlog.execute_update`. The
-    ``done_nonce_verified`` / ``qa_bypass`` typed guards and ``no_github`` /
-    ``rebuild_board`` flags are threaded exactly as the engine's direct write
-    did. ``primary_success`` mirrors the former direct applier's return-code
+    ``done_nonce_verified`` / ``qa_bypass`` typed guards and the ``no_github``
+    flag are threaded exactly as the engine's direct write did. ``primary_success`` mirrors the former direct applier's return-code
     contract: True whenever ``execute_update`` returns (even on an inner gate
     failure), and only False on a genuine write exception.
 
@@ -133,7 +130,6 @@ def handle_item_status_set(request: FunctionCallRequest) -> HandlerOutcome:
                 item_id,
                 body.field,
                 body.value,
-                rebuild_board=body.rebuild_board,
                 no_github=body.no_github,
                 **kwargs,
             )
@@ -183,7 +179,6 @@ def handle_epic_task_status_set(request: FunctionCallRequest) -> HandlerOutcome:
                     body.task_num,
                     body.status,
                     note=body.note,
-                    no_rebuild=body.no_rebuild,
                     no_github=body.no_github,
                     no_derive=body.no_derive,
                     stdout=sys.stdout,

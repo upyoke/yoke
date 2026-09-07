@@ -97,7 +97,6 @@ def _patched_db(test: unittest.TestCase, db: _FakeDB) -> None:
         (items_structured_field, "_resolve_write_db_path", db.path),
         (backlog_rendering, "_render_body", True),
         (backlog_rendering, "_sync_body", (True, "full")),
-        (backlog_rendering, "_maybe_rebuild_board", None),
         (sections, "_render_fn", 0),
         (sections, "_emit_event_fn", None),
     ]
@@ -338,7 +337,6 @@ class TestRegistrations(unittest.TestCase):
             self.assertEqual(entry["claim_required_kind"], "item")
             self.assertIn("render_body", entry["side_effects"])
             self.assertIn("github_sync", entry["side_effects"])
-            self.assertIn("rebuild_board", entry["side_effects"])
 
 
 if __name__ == "__main__":

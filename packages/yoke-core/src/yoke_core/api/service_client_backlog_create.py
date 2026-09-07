@@ -40,23 +40,32 @@ def cmd_execute_create(args: list[str]) -> int:
     i = 0
     while i < len(args):
         if args[i] == "--title" and i + 1 < len(args):
-            title = args[i + 1]; i += 2
+            title = args[i + 1]
+            i += 2
         elif args[i] == "--workflow" and i + 1 < len(args):
-            workflow = args[i + 1]; i += 2
+            workflow = args[i + 1]
+            i += 2
         elif args[i] == "--priority" and i + 1 < len(args):
-            priority = args[i + 1]; i += 2
+            priority = args[i + 1]
+            i += 2
         elif args[i] == "--project" and i + 1 < len(args):
-            project = args[i + 1]; i += 2
+            project = args[i + 1]
+            i += 2
         elif args[i] == "--deployment-flow" and i + 1 < len(args):
-            deployment_flow = args[i + 1]; i += 2
+            deployment_flow = args[i + 1]
+            i += 2
         elif args[i] == "--status" and i + 1 < len(args):
-            status = args[i + 1]; i += 2
+            status = args[i + 1]
+            i += 2
         elif args[i] == "--source" and i + 1 < len(args):
-            source = args[i + 1]; i += 2
+            source = args[i + 1]
+            i += 2
         elif args[i] == "--dry-run":
-            dry_run = True; i += 1
+            dry_run = True
+            i += 1
         elif args[i] == "--entry-surface" and i + 1 < len(args):
-            entry_surface = args[i + 1]; i += 2
+            entry_surface = args[i + 1]
+            i += 2
         else:
             print(f"Unknown argument: {args[i]}", file=sys.stderr)
             return 2
@@ -153,7 +162,6 @@ def cmd_execute_create_cli(args: list[str]) -> int:
         status=status,
         session_id=os.environ.get("YOKE_SESSION_ID"),
         dry_run=dry_run,
-        rebuild_board=True,
         entry_surface=entry_surface,
         out=captured,
     )

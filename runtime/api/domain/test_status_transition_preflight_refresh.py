@@ -57,7 +57,6 @@ def test_status_preflight_materializes_attached_plan(test_db, monkeypatch) -> No
         value=TARGET_STATUS,
         force=True,
         no_github=True,
-        rebuild_board=False,
     )
 
     assert result["success"] is True
@@ -113,7 +112,6 @@ def test_workflow_drift_retries_preflight_and_honors_new_approval(
         value=TARGET_STATUS,
         force=True,
         no_github=True,
-        rebuild_board=False,
         originator_actor_id=_actor_id(test_db),
     )
 

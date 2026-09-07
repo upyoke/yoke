@@ -123,9 +123,7 @@ def _run_status_write(epic_id: int) -> tuple[int, str]:
     """Route the status write through the sanctioned mutation surface.
 
     Calls the owned backlog domain in-process. Side-effects stay identical —
-    ``ItemStatusChanged`` emission, backlog view regeneration, GitHub sync
-    hooks. Conduct owns the board rebuild separately, so ``rebuild_board``
-    stays ``False``.
+    ``ItemStatusChanged`` emission and GitHub sync hooks.
     """
     from yoke_core.domain import backlog
 
@@ -144,7 +142,6 @@ def _run_status_write(epic_id: int) -> tuple[int, str]:
             field="status",
             value="reviewed-implementation",
             qa_bypass=qa_bypass,
-            rebuild_board=False,
             out=captured,
         )
     except Exception as exc:

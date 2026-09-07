@@ -92,7 +92,7 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
 - Transition task back to `implementing`:
  ```bash
  yoke conduct epic-task update-status --epic "$_epic_id" --task-num "$_task_id" \
-  --status implementing --note "Retry attempt ${_attempt} of ${_max_attempts}" --no-rebuild
+  --status implementing --note "Retry attempt ${_attempt} of ${_max_attempts}"
  ```
 - Update dispatch chain:
  ```bash

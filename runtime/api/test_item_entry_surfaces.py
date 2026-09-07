@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Coverage for typed workflow entry surfaces on item creation."""
 
 from __future__ import annotations
@@ -94,7 +95,7 @@ class TestExecuteCreateEntrySurface:
     def test_dry_run_works_without_surface(self, tmp_db, monkeypatch):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         out = io.StringIO()
-        with _patch_externals() as patched, mock.patch.dict(
+        with _patch_externals(), mock.patch.dict(
             os.environ, {"YOKE_DB": tmp_db},
         ):
             result = backlog.execute_create(
@@ -105,7 +106,6 @@ class TestExecuteCreateEntrySurface:
             )
         assert result["success"] is True
         assert result.get("dry_run") is True
-        patched["_rebuild_board"].assert_not_called()
 
     def test_explicit_surface_allows_create(self, tmp_db, monkeypatch):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)

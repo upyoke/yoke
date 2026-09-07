@@ -13,7 +13,7 @@ Follow this phased-read sequence. **Read each file only when you reach that phas
 | 1 | `entry-activation.md` | S1–S6f: argument parsing, environment, gates, epic sync, task resolve, activation |
 | 2 | `engineer-tester-loop.md` | S6g: Engineer/Tester dispatch loop, verdict processing, auto-chaining |
 | 3 | `simulation-gate.md` | S6h: integration simulation, retry tiers, persist/verify, CLEAN/GAPS branching |
-| 4 | `cleanup-report.md` | 6z/6z-cleanup/7: board rebuild, main-repo cleanup, final report, claim release |
+| 4 | `cleanup-report.md` | 6z-cleanup/7: main-repo cleanup, final report, claim release |
 
 **Start by reading `entry-activation.md`.** Each phase file ends with an explicit handoff to the next phase.
 

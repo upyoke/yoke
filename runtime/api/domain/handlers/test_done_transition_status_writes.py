@@ -187,7 +187,6 @@ class TestEpicTaskStatusSet:
                         "note": "Auto-done: epic YOK-99 marked done",
                         "claim_bypass": "done-cascade:YOK-99",
                         "task_done_verified": True,
-                        "no_rebuild": True,
                         "no_github": True,
                         "no_derive": True,
                     },

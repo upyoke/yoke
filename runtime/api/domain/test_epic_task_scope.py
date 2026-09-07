@@ -145,7 +145,6 @@ def test_task_activation_refuses_implicit_scope(test_db):
         "1703",
         "1",
         "implementing",
-        no_rebuild=True,
         no_github=True,
     )
 

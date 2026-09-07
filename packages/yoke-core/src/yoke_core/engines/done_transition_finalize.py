@@ -236,10 +236,6 @@ def _run_closeout(
     done_transition._apply_discovery_scan(ref, result)
     result.add_step("10")
 
-    print("\n=== Step 11: Rebuild board ===")
-    done_transition._rebuild_board_direct()
-    result.add_step("11")
-
     print("\n=== Step 12: Commit ===")
     commit_ran = False
     diff = done_transition._run_git(["diff", "--cached", "--quiet"], capture=True)

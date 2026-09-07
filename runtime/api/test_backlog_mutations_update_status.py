@@ -49,7 +49,7 @@ class TestExecuteUpdate:
         _seed_claim(tmp_db, item_id="10")
         out = io.StringIO()
         with (
-            _patch_externals() as patched,
+            _patch_externals(),
             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
         ):
             result = backlog.execute_update(
@@ -61,7 +61,6 @@ class TestExecuteUpdate:
             )
         assert result["success"] is True
         assert _item_field(tmp_db, 10, "status") == "refining-idea"
-        patched["_rebuild_board"].assert_called_once_with(out)
 
     def test_status_update_records_recent_item_without_taking_focus(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")

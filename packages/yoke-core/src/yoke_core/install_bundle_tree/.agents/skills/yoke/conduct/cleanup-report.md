@@ -1,27 +1,12 @@
-# Conduct — Cleanup & Report (6z, 6z-cleanup, 7)
+# Conduct — Cleanup & Report (6z-cleanup, 7)
 
-The cleanup-and-report phase of the conduct epic flow. Board rebuild, main-repo cleanup, final report, and claim release. Runs on **every exit path** — SUCCESS, HALTED, `--no-chain`, and skip-simulation. **Inherited:** `MAIN_ROOT`, `N`, `_epic_id`, `_title`.
+The cleanup-and-report phase of the conduct epic flow. Main-repo cleanup, final report, and claim release. Runs on **every exit path** — SUCCESS, HALTED, `--no-chain`, and skip-simulation. **Inherited:** `MAIN_ROOT`, `N`, `_epic_id`, `_title`.
 
 ---
 
-## 6z. Board Rebuild
-
-Before the final report, trigger a single board rebuild to consolidate
-all intermediate transitions that were suppressed with `--no-rebuild`.
-Dispatch the `board.rebuild.run` function call (envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-`target = {kind: "global"}`, `payload = {force: false}`.
-
-This replaces the per-transition rebuilds that previously caused lock
-contention during fast conduct loops. Run the board rebuild before
-every transition to step 7, including SUCCESS, HALTED, `--no-chain`,
-and skip-simulation exits.
-
-After the board rebuild, always proceed to **step 6z-cleanup** (Main-Repo Cleanup) before step 7.
-
 ## 6z-cleanup. Main-Repo Cleanup
 
-After the board rebuild and before the final report, clean up shared-state artifacts that conduct leaves on main (follow-up work-item filing, board rebuilds, view regeneration). This step runs on every exit path — SUCCESS, HALTED, `--no-chain`, and skip-simulation.
+Before the final report, clean up shared-state artifacts that conduct leaves on main (follow-up work-item filing, and any board files an explicit rebuild left behind). This step runs on every exit path — SUCCESS, HALTED, `--no-chain`, and skip-simulation.
 
 ### a. Remove orphaned temp files
 

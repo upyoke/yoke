@@ -270,7 +270,6 @@ class _PatchExternals:
         )
         self._rendering_patcher = mock.patch.multiple(
             backlog_rendering,
-            _rebuild_board=mock.DEFAULT,
             _emit_event=mock.DEFAULT,
             _sync_item=mock.DEFAULT,
             _sync_labels=mock.MagicMock(return_value=True),

@@ -58,9 +58,7 @@ from yoke_core.domain.backlog_queries import (  # noqa: F401
 from yoke_core.domain.backlog_rendering import (  # noqa: F401
     _close_issue,
     _emit_event,
-    _maybe_rebuild_board,
     _post_comment,
-    _rebuild_board,
     _record_sync_failure,
     _render_body,
     _resolve_project_github_repo,

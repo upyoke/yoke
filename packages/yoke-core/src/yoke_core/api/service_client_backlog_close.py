@@ -71,7 +71,6 @@ def cmd_execute_close(args: list[str]) -> int:
         reason=reason,
         resolution_ref=resolution_ref,
         resolution_comment=resolution_comment,
-        rebuild_board=True,
         out=captured,
     )
     return _emit_backlog_result(dict(result), log=captured.getvalue())

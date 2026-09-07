@@ -153,7 +153,6 @@ def cmd_execute_update_cli(args: list[str]) -> int:
 
     done_nonce_verified = False
     qa_bypass = os.environ.get("YOKE_QA_GATE_BYPASS", "0") == "1"
-    no_rebuild = False
     json_mode = False
     positional_args: list[str] = []
     i = 0
@@ -163,8 +162,6 @@ def cmd_execute_update_cli(args: list[str]) -> int:
             done_nonce_verified = True
         elif token == "--qa-bypass":
             qa_bypass = True
-        elif token == "--no-rebuild":
-            no_rebuild = True
         elif token == "--json":
             json_mode = True
         else:
@@ -312,7 +309,6 @@ def cmd_execute_update_cli(args: list[str]) -> int:
                 done_nonce_verified=done_nonce_verified,
                 qa_bypass=qa_bypass,
                 session_id=session_id,
-                rebuild_board=False,
                 out=captured,
             )
             if not result.get("success"):
@@ -322,7 +318,6 @@ def cmd_execute_update_cli(args: list[str]) -> int:
             updated_count += 1
         else:
             result = {"success": True, "updated_count": updated_count}
-            backlog._maybe_rebuild_board(not no_rebuild, out=captured)
     else:
         if len(update_args) != 2:
             print(
@@ -338,7 +333,6 @@ def cmd_execute_update_cli(args: list[str]) -> int:
             done_nonce_verified=done_nonce_verified,
             qa_bypass=qa_bypass,
             session_id=session_id,
-            rebuild_board=not no_rebuild,
             out=captured,
         )
 

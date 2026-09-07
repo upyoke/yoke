@@ -52,7 +52,6 @@ class TestSkipRefineHappyPath:
             "refining-idea",
             "refined-idea",
         ]
-        assert exec_recorder.rebuild_board_seen == [False, True]
         assert result["to_status"] == "refined-idea"
         assert result["skipped_phase"] == "refining-idea"
 
@@ -110,7 +109,6 @@ class TestSkipRefineHappyPath:
             "refining-plan",
             "planned",
         ]
-        assert exec_recorder.rebuild_board_seen == [False, True]
         assert result["from_status"] == "plan-drafted"
         assert result["to_status"] == "planned"
         assert result["skipped_phase"] == "refining-plan"

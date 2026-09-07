@@ -218,7 +218,6 @@ class TestRelayGuard:
         called: list[str] = []
         with (
             patch.object(_bgs, "sync_item", side_effect=lambda *args, **k: (called.append(args[0]), 0)[1]),
-            patch("yoke_core.domain.backlog._maybe_rebuild_board", return_value=None),
         ):
             rc = relay.cmd_backlog_github(["sync-item", "EXT-71"])
 

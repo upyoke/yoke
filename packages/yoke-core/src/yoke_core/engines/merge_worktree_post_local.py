@@ -9,7 +9,6 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,
     _schema_refresh,
-    _regenerate_views_advisory,
     _ensure_target_branch,
 )
 
@@ -180,10 +179,7 @@ def do_local_merge(ctx: MergeContext) -> int:
     # Schema refresh
     _schema_refresh(ctx)
 
-    # Generated views are advisory after the merge has landed.
-    _regenerate_views_advisory(ctx)
-
-    # Ensure on target branch regardless of regen outcome
+    # Ensure on target branch
     _ensure_target_branch(ctx)
 
     # A standalone boundary still has to publish and observe the pushed

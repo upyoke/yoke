@@ -128,7 +128,6 @@ yoke items structured-field replace <id> --field <structured-field> --stdin
 execute_structured_write() writes the structured field to DB
  |
  +---> GitHub sync (options.sync_github_body)
- +---> Board rebuild (options.rebuild_board)
 ```
 
 Reading `items get PREFIX-N body` renders on demand from all structured fields. When you already have a real artifact file, the same command can read from a body file instead of stdin.
@@ -145,7 +144,6 @@ Shepherd subagents (PM, Architect) write structured content during lifecycle tra
 |------|-----------|---------------|---------------------|
 | DB write | `items.structured_field.*` through the Yoke function-call dispatcher | Python prints to stderr and exits nonzero | **Low** — stderr propagates to caller |
 | GitHub sync | `yoke_core.domain.backlog_github_sync` helpers | Returns nonzero on failure; sync failures are recorded in DB when invoked from backlog mutations | **Low** — failure is tracked and visible |
-| Board rebuild | `yoke_core.domain.rebuild_board` via `yoke board rebuild` | Rebuild errors propagate to the caller | **Low** — rebuild failure is explicit |
 
 ### Project-Aware GitHub Sync
 

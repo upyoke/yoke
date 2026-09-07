@@ -173,7 +173,7 @@ for _task_id in $_task_ids; do
  # wrapper and is not equivalent here because conduct needs the
  # dispatch_attempts/history/derive side effects.
  yoke conduct epic-task update-status --epic "$_epic_id" --task-num "$_task_id" \
-  --status implementing --note "Dispatched by conduct (task fan-out)" --no-rebuild
+  --status implementing --note "Dispatched by conduct (task fan-out)"
 
  # 4c. Persist the resolved dispatch-chain worktree and branch on epic_tasks row.
  # Preserve architect/refine per-task worktrees; do not collapse epic tasks to PREFIX-${N}.

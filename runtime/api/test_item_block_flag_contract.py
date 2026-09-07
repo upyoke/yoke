@@ -82,7 +82,7 @@ def test_block_sets_flag_and_preserves_status():
         f"{_LABEL_REST_STATE}.add_labels",
     ), patch(f"{_LABEL_REST_STATE}.remove_label"):
         result = backlog_updates.execute_update(
-            42, "blocked", "true", no_github=False, rebuild_board=False,
+            42, "blocked", "true", no_github=False,
         )
     assert result["success"], result
     row = db.execute("SELECT blocked, status FROM items WHERE id=42").fetchone()
@@ -104,7 +104,7 @@ def test_unblock_clears_flag_and_preserves_status():
         f"{_LABEL_REST_STATE}.add_labels",
     ), patch(f"{_LABEL_REST_STATE}.remove_label"):
         result = backlog_updates.execute_update(
-            43, "blocked", "false", no_github=False, rebuild_board=False,
+            43, "blocked", "false", no_github=False,
         )
     assert result["success"], result
     row = db.execute("SELECT blocked, status FROM items WHERE id=43").fetchone()
@@ -117,7 +117,7 @@ def test_blocked_reason_round_trips():
     db = _setup_item(item_id=44, status="implementing")
     result = backlog_updates.execute_update(
         44, "blocked_reason", "Awaiting external sign-off",
-        no_github=True, rebuild_board=False,
+        no_github=True,
     )
     assert result["success"], result
     row = db.execute("SELECT blocked_reason FROM items WHERE id=44").fetchone()
@@ -128,7 +128,7 @@ def test_blocked_reason_round_trips():
 def test_block_rejects_invalid_value():
     _setup_item(item_id=45, status="implementing")
     result = backlog_updates.execute_update(
-        45, "blocked", "maybe", no_github=True, rebuild_board=False,
+        45, "blocked", "maybe", no_github=True,
     )
     assert not result["success"]
     assert "blocked" in (result.get("error") or "").lower()

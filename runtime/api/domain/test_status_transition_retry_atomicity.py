@@ -52,7 +52,6 @@ def test_invalid_target_is_rejected_before_qa_materialization(
         value="not-a-stage",
         force=True,
         no_github=True,
-        rebuild_board=False,
     )
     assert result["error_code"] == "VALIDATION_ERROR"
     assert calls == 0
@@ -83,7 +82,6 @@ def test_exceptional_transition_without_plan_attachment_skips_materialization(
         value="blocked",
         force=True,
         no_github=True,
-        rebuild_board=False,
     )
 
     assert result["success"] is True
@@ -146,7 +144,6 @@ def test_expected_source_status_survives_retry_after_status_drift(
         expected_status="idea",
         force=True,
         no_github=True,
-        rebuild_board=False,
     )
 
     assert result["error_code"] == "WORKFLOW_STATUS_PRECONDITION_FAILED"
