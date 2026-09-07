@@ -49,14 +49,20 @@ def test_overview_keeps_live_and_recent_terminals(test_db):
         request_for("items.list.run", {"fields": ["title"], "relevance": "overview"})
     )
     overview = item_page_reads.handle_items_overview_list(
+        request_for("items.overview.list", {"relevance": "overview"})
+    )
+    items_page = item_page_reads.handle_items_overview_list(
         request_for("items.overview.list", {})
     )
     assert listing.primary_success and overview.primary_success
+    assert items_page.primary_success
     expected = {"live-old", "done-recent", "cancelled-recent"}
     assert expected <= _titles(listing)
     assert expected <= _titles(overview)
+    assert expected <= _titles(items_page)
     assert "done-old" not in _titles(listing)
     assert "done-old" not in _titles(overview)
+    assert "done-old" in _titles(items_page)
 
 
 def test_overview_resolves_each_owner_once(test_db, monkeypatch):

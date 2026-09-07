@@ -16,6 +16,7 @@ from yoke_contracts.api.function_call import (
 class ItemsOverviewListRequest(BaseModel):
     project: str | None = None
     limit: int | None = Field(default=None, ge=1, le=1000)
+    relevance: str | None = None
 
 
 class ItemsOverviewListResponse(BaseModel):
@@ -53,6 +54,12 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
         payload = ItemsOverviewListRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _error("payload_invalid", str(exc), "$.payload")
+    if payload.relevance not in (None, "overview"):
+        return _error(
+            "payload_invalid",
+            "relevance must be 'overview' when present",
+            "$.payload.relevance",
+        )
 
     from yoke_core.domain.handlers.items_listing import handle_items_list
     from yoke_core.domain.item_overview_read import enrich_item_overview_rows
@@ -67,9 +74,9 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
                 "created_at", "updated_at", "project", "project_id",
                 "project_sequence",
             ],
-            "relevance": "overview",
             **({"project": payload.project} if payload.project else {}),
             **({"limit": payload.limit} if payload.limit else {}),
+            **({"relevance": payload.relevance} if payload.relevance else {}),
         },
     })
     outcome = handle_items_list(list_request)

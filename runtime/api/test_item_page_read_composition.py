@@ -62,7 +62,7 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
     delegated = observed["request"]
     assert delegated.function == "items.list.run"
     assert delegated.actor == request.actor
-    assert delegated.payload["relevance"] == "overview"
+    assert "relevance" not in delegated.payload
     assert "project" not in delegated.payload
     assert {
         "priority",
@@ -78,6 +78,25 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
     } <= set(delegated.payload["fields"])
     assert outcome.result_payload["rows"][0]["public_ref"] == "ACM-22"
     assert outcome.result_payload["rows"][0]["worktrees"][0]["branch"] == "codex/footer"
+
+    item_page_reads.handle_items_overview_list(
+        request.model_copy(update={"payload": {"relevance": "overview"}})
+    )
+    assert observed["request"].payload["relevance"] == "overview"
+
+
+def test_overview_list_rejects_unknown_relevance():
+    outcome = item_page_reads.handle_items_overview_list(
+        FunctionCallRequest(
+            function="items.overview.list",
+            actor=ActorContext(actor_id="71", session_id="session-visible"),
+            target=TargetRef(kind="global"),
+            payload={"relevance": "items"},
+        )
+    )
+    assert not outcome.primary_success
+    assert outcome.error.code == "payload_invalid"
+    assert outcome.error.jsonpath == "$.payload.relevance"
 
 
 def test_dash_detail_links_back_to_its_source_field_note(monkeypatch):
