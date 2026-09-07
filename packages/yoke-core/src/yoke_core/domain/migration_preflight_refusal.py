@@ -139,5 +139,8 @@ def unreadable_message(environment: str, reason: str) -> str:
         f"{target_environment_for_admin_env(environment)}, so whether this "
         f"build was rehearsed is unknown rather than answered: {reason}. "
         "Refusing, because a gate that passes when it cannot check is not a "
-        "gate."
+        "gate. Coverage lives on that environment's own settings document, so "
+        "a refused read usually means the identity running this gate lacks "
+        "the project read that projection authorizes on; grant it that read "
+        "on the project, then re-run."
     )

@@ -82,8 +82,8 @@ def _read_coverage(
     environments: Sequence[str],
     history: Sequence[str],
     schema_digest: str,
-) -> Tuple[Dict[str, Dict[str, Any]], str]:
-    """Each environment's own coverage, or why coverage is unknown.
+) -> Tuple[Dict[str, Dict[str, Any]], str, str]:
+    """Each environment's own coverage, or the environment it could not read.
 
     One environment is read at a time because coverage is stored on the
     environment it belongs to. That is what makes "a stage receipt is not
@@ -101,9 +101,9 @@ def _read_coverage(
             project=project, environment=name, paths=paths
         )
         if unreadable:
-            return {}, f"{name}: {unreadable}"
+            return {}, name, unreadable
         coverage[name] = values
-    return coverage, ""
+    return coverage, "", ""
 
 
 def _verify_applied_migrations(
@@ -226,11 +226,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # Target first, so an unreadable store names the environment this
     # release is actually bound for rather than whichever sibling came first.
     environments = tuple(dict.fromkeys((environment, *receipt.RELEASE_ENVIRONMENTS)))
-    coverage, unreadable = _read_coverage(project, environments, history, schema_digest)
+    coverage, unreadable_environment, unreadable = _read_coverage(
+        project, environments, history, schema_digest
+    )
     if unreadable:
         print(
-            "release verification unavailable before tag: fleet-preflight "
-            f"receipts could not be checked: {unreadable}",
+            "release verification unavailable before tag: "
+            + refusal.unreadable_message(unreadable_environment, unreadable),
             file=sys.stderr,
         )
         return 2

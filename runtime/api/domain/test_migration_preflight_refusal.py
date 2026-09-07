@@ -95,3 +95,8 @@ class TestUnreadableMessage:
 
     def test_unreadable_names_the_environment_it_could_not_answer_for(self):
         assert "prod" in refusal.unreadable_message("prod-db-admin", "timeout")
+
+    def test_unreadable_names_what_would_clear_it(self):
+        message = refusal.unreadable_message("prod", "permission_denied")
+        assert "project read" in message
+        assert "re-run" in message

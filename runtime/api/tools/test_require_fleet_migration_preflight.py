@@ -161,6 +161,7 @@ def test_unavailable_receipt_query_is_not_reported_as_unsafe(
     refusal = capsys.readouterr().err
     assert "release verification unavailable before tag" in refusal
     assert "transport unavailable" in refusal
+    assert "unknown rather than answered" in refusal
     assert "release unsafe" not in refusal
 
 
@@ -232,4 +233,8 @@ def test_a_denied_coverage_read_is_unavailable_rather_than_unsafe(
 
     refusal = capsys.readouterr().err
     assert "release verification unavailable before tag" in refusal
-    assert "prod: permission_denied: items.read" in refusal
+    assert "for prod" in refusal
+    assert "permission_denied: items.read" in refusal
+    # The refusal has to say what would clear it; otherwise the operator
+    # rehearses a fleet that is already clean.
+    assert "project read" in refusal
