@@ -17,6 +17,7 @@ from typing import Any
 
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
+from yoke_core.domain.session_mode import session_is_parked
 
 
 # Keep equal to yoke_core.tools.watch_fleet.{PROBE_MODULE, WRAPPER_MODULE, KIND}.
@@ -147,7 +148,11 @@ def maybe_append_fleet_watcher_nudge(
             "Fleet watcher posture is unreadable; check `yoke sessions list --json` "
             "before re-arming, preserving an explicit parked/stop request."
         )
-    elif row.get("mode") != "steer" or row.get("ended_at") or row.get("terminated_at"):
+    elif (
+        session_is_parked(row.get("mode"))
+        or row.get("ended_at")
+        or row.get("terminated_at")
+    ):
         return report
     else:
         line = fleet_watcher_absent_nudge(report, executor_family)

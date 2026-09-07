@@ -167,6 +167,19 @@ def test_pause_suppresses_rearm_until_explicit_resume(monkeypatch, family):
     assert "re-arm" in presence.maybe_append_fleet_watcher_nudge(REPORT, **kwargs)
 
 
+@pytest.mark.parametrize("mode", ["wait", "busy", "steer"])
+def test_live_report_backed_seat_rearms_across_active_modes(monkeypatch, mode):
+    monkeypatch.setattr(presence, "_session_row", lambda _session: {"mode": mode})
+    report = presence.maybe_append_fleet_watcher_nudge(
+        REPORT,
+        session_id=SESSION,
+        executor_family="codex",
+        remote=False,
+        cmdlines=UNRELATED_CMDLINES,
+    )
+    assert "re-arm" in report
+
+
 def test_document_seats_rearm_once_per_distinct_project():
     report = "## project-a · FIRST\n## project-a · SECOND\n## project-b\n"
     nudge = presence.fleet_watcher_absent_nudge(report, "codex")

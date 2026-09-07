@@ -8,6 +8,8 @@ hook boundaries. These tests cover the report-only reply that fixes that.
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_contracts.hook_context_compose import FLEET_REPORT_CONTEXT_FIELD
 from yoke_core.hooks import session_message_delivery as delivery
 from yoke_core.hooks.types import Outcome
@@ -21,6 +23,14 @@ from runtime.harness.session_message_delivery_test_helpers import (
 
 
 _REPORT = "=== BEGIN YOKE FLEET REPORT ===\ndigest\n=== END YOKE FLEET REPORT ==="
+
+
+@pytest.fixture(autouse=True)
+def isolated_watcher_discovery(monkeypatch):
+    """Channel routing is independent of this machine's watcher processes."""
+    monkeypatch.setattr(
+        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
+    )
 
 
 def test_empty_inbox_with_a_report_attaches_it_on_the_stdout_channel(
