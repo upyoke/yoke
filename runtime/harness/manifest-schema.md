@@ -151,12 +151,18 @@ Fleet delivery behind a hint. Codex's value is the vendor
 `additionalContextLimit` default; Claude Code and Cursor use the shared
 envelope ceiling.
 
-`launch_model_selection` names its `surface`, catalog authority, documented
-model tokens, accepted reasoning efforts and context windows, and the native
-encoding for each knob. An encoding of `null` means the surface cannot express
-that knob; preview refuses it instead of dropping it. Cursor's model catalog is
-read from `cursor-agent --list-models`, while the other two CLI catalogs are
-documented in the shared contract.
+`launch_model_selection` names its `surface`, accepted reasoning efforts and
+context windows, and the native encoding for each knob. An encoding of `null`
+means the surface cannot express that knob; preview refuses it instead of
+dropping it.
+
+It names no model tokens. Which models a surface can select is a per-machine
+observation rather than a build-time fact, so `model_discovery` names the route
+each surface is listed through — `cursor-agent --list-models`, `codex
+app-server model/list`, or `none` for a surface with no declared adapter — and
+`model_catalog` reports `native_cli` or `unobserved` accordingly. The observed
+answers ride the relay heartbeat; read them from a machine's own reading rather
+than from this manifest.
 
 Its `resume_selection` is `native` when the CLI restores the conversation's
 selection, `explicit` when the relay must replay current session facts, and

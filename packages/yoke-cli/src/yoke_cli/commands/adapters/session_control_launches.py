@@ -86,7 +86,11 @@ def _maybe_list_models(args: List[str]) -> int | None:
     parser.add_argument("--surface", dest="executor_surface", default=None)
     add_json_arg(parser)
     parsed, _unknown = parser.parse_known_args(args)
-    report = list_preferred_models(parsed.executor_surface)
+    from yoke_harness.session_relay_native_models import observe_native_models
+
+    report = list_preferred_models(
+        parsed.executor_surface, availability=observe_native_models()
+    )
     print(render_list_models(report, json_mode=parsed.json_mode), end="")
     return 0
 

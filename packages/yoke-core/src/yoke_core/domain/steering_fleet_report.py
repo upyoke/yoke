@@ -108,6 +108,10 @@ from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     load_plan_limits,
 )
+from yoke_core.domain.steering_fleet_report_native_models import (
+    MachineNativeModels,
+    load_native_models,
+)
 from yoke_core.domain.steering_fleet_report_landings import (
     FleetLandingReadback,
     landing_readbacks,
@@ -140,6 +144,10 @@ class FleetReport:
     in_flight: tuple[InFlightCall, ...] = ()
     abandoned_launches: tuple[AbandonedLaunch, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
+    #: What each machine's surfaces say they can select right now, observed
+    #: natively. A seat naming a model reads this rather than a compiled-in
+    #: catalog, which cannot know what an account gained or lost today.
+    native_models: tuple[MachineNativeModels, ...] = ()
     #: Every connected machine's lanes against its cap, full ones included.
     machine_capacity: tuple[MachineCapacity, ...] = ()
     #: Registered machine names keyed by machine id, so every per-machine row
@@ -277,6 +285,9 @@ def compose_report(
         session_counts=live_session_counts(conn, project_id=project_id),
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
         plan_limits=load_plan_limits(
+            conn, project_id=project_id, now=now, registered_names=names
+        ),
+        native_models=load_native_models(
             conn, project_id=project_id, now=now, registered_names=names
         ),
         machine_capacity=machine_capacities(conn, project_id=project_id, now=now),

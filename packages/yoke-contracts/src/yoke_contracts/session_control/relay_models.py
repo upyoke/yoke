@@ -24,6 +24,7 @@ class RelayClaimRequest(BaseModel):
     preferred_models: Dict[str, str] = Field(default_factory=dict)
     health: Dict[str, Any] = Field(default_factory=dict)
     preferred_reasoning_efforts: Dict[str, str] = Field(default_factory=dict)
+    native_models: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     wait_seconds: int = Field(default=55, ge=0, le=55)
     broker_only: bool = False
     broker_lease_id: Optional[str] = None

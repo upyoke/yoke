@@ -94,15 +94,73 @@ machines by that pool's meter rather than by whichever window reads lowest.
 
 `yoke session-control launch preview` and `create` accept the three flags.
 `--context-window` accepts a token count or compact form such as `1m`.
-`--list-models --surface SURFACE` prints Cursor's native
-`cursor-agent --list-models` result or the documented Claude/Codex IDs,
-plus accepted effort and context values. Claude maps context 1M to the
+`--list-models --surface SURFACE` prints this machine's configured defaults
+beside its observed native availability (below), plus accepted effort and
+context values. Claude maps context 1M to the
 model's `[1m]` selector and effort to `--effort`; Codex maps effort to
 `-c model_reasoning_effort=...` and refuses explicit context; Cursor folds
 effort and context into its bracketed `--model` value. An unsupported knob
 is a preview refusal named for the harness and knob. A combination the
 provider rejects at run time fails as `model_combo_unsupported`, retains a
 bounded vendor message in launch evidence, and never retries under defaults.
+
+## Selectable models are observed, not declared
+
+Which models a surface will accept is a fact about the account and build on
+one machine, so Yoke reads it from the surface rather than shipping a list.
+Each relay poll refreshes a per-surface reading and carries it on the
+heartbeat, so a model an account gains becomes visible to the fleet within
+about a minute rather than within a release.
+
+Discovery is per surface, and a surface with no adapter says so:
+
+| Surface | Route |
+|---|---|
+| `cursor-cli` | `cursor-agent --list-models` |
+| `codex-cli` | `codex` app-server `model/list` |
+| every other surface | none declared; the reading says so by name |
+
+Shipping one vendor's CLI adapter proves nothing about the same vendor's
+desktop app or editor extension, so every known surface gets its own reading
+rather than inheriting a sibling's.
+
+Each reading names its own `status`:
+
+| Status | Meaning |
+|---|---|
+| `ok` | the surface answered just now; `models` is current |
+| `stale` | the last attempt failed; `models` is what it last published |
+| `unsupported` | Yoke declares no listing adapter for this surface |
+| `unknown` | the surface has never answered |
+
+Only `ok` and `stale` carry models. **Neither `unknown` nor `unsupported` is
+evidence that a model is unavailable** — a caller routing work reads the
+status before the list. A failed probe never empties a list that was
+populated: it keeps the models with their original observation time and flips
+the status to `stale`, because an unreachable surface has not withdrawn
+anything.
+
+Each model entry carries what its vendor published: the selectable token, a
+display description, that model's own reasoning options and default, and any
+replacement target with its retirement time. Reasoning options are per model
+rather than per surface — one installed app-server offers `ultra` on its
+newest model and not on the one beside it.
+
+Availability carries no dependency on researched pricing or tier data. A
+model this machine can select today is reported today, whether or not
+anything else is known about it.
+
+Read it three ways:
+
+```bash
+yoke relay probe-models [--surface S] [--json]   # refresh this machine now
+yoke session-control launch --list-models        # defaults beside availability
+yoke steering report get                         # every machine in the scope
+```
+
+The relay refreshes on its own cadence during normal polling;
+`yoke relay probe-models` is the bounded refresh for when you need the answer
+before the next poll.
 
 ## Launched sessions run unattended
 

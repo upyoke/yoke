@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from yoke_contracts.session_control.model_selection import (
-    DOCUMENTED_MODELS,
     SURFACE_CONTEXT_WINDOWS,
     SURFACE_EFFORT_LEVELS,
     resume_selection_mode,
+)
+from yoke_contracts.session_control.native_model_parsers import (
+    CODEX_LIST_SOURCE,
+    CURSOR_LIST_SOURCE,
 )
 
 
@@ -28,14 +31,24 @@ _ENCODING = {
     },
 }
 
+#: How each surface's selectable models are discovered. The manifest names the
+#: route rather than a list of model ids, because which models an account can
+#: select is a per-machine observation the relay reports and a document
+#: rendered at build time can only be wrong about.
+_MODEL_DISCOVERY = {
+    "codex-cli": CODEX_LIST_SOURCE,
+    "cursor-cli": CURSOR_LIST_SOURCE,
+}
+
 
 def launch_model_selection_manifest(surface: str) -> dict[str, object]:
     """Return machine-readable accepted knobs and native encodings."""
+    discovery = _MODEL_DISCOVERY.get(surface)
     return {
         "source": "yoke_contracts.session_control.model_selection",
         "surface": surface,
-        "model_catalog": ("native_cli" if surface == "cursor-cli" else "documented"),
-        "documented_models": list(DOCUMENTED_MODELS.get(surface, ())),
+        "model_discovery": discovery or "none",
+        "model_catalog": "native_cli" if discovery else "unobserved",
         "reasoning_efforts": list(SURFACE_EFFORT_LEVELS.get(surface, ())),
         "context_windows": list(SURFACE_CONTEXT_WINDOWS.get(surface, ())),
         "native_encoding": _ENCODING.get(surface, {}),

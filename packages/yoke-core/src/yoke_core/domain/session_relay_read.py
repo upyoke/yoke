@@ -13,6 +13,7 @@ from yoke_core.domain.session_launch_capacity import machine_capacity
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
 from yoke_contracts.session_control.relay_health import sanitize_relay_health
+from yoke_contracts.session_control.native_models import sanitize_native_models
 from yoke_contracts.session_control.plan_limits import sanitize_plan_limits
 
 
@@ -72,7 +73,7 @@ def list_visible_relays(
         "SELECT relay_id,machine_id,hostname,relay_version,surface_versions,"
         "project_checkouts,first_seen_at,last_seen_at,connected_until,state,"
         "last_job_at,actor_id,relay_health,surface_plan_limits,machine_capacity,"
-        "surface_confirmed_absent "
+        "surface_confirmed_absent,surface_native_models "
         "FROM session_relays"
         + where
         + " ORDER BY last_seen_at DESC,relay_id",
@@ -139,6 +140,9 @@ def list_visible_relays(
                 ),
                 "plan_limits": sanitize_plan_limits(
                     _document(_value(row, "surface_plan_limits", 13), {})
+                ),
+                "native_models": sanitize_native_models(
+                    _document(_value(row, "surface_native_models", 16), {})
                 ),
                 "capacity": capacity.to_dict(),
                 "surface_policies": marks_by_machine.get(

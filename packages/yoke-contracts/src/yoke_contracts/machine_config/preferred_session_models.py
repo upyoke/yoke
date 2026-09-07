@@ -101,10 +101,18 @@ def resolve_launch_selection(
     )
 
 
-def list_preferred_models(surface: str | None = None) -> dict[str, Any]:
-    """Return configured defaults beside each CLI's accepted launch catalog."""
+def list_preferred_models(
+    surface: str | None = None,
+    *,
+    availability: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return configured defaults beside each surface's observed availability.
+
+    ``availability`` is this machine's native model readings, which the caller
+    supplies because observing them means running vendor binaries — work that
+    belongs to the relay rather than to a configuration reader.
+    """
     from yoke_contracts.machine_config.runtime import config_path
-    from yoke_contracts.session_control.model_selection import model_catalog
 
     payload = _load_payload()
     surfaces = (surface,) if surface else launchable_preferred_surfaces()
@@ -130,7 +138,12 @@ def list_preferred_models(surface: str | None = None) -> dict[str, Any]:
         "config_file": str(config_path()),
         "entries": entries,
         "selected": selected,
-        "catalogs": [model_catalog(item).to_dict() for item in surfaces],
+        "availability": [
+            dict(
+                (availability or {}).get(item) or {"surface": item, "status": "unknown"}
+            )
+            for item in surfaces
+        ],
     }
 
 
@@ -155,23 +168,23 @@ def render_list_models(report: Mapping[str, Any], *, json_mode: bool) -> str:
             f"effort={entry.get('reasoning_effort') or '(none)'}  "
             f"context={_context_label(entry.get('context_window_tokens'))}"
         )
-    for catalog in report.get("catalogs") or ():
-        lines.append(f"{catalog['surface']} accepted ({catalog['source']}):")
-        if catalog.get("error"):
-            lines.append(f"  unavailable: {catalog['error']}; verify the native CLI")
-            continue
+    for reading in report.get("availability") or ():
+        source = reading.get("source") or "not observed"
         lines.append(
-            "  models: "
-            + (", ".join(catalog.get("models") or ()) or "(vendor default only)")
+            f"{reading['surface']} available ({reading.get('status')}, {source}):"
         )
-        lines.append(
-            "  effort: "
-            + (", ".join(catalog.get("effort_levels") or ()) or "(unsupported)")
-        )
-        contexts = [
-            _context_label(value) for value in catalog.get("context_windows") or ()
+        if reading.get("reason"):
+            lines.append(f"  {reading['reason']}")
+        models = [
+            str(entry.get("model"))
+            for entry in reading.get("models") or ()
+            if entry.get("model")
         ]
-        lines.append("  context: " + (", ".join(contexts) or "(unsupported)"))
+        if models:
+            lines.append(
+                f"  observed {reading.get('observed_at') or 'at an unknown time'}"
+            )
+            lines.append("  models: " + ", ".join(models))
     return "\n".join(lines) + "\n"
 
 

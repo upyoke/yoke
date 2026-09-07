@@ -97,13 +97,8 @@
     "launch_model_selection": {
       "source": "yoke_contracts.session_control.model_selection",
       "surface": "claude-cli",
-      "model_catalog": "documented",
-      "documented_models": [
-        "claude-opus-4-8",
-        "claude-opus-5",
-        "claude-sonnet-5",
-        "claude-fable-5"
-      ],
+      "model_discovery": "none",
+      "model_catalog": "unobserved",
       "reasoning_efforts": [
         "low",
         "medium",

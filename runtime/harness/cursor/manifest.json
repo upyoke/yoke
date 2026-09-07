@@ -82,8 +82,8 @@
     "launch_model_selection": {
       "source": "yoke_contracts.session_control.model_selection",
       "surface": "cursor-cli",
+      "model_discovery": "cursor-agent --list-models",
       "model_catalog": "native_cli",
-      "documented_models": [],
       "reasoning_efforts": [
         "none",
         "minimal",

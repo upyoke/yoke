@@ -1,9 +1,8 @@
-"""Per-harness launch selection validation, catalogs, and native encoding."""
+"""Per-harness launch selection validation and native encoding."""
 
 from __future__ import annotations
 
 from pathlib import Path
-import subprocess
 
 import pytest
 
@@ -11,12 +10,11 @@ from yoke_contracts.session_control.launch_bootstrap import native_launch_bootst
 from yoke_contracts.session_control.model_selection import (
     LaunchModelSelection,
     LaunchModelSelectionError,
-    model_catalog,
     native_model_selector,
     parse_context_window_tokens,
-    parse_cursor_model_catalog,
     validate_launch_model_selection,
 )
+from yoke_contracts.session_control.native_model_parsers import parse_cursor_models
 from yoke_harness.session_relay_claude_native import native_invocation
 from yoke_harness.session_relay_codex import CodexNativeRequest
 from yoke_harness.session_relay_codex_invocation import codex_base_command
@@ -142,19 +140,20 @@ def test_cursor_maps_all_knobs_to_one_parameterized_model() -> None:
     assert selector == "claude-opus-4-8[context=1m,effort=high]"
 
 
-def test_cursor_catalog_comes_from_native_list_models(monkeypatch) -> None:
-    monkeypatch.setattr("shutil.which", lambda _name: "/opt/cursor-agent")
-    completed = subprocess.CompletedProcess(
-        ["cursor-agent", "--list-models"],
-        0,
-        "claude-opus-4-8-high - Opus 4.8 high\ncomposer-2 - Composer 2\n",
-        "",
+def test_cursor_availability_comes_from_native_list_models() -> None:
+    models = parse_cursor_models(
+        "Available models\n\n"
+        "claude-opus-4-8-high - Opus 4.8 high\ncomposer-2 - Composer 2\n"
     )
-    catalog = model_catalog("cursor-cli", runner=lambda _argv: completed)
 
-    assert catalog == parse_cursor_model_catalog(completed.stdout)
-    assert catalog.models == ("claude-opus-4-8-high", "composer-2")
-    assert catalog.effort_levels == ("high",)
+    assert [entry["model"] for entry in models] == [
+        "claude-opus-4-8-high",
+        "composer-2",
+    ]
+    assert models[0]["reasoning_efforts"] == ["high"]
+    # Cursor publishes no effort suffix for this token, and an absent field is
+    # how the record says the vendor did not name one.
+    assert "reasoning_efforts" not in models[1]
 
 
 def test_launch_model_refuses_embedded_provider_parameters() -> None:

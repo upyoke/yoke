@@ -1,14 +1,19 @@
-"""Typed launch model selection shared by control plane, CLI, and relays."""
+"""Typed launch model selection shared by control plane, CLI, and relays.
+
+This module owns what a CLI *flag* will accept — the model token grammar, the
+effort levels each surface parses, the context-window encodings. Which models
+an account can actually select is a different question with a different
+answer per machine, and it is observed natively rather than declared here;
+see :mod:`yoke_contracts.session_control.native_models`.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-import shutil
-import subprocess
-from typing import Callable, Literal, Mapping, Sequence
+from typing import Literal, Mapping, Sequence
 
-from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+from yoke_contracts.session_control.native_model_parsers import CURSOR_EFFORT_LEVELS
 from yoke_contracts.session_model_facts import (
     CLAUDE_CONTEXT_TIER_SUFFIX,
     CLAUDE_CONTEXT_TIER_TOKENS,
@@ -16,19 +21,7 @@ from yoke_contracts.session_model_facts import (
 
 
 _CONTEXT_TOKEN = re.compile(r"^([1-9][0-9]*)([km]?)$", re.IGNORECASE)
-_MODEL_LINE = re.compile(r"^([a-zA-Z0-9][a-zA-Z0-9._-]*)\s+-\s+(.+)$")
 _MODEL_TOKEN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/-]*$")
-_CURSOR_EFFORT_LEVELS = (
-    "none",
-    "minimal",
-    "low",
-    "medium",
-    "high",
-    "xhigh",
-    "extra-high",
-    "max",
-)
-_EFFORT_SUFFIXES = tuple(sorted(_CURSOR_EFFORT_LEVELS, key=len, reverse=True))
 
 SURFACE_EFFORT_LEVELS: Mapping[str, tuple[str, ...]] = {
     "claude-cli": ("low", "medium", "high", "max"),
@@ -42,29 +35,13 @@ SURFACE_EFFORT_LEVELS: Mapping[str, tuple[str, ...]] = {
         "max",
         "ultra",
     ),
-    "cursor-cli": _CURSOR_EFFORT_LEVELS,
+    "cursor-cli": CURSOR_EFFORT_LEVELS,
 }
 SURFACE_CONTEXT_WINDOWS: Mapping[str, tuple[int, ...]] = {
     "claude-cli": (CLAUDE_CONTEXT_TIER_TOKENS,),
     "codex-cli": (),
     "cursor-cli": (CLAUDE_CONTEXT_TIER_TOKENS,),
 }
-DOCUMENTED_MODELS: Mapping[str, tuple[str, ...]] = {
-    "claude-cli": (
-        "claude-opus-4-8",
-        "claude-opus-5",
-        "claude-sonnet-5",
-        "claude-fable-5",
-    ),
-    "codex-cli": (
-        "gpt-5.6-sol",
-        "gpt-5.6-terra",
-        "gpt-5.6-luna",
-        "gpt-5.5",
-        "gpt-5.4",
-    ),
-}
-
 ResumeSelectionMode = Literal["native", "explicit"]
 RESUME_SELECTION_MODES: Mapping[str, ResumeSelectionMode] = {
     "claude-cli": "native",
@@ -106,31 +83,6 @@ class LaunchModelSelection:
                 ("context_window_tokens", self.context_window_tokens),
             )
             if value is not None
-        }
-
-
-@dataclass(frozen=True)
-class ModelCatalog:
-    surface: str
-    models: tuple[str, ...]
-    effort_levels: tuple[str, ...]
-    context_windows: tuple[int, ...]
-    source: str
-    error: str | None = None
-
-    @property
-    def available(self) -> bool:
-        return self.error is None
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "surface": self.surface,
-            "models": list(self.models),
-            "effort_levels": list(self.effort_levels),
-            "context_windows": list(self.context_windows),
-            "source": self.source,
-            "available": self.available,
-            "error": self.error,
         }
 
 
@@ -192,7 +144,10 @@ def validate_launch_model_selection(
         if model not in exact and not base_is_published:
             raise LaunchModelSelectionError(
                 f"{prefix}_model_unsupported",
-                f"{surface} did not publish model {model!r}; rerun --list-models",
+                f"{surface} did not publish model {model!r}; refresh this "
+                "machine's native availability with "
+                "`yoke relay probe-models --surface "
+                f"{surface}`",
             )
     return LaunchModelSelection(model, effort, context)
 
@@ -216,117 +171,15 @@ def native_model_selector(surface: str, selection: LaunchModelSelection) -> str 
     return selected.model
 
 
-def _cursor_effort(model: str) -> str | None:
-    token = model.removesuffix("-fast")
-    for effort in _EFFORT_SUFFIXES:
-        if token.endswith(f"-{effort}"):
-            return effort
-    return None
-
-
-def parse_cursor_model_catalog(output: str) -> ModelCatalog:
-    """Parse only model rows from Cursor's human ``--list-models`` answer."""
-    rows = []
-    efforts: set[str] = set()
-    for raw in str(output or "").splitlines():
-        match = _MODEL_LINE.fullmatch(raw.strip())
-        if match is None:
-            continue
-        model, _label = match.groups()
-        rows.append(model)
-        effort = _cursor_effort(model)
-        if effort:
-            efforts.add(effort)
-    error = None if rows else "cursor-agent returned no parseable model rows"
-    return ModelCatalog(
-        "cursor-cli",
-        tuple(dict.fromkeys(rows)),
-        tuple(level for level in _CURSOR_EFFORT_LEVELS if level in efforts),
-        SURFACE_CONTEXT_WINDOWS["cursor-cli"],
-        "cursor-agent --list-models",
-        error,
-    )
-
-
-CatalogRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
-
-
-def _run_catalog_command(arguments: Sequence[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        list(arguments),
-        capture_output=True,
-        check=False,
-        text=True,
-        timeout=10,
-    )
-
-
-def model_catalog(
-    surface: str,
-    *,
-    runner: CatalogRunner = _run_catalog_command,
-) -> ModelCatalog:
-    """Return provider-published models where available, documented facts otherwise."""
-    if surface != "cursor-cli":
-        return ModelCatalog(
-            surface,
-            DOCUMENTED_MODELS.get(surface, ()),
-            SURFACE_EFFORT_LEVELS.get(surface, ()),
-            SURFACE_CONTEXT_WINDOWS.get(surface, ()),
-            "documented CLI contract",
-            (
-                None
-                if surface in DOCUMENTED_MODELS
-                else "surface has no launch model contract"
-            ),
-        )
-    executable = harness_cli_manifest("cursor").executable
-    resolved = shutil.which(executable)
-    if not resolved:
-        return ModelCatalog(
-            surface,
-            (),
-            (),
-            (),
-            "cursor-agent --list-models",
-            "cursor-agent not found",
-        )
-    try:
-        completed = runner((resolved, "--list-models"))
-    except (OSError, subprocess.SubprocessError, TimeoutError) as exc:
-        return ModelCatalog(
-            surface,
-            (),
-            (),
-            (),
-            "cursor-agent --list-models",
-            type(exc).__name__,
-        )
-    if completed.returncode != 0:
-        return ModelCatalog(
-            surface,
-            (),
-            (),
-            (),
-            "cursor-agent --list-models",
-            f"exit {completed.returncode}",
-        )
-    return parse_cursor_model_catalog(completed.stdout)
-
-
 __all__ = [
-    "DOCUMENTED_MODELS",
     "LaunchModelSelection",
     "LaunchModelSelectionError",
-    "ModelCatalog",
     "RESUME_SELECTION_MODES",
     "ResumeSelectionMode",
     "SURFACE_CONTEXT_WINDOWS",
     "SURFACE_EFFORT_LEVELS",
-    "model_catalog",
     "native_model_selector",
     "parse_context_window_tokens",
-    "parse_cursor_model_catalog",
     "resume_selection_mode",
     "validate_launch_model_selection",
 ]

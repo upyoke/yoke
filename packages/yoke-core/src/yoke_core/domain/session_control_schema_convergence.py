@@ -49,6 +49,7 @@ def converge_session_control_schema(conn: Any) -> None:
         "relay_health",
         "preferred_session_reasoning_efforts",
         "surface_confirmed_absent",
+        "surface_native_models",
     ):
         if not _column_exists(conn, "session_relays", name):
             conn.execute(f"ALTER TABLE session_relays ADD COLUMN {name} TEXT")
