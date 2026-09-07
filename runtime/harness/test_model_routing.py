@@ -97,7 +97,9 @@ def test_an_account_wide_window_covers_every_named_model():
 
 
 def test_a_family_scoped_window_covers_the_model_carrying_that_family():
-    assert window_covers_model("codex-cli", "gpt-5.3-codex-spark", "GPT-5.3-Codex-Spark")
+    assert window_covers_model(
+        "codex-cli", "gpt-5.3-codex-spark", "GPT-5.3-Codex-Spark"
+    )
     assert not window_covers_model("codex-cli", "gpt-6-astra", "GPT-5.3-Codex-Spark")
 
 
@@ -132,7 +134,9 @@ def test_an_unreadable_pool_is_never_exhaustion_even_beside_an_empty_one():
 
 def test_a_pool_no_meter_covers_is_unknown_rather_than_empty():
     reading = pool_exhaustion(
-        CURSOR, GROK, ({"scope": "Other Models", "status": "ok", "remaining_percent": 0.0},)
+        CURSOR,
+        GROK,
+        ({"scope": "Other Models", "status": "ok", "remaining_percent": 0.0},),
     )
     assert reading.exhausted is False
     assert reading.reason == NO_POOL_WINDOW
@@ -277,9 +281,7 @@ def test_an_unconfigured_surface_leaves_its_existing_default_alone():
 
 
 def test_an_excluded_tier_model_is_not_routed_to():
-    payload = {
-        "session_model_routing": {CURSOR: {"tier1": GROK, "excluded": [GROK]}}
-    }
+    payload = {"session_model_routing": {CURSOR: {"tier1": GROK, "excluded": [GROK]}}}
     model, _effort = routed_selection(payload, CURSOR, "normal")
     assert model is None
 

@@ -66,9 +66,7 @@ def test_headroom_reports_the_pool_the_named_model_actually_bills_to() -> None:
     conn = launch_connection()
     _relay(conn, cursor_models=62.0, other_models=3.0)
 
-    readings = surface_headroom(
-        conn, project_id=10, now=NOW, model=CURSOR_POOL_MODEL
-    )
+    readings = surface_headroom(conn, project_id=10, now=NOW, model=CURSOR_POOL_MODEL)
 
     _headroom, window = readings[("machine-a", CURSOR_SURFACE)]
     assert window == "monthly \u00b7 Cursor Models"
@@ -78,9 +76,7 @@ def test_a_model_on_the_other_pool_is_ranked_by_that_pool() -> None:
     conn = launch_connection()
     _relay(conn, cursor_models=62.0, other_models=3.0)
 
-    readings = surface_headroom(
-        conn, project_id=10, now=NOW, model=OTHER_POOL_MODEL
-    )
+    readings = surface_headroom(conn, project_id=10, now=NOW, model=OTHER_POOL_MODEL)
 
     _headroom, window = readings[("machine-a", CURSOR_SURFACE)]
     assert window == "monthly \u00b7 Other Models"

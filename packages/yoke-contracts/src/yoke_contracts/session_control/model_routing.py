@@ -58,6 +58,7 @@ SESSION_MODEL_ROUTING_KEY = "session_model_routing"
 _TIER_KEYS = ROUTING_TIERS
 _LIST_KEYS = ("excluded", "fallbacks")
 
+
 def routing_preference(
     payload: Mapping[str, Any] | None, surface: str
 ) -> dict[str, Any]:
@@ -86,9 +87,13 @@ def routing_preference(
     return values
 
 
-def normalize_session_model_routing(payload: Mapping[str, Any] | None) -> dict[str, Any]:
+def normalize_session_model_routing(
+    payload: Mapping[str, Any] | None,
+) -> dict[str, Any]:
     """Normalize the whole routing document, dropping surfaces that say nothing."""
-    raw = payload.get(SESSION_MODEL_ROUTING_KEY) if isinstance(payload, Mapping) else None
+    raw = (
+        payload.get(SESSION_MODEL_ROUTING_KEY) if isinstance(payload, Mapping) else None
+    )
     if not isinstance(raw, Mapping):
         return {}
     normalized: dict[str, Any] = {}
@@ -181,9 +186,7 @@ def routed_selection(
     return model, resolved_effort(effort, model_entry)
 
 
-def resolved_effort(
-    effort: str, model_entry: Mapping[str, Any] | None = None
-) -> str:
+def resolved_effort(effort: str, model_entry: Mapping[str, Any] | None = None) -> str:
     """Step an unsupported level down to the one the operator named for it.
 
     With no per-model facts to read, the asked-for level stands: an unknown
