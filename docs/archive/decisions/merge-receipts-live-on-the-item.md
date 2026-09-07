@@ -69,3 +69,25 @@ emitted beside it as telemetry and remains free to fail.
   degradation is visible rather than silent.
 - No event was deleted and no retention policy changed. The historical rows
   remain; the registry entry is marked retired so they do not read as rogue.
+
+## A branch name is not authorship
+
+Two attribution paths reached for a branch when the recorded lineage did not
+cover a release commit, and both credited work that had not shipped:
+
+- The changed-file fallback took the oldest merge between a branch's commit
+  and the target. A branch still sitting on the base it forked from has a
+  commit the target already contained, so every merge on that walk belonged to
+  somebody else and the oldest one was returned with its whole diff. A merge
+  now counts as the landing merge only when its first parent does *not*
+  already contain the branch commit.
+- Release attribution scanned each commit's ref decoration alongside its
+  message. A lane branch created from the trunk decorates whatever commit the
+  trunk was on, so an unimplemented item was credited with a neighbour's
+  release. Only the message is read now — it names the branch that landed
+  because the landing wrote it there — and an item's own lane branch is
+  consulted only once the item has landed.
+
+Observed together: a research item that committed nothing was recorded with a
+neighbour's merge commit and twenty unrelated files, and an item created after
+the release was cut appeared in that release's carried work.

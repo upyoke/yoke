@@ -248,14 +248,16 @@ def _resolve_item_metadata(
         resolution_ref = str(_cell(row, "resolution_ref", 3) or "").strip()
         if _HEX_REF.fullmatch(resolution_ref):
             _add_resolution(
-                resolved,
-                commits,
-                resolution_ref,
-                item_id,
-                known_items,
+                resolved, commits, resolution_ref, item_id, known_items,
             )
+        landed_at = _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
         lane_commit = ""
-        for raw_token in (_cell(row, "commit_sha", 5), _cell(row, "branch", 4)):
+        # A lane branch names its item's contribution only once the item has
+        # landed: an open lane forked from the trunk points at somebody else's
+        # commit until it has one of its own. The recorded lane head needs no
+        # such proof — it is already the item's own commit.
+        branch_token = [_cell(row, "branch", 4)] if landed_at else []
+        for raw_token in (_cell(row, "commit_sha", 5), *branch_token):
             lane_token = str(raw_token or "").strip()
             if lane_token:
                 lane_commit = git.git_out(
@@ -281,9 +283,7 @@ def _resolve_item_metadata(
         numeric_item_id = int(item_id)
         if any(numeric_item_id in item_ids for item_ids in resolved.values()):
             continue
-        landed = _parse_time(
-            _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
-        )
+        landed = _parse_time(landed_at)
         if landed is None:
             continue
         distances = sorted(
@@ -320,13 +320,11 @@ def resolve_carried_items(
         warnings=warnings,
     )
     for commit in commits:
-        source = git.git_out(
-            repo_root,
-            "show",
-            "-s",
-            "--format=%B%n%D",
-            commit,
-        )
+        # The message only. A ref pointing at a commit says where someone
+        # forked, not who wrote it: a lane branch created from the trunk
+        # decorates whatever commit the trunk was on, and reading that
+        # decoration attributes a neighbour's release to the new lane.
+        source = git.git_out(repo_root, "show", "-s", "--format=%B", commit)
         for token in _ITEM_REF.findall(source.upper()):
             if token in item_tokens:
                 resolved.setdefault(commit, set()).add(item_tokens[token])
