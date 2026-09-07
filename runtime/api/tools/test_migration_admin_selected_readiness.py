@@ -135,7 +135,10 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
     monkeypatch.setattr(
         preflight,
         "_record_receipt",
-        lambda **kwargs: (receipts.append(kwargs["receipt_env"]), "")[1],
+        lambda **kwargs: (
+            receipts.append(kwargs["receipt_env"]),
+            ("20260101T000000Z", ""),
+        )[1],
     )
 
     assert (
