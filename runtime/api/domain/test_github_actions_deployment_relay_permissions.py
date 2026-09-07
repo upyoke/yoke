@@ -17,6 +17,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     PERM_GITHUB_RELEASE_CREATE,
+    PERM_ITEMS_READ,
     PERM_PROJECT_ADMIN,
     PERM_PROJECT_INSTALL,
     PERM_PROJECT_RENDER_READ,
@@ -112,6 +113,9 @@ def test_deployment_ci_role_carries_only_required_ci_permissions() -> None:
     conn = _conn()
     try:
         relay_permissions = {
+            # The pre-tag release gate reads fleet rehearsal coverage from the
+            # target environment's settings, which authorizes on this key.
+            PERM_ITEMS_READ,
             PERM_EVENTS_READ,
             PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
             PERM_GITHUB_ACTIONS_RUN_READ,
@@ -249,7 +253,9 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
         conn.close()
 
 
-def test_relay_rejects_conflicting_target_and_payload_when_both_are_authorized() -> None:
+def test_relay_rejects_conflicting_target_and_payload_when_both_are_authorized() -> (
+    None
+):
     conn = _conn()
     try:
         actor_id = _actor(conn)

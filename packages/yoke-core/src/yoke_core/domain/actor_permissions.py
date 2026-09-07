@@ -66,8 +66,9 @@ ROLE_DESCRIPTIONS = {
     ROLE_OPERATOR: "Normal Yoke operations for a project.",
     ROLE_VIEWER: "Read-only access.",
     ROLE_DEPLOYMENT_CI: (
-        "Create immutable release tags, trigger deployment workflows, and "
-        "read status; record capability-routed pins after successful delivery."
+        "Create immutable release tags, trigger deployment workflows, read "
+        "status and release evidence; record capability-routed pins after "
+        "successful delivery."
     ),
     ROLE_INFRASTRUCTURE_CI: "Read exact infrastructure render inputs for previews.",
     ROLE_MIGRATION_VERIFICATION_CI: (
@@ -148,6 +149,10 @@ ROLE_PERMISSION_KEYS = {
     ),
     ROLE_VIEWER: (PERM_ITEMS_READ, PERM_EVENTS_READ),
     ROLE_DEPLOYMENT_CI: (
+        # Reading fleet rehearsal coverage before a release allocates its tag
+        # is a project read: coverage lives in the project's environment
+        # settings, which authorize on this key.
+        PERM_ITEMS_READ,
         PERM_EVENTS_READ,
         PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
         PERM_GITHUB_ACTIONS_RUN_READ,

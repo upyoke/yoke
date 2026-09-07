@@ -18,8 +18,10 @@ leaf currently contains an object or array, recording refuses to replace that
 container with a scalar. Recording the same scalar pin again is a successful
 no-op.
 
-The `deployment_ci` role cannot call the generic environment-settings mutation
-or change the capability declaration. `infrastructure_ci` remains read-only
+The `deployment_ci` role can read named scalar leaves of a project's
+environment settings — the pre-tag release gate reads fleet rehearsal coverage
+that way — but it cannot call the generic environment-settings mutation or
+change the capability declaration. `infrastructure_ci` remains read-only
 and cannot record pins. A project owner deliberately converges a legacy
 capability before rollout:
 

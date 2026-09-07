@@ -17,11 +17,16 @@ reference. An admin connection name is also accepted and normalized. The
 optional *product-sha* only enriches the refusal.
 
 This submits the checked-out name/digest set to the connected control plane's
-semantic identity verifier, reads the receipt store, and reads the checked-out
-history plus schema-shape sources. It does not accept SQL or expose ledger
-digests. It does not rehearse anything, so it runs anywhere the control plane
-is reachable — which is what lets it sit in a release job that could never
-host the rehearsal itself.
+semantic identity verifier, reads each release environment's own fleet
+rehearsal coverage, and reads the checked-out history plus schema-shape
+sources. It does not accept SQL or expose ledger digests. It does not rehearse
+anything, so it runs anywhere the control plane is reachable — which is what
+lets it sit in a release job that could never host the rehearsal itself.
+
+Reading coverage needs ``items.read`` on the project, because coverage lives
+in that project's environment settings. A deploy identity that holds only the
+narrower release permissions is refused with that reason rather than treated
+as an unrehearsed build.
 
 Exits 0 when permanent packaged bytes match the live ledger and every history
 entry plus this build's schema-shape digest is covered. Exits 1 when verified
@@ -37,12 +42,8 @@ import os
 import shlex
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple
 
-#: Far above any plausible receipt count. Truncation can only hide coverage,
-#: never invent it, so the worst a too-small bound produces is a refusal that
-#: names the entries and the command to clear them.
-_RECEIPT_QUERY_LIMIT = 500
 _QUERY_TIMEOUT_SECONDS = 120
 _BUILD_ARTIFACTS_WORKFLOW = "yoke-build-artifacts.yml"
 
@@ -76,49 +77,33 @@ def _engine_wheel_source(product_sha: str) -> str:
     )
 
 
-def _query_receipts(event_name: str, project: str) -> Tuple[List[Dict[str, Any]], str]:
-    """Receipt rows, or the reason they could not be read."""
-    argv = [
-        "yoke",
-        "events",
-        "query",
-        "--event-name",
-        event_name,
-        "--project",
-        project,
-        "--limit",
-        str(_RECEIPT_QUERY_LIMIT),
-        "--json",
-    ]
-    try:
-        result = subprocess.run(
-            argv, capture_output=True, text=True, timeout=_QUERY_TIMEOUT_SECONDS
+def _read_coverage(
+    project: str,
+    environments: Sequence[str],
+    history: Sequence[str],
+    schema_digest: str,
+) -> Tuple[Dict[str, Dict[str, Any]], str, str]:
+    """Each environment's own coverage, or the environment it could not read.
+
+    One environment is read at a time because coverage is stored on the
+    environment it belongs to. That is what makes "a stage receipt is not
+    production evidence" a property of the store rather than a filter this
+    gate has to remember to apply.
+    """
+    from yoke_core.domain import migration_preflight_receipt as receipt
+    from yoke_core.domain.migration_preflight_receipt_store import read_coverage
+
+    paths = receipt.coverage_paths(history, schema_digest)
+    coverage: Dict[str, Dict[str, Any]] = {}
+    for environment in environments:
+        name = receipt.target_environment_for_admin_env(environment)
+        values, unreadable = read_coverage(
+            project=project, environment=name, paths=paths
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        return [], f"{' '.join(argv[:3])} could not run: {exc}"
-    if result.returncode != 0:
-        details = []
-        if result.stderr.strip():
-            details.append(f"stderr: {result.stderr.strip()}")
-        if result.stdout.strip():
-            details.append(f"stdout: {result.stdout.strip()}")
-        detail = "\n".join(details) or "no output"
-        return [], f"receipt query exited {result.returncode}: {detail}"
-    try:
-        payload = json.loads(result.stdout)
-    except ValueError as exc:
-        return [], f"receipt query returned unreadable output: {exc}"
-    if not isinstance(payload, dict):
-        return [], "receipt query returned a malformed envelope"
-    if not payload.get("success", False):
-        return [], f"receipt query refused: {payload.get('error')}"
-    result_payload = payload.get("result")
-    if not isinstance(result_payload, dict):
-        return [], "receipt query returned a malformed result"
-    rows = result_payload.get("rows")
-    if not isinstance(rows, list):
-        return [], "receipt query returned no rows field"
-    return rows, ""
+        if unreadable:
+            return {}, name, unreadable
+        coverage[name] = values
+    return coverage, "", ""
 
 
 def _verify_applied_migrations(
@@ -190,6 +175,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0 if args else 2
 
     from yoke_core.domain import migration_preflight_receipt as receipt
+    from yoke_core.domain import migration_preflight_refusal as refusal
     from yoke_core.domain.schema_shape_source import (
         SchemaShapeSourceError,
         digest_schema_shape,
@@ -237,20 +223,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         f"{content_status['verified_count']} verified"
     )
 
-    rows, unreadable = _query_receipts(receipt.EVENT_NAME, project)
+    # Target first, so an unreadable store names the environment this
+    # release is actually bound for rather than whichever sibling came first.
+    environments = tuple(dict.fromkeys((environment, *receipt.RELEASE_ENVIRONMENTS)))
+    coverage, unreadable_environment, unreadable = _read_coverage(
+        project, environments, history, schema_digest
+    )
     if unreadable:
         print(
-            "release verification unavailable before tag: fleet-preflight "
-            f"receipts could not be checked: {unreadable}",
+            "release verification unavailable before tag: "
+            + refusal.unreadable_message(unreadable_environment, unreadable),
             file=sys.stderr,
         )
         return 2
 
-    missing_by_env = receipt.coverage_by_environment(
-        history, rows, receipt.RELEASE_ENVIRONMENTS
-    )
-    if environment not in missing_by_env:
-        missing_by_env[environment] = receipt.uncovered(history, rows, environment)
+    missing_by_env = receipt.coverage_by_environment(history, coverage, environments)
     target_missing = missing_by_env[environment]
     covered = len(history) - len(target_missing)
     print(f"covered by a passing fleet preflight: {covered} of {len(history)}")
@@ -260,7 +247,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"also {env}: {len(history) - len(missing)} of {len(history)} covered")
     if target_missing:
         receipt_env = os.environ.get("YOKE_ENV", "")
-        refusal = receipt.release_refusal_message(
+        message = refusal.release_refusal_message(
             environment,
             missing_by_env,
             product_sha=product_sha,
@@ -271,14 +258,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             },
             engine_wheel_source=_engine_wheel_source(product_sha),
         )
-        print(f"release unsafe before tag: {refusal}", file=sys.stderr)
+        print(f"release unsafe before tag: {message}", file=sys.stderr)
         return 1
-    schema_missing = receipt.uncovered_schema_shape(schema_digest, rows, environment)
+    schema_missing = receipt.uncovered_schema_shape(
+        schema_digest, coverage.get(environment) or {}
+    )
     if schema_missing:
         receipt_env = os.environ.get("YOKE_ENV", "")
         print(
             "release unsafe before tag: "
-            + receipt.schema_shape_refusal_message(
+            + refusal.schema_shape_refusal_message(
                 environment,
                 schema_digest,
                 product_sha=product_sha,

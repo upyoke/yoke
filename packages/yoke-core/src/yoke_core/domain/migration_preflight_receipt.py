@@ -7,52 +7,60 @@ either well is worth nothing if a release can ship without asking. This
 module is the record that the questions were asked and the predicate a
 release gate reads to find out.
 
-A receipt names an environment, the history entries covered, and the
-schema-shape digest of the sources that emit boot-converge DDL. It exists
-only on a pass, so a receipt cannot be produced by a run that failed, and
-the gate needs no verdict field to interpret.
+A receipt names the history entries covered and the schema-shape digest of
+the sources that emit boot-converge DDL, and it is stored on the environment
+whose fleet was rehearsed. It is written only on a pass, so a receipt cannot
+be produced by a run that failed, and the gate needs no verdict field to
+interpret.
 
-**Coverage is a union over receipts, not the newest one.** A release carries
-its whole history, so demanding that one receipt cover all of it would mean
-re-rehearsing every entry ever written on every release — minutes per release
-to re-prove entries the fleet applied long ago. The same union applies to
-schema-shape digests: a digest must be rehearsed once per environment, and
-never again until the shape changes. Taking the union makes the obligation
-exactly what the risk is.
+**The store is the environment's own settings document, not telemetry.** A
+rehearsal is release authority for one environment, so it lives beside the
+other per-environment release authority under ``release.fleet_rehearsal``,
+written and read through the registered environment-settings surfaces. A
+telemetry record expires; a release that shipped because its evidence aged
+out is the failure this store exists to prevent.
+
+**Coverage is a union over rehearsals, not the newest one.** A release
+carries its whole history, so demanding that one rehearsal cover all of it
+would mean re-rehearsing every entry ever written on every release — minutes
+per release to re-prove entries the fleet applied long ago. The same union
+applies to schema-shape digests: a digest must be rehearsed once per
+environment, and never again until the shape changes. Coverage keys
+accumulate in the document, so the union is what the store already is.
 
 **Coverage is per environment.** Each environment is a different fleet at a
 different ledger position, and an entry that applies cleanly to one says
 nothing about another. A rehearsal of one environment is not evidence for
-another.
+another, and here that is structural: coverage read for one environment can
+only ever come from that environment's own row.
 """
 
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, Iterable, Mapping, Sequence, Tuple
+from datetime import datetime, timezone
+from typing import Any, Dict, Mapping, Sequence, Tuple
 
-#: Emitted by a passing fleet preflight; read by the pre-tag release gate.
-EVENT_NAME = "FleetMigrationPreflightPassed"
-EVENT_KIND = "system"
-EVENT_TYPE = "system"
+#: Namespace inside ``environments.settings`` owning fleet rehearsal coverage.
+SETTINGS_ROOT = "release.fleet_rehearsal"
 
-#: Must be a member of ``events_crud.VALID_SOURCE_TYPES`` — the emit surface
-#: rejects anything else, and a rejected receipt means a passing rehearsal the
-#: gate cannot see. The preflight is a script, so that is what it declares;
-#: naming the tool here instead is what an emit refusal looks like in advance.
-SOURCE_TYPE = "script"
+#: One leaf per covered history entry; the value names the rehearsal run.
+ENTRY_PREFIX = f"{SETTINGS_ROOT}.entry"
 
-ENVIRONMENT_KEY = "environment"
-ENTRIES_KEY = "entries"
-PRODUCT_SHA_KEY = "product_sha"
-ENGINE_ARTIFACT_KEY = "engine_artifact"
-SCHEMA_SHAPE_DIGEST_KEY = "schema_shape_digest"
+#: One leaf per covered schema-shape digest; the value names the run.
+SCHEMA_SHAPE_PREFIX = f"{SETTINGS_ROOT}.schema_shape"
+
+#: Identity of each rehearsal run the coverage leaves point at.
+RUN_PREFIX = f"{SETTINGS_ROOT}.run"
 
 #: Suffix on the admin connection the preflight runs against. The connection
 #: names a cluster; a receipt names the environment a release targets, and
 #: both use the environment's registered name, so the two vocabularies are
 #: one suffix apart.
 _ADMIN_SUFFIX = "-db-admin"
+
+
+class ReceiptPathError(ValueError):
+    """A coverage key cannot be addressed as one settings leaf."""
 
 
 def target_environment_for_admin_env(admin_env: str) -> str:
@@ -76,7 +84,7 @@ def rehearsed_build_description(
 ) -> str:
     """Plain-language identity of the engine a receipt rehearsed."""
     if not engine_artifact:
-        return "unspecified engine (legacy receipt)"
+        return "unspecified engine"
     kind = str(engine_artifact.get("kind") or "").strip()
     name = str(engine_artifact.get("name") or "").strip()
     sha = str(engine_artifact.get("sha256") or "").strip()
@@ -90,251 +98,136 @@ def rehearsed_build_description(
     return f"engine kind={kind or 'unknown'} name={name or 'unknown'}"
 
 
-def receipt_context(
-    environment: str,
+def _leaf_segment(value: str, *, what: str) -> str:
+    """One settings key segment, or a refusal naming why it is not one.
+
+    Settings paths split on ``.``, so a segment carrying one would silently
+    address a nested key instead of the coverage leaf the caller meant —
+    writing coverage nothing reads and reading coverage nothing wrote.
+    """
+    text = str(value or "").strip()
+    if not text:
+        raise ReceiptPathError(f"a fleet rehearsal {what} cannot be empty")
+    if "." in text:
+        raise ReceiptPathError(
+            f"a fleet rehearsal {what} cannot contain '.': {text!r} would "
+            "address nested settings keys instead of one coverage leaf"
+        )
+    return text
+
+
+def entry_coverage_path(entry: str) -> str:
+    """The settings leaf recording that one history entry was rehearsed."""
+    return f"{ENTRY_PREFIX}.{_leaf_segment(entry, what='history entry name')}"
+
+
+def schema_shape_coverage_path(digest: str) -> str:
+    """The settings leaf recording that one schema-shape digest was rehearsed."""
+    return f"{SCHEMA_SHAPE_PREFIX}.{_leaf_segment(digest, what='schema-shape digest')}"
+
+
+def coverage_paths(
+    history: Sequence[str], schema_shape_digest: str = ""
+) -> Tuple[str, ...]:
+    """Every leaf a gate must read to answer coverage in one request."""
+    paths = [entry_coverage_path(name) for name in history if str(name or "").strip()]
+    digest = str(schema_shape_digest or "").strip()
+    if digest:
+        paths.append(schema_shape_coverage_path(digest))
+    return tuple(dict.fromkeys(paths))
+
+
+def _is_recorded(value: Any) -> bool:
+    """True when a read leaf carries a rehearsal identity rather than nothing.
+
+    An absent leaf reads back as ``None``. Only a non-empty string is
+    coverage, so a blanked or placeholder value is uncovered rather than
+    quietly passing.
+    """
+    return isinstance(value, str) and bool(value.strip())
+
+
+def covered_entries(values: Mapping[str, Any], history: Sequence[str]) -> frozenset:
+    """Every history entry this environment's coverage document records."""
+    covered = set()
+    for name in history:
+        text = str(name or "").strip()
+        if not text:
+            continue
+        try:
+            path = entry_coverage_path(text)
+        except ReceiptPathError:
+            continue
+        if _is_recorded(values.get(path)):
+            covered.add(text)
+    return frozenset(covered)
+
+
+def uncovered(history: Sequence[str], values: Mapping[str, Any]) -> Tuple[str, ...]:
+    """History entries no rehearsal covers here, in history order."""
+    covered = covered_entries(values, history)
+    return tuple(name for name in history if name not in covered)
+
+
+def uncovered_schema_shape(digest: str, values: Mapping[str, Any]) -> Tuple[str, ...]:
+    """The current digest when no rehearsal covers it here, else empty."""
+    wanted = str(digest or "").strip()
+    if not wanted:
+        return ("",)
+    if _is_recorded(values.get(schema_shape_coverage_path(wanted))):
+        return ()
+    return (wanted,)
+
+
+def receipt_id(moment: datetime | None = None) -> str:
+    """Identity of one rehearsal run: sortable, and a legal settings segment."""
+    stamped = (moment or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return stamped.strftime("%Y%m%dT%H%M%SZ")
+
+
+def receipt_assignments(
     product_sha: str,
     entries: Sequence[str],
     *,
     engine_artifact: Mapping[str, Any] | None = None,
     schema_shape_digest: str = "",
-) -> Dict[str, Any]:
-    """The event context a passing rehearsal records."""
-    context = {
-        ENVIRONMENT_KEY: target_environment_for_admin_env(environment),
-        PRODUCT_SHA_KEY: product_sha.strip(),
-        # Sorted so two receipts covering the same entries are comparable by
-        # eye in an audit listing, where the emission order is meaningless.
-        ENTRIES_KEY: sorted({e.strip() for e in entries if e.strip()}),
+    database_count: int | None = None,
+    moment: datetime | None = None,
+) -> Tuple[str, Dict[str, Any]]:
+    """The run identity and settings assignments one passing rehearsal writes."""
+    stamped = (moment or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    run = receipt_id(stamped)
+    digest = str(schema_shape_digest or "").strip()
+    assignments: Dict[str, Any] = {
+        f"{RUN_PREFIX}.{run}.product_sha": str(product_sha or "").strip(),
+        f"{RUN_PREFIX}.{run}.engine": rehearsed_build_description(engine_artifact),
+        f"{RUN_PREFIX}.{run}.rehearsed_at": stamped.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        f"{RUN_PREFIX}.{run}.schema_shape": digest,
     }
-    if engine_artifact:
-        context[ENGINE_ARTIFACT_KEY] = dict(engine_artifact)
-    digest = schema_shape_digest.strip()
+    if database_count is not None:
+        assignments[f"{RUN_PREFIX}.{run}.databases"] = int(database_count)
+    # Sorted so two rehearsals covering the same entries write comparable
+    # assignment sets, where the emission order is meaningless.
+    for entry in sorted({str(e or "").strip() for e in entries} - {""}):
+        assignments[entry_coverage_path(entry)] = run
     if digest:
-        context[SCHEMA_SHAPE_DIGEST_KEY] = digest
-    return context
-
-
-def _context_of(row: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The context carried by one queried event row, or an empty mapping.
-
-    The query surface returns the envelope as a JSON string, and the context
-    lives inside it. A row this cannot read is not evidence, so it yields
-    nothing rather than raising — one malformed row must not make an otherwise
-    answerable question unanswerable.
-    """
-    envelope: Any = row.get("envelope")
-    if isinstance(envelope, str):
-        try:
-            envelope = json.loads(envelope)
-        except (TypeError, ValueError):
-            return {}
-    if not isinstance(envelope, Mapping):
-        return {}
-    context = envelope.get("context")
-    if not isinstance(context, Mapping):
-        return {}
-    # The emit surface nests a supplied context under `detail`. Descend only
-    # when the receipt's own keys are not already at this level, so a reader
-    # written against the stored shape keeps working if that wrapping ever
-    # stops — and an unwrapped receipt is never mistaken for a wrapped one.
-    if ENVIRONMENT_KEY not in context:
-        detail = context.get("detail")
-        if isinstance(detail, Mapping):
-            return detail
-    return context
-
-
-def covered_entries(rows: Iterable[Mapping[str, Any]], environment: str) -> frozenset:
-    """Every history entry some passing receipt covers for one environment."""
-    wanted = target_environment_for_admin_env(environment)
-    covered = set()
-    for row in rows:
-        context = _context_of(row)
-        if context.get(ENVIRONMENT_KEY) != wanted:
-            continue
-        entries = context.get(ENTRIES_KEY)
-        # A JSON round-trip always yields a list; a bare string would otherwise
-        # be iterated one character at a time into nonsense coverage.
-        if isinstance(entries, (list, tuple)):
-            covered.update(str(e) for e in entries)
-    return frozenset(covered)
-
-
-def uncovered(
-    history: Sequence[str], rows: Iterable[Mapping[str, Any]], environment: str
-) -> Tuple[str, ...]:
-    """History entries no passing receipt covers, in history order."""
-    covered = covered_entries(rows, environment)
-    return tuple(name for name in history if name not in covered)
-
-
-def covered_schema_shape_digests(
-    rows: Iterable[Mapping[str, Any]], environment: str
-) -> frozenset:
-    """Every schema-shape digest some passing receipt covers for one environment."""
-    wanted = target_environment_for_admin_env(environment)
-    covered = set()
-    for row in rows:
-        context = _context_of(row)
-        if context.get(ENVIRONMENT_KEY) != wanted:
-            continue
-        digest = context.get(SCHEMA_SHAPE_DIGEST_KEY)
-        if isinstance(digest, str) and digest.strip():
-            covered.add(digest.strip())
-    return frozenset(covered)
-
-
-def uncovered_schema_shape(
-    digest: str, rows: Iterable[Mapping[str, Any]], environment: str
-) -> Tuple[str, ...]:
-    """The current digest when no passing receipt covers it, else empty."""
-    wanted = digest.strip()
-    if not wanted:
-        return ("",)
-    if wanted in covered_schema_shape_digests(rows, environment):
-        return ()
-    return (wanted,)
+        assignments[schema_shape_coverage_path(digest)] = run
+    return run, assignments
 
 
 #: Registered environments a Yoke hosted release can target. Coverage is
 #: per environment, so a receipt for one is not evidence for another.
 RELEASE_ENVIRONMENTS = ("stage", "prod")
 
-#: Project-generic unblock recipe. Callers that own a fleet adapter (for
-#: example Yoke's release gate) inject that recipe via ``rehearse_command``;
-#: the default must not name any project's source-dev path.
-_DEFAULT_REHEARSE_COMMAND = (
-    "yoke migration rehearse <item>  # see --help; use the project-owned "
-    "fleet binding for fleet coverage before release"
-)
-
-
-def refusal_message(
-    environment: str,
-    missing: Sequence[str],
-    *,
-    product_sha: str = "",
-    rehearse_command: str = "",
-) -> str:
-    """Why this release stops, and the one command that unblocks it.
-
-    ``rehearse_command`` is the project-owned fleet recipe when a caller
-    has one. Empty keeps the message project-generic so shared domain code
-    never teaches a single project's source-dev adapter.
-    """
-    listed = ", ".join(missing)
-    build = f" at {product_sha}" if product_sha.strip() else ""
-    command = rehearse_command.strip() or _DEFAULT_REHEARSE_COMMAND
-    return (
-        f"this build{build} carries {len(missing)} migration history "
-        f"entr{'y' if len(missing) == 1 else 'ies'} no passing fleet preflight "
-        f"has covered for {target_environment_for_admin_env(environment)}: "
-        f"{listed}. Receipts are per environment — a receipt for one is not "
-        "coverage for another. An entry exists for the databases that are "
-        "behind it, and nothing here has yet run it against one. Rehearse "
-        f"the fleet, then re-run this release:\n  {command}"
-    )
-
-
-def schema_shape_refusal_message(
-    environment: str,
-    digest: str,
-    *,
-    product_sha: str = "",
-    rehearse_command: str = "",
-) -> str:
-    """Why this release stops when the schema-shape digest is uncovered."""
-    build = f" at {product_sha}" if product_sha.strip() else ""
-    command = rehearse_command.strip() or _DEFAULT_REHEARSE_COMMAND
-    return (
-        f"this build{build} carries a schema-shape digest no passing fleet "
-        f"preflight has covered for {target_environment_for_admin_env(environment)}: "
-        f"{digest}. Additive schema converges on boot without a history entry, "
-        "and CI only ever creates fresh databases, so an unrehearsed shape "
-        "reaches the fleet as a missing column. Receipts are per environment. "
-        f"Rehearse the fleet, then re-run this release:\n  {command}"
-    )
-
 
 def coverage_by_environment(
     history: Sequence[str],
-    rows: Iterable[Mapping[str, Any]],
+    values_by_environment: Mapping[str, Mapping[str, Any]],
     environments: Sequence[str] = RELEASE_ENVIRONMENTS,
 ) -> Dict[str, Tuple[str, ...]]:
     """Uncovered entries for each environment, in history order."""
-    return {
-        target_environment_for_admin_env(env): uncovered(history, rows, env)
-        for env in environments
-    }
-
-
-def release_refusal_message(
-    target_environment: str,
-    missing_by_environment: Mapping[str, Sequence[str]],
-    *,
-    product_sha: str = "",
-    rehearse_commands: Mapping[str, str] | None = None,
-    engine_wheel_source: str = "",
-) -> str:
-    """Refuse, naming every environment still missing a receipt.
-
-    The release still fails because *target_environment* is uncovered.
-    Sibling environments are listed in the same message so the second gap
-    is not discovered by a repeat attempt.
-    """
-    target = target_environment_for_admin_env(target_environment)
-    commands = rehearse_commands or {}
-    parts: list[str] = []
-    target_missing = tuple(missing_by_environment.get(target) or ())
-    parts.append(
-        refusal_message(
-            target,
-            target_missing,
-            product_sha=product_sha,
-            rehearse_command=commands.get(target, ""),
-        )
-    )
-    others = [
-        (env, tuple(missing))
-        for env, missing in missing_by_environment.items()
-        if target_environment_for_admin_env(env) != target and missing
-    ]
-    if others:
-        extra = "; ".join(f"{env}: {', '.join(missing)}" for env, missing in others)
-        parts.append(
-            "Also uncovered (receipts are per environment, so these are "
-            f"separate gaps): {extra}."
-        )
-        for env, _missing in others:
-            command = commands.get(env, "").strip()
-            if command:
-                parts.append(f"  {command}")
-    covered = [
-        env
-        for env in missing_by_environment
-        if target_environment_for_admin_env(env) != target
-        and not missing_by_environment[env]
-    ]
-    if covered:
-        named = ", ".join(target_environment_for_admin_env(env) for env in covered)
-        parts.append(f"Covered for {named}; that evidence does not transfer.")
-    if engine_wheel_source.strip():
-        parts.append(engine_wheel_source.strip())
-    return "\n".join(parts)
-
-
-def unreadable_message(environment: str, reason: str) -> str:
-    """Refuse when the receipt store could not be read at all.
-
-    Distinguished from having found no receipt on purpose. Those are different
-    facts — one says the release is unrehearsed, the other says this gate does
-    not know — and reporting an unanswered question as a pass is the exact
-    inversion that lets an unrehearsed build ship.
-    """
-    return (
-        "could not read fleet preflight receipts for "
-        f"{target_environment_for_admin_env(environment)}, so whether this "
-        f"build was rehearsed is unknown rather than answered: {reason}. "
-        "Refusing, because a gate that passes when it cannot check is not a "
-        "gate."
-    )
+    coverage: Dict[str, Tuple[str, ...]] = {}
+    for env in environments:
+        name = target_environment_for_admin_env(env)
+        coverage[name] = uncovered(history, values_by_environment.get(name) or {})
+    return coverage

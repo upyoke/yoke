@@ -97,7 +97,8 @@ def test_deployment_ci_denies_install_onboarding_and_project_admin_mutations(
 
 
 def test_project_structure_patch_still_requires_project_admin(
-    client, ci_auth_db,
+    client,
+    ci_auth_db,
 ) -> None:
     response = client.post(
         "/v1/functions/call",
@@ -210,6 +211,50 @@ def test_deployment_ci_target_cannot_override_relay_payload_project(
             payload=payload,
         ),
         headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
+
+
+def test_deployment_ci_reads_fleet_rehearsal_coverage(client, ci_auth_db) -> None:
+    # The pre-tag release gate runs under this identity and must be able to
+    # read the environment settings that own fleet rehearsal coverage;
+    # otherwise every release refuses as "unavailable" instead of gating.
+    from yoke_core.domain import migration_preflight_receipt as receipt
+
+    response = client.post(
+        "/v1/functions/call",
+        json=_envelope(
+            "projects.environment_settings.get",
+            payload={
+                "project": "yoke",
+                "environment": "prod",
+                "paths": [receipt.entry_coverage_path("0001_a")],
+            },
+        ),
+        headers=_deployment_ci_headers(ci_auth_db["db_path"]),
+    )
+
+    assert response.status_code != 403
+
+
+def test_deployment_ci_still_cannot_write_environment_settings(
+    client, ci_auth_db
+) -> None:
+    # Reading coverage is not permission to author it: the receipt is written
+    # by the rehearsal, from an operator connection, never by the release job.
+    response = client.post(
+        "/v1/functions/call",
+        json=_envelope(
+            "projects.environment_settings.merge",
+            payload={
+                "project": "yoke",
+                "environment": "prod",
+                "assignments": {"release.fleet_rehearsal.entry.0001_a": "forged"},
+            },
+        ),
+        headers=_deployment_ci_headers(ci_auth_db["db_path"]),
     )
 
     assert response.status_code == 403

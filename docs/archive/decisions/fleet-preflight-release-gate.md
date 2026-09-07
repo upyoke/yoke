@@ -48,17 +48,44 @@ The rehearsal can then run anywhere — an operator machine, a self-hosted
 runner, a future scheduled job. What changed is that forgetting to run it stops
 the release instead of the fleet.
 
-## Why the receipt is an event rather than a table
+## Where the receipt lives
 
-The events stream is already the durable audit spine, already reachable over
-both transports, and already has a query surface with the filters this needs. A
-receipt is a fact that something happened at a point in time, which is what
-that stream is for. A table would add schema, a reader, and a second thing to
-keep consistent, in exchange for nothing this design uses.
+The receipt began as an event. Events are telemetry: they expire, and an
+expiring receipt turns covered work back into uncovered work, so a release
+refuses or a fleet is re-rehearsed because evidence aged out rather than
+because anything changed. Coverage is release authority, and release
+authority needs a durable owner.
 
-The receipt is emitted by the preflight itself and only on a pass, so a receipt
-cannot exist for a fleet the rehearsal did not clear. There is no verdict field
-to interpret, because a failing run writes nothing.
+It lives on the environment whose fleet was rehearsed — that environment's
+own `environments.settings` document, under `release.fleet_rehearsal`,
+beside the per-environment release authority already kept there. Each
+covered history entry is one leaf, each covered schema-shape digest is one
+leaf, and each leaf names the rehearsal run that covered it; that run's
+own leaves carry the product sha, the engine selected, the completion time,
+and the number of databases cleared.
+
+Keying by environment makes "a stage receipt is not production evidence" a
+property of the store rather than a filter every reader has to remember:
+coverage read for one environment can only ever have been written for that
+environment. Union coverage is likewise what the document already is —
+merging accumulates leaves — rather than a fold a reader performs.
+
+A dedicated table was the obvious alternative and is the one thing this
+design cannot use. The pre-tag gate runs the *candidate* build on a hosted
+runner against the *already-deployed* control plane. A new table, or a new
+function id to read it, would not exist there until the release that carries
+it has deployed — and that release is precisely what the gate blocks. The
+existing environment-settings surface is served by the running build today,
+so the change lands without a window in which the release train cannot
+release.
+
+Reading that projection authorizes on the project read, which the deploy
+identity gains for exactly this. It reads coverage; writing a receipt stays
+with the rehearsal, which runs from an operator connection.
+
+The receipt is written by the preflight itself and only on a pass, so it
+cannot exist for a fleet the rehearsal did not clear. There is no verdict
+field to interpret, because a failing run writes nothing.
 
 ## Why coverage is a union rather than the newest receipt
 
@@ -118,9 +145,9 @@ DDL, and the gate refuses when that digest is uncovered for the target
 environment.
 
 Union coverage still applies: a digest is rehearsed once per environment, and
-not again until the shape changes. A receipt recorded before this field
-existed covers no current digest, which is the bootstrap for the new
-obligation — one passing preflight per environment clears it.
+not again until the shape changes. An environment whose document records no
+current digest is uncovered, which is the bootstrap for the obligation — one
+passing preflight per environment clears it.
 
 ## What a pre-release receipt proves
 

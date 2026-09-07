@@ -5,11 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_contracts.api.function_call import TargetRef
-
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import deploy_pipeline_environment
 from yoke_core.domain import migration_preflight_receipt as receipt
+from yoke_core.domain.migration_preflight_receipt_store import read_coverage
 from yoke_core.domain.schema_shape_source import (
     SchemaShapeSourceError,
     digest_schema_shape_commit,
@@ -17,7 +15,6 @@ from yoke_core.domain.schema_shape_source import (
 
 HOSTED_RELEASE_STAGE = "hosted-release"
 HOSTED_RELEASE_WORKFLOW = "platform-release-bridge.yml"
-RECEIPT_QUERY_LIMIT = 500
 
 
 def ensure_before_dispatch(
@@ -46,10 +43,10 @@ def ensure_before_dispatch(
     except SchemaShapeSourceError as exc:
         return 1, f"hosted release schema digest unavailable: {exc}"
 
-    rows, read_error = _receipt_rows(project)
+    values, read_error = _coverage(project, environment, schema_digest)
     if read_error:
         return 1, read_error
-    if not receipt.uncovered_schema_shape(schema_digest, rows, environment):
+    if not receipt.uncovered_schema_shape(schema_digest, values):
         print(
             "  Fleet schema rehearsal: covered for "
             f"{receipt.target_environment_for_admin_env(environment)} "
@@ -82,10 +79,10 @@ def ensure_before_dispatch(
             f"(exit code {rc})"
         )
 
-    rows, read_error = _receipt_rows(project)
+    values, read_error = _coverage(project, environment, schema_digest)
     if read_error:
         return 1, read_error
-    if receipt.uncovered_schema_shape(schema_digest, rows, environment):
+    if receipt.uncovered_schema_shape(schema_digest, values):
         return 1, (
             "fleet rehearsal passed but its receipt does not cover release "
             f"schema shape {schema_digest}; the selected engine source may "
@@ -113,31 +110,18 @@ def _release_sha(lineage: str, repository: str) -> tuple[str, str]:
     return _resolve_release_lineage_sha(lineage, repository, "")
 
 
-def _receipt_rows(project: str) -> tuple[list[dict[str, Any]], str]:
-    try:
-        response = call_dispatcher(
-            function_id="events.query.run",
-            target=TargetRef(kind="global"),
-            payload={
-                "event_name": receipt.EVENT_NAME,
-                "project": project,
-                "limit": RECEIPT_QUERY_LIMIT,
-            },
-        )
-    except Exception as exc:  # noqa: BLE001 - unreadable evidence fails closed
-        return [], f"could not read fleet schema rehearsal receipts: {exc}"
-    if not response.success:
-        detail = (
-            response.error.message
-            if response.error is not None
-            else "receipt query refused"
-        )
-        return [], f"could not read fleet schema rehearsal receipts: {detail}"
-    result = response.result if isinstance(response.result, Mapping) else {}
-    rows = result.get("rows")
-    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
-        return [], "could not read fleet schema rehearsal receipts: malformed rows"
-    return rows, ""
+def _coverage(
+    project: str, environment: str, schema_digest: str
+) -> tuple[dict[str, Any], str]:
+    """The environment's coverage for this digest, or why it is unknown."""
+    values, unreadable = read_coverage(
+        project=project,
+        environment=environment,
+        paths=receipt.coverage_paths((), schema_digest),
+    )
+    if unreadable:
+        return {}, f"could not read fleet schema rehearsal receipts: {unreadable}"
+    return values, ""
 
 
 def _run_preflight(args: list[str]) -> int:

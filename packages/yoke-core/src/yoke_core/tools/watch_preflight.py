@@ -86,7 +86,9 @@ The positional names the fleet to rehearse: the registered environment
 control plane that records the receipt. ``--record-receipt`` writes the
 receipt the release gate reads for the environment whose fleet the
 positional named — one environment's receipt never satisfies another, so
-rehearse each environment a release targets.
+rehearse each environment a release targets. The receipt lands on that
+environment's own settings document under ``release.fleet_rehearsal``, so
+coverage is durable state rather than telemetry that can expire.
 
 Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
 The release wheel does not exist until after tag allocation.

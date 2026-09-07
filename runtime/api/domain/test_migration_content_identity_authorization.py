@@ -19,6 +19,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     PERM_GITHUB_RELEASE_CREATE,
+    PERM_ITEMS_READ,
     PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,
     PERM_RELEASE_PIN_RECORD,
     ROLE_DEPLOYMENT_CI,
@@ -105,6 +106,9 @@ def test_release_roles_keep_project_and_control_plane_authority_separate() -> No
     conn = _conn()
     try:
         deployment_permissions = {
+            # The pre-tag release gate reads fleet rehearsal coverage from the
+            # target environment's settings, which authorizes on this key.
+            PERM_ITEMS_READ,
             PERM_EVENTS_READ,
             PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
             PERM_GITHUB_ACTIONS_RUN_READ,
