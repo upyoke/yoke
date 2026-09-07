@@ -149,7 +149,7 @@ def configure_macos_path_for_homebrew(
 
 
 def configure_session_relay(*, stream=None) -> bool:
-    """Converge launchd around the environment's served relay release."""
+    """Converge launchd around this environment's relay build."""
     if sys.platform != "darwin":
         return False
     from yoke_core.tools.session_relay_plist import install_relay_launchd

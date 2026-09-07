@@ -27,7 +27,11 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
     monkeypatch,
     tmp_path,
 ) -> None:
-    instance = SimpleNamespace(environment="stage", state_dir=tmp_path / "relay")
+    instance = SimpleNamespace(
+        environment="stage",
+        state_dir=tmp_path / "relay",
+        follows_served_release=True,
+    )
     pins: list[str] = []
     daemon_call = {}
     prepared: list[str] = []
@@ -76,7 +80,11 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
 
 
 def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -> None:
-    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    instance = SimpleNamespace(
+        environment="prod",
+        state_dir=tmp_path / "relay",
+        follows_served_release=True,
+    )
     pinned_executable = instance.state_dir / "venv" / "bin" / "yoke"
     replacements: list[tuple[object, object]] = []
     prepared: list[str] = []
@@ -125,7 +133,11 @@ def test_existing_release_entrypoint_converges_before_stable_runtime_restart(
     monkeypatch,
     tmp_path,
 ) -> None:
-    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    instance = SimpleNamespace(
+        environment="prod",
+        state_dir=tmp_path / "relay",
+        follows_served_release=True,
+    )
     prior_release = instance.state_dir / "releases" / "prior"
     prior_release.mkdir(parents=True)
     (instance.state_dir / "venv").symlink_to(prior_release, target_is_directory=True)
@@ -179,7 +191,11 @@ def test_post_deploy_restart_preserves_named_start_failure(
     monkeypatch,
     tmp_path,
 ) -> None:
-    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    instance = SimpleNamespace(
+        environment="prod",
+        state_dir=tmp_path / "relay",
+        follows_served_release=True,
+    )
     python = Path(sys.prefix) / "bin" / "python"
     monkeypatch.setattr(
         session_relay_instance,
@@ -217,7 +233,11 @@ def test_post_deploy_restart_preserves_named_start_failure(
 
 
 def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> None:
-    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    instance = SimpleNamespace(
+        environment="prod",
+        state_dir=tmp_path / "relay",
+        follows_served_release=True,
+    )
     monkeypatch.setattr(
         session_relay_instance,
         "resolve_relay_instance",
@@ -244,7 +264,11 @@ def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> 
 
 
 def test_daemon_preserves_the_recorded_pin_failure(monkeypatch, tmp_path) -> None:
-    instance = SimpleNamespace(environment="prod", state_dir=tmp_path / "relay")
+    instance = SimpleNamespace(
+        environment="prod",
+        state_dir=tmp_path / "relay",
+        follows_served_release=True,
+    )
     monkeypatch.setattr(
         session_relay_instance,
         "resolve_relay_instance",

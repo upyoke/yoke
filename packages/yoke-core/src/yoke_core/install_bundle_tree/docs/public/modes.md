@@ -8,6 +8,9 @@ Private on your machine. No signup. One human, as many agents as you want.
 
 - Wizard: pick **This machine**, or run `yoke init --local`
 - Data under `~/.yoke/`
+- The machine relay is installed here too, so the workbench sees which harnesses
+  this machine can start, reports session liveness, and can launch and resume
+  sessions. It runs your installed Yoke and needs no account or API token.
 - Open the workbench with `yoke ui up` (detached; `yoke ui` reports it, `yoke ui down` stops it)
 - Members and Billing tabs do not apply (Cloud-only platform features)
 

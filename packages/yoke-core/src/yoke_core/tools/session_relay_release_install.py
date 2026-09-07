@@ -41,6 +41,7 @@ from yoke_core.tools.session_relay_runtime_install import (
     ensure_relay_runtime,
     subprocess_failure_detail,
 )
+from yoke_core.tools import session_relay_local_install as local_install
 
 
 RELAY_RELEASES_DIR_NAME = "releases"
@@ -111,6 +112,51 @@ def pin_relay_release(
         _record_failure(selected, refusal.code, str(refusal), observed)
         raise refusal from exc
     return _status(selected, release, observed, index)
+
+
+def relay_launcher_path(state_dir: Path, *, follows_served_release: bool) -> Path:
+    """The absolute executable launchd runs for one relay.
+
+    Pure and total: a machine that has not installed its launcher yet still
+    resolves to a path, so the launchd document stays computable and the
+    refusal is raised where it can be recovered.
+    """
+    if follows_served_release:
+        return relay_launch_executable(state_dir)
+    return local_install.local_launcher_path()
+
+
+def converge_relay_launcher(
+    instance: RelayInstance,
+    *,
+    pin_release: Callable[..., object] = pin_relay_release,
+) -> Path:
+    """Make this relay's launcher runnable, then return it.
+
+    A relay that follows a served release converges by pinning that release. A
+    local-universe relay converges by confirming the machine's installed
+    launcher is there to run -- nothing is fetched, because the machine
+    already holds the build its own control plane serves.
+    """
+    launcher = relay_launcher_path(
+        instance.state_dir,
+        follows_served_release=instance.follows_served_release,
+    )
+    if not instance.follows_served_release:
+        if not local_install.local_launcher_ready(launcher):
+            raise RelayReleaseError(
+                local_install.LOCAL_LAUNCHER_MISSING,
+                local_install.local_launcher_missing_message(launcher),
+            )
+        return launcher
+    pin_release(instance=instance)
+    if not launcher.is_file():
+        raise RelayReleaseError(
+            RELAY_RELEASE_INSTALL_FAILED,
+            f"pinned relay executable is missing at {launcher}; retry "
+            f"`yoke --env {instance.environment} relay install`",
+        )
+    return launcher
 
 
 def _status(
@@ -277,4 +323,4 @@ def _command_detail(result: subprocess.CompletedProcess[str]) -> str:
     return subprocess_failure_detail(result)
 
 
-__all__ = ["pin_relay_release"]
+__all__ = ["converge_relay_launcher", "pin_relay_release", "relay_launcher_path"]

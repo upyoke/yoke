@@ -74,8 +74,13 @@ def _pin_release(*, instance) -> None:
 
 
 def test_prod_db_admin_cannot_resolve_a_relay_instance(tmp_path: Path) -> None:
+    """Direct database authority for a hosted universe owns no relay.
+
+    That universe is already served over https, and its relay belongs to the
+    https connection; a second relay here would poll one universe twice.
+    """
     calls: list[list[str]] = []
-    with pytest.raises(RelayInstanceError, match="requires an https"):
+    with pytest.raises(RelayInstanceError, match="refuses a prod local-postgres"):
         install_relay_launchd(
             home=tmp_path,
             config_path=_write_config(tmp_path),
@@ -305,6 +310,7 @@ def test_legacy_status_helper_uses_the_same_health_contract(
         plist_present=present,
         loaded=loaded,
         plist_current=current,
+        follows_served_release=True,
     )
     monkeypatch.setattr(install_session_relay, "relay_launchd_status", lambda: status)
     monkeypatch.setattr(
