@@ -67,9 +67,6 @@ function renderSelectedWorkflow(
       editApprovals: bound(actions.editApprovals, workflow),
       editDelivery: bound(actions.editDelivery, workflow),
     }),
-    workflowInstructionsPanel(
-      documentNode, workflow, actions.client, actions.instructionScope || {},
-    ),
     renderVersionHistory(documentNode, workflow, {
       client: actions.client,
       makeCurrent: bound(actions.makeCurrent, workflow),
@@ -104,6 +101,9 @@ function replaceWorkflowRoute(documentNode, context, workflowId) {
 }
 export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   const documentNode = context.document;
+  const instructionsHost = el(
+    documentNode, "div", "workflow-instructions-host",
+  );
   const tabs = el(documentNode, "div", "workflow-tabs");
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", "Workflow definitions");
@@ -113,8 +113,9 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   const loading = workflowPanel(documentNode, "Stages");
   loading.body.textContent = "loading…";
   content.appendChild(loading.panel);
-  main.replaceChildren(tabs, intro, content, dialogHost);
+  main.replaceChildren(instructionsHost, tabs, intro, content, dialogHost);
   let workflows = [];
+  let instructionsMounted = false;
   let catalogById = new Map();
   let selectedWorkflowId = null;
   let mechanicsData = emptyMechanicsData();
@@ -256,11 +257,18 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
         canon: mechanicsData.editable ? canonActions : null,
         workflows,
         versionDefinitionCache,
-        // Instruction scope spans every workflow and project, so editing one
-        // here still needs both rosters.
-        instructionScope: { workflows, projects: context.projects() },
       },
     );
+  };
+  const mountInstructions = () => {
+    if (instructionsMounted) return;
+    instructionsHost.replaceChildren(
+      workflowInstructionsPanel(documentNode, context.client, {
+        workflows: () => workflows,
+        projects: () => context.projects(),
+      }),
+    );
+    instructionsMounted = true;
   };
   const load = async () => {
     let callResult;
@@ -303,9 +311,11 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
         tabs.replaceChildren();
         intro.hidden = true;
         content.replaceChildren(empty.panel);
+        mountInstructions();
         return;
       }
       render();
+      mountInstructions();
     } catch (fetchError) {
       if (!context.isMounted()) return;
       renderFailure(documentNode, tabs, intro, content, {

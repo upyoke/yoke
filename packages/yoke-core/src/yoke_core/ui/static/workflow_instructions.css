@@ -1,5 +1,11 @@
-/* Execution instructions as the workflows page shows them: the rows that
-   reach the workflow in view, and the editor that opens in their place. */
+/* Execution instructions sit above the workflow tabs as their own section.
+   Scope is per instruction; the selected tab does not own this list. */
+.universe-app-root .workflow-instructions-host {
+  margin: 0 0 16px;
+}
+.universe-app-root .workflow-instructions-host > .panel {
+  margin-bottom: 0;
+}
 .universe-app-root .instruction-editor .instruction-content-input {
   min-height: 160px;
   font-family: var(--yoke-font-mono);
@@ -26,6 +32,16 @@
   gap: 8px;
   margin-top: 14px;
 }
+.universe-app-root .workflow-instruction-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.universe-app-root .workflow-instruction-filters select {
+  font: inherit;
+  font-size: 12.5px;
+}
 .universe-app-root .workflow-instruction-row {
   display: flex;
   align-items: baseline;
@@ -33,16 +49,34 @@
   padding: 6px 0;
   border-bottom: 1px solid var(--yoke-border);
 }
-.universe-app-root .workflow-instruction-row:last-child {
+.universe-app-root .workflow-instructions-list
+  .workflow-instruction-row:last-child {
   border-bottom: 0;
 }
-.universe-app-root .workflow-instruction-content {
+.universe-app-root .workflow-instructions-new {
+  margin-top: 16px;
+}
+.universe-app-root .workflow-instruction-content,
+.universe-app-root .workflow-instruction-body {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.universe-app-root .workflow-instruction-content {
   font-weight: 550;
 }
+.universe-app-root .workflow-instruction-body {
+  white-space: pre-wrap;
+  font-weight: 400;
+}
 .universe-app-root .workflow-instruction-reach {
-  margin-left: auto;
+  display: block;
+  margin-top: 2px;
   color: var(--yoke-muted);
   font-size: 12px;
+}
+.universe-app-root .workflow-instruction-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
 }

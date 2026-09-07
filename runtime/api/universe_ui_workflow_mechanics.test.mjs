@@ -113,7 +113,7 @@ test("approval editor publishes structured addressees as a new version", async (
     byClass(root, "workflow-dialog")[0].attributes.get("aria-label"),
     "Default approvals — Dash",
   );
-  const transition = allNodes(root).find(
+  const transition = allNodes(byClass(root, "workflow-dialog")[0]).find(
     (node) => node.tagName === "SELECT",
   );
   assert.deepEqual(
