@@ -7,7 +7,12 @@ backfilled or rewritten; new releases do not add files here.
 ## Cut a release
 
 1. Run the canonical test gate on the exact release commit and merge it to
-   `main`.
+   `main`. When the change breaks a consumer that must land alongside it,
+   record the run before either side merges — `yoke deployment-runs
+   start-for-item ITEM --prepare` — so the release survives the window between
+   the two merges instead of depending on someone remembering it. The last
+   merge in the pair binds that run to its merge commit and hands it to the
+   deploy-lock holder; `.yoke/runbooks/deploy.md` carries the full procedure.
 2. Deliver the item through `yoke-hosted-stage-typed-target` or
    `yoke-hosted-production-hotfix-typed-target`; the earlier `-warm-gated`,
    `-no-ci-gate`, and `yoke-hosted-production` definitions are disabled

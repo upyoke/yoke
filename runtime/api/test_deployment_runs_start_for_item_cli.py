@@ -103,6 +103,7 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
         "release_lineage": "L-99",
         "project_repo_path": "/workspace/externalwebapp",
         "created_by": "agent",
+        "prepare": False,
     }
 
 

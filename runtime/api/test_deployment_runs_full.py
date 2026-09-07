@@ -142,13 +142,18 @@ class TestCreateRun:
         val = dr.cmd_get(rid, field="release_lineage", db_path=db_path)
         assert val == "rel-001"
 
+        # A bound lineage is the answer to "what will this run deploy", so a
+        # run that already names one refuses a different commit. The window in
+        # which it may be written at all belongs to a run prepared before its
+        # work merged, and is covered by test_prepared_release_continuation.
         error = dr.cmd_update(
             rid,
             "release_lineage",
-            "different-lineage",
+            "b" * 40,
             db_path=db_path,
         )
-        assert error == "Error: field 'release_lineage' is not updatable"
+        assert error is not None
+        assert "already names release_lineage rel-001" in error
         assert dr.cmd_get(rid, field="release_lineage", db_path=db_path) == "rel-001"
 
     def test_create_with_created_by(self, db_path):

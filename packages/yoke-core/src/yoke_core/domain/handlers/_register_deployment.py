@@ -205,6 +205,23 @@ def register(registry) -> None:
         claim_required_kind="item",
     )
     registry.register(
+        "deployment_runs.continue_for_item",
+        _runs_composed.handle_deployment_run_continue_for_item,
+        _models.DeploymentRunContinueForItemRequest,
+        _models.DeploymentRunContinueForItemResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_runs",
+        target_kinds=["item"],
+        side_effects=["deployment_runs_update", "session_message_send"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "prepared_run_lineage_window",
+            "item_bound_composition_validation",
+        ],
+        adapter_status="live",
+        claim_required_kind="item",
+    )
+    registry.register(
         "deployment_runs.list", _runs.handle_deployment_run_list,
         _models.DeploymentRunListRequest,
         _models.DeploymentRunListResponse,

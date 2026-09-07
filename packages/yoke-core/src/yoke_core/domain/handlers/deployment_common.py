@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -127,6 +127,21 @@ class DeploymentRunStartForItemRequest(BaseModel):
     environment: Optional[str] = None
     release_lineage: Optional[str] = None
     created_by: Optional[str] = None
+    prepare: bool = False
+
+
+class DeploymentRunContinueForItemRequest(BaseModel):
+    release_lineage: Optional[str] = None
+
+
+class DeploymentRunContinueForItemResponse(BaseModel):
+    ok: bool
+    outcome: str
+    run_id: Optional[str] = None
+    release_lineage: Optional[str] = None
+    waiting_on: List[str] = Field(default_factory=list)
+    handed_off_to: Optional[str] = None
+    message_id: Optional[str] = None
 
 
 class DeploymentRunStartForItemResponse(BaseModel):
@@ -274,6 +289,8 @@ __all__ = [
     "DeploymentFlowDescribeResponse",
     "DeploymentRunGetRequest",
     "DeploymentRunGetResponse",
+    "DeploymentRunContinueForItemRequest",
+    "DeploymentRunContinueForItemResponse",
     "DeploymentRunStartForItemRequest",
     "DeploymentRunStartForItemResponse",
     "DeploymentRunListRequest",

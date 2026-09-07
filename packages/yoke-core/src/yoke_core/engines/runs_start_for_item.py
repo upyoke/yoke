@@ -10,14 +10,10 @@ deploy execution remains a separate operator call into
 ``yoke_core.domain.deploy_pipeline``. The composer never invokes
 ``deploy_pipeline`` directly so the scope boundary holds.
 
-Failure paths are safe:
-
-* Missing ``project`` / ``deployment_flow`` on the item returns a
-  structured error before any DB write.
-* A failed ``create-run`` returns immediately; nothing to clean up.
-* A failed ``add-item`` or ``validate-composition`` returns the diagnostic
-  payload AND the ``run_id`` already created so the operator can inspect
-  or clean up via existing ``runs`` commands.
+Every failure returns a structured handle rather than raising, and one
+that failed after the run was created carries the ``run_id`` too, so the
+operator can inspect or clean it up through the existing ``runs``
+commands instead of hunting for what was left behind.
 """
 
 from __future__ import annotations
@@ -33,6 +29,9 @@ from yoke_core.domain.deployment_runs_crud_mutate import (
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
     cmd_resolve_target,
+)
+from yoke_core.domain.deployment_run_lineage_rebind import (
+    PREPARE_NAMES_NO_LINEAGE,
 )
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from yoke_core.domain.environment_delivery_record import STAGE_ENV_NAME
@@ -110,6 +109,7 @@ def start_for_item(
     project_repo_path: str = "",
     created_by: str = "operator",
     session_id: Optional[str] = AMBIENT_SESSION,
+    prepare: bool = False,
 ) -> StartForItemResult:
     """Compose deploy-run setup for ``item_id`` into one structured call.
 
@@ -117,7 +117,22 @@ def start_for_item(
     matches the equivalent hand-rolled five-step sequence. ``session_id``
     names the session whose deploy lock authorizes the run; the default
     resolves the ambient session, which is what a terminal caller has.
+
+    ``prepare`` records the run before the work has merged, for a change
+    whose consumer must land alongside it: no lineage is bound because the
+    commit does not exist yet, and partners still to merge are tolerated.
+    Everything else — flow, environment, deploy lock, membership — is
+    decided here, and ``continue_for_item`` binds the commit at the merge
+    that completes the pair.
     """
+    if prepare and release_lineage:
+        return StartForItemResult(
+            ok=False,
+            item_ids=[item_id],
+            error=PREPARE_NAMES_NO_LINEAGE,
+            error_code="prepare_lineage_conflict",
+            error_phase=PHASE_VALIDATE_LINEAGE,
+        )
     db_project = db_flow = None
     if project is None or flow is None:
         db_project, db_flow = _lookup_item_project_and_flow(item_id)
@@ -187,7 +202,7 @@ def start_for_item(
             error_phase=PHASE_RESOLVE,
         )
 
-    if not release_lineage and environment_name == STAGE_ENV_NAME:
+    if not prepare and not release_lineage and environment_name == STAGE_ENV_NAME:
         try:
             release_lineage, lineage_error = _resolve_remote_release_head(
                 resolved_project,
@@ -277,7 +292,10 @@ def start_for_item(
         )
 
     try:
-        ok, msg = cmd_validate_composition(run_id)
+        ok, msg = cmd_validate_composition(
+            run_id,
+            allow_pending_pair_merges=prepare,
+        )
     except Exception as exc:
         return StartForItemResult(
             ok=False,

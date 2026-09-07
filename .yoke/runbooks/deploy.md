@@ -34,10 +34,16 @@ Platform Yoke pin, or dispatch a component deploy as the normal path. See
 
 Use the project-owned definitions in `.yoke/deployment-flows.json`:
 
-- `yoke-hosted-stage-no-ci-gate` for Stage;
-- `yoke-hosted-production-hotfix-no-ci-gate` for an attended Production
+- `yoke-hosted-stage-typed-target` for Stage;
+- `yoke-hosted-production-hotfix-typed-target` for an attended Production
   hotfix; and
 - the item-assigned hosted Production flow for normal item-bound delivery.
+
+A definition a run has referenced is immutable, so retiring a route and
+adding its replacement is how one changes. Read the live set with
+`yoke deployment-flows list` rather than from a name remembered here: earlier
+`-no-ci-gate` and `-warm-gated` definitions are disabled history that a
+recipe can still name long after nothing may select them.
 
 Item-bound delivery normally runs through `/yoke usher YOK-N`. For an attended
 environment release, push the intended commit to `main`, merge that exact
@@ -55,6 +61,47 @@ that commit instead of creating a different product identity. This ordering is
 a release-policy choice, not evidence that the targets share state. A run that
 must not execute is marked `cancelled`; deployment history is never deleted or
 rewritten.
+
+## Releasing a change that breaks its consumer
+
+A product change that breaks the hosted host ships as a pair: the producer and
+the adapted host merge separately, and the release must go out only after BOTH
+have landed. Releasing on the producer's merge alone publishes a product whose
+host is still the old one, and leaving the release to be remembered afterwards
+is how one gets forgotten entirely.
+
+Record the obligation before either side merges, and the merges carry it:
+
+1. Record the pairing as an `item_dependencies` row on the producer item with
+   `--gate-point integration --satisfaction fact:merged`, naming the host item
+   as the blocker. This gates delivery, not activation, so both sides are still
+   built in parallel and either may merge first.
+2. Take the deploy lock and prepare the run:
+
+   ```bash
+   yoke claims coordination-claim acquire --project yoke --key DEPLOY:yoke \
+       --reason "driving the breaking-contract pair"
+   yoke --env prod-db-admin deployment-runs start-for-item YOK-N --prepare
+   ```
+
+   The run is durable at `created`, names no lineage — the merge commit does
+   not exist yet — and remembers which partners have still to merge.
+3. Merge both sides normally. Each merge close-out asks whether it completed
+   the pair. The earlier merge reports what it is still waiting for; the last
+   merge binds the run to the merge commit and hands the run to whoever holds
+   `DEPLOY:yoke`, as a durable Fleet message keyed so one completed pair
+   produces one hand-off however many times close-out re-runs.
+4. Execute the run you were handed. Nothing deploys until you do:
+
+   ```bash
+   yoke --env prod-db-admin watch deploy -- RUN-ID
+   ```
+
+Re-running `yoke merge item YOK-N` after any interruption is safe and is the
+recovery: continuation re-reads the run row and the dependency edges every
+time, binding the same commit twice is a no-op, and binding a different one is
+refused naming both. A merge with no prepared run waiting on it takes none of
+this path.
 
 ## Verification
 

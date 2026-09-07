@@ -143,5 +143,29 @@ def build_parser() -> argparse.ArgumentParser:
     sfi.add_argument("--release-lineage", default=None)
     sfi.add_argument("--project-repo-path", default="")
     sfi.add_argument("--created-by", default="operator")
+    sfi.add_argument(
+        "--prepare",
+        action="store_true",
+        help=(
+            "Record the run before the work merges, for a change whose "
+            "consumer must land alongside it. Binds no lineage and tolerates "
+            "partners still to merge; continue-for-item binds the commit."
+        ),
+    )
+
+    cfi = sub.add_parser(
+        "continue-for-item",
+        help=(
+            "Advance the prepared run this item's merge completes: bind the "
+            "merge commit once every coordinated partner has landed, then "
+            "hand the run to the project's deploy authority."
+        ),
+    )
+    cfi.add_argument("item_id", type=int)
+    cfi.add_argument(
+        "--release-lineage",
+        default=None,
+        help="Merge commit to bind; defaults to the recorded merge identity",
+    )
 
     return p

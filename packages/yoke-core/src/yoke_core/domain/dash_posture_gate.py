@@ -212,10 +212,22 @@ def _deployment_gate(
         )
     )
     if row is None or str(row["status"]) != "succeeded":
+        # A prepared run is a named obligation, not a missing one: say which
+        # run is owed so the operator does not start a second.
+        prepared = row is not None and str(row["status"]) == "created"
         return _failure(
             "GATE_DASH_DEPLOYMENT_REQUIRED",
-            "The latest item-bound deployment run has not succeeded.",
-            "Run the selected project delivery flow to completion.",
+            (
+                f"Prepared deployment run {row['id']} has not been executed."
+                if prepared
+                else "The latest item-bound deployment run has not succeeded."
+            ),
+            (
+                f"Execute it: yoke --env <control-plane>-db-admin watch "
+                f"deploy -- {row['id']}"
+                if prepared
+                else "Run the selected project delivery flow to completion."
+            ),
         )
     lineage = str(row.get("release_lineage") or "")
     if not _same_git_identity(lineage, merge_sha):

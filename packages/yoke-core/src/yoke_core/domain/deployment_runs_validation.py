@@ -13,6 +13,9 @@ from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
+from yoke_core.domain.deployment_run_pair_obligations import (
+    split_pending_pair_merges,
+)
 from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.project_identity import (
     render_item_ref,
@@ -54,7 +57,12 @@ def _not_delivery_ready(conn, rows) -> list[str]:
     return refused
 
 
-def cmd_validate_composition(run_id: str, db_path: Optional[str] = None) -> Tuple[bool, str]:
+def cmd_validate_composition(
+    run_id: str,
+    db_path: Optional[str] = None,
+    *,
+    allow_pending_pair_merges: bool = False,
+) -> Tuple[bool, str]:
     """Validate run composition. Returns (ok, message).
 
     Checks:
@@ -62,6 +70,12 @@ def cmd_validate_composition(run_id: str, db_path: Optional[str] = None) -> Tupl
     2. Items have compatible flow
     3. Every item is delivery-ready under its pinned workflow policy
     4. No unsatisfied hard-block dependencies outside the run
+
+    ``allow_pending_pair_merges`` is what preparation passes: a run prepared
+    before its coordinated pair has landed is expected to carry unsatisfied
+    pair-merge edges, and remembering them is the whole point of preparing it.
+    Only those edges are tolerated, and only at that phase — continuation
+    re-runs this with the default and so proves the pair actually merged.
     """
     conn = connect(db_path)
     try:
@@ -133,11 +147,12 @@ def cmd_validate_composition(run_id: str, db_path: Optional[str] = None) -> Tupl
 
         # Check 4: Unsatisfied hard-block dependencies
         run_items = [int(row[0]) for row in delivery_candidates]
-        blocked = unsatisfied_dependency_pairs(
-            conn,
-            run_items,
-            co_scheduled_blocker_ids=run_items,
-        )
+        pending_pairs, blocked = split_pending_pair_merges(conn, run_items)
+        if pending_pairs and not allow_pending_pair_merges:
+            blocked = [
+                (pair.dependent_item_id, pair.blocking_item_id, pair)
+                for pair in pending_pairs
+            ] + blocked
         if blocked:
             items_str = ", ".join(
                 f"{render_column_item_ref(conn, dependent)} (blocked by "

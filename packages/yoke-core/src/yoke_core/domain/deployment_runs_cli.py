@@ -226,11 +226,25 @@ def main(argv: Optional[List[str]] = None) -> int:
                 release_lineage=args.release_lineage,
                 project_repo_path=args.project_repo_path,
                 created_by=args.created_by,
+                prepare=args.prepare,
             )
             payload = handle.to_dict()
             stream = sys.stdout if handle.ok else sys.stderr
             print(json.dumps(payload), file=stream)
             return 0 if handle.ok else 1
+
+        elif args.command == "continue-for-item":
+            from yoke_core.engines.runs_continue_for_item import (
+                continue_for_item,
+            )
+
+            outcome = continue_for_item(
+                args.item_id,
+                release_lineage=args.release_lineage,
+            )
+            stream = sys.stdout if outcome.ok else sys.stderr
+            print(json.dumps(outcome.to_dict()), file=stream)
+            return 0 if outcome.ok else 1
 
         else:
             parser.print_help(sys.stderr)
