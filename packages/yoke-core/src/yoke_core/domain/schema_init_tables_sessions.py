@@ -23,6 +23,10 @@ from yoke_contracts.executor_labels import (
     CANONICAL_HARNESS_IDS,
     KNOWN_SURFACE_LABELS,
 )
+from yoke_core.domain.session_recovery_facts import (
+    PROMISED_WORK_HOLDS_TABLE,
+    SESSION_RECOVERY_COLUMNS,
+)
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 
@@ -32,6 +36,9 @@ def create_session_tables(conn: Any) -> None:
     )
     surface_values = ", ".join(
         f"'{surface}'" for surface in sorted(KNOWN_SURFACE_LABELS)
+    )
+    recovery_columns = "".join(
+        f"          {column} {ddl},\n" for column, ddl in SESSION_RECOVERY_COLUMNS
     )
     execute_schema_script(
         conn,
@@ -87,7 +94,7 @@ def create_session_tables(conn: Any) -> None:
           last_chain_step INTEGER DEFAULT NULL,
           last_checkpoint_at TEXT DEFAULT NULL,
           last_steering_report_at TEXT DEFAULT NULL,
-          last_steering_report_fingerprint TEXT DEFAULT NULL
+{recovery_columns}          last_steering_report_fingerprint TEXT DEFAULT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_lane ON harness_sessions(execution_lane);
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_heartbeat ON harness_sessions(last_heartbeat);
@@ -106,6 +113,13 @@ def create_session_tables(conn: Any) -> None:
           ON session_tool_calls(session_id, tool_use_id);
         CREATE INDEX IF NOT EXISTS idx_session_tool_calls_session_started
           ON session_tool_calls(session_id, started_at);
+        CREATE TABLE IF NOT EXISTS {PROMISED_WORK_HOLDS_TABLE} (
+          session_id TEXT NOT NULL,
+          item_id INTEGER NOT NULL,
+          hold_count INTEGER NOT NULL DEFAULT 0,
+          last_hold_at TEXT NOT NULL,
+          PRIMARY KEY (session_id, item_id)
+        );
         CREATE TABLE IF NOT EXISTS work_claims (
           id INTEGER PRIMARY KEY,
           session_id TEXT NOT NULL,

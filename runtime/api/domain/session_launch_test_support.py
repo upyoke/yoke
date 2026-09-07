@@ -10,6 +10,7 @@ from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchAuthorization, LaunchRequest
+from yoke_core.domain.session_recovery_facts import SESSION_RECOVERY_COLUMNS
 from yoke_core.domain.work_claim_targets import make_steering_target
 
 
@@ -43,6 +44,16 @@ def launch_connection() -> sqlite3.Connection:
             keepalive_reason TEXT,
             ended_at TEXT
         );
+        """
+        # The recovery facts every session-state reader consults, rendered
+        # from their own declaration so this fixture cannot drift from the
+        # real schema. Base rather than relay-only: launch settlement reads
+        # the completed-work marker straight off this connection.
+        + "".join(
+            f"ALTER TABLE harness_sessions ADD COLUMN {column} {ddl};\n"
+            for column, ddl in SESSION_RECOVERY_COLUMNS
+        )
+        + """
         INSERT INTO actors (id) VALUES (1), (2), (3);
         INSERT INTO projects (id, slug) VALUES (10, 'launch-project');
         INSERT INTO harness_sessions (

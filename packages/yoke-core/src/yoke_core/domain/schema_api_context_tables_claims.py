@@ -92,21 +92,49 @@ CLAIMS_TABLES: dict[str, dict] = {
             "HarnessToolCallStarted and closes it (completed_at + "
             "outcome) on the completion event; open rows "
             "(completed_at IS NULL) are the orphan set the session-end "
-            "sweep closes with outcome='interrupted'. An open row is NOT "
-            "proof a command is still running: a call a pre-tool-call "
-            "guardrail refused leaves one (join events on "
-            "(session_id, tool_use_id) for HarnessToolCallDenied), and a "
-            "harness that never closes rows leaves residue the session "
-            "kept working past (compare started_at against "
-            "harness_sessions.last_tool_call_at via "
-            "session_reclaim_progress.open_tool_call_is_live). Both "
-            "guards are why the steering fleet report can call a quiet "
-            "holder in-flight rather than idle. command_summary "
+            "sweep closes with outcome='interrupted'. A refused call is "
+            "closed by the guardrail that refused it, carrying "
+            "outcome='denied' — read that outcome; do NOT join events on "
+            "(session_id, tool_use_id) for HarnessToolCallDenied, which "
+            "loses the fact when telemetry expires. An open row is still "
+            "not proof a command is running: a harness that never closes "
+            "rows leaves residue the session kept working past (compare "
+            "started_at against harness_sessions.last_tool_call_at via "
+            "session_reclaim_progress.open_tool_call_is_live), which is "
+            "why the steering fleet report can call a quiet holder "
+            "in-flight rather than idle. The newest CLOSED row's "
+            "tool_name is how the Stop gate and the orphan-waiter "
+            "detector recognise an armed waiter, whichever tool the "
+            "session's own harness arms it with "
+            "(session_tool_call_projections.last_completed_tool_select "
+            "projects the name; that module names the tool). "
+            "Closing a row is idempotent: the activity bump and the "
+            "completed-work markers fire only on the transition, so a "
+            "replayed observation converges. command_summary "
             "is the bounded (500-char) command text the pre-tool-call "
             "lint guardrails scan. Unique key (session_id, "
             "tool_use_id). This table is state, not telemetry — the "
             "matching HarnessToolCall* events remain in the events "
             "ledger for audit queries."
+        ),
+    },
+    "session_promised_work_holds": {
+        "columns": [
+            ("session_id", "TEXT"),
+            ("item_id", "INTEGER"),
+            ("hold_count", "INTEGER"),
+            ("last_hold_at", "TEXT"),
+        ],
+        "notes": (
+            "How often the Stop gate has held one session on one item, "
+            "and when it last did — the ceiling (3) and cooldown (30m) "
+            "the turn-end promised-work gate enforces. Written by the "
+            "hold decision itself, so the bound survives telemetry "
+            "retention; do NOT count ChainEndDeferred events for it. "
+            "Primary key (session_id, item_id) because the ceiling is "
+            "per claim's worth of work, not per session. Owner: "
+            "session_recovery_facts.record_promised_work_hold / "
+            "promised_work_holds."
         ),
     },
     **WORK_CLAIM_TABLES,

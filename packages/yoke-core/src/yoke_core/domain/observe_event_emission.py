@@ -59,7 +59,12 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
         severity = "INFO"
 
     # Elevate severity for anomalies (not benign/structured/unattributed-only)
-    if anomaly_flags and not rec.is_failure and not benign_failure and not structured_exit:
+    if (
+        anomaly_flags
+        and not rec.is_failure
+        and not benign_failure
+        and not structured_exit
+    ):
         if anomalies == ["unattributed"]:
             pass  # main-session unattributed is expected
         else:
@@ -151,19 +156,40 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
     return envelope
 
 
-def insert_event(conn: Any, envelope: Dict[str, Any]) -> None:
-    """Insert an event envelope into the events table.
+def _events_table_present(conn: Any) -> bool:
+    """Whether this database can hold telemetry at all.
 
-    Silently no-ops if the events table does not exist. Tool-call-shaped
-    envelopes additionally project onto the session activity state
-    (``harness_sessions.last_tool_call_at`` / ``tool_call_count`` and the
-    ``session_tool_calls`` rolling table) in the same transaction — the
-    events ledger is telemetry-only; the state columns are what runtime
-    behaviors read.
+    A probe rather than a catalog read because the caller may be on a
+    minimal fixture. A failed probe aborts the transaction on Postgres,
+    so it is rolled back before the state write that follows.
     """
     try:
         conn.execute("SELECT 1 FROM events LIMIT 1")
     except db_backend.operational_error_types(conn):
+        conn.rollback()
+        return False
+    return True
+
+
+def insert_event(conn: Any, envelope: Dict[str, Any]) -> None:
+    """Project one envelope onto session state, and record its telemetry.
+
+    Tool-call-shaped envelopes drive the session activity state
+    (``harness_sessions.last_tool_call_at`` / ``tool_call_count``, the
+    completed-work markers, and the ``session_tool_calls`` rolling table),
+    which is what runtime behaviors read. The ``events`` row beside it is
+    telemetry: it is written in the same transaction so a reader never
+    sees one without the other, but **its absence never suppresses the
+    state write**. A database with no ``events`` table still records the
+    call, because whether this deployment retains telemetry is not a fact
+    about whether the session ran a tool.
+
+    The state write is idempotent on ``(session_id, tool_use_id)``, so a
+    replayed observation — the resident retries a batch whose later member
+    failed — converges rather than double-counting.
+    """
+    if not _events_table_present(conn):
+        _apply_state_and_commit(conn, envelope)
         return
 
     envelope_json = json.dumps(envelope, separators=(",", ":"))
@@ -216,10 +242,15 @@ def insert_event(conn: Any, envelope: Dict[str, Any]) -> None:
         ON CONFLICT DO NOTHING""",
         values,
     )
-    # Same-transaction state write: Started opens a session_tool_calls
-    # row; Completed/Failed (and siblings) close it and bump
-    # last_tool_call_at / tool_call_count. Schema-tolerant — skips
-    # cleanly on fixtures lacking the table/columns.
+    _apply_state_and_commit(conn, envelope)
+
+
+def _apply_state_and_commit(conn: Any, envelope: Dict[str, Any]) -> None:
+    """Started opens a ``session_tool_calls`` row; a completion closes it.
+
+    Schema-tolerant — skips cleanly on fixtures lacking the table or
+    columns, the same contract ``session_activity_state`` declares.
+    """
     from yoke_core.domain.session_activity_state import apply_envelope_state
 
     apply_envelope_state(conn, envelope)

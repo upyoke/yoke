@@ -21,7 +21,7 @@ from runtime.api.steering_fleet_test_helpers import (
     PROJECT_ID,
     seed_session,
 )
-from yoke_core.domain.session_native_turn_end import EVENT_SESSION_TURN_END_OBSERVED
+from yoke_core.domain.session_recovery_facts import record_native_turn_end
 from yoke_core.domain.steering_fleet_report_vendor_errors import (
     vendor_error_sessions,
 )
@@ -36,26 +36,22 @@ LIVE_ERROR = (
 
 
 def _observe(conn, session_id: str, *, at: str = STOPPED_AT) -> None:
-    """Record the turn-end observation the relay's record read produced."""
-    conn.execute(
-        "INSERT INTO events (event_id, event_name, event_kind, event_type, "
-        "source_type, session_id, envelope, created_at) "
-        "VALUES (%s, %s, 'system', 'session_lifecycle', 'backend', %s, %s, %s)",
-        (
-            f"observed-{session_id}",
-            EVENT_SESSION_TURN_END_OBSERVED,
-            session_id,
-            json.dumps(
-                {
-                    "context": {
-                        "observed_at": at,
-                        "codex_error_info": "other",
-                        "error_message": LIVE_ERROR,
-                    }
-                }
-            ),
-            at,
-        ),
+    """Record the turn-end observation the relay's record read produced.
+
+    Stored on the session, which is where recovery reads it. No telemetry
+    row is written beside it here: the report has to name a stopped worker
+    from a database that retains no events, because that is the state
+    expiry leaves behind.
+    """
+    record_native_turn_end(
+        conn,
+        session_id,
+        observation={
+            "observed_at": at,
+            "codex_error_info": "other",
+            "error_message": LIVE_ERROR,
+        },
+        recorded_at=at,
     )
     conn.commit()
 

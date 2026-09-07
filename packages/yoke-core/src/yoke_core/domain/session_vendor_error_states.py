@@ -23,13 +23,21 @@ fifteen, measured from the most recent observed turn end. A provider that
 just refused is likely to refuse again immediately, and the fifteen-minute
 attempt is what happened to catch the real fix in the observed incident.
 
-**What counts as an attempt** is the part with no new storage. A resume is
-counted when its event is newer than the session's last tool call, which
-is precisely the test the spec asks for: a resume that produced real work
-pushes ``last_tool_call_at`` past its own event and the budget resets,
-because a session that got something done and then hit the vendor again is
-not the same stuck session; a resume that died seconds after injection
-leaves the last tool call behind it and counts against the same three.
+**What counts as an attempt** is a durable counter keyed to an episode,
+and the episode is the session's own last tool call. A resume that
+produced real work moves ``last_tool_call_at``, which starts a new
+episode and refunds the budget, because a session that got something done
+and then hit the vendor again is not the same stuck session; a resume
+that died seconds after injection leaves the last tool call where it was
+and counts against the same three. The counter is reserved before the
+wake is sent, so a poller that dies between reserving and waking has
+spent the attempt — the failure this bounds is a refunded attempt looping
+against a provider wall, not a lost one.
+
+None of these three facts is read from telemetry. They were, and each
+expiry re-armed something: a lost turn-end observation removed the
+candidate and the explanation while ``turn_posture`` still said stopped,
+and a lost resume event refunded the whole budget.
 
 Two things this deliberately does not do. It never proposes resuming a
 session inside an unreturned tool call — that turn is executing, and a
@@ -53,8 +61,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Sequence
 from yoke_contracts.session_control.vendor_error_signatures import (
     classify_vendor_error,
 )
-from yoke_core.domain import db_backend, json_helper
-from yoke_core.domain.session_activity_state import (
+from yoke_core.domain import db_backend
+from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_select,
 )
@@ -64,13 +72,16 @@ from yoke_core.domain.session_message_types import (
     timestamp,
     utc_now,
 )
-from yoke_core.domain.session_native_turn_end import (
-    EVENT_SESSION_TURN_END_OBSERVED,
+from yoke_core.domain.session_recovery_facts import (
+    native_turn_end,
+    resume_attempts_spent,
+    resume_episode_key,
 )
 
 
-#: Event recording one resume the sweep requested, and the installed
-#: client version the resumed turn runs on. Counting these is the budget.
+#: Telemetry recording one resume the sweep requested, and the installed
+#: client version the resumed turn runs on. The budget is the reserved
+#: counter on the session, not a count of these.
 EVENT_SESSION_VENDOR_ERROR_RESUMED = "HarnessSessionVendorErrorResumed"
 
 #: How long after the observed turn end each successive attempt waits.
@@ -80,65 +91,6 @@ RESUME_BACKOFF_SECONDS: tuple[int, ...] = (60, 300, 900)
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _event_context(raw: Any) -> Mapping[str, Any]:
-    """The context of one queried event row, or an empty mapping.
-
-    A row whose envelope will not parse is not evidence, so it yields
-    nothing rather than raising: one malformed row must not stop every
-    other session on the machine from being recovered.
-    """
-    envelope: Any = raw
-    if isinstance(envelope, str):
-        try:
-            envelope = json_helper.loads_text(envelope)
-        except (TypeError, ValueError):
-            return {}
-    if not isinstance(envelope, Mapping):
-        return {}
-    context = envelope.get("context")
-    return context if isinstance(context, Mapping) else {}
-
-
-def _observed_turn_end(conn: Any, session_id: str) -> Mapping[str, Any]:
-    """The newest recorded turn-end observation for one session."""
-    marker = _p(conn)
-    row = conn.execute(
-        "SELECT created_at,envelope FROM events "
-        f"WHERE event_name={marker} AND session_id={marker} "
-        "ORDER BY created_at DESC LIMIT 1",
-        (EVENT_SESSION_TURN_END_OBSERVED, session_id),
-    ).fetchone()
-    if row is None:
-        return {}
-    entry = row_dict(row)
-    return {
-        "recorded_at": str(entry.get("created_at") or ""),
-        **_event_context(entry.get("envelope")),
-    }
-
-
-def _resumes_since(conn: Any, session_id: str, *, since: str) -> int:
-    """How many resumes this session has had that produced no tool call.
-
-    ``since`` is the session's own last tool call, and nothing else may be
-    substituted for it. Counting from there is what makes the budget
-    self-resetting without storing a counter: work done after a resume
-    moves that stamp past the resume's event. Counting from the newest
-    turn-end observation instead would reset the budget every time the
-    provider refused again, which is precisely the unbounded retry this
-    exists to bound. An empty ``since`` is a session that has never run a
-    tool, so every resume it has ever had still counts.
-    """
-    marker = _p(conn)
-    row = conn.execute(
-        "SELECT COUNT(*) AS attempts FROM events "
-        f"WHERE event_name={marker} AND session_id={marker} "
-        f"AND created_at>{marker}",
-        (EVENT_SESSION_VENDOR_ERROR_RESUMED, session_id, since),
-    ).fetchone()
-    return int(row_dict(row).get("attempts") or 0) if row is not None else 0
 
 
 def _candidate_sessions(
@@ -168,19 +120,20 @@ def _candidate_sessions(
     on_machine = f"hs.machine_id={marker} AND " if machine_id else ""
     rows = conn.execute(
         "SELECT hs.session_id,hs.project_id,hs.machine_id,hs.executor_surface,"
-        "hs.executor_version,hs.last_tool_call_at,hs.turn_posture"
+        "hs.executor_version,hs.last_tool_call_at,hs.turn_posture,"
+        "hs.native_turn_end_recorded_at,hs.native_turn_end_observation,"
+        "hs.vendor_resume_episode_key,hs.vendor_resume_attempts"
         f"{open_call} "
         "FROM harness_sessions hs "
         f"WHERE {on_machine}hs.ended_at IS NULL "
-        f"AND hs.terminated_at IS NULL AND hs.project_id IN ({project_slots}) "
-        "AND EXISTS (SELECT 1 FROM events e "
-        f"WHERE e.session_id=hs.session_id AND e.event_name={marker} "
-        "AND e.created_at>COALESCE(hs.last_tool_call_at,'')) "
+        "AND hs.terminated_at IS NULL "
+        f"AND hs.project_id IN ({project_slots}) "
+        "AND hs.native_turn_end_recorded_at IS NOT NULL "
+        "AND hs.native_turn_end_recorded_at>COALESCE(hs.last_tool_call_at,'') "
         "ORDER BY hs.session_id",
         (
             *((machine_id,) if machine_id else ()),
             *projects,
-            EVENT_SESSION_TURN_END_OBSERVED,
         ),
     ).fetchall()
     return [row_dict(raw) for raw in rows]
@@ -215,6 +168,11 @@ def _decision(
     )
     state: Dict[str, Any] = {
         "session_id": str(row.get("session_id") or ""),
+        # The episode these attempts were counted against. The resume
+        # sweep reserves against this same key, so the read and the
+        # reservation cannot disagree about which stretch of work the
+        # budget belongs to.
+        "episode_key": resume_episode_key(row.get("last_tool_call_at")),
         "project_id": row.get("project_id"),
         "machine_id": str(row.get("machine_id") or ""),
         "executor_surface": str(row.get("executor_surface") or ""),
@@ -272,8 +230,7 @@ def vendor_error_states(
         return []
     states: List[Dict[str, Any]] = []
     for row in _candidate_sessions(conn, machine_id=machine_id, projects=projects):
-        session_id = str(row.get("session_id") or "")
-        observation = _observed_turn_end(conn, session_id)
+        observation = native_turn_end(row)
         if not observation:
             continue
         acted = str(row.get("last_tool_call_at") or "")
@@ -285,7 +242,7 @@ def vendor_error_states(
         decision = _decision(
             row,
             observation,
-            _resumes_since(conn, session_id, since=acted),
+            resume_attempts_spent(row, episode_key=resume_episode_key(acted)),
             now=current,
         )
         if decision is not None:

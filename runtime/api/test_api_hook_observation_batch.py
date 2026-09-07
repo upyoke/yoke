@@ -16,6 +16,7 @@ from yoke_contracts.hook_evaluator_protocol import attach_evaluator_metadata
 from yoke_core.domain.schema_harness_session_columns import (
     apply_harness_session_columns,
 )
+from yoke_core.domain.schema_init_tables_sessions import create_session_tables
 
 
 SESSION_ID = "resident-observation-batch-session"
@@ -39,6 +40,10 @@ def active_session(observation_db) -> None:
     conn = connect_test_db(observation_db["db_path"])
     try:
         apply_harness_session_columns(conn)
+        # The per-call identity store every real database carries. Retry
+        # idempotence is a property of (session_id, tool_use_id), so a
+        # fixture without this table cannot exercise it.
+        create_session_tables(conn)
         conn.execute(
             "INSERT INTO harness_sessions "
             "(session_id,executor,provider,workspace,project_id,offered_at,"

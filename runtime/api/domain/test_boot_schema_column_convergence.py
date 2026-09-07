@@ -49,9 +49,12 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # shared server-side refresh cadence without altering an existing table, and
 # the pending-CI-wait table (session_ci_run_waits), where every column
 # describes one run a session is owed the verdict for: who dispatched it,
-# which run it is, and how far the observing sweep has got with it.
+# which run it is, and how far the observing sweep has got with it, and the
+# Stop-hold ledger (session_promised_work_holds), a net-new table whose four
+# columns are the pair it is keyed by plus how often that pair has been held
+# and when it last was.
 _BORN_WITH_COLUMN_DIGEST = (
-    "6ebee82db807c2de694d3e4d01323f2950c800a04ea2f7ea8f551d3a9e2c22b6"
+    "dca50f97e5b8a1d6dfa653b85e5fa890ad6e0f846ff9b31eb12e9a1c0ed389ac"
 )
 
 

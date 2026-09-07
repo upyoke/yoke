@@ -10,18 +10,19 @@ while they were down.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 
 from runtime.api.domain.session_launch_test_support import (
     add_relay,
     relay_connection,
 )
-from yoke_core.domain.session_native_turn_end import (
-    EVENT_SESSION_TURN_END_OBSERVED,
+from yoke_core.domain.session_recovery_facts import (
+    record_native_turn_end,
+    reserve_resume_attempt,
+    resume_episode_key,
 )
 from yoke_core.domain.session_vendor_error_states import (
-    EVENT_SESSION_VENDOR_ERROR_RESUMED,
+    RESUME_BACKOFF_SECONDS,
     vendor_error_states,
 )
 
@@ -85,38 +86,45 @@ def observe_turn_end(
     at: datetime = TURN_ENDED_AT,
     error_message: str = LIVE_ERROR,
     vendor_code: str = "other",
-    event_id: str = "observed-1",
 ) -> None:
-    """Record the turn-end observation the relay's record read produced."""
-    conn.execute(
-        "INSERT INTO events (event_id,event_name,session_id,envelope,created_at) "
-        "VALUES (?,?,?,?,?)",
-        (
-            event_id,
-            EVENT_SESSION_TURN_END_OBSERVED,
-            SESSION_ID,
-            json.dumps(
-                {
-                    "context": {
-                        "observed_at": stamp(at),
-                        "codex_error_info": vendor_code,
-                        "error_message": error_message,
-                    }
-                }
-            ),
-            stamp(at),
-        ),
+    """Record the turn-end observation the relay's record read produced.
+
+    Writes the session's stored observation, which is what recovery
+    reads. The matching telemetry event is deliberately not written here:
+    these suites must pass against a database that retains no events at
+    all, because that is the state expiry produces.
+    """
+    record_native_turn_end(
+        conn,
+        SESSION_ID,
+        observation={
+            "observed_at": stamp(at),
+            "codex_error_info": vendor_code,
+            "error_message": error_message,
+        },
+        recorded_at=stamp(at),
     )
     conn.commit()
 
 
-def record_resume(conn, *, at: datetime, event_id: str) -> None:
-    conn.execute(
-        "INSERT INTO events (event_id,event_name,session_id,envelope,created_at) "
-        "VALUES (?,?,?,'{}',?)",
-        (event_id, EVENT_SESSION_VENDOR_ERROR_RESUMED, SESSION_ID, stamp(at)),
+def record_resume(conn, *, at: datetime) -> None:
+    """Spend one resume attempt in the session's current budget episode."""
+    del at  # the episode is the session's last tool call, not the attempt time
+    reserve_resume_attempt(
+        conn,
+        SESSION_ID,
+        episode_key=resume_episode_key(_last_tool_call_at(conn)),
+        budget=len(RESUME_BACKOFF_SECONDS),
     )
     conn.commit()
+
+
+def _last_tool_call_at(conn) -> str:
+    row = conn.execute(
+        "SELECT last_tool_call_at FROM harness_sessions WHERE session_id=?",
+        (SESSION_ID,),
+    ).fetchone()
+    return str(row["last_tool_call_at"] or "") if row is not None else ""
 
 
 def states(conn, *, now: datetime):

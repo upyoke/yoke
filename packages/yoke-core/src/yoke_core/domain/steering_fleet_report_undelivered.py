@@ -35,7 +35,7 @@ from yoke_contracts.session_control.wake_delivery import (
     delivery_attempt_diagnostic,
 )
 from yoke_core.domain import json_helper
-from yoke_core.domain.session_activity_state import (
+from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_select,
 )

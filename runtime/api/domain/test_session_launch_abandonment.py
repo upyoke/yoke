@@ -12,6 +12,7 @@ from yoke_core.domain.session_launch_abandonment import (
     notify_launch_requester,
     settle_abandoned_launch,
     settle_and_notify,
+    settle_launch_native_death,
 )
 from yoke_core.domain.session_launch_execution import (
     claim_assigned_launch,
@@ -295,3 +296,42 @@ def test_repeated_abandonment_notice_accepts_a_reworded_body() -> None:
     ).fetchall()
     assert len(rows) == 1
     assert str(rows[0][0]) == abandonment_notice(first, WORKER)
+
+
+def test_a_dead_native_that_had_worked_keeps_its_launch_without_telemetry() -> None:
+    """Absent telemetry is not evidence that a worker never ran.
+
+    Native-death settlement proved work from a retained
+    ``HarnessToolCallCompleted`` row, so a launch that had succeeded
+    flipped to abandoned once that row aged out and the requester was told
+    their worker never started. The completed-work marker on the session
+    outlives both the events ledger and the rolling tool-call rows.
+    """
+    conn = launch_connection()
+    _worker_tables(conn)
+    add_relay(conn)
+    launch = _delivered_launch(conn)
+    conn.execute(
+        "UPDATE harness_sessions SET first_completed_work_at=? WHERE session_id=?",
+        (NOW, WORKER),
+    )
+    conn.commit()
+
+    settled = settle_launch_native_death(conn, WORKER, {"native_stderr_tail": ""})
+
+    assert settled is None
+    assert get_launch(conn, launch.launch_id).state == "succeeded"
+
+
+def test_a_dead_native_that_never_worked_is_settled_as_abandoned() -> None:
+    """The marker's absence still means what it always meant."""
+    conn = launch_connection()
+    _worker_tables(conn)
+    add_relay(conn)
+    launch = _delivered_launch(conn)
+
+    settled = settle_launch_native_death(conn, WORKER, {"native_stderr_tail": ""})
+
+    assert settled is not None
+    assert settled.result_code == ABANDONED_RESULT_CODE
+    assert get_launch(conn, launch.launch_id).state == "failed"

@@ -20,6 +20,8 @@ from yoke_core.domain.turn_end_unfinished_work import (
     stop_is_legitimate,
     unfinished_work_name,
 )
+from yoke_core.domain.session_message_types import timestamp, utc_now
+from yoke_core.domain.session_recovery_facts import record_promised_work_hold
 from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -115,22 +117,34 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
 
 
 def _armed_monitor_blocks_stop(conn: Any, session_id: str) -> bool:
+    """Whether this session's last finished call was a ``Monitor`` arming.
+
+    Read from the session's own tool-call rows rather than the telemetry
+    ledger. Both carry the same fact, but telemetry expires, and an
+    expired row here does not read as "no waiter is armed" — it reads as
+    permission to end a turn that is holding one, which kills the waiter
+    with no wake. A `parked` session has declared it wants to be quiet
+    and keeps its documented escape hatch.
+    """
     from yoke_core.domain import db_backend
+    from yoke_core.domain.session_tool_call_projections import (
+        LAST_COMPLETED_TOOL_COLUMN,
+        MONITOR_TOOL_NAME,
+        last_completed_tool_select,
+    )
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    mode = conn.execute(
-        f"SELECT mode FROM harness_sessions WHERE session_id={p}", (session_id,)
-    ).fetchone()
-    if mode is not None and str(mode["mode"] or "") == "parked":
-        return False
-    tool = conn.execute(
-        f"SELECT tool_name FROM events WHERE session_id={p}"
-        " AND event_name='HarnessToolCallCompleted'"
-        " AND tool_name IS NOT NULL AND tool_name <> ''"
-        " ORDER BY created_at DESC LIMIT 1",
+    row = conn.execute(
+        "SELECT hs.mode"
+        f"{last_completed_tool_select(conn, session_alias='hs')} "
+        f"FROM harness_sessions hs WHERE hs.session_id={p}",
         (session_id,),
     ).fetchone()
-    return bool(tool) and str(tool["tool_name"] or "") == "Monitor"
+    if row is None:
+        return False
+    if str(row["mode"] or "") == "parked":
+        return False
+    return str(row[LAST_COMPLETED_TOOL_COLUMN] or "") == MONITOR_TOOL_NAME
 
 
 def _reinjection_history(
@@ -138,23 +152,17 @@ def _reinjection_history(
     session_id: str,
     item_id: Any,
 ) -> tuple[Optional[str], int]:
-    from yoke_core.domain import db_backend
+    """How often this session has already been held on this item, and when.
 
-    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"""SELECT MAX(created_at) AS last_hold_at,
-                    COUNT(*) AS hold_count
-              FROM events
-             WHERE session_id = {placeholder}
-               AND event_name = 'ChainEndDeferred'
-               AND (envelope)::jsonb #>> '{{context,reason}}' = {placeholder}
-               AND (envelope)::jsonb #>> '{{context,item_id}}' = {placeholder}""",
-        (session_id, REASON_REINJECTED, str(item_id)),
-    ).fetchone()
-    if row is None:
-        return None, 0
-    stamped = str(row["last_hold_at"]) if row["last_hold_at"] else None
-    return stamped, int(row["hold_count"] or 0)
+    The ceiling and the cooldown are the only thing standing between a
+    session that keeps promising work and an unbounded reinjection loop,
+    so counting telemetry rows made both reset when those rows expired.
+    The hold ledger is written by the hold decision itself and is scoped
+    to exactly the pair the ceiling is about.
+    """
+    from yoke_core.domain.session_recovery_facts import promised_work_holds
+
+    return promised_work_holds(conn, session_id=session_id, item_id=item_id)
 
 
 def _at_reinjection_cap(
@@ -205,6 +213,17 @@ def _emit_deferred(
             "recovery": recovery_for(held),
             "severity": "WARN",
         }
+    if reason == REASON_REINJECTED:
+        # Recorded with the decision, not derived from its telemetry: the
+        # hold is what the ceiling counts, and it must survive whatever
+        # the events ledger retains.
+        record_promised_work_hold(
+            conn,
+            session_id=session_id,
+            item_id=item_id,
+            at=timestamp(utc_now()),
+        )
+        conn.commit()
     emit_chain_end_deferred(
         session_id=session_id,
         triggered_by="turn-end-promised-work-gate",

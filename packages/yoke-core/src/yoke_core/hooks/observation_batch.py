@@ -42,14 +42,6 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _event_exists(conn: Any, event_id: str) -> bool:
-    row = conn.execute(
-        f"SELECT 1 FROM events WHERE event_id = {_placeholder(conn)} LIMIT 1",
-        (event_id,),
-    ).fetchone()
-    return row is not None
-
-
 def _stable_event_id(observation_id: str, kind: str) -> str:
     return str(
         uuid.uuid5(
@@ -113,8 +105,16 @@ def _tool_event(
     observed_at: str,
     event_id: str,
 ) -> None:
-    if _event_exists(conn, event_id):
-        return
+    """Apply one observation to session state and record its telemetry.
+
+    Deliberately unguarded by whether the telemetry row already exists.
+    A stable event id used to short-circuit this function, which made two
+    unrelated things true at once: a replay was skipped, *and* it was
+    skipped only for as long as the ``events`` row survived. Once that row
+    expired the same replay reapplied the state it had already applied.
+    The state writes are idempotent on the call identity instead, so
+    replaying is safe whether or not telemetry still remembers it.
+    """
     if event_name == "PreToolUse":
         envelope = parse_pre_event(payload, fallback_cwd=context.cwd)
     else:
@@ -140,10 +140,6 @@ def _tool_event(
     envelope["event_id"] = event_id
     envelope["event_time"] = observed_at
     insert_event(conn, envelope)
-    if not _event_exists(conn, event_id):
-        raise ObservationBatchError(
-            f"{envelope.get('event_name', 'tool event')} was not persisted"
-        )
 
 
 def _dispatch_event(
@@ -158,8 +154,6 @@ def _dispatch_event(
     hook_wait_ms: int,
 ) -> None:
     event_id = _stable_event_id(observation_id, "dispatch")
-    if _event_exists(conn, event_id):
-        return
     tool_name = context.tool_name or ""
     matcher = tool_name if event_name in _TOOL_EVENTS else None
     driver = resolve_driver_process(payload, hook_event=event_name)
@@ -197,9 +191,11 @@ def _dispatch_event(
     assert_event_name_not_retired(conn, _DISPATCH_EVENT)
     if not check_severity_conn(conn, _DISPATCH_EVENT, "hook", "INFO"):
         return
-    wrote = _write_event(envelope, conn=conn)
-    if not wrote and not _event_exists(conn, event_id):
-        raise ObservationBatchError("HookDispatchTelemetry was not persisted")
+    # Best-effort: this envelope is pure hook-dispatch telemetry with no
+    # state behind it, and a severity filter or a dropped write is a
+    # deployment's own choice about what it retains. Failing the batch
+    # here would make the observation's state write hostage to it.
+    _write_event(envelope, conn=conn)
 
 
 def _stamp_heartbeat(conn: Any, session_id: str, observed_at: str) -> None:

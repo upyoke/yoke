@@ -129,18 +129,60 @@ def emit_session_hook_failed(
         return
 
 
-def emit_harness_session_sent_first_user_prompt_submit(script_dir: str, session_id: str) -> None:
-    """Best-effort HarnessSessionSentFirstUserPromptSubmit emission.
+def _stamp_first_user_prompt(session_id: str) -> None:
+    """Record the prompt boundary on the session row.
+
+    The durable half of the pair below. A probe session is one that never
+    received a prompt, and reading that from telemetry meant a real
+    conversation answered inside thirty seconds turned into a probe — and
+    vanished from the operator's session list — the moment its event
+    expired. The stamp is write-once and never expires.
+
+    Runs where the control plane is local; a relayed client has nothing
+    to write to and returns, exactly as the emission below degrades.
+    """
+    if not session_id:
+        return
+    try:
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.control_plane_transport import local_connection_or_none
+        from yoke_core.domain.session_message_types import timestamp, utc_now
+        from yoke_core.domain.session_recovery_facts import stamp_first_user_prompt
+
+        conn = local_connection_or_none(db_backend.connect)
+        if conn is None:
+            return
+        try:
+            stamp_first_user_prompt(conn, session_id, timestamp(utc_now()))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        return
+
+
+def emit_harness_session_sent_first_user_prompt_submit(
+    script_dir: str, session_id: str
+) -> None:
+    """Record and publish this session's first user prompt.
 
     Fires from the UserPromptSubmit handler at the end of the first-prompt
-    orientation path, exactly once per session. Semantically marks "the
+    orientation path, exactly once per session, on every harness — Claude,
+    Codex, and Cursor all reach this one function. Semantically marks "the
     user has sent their first prompt to this session" — distinct from the
     earlier-firing HarnessSessionStarted event that marks "the session was
     registered in harness_sessions" (from the SessionStart hook).
+
+    The session stamp is the durable record readers consult; the event is
+    the telemetry beside it.
     """
-    del script_dir  # unused -- kept for API compat; native emitter resolves DB internally
+    del (
+        script_dir
+    )  # unused -- kept for API compat; native emitter resolves DB internally
+    _stamp_first_user_prompt(session_id)
     try:
         from yoke_core.domain.events import emit_event as _native_emit
+
         _native_emit(
             "HarnessSessionSentFirstUserPromptSubmit",
             event_kind="system",

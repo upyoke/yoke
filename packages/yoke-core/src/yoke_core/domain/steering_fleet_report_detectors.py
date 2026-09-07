@@ -30,6 +30,11 @@ from yoke_core.domain.session_launch_visibility import (
     CORRELATION_FAILURE_CODES,
     LAUNCH_EXECUTION_FAILURE_CODES,
 )
+from yoke_core.domain.session_tool_call_projections import (
+    LAST_COMPLETED_TOOL_COLUMN,
+    MONITOR_TOOL_NAME,
+    last_completed_tool_select,
+)
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -56,23 +61,18 @@ def suspected_orphaned_waiters(
 ) -> tuple[Any, ...]:
     """Idle holders matching the Monitor-freeze signature.
 
-    Membership in ``idle`` establishes that ``last_tool_call_at`` is past the
-    report's idle threshold. The remaining facts already live on the session
-    and its completed tool-call events; no waiter registry is inferred.
+    Membership in ``idle`` establishes that ``last_tool_call_at`` is past
+    the report's idle threshold. The remaining facts already live on the
+    session row and its own tool-call rows, which is where this reads them
+    — telemetry expiry would otherwise clear the signature and quietly
+    stop reporting a frozen waiter. No waiter registry is inferred.
     """
     p = marker(conn)
     matches = []
     for holder in idle:
         row = conn.execute(
-            f"""SELECT s.turn_posture,
-                       (SELECT e.tool_name
-                          FROM events e
-                         WHERE e.session_id = s.session_id
-                           AND e.event_name = 'HarnessToolCallCompleted'
-                           AND e.tool_name IS NOT NULL
-                           AND e.tool_name <> ''
-                         ORDER BY e.created_at DESC, e.id DESC
-                         LIMIT 1) AS last_completed_tool
+            f"""SELECT s.turn_posture
+                       {last_completed_tool_select(conn, session_alias="s")}
                   FROM harness_sessions s
                  WHERE s.session_id = {p}""",
             (holder.session_id,),
@@ -82,7 +82,7 @@ def suspected_orphaned_waiters(
         record = dict(row)
         if (
             str(record.get("turn_posture") or "") == "waiting"
-            and str(record.get("last_completed_tool") or "") == "Monitor"
+            and str(record.get(LAST_COMPLETED_TOOL_COLUMN) or "") == MONITOR_TOOL_NAME
         ):
             matches.append(holder)
     return tuple(matches)

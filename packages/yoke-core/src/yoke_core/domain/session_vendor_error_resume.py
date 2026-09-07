@@ -20,6 +20,11 @@ from typing import Any, Dict, Iterable, List, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_types import utc_now
+from yoke_core.domain.session_recovery_facts import (
+    release_resume_attempt,
+    reserve_resume_attempt,
+    resume_episode_key,
+)
 from yoke_core.domain.session_vendor_error_states import (
     EVENT_SESSION_VENDOR_ERROR_RESUMED,
     RESUME_BACKOFF_SECONDS,
@@ -149,6 +154,31 @@ def resume_vendor_error_sessions(
     refused: List[Dict[str, Any]] = []
     for state in due[:MAX_RESUMES_PER_POLL]:
         session_id = str(state["session_id"])
+        # Reserve before waking. Two pollers can see the same due session,
+        # and a poller can die after the wake lands; both are the same
+        # hazard from the budget's point of view, and one statement that
+        # reads and increments closes it. A refused reservation means
+        # another caller took the last attempt between the read and here.
+        episode_key = resume_episode_key(state.get("episode_key"))
+        reserved = reserve_resume_attempt(
+            conn,
+            session_id,
+            episode_key=episode_key,
+            budget=len(RESUME_BACKOFF_SECONDS),
+        )
+        if reserved is None:
+            refused.append(
+                {
+                    "session_id": session_id,
+                    "status": "budget_spent",
+                    "detail": (
+                        "another poller reserved the final resume attempt "
+                        "for this episode"
+                    ),
+                }
+            )
+            continue
+        conn.commit()
         installed = _installed_version(conn, state, machine_id=machine_id, now=current)
         try:
             result = request_session_wake(
@@ -161,6 +191,10 @@ def resume_vendor_error_sessions(
                 now=current,
             )
         except SessionMessageError as exc:
+            # A named refusal says nothing reached the session, so the
+            # attempt reserved above was never made. Give it back.
+            release_resume_attempt(conn, session_id, episode_key=episode_key)
+            conn.commit()
             refused.append(
                 {
                     "session_id": session_id,

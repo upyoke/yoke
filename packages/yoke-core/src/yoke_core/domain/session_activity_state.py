@@ -24,6 +24,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
+from yoke_core.domain.session_recovery_facts import stamp_completed_work
 
 # Bounded command text retained for the PreToolUse lint guardrails (R4).
 # Partially duplicates telemetry's envelope tool_input on purpose: the
@@ -52,6 +53,9 @@ COMPLETION_EVENT_NAMES: Tuple[str, ...] = (
 )
 
 _STARTED_EVENT_NAME = "HarnessToolCallStarted"
+#: The one completion that proves the session did work, as opposed to
+#: attempting it. Launch settlement reads the marker this stamps.
+_COMPLETED_EVENT_NAME = "HarnessToolCallCompleted"
 _TOOL_ACTIVITY_EVENT_NAMES = frozenset((_STARTED_EVENT_NAME, *COMPLETION_EVENT_NAMES))
 
 
@@ -68,39 +72,6 @@ def _columns(conn: Any, table: str) -> set:
 
 def has_session_tool_calls_table(conn: Any) -> bool:
     return bool(_columns(conn, "session_tool_calls"))
-
-
-#: Column alias every reader of the open-call fact uses, so the predicate
-#: that interprets it does not have to know which query produced it.
-OPEN_TOOL_CALL_COLUMN = "open_tool_call_since"
-
-
-def open_tool_call_select(conn: Any, *, session_alias: str) -> str:
-    """A select expression for when a session's running tool call started.
-
-    ``NULL`` unless the session's *latest* call is still open. Only the
-    latest counts: an older open row belongs to a call whose completion
-    was never recorded, which says nothing about whether the session is
-    executing right now, while the newest one is the session's current
-    stride. Callers use it to tell a silent session from a working one —
-    no hook runs inside a tool call, so a long call and a stopped route
-    are indistinguishable without this.
-
-    The expression is prefixed with a comma for splicing into a select
-    list, and degrades to a constant absence on a fixture with no
-    ``session_tool_calls`` table, matching this module's schema-tolerance
-    contract.
-    """
-    if not has_session_tool_calls_table(conn):
-        return f",NULL AS {OPEN_TOOL_CALL_COLUMN}"
-    return (
-        ",(SELECT tc.started_at FROM session_tool_calls tc "
-        f"WHERE tc.session_id={session_alias}.session_id "
-        "AND tc.completed_at IS NULL "
-        "AND tc.id=(SELECT MAX(tc2.id) FROM session_tool_calls tc2 "
-        f"WHERE tc2.session_id={session_alias}.session_id)) "
-        f"AS {OPEN_TOOL_CALL_COLUMN}"
-    )
 
 
 def session_activity_columns_present(conn: Any) -> bool:
@@ -189,8 +160,8 @@ def record_tool_call_finished(
     completed_at: str,
     command_summary: Optional[str] = None,
     bump_activity: bool = True,
-) -> None:
-    """Close the open row and bump the session activity columns.
+) -> bool:
+    """Close the open row, bump activity, and report whether it closed now.
 
     A completion without a prior Started row (the pre-hook dropped the
     payload, or the call predates the table) inserts a closed row so the
@@ -199,10 +170,27 @@ def record_tool_call_finished(
     :data:`ACTIVITY_EVENT_NAMES` — the orphan sweep's synthesized
     interrupted completions pass ``bump_activity=False`` because the
     session is ending and sweep time is not agent activity.
+
+    **The bump is conditional on this call actually closing the row.**
+    The resident retries a batch whose later observation failed, so the
+    earlier ones arrive a second time; counting each arrival rather than
+    each completion inflated ``tool_call_count`` and could drag
+    ``last_tool_call_at`` backwards to a replayed stamp — and
+    ``last_tool_call_at`` is what the idle sweep, the claim-freshness
+    check, and the vendor-resume budget all read. The call identity
+    ``(session_id, tool_use_id)`` already distinguishes a new completion
+    from a re-delivered one, so the state transition decides, not the
+    arrival.
+
+    A caller with no ``tool_use_id``, or a fixture with no
+    ``session_tool_calls`` table, has no identity to deduplicate on and
+    keeps the unconditional bump: there, an arrival is the only evidence
+    a completion exists.
     """
     if not session_id:
-        return
+        return False
     p = _p(conn)
+    transitioned = True
     if tool_use_id and has_session_tool_calls_table(conn):
         summary = truncate_command_summary(command_summary)
         cursor = conn.execute(
@@ -213,8 +201,9 @@ def record_tool_call_finished(
             "  AND completed_at IS NULL",
             (completed_at, outcome, summary, session_id, tool_use_id),
         )
-        if getattr(cursor, "rowcount", 0) == 0:
-            conn.execute(
+        transitioned = getattr(cursor, "rowcount", 0) > 0
+        if not transitioned:
+            inserted = conn.execute(
                 "INSERT INTO session_tool_calls "
                 "(session_id, tool_use_id, tool_name, started_at, "
                 " completed_at, outcome, command_summary) "
@@ -230,25 +219,39 @@ def record_tool_call_finished(
                     summary,
                 ),
             )
+            transitioned = getattr(inserted, "rowcount", 0) > 0
+    if not transitioned:
+        return False
     if bump_activity and event_name in ACTIVITY_EVENT_NAMES:
         bump_session_tool_activity(
             conn,
             session_id=session_id,
             at=completed_at,
         )
+    if bump_activity and event_name == _COMPLETED_EVENT_NAME:
+        stamp_completed_work(conn, session_id, completed_at)
+    return True
 
 
 def bump_session_tool_activity(conn: Any, *, session_id: str, at: str) -> None:
-    """Stamp ``last_tool_call_at`` and increment ``tool_call_count``."""
+    """Stamp ``last_tool_call_at`` and increment ``tool_call_count``.
+
+    The stamp only ever moves forward. An observation can arrive out of
+    order — the resident batches them and retries — and every reader of
+    this column treats it as "the last time this session did anything",
+    so an older stamp overwriting a newer one manufactures idleness that
+    never happened.
+    """
     if not session_activity_columns_present(conn):
         return
     p = _p(conn)
     conn.execute(
         "UPDATE harness_sessions "
-        f"SET last_tool_call_at = {p}, "
+        "SET last_tool_call_at = CASE WHEN last_tool_call_at IS NULL "
+        f"    OR last_tool_call_at < {p} THEN {p} ELSE last_tool_call_at END, "
         "    tool_call_count = COALESCE(tool_call_count, 0) + 1 "
         f"WHERE session_id = {p}",
-        (at, session_id),
+        (at, at, session_id),
     )
 
 
