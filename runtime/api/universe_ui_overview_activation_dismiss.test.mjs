@@ -166,7 +166,7 @@ test("non-empty reads draw cards while activation is still day zero", async (t) 
 
   assert.deepEqual(
     byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Strategy", "Frontier"],
+    ["Onboarding", "Strategy", "Frontier"],
   );
   assert.equal(byClass(root, "overview-doc-card").length, 1);
   assert.equal(byClass(root, "overview-item-card").length, 1);

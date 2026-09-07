@@ -32,7 +32,7 @@ test("Overview asks Strategy and Frontier without duplicate page chrome", async 
 
   assert.deepEqual(
     byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Strategy", "Frontier"],
+    ["Onboarding", "Strategy", "Frontier"],
   );
   assert.equal(byClass(root, "page-head")[0].hidden, true);
   assert.equal(byClass(root, "overview-item-card").length, 3);

@@ -1,7 +1,7 @@
-// Native disclosure primitives shared by the Overview's strategy and
-// frontier bands. The browser owns keyboard interaction and accessibility;
-// this module only remembers which disclosures the operator closed when a
-// held read repaints or the route is mounted again.
+// Native disclosure primitives shared by Overview sections and bands. The
+// browser owns keyboard interaction and accessibility; this module only
+// remembers which disclosures the operator closed when a held read
+// repaints or the route is mounted again.
 
 import { el } from "./universe_view_support.js";
 
