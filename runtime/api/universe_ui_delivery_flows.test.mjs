@@ -153,12 +153,8 @@ test("flow explorer is active-first and makes history and selection explicit", a
   history.dispatchEvent(new Event("click"));
   assert.deepEqual(cardNames(root), ["Alpha Release", "Beta Promote"]);
   assert.equal(detailHeading(root), "Alpha Release");
-
-  const rawToggle = byClass(root, "raw-toggle")[0];
-  const raw = byClass(root, "raw-json")[0];
-  assert.equal(raw.hidden, true);
-  rawToggle.dispatchEvent(new Event("click"));
-  assert.equal(raw.hidden, false);
+  assert.equal(byClass(root, "raw-toggle").length, 0);
+  assert.equal(byClass(root, "raw-json").length, 0);
   mounted.unmount();
 });
 

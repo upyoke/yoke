@@ -144,12 +144,8 @@ test("Environments joins branch and latest-run reads without inventing policy", 
   assert.notEqual(cellText(cells[4]), "never");
   assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
     .includes("Auto-deploy policy has no published browser read"));
-
-  const raw = byClass(root, "raw-json")[0];
-  assert.equal(raw.hidden, true);
-  byClass(root, "raw-toggle")[0].dispatchEvent(new Event("click"));
-  assert.equal(raw.hidden, false);
-  assert.ok(raw.textContent.includes("health_check_url"));
+  assert.equal(byClass(root, "raw-toggle").length, 0);
+  assert.equal(byClass(root, "raw-json").length, 0);
   mounted.unmount();
 });
 

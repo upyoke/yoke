@@ -107,16 +107,11 @@ function pillTexts(root) {
 }
 
 // The view is read-only end to end: the local server has no web-callable
-// GitHub write, so nothing inside the view may pretend to act. The one
-// sanctioned button is the shared panel chrome's raw-JSON toggle, which
-// acts entirely client-side.
+// GitHub write, so nothing inside the view may pretend to act.
 function assertNoControls(root) {
   const view = byClass(root, "view-host")[0];
   assert.ok(!allNodes(view).some(
-    (node) => (
-      ["SELECT", "INPUT"].includes(node.tagName) ||
-      (node.tagName === "BUTTON" && !node.classList.contains("raw-toggle"))
-    ),
+    (node) => ["SELECT", "INPUT", "BUTTON"].includes(node.tagName),
   ));
 }
 

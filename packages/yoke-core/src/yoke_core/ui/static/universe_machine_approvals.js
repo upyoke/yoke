@@ -20,9 +20,7 @@ import {
 
 export function renderMachineApprovalsView(context, main) {
   const documentNode = context.document;
-  const panel = section(
-    documentNode, "Machines waiting for approval", { showRaw: false },
-  );
+  const panel = section(documentNode, "Machines waiting for approval");
   panel.children[1].className += " inbox-stack";
   main.replaceChildren(panel);
 

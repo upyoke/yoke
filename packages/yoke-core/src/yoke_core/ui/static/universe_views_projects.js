@@ -12,7 +12,7 @@ import {
 } from "./universe_secondary_primitives.js";
 
 function createProjectNote(documentNode, capabilities) {
-  const panel = section(documentNode, "Create project", { showRaw: false });
+  const panel = section(documentNode, "Create project");
   panel.classList.add("create-project-note");
   panel.renderEnvelope(
     { status: 200, envelope: { success: true, result: {} } },

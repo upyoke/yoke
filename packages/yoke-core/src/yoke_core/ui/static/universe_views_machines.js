@@ -31,9 +31,6 @@ export function renderMachinesView(context, main, scope, chromeArg) {
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Machines",
-      summary:
-        "Connected machines, the native surfaces they serve, and the launches "
-        + "they have run.",
     });
   }
 

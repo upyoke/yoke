@@ -67,13 +67,12 @@ function contextControl(documentNode, label, value, className) {
 export function configurePageHead(
   documentNode,
   head,
-  { title, summary = null, actions = [] },
+  { title, actions = [] },
 ) {
   head.replaceChildren();
-  if (title || summary) {
+  if (title) {
     const heading = el(documentNode, "div", "h");
-    if (title) heading.appendChild(el(documentNode, "h1", "title", title));
-    if (summary) heading.appendChild(el(documentNode, "p", "subtitle", summary));
+    heading.appendChild(el(documentNode, "h1", "title", title));
     head.appendChild(heading);
   }
   if (actions.length) {
@@ -99,7 +98,6 @@ export function createPageHead(documentNode, entry) {
   }
   configurePageHead(documentNode, head, {
     title: entry.label,
-    summary: entry.summary,
     actions,
   });
   return head;

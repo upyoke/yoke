@@ -1,7 +1,7 @@
 // Presentation primitives shared by every view renderer module: titled
-// sections with raw-JSON toggles, state pills, table rendering, and the
-// scoped loaders that fan a multi-project scope out into per-project calls.
-// View modules own what a screen says; this module owns how panels say it.
+// sections, state pills, table rendering, and the scoped loaders that fan
+// a multi-project scope out into per-project calls. View modules own what
+// a screen says; this module owns how panels say it.
 
 import { pillFamilyForState } from "./universe_state_pills.js";
 
@@ -20,20 +20,13 @@ export function callFunction(client, functionId, payload, target) {
   return client.call(request);
 }
 
-// One titled section with a raw-JSON toggle showing the exact function-call
-// response envelope(s) the section rendered from — a lone envelope for a
-// single read, the array of them when a scope fanned out into several.
-export function section(documentNode, title, { showRaw = true } = {}) {
+// One titled section whose body is filled from the function-call result
+// the view already holds — a designed renderer, not a dump of the envelope.
+export function section(documentNode, title) {
   const wrap = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   const heading = el(documentNode, "h2", null, title);
   header.appendChild(heading);
-  let toggle = null;
-  if (showRaw) {
-    toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
-    toggle.type = "button";
-    header.appendChild(toggle);
-  }
   wrap.appendChild(header);
 
   // The muted count beside the title. Numbers are facts the engine owns: a
@@ -59,20 +52,7 @@ export function section(documentNode, title, { showRaw = true } = {}) {
   const body = el(documentNode, "div", "panel-body", "loading…");
   wrap.appendChild(body);
 
-  const raw = showRaw ? el(documentNode, "pre", "raw-json") : null;
-  if (raw) {
-    raw.hidden = true;
-    wrap.appendChild(raw);
-    toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
-  }
-
   wrap.renderEnvelopes = (callResults, renderBody) => {
-    const envelopes = callResults.map((callResult) => callResult.envelope);
-    if (raw) {
-      raw.textContent = JSON.stringify(
-        envelopes.length === 1 ? envelopes[0] : envelopes, null, 2,
-      );
-    }
     body.replaceChildren();
     renderBody(body, callResults);
   };
@@ -248,10 +228,10 @@ export async function settledScopedCalls(context, calls) {
   return { callResults, failed };
 }
 
-// One fan-out serving several panels: each panel shows the same envelopes
-// behind its raw-JSON toggle, and a failed bucket fails them all — the
-// panels are facets of one read, so none can honestly render rows while
-// another shows the failure.
+// One fan-out serving several panels: each panel renders from the same
+// envelopes, and a failed bucket fails them all — the panels are facets
+// of one read, so none can honestly render rows while another shows the
+// failure.
 export async function loadScopedPanels(context, panelRenderers, calls) {
   const { callResults, failed } = await settledScopedCalls(context, calls);
   if (!context.isMounted()) return;

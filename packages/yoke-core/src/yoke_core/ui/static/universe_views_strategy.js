@@ -178,7 +178,7 @@ export function renderStrategyView(context, main, scope) {
   const documentNode = context.document;
   const statsHost = el(documentNode, "div", "strategy-stats-host");
   const callout = strategyReviewCallout(documentNode);
-  const panel = section(documentNode, "Strategy corpus", { showRaw: false });
+  const panel = section(documentNode, "Strategy corpus");
   const writesHost = el(documentNode, "div", "strategy-writes-host");
   main.replaceChildren(statsHost, callout, panel, writesHost);
   const projects = context.projects();
@@ -316,9 +316,7 @@ export function renderStrategyDocDetailView(
   projectId,
   slug,
 ) {
-  const loading = section(
-    context.document, String(slug), { showRaw: false },
-  );
+  const loading = section(context.document, String(slug));
   main.replaceChildren(loading);
   loadSection(
     context,

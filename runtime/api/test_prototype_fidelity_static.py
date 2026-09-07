@@ -21,6 +21,8 @@ def test_shared_content_styles_only_signal_interactive_rows() -> None:
     assert "tr:has(td):hover" not in source
     assert ".mono {" in source
     assert ".ago {" in source
+    assert ".raw-toggle" not in source
+    assert ".raw-json" not in source
 
 
 def test_item_breakpoints_keep_issue_and_generic_geometry_distinct() -> None:

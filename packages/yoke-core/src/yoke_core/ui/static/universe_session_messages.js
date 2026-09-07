@@ -276,7 +276,6 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Session messages",
-      summary: "What was sent, who is still waiting, and how each delivery arrived.",
     });
   }
   const load = async () => {

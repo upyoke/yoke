@@ -34,10 +34,8 @@ function projectLabel(context, row) {
 
 export function renderInboxView(context, main, scope) {
   const documentNode = context.document;
-  const needs = section(
-    documentNode, "Needs your decision", { showRaw: false },
-  );
-  const messages = section(documentNode, "Messages", { showRaw: false });
+  const needs = section(documentNode, "Needs your decision");
+  const messages = section(documentNode, "Messages");
   appendPanelHint(documentNode, needs, "the gate waits until you resolve");
   for (const panel of [needs, messages]) {
     panel.children[1].className += " inbox-stack";

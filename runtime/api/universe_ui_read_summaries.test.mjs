@@ -186,8 +186,7 @@ test("section-led views omit duplicate heads while Items restores its head", asy
   await settle();
   const itemsHead = byClass(root, "page-head")[0];
   assert.equal(byClass(itemsHead, "title")[0].textContent, "Items");
-  assert.equal(byClass(itemsHead, "subtitle")[0].textContent,
-    "scoped to Yoke · every durable piece of project work");
+  assert.equal(byClass(itemsHead, "subtitle").length, 0);
   mounted.unmount();
 });
 
@@ -227,10 +226,7 @@ test("Inbox renders its decided empty-state model under one page head", async (t
 
   const head = byClass(root, "page-head")[0];
   assert.equal(byClass(head, "title")[0].textContent, "Inbox");
-  assert.equal(
-    byClass(head, "subtitle")[0].textContent,
-    "The gates waiting on your decision, and the messages sent to you.",
-  );
+  assert.equal(byClass(head, "subtitle").length, 0);
   assert.equal(byClass(root, "stub-panel").length, 0);
   assert.equal(byClass(root, "inbox-empty").length, 2);
   assert.equal(byClass(root, "raw-toggle").length, 0);

@@ -67,9 +67,7 @@ export function renderOuroborosEntryDetailView(
   navigation = {},
 ) {
   const documentNode = context.document;
-  const panel = section(
-    documentNode, `Field note #${entryId}`, { showRaw: false },
-  );
+  const panel = section(documentNode, `Field note #${entryId}`);
   main.replaceChildren(panel);
   loadSection(
     context,

@@ -146,10 +146,7 @@ test("Items projects its scope copy and actions into the shared page head", asyn
   await settle();
 
   assert.equal(pageHead.title, "Items");
-  assert.equal(
-    pageHead.summary,
-    "scoped to acme · every durable piece of project work",
-  );
+  assert.equal(pageHead.summary, undefined);
   assert.deepEqual(
     pageHead.actions.map((node) => node.textContent),
     ["Filter ▾", "New item"],

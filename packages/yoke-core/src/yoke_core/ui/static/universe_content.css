@@ -170,36 +170,6 @@
   padding: 11px 15px;
 }
 
-.universe-app-root .raw-toggle {
-  border: 1px solid var(--yoke-border);
-  background: var(--yoke-bg);
-  color: var(--yoke-muted);
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-.universe-app-root .raw-toggle:hover {
-  background: var(--yoke-hover);
-  color: var(--yoke-ink);
-}
-
-.universe-app-root .raw-json {
-  margin: 0;
-  background: var(--yoke-surface-2);
-  border: 0;
-  border-top: 1px solid var(--yoke-border);
-  border-radius: 0;
-  padding: 12px 15px;
-  overflow-x: auto;
-  font-family: var(--yoke-font-mono);
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--yoke-ink-2);
-}
-
 /* State pills: a 6px leading dot in a tinted lozenge, colored by the
    value's semantic family. Unknown values wear the neutral idle pair. */
 .universe-app-root .pill {
