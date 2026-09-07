@@ -66,6 +66,7 @@ def create_launch(
             allow_surface_fallback=request.allow_surface_fallback,
             surface_fallback_enabled=surface_fallback_enabled,
             now=current,
+            model=request.model,
             eligibility=eligibility,
         )
         if existing is not None:
@@ -231,6 +232,7 @@ def retry_launch(
             allow_surface_fallback=launch.allow_surface_fallback,
             surface_fallback_enabled=surface_fallback_enabled,
             now=current,
+            model=launch.requested_model,
             eligibility=eligibility,
         )
         if not preview.launchable:

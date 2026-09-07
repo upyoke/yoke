@@ -19,6 +19,10 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from yoke_contracts.session_control.model_billing_pools import (
+    pool_exhaustion,
+    window_covers_model,
+)
 from yoke_core.domain.session_launch_capacity import MACHINE_AT_CAPACITY
 from yoke_core.domain.session_launch_machine_access import machine_access
 from yoke_core.domain.session_launch_types import (
@@ -45,25 +49,65 @@ def _percent(value: float | None) -> str:
     return "unreadable" if value is None else f"{int(round(value))}%"
 
 
-def surface_headroom(
-    conn: Any, *, project_id: int, now: str
-) -> dict[tuple[str, str], tuple[float, str]]:
-    """Return the lowest readable headroom per (machine, surface).
+def _meters(
+    conn: Any, *, project_id: int, now: str, model: str | None
+) -> tuple[
+    dict[tuple[str, str], tuple[float, str]], dict[tuple[str, str], dict[str, Any]]
+]:
+    """Read every published meter once and derive both answers placement needs.
 
-    A surface publishes several meters at once; the one that binds is the one
-    with the least headroom, so that is the reading placement compares.
+    Ranking wants one headroom number per machine and surface; the routing
+    policy wants the requested model's own pool. Both come from the same rows,
+    so they are computed together rather than by loading the meters twice.
     """
     lowest: dict[tuple[str, str], tuple[float, str]] = {}
+    matched: dict[tuple[str, str], tuple[float, str]] = {}
+    windows: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in load_plan_limits(conn, project_id=project_id, now=now):
+        key = (row.machine_id, row.surface)
+        windows.setdefault(key, []).append(
+            {
+                "scope": row.scope,
+                "status": row.status,
+                "remaining_percent": row.remaining_percent,
+            }
+        )
         computed = compute_plan_limit(row, now=now)
         if computed.headroom_percent is None:
             continue
-        key = (row.machine_id, row.surface)
-        label = window_label(row.window_kind, row.scope)
-        current = lowest.get(key)
-        if current is None or computed.headroom_percent < current[0]:
-            lowest[key] = (computed.headroom_percent, label)
-    return lowest
+        reading = (computed.headroom_percent, window_label(row.window_kind, row.scope))
+        targets = (
+            (lowest, matched)
+            if window_covers_model(row.surface, model, row.scope)
+            else (lowest,)
+        )
+        for target in targets:
+            current = target.get(key)
+            if current is None or reading[0] < current[0]:
+                target[key] = reading
+    lowest.update(matched)
+    pools = {
+        key: pool_exhaustion(key[1], model, rows).to_dict()
+        for key, rows in windows.items()
+    }
+    return lowest, pools
+
+
+def surface_headroom(
+    conn: Any, *, project_id: int, now: str, model: str | None = None
+) -> dict[tuple[str, str], tuple[float, str]]:
+    """Return the binding readable headroom per (machine, surface).
+
+    A surface publishes several meters at once; the one that binds is the one
+    with the least headroom, so that is the reading placement compares. When
+    the launch names a model, only the meters covering the pool that model
+    actually bills to can bind it -- a vendor that splits included usage by
+    model family publishes a second pool the launch will never touch, and
+    ranking against that pool answers a question nobody asked. A surface that
+    publishes no meter covering the named model falls back to its lowest
+    reading, because an unrelated wall is still better evidence than none.
+    """
+    return _meters(conn, project_id=project_id, now=now, model=model)[0]
 
 
 def _candidates(
@@ -74,13 +118,14 @@ def _candidates(
     project_id: int,
     now: str,
     snapshot_capacity: Sequence[Any] = (),
+    model: str | None = None,
 ) -> list[tuple[EligibleRelay, MachineCandidate]]:
     access = machine_access(
         conn,
         actor_id=actor_id,
         machine_ids=[relay.machine_id for relay in relays],
     )
-    headroom = surface_headroom(conn, project_id=project_id, now=now)
+    headroom, pools = _meters(conn, project_id=project_id, now=now, model=model)
     capacity = {entry.machine_id: entry for entry in snapshot_capacity}
     weighed: list[tuple[EligibleRelay, MachineCandidate]] = []
     for relay in relays:
@@ -95,6 +140,7 @@ def _candidates(
                     surface=relay.surface,
                     headroom_percent=reading[0] if reading else None,
                     headroom_window=reading[1] if reading else None,
+                    model_pool=pools.get((relay.machine_id, relay.surface)),
                     owned_by_requester=bool(entry and entry.owned_by_requester),
                     may_use=bool(entry and entry.may_use),
                     capacity_summary=(
@@ -169,8 +215,13 @@ def place_launch(
     project_id: int,
     now: str,
     fallback: bool = False,
+    model: str | None = None,
 ) -> LaunchPreview:
-    """Choose one eligible relay and say, in one sentence, why."""
+    """Choose one eligible relay and say, in one sentence, why.
+
+    ``model`` is the model the launch asked for, and it only narrows which
+    meter each machine is ranked by; it never adds or removes a candidate.
+    """
     relays = tuple(snapshot.relays)
     if not relays:
         if "unsupported_surface" in snapshot.rejection_codes:
@@ -197,6 +248,7 @@ def place_launch(
         project_id=project_id,
         now=now,
         snapshot_capacity=snapshot.machine_capacity,
+        model=model,
     )
     usable = [pair for pair in weighed if pair[1].may_use]
     if not usable:

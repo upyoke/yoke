@@ -189,10 +189,12 @@ What the report gives you is a finding; what to do with each one is yours:
   model scope — `weekly · all models` beside `weekly · Fable`. Cursor reports
   two monthly pools: `composer-*` and `cursor-grok-*` selections sit beside
   **Cursor Models**, while every other model sits beside **Other Models**.
-  Claude and Codex likewise name the counter their vendor enforces. Compare
-  headroom across every surface and window; under 100% can hit a wall before
-  its reset. Approaching walls go to the operator; these numbers never disable
-  a surface or gate a launch.
+  Claude and Codex likewise name the counter their vendor enforces. A row only
+  answers for the models its own scope covers, so read a model against its own
+  pool; only that pool's quota at zero is exhaustion, and unreadable is not
+  empty ([`model-selection.md`](model-selection.md)). Compare headroom across
+  every surface and window; under 100% can hit a wall before its reset, and
+  approaching walls go to the operator. These numbers never gate a launch.
 - **Capacity** — unlike plan limits, the line under each machine's launch
   balance does gate launches. `AT CAP, launches refuse` means the plane
   refuses there: wait for a landing to free a lane, raise

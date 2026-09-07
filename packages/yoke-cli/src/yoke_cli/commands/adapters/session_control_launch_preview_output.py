@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Mapping, TextIO
 
+from yoke_contracts.session_control.model_billing_pools import (
+    MODEL_UNNAMED,
+    NO_POOL_WINDOW,
+    POOL_UNREADABLE,
+)
 from yoke_cli.commands.adapters.session_control_human_output import (
     Column,
     humanize,
@@ -34,6 +39,33 @@ def _headroom_cell(row: Mapping[str, Any]) -> str:
         return "unreadable"
     window = row.get("headroom_window") or "plan limits"
     return f"{int(round(float(headroom)))}% ({window})"
+
+
+#: One table-width word per reason the reading gives in full sentences, so a
+#: cell stays readable without the CLI restating the policy behind it.
+_POOL_CELL_LABELS = {
+    NO_POOL_WINDOW: "no meter",
+    POOL_UNREADABLE: "unreadable",
+    MODEL_UNNAMED: "no model named",
+}
+
+
+def _model_pool_cell(row: Mapping[str, Any]) -> str:
+    """Say what the requested model's own billing pool reads.
+
+    Headroom is runway over time-to-reset; this is the raw quota left in the
+    pool the model bills to, which is what a fallback decision turns on.
+    """
+    pool = row.get("model_pool")
+    if not isinstance(pool, Mapping):
+        return "-"
+    name = pool.get("pool") or "unpooled"
+    if pool.get("exhausted"):
+        return f"{name}: exhausted"
+    remaining = pool.get("remaining_percent")
+    if remaining is None:
+        return f"{name}: {_POOL_CELL_LABELS.get(pool.get('reason'), 'unknown')}"
+    return f"{name}: {int(round(float(remaining)))}% left"
 
 
 def _usable_cell(row: Mapping[str, Any]) -> str:
@@ -105,6 +137,7 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
         ("HOST", lambda row: row.get("hostname"), 20),
         ("SURFACE", lambda row: row.get("surface"), 20),
         ("HEADROOM", _headroom_cell, 34),
+        ("REQUESTED MODEL POOL", _model_pool_cell, 34),
         ("LANES", lambda row: row.get("capacity_summary") or "-", 30),
         ("OWNED", lambda row: "yes" if row.get("owned_by_requester") else "no", 6),
         ("USABLE", _usable_cell, 30),

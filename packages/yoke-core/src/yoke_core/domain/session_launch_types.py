@@ -59,9 +59,15 @@ class MachineCandidate:
     """One machine placement weighed, and why it did or did not win.
 
     ``headroom_percent`` is the least-headroom meter the machine publishes for
-    this surface, because the soonest wall is the one a launch can hit.
-    A machine that publishes no readable meter carries ``None`` and is ranked
-    below any machine that does -- an unknown is not evidence of room.
+    this surface among those covering the requested model, because the soonest
+    wall is the one a launch can hit. A machine that publishes no readable
+    meter carries ``None`` and is ranked below any machine that does -- an
+    unknown is not evidence of room.
+
+    ``model_pool`` answers the separate question a routing policy asks: is the
+    requested model's own billing pool confirmed empty? Headroom is runway over
+    time-to-reset and can read low while quota remains, so a fallback decision
+    reads this instead.
     """
 
     machine_id: str
@@ -69,6 +75,7 @@ class MachineCandidate:
     surface: str
     headroom_percent: float | None
     headroom_window: str | None
+    model_pool: dict[str, Any] | None
     owned_by_requester: bool
     may_use: bool
     capacity_summary: str | None = None

@@ -61,6 +61,37 @@ named CLI cannot encode. Existing machine files are not rewritten during
 rollout. `yoke status` and `--list-models` describe this machine's maps;
 preview a launch to see another machine's effective defaults.
 
+`session_model_routing` is the separate, optional key that says which model
+each tier of work asks for on a surface. It is a policy about work rather than
+a fact about a provider account, so it is read from the machine composing the
+launch — unlike the two default maps above, which come from the machine that
+will run it:
+
+```json
+{
+  "session_model_routing": {
+    "cursor-cli": {
+      "tier1": "cursor-grok-4.6-high",
+      "tier2": "cursor-grok-4.6",
+      "excluded": ["cursor-auto"],
+      "fallbacks": ["claude-opus-5"]
+    }
+  }
+}
+```
+
+`tier1` is the model for demanding, ambiguous, or high-consequence work;
+`tier2` is for bounded work a cheaper model already handles. `excluded` models
+are never launched. A `fallbacks` entry is reachable only when the preferred
+model's own billing pool is confirmed empty — an unreadable meter, a low
+headroom reading, or room in a different pool is not confirmation, so a
+fallback never starts spending a separate allowance by accident. Every key is
+optional and a surface with no entry keeps the defaults above.
+
+`yoke session-control launch preview --model M` reports each machine's quota
+in the pool `M` actually bills to, under `REQUESTED MODEL POOL`, and ranks
+machines by that pool's meter rather than by whichever window reads lowest.
+
 `yoke session-control launch preview` and `create` accept the three flags.
 `--context-window` accepts a token count or compact form such as `1m`.
 `--list-models --surface SURFACE` prints Cursor's native

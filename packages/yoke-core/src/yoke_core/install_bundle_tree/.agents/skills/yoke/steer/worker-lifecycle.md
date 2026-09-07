@@ -135,6 +135,12 @@ new `session_control.launch.create`.
 
 ## 7. Choose model, effort, and context per item at launch
 
+Which model and effort each item asks for — the three kinds of work, the
+operator's per-surface routing preference, Cursor's Grok-first rule and what
+counts as a confirmed empty pool, adopting a new model, and why a resume keeps
+its selection — is [`model-selection.md`](model-selection.md). Read it before
+naming a model. The mechanics of how a named knob resolves are here.
+
 Resolve each knob independently: its explicit launch flag > the value
 advertised by the machine the launch was placed on > the vendor default. The
 target machine owns these defaults because it owns the provider account and
@@ -144,6 +150,8 @@ installed models, never this seat's config. Context uses that machine's scalar
 Override per item when risk warrants. Preview shows the raw request and its
 effective selection; the launch retains both, and the session shows the ask
 beside served facts. `--list-models` reports local maps; preview reads remote defaults.
+Preview also ranks each machine by the meter the requested model actually
+bills to, and names that pool's own quota under `REQUESTED MODEL POOL`.
 Claude accepts model, effort, and the 1M context tier; Codex accepts model and
 effort but no explicit context window; Cursor accepts all three in its
 parameterized model selector. Preview refuses unsupported knobs with a
