@@ -224,7 +224,6 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
             "amendment_id": int(result.amendment_id),
             "migration_model": result.migration_model,
             "migration_lease_id": result.migration_lease_id,
-            "db_claim_event_id": result.db_claim_event_id,
         }
     )
 

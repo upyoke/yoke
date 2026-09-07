@@ -48,7 +48,6 @@ class WidenResponse(BaseModel):
     amendment_id: int
     migration_model: Optional[str] = None
     migration_lease_id: Optional[int] = None
-    db_claim_event_id: Optional[str] = None
 
 
 class NarrowBoundaryEvidence(BaseModel):

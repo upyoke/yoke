@@ -87,7 +87,6 @@ def _narrow(
             "amendment_kind": "narrow",
             "migration_model": None,
             "migration_lease_id": None,
-            "db_claim_event_id": None,
         }
     )
 

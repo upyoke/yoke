@@ -232,7 +232,17 @@ def bounded_importer_tests(
     *,
     total_files: int,
 ) -> frozenset[str]:
-    """Keep tests behind importer branches that remain individually bounded."""
+    """Keep tests behind importer branches that remain individually bounded.
+
+    An importer whose transitive branch is near-total still contributes its
+    own direct tests, provided that narrower set is itself bounded. A module
+    sitting under something broadly imported has a near-total branch no
+    matter how small it is, and dropping it wholesale for that reason
+    discards the most pointed coverage a change has — the test of the very
+    module that imports the changed file. The second bound is what keeps
+    this from re-admitting the fanout: an importer whose direct tests ARE
+    the near-total set contributes nothing, exactly as before.
+    """
     paths = tuple(changed)
     tests = set(direct_importer_tests(paths, index))
     modules = {index.module_of[path] for path in paths if path in index.module_of}
@@ -241,8 +251,12 @@ def bounded_importer_tests(
             if is_test_file(importer):
                 continue
             branch = reachable_tests((importer,), index) or set()
-            if not is_effectively_full(len(branch), total_files):
-                tests.update(branch)
+            if is_effectively_full(len(branch), total_files):
+                own = direct_importer_tests((importer,), index)
+                if not is_effectively_full(len(own), total_files):
+                    tests.update(own)
+                continue
+            tests.update(branch)
     return frozenset(tests)
 
 
