@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Structured-write (file/stdin) tests for ``yoke_core.domain.backlog``.
 
 Shared fixtures and seed helpers are imported from ``test_backlog``. Frozen

@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Coverage for typed workflow entry surfaces on item creation."""
 
 from __future__ import annotations

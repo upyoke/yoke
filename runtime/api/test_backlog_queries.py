@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Query and small mutation tests for ``yoke_core.domain.backlog``.
 
 Covers:

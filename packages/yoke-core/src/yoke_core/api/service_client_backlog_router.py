@@ -31,8 +31,6 @@ from yoke_core.api.service_client_items_validation import cmd_item_next_id
 
 def cmd_backlog_cli(args: list[str]) -> int:
     """Own the public backlog-registry CLI routing shape in Python."""
-    from yoke_core.domain import backlog
-
     def _usage(exit_code: int = 1) -> int:
         stream = sys.stdout if exit_code == 0 else sys.stderr
         print("Usage: python3 -m yoke_core.api.service_client backlog-cli <subcommand> [args]", file=stream)
