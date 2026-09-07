@@ -35,14 +35,7 @@ export function appendSessionAge(documentNode, body, row) {
     add(attributed === "lane" ? "worktree attached " : "filed ", row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
-  // The server still owns alive-versus-stale classification. Activity age
-  // only distinguishes a recently active session from one that is alive but quiet.
-  const instantActivity = isInstantRelativeTime(row.activity_at, now);
-  const staleNow = row.liveness === "stale" && instantActivity;
-  const activityState = row.liveness === "active" && !instantActivity
-    ? "idle"
-    : row.liveness || "unknown";
-  add(staleNow ? "stale · activity " : `${activityState} `,
-    row.activity_at, staleNow ? "just now" : undefined);
+  // Activity age is duration only. Primary status lives on the identity pill.
+  add("activity ", row.activity_at);
   body.appendChild(age);
 }

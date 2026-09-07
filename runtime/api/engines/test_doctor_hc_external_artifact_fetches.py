@@ -82,3 +82,41 @@ def test_repository_inventory_has_no_unclassified_fetches() -> None:
     ]
 
     assert bare == []
+
+
+def test_inventory_skips_generated_build_dockerfiles(tmp_path: Path) -> None:
+    nested = tmp_path / "build" / "bdist.linux-x86_64" / "wheel"
+    nested.mkdir(parents=True)
+    (nested / "Dockerfile").write_text(
+        "RUN curl -fsSL https://downloads.example.test/tool.tar.gz\n",
+        encoding="utf-8",
+    )
+    real = tmp_path / "packs" / "image" / "Dockerfile"
+    real.parent.mkdir(parents=True)
+    real.write_text(
+        "RUN python /app/yoke_core/domain/postgres_binaries.py\n",
+        encoding="utf-8",
+    )
+
+    entries = mod.inventory(tmp_path)
+
+    assert all(not entry.path.startswith("build/") for entry in entries)
+    assert any(entry.classification == "gateway-fetched" for entry in entries)
+
+
+def test_inventory_skips_a_dockerfile_removed_before_read(
+    tmp_path: Path, monkeypatch
+) -> None:
+    dockerfile = tmp_path / "app" / "Dockerfile"
+    dockerfile.parent.mkdir()
+    dockerfile.write_text("FROM scratch\n", encoding="utf-8")
+    original = Path.read_text
+
+    def vanish(self, *args, **kwargs):
+        if self == dockerfile:
+            raise FileNotFoundError(self)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", vanish)
+
+    assert mod.inventory(tmp_path) == []

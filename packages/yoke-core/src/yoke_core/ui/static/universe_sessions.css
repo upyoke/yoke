@@ -45,7 +45,7 @@
   );
   box-shadow: var(--yoke-shadow);
 }
-.universe-app-root .session-card.is-stale { background: var(--yoke-crit-bg); }
+.universe-app-root .session-card.is-stale { background: var(--yoke-warn-bg); }
 
 /* The identity line wraps rather than truncating: at the grid's narrow column
    a harness name, lane, and operator that do not fit on one line move to the

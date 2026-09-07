@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from yoke_core.engines.doctor_tree_scan import iter_tree_files
+from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES, iter_tree_files
 from yoke_project_checks._declare import self_project_checks
 
 
@@ -68,7 +68,11 @@ def _resolve_repo_root() -> str | None:
 
 
 def _source_files(root: Path) -> Iterable[Path]:
-    yield from sorted(iter_tree_files(root, "Dockerfile*"))
+    yield from sorted(
+        iter_tree_files(
+            root, "Dockerfile*", prune_dir_names=GENERATED_TREE_NAMES
+        )
+    )
     workflows = root / ".github/workflows"
     if workflows.is_dir():
         yield from sorted(
@@ -82,7 +86,10 @@ def _source_files(root: Path) -> Iterable[Path]:
 def inventory(root: Path) -> list[InventoryEntry]:
     entries: list[InventoryEntry] = []
     for path in _source_files(root):
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue
         lines = text.splitlines()
         rel = path.relative_to(root).as_posix()
         seen: set[tuple[int, str]] = set()

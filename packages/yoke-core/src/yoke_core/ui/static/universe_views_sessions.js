@@ -18,6 +18,8 @@ import {
 import {
   appendSessionDiagnostics,
   appendSessionMessageLine,
+  appendSessionPrimaryStatus,
+  sessionPrimaryStatus,
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import { appendSessionPresentation } from "./universe_session_presentation.js";
@@ -111,8 +113,9 @@ export function sessionCard(
   documentNode, row, onMessage, projects = [],
 ) {
   const liveness = String(row.liveness || "").toLowerCase();
+  const primary = sessionPrimaryStatus(row);
   const card = el(
-    documentNode, "article", liveness === "stale"
+    documentNode, "article", primary.state === "stale"
       ? "session-card is-stale" : "session-card",
   );
   card.setAttribute("data-session-id", String(row.session_id || ""));
@@ -127,11 +130,7 @@ export function sessionCard(
     harness.mark,
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
-  if (liveness === "stale") {
-    top.appendChild(el(
-      documentNode, "span", "pill crit session-stale-pill", "stale",
-    ));
-  }
+  appendSessionPrimaryStatus(documentNode, top, row);
   top.appendChild(laneChip(documentNode, row));
   const stateBadge = sessionStateBadge(documentNode, row.mode);
   if (stateBadge) top.appendChild(stateBadge);

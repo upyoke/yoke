@@ -207,12 +207,11 @@ class TestSteerSkillContract:
     def test_dashboard_card_is_named_as_the_faster_read(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "dashboard session card" in loop
-        # The server owns liveness while the copy distinguishes recent from
-        # quiet activity within sessions that are still alive.
-        assert "`active now` under a minute" in loop
-        assert "`idle <age>` once quiet" in loop
-        assert "`stale <age>`" in loop
-        assert "`waiting` / `probed` / `possibly stale`" in loop
+        # One primary status on the identity line; age never restates it.
+        assert "`active` under a minute" in loop
+        assert "`idle` once quiet" in loop
+        assert "confirmed `stale`" in loop
+        assert "`waiting` or `probed`" in loop
         assert "executor-aware TTL (1440 minutes on this surface)" in loop
         assert "solely decides alive versus stale" in loop
         assert "The age says how long it has been quiet" in loop

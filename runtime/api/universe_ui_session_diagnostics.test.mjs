@@ -5,6 +5,7 @@ import {
   killBadgeLabel,
   killBadgeTitle,
   sessionHealthState,
+  sessionPrimaryStatus,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
 import {
   sessionCard,
@@ -126,7 +127,14 @@ test("an open probe replaces possibly-stale, which needs no declaration at all",
     Date.parse("2026-08-22T12:00:00Z"),
   );
   assert.equal(unaccounted.state, "stale");
-  assert.equal(unaccounted.label, "possibly stale");
+  assert.equal(unaccounted.label, "stale");
+
+  const uncertain = sessionHealthState(
+    quietHolder({ liveness: "active" }),
+    Date.parse("2026-08-22T12:00:00Z"),
+  );
+  assert.equal(uncertain.state, "possibly stale");
+  assert.equal(uncertain.label, "possibly stale");
 
   // A declared wait outranks a probe: the session already said why it is quiet.
   const both = sessionHealthState(
@@ -157,7 +165,9 @@ test("process-gone evidence outranks age and tells the operator how to act", () 
     detail: "claims held — terminate deliberately if dead",
   });
   const rendered = card(row);
-  assert.equal(byClass(rendered, "session-health-pill")[0].textContent, "process gone");
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "process gone");
+  assert.equal(byClass(rendered, "session-health-pill").length, 0);
+  assert.equal(rendered.classList.contains("is-stale"), false);
   assert.equal(
     byClass(rendered, "session-health-detail")[0].textContent,
     "claims held — terminate deliberately if dead",
@@ -187,9 +197,11 @@ test("the health pill renders its state and detail on the card", () => {
       blocking_status: "implementing",
     },
   }));
-  const pill = byClass(rendered, "session-health-pill")[0];
+  const pill = byClass(rendered, "session-status-pill")[0];
   assert.equal(pill.textContent, "waiting");
   assert.equal(pill.getAttribute("data-state"), "waiting");
+  assert.equal(byClass(rendered, "session-health-pill").length, 0);
+  assert.equal(rendered.classList.contains("is-stale"), false);
   assert.equal(
     byClass(rendered, "session-health-detail")[0].textContent,
     "gated on YOK-2 (implementing)",
@@ -226,4 +238,48 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
   const badge = byClass(rendered, "session-kill-badge")[0];
   assert.equal(badge.textContent, "killed");
   assert.match(badge.title, /Reason: operator stopped worker$/);
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "ended");
+});
+
+test("one primary status covers the meaningful combinations without restating stale", (t) => {
+  const now = Date.parse("2026-08-22T12:00:00Z");
+  const originalNow = Date.now;
+  Date.now = () => now;
+  t.after(() => { Date.now = originalNow; });
+  const primary = (row) => sessionPrimaryStatus(row, now);
+  const recent = new Date(now - 1_000).toISOString();
+  const quiet = new Date(now - 60 * 60_000).toISOString();
+
+  assert.equal(primary({ liveness: "active", activity_at: recent }).label, "active");
+  assert.equal(primary({ liveness: "active", activity_at: quiet }).label, "idle");
+  assert.equal(primary({ liveness: "ended" }).label, "ended");
+  assert.equal(primary({}).label, "unknown");
+
+  const confirmed = card(quietHolder({ activity_at: quiet }));
+  assert.deepEqual(
+    byClass(confirmed, "session-status-pill").map((n) => n.textContent),
+    ["stale"],
+  );
+  assert.equal(confirmed.classList.contains("is-stale"), true);
+  assert.equal(byClass(confirmed, "session-health-pill").length, 0);
+  assert.ok(!confirmed.textContent.includes("possibly stale"));
+  assert.deepEqual(
+    byClass(confirmed, "session-age-prefix").map((n) => n.textContent),
+    ["activity "],
+  );
+
+  const uncertain = card(quietHolder({ liveness: "active", activity_at: quiet }));
+  assert.deepEqual(
+    byClass(uncertain, "session-status-pill").map((n) => n.textContent),
+    ["possibly stale"],
+  );
+  assert.equal(uncertain.classList.contains("is-stale"), false);
+  assert.equal(byClass(uncertain, "session-stale-pill").length, 0);
+
+  const waiting = card(quietHolder({
+    activity_at: quiet,
+    declared_wait: { kind: "turn_posture" },
+  }));
+  assert.equal(byClass(waiting, "session-status-pill")[0].textContent, "waiting");
+  assert.equal(waiting.classList.contains("is-stale"), false);
 });
