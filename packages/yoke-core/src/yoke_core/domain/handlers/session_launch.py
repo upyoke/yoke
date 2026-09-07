@@ -145,6 +145,7 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
             surface_fallback_enabled=bool(
                 _fleet_policy(conn, project_id, "fleet.surface_fallback")
             ),
+            model=parsed.model,
         )
         if preview.selected_surface:
             selection = validate_preview_model_selection(

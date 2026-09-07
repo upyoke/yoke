@@ -122,6 +122,13 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
         normalized[PREFERRED_SESSION_REASONING_EFFORTS_KEY] = (
             preferred_session_reasoning_efforts(raw)
         )
+    from yoke_contracts.session_control.model_routing import (
+        SESSION_MODEL_ROUTING_KEY,
+        normalize_session_model_routing,
+    )
+
+    if SESSION_MODEL_ROUTING_KEY in raw:
+        normalized[SESSION_MODEL_ROUTING_KEY] = normalize_session_model_routing(raw)
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
         normalized["connections"] = {

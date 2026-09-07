@@ -7,6 +7,9 @@ import io
 from yoke_cli.commands.adapters.session_control_launch_output import (
     write_launch_result,
 )
+from yoke_cli.commands.adapters.session_control_launch_preview_output import (
+    write_launch_preview,
+)
 
 
 def test_launch_preview_says_selection_is_verified_at_registration() -> None:
@@ -109,3 +112,72 @@ def test_launch_preview_names_the_machine_that_decided_an_unasked_model() -> Non
     assert "MACHINES WEIGHED" in rendered
     assert "240% (rolling 5h · all models)" in rendered
     assert "most codex-cli headroom; chose machine-roomy" in rendered
+
+
+def _preview_with_pool(pool: dict | None) -> str:
+    output = io.StringIO()
+    write_launch_preview(
+        {
+            "outcome": "assigned",
+            "requested_surface": "cursor-cli",
+            "requested_model": "cursor-grok-4.6-high",
+            "selected_surface": "cursor-cli",
+            "launchable": True,
+            "eligible_relays": [],
+            "machine_candidates": [
+                {
+                    "machine_id": "machine-a",
+                    "hostname": "host-a",
+                    "surface": "cursor-cli",
+                    "headroom_percent": 40.0,
+                    "headroom_window": "monthly · Cursor Models",
+                    "model_pool": pool,
+                    "owned_by_requester": True,
+                    "may_use": True,
+                    "selected": True,
+                }
+            ],
+        },
+        output,
+    )
+    return output.getvalue()
+
+
+def test_the_weighed_machines_name_the_requested_model_billing_pool() -> None:
+    rendered = _preview_with_pool(
+        {
+            "pool": "Cursor Models",
+            "remaining_percent": 62.0,
+            "exhausted": False,
+            "reason": "the pool still has headroom",
+        }
+    )
+
+    assert "REQUESTED MODEL POOL" in rendered
+    assert "Cursor Models: 62% left" in rendered
+
+
+def test_an_exhausted_pool_says_so_rather_than_printing_zero_percent() -> None:
+    rendered = _preview_with_pool(
+        {
+            "pool": "Cursor Models",
+            "remaining_percent": 0.0,
+            "exhausted": True,
+            "reason": None,
+        }
+    )
+
+    assert "Cursor Models: exhausted" in rendered
+
+
+def test_an_unreadable_pool_names_its_reason_instead_of_a_number() -> None:
+    rendered = _preview_with_pool(
+        {
+            "pool": "Cursor Models",
+            "remaining_percent": None,
+            "exhausted": False,
+            "reason": "the pool's meter is unreadable",
+        }
+    )
+
+    assert "Cursor Models: unreadable" in rendered

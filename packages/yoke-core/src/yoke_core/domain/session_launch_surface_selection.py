@@ -92,12 +92,15 @@ def preview_launch(
     allow_surface_fallback: bool = False,
     surface_fallback_enabled: bool = False,
     now: str | None = None,
+    model: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchPreview:
     """Prefer the requested surface and use fallback only through both gates.
 
     Machine access is applied to every snapshot before a relay is chosen, so a
     machine the calling actor may not use is never selected by either door.
+    ``model`` reaches placement so each machine is ranked by the meter the
+    named model actually bills to.
     """
     ensure_operator(auth)
     current = now or utc_now()
@@ -122,6 +125,7 @@ def preview_launch(
         actor_id=auth.actor_id,
         project_id=project_id,
         now=current,
+        model=model,
     )
     if exact.relays:
         return exact_preview
@@ -160,6 +164,7 @@ def preview_launch(
         project_id=project_id,
         now=current,
         fallback=True,
+        model=model,
     )
 
 
