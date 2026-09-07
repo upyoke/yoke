@@ -42,6 +42,7 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke conduct PREFIX-N` | Engineer/Tester loop for a single item |
 | `/yoke usher [PREFIX-N]` | Merge and deploy passed items |
 | `/yoke doctor [project]` | Health checks and diagnostics (`--fix` for auto-repair) |
+| `/yoke models lookup\|get\|validate` | Sourced model reference: lookup, list, and validate a proposed record |
 | `/yoke resync` | Detect and repair drift between local and GitHub |
 | `/yoke curate` | Curate the Ouroboros learning log |
 | `/yoke wrapup` | Structured session wrap-up |
@@ -67,6 +68,7 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 | `yoke project snapshot sync [CHECKOUT]` | Scan committed git tree state and sync authoritative path snapshots |
 | `yoke git pre-commit` | Run the installed pre-commit gate entrypoint. |
 | `yoke git post-commit` | Run the installed post-commit path snapshot sync entrypoint. |
+| `yoke models lookup MODEL_ID` / `yoke models get` / `yoke models validate --stdin` | Sourced model-reference lookup, list, and record validation |
 
 ### Item Commands That Need a Harness Session
 

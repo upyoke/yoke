@@ -6,6 +6,7 @@ from yoke_cli.commands.adapters import (
     inbox_decisions,
     item_worktree_create,
     item_worktrees,
+    models,
     overview,
     qa_catalog,
     qa_catalog_defaults,
@@ -154,6 +155,12 @@ ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
     ),
 }
 
+MODELS_SUBCOMMAND_REGISTRY = {
+    ("models", "lookup"): ("models.lookup.run", models.models_lookup),
+    ("models", "get"): ("models.get.run", models.models_get),
+    ("models", "validate"): ("models.validate.run", models.models_validate),
+}
+
 MACHINE_SUBCOMMAND_REGISTRY = {
     ("machine", "register"): ("machine.register", machine.machine_register),
     ("machine", "list"): ("machine.list", machine.machine_list),
@@ -182,6 +189,7 @@ OVERVIEW_SUBCOMMAND_REGISTRY = {
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
     **MACHINE_SUBCOMMAND_REGISTRY,
+    **MODELS_SUBCOMMAND_REGISTRY,
     **OVERVIEW_SUBCOMMAND_REGISTRY,
     **EXECUTION_INSTRUCTION_SUBCOMMAND_REGISTRY,
     **INBOX_DECISION_SUBCOMMAND_REGISTRY,

@@ -128,6 +128,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         # import names.
         "yoke_core.domain.worktree",
         "yoke_core.domain.db_helpers",
+        "yoke_contracts.model_reference",
         # The harness capability authority. Every role gets `core`, so no
         # agent has to discover from prose that manifests, not documents,
         # decide what a harness can do.
@@ -217,5 +218,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # per-role cap are the machines row: an agent that reads a relay refusal or a
 # launch that named no eligible machine has to know the registered machine is
 # where identity, ownership and access live, and no other table teaches it.
-PACKET_LINE_BUDGET_PER_ROLE: int = 436
-PACKET_LINE_BUDGET_AGGREGATE: int = 2690
+# Core also names `yoke_contracts.model_reference` so cost and steering
+# readers hit one sourced lookup instead of inventing a catalog.
+PACKET_LINE_BUDGET_PER_ROLE: int = 438
+PACKET_LINE_BUDGET_AGGREGATE: int = 2704
