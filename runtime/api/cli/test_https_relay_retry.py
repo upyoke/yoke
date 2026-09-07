@@ -11,6 +11,7 @@ from __future__ import annotations
 import http.client
 import io
 import urllib.error
+from datetime import datetime, timezone
 
 import pytest
 
@@ -211,17 +212,41 @@ def test_a_retrying_relay_says_so_on_every_attempt(monkeypatch, capsys) -> None:
     notices = [
         line
         for line in capsys.readouterr().err.splitlines()
-        if line.startswith("note: relay attempt ")
+        if "note: relay attempt " in line
     ]
     assert len(notices) == len(sleeps)
     assert "relay unreachable" in notices[0]
+    assert "class=unreachable" in notices[0]
+    assert "outcome=retrying" in notices[0]
     assert "server returned 503" in notices[1]
+    assert "class=http_transient" in notices[1]
     assert f"{https_retry_policy.CONNECTION_ATTEMPTS}" in notices[0]
+    for line in notices:
+        stamp = line.split(" ", 1)[0]
+        datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
 def test_the_retry_notice_names_the_wait_it_is_about_to_take(capsys) -> None:
-    https_retry_policy.write_retry_notice("relay unreachable", 2, 6.0)
+    instant = datetime(2026, 9, 7, 18, 26, 17, tzinfo=timezone.utc)
+    https_retry_policy.write_retry_notice(
+        "relay unreachable", 2, 6.0, clock=lambda: instant,
+    )
 
     assert capsys.readouterr().err.strip() == (
-        "note: relay attempt 3/7 failed (relay unreachable); retrying in 6s"
+        "2026-09-07T18:26:17Z note: relay attempt 3/7 failed "
+        "(relay unreachable) class=unreachable outcome=retrying; retrying in 6s"
     )
+
+
+def test_http_transient_retry_notice_keeps_status_out_of_the_class() -> None:
+    line = https_retry_policy.format_retry_notice(
+        "server returned 503",
+        0,
+        1.0,
+        clock=lambda: datetime(2026, 9, 7, 18, 26, 17, tzinfo=timezone.utc),
+    )
+
+    assert "class=http_transient" in line
+    assert "outcome=retrying" in line
+    assert "server returned 503" in line
+    assert "gateway" not in line
