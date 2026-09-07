@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.model_reference import ModelRecord
+from yoke_contracts.model_reference_records import ModelRecord
 from yoke_contracts.model_reference_sources import (
     CHECKED_AT,
     CURSOR_MODELS_RULE,
@@ -24,15 +24,14 @@ CURSOR_RECORDS: tuple[ModelRecord, ...] = (
             "are not a blanket replacement for second-tier Sonnet."
         ),
         operator_notes=(
-            "Operator routing annotation, not a published fact and not "
-            "proposed_tier. Cursor tier1 is Grok 4.6; Cursor Opus is fallback "
-            "only after confirmed Grok/Cursor Models quota exhaustion. "
-            "Unknown/stale/error is not exhaustion. Approved 2026-09-07 "
-            "reasoning defaults for future launches only: simple edits, docs, "
-            "and cleanup use tier2+medium; normal development, research, and "
-            "steering use tier1+high; difficult debugging or architectural "
-            "decisions use tier1+xhigh (high where xhigh is unsupported). No "
-            "automatic max. Per-surface routing lives in session_model_routing."
+            "Operator routing annotation for the cursor surface only, not a "
+            "published fact and not proposed_tier. Cursor tier1 is Grok 4.6 at "
+            "high, and it is the ordinary worker model on this surface rather "
+            "than a reserved one. Claude Opus is a fallback reached only after "
+            "confirmed Cursor Models pool exhaustion; an unknown, stale, or "
+            "errored meter reading is not exhaustion. The whole per-surface "
+            "policy, including which surfaces reserve tier1 for steering, "
+            "lives in the session_model_routing machine-config key."
         ),
         api_price=cursor_pool_price(
             input_usd=2.0,

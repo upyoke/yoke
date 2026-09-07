@@ -75,6 +75,16 @@ will run it:
       "tier2": "cursor-grok-4.6-medium",
       "excluded": ["cursor-auto"],
       "fallbacks": ["claude-opus-5-thinking-high"]
+    },
+    "claude-cli": {
+      "tier1": "claude-opus-5",
+      "tier2": "claude-sonnet-5",
+      "worker_tier": "tier2"
+    },
+    "codex-cli": {
+      "tier1": "gpt-6-astra",
+      "tier2": "gpt-5.6-terra",
+      "worker_tier": "tier2"
     }
   }
 }
@@ -87,6 +97,17 @@ model's own billing pool is confirmed empty — an unreadable meter, a low
 headroom reading, or room in a different pool is not confirmation, so a
 fallback never starts spending a separate allowance by accident. Every key is
 optional and a surface with no entry keeps the defaults above.
+
+`worker_tier` is how a surface reserves its tier-1 model: ordinary work placed
+on that surface routes to the named tier whatever the work kind asked for,
+while the steering seat still takes tier1, as does a launch that names its
+model explicitly. The example above reserves the Claude and Codex tier-1
+models for steering or an explicit instruction and routes ordinary work to
+tier2, and leaves the Cursor surface unreserved so its tier-1 model is the
+ordinary worker there, with the Claude fallback reachable only on confirmed
+pool exhaustion. That split is a machine-local operator choice, not a Yoke
+default: a surface with no `worker_tier` routes every work kind to the tier
+that kind asks for.
 
 `yoke session-control launch preview --model M` reports each machine's quota
 in the pool `M` actually bills to, under `REQUESTED MODEL POOL`, and ranks

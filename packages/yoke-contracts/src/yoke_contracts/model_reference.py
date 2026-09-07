@@ -5,119 +5,35 @@ Lookup never raises. ``researched=False`` is the explicit not-researched
 marker — missing facts are not a discovery, launch, or usage gate.
 Researched ``proposed_tier`` is not operator routing; per-surface routing
 lives with the steering selection policy, not this reference.
+
+Record shapes live in ``model_reference_records``; this module is the
+lookup and validation surface every caller reads. Validation is where the
+labelled-estimate rule is enforced: a rate or a plan weighting may be an
+estimate, but only a labelled one with a stated basis, and only over a
+field that actually carries a number.
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from typing import Any, Iterable, Literal, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional
 
+from yoke_contracts.model_reference_records import (
+    CONSUMPTION_FIELDS,
+    PRICE_FIELDS,
+    PROPOSED_TIERS,
+    ApiPrice,
+    BenchmarkScore,
+    ConsumptionWeight,
+    ModelLookup,
+    ModelRecord,
+    ModelReferenceError,
+    ProposedTier,
+    SubscriptionRule,
+)
 from yoke_contracts.session_model_facts import (
     CLAUDE_CONTEXT_TIER_SUFFIX,
     REASONING_EFFORT_VALUES,
 )
-
-ProposedTier = Literal["tier1", "tier2", "excluded"]
-PROPOSED_TIERS: tuple[ProposedTier, ...] = ("tier1", "tier2", "excluded")
-
-
-@dataclass(frozen=True)
-class ApiPrice:
-    """API USD per million native tokens. None on a field means unknown."""
-
-    input_per_million_usd: Optional[float] = None
-    output_per_million_usd: Optional[float] = None
-    cache_read_per_million_usd: Optional[float] = None
-    cache_write_per_million_usd: Optional[float] = None
-    cache_write_long_per_million_usd: Optional[float] = None
-    conditions: Optional[str] = None
-    source_url: Optional[str] = None
-    checked_at: Optional[str] = None
-    effective_at: Optional[str] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class BenchmarkScore:
-    """One public benchmark observation. Score stays raw; no composite."""
-
-    name: str
-    version: Optional[str] = None
-    score: Optional[float] = None
-    tested_model: Optional[str] = None
-    tested_harness: Optional[str] = None
-    tested_reasoning: Optional[str] = None
-    source_url: Optional[str] = None
-    checked_at: Optional[str] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class SubscriptionRule:
-    """Published subscription consumption rule. Estimates must be labelled."""
-
-    harness: str
-    plan: str
-    rule: str
-    pool: Optional[str] = None
-    source_url: Optional[str] = None
-    checked_at: Optional[str] = None
-    is_estimate: bool = False
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class ModelRecord:
-    """One sourced model. Unknown leaves are None or empty, never invented."""
-
-    model_id: str
-    provider: str
-    aliases: tuple[str, ...] = ()
-    replacement_model_id: Optional[str] = None
-    proposed_tier: Optional[ProposedTier] = None
-    tier_evidence: Optional[str] = None
-    tier_provisional: bool = False
-    operator_notes: Optional[str] = None
-    api_price: Optional[ApiPrice] = None
-    benchmarks: tuple[BenchmarkScore, ...] = ()
-    subscription_rules: tuple[SubscriptionRule, ...] = ()
-    source_urls: tuple[str, ...] = ()
-    checked_at: Optional[str] = None
-    display_name: Optional[str] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        payload = asdict(self)
-        return payload
-
-
-@dataclass(frozen=True)
-class ModelLookup:
-    """Result of looking up a launch model id. Never an exception path."""
-
-    model_id: str
-    researched: bool
-    record: Optional[ModelRecord] = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "model_id": self.model_id,
-            "researched": self.researched,
-            "record": None if self.record is None else self.record.to_dict(),
-        }
-
-
-class ModelReferenceError(ValueError):
-    """A proposed record cannot be stored. ``code`` names the recovery."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
 
 
 def lookup_stem(model_id: str) -> str:
@@ -202,8 +118,155 @@ def _tuple_of_str(value: object, field: str) -> tuple[str, ...]:
     if isinstance(value, str):
         return (value,) if value.strip() else ()
     if not isinstance(value, (list, tuple)):
-        raise ModelReferenceError("record_invalid", f"{field} must be a list of strings")
+        raise ModelReferenceError(
+            "record_invalid", f"{field} must be a list of strings"
+        )
     return tuple(str(item).strip() for item in value if str(item).strip())
+
+
+def _estimate_labels(
+    raw: Mapping[str, Any], values: Mapping[str, Optional[float]], where: str
+) -> tuple[tuple[str, ...], Optional[str]]:
+    """Validate one labelled-estimate pair against the numbers it covers.
+
+    A label that names a field carrying no number describes nothing, and a
+    label with no basis asks the reader to trust an unexplained inference.
+    Both refuse here so the stored document can be read at face value.
+    """
+    labelled = _tuple_of_str(raw.get("estimated_fields"), f"{where} estimated_fields")
+    basis = _optional_str(raw.get("estimate_basis"))
+    for name in labelled:
+        if name not in values:
+            raise ModelReferenceError(
+                "estimate_invalid",
+                f"{where} estimated_fields names {name}; expected one of "
+                f"{', '.join(values)}",
+            )
+        if values[name] is None:
+            raise ModelReferenceError(
+                "estimate_invalid",
+                f"{where} labels {name} an estimate but leaves it null; "
+                "give the estimated number or drop the label",
+            )
+    if labelled and not basis:
+        raise ModelReferenceError(
+            "estimate_invalid",
+            f"{where} estimated_fields needs estimate_basis stating why the "
+            "estimate is reasonable",
+        )
+    if basis and not labelled:
+        raise ModelReferenceError(
+            "estimate_invalid",
+            f"{where} has estimate_basis but names no estimated_fields",
+        )
+    return labelled, basis
+
+
+def _api_price(raw: Mapping[str, Any]) -> ApiPrice:
+    rates = {name: _optional_float(raw.get(name), name) for name in PRICE_FIELDS}
+    labelled, basis = _estimate_labels(raw, rates, "api_price")
+    return ApiPrice(
+        conditions=_optional_str(raw.get("conditions")),
+        source_url=_optional_str(raw.get("source_url")),
+        checked_at=_optional_str(raw.get("checked_at")),
+        effective_at=_optional_str(raw.get("effective_at")),
+        estimated_fields=labelled,
+        estimate_basis=basis,
+        **rates,
+    )
+
+
+def _consumption_weight(raw: object) -> Optional[ConsumptionWeight]:
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ModelReferenceError(
+            "consumption_invalid", "consumption_weight must be an object or null"
+        )
+    unit = str(raw.get("unit") or "").strip()
+    if not unit:
+        raise ModelReferenceError(
+            "consumption_invalid",
+            "consumption_weight needs the unit the plan publishes, such as credits",
+        )
+    rates = {name: _optional_float(raw.get(name), name) for name in CONSUMPTION_FIELDS}
+    if all(value is None for value in rates.values()):
+        raise ModelReferenceError(
+            "consumption_invalid",
+            "consumption_weight carries no rate; state the plan's weighting in "
+            "the rule text instead",
+        )
+    is_estimate = bool(raw.get("is_estimate", False))
+    basis = _optional_str(raw.get("estimate_basis"))
+    if is_estimate and not basis:
+        raise ModelReferenceError(
+            "estimate_invalid",
+            "an estimated consumption_weight needs estimate_basis",
+        )
+    if basis and not is_estimate:
+        raise ModelReferenceError(
+            "estimate_invalid",
+            "consumption_weight has estimate_basis but is not marked is_estimate",
+        )
+    return ConsumptionWeight(
+        unit=unit,
+        is_estimate=is_estimate,
+        estimate_basis=basis,
+        source_url=_optional_str(raw.get("source_url")),
+        checked_at=_optional_str(raw.get("checked_at")),
+        **rates,
+    )
+
+
+def _subscription_rule(raw: object) -> SubscriptionRule:
+    if not isinstance(raw, Mapping):
+        raise ModelReferenceError(
+            "subscription_invalid", "subscription_rules entries must be objects"
+        )
+    rule = SubscriptionRule(
+        harness=str(raw.get("harness") or "").strip(),
+        plan=str(raw.get("plan") or "").strip(),
+        rule=str(raw.get("rule") or "").strip(),
+        pool=_optional_str(raw.get("pool")),
+        source_url=_optional_str(raw.get("source_url")),
+        checked_at=_optional_str(raw.get("checked_at")),
+        is_estimate=bool(raw.get("is_estimate", False)),
+        estimate_basis=_optional_str(raw.get("estimate_basis")),
+        consumption_weight=_consumption_weight(raw.get("consumption_weight")),
+    )
+    if not rule.harness or not rule.plan or not rule.rule:
+        raise ModelReferenceError(
+            "subscription_invalid",
+            "subscription rule needs harness, plan, and published rule text",
+        )
+    if rule.is_estimate and not rule.estimate_basis:
+        raise ModelReferenceError(
+            "estimate_invalid",
+            "an estimated subscription rule needs estimate_basis stating why "
+            "the estimate is reasonable",
+        )
+    if rule.estimate_basis and not rule.is_estimate:
+        raise ModelReferenceError(
+            "estimate_invalid",
+            "subscription rule has estimate_basis but is not marked is_estimate",
+        )
+    return rule
+
+
+def _benchmark(raw: object) -> BenchmarkScore:
+    if not isinstance(raw, Mapping) or not str(raw.get("name") or "").strip():
+        raise ModelReferenceError("benchmark_invalid", "each benchmark needs a name")
+    score = raw.get("score")
+    return BenchmarkScore(
+        name=str(raw.get("name")).strip(),
+        version=_optional_str(raw.get("version")),
+        score=None if score is None else _optional_float(score, "score"),
+        tested_model=_optional_str(raw.get("tested_model")),
+        tested_harness=_optional_str(raw.get("tested_harness")),
+        tested_reasoning=_optional_str(raw.get("tested_reasoning")),
+        source_url=_optional_str(raw.get("source_url")),
+        checked_at=_optional_str(raw.get("checked_at")),
+    )
 
 
 def validate_model_record(payload: Mapping[str, Any]) -> ModelRecord:
@@ -222,74 +285,10 @@ def validate_model_record(payload: Mapping[str, Any]) -> ModelRecord:
             f"proposed_tier must be one of {', '.join(PROPOSED_TIERS)} or null",
         )
     price_raw = payload.get("api_price")
-    price = None
-    if isinstance(price_raw, Mapping):
-        price = ApiPrice(
-            input_per_million_usd=_optional_float(
-                price_raw.get("input_per_million_usd"), "input_per_million_usd"
-            ),
-            output_per_million_usd=_optional_float(
-                price_raw.get("output_per_million_usd"), "output_per_million_usd"
-            ),
-            cache_read_per_million_usd=_optional_float(
-                price_raw.get("cache_read_per_million_usd"),
-                "cache_read_per_million_usd",
-            ),
-            cache_write_per_million_usd=_optional_float(
-                price_raw.get("cache_write_per_million_usd"),
-                "cache_write_per_million_usd",
-            ),
-            cache_write_long_per_million_usd=_optional_float(
-                price_raw.get("cache_write_long_per_million_usd"),
-                "cache_write_long_per_million_usd",
-            ),
-            conditions=_optional_str(price_raw.get("conditions")),
-            source_url=_optional_str(price_raw.get("source_url")),
-            checked_at=_optional_str(price_raw.get("checked_at")),
-            effective_at=_optional_str(price_raw.get("effective_at")),
+    if price_raw is not None and not isinstance(price_raw, Mapping):
+        raise ModelReferenceError(
+            "price_invalid", "api_price must be an object or null"
         )
-    elif price_raw is not None:
-        raise ModelReferenceError("price_invalid", "api_price must be an object or null")
-    benchmarks = []
-    for raw in payload.get("benchmarks") or ():
-        if not isinstance(raw, Mapping) or not str(raw.get("name") or "").strip():
-            raise ModelReferenceError("benchmark_invalid", "each benchmark needs a name")
-        score = raw.get("score")
-        parsed_score = None if score is None else _optional_float(score, "score")
-        benchmarks.append(
-            BenchmarkScore(
-                name=str(raw.get("name")).strip(),
-                version=_optional_str(raw.get("version")),
-                score=parsed_score,
-                tested_model=_optional_str(raw.get("tested_model")),
-                tested_harness=_optional_str(raw.get("tested_harness")),
-                tested_reasoning=_optional_str(raw.get("tested_reasoning")),
-                source_url=_optional_str(raw.get("source_url")),
-                checked_at=_optional_str(raw.get("checked_at")),
-            )
-        )
-    rules = []
-    for raw in payload.get("subscription_rules") or ():
-        if not isinstance(raw, Mapping):
-            raise ModelReferenceError(
-                "subscription_invalid", "subscription_rules entries must be objects"
-            )
-        rules.append(
-            SubscriptionRule(
-                harness=str(raw.get("harness") or "").strip(),
-                plan=str(raw.get("plan") or "").strip(),
-                rule=str(raw.get("rule") or "").strip(),
-                pool=_optional_str(raw.get("pool")),
-                source_url=_optional_str(raw.get("source_url")),
-                checked_at=_optional_str(raw.get("checked_at")),
-                is_estimate=bool(raw.get("is_estimate", False)),
-            )
-        )
-        if not rules[-1].harness or not rules[-1].plan or not rules[-1].rule:
-            raise ModelReferenceError(
-                "subscription_invalid",
-                "subscription rule needs harness, plan, and published rule text",
-            )
     return ModelRecord(
         model_id=model_id,
         provider=provider,
@@ -300,9 +299,11 @@ def validate_model_record(payload: Mapping[str, Any]) -> ModelRecord:
         tier_evidence=_optional_str(payload.get("tier_evidence")),
         tier_provisional=bool(payload.get("tier_provisional", False)),
         operator_notes=_optional_str(payload.get("operator_notes")),
-        api_price=price,
-        benchmarks=tuple(benchmarks),
-        subscription_rules=tuple(rules),
+        api_price=None if price_raw is None else _api_price(price_raw),
+        benchmarks=tuple(_benchmark(raw) for raw in payload.get("benchmarks") or ()),
+        subscription_rules=tuple(
+            _subscription_rule(raw) for raw in payload.get("subscription_rules") or ()
+        ),
         source_urls=_tuple_of_str(payload.get("source_urls"), "source_urls"),
         checked_at=_optional_str(payload.get("checked_at")),
     )
@@ -311,6 +312,7 @@ def validate_model_record(payload: Mapping[str, Any]) -> ModelRecord:
 __all__ = [
     "ApiPrice",
     "BenchmarkScore",
+    "ConsumptionWeight",
     "ModelLookup",
     "ModelRecord",
     "ModelReferenceError",

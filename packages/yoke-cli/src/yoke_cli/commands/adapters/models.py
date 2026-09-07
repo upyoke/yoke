@@ -38,18 +38,24 @@ def _print_lookup(response: Any, stdout: TextIO, stderr: TextIO) -> None:
         return
     tier = record.get("proposed_tier") or "unclassified"
     price = record.get("api_price") or {}
+    estimated = price.get("estimated_fields") or ()
     print(
         f"{record.get('model_id')} tier={tier} "
         f"replacement={record.get('replacement_model_id') or '-'} "
         f"input={price.get('input_per_million_usd')} "
-        f"output={price.get('output_per_million_usd')}",
+        f"output={price.get('output_per_million_usd')} "
+        f"estimated={','.join(estimated) if estimated else '-'}",
         file=stdout,
     )
 
 
 def models_lookup(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke models lookup", description=LOOKUP_USAGE)
-    parser.add_argument("model_id", help="Launch --model string, including effort suffixes.")
+    parser = argparse.ArgumentParser(
+        prog="yoke models lookup", description=LOOKUP_USAGE
+    )
+    parser.add_argument(
+        "model_id", help="Launch --model string, including effort suffixes."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LOOKUP_USAGE)
