@@ -42,8 +42,7 @@ def relay_probe_models(args: List[str]) -> int:
     return (
         0
         if all(
-            reading.get("status") in _ANSWERED_STATUSES
-            for reading in readings.values()
+            reading.get("status") in _ANSWERED_STATUSES for reading in readings.values()
         )
         else 1
     )

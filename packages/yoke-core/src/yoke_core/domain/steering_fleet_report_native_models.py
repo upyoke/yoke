@@ -164,14 +164,16 @@ def native_model_lines(rows: tuple[MachineNativeModels, ...]) -> list[str]:
         if remaining > 0:
             named = f"{named}, +{remaining} more"
         staleness = (
-            "" if row.status == "ok" else f" (stale since {row.observed_at or 'unknown'})"
+            ""
+            if row.status == "ok"
+            else f" (stale since {row.observed_at or 'unknown'})"
         )
         lines.append(f"    {row.surface}: {row.model_count}{staleness} — {named}")
     return lines
 
 
 def fingerprint_material(
-    rows: tuple[MachineNativeModels, ...]
+    rows: tuple[MachineNativeModels, ...],
 ) -> list[tuple[Any, ...]]:
     """What must change for the seat to be told availability changed.
 
