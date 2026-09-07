@@ -26,8 +26,7 @@ function renderedActivityAge(documentNode, activityAt, extras = {}) {
 }
 
 
-// The server owns the executor-aware TTL. Activity age chooses active or idle
-// copy only within a server-active session; it never recategorizes liveness.
+// Activity age is duration only. Liveness never appears as a second status.
 test("session activity copy keeps server liveness authoritative", (t) => {
   const now = Date.parse("2026-08-27T12:00:00Z");
   const originalNow = Date.now;
@@ -37,35 +36,35 @@ test("session activity copy keeps server liveness authoritative", (t) => {
   const documentNode = new FakeDocument();
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 59_999).toISOString()),
-    "active now",
+    "activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 60_000).toISOString()),
-    "idle 1m",
+    "activity 1m",
   );
   // A long executor TTL can keep a quiet session alive without making its
   // activity recent.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 1440 * 60_000).toISOString()),
-    "idle 24h",
+    "activity 24h",
   );
   assert.equal(
     renderedActivityAge(
       documentNode, new Date(now - 1_000).toISOString(), { liveness: "stale" },
     ),
-    "stale · activity just now",
+    "activity now",
   );
   assert.equal(
     renderedActivityAge(
       documentNode, new Date(now - 60_000).toISOString(), { liveness: "stale" },
     ),
-    "stale 1m",
+    "activity 1m",
   );
   assert.equal(
     renderedActivityAge(
       documentNode, new Date(now - 1_000).toISOString(), { liveness: undefined },
     ),
-    "unknown now",
+    "activity now",
   );
 });
 
@@ -86,26 +85,26 @@ test("session status line leads with total age from offered_at", (t) => {
       renderedActivityAge(documentNode, activityNow, {
         offered_at: new Date(now - elapsed).toISOString(),
       }),
-      `${expected} · active now`,
+      `${expected} · activity now`,
     );
   }
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       offered_at: new Date(now - 1_000).toISOString(),
     }),
-    "created just now · active now",
+    "created just now · activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       offered_at: new Date(now + 60_000).toISOString(),
     }),
-    "created just now · active now",
+    "created just now · activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       offered_at: new Date(now - 3 * 60_000).toISOString(),
     }),
-    "3m old · active now",
+    "3m old · activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -116,21 +115,21 @@ test("session status line leads with total age from offered_at", (t) => {
         holding_kind: "work_claim", target_kind: "item", target: "YOK-1",
       }] },
     }),
-    "3h old · claim held 1m · active now",
+    "3h old · claim held 1m · activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, { offered_at: "not-a-time" }),
-    "active now",
+    "activity now",
   );
-  // Attribution names the relationship; the liveness word beside it is the
-  // server's, so an attributed stale session never reads as active.
+  // Attribution names the relationship. Activity duration does not restate
+  // server liveness beside it.
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
       liveness: "stale",
       current_item: "YOK-1",
       work_role: "worker",
     }),
-    "worktree attached now · stale · activity just now",
+    "worktree attached now · activity now",
   );
 });
 
@@ -156,7 +155,7 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         claimed_at: ago(12 * 60_000),
       }] },
     }),
-    "2h old · claim held 12m · active now",
+    "2h old · claim held 12m · activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -168,7 +167,7 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         claimed_at: ago(5 * 60_000),
       }] },
     }),
-    "2h old · claim held 5m · active now",
+    "2h old · claim held 5m · activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -189,7 +188,7 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         },
       ] },
     }),
-    "2h old · claim held 12m · active now",
+    "2h old · claim held 12m · activity now",
   );
   assert.equal(
     renderedActivityAge(documentNode, activityNow, {
@@ -209,6 +208,6 @@ test("claim held duration follows the top rendered claim of any kind", (t) => {
         },
       ] },
     }),
-    "2h old · claim held 8m · active now",
+    "2h old · claim held 8m · activity now",
   );
 });

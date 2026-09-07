@@ -1,4 +1,4 @@
-import { relativeAge } from "./universe_time.js";
+import { isInstantRelativeTime, relativeAge } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
 const MESSAGE_STATES = new Set([
@@ -54,9 +54,9 @@ function declaredWaitDetail(wait) {
 // answers are not degrees of one another. A session gated behind another item
 // or holding its turn open is waiting by declaration and nothing is wrong with
 // it. A session the stale-alive probe has already asked has a question
-// outstanding, so its silence is being resolved. Only a quiet claim-holder
-// with neither of those is a session nobody can account for — the one worth
-// calling possibly stale.
+// outstanding, so its silence is being resolved. A quiet claim-holder with
+// neither of those is unaccounted for: confirmed stale when the server already
+// says so, possibly stale only while it is still classified active.
 export function sessionHealthState(row, now = Date.now()) {
   if (String(row.liveness || "") === "ended") return null;
   const holdings = row.holdings && Array.isArray(row.holdings.current)
@@ -88,11 +88,35 @@ export function sessionHealthState(row, now = Date.now()) {
       detail: `awaiting response · asked ${relativeAge(probe.created_at)}`,
     };
   }
-  return {
-    state: "stale",
-    label: "possibly stale",
-    detail: "quiet past the staleness window with claims still held",
-  };
+  const detail = "quiet past the staleness window with claims still held";
+  // Server-stale is confirmed. "Possibly stale" is only the still-active
+  // holder whose roster has not yet re-read liveness — never both.
+  if (String(row.liveness || "") === "stale") {
+    return { state: "stale", label: "stale", detail };
+  }
+  return { state: "possibly stale", label: "possibly stale", detail };
+}
+
+export function sessionPrimaryStatus(row, now = Date.now()) {
+  const liveness = String(row.liveness || "").toLowerCase();
+  if (liveness === "ended") return { state: "ended", label: "ended", detail: null };
+  const health = sessionHealthState(row, now);
+  if (health) return health;
+  if (liveness === "stale") return { state: "stale", label: "stale", detail: null };
+  if (liveness === "active") {
+    return isInstantRelativeTime(row.activity_at, now)
+      ? { state: "active", label: "active", detail: null }
+      : { state: "idle", label: "idle", detail: null };
+  }
+  return { state: "unknown", label: "unknown", detail: null };
+}
+
+export function appendSessionPrimaryStatus(documentNode, top, row, now = Date.now()) {
+  const status = sessionPrimaryStatus(row, now);
+  const pill = statePill(documentNode, status.state, status.label);
+  const confirmed = status.state === "stale" ? " session-stale-pill" : "";
+  pill.className = `${pill.className} session-status-pill${confirmed}`;
+  top.appendChild(pill);
 }
 
 // A killed session is ended like any other gone session; the kill is a cause
@@ -111,11 +135,8 @@ function appendKillCause(documentNode, body, row) {
 
 function appendHealth(documentNode, body, row) {
   const health = sessionHealthState(row);
-  if (!health) return;
+  if (!health || !health.detail) return;
   const line = el(documentNode, "div", "session-health");
-  const pill = statePill(documentNode, health.state, health.label);
-  pill.className = `${pill.className} session-health-pill`;
-  line.appendChild(pill);
   line.appendChild(el(
     documentNode, "span", "session-health-detail", health.detail,
   ));

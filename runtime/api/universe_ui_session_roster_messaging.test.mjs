@@ -112,7 +112,7 @@ test("roster defaults to active and exposes only the supported filters", async (
     byClass(staleCard, "session-stale-pill").map(
       (pill) => [pill.textContent, pill.className],
     ),
-    [["stale", "pill crit session-stale-pill"]],
+    [["stale", "pill warn session-status-pill session-stale-pill"]],
   );
   assert.deepEqual(
     requests.filter((request) => request.function === "sessions.list")

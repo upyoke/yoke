@@ -176,8 +176,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.deepEqual(
     byClass(root, "pill").map((pill) => [pill.textContent, pill.className]),
     [
+      ["idle", "pill idle session-status-pill"],
       ["test-mac", "pill good session-relay-pill"],
-      ["stale", "pill crit session-stale-pill"],
+      ["stale", "pill warn session-status-pill session-stale-pill"],
       ["machine-2", "pill crit session-relay-pill"],
     ],
   );
@@ -245,11 +246,11 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   // The server-active card can be quiet without being recategorized as stale.
   assert.deepEqual(
     byClass(cards[0], "session-age-prefix").map((node) => node.textContent),
-    ["claim held ", "idle "],
+    ["claim held ", "activity "],
   );
   assert.deepEqual(
     byClass(cards[1], "session-age-prefix").map((node) => node.textContent),
-    ["worktree attached ", "stale "],
+    ["worktree attached ", "activity "],
   );
 
   const reclaim = byClass(root, "item-button").find(

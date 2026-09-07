@@ -104,14 +104,16 @@ Two things the report deliberately does not do, so do them yourself:
   TEXT`. Work that will never resume is `yoke items cancel PREFIX-N --reason
   TEXT`, not freeze.
 
-The dashboard session card carries these signals faster when the operator has
-it open: a server-active session reads `active now` under a minute and `idle
-<age>` once quiet; a server-stale one keeps `stale <age>` (or `stale ·
-activity just now` after fresh activity), and a claim-holding card adds a
-`waiting` / `probed` / `possibly stale` pill past the staleness window. The
-server's classification against the executor-aware TTL (1440 minutes on this
-surface) solely decides alive versus stale, so `idle 6h` can still be a
-session the control plane counts. The age says how long it has been quiet.
+The dashboard session card carries one primary status in the identity line:
+`active` under a minute of activity, `idle` once quiet, confirmed `stale`
+when the server has classified it, and `possibly stale` only while still
+server-active past the window with claims and no wait or probe. A
+claim-holding card's primary becomes `waiting` or `probed` when those facts
+explain the quiet. Age, relay, and latest-message stay labelled subordinates
+and never restate that status word. The server's classification against the
+executor-aware TTL (1440 minutes on this surface) solely decides alive versus
+stale, so an `idle` card with a 6h activity age can still be a session the
+control plane counts. The age says how long it has been quiet.
 
 ### 2. Consume worker reports
 

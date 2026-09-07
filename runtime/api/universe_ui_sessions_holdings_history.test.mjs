@@ -287,6 +287,6 @@ test("a live steering seat meta line shows claim held from the lead claim", (t) 
   assert.equal(byClass(rendered, "session-steering-lead").length, 1);
   assert.equal(
     byClass(rendered, "session-age")[0].textContent,
-    "12m old · claim held 12m · active now",
+    "12m old · claim held 12m · activity now",
   );
 });
