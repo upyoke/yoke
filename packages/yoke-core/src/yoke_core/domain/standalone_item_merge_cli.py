@@ -250,6 +250,19 @@ def run(argv: List[str]) -> int:
             envelope["warnings"].append(write_warning)
         envelope["evidence_recorded"] = True
 
+    from yoke_core.domain.standalone_item_merge_release_continuation import (
+        continue_prepared_release,
+    )
+
+    _announce_close_out("prepared release")
+    release_fragment, release_warning = continue_prepared_release(
+        item_id=item_id, session_id=str(args.session_id),
+    )
+    if release_fragment is not None:
+        envelope["prepared_release"] = release_fragment
+    if release_warning:
+        envelope["warnings"].append(release_warning)
+
     from yoke_core.domain.standalone_item_merge import sync_item_to_github
 
     _announce_close_out("syncing GitHub")

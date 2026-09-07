@@ -42,6 +42,7 @@ def handle_deployment_run_start_for_item(
         environment=(payload.get("environment") or None),
         release_lineage=(payload.get("release_lineage") or None),
         created_by=created_by,
+        prepare=bool(payload.get("prepare") or False),
         session_id=request.actor.session_id,
     )
     if not result.ok:
@@ -65,4 +66,43 @@ def handle_deployment_run_start_for_item(
     )
 
 
-__all__ = ["handle_deployment_run_start_for_item"]
+def handle_deployment_run_continue_for_item(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    if request.target.kind != "item" or request.target.item_id is None:
+        return error(
+            "target_invalid",
+            "deployment_runs.continue_for_item requires target.kind='item'",
+            jsonpath="$.target.kind",
+        )
+    payload = request.payload or {}
+    lineage = payload.get("release_lineage")
+    if lineage is not None and not isinstance(lineage, str):
+        return error(
+            "payload_invalid",
+            "release_lineage must be a string when present",
+            jsonpath="$.payload.release_lineage",
+        )
+    from yoke_core.engines.runs_continue_for_item import continue_for_item
+
+    outcome = continue_for_item(
+        int(request.target.item_id),
+        release_lineage=(lineage or None),
+        session_id=request.actor.session_id,
+    )
+    if not outcome.ok:
+        return error(
+            outcome.error_code or "continue_for_item_failed",
+            str(outcome.error),
+            jsonpath=None,
+        )
+    return HandlerOutcome(
+        result_payload=outcome.to_dict(),
+        primary_success=True,
+    )
+
+
+__all__ = [
+    "handle_deployment_run_continue_for_item",
+    "handle_deployment_run_start_for_item",
+]

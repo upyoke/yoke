@@ -12,6 +12,7 @@ from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_scalar
+from yoke_core.domain import deployment_run_lineage_rebind as lineage_rebind
 from yoke_core.domain.deployment_runs_schema import (
     UPDATABLE_FIELDS,
     VALID_STATUSES,
@@ -258,7 +259,6 @@ def cmd_update(
                 except ValueError as exc:
                     return f"Error: {exc}"
 
-            # Cross-field consistency guard for status=succeeded
             if value == "succeeded":
                 cur_stage = (
                     query_scalar(
@@ -270,7 +270,6 @@ def cmd_update(
                 )
 
                 if cur_stage:
-                    # Reject if current_stage ends in '-failed'
                     if cur_stage.endswith("-failed"):
                         if not force:
                             return (
@@ -278,7 +277,6 @@ def cmd_update(
                                 f"current_stage '{cur_stage}' indicates failure"
                             )
 
-                    # Reject if current_stage doesn't match final flow stage
                     run_flow = query_scalar(
                         conn,
                         "SELECT flow FROM deployment_runs WHERE id=%s",
@@ -308,7 +306,6 @@ def cmd_update(
                             except (json.JSONDecodeError, IndexError, KeyError):
                                 pass
 
-            # Auto-set started_at when transitioning to executing
             if value == "executing":
                 conn.execute(
                     "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
@@ -317,7 +314,6 @@ def cmd_update(
                 conn.commit()
                 return None
 
-            # Auto-set completed_at when transitioning to terminal states
             if value in ("succeeded", "failed", "cancelled"):
                 completed_at = iso8601_now()
                 conn.execute(
@@ -336,6 +332,10 @@ def cmd_update(
                     record_carried_work(conn, run_id)
                 conn.commit()
                 return None
+        elif field == lineage_rebind.LINEAGE_FIELD and (
+            refusal := lineage_rebind.refuse_lineage_write(conn, run_id, value)
+        ):
+            return refusal
         elif _lock_run(conn, run_id) is None:
             return f"Error: deployment run '{run_id}' not found"
 

@@ -45,7 +45,15 @@ RUN_FIELDS = (
     "carried_work",
 )
 
-UPDATABLE_FIELDS = ("status", "current_stage", "created_by")
+# ``release_lineage`` is writable only while a run is still ``created``, so a
+# run prepared before its work merged can be bound to the commit that merge
+# produced. ``deployment_run_lineage_rebind`` owns that window.
+UPDATABLE_FIELDS = (
+    "status",
+    "current_stage",
+    "created_by",
+    "release_lineage",
+)
 
 VALID_STATUSES = tuple(s.value for s in RunStatus)
 
