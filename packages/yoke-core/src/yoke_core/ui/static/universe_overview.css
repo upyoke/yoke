@@ -111,12 +111,12 @@
 }
 .universe-app-root .overview-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(268px, 360px));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 268px), 360px));
   gap: 12px;
   align-items: stretch;
 }
 .universe-app-root .overview-session-grid {
-  grid-template-columns: repeat(auto-fill, minmax(268px, 360px));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 268px), 360px));
 }
 .universe-app-root .overview-session-dialog-host:empty {
   display: none;

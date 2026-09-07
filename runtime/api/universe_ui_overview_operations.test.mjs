@@ -101,7 +101,7 @@ test("the final responsive layer caps grids and owns compact behavior", () => {
   const responsive = readFileSync(new URL(
     `${staticUrl}universe_responsive.css`, import.meta.url,
   ), "utf8");
-  assert.match(overview, /minmax\(268px, 360px\)/);
+  assert.match(overview, /minmax\(min\(100%, 268px\), 360px\)/);
   for (const contract of [
     "@media (max-width: 1180px)",
     "@media (max-width: 980px)",
