@@ -104,14 +104,8 @@
     "launch_model_selection": {
       "source": "yoke_contracts.session_control.model_selection",
       "surface": "codex-cli",
-      "model_catalog": "documented",
-      "documented_models": [
-        "gpt-5.6-sol",
-        "gpt-5.6-terra",
-        "gpt-5.6-luna",
-        "gpt-5.5",
-        "gpt-5.4"
-      ],
+      "model_discovery": "codex app-server model/list",
+      "model_catalog": "native_cli",
       "reasoning_efforts": [
         "none",
         "minimal",

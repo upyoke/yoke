@@ -52,6 +52,7 @@ PERMANENT_ROWS: tuple[_Row, ...] = tuple(
         "serve-once",
         "diagnostic",
         "probe-surface",
+        "probe-models",
     )
 ) + (
     _p(

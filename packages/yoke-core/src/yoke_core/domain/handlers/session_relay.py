@@ -139,6 +139,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     preferred_session_reasoning_efforts=(
                         payload.preferred_reasoning_efforts
                     ),
+                    surface_native_models=payload.native_models,
                 ),
                 wait_seconds=payload.wait_seconds,
                 broker_only=payload.broker_only,

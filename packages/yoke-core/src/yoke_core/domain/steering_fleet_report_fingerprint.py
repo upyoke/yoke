@@ -14,6 +14,9 @@ from typing import TYPE_CHECKING, Any
 
 from yoke_core.domain.steering_fleet_report_balance import selection_fingerprint_rows
 from yoke_core.domain.steering_fleet_report_limits import fingerprint_material
+from yoke_core.domain.steering_fleet_report_native_models import (
+    fingerprint_material as native_model_fingerprint_material,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - annotation only, no import cycle
     from yoke_core.domain.steering_fleet_report import FleetReport
@@ -78,6 +81,7 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
             (row.machine_id, row.surface) for row in report.launchable
         ),
         "plan_limits": fingerprint_material(report.plan_limits),
+        "native_models": native_model_fingerprint_material(report.native_models),
         "machine_capacity": sorted(
             (c.machine_id, c.live_lanes, c.max_worker_lanes, c.at_capacity)
             for c in report.machine_capacity

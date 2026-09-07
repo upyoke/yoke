@@ -24,6 +24,9 @@ from yoke_harness.session_relay_codex_app_server_client import (
     CodexAppServerError,
     _Client,
 )
+from yoke_harness.session_relay_codex_app_server_reasons import (
+    app_server_failure_reason,
+)
 from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_plan_limit_http import (
@@ -38,48 +41,7 @@ _RATE_LIMIT_METHOD = "account/rateLimits/read"
 _APP_SERVER_OPERATION = "codex plan-limit app-server read"
 _MIRROR_OPERATION = "codex plan-limit usage-mirror read"
 
-# The client's failure codes, translated into the reason an operator reads
-# off the fleet report. An unmapped code is carried through rather than
-# collapsed into a reason that names nothing.
-_APP_SERVER_REASONS = {
-    "binary_resolve": "cli_unavailable",
-    "spawn": "app_server_spawn_failed",
-    "pipes": "app_server_pipes_unavailable",
-    "request_rejected": "app_server_request_rejected",
-    "write_failed": "app_server_write_failed",
-    "eof": "app_server_eof_before_reply",
-    "timeout": "app_server_timeout",
-    "response_oversize": "app_server_response_oversize",
-    "stdout_unavailable": "app_server_stdout_unavailable",
-    # The client raises this code only for the peer's JSON-RPC "method not
-    # found" error — the one signal that actually means this build lacks
-    # the operation. Every other RPC error raises "rpc_error" instead (see
-    # _failure_reason), so it keeps its own code rather than reading as
-    # this.
-    "method_error": "unsupported_on_this_build",
-}
-
 _failures = FailureReporter()
-
-
-def _failure_reason(failure: CodexAppServerError) -> str:
-    """Name the app-server failure, keeping the class that actually raised.
-
-    An ``rpc_error`` carries whatever code the peer's own JSON-RPC error
-    named (authentication, invalid params, an internal error, …). Losing
-    that code is what used to let an unrelated RPC failure read as
-    "unsupported build" (field-note 46471), so it stays in the reason
-    instead of collapsing into one bucket.
-    """
-    if failure.code == "rpc_error":
-        if failure.rpc_error_code is not None:
-            return f"app_server_rpc_error:{failure.rpc_error_code}"
-        return "app_server_rpc_error"
-    reason = _APP_SERVER_REASONS.get(failure.code, f"app_server_{failure.code}")
-    cause = failure.__cause__
-    if cause is None or isinstance(cause, CodexAppServerError):
-        return reason
-    return f"{reason}:{type(cause).__name__}"
 
 
 def app_server_reading(observed_at: str) -> tuple[dict[str, Any] | None, str, str]:
@@ -100,7 +62,7 @@ def app_server_reading(observed_at: str) -> tuple[dict[str, Any] | None, str, st
         )
         result = client.request(_RATE_LIMIT_METHOD, {})
     except CodexAppServerError as failure:
-        reason = _failure_reason(failure)
+        reason = app_server_failure_reason(failure)
         tail = client.stderr_tail() if client is not None else ""
         detail = f"{reason} ({failure}); child stderr: {tail or '<empty>'}"
         return None, reason, detail

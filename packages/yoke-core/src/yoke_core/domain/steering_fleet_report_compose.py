@@ -33,6 +33,7 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_balance import aggregate_session_counts
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
+from yoke_core.domain.steering_fleet_report_native_models import native_model_lines
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_inbox import (
     UnackedInjectedMessage,
@@ -269,6 +270,16 @@ def _machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[s
                 session_counts=tuple(
                     row for row in counts if row.machine_id == machine_id
                 ),
+            )
+        )
+        lines.extend(
+            native_model_lines(
+                tuple(
+                    row
+                    for report in reports
+                    for row in report.native_models
+                    if row.machine_id == machine_id
+                )
             )
         )
     return lines

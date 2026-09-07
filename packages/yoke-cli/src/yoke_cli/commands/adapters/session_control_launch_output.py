@@ -208,6 +208,38 @@ def write_relay_probe_summary(payload: Mapping[str, Any], stdout: TextIO) -> Non
     )
 
 
+def write_relay_model_summary(
+    readings: Mapping[str, Mapping[str, Any]], stdout: TextIO
+) -> None:
+    """One row per surface, so an unanswered surface is as visible as an answer."""
+    rows = [
+        {
+            "surface": surface,
+            "status": reading.get("status"),
+            "models": len(reading.get("models") or ()),
+            "observed_at": reading.get("observed_at"),
+            "source": reading.get("source"),
+            "reason": reading.get("reason"),
+        }
+        for surface, reading in sorted(readings.items())
+    ]
+    columns: tuple[Column, ...] = (
+        ("SURFACE", lambda row: row.get("surface"), 20),
+        ("STATUS", lambda row: humanize(row.get("status")), 12),
+        ("MODELS", lambda row: row.get("models"), 6),
+        ("OBSERVED", lambda row: row.get("observed_at"), 20),
+        ("SOURCE", lambda row: row.get("source"), 30),
+        ("REASON", lambda row: row.get("reason"), None),
+    )
+    write_table(
+        "NATIVE MODEL AVAILABILITY",
+        columns,
+        rows,
+        stdout,
+        empty="No surfaces reported native model availability.",
+    )
+
+
 def write_relay_summary(
     payload: Mapping[str, Any],
     stdout: TextIO,

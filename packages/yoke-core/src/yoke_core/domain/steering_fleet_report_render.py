@@ -32,6 +32,7 @@ from yoke_core.domain.steering_fleet_report_render_vendor_errors import (
     vendor_error_lines,
 )
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
+from yoke_core.domain.steering_fleet_report_native_models import native_model_lines
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 from yoke_core.domain.steering_fleet_report_landings import landing_lines
 from yoke_core.domain.steering_fleet_report_sections import (
@@ -252,6 +253,7 @@ def report_body(report: FleetReport) -> str:
             now=report.composed_at,
             session_counts=report.session_counts,
         ),
+        *native_model_lines(report.native_models),
         REPORT_END,
     ]
     return "\n".join(lines)

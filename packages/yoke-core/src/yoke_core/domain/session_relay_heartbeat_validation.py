@@ -6,6 +6,7 @@ import uuid
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.machine_config.machine_capacity import sanitize_machine_capacity
+from yoke_contracts.session_control.native_models import sanitize_native_models
 from yoke_contracts.session_control.plan_limits import sanitize_plan_limits
 from yoke_contracts.session_control.relay_health import sanitize_relay_health
 from yoke_core.domain.session_relay_types import (
@@ -87,6 +88,7 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
         ),
         machine_capacity=sanitize_machine_capacity(heartbeat.machine_capacity),
         relay_health=sanitize_relay_health(heartbeat.relay_health),
+        surface_native_models=sanitize_native_models(heartbeat.surface_native_models),
     )
 
 

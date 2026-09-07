@@ -25,6 +25,7 @@ from yoke_contracts.machine_config.preferred_session_models import (
 from yoke_contracts.session_control.model_selection import (
     LaunchModelSelectionError,
 )
+from yoke_contracts.session_control.native_models import sanitize_native_models
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.session_relay_types import (
@@ -116,6 +117,29 @@ def machine_preferred_reasoning_efforts(
     )
 
 
+def machine_native_models(conn: Any, *, machine_id: str) -> dict[str, dict[str, Any]]:
+    """Return what each surface on this machine last said it can select.
+
+    Keyed by surface. Every entry names its own ``status``: only ``ok`` and
+    ``stale`` carry observed models, and neither ``unknown`` nor
+    ``unsupported`` is evidence that a model is unavailable — they say the
+    machine has not answered and that Yoke has no listing route for that
+    surface. A caller routing work reads the status before the list.
+    """
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        "SELECT surface_native_models FROM session_relays "
+        f"WHERE machine_id = {marker} "
+        "ORDER BY last_seen_at DESC, relay_id ASC",
+        (str(machine_id),),
+    ).fetchone()
+    if row is None:
+        return {}
+    return sanitize_native_models(
+        _decode_document(_cell(row, "surface_native_models", 0))
+    )
+
+
 def resolve_machine_selection(
     conn: Any,
     *,
@@ -157,6 +181,7 @@ def resolve_machine_selection(
 
 __all__ = [
     "ResolvedMachineSelection",
+    "machine_native_models",
     "machine_preference_payload",
     "machine_preferred_models",
     "machine_preferred_reasoning_efforts",

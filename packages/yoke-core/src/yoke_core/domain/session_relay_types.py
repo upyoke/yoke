@@ -50,6 +50,7 @@ class RelayHeartbeat:
     preferred_session_models: Mapping[str, str] = field(default_factory=dict)
     relay_health: Mapping[str, Any] = field(default_factory=dict)
     preferred_session_reasoning_efforts: Mapping[str, str] = field(default_factory=dict)
+    surface_native_models: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 def advertised_session_models(raw: Any) -> dict[str, str]:

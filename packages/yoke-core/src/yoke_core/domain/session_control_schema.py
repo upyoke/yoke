@@ -236,7 +236,8 @@ def create_session_control_tables(conn: Any) -> None:
             machine_capacity TEXT,
             preferred_session_models TEXT,
             relay_health TEXT,
-            preferred_session_reasoning_efforts TEXT
+            preferred_session_reasoning_efforts TEXT,
+            surface_native_models TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_session_relays_machine_connected
             ON session_relays(machine_id, connected_until);

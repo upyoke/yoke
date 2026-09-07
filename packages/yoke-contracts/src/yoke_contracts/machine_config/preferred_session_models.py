@@ -101,10 +101,22 @@ def resolve_launch_selection(
     )
 
 
-def list_preferred_models(surface: str | None = None) -> dict[str, Any]:
-    """Return configured defaults beside each CLI's accepted launch catalog."""
+def list_preferred_models(
+    surface: str | None = None,
+    *,
+    availability: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return configured defaults beside each surface's observed availability.
+
+    ``availability`` is this machine's native model readings, which the caller
+    supplies because observing them means running vendor binaries — work that
+    belongs to the relay rather than to a configuration reader.
+    """
     from yoke_contracts.machine_config.runtime import config_path
-    from yoke_contracts.session_control.model_selection import model_catalog
+    from yoke_contracts.session_control.model_selection import (
+        SURFACE_CONTEXT_WINDOWS,
+        SURFACE_EFFORT_LEVELS,
+    )
 
     payload = _load_payload()
     surfaces = (surface,) if surface else launchable_preferred_surfaces()
@@ -130,7 +142,21 @@ def list_preferred_models(surface: str | None = None) -> dict[str, Any]:
         "config_file": str(config_path()),
         "entries": entries,
         "selected": selected,
-        "catalogs": [model_catalog(item).to_dict() for item in surfaces],
+        # What each surface's flags accept is the same on every machine, so it
+        # is declared. Which models it can select is not, so that is observed.
+        "accepted": {
+            item: {
+                "reasoning_efforts": list(SURFACE_EFFORT_LEVELS.get(item, ())),
+                "context_windows": list(SURFACE_CONTEXT_WINDOWS.get(item, ())),
+            }
+            for item in surfaces
+        },
+        "availability": [
+            dict(
+                (availability or {}).get(item) or {"surface": item, "status": "unknown"}
+            )
+            for item in surfaces
+        ],
     }
 
 
@@ -155,23 +181,33 @@ def render_list_models(report: Mapping[str, Any], *, json_mode: bool) -> str:
             f"effort={entry.get('reasoning_effort') or '(none)'}  "
             f"context={_context_label(entry.get('context_window_tokens'))}"
         )
-    for catalog in report.get("catalogs") or ():
-        lines.append(f"{catalog['surface']} accepted ({catalog['source']}):")
-        if catalog.get("error"):
-            lines.append(f"  unavailable: {catalog['error']}; verify the native CLI")
-            continue
-        lines.append(
-            "  models: "
-            + (", ".join(catalog.get("models") or ()) or "(vendor default only)")
-        )
+    for surface, accepted in (report.get("accepted") or {}).items():
+        lines.append(f"{surface} accepted by the CLI flags:")
         lines.append(
             "  effort: "
-            + (", ".join(catalog.get("effort_levels") or ()) or "(unsupported)")
+            + (", ".join(accepted.get("reasoning_efforts") or ()) or "(unsupported)")
         )
         contexts = [
-            _context_label(value) for value in catalog.get("context_windows") or ()
+            _context_label(value) for value in accepted.get("context_windows") or ()
         ]
         lines.append("  context: " + (", ".join(contexts) or "(unsupported)"))
+    for reading in report.get("availability") or ():
+        source = reading.get("source") or "not observed"
+        lines.append(
+            f"{reading['surface']} available ({reading.get('status')}, {source}):"
+        )
+        if reading.get("reason"):
+            lines.append(f"  {reading['reason']}")
+        models = [
+            str(entry.get("model"))
+            for entry in reading.get("models") or ()
+            if entry.get("model")
+        ]
+        if models:
+            lines.append(
+                f"  observed {reading.get('observed_at') or 'at an unknown time'}"
+            )
+            lines.append("  models: " + ", ".join(models))
     return "\n".join(lines) + "\n"
 
 
