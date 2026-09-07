@@ -11,6 +11,7 @@ import uuid
 import venv
 
 from yoke_core.tools.session_relay_release import (
+    PYTHON_ISOLATION_FLAG,
     RELAY_ACTIVE_RELEASE_NAME,
     RELAY_LAUNCH_LINK_NAME,
     RELAY_RELEASE_INSTALL_FAILED,
@@ -63,7 +64,14 @@ def activate_relay_runtime(state_dir: Path) -> None:
 def create_release_venv(path: Path, runtime_python: Path) -> None:
     """Create an isolated package environment using the stable Python version."""
     result = subprocess.run(
-        [str(runtime_python), "-m", "venv", "--copies", str(path)],
+        [
+            str(runtime_python),
+            PYTHON_ISOLATION_FLAG,
+            "-m",
+            "venv",
+            "--copies",
+            str(path),
+        ],
         check=False,
         capture_output=True,
         text=True,
@@ -133,7 +141,7 @@ def _install_runtime_entrypoint(runtime: Path, *, state_dir: Path) -> None:
     source = RUNTIME_ENTRYPOINT_SOURCE.read_text(encoding="utf-8")
     source = source.replace("__YOKE_ACTIVE_RELEASE__", RELAY_ACTIVE_RELEASE_NAME)
     body = source[source.index("\n") :]
-    content = f"#!{relay_runtime_python(state_dir)} -I{body}"
+    content = f"#!{relay_runtime_python(state_dir)} {PYTHON_ISOLATION_FLAG}{body}"
     try:
         if target.read_text(encoding="utf-8") == content and os.access(target, os.X_OK):
             return
