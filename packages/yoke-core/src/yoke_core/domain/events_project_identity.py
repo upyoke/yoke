@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
@@ -109,6 +110,47 @@ def resolve_project_id_for_event(
         own_conn.close()
 
 
+def _parse_envelope_mapping(envelope: Any) -> Optional[dict[str, Any]]:
+    if envelope is None or envelope == "":
+        return None
+    if isinstance(envelope, dict):
+        return envelope
+    if not isinstance(envelope, str):
+        return None
+    try:
+        parsed = json.loads(envelope)
+    except (TypeError, ValueError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def resolution_envelope_for_event_row(
+    *,
+    session_id: str,
+    event_type: str,
+    project: Any,
+    envelope: Any = None,
+) -> dict[str, Any]:
+    """Build resolver input from canonical row identity plus valid context.
+
+    Stored envelope ``session_id`` / ``event_type`` / ``project`` never
+    replace the row. Parseable ``context`` still participates so explicit
+    context project ids keep native writer precedence.
+    """
+    resolved: dict[str, Any] = {
+        "session_id": session_id,
+        "event_type": event_type,
+        "project": project,
+    }
+    parsed = _parse_envelope_mapping(envelope)
+    if parsed is None:
+        return resolved
+    context = parsed.get("context")
+    if isinstance(context, dict):
+        resolved["context"] = context
+    return resolved
+
+
 def resolve_envelope_project_id_for_event(
     conn: Any,
     db_path: Optional[str],
@@ -173,6 +215,7 @@ def resolve_item_id_for_event(
 
 
 __all__ = [
+    "resolution_envelope_for_event_row",
     "resolve_envelope_project_id_for_event",
     "resolve_item_id_for_event",
     "resolve_project_id_for_event",

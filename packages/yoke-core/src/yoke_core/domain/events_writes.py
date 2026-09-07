@@ -225,10 +225,20 @@ def cmd_insert(
         # project): a universe without the named project row must still
         # accept every event write. Local import avoids a module cycle.
         from yoke_core.domain.events_project_identity import (
-            resolve_project_id_for_event,
+            resolve_envelope_project_id_for_event,
+            resolution_envelope_for_event_row,
         )
 
-        project_id = resolve_project_id_for_event(conn, db_path, project)
+        project_id = resolve_envelope_project_id_for_event(
+            conn,
+            db_path,
+            resolution_envelope_for_event_row(
+                session_id=session_id,
+                event_type=event_type,
+                project=project,
+                envelope=envelope,
+            ),
+        )
         if raw_item_id is None:
             item_id = None
         else:

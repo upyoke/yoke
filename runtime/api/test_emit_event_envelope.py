@@ -13,6 +13,7 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.domain import emit_event
 from yoke_core.domain.events import emit_event as emit_event_direct
+from yoke_core.domain.events_project_identity import SESSION_SCOPED_EVENT_TYPES
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_emit_event_test_helpers import (
     events_db,  # noqa: F401 — re-exported pytest fixture
@@ -139,7 +140,7 @@ def test_emit_default_values_match_documented_contract(events_db):
     assert project == "yoke"
 
 
-@pytest.mark.parametrize("event_type", ["session_lifecycle", "hook_dispatch"])
+@pytest.mark.parametrize("event_type", sorted(SESSION_SCOPED_EVENT_TYPES))
 def test_session_scoped_event_project_follows_session(events_db, event_type):
     conn = connect_test_db(events_db)
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
