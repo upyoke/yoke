@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Mapping, Optional
 
 from yoke_core.domain import (
     qa_case_ci_covering_run,
@@ -63,6 +63,7 @@ def _covering_run(
     workflow: str,
     queue_routed: bool,
     timeout_seconds: int,
+    required_inputs: Optional[Mapping[str, str]] = None,
 ) -> Optional[qa_case_ci_lane.WorkflowRun]:
     """The run already answering for the lane's current head, if any.
 
@@ -84,7 +85,9 @@ def _covering_run(
             timeout_seconds=timeout_seconds,
             event="pull_request" if queue_routed else "",
         )
-    source = qa_case_ci_covering_run.classify(run, head_sha=head_sha)
+    source = qa_case_ci_covering_run.classify(
+        run, head_sha=head_sha, required_inputs=required_inputs,
+    )
     if source == qa_case_ci_covering_run.DISPATCHED:
         return None
     return run
@@ -100,6 +103,7 @@ def prepare_lane_preserving_covering_run(
     lane_is_checked_out: bool,
     requirement_id: int,
     timeout_seconds: int,
+    required_inputs: Optional[Mapping[str, str]] = None,
 ) -> PreparedLane:
     """Rebase the lane, unless a run already covers the candidate it is on.
 
@@ -124,6 +128,7 @@ def prepare_lane_preserving_covering_run(
                 workflow=workflow,
                 queue_routed=queue_routed,
                 timeout_seconds=timeout_seconds,
+                required_inputs=required_inputs,
             )
         except QaCaseExecutionError as exc:
             qa_case_ci_progress.announce_resume_probe_failed(

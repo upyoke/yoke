@@ -23,7 +23,7 @@ racing a duplicate.
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Mapping, Optional
 
 from yoke_core.domain.qa_case_ci_conclusion import BINDING_CONCLUSIONS
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
@@ -117,7 +117,12 @@ def _lookup_failed(
     )
 
 
-def classify(run: Optional[WorkflowRun], *, head_sha: str) -> str:
+def classify(
+    run: Optional[WorkflowRun],
+    *,
+    head_sha: str,
+    required_inputs: Optional[Mapping[str, str]] = None,
+) -> str:
     """Name what *run* lets this invocation do about *head_sha*.
 
     A run on any other commit, or none at all, means this tree is
@@ -127,7 +132,18 @@ def classify(run: Optional[WorkflowRun], *, head_sha: str) -> str:
     every retry would find the same cancelled run and no green would be
     reachable short of a new commit. Anything still running is attached
     to, which is the same evidence a moment earlier.
+
+    ``required_inputs`` are the candidate inputs the case declares
+    (:mod:`yoke_core.domain.qa_case_ci_candidate_inputs`). They add a
+    second fact the run has to match, and GitHub's run record cannot
+    attest it: the API never reports the inputs a ``workflow_dispatch``
+    run was posted with, and a ``pull_request`` run carried none. A run
+    built against a *different* producer candidate is not covering
+    evidence, so an unattestable one is never adopted — the only run
+    whose inputs are known is one this invocation dispatches itself.
     """
+    if required_inputs:
+        return DISPATCHED
     if run is None or not run.head_sha or run.head_sha != head_sha:
         return DISPATCHED
     if run.status == "completed":

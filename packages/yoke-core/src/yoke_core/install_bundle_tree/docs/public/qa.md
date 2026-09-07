@@ -87,6 +87,38 @@ Declaring `merge_queue` requires GitHub bound, `ci_workflow_file` declared,
 and that workflow carrying a `merge_group` trigger — without it the queue's
 integration gate has nothing to run and a queued pull request never merges.
 
+## Proving an exact producer candidate
+
+A CI run normally proves one fact: the commit it checked out. Verifying an
+unpublished producer candidate — a consumer built against a revision no
+release carries yet — needs a second one, and it rides the case's own
+`method_config.ci_workflow_inputs`:
+
+```bash
+yoke qa requirement add --item PREFIX-N --method-id command-ci \
+  --qa-phase verification --workflow-transition reviewing-implementation \
+  --method-config '{"command":"...","ci_workflow":"ci.yml",
+    "ci_workflow_inputs":{"product_ref":"<40-hex candidate>"}}' \
+  --instructions "..." --expected-outcome "..."
+```
+
+Values must be non-empty strings, and the reserved `yoke_dispatch_id`
+correlation input is refused — dispatch sets that one itself. Every dispatch
+path carries the declared inputs: the gate's first dispatch, its one
+never-started redispatch, and the merge boundary's post-rebase run, which
+reads them back from this same requirement rather than from anything the
+merge command was told.
+
+**A case declaring inputs never reuses a run it finds.** GitHub's run record
+does not expose the inputs a `workflow_dispatch` run was posted with, so a run
+sitting on the right commit cannot be shown to have built against the right
+candidate — and one built against a different candidate is not covering
+evidence. Adoption and attachment are therefore skipped, and the gate
+dispatches the only run whose inputs are known. A `pull_request` run carries
+no dispatch inputs at all, so a project verifying through its merge queue
+refuses the declaration by name instead of recording a proof it cannot make.
+Cases declaring no inputs adopt and attach exactly as before.
+
 ## When the project has no suite
 
 A repository with nothing runnable does not get an empty gate. An empty
