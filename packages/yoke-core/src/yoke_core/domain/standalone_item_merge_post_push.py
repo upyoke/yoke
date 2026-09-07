@@ -294,6 +294,16 @@ def complete(
             notes.append(note)
 
     record()
+    if pushed and not merge_sha:
+        # There is no commit to ask GitHub about, so the proof is skipped
+        # rather than run against an empty ref. Say so: a silent skip reads
+        # like a clean proof.
+        notes.append(
+            f"post-push checks skipped: no merge commit records {branch!r} "
+            f"landing on {target!r}, so there is nothing to prove. Re-run "
+            "the merge once the branch has a commit the target does not "
+            "already contain."
+        )
     if pushed and merge_sha:
         verdict = await_post_push_checks(project, merge_sha, authority)
         if verdict.runs:

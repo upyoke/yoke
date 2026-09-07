@@ -13,6 +13,8 @@ from tempfile import TemporaryDirectory
 
 from yoke_project_checks.check_events_app_state_reads import (
     ALLOWED_EVENTS_READERS,
+    ALLOWED_REGISTERED_QUERY_READERS,
+    REGISTERED_EVENTS_QUERY,
     _OPTIONAL_MATCH_READER_PREFIXES,
     scan_events_reads,
 )
@@ -166,11 +168,35 @@ class TestScanEventsReads(unittest.TestCase):
         # entry in the current permanent history.
         expected = tuple(
             e
-            for e in ALLOWED_EVENTS_READERS
+            for e in (*ALLOWED_EVENTS_READERS, *ALLOWED_REGISTERED_QUERY_READERS)
             if e not in _OPTIONAL_MATCH_READER_PREFIXES
         )
         self.assertEqual(tuple(stale), expected)
         self.assertFalse(_OPTIONAL_MATCH_READER_PREFIXES.intersection(stale))
+
+    def test_the_registered_query_is_a_read_a_sql_scan_cannot_see(self):
+        """Reaching the same rows through the dispatcher is still a read."""
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            _write(
+                root,
+                "packages/yoke-core/src/yoke_core/domain/some_reader.py",
+                f'call_dispatcher(function_id="{REGISTERED_EVENTS_QUERY}")\n',
+            )
+            violations, _ = scan_events_reads(root)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("some_reader.py", violations[0])
+
+    def test_the_events_query_surface_may_name_its_own_function(self):
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            _write(
+                root,
+                ALLOWED_REGISTERED_QUERY_READERS[0],
+                f'FUNCTION = "{REGISTERED_EVENTS_QUERY}"\n',
+            )
+            violations, _ = scan_events_reads(root)
+        self.assertEqual(violations, [])
 
     def test_event_name_lines_do_not_match(self):
         with TemporaryDirectory() as td:
