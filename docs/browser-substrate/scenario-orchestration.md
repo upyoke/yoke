@@ -59,7 +59,9 @@ Advance flows must not refine or replace it after materialization.
 6. Records a run through `qa.run.add` and `qa.run.complete`.
 7. Records screenshot or trace evidence through `qa.artifact.add`; durable
    storage uses `qa.artifact.presign` when the project environment declares an
-   artifact bucket.
+   artifact bucket. A client that already holds the bytes can pass them
+   inline (`content_base64` plus `filename`) instead of a machine-local
+   handle the server cannot read.
 8. Prints a JSON result for the named requirement, including its verdict, run
    identity, execution status, and artifact paths.
 

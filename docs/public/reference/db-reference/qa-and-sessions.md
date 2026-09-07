@@ -123,7 +123,8 @@ JSON document naming where the bytes live. `s3` handles are durable evidence
 uploaded at record time (the orchestrator mints a presigned PUT via
 `qa.artifact.presign`, uploads, then records); `local` handles explicitly
 declare machine-local evidence (tests, manual fallbacks, repo-committed
-baselines). Bare paths are refused by `qa.artifact.add`. Gates verify `local`
+baselines). Bare paths are refused by `qa.artifact.add`. Mutually exclusive
+inline `content_base64` plus `filename` stores a `local` handle. Gates verify `local`
 handles on disk and accept well-formed `s3` handles structurally (the upload
 preceded the record; lifecycle gates add no network calls).
 

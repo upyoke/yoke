@@ -48,7 +48,9 @@ class QaRunCompleteResponse(BaseModel):
 class QaArtifactAddRequest(BaseModel):
     run_id: int
     artifact_type: str
-    artifact_handle: dict
+    artifact_handle: Optional[dict] = None
+    content_base64: Optional[str] = None
+    filename: Optional[str] = None
     content_type: Optional[str] = None
     metadata: Optional[str] = None
     execution_claim_id: Optional[int] = None
