@@ -234,3 +234,37 @@ def test_the_hold_ledger_exists_for_the_stop_gate(worker):
         (SESSION_ID,),
     ).fetchone()
     assert row["hold_count"] == 1
+
+
+def test_the_call_is_recorded_even_where_telemetry_cannot_be_written(worker):
+    """Whether a deployment retains events is not a fact about the session.
+
+    ``insert_event`` used to return before touching state when the events
+    table was missing, so a database that keeps no telemetry recorded no
+    activity either — and every liveness, claim-freshness, and recovery
+    reader downstream saw a session that had never done anything.
+    """
+    from yoke_core.domain.observe_event_emission import insert_event
+
+    worker.execute("DROP TABLE events")
+    worker.commit()
+
+    insert_event(
+        worker,
+        {
+            "event_id": "no-ledger-1",
+            "event_name": "HarnessToolCallCompleted",
+            "event_outcome": "completed",
+            "event_time": LATER,
+            "session_id": SESSION_ID,
+            "severity": "INFO",
+            "tool_name": "Bash",
+            "tool_use_id": CALL_ID,
+            "context": {"detail": {"tool_name": "Bash"}},
+        },
+    )
+
+    activity = _activity(worker)
+    assert activity["tool_call_count"] == 1
+    assert activity["last_tool_call_at"] == LATER
+    assert activity["first_completed_work_at"] == LATER

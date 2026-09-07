@@ -44,6 +44,16 @@ def launch_connection() -> sqlite3.Connection:
             keepalive_reason TEXT,
             ended_at TEXT
         );
+        """
+        # The recovery facts every session-state reader consults, rendered
+        # from their own declaration so this fixture cannot drift from the
+        # real schema. Base rather than relay-only: launch settlement reads
+        # the completed-work marker straight off this connection.
+        + "".join(
+            f"ALTER TABLE harness_sessions ADD COLUMN {column} {ddl};\n"
+            for column, ddl in SESSION_RECOVERY_COLUMNS
+        )
+        + """
         INSERT INTO actors (id) VALUES (1), (2), (3);
         INSERT INTO projects (id, slug) VALUES (10, 'launch-project');
         INSERT INTO harness_sessions (
@@ -108,10 +118,6 @@ def relay_connection(
         "NOT NULL DEFAULT 'unknown'"
     )
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN turn_posture_at TEXT")
-    # The recovery facts every session-state reader consults, declared once
-    # from their owner so this fixture cannot drift from the real schema.
-    for column, ddl in SESSION_RECOVERY_COLUMNS:
-        conn.execute(f"ALTER TABLE harness_sessions ADD COLUMN {column} {ddl}")
     conn.commit()
     return conn
 
