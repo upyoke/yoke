@@ -16,7 +16,7 @@ from yoke_core.domain.source_freeze_intent import file_sha256
 def _receipt_for(dump: Path) -> dict:
     return {
         "freeze_intent": {
-            "schema": "yoke.source-freeze/v1",
+            "schema": "yoke.source-freeze/v2",
             "database": {"name": "yoke", "oid": 7, "org": "default"},
             "archive": {
                 "sha256": file_sha256(dump),

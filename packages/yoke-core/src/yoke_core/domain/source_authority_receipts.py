@@ -1,4 +1,12 @@
-"""Deterministic, secret-free source-authority comparison receipts."""
+"""Deterministic, secret-free source-authority comparison receipts.
+
+The receipt answers one question: is this universe's AUTHORITY the same
+as that one's? Disposable telemetry is deliberately outside that answer —
+see the ``disposable_telemetry`` owner in :data:`EXCLUDED_TABLE_OWNERSHIP`.
+Event schema still enters :func:`fingerprint_portable_postgres_schema` and
+the full database table catalog, and every event row still travels in the
+dump under the archive's exact byte checksum.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +25,7 @@ from yoke_core.domain.source_authority_overlay_receipts import (
 )
 
 
-NORMALIZATION_SCHEMA = "yoke.portable-authority/v1"
+NORMALIZATION_SCHEMA = "yoke.portable-authority/v2"
 EXCLUDED_TABLE_OWNERSHIP = {
     "destination_convergence": frozenset({
         "actor_external_identities", "actor_invites", "actor_labels",
@@ -35,6 +43,13 @@ EXCLUDED_TABLE_OWNERSHIP = {
         "harness_sessions", "merge_locks",
         "session_tool_calls", "work_claims",
     }),
+    # Telemetry rows still travel inside the archive and are still covered
+    # by the schema fingerprint and the archive's exact byte checksum. They
+    # are kept out of the AUTHORITY comparison because they are disposable:
+    # one event emitted, pruned, or dropped between two receipts is not a
+    # change of authority, and treating it as one made a live export refuse
+    # a universe nothing had actually altered.
+    "disposable_telemetry": frozenset({"events"}),
 }
 NORMALIZED_EXCLUDED_TABLES = frozenset().union(
     *EXCLUDED_TABLE_OWNERSHIP.values()
@@ -80,9 +95,6 @@ def authority_receipt(
         "strategy_rows": strategies,
         "sequences": sequences,
         "content_digests_included": include_content_digests,
-        "event_max_created_at": (
-            _event_max_created_at(conn) if "events" in tables else None
-        ),
     }
     body["project_capabilities"] = (
         project_capabilities_receipt(conn)
@@ -222,11 +234,6 @@ def _sequence_receipts(
             }
         )
     return receipts
-
-
-def _event_max_created_at(conn: object) -> str | None:
-    value = conn.execute("SELECT MAX(created_at)::text FROM events").fetchone()[0]
-    return None if value is None else str(value)
 
 
 def _sha256_text(value: str) -> str:

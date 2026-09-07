@@ -123,13 +123,13 @@ network, TLS, timeout, and multi-host text never counts as cutoff evidence.
 
 The export writes exactly one artifact: the tar described at the top of this
 page. Its `freeze-receipt.json` member carries the compact
-`yoke.source-freeze/v1` intent (under `freeze_intent`), the detailed authority
+`yoke.source-freeze/v2` intent (under `freeze_intent`), the detailed authority
 audit receipt (under `source_authority`), and the archive data catalog (under
 `catalog`); a replacement service reads all of them from inside the archive.
 None contains a DSN, token, or secret. Compact begin/status receipts use
 bounded count/max/schema/catalog/sequence/strategy queries. The export and
 disposable round-trip each perform one streaming, fixed-batch content-digest
-pass so a large events table is never loaded or sorted in client memory.
+pass, so no table is ever loaded or sorted in client memory.
 
 The dump payload is staged under an owner-only hidden sibling name, the tar is
 assembled receipt-first in a private temporary file, and the final archive
@@ -149,7 +149,23 @@ the detailed receipt and compact intent as distinct overlay evidence. Environmen
 preview-environment, and site rows remain in whole-authority equality. The
 normalization receipt records the owner for every excluded table: destination
 convergence, destination rebinding, destination overlay, a separate receipt
-plane, or intentional retirement.
+plane, intentional retirement, or disposable telemetry.
+
+Telemetry is outside authority equality. Event rows are disposable: one
+emitted, pruned, or never written between two receipts is not a change of
+authority, and counting it as one made a live export refuse a universe
+nothing had altered. So `events` is excluded from the authority receipt
+under the `disposable_telemetry` owner — no per-table count, no max id, no
+content digest, no `events_id_seq` value — and the compact intent carries no
+event watermark. What still covers events is unchanged: the table stays in
+the full database catalog and the schema fingerprint, so a missing, renamed,
+or reshaped events table still fails; and every event row still travels
+inside the dump under the archive's exact byte checksum, so an
+events-carrying diagnostic export is unaffected and is never a prerequisite
+for a valid move. Both contract versions carry that boundary in their names
+(`yoke.source-freeze/v2`, `yoke.portable-authority/v2`), so a consumer
+pinned to the earlier shape fails on the version rather than on a silently
+missing key.
 
 The compact intent's `database` object identifies the frozen **source**
 database (name, OID, and org). It is evidence about what was exported, not a

@@ -13,7 +13,7 @@ def _artifact(tmp_path: Path, *, forge_sha: str | None = None) -> Path:
     dump.write_bytes(b"PGDMPfixture")
     receipt = {
         "freeze_intent": {
-            "schema": "yoke.source-freeze/v1",
+            "schema": "yoke.source-freeze/v2",
             "receipt_id": "b" * 64,
             "database": {"name": "yoke", "oid": 7, "org": "default"},
             "frozen_at": "2026-07-14T00:00:00Z",

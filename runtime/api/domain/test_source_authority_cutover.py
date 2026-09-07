@@ -11,7 +11,7 @@ from yoke_core.domain import source_authority_cutover_lifecycle as lifecycle
 from yoke_core.domain import source_authority_receipts as receipts
 
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "source_freeze_intent_v1.json"
+FIXTURE = Path(__file__).parents[1] / "fixtures" / "source_freeze_intent_v2.json"
 
 
 class _Result:
@@ -296,12 +296,12 @@ def test_quiesced_export_emits_one_receipt_carrying_tar_and_refuses_mutable_sour
     assert report["source_authority"]["receipt_digest"] == "stable"
     assert report["snapshot_proof"]["isolation"] == "repeatable-read-read-only"
     assert len(report["sha256"]) == 64
-    assert report["freeze_intent"]["schema"] == "yoke.source-freeze/v1"
+    assert report["freeze_intent"]["schema"] == "yoke.source-freeze/v2"
     assert report["freeze_intent"]["zero_writable_app_sessions"] is True
     assert "capability_secrets" not in report["catalog"]["tables"]
     assert set(report["freeze_intent"]) == {
         "schema", "receipt_id", "database", "frozen_at", "authority_digest",
-        "event_watermark", "updated_at_watermark", "strategy_sha256", "archive",
+        "updated_at_watermark", "strategy_sha256", "archive",
         "zero_writable_app_sessions", "project_capabilities",
         "capability_secrets",
     }
@@ -344,14 +344,16 @@ def test_cross_repo_freeze_intent_fixture_has_exact_contract():
     intent = json.loads(FIXTURE.read_text(encoding="utf-8"))
     assert set(intent) == {
         "schema", "receipt_id", "database", "frozen_at", "authority_digest",
-        "event_watermark", "updated_at_watermark", "strategy_sha256", "archive",
+        "updated_at_watermark", "strategy_sha256", "archive",
         "zero_writable_app_sessions", "project_capabilities",
         "capability_secrets",
     }
     assert set(intent["database"]) == {"name", "oid", "org"}
-    assert set(intent["event_watermark"]) == {"count", "max_id", "max_created_at"}
+    # Telemetry figures are deliberately absent: an event count can differ
+    # between two receipts of the same authority.
+    assert "event_watermark" not in intent
     assert set(intent["archive"]) == {"sha256", "bytes", "catalog_digest"}
-    assert intent["schema"] == "yoke.source-freeze/v1"
+    assert intent["schema"] == "yoke.source-freeze/v2"
     receipt_body = {
         key: value
         for key, value in intent.items()
@@ -471,24 +473,22 @@ def test_portable_authority_digest_preserves_environment_tables(
         receipts, "fingerprint_portable_postgres_schema",
         lambda _conn: "schema-fingerprint",
     )
-    monkeypatch.setattr(receipts, "_event_max_created_at", lambda _conn: "now")
-
     report = receipts.authority_receipt(object(), include_content_digests=True)
 
-    assert report["normalization"]["schema"] == "yoke.portable-authority/v1"
+    assert report["normalization"]["schema"] == "yoke.portable-authority/v2"
     assert report["normalization"]["project_capability_types"] == (
         "separate-receipt-plane"
     )
     assert report["portable_table_catalog"] == [
         "deployment_preview_environments", "environments",
-        "ephemeral_environments", "events", "items", "sites",
+        "ephemeral_environments", "items", "sites",
     ]
     assert set(report["tables"]) == {
         "deployment_preview_environments", "environments",
-        "ephemeral_environments", "events", "items", "sites",
+        "ephemeral_environments", "items", "sites",
     }
     assert seen["excluded"] == {
-        "api_tokens", "capability_secrets", "project_capabilities",
+        "api_tokens", "capability_secrets", "events", "project_capabilities",
     }
     assert report["project_capabilities"]["sha256"] == "caps-digest"
     assert report["capability_secrets"]["sha256"] == "secret-digest"
