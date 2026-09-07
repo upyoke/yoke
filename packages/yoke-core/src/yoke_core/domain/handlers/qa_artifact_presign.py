@@ -55,7 +55,9 @@ class QaArtifactPresignResponse(BaseModel):
 
 
 def resolve_artifacts_bucket(
-    conn, project_id: int, target_env: Optional[str],
+    conn,
+    project_id: int,
+    target_env: Optional[str],
 ) -> Optional[Tuple[str, str]]:
     """Return ``(env_name, bucket)`` for the project, or ``None``.
 
@@ -79,9 +81,7 @@ def resolve_artifacts_bucket(
         except (TypeError, ValueError):
             continue
         artifacts = settings.get("artifacts")
-        bucket = (
-            artifacts.get("bucket") if isinstance(artifacts, dict) else None
-        )
+        bucket = artifacts.get("bucket") if isinstance(artifacts, dict) else None
         if isinstance(bucket, str) and bucket.strip():
             buckets[name] = bucket.strip()
     if not buckets:
@@ -122,17 +122,14 @@ def _capability_credentials(project: str):
     from yoke_core.domain.s3_presign import AwsCredentials
 
     access_key = cmd_capability_get_secret(project, "aws-admin", "access_key_id")
-    secret_key = cmd_capability_get_secret(
-        project, "aws-admin", "secret_access_key"
-    )
+    secret_key = cmd_capability_get_secret(project, "aws-admin", "secret_access_key")
     if not access_key or not secret_key:
         return None
     return AwsCredentials(
         access_key_id=access_key.strip(),
         secret_access_key=secret_key.strip(),
         session_token=(
-            cmd_capability_get_secret(project, "aws-admin", "session_token")
-            or None
+            cmd_capability_get_secret(project, "aws-admin", "session_token") or None
         ),
     )
 
@@ -144,6 +141,7 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
         build_artifact_key,
         s3_handle,
     )
+    from yoke_core.domain.qa_artifacts import case_artifact_subject
     from yoke_core.domain.s3_presign import presign_s3_url
 
     req_id = request.target.qa_requirement_id
@@ -158,12 +156,14 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
     content_type = payload.get("content_type")
     if not isinstance(run_id, int):
         return _error(
-            "payload_invalid", "run_id is required",
+            "payload_invalid",
+            "run_id is required",
             jsonpath="$.payload.run_id",
         )
     if not isinstance(filename, str) or not filename:
         return _error(
-            "payload_invalid", "filename is required",
+            "payload_invalid",
+            "filename is required",
             jsonpath="$.payload.filename",
         )
 
@@ -183,29 +183,47 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
                 f"run {run_id} belongs to requirement "
                 f"{run_row['qa_requirement_id']}, not {req_id}",
             )
+        # A requirement is owned by an item or by a deployment run, and the
+        # project follows whichever one it is. Resolving through the item
+        # alone refused every run-owned requirement as "not item-backed",
+        # which is how a deployment run's QA gate ended up unable to store
+        # the evidence its approver was being asked to judge.
         req_row = query_one(
             conn,
-            "SELECT r.item_id, r.target_env, p.id AS project_id, "
+            "SELECT r.item_id, r.epic_id, r.task_num, r.deployment_run_id, "
+            "r.target_env, COALESCE(i.project_id, d.project_id) AS project_id, "
             "p.slug AS project "
             "FROM qa_requirements r "
             "LEFT JOIN items i ON i.id = r.item_id "
-            "LEFT JOIN projects p ON p.id = i.project_id "
+            "LEFT JOIN deployment_runs d ON d.id = r.deployment_run_id "
+            "LEFT JOIN projects p "
+            "ON p.id = COALESCE(i.project_id, d.project_id) "
             f"WHERE r.id = {p}",
             (int(req_id),),
         )
         if req_row is None:
             return _error("not_found", f"requirement {req_id} not found")
-        if req_row["item_id"] is None or req_row["project"] is None:
+        # Epic-task requirements are the third owner kind, and durable
+        # storage has no key layout for them: naming that is the refusal,
+        # rather than reporting a project the row does not have.
+        if req_row["project"] is None:
             return _error(
                 "target_invalid",
-                f"requirement {req_id} is not item-backed with a known "
-                "project; presigned evidence upload is item-scoped",
+                f"requirement {req_id} resolves to no project through its "
+                f"owner (item_id={req_row['item_id']!r}, "
+                f"epic_id={req_row['epic_id']!r}, "
+                f"deployment_run_id={req_row['deployment_run_id']!r}); "
+                "presigned evidence upload resolves the project through an "
+                "item-owned or deployment-run-owned requirement, so record "
+                "an explicit local artifact_handle instead",
             )
         project = str(req_row["project"])
-        item_id = int(req_row["item_id"])
+        subject = case_artifact_subject(dict(req_row))
 
         resolved = resolve_artifacts_bucket(
-            conn, int(req_row["project_id"]), req_row["target_env"],
+            conn,
+            int(req_row["project_id"]),
+            req_row["target_env"],
         )
         if resolved is None:
             return _error(
@@ -237,11 +255,13 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     try:
-        key = build_artifact_key(project, item_id, int(run_id), filename)
+        key = build_artifact_key(project, subject, int(run_id), filename)
         handle = s3_handle(bucket, key, content_type=content_type)
     except (ArtifactHandleError, ValueError) as exc:
         return _error(
-            "payload_invalid", str(exc), jsonpath="$.payload.filename",
+            "payload_invalid",
+            str(exc),
+            jsonpath="$.payload.filename",
         )
     upload_url = presign_s3_url(
         method="PUT",

@@ -12,6 +12,7 @@ import { overviewRunCard } from "../../packages/yoke-core/src/yoke_core/ui/stati
 import { FakeDocument, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import {
   deploymentRequestRow,
+  inboxClient,
   machineRequestRow,
   qaBareRequestRow,
   qaRequestRow,
@@ -73,7 +74,7 @@ test("a deployment approval carrying no items says what it is still shipping", a
   assert.ok(!body.includes("0 item(s) ship to stage"), body);
 });
 
-test("a QA review shows the evidence it is backed by, counted by type", async () => {
+test("a QA review shows each artifact behind it, openable in place", async () => {
   const { main } = renderInbox("all", [qaRequestRow()]);
   await settle();
 
@@ -88,18 +89,71 @@ test("a QA review shows the evidence it is backed by, counted by type", async ()
   assert.ok(body.includes("Evidence · 3 artifacts"), body);
   assert.ok(body.includes("Nav collapses at 680px"), body);
   assert.ok(body.includes("Every marketing page renders"), body);
+  // One card per artifact, each with its own control: counting the evidence
+  // by type told the approver a number and showed them nothing.
+  assert.equal(byClass(main, "qa-evidence").length, 3);
   assert.deepEqual(
-    byClass(main, "gate-evidence-chip").map((node) => node.textContent),
-    ["2screenshot", "1log"],
+    byClass(main, "gate-evidence")[0].children
+      .filter((node) => node.classList.contains("qa-evidence"))
+      .map((card) => byClass(card, "qa-evidence-open")[0].textContent),
+    ["screenshot", "screenshot", "log"],
   );
   assert.equal(byClass(main, "gate-evidence-none").length, 0);
+});
+
+test("opening a gate artifact reads it and shows the image full-size", async () => {
+  const { client, main } = renderInbox("all", [qaRequestRow()]);
+  await settle();
+
+  const card = byClass(main, "qa-evidence")[0];
+  byClass(card, "qa-evidence-open")[0].dispatchEvent(new Event("click"));
+  await settle();
+
+  // The read is addressed at the requirement the gate names, not at an item
+  // or session the gate card would have to invent.
+  const read = client.requests.filter(
+    (request) => request.function === "qa.artifact.read",
+  );
+  assert.deepEqual(read.map((request) => request.target), [
+    { kind: "qa_requirement", qa_requirement_id: 21583 },
+  ]);
+  assert.deepEqual(read.map((request) => request.payload), [{ artifact_id: 1 }]);
+
+  const full = byClass(card, "qa-evidence-full")[0];
+  assert.ok(full, "an image artifact opens at full size");
+  assert.equal(full.target, "_blank");
+  assert.ok(full.href.startsWith("data:image/png;base64,"), full.href);
+  assert.equal(
+    full.getAttribute("aria-label"), "Open full image: screenshot",
+  );
+  const preview = byClass(card, "qa-evidence-preview")[0];
+  assert.equal(preview.href, undefined);
+  assert.equal(preview.alt, "screenshot");
+});
+
+test("a gate artifact whose bytes are elsewhere says where, not nothing", async () => {
+  const { main } = renderInbox("all", [qaRequestRow()]);
+  await settle();
+
+  // The third fixture artifact reads back as living on its capture machine.
+  const card = byClass(main, "qa-evidence")[2];
+  byClass(card, "qa-evidence-open")[0].dispatchEvent(new Event("click"));
+  await settle();
+
+  assert.equal(
+    byClass(card, "qa-evidence-action")[0].textContent, "on studio-mini",
+  );
+  assert.ok(
+    card.textContent.includes("the evidence bytes are not present"),
+    card.textContent,
+  );
 });
 
 test("a QA review with no artifacts refuses instead of looking the same", async () => {
   const { main } = renderInbox("all", [qaBareRequestRow()]);
   await settle();
 
-  assert.equal(byClass(main, "gate-evidence-chip").length, 0);
+  assert.equal(byClass(main, "qa-evidence").length, 0);
   const refusal = byClass(main, "gate-evidence-none")[0];
   assert.ok(refusal, "a run with no artifacts must say so");
   assert.ok(
@@ -185,11 +239,13 @@ function runGate(row, overrides = {}) {
 }
 
 function renderRunCard(gate) {
-  const documentNode = new FakeDocument();
   const acted = [];
-  const card = overviewRunCard(documentNode, runRow(gate), "all", {
-    onGateAction: (row, action) => acted.push([row.request_id, action]),
-  });
+  const card = overviewRunCard(
+    { document: new FakeDocument(), client: inboxClient() },
+    runRow(gate),
+    "all",
+    { onGateAction: (row, action) => acted.push([row.request_id, action]) },
+  );
   return { acted, card };
 }
 
@@ -240,10 +296,10 @@ test("a QA gate on a run card carries the evidence the Inbox shows", () => {
 
   assert.ok(card.className.includes("is-awaiting-review"), card.className);
   assert.equal(byClass(card, "run-gate-name")[0].textContent, "marketing-pages-visual");
-  assert.deepEqual(
-    byClass(card, "gate-evidence-chip").map((node) => node.textContent),
-    ["2screenshot", "1log"],
-  );
+  // The same reader, so a reviewer deciding from the pipeline end opens the
+  // screenshot exactly as one deciding from the mailbox end does.
+  assert.equal(byClass(card, "qa-evidence").length, 3);
+  assert.equal(byClass(card, "qa-evidence-open").length, 6);
 });
 
 test("a run with no gate draws no Gates region at all", () => {
@@ -261,6 +317,9 @@ test("a machine approval stays the one-line row it is answered as", () => {
   // that page rather than tell the approver anything new.
   const documentNode = new FakeDocument();
   const wrap = documentNode.createElement("article");
-  assert.equal(appendGateBody(documentNode, wrap, machineRequestRow()), null);
+  assert.equal(
+    appendGateBody({ document: documentNode }, wrap, machineRequestRow()),
+    null,
+  );
   assert.equal(wrap.children.length, 0);
 });

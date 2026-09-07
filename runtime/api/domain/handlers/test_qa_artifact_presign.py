@@ -14,12 +14,17 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
+from runtime.api.fixtures.backlog_inserts import (
+    insert_deployment_run,
+    insert_item,
+    insert_qa_requirement,
+)
 from runtime.api.fixtures.pg_testdb import test_database
 
 
 _CREDS = AwsCredentials(
-    access_key_id="AKIDEXAMPLE", secret_access_key="secret",
+    access_key_id="AKIDEXAMPLE",
+    secret_access_key="secret",
 )
 
 
@@ -58,9 +63,14 @@ def _seed(
     )
     insert_item(conn, id=42, title="T", status="reviewing-implementation")
     insert_qa_requirement(
-        conn, id=10, item_id=42, qa_kind="plan_case",
-        qa_phase="verification", blocking_mode="blocking",
-        success_policy="{}", target_env=target_env,
+        conn,
+        id=10,
+        item_id=42,
+        qa_kind="plan_case",
+        qa_phase="verification",
+        blocking_mode="blocking",
+        success_policy="{}",
+        target_env=target_env,
         method_id="browser-check",
     )
     if with_run:
@@ -98,29 +108,37 @@ class TestPresignHappyPath(unittest.TestCase):
         with test_database() as conn:
             _seed(conn, env_buckets={"prod": "yoke-prod-artifacts"})
             with patch.object(
-                qa_artifact_presign, "_capability_credentials",
+                qa_artifact_presign,
+                "_capability_credentials",
                 return_value=_CREDS,
             ):
                 outcome = qa_artifact_presign.handle_qa_artifact_presign(
-                    _request({
-                        "run_id": 77, "filename": "home.png",
-                        "content_type": "image/png",
-                    }),
+                    _request(
+                        {
+                            "run_id": 77,
+                            "filename": "home.png",
+                            "content_type": "image/png",
+                        }
+                    ),
                 )
         self.assertTrue(outcome.primary_success, outcome.error)
         result = outcome.result_payload
         self.assertEqual(result["environment"], "prod")
         self.assertEqual(result["expires_in_s"], 900)
-        self.assertEqual(result["artifact_handle"], {
-            "backend": "s3",
-            "bucket": "yoke-prod-artifacts",
-            "key": "qa-artifacts/yoke/42/77/home.png",
-            "content_type": "image/png",
-        })
+        self.assertEqual(
+            result["artifact_handle"],
+            {
+                "backend": "s3",
+                "bucket": "yoke-prod-artifacts",
+                "key": "qa-artifacts/yoke/42/77/home.png",
+                "content_type": "image/png",
+            },
+        )
         parts = urlsplit(result["upload_url"])
         self.assertEqual(parts.scheme, "https")
         self.assertEqual(
-            parts.netloc, "yoke-prod-artifacts.s3.us-east-1.amazonaws.com",
+            parts.netloc,
+            "yoke-prod-artifacts.s3.us-east-1.amazonaws.com",
         )
         self.assertEqual(parts.path, "/qa-artifacts/yoke/42/77/home.png")
         query = parse_qs(parts.query)
@@ -130,14 +148,16 @@ class TestPresignHappyPath(unittest.TestCase):
     def test_target_env_bucket_wins_over_prod(self):
         with test_database() as conn:
             _seed(
-                conn, target_env="stage",
+                conn,
+                target_env="stage",
                 env_buckets={
                     "prod": "yoke-prod-artifacts",
                     "stage": "yoke-stage-artifacts",
                 },
             )
             with patch.object(
-                qa_artifact_presign, "_capability_credentials",
+                qa_artifact_presign,
+                "_capability_credentials",
                 return_value=_CREDS,
             ):
                 outcome = qa_artifact_presign.handle_qa_artifact_presign(
@@ -153,11 +173,13 @@ class TestPresignHappyPath(unittest.TestCase):
     def test_undeclared_target_env_falls_back_to_prod(self):
         with test_database() as conn:
             _seed(
-                conn, target_env="local",
+                conn,
+                target_env="local",
                 env_buckets={"prod": "yoke-prod-artifacts", "stage": None},
             )
             with patch.object(
-                qa_artifact_presign, "_capability_credentials",
+                qa_artifact_presign,
+                "_capability_credentials",
                 return_value=_CREDS,
             ):
                 outcome = qa_artifact_presign.handle_qa_artifact_presign(
@@ -165,6 +187,45 @@ class TestPresignHappyPath(unittest.TestCase):
                 )
         self.assertTrue(outcome.primary_success, outcome.error)
         self.assertEqual(outcome.result_payload["environment"], "prod")
+
+
+class TestPresignDeploymentRunOwner(unittest.TestCase):
+    """A requirement a deployment run owns stores evidence under that run."""
+
+    def test_run_owned_requirement_keys_evidence_under_the_run(self):
+        with test_database() as conn:
+            _seed(conn, env_buckets={"prod": "yoke-prod-artifacts"}, with_run=False)
+            insert_deployment_run(conn, id="run-20260907-001", project="yoke")
+            insert_qa_requirement(
+                conn,
+                id=12,
+                item_id=None,
+                deployment_run_id="run-20260907-001",
+                qa_kind="plan_case",
+                qa_phase="verification",
+                blocking_mode="blocking",
+                success_policy="{}",
+                method_id="browser-check",
+            )
+            conn.execute(
+                "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, "
+                "qa_kind, created_at) VALUES (99, 12, 'browser_substrate', "
+                "'plan_case', '2026-09-07T00:00:00Z')",
+            )
+            conn.commit()
+            request = _request({"run_id": 99, "filename": "home.png"})
+            request.target.qa_requirement_id = 12
+            with patch.object(
+                qa_artifact_presign,
+                "_capability_credentials",
+                return_value=_CREDS,
+            ):
+                outcome = qa_artifact_presign.handle_qa_artifact_presign(request)
+        self.assertTrue(outcome.primary_success, outcome.error)
+        self.assertEqual(
+            outcome.result_payload["artifact_handle"]["key"],
+            "qa-artifacts/yoke/deployment-run-run-20260907-001/99/home.png",
+        )
 
 
 class TestPresignDenials(unittest.TestCase):
@@ -196,7 +257,8 @@ class TestPresignDenials(unittest.TestCase):
         with test_database() as conn:
             _seed(conn, env_buckets={"prod": "yoke-prod-artifacts"})
             with patch.object(
-                qa_artifact_presign, "_capability_credentials",
+                qa_artifact_presign,
+                "_capability_credentials",
                 return_value=None,
             ):
                 outcome = qa_artifact_presign.handle_qa_artifact_presign(
@@ -210,8 +272,12 @@ class TestPresignDenials(unittest.TestCase):
         with test_database() as conn:
             _seed(conn, env_buckets={"prod": "b"})
             insert_qa_requirement(
-                conn, id=11, item_id=42, qa_kind="plan_case",
-                qa_phase="verification", blocking_mode="blocking",
+                conn,
+                id=11,
+                item_id=42,
+                qa_kind="plan_case",
+                qa_phase="verification",
+                blocking_mode="blocking",
                 success_policy="{}",
                 method_id="browser-check",
             )
@@ -227,11 +293,44 @@ class TestPresignDenials(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
 
+    def test_epic_task_owner_is_refused_by_name_not_as_item_only(self):
+        # The third owner kind durable storage has no key layout for. The
+        # refusal has to name the owner it saw, so the caller records a
+        # local handle instead of reading "not item-backed" and guessing.
+        with test_database() as conn:
+            _seed(conn, env_buckets={"prod": "b"}, with_run=False)
+            insert_qa_requirement(
+                conn,
+                id=13,
+                item_id=None,
+                epic_id=42,
+                task_num=3,
+                qa_kind="plan_case",
+                qa_phase="verification",
+                blocking_mode="blocking",
+                success_policy="{}",
+                method_id="browser-check",
+            )
+            conn.execute(
+                "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, "
+                "qa_kind, created_at) VALUES (100, 13, 'browser_substrate', "
+                "'plan_case', '2026-09-07T00:00:00Z')",
+            )
+            conn.commit()
+            request = _request({"run_id": 100, "filename": "home.png"})
+            request.target.qa_requirement_id = 13
+            outcome = qa_artifact_presign.handle_qa_artifact_presign(request)
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "target_invalid")
+        self.assertIn("epic_id=42", outcome.error.message)
+        self.assertIn("local artifact_handle", outcome.error.message)
+
     def test_unsafe_filename_is_payload_invalid(self):
         with test_database() as conn:
             _seed(conn, env_buckets={"prod": "b"})
             with patch.object(
-                qa_artifact_presign, "_capability_credentials",
+                qa_artifact_presign,
+                "_capability_credentials",
                 return_value=_CREDS,
             ):
                 outcome = qa_artifact_presign.handle_qa_artifact_presign(

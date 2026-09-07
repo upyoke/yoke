@@ -108,7 +108,7 @@ export function appendDecisionRow(
   // top to bottom -- what it is, what you are approving, then the answer.
   // A kind with nothing to show (a machine, answered on the Machines page)
   // stays the one-line row it already was.
-  if (appendGateBody(documentNode, wrap, row)) {
+  if (appendGateBody(context, wrap, row)) {
     wrap.className += " inbox-row-gate";
   }
   const actions = el(documentNode, "div", "inbox-actions");

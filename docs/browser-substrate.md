@@ -231,17 +231,19 @@ paths; those paths are not QA evidence until the case runner records them.
 The canonical case runner stores captures under project scratch storage:
 
 ```
-{scratch_root}/{project}/storage/qa-artifacts/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
+{scratch_root}/{project}/storage/qa-artifacts/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
 With an environment artifact bucket, the runner uploads the file and records
 this durable key:
 
 ```
-qa-artifacts/{project}/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
+qa-artifacts/{project}/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
-Otherwise it records a machine-local handle for the absolute capture path.
+`{subject}` is the requirement's own owner — its item id, or
+`deployment-run-{run}`. Without a bucket the runner records a machine-local
+handle for the absolute capture path.
 
 ### Metadata
 

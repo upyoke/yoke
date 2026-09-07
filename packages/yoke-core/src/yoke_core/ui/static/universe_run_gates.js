@@ -73,7 +73,8 @@ function appendActions(documentNode, host, gate, onAct) {
   host.appendChild(actions);
 }
 
-function appendGate(documentNode, host, gate, onAct) {
+function appendGate(context, host, gate, onAct) {
+  const documentNode = context.document;
   const known = GATE_LABELS[gate.kind];
   if (!known) return;
   const wrap = el(
@@ -91,20 +92,21 @@ function appendGate(documentNode, host, gate, onAct) {
   const why = approvalProse(gate);
   if (why) wrap.appendChild(el(documentNode, "p", "run-gate-why", why));
   if (gate.kind === "qa_needs_review") {
-    appendEvidence(documentNode, wrap, gate.subject_context || {});
+    appendEvidence(context, wrap, gate.subject_context || {});
   }
   appendActions(documentNode, wrap, gate, onAct);
   host.appendChild(wrap);
 }
 
-export function appendRunGates(documentNode, card, gates, onAct) {
+export function appendRunGates(context, card, gates, onAct) {
+  const documentNode = context.document;
   const rows = (gates || []).filter((gate) => GATE_LABELS[gate.kind]);
   if (!rows.length) return null;
   const host = el(documentNode, "div", "run-gates");
   const head = el(documentNode, "div", "run-gates-head", "Gates ");
   head.appendChild(el(documentNode, "span", "run-gates-count", `· ${rows.length}`));
   host.appendChild(head);
-  for (const gate of rows) appendGate(documentNode, host, gate, onAct);
+  for (const gate of rows) appendGate(context, host, gate, onAct);
   card.appendChild(host);
   return host;
 }

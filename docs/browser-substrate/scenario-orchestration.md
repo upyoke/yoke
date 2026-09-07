@@ -109,15 +109,18 @@ and each requirement's recorded Browser evidence are separate gate inputs.
 Browser captures are first written under project scratch storage:
 
 ```text
-{scratch_root}/{project}/storage/qa-artifacts/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
+{scratch_root}/{project}/storage/qa-artifacts/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
+
+`{subject}` is the requirement's own owner: its item id, or
+`deployment-run-{run}` when a deployment run owns the requirement.
 
 When the target environment declares an artifact bucket, the runner uploads
 the capture and records a durable handle:
 
 ```json
 {"backend": "s3", "bucket": "{project}-{env}-artifacts",
- "key": "qa-artifacts/{project}/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png"}
+ "key": "qa-artifacts/{project}/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png"}
 ```
 
 If durable upload is unavailable, it records an explicit machine-local handle:

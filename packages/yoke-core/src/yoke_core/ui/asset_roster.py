@@ -128,6 +128,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "workflow_view_primitives.js": "text/javascript; charset=utf-8",
     "workflow_view_version_delta.js": "text/javascript; charset=utf-8",
     "workflow_view_versions.js": "text/javascript; charset=utf-8",
+    "qa_evidence_artifact_view.js": "text/javascript; charset=utf-8",
     "qa_view_activity.js": "text/javascript; charset=utf-8",
     "qa_view_evidence.js": "text/javascript; charset=utf-8",
     "qa_view_methods.js": "text/javascript; charset=utf-8",

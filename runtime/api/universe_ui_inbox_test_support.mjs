@@ -171,6 +171,29 @@ export function inboxClient(needsRows = null) {
         needs = needs.filter((row) => row.id !== request.payload.request_id);
         return ok({ request: { id: request.payload.request_id, status: "resolved" } });
       }
+      // The gate surfaces read evidence through the same authorized function
+      // QA detail uses, so the fixture answers it the way the server does:
+      // inline bytes for evidence this host holds, and a named disposition
+      // for evidence that only exists where it was captured.
+      if (request.function === "qa.artifact.read") {
+        const artifactId = request.payload.artifact_id;
+        if (artifactId === 3) {
+          return ok({
+            artifact_id: artifactId,
+            backend: "local",
+            disposition: "evidence_on_machine",
+            machine: "studio-mini",
+            detail: "the evidence bytes are not present on this machine",
+          });
+        }
+        return ok({
+          artifact_id: artifactId,
+          backend: "s3",
+          disposition: "ready",
+          content_type: "image/png",
+          content_base64: "aVZCT1J3MEs=",
+        });
+      }
       if (request.function === "session_control.message.acknowledge") {
         messages = messages.filter(
           (row) => row.message_id !== request.payload.message_id,
