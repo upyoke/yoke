@@ -46,7 +46,8 @@ The operation owns the full ordering, in this order:
 4. Resolve the implementation commit and the resulting merge commit.
 5. Stamp `items.merged_at`.
 6. Publish the merged base branch when the checkout has a remote.
-7. Emit the merge outcome to the events ledger.
+7. Record the merge outcome on the item's merge receipt document and emit
+   the matching telemetry.
 
 Everything above the merge is bookkeeping the merge itself produces, so it
 belongs to the merging operation. Everything below it — recording execution

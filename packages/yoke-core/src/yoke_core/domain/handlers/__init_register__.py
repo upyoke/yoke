@@ -54,6 +54,7 @@ from yoke_core.domain.handlers import (
     _register_install,
     _register_item_merge_provenance,
     _register_item_worktrees,
+    _register_merge_receipt_writes,
     _register_items_create,
     _register_items_github_sync,
     _register_items_scalar_lifecycle,
@@ -170,6 +171,7 @@ _DOMAIN_REGISTRARS = (
     _register_done_transition_writes,
     _register_done_transition_status_writes,
     _register_item_merge_provenance,
+    _register_merge_receipt_writes,
     _register_gate_satisfier,
     _register_resync,
 )

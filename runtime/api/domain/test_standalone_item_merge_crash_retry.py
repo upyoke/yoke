@@ -11,11 +11,9 @@ import subprocess
 from pathlib import Path
 import pytest
 
-from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain import standalone_item_merge_receipt as receipts
-from yoke_core.domain.json_helper import dumps_compact
+from yoke_core.domain import item_merge_receipts as receipts
 
 ITEM_ID = 7
 BRANCH = "ITEM-1"
@@ -61,12 +59,12 @@ def repo(tmp_path: Path) -> Path:
 
 
 class _ReceiptStore:
-    """Stands in for the events ledger, keeping the most complete receipt."""
+    """Stands in for the item's receipt document, folding each write in."""
 
     def __init__(self) -> None:
         self.saved: dict = {}
 
-    def record(self, item_id, receipt, *, project="") -> str:
+    def record(self, item_id, receipt) -> str:
         key = (item_id, receipt.branch, receipt.target)
         prior = self.saved.get(key) or receipt
         self.saved[key] = receipts.MergeReceipt(
@@ -78,7 +76,7 @@ class _ReceiptStore:
         )
         return ""
 
-    def load(self, item_id, branch, target, *, project=""):
+    def load(self, item_id, branch, target):
         return self.saved.get((item_id, branch, target))
 
 
@@ -257,94 +255,3 @@ class TestUnrecoverableStates:
 
         assert not outcome.ok
         assert "is not contained by" in outcome.error
-
-
-def _row(**context: object) -> dict:
-    return {"envelope": dumps_compact({"context": context})}
-
-
-class TestReceiptLedger:
-    def test_recording_carries_the_merge_facts(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        sent: dict = {}
-
-        def capture(**kwargs):
-            sent.update(kwargs)
-            return FunctionCallResponse(
-                success=True, function=kwargs["function_id"], version="v1",
-                result={"emitted": True},
-            )
-
-        monkeypatch.setattr(receipts, "call_dispatcher", capture)
-        note = receipts.record(
-            ITEM_ID,
-            receipts.MergeReceipt(
-                branch=BRANCH, target=TARGET, commit_sha="abc",
-                merge_sha="def", touched_files=("feature.txt",),
-            ),
-            project="yoke",
-        )
-
-        assert note == ""
-        assert sent["function_id"] == "events.emit"
-        payload = sent["payload"]
-        assert payload["name"] == receipts.RECEIPT_EVENT_NAME
-        assert payload["item_id"] == str(ITEM_ID)
-        # events.emit is project-scoped over the dispatcher: an empty
-        # project is refused and the receipt silently skipped.
-        assert payload["project"] == "yoke"
-        assert payload["context"]["touched_files"] == ["feature.txt"]
-
-    def test_loading_folds_the_newest_non_empty_fields(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """Newest first: the completed row's merge sha, the first row's files."""
-        rows = [
-            _row(branch=BRANCH, target=TARGET, commit_sha="abc",
-                 merge_sha="def", touched_files=[]),
-            _row(branch="other-lane", target=TARGET, commit_sha="zzz",
-                 merge_sha="yyy", touched_files=["unrelated.txt"]),
-            _row(branch=BRANCH, target=TARGET, commit_sha="abc",
-                 merge_sha="", touched_files=["feature.txt"]),
-        ]
-        monkeypatch.setattr(
-            receipts, "call_dispatcher",
-            lambda **kwargs: FunctionCallResponse(
-                success=True, function=kwargs["function_id"], version="v1",
-                result={"rows": rows},
-            ),
-        )
-        loaded = receipts.load(ITEM_ID, BRANCH, TARGET, project="yoke")
-
-        assert loaded is not None
-        assert loaded.commit_sha == "abc"
-        assert loaded.merge_sha == "def"
-        assert loaded.touched_files == ("feature.txt",)
-
-    def test_the_emitter_is_visible_to_registry_discovery(self) -> None:
-        """Discovery is how this event name reaches the registry and catalog."""
-        from yoke_core.domain.events_registry_discovery import (
-            _discover_python_event_names,
-        )
-
-        source = Path(receipts.__file__).read_text()
-
-        assert receipts.RECEIPT_EVENT_NAME in _discover_python_event_names(source)
-
-    def test_an_unreadable_ledger_reads_as_no_receipt(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        def refuse(**_kwargs):
-            raise RuntimeError("control plane unreachable")
-
-        monkeypatch.setattr(receipts, "call_dispatcher", refuse)
-
-        assert receipts.load(ITEM_ID, BRANCH, TARGET, project="yoke") is None
-        assert "not recorded" in receipts.record(
-            ITEM_ID,
-            receipts.MergeReceipt(
-                branch=BRANCH, target=TARGET, commit_sha="abc",
-            ),
-            project="yoke",
-        )

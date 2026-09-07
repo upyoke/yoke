@@ -93,7 +93,7 @@ def test_active_discovered_events_have_authoritative_metadata() -> None:
         "StandaloneMergeReceiptRecorded": (
             "lifecycle",
             "merge_lifecycle",
-            "yoke_core.domain.standalone_item_merge_receipt",
+            "yoke_core.domain.item_merge_receipts",
             "INFO",
         ),
     }

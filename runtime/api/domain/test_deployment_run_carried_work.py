@@ -11,6 +11,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_run_carried_work, deployment_runs
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+from yoke_core.domain.item_merge_receipt_document import record_entry
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -124,14 +125,12 @@ def test_itemless_success_records_items_and_bare_commits(
         status="executing",
         created_at="2026-08-30T00:03:00Z",
     )
-    test_db.execute(
-        "INSERT INTO events("
-        "event_id,source_type,session_id,severity,event_kind,event_type,"
-        "event_name,service,project_id,item_id,envelope,created_at) "
-        "VALUES ('carried-receipt','system','test','INFO','lifecycle',"
-        "'merge_lifecycle','StandaloneMergeReceiptRecorded','cli',1,'9101',"
-        "%s,'2026-08-30T00:02:30Z')",
-        (json.dumps({"context": {"merge_sha": item_commit}}),),
+    record_entry(
+        test_db,
+        item_id=9101,
+        branch="YOK-9041",
+        target="main",
+        merge_sha=item_commit,
     )
     test_db.execute(
         "INSERT INTO item_sections("

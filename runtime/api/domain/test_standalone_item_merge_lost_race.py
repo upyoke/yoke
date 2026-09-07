@@ -22,7 +22,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_evidence as evidence
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.dash_execution import record_dash_evidence
 
 CLAIM_REFUSAL = (

@@ -6,7 +6,7 @@ import pytest
 
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
-from yoke_core.domain.standalone_item_merge_receipt import MergeReceipt
+from yoke_core.domain.item_merge_receipts import MergeReceipt
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40

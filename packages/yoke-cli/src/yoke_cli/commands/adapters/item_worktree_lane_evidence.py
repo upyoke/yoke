@@ -10,8 +10,8 @@ There are exactly two ways to earn that evidence:
 
 2. **The directory is already gone and the branch landed.** A merge removes a
    lane directory only after proving the branch is contained by the target,
-   and it records a completed merge receipt when it does. A missing directory
-   with such a receipt held nothing at removal time.
+   and it records a completed merge receipt on the item when it does. A
+   missing directory with such a receipt held nothing at removal time.
 
 The second case is deliberately narrow. A missing directory is *not* clean on
 its own — an interrupted operation, a hand-deleted lane, and a wrong path in
@@ -28,7 +28,6 @@ no checkout at all.
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 from typing import Any, Optional
@@ -38,10 +37,9 @@ from typing import Any, Optional
 EVIDENCE_WORKTREE_CLEAN = "worktree_clean"
 EVIDENCE_MERGED_AND_REMOVED = "merged_and_removed"
 
-#: Ledger event carrying one standalone merge's durable bookkeeping. Written
+#: The item-owned merge receipt read. The merge boundary writes the entry
 #: before the engine runs and again once the merge identity is known.
-_MERGE_RECEIPT_EVENT = "StandaloneMergeReceiptRecorded"
-_RECEIPT_LOOKBACK = 50
+_MERGE_RECEIPT_FUNCTION = "merge_receipt.get"
 
 
 def _git(args: list[str], cwd: str) -> Optional[str]:
@@ -60,42 +58,31 @@ def _git(args: list[str], cwd: str) -> Optional[str]:
 
 
 def _landed_merge_sha(target: Any, branch: str, session_id: Any) -> str:
-    """The merge sha a completed receipt records for ``branch``, if any.
+    """The merge sha the item's receipt records for ``branch``, if any.
 
-    Only the post-merge receipt carries ``merge_sha``: the merge boundary
+    Only the completed receipt carries ``merge_sha``: the merge boundary
     writes it after the engine has verified the branch reached the target, so
     its presence is the durable "this branch landed" fact that survives the
-    branch ref and the lane directory both being gone.
+    branch ref and the lane directory both being gone. The lane row names the
+    branch but not the target it landed on, so the query matches on branch.
     """
     from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
     try:
         response = call_dispatcher(
-            function_id="events.query.run",
+            function_id=_MERGE_RECEIPT_FUNCTION,
             target=target,
-            payload={
-                "event_name": _MERGE_RECEIPT_EVENT,
-                "limit": _RECEIPT_LOOKBACK,
-            },
+            payload={"branch": branch},
             actor=build_actor(session_id=session_id),
         )
-    except Exception:  # noqa: BLE001 - an unreadable ledger is "no receipt"
+    except Exception:  # noqa: BLE001 - an unreadable store is "no receipt"
         return ""
     if not response.success:
         return ""
-    for row in (response.result or {}).get("rows") or []:
-        raw = row.get("envelope") if isinstance(row, dict) else None
-        try:
-            envelope = json.loads(raw) if isinstance(raw, str) else raw
-        except (TypeError, ValueError):
-            continue
-        context = envelope.get("context") if isinstance(envelope, dict) else None
-        if not isinstance(context, dict) or context.get("branch") != branch:
-            continue
-        merge_sha = str(context.get("merge_sha") or "").strip()
-        if merge_sha:
-            return merge_sha
-    return ""
+    entry = (response.result or {}).get("entry")
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get("merge_sha") or "").strip()
 
 
 def attest_releasable_lane(

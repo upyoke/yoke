@@ -10,7 +10,7 @@ import pytest
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_lane as sim_lane
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import item_merge_receipts as receipts
 
 
 @pytest.fixture(autouse=True)

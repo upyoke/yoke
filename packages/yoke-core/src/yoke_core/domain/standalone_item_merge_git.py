@@ -5,7 +5,7 @@ sequences them, because their answers change as the merge proceeds: the
 branch ref disappears with the engine's cleanup and ``changed_files``
 collapses to nothing the moment the branch lands. Callers that need those
 facts after either point read them from the recorded receipt instead
-(:mod:`yoke_core.domain.standalone_item_merge_receipt`).
+(:mod:`yoke_core.domain.item_merge_receipts`).
 
 Every read fails soft — a git error reads as "the checkout does not say so"
 rather than raising — so the boundary decides what an absent answer means.

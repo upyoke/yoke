@@ -16,7 +16,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_resolution_error,
     merge_source_lane,
 )
-from yoke_core.domain.standalone_item_merge_receipt import MergeReceipt
+from yoke_core.domain.item_merge_receipts import MergeReceipt
 from yoke_core.domain.standalone_item_merge_recovery import with_recorded_head
 
 

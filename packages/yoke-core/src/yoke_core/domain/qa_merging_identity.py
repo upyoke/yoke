@@ -8,8 +8,8 @@ queue — the PR-entry head GitHub verified after rebasing the lane. The
 train's combined head is a commit no single member ever ran against, so
 demanding one SHA satisfy every requirement strands every queue-landed item.
 
-The accepted set is what the merge boundary recorded: the receipt's landing
-and merge commits, every distinct passing ``ci_run`` identity (the newest
+The accepted set is what the merge boundary recorded on the item: the
+receipt document's landing and merge commits, every distinct passing ``ci_run`` identity (the newest
 PR-entry head and the newest train receipt), execution evidence, and the
 lane column. Recording the train receipt last must not displace the
 PR-entry SHA the item's own case verified.
@@ -31,11 +31,6 @@ from typing import Any, Sequence
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
-# How far back to read this item's merge receipts. One merge writes a
-# pre-merge row and a completion row; the window covers repeated retries
-# while still folding newest-first, so a superseded attempt never outranks
-# the identity the latest attempt recorded.
-_RECEIPT_LOOKBACK = 10
 _CI_RUN_LOOKBACK = 20
 
 
@@ -133,26 +128,9 @@ def _evidence_sha(conn: Any, item_id: int) -> str:
 
 def _receipt_shas(conn: Any, item_id: int) -> list[str]:
     """The landing and merge commits the newest merge receipt recorded."""
-    from yoke_core.domain.standalone_item_merge_receipt import RECEIPT_EVENT_NAME
+    from yoke_core.domain.item_merge_receipt_document import landing_shas
 
-    if not _table_exists(conn, "events"):
-        return []
-    placeholder = _placeholder(conn)
-    rows = conn.execute(
-        "SELECT envelope FROM events "
-        f"WHERE event_name = {placeholder} AND item_id = {placeholder} "
-        f"ORDER BY id DESC LIMIT {_RECEIPT_LOOKBACK}",
-        (RECEIPT_EVENT_NAME, str(int(item_id))),
-    ).fetchall()
-    landing = ""
-    merged = ""
-    for row in rows:
-        context = _json_object(_row_value(row, "envelope", 0)).get("context")
-        if not isinstance(context, dict):
-            continue
-        landing = landing or str(context.get("commit_sha") or "").strip()
-        merged = merged or str(context.get("merge_sha") or "").strip()
-    return [landing, merged]
+    return landing_shas(conn, item_id)
 
 
 def _passing_ci_raw_results(conn: Any, item_id: int) -> list[Any]:
