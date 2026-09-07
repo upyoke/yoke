@@ -14,6 +14,12 @@ import {
 
 export function renderNewItemView(context, main, projectId) {
   const documentNode = context.document;
+  const routeQuery = String(
+    documentNode.defaultView?.location?.hash || "",
+  ).split("?", 2)[1] || "";
+  const requestedWorkflowId = new URLSearchParams(
+    routeQuery,
+  ).get("workflow");
   const project = context.projects().find(
     (row) => String(row.id) === String(projectId),
   );
@@ -44,7 +50,9 @@ export function renderNewItemView(context, main, projectId) {
       callResult.envelope.result?.workflows || [],
     );
     const steer = webWorkflowSteer(workflows);
-    let selected = steer.web[0];
+    let selected = steer.web.find(
+      (workflow) => workflow.id === requestedWorkflowId,
+    ) || steer.web[0];
     if (!selected) {
       loading.body.textContent =
         "No current workflow version allows the web form entry surface.";

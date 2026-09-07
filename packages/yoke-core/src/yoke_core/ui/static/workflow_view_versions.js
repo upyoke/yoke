@@ -3,7 +3,7 @@ import { callFunction } from "./universe_view_support.js";
 import { relativeAge } from "./universe_time.js";
 import { renderCanonDiff } from "./workflow_view_canon_diff.js";
 import { renderCanonControls } from "./workflow_view_canon_controls.js";
-import { button, workflowPanel } from "./workflow_view_primitives.js";
+import { button } from "./workflow_view_primitives.js";
 import {
   renderVersionDelta,
   renderVersionPolicyGrid,
@@ -295,7 +295,18 @@ export function renderVersionHistory(documentNode, workflow, actions) {
     (version, index) => [Number(version.version), ascending[index - 1]],
   ));
   const versions = [...ascending].reverse();
-  const { panel, body } = workflowPanel(documentNode, "Version history");
+  const disclosure = el(
+    documentNode, "details", "panel workflow-panel workflow-version-history",
+  );
+  const summary = el(
+    documentNode,
+    "summary",
+    "panel-header workflow-panel-header workflow-history-summary",
+  );
+  summary.appendChild(el(documentNode, "h2", null, "Version history"));
+  disclosure.appendChild(summary);
+  const body = el(documentNode, "div", "panel-body");
+  disclosure.appendChild(body);
   const controls = renderCanonControls(
     documentNode, workflow, actions.workflows || [workflow], actions.canon,
   );
@@ -326,5 +337,5 @@ export function renderVersionHistory(documentNode, workflow, actions) {
     ));
   }
   body.appendChild(timeline);
-  return panel;
+  return disclosure;
 }
