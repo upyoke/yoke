@@ -116,6 +116,37 @@ test("a sum missing any member's reading is itself partial", () => {
   assert.equal(usageSummaryScope(summary), "1 of 2 sessions reported");
 });
 
+test("cost coverage is stated separately when it trails token coverage", () => {
+  const summary = summarizeSessionUsage([
+    { usage_tokens: 100, usage_status: "complete", usage_cost_usd: 8.25,
+      usage_cost_status: "complete" },
+    { usage_tokens: 400, usage_status: "complete" },
+  ]);
+
+  assert.equal(summary.covered, 2);
+  assert.equal(summary.costed, 1);
+  assert.equal(usageSummaryScope(summary), "2 of 2 sessions reported · 1 priced");
+});
+
+test("matching coverage states one count rather than repeating it", () => {
+  const summary = summarizeSessionUsage([
+    { usage_tokens: 100, usage_status: "complete", usage_cost_usd: 1,
+      usage_cost_status: "complete" },
+    { session_id: "unread" },
+  ]);
+
+  assert.equal(usageSummaryScope(summary), "1 of 2 sessions reported");
+});
+
+test("nothing priced claims no cost coverage at all", () => {
+  const summary = summarizeSessionUsage([
+    { usage_tokens: 100, usage_status: "complete" },
+  ]);
+
+  assert.equal(summary.costed, 0);
+  assert.equal(usageSummaryScope(summary), "1 of 1 sessions reported");
+});
+
 test("a sum of only unread sessions says so rather than reporting zero", () => {
   const summary = summarizeSessionUsage([{ session_id: "a" }, { session_id: "b" }]);
 
@@ -150,6 +181,22 @@ test("the machine tile reports its scope beside its total", () => {
     "1 of 2 sessions reported",
   );
   assert.match(byClass(card, "machine-usage-total")[0].textContent, /^1k/);
+});
+
+test("the machine tile names its priced count when a session went unpriced", () => {
+  const documentNode = new FakeDocument();
+  const card = documentNode.createElement("div");
+
+  appendMachineUsage(documentNode, card, { machine_id: "m1" }, [
+    { machine_id: "m1", usage_tokens: 1_000, usage_status: "complete",
+      usage_cost_usd: 8.25, usage_cost_status: "complete" },
+    { machine_id: "m1", usage_tokens: 2_000, usage_status: "complete" },
+  ]);
+
+  assert.equal(
+    byClass(card, "machine-usage-scope")[0].textContent,
+    "2 of 2 sessions reported · 1 priced",
+  );
 });
 
 test("a machine with no sessions on this page draws no usage line", () => {

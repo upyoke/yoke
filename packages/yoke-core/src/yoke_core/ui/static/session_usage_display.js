@@ -126,7 +126,19 @@ export function usageSummaryLabel(summary) {
   return `${compactTokens(summary.tokens)}${suffix}${money}`;
 }
 
+/**
+ * Say how many sessions each half of the total was drawn from.
+ *
+ * Token coverage and cost coverage are different counts and routinely
+ * differ: a session on a model nobody has researched a price for reports
+ * its tokens and contributes nothing to the dollar figure. Reporting only
+ * "2 of 13 sessions reported" beside a dollar total invites reading that
+ * total as the spend of both sessions when one of them was never priced,
+ * so the priced count is stated separately whenever it differs.
+ */
 export function usageSummaryScope(summary) {
   if (!summary || !summary.total) return "";
-  return `${summary.covered} of ${summary.total} sessions reported`;
+  const reported = `${summary.covered} of ${summary.total} sessions reported`;
+  if (!summary.costed || summary.costed === summary.covered) return reported;
+  return `${reported} · ${summary.costed} priced`;
 }
