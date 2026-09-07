@@ -41,6 +41,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("requested_model", "TEXT"),
             ("requested_reasoning_effort", "TEXT"),
             ("requested_context_window_tokens", "INTEGER"),
+            ("usage_totals", "TEXT"),
             ("mode", "TEXT"),
             ("quiet_reason", "TEXT"),
             ("keepalive_until", "TEXT"),
