@@ -54,8 +54,8 @@ def _policy(interval_minutes: int = 2) -> SimpleNamespace:
     )
 
 
-def _report(fingerprint: str = "fleet-a") -> SimpleNamespace:
-    return _ok({"fingerprint": fingerprint, "body": REPORT_BODY})
+def _report(fingerprint: str = "fleet-a", body: str = REPORT_BODY) -> SimpleNamespace:
+    return _ok({"fingerprint": fingerprint, "body": body})
 
 
 class _Clock:
@@ -71,13 +71,23 @@ class _Clock:
         return current
 
 
-def _drive(responses: list[Any], **kwargs: Any) -> tuple[int, str, list[str]]:
+def _drive(
+    responses: list[Any], *, reports: list[Any] | None = None, **kwargs: Any
+) -> tuple[int, str, list[str]]:
     """Run the loop against a scripted response sequence."""
     calls: list[str] = []
     remaining = list(responses)
+    report_queue = list(reports or [])
 
     def call(function_id: str, payload: dict[str, Any]) -> Any:
         calls.append(function_id)
+        if function_id == PROJECT_POLICY_FUNCTION:
+            return _policy()
+        if function_id == STEERING_REPORT_FUNCTION:
+            assert payload == {}, (
+                "pull every held document seat, not a first project seat"
+            )
+            return report_queue.pop(0) if report_queue else _report()
         return remaining.pop(0) if remaining else _ok({})
 
     out = io.StringIO()
@@ -96,11 +106,17 @@ def _drive(responses: list[Any], **kwargs: Any) -> tuple[int, str, list[str]]:
 def test_one_pass_reads_the_three_registered_functions() -> None:
     code, output, calls = _drive([], duration=1)
     assert code == 0
-    assert calls == [SESSIONS_FUNCTION, FRONTIER_FUNCTION, ENVELOPES_FUNCTION]
-    assert output == ""
+    assert calls == [
+        SESSIONS_FUNCTION,
+        FRONTIER_FUNCTION,
+        ENVELOPES_FUNCTION,
+        PROJECT_POLICY_FUNCTION,
+        STEERING_REPORT_FUNCTION,
+    ]
+    assert output == REPORT_BODY + "\n"
 
 
-def test_heartbeat_only_quiet_passes_do_not_fetch_a_report() -> None:
+def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
     roster = _ok({"rows": [{"session_id": "a", "activity_at": "2026-08-28T17:00:00Z"}]})
     frontier = _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "idea"}]})
     envelopes = _ok({"messages": []})
@@ -109,8 +125,8 @@ def test_heartbeat_only_quiet_passes_do_not_fetch_a_report() -> None:
         duration=90,
     )
     assert code == 0
-    assert output == ""
-    assert STEERING_REPORT_FUNCTION not in calls
+    assert output == REPORT_BODY + "\n"
+    assert calls.count(STEERING_REPORT_FUNCTION) == 1
 
 
 @pytest.mark.parametrize(
@@ -150,7 +166,7 @@ def test_a_new_delta_kind_must_choose_a_tier() -> None:
         delta_wake_tier("fleet newly-added-kind detail")
 
 
-def test_a_status_change_appends_the_composed_report_after_the_delta() -> None:
+def test_a_status_change_during_cooldown_keeps_the_raw_delta() -> None:
     roster = _ok({"rows": []})
     envelopes = _ok({"messages": []})
     code, output, _ = _drive(
@@ -161,56 +177,61 @@ def test_a_status_change_appends_the_composed_report_after_the_delta() -> None:
             roster,
             _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "implementing"}]}),
             envelopes,
-            _policy(),
-            _report(),
         ],
         duration=90,
     )
     assert code == 0
-    assert output == (f"fleet item YOK-1 status idea -> implementing\n{REPORT_BODY}\n")
+    assert output == (f"{REPORT_BODY}\nfleet item YOK-1 status idea -> implementing\n")
 
 
-def test_an_unchanged_report_is_not_reprinted_after_the_rate_limit() -> None:
-    roster = _ok({"rows": []})
-    envelopes = _ok({"messages": []})
+@pytest.mark.parametrize("changed", [False, True])
+def test_report_due_after_cooldown_is_checked_when_the_fleet_goes_quiet(changed):
+    before = _ok({"ranked_steps": [{"item_id": "work", "status": "idea"}]})
+    after = _ok({"ranked_steps": [{"item_id": "work", "status": "implementing"}]})
+    next_body = REPORT_BODY.replace("one composed picture", "changed picture")
     code, output, calls = _drive(
-        [
-            roster,
-            _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "idea"}]}),
-            envelopes,
-            roster,
-            _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "implementing"}]}),
-            envelopes,
-            _policy(),
-            _report(),
-            roster,
-            _ok(
-                {
-                    "ranked_steps": [
-                        {"item_id": "YOK-1", "status": "reviewing-implementation"}
-                    ]
-                }
-            ),
-            envelopes,
-            _policy(),
-            roster,
-            _ok(
-                {
-                    "ranked_steps": [
-                        {"item_id": "YOK-1", "status": "polishing-implementation"}
-                    ]
-                }
-            ),
-            envelopes,
-            _policy(),
-            _report(),
-        ],
-        duration=210,
+        [_ok({}), before, _ok({}), _ok({}), after, _ok({}), _ok({}), after, _ok({})],
+        reports=[_report(), _report("fleet-b", next_body) if changed else _report()],
+        duration=180,
     )
-
     assert code == 0
     assert calls.count(STEERING_REPORT_FUNCTION) == 2
     assert output.count(REPORT_BODY) == 1
+    assert (next_body in output) is changed
+
+
+def test_timer_only_finding_is_reported_without_any_delta():
+    timer_body = REPORT_BODY.replace("one composed picture", "launch deadline expired")
+    code, output, calls = _drive(
+        [],
+        reports=[_report(), _report("timer", timer_body)],
+        duration=180,
+    )
+    assert code == 0
+    assert calls.count(STEERING_REPORT_FUNCTION) == 2
+    assert timer_body in output
+    assert "fleet item" not in output
+
+
+def test_dependency_clearance_is_urgent_without_status_or_claim_change():
+    row = {"item_id": "dependent", "status": "planned", "claim_state": "unclaimed"}
+    code, output, _ = _drive(
+        [
+            _ok({}),
+            _ok({"blocked_steps": [row]}),
+            _ok({}),
+            _ok({}),
+            _ok({"ranked_steps": [row]}),
+            _ok({}),
+        ],
+        duration=120,
+    )
+    assert code == 0
+    available = "fleet item dependent available status=planned claim=unclaimed"
+    assert available in output
+    assert delta_wake_tier(available) == WAKE_NOW
+    assert "status planned ->" not in output
+    assert "claim unclaimed ->" not in output
 
 
 def test_a_transient_read_failure_is_named_and_the_loop_continues() -> None:

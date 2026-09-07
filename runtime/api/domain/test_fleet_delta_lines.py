@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from yoke_core.domain.fleet_delta_alarms import DeltaState
@@ -127,3 +128,25 @@ def test_read_failure_lines_name_the_function_and_the_recovery() -> None:
     assert "fleet FATAL read failed charge.schedule" in terminal
     assert "yoke env list" in terminal
     assert "yoke watch fleet" in terminal
+
+
+def test_available_work_is_immediate_on_arm_and_after_a_dependency_clears():
+    row = _item("dependent", "planned")
+    blocked = _snapshot(items={row.ref: row})
+    ready = _snapshot(items={row.ref: replace(row, runnable=True)})
+    line = "fleet item dependent available status=planned claim=unclaimed"
+    assert compare(blocked, ready, DeltaState()) == [line]
+    assert compare(None, ready, DeltaState()) == [line]
+    assert compare(ready, ready, DeltaState()) == []
+
+
+def test_released_and_stale_claims_make_runnable_work_available():
+    row = replace(_item("ready", "idea", "claimed_by_other_live"), runnable=True)
+    held = _snapshot(items={row.ref: row})
+    for claim in ("unclaimed", "claimed_by_stale"):
+        ready = _snapshot(items={row.ref: replace(row, claim_state=claim)})
+        assert any("available" in line for line in item_deltas(held, ready))
+    blocked = _snapshot(
+        items={row.ref: replace(row, claim_state="unclaimed", runnable=False)}
+    )
+    assert not any("available" in line for line in item_deltas(held, blocked))

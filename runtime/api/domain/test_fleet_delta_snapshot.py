@@ -88,6 +88,10 @@ def test_item_rows_union_the_three_scheduler_buckets() -> None:
     rows = item_rows(result)
     assert sorted(rows) == ["YOK-1", "YOK-2", "YOK-3"]
     assert rows["YOK-1"].unclaimed is False
+    assert rows["YOK-1"].runnable is True
+    assert rows["YOK-1"].available is False
+    assert rows["YOK-2"].runnable is False
+    assert rows["YOK-3"].runnable is False
     assert rows["YOK-2"].claim_state == "unknown"
     assert "YOK-99" not in rows, "selected_step repeats a ranked entry"
 

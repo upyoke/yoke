@@ -275,6 +275,14 @@ def test_inline_overflow_keeps_the_receipt_pending(
     assert "YOKE_SESSION_MESSAGE_LEASE:lease-1" not in pointer
 
 
+@pytest.fixture(autouse=True)
+def isolated_watcher_discovery(monkeypatch):
+    """Channel routing is independent of this machine's watcher processes."""
+    monkeypatch.setattr(
+        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
+    )
+
+
 def test_fleet_report_rides_a_sibling_field_not_the_delivery_envelope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

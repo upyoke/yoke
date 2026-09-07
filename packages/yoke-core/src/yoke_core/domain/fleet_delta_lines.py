@@ -1,13 +1,12 @@
 """Differences between two fleet observations, one line each.
 
-Deltas are edges: an item changed status or ownership, a session
-registered or ended. Every one of them needs a previous observation to
-compare against, so the arming pass emits none — only the level
-conditions in :mod:`yoke_core.domain.fleet_delta_alarms`, which
-:func:`compare` folds in here, can fire that early.
+Deltas include an item changing status or ownership and a session registering
+or ending. Those edges need a previous observation. Available work and the
+level conditions in :mod:`yoke_core.domain.fleet_delta_alarms` also fire on
+the arming pass, so existing actionable work needs no subsequent change.
 
 Silence is the contract: when nothing moved, this module returns an
-empty list and the probe prints nothing.
+empty list. The probe checks due steering reports independently.
 """
 
 from __future__ import annotations
@@ -24,12 +23,19 @@ from yoke_core.domain.fleet_delta_alarms import (
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot
 
 
-def item_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]:
-    """Status, ownership, and frontier membership changes between passes."""
+def item_deltas(previous: FleetSnapshot | None, current: FleetSnapshot) -> list[str]:
+    """Availability, status, ownership, and frontier membership changes."""
     lines: list[str] = []
     for ref in sorted(current.items):
         now_row = current.items[ref]
-        was = previous.items.get(ref)
+        was = previous.items.get(ref) if previous is not None else None
+        if now_row.available and (was is None or not was.available):
+            lines.append(
+                f"{LINE_PREFIX} item {ref} available status={now_row.status} "
+                f"claim={now_row.claim_state}"
+            )
+        if previous is None:
+            continue
         if was is None:
             lines.append(
                 f"{LINE_PREFIX} item {ref} entered status={now_row.status} "
@@ -45,7 +51,7 @@ def item_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]:
                 f"{LINE_PREFIX} item {ref} claim {was.claim_state} -> "
                 f"{now_row.claim_state}"
             )
-    for ref in sorted(set(previous.items) - set(current.items)):
+    for ref in sorted(set(previous.items if previous else ()) - set(current.items)):
         lines.append(
             f"{LINE_PREFIX} item {ref} left-frontier last-status="
             f"{previous.items[ref].status}"
@@ -81,8 +87,8 @@ def compare(
     """Return every line this pass should emit, in reading order."""
     lines: list[str] = []
     lines.extend(inbox_lines(current, state))
+    lines.extend(item_deltas(previous, current))
     if previous is not None:
-        lines.extend(item_deltas(previous, current))
         lines.extend(session_deltas(previous, current))
     lines.extend(idle_holder_alarms(current, state))
     lines.extend(unowned_item_alarms(current, state))
