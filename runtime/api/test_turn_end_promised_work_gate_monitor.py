@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from yoke_contracts.turn_end_evidence import TurnEndEvidence
 from yoke_core.domain import turn_end_promised_work_gate as gate
+from yoke_core.domain.session_tool_call_projections import (
+    LAST_COMPLETED_TOOL_COLUMN,
+)
 from yoke_core.hooks.types import HookContext, Outcome, Next
 
 
@@ -90,40 +93,53 @@ def test_parked_or_non_monitor_still_respects_cap(monkeypatch) -> None:
     assert captured[0]["reason"] == gate.REASON_CAP_REACHED
 
 
-def test_armed_helper_skips_parked_session() -> None:
-    class _Rows:
-        def __init__(self, row: dict | None) -> None:
-            self._row = row
+class _Rows:
+    def __init__(self, row: dict | None) -> None:
+        self._row = row
 
-        def fetchone(self) -> dict | None:
-            return self._row
-
-    class _ParkedConn:
-        def execute(self, query: str, params: tuple[object, ...]) -> _Rows:
-            if "harness_sessions" in query:
-                return _Rows({"mode": "parked"})
-            raise AssertionError("parked sessions must not consult events")
-
-    assert gate._armed_monitor_blocks_stop(_ParkedConn(), "sess-1") is False
+    def fetchone(self) -> dict | None:
+        return self._row
 
 
-def test_armed_helper_true_for_last_monitor() -> None:
-    class _Rows:
-        def __init__(self, row: dict | None) -> None:
-            self._row = row
+class _SessionConn:
+    """Answers the one combined session-and-last-call read the gate makes."""
 
-        def fetchone(self) -> dict | None:
-            return self._row
+    def __init__(self, row: dict) -> None:
+        self._row = row
+        self.queries: list[str] = []
 
-    class _ConnSeq:
-        def __init__(self) -> None:
-            self._n = 0
+    def execute(self, query: str, params: tuple[object, ...]) -> _Rows:
+        self.queries.append(query)
+        return _Rows(self._row)
 
-        def execute(self, query: str, params: tuple[object, ...]) -> _Rows:
-            self._n += 1
-            if "harness_sessions" in query:
-                return _Rows({"mode": "dash"})
-            assert "HarnessToolCallCompleted" in query
-            return _Rows({"tool_name": "Monitor"})
 
-    assert gate._armed_monitor_blocks_stop(_ConnSeq(), "sess-1") is True
+def _no_events(monkeypatch) -> None:
+    """The waiter fact comes from the call rows, so events are never read."""
+    monkeypatch.setattr(
+        "yoke_core.domain.session_tool_call_projections.has_session_tool_calls_table",
+        lambda conn: True,
+    )
+
+
+def test_armed_helper_skips_parked_session(monkeypatch) -> None:
+    _no_events(monkeypatch)
+    conn = _SessionConn({"mode": "parked", LAST_COMPLETED_TOOL_COLUMN: "Monitor"})
+
+    assert gate._armed_monitor_blocks_stop(conn, "sess-1") is False
+
+
+def test_armed_helper_true_for_last_monitor(monkeypatch) -> None:
+    _no_events(monkeypatch)
+    conn = _SessionConn({"mode": "dash", LAST_COMPLETED_TOOL_COLUMN: "Monitor"})
+
+    assert gate._armed_monitor_blocks_stop(conn, "sess-1") is True
+    assert not any("events" in query for query in conn.queries)
+
+
+def test_armed_helper_false_when_the_last_call_was_something_else(
+    monkeypatch,
+) -> None:
+    _no_events(monkeypatch)
+    conn = _SessionConn({"mode": "dash", LAST_COMPLETED_TOOL_COLUMN: "Bash"})
+
+    assert gate._armed_monitor_blocks_stop(conn, "sess-1") is False

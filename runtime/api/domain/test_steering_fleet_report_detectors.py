@@ -17,6 +17,7 @@ from runtime.api.steering_fleet_test_helpers import (
     PROJECT_ID,
     quiet_holder,
     seed_session,
+    seed_tool_call,
 )
 from yoke_core.domain.steering_fleet_report_detectors import (
     landed_without_closeout,
@@ -81,12 +82,20 @@ def _launch(
 
 
 def _complete_tool(conn, session_id: str, tool_name: str) -> None:
-    conn.execute(
-        "INSERT INTO events "
-        "(event_id, source_type, session_id, event_kind, event_type, event_name, "
-        "tool_name, created_at) VALUES (%s, 'hook', %s, 'system', 'tool_call', "
-        "'HarnessToolCallCompleted', %s, %s)",
-        (f"event-{session_id}-{tool_name}", session_id, tool_name, LONG_AGO),
+    """One finished call on this session's own record.
+
+    The waiter signature reads the newest closed ``session_tool_calls`` row
+    rather than the matching telemetry, so a frozen waiter stays reportable
+    after the events ledger has pruned it.
+    """
+    seed_tool_call(
+        conn,
+        session_id,
+        tool_use_id=f"call-{session_id}-{tool_name}",
+        started_at=LONG_AGO,
+        command_summary="",
+        completed_at=LONG_AGO,
+        tool_name=tool_name,
     )
 
 

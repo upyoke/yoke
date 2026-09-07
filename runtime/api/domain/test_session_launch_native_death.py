@@ -78,10 +78,11 @@ def test_a_native_that_completed_a_tool_call_keeps_its_launch() -> None:
     add_relay(conn)
     _delivered_launch(conn)
     # A worker killed mid-work was working; only one that never began is a
-    # launch that reported success for nothing.
+    # launch that reported success for nothing. The marker on the session
+    # says so, and keeps saying so after the telemetry has been pruned.
     conn.execute(
-        "INSERT INTO events (session_id, event_name) VALUES (?, ?)",
-        (WORKER, "HarnessToolCallCompleted"),
+        "UPDATE harness_sessions SET first_completed_work_at = ? WHERE session_id = ?",
+        (NOW, WORKER),
     )
     conn.commit()
 
