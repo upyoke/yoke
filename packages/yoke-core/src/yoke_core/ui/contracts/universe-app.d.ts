@@ -169,10 +169,8 @@ export interface UniverseAppOptions {
      */
     readonly sections?: UniverseViewSections;
     /**
-     * Who the viewer is acting as. Host-supplied because only a host with a
-     * sign-in door knows: the local server admits a loopback token, not an
-     * actor, so local mounts without one and the chrome that names you
-     * vanishes rather than guessing.
+     * Who the viewer is acting as. Authenticated hosts supply their actor;
+     * the local server supplies its resolved operator when one is known.
      */
     readonly currentActor?: UniverseActor;
     /** Stable universe and authenticated actor IDs, never display labels.
@@ -205,18 +203,13 @@ export interface UniverseAppMount {
  */
 export type UniverseRouteView = "overview" | "sessions" | "inbox" | "organization" | "workflows" | "projects" | "github" | "actors" | "members" | "billing" | "strategy" | "items" | "deployments" | "environments" | "flows" | "databases" | "infrastructure" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "events" | "doctor" | "ouroboros" | "machines";
 /**
- * A view's optional second route segment means what the view declares — a
- * tab (one facet of the view's single concept) or a drill-in (one row of the
- * view), never both. Parsing resolves the declaration: a tab-declaring view
- * always carries a resolved `tab` (absent and unknown segments resolve to
- * its first tab, without rewriting the hash) and never a `detail`; every
- * other view may carry a `detail` and never a `tab`.
+ * The optional second segment identifies a detail within a destination.
+ * Views interpret that identifier, including the workflow being inspected.
+ * Unknown destinations fall back to Overview without carrying their detail.
  */
 export interface UniverseRoute {
     readonly view: UniverseRouteView;
-    /** Always null. Tabs are gone: every facet that earned a name is a
-     *  destination, and the field stays so a reader of an older build sees an
-     *  explicit absence rather than a missing key. */
+    /** Always null; named navigation destinations are represented by view. */
     readonly tab: null;
     /** The drill-in row within the view, when the route names one. */
     readonly detail: string | null;

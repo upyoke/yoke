@@ -16,7 +16,7 @@ export function createProjectControls(deps) {
       onSelect(next) {
         scopeSelections.focus = next;
         scopeSelections.save();
-        windowNode.location.hash = selectionRoute(route, scopeSelections, next);
+        windowNode.location.hash = selectionRoute(route, scopeSelections, next, windowNode.location.hash);
         renderRoute();
       },
     });

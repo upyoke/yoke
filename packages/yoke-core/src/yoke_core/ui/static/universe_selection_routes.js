@@ -17,12 +17,18 @@ export function withProjectSelection(hash, selection) {
   return `${path}?${params.toString().replace(/%2C/g, ",")}`;
 }
 
-export function selectionRoute(route, state, project = null) {
+export function selectionRoute(route, state, project = null, sourceHash = "") {
   const focusRoute = route.detail || navEntry(route.view).scope === SCOPE_SINGLE;
   const hash = buildUniverseRoute(
     route.view, focusRoute ? project : selectionParam(state.selection), route.detail,
   );
-  return focusRoute ? withProjectSelection(hash, state.selection) : hash;
+  const [path, query = ""] = hash.split("?");
+  const params = new URLSearchParams(sourceHash.split("?")[1] || "");
+  params.delete("project");
+  params.delete("selection");
+  for (const [key, value] of new URLSearchParams(query)) params.set(key, value);
+  if (focusRoute) params.set("selection", selectionParam(state.selection));
+  return `${path}?${params.toString().replace(/%2C/g, ",")}`;
 }
 
 export function createSelectionNavigation(root, windowNode, state) {
@@ -41,9 +47,24 @@ export function createSelectionNavigation(root, windowNode, state) {
     authoredLinks.set(anchor, { authored, rendered: next });
     if (next !== href) anchor.setAttribute("href", next);
   }
-  function click(event) {
+  function activate(event) {
+    if (event.defaultPrevented) return;
+    if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
+    if (event.type === "click" && event.button > 0) return;
     for (let node = event.target; node && node !== root; node = node.parentNode) {
       if (node.tagName === "A") { rewrite(node); return; }
+      if (["BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(node.tagName)) return;
+      if (node.getAttribute?.("role") === "link") {
+        const anchor = node.querySelector?.("a[href]");
+        if (!anchor) return;
+        rewrite(anchor);
+        const href = anchor.getAttribute("href");
+        if (!href?.startsWith("#/")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        navigate(href);
+        return;
+      }
     }
   }
   const observer = windowNode.MutationObserver ? new windowNode.MutationObserver((records) => {
@@ -56,7 +77,8 @@ export function createSelectionNavigation(root, windowNode, state) {
     }
   }) : null;
   observer?.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["href"] });
-  root.addEventListener("click", click, true);
+  root.addEventListener("click", activate, true);
+  root.addEventListener("keydown", activate, true);
   return {
     navigate,
     refresh() {
@@ -70,7 +92,8 @@ export function createSelectionNavigation(root, windowNode, state) {
     },
     dispose() {
       observer?.disconnect();
-      root.removeEventListener("click", click, true);
+      root.removeEventListener("click", activate, true);
+      root.removeEventListener("keydown", activate, true);
     },
   };
 }

@@ -122,11 +122,9 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   // A host section renders inside the view host, after whatever the view
   // renders for itself — one seam every view shares, so the host never
-  // reaches into a renderer's own output. `scoped` marks the pages that drew
-  // a picker: only there does a `beforeScope` section belong somewhere else,
-  // and `beforeScopeSections` has already lifted it above that control. A
-  // page with no picker has no control for it to sit above, so both
-  // placements land here and no section can silently go unplaced.
+  // reaches into a renderer's own output. `scoped` marks the renderers with
+  // an above-scope content slot. Other views keep both section placements
+  // in the view host, so no section can silently go unplaced.
   const {
     append: appendViewSection,
     beforeScope: beforeScopeSections,
@@ -143,7 +141,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   function resolveRoute(route, entry) {
     const scope = scopeForEntry(entry, route.project, projects, scopeSelections, route.selection);
     const project = route.detail ? route.project : (entry.scope === SCOPE_SINGLE ? scope : null);
-    navigation.replace(selectionRoute(route, scopeSelections, project));
+    navigation.replace(selectionRoute(route, scopeSelections, project, windowNode.location.hash));
     return scope;
   }
 
@@ -169,7 +167,7 @@ export function mountUniverseApp(rootNode, options = {}) {
           entry, null, projects, scopeSelections, selectionParam(next),
         );
         scopeSelections.save();
-        windowNode.location.hash = selectionRoute(route, scopeSelections, focus);
+        windowNode.location.hash = selectionRoute(route, scopeSelections, focus, windowNode.location.hash);
         if (entry.scope === SCOPE_NONE || entry.scope === SCOPE_SINGLE || route.detail) renderRoute();
         else heldScope.applyScopeInPlace(next);
       },
@@ -192,8 +190,8 @@ export function mountUniverseApp(rootNode, options = {}) {
       // that the screen is not here — this mount cannot render it.
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
-      // A host-fed view renders no body of its own and carries no picker, so
-      // its section is the whole body at either placement.
+      // A host-fed section is the whole body at either placement. Selection
+      // remains in the shared topbar and does not filter this body.
       const hostSection = resolvedSections[entry.id];
       if (hostSection) viewHost.appendChild(hostSection.content);
       else renderStubView(context, viewHost);
@@ -212,8 +210,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     if (entry.scope === SCOPE_NONE) {
       // An unscoped view can still own drill-ins: Projects is a universe-wide
       // roster whose rows each open one project. The row carries the project,
-      // so the drill-in needs no picker above it — a breadcrumb back to the
-      // roster is the whole chrome.
+      // independently of the remembered selection. Its breadcrumb returns
+      // to the universe-wide roster.
       if (detailRenderer && route.detail) {
         const detailHost = el(documentNode, "div", "view-host");
         const breadcrumb = createBreadcrumb(

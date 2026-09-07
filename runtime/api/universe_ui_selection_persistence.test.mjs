@@ -4,7 +4,7 @@ import { mountUniverseApp, withProjectSelection } from "../../packages/yoke-core
 import { createProjectSelection, resolveProjectSelection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
 import { navEntry, scopeForEntry } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_navigation.js";
 import { FakeDocument, allNodes, byClass, response, settle } from "./universe_ui_dom_test_support.mjs";
-import { createSelectionNavigation } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_selection_routes.js";
+import { createSelectionNavigation, selectionRoute } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_selection_routes.js";
 import { itemsCalls, scopeChips, twoProjectClient } from "./universe_ui_read_views_test_support.mjs";
 
 const projects = [{ id: 1 }, { id: 2 }, { id: 3 }];
@@ -111,6 +111,39 @@ test("late-rendered and retained host anchors track selection, including copied 
   assert.equal(documentNode.defaultView.location.hash, "#/workflows/dash?selection=all");
   navigation.dispose();
   assert.equal(disconnected, true);
+});
+
+test("row pointer and keyboard navigation use the same selection as the row anchor", () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const handlers = {};
+  root.addEventListener = (name, handler) => { handlers[name] = handler; };
+  const state = createProjectSelection({});
+  state.selection = ["1", "2"];
+  const navigation = createSelectionNavigation(root, documentNode.defaultView, state);
+  const row = documentNode.createElement("tr");
+  row.setAttribute("role", "link");
+  const link = documentNode.createElement("a");
+  link.setAttribute("href", "#/items/42?project=2");
+  row.appendChild(link);
+  row.querySelector = () => link;
+  root.appendChild(row);
+  for (const type of ["click", "keydown"]) {
+    let prevented = false, stopped = false;
+    handlers[type]({ type, target: row, key: "Enter", button: 0,
+      preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } });
+    assert.equal(documentNode.defaultView.location.hash, "#/items/42?project=2&selection=1,2");
+    assert.ok(prevented && stopped);
+  }
+  navigation.dispose();
+});
+
+test("normalization and selection changes retain a view's own query fields", () => {
+  const state = createProjectSelection({});
+  state.selection = ["1", "2"];
+  assert.equal(selectionRoute({ view: "items", detail: "new" }, state, null,
+    "#/items/new?workflow=dash&return=workflows"),
+  "#/items/new?workflow=dash&return=workflows&selection=1,2");
 });
 
 async function mountAt(t, hash, windowStorage = storageWindow(), actorIdentity = identity) {
