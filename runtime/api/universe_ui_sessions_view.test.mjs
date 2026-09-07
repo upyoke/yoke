@@ -187,7 +187,11 @@ test("Sessions styles use theme tokens and collapse stats and cards on narrow sc
   assert.match(css, /\.session-harness\.h-codex \{[\s\S]*--yoke-h-codex/);
   assert.match(
     css,
-    /@media \(max-width: 760px\)[\s\S]*\.sessions-stats \{[\s\S]*repeat\(2,[\s\S]*\.session-grid \{ grid-template-columns: 1fr; \}/,
+    /@media \(max-width: 760px\)[\s\S]*\.sessions-stats \{[\s\S]*repeat\(2,/,
+  );
+  assert.doesNotMatch(
+    css,
+    /\.session-grid \{ grid-template-columns: 1fr; \}/,
   );
 });
 
