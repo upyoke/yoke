@@ -11,7 +11,8 @@ import {
   el,
   mergedRows,
   scopeBuckets,
-  sessionReasonBadge,
+  sessionQuietExplanation,
+  sessionStateBadge,
   settledScopedCalls,
 } from "./universe_view_support.js";
 import {
@@ -132,12 +133,15 @@ export function sessionCard(
     ));
   }
   top.appendChild(laneChip(documentNode, row));
-  top.appendChild(sessionReasonBadge(documentNode, row.mode, row.quiet_reason));
+  const stateBadge = sessionStateBadge(documentNode, row.mode);
+  if (stateBadge) top.appendChild(stateBadge);
   const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);
   card.appendChild(top);
 
   const body = el(documentNode, "div", "session-card-body");
+  const quietExplanation = sessionQuietExplanation(documentNode, row.quiet_reason);
+  if (quietExplanation) body.appendChild(quietExplanation);
   appendModel(documentNode, body, row);
   appendSessionUsage(documentNode, body, row);
   appendSteeringHoldings(documentNode, body, row, projects);

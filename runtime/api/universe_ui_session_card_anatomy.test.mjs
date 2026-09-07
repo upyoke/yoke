@@ -165,11 +165,8 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
       ["X", "session-harness h-codex"],
     ],
   );
-  // Modes without a quiet reason render no reason badge.
-  assert.deepEqual(
-    byClass(root, "session-reason-badge").filter((n) => !n.hidden).map((n) => n.textContent),
-    [],
-  );
+  // Modes without a quiet reason render no explanation or invented state.
+  assert.equal(byClass(root, "session-quiet-explanation").length, 0);
   // The mode pill is gone; the lane names the session beside its harness and
   // the relay pill is the one reachability fact the card keeps.
   assert.deepEqual(
@@ -289,7 +286,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   mounted.unmount();
 });
 
-test("Sessions card exposes quiet reasons without rendering them inline", async (t) => {
+test("Sessions cards separate state badges from quiet explanations", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -311,7 +308,7 @@ test("Sessions card exposes quiet reasons without rendering them inline", async 
     {
       session_id: "wait-1", liveness: "active",
       execution_lane: "ALTMAN", mode: "wait",
-      quiet_reason: "waiting on merge queue",
+      quiet_reason: "Waiting for the merge queue to validate a deliberately long explanation without clipping any of its recovery context.",
       executor: "claude-code", model: "claude-opus-4-8",
       executor_mark: "A", executor_class_name: "h-claude",
       actor_id: 2, actor_kind: "human", actor_label: "Ben",
@@ -319,23 +316,32 @@ test("Sessions card exposes quiet reasons without rendering them inline", async 
       activity_at: "2026-07-26T12:04:00Z",
       claims: [],
     },
+    { session_id: "cursor-1", liveness: "active", execution_lane: "TURING",
+      mode: "dash", quiet_reason: null, executor: "cursor", model: "gpt-5.6-sol",
+      executor_mark: "C", executor_class_name: "h-cursor", project_id: 1,
+      project: "yoke", activity_at: "2026-07-26T12:03:00Z", claims: [] },
   ];
   const mounted = mountUniverseApp(root, {
     client: sessionsClient(rows, []),
   });
   await settle();
   assert.deepEqual(
-    byClass(root, "session-reason-badge").filter((n) => !n.hidden).map(
-      (n) => [n.textContent, n.title, n.attributes.get("aria-label")],
-    ),
+    byClass(root, "pill").filter((n) => n.attributes.get("data-state") === "parked")
+      .map((n) => n.textContent),
+    ["parked"],
+  );
+  assert.deepEqual(
+    byClass(root, "session-quiet-explanation").map((node) => [
+      node.children[0].textContent, node.children[1].textContent,
+    ]),
     [
       [
-        "parked",
+        "Why quiet",
         "waiting on a blocking claim",
-        "parked: waiting on a blocking claim",
       ],
-      ["reason", "waiting on merge queue", "reason: waiting on merge queue"],
+      ["Why quiet", "Waiting for the merge queue to validate a deliberately long explanation without clipping any of its recovery context."],
     ],
   );
+  assert.deepEqual(byClass(root, "session-harness").map((n) => n.textContent), ["X", "A", "C"]);
   mounted.unmount();
 });

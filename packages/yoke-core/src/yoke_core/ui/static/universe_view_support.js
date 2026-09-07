@@ -96,37 +96,24 @@ export function statePill(documentNode, value, label = value) {
   return pill;
 }
 
-// Parked remains a distinct posture; every mode may also declare why the
-// session expects to be quiet. Keep the reason available without adding its
-// arbitrary-length text to compact roster rows.
-export function sessionReasonBadge(documentNode, mode, reason) {
-  const parked = String(mode || "").toLowerCase() === "parked";
-  const quietReason = String(reason ?? "").trim();
-  const visible = parked || Boolean(quietReason);
-  const badge = el(
-    documentNode,
-    "span",
-    visible ? "session-reason-badge" : "session-reason-badge session-reason-badge-empty",
-    parked ? "parked" : quietReason ? "reason" : "",
-  );
-  if (!visible) {
-    badge.hidden = true;
-    return badge;
-  }
-  if (quietReason) {
-    badge.title = quietReason;
-    badge.tabIndex = 0;
-    badge.setAttribute("role", "note");
-    badge.setAttribute(
-      "aria-label", `${parked ? "parked" : "reason"}: ${quietReason}`,
-    );
-    badge.setAttribute("data-reason", quietReason);
-  }
-  return badge;
+// Parked is a real session state. Quiet reasons are explanatory prose and
+// belong in their own disclosure rather than masquerading as another state.
+export function sessionStateBadge(documentNode, mode) {
+  if (String(mode || "").toLowerCase() !== "parked") return null;
+  return statePill(documentNode, "parked");
 }
 
-export function sessionModePill(documentNode, mode, liveness, reason) {
-  return sessionReasonBadge(documentNode, mode, reason);
+export function sessionQuietExplanation(documentNode, reason) {
+  const text = String(reason ?? "").trim();
+  if (!text) return null;
+  const disclosure = el(documentNode, "details", "session-quiet-explanation");
+  disclosure.appendChild(el(
+    documentNode, "summary", "session-quiet-summary", "Why quiet",
+  ));
+  disclosure.appendChild(el(
+    documentNode, "div", "session-quiet-copy", text,
+  ));
+  return disclosure;
 }
 
 export function renderError(body, callResult) {
