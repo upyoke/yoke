@@ -54,12 +54,10 @@ _RECOVERY_BY_CODE = {
         "worth a field note"
     ),
     "UNSUPPORTED_HOOK_OBSERVATION_SCHEMA": (
-        "client and control plane speak different batch schemas; update the "
-        "older side"
+        "client and control plane speak different batch schemas; update the older side"
     ),
     "UNSUPPORTED_HOOK_SCHEMA": (
-        "client and control plane speak different hook schemas; update the "
-        "older side"
+        "client and control plane speak different hook schemas; update the older side"
     ),
 }
 _DEFAULT_PERMANENT_RECOVERY = (
@@ -121,7 +119,7 @@ def classify_delivery_failure(exc: BaseException) -> DeliveryFailure:
             status=exc.status,
             code=code,
             detail=message,
-            )
+        )
     return DeliveryFailure(
         permanent=False,
         status=0,

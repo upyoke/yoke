@@ -55,9 +55,7 @@ def _rejecting_opener(status: int, code: str):
     body = json.dumps({"error": {"code": code, "message": "refused"}}).encode()
 
     def opener(request, timeout=None):  # noqa: ARG001
-        raise urllib.error.HTTPError(
-            ENDPOINT, status, code, {}, io.BytesIO(body)
-        )
+        raise urllib.error.HTTPError(ENDPOINT, status, code, {}, io.BytesIO(body))
 
     return opener
 
@@ -124,9 +122,7 @@ def test_permanent_rejection_drops_the_batch_and_names_its_recovery(
 def test_permanent_rejection_is_visible_on_the_hooks_own_stderr(
     queue_factory,
 ) -> None:
-    queue = queue_factory(
-        _rejecting_opener(400, "HOOK_OBSERVATION_PROJECT_DENIED")
-    )
+    queue = queue_factory(_rejecting_opener(400, "HOOK_OBSERVATION_PROJECT_DENIED"))
     queue.enqueue(_pending(1))
     queue._flush_once()
 

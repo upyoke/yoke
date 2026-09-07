@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock
@@ -291,3 +292,34 @@ def test_message_probe_interval_is_bounded() -> None:
     server.http_opener.observation_batch_supported.return_value = False
     server.mark_message_probe("session-1")
     assert not server.should_evaluate_locally("session-1")
+
+
+def test_concurrent_hooks_are_admitted_without_a_serial_wait(
+    resident_process,
+) -> None:
+    """Five callers must not queue behind one another's half-second waits."""
+    socket_path, revision = resident_process()
+    responses: list[dict] = []
+    lock = threading.Lock()
+
+    def call() -> None:
+        response = _round_trip(
+            socket_path,
+            _request("PreToolUse", cwd="/tmp", revision=revision),
+        )
+        with lock:
+            responses.append(response)
+
+    started = time.monotonic()
+    threads = [threading.Thread(target=call) for _ in range(5)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    elapsed = time.monotonic() - started
+
+    assert len(responses) == 5
+    assert all(response.get("status") == "ok" for response in responses)
+    # The removed drain cost 0.5s of admission per request; five sequential
+    # admissions could not finish inside this bound.
+    assert elapsed < 2.5, f"admission took {elapsed:.2f}s"

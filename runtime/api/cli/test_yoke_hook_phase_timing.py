@@ -58,9 +58,7 @@ def test_a_degraded_hook_reports_its_phases_and_still_returns_its_exit_code(
             resident_wait_ms=2001,
         )
 
-    monkeypatch.setattr(
-        "yoke_cli.hook_resident_client.evaluate_with_resident", refuse
-    )
+    monkeypatch.setattr("yoke_cli.hook_resident_client.evaluate_with_resident", refuse)
     monkeypatch.setattr(
         hooks,
         "_evaluate_inprocess",
