@@ -145,6 +145,12 @@ export class FakeDocument {
     return new FakeNode(this, tagName);
   }
 
+  createElementNS(namespaceURI, tagName) {
+    const node = new FakeNode(this, tagName);
+    node.namespaceURI = namespaceURI;
+    return node;
+  }
+
   createTextNode(value) {
     const node = new FakeNode(this, "#text", 3);
     node.textContent = String(value ?? "");

@@ -40,33 +40,36 @@ const steering = {
   strategy_docs: ["CURRENT-PLAN"],
 };
 
-test("a live seat leads with the Steering box and a corner wheel", () => {
+test("a live seat leads with the Steering box and designed corner symbol", () => {
   const rendered = card(new FakeDocument(), { current: [steering] });
   const lead = byClass(rendered, "session-steering-lead")[0];
-  const wheel = byClass(lead, "session-steering-wheel")[0];
-  assert.equal(wheel.textContent, "🛞");
+  const symbol = byClass(lead, "session-steering-symbol")[0];
+  assert.equal(symbol.textContent, "");
+  const svg = symbol.children[0];
+  assert.equal(svg.tagName, "SVG");
+  assert.equal(svg.getAttribute("viewBox"), "0 0 209.8 142");
+  assert.equal(svg.children[0].getAttribute("fill"), "currentColor");
+  assert.equal(svg.children[1].getAttribute("stroke"), "currentColor");
   assert.equal(
-    wheel.title, "steering seat — this session steered this project",
+    symbol.title, "steering seat — this session steered this project",
   );
-  assert.equal(
-    wheel.getAttribute("aria-label"),
-    "steering seat — this session steered this project",
-  );
-  // The wheel leads the box so it lands in the corner, not inline with
+  assert.equal(symbol.getAttribute("aria-hidden"), "true");
+  assert.equal(symbol.getAttribute("aria-label"), null);
+  // The symbol leads the box so it lands in the corner, not inline with
   // the label the operator reads first.
-  assert.equal(lead.children[0], wheel);
+  assert.equal(lead.children[0], symbol);
   assert.equal(
     byClass(lead, "session-steering-lead-label")[0].textContent, "Steering",
   );
 });
 
 
-test("a released seat keeps no Steering box, so no wheel with it", () => {
+test("a released seat keeps no Steering box or corner symbol", () => {
   const rendered = card(new FakeDocument(), {
     previous: [{ ...steering, released_at: "2026-08-26T12:00:00Z" }],
   });
   assert.equal(byClass(rendered, "session-steering-lead").length, 0);
-  assert.equal(byClass(rendered, "session-steering-wheel").length, 0);
+  assert.equal(byClass(rendered, "session-steering-symbol").length, 0);
 });
 
 
@@ -90,6 +93,7 @@ test("a steering card wears no sheet of its own", () => {
   assert.ok(!css.includes(".session-card"), "no card-level steering sheet");
   assert.match(css, /border-left: 3px solid var\(--yoke-accent\)/);
   assert.match(
-    css, /\.session-steering-wheel \{[\s\S]*?position: absolute/,
+    css, /\.session-steering-symbol \{[\s\S]*?position: absolute/,
   );
+  assert.match(css, /\.steering-symbol svg \{[\s\S]*?width: 14px/);
 });

@@ -1,7 +1,7 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
-  STEERING_MARKER_TITLE,
   releasedHoldingHistory,
+  steeringMarker,
   steeringDocCovers,
   steeringHoldingText,
   steeringLeadCovers,
@@ -104,14 +104,9 @@ function titleHolding(entries, row) {
   return items.find((entry) => entry.target === row.current_item) || items[0];
 }
 
-// The marker names WHICH KIND of hold the row is, so one glyph per kind:
-// the same glyph everywhere would say only "held", which the box heading
-// already says. Ordinary work carries a briefcase; the padlock is reserved
-// for a genuine lock — a coordination lease over a shared operation, the
-// hold that stops other work from running.
 function holdingMarker(holding) {
   if (holding.target_kind === "steering") {
-    return { text: "🛞", title: STEERING_MARKER_TITLE };
+    return { steering: true };
   }
   if (holding.holding_kind === "path_claim") {
     return { text: "📁", title: "file claim — this session holds it" };
@@ -152,8 +147,10 @@ function appendHoldingEntry(
 ) {
   const work = el(documentNode, "div", "session-work");
   const markerFacts = holdingMarker(holding);
-  const marker = el(documentNode, "span", "session-lock", markerFacts.text);
-  marker.title = markerFacts.title;
+  const marker = markerFacts.steering
+    ? steeringMarker(documentNode, "session-lock")
+    : el(documentNode, "span", "session-lock", markerFacts.text);
+  if (!markerFacts.steering) marker.title = markerFacts.title;
   work.appendChild(marker);
   const href = holding.target_kind === "item" ? holdingHref(holding, row) : null;
   const target = el(

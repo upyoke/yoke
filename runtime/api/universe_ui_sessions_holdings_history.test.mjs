@@ -172,8 +172,8 @@ test("released steering seats lead previously-held rows before items", () => {
   assert.deepEqual(
     byClass(previous, "session-lock").map((node) => [node.textContent, node.title]),
     [
-      ["🛞", "steering seat — this session steered this project"],
-      ["🛞", "steering seat — this session steered this project"],
+      ["", "steering seat — this session steered this project"],
+      ["", "steering seat — this session steered this project"],
       ["💼", "work claim — this session holds it"],
     ],
   );
@@ -238,8 +238,8 @@ test("steering-only history lists released seats without a live lead", () => {
     ["yoke · MISSION", "platform · CURRENT-PLAN"],
   );
   assert.deepEqual(
-    byClass(rendered, "session-lock").map((node) => node.textContent),
-    ["🛞", "🛞"],
+    byClass(rendered, "session-lock").map((node) => node.children[0].tagName),
+    ["SVG", "SVG"],
   );
 });
 
@@ -260,7 +260,10 @@ test("terminated seat still lists previously held steering rows", () => {
     byClass(rendered, "session-hold-target").map((node) => node.textContent),
     ["yoke · CURRENT-PLAN"],
   );
-  assert.equal(byClass(rendered, "session-lock")[0].textContent, "🛞");
+  const marker = byClass(rendered, "session-lock")[0];
+  assert.equal(marker.children[0].tagName, "SVG");
+  assert.equal(marker.getAttribute("role"), "img");
+  assert.equal(marker.getAttribute("aria-label"), marker.title);
 });
 
 
