@@ -17,8 +17,10 @@ from yoke_contracts.hook_evaluator_protocol import (
 )
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_core.api.http_auth import require_auth_context
-from yoke_core.domain.session_ambient_identity import (
-    is_conversation_shaped_session_id,
+from yoke_core.hooks.relayed_session_identity import (
+    refusal_text,
+    session_ownership_refusal,
+    stamped_identity_refusal,
 )
 from yoke_core.hooks.observation_batch import persist_observation_batch
 
@@ -75,6 +77,7 @@ def post_hook_observation_batch(
 
     validated: list[dict[str, Any]] = []
     project_ids: set[int] = set()
+    session_ids: set[str] = set()
     for observation in batch.observations:
         try:
             hook_request = HookEvaluateRequest.model_validate(observation.hook_request)
@@ -104,17 +107,19 @@ def post_hook_observation_batch(
             return _error(
                 400,
                 "HOOK_OBSERVATION_IDENTITY_REQUIRED",
-                "batched hook payload is not identity-stamped",
+                "batched hook payload is not identity-stamped; only the "
+                "resident's stamped read-only chains are batchable",
             )
-        session_id = payload.get("session_id")
-        if not isinstance(session_id, str) or is_conversation_shaped_session_id(
-            payload, session_id=session_id
-        ):
+        # Shared with the evaluate route: a batch must never refuse a payload
+        # that a live hook is allowed to relay.
+        reason_key = stamped_identity_refusal(payload)
+        if reason_key is not None:
             return _error(
                 400,
                 "HOOK_OBSERVATION_SESSION_INVALID",
-                "batched hook payload has no canonical session id",
+                f"batched hook payload {refusal_text(reason_key)}",
             )
+        session_ids.add(str(payload["session_id"]).strip())
         if hook_request.project_id is None:
             return _error(
                 403,
@@ -132,12 +137,26 @@ def post_hook_observation_batch(
 
         with db_helpers.connect() as conn:
             visible = actor_visible_project_ids(conn, auth.actor_id) or set()
+            owner_refusal = next(
+                (
+                    refusal
+                    for session_id in sorted(session_ids)
+                    if (
+                        refusal := session_ownership_refusal(
+                            conn, session_id, auth.actor_id
+                        )
+                    )
+                ),
+                None,
+            )
     except Exception:
         return _error(
             503,
             "HOOK_OBSERVATION_AUTH_UNAVAILABLE",
             "project authorization could not be checked; retry the batch",
         )
+    if owner_refusal is not None:
+        return _error(403, "HOOK_OBSERVATION_SESSION_DENIED", owner_refusal)
     if not project_ids.issubset({int(value) for value in visible}):
         return _error(
             403,

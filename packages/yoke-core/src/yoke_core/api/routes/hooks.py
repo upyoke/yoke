@@ -24,8 +24,9 @@ from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
 from yoke_core.domain.execution_provenance import collect_execution_provenance
 from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
-from yoke_core.domain.session_ambient_identity import (
-    is_conversation_shaped_session_id,
+from yoke_core.hooks.relayed_session_identity import (
+    refusal_text,
+    stamped_identity_refusal,
 )
 from yoke_core.hooks.remote_entry import evaluate_remote
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
@@ -208,43 +209,27 @@ def _emit_route_denial(
 
 
 def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | None:
-    """Reject relayed payloads whose stamped session id is still a conversation."""
-    payload = _stdin_payload(request)
-    if payload.get("identity_stamped") is True:
+    """Reject relayed payloads whose stamped session id is still a conversation.
+
+    The predicate is shared with the observation-batch route so the two
+    cannot drift back into refusing each other's payloads.
+    """
+    reason_key = stamped_identity_refusal(_stdin_payload(request))
+    if reason_key is None:
         return None
-    sid = payload.get("session_id")
-    if not isinstance(sid, str) or not sid.strip():
-        reason = (
-            "Yoke hook relay refused: payload has no stamped, "
-            "non-conversation session id."
-        )
-        _emit_route_denial("conversation_shaped_session", reason, request)
-        return JSONResponse(
-            content=_with_provenance(
-                HookEvaluateResponse(
-                    stdout=f"{reason}\n",
-                    exit_code=2,
-                    wait_ms=0,
-                    degraded=[],
-                    outcome="denied",
-                ).model_dump()
-            ),
-        )
-    if is_conversation_shaped_session_id(payload, session_id=sid):
-        reason = "Yoke hook relay refused: session id is still conversation-shaped."
-        _emit_route_denial("conversation_shaped_session", reason, request)
-        return JSONResponse(
-            content=_with_provenance(
-                HookEvaluateResponse(
-                    stdout=f"{reason}\n",
-                    exit_code=2,
-                    wait_ms=0,
-                    degraded=[],
-                    outcome="denied",
-                ).model_dump()
-            ),
-        )
-    return None
+    reason = f"Yoke hook relay refused: {refusal_text(reason_key)}."
+    _emit_route_denial("conversation_shaped_session", reason, request)
+    return JSONResponse(
+        content=_with_provenance(
+            HookEvaluateResponse(
+                stdout=f"{reason}\n",
+                exit_code=2,
+                wait_ms=0,
+                degraded=[],
+                outcome="denied",
+            ).model_dump()
+        ),
+    )
 
 
 def _authorize_project(

@@ -36,6 +36,8 @@ from yoke_contracts.hook_resident_routing import (
 
 _UNKNOWN_REVISIONS = frozenset({"", "unknown"})
 _SERVER_POLL_SECONDS = 0.25
+RESTART_FOR_INSTALLED_REVISION = "restart"
+RETIRED_WHILE_IDLE = "idle"
 
 
 def _same_revision(left: str, right: str) -> bool:
@@ -89,11 +91,11 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
             self.last_activity = time.monotonic()
 
     def idle_expired(self) -> bool:
+        """Retire on idleness alone; shutdown drains under its own bound."""
         with self.state_lock:
-            idle = self.active_requests == 0 and (
+            return self.active_requests == 0 and (
                 time.monotonic() - self.last_activity >= RESIDENT_IDLE_TIMEOUT_SECONDS
             )
-        return idle and self.observations.pending_count() == 0
 
     def should_evaluate_locally(self, session_id: str) -> bool:
         if not session_id or not self.http_opener.observation_batch_supported():
@@ -142,7 +144,7 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
             deferred = None
             opener = self.http_opener
             if local:
-                from yoke_harness.hook_resident_observations import (
+                from yoke_harness.hook_observation_capture import (
                     DeferredObservationOpener,
                 )
 
@@ -196,7 +198,14 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
             try:
                 request = HookEvaluatorRequest.from_mapping(receive_frame(self.request))
                 if not _same_revision(request.revision, self.server.loaded_revision):
-                    send_frame(self.request, {"status": "restart"})
+                    send_frame(
+                        self.request,
+                        {
+                            "status": "restart",
+                            "loaded_revision": self.server.loaded_revision,
+                            "requested_revision": request.revision,
+                        },
+                    )
                     self.server.restart_event.set()
                     return
                 response, client_wall_target = self.server.evaluate(request)
@@ -249,6 +258,21 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _exit_reason(server: _ResidentServer) -> str | None:
+    """Why this accept loop should stop, or ``None`` to keep serving.
+
+    Nothing here consults the telemetry queue: waiting for a flush before
+    leaving blocked the upgrade behind an undeliverable batch, and the
+    drain that wait interleaved with admission held every caller on the
+    machine to two hooks per second.
+    """
+    if server.restart_event.is_set():
+        return RESTART_FOR_INSTALLED_REVISION
+    if server.idle_expired():
+        return RETIRED_WHILE_IDLE
+    return None
+
+
 def _unlink_socket(path: Path) -> None:
     try:
         path.unlink()
@@ -269,25 +293,24 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
     restart = False
     try:
         while not server.stop_event.is_set():
-            if server.restart_event.is_set():
-                if server.observations.pending_count() == 0:
-                    restart = True
-                    break
-                server.observations.drain(0.5)
-            if server.idle_expired():
+            reason = _exit_reason(server)
+            if reason is not None:
+                restart = reason == RESTART_FOR_INSTALLED_REVISION
                 break
             server.handle_request()
     finally:
+        # In-flight evaluations finish first: handler threads are non-daemon
+        # and ``block_on_close`` joins them here.
         server.server_close()
-        drained = server.observations.close(drain_timeout=2.0)
-        if not drained:
+        if not server.observations.close(drain_timeout=2.0):
             sys.stderr.write(
-                "ERROR: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT: retained observations "
-                "could not flush before resident shutdown\n"
+                "WARNING: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT: retained observations "
+                "could not flush before shutdown; telemetry is disposable and the "
+                "resident continues to the installed revision\n"
             )
         server.http_opener.close()
         _unlink_socket(socket_path)
-    return restart and drained
+    return restart
 
 
 def main() -> int:

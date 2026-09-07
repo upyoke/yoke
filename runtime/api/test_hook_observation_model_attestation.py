@@ -16,10 +16,10 @@ from yoke_core.hooks.observation_batch import persist_observation_batch
 from yoke_harness.hooks.identity_model_facts import (
     client_model_facts,
 )
+from yoke_harness.hook_observation_capture import _MemoryResponse
 from yoke_harness.hook_resident_observations import (
     ObservationQueue,
     PendingObservation,
-    _MemoryResponse,
 )
 
 

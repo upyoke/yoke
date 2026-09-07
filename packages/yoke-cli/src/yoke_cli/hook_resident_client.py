@@ -24,9 +24,14 @@ from yoke_contracts.hook_evaluator_protocol import (
 )
 
 
+# Total time this process may spend reaching a usable resident: connecting,
+# starting one, and re-trying after a restart handshake. An absolute
+# deadline imposed on every socket operation, not a loop-top glance.
 RESIDENT_CONNECT_GRACE_SECONDS = 2.0
 _CONNECT_ATTEMPT_SECONDS = 0.1
 _START_RETRY_SECONDS = 0.025
+# The floor a legitimate evaluation keeps however much the grace spent.
+_MINIMUM_RESULT_SECONDS = 1.0
 _SOCKET_PATH_LIMIT_BYTES = 100
 
 
@@ -43,15 +48,24 @@ class ResidentEvaluation:
     stdout: str
     stderr: str
     exit_code: int
+    resident_wait_ms: int = 0
 
 
 class ResidentUnavailable(RuntimeError):
     """The resident could not safely answer this hook invocation."""
 
-    def __init__(self, code: str, detail: str, *, log_path: Path) -> None:
+    def __init__(
+        self,
+        code: str,
+        detail: str,
+        *,
+        log_path: Path,
+        resident_wait_ms: int = 0,
+    ) -> None:
         self.code = code
         self.detail = detail
         self.log_path = log_path
+        self.resident_wait_ms = resident_wait_ms
         super().__init__(f"{code}: {detail}")
 
 
@@ -76,13 +90,32 @@ def resident_paths() -> ResidentPaths:
     )
 
 
-def _result_timeout_seconds(environment: dict[str, str]) -> float:
+def _result_ceiling_seconds(environment: dict[str, str]) -> float:
+    """The hook's own total budget, plus slack for the resident to self-stop."""
     raw = environment.get("YOKE_HOOK_TOTAL_TIMEOUT_MS", "").strip()
     try:
         timeout_ms = int(raw) if raw else 10000
     except ValueError:
         timeout_ms = 10000
     return max(1.0, timeout_ms / 1000.0 + 2.0)
+
+
+def _result_timeout_seconds(
+    environment: dict[str, str],
+    client_started_monotonic: float | None,
+) -> float:
+    """Bound the response wait by what is left of the hook's total budget.
+
+    A legitimate evaluation still gets its intended deadline — at send
+    time a healthy hook has spent milliseconds. What this removes is the
+    case where connect retries burn the grace and a full ceiling then
+    starts counting from there, so one call could outlast its own budget.
+    """
+    ceiling = _result_ceiling_seconds(environment)
+    if client_started_monotonic is None:
+        return ceiling
+    spent = max(0.0, time.monotonic() - client_started_monotonic)
+    return max(_MINIMUM_RESULT_SECONDS, ceiling - spent)
 
 
 def _request(
@@ -104,17 +137,30 @@ def _request(
     )
 
 
+def _connect_timeout_seconds(connect_deadline: float | None) -> float:
+    """Never wait past the grace merely to open the socket."""
+    if connect_deadline is None:
+        return _CONNECT_ATTEMPT_SECONDS
+    remaining = connect_deadline - time.monotonic()
+    if remaining <= 0:
+        raise socket.timeout("resident connect grace is exhausted")
+    return min(_CONNECT_ATTEMPT_SECONDS, remaining)
+
+
 def _round_trip(
     paths: ResidentPaths,
     request: HookEvaluatorRequest,
     *,
     client_started_monotonic: float | None = None,
+    connect_deadline: float | None = None,
 ) -> dict:
     peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        peer.settimeout(_CONNECT_ATTEMPT_SECONDS)
+        peer.settimeout(_connect_timeout_seconds(connect_deadline))
         peer.connect(str(paths.socket))
-        peer.settimeout(_result_timeout_seconds(request.environment))
+        peer.settimeout(
+            _result_timeout_seconds(request.environment, client_started_monotonic)
+        )
         send_frame(peer, request.to_mapping())
         response = receive_frame(peer)
         if (
@@ -186,16 +232,33 @@ def _start_resident(paths: ResidentPaths, environment: dict[str, str]) -> None:
         os.close(lock_fd)
 
 
-def _validated_result(response: dict, paths: ResidentPaths) -> ResidentEvaluation:
+def _restart_detail(response: dict) -> str:
+    """Name both revisions, so a stuck upgrade is readable from one line."""
+    loaded = str(response.get("loaded_revision") or "unknown")[:12]
+    requested = str(response.get("requested_revision") or "unknown")[:12]
+    return (
+        "resident is re-executing for the installed revision "
+        f"(loaded {loaded}, requested {requested})"
+    )
+
+
+def _validated_result(
+    response: dict,
+    paths: ResidentPaths,
+    resident_wait_ms: int = 0,
+) -> ResidentEvaluation:
     if response.get("status") == "error":
         code = str(response.get("code") or "YOKE_HOOK_RESIDENT_CRASHED")
         detail = str(response.get("detail") or "resident evaluation failed")
-        raise ResidentUnavailable(code, detail, log_path=paths.log)
+        raise ResidentUnavailable(
+            code, detail, log_path=paths.log, resident_wait_ms=resident_wait_ms
+        )
     if response.get("status") != "ok":
         raise ResidentUnavailable(
             "YOKE_HOOK_RESIDENT_PROTOCOL_ERROR",
             "resident response has no recognized status",
             log_path=paths.log,
+            resident_wait_ms=resident_wait_ms,
         )
     stdout = response.get("stdout")
     stderr = response.get("stderr")
@@ -209,8 +272,14 @@ def _validated_result(response: dict, paths: ResidentPaths) -> ResidentEvaluatio
             "YOKE_HOOK_RESIDENT_PROTOCOL_ERROR",
             "resident response is not the hook result contract",
             log_path=paths.log,
+            resident_wait_ms=resident_wait_ms,
         )
-    return ResidentEvaluation(stdout=stdout, stderr=stderr, exit_code=exit_code)
+    return ResidentEvaluation(
+        stdout=stdout,
+        stderr=stderr,
+        exit_code=exit_code,
+        resident_wait_ms=resident_wait_ms,
+    )
 
 
 def evaluate_with_resident(
@@ -225,37 +294,47 @@ def evaluate_with_resident(
     paths = resident_paths()
     request = _request(event_name, stdin_data, dry_run, client_timing_id)
     started = time.monotonic()
+    deadline = started + RESIDENT_CONNECT_GRACE_SECONDS
     start_attempted = False
     last_error = "socket is unreachable"
-    while time.monotonic() - started < RESIDENT_CONNECT_GRACE_SECONDS:
+
+    def waited_ms() -> int:
+        return max(0, int((time.monotonic() - started) * 1000))
+
+    while time.monotonic() < deadline:
         try:
             response = _round_trip(
                 paths,
                 request,
                 client_started_monotonic=client_started_monotonic,
+                connect_deadline=deadline,
             )
         except HookEvaluatorProtocolError as exc:
             raise ResidentUnavailable(
                 "YOKE_HOOK_RESIDENT_PROTOCOL_ERROR",
                 str(exc),
                 log_path=paths.log,
+                resident_wait_ms=waited_ms(),
             ) from None
         except (ConnectionError, OSError, socket.timeout) as exc:
             last_error = f"socket unavailable ({type(exc).__name__})"
             if not start_attempted:
                 _start_resident(paths, request.environment)
                 start_attempted = True
-            time.sleep(_START_RETRY_SECONDS)
-            continue
-        if response.get("status") == "restart":
-            last_error = "resident is re-executing for the installed revision"
-            time.sleep(_START_RETRY_SECONDS)
-            continue
-        return _validated_result(response, paths)
+        else:
+            if response.get("status") != "restart":
+                return _validated_result(response, paths, waited_ms())
+            last_error = _restart_detail(response)
+        # Every retry is spent inside the grace, so a resident that keeps
+        # answering "restart" cannot amplify into an unbounded wait.
+        if deadline - time.monotonic() <= _START_RETRY_SECONDS:
+            break
+        time.sleep(_START_RETRY_SECONDS)
     raise ResidentUnavailable(
         "YOKE_HOOK_RESIDENT_UNREACHABLE",
         last_error,
         log_path=paths.log,
+        resident_wait_ms=waited_ms(),
     )
 
 

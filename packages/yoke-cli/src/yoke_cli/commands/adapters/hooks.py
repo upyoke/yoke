@@ -7,6 +7,7 @@ import contextlib
 import io
 import os
 import sys
+import time
 from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error
@@ -40,12 +41,20 @@ def _evaluate_inprocess(
     cursor_invocation: bool,
     fallback_reason: str = "",
     client_timing=None,
+    elapsed_ms: list[int] | None = None,
 ) -> int:
+    """Run the canonical chain here, recording what the evaluation cost.
+
+    The measured span deliberately encloses the completion callback, so any
+    synchronous telemetry reporting is charged to the phase that performed
+    it rather than vanishing between phases.
+    """
     from yoke_cli.commands.adapters.hook_inprocess import evaluate_inprocess
     from yoke_cli.hook_client_wall import record_client_wall
 
     stdout = io.StringIO()
     stderr = io.StringIO()
+    started = time.monotonic()
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
         exit_code = evaluate_inprocess(
             event_name,
@@ -65,6 +74,8 @@ def _evaluate_inprocess(
                 else None
             ),
         )
+    if elapsed_ms is not None:
+        elapsed_ms.append(max(0, int((time.monotonic() - started) * 1000)))
     if stdout.getvalue():
         sys.stdout.write(stdout.getvalue())
     if stderr.getvalue():
@@ -138,17 +149,65 @@ def hook_evaluate(args: List[str]) -> int:
             f"WARNING: {exc.code}: {exc.detail}; using canonical in-process "
             f"fallback (resident log: {exc.log_path})\n"
         )
-        return _evaluate_inprocess(
+        fallback_ms: list[int] = []
+        exit_code = _evaluate_inprocess(
             parsed.event_name,
             stdin_data,
             dry_run=False,
             cursor_invocation=cursor_invocation,
             fallback_reason=exc.code,
             client_timing=client_timing,
+            elapsed_ms=fallback_ms,
         )
+        # A degraded hook always reports its phases: which one paid for the
+        # latency is the whole question, and it is unanswerable afterwards.
+        _report_phase_timing(
+            resident_wait_ms=exc.resident_wait_ms,
+            fallback_ms=fallback_ms[0] if fallback_ms else None,
+            client_timing=client_timing,
+            fallback_reason=exc.code,
+            always=True,
+        )
+        return exit_code
 
     if result.stdout:
         sys.stdout.write(result.stdout)
     if result.stderr:
         sys.stderr.write(result.stderr)
+    _report_phase_timing(
+        resident_wait_ms=result.resident_wait_ms,
+        fallback_ms=None,
+        client_timing=client_timing,
+        fallback_reason="",
+    )
     return result.exit_code
+
+
+def _report_phase_timing(
+    *,
+    resident_wait_ms: int | None,
+    fallback_ms: int | None,
+    client_timing,
+    fallback_reason: str,
+    always: bool = False,
+) -> None:
+    """Print the phase split when it is wanted, and never fail the hook."""
+    try:
+        from yoke_cli.hook_phase_timing import (
+            HookPhaseTiming,
+            phase_timing_requested,
+        )
+
+        if not always and not phase_timing_requested():
+            return
+        timing = HookPhaseTiming(
+            resident_wait_ms=resident_wait_ms,
+            fallback_ms=fallback_ms,
+            client_wall_ms=(
+                client_timing.elapsed_ms() if client_timing is not None else None
+            ),
+            fallback_reason=fallback_reason,
+        )
+        sys.stderr.write(f"{timing.summary()}\n")
+    except Exception:  # noqa: BLE001 — diagnostics never block a tool call
+        return
