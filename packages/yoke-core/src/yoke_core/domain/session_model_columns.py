@@ -28,7 +28,7 @@ from typing import Any, List, Optional, Tuple
 
 from yoke_contracts.session_control.model_selection import (
     LaunchModelSelection,
-    SURFACE_CONTEXT_WINDOWS,
+    RESUME_CONTEXT_WINDOWS,
     SURFACE_EFFORT_LEVELS,
     resume_selection_mode,
 )
@@ -130,7 +130,7 @@ def resume_selection_for_facts(
     normalized_effort = str(effort or "").strip().lower() or None
     if normalized_effort not in SURFACE_EFFORT_LEVELS.get(surface, ()):
         normalized_effort = None
-    if context not in SURFACE_CONTEXT_WINDOWS.get(surface, ()):
+    if context not in RESUME_CONTEXT_WINDOWS.get(surface, ()):
         context = None
     if surface == "cursor-cli" and normalized_model is None:
         normalized_effort = None

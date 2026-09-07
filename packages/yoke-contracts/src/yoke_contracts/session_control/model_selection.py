@@ -51,6 +51,12 @@ RESUME_SELECTION_MODES: Mapping[str, ResumeSelectionMode] = {
     "codex-cli": "explicit",
     "cursor-cli": "explicit",
 }
+# Resume replays established native parameters. These encodings do not declare
+# availability for a new launch, which must use the machine's native observation.
+RESUME_CONTEXT_WINDOWS: Mapping[str, tuple[int, ...]] = {
+    **SURFACE_CONTEXT_WINDOWS,
+    "cursor-cli": (1_000_000,),
+}
 
 
 def resume_selection_mode(surface: str) -> ResumeSelectionMode | None:
@@ -183,6 +189,7 @@ def native_model_selector(surface: str, selection: LaunchModelSelection) -> str 
 __all__ = [
     "LaunchModelSelection",
     "LaunchModelSelectionError",
+    "RESUME_CONTEXT_WINDOWS",
     "RESUME_SELECTION_MODES",
     "ResumeSelectionMode",
     "SURFACE_CONTEXT_WINDOWS",
