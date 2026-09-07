@@ -156,4 +156,19 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "`definition_digest`, never a general-purpose encoder."
         ),
     },
+    "yoke_contracts.model_reference": {
+        "columns": [
+            ("lookup_model_reference", "callable"),
+            ("lookup_api_price", "callable"),
+            ("validate_model_record", "callable"),
+            ("iter_model_records", "callable"),
+        ],
+        "notes": (
+            "Sourced model reference. `lookup_model_reference` never raises; "
+            "`researched=False` is unknown, not a gate. `lookup_api_price` "
+            "returns None when unknown. `proposed_tier` is not routing "
+            "(`session_model_routing`). CLI: `yoke models lookup MODEL_ID`. "
+            "No `operator_preferences` field."
+        ),
+    },
 }

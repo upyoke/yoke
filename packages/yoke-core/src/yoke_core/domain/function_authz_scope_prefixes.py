@@ -41,6 +41,7 @@ AUTHZ_BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     # A machine belongs to an actor in the universe, not to a project, and
     # the registry handlers enforce owner-or-administrator themselves.
     ("machine.", AuthzSpec(ACTOR_SESSION, None)),
+    ("models.", AuthzSpec(ACTOR_SESSION, None)),
     ("harness.machine_report.", AuthzSpec(ACTOR_SESSION, None)),
     ("session_control.", AuthzSpec(ACTOR_SESSION, None)),
     # Steering acts on one project's own backlog and files launches against

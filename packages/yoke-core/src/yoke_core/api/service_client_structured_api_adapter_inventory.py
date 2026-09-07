@@ -44,6 +44,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_test_machine 
 from yoke_core.api.service_client_structured_api_adapter_inventory_ops import (
     OPS_ADAPTERS,
 )
+from yoke_core.api.service_client_structured_api_adapter_inventory_models import (
+    MODELS_ADAPTERS,
+)
 from yoke_core.api.service_client_structured_api_adapter_inventory_packets import (
     PACKET_ADAPTERS,
 )
@@ -189,6 +192,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         function_id="items.search.run", cli_invocation="yoke items search KEYWORDS"
     ),
     _read_entry(function_id="db.read.run", cli_invocation='yoke db read "SELECT ..."'),
+    *MODELS_ADAPTERS,
     _read_entry(
         function_id="items.dependency.list",
         cli_invocation="yoke items dependency list PREFIX-N",
