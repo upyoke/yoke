@@ -11,6 +11,7 @@ import json
 
 from runtime.api.fixtures.backlog import insert_item
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
+from yoke_core.domain.events_tool_call_outcome import OUTCOME_DENIED
 from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.steering_fleet_report import ClaimHolder, compose_report
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
@@ -95,14 +96,16 @@ def seed_tool_call(
 
 
 def seed_denial(conn, session_id: str, *, tool_use_id: str, at: str) -> None:
-    """The PreToolUse guardrail event that marks a start row as refused."""
+    """Close a start row the way a PreToolUse guardrail's refusal closes it.
+
+    The refusal stamps the call's own row rather than leaving it open with
+    a separate telemetry event beside it, so a reader asks the row what
+    happened and gets an answer that outlives event retention.
+    """
     conn.execute(
-        "INSERT INTO events "
-        "(event_id, source_type, session_id, event_kind, event_type, "
-        "event_name, tool_name, tool_use_id, created_at) "
-        "VALUES (%s, 'hook', %s, 'audit', 'tool_call', "
-        "'HarnessToolCallDenied', 'Bash', %s, %s)",
-        (f"denial-{tool_use_id}", session_id, tool_use_id, at),
+        "UPDATE session_tool_calls SET completed_at = %s, outcome = %s "
+        "WHERE session_id = %s AND tool_use_id = %s",
+        (at, OUTCOME_DENIED, session_id, tool_use_id),
     )
 
 

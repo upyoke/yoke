@@ -21,6 +21,12 @@ tool, and it never reported a first user prompt. A live session that has
 done nothing yet is a session that has not done anything *yet*, and a
 predicate that did not wait for the end would hide every real session for
 its first seconds.
+
+All three facts live on the session row. The first-prompt fact used to be
+the absence of a telemetry event, which meant a real conversation that was
+answered in under thirty seconds became a probe the moment that event aged
+out — the row disappeared from the operator's list retroactively. The
+stamp is written at the prompt boundary itself and never expires.
 """
 
 from __future__ import annotations
@@ -30,10 +36,10 @@ from __future__ import annotations
 #: harness startup probe rather than a conversation that ended quickly.
 PROBE_MAX_LIFETIME_SECONDS = 30
 
-#: The event a session emits once its operator's first prompt has been
+#: The session column stamped once its operator's first prompt has been
 #: handled. Its absence is what separates a probe from a real session that
 #: was answered and closed inside the window.
-FIRST_USER_PROMPT_EVENT_NAME = "HarnessSessionSentFirstUserPromptSubmit"
+FIRST_USER_PROMPT_COLUMN = "first_user_prompt_at"
 
 
 def probe_session_sql(alias: str = "s") -> str:
@@ -49,9 +55,7 @@ def probe_session_sql(alias: str = "s") -> str:
         f" AND {alias}.tool_call_count = 0"
         f" AND {alias}.ended_at::timestamptz - {alias}.offered_at::timestamptz"
         f" <= interval '{PROBE_MAX_LIFETIME_SECONDS} seconds'"
-        " AND NOT EXISTS (SELECT 1 FROM events e"
-        f" WHERE e.session_id = {alias}.session_id"
-        f" AND e.event_name = '{FIRST_USER_PROMPT_EVENT_NAME}'))"
+        f" AND {alias}.{FIRST_USER_PROMPT_COLUMN} IS NULL)"
     )
 
 
@@ -62,7 +66,7 @@ def not_probe_session_sql(alias: str = "s") -> str:
 
 
 __all__ = [
-    "FIRST_USER_PROMPT_EVENT_NAME",
+    "FIRST_USER_PROMPT_COLUMN",
     "PROBE_MAX_LIFETIME_SECONDS",
     "not_probe_session_sql",
     "probe_session_sql",

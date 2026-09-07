@@ -10,6 +10,7 @@ from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchAuthorization, LaunchRequest
+from yoke_core.domain.session_recovery_facts import SESSION_RECOVERY_COLUMNS
 from yoke_core.domain.work_claim_targets import make_steering_target
 
 
@@ -107,6 +108,10 @@ def relay_connection(
         "NOT NULL DEFAULT 'unknown'"
     )
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN turn_posture_at TEXT")
+    # The recovery facts every session-state reader consults, declared once
+    # from their owner so this fixture cannot drift from the real schema.
+    for column, ddl in SESSION_RECOVERY_COLUMNS:
+        conn.execute(f"ALTER TABLE harness_sessions ADD COLUMN {column} {ddl}")
     conn.commit()
     return conn
 

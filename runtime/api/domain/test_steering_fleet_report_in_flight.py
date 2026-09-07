@@ -114,11 +114,25 @@ def test_the_in_flight_row_names_the_command_and_when_it_opened(fleet):
     assert "idle holders" not in body
 
 
-def test_an_open_row_left_by_a_denied_call_does_not_suppress_the_idle_alarm(fleet):
-    """A refused call ran for zero seconds; a dead turn leaves one row apiece."""
+def test_a_refused_call_is_closed_by_its_refusal_and_never_reads_in_flight(fleet):
+    """A refused call ran for zero seconds; its own row says so.
+
+    The guardrail that refuses a call closes its row with
+    ``outcome='denied'``, so it is not open and this classification needs
+    no join against telemetry — which is what used to conceal an idle
+    holder behind a denial row that had since expired.
+    """
     _open_call(fleet, MERGE_WAIT)
     seed_denial(fleet, WORKER_SESSION, tool_use_id="call-1", at=CALL_STARTED)
     fleet.commit()
+
+    closed = fleet.execute(
+        "SELECT completed_at, outcome FROM session_tool_calls "
+        "WHERE session_id = %s AND tool_use_id = %s",
+        (WORKER_SESSION, "call-1"),
+    ).fetchone()
+    assert closed["completed_at"] == CALL_STARTED
+    assert closed["outcome"] == "denied"
 
     report = _compose(fleet)
 

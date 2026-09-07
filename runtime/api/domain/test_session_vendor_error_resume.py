@@ -117,3 +117,56 @@ def test_a_refused_wake_is_named_and_costs_no_attempt(monkeypatch):
     ]
     # Nothing reached the session, so the next poll owes the same attempt.
     assert one_state(conn, now=TURN_ENDED_AT + timedelta(seconds=120))["attempts"] == 0
+
+
+def test_a_crash_after_the_wake_does_not_refund_the_attempt(monkeypatch) -> None:
+    """The attempt is reserved before the wake, so a lost caller still pays.
+
+    Counting resumes by their emitted telemetry meant a poller that died
+    after waking — or a dropped emission — gave the budget back, which is
+    exactly the unbounded retry against a provider wall the budget exists
+    to stop.
+    """
+    conn = worker_connection()
+    observe_turn_end(conn)
+
+    class _CrashedAfterWaking(RuntimeError):
+        pass
+
+    def _wake_then_die(_conn, **_kwargs):
+        raise _CrashedAfterWaking("the poller died holding the reservation")
+
+    from yoke_core.domain import session_manual_wake
+
+    monkeypatch.setattr(session_manual_wake, "request_session_wake", _wake_then_die)
+    try:
+        resume_vendor_error_sessions(
+            conn,
+            machine_id=MACHINE_ID,
+            authorized_projects=(PROJECT_ID,),
+            actor_id=1,
+            now=TURN_ENDED_AT + timedelta(seconds=90),
+        )
+    except _CrashedAfterWaking:
+        pass
+
+    later = one_state(conn, now=TURN_ENDED_AT + timedelta(minutes=30))
+    assert later["attempts"] == 1
+
+
+def test_the_budget_survives_a_database_with_no_events_at_all(monkeypatch) -> None:
+    """Expiry is the ordinary case, so recovery must not read the ledger."""
+    conn = worker_connection()
+    observe_turn_end(conn)
+    conn.execute("DELETE FROM events")
+    conn.commit()
+
+    outcome, sent = _resume(
+        conn,
+        monkeypatch,
+        now=TURN_ENDED_AT + timedelta(seconds=90),
+    )
+
+    assert outcome["resumed"] == [SESSION_ID]
+    assert len(sent) == 1
+    assert one_state(conn, now=TURN_ENDED_AT + timedelta(minutes=30))["attempts"] == 1

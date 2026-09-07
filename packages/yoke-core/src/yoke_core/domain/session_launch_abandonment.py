@@ -91,14 +91,22 @@ def _worked(conn: Any, session_id: str) -> bool:
     A completed tool call counts here and not at session end: a worker killed
     mid-tool-call was working, while one that ran a wrong first command and
     was then reaped idle was not.
+
+    The completed-work marker on the session row is what answers this,
+    because the answer must outlive both the telemetry ledger and the
+    seven-day tool-call rows. A settlement that reads "no completed call"
+    from an aged-out record flips a launch that succeeded to
+    ``abandoned_without_claim`` and tells the requester their worker never
+    ran. The marker is stamped the first time a call completes and is
+    never cleared.
     """
     p = marker(conn)
     if _entered_mandate(conn, session_id):
         return True
     ran = conn.execute(
-        "SELECT 1 FROM events WHERE session_id = "
+        "SELECT 1 FROM harness_sessions WHERE session_id = "
         + p
-        + " AND event_name = 'HarnessToolCallCompleted' LIMIT 1",
+        + " AND first_completed_work_at IS NOT NULL LIMIT 1",
         (session_id,),
     ).fetchone()
     return ran is not None

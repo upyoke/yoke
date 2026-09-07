@@ -2,20 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-
+from runtime.api.turn_end_promised_work_test_support import _Conn
 from yoke_contracts.turn_end_evidence import TurnEndEvidence, UNAVAILABLE
 from yoke_core.domain import turn_end_promised_work_gate as gate
+from yoke_core.domain.session_recovery_facts import PROMISED_WORK_HOLDS_TABLE
 from yoke_core.domain.sessions_render_end_chain_pending import ChainPendingState
 from yoke_core.hooks.types import HookContext, Outcome, Next
-
-
-class _Conn:
-    def close(self) -> None:
-        return None
-
-
-_NOW = datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc)
 
 
 def _ctx(**kwargs) -> HookContext:
@@ -133,94 +125,6 @@ def test_cap_allows_and_records(monkeypatch) -> None:
     assert captured[0]["claim"]["item_id"] == 5
 
 
-def test_recent_hold_stays_capped_without_consulting_tool_use(monkeypatch) -> None:
-    assert not hasattr(gate, "_completed_tool_use_since")
-    held_at = _NOW - gate.REINJECTION_COOLDOWN + timedelta(seconds=1)
-    monkeypatch.setattr(
-        gate,
-        "_reinjection_history",
-        lambda conn, sid, item_id: (held_at.isoformat(), 1),
-    )
-
-    def _unexpected_tool_lookup(*args) -> bool:
-        raise AssertionError("tool use must not affect the reinjection cooldown")
-
-    monkeypatch.setattr(
-        gate,
-        "_completed_tool_use_since",
-        _unexpected_tool_lookup,
-        raising=False,
-    )
-    assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is True
-
-
-def test_expired_cooldown_reinjects_until_ceiling(monkeypatch) -> None:
-    held_at = _NOW - gate.REINJECTION_COOLDOWN
-    for hold_count in (1, gate.REINJECTION_CEILING - 1):
-        monkeypatch.setattr(
-            gate,
-            "_reinjection_history",
-            lambda conn, sid, item_id, count=hold_count: (
-                held_at.isoformat(),
-                count,
-            ),
-        )
-        assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is False
-
-
-def test_ceiling_stays_capped_regardless_of_elapsed_time(monkeypatch) -> None:
-    held_at = _NOW - (gate.REINJECTION_COOLDOWN * 10)
-    monkeypatch.setattr(
-        gate,
-        "_reinjection_history",
-        lambda conn, sid, item_id: (
-            held_at.isoformat(),
-            gate.REINJECTION_CEILING,
-        ),
-    )
-    assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is True
-
-
-def test_ceiling_is_scoped_to_the_claim_item(monkeypatch) -> None:
-    held_at = _NOW - gate.REINJECTION_COOLDOWN
-    histories = {
-        5: (held_at.isoformat(), gate.REINJECTION_CEILING),
-        6: (held_at.isoformat(), 1),
-    }
-    monkeypatch.setattr(
-        gate,
-        "_reinjection_history",
-        lambda conn, sid, item_id: histories[item_id],
-    )
-    assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is True
-    assert gate._at_reinjection_cap(_Conn(), "sess-1", 6, now=_NOW) is False
-
-
-def test_reinjection_history_query_filters_claim_item(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-
-    class _Rows:
-        def fetchone(self) -> dict[str, object]:
-            return {"last_hold_at": _NOW.isoformat(), "hold_count": 2}
-
-    class _HistoryConn:
-        def execute(self, query: str, params: tuple[object, ...]) -> _Rows:
-            captured["query"] = query
-            captured["params"] = params
-            return _Rows()
-
-    monkeypatch.setattr(
-        "yoke_core.domain.db_backend.connection_is_postgres",
-        lambda conn: True,
-    )
-    assert gate._reinjection_history(_HistoryConn(), "sess-1", 6) == (
-        _NOW.isoformat(),
-        2,
-    )
-    assert "{context,item_id}" in str(captured["query"])
-    assert captured["params"] == ("sess-1", gate.REASON_REINJECTED, "6")
-
-
 def test_unavailable_evidence_fails_open(monkeypatch) -> None:
     emitted: list[str] = []
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: UNAVAILABLE)
@@ -282,14 +186,28 @@ def test_emit_deferred_consumes_chain_pending_state(monkeypatch) -> None:
         "yoke_core.domain.scheduler_events.emit_chain_end_deferred",
         lambda **kwargs: emitted.append(kwargs),
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_recovery_facts.promised_work_holds_table_present",
+        lambda conn: True,
+    )
+    conn = _Conn()
     gate._emit_deferred(
-        conn=_Conn(),
+        conn=conn,
         session_id="sess-1",
         item_id=11,
         reason=gate.REASON_REINJECTED,
         cap_reached=False,
     )
     assert seen == ["snapshot"]
+    # The hold is recorded with the decision that makes it, so the ceiling
+    # survives whatever the events ledger retains.
+    holds = [
+        params
+        for query, params in conn.statements
+        if PROMISED_WORK_HOLDS_TABLE in query
+    ]
+    assert [params[:2] for params in holds] == [("sess-1", 11)]
+    assert conn.commits == 1
     assert emitted[0]["reason"] == gate.REASON_REINJECTED
     assert emitted[0]["checkpoint_step"] == 0
     assert emitted[0].get("unfinished_work") is None

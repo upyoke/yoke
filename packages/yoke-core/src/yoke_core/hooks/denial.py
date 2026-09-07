@@ -6,6 +6,14 @@ check / reason tuple and pushes it through the native
 that need only the denial path; ``yoke_core.hooks.telemetry``
 re-exports the public surface so call sites can ``mock.patch`` against
 ``yoke_core.hooks.telemetry.emit_denial_event``.
+
+A refused call is also *finished*, and this module closes it. The
+PreToolUse observation opens a ``session_tool_calls`` row and the tool
+then never runs, so nothing else ever closes it — which left the fleet
+report reading a permanently open row as a worker inside a long command,
+and forced it to join the telemetry ledger just to tell a refusal from a
+running command. Closing the row here makes the call's own recorded
+outcome the answer, and it survives whatever telemetry retention does.
 """
 
 from __future__ import annotations
@@ -13,8 +21,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_core.domain.events_tool_call_outcome import OUTCOME_DENIED
+
 
 COMMAND_SNIPPET_MAX_BYTES = 512
+
+#: The one event name this module emits, and the outcome it records on
+#: the refused call's own row.
+DENIAL_EVENT_NAME = "HarnessToolCallDenied"
 
 
 def build_denial_payload(
@@ -93,6 +107,60 @@ def build_denial_context(
     )
 
 
+def _close_denied_call(
+    *,
+    session_id: str,
+    tool_use_id: str,
+    tool_name: str,
+    outcome: str,
+) -> None:
+    """Stamp the refused call's own row with the outcome that ended it.
+
+    Only a real denial closes the row. ``warn`` and
+    ``suppression_attempted`` are audit outcomes on a call the guardrail
+    let through, so the tool still runs and its own completion is what
+    closes it.
+
+    Runs where the control plane is local — in-process on a local
+    universe, and server-side for a relayed client, which reaches this
+    same function through the denial-audit route rather than writing from
+    the client. A client with no local authority has nothing to write to
+    and returns.
+    """
+    if outcome != OUTCOME_DENIED or not session_id or not tool_use_id:
+        return
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.control_plane_transport import local_connection_or_none
+    from yoke_core.domain.session_activity_state import record_tool_call_finished
+    from yoke_core.domain.session_message_types import timestamp, utc_now
+
+    conn = local_connection_or_none(db_backend.connect)
+    if conn is None:
+        return
+    try:
+        record_tool_call_finished(
+            conn,
+            session_id=session_id,
+            tool_use_id=tool_use_id,
+            tool_name=tool_name or None,
+            event_name=DENIAL_EVENT_NAME,
+            outcome=outcome,
+            completed_at=timestamp(utc_now()),
+            bump_activity=False,
+        )
+        conn.commit()
+    except Exception:  # noqa: BLE001 - audit path never breaks the refusal
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def emit_denial_event(
     hook: str = "",
     tool: str = "",
@@ -132,6 +200,12 @@ def emit_denial_event(
         payload["tool_use_id"] = tool_use_id
     if turn_id:
         payload["turn_id"] = turn_id
+    _close_denied_call(
+        session_id=session_id,
+        tool_use_id=tool_use_id,
+        tool_name=tool,
+        outcome=outcome or OUTCOME_DENIED,
+    )
     try:
         from yoke_core.domain import emit_event as emit_event_cli
 
@@ -139,7 +213,7 @@ def emit_denial_event(
         args = parser.parse_args(
             [
                 "--name",
-                "HarnessToolCallDenied",
+                DENIAL_EVENT_NAME,
                 "--kind",
                 "audit",
                 "--type",
@@ -168,6 +242,7 @@ def emit_denial_event(
 
 __all__ = [
     "COMMAND_SNIPPET_MAX_BYTES",
+    "DENIAL_EVENT_NAME",
     "build_denial_context",
     "build_denial_payload",
     "emit_denial_event",

@@ -28,7 +28,7 @@ from datetime import timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.wake_delivery import delivery_attempt_failed
-from yoke_core.domain.session_activity_state import OPEN_TOOL_CALL_COLUMN
+from yoke_core.domain.session_tool_call_projections import OPEN_TOOL_CALL_COLUMN
 from yoke_core.domain.session_message_starvation import hook_route_silent_since
 
 #: An attempt was made and settled badly. It names its own reason.

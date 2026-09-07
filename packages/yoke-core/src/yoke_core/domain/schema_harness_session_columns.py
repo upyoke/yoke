@@ -14,6 +14,7 @@ from yoke_core.domain.session_native_process_observation import (
     NATIVE_PROCESS_GONE_EVIDENCE_COLUMN,
     NATIVE_PROCESS_OBSERVATION_COLUMN_DDL,
 )
+from yoke_core.domain.session_recovery_facts import SESSION_RECOVERY_COLUMNS
 
 
 def apply_harness_session_columns(conn: Any) -> None:
@@ -66,6 +67,9 @@ def apply_harness_session_columns(conn: Any) -> None:
         # What the harness artifact says this session consumed, as one
         # reading document; NULL means nothing has been read yet.
         ("usage_totals", "TEXT DEFAULT NULL"),
+        # Recovery facts that used to be reconstructed from expiring
+        # telemetry; owner and rationale in ``session_recovery_facts``.
+        *SESSION_RECOVERY_COLUMNS,
     ):
         _add_column_if_not_exists(conn, "harness_sessions", column, ddl)
     conn.commit()

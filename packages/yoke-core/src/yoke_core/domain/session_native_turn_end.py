@@ -210,28 +210,45 @@ def _skip_reason(
     return None
 
 
-def _emit_observed(
+def _record_observed(
     conn: Any,
     session_id: str,
     *,
     evidence: Mapping[str, Any],
     observed_at: str,
+    recorded_at: str,
 ) -> None:
-    from yoke_core.domain.events import emit_event
+    """Store the observation on the session, then publish its telemetry.
 
+    Recovery reads the stored copy. It used to read the event, which made
+    a stopped worker unrecoverable — and unexplainable — the moment that
+    row expired, while ``turn_posture`` still said the turn had ended.
+    The event stays as telemetry; it is no longer the only place the
+    provider's own words are kept.
+    """
+    from yoke_core.domain.events import emit_event
+    from yoke_core.domain.session_recovery_facts import record_native_turn_end
+
+    observation = {
+        "session_id": session_id,
+        "observed_at": observed_at,
+        "posture": NATIVE_TURN_END_POSTURE,
+        "source": "relay_native_turn_record",
+        **dict(evidence),
+    }
+    record_native_turn_end(
+        conn,
+        session_id,
+        observation=observation,
+        recorded_at=recorded_at,
+    )
     emit_event(
         EVENT_SESSION_TURN_END_OBSERVED,
         event_kind="system",
         event_type="session_lifecycle",
         source_type="backend",
         session_id=session_id,
-        context={
-            "session_id": session_id,
-            "observed_at": observed_at,
-            "posture": NATIVE_TURN_END_POSTURE,
-            "source": "relay_native_turn_record",
-            **dict(evidence),
-        },
+        context=observation,
         conn=conn,
     )
 
@@ -275,11 +292,12 @@ def apply_native_turn_ends(
                 # session took a turn after the record this report read.
                 status = "posture_superseded"
             else:
-                _emit_observed(
+                _record_observed(
                     conn,
                     session_id,
                     evidence=report.get("evidence") or {},
                     observed_at=observed_at,
+                    recorded_at=timestamp(current),
                 )
         if status is None:
             reclassified.append(session_id)

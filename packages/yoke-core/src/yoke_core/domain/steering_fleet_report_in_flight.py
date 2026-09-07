@@ -49,9 +49,6 @@ from yoke_core.domain.steering_fleet_report_detectors import (
 #: has outlived the bound its own command would have enforced.
 IN_FLIGHT_CEILING_SECONDS = 45 * 60
 
-#: The event that marks a start row as a refused call rather than a running one.
-DENIAL_EVENT_NAME = "HarnessToolCallDenied"
-
 # Both spellings of every watcher wrapper: the `yoke watch <kind>` sub-command
 # pair and the module fallback. The pair rather than the whole `yoke watch
 # <kind>` form, because a real invocation carries flags in between
@@ -105,7 +102,15 @@ def long_running_command(command_summary: str | None) -> str | None:
 
 
 def _newest_open_call(conn: Any, session_id: str) -> dict[str, Any] | None:
-    """The newest unfinished ``session_tool_calls`` row for one session."""
+    """The newest unfinished ``session_tool_calls`` row for one session.
+
+    A refused call is closed by the guardrail that refused it, carrying
+    the ``denied`` outcome, so it is not open and never reaches here. That
+    is why this classification no longer joins the telemetry ledger: an
+    expired denial row used to make a permanently-open refused call look
+    like a worker inside a long command, which is the opposite of the
+    idle holder the steerer needed to see.
+    """
     p = marker(conn)
     row = conn.execute(
         f"""SELECT tool_use_id, tool_name, started_at, command_summary
@@ -117,23 +122,6 @@ def _newest_open_call(conn: Any, session_id: str) -> dict[str, Any] | None:
         (session_id,),
     ).fetchone()
     return dict(row) if row is not None else None
-
-
-def call_was_denied(conn: Any, *, session_id: str, tool_use_id: str) -> bool:
-    """Whether a PreToolUse guardrail refused the call that opened this row."""
-    if not tool_use_id:
-        return False
-    p = marker(conn)
-    row = conn.execute(
-        f"""SELECT 1 AS denied
-              FROM events
-             WHERE session_id = {p}
-               AND tool_use_id = {p}
-               AND event_name = {p}
-             LIMIT 1""",
-        (session_id, tool_use_id, DENIAL_EVENT_NAME),
-    ).fetchone()
-    return row is not None
 
 
 def in_flight_calls(
@@ -155,12 +143,6 @@ def in_flight_calls(
             continue
         started_at = str(open_call.get("started_at") or "")
         if not open_tool_call_is_live(started_at, holder.last_activity_at):
-            continue
-        if call_was_denied(
-            conn,
-            session_id=holder.session_id,
-            tool_use_id=str(open_call.get("tool_use_id") or ""),
-        ):
             continue
         open_seconds = age_seconds(started_at, now) or 0
         if open_seconds >= IN_FLIGHT_CEILING_SECONDS:
@@ -238,12 +220,10 @@ def in_flight_dicts(calls: tuple[InFlightCall, ...]) -> list[dict[str, Any]]:
 
 
 __all__ = [
-    "DENIAL_EVENT_NAME",
     "IN_FLIGHT_CEILING_SECONDS",
     "MERGE_LANDING_WAIT_LABEL",
     "InFlightCall",
     "QuietPartition",
-    "call_was_denied",
     "in_flight_calls",
     "in_flight_dicts",
     "in_flight_section",

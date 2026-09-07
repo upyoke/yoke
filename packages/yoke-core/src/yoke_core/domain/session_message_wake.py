@@ -11,9 +11,9 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_activity_state import (
     native_thread_id_column_present,
-    open_tool_call_select,
     session_mode_column_present,
 )
+from yoke_core.domain.session_tool_call_projections import open_tool_call_select
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_delivery import (
     _begin_mutation,

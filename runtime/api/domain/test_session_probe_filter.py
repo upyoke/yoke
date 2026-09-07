@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.session_holdings import insert_session, iso
 from yoke_core.domain.session_probe import (
-    FIRST_USER_PROMPT_EVENT_NAME,
+    FIRST_USER_PROMPT_COLUMN,
     PROBE_MAX_LIFETIME_SECONDS,
 )
 from yoke_core.domain.sessions_list_read import list_sessions
@@ -25,16 +25,9 @@ def _later(seconds: int) -> str:
 
 def _record_first_prompt(conn, session_id: str) -> None:
     conn.execute(
-        "INSERT INTO events (event_id, event_name, event_kind, event_type, "
-        "source_type, service, session_id, severity, created_at) "
-        "VALUES (%s,%s,'system','session_lifecycle','hook','yoke_core.hooks',"
-        "%s,'INFO',%s)",
-        (
-            f"evt-{session_id}",
-            FIRST_USER_PROMPT_EVENT_NAME,
-            session_id,
-            iso(),
-        ),
+        f"UPDATE harness_sessions SET {FIRST_USER_PROMPT_COLUMN} = %s "
+        "WHERE session_id = %s",
+        (iso(), session_id),
     )
     conn.commit()
 

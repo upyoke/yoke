@@ -64,12 +64,12 @@ def test_each_attempt_waits_longer_than_the_one_before():
         state = one_state(conn, now=due_at)
         assert state["status"] == "due", (index, state)
         assert state["attempts"] == index
-        record_resume(conn, at=due_at, event_id=f"resume-{index}")
+        record_resume(conn, at=due_at)
         # The provider refuses the resumed turn too, so the record is read
         # again — and no tool call ran in between, which is what keeps
         # every one of these attempts on the same budget.
         died_at = due_at
-        observe_turn_end(conn, at=died_at, event_id=f"observed-retry-{index}")
+        observe_turn_end(conn, at=died_at)
 
     spent = one_state(conn, now=died_at + timedelta(hours=1))
     assert spent["status"] == "budget_spent"
@@ -79,11 +79,7 @@ def test_a_spent_budget_stops_resuming_and_stays_on_the_report():
     conn = worker_connection()
     observe_turn_end(conn)
     for index in range(len(RESUME_BACKOFF_SECONDS)):
-        record_resume(
-            conn,
-            at=TURN_ENDED_AT + timedelta(seconds=index + 1),
-            event_id=f"resume-{index}",
-        )
+        record_resume(conn, at=TURN_ENDED_AT + timedelta(seconds=index + 1))
 
     spent = one_state(conn, now=TURN_ENDED_AT + timedelta(hours=2))
     assert spent["status"] == "budget_spent"
@@ -95,7 +91,7 @@ def test_a_resume_that_produced_real_work_starts_the_budget_over():
     """Work done between failures is progress, not the same stuck session."""
     conn = worker_connection()
     observe_turn_end(conn)
-    record_resume(conn, at=TURN_ENDED_AT + timedelta(seconds=61), event_id="resume-0")
+    record_resume(conn, at=TURN_ENDED_AT + timedelta(seconds=61))
     worked_at = TURN_ENDED_AT + timedelta(minutes=5)
     conn.execute(
         "UPDATE harness_sessions SET last_tool_call_at=? WHERE session_id=?",
@@ -106,7 +102,7 @@ def test_a_resume_that_produced_real_work_starts_the_budget_over():
     assert states(conn, now=worked_at + timedelta(minutes=1)) == []
 
     died_again = worked_at + timedelta(minutes=2)
-    observe_turn_end(conn, at=died_again, event_id="observed-2")
+    observe_turn_end(conn, at=died_again)
 
     fresh = one_state(conn, now=died_again + timedelta(seconds=90))
     assert fresh["status"] == "due"
