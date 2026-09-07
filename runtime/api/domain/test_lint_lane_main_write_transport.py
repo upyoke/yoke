@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from unittest import mock
-from uuid import uuid4
 
 import pytest
 
@@ -19,9 +18,6 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write
-from yoke_core.domain.lint_lane_main_write_emit import (
-    stranded_advisory_already_recorded,
-)
 
 
 @pytest.fixture
@@ -128,36 +124,23 @@ class TestStrandedAdvisoryBounds:
         assert verdict.allow is True
         emit_advisory.assert_not_called()
 
-    def test_advisory_emits_once_per_session_item(self, conn, repo):
+    def test_advisory_repeats_and_reads_no_recorded_history(self, conn, repo):
+        """Every stranded write advises again; nothing consults telemetry."""
         wt = _seed_lane(conn, repo)
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         wt.rmdir()
         _stale_claim(conn)
-        conn.execute(
-            "INSERT INTO events (event_id, source_type, session_id, severity, "
-            "event_kind, event_type, event_name, item_id, created_at) "
-            "VALUES (%s, 'hook', %s, 'INFO', 'lifecycle', 'session_cwd', "
-            "%s, %s, %s)",
-            (
-                str(uuid4()),
-                "sid-lane",
-                "LaneMainWriteStrandedLane",
-                "2013",
-                "2026-01-01T00:00:00Z",
-            ),
-        )
-        conn.commit()
-        assert stranded_advisory_already_recorded(
-            conn, session_id="sid-lane", item_id=2013,
-        ) is True
+        payload = {
+            "session_id": "sid-lane",
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(target)},
+        }
         with mock.patch.object(
             lint_lane_main_write, "emit_stranded_lane_advisory",
         ) as emit_advisory:
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Write",
-                "tool_input": {"file_path": str(target)},
-            })
-        assert verdict.allow is True
-        emit_advisory.assert_not_called()
+            first = lint_lane_main_write.evaluate_pre_tool_use(payload)
+            second = lint_lane_main_write.evaluate_pre_tool_use(payload)
+        assert first.allow is True
+        assert second.allow is True
+        assert emit_advisory.call_count == 2

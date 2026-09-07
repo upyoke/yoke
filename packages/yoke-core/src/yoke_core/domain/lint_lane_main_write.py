@@ -13,7 +13,8 @@ shell file redirects, write-verb command bases, embedded Python
 writes) — never on registered ``yoke <subcommand>`` adapters, cwd-only
 relationships, or a heredoc that does not write a path. A held claim
 whose recorded lane is gone from disk *and* whose claim heartbeat is
-stale emits an advisory (once per session+item) and does not arm.
+stale emits an advisory (repeated notices are acceptable) and does
+not arm.
 Reads, free-path scratch, generated-view writers, sessions with no
 recorded lane, and pre-implementation authoring on main stay
 unaffected.
@@ -49,7 +50,6 @@ from yoke_core.domain.lint_lane_main_write_emit import (
     emit_denied,
     emit_escape_used,
     emit_stranded_lane_advisory,
-    stranded_advisory_already_recorded,
 )
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, format_denial
 from yoke_core.domain.lint_session_cwd_control_plane import resolve_authority_cwd
@@ -152,15 +152,12 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
                 not lane_path_exists_on_disk(claim)
                 and claim_heartbeat_is_stale(conn, session_id, claim)
             ):
-                if not stranded_advisory_already_recorded(
-                    conn, session_id=session_id, item_id=claim.item_id,
-                ):
-                    emit_stranded_lane_advisory(
-                        session_id=session_id,
-                        lane_path=claim.worktree_path,
-                        item_id=claim.item_id,
-                        item_label=item_label(claim),
-                    )
+                emit_stranded_lane_advisory(
+                    session_id=session_id,
+                    lane_path=claim.worktree_path,
+                    item_id=claim.item_id,
+                    item_label=item_label(claim),
+                )
                 return Verdict(allow=True)
     except Exception:
         return Verdict(allow=True)
