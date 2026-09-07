@@ -1,11 +1,12 @@
 """120-day velocity meter (4-row sparkline grid).
 
-Renders four 120-day sparklines: activity, code lines, issues done,
-strategy volume. All four series come from
+Renders four 120-day sparklines: activity, code lines, issues done, and
+approximate strategy-doc size change. All four series come from
 :mod:`yoke_contracts.board.momentum_series` — the same definitions the
 Overview momentum endpoint serves — so the terminal meter and the web
 dashboard render one composition. Replay payloads recorded before the
-shared-series cutover are served by the retained legacy query shapes.
+shared-series cutover are served by the retained legacy query shapes for
+the three series that have one; strategy always uses the shared measure.
 """
 
 from __future__ import annotations
@@ -16,7 +17,6 @@ from yoke_contracts.board.config import BoardConfig
 from yoke_contracts.project_contract.board_art import emoji as E
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.momentum_series import (
-    STRATEGY_EVENT_NAMES,
     activity_items_query,
     activity_units_by_day,
     issues_done_by_day,
@@ -60,7 +60,7 @@ def render_velocity_meter(
     ``repo_root`` is retained for call-site compatibility; code meters
     read ``project_code_days`` rather than local git.
 
-    Row order: activity, code lines, issues done, strategy lines.
+    Row order: activity, code lines, issues done, strategy size change.
     """
     del repo_root  # ingest-only; meters read the control-plane rollup
     days = 120
@@ -74,7 +74,7 @@ def render_velocity_meter(
         sml_counts = strategy_bytes_by_day(db, project_ids, days=days)
     else:
         act_counts, effort_counts, del_counts, sml_counts = _legacy_series(
-            db, scope, days, dates
+            db, scope, project_ids, days, dates
         )
 
     act_spark = _build_sparkline([act_counts.get(d, 0) for d in dates])
@@ -101,9 +101,18 @@ def _payload_serves_shared_series(
 
 
 def _legacy_series(
-    db: BoardDBLike, scope: str, days: int, dates: List[str]
+    db: BoardDBLike,
+    scope: str,
+    project_ids: List[int],
+    days: int,
+    dates: List[str],
 ) -> Tuple[Dict[str, int], Dict[str, int], Dict[str, int], Dict[str, int]]:
-    """Serve the meter from the query shapes older payloads recorded."""
+    """Serve the meter from the query shapes older payloads recorded.
+
+    Only the activity, code and delivery rows have an older recorded
+    shape to fall back to. Strategy comes from the one shared measure
+    either way, so both meter paths report the same figure.
+    """
     pf_t, scope_params = _project_filter(scope, "t")
 
     transition_day = day_text_expr("t.created_at")
@@ -134,7 +143,7 @@ def _legacy_series(
         act_counts[row[0]] = act_counts.get(row[0], 0) + int(row[1])
 
     effort_counts = code_lines_by_day(db, scope, days)
-    sml_counts = _strategy_bytes_per_day(db, scope, days)
+    sml_counts = strategy_bytes_by_day(db, project_ids, days=days)
     for day, n in code_commits_by_day(db, scope, days).items():
         if n > 0:
             act_counts[day] = act_counts.get(day, 0) + n
@@ -159,24 +168,3 @@ def _legacy_series(
         del_counts[row[0]] = del_counts.get(row[0], 0) + int(row[1])
 
     return act_counts, effort_counts, del_counts, sml_counts
-
-
-def _strategy_bytes_per_day(db: BoardDBLike, scope: str, days: int) -> Dict[str, int]:
-    """Per-day strategy-doc authoring volume from the DB event stream."""
-    day = day_text_expr("created_at")
-    names = ", ".join(f"'{name}'" for name in STRATEGY_EVENT_NAMES)
-    new_bytes = "(envelope::jsonb -> 'context' ->> 'new_bytes')::int"
-    project_sql, params = _project_filter(scope, "")
-    sql = (
-        f"SELECT {day} AS day, SUM(COALESCE({new_bytes}, 0)) AS n "
-        "FROM events "
-        f"WHERE event_name IN ({names}) "
-        f"AND created_at >= {days_ago_text_expr(days)}"
-        f"{project_sql} "
-        "GROUP BY day ORDER BY day"
-    )
-    counts: Dict[str, int] = {}
-    for row in db.query_quiet(sql, params):
-        if row and row[0] is not None:
-            counts[str(row[0])] = int(row[1] or 0)
-    return counts

@@ -183,8 +183,8 @@ re-sync is not required.
 
 **If the advance fails with `GATE_DB_CLAIM_PROSE_MISMATCH`:** the
 spec/body declares governed DB mutation but the stored
-`db_mutation_profile` is still `{"state":"none"}` and no reviewed-none
-`DbClaimAmended` event is on record. Dispatch `db_claim.amend` before
+`db_mutation_profile` is still `{"state":"none"}` and carries no
+reviewed-none attestation. Dispatch `db_claim.amend` before
 retrying the advance:
 
 - **Work item actually mutates the governed DB** — `target = {kind: "item",
@@ -195,10 +195,9 @@ retrying the advance:
   performing no governed mutation. Dispatch with `payload = {reason:
   "refine: work item discusses DB governance vocabulary but mutates
   nothing; reviewed-none", claim: {state: "none"}}`. The amendment
-  emits a `DbClaimAmended` event; the prose-vs-claim gate honors the
-  latest event with `context.new_profile.state="none"` and
-  `context.validation_result="pass"` and clears structural DDL-shape
-  hits on the next advance attempt. Do **not** work around the gate by
+  stamps the reviewed-negative attestation onto the stored profile; the
+  prose-vs-claim gate reads that stored attestation and clears
+  structural DDL-shape hits on the next advance attempt. Do **not** work around the gate by
   backtick-wrapping DDL verbs or deleting governance terminology from
   the spec.
 

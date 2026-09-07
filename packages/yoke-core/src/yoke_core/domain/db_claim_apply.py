@@ -5,14 +5,14 @@ Owns the side-effecting half of the unified DB-claim amendment workflow:
 * :class:`DbClaimAmendmentError` — operator-facing error class (canonical
   owner here; the front door re-exports it for stable importers).
 * :class:`AmendmentResult` — successful-amendment return shape.
-* :func:`_apply` — atomic two-field write + ``DbClaimAmended`` event
-  emission.
+* :func:`_apply` — atomic two-field write, with best-effort
+  ``DbClaimAmended`` correlation alongside it.
 * :func:`_compose_final_attestation` — caller-attestation + carried
   append-only fields + freshly stamped ``frozen_at``.
 * :func:`_missing_required_authored_fields` — pre-merge-safe authored
   field presence check.
-* :func:`_emit_amended_event` — native event emitter wrapper that
-  guarantees no orphaned writes.
+* :func:`_emit_amended_event` — bounded event emitter wrapper that
+  cannot take the amendment down with it.
 * :func:`_resolve_session_id` — env-var resolution chain for the event
   envelope.
 * :func:`_safe_parse` — JSON → dict tolerant parser used by reads.
@@ -35,6 +35,7 @@ from yoke_core.domain import db_compatibility_attestation as dca
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain import db_mutation_profile as dmp
+from yoke_core.domain.events_bounded_emit import emit_bounded
 
 
 class DbClaimAmendmentError(ValueError):
@@ -57,7 +58,6 @@ class AmendmentResult:
     new_profile: Dict[str, Any]
     new_attestation: Dict[str, Any]
     reason: str
-    event_id: Optional[str]
 
 
 def _p(conn: Any) -> str:
@@ -122,10 +122,12 @@ def _apply(
     # item without re-querying a connection that may be mid-rollback.
     public_ref = render_item_ref(conn, item_id)
 
-    # The two-field write and event audit row are committed together
-    # through the shared connection. Validation already ran; a SQL or
-    # event-emission error here rolls back the amendment so successful
-    # calls always leave both the claim and its DbClaimAmended evidence.
+    # The two-field write is the amendment. Validation already ran, so only
+    # a real SQL failure can prevent the canonical decision from landing.
+    # DbClaimAmended rides the same transaction as audit correlation, but it
+    # is disposable telemetry: severity filtering, an events outage, or
+    # retention expiry must not be able to withhold a validated operator
+    # decision that every gate already reads off the stored profile.
     try:
         conn.execute(
             f"UPDATE items SET db_mutation_profile = {placeholder}, "
@@ -133,7 +135,7 @@ def _apply(
             f"updated_at = {placeholder} WHERE id = {placeholder}",
             (profile_json, attestation_json, now, item_id),
         )
-        event_id = _emit_amended_event(
+        _emit_amended_event(
             conn=conn,
             item_id=item_id,
             project=str(project or "yoke"),
@@ -148,11 +150,6 @@ def _apply(
             },
             now=now,
         )
-        if event_id is None:
-            raise DbClaimAmendmentError(
-                f"DbClaimAmended event emission failed for {public_ref}; "
-                "claim was not written"
-            )
         if commit:
             conn.commit()
     except db_backend.database_error_types(conn) as exc:
@@ -161,10 +158,6 @@ def _apply(
         raise DbClaimAmendmentError(
             f"amendment write failed for {public_ref}: {exc}"
         ) from exc
-    except DbClaimAmendmentError:
-        if commit:
-            conn.rollback()
-        raise
 
     return AmendmentResult(
         item_id=item_id,
@@ -173,7 +166,6 @@ def _apply(
         new_profile=new_profile,
         new_attestation=normalized_attestation,
         reason=reason,
-        event_id=event_id,
     )
 
 
@@ -231,40 +223,32 @@ def _emit_amended_event(
     session_id: str,
     context: Dict[str, Any],
     now: str,
-) -> Optional[str]:
-    """Emit a ``DbClaimAmended`` event via the native event emitter.
+) -> None:
+    """Record ``DbClaimAmended`` correlation without risking the amendment.
 
-    Returns the event ID on success and ``None`` when the events
-    infrastructure refuses or cannot persist the event. The caller
-    treats ``None`` as fatal so successful amendments always carry an
-    audit event.
+    The event rides the amendment's transaction so audit correlation is
+    exact, but it is disposable telemetry: a refusal, a filtered severity,
+    an events outage, or a failing insert must leave the amendment intact.
     """
-    try:
-        from yoke_core.domain.events import emit_event as _native_emit
-    except ImportError:
-        return None
-
-    try:
-        envelope = _native_emit(
-            "DbClaimAmended",
-            event_kind="workflow",
-            event_type="db_claim_amendment",
-            source_type="system",
-            session_id=session_id,
-            severity="INFO",
-            outcome="completed",
-            project=project,
-            item_id=item_id,
-            context=context,
-            created_at=now,
-            conn=conn,
-            transactional=True,
-        )
-    except Exception:
-        return None
-    if not envelope.ok:
-        return None
-    return envelope.event_id
+    emit_bounded(
+        conn,
+        "DbClaimAmended",
+        durable_fact=(
+            "the amendment itself is committed on the item's "
+            "db_mutation_profile / db_compatibility_attestation, which is "
+            "what every gate reads"
+        ),
+        event_kind="workflow",
+        event_type="db_claim_amendment",
+        source_type="system",
+        session_id=session_id,
+        severity="INFO",
+        outcome="completed",
+        project=project,
+        item_id=item_id,
+        context=context,
+        created_at=now,
+    )
 
 
 def _resolve_session_id(explicit: Optional[str]) -> str:

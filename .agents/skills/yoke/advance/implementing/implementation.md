@@ -82,7 +82,7 @@ If, during implementation, you discover that the work touches a governed DB — 
 3. The handler demultiplexes the claim payload into the `db_mutation_profile` and `db_compatibility_attestation` columns atomically; for `pre_merge_safe` claims the four authored attestation fields (`pre_merge_readers_writers`, `invariants`, `rehearsal_commands`, `residual_risk_notes`) are required inline. See [.yoke/docs/reference/db-reference.md](../../../../../.yoke/docs/reference/db-reference.md) for the full shape.
 4. After the amendment lands, resume implementation. The advance to `reviewing-implementation` runs the prose-vs-claim gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) and the evidence gate, both of which would block the transition with a stale negative claim.
 
-Amending the PREFIX-{N} claim mid-implementation is supported and atomic — no lifecycle rollback to `idea` is required, and the amendment emits a `DbClaimAmended` event recording the previous claim, the new claim, your reason, and the validation result.
+Amending the PREFIX-{N} claim mid-implementation is supported and atomic — no lifecycle rollback to `idea` is required. The stored profile and attestation are the record every gate reads; a best-effort `DbClaimAmended` event carries the previous claim, the new claim, your reason, and the validation result for as long as telemetry retains it.
 
 ## g. Progress Checklist for Multi-Phase Missions
 

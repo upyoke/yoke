@@ -108,7 +108,7 @@ python3 -m yoke_core.api.service_client db-claim-amend \
 
 Running this is an **explicit reviewed-none decision**: an operator or agent has confirmed the work item does not mutate a governed authoritative DB. The amendment stamps the reviewed-negative attestation onto the stored profile itself — `{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}` — so the decision lives as item state, not in the events ledger. The prose-vs-claim gate reads that attestation as proof the negative claim was deliberately reviewed (not the implicit schema default) and clears vocabulary- and structural-trigger hits alike. Meta work items about DB governance that unavoidably cite `ALTER TABLE`, `ADD COLUMN`, `DROP COLUMN`, `migration_audit`, or similar DDL-shape terms advance once the reviewed-none amendment is on record. The `reviewed_negative` / `validated_at` keys are workflow-managed — amendment payloads that try to supply them are rejected as reserved.
 
-Every successful amendment also emits a `DbClaimAmended` telemetry event whose envelope carries the previous and new claim summaries, the actor/session, and the operator-supplied reason. The event stream is history/audit-only — the gate-consulted attestation lives on the profile:
+A successful amendment also records a `DbClaimAmended` telemetry event whose envelope carries the previous and new claim summaries, the actor/session, and the operator-supplied reason. That event is disposable: it is written best-effort alongside the amendment and a severity filter, an events outage, or retention expiry drops it without touching the decision. The event stream is history/audit-only — the gate-consulted attestation lives on the profile:
 
 ```bash
 yoke events query --event-name DbClaimAmended

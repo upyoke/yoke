@@ -1,10 +1,10 @@
 """Shared per-day momentum series for board and Overview surfaces.
 
 One SQL definition per series — activity (items touched + task touches +
-commits), issues delivered, strategy authoring volume, and code from the
-``project_code_days`` rollup — parameterized by explicit project ids so the
-terminal velocity meter and the Overview momentum endpoint cannot diverge
-on composition. Date cutoffs live inside the SQL text
+commits), issues delivered, approximate strategy-doc size change, and code
+from the ``project_code_days`` rollup — parameterized by explicit project
+ids so the terminal velocity meter and the Overview momentum endpoint
+cannot diverge on composition. Date cutoffs live inside the SQL text
 (:func:`days_ago_text_expr`), never in client-computed parameters, so board
 record/replay keys stay stable across a midnight boundary; ``days=None``
 means all-time.
@@ -17,10 +17,6 @@ from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.sql import day_text_expr, days_ago_text_expr
-
-# Strategy-doc write events carrying the byte sizes the strategy series
-# derives its per-day authoring volume from.
-STRATEGY_EVENT_NAMES = ("StrategyDocCreated", "StrategyDocReplaced")
 
 
 def _markers(project_ids: Sequence[int]) -> str:
@@ -166,26 +162,35 @@ def strategy_bytes_by_day(
     *,
     days: Optional[int],
 ) -> Dict[str, int]:
-    """Authoring volume per day from strategy-doc write events.
+    """Approximate per-day strategy-doc size change from saved revisions.
 
-    A write event records the document's whole size in ``new_bytes``, so
-    summing that field counts a document once per save — a doc rewritten
-    two hundred times in a day reports two hundred full copies rather
-    than the day's authoring. A replace therefore contributes the size it
-    moved, ``|new_bytes - old_bytes|``; a create contributes its whole
-    size, which genuinely is new authoring.
+    Every save appends a ``strategy_doc_revisions`` row carrying the whole
+    document's ``byte_length``, so summing that column would count a doc
+    once per save — one rewritten two hundred times in a day would report
+    two hundred full copies rather than the day's authoring. Each revision
+    therefore contributes the size it moved against the revision saved
+    before it, ``|byte_length - previous byte_length|``, and revision 1
+    contributes its whole size because that genuinely is new authoring.
+
+    The measure is bounded by what adjacent saved revisions can show: it
+    approximates how much a document's size changed, not how much effort
+    went into changing it, and a same-size rewrite reads as zero. A doc
+    whose earliest saved revision is not revision 1 has no knowable
+    baseline, so that first row is excluded rather than counted as if the
+    whole document had been authored that day.
     """
 
     if not project_ids:
         return {}
-    sql, params = _strategy_query(project_ids, days, net_change=True)
+    sql, params = _strategy_query(project_ids, days)
     has_query = getattr(db, "has_query", None)
     if callable(has_query) and not has_query(sql, params):
-        # A board payload recorded before this measure existed carries only
-        # the whole-size total, which is the sole strategy figure such a
-        # payload holds. Serving it keeps the board rendering across the
-        # window between this build merging and the server shipping it.
-        sql, params = _strategy_query(project_ids, days, net_change=False)
+        # A board payload recorded before this measure existed holds no
+        # strategy figure this measure can serve, and the events total such
+        # a payload does carry is the expiring one this measure replaced.
+        # An empty series keeps the board rendering across the window
+        # between this build merging and the server shipping it.
+        return {}
     counts: Dict[str, int] = {}
     for row in db.query(sql, params):
         if row and row[0]:
@@ -194,20 +199,31 @@ def strategy_bytes_by_day(
 
 
 def _strategy_query(
-    project_ids: Sequence[int], days: Optional[int], *, net_change: bool,
+    project_ids: Sequence[int], days: Optional[int],
 ) -> Tuple[str, Tuple]:
-    event_day = day_text_expr("created_at")
-    ctx = "envelope::jsonb -> 'context'"
-    new_bytes = f"COALESCE(({ctx} ->> 'new_bytes')::int, 0)"
-    old_bytes = f"COALESCE(({ctx} ->> 'old_bytes')::int, 0)"
-    names = ", ".join(f"'{name}'" for name in STRATEGY_EVENT_NAMES)
-    measure = f"ABS({new_bytes} - {old_bytes})" if net_change else new_bytes
+    # The window runs over each document's whole saved history, and the day
+    # cutoff is applied to the computed changes afterwards. Filtering first
+    # would make whichever revision happens to open the window look like a
+    # document's baseline and drop the change that revision actually made.
+    revision_day = day_text_expr("created_at")
+    adjacent = (
+        f"SELECT {revision_day} AS day, revision, byte_length, "
+        "LAG(byte_length) OVER "
+        "(PARTITION BY project_id, slug ORDER BY revision) "
+        "AS previous_byte_length "
+        "FROM strategy_doc_revisions "
+        f"WHERE project_id IN ({_markers(project_ids)})"
+    )
+    measured = (
+        "SELECT day, ABS(byte_length - COALESCE(previous_byte_length, 0)) "
+        "AS size_change "
+        f"FROM ({adjacent}) adjacent "
+        "WHERE previous_byte_length IS NOT NULL OR revision = 1"
+    )
     sql = (
-        f"SELECT {event_day} AS day, SUM({measure}) AS total "
-        "FROM events "
-        f"WHERE project_id IN ({_markers(project_ids)}) "
-        f"AND event_name IN ({names})"
-        f"{_day_filter(event_day, days)} "
+        "SELECT day, SUM(size_change) AS total "
+        f"FROM ({measured}) measured "
+        f"WHERE day IS NOT NULL{_day_filter('day', days)} "
         "GROUP BY 1"
     )
     return sql, tuple(project_ids)
@@ -258,7 +274,6 @@ def lines_changed_by_day(
 
 
 __all__ = [
-    "STRATEGY_EVENT_NAMES",
     "activity_items_query",
     "activity_units_by_day",
     "commit_count_by_day",

@@ -10,6 +10,7 @@ from yoke_core.domain.decision_requests import (
     create_decision_request,
     list_subject_requests,
 )
+from yoke_core.domain.events_bounded_emit import emit_bounded
 
 
 def _p(conn: Any) -> str:
@@ -242,17 +243,28 @@ def emit_deployment_completion(
     event_name: str,
     outcome: str,
     context: Mapping[str, Any],
-) -> str:
-    """Append one terminal run event in the caller's transaction."""
+) -> None:
+    """Append one terminal run event in the caller's transaction.
+
+    ``deployment_runs`` already owns whether the run succeeded or failed,
+    so this event is a disposable record of a terminal fact rather than
+    the fact itself. An unknown event name and a run id that resolves to
+    nothing are still defects and still raise; a filtered severity or an
+    events outage is logged instead, so telemetry cannot fail a pipeline
+    whose run state is already written.
+    """
     if event_name not in {"DeploymentRunSucceeded", "DeploymentRunFailed"}:
         raise ValueError(f"{event_name!r} is not a deployment completion event")
     run = _run(conn, run_id)
-    from yoke_core.domain.events import emit_event
-
     event_context = dict(context)
     event_context["run_id"] = run_id
-    event = emit_event(
+    emit_bounded(
+        conn,
         event_name,
+        durable_fact=(
+            f"the run's terminal state is committed on deployment_runs — "
+            f"read it with `yoke deployment-runs get {run_id}`"
+        ),
         event_kind="lifecycle",
         event_type="deployment_run",
         source_type="system",
@@ -260,14 +272,7 @@ def emit_deployment_completion(
         outcome=outcome,
         project=str(run["project"]),
         context=event_context,
-        conn=conn,
-        transactional=True,
     )
-    if not event.ok or not event.event_id:
-        raise RuntimeError(
-            f"could not append {event_name}: {event.reason or 'unknown error'}"
-        )
-    return event.event_id
 
 
 def dispatch_deployment_stage_approval(

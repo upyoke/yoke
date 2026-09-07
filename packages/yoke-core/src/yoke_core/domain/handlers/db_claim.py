@@ -14,7 +14,7 @@ envelope <-> domain types and back.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 
@@ -55,7 +55,6 @@ class AmendResponse(BaseModel):
     new_profile: Dict[str, Any]
     new_attestation: Dict[str, Any]
     reason: str
-    event_id: Optional[str] = None
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -99,7 +98,6 @@ def handle_amend(request: FunctionCallRequest) -> HandlerOutcome:
             "new_profile": dict(result.new_profile),
             "new_attestation": dict(result.new_attestation),
             "reason": result.reason,
-            "event_id": result.event_id,
         },
     )
 

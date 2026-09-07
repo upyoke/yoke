@@ -48,57 +48,89 @@ def test_an_outlier_no_longer_flattens_the_days_around_it() -> None:
     )
 
 
-def test_strategy_serves_a_payload_recorded_before_the_net_change_measure() -> None:
+def test_strategy_reads_saved_revisions_rather_than_expiring_telemetry() -> None:
+    # The measure has to survive event retention, so it must not name the
+    # events table at all.
+    from yoke_contracts.board.momentum_series import _strategy_query
+
+    sql, params = _strategy_query([1], 120)
+    assert "strategy_doc_revisions" in sql
+    assert "FROM events" not in sql
+    assert "new_bytes" not in sql and "old_bytes" not in sql
+    assert params == (1,)
+
+
+def test_strategy_measures_adjacent_saved_revision_sizes() -> None:
+    from yoke_contracts.board.momentum_series import _strategy_query
+
+    sql, _ = _strategy_query([1], 120)
+    # Adjacent sizes, partitioned per document, ordered by revision.
+    assert "LAG(byte_length) OVER (" in sql
+    assert "PARTITION BY project_id, slug ORDER BY revision" in sql
+    assert "ABS(byte_length - COALESCE(previous_byte_length, 0))" in sql
+    # A first saved revision that is not revision 1 has no knowable
+    # baseline, so it is excluded rather than counted as whole-size.
+    assert "WHERE previous_byte_length IS NOT NULL OR revision = 1" in sql
+
+
+def test_strategy_windows_the_whole_history_before_cutting_off_days() -> None:
+    # Applying the day cutoff inside the window would make whichever
+    # revision opens the window look like its document's baseline.
+    from yoke_contracts.board.momentum_series import _strategy_query
+
+    sql, _ = _strategy_query([1], 120)
+    window_end = sql.index(") adjacent")
+    assert "to_char" not in sql[:window_end], (
+        "the day cutoff must not filter the rows the window reads"
+    )
+    assert "to_char" in sql[window_end:]
+
+
+def test_strategy_serves_a_payload_recorded_before_this_measure() -> None:
     # The board renders from a payload recorded server-side, so between this
-    # build merging and the server shipping it the newer query is absent.
-    # Falling back to the whole-size total the payload does hold keeps the
-    # board rendering instead of aborting the rebuild.
+    # build merging and the server shipping it the query is absent. The only
+    # strategy figure such a payload holds is the expiring events total this
+    # measure replaced, so the series is empty rather than wrong, and the
+    # board still renders.
     from yoke_contracts.board.momentum_series import (
         _strategy_query,
         strategy_bytes_by_day,
     )
 
     project_ids = [1]
-    net_change_sql, params = _strategy_query(project_ids, 120, net_change=True)
-    whole_size_sql, _ = _strategy_query(project_ids, 120, net_change=False)
-    assert net_change_sql != whole_size_sql
+    revisions_sql, _ = _strategy_query(project_ids, 120)
 
-    class _PayloadWithoutNetChange:
-        def __init__(self) -> None:
-            self.served: list[str] = []
-
+    class _PayloadWithoutTheMeasure:
         def has_query(self, sql: str, params=None) -> bool:
-            return sql == whole_size_sql
+            return sql != revisions_sql
 
         def query(self, sql: str, params=None):
-            self.served.append(sql)
-            assert sql == whole_size_sql, "must not issue an unrecorded query"
-            return [("2026-07-05", 4200)]
+            raise AssertionError("must not issue an unrecorded query")
 
-    db = _PayloadWithoutNetChange()
-    assert strategy_bytes_by_day(db, project_ids, days=120) == {"2026-07-05": 4200}
-    assert db.served == [whole_size_sql]
+    assert strategy_bytes_by_day(
+        _PayloadWithoutTheMeasure(), project_ids, days=120,
+    ) == {}
 
 
-def test_strategy_prefers_the_net_change_measure_when_the_payload_has_it() -> None:
+def test_strategy_serves_a_payload_that_carries_the_measure() -> None:
     from yoke_contracts.board.momentum_series import (
         _strategy_query,
         strategy_bytes_by_day,
     )
 
     project_ids = [1]
-    net_change_sql, _ = _strategy_query(project_ids, 120, net_change=True)
+    revisions_sql, _ = _strategy_query(project_ids, 120)
 
-    class _PayloadWithNetChange:
+    class _PayloadWithTheMeasure:
         def has_query(self, sql: str, params=None) -> bool:
             return True
 
         def query(self, sql: str, params=None):
-            assert sql == net_change_sql
+            assert sql == revisions_sql
             return [("2026-07-05", 17)]
 
     assert strategy_bytes_by_day(
-        _PayloadWithNetChange(), project_ids, days=120,
+        _PayloadWithTheMeasure(), project_ids, days=120,
     ) == {"2026-07-05": 17}
 
 
