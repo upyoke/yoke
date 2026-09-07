@@ -14,7 +14,6 @@ const ENTRY_SURFACE_COPY = {
   dash: {
     web_form: {
       title: "Enter a Dash on the web",
-      route: "#/items/new",
       routeLabel: "open →",
     },
     cli: {
@@ -111,11 +110,18 @@ function detailRow(documentNode, title, description, identifier) {
 
 function entrySurfaceRows(documentNode, workflow, host) {
   for (const surfaceId of workflow.definition?.entry_surfaces || []) {
-    const copy = ENTRY_SURFACE_COPY[workflow.id]?.[surfaceId] ||
+    const declaredCopy = ENTRY_SURFACE_COPY[workflow.id]?.[surfaceId] ||
       DEFAULT_ENTRY_SURFACE_COPY[surfaceId] || {
       title: surfaceId,
       description: "",
     };
+    const copy = surfaceId === "web_form" ? {
+      ...declaredCopy,
+      title: ENTRY_SURFACE_COPY[workflow.id]?.[surfaceId]?.title ||
+        `Enter ${workflow.name || workflow.id} on the web`,
+      route: `#/items/new?workflow=${encodeURIComponent(workflow.id)}`,
+      routeLabel: declaredCopy.routeLabel || "open →",
+    } : declaredCopy;
     const rendered = detailRow(
       documentNode, copy.title, copy.description, null,
     );

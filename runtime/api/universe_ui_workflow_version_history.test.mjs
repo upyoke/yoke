@@ -15,6 +15,20 @@ import {
   prototypeWorkflow,
 } from "./universe_ui_workflow_prototype_test_support.mjs";
 
+test("version history is a native disclosure collapsed by default", async (t) => {
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([prototypeWorkflow("dash")]),
+  );
+  const disclosure = byClass(root, "workflow-version-history")[0];
+  const summary = disclosure.children[0];
+
+  assert.equal(disclosure.tagName, "DETAILS");
+  assert.notEqual(disclosure.open, true);
+  assert.equal(summary.tagName, "SUMMARY");
+  assert.equal(summary.textContent, "Version history");
+  mounted.unmount();
+});
+
 test("every version row explains its semantic delta from the previous version", async (t) => {
   const dash = prototypeWorkflow("dash");
   for (const version of dash.versions.slice(0, 2)) {

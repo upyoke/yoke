@@ -47,7 +47,7 @@
 }
 .universe-app-root .workflow-intro {
   max-width: 80ch;
-  margin: 16px 2px 0;
+  margin: 16px 2px 14px;
   color: var(--yoke-ink-2);
   font-size: 15px;
   line-height: 1.5;
@@ -61,6 +61,10 @@
 }
 .universe-app-root .workflow-panel-header {
   justify-content: flex-start;
+}
+.universe-app-root .workflow-history-summary {
+  cursor: pointer;
+  list-style-position: inside;
 }
 .universe-app-root .workflow-panel-meta {
   display: flex;

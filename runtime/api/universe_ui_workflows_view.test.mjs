@@ -127,7 +127,7 @@ test("Dash entry surfaces use the prototype filing copy", async (t) => {
     true,
   );
   const newItemLink = byClass(root, "workflow-entry-link")[0];
-  assert.equal(newItemLink.href, "#/items/new");
+  assert.equal(newItemLink.href, "#/items/new?workflow=dash");
   assert.equal(
     newItemLink.parentNode.classList.contains("workflow-detail-row"),
     true,
