@@ -142,6 +142,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "atomically install the environment's served release for the standing relay",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_release.py",
+        "yoke_core.tools.session_relay_local_install",
+    ): (
+        "client_local_machine_state",
+        "resolve the installed launcher a local-universe relay runs instead of a release",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/lane_tree.py",
         "yoke_core.domain.verification_tree_binding",
     ): (
