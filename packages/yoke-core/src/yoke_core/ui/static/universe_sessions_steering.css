@@ -19,14 +19,30 @@
   background: color-mix(in srgb, var(--yoke-accent) 8%, transparent);
 }
 
-/* The wheel sits in the box corner rather than beside the label, so it
+/* The symbol sits in the box corner rather than beside the label, so it
    marks the whole block as the steering region at a glance. */
-.universe-app-root .session-steering-wheel {
+.universe-app-root .session-steering-symbol {
   position: absolute;
   top: 5px;
   right: 7px;
-  font-size: 12px;
+  color: var(--yoke-accent);
+}
+
+.universe-app-root .steering-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
+}
+
+.universe-app-root .steering-symbol svg {
+  display: block;
+  width: 14px;
+  height: auto;
+}
+
+.universe-app-root .session-lock.steering-symbol {
+  color: var(--yoke-accent);
 }
 
 .universe-app-root .session-steering-lead-label {

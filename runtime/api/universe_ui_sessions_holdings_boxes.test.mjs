@@ -228,8 +228,8 @@ test("Previously held does not nest a Steering box for a released seat", () => {
   assert.equal(byClass(previous, "session-steering-lead").length, 0);
   assert.equal(byClass(rendered, "session-steering-lead").length, 0);
   assert.equal(
-    byClass(previous, "session-lock").map((node) => node.textContent)
-      .includes("🛞"),
+    byClass(previous, "session-lock")
+      .some((node) => node.children[0]?.tagName === "SVG"),
     true,
   );
 });
