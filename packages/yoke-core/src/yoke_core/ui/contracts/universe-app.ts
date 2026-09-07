@@ -211,12 +211,17 @@ export interface UniverseAppOptions {
    */
   readonly sections?: UniverseViewSections;
   /**
-   * Who the viewer is acting as. Host-supplied because only a host with a
-   * sign-in door knows: the local server admits a loopback token, not an
-   * actor, so local mounts without one and the chrome that names you
-   * vanishes rather than guessing.
+   * Who the viewer is acting as. Authenticated hosts supply their actor;
+   * the local server supplies its resolved operator when one is known.
    */
   readonly currentActor?: UniverseActor;
+  /** Stable universe and authenticated actor IDs, never display labels.
+   * Remount when either changes. Omit for unidentified viewers: their
+   * selection remains in memory and is never shared through storage. */
+  readonly selectionIdentity?: {
+    readonly universeId: string;
+    readonly actorId: string | number;
+  };
   /**
    * Canonical runtime-identity packet. Hosts that already derived display
    * fields may omit this, but the local and hosted shells pass it so the
@@ -249,22 +254,20 @@ export type UniverseRouteView =
   | "messages" | "events" | "doctor" | "ouroboros" | "machines";
 
 /**
- * A view's optional second route segment means what the view declares — a
- * tab (one facet of the view's single concept) or a drill-in (one row of the
- * view), never both. Parsing resolves the declaration: a tab-declaring view
- * always carries a resolved `tab` (absent and unknown segments resolve to
- * its first tab, without rewriting the hash) and never a `detail`; every
- * other view may carry a `detail` and never a `tab`.
+ * The optional second segment identifies a detail within a destination.
+ * Views interpret that identifier, including the workflow being inspected.
+ * Unknown destinations fall back to Overview without carrying their detail.
  */
 export interface UniverseRoute {
   readonly view: UniverseRouteView;
-  /** Always null. Tabs are gone: every facet that earned a name is a
-   *  destination, and the field stays so a reader of an older build sees an
-   *  explicit absence rather than a missing key. */
+  /** Always null; named navigation destinations are represented by view. */
   readonly tab: null;
   /** The drill-in row within the view, when the route names one. */
   readonly detail: string | null;
   readonly project: string | null;
+  /** Remembered All/one/multiple selection, separate from detail/focus project.
+   * When absent, an explicit project supplies the deep link selection. */
+  readonly selection: string | null;
 }
 
 /**
@@ -276,13 +279,20 @@ export interface UniverseRoute {
 export type UniverseScope = "multi" | "single" | "none";
 
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 7 as const;
+export const UNIVERSE_APP_CONTRACT_VERSION = 8 as const;
 
 export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,
 ): UniverseFunctionClient;
 
 export declare function parseUniverseRoute(hash: string): UniverseRoute;
+
+/** Preserve selection on ordinary host navigation and detail links. Explicit
+ * selection wins; project continues to address a detail/focus resource. */
+export declare function withProjectSelection(
+  hash: string,
+  selection: "all" | readonly string[],
+): string;
 
 /** `segment` is the view's second path segment: a tab id for a view that
  * declares tabs, a drill-in row for any other view. */

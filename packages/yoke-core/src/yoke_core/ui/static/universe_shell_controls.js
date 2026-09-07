@@ -273,7 +273,8 @@ function createSearch(documentNode, client) {
     }
     if (event.key === "Enter" && activeIndex >= 0) {
       event.preventDefault();
-      windowNode.location.hash = resultLinks[activeIndex].href;
+      const href = resultLinks[activeIndex].href;
+      windowNode.location.hash = href.slice(href.indexOf("#"));
       dismiss();
     }
   });

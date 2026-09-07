@@ -113,15 +113,15 @@ test("a synchronously throwing client still returns a cleanup handle", async (t)
 
 test("route helpers are deterministic and platform-neutral", () => {
   assert.deepEqual(parseUniverseRoute("#/strategy?project=abc%201"), {
-    view: "strategy", tab: null, detail: null, project: "abc 1",
+    view: "strategy", tab: null, detail: null, project: "abc 1", selection: null,
   });
   // An unrecognised view falls back to the first destination in the nav.
   assert.deepEqual(parseUniverseRoute("#/unknown"), {
-    view: "overview", tab: null, detail: null, project: null,
+    view: "overview", tab: null, detail: null, project: null, selection: null,
   });
   // Board rendering remains a CLI/local artifact; it is not a web route.
   assert.deepEqual(parseUniverseRoute("#/board"), {
-    view: "overview", tab: null, detail: null, project: null,
+    view: "overview", tab: null, detail: null, project: null, selection: null,
   });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
     "#/strategy?project=abc%201");
@@ -139,7 +139,7 @@ test("every nav destination declares how it takes project scope", () => {
     assert.equal(universeNavScope(view), "single");
   }
   // Workflows serves the engine's universe-wide lifecycle definition, so no
-  // project narrows it and it draws no picker.
+  // project narrows it; the shared picker only remembers navigation context.
   for (const view of [
     "projects", "actors", "packs", "organization", "workflows",
   ]) {
@@ -150,7 +150,7 @@ test("every nav destination declares how it takes project scope", () => {
   for (const hostFed of ["members", "billing"]) {
     assert.equal(universeNavScope(hostFed), "none");
     assert.deepEqual(parseUniverseRoute(`#/${hostFed}`), {
-      view: hostFed, tab: null, detail: null, project: null,
+      view: hostFed, tab: null, detail: null, project: null, selection: null,
     });
   }
 });

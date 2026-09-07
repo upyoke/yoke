@@ -183,9 +183,12 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   await settleSearch();
 
   input.dispatchEvent(keyEvent("ArrowDown"));
+  // Browser anchor properties resolve to absolute URLs, including scope.
+  byClass(root, "header-search-result")[0].href =
+    "https://example.test/#/items/2228?project=1&selection=1,2";
   input.dispatchEvent(keyEvent("Enter"));
   assert.equal(documentNode.defaultView.location.hash,
-    "#/items/2228?project=1");
+    "#/items/2228?project=1&selection=1,2");
   const main = byClass(root, "content")[0];
   main.scrollTop = 600;
   documentNode.defaultView.location.hash = "#/sessions?project=1";

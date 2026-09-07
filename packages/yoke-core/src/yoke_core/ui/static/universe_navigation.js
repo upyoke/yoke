@@ -5,6 +5,10 @@ import {
   SCOPE_NONE,
   SCOPE_SINGLE,
 } from "./universe_destinations.js";
+import {
+  knownProjectId, resolveProjectSelection, selectionParam,
+} from "./universe_project_selection.js";
+export { knownProjectId } from "./universe_project_selection.js";
 
 export { NAV, NAV_GROUPS, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE };
 
@@ -16,9 +20,8 @@ export function universeNavScope(view) {
   return navEntry(view).scope;
 }
 
-// `#/<view>[/<detail>][?project=<id>[,<id>…]]`. The query stays raw string
-// here — `scopeForEntry` interprets it against the view's declared scope kind
-// (a multi view reads a comma-joined set, a single view one id).
+// Project carries list selection or resource focus; selection separates the
+// remembered scope from detail/focus when both must travel in one URL.
 //
 // The optional second segment is a drill-in: one row of the view, reached from
 // that row. There is no tab segment. A tab was one facet of a view's single
@@ -32,13 +35,15 @@ export function parseUniverseRoute(hash) {
   const [viewPart, segmentPart] = pathPart.split("/");
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
-  const project = new URLSearchParams(queryPart || "").get("project");
+  const query = new URLSearchParams(queryPart || "");
+  const project = query.get("project");
+  const selection = query.get("selection");
   // An unknown view falls back to the first destination, and its detail
   // segment falls with it rather than being carried onto a view that never
   // asked for one.
   const detail = (view === viewPart && segmentPart)
     ? decodeURIComponent(segmentPart) : null;
-  return { view, tab: null, detail, project };
+  return { view, tab: null, detail, project, selection };
 }
 
 export function buildUniverseRoute(
@@ -61,30 +66,6 @@ export function buildUniverseRoute(
   return `#/${resolvedView}${segmentPart}${detailPart}${query}`;
 }
 
-export function knownProjectId(projects, candidate) {
-  return projects.some((row) => String(row.id) === String(candidate))
-    ? String(candidate) : null;
-}
-
-// The comma-joined route form as a set of ids the roster knows. Unknown ids
-// drop out rather than filtering rows to nothing; an all-unknown or empty
-// value reads as no selection at all.
-function knownProjectSet(projects, candidate) {
-  const members = String(candidate || "").split(",")
-    .map((member) => knownProjectId(projects, member.trim()))
-    .filter((member, index, all) =>
-      member !== null && all.indexOf(member) === index);
-  return members.length ? members : null;
-}
-
-// What a multi view last held, revalidated against the current roster: a
-// remembered set whose projects have all vanished is no selection at all.
-function rememberedMultiScope(projects, remembered) {
-  if (remembered === "all") return "all";
-  if (!Array.isArray(remembered)) return null;
-  return knownProjectSet(projects, remembered.join(","));
-}
-
 // The route encoding of a resolved scope: absent for "all" (an unfiltered
 // universe needs no parameter), comma-joined ids for a set, and a single
 // view's project string unchanged.
@@ -93,37 +74,20 @@ export function serializeScope(scope) {
   return Array.isArray(scope) ? scope.join(",") : String(scope);
 }
 
-// A multi view's scope is the whole universe ("all") or an array of project
-// ids; a single view's is one project id. Either way the resolved value is
-// stored per view, so each screen remembers its own scope.
-export function scopeForEntry(entry, routeProject, projects, selections) {
+export function scopeForEntry(entry, routeProject, projects, selections, routeSelection = null) {
+  const selection = resolveProjectSelection(selections, projects, routeSelection ?? routeProject);
   if (entry.scope === SCOPE_NONE) return null;
-  if (entry.scope === SCOPE_MULTI) {
-    const resolved = routeProject === "all"
-      ? "all"
-      : knownProjectSet(projects, routeProject) ||
-        rememberedMultiScope(projects, selections.get(entry.id)) ||
-        "all";
-    selections.set(entry.id, resolved);
-    return resolved;
-  }
-  const resolved = knownProjectId(projects, routeProject) ||
-    knownProjectId(projects, selections.get(entry.id)) ||
-    (projects[0] ? String(projects[0].id) : null);
-  if (resolved !== null) selections.set(entry.id, resolved);
-  return resolved;
+  if (entry.scope === SCOPE_MULTI) return selection;
+  const candidates = selection === "all" ? projects.map((row) => String(row.id)) : selection;
+  selections.focus = knownProjectId(projects, routeProject) ||
+    selections.focus || candidates[0] || null;
+  selections.save();
+  return selections.focus;
 }
 
-// What a nav link's href carries for its destination: the scope that view
-// last held, serialized — nothing when it holds "all" or was never visited
-// (the view resolves its own default on arrival).
+// Every destination carries the shared selection, including global screens.
 export function rememberedScopeParam(entry, projects, selections) {
-  if (entry.scope === SCOPE_NONE) return null;
-  const remembered = selections.get(entry.id);
-  if (entry.scope === SCOPE_MULTI) {
-    return serializeScope(rememberedMultiScope(projects, remembered) || "all");
-  }
-  return knownProjectId(projects, remembered);
+  return selectionParam(selections.selection);
 }
 
 function el(documentNode, tag, className, text) {
@@ -176,8 +140,7 @@ function toggledScope(scope, projectId, projects) {
 // view gets one chip per project with radio semantics.
 export function createScopePicker(options) {
   const {
-    documentNode, entry, scope, projects, renderRoute, scopeSelections,
-    segment, windowNode, onScopeChange,
+    documentNode, entry, scope, projects, onSelect,
   } = options;
   const multi = entry.scope === SCOPE_MULTI;
   const bar = el(documentNode, "div", "scope-bar");
@@ -204,16 +167,7 @@ export function createScopePicker(options) {
   const apply = (next) => {
     currentScope = next;
     syncChips(next);
-    scopeSelections.set(entry.id, next);
-    // Re-scoping stays where it is: the drill-in segment survives the
-    // scope change.
-    windowNode.location.hash = buildUniverseRoute(
-      entry.id, serializeScope(next), segment || null,
-    );
-    // A held view repaints in place from its own data; every other view falls
-    // back to a full route render (which refetches).
-    if (onScopeChange) onScopeChange(next);
-    else renderRoute();
+    onSelect(next);
   };
 
   const chip = (label, projectId, onClick) => {

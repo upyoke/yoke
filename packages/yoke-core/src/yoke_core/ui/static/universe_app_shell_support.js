@@ -1,4 +1,37 @@
 import { callFunction } from "./universe_view_support.js";
+import { createScopePicker, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE } from "./universe_navigation.js";
+import { selectionRoute } from "./universe_selection_routes.js";
+
+export function createProjectControls(deps) {
+  const { documentNode, windowNode, entry, route, scope, projects,
+    scopeSelections, onSelectionChange, renderRoute } = deps;
+  const picker = createScopePicker({
+    documentNode, windowNode, entry: { ...entry, scope: SCOPE_MULTI },
+    scope: scopeSelections.selection, projects, scopeSelections,
+    onSelect: onSelectionChange,
+  });
+  if (entry.scope === SCOPE_SINGLE && !route.detail) {
+    const focus = createScopePicker({
+      documentNode, windowNode, entry, scope, projects, scopeSelections,
+      onSelect(next) {
+        scopeSelections.focus = next;
+        scopeSelections.save();
+        windowNode.location.hash = selectionRoute(route, scopeSelections, next, windowNode.location.hash);
+        renderRoute();
+      },
+    });
+    const label = focus.children[0];
+    label.textContent = "Focus project";
+    picker.appendChild(focus);
+  }
+  if (entry.scope === SCOPE_NONE || scopeSelections.notice) {
+    const note = documentNode.createElement("span");
+    note.className = "scope-context-note";
+    note.textContent = scopeSelections.notice || "Selection remembered · universe-wide view";
+    picker.appendChild(note);
+  }
+  return picker;
+}
 
 export function revealActiveCompactDestination(windowNode, link) {
   if (
@@ -57,21 +90,24 @@ export function createHostSectionPlacement(resolvedSections) {
 export function createHeldScopeController(deps) {
   const {
     windowNode, scopeSelections, renderRoute, projectsRef,
-    navEntry, scopeForEntry, serializeScope, parseUniverseRoute,
-    navLinks, nav, buildUniverseRoute, rememberedScopeParam,
+    navEntry, serializeScope, parseUniverseRoute,
+    navLinks, nav, buildUniverseRoute, rememberedScopeParam, resolveRoute, refreshLinks,
   } = deps;
   let active = null;
   function refreshNavHrefs(activeId) {
     for (const navItem of nav) {
       const link = navLinks.get(navItem.id);
       if (!link) continue;
-      link.href = buildUniverseRoute(
+      link.href = navItem.scope === SCOPE_SINGLE
+        ? selectionRoute({ view: navItem.id }, scopeSelections, scopeSelections.focus)
+        : buildUniverseRoute(
         navItem.id,
         rememberedScopeParam(navItem, projectsRef(), scopeSelections),
-      );
+        );
       link.classList.toggle("active", navItem.id === activeId);
     }
     revealActiveCompactDestination(windowNode, navLinks.get(activeId));
+    refreshLinks?.();
   }
   function reset() { active = null; }
   function register(viewId, scope, picker, handle) {
@@ -90,9 +126,7 @@ export function createHeldScopeController(deps) {
     const route = parseUniverseRoute(windowNode.location.hash);
     if (active && active.viewId === route.view && !route.detail && !route.tab) {
       const entry = navEntry(route.view);
-      const next = scopeForEntry(
-        entry, route.project, projectsRef(), scopeSelections,
-      );
+      const next = resolveRoute(route, entry);
       // A chip click already applied this scope directly; the browser's
       // follow-on hashchange is a no-op. A different hash (direct edit /
       // back-forward) rescopes in place, still with no refetch.

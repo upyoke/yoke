@@ -50,7 +50,7 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
   await settle();
   assert.equal(
     documentNode.defaultView.location.hash,
-    "#/workflows/issue",
+    "#/workflows/issue?selection=all",
   );
   assert.equal(
     byClass(root, "workflow-tab")[2].attributes.get("aria-selected"),

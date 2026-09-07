@@ -152,7 +152,7 @@ test("Packs separates Installed and Available with row-owned previews", async (t
   );
   const preview = byClass(root, "panel")[2];
   assert.equal(preview.hidden, true);
-  assert.equal(byClass(root, "scope-bar").length, 0);
+  assert.equal(byClass(root, "scope-bar").length, 1);
   assert.deepEqual(
     requests.filter((request) => request.function === "packs.list"),
     [

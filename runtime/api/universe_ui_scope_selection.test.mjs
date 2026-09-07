@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createProjectSelection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
 
 import {
   buildUniverseRoute,
@@ -47,11 +48,11 @@ test("a multi view defaults to the whole universe: All chip on, unfiltered read"
     [true, false, false],
   );
   assert.equal(byClass(root, "scope-label")[0].textContent, "Projects");
-  // "all" is one unfiltered call, and the default writes no query param.
+  // Explicit All is one unfiltered call and survives history/reload.
   assert.deepEqual(
     itemsCalls(client).map((request) => request.payload.project), [undefined],
   );
-  assert.equal(documentNode.defaultView.location.hash, "#/items");
+  assert.equal(documentNode.defaultView.location.hash, "#/items?project=all");
   mounted.unmount();
 });
 
@@ -115,11 +116,11 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   );
 
   // Removing members one at a time: the last removal returns to "all",
-  // whose read omits the project filter and whose route has no query.
+  // whose read omits the project filter and whose route names All.
   await click("ALP");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=2");
   const widened = await click("BET");
-  assert.equal(documentNode.defaultView.location.hash, "#/items");
+  assert.equal(documentNode.defaultView.location.hash, "#/items?project=all");
   assert.deepEqual(widened.map((request) => request.payload.project), [undefined]);
   assert.deepEqual(
     scopeChips(root).map((chip) => chip.classList.contains("on")),
@@ -188,7 +189,7 @@ test("strategy at All fans out one call per roster project", async (t) => {
   mounted.unmount();
 });
 
-test("each screen remembers its own scope across nav round trips", async (t) => {
+test("screens share the current scope across nav round trips", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -207,12 +208,13 @@ test("each screen remembers its own scope across nav round trips", async (t) => 
   };
 
   await navigate("#/events");
+  assert.equal(windowNode.location.hash, "#/events?project=2");
   const itemsLink = byClass(root, "nav-link").find((link) =>
     allNodes(link).some(
       (node) => node.classList.contains("txt") &&
         node.textContent === "Items",
     ));
-  // The nav link back carries the scope the screen last held...
+  // The nav link carries the shared selection.
   assert.equal(itemsLink.href, "#/items?project=2");
 
   // ...and following it restores that scope's read.
@@ -227,7 +229,7 @@ test("an explicit QA Activity All route overrides its remembered project scope",
     { id: "buzz", slug: "buzz", name: "Buzz" },
     { id: "yoke", slug: "yoke", name: "Yoke" },
   ];
-  const selections = new Map();
+  const selections = createProjectSelection({});
   const entry = navEntry("qa-activity");
 
   assert.deepEqual(
@@ -241,13 +243,11 @@ test("an explicit QA Activity All route overrides its remembered project scope",
     scopeForEntry(entry, route.project, projects, selections),
     "all",
   );
-  assert.equal(selections.get("qa-activity"), "all");
+  assert.equal(selections.selection, "all");
 });
 
 test("a single-scope picker offers radio chips and no All chip", () => {
   const documentNode = new FakeDocument();
-  const windowNode = documentNode.defaultView;
-  const selections = new Map();
   const rendered = [];
   const bar = createScopePicker({
     documentNode,
@@ -257,10 +257,7 @@ test("a single-scope picker offers radio chips and no All chip", () => {
       { id: 1, slug: "alpha", name: "Alpha", public_item_prefix: "ALP" },
       { id: 2, slug: "beta", name: "Beta", public_item_prefix: "BET" },
     ],
-    renderRoute: () => rendered.push(true),
-    scopeSelections: selections,
-    segment: null,
-    windowNode,
+    onSelect: (next) => rendered.push(next),
   });
 
   assert.equal(byClass(bar, "scope-label")[0].textContent, "Project");
@@ -272,9 +269,8 @@ test("a single-scope picker offers radio chips and no All chip", () => {
 
   // Radio semantics: a click selects exactly that project.
   chips[1].dispatchEvent(new Event("click"));
-  assert.equal(selections.get("github"), "2");
-  assert.equal(windowNode.location.hash, "#/github?project=2");
-  assert.equal(rendered.length, 1);
+  assert.deepEqual(rendered, ["2"]);
+  assert.deepEqual(chips.map((chip) => chip.classList.contains("on")), [false, true]);
 });
 
 test("a multi view still reads an empty universe, unfiltered", async (t) => {
