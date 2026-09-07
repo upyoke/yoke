@@ -85,7 +85,7 @@ class TestBodyAndSyncThreeBuckets:
         """The skill explains why bucket discipline matters."""
         text = _read(_BODY_AND_SYNC)
         assert "Why bucket discipline matters" in text
-        assert "validation_result" in text
+        assert "reviewed_negative" in text
         assert "reviewed-none" in text
 
     def test_obsoleted_deferral_reason_removed(self):

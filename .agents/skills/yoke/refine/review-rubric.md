@@ -54,9 +54,9 @@ Before writing any changes, complete these mandatory checks and carry the findin
   terms while themselves performing no governed mutation — dispatch
   `db_claim.amend` with `payload = {reason: "<why the work item does not
   mutate the governed DB>", claim: {state: "none"}}` instead of a
-  declared payload. That amendment records a reviewed-none decision in
-  the `DbClaimAmended` event stream; the prose-vs-claim gate honors
-  that signal and clears even structural DDL-shape hits. Do **not**
+  declared payload. That amendment stamps the reviewed-none decision
+  onto the stored profile itself; the prose-vs-claim gate reads that
+  attestation and clears even structural DDL-shape hits. Do **not**
   teach or recommend backtick-wrapping DDL verbs or scrubbing
   governance vocabulary from the spec as a workaround — those are not
   the canonical remediation. The structured-write gate

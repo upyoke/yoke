@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from runtime.api.deployment_stage_approval_fixture import OpenConnection
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.decision_request_schema import (
@@ -248,25 +250,74 @@ def test_deployment_completion_event_shares_the_caller_transaction(
     )
     test_db.commit()
 
-    event_id = emit_deployment_completion(
+    emit_deployment_completion(
         test_db,
         run_id="run-completion-proof",
         event_name="DeploymentRunSucceeded",
         outcome="completed",
         context={"flow": "completion-proof"},
     )
+    recorded = "SELECT COUNT(*) FROM events WHERE event_name=%s"
     assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM events WHERE event_id=%s",
-            (event_id,),
-        ).fetchone()[0]
-        == 1
+        test_db.execute(recorded, ("DeploymentRunSucceeded",)).fetchone()[0] == 1
     )
     test_db.rollback()
     assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM events WHERE event_id=%s",
-            (event_id,),
-        ).fetchone()[0]
-        == 0
+        test_db.execute(recorded, ("DeploymentRunSucceeded",)).fetchone()[0] == 0
     )
+
+
+def test_terminal_deployment_telemetry_cannot_fail_the_pipeline(test_db):
+    # deployment_runs already owns the terminal outcome by the time the
+    # pipeline emits, so an events outage must not surface as the run's
+    # own failure. Dropping the table is the harshest stand-in for one.
+    create_decision_request_tables(test_db)
+    environment_id = _prod_environment_id(test_db)
+    initiator = int(
+        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
+    test_db.execute(
+        "INSERT INTO deployment_flows "
+        "(id, project_id, name, stages, created_at) "
+        "VALUES ('telemetry-outage', 1, 'Telemetry outage', '[]', "
+        "'2026-07-26T00:00:00Z')"
+    )
+    test_db.execute(
+        "INSERT INTO deployment_runs "
+        "(id, project_id, flow, target_tier, target_environment_id, "
+        "status, created_by, created_at) "
+        "VALUES ('run-telemetry-outage', 1, 'telemetry-outage', 'persistent', "
+        "%s, 'succeeded', %s, '2026-07-26T00:00:00Z')",
+        (environment_id, str(initiator)),
+    )
+    test_db.commit()
+    test_db.execute("DROP TABLE events CASCADE")
+
+    emit_deployment_completion(
+        test_db,
+        run_id="run-telemetry-outage",
+        event_name="DeploymentRunSucceeded",
+        outcome="completed",
+        context={"flow": "telemetry-outage"},
+    )
+
+    # The savepoint kept the transaction usable, so the caller can still
+    # commit the work the terminal event was only describing.
+    test_db.commit()
+    assert (
+        test_db.execute(
+            "SELECT status FROM deployment_runs WHERE id='run-telemetry-outage'"
+        ).fetchone()[0]
+        == "succeeded"
+    )
+
+
+def test_an_unknown_completion_event_name_still_raises(test_db):
+    with pytest.raises(ValueError, match="not a deployment completion event"):
+        emit_deployment_completion(
+            test_db,
+            run_id="run-telemetry-outage",
+            event_name="DeploymentRunFinished",
+            outcome="completed",
+            context={},
+        )

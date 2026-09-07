@@ -16,19 +16,20 @@ Public surface:
   thin wrappers around ``path_context_values`` that operate on the
   render-relationship families. Skip silently when no path_targets row
   exists for the rendered file (opportunistic registration).
-- :func:`record_render_relationships` — emit one batch-level
-  ``RenderRelationshipRecorded`` event and write/refresh every
-  relationship row idempotently.
+- :func:`record_render_relationships` — write/refresh every
+  relationship row idempotently under one minted operation id, then
+  emit the batch-level ``RenderRelationshipRecorded`` event naming it.
 """
 
 from __future__ import annotations
 
+import uuid
 from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain.event_registry_seed_render_relationship import (
     EVENT_NAME_RENDER_RELATIONSHIP_RECORDED,
 )
-from yoke_core.domain.events import emit_event
+from yoke_core.domain.events_bounded_emit import emit_bounded
 from yoke_core.domain.path_context import (
     FAMILY_RENDER_SOURCE,
     FAMILY_RENDER_TARGET,
@@ -135,28 +136,23 @@ def record_render_relationships(
     project_id: str | int = "yoke",
     session_id: str = "",
 ) -> int:
-    """Emit one batch event and write every render relationship row.
+    """Write every render relationship row and emit one batch event.
 
     Returns the number of render targets that received a row (0 when no
     path_targets rows exist for any of the rendered files — the
     opportunistic case where the registry has not seen them yet). The
-    emission is idempotent: existing rows are refreshed in place via
-    the ``put_context_value`` upsert path.
+    write is idempotent: existing rows are refreshed in place via the
+    ``put_context_value`` upsert path.
+
+    ``path_context_values`` is the authority for these relationships and
+    its ``recorded_event_id`` is an opaque provenance string, so this
+    batch mints its own operation id rather than borrowing one from the
+    event. The event stays a disposable record of the same operation:
+    telemetry that is filtered, refused, or long since expired can no
+    longer withhold the relationships the overlap classifier reads.
     """
     relationships = render_relationship_map(_tracked_file_paths(conn, project_id))
-    result = emit_event(
-        EVENT_NAME_RENDER_RELATIONSHIP_RECORDED,
-        event_kind="lifecycle",
-        event_type="path_context",
-        source_type="backend",
-        session_id=session_id,
-        project=project_id,
-        context={"render_target_count": len(relationships)},
-        conn=conn,
-        transactional=True,
-    )
-    if not result.event_id:
-        return 0
+    operation_id = f"render-relationship-batch:{uuid.uuid4()}"
     written = 0
     for target_path in sorted(relationships):
         sources = relationships[target_path]
@@ -164,11 +160,29 @@ def record_render_relationships(
             conn,
             target_path=target_path,
             source_paths=sources,
-            recorded_event_id=result.event_id,
+            recorded_event_id=operation_id,
             project_id=project_id,
         )
         if row_id is not None:
             written += 1
+    emit_bounded(
+        conn,
+        EVENT_NAME_RENDER_RELATIONSHIP_RECORDED,
+        durable_fact=(
+            "the relationships are written on path_context_values under "
+            f"recorded_event_id={operation_id}"
+        ),
+        event_kind="lifecycle",
+        event_type="path_context",
+        source_type="backend",
+        session_id=session_id,
+        project=project_id,
+        context={
+            "render_target_count": len(relationships),
+            "operation_id": operation_id,
+            "rows_written": written,
+        },
+    )
     return written
 
 

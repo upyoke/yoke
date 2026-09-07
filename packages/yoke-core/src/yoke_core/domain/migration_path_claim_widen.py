@@ -32,7 +32,6 @@ class WidenedPathClaim:
     amendment_id: int
     migration_model: str | None = None
     migration_lease_id: int | None = None
-    db_claim_event_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -329,7 +328,6 @@ def widen_locked_claim(
             amendment_id=amendment_id,
             migration_model=scope.model_name if scope else None,
             migration_lease_id=lease_id,
-            db_claim_event_id=claim_amendment.event_id if claim_amendment else None,
         )
     except Exception:
         conn.rollback()

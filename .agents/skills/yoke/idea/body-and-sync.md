@@ -165,7 +165,7 @@ full rewrites, `items.structured_field.append_addendum` /
 
 After the body has been written and verified (step 8 complete), classify and persist the DB claim against the **finished spec**, not against the title-only draft. This is the same amendment workflow `/yoke refine`, `/yoke advance`, and `/yoke polish` use later — there is no separate "first classification" path.
 
-**Why bucket discipline matters:** The prose-vs-claim gate honors any `DbClaimAmended` event with `state="none"` and `validation_result="pass"` as cleared evidence regardless of the reason text. The three-bucket discipline below is therefore the only signal that distinguishes reviewed-none meta work items from silent deferral bypasses; getting the bucket right at idea time is load-bearing.
+**Why bucket discipline matters:** The prose-vs-claim gate honors any stored `state="none"` profile carrying the workflow-stamped `reviewed_negative` attestation as cleared evidence, regardless of the reason text. The three-bucket discipline below is therefore the only signal that distinguishes reviewed-none meta work items from silent deferral bypasses; getting the bucket right at idea time is load-bearing.
 
 1. Run the prose-vs-claim detector against the freshly written spec.
    Prefer the stdin mode — it runs locally through the installed ``yoke``
@@ -236,12 +236,12 @@ After the body has been written and verified (step 8 complete), classify and per
    schema default in place by design) via the `items.get.run` function
    call with `fields: ["db_mutation_profile"]`.
 
-This step is mandatory. The amendment workflow is upsert-safe
-(idempotent against missing prior state) and emits a `DbClaimAmended`
-event, so the audit trail shows the claim was deliberately set at
-idea-creation time rather than left as the schema default. Bucket 2 is
-the only path that intentionally leaves the schema default — a missing
-event on the blocker path is the desired behavior.
+This step is mandatory. The amendment workflow is upsert-safe (idempotent
+against missing prior state) and stamps the reviewed-negative attestation
+onto the stored profile, so the item itself shows the claim was
+deliberately set at idea-creation time rather than left as the schema
+default. Bucket 2 is the only path that intentionally leaves the schema
+default — an unstamped profile on the blocker path is desired.
 
 5. **Bucket 1, `mutation_intent="apply"` — emit the permanent-history AC.**
    When the payload names migration modules, the spec must require each entry

@@ -177,6 +177,26 @@ def insert_event(
     conn.close()
 
 
+def insert_doc_revision(
+    db_path: str,
+    project: object,
+    slug: str,
+    revision: int,
+    byte_length: int,
+    created_at: str,
+) -> None:
+    """Insert one saved strategy-doc revision of a known size."""
+    conn = connect_test_db(db_path)
+    conn.execute(
+        "INSERT INTO strategy_doc_revisions "
+        "(project_id, slug, revision, byte_length, created_at) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (project_id(project), slug, revision, byte_length, created_at),
+    )
+    conn.commit()
+    conn.close()
+
+
 def insert_projects(db_path: str, projects: list) -> None:
     conn = connect_test_db(db_path)
     for project, _checkout in projects:

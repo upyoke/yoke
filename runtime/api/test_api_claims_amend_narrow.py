@@ -225,7 +225,6 @@ def test_amend_handler_routes_remove_paths_to_narrowing_domain():
         "amendment_kind": "narrow",
         "migration_model": None,
         "migration_lease_id": None,
-        "db_claim_event_id": None,
     }
     assert narrow_call.call_args.kwargs["drop_target_ids"] == [41]
     assert narrow_call.call_args.kwargs["boundary_evidence"]["head_sha"] == _HEAD

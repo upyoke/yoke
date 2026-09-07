@@ -48,7 +48,6 @@ class TestDbClaimAmendDispatch:
                 new_profile=claim,
                 new_attestation={},
                 reason=reason,
-                event_id="evt-1",
             )
 
         # Patch through the handler module's local binding so the

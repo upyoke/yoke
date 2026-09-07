@@ -103,7 +103,6 @@ class TestDbClaimAmendHandler(_DbClaimSuite):
             new_profile=unified,
             new_attestation={},
             reason="testing",
-            event_id="evt-12345",
         )
         with patch(
             "yoke_core.domain.db_claim.amend", return_value=fake_result,
@@ -116,7 +115,7 @@ class TestDbClaimAmendHandler(_DbClaimSuite):
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["item_id"], 42)
         self.assertEqual(resp.result["new_profile"]["state"], "declared")
-        self.assertEqual(resp.result["event_id"], "evt-12345")
+        self.assertNotIn("event_id", resp.result)
         # The domain call received the unified payload + reason.
         mocked.assert_called_once()
         call_args = mocked.call_args

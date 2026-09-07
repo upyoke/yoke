@@ -84,23 +84,22 @@ def test_parity_empty_board(test_db_path, config_file):
     assert fed == direct
 
 
-def test_parity_velocity_meter_strategy_events(populated_db, tmp_path):
-    """The velocity meter's strategy row is sourced from the strategy-doc
-    write-event stream; the query ``collect_board_data`` records must be
-    the one replay serves, else the render raises ``BoardDataMissError``."""
+def test_parity_velocity_meter_strategy_revisions(populated_db, tmp_path):
+    """The velocity meter's strategy row is sourced from saved doc
+    revisions; the query ``collect_board_data`` records must be the one
+    replay serves, else the render raises ``BoardDataMissError``."""
     from datetime import date
 
-    from runtime.api.board.tests.helpers import insert_event
+    from runtime.api.board.tests.helpers import insert_doc_revision
 
     cfg = tmp_path / "config"
     cfg.write_text("dashboard_velocity_meter=true\n")
     today = date.today().isoformat()
-    insert_event(
-        populated_db,
-        "StrategyDocReplaced",
-        "yoke",
-        f"{today}T09:00:00Z",
-        {"old_bytes": 10, "new_bytes": 3300},
+    insert_doc_revision(
+        populated_db, "yoke", "MISSION", 1, 10, f"{today}T09:00:00Z",
+    )
+    insert_doc_revision(
+        populated_db, "yoke", "MISSION", 2, 3300, f"{today}T10:00:00Z",
     )
     direct = _direct_render(populated_db, "yoke", str(cfg), seed=42)
     fed = _data_fed_render(populated_db, "yoke", str(cfg), seed=42)

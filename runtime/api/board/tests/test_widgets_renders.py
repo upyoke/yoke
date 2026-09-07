@@ -17,7 +17,7 @@ from yoke_contracts.board.widgets import (
 )
 from runtime.api.board.tests.conftest import (
     insert_activity_day,
-    insert_event,
+    insert_doc_revision,
     insert_item_raw,
     insert_transition,
 )
@@ -190,7 +190,9 @@ class TestRenderVelocityMeter:
         today = datetime.now(UTC).date().isoformat()
         legacy = ({today: 3}, {}, {}, {})
         monkeypatch.setattr(
-            meter, "_legacy_series", lambda db, scope, days, dates: legacy
+            meter,
+            "_legacy_series",
+            lambda db, scope, project_ids, days, dates: legacy,
         )
         rows = meter.render_velocity_meter(
             _LegacyOnlyReplay(), BoardConfig(), "all"
@@ -200,10 +202,11 @@ class TestRenderVelocityMeter:
             "legacy activity counts must still light the sparkline"
         )
 
-    def test_strategy_row_reads_doc_write_events(self, test_db_path):
-        """The strategy row is sourced from the DB write-event stream, not
-        git: a StrategyDocReplaced event today lights the last slot, and a
-        different project's event does not bleed into the yoke row."""
+    def test_strategy_row_reads_saved_doc_revisions(self, test_db_path):
+        """The strategy row is sourced from saved revisions, so it holds
+        its value past event retention: a revision saved today lights the
+        last slot, and another project's revision does not bleed into the
+        yoke row."""
         from yoke_contracts.board.widgets_velocity_meter import (
             render_velocity_meter,
         )
@@ -213,13 +216,15 @@ class TestRenderVelocityMeter:
         insert_item_raw(test_db_path, [
             (1, "epic-1", "implementing", "epic", "yoke", 0, now, now),
         ])
-        insert_event(
-            test_db_path, "StrategyDocReplaced", "yoke",
-            f"{today}T09:00:00Z", {"old_bytes": 100, "new_bytes": 4200},
+        insert_doc_revision(
+            test_db_path, "yoke", "MISSION", 1, 100, f"{today}T09:00:00Z",
         )
-        insert_event(
-            test_db_path, "StrategyDocCreated", "externalwebapp",
-            f"{today}T09:00:00Z", {"new_bytes": 9000},
+        insert_doc_revision(
+            test_db_path, "yoke", "MISSION", 2, 4200, f"{today}T10:00:00Z",
+        )
+        insert_doc_revision(
+            test_db_path, "externalwebapp", "MISSION", 1, 9000,
+            f"{today}T09:00:00Z",
         )
         with BoardDB(test_db_path) as db:
             rows = render_velocity_meter(db, BoardConfig(), "yoke")
@@ -227,7 +232,7 @@ class TestRenderVelocityMeter:
         assert "120d strategy" in rows[3]
         sml_spark = rows[3].split(" ")[1]
         assert sml_spark[-1] != "▁", (
-            "a strategy-doc write event today must light the strategy slot"
+            "a strategy-doc revision saved today must light the strategy slot"
         )
 
 

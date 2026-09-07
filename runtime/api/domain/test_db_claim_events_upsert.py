@@ -96,7 +96,7 @@ class TestUpsert:
             db_mutation_profile='{"state":"none"}',
             db_compatibility_attestation='{"frozen_at":"2026-04-23T22:01:29Z"}',
         )
-        result = amend(
+        amend(
             501,
             _declared_payload(),
             reason="discovered governed DB mutation mid-refine",
@@ -112,7 +112,6 @@ class TestUpsert:
             ("501",),
         ).fetchall()
         assert len(rows) == 1
-        assert result.event_id is not None
 
 
 # ---------------------------------------------------------------------------
@@ -163,20 +162,37 @@ class TestEventEmission:
         envelope = json.loads(row["envelope"])
         assert envelope["project"] == "externalwebapp"
 
-    def test_event_emission_failure_rolls_back_amendment(self, db_conn):
+    def test_event_emission_failure_still_commits_the_amendment(self, db_conn):
+        # Every gate reads the decision off the stored profile, so an
+        # events outage must not be able to withhold a validated operator
+        # decision. Dropping the table is the harshest available stand-in
+        # for one; a filtered severity reaches the same branch.
         insert_item(db_conn, id=602, status="refining-idea")
         db_conn.execute("DROP TABLE events CASCADE")
+        result = amend(
+            602,
+            _declared_payload(),
+            reason="events are unavailable",
+            conn=db_conn,
+        )
+        assert result.new_profile["state"] == "declared"
+        stored = _fetch_fields(db_conn, 602)
+        assert stored["profile"]["state"] == "declared"
+        assert stored["attestation"][FREEZE_FIELD]
+
+    def test_a_real_write_failure_still_fails_loudly(self, db_conn):
+        # The canonical write is the amendment; when it cannot land the
+        # caller has to hear about it.
+        insert_item(db_conn, id=603, status="refining-idea")
+        db_conn.execute("ALTER TABLE items DROP COLUMN updated_at")
         with pytest.raises(DbClaimAmendmentError) as exc_info:
             amend(
-                602,
+                603,
                 _declared_payload(),
-                reason="must keep audit history",
+                reason="canonical write is broken",
                 conn=db_conn,
             )
-        assert "DbClaimAmended event emission failed" in str(exc_info.value)
-        stored = _fetch_fields(db_conn, 602)
-        assert stored["profile"] == {"state": "none"}
-        assert stored["attestation"] == {}
+        assert "amendment write failed" in str(exc_info.value)
 
     def test_db_claim_amended_registered_in_event_metadata(self):
         from yoke_core.domain.populate_registry import AUTHORITATIVE_METADATA

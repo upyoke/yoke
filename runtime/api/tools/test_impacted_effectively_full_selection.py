@@ -5,7 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.tools import impacted_tests
-from yoke_core.tools.impacted_tests import build_import_index, select
+from yoke_core.tools.impacted_tests import (
+    build_import_index,
+    is_effectively_full,
+    is_test_file,
+    reachable_tests,
+    select,
+)
 
 from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
 
@@ -83,6 +89,50 @@ def test_bounded_deferral_keeps_tests_on_a_narrow_importer_branch(
     assert selection.fallback_rule == "effectively_full_selection"
     assert selection.bounded_deferral is True
     assert selection.files == _with_floor(narrow_test)
+
+
+def test_bounded_keeps_a_broad_importer_s_own_test(tmp_path: Path) -> None:
+    """A one-hop consumer's own test survives its branch being near-total.
+
+    The consumer of a changed symbol is the cheapest place that breakage
+    shows up, but its transitive branch is near-total whenever anything
+    broadly imported sits above it. Dropping the importer wholesale for
+    that reason loses exactly the test the change most needed.
+    """
+    root = _tiny_repo(tmp_path)
+    changed = "runtime/api/changed_core.py"
+    _write(root, changed, "VALUE = 1\n")
+    _write(
+        root,
+        "runtime/api/consumer.py",
+        "from runtime.api import changed_core\n",
+    )
+    _write(
+        root,
+        "runtime/api/test_consumer.py",
+        "from runtime.api import consumer\n",
+    )
+    # A hub above the consumer makes the consumer's own branch near-total
+    # without the consumer itself being broad.
+    _write(root, "runtime/api/hub.py", "from runtime.api import consumer\n")
+    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+        _write(
+            root,
+            f"runtime/api/test_hub_{number}.py",
+            "from runtime.api import hub\n",
+        )
+
+    index = build_import_index(root)
+    consumer_branch = reachable_tests(("runtime/api/consumer.py",), index)
+    total = sum(is_test_file(path) for path in index.module_of)
+    assert is_effectively_full(len(consumer_branch or ()), total)
+
+    bounded = select(["docs/lifecycle.md", changed], index, bounded=True)
+
+    assert bounded.bounded_deferral is True
+    assert "runtime/api/test_consumer.py" in bounded.files
+    # Still a bounded subset — the hub's fanout is not pulled in with it.
+    assert "runtime/api/test_hub_0.py" not in bounded.files
 
 
 def test_unmapped_file_does_not_drop_python_reachability(tmp_path: Path) -> None:

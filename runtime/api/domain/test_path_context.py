@@ -282,6 +282,47 @@ def test_record_render_relationships_writes_known_targets(fresh_db):
     assert rows == len(relationships)
 
 
+def test_render_relationships_land_when_telemetry_cannot(fresh_db):
+    # path_context_values is the authority the overlap classifier reads,
+    # and its recorded_event_id is opaque provenance, so the batch mints
+    # its own operation id. Dropping the events table is the harshest
+    # available stand-in for an outage or a filtered severity.
+    relationships = render_relationship_map()
+    target_ids = {
+        target_path: _seed_target(fresh_db, path_string=target_path)
+        for target_path in relationships
+    }
+    fresh_db.commit()
+    fresh_db.execute("DROP TABLE events CASCADE")
+
+    assert record_render_relationships(fresh_db) == len(relationships)
+    # The savepoint kept the transaction usable, so the rows the caller
+    # came for still commit.
+    fresh_db.commit()
+    for target_path in relationships:
+        assert read_render_source_for(
+            fresh_db, target_id=target_ids[target_path],
+        ) is not None, target_path
+
+
+def test_one_render_batch_shares_one_minted_operation_id(fresh_db):
+    relationships = render_relationship_map()
+    for target_path in relationships:
+        _seed_target(fresh_db, path_string=target_path)
+    fresh_db.commit()
+    record_render_relationships(fresh_db)
+
+    recorded = {
+        str(row[0])
+        for row in fresh_db.execute(
+            "SELECT DISTINCT recorded_event_id FROM path_context_values "
+            "WHERE context_family='render_target'"
+        ).fetchall()
+    }
+    assert len(recorded) == 1
+    assert recorded.pop().startswith("render-relationship-batch:")
+
+
 def test_generated_docs_and_bundle_mirror_resolve_seed_sources(fresh_db):
     prefix = f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/"
     source_path = ".agents/skills/yoke/SKILL.md"
