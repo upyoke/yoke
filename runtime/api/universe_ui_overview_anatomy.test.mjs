@@ -36,13 +36,21 @@ test("Overview anatomy is native disclosures, document cards, and five named ban
   stubFetch(t);
   const { mounted, root } = await mountOverview(new FakeDocument());
   const sections = byClass(root, "overview-section");
-  assert.equal(sections.length, 2);
+  assert.equal(sections.length, 3);
   assert.equal(sections.every((node) => node.tagName === "DETAILS"), true);
   assert.equal(sections.every((node) => node.children[0].tagName === "SUMMARY"), true);
   assert.deepEqual(
     byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Strategy", "Frontier"],
+    ["Onboarding", "Strategy", "Frontier"],
   );
+  assert.deepEqual(
+    sections.map((node) => node.attributes.get("data-fold")),
+    ["section:onboarding", "section:strategy", "section:frontier"],
+  );
+  assert.equal(sections.every((node) => node.open), true);
+  assert.equal(byClass(sections[0], "overview-fold-chevron").length, 1);
+  assert.equal(byClass(sections[0], "overview-band-rule").length, 1);
+  assert.ok(byClass(sections[0], "activation-host")[0]);
 
   const bands = byClass(root, "overview-band");
   assert.equal(bands.every((node) => node.tagName === "DETAILS"), true);
@@ -89,12 +97,18 @@ test("a closed disclosure remains closed across a complete rerender", async (t) 
   stubFetch(t);
   const documentNode = new FakeDocument();
   const first = await mountOverview(documentNode);
-  const frontier = byClass(first.root, "overview-section")[1];
+  const onboarding = byClass(first.root, "overview-section")[0];
+  const frontier = byClass(first.root, "overview-section")[2];
+  onboarding.open = false;
+  onboarding.dispatchEvent(new Event("toggle"));
   frontier.open = false;
   frontier.dispatchEvent(new Event("toggle"));
   first.mounted.unmount();
 
   const second = await mountOverview(documentNode);
-  assert.equal(byClass(second.root, "overview-section")[1].open, false);
+  const next = byClass(second.root, "overview-section");
+  assert.equal(next[0].open, false);
+  assert.equal(next[1].open, true);
+  assert.equal(next[2].open, false);
   second.mounted.unmount();
 });

@@ -8,6 +8,9 @@
   gap: 10px;
   margin-bottom: 22px;
 }
+.universe-app-root .overview-section .activation-stack {
+  margin-bottom: 0;
+}
 .universe-app-root .activation-module {
   background: var(--yoke-surface);
   border: 1px solid var(--yoke-border);

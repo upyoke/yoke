@@ -1,5 +1,6 @@
-// The Overview answers two questions with live objects: Strategy shows where
-// the universe is pointed; Frontier shows work moving through its five bands.
+// The Overview answers three questions with live objects: Onboarding shows
+// getting-started modules; Strategy shows where the universe is pointed;
+// Frontier shows work moving through its five bands.
 
 import { loadDelivery } from "./universe_overview_delivery.js";
 import { loadFrontier } from "./universe_overview_frontier.js";
@@ -46,10 +47,12 @@ export function renderOverviewView(context, main, scope, options = {}) {
   );
   frontier.body.replaceChildren(waiting, ready, active, shipping, done);
 
+  const onboarding = overviewSection(documentNode, "onboarding", "Onboarding");
   const activationHost = el(documentNode, "div", "activation-host");
-  if (options.aboveScope) options.aboveScope.replaceChildren(activationHost);
+  onboarding.body.replaceChildren(activationHost);
+  if (options.aboveScope) options.aboveScope.replaceChildren(onboarding);
   main.replaceChildren(
-    ...(options.aboveScope ? [] : [activationHost]), strategy, frontier,
+    ...(options.aboveScope ? [] : [onboarding]), strategy, frontier,
   );
   loadActivationModules(context, activationHost);
 
