@@ -15,7 +15,7 @@ per-session grouping the roster read composes into its rows:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions_holdings_claim_rows import active_claim_rows
@@ -79,6 +79,7 @@ def render_claim_target(
 
 def active_claims_by_session(
     conn: Any,
+    session_ids: Optional[Iterable[str]] = None,
 ) -> Tuple[
     Dict[str, List[Dict[str, Any]]],
     Dict[str, List[Dict[str, Any]]],
@@ -91,7 +92,7 @@ def active_claims_by_session(
     roles used for focus/role matching. Item-target refs resolve through
     one batched identity read rather than a query per claim.
     """
-    rows = active_claim_rows(conn)
+    rows = active_claim_rows(conn, session_ids=session_ids)
     raw_by_session: Dict[str, List[Dict[str, Any]]] = {}
     for row in rows:
         claim = dict(row)
@@ -186,6 +187,7 @@ def live_item_claim_holders(conn: Any) -> Dict[int, str]:
 
 def claimed_blitz_worktree_ids_by_session(
     conn: Any,
+    session_ids: Optional[Iterable[str]] = None,
 ) -> Dict[str, List[int]]:
     """Active worker/integration worktrees on blitz items each session claims.
 
@@ -193,6 +195,14 @@ def claimed_blitz_worktree_ids_by_session(
     sessions whose focus happens to name a blitz item. Missing tables
     yield an empty map.
     """
+    ids = None if session_ids is None else [str(s) for s in session_ids]
+    if ids is not None and not ids:
+        return {}
+    extra = ""
+    params: tuple[Any, ...] = ()
+    if ids is not None:
+        extra = f" AND wc.session_id IN ({', '.join('%s' for _ in ids)})"
+        params = tuple(ids)
     try:
         rows = conn.execute(
             "SELECT wc.session_id AS session_id, iw.id AS worktree_id "
@@ -202,8 +212,9 @@ def claimed_blitz_worktree_ids_by_session(
             "AND iw.state = 'active' "
             "WHERE wc.released_at IS NULL AND wc.target_kind = 'item' "
             "AND iw.lane_role IN ('worker', 'integration') "
-            "AND LOWER(CAST(i.workflow_id AS TEXT)) = 'blitz' "
-            "ORDER BY iw.id",
+            "AND LOWER(CAST(i.workflow_id AS TEXT)) = 'blitz'"
+            f"{extra} ORDER BY iw.id",
+            params,
         ).fetchall()
     except db_backend.database_error_types(conn):
         clear_failed_read(conn)

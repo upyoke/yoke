@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from yoke_contracts.public_ref import format_item_ref
@@ -9,6 +10,10 @@ from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+
+
+OVERVIEW_TERMINAL_STATUSES = ("done", "cancelled", "stopped")
+OVERVIEW_DONE_WINDOW = timedelta(hours=24)
 
 
 def _p(conn: Any) -> str:
@@ -23,6 +28,27 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
     ]
 
 
+def append_overview_window(
+    where_clause: str,
+    params: list[Any],
+) -> tuple[str, list[Any]]:
+    """Keep every non-terminal item plus terminals finished in the last 24h."""
+    cutoff = (
+        datetime.now(timezone.utc) - OVERVIEW_DONE_WINDOW
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    statuses = ", ".join("%s" for _ in OVERVIEW_TERMINAL_STATUSES)
+    finished = (
+        "COALESCE(NULLIF(i.merged_at, ''), NULLIF(i.updated_at, ''), "
+        "i.created_at)"
+    )
+    clause = f"(i.status NOT IN ({statuses}) OR {finished} >= %s)"
+    prefix = " AND " if where_clause else "WHERE "
+    return (
+        where_clause + prefix + clause,
+        [*params, *OVERVIEW_TERMINAL_STATUSES, cutoff],
+    )
+
+
 def enrich_item_overview_rows(
     rows: Iterable[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -31,7 +57,7 @@ def enrich_item_overview_rows(
     ``id`` stays whatever the underlying list projection emitted (its
     public ref); the numeric key is mirrored onto ``internal_id``. The
     owner cell degrades to empty when its actor cannot be rendered — an
-    orphan actor never fails the roster.
+    orphan actor never fails the roster. Distinct owners resolve once.
     """
     from yoke_core.domain.actors import (
         ActorLabelAmbiguous,
@@ -57,26 +83,32 @@ def enrich_item_overview_rows(
             tuple(ids),
         )
         facts = {int(row["id"]): row for row in _dict_rows(cursor)}
-        owner_labels: dict[int, str] = {}
+        actor_ids: set[int] = set()
+        raw_owners: dict[int, str] = {}
         for item_id, fact in facts.items():
             owner_raw = str(fact.get("owner") or "").strip()
-            if (
-                not owner_raw
-                or owner_raw.lower() in ("none", "null")
-            ):
+            raw_owners[item_id] = owner_raw
+            if not owner_raw or owner_raw.lower() in ("none", "null"):
+                continue
+            try:
+                actor_ids.add(int(owner_raw))
+            except ValueError:
+                continue
+        owner_by_actor: dict[int, str] = {}
+        for actor_id in actor_ids:
+            try:
+                owner_by_actor[actor_id] = actor_display_name(conn, actor_id)
+            except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
+                owner_by_actor[actor_id] = ""
+        owner_labels: dict[int, str] = {}
+        for item_id, owner_raw in raw_owners.items():
+            if not owner_raw or owner_raw.lower() in ("none", "null"):
                 owner_labels[item_id] = ""
                 continue
             try:
-                actor_id = int(owner_raw)
+                owner_labels[item_id] = owner_by_actor.get(int(owner_raw), "")
             except ValueError:
                 owner_labels[item_id] = owner_raw
-                continue
-            try:
-                owner_labels[item_id] = actor_display_name(
-                    conn, actor_id,
-                )
-            except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
-                owner_labels[item_id] = ""
         lane_cursor = conn.execute(
             "SELECT id, item_id, branch, path, lane_role, state, "
             "created_at, updated_at, released_at "
@@ -150,4 +182,4 @@ def enrich_item_overview_rows(
     return result
 
 
-__all__ = ["enrich_item_overview_rows"]
+__all__ = ["append_overview_window", "enrich_item_overview_rows"]

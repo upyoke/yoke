@@ -23,7 +23,9 @@ export async function loadDelivery(context, band, getScope) {
     context,
     buckets.map((project) => ({
       functionId: "deployment_runs.list",
-      payload: project.id === null ? {} : { project: String(project.id) },
+      payload: project.id === null
+        ? { relevance: "overview" }
+        : { project: String(project.id), relevance: "overview" },
     })),
   );
   if (!context.isMounted()) return null;

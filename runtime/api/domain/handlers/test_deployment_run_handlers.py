@@ -110,6 +110,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             status="created",
             limit=7,
             actor_id=None,
+            relevance=None,
         )
         self.assertEqual(outcome.result_payload["rows"][0]["project"], "yoke")
         self.assertEqual(outcome.result_payload["limit"], 7)
@@ -129,6 +130,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             status=None,
             limit=20,
             actor_id=None,
+            relevance=None,
         )
         self.assertEqual(outcome.result_payload["limit"], 20)
 
@@ -159,6 +161,17 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
         self.assertEqual(outcome.error.jsonpath, "$.payload.limit")
+
+    def test_run_list_rejects_invalid_relevance(self):
+        outcome = deployment_runs.handle_deployment_run_list(
+            _request(
+                function="deployment_runs.list",
+                payload={"relevance": "shipping"},
+            ),
+        )
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        self.assertEqual(outcome.error.jsonpath, "$.payload.relevance")
 
     def test_run_update_maps_invalid_field(self):
         with patch(

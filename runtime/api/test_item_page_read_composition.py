@@ -62,6 +62,7 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
     delegated = observed["request"]
     assert delegated.function == "items.list.run"
     assert delegated.actor == request.actor
+    assert delegated.payload["relevance"] == "overview"
     assert "project" not in delegated.payload
     assert {
         "priority",

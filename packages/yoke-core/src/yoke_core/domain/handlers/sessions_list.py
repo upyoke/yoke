@@ -32,6 +32,7 @@ class SessionsListRequest(BaseModel):
     )
     limit: Optional[int] = None
     per_project: bool = False
+    open: bool = False
     session_id: Optional[str] = Field(
         default=None,
         description=(
@@ -81,6 +82,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
     ended_cause = payload.get("ended_cause")
     limit = payload.get("limit")
     per_project = payload.get("per_project", False)
+    open_only = payload.get("open", False)
     for key, value in (
         ("project", project),
         ("liveness", liveness),
@@ -104,6 +106,12 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             "per_project must be a boolean when present",
             jsonpath="$.payload.per_project",
         )
+    if not isinstance(open_only, bool):
+        return _error(
+            "payload_invalid",
+            "open must be a boolean when present",
+            jsonpath="$.payload.open",
+        )
 
     from yoke_core.domain.sessions_list_read import (
         DEFAULT_SESSIONS_LIST_LIMIT,
@@ -118,6 +126,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             limit=limit if limit is not None else DEFAULT_SESSIONS_LIST_LIMIT,
             per_project=per_project,
             session_id=session_filter.strip() if session_filter is not None else None,
+            open=open_only,
         )
     except ValueError as exc:
         return _error(

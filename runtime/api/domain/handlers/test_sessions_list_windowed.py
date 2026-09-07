@@ -49,7 +49,31 @@ class TestPerProjectWindow:
         assert len(busy_rows) == cap
         assert any(row["session_id"] == "quiet-1" for row in windowed)
 
+    def test_open_window_keeps_live_when_ended_would_crowd(self, test_db):
+        cap = PER_PROJECT_SESSIONS_LIST_CAP
+        # Ended rows that are not probes (lived well past the 30s probe window)
+        # and newer than the quiet live holder Ready still needs.
+        for index in range(cap + 2):
+            _insert_session(
+                test_db,
+                f"ended-{index}",
+                last_heartbeat=_iso(index),
+                offered_at=_iso(index + 120),
+                ended_at=_iso(index),
+            )
+        _insert_session(test_db, "live-quiet", last_heartbeat=_iso(1000))
+        crowded = {row["session_id"] for row in list_sessions(per_project=True)}
+        assert "live-quiet" not in crowded
+        opened = list_sessions(per_project=True, open=True)
+        assert any(row["session_id"] == "live-quiet" for row in opened)
+        assert all(row["liveness"] != "ended" for row in opened)
+
     def test_handler_rejects_non_boolean_per_project(self, test_db):
         outcome = handle_sessions_list(_request({"per_project": "yes"}))
+        assert not outcome.primary_success
+        assert outcome.error.code == "payload_invalid"
+
+    def test_handler_rejects_non_boolean_open(self, test_db):
+        outcome = handle_sessions_list(_request({"open": "yes"}))
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"

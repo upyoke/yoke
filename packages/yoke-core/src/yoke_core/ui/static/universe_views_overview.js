@@ -67,7 +67,7 @@ export function renderOverviewView(context, main, scope, options = {}) {
   // already holds.
   const sessionRoster = settledScopedCalls(context, [{
     functionId: "sessions.list",
-    payload: { per_project: true },
+    payload: { per_project: true, open: true },
   }]);
   hold(loadStrategy(context, { standing, plans }, getScope));
   hold(loadFrontier(context, { waiting, ready, done }, getScope, sessionRoster));

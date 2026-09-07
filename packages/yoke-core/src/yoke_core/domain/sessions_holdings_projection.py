@@ -297,9 +297,10 @@ def session_holdings_by_session(
     conn: Any,
     *,
     previous_limit: int = WEB_PREVIOUS_HOLDINGS_LIMIT,
+    session_ids: Iterable[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Return the shared holdings model for every session with a holding."""
-    claims = _row_dicts(all_claim_rows(conn))
+    claims = _row_dicts(all_claim_rows(conn, session_ids=session_ids))
     item_ids = [
         int(claim["item_id"])
         for claim in claims
