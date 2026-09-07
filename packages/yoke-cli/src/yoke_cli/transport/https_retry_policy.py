@@ -32,6 +32,8 @@ import errno
 import ipaddress
 import sys
 import urllib.error
+from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import TextIO
 from urllib.parse import urlsplit
 
@@ -139,11 +141,57 @@ def connection_backoff_seconds(attempt: int) -> float:
     return backoff[min(max(attempt, 0), len(backoff) - 1)]
 
 
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _utc_stamp(clock: Callable[[], datetime] | None = None) -> str:
+    instant = (clock or _utc_now)()
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    else:
+        instant = instant.astimezone(timezone.utc)
+    return instant.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _classify_retry_reason(reason: str) -> str:
+    """Safe class for a retry reason the caller already sanitized.
+
+    The notice never reprints bodies, credentials, or request payloads.
+    ``server returned N`` is the HTTP status already decided as transient;
+    anything else stays ``other`` rather than echoing unknown text as a class.
+    """
+    text = str(reason or "").strip()
+    if text == "relay unreachable":
+        return "unreachable"
+    if text.startswith("server returned "):
+        return "http_transient"
+    return "other"
+
+
+def format_retry_notice(
+    reason: str,
+    attempt: int,
+    backoff_seconds: float,
+    *,
+    clock: Callable[[], datetime] | None = None,
+) -> str:
+    """One stderr line: UTC stamp, class, attempt, and that recovery is retry."""
+    return (
+        f"{_utc_stamp(clock)} note: relay attempt "
+        f"{attempt + 1}/{CONNECTION_ATTEMPTS} failed ({reason}) "
+        f"class={_classify_retry_reason(reason)} outcome=retrying; "
+        f"retrying in {backoff_seconds:.0f}s"
+    )
+
+
 def write_retry_notice(
     reason: str,
     attempt: int,
     backoff_seconds: float,
     stream: TextIO | None = None,
+    *,
+    clock: Callable[[], datetime] | None = None,
 ) -> None:
     """Say that the relay is waiting, so a long retry is never silent.
 
@@ -152,10 +200,14 @@ def write_retry_notice(
     attempt the operator cannot tell a relay that is patiently retrying
     from a command that has hung, and the observed report is exactly that:
     zero output, no receipt, and no way to know which one happened.
+
+    Each line starts with a UTC ``YYYY-MM-DDTHH:MM:SSZ`` stamp so retained
+    relay stderr can be correlated with session load. ``class=`` and
+    ``outcome=retrying`` are derived from the already-safe reason; this
+    helper does not change retry timing or budgets.
     """
     print(
-        f"note: relay attempt {attempt + 1}/{CONNECTION_ATTEMPTS} failed "
-        f"({reason}); retrying in {backoff_seconds:.0f}s",
+        format_retry_notice(reason, attempt, backoff_seconds, clock=clock),
         file=sys.stderr if stream is None else stream,
         flush=True,
     )
@@ -169,6 +221,7 @@ __all__ = [
     "CONNECTION_BACKOFF_SECONDS",
     "RESPONSE_DEADLINE_ATTEMPTS",
     "connection_backoff_seconds",
+    "format_retry_notice",
     "write_retry_notice",
     "http_status_is_transient",
 ]
