@@ -13,6 +13,28 @@ class QaMethodConfigError(ValueError):
     """A case configuration does not satisfy its method contract."""
 
 
+def _normalize_candidate_inputs(config: dict) -> None:
+    """Validate the CI case's declared dispatch inputs in place.
+
+    Declaring them is optional, and the key is dropped when empty so an
+    ordinary no-input case stores exactly what it stored before.
+    """
+    from yoke_core.domain.qa_case_ci_candidate_inputs import (
+        CI_WORKFLOW_INPUTS_KEY,
+        CandidateInputsError,
+        normalize,
+    )
+
+    try:
+        inputs = normalize(config.get(CI_WORKFLOW_INPUTS_KEY))
+    except CandidateInputsError as exc:
+        raise QaMethodConfigError(str(exc)) from exc
+    if inputs:
+        config[CI_WORKFLOW_INPUTS_KEY] = inputs
+    else:
+        config.pop(CI_WORKFLOW_INPUTS_KEY, None)
+
+
 def validate_method_config(
     config_contract_id: str,
     raw: Any,
@@ -70,6 +92,7 @@ def validate_method_config(
                     "CI command cases require a non-empty method_config.ci_workflow"
                 )
             config["ci_workflow"] = workflow.strip()
+            _normalize_candidate_inputs(config)
     elif config_contract_id in {"browser-check", "browser-inspection"}:
         steps = config.get("steps")
         if not isinstance(steps, list) or not steps:

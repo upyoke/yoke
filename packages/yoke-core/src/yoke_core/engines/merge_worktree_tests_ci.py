@@ -30,6 +30,7 @@ from typing import Optional, Tuple
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import (
+    qa_case_ci_candidate_inputs,
     qa_case_ci_covering_run,
     qa_case_ci_lane,
     verification_tree_binding,
@@ -168,6 +169,21 @@ def run_ci_verification(
         )
         return (1, "ci tree identity unavailable")
 
+    # The candidate this proof must build against is the one the item's own
+    # QA case named, so the merge boundary re-reads it rather than inventing
+    # a second source of truth for the same fact.
+    try:
+        workflow_inputs = qa_case_ci_candidate_inputs.item_inputs(
+            item_id=int(str(ctx.item_id)), workflow=workflow,
+        )
+    except (QaCaseExecutionError, TypeError, ValueError) as exc:
+        _print(
+            f"Error: could not resolve the candidate inputs this {workflow} "
+            f"proof must carry: {exc}",
+            err=True,
+        )
+        return (1, "ci candidate inputs unresolved")
+
     _print("")
     _print(
         f"[phase:tests] routing registered verification ({scope}) to CI "
@@ -200,6 +216,7 @@ def run_ci_verification(
             )
             ci_run_source = qa_case_ci_covering_run.classify(
                 existing, head_sha=tree.head_sha,
+                required_inputs=workflow_inputs,
             )
             if ci_run_source == qa_case_ci_covering_run.DISPATCHED:
                 ci_run_id = qa_case_ci_lane.dispatch_workflow(
@@ -209,6 +226,7 @@ def run_ci_verification(
                     branch=branch,
                     request_id=f"merge-gate:{ctx.item_id}:{tree.head_sha}",
                     timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
+                    inputs=workflow_inputs,
                 )
             else:
                 ci_run_id = existing.run_id
@@ -243,6 +261,7 @@ def run_ci_verification(
                 "repo": repo or None,
                 "workflow": workflow,
                 "branch": branch,
+                "ci_workflow_inputs": workflow_inputs or None,
                 "ci_run_id": ci_run_id or None,
                 "ci_conclusion": "error",
                 "ci_run_source": ci_run_source,
@@ -285,6 +304,7 @@ def run_ci_verification(
             "repo": repo,
             "workflow": workflow,
             "branch": branch,
+            "ci_workflow_inputs": workflow_inputs or None,
             "ci_run_id": ci_run_id,
             "run_url": run_url,
             "exit_code": exit_code,

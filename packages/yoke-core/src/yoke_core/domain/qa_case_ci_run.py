@@ -19,6 +19,7 @@ from yoke_contracts.api.function_call import ActorContext
 
 from yoke_core.domain import (
     qa_case_budget,
+    qa_case_ci_candidate_inputs,
     qa_case_ci_covering_run,
     qa_case_ci_empty_diff,
     qa_case_ci_entry_run,
@@ -86,6 +87,7 @@ def execute_ci_case(
     project = str(case["project"])
     repo = qa_case_ci_lane.repo_slug(checkout)
     branch = qa_case_ci_lane.lane_branch(case, checkout)
+    workflow_inputs = qa_case_ci_candidate_inputs.case_inputs(case, project=project)
     try:
         checked_out_branch = qa_case_ci_lane.checked_out_branch(checkout)
     except QaCaseExecutionError:
@@ -107,6 +109,7 @@ def execute_ci_case(
         lane_is_checked_out=checked_out_branch == branch,
         requirement_id=requirement_id,
         timeout_seconds=budget,
+        required_inputs=workflow_inputs,
     )
     entry_run_base = lane.queue_target
     tree = verification_tree_binding.resolve_tree_identity(checkout)
@@ -145,6 +148,14 @@ def execute_ci_case(
     )
     if empty is not None:
         return empty
+    evidence: dict[str, Any] = {
+        "repo": repo,
+        "workflow": workflow,
+        "branch": branch,
+        "ci_workflow_inputs": workflow_inputs or None,
+        "verification_tree": tree.as_payload(),
+        **selected_budget.as_record(),
+    }
     ci_run_id = ""
     run_url = ""
     ci_run_source = qa_case_ci_covering_run.DISPATCHED
@@ -197,6 +208,7 @@ def execute_ci_case(
             ci_run_source = qa_case_ci_covering_run.classify(
                 covering_run,
                 head_sha=head_sha,
+                required_inputs=workflow_inputs,
             )
             if ci_run_source == qa_case_ci_covering_run.DISPATCHED:
                 qa_case_ci_progress.announce_dispatch(
@@ -212,6 +224,7 @@ def execute_ci_case(
                     branch=branch,
                     request_id=f"qa-case:{requirement_id}:{head_sha}",
                     timeout_seconds=budget,
+                    inputs=workflow_inputs,
                 )
                 run_url = qa_case_ci_progress.announce_run(
                     requirement_id,
@@ -246,6 +259,7 @@ def execute_ci_case(
                     run_url=run_url,
                     source=ci_run_source,
                     timeout_seconds=budget,
+                    inputs=workflow_inputs,
                 )
                 ci_run_id = awaited.run_id
                 run_url = awaited.run_url
@@ -256,17 +270,13 @@ def execute_ci_case(
         duration_ms = int((time.monotonic() - started) * 1000)
         raw_result = json.dumps(
             {
-                "repo": repo,
-                "workflow": workflow,
-                "branch": branch,
+                **evidence,
                 "ci_run_id": ci_run_id or None,
                 "ci_conclusion": "error",
                 "ci_run_source": ci_run_source,
                 "superseded_ci_run_id": superseded_ci_run_id or None,
                 "failure_class": "infrastructure_transient",
                 "error": str(exc),
-                "verification_tree": tree.as_payload(),
-                **selected_budget.as_record(),
             },
             sort_keys=True,
         )
@@ -287,23 +297,16 @@ def execute_ci_case(
         ("pass", "") if conclusion == "success" else failure_verdict(conclusion)
     )
     run_url = run_url or f"https://github.com/{repo}/actions/runs/{ci_run_id}"
-    raw_result = json.dumps(
-        {
-            "repo": repo,
-            "workflow": workflow,
-            "branch": branch,
-            "ci_run_id": ci_run_id,
-            "run_url": run_url,
-            "exit_code": exit_code,
-            "ci_conclusion": conclusion,
-            "ci_run_source": ci_run_source,
-            "superseded_ci_run_id": superseded_ci_run_id or None,
-            "failure_class": failure_class or None,
-            "verification_tree": tree.as_payload(),
-            **selected_budget.as_record(),
-        },
-        sort_keys=True,
-    )
+    outcome: dict[str, Any] = {
+        "ci_run_id": ci_run_id,
+        "run_url": run_url,
+        "exit_code": exit_code,
+        "ci_conclusion": conclusion,
+        "ci_run_source": ci_run_source,
+        "superseded_ci_run_id": superseded_ci_run_id or None,
+        "failure_class": failure_class or None,
+    }
+    raw_result = json.dumps({**evidence, **outcome}, sort_keys=True)
     output = (
         f"$ {workflow} on {repo}@{branch} ({head_sha[:12] or 'unknown sha'})\n"
         f"{run_url}\n\n[output]\n{poll_output}\n\n[exit_code]\n{exit_code}\n"
@@ -329,14 +332,8 @@ def execute_ci_case(
             if verdict == "fail"
             else "infrastructure_transient"
         ),
-        "exit_code": exit_code,
         "duration_ms": duration_ms,
-        "ci_run_id": ci_run_id,
-        "run_url": run_url,
-        "ci_conclusion": conclusion,
-        "ci_run_source": ci_run_source,
-        "superseded_ci_run_id": superseded_ci_run_id or None,
-        "failure_class": failure_class or None,
+        **outcome,
         **selected_budget.as_record(),
         "verification_tree": tree.as_payload(),
     }

@@ -10,6 +10,7 @@ recovery leaves the session owed one verdict rather than two.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping, Optional
 
 from yoke_core.domain import (
     qa_case_ci_covering_run,
@@ -77,8 +78,14 @@ def await_with_one_redispatch(
     run_url: str,
     source: str,
     timeout_seconds: int,
+    inputs: Optional[Mapping[str, str]] = None,
 ) -> AwaitedWorkflowRun:
-    """Await *run_id*, replacing it once when GitHub never creates jobs."""
+    """Await *run_id*, replacing it once when GitHub never creates jobs.
+
+    The replacement carries the same candidate ``inputs`` the superseded
+    dispatch did, so a recovery proves the same producer candidate rather
+    than quietly falling back to the workflow's own defaults.
+    """
     _record_wait(requirement_id, repo=repo, run_id=run_id, head_sha=head_sha)
     exit_code, output = qa_case_ci_lane.await_workflow(
         project=project,
@@ -112,6 +119,7 @@ def await_with_one_redispatch(
         branch=branch,
         request_id=(f"qa-case:{requirement_id}:{head_sha}:never-started-retry"),
         timeout_seconds=timeout_seconds,
+        inputs=inputs,
     )
     replacement_url = qa_case_ci_progress.announce_run(
         requirement_id,

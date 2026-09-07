@@ -25,6 +25,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from typing import Mapping
 
 from yoke_contracts.github_workflow_dispatch import (
     WORKFLOW_DISPATCH_CORRELATION_INPUT,
@@ -177,8 +178,16 @@ def dispatch_workflow(
     branch: str,
     request_id: str,
     timeout_seconds: int,
+    inputs: Mapping[str, str] | None = None,
 ) -> str:
-    """Dispatch *workflow* against *branch* and return its GitHub run id."""
+    """Dispatch *workflow* against *branch* and return its GitHub run id.
+
+    ``inputs`` are the case's declared candidate inputs
+    (:mod:`yoke_core.domain.qa_case_ci_candidate_inputs`). They name the
+    producer candidate this run must build against, so they travel with
+    every dispatch — the first one, the never-started redispatch, and the
+    merge boundary's. A case declaring none dispatches exactly as before.
+    """
     from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
         trigger_with_recovery_retries,
     )
@@ -188,7 +197,7 @@ def dispatch_workflow(
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
     args = _trigger_args(
-        repo, workflow, branch, {},
+        repo, workflow, branch, dict(inputs or {}),
         request_id=request_id,
         correlation_input=WORKFLOW_DISPATCH_CORRELATION_INPUT,
     )
