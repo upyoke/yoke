@@ -271,4 +271,71 @@ test("local evidence keeps the artifact read behavior", async () => {
     target: { kind: "qa_requirement", qa_requirement_id: 32 },
   }]);
   assert.equal(byClass(host, "qa-evidence-preview").length, 1);
+  // A preview scaled to fit the panel is not always readable, so the picture
+  // is itself the control that opens it at its own size.
+  const full = byClass(host, "qa-evidence-full")[0];
+  assert.equal(full.href, "data:image/png;base64,aW1hZ2U=");
+  assert.equal(full.target, "_blank");
+  assert.match(full.textContent, /open full image/);
+});
+
+test("a presigned image is shown, not just linked by filename", async () => {
+  const documentNode = new FakeDocument();
+  const context = {
+    document: documentNode,
+    capabilities: { data: { portability: { mode: "hosted" } } },
+    client: {
+      async call(request) {
+        return ok({
+          artifact_id: request.payload.artifact_id,
+          disposition: "ready",
+          content_type: request.payload.artifact_id === 1
+            ? "image/png" : "text/plain",
+          download_url:
+            `https://bucket.example.test/${request.payload.artifact_id}`,
+        });
+      },
+    },
+  };
+  const host = documentNode.createElement("div");
+  host.appendChild(renderEvidence(context, {
+    cases: [{
+      case_key: "marketing-pages-visual",
+      last_result: {
+        requirement_id: 32,
+        evidence: [{
+          id: 1,
+          artifact_type: "screenshot",
+          content_type: "image/png",
+          artifact_handle: "{\"backend\":\"s3\",\"key\":\"footer.png\"}",
+        }, {
+          id: 2,
+          artifact_type: "log",
+          content_type: "text/plain",
+          artifact_handle: "{\"backend\":\"s3\",\"key\":\"run.log\"}",
+        }],
+      },
+    }],
+  }));
+
+  const actions = byClass(host, "qa-evidence-action");
+  actions[0].dispatchEvent(new Event("click"));
+  actions[1].dispatchEvent(new Event("click"));
+  await settle();
+
+  // Durable evidence is a screenshot whichever backend holds it. Stopping at
+  // a bare link left hosted reviewers judging a picture by its filename.
+  const preview = byClass(host, "qa-evidence-preview")[0];
+  assert.equal(preview.src, "https://bucket.example.test/1");
+  assert.equal(preview.alt, "footer.png");
+  assert.equal(
+    byClass(host, "qa-evidence-full")[0].href,
+    "https://bucket.example.test/1",
+  );
+  // Evidence with nothing to preview keeps the link it always had.
+  assert.equal(byClass(host, "qa-evidence-preview").length, 1);
+  assert.deepEqual(
+    byClass(host, "qa-evidence-link").map((node) => [node.textContent, node.href]),
+    [["view →", "https://bucket.example.test/2"]],
+  );
 });

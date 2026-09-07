@@ -154,10 +154,14 @@ def ensure_qa_review_request(
     verdict_reason = str(reason_row[0] if reason_row else "").strip()
     if not verdict_reason:
         raise ValueError("undetermined QA run is missing its required reason")
+    # The handle travels with the projection because the gate surfaces draw
+    # each artifact through the same reader QA detail uses: it names the
+    # file and says up front when the bytes only exist on the capture
+    # machine, rather than offering a control that can only fail.
     artifact_rows = (
         conn.execute(
-            "SELECT id, artifact_type, content_type FROM qa_artifacts "
-            f"WHERE qa_run_id={p} ORDER BY id",
+            "SELECT id, artifact_type, content_type, artifact_handle "
+            f"FROM qa_artifacts WHERE qa_run_id={p} ORDER BY id",
             (int(run_id),),
         ).fetchall()
         if _table_exists(conn, "qa_artifacts")
@@ -168,6 +172,7 @@ def ensure_qa_review_request(
             "artifact_id": int(row[0]),
             "artifact_type": str(row[1]),
             "content_type": row[2],
+            "artifact_handle": row[3],
         }
         for row in artifact_rows
     ]

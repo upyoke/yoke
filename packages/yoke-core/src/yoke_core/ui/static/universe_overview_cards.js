@@ -80,7 +80,12 @@ function carriedReference(item) {
   return item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
 }
 
-export function overviewRunCard(documentNode, row, scope, options = {}) {
+// A run card takes the whole view context rather than just its document:
+// the gates it draws read their evidence through the client, so a card that
+// only knew how to create elements could show that evidence existed and
+// never let the approver open it.
+export function overviewRunCard(context, row, scope, options = {}) {
+  const documentNode = context.document;
   // A run stopped at a gate is not executing and not failed. Its own status
   // still says whichever it was when the pipeline suspended, so the gate is
   // what the card reports: one string drives the edge and the pill together.
@@ -173,6 +178,6 @@ export function overviewRunCard(documentNode, row, scope, options = {}) {
     timing ? `${status} ${relativeAge(timing)} ago` : status,
   ));
   card.appendChild(link);
-  appendRunGates(documentNode, card, row.gates, options.onGateAction);
+  appendRunGates(context, card, row.gates, options.onGateAction);
   return card;
 }

@@ -153,6 +153,10 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
                 "artifact_id": int(artifact_id),
                 "artifact_type": "screenshot",
                 "content_type": None,
+                # The handle rides along so a gate card can label the file and
+                # say up front that these bytes only exist on the machine that
+                # captured them, exactly as QA detail does.
+                "artifact_handle": '{"backend":"local","path":"/tmp/review.png"}',
             }
         ],
         "artifact_count": 1,

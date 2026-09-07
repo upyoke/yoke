@@ -247,34 +247,17 @@
   font-style: italic;
 }
 
-/* Evidence is a count over the artifacts the run actually recorded, so a
-   request backed by screenshots and one backed by nothing stop looking the
-   same at a glance. */
+/* Evidence is a stack of readable artifacts, so a request backed by
+   screenshots and one backed by nothing stop looking the same at a glance,
+   and the reader can open what they are deciding about. Each artifact
+   carries its own label, storage line and preview, so they read down the
+   card rather than wrapping around each other. */
 .universe-app-root .gate-evidence {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-.universe-app-root .gate-evidence .gate-block-head {
-  flex: 1 1 100%;
-}
-
-.universe-app-root .gate-evidence-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--yoke-accent-weak);
-  color: var(--yoke-ink);
-  font-size: 11px;
-}
-
-.universe-app-root .gate-evidence-count {
-  font-family: var(--yoke-font-mono);
-  font-weight: 600;
+.universe-app-root .gate-evidence .qa-evidence {
+  align-items: start;
 }
 
 /* The refusal rather than silence: approving here would be a verdict on

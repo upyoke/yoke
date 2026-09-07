@@ -14,8 +14,9 @@ that names WHERE the artifact bytes live, explicitly:
 There is no bare-path compatibility shape: writers that try to record a
 path without a backend get a typed denial naming this module's vocabulary.
 S3 keys reuse the historical storage taxonomy
-``qa-artifacts/{project}/{item_id}/{run_id}/{filename}`` so one capture's
-local scratch layout and its durable key stay parallel.
+``qa-artifacts/{project}/{subject}/{run_id}/{filename}`` -- where the
+subject is the requirement's own owner, an item or a deployment run -- so
+one capture's local scratch layout and its durable key stay parallel.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 
 BACKEND_S3 = "s3"
@@ -52,17 +53,24 @@ def safe_segment(value: str) -> str:
 
 def build_artifact_key(
     project: str,
-    item_id: int,
+    subject: Union[int, str],
     run_id: int,
     filename: str,
 ) -> str:
     """Build the canonical S3 object key for one QA artifact.
 
-    Format: ``qa-artifacts/{project}/{item_id}/{run_id}/{filename}``.
+    Format: ``qa-artifacts/{project}/{subject}/{run_id}/{filename}``.
+
+    ``subject`` is the requirement's own owner as
+    :func:`yoke_core.domain.qa_artifacts.case_artifact_subject` names it --
+    an item id, or ``deployment-run-{id}`` for a requirement a deployment
+    run owns. Keying on the real owner is what lets a run-owned requirement
+    store evidence at all; assuming an item id refused those requirements
+    outright.
     """
     return (
         f"{QA_ARTIFACT_STORAGE_KIND}/{safe_segment(project)}/"
-        f"{int(item_id)}/{int(run_id)}/{safe_segment(filename)}"
+        f"{safe_segment(str(subject))}/{int(run_id)}/{safe_segment(filename)}"
     )
 
 
@@ -79,9 +87,7 @@ def s3_handle(
     return validate_handle(handle)
 
 
-def local_handle(
-    path: str, content_type: Optional[str] = None
-) -> Dict[str, Any]:
+def local_handle(path: str, content_type: Optional[str] = None) -> Dict[str, Any]:
     handle: Dict[str, Any] = {"backend": BACKEND_LOCAL, "path": str(path)}
     if content_type:
         handle["content_type"] = str(content_type)
@@ -128,14 +134,10 @@ def parse_handle(raw: Any) -> Dict[str, Any]:
 
 def serialize_handle(handle: Dict[str, Any]) -> str:
     """Canonical storage form: compact, key-sorted JSON."""
-    return json.dumps(
-        validate_handle(handle), sort_keys=True, separators=(",", ":")
-    )
+    return json.dumps(validate_handle(handle), sort_keys=True, separators=(",", ":"))
 
 
-def handle_address(
-    handle: Dict[str, Any], repo_root: Optional[str] = None
-) -> str:
+def handle_address(handle: Dict[str, Any], repo_root: Optional[str] = None) -> str:
     """Return the honest absolute address of a handle.
 
     ``s3`` handles address as ``s3://bucket/key`` (a durable object URI,

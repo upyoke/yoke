@@ -57,7 +57,7 @@ export async function loadDelivery(context, band, getScope) {
     band.setCount(rows.length);
     band.renderCards(
       rows.slice(0, OVERVIEW_CARD_LIMIT).map((row) => overviewRunCard(
-        context.document, row, getScope(), { onGateAction },
+        context, row, getScope(), { onGateAction },
       )),
       "No deployment run is in flight.",
       "overview-run-grid",

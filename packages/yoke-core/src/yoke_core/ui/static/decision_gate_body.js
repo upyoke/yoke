@@ -14,6 +14,7 @@
 // stopped it -- so the parts each surface needs are exported separately.
 
 import { el } from "./universe_view_support.js";
+import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
 
 const MAX_LISTED = 6;
 
@@ -80,11 +81,15 @@ export function approvalProse(row_) {
   return "";
 }
 
-// The evidence behind an undetermined verdict, counted by type rather than
-// described in prose. Both surfaces draw this: a reviewer deciding from a
-// run card needs the same answer to "backed by what" as one deciding from
-// the Inbox, and a run with no artifacts has to say so in both places.
-export function appendEvidence(documentNode, host, facts) {
+// The evidence behind an undetermined verdict, shown rather than counted.
+// Both surfaces draw this: a reviewer deciding from a run card needs the
+// same answer to "backed by what" as one deciding from the Inbox, and a run
+// with no artifacts has to say so in both places. Each artifact is drawn by
+// the shared reader QA detail uses, so the screenshot behind a verdict is
+// one click away from wherever the verdict is being asked for -- counting
+// the evidence by type told an approver a number and showed them nothing.
+export function appendEvidence(context, host, facts) {
+  const documentNode = context.document;
   const artifacts = Array.isArray(facts.artifacts) ? facts.artifacts : [];
   // evidence_state is the producer's own answer, and it is validated against
   // the artifact count at write time. Trusting it here keeps the reader and
@@ -104,27 +109,22 @@ export function appendEvidence(documentNode, host, facts) {
     host.appendChild(none);
     return none;
   }
-  const counts = new Map();
-  for (const artifact of artifacts) {
-    const type = String(artifact.artifact_type || "artifact");
-    counts.set(type, (counts.get(type) || 0) + 1);
-  }
   const evidence = block(
     documentNode,
     host,
     "gate-evidence",
     `Evidence · ${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}`,
   );
-  for (const [type, count] of counts) {
-    const chip = el(documentNode, "span", "gate-evidence-chip");
-    chip.appendChild(el(documentNode, "span", "gate-evidence-count", String(count)));
-    chip.appendChild(el(documentNode, "span", null, type));
-    evidence.appendChild(chip);
+  for (const artifact of artifacts) {
+    evidence.appendChild(
+      artifactEvidenceCard(context, artifact, facts.requirement_id),
+    );
   }
   return evidence;
 }
 
-function appendQaBody(documentNode, host, facts) {
+function appendQaBody(context, host, facts) {
+  const documentNode = context.document;
   if (facts.expected_outcome) {
     const expected = block(
       documentNode, host, "gate-block", "Expected outcome",
@@ -139,10 +139,11 @@ function appendQaBody(documentNode, host, facts) {
       documentNode, "q", "gate-verdict-reason", String(facts.verdict_reason),
     ));
   }
-  appendEvidence(documentNode, host, facts);
+  appendEvidence(context, host, facts);
 }
 
-function appendLifecycleBody(documentNode, host, facts) {
+function appendLifecycleBody(context, host, facts) {
+  const documentNode = context.document;
   const changes = facts.branch_changes || {};
   const touched = Array.isArray(changes.touched_files) ? changes.touched_files : [];
   const changed = block(
@@ -171,7 +172,8 @@ function appendLifecycleBody(documentNode, host, facts) {
   }
 }
 
-function appendDeploymentBody(documentNode, host, facts) {
+function appendDeploymentBody(context, host, facts) {
+  const documentNode = context.document;
   const batch = facts.batch || {};
   const items = Array.isArray(batch.items) ? batch.items : [];
   const count = Number(batch.item_count || items.length);
@@ -221,7 +223,8 @@ const BODY_BUILDERS = {
   deployment_stage_approval: appendDeploymentBody,
 };
 
-export function appendGateBody(documentNode, wrap, row_) {
+export function appendGateBody(context, wrap, row_) {
+  const documentNode = context.document;
   const builder = BODY_BUILDERS[row_.kind];
   const prose = approvalProse(row_);
   if (!builder && !prose) return null;
@@ -234,7 +237,7 @@ export function appendGateBody(documentNode, wrap, row_) {
     what.appendChild(el(documentNode, "span", "gate-what-copy", prose));
     host.appendChild(what);
   }
-  if (builder) builder(documentNode, host, row_.subject_context || {});
+  if (builder) builder(context, host, row_.subject_context || {});
   wrap.appendChild(host);
   return host;
 }

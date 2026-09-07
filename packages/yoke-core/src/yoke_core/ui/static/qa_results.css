@@ -34,6 +34,21 @@
   border-radius: 7px;
 }
 
+/* The preview and its full-size view are one control: a screenshot too
+   small to judge in place opens at its own size in a new tab. */
+.qa-evidence-full {
+  display: inline-grid;
+  gap: 4px;
+  justify-items: start;
+  text-decoration: none;
+}
+
+.qa-evidence-full-label {
+  color: var(--yoke-link);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
 .qa-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
