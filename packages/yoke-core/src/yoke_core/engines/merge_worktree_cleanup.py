@@ -46,13 +46,10 @@ def _post_merge_cleanup(
     _emit_merge_event = mw._emit_merge_event
     # Resolve the post-merge step helpers off the live parent module (mirrors
     # _print / _run_git / _emit_merge_event above) so a monkeypatch on
-    # merge_worktree.<helper> is honored by this cleanup routine — the same
-    # reason _regenerate_views_advisory itself routes through the parent. Using
-    # module-level imports here would bypass those patches and run the real
-    # _regenerate_views subprocess during tests.
+    # merge_worktree.<helper> is honored by this cleanup routine. Module-level
+    # imports here would bypass those patches.
     _sync_local_target = mw._sync_local_target
     _schema_refresh = mw._schema_refresh
-    _regenerate_views_advisory = mw._regenerate_views_advisory
     _ensure_target_branch = mw._ensure_target_branch
 
     _print("")
@@ -260,10 +257,6 @@ def _post_merge_cleanup(
 
     # Schema refresh
     _schema_refresh(ctx)
-
-    # Generated views are advisory after the merge has landed. Retry once and
-    # defer any persistent failure without blocking terminal close-out.
-    _regenerate_views_advisory(ctx)
 
     # Stash cleanup
     stash_list = _run_git(["stash", "list"], cwd=ctx.repo_root, capture=True)

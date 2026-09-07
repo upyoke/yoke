@@ -168,7 +168,6 @@ def test_local_engine_defers_standalone_lane_removal(monkeypatch) -> None:
     monkeypatch.setattr(local_merge, "_parent", lambda: parent)
     monkeypatch.setattr(local_merge, "_ensure_snapshot_for_project", lambda *_a: None)
     monkeypatch.setattr(local_merge, "_schema_refresh", lambda *_a: None)
-    monkeypatch.setattr(local_merge, "_regenerate_views_advisory", lambda *_a: None)
     monkeypatch.setattr(local_merge, "_ensure_target_branch", lambda *_a: None)
     monkeypatch.setattr(
         local_merge, "_remove_lane", lambda *_a: removed.append("removed"),

@@ -36,7 +36,6 @@ def execute_close(
     reason: str,
     resolution_ref: Optional[str] = None,
     resolution_comment: Optional[str] = None,
-    rebuild_board: bool = True,
     out: TextIO = sys.stdout,
     session_id: Optional[str] = None,
 ) -> dict:
@@ -269,8 +268,6 @@ def execute_close(
         else:
             _rendering._post_comment(item_id, old_status, "cancelled", out)
             _rendering._close_issue(item_id, out)
-
-        _rendering._maybe_rebuild_board(rebuild_board, out=out)
 
         return {
             "success": True,

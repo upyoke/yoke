@@ -52,7 +52,6 @@ def test_migration_first_serializes_structured_cancellation(
             outcomes["close"] = backlog_close_op.execute_close(
                 ITEM_ID,
                 "obsolete",
-                rebuild_board=False,
                 out=io.StringIO(),
             )
         except BaseException as exc:  # noqa: BLE001 - thread evidence

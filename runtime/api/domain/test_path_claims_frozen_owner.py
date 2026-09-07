@@ -170,7 +170,6 @@ def test_handle_thaw_revalidates_before_clearing_frozen(test_db, monkeypatch):
     monkeypatch.setattr(backlog_update_op, "run_post_db_sync", lambda **_kwargs: 0)
     monkeypatch.setattr(
         backlog_update_op._rendering,
-        "_maybe_rebuild_board",
         lambda *_args, **_kwargs: None,
     )
     now = iso8601_now()

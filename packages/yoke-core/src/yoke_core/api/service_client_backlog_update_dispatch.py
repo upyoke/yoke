@@ -52,7 +52,7 @@ def _dispatch_structured_field_replace(
             "source": source,
             "force": force,
         },
-        options={"sync_github_body": True, "rebuild_board": True},
+        options={"sync_github_body": True},
     )
 
     if json_mode:

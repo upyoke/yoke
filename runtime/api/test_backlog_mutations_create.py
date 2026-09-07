@@ -168,7 +168,7 @@ class TestExecuteCreate:
 
     def test_basic_create(self, tmp_db):  # noqa: F811
         out = io.StringIO()
-        with _patch_externals() as patched, \
+        with _patch_externals(), \
              mock.patch.dict(
                  os.environ,
                  {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
@@ -184,7 +184,6 @@ class TestExecuteCreate:
         assert "item_id" in result
         assert _item_field(tmp_db, result["item_id"], "title") == "Test item"
         assert _item_field(tmp_db, result["item_id"], "status") == "idea"
-        patched["_rebuild_board"].assert_called_once_with(out)
 
     def test_dash_instruction_does_not_emit_empty_body_warning(self, tmp_db):  # noqa: F811
         out = io.StringIO()
@@ -247,7 +246,7 @@ class TestExecuteCreate:
 
     def test_create_dry_run(self, tmp_db):  # noqa: F811
         out = io.StringIO()
-        with _patch_externals() as patched, \
+        with _patch_externals(), \
              mock.patch.dict(
                  os.environ,
                  {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
@@ -261,7 +260,6 @@ class TestExecuteCreate:
         assert result["success"] is True
         assert result.get("dry_run") is True
         assert "[DRY-RUN]" in out.getvalue()
-        patched["_rebuild_board"].assert_not_called()
 
     def test_create_records_recent_item_without_taking_focus(self, tmp_db):  # noqa: F811
         """Filing an item is not claiming it, so the focus slot stays empty."""

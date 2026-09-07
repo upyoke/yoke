@@ -5,8 +5,8 @@ derivation for epic-task lifecycle transitions.
 
 Responsibilities live across responsibility-named siblings:
 
-- ``update_status_helpers`` -- shared low-level helpers (board rebuild,
-  history insert, claim verification, repo resolution).
+- ``update_status_helpers`` -- shared low-level helpers (history insert,
+  claim verification, repo resolution).
 - ``update_status_auto_unblock`` -- ``auto_unblock`` dependency-aware
   unblock pass.
 - ``update_status_auto_derive`` -- ``auto_derive_epic_status`` parent
@@ -25,7 +25,7 @@ work unchanged.
 CLI usage::
 
     python3 -m yoke_core.domain.update_status <epic-id> <task-num> <new-status> [note] \\
-        [--no-rebuild] [--no-github] [--no-derive]
+        [--no-github] [--no-derive]
 """
 
 from __future__ import annotations
@@ -51,7 +51,6 @@ from yoke_core.domain.update_status_helpers import (  # noqa: F401
     _history_insert,
     _is_dry_run,
     _now_iso,
-    _rebuild_board,
     _repo_args,
     _repo_root,
     _resolve_repo_for_epic,
@@ -83,7 +82,6 @@ __all__ = [
     "_history_insert",
     "_is_dry_run",
     "_now_iso",
-    "_rebuild_board",
     "_repo_args",
     "_repo_root",
     "_resolve_repo_for_epic",
@@ -113,7 +111,6 @@ def update_task_status(
     new_status: str,
     note: str = "",
     *,
-    no_rebuild: bool = False,
     no_github: bool = False,
     no_derive: bool = False,
     stdout: Optional[TextIO] = None,
@@ -227,10 +224,6 @@ def update_task_status(
 
     print(f"Status updated: {old_status} → {new_status} (task {task_num})", file=stdout)
 
-    # --- Board rebuild ---
-    if not no_rebuild:
-        _rebuild_board()
-
     # --- Auto-unblock ---
     if not no_derive:
         auto_unblock(conn, epic_id, task_num, new_status, stdout=stdout, stderr=stderr)
@@ -294,15 +287,12 @@ def update_task_status(
 def main(argv: Optional[list[str]] = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
 
-    no_rebuild = False
     no_github = False
     no_derive = False
     positionals: list[str] = []
 
     for arg in args:
-        if arg == "--no-rebuild":
-            no_rebuild = True
-        elif arg == "--no-github":
+        if arg == "--no-github":
             no_github = True
         elif arg == "--no-derive":
             no_derive = True
@@ -332,7 +322,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             return 2
         return update_task_status(
             conn, epic_id, task_num, new_status, note,
-            no_rebuild=no_rebuild,
             no_github=no_github,
             no_derive=no_derive,
         )

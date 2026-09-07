@@ -153,7 +153,6 @@ def cmd_execute_create_cli(args: list[str]) -> int:
         status=status,
         session_id=os.environ.get("YOKE_SESSION_ID"),
         dry_run=dry_run,
-        rebuild_board=True,
         entry_surface=entry_surface,
         out=captured,
     )

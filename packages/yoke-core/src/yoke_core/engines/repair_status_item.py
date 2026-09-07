@@ -109,7 +109,6 @@ def repair_item_status(public_ref: str, new_status: str, *, dry_run: bool, reaso
             value=new_status,
             done_nonce_verified=(new_status == "done"),
             qa_bypass=os.environ.get("YOKE_QA_GATE_BYPASS", "0") == "1",
-            rebuild_board=True,
             out=sys.stdout,
         )
     finally:

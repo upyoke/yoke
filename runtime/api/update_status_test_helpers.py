@@ -69,7 +69,6 @@ def update(conn, epic_id, task_num, new_status, note="", **kwargs):
     err = io.StringIO()
     # Mock external integration hooks to keep tests in-process.
     with mock.patch.object(update_status, "_history_insert"), \
-         mock.patch.object(update_status, "_rebuild_board"), \
          mock.patch.object(update_status, "_verify_claim"):
         rc = update_status.update_task_status(
             conn, str(epic_id), str(task_num), new_status, note,

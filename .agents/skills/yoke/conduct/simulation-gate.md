@@ -6,7 +6,7 @@ Integration simulation stage of the conduct epic flow. Runs after all epic tasks
 
 #### S6h. Integration Simulation Gate
 
-**Skip check:** If `--force` or `--ignore-gaps` was passed, skip the simulation entirely. Print `Simulation: skipped (--force)`. Do NOT write a simulation record. **Go to `cleanup-report.md`** (6z Board Rebuild, then 7 Final Report) with `SUCCESS`, printing:
+**Skip check:** If `--force` or `--ignore-gaps` was passed, skip the simulation entirely. Print `Simulation: skipped (--force)`. Do NOT write a simulation record. **Go to `cleanup-report.md`** (6z-cleanup Main-Repo Cleanup, then 7 Final Report) with `SUCCESS`, printing:
 ```
 All tasks in this worktree complete. Run '/yoke polish PREFIX-{N}' to finish the parent epic.
 ```
@@ -32,4 +32,4 @@ This companion file covers result branching:
 
 ---
 
-**Handoff:** After simulation processing, always read `.agents/skills/yoke/conduct/cleanup-report.md` for board rebuild, main-repo cleanup, and final report.
+**Handoff:** After simulation processing, always read `.agents/skills/yoke/conduct/cleanup-report.md` for main-repo cleanup and final report.

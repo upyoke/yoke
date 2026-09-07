@@ -17,12 +17,9 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Iterable, TextIO
+from typing import Iterable
 
 from yoke_contracts.board.phase_timer import PhaseRecorder, measure_phase
-from yoke_contracts.install_binding import source_checkout_root
-from yoke_contracts.machine_config.schema import mapped_checkouts
-from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
 from yoke_core.domain import machine_config, rebuild_board_outcome as outcome, schema
 from yoke_core.domain.rebuild_board_file_write import write_live_text
 from yoke_core.domain.rebuild_board_render import (
@@ -121,37 +118,6 @@ def try_resolve_main_repo_root(repo_arg: str | None = None) -> Path | None:
         return None
 
 
-def no_checkout_board_skip_is_expected() -> bool:
-    """True when a missing local BOARD.md is by design (hosted / self-host).
-
-    Mirrors doctor runtime resolution without importing the engines layer:
-    self-host announces via ``YOKE_SERVER_MODE``; a runner with mapped
-    checkouts or source-tree imports is a local client; everything else is
-    a control-plane runtime with no client board.
-    """
-    if os.environ.get(SERVER_MODE_ENV, "").strip() == SERVER_MODE_SELF_HOST:
-        return True
-    try:
-        has_map = bool(mapped_checkouts(machine_config.load_config()))
-    except Exception:  # pragma: no cover - unreadable config is not fatal
-        has_map = False
-    if has_map or source_checkout_root(__file__) is not None:
-        return False
-    return True
-
-
-def emit_no_checkout_board_skip(exc: BaseException, out: TextIO) -> None:
-    """Skip board rebuild when there is no checkout.
-
-    Hosted and self-host paths stay silent — the board is client-local and
-    the server has no checkout by design. A local client that is genuinely
-    rootless still gets the ``[no-checkout]`` advisory.
-    """
-    if no_checkout_board_skip_is_expected():
-        return
-    print(f"[no-checkout] Skipping board rebuild: {exc}", file=out)
-
-
 def rebuild_one(
     *,
     repo_root: Path,
@@ -215,7 +181,7 @@ def rebuild_one(
             return result
 
         # plan_file and board_ts_file are untracked generated project views
-        # under .yoke/ — regenerated from DB state on status changes.
+        # under .yoke/ — rendered from DB state on explicit request.
         # The seed-source check catches Coupling B (schema imported from a
         # different checkout than the resolved repo_root).
         assert_seed_source_under_target_root(

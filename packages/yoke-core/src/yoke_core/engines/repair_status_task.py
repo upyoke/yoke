@@ -104,7 +104,6 @@ def repair_task_status(
                 str(task_num),
                 new_status,
                 note=f"repair: {reason}",
-                no_rebuild=False,
                 no_github=False,
                 no_derive=True,
                 stdout=sys.stdout,

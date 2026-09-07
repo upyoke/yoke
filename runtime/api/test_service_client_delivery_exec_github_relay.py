@@ -11,51 +11,28 @@ from runtime.api.test_service_client_delivery import mutation_db  # noqa: F401,F
 
 
 class TestBacklogGithubRelay:
-    def test_sync_item_rebuilds_board_on_success(self, monkeypatch, mutation_db):
+    def test_sync_item_relays_without_touching_the_board(
+        self, monkeypatch, mutation_db
+    ):
+        """A GitHub sync is one of the entry points that used to rebuild the
+        board. It must now leave the generated view alone."""
         import yoke_core.api.service_client as service_client
         from yoke_core.api import service_client_backlog_github
-        from yoke_core.domain import backlog
-        from yoke_core.domain import backlog_github_sync
+        from yoke_core.domain import backlog_github_sync, rebuild_board
 
-        rebuild_flags: list[bool] = []
-
+        rebuilds: list[object] = []
         monkeypatch.setattr(backlog_github_sync, "sync_item", lambda *_args: 0)
         monkeypatch.setattr(
             service_client_backlog_github, "_guard", lambda *_args: 0,
         )
         monkeypatch.setattr(
-            backlog,
-            "_maybe_rebuild_board",
-            lambda rebuild_board, **_: rebuild_flags.append(rebuild_board),
+            rebuild_board, "rebuild", lambda **kwargs: rebuilds.append(kwargs),
         )
 
         rc = service_client.cmd_backlog_github(["sync-item", "YOK-7"])
 
         assert rc == 0
-        assert rebuild_flags == [True]
-
-    def test_non_sync_item_does_not_rebuild_board(self, monkeypatch, mutation_db):
-        import yoke_core.api.service_client as service_client
-        from yoke_core.api import service_client_backlog_github
-        from yoke_core.domain import backlog
-        from yoke_core.domain import backlog_github_sync
-
-        rebuild_flags: list[bool] = []
-
-        monkeypatch.setattr(backlog_github_sync, "sync_labels", lambda *_args: 0)
-        monkeypatch.setattr(
-            service_client_backlog_github, "_guard", lambda *_args: 0,
-        )
-        monkeypatch.setattr(
-            backlog,
-            "_maybe_rebuild_board",
-            lambda rebuild_board, **_: rebuild_flags.append(rebuild_board),
-        )
-
-        rc = service_client.cmd_backlog_github(["sync-labels", "YOK-7"])
-
-        assert rc == 0
-        assert rebuild_flags == []
+        assert rebuilds == []
 
     def test_update_title_too_long_rejected(self, mutation_db):
         """Title exceeding 100 chars should be rejected."""

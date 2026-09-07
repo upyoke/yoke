@@ -87,7 +87,6 @@ def _update_status_to_done(
             env_overrides=env_overrides,
             done_nonce_verified=True,
             qa_bypass=skip_qa,
-            rebuild_board=False,
             no_github=True,
             public_ref=public_ref,
         )

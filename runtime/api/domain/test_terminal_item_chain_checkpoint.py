@@ -61,7 +61,6 @@ def _finish_item(test_db, monkeypatch, *, item_id: int, session_id: str) -> None
         force=True,
         qa_bypass=True,
         no_github=True,
-        rebuild_board=False,
         session_id=session_id,
     )
     assert result["success"] is True

@@ -28,9 +28,8 @@ SESSION = "flag-verb-session"
 
 @pytest.fixture(autouse=True)
 def _isolate_write_side_effects(monkeypatch) -> None:
-    """Keep the flag writes off GitHub and off the board renderer."""
+    """Keep the flag writes off GitHub."""
     monkeypatch.setattr(backlog_update_op, "run_post_db_sync", lambda **_kwargs: 0)
-    monkeypatch.setattr(backlog_update_op._rendering, "_maybe_rebuild_board", lambda *_args, **_kwargs: None)
 
 
 def _seed_session(conn: Any, session_id: str) -> None:

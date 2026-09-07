@@ -128,7 +128,6 @@ def append_addendum(
     heading: str,
     content: str,
     source: str = "",
-    rebuild_board: bool = True,
     out: Optional[TextIO] = None,
 ) -> TransformResult:
     """Append a ``## heading``-led addendum to a structured field.
@@ -159,7 +158,6 @@ def append_addendum(
     updated = _build_addendum(existing, heading, content)
     write_result = execute_structured_write(
         item_id=item_id, field=field, content=updated, source=source,
-        rebuild_board=rebuild_board,
         out=out if out is not None else _NullSink(),
     )
     if not write_result.get("success"):

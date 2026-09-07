@@ -25,4 +25,3 @@ def test_demo_seed_next_step_is_non_paging(monkeypatch):
         "run `yoke board rebuild --print --no-pager` in the project checkout"
     )
     assert calls[0]["project"] == "my-project"
-    assert calls[0]["rebuild_board"] is False

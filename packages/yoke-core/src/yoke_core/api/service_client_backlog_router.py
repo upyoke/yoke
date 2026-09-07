@@ -47,14 +47,14 @@ def cmd_backlog_cli(args: list[str]) -> int:
         print("", file=stream)
         print("Subcommands:", file=stream)
         print("  add <title> <workflow> [status] [priority]             — Create new item", file=stream)
-        print("  update <id-number> <field> <value> [--no-rebuild]      — Update a scalar field", file=stream)
-        print("  update <id-number> f1=v1 [f2=v2 ...] [--no-rebuild]    — Multi-field update", file=stream)
+        print("  update <id-number> <field> <value>                     — Update a scalar field", file=stream)
+        print("  update <id-number> f1=v1 [f2=v2 ...]                   — Multi-field update", file=stream)
         print(
             "  update <id-number> spec (--stdin | --body-file <path>)  — Replace structured field "
             "(spec/design_spec/technical_plan/worktree_plan/shepherd_log/shepherd_caveats/test_results/deploy_log)",
             file=stream,
         )
-        print("  batch-update <field>=<value> <id1> <id2> ... [--no-rebuild] — Bulk update one field", file=stream)
+        print("  batch-update <field>=<value> <id1> <id2> ...           — Bulk update one field", file=stream)
         print("  list [--status X] [--workflow X] [--priority X]        — List items", file=stream)
         print("  get-next-id                                            — Get next YOK-N ID", file=stream)
         print("  sync-item <id-number>                                  — Create/update GitHub issue + labels", file=stream)
@@ -87,8 +87,8 @@ def cmd_backlog_cli(args: list[str]) -> int:
 
     if subcmd == "update" and rest and rest[0] in ("-h", "--help"):
         print(
-            "Usage: db_router items update <id-number> <field> <value> [--no-rebuild]\n"
-            "       db_router items update <id-number> f1=v1 [f2=v2 ...] [--no-rebuild]\n"
+            "Usage: db_router items update <id-number> <field> <value>\n"
+            "       db_router items update <id-number> f1=v1 [f2=v2 ...]\n"
             "       db_router items update <id-number> <structured-field> "
             "(--stdin | --body-file <path>)\n"
             "\n"

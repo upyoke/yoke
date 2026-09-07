@@ -49,7 +49,6 @@ def _dispatch_scalar(public_ref: str, field: str, value: Any, intent: str) -> An
         "target": target,
         "intent": intent,
         "payload": {"field": field, "value": value},
-        "options": {"rebuild_board": True},
     })
 
 

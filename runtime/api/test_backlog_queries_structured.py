@@ -253,7 +253,7 @@ class TestExecuteStructuredWrite:
 
         out = io.StringIO()
         try:
-            with _patch_externals() as patched, \
+            with _patch_externals(), \
                  mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}), \
                  mock.patch("yoke_core.domain.backlog_updates._is_dry_run", return_value=True):
                 result = backlog.execute_structured_write(
@@ -266,4 +266,3 @@ class TestExecuteStructuredWrite:
             os.unlink(spec_path)
 
         assert result["success"] is True
-        patched["_rebuild_board"].assert_called_once_with(out)

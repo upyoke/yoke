@@ -30,7 +30,7 @@ Every function call accepts and returns the same envelope shape, defined in `yok
   },
   "payload": { /* function-specific typed body */ },
   "preconditions": { /* optional invariant assertions, e.g. allow_empty + reason */ },
-  "options": { /* sync_github_body, rebuild_board, ... */ }
+  "options": { /* sync_github_body, ... */ }
 }
 
 // Response
@@ -92,7 +92,7 @@ Every registered function declares one of five `claim_required_kind` values; the
 
 | Value | When the dispatcher enforces |
 |---|---|
-| `None` | No work-claim verification. Reads, `claims.work.acquire`, and project-wide side effects (`board.rebuild`, `agents.render.run`, `project_structure.patch.apply`). Project/org permission checks remain independently enforced. |
+| `None` | No work-claim verification. Reads, `claims.work.acquire`, and project-wide operator-requested operations (`board.rebuild`, `agents.render.run`, `project_structure.patch.apply`). Project/org permission checks remain independently enforced. |
 | `"item"` | Resolves the active work-claim row for `target.item_id`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
 | `"epic"` | Same as `"item"` but resolves the parent epic id from `target.kind="epic_task"` (`target.epic_id`). |
 | `"self_only"` | The claim itself is the target (e.g. `claims.work.release`). The handler reads the claim row by target and asserts `actor.session_id == row.session_id`. |
@@ -150,7 +150,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
   "actor":  {"session_id": "...", "actor_id": "..."},
   "target": {"kind": "item", "item_id": 42},
   "payload": {"field": "spec", "content": "# Spec\n\n..."},
-  "options": {"sync_github_body": true, "rebuild_board": true}
+  "options": {"sync_github_body": true}
 }
 ```
 
@@ -311,7 +311,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `project_structure.architecture_health.get` (read) | `None` | `yoke_core.domain.handlers.project_structure.handle_architecture_health_get` — coverage and violations for the project's declared architecture map from the shared computer (`yoke_core.domain.architecture_health`); `{"declared": false}` when no map exists. Serves the workbench Architecture page, and the board section shows the same coverage. CLI adapter: `yoke project-structure architecture-health get --project P`. |
 | `project_structure.architecture_draft.get` (read) | `None` | `yoke_core.domain.handlers.project_structure.handle_architecture_draft_get` — scan-derived draft map proposal (`yoke_core.domain.architecture_map_survey`) for operator review; an empty tree proposes the minimal vocabulary-only map. Apply the edited payload via `project_structure.patch.apply`. CLI adapter: `yoke project-structure architecture-draft get --project P`. |
 | `projects.site.create` / `projects.environment.create` / `projects.environment.update` | `None` | `yoke_core.domain.handlers.projects_infrastructure_create` and `projects_infrastructure_update` — idempotent site/environment registration plus in-place name update. Create keys a `sites` row by slug and an `environments` row by id under a project-owned site. Re-creating an existing identity reports `outcome="already_present"` and touches nothing (settings updates go through the settings surfaces); a slug/id owned by a different project or site refuses with a mismatch error. Update keeps the id/site stable and writes only `name` (`prod` or `stage`). CLI adapters: `yoke projects site create` / `yoke projects environment create` / `yoke projects environment update`. |
-| `board.rebuild` | `None` | `yoke_core.domain.handlers.orchestration.board_rebuild` |
+| `board.rebuild` | `None` | `yoke_core.domain.handlers.orchestration.board_rebuild` — the operator-requested `.yoke/BOARD.md` refresh. Nothing dispatches it automatically; item, lifecycle, merge, and deploy operations never rebuild the board. |
 | `board.data.get` (read) | `None` | `yoke_core.domain.handlers.orchestration.handle_board_data_get` — server half of the board rebuild: runs the board's full DB query plan (`yoke_core.board.data.collect_board_data`) for the payload's query-shaping inputs (`scope`, `config_values` from DB `project-policy.settings.board`, `zen_vision_count`, `repo_root_token`, optional `code_days` upsert into `project_code_days`) and returns the recorded plan. The client (`yoke board rebuild` composition) renders markdown locally from this payload plus client-local inputs (board art, VISION entries) and writes `.yoke/BOARD.md` itself, so board rebuilds work identically over https and in-process. CLI adapter: `yoke board data get`. |
 | `overview.activation.get` (read + latch) / `overview.module.dismiss` / `overview.module.restore` | `None` | `yoke_core.domain.handlers.overview_activation` — the workbench Overview's activation modules. The get derives every module/submodule state from universe signals in one dispatch (payload `{host_facts: {machine_connected?: bool}}`) and latches newly satisfied universe modules into `overview_activation_facts`. The wizard's `machine_universe` submodule and the `connect_harness` module answer per registered machine (`yoke_core.domain.overview_machine_activation`, the one machine-identity read: `session_relays` plus `harness_sessions.machine_id` today, the machine registry row once it lands): the submodule counts and names the machines, the module carries a `machines` list — each with its own `state`, `activated_at`, `connected`, `harnesses`, `surfaces`, `last_seen_at`, and hook-health `targets` (`hit`, `hook_health`, per-target `last_seen_at`, and approval remediation) — latched per `(machine_id, module_key)` in `overview_machine_activation_facts`, and reads activated only when every listed machine has connected a harness. The `run_onboard` module carries an `onboard` object (`yoke_core.domain.overview_onboard_progress`) with the latest checklist run's live `run_status`, `superseded_by`, `steps_done`/`steps_total`, `next`, `blocker`, and the `scaffold_installed` / `strategy_docs` / `environments` outcomes its card is written from; that run must have no open rows to activate the module, or be closed as `superseded` by its project's deployments (`yoke_core.domain.project_onboarding_run_supersede` writes that status and the overtaking deployment onto the run row), and the facts stay live under the monotone latch. CLI adapter: `yoke overview activation get`. The dismiss/restore pair remains browser-proxied. |
 | `harness.machine_report.upsert` | `None` | `yoke_core.domain.handlers.harness_machine_report` — persist client-collected harness presence and approval state for one project on one machine into `harness_machine_reports` (payload requires `machine_id`). CLI adapter: `yoke harness machine-report upsert --project-id N`. |

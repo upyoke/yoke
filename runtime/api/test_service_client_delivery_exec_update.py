@@ -28,7 +28,6 @@ class TestExecuteUpdateCli:
         from yoke_core.domain import backlog
 
         calls: list[dict] = []
-        rebuild_flags: list[bool] = []
 
         def _record_execute_update(**kwargs):
             calls.append(kwargs)
@@ -44,11 +43,6 @@ class TestExecuteUpdateCli:
             "_parse_item_id_arg",
             lambda _ref: 7,
         )
-        monkeypatch.setattr(
-            backlog,
-            "_maybe_rebuild_board",
-            lambda rebuild_board, **_: rebuild_flags.append(rebuild_board),
-        )
 
         rc = service_client.cmd_execute_update_cli(
             ["YOK-7", "status=implementing", "priority=high", "--qa-bypass"]
@@ -62,38 +56,7 @@ class TestExecuteUpdateCli:
         assert [call["field"] for call in calls] == ["status", "priority"]
         assert all(call["item_id"] == 7 for call in calls)
         assert all(call["qa_bypass"] is True for call in calls)
-        assert all(call["rebuild_board"] is False for call in calls)
-        assert rebuild_flags == [True]
         assert "Updated: YOK-7 status -> implementing" in data["log"]
-
-    def test_execute_update_cli_honors_no_rebuild(self, monkeypatch, capsys):
-        import yoke_core.api.service_client as service_client
-        from yoke_core.api import service_client_backlog_update
-        from yoke_core.domain import backlog
-
-        called: dict = {}
-
-        def _record_execute_update(**kwargs):
-            called.update(kwargs)
-            print("Updated once", file=kwargs["out"])
-            return {"success": True}
-
-        monkeypatch.setattr(backlog, "execute_update", _record_execute_update)
-        monkeypatch.setattr(
-            service_client_backlog_update,
-            "_parse_item_id_arg",
-            lambda _ref: 7,
-        )
-
-        rc = service_client.cmd_execute_update_cli(
-            ["YOK-7", "--no-rebuild", "status", "implementing"]
-        )
-
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
-        assert rc == 0
-        assert data["success"] is True
-        assert called["rebuild_board"] is False
 
     # Dispatcher-parity assertions for the structured-field write path
     # live in the sibling

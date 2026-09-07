@@ -119,7 +119,6 @@ def test_dash_done_keeps_rung_rows_events_and_converged_facts(
         force=True,
         qa_bypass=True,
         no_github=True,
-        rebuild_board=False,
     )
 
     assert result["success"] is True

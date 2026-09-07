@@ -77,7 +77,6 @@ class TestCloseoutRefShape:
 
         fake_engine = SimpleNamespace(
             _apply_discovery_scan=record,
-            _rebuild_board_direct=lambda: None,
             _run_git=lambda *a, **k: SimpleNamespace(returncode=0, stdout=""),
             _get_base_branch=lambda *a, **k: "main",
         )
@@ -107,7 +106,6 @@ class TestCloseoutRefShape:
         is handed the Python int, which every resolver reads as ``items.id``."""
         fake_engine = SimpleNamespace(
             _apply_discovery_scan=lambda ref, res: res.add_step("9"),
-            _rebuild_board_direct=lambda: None,
             _run_git=lambda *a, **k: SimpleNamespace(returncode=0, stdout=""),
             _get_base_branch=lambda *a, **k: "main",
         )

@@ -208,9 +208,6 @@ simulation and dispatch-chain reads use the registered
     If no dispatch chain exists for the worktree, skip — one will be
     created when `/yoke conduct` is first run.
 
-12. **Rebuild the dashboard.** Dispatch the `board.rebuild.run`
-    function call (`target = {kind: "global"}`, empty payload).
-
 ## Notes
 
 - This command modifies state. Don't run it while a dispatch is in

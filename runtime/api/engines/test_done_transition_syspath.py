@@ -60,7 +60,6 @@ def _patch_run_internals(repo_root, **overrides):
         ("_update_status_to_done", True),
         ("_finalize_done_local_side_effects", None),
         ("_update_item_direct", 0),
-        ("_rebuild_board_direct", None),
     ]
     for attr, default in patches:
         override = overrides.get(attr, default)

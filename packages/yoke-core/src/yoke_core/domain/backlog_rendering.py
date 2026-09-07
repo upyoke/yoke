@@ -1,75 +1,15 @@
-"""Backlog rendering, board rebuild, GitHub sync, and event helpers."""
+"""Backlog rendering, GitHub sync, and event helpers."""
 
 from __future__ import annotations
 
-import os
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING, Optional, TextIO
 
 if TYPE_CHECKING:
     from yoke_core.domain.backlog_github_body_budget import SyncMode
 
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-from yoke_core.domain.board_rebuild_failure import record_board_rebuild_failure
-from yoke_core.domain.backlog_queries import (
-    _is_dry_run,
-    _yoke_root,
-)
-
-
-# ---------------------------------------------------------------------------
-# Board rebuild
-# ---------------------------------------------------------------------------
-
-def _rebuild_board(out: TextIO = sys.stderr) -> str:
-    """Rebuild the generated board; return a recorded failure or ``""``."""
-    from yoke_core.domain import rebuild_board as _rebuild_board_mod
-
-    try:
-        repo_root = _yoke_root().parent
-    except RuntimeError as exc:
-        # No checkout: hosted/self-host skip silently; local rootless still warns.
-        _rebuild_board_mod.emit_no_checkout_board_skip(exc, out)
-        return ""
-    yoke_db = os.environ.get("YOKE_DB")
-    if yoke_db:
-        try:
-            db_resolved = Path(yoke_db).resolve()
-            root_resolved = Path(repo_root).resolve()
-            db_resolved.relative_to(root_resolved)
-        except (ValueError, OSError):
-            print(
-                f"[test-isolation] Skipping board rebuild: "
-                f"YOKE_DB={yoke_db} is outside repo_root={repo_root}",
-                file=out,
-            )
-            return ""
-
-    try:
-        result = _rebuild_board_mod.rebuild(repo_arg=str(repo_root), emit=False)
-    except Exception as exc:
-        return record_board_rebuild_failure(
-            f"{type(exc).__name__}: {exc}",
-            out,
-        )
-    if int(result) != 0:
-        detail = getattr(result, "message", "") or f"exit code {int(result)}"
-        return record_board_rebuild_failure(detail, out)
-    return ""
-
-
-def _maybe_rebuild_board(
-    rebuild_board: bool,
-    *,
-    dry_run: bool = False,
-    respect_global_dry_run: bool = True,
-    out: TextIO = sys.stderr,
-) -> str:
-    """Trigger board rebuild unless suppressed by caller or dry-run mode."""
-    if not rebuild_board or dry_run or (respect_global_dry_run and _is_dry_run()):
-        return ""
-    return _rebuild_board(out)
+from yoke_core.domain.backlog_queries import _is_dry_run
 
 
 # ---------------------------------------------------------------------------

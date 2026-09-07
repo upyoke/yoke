@@ -99,7 +99,6 @@ def test_terminal_cleanup_failure_rolls_back_status_lane_and_evidence(
             force=True,
             qa_bypass=True,
             no_github=True,
-            rebuild_board=False,
         )
 
     item = test_db.execute(
@@ -198,7 +197,6 @@ def test_terminal_transition_releases_parent_and_task_work_claims(
         force=True,
         qa_bypass=True,
         no_github=True,
-        rebuild_board=False,
     )
 
     assert result["success"] is True
@@ -258,7 +256,6 @@ def test_custom_terminal_stops_non_yoke_item_environment(
         force=True,
         qa_bypass=True,
         no_github=True,
-        rebuild_board=False,
     )
 
     assert result["success"] is True
@@ -323,7 +320,6 @@ def test_pinned_custom_terminal_releases_resources_without_done_hardcoding(
         force=True,
         qa_bypass=True,
         no_github=True,
-        rebuild_board=False,
     )
 
     assert result["success"] is True

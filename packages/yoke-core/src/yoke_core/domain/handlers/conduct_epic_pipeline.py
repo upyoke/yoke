@@ -28,7 +28,6 @@ _OWNER = "yoke_core.domain.handlers.conduct_epic_pipeline"
 class PipelineUpdateStatusRequest(BaseModel):
     status: str = Field(..., min_length=1)
     note: str = ""
-    no_rebuild: bool = False
     no_github: bool = False
     no_derive: bool = False
     claim_bypass: str = ""
@@ -127,7 +126,6 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
         try:
             rc = update_status.update_task_status(
                 conn, str(epic_id), str(task_num), payload.status, payload.note,
-                no_rebuild=payload.no_rebuild,
                 no_github=payload.no_github,
                 no_derive=payload.no_derive,
                 stdout=stdout,
@@ -200,7 +198,7 @@ def _entry(fid: str, handler: Any, req: Any, resp: Any, effects: List[str],
 REGISTRATIONS: List[Dict[str, Any]] = [
     _entry("conduct.epic_task.update_status", handle_update_status,
            PipelineUpdateStatusRequest, PipelineUpdateStatusResponse,
-           ["epic_task_status_pipeline", "github_sync", "rebuild_board"],
+           ["epic_task_status_pipeline", "github_sync"],
            None),
     _entry("conduct.epic.proceed_triage_handoff",
            handle_proceed_triage_handoff,

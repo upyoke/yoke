@@ -115,7 +115,6 @@ def _patch_db(test: unittest.TestCase, db: _FakeDB) -> None:
         (items_structured_field, "_resolve_write_db_path", db.path),
         (backlog_rendering, "_render_body", True),
         (backlog_rendering, "_sync_body", (True, "full")),
-        (backlog_rendering, "_maybe_rebuild_board", None),
         (sections, "_render_fn", 0),
         (sections, "_emit_event_fn", None),
     ]

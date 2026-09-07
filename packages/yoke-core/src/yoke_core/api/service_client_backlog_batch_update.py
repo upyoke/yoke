@@ -72,13 +72,9 @@ def cmd_execute_batch_update_cli(args: list[str]) -> int:
         print(f"Invalid field in '{pair}'", file=sys.stderr)
         return 2
 
-    no_rebuild = False
     item_ids: list[int] = []
     try:
         for raw in args[1:]:
-            if raw == "--no-rebuild":
-                no_rebuild = True
-                continue
             item_ids.append(_parse_item_id_arg(raw))
     except ValueError as exc:
         return _emit_backlog_result({"success": False, "error": f"Invalid item ID: {exc}"})
@@ -93,7 +89,6 @@ def cmd_execute_batch_update_cli(args: list[str]) -> int:
         field=field,
         value=value,
         session_id=_resolve_session_id(None),
-        rebuild_board=not no_rebuild,
         out=captured,
     )
     return _emit_backlog_result(dict(result), log=captured.getvalue())

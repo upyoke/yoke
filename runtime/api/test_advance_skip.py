@@ -86,7 +86,6 @@ class TestSkipPolishHappyPath:
         finally:
             _exit_all(patches)
 
-        assert exec_recorder.rebuild_board_seen == [False, True]
 
     def test_claim_released_with_handoff_to_usher(self):
         seen_reasons = []
@@ -200,7 +199,7 @@ class TestAllowlistGuard:
         os.environ.pop("YOKE_CLAIM_BYPASS", None)
         os.environ.pop("YOKE_STATUS_SOURCE", None)
 
-        def failing(item_id, status, out, *, rebuild_board=True):
+        def failing(item_id, status, out):
             return {"success": False, "error": "simulated"}
 
         with mock.patch.object(

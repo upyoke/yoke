@@ -131,8 +131,6 @@ def _do_execute_update(
     item_id: int,
     status: str,
     out: TextIO,
-    *,
-    rebuild_board: bool = True,
 ) -> dict:
     """Run ``backlog.execute_update`` for a single status hop."""
     from yoke_core.domain.backlog import execute_update
@@ -141,7 +139,6 @@ def _do_execute_update(
         item_id=item_id,
         field="status",
         value=status,
-        rebuild_board=rebuild_board,
         out=out,
     )
 
@@ -170,13 +167,8 @@ def _walk_hops(
 
     written: list[str] = []
     try:
-        for idx, status in enumerate(hops):
-            result = _do_execute_update(
-                item_id,
-                status,
-                out,
-                rebuild_board=(idx == len(hops) - 1),
-            )
+        for status in hops:
+            result = _do_execute_update(item_id, status, out)
             if not result.get("success"):
                 error = result.get("error", "unknown error")
                 raise RuntimeError(f"Skip hop to {status!r} failed: {error}")

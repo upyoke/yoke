@@ -49,7 +49,6 @@ def seed_demo_items(
             source=str(source_actor),
             owner=str(source_actor),
             entry_surface="harness_skill",
-            rebuild_board=False,
         )
         if not result.get("success"):
             raise LocalDemoSeedError(str(result.get("error") or "item create failed"))

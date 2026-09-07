@@ -57,13 +57,6 @@ class _Tee:
         return getattr(self._primary, name)
 
 
-def _rebuild_board_direct() -> None:
-    """Rebuild BOARD.md in-process via the owned backlog domain."""
-    from yoke_core.domain import backlog
-
-    backlog._rebuild_board(out=sys.stderr)
-
-
 def _update_task_status_direct(
     epic_id: int,
     task_num: str,
@@ -71,7 +64,6 @@ def _update_task_status_direct(
     note: str,
     *,
     env_overrides: dict[str, str] | None = None,
-    no_rebuild: bool = True,
     no_github: bool = True,
     no_derive: bool = True,
 ) -> int:
@@ -102,7 +94,6 @@ def _update_task_status_direct(
             "claim_bypass": overrides.get("YOKE_CLAIM_BYPASS", ""),
             "status_source": overrides.get("YOKE_STATUS_SOURCE", ""),
             "task_done_verified": overrides.get("YOKE_TASK_DONE_VERIFIED", "") == "1",
-            "no_rebuild": no_rebuild,
             "no_github": no_github,
             "no_derive": no_derive,
         },
@@ -121,7 +112,6 @@ def _update_item_direct(
     env_overrides: dict[str, str] | None = None,
     done_nonce_verified: bool = False,
     qa_bypass: bool | None = None,
-    rebuild_board: bool = False,
     no_github: bool = False,
     public_ref: Optional[str] = None,
 ) -> int:
@@ -160,7 +150,6 @@ def _update_item_direct(
             "qa_bypass": qa_bypass,
             "done_nonce_verified": done_nonce_verified,
             "no_github": no_github,
-            "rebuild_board": rebuild_board,
         },
     )
     result = resp.result or {}

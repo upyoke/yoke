@@ -153,7 +153,6 @@ def handle_repair_status(request: FunctionCallRequest) -> HandlerOutcome:
             value=payload.target_status,
             done_nonce_verified=payload.target_status == "done",
             qa_bypass=False,
-            rebuild_board=True,
             out=captured,
             expected_status=current,
             session_id=request.actor.session_id,
@@ -196,7 +195,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "target_kinds": ["item"],
         "side_effects": [
             "render_body",
-            "rebuild_board",
             "github_sync",
             "emit_item_status_changed",
             "epic_task_cascade",

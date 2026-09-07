@@ -195,5 +195,4 @@ def _advance_status(
                 item_id=item_id,
                 field="status",
                 value=target,
-                rebuild_board=False,
             )

@@ -152,20 +152,9 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  - **Wrong-repo GitHub issues** (migrates issues between repos when the project's `github_repo` capability has moved).
  - **Orphaned temp files / scratch directories** (`rebuild-board.*`, `sync-to-github.*`).
 
- The agent applies two narrow follow-on fixes that the engine does not handle directly:
+ The agent applies one narrow follow-on fix that the engine does not handle directly:
 
- **a) Stale dashboard counts** (HC-doc-drift warnings that mention dashboard or board widgets) — trigger a board rebuild via the function call:
-
- ```json
- {
-   "function": "board.rebuild",
-   "actor": {"session_id": "<this-session>"},
-   "target": {"kind": "global"},
-   "intent": "doctor_dashboard_repair"
- }
- ```
-
- **b) Stale worktree references** (HC-worktree-health warnings about missing worktrees) — `git worktree prune` is a retained external boundary (git porcelain) and stays as a Bash call:
+ **Stale worktree references** (HC-worktree-health warnings about missing worktrees) — `git worktree prune` is a retained external boundary (git porcelain) and stays as a Bash call:
 
  ```bash
  git worktree prune

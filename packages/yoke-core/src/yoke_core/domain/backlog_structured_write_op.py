@@ -31,7 +31,6 @@ def execute_structured_write(
     file_path: str = "",
     force: bool = False,
     source: str = "",
-    rebuild_board: bool = True,
     out: TextIO = sys.stdout,
     content: Optional[str] = None,
 ) -> dict:
@@ -214,12 +213,6 @@ def execute_structured_write(
     if not body_success:
         sync_warning = "sync_body failed"
         _rendering._record_sync_failure(item_id, "body", "sync_body failed")
-
-    _rendering._maybe_rebuild_board(
-        rebuild_board,
-        respect_global_dry_run=False,
-        out=out,
-    )
 
     body_budget_degraded = body_sync_mode == "compact"
 

@@ -107,7 +107,6 @@ class _Harness:
                 backlog_rendering, "_sync_body", return_value=(True, "full"),
             ),
             mock.patch.object(backlog_rendering, "_record_sync_failure"),
-            mock.patch.object(backlog_rendering, "_maybe_rebuild_board"),
             mock.patch.object(repair, "_emit_audit", return_value=True),
             mock.patch.object(repair, "_rerun_readiness", return_value=("pass", [])),
         ]

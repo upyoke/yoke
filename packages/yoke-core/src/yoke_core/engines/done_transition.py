@@ -9,7 +9,6 @@ from yoke_core.engines.done_transition_runtime import (  # noqa: F401
     _db_path,
     _connect,
     _Tee,
-    _rebuild_board_direct,
     _update_task_status_direct,
     _update_item_direct,
     _run_git,

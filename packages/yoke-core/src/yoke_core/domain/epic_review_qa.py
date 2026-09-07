@@ -147,7 +147,6 @@ def _auto_transition_review_task(
             str(task_num),
             target_status,
             note=note,
-            no_rebuild=True,
             stdout=_out,
             stderr=_err,
         )

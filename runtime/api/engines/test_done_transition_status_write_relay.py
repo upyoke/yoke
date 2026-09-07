@@ -78,7 +78,6 @@ class TestItemDirectRelay:
             },
             done_nonce_verified=True,
             qa_bypass=False,
-            rebuild_board=False,
             no_github=True,
         )
         assert rc == 0
@@ -94,7 +93,6 @@ class TestItemDirectRelay:
         assert payload["qa_bypass"] is False
         assert payload["done_nonce_verified"] is True
         assert payload["no_github"] is True
-        assert payload["rebuild_board"] is False
         _assert_env_untouched()
 
     def test_update_item_direct_returns_one_on_relay_failure(self, monkeypatch):

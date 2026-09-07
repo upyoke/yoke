@@ -44,7 +44,6 @@ def _guard(item_id_raw: str, mode_label: str) -> int:
 
 def cmd_backlog_github(args: list[str]) -> int:
     """Relay backlog GitHub helper commands to the Python domain owner."""
-    from yoke_core.domain import backlog
     from yoke_core.domain import backlog_github_sync
     from yoke_core.domain import backlog_github_sync_cli
 
@@ -58,10 +57,7 @@ def cmd_backlog_github(args: list[str]) -> int:
         rc = _guard(rest[0], "sync item")
         if rc:
             return rc
-        rc = backlog_github_sync.sync_item(rest[0])
-        if rc == 0:
-            backlog._maybe_rebuild_board(True)
-        return rc
+        return backlog_github_sync.sync_item(rest[0])
     if mode == "sync-labels" and len(rest) == 1:
         rc = _guard(rest[0], "sync labels")
         if rc:

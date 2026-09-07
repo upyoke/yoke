@@ -65,7 +65,6 @@ def test_gate_dependency_writer_waits_for_status_transaction(
             value=TARGET_STATUS,
             force=True,
             no_github=True,
-            rebuild_board=False,
         )
 
     def add_gate_dependency() -> None:
@@ -160,7 +159,6 @@ def test_transition_first_forces_migration_to_observe_reached_stage(
             expected_status="idea",
             force=True,
             no_github=True,
-            rebuild_board=False,
         )
 
     def migrate() -> None:

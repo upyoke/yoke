@@ -119,7 +119,7 @@ yoke workflow-item epic-dispatch-chain update --epic "$_epic_id" --worktree "$_w
 # Bypass claim verification for system-owned fix task through the conduct pipeline wrapper.
 yoke conduct epic-task update-status --epic "$_epic_id" --task-num "$_fix_task_num" \
  --status implementing --note "Dispatched by conduct auto-fix (amend cycle)" \
- --no-rebuild --claim-bypass "simulation-autofix:epic-$_epic_id"
+ --claim-bypass "simulation-autofix:epic-$_epic_id"
 ATTEMPT_BASELINE_fix=$(git -C "${_worktree_path}" rev-parse HEAD)
 ```
 

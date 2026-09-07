@@ -245,8 +245,7 @@ class TestNoGithubIssueShortCircuit:
         # would attempt to acquire a claim; bypass that via env.
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-bypass")
         # Avoid board rebuild + auto_derive side effects.
-        with mock.patch("yoke_core.domain.update_status._rebuild_board"), \
-             mock.patch("yoke_core.domain.update_status.auto_unblock"), \
+        with mock.patch("yoke_core.domain.update_status.auto_unblock"), \
              mock.patch("yoke_core.domain.update_status.auto_derive_epic_status"), \
              mock.patch(
                  "yoke_core.domain.update_status._github_label_sync"
@@ -259,7 +258,7 @@ class TestNoGithubIssueShortCircuit:
              ) as close:
             rc = us.update_task_status(
                 conn, "50", "1", "implementing",
-                no_rebuild=True, no_derive=True,
+                no_derive=True,
                 stdout=StringIO(), stderr=StringIO(),
             )
         assert rc == 0
@@ -289,8 +288,7 @@ class TestNoGithubIssueShortCircuit:
         conn.commit()
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-bypass")
         err = StringIO()
-        with mock.patch("yoke_core.domain.update_status._rebuild_board"), \
-             mock.patch("yoke_core.domain.update_status.auto_unblock"), \
+        with mock.patch("yoke_core.domain.update_status.auto_unblock"), \
              mock.patch("yoke_core.domain.update_status.auto_derive_epic_status"), \
              mock.patch(
                  "yoke_core.domain.update_status._github_label_sync"
@@ -303,7 +301,7 @@ class TestNoGithubIssueShortCircuit:
              ) as close:
             rc = us.update_task_status(
                 conn, "50", "1", "implementing",
-                no_rebuild=True, no_derive=True,
+                no_derive=True,
                 stdout=StringIO(), stderr=err,
             )
         assert rc == 0

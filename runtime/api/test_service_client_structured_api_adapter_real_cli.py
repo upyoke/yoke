@@ -114,7 +114,7 @@ class TestRealCliParityMatrix:
                 "source": "test",
                 "force": False,
             },
-            options={"sync_github_body": True, "rebuild_board": True},
+            options={"sync_github_body": True},
         )
         assert response.success is True
 

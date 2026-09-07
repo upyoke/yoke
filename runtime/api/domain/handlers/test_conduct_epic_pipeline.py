@@ -41,13 +41,12 @@ def _request(
 def test_update_status_uses_pipeline_env_and_flags() -> None:
     def fake_update(
         conn, epic_id, task_num, status, note, *,
-        no_rebuild, no_github, no_derive, stdout, stderr,
+        no_github, no_derive, stdout, stderr,
     ) -> int:
         assert epic_id == "42"
         assert task_num == "7"
         assert status == "implementing"
         assert note == "retry"
-        assert no_rebuild is True
         assert no_github is False
         assert no_derive is True
         assert os.environ["YOKE_STATUS_SOURCE"] == "conduct"
@@ -67,7 +66,6 @@ def test_update_status_uses_pipeline_env_and_flags() -> None:
                     payload={
                         "status": "implementing",
                         "note": "retry",
-                        "no_rebuild": True,
                         "no_derive": True,
                         "claim_bypass": "simulation-autofix:epic-42",
                     },

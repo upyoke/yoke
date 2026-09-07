@@ -69,18 +69,16 @@ class TestExecuteUpdate:
     def test_update_priority(self, tmp_db):
         _seed_item(tmp_db, id=10, priority="medium")
         out = io.StringIO()
-        with _patch_externals() as patched, \
+        with _patch_externals(), \
              mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_update(
                 item_id=10,
                 field="priority",
                 value="high",
-                rebuild_board=False,
                 out=out,
             )
         assert result["success"] is True
         assert _item_field(tmp_db, 10, "priority") == "high"
-        patched["_rebuild_board"].assert_not_called()
 
     def test_update_nonexistent_item(self, tmp_db):
         out = io.StringIO()

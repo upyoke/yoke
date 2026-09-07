@@ -24,7 +24,6 @@ from yoke_core.domain.project_identity import (
     render_item_ref,
     resolve_project,
 )
-from yoke_core.domain import backlog_rendering as _rendering
 from yoke_core.domain.backlog_create_body_completeness import warn_when_body_is_empty
 from yoke_core.domain.backlog_github_mirror_state import sync_and_record_mirror
 from yoke_core.domain.backlog_item_db_writes import _insert_item
@@ -50,7 +49,6 @@ def execute_create(
     owner: Optional[str] = None,
     session_id: Optional[str] = None,
     dry_run: bool = False,
-    rebuild_board: bool = True,
     entry_surface: Optional[str] = None,
     instruction: Optional[str] = None,
     workflow_posture: Optional[Mapping[str, Any]] = None,
@@ -323,8 +321,6 @@ def execute_create(
 
     finally:
         conn.close()
-
-    _rendering._maybe_rebuild_board(rebuild_board, dry_run=dry_run, out=out)
 
     return {
         "success": True,

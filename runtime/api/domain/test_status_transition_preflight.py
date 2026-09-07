@@ -100,7 +100,6 @@ def _isolate_status_effects(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         backlog_update_op._rendering,
-        "_maybe_rebuild_board",
         lambda *_args, **_kwargs: None,
     )
 
@@ -176,7 +175,6 @@ def test_consumed_approval_cannot_authorize_reentry(test_db, monkeypatch) -> Non
         value=TARGET_STATUS,
         force=True,
         no_github=True,
-        rebuild_board=False,
         originator_actor_id=_actor_id(test_db),
     )
     assert first["error_code"] == "GATE_APPROVAL_REQUIRED"
@@ -199,7 +197,6 @@ def test_consumed_approval_cannot_authorize_reentry(test_db, monkeypatch) -> Non
         value=TARGET_STATUS,
         force=True,
         no_github=True,
-        rebuild_board=False,
         originator_actor_id=_actor_id(test_db),
     )
     assert approved["success"] is True
@@ -225,7 +222,6 @@ def test_consumed_approval_cannot_authorize_reentry(test_db, monkeypatch) -> Non
         value=TARGET_STATUS,
         force=True,
         no_github=True,
-        rebuild_board=False,
         originator_actor_id=_actor_id(test_db),
     )
     assert replay["error_code"] == "GATE_APPROVAL_REQUIRED"
@@ -258,7 +254,6 @@ def test_resolved_approval_holds_parent_lock_through_authoritative_gate(
         value=TARGET_STATUS,
         force=True,
         no_github=True,
-        rebuild_board=False,
         originator_actor_id=_actor_id(test_db),
     )
     assert first["error_code"] == "GATE_APPROVAL_REQUIRED"
@@ -292,7 +287,6 @@ def test_resolved_approval_holds_parent_lock_through_authoritative_gate(
         value=TARGET_STATUS,
         force=True,
         no_github=True,
-        rebuild_board=False,
         originator_actor_id=_actor_id(test_db),
     )
     assert result["success"] is True

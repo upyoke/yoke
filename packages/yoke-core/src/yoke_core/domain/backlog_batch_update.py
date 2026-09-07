@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 from typing import Optional, TextIO
 
-from yoke_core.domain import backlog_rendering as _rendering
 
 
 def execute_batch_update(
@@ -17,7 +16,6 @@ def execute_batch_update(
     qa_bypass: bool = False,
     session_id: Optional[str] = None,
     dry_run: bool = False,
-    rebuild_board: bool = True,
     out: TextIO = sys.stdout,
 ) -> dict:
     """Apply one field update across multiple items."""
@@ -34,7 +32,6 @@ def execute_batch_update(
             qa_bypass=qa_bypass,
             session_id=session_id,
             dry_run=dry_run,
-            rebuild_board=False,
             out=out,
         )
         if not result.get("success"):
@@ -43,7 +40,6 @@ def execute_batch_update(
             return result
         updated_count += 1
 
-    _rendering._maybe_rebuild_board(rebuild_board, dry_run=dry_run, out=out)
     print(f"Batch updated {updated_count} item(s): {field} → {value}", file=out)
     return {"success": True, "updated_count": updated_count}
 

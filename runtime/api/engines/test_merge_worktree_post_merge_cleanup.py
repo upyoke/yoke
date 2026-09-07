@@ -34,9 +34,6 @@ class TestPostMergeCleanupLocalSyncFailure:
 
         monkeypatch.setattr(merge_worktree, "_sync_local_target", lambda _ctx: False)
         monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
-        monkeypatch.setattr(
-            merge_worktree, "_regenerate_views_advisory", lambda _ctx: None
-        )
         monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
         monkeypatch.setattr(
             merge_worktree,
@@ -109,9 +106,6 @@ class TestPostMergeRemoteCleanupSafety:
 
         monkeypatch.setattr(merge_worktree, "_sync_local_target", lambda _ctx: True)
         monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
-        monkeypatch.setattr(
-            merge_worktree, "_regenerate_views_advisory", lambda _ctx: None
-        )
         monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
         monkeypatch.setattr(
             merge_worktree, "_emit_merge_event", lambda *args, **kwargs: None
@@ -162,9 +156,6 @@ class TestPostMergeRemoteCleanupSafety:
         monkeypatch.setattr(merge_worktree, "_run_git", run_git)
         monkeypatch.setattr(merge_worktree, "_sync_local_target", sync_target)
         monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
-        monkeypatch.setattr(
-            merge_worktree, "_regenerate_views_advisory", lambda _ctx: None
-        )
         monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
         monkeypatch.setattr(
             merge_worktree, "_emit_merge_event", lambda *args, **kwargs: None
@@ -195,62 +186,6 @@ class TestPostMergeRemoteCleanupSafety:
             < timeline.index("branch -d YOK-9999")
         )
         assert cleaned_trust == [worktree]
-
-
-class TestRegenerateViewsSubprocessIsolation:
-    """``_regenerate_views`` must run board rebuild in a subprocess.
-
-    The parent interpreter has loaded ``yoke_core.domain.*`` modules
-    during pre-merge ``_emit_merge_event`` calls (via ``events_writes``).
-    The git merge then rewrites those files on disk. Any post-merge
-    in-process import that expects a symbol added on the merging branch
-    will resolve against the stale ``sys.modules`` entry and raise
-    ``ImportError``. Running ``rebuild_board`` in a fresh subprocess makes
-    this class of race definitionally impossible.
-    """
-
-    def test_regenerate_views_invokes_board_rebuild_as_subprocess(
-        self, tmp_path, monkeypatch
-    ):
-        ctx = _cleanup_ctx(tmp_path)
-        calls = []
-
-        def fake_run(module, args, **kwargs):
-            calls.append({"module": module, "args": list(args), "kwargs": kwargs})
-            return mock.Mock(returncode=0, stdout="", stderr="")
-
-        monkeypatch.setattr(merge_worktree, "_run_python_module", fake_run)
-        monkeypatch.setattr(merge_worktree, "_print", lambda *a, **kw: None)
-
-        merge_worktree_post_helpers._regenerate_views(ctx)
-
-        assert len(calls) == 1
-        call = calls[0]
-        assert call["module"] == "yoke_core.domain.rebuild_board"
-        assert "--force" in call["args"]
-        assert str(ctx.yoke_repo_root) in call["args"]
-
-    def test_regenerate_views_raises_on_subprocess_nonzero_exit(
-        self, tmp_path, monkeypatch
-    ):
-        ctx = _cleanup_ctx(tmp_path)
-
-        monkeypatch.setattr(
-            merge_worktree,
-            "_run_python_module",
-            lambda module, args, **kwargs: mock.Mock(
-                returncode=7, stdout="", stderr=""
-            ),
-        )
-        monkeypatch.setattr(merge_worktree, "_print", lambda *a, **kw: None)
-
-        try:
-            merge_worktree_post_helpers._regenerate_views(ctx)
-        except RuntimeError as exc:
-            assert "exit" in str(exc).lower() or "code" in str(exc).lower()
-            assert "7" in str(exc)
-        else:
-            raise AssertionError("expected RuntimeError on non-zero subprocess exit")
 
 
 class TestChdirOutOfDoomedWorktree:

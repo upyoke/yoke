@@ -89,7 +89,7 @@ def auto_derive_epic_status(
     # A parent epic already at ``release`` never derives backward to an earlier
     # status.  Instead, when every child task is exactly ``done``, finalize it
     # through the done-transition engine so the engine's preconditions,
-    # merge/deploy/recovery gates, GitHub sync, board rebuild, and scoped
+    # merge/deploy/recovery gates, GitHub sync, and scoped
     # ``YOKE_CLAIM_BYPASS`` stay authoritative -- auto-derive never writes
     # ``items.status='done'`` directly.
     if parent_status == "release":
@@ -139,7 +139,6 @@ def auto_derive_epic_status(
             field="status",
             value=derived,
             qa_bypass=qa_bypass,
-            rebuild_board=False,
             out=captured,
         )
     except Exception as exc:  # pragma: no cover - defensive
@@ -198,7 +197,7 @@ def _finalize_release_epic_if_ready(
     Fires only when every child task is exactly ``done``.  The status write is
     delegated to :func:`done_transition_runner.run` so the engine's
     ``check_done_preconditions``, merge/deploy/recovery gates, GitHub sync,
-    board rebuild, and scoped ``YOKE_CLAIM_BYPASS`` remain authoritative --
+    and scoped ``YOKE_CLAIM_BYPASS`` remain authoritative --
     auto-derive never writes ``items.status='done'`` itself.  When the engine
     refuses, the parent is left at ``release`` with the engine's failure lines
     surfaced for the operator.

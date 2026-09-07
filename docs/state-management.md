@@ -97,7 +97,6 @@ When the backlog create path inserts an item:
 2. Insert the row and receive its global integer `items.id`.
 3. Format the public reference from the project's prefix and sequence.
 4. Make the item accessible through `yoke items get <PREFIX-N> body`.
-5. Trigger board rebuild.
 
 The counters never decrement. Removed items leave gaps; identities are never
 reused.
