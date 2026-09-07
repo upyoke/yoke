@@ -23,9 +23,7 @@ from yoke_contracts.session_control.liveness import (
     live_session_sql,
 )
 
-_COORDINATION_KINDS_SQL = ", ".join(
-    f"'{kind}'" for kind in COORDINATION_TARGET_KINDS
-)
+_COORDINATION_KINDS_SQL = ", ".join(f"'{kind}'" for kind in COORDINATION_TARGET_KINDS)
 
 
 def session_rows(
@@ -87,7 +85,7 @@ def _session_rows_sql(
 ) -> str:
     return f"""
         SELECT hs.session_id, hs.executor{surface_col}, hs.model,
-               hs.requested_model,
+               hs.requested_model, hs.usage_totals,
                hs.mode, hs.execution_lane, hs.offered_at, hs.last_heartbeat,
                hs.workspace, hs.project_id
                {ended_col}

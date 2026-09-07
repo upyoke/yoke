@@ -57,7 +57,7 @@ from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_focus_attribution import focus_attribution
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.session_staleness import activity_is_stale
-from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
+from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS, usage_fields
 from yoke_core.domain.sessions_holdings_read import (
     active_claims_by_session,
     claimed_blitz_worktree_ids_by_session,
@@ -292,6 +292,7 @@ def list_sessions(
                     "reasoning_effort": row.get("reasoning_effort"),
                     "context_window_tokens": row.get("context_window_tokens"),
                     "requested_model": row.get("requested_model"),
+                    **usage_fields(row),
                     "workspace": row.get("workspace"),
                     "offered_at": row.get("offered_at"),
                     "native_process": current_native_process_observation(row),

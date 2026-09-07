@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     model TEXT,
     reasoning_effort TEXT DEFAULT NULL,
     context_window_tokens INTEGER DEFAULT NULL,
+    usage_totals TEXT DEFAULT NULL,
     requested_model TEXT DEFAULT NULL,
     requested_reasoning_effort TEXT DEFAULT NULL,
     requested_context_window_tokens INTEGER DEFAULT NULL,

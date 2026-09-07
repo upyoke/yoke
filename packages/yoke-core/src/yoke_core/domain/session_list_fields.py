@@ -1,4 +1,12 @@
-"""Stable output fields for the session roster read model."""
+"""Stable output fields for the session roster read model, and their
+derivations that are more than a column read."""
+
+from typing import Any, Mapping
+
+from yoke_contracts.session_usage_display import (
+    USAGE_PROJECTION_FIELDS,
+    usage_projection,
+)
 
 SESSION_LIST_FIELDS = (
     "session_id",
@@ -29,6 +37,7 @@ SESSION_LIST_FIELDS = (
     "model",
     "reasoning_effort",
     "context_window_tokens",
+    *USAGE_PROJECTION_FIELDS,
     "workspace",
     "offered_at",
     "native_process",
@@ -53,4 +62,14 @@ SESSION_LIST_FIELDS = (
     "claimed_blitz_worktree_ids",
 )
 
-__all__ = ["SESSION_LIST_FIELDS"]
+
+def usage_fields(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Derive this row's consumption fields from its stored reading.
+
+    The roster ships figures rather than the stored document so pricing
+    happens once, here, instead of separately in every reader.
+    """
+    return usage_projection(row.get("usage_totals"))
+
+
+__all__ = ["SESSION_LIST_FIELDS", "usage_fields"]

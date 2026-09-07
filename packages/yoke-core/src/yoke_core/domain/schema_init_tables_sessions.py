@@ -55,6 +55,7 @@ def create_session_tables(conn: Any) -> None:
           model TEXT DEFAULT NULL,
           reasoning_effort TEXT DEFAULT NULL,
           context_window_tokens INTEGER DEFAULT NULL,
+          usage_totals TEXT DEFAULT NULL,
           execution_lane TEXT NOT NULL DEFAULT 'primary',
           workspace TEXT NOT NULL,
           project_id INTEGER NOT NULL REFERENCES projects(id),

@@ -13,14 +13,12 @@ row at relayed ensure-register. The wire contract is frozen: see
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
-from pydantic import BaseModel, Field
 
-from yoke_contracts.hook_evaluator_protocol import HOOK_EVALUATOR_CAPABILITIES
 from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
@@ -32,54 +30,15 @@ from yoke_core.domain.session_ambient_identity import (
 from yoke_core.hooks.remote_entry import evaluate_remote
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
 from yoke_core.api.routes.hooks_denial_audit import router as _denial_audit_router
+from yoke_core.api.routes.hooks_wire_contract import (
+    HOOK_WIRE_SCHEMA,
+    HookEvaluateRequest,
+    HookEvaluateResponse,
+)
 from yoke_core.api.routes.hook_observations import router as _observation_router
 
 
 router = APIRouter()
-
-# Version tag for the hook-evaluate wire contract (request and response).
-HOOK_WIRE_SCHEMA = 1
-
-
-class HookEvaluateRequest(BaseModel):
-    """Frozen request contract for one hook evaluation."""
-
-    hook_schema: int = HOOK_WIRE_SCHEMA
-    event_name: str
-    stdin: str = ""
-    executor: str = "claude"
-    agent_type: Optional[str] = None
-    entrypoint: Optional[str] = None
-    #: Provider-attested served facts, resolved on the client because only
-    #: that machine can read the harness artifact.
-    model: Optional[str] = None
-    reasoning_effort: Optional[str] = None
-    context_window_tokens: Optional[int] = None
-    #: The session's stated ask, resolved from the client's launch env.
-    requested_model: Optional[str] = None
-    requested_reasoning_effort: Optional[str] = None
-    requested_context_window_tokens: Optional[int] = None
-    execution_lane: Optional[str] = None
-    project_id: Optional[int] = None
-    executor_version: Optional[str] = None
-    machine_id: Optional[str] = None
-    native_thread_id: Optional[str] = None
-    payload_extra: dict[str, Any] = Field(default_factory=dict)
-    deadline_ms: Optional[int] = None
-    execution_provenance: dict[str, Any] = Field(default_factory=dict)
-
-
-class HookEvaluateResponse(BaseModel):
-    """Relayed stdout/exit code and the structured composition outcome."""
-
-    hook_schema: int = HOOK_WIRE_SCHEMA
-    stdout: str
-    exit_code: int
-    wait_ms: int
-    degraded: List[str]
-    outcome: str
-    model_confirmation: Optional[str] = None
-    capabilities: tuple[str, ...] = HOOK_EVALUATOR_CAPABILITIES
 
 
 @router.post("/hooks/evaluate")
@@ -122,6 +81,7 @@ def post_hooks_evaluate(
         agent_type=request.agent_type,
         entrypoint=request.entrypoint,
         model_facts=facts_from_mapping(request.model_dump()),
+        usage_totals=request.usage_totals,
         execution_lane=request.execution_lane,
         project_id=request.project_id,
         executor_version=request.executor_version,

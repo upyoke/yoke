@@ -73,6 +73,7 @@ def render_sessions_section(
                 executor_surface,
                 model,
                 requested_model,
+                usage_totals,
                 mode,
                 lane,
                 offered_at,
@@ -97,6 +98,7 @@ def render_sessions_section(
                 executor_surface,
                 model,
                 requested_model,
+                usage_totals,
                 project_id,
             )
 
@@ -112,7 +114,7 @@ def render_sessions_section(
                         ]
                     )
                 else:
-                    table_rows.append(["", "", "", "", "", "", "", claims_str])
+                    table_rows.append(["", "", "", "", "", "", "", "", claims_str])
 
         lines.extend(
             _aligned_table(
@@ -121,6 +123,7 @@ def render_sessions_section(
                     "Project",
                     "Executor",
                     "Model",
+                    "Usage",
                     "Lane",
                     "Parked",
                     "Age",
@@ -144,6 +147,7 @@ def render_sessions_section(
                 executor_surface,
                 model,
                 requested_model,
+                usage_totals,
                 mode,
                 lane,
                 offered_at,
@@ -181,6 +185,7 @@ def render_sessions_section(
                 executor_surface,
                 model,
                 requested_model,
+                usage_totals,
                 project_id,
             )
             lane_str = _render_lane(
@@ -200,7 +205,9 @@ def render_sessions_section(
                         ]
                     )
                 else:
-                    table_rows_closed.append(["", "", "", "", "", "", "", claims_str])
+                    table_rows_closed.append(
+                        ["", "", "", "", "", "", "", "", claims_str]
+                    )
 
         lines.extend(
             _aligned_table(
@@ -209,6 +216,7 @@ def render_sessions_section(
                     "Project",
                     "Executor",
                     "Model",
+                    "Usage",
                     "Lane",
                     "Ended",
                     "Duration",

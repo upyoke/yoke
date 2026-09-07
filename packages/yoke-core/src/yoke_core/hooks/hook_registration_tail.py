@@ -1,4 +1,4 @@
-"""Shared hook-tail registration and presentation persistence."""
+"""Shared hook-tail registration, presentation, and usage persistence."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 
 def apply_hook_registration(conn: Any, ensure_session: tuple[Any, ...]) -> None:
-    """Ensure the session row, then record any client-observed presentation."""
+    """Ensure the session row, then record what the client observed about it."""
     from yoke_core.hooks.registration import ensure_registered_from_hook
 
     (
@@ -20,7 +20,7 @@ def apply_hook_registration(conn: Any, ensure_session: tuple[Any, ...]) -> None:
         actor_id,
         project_id,
     ) = ensure_session
-    ensure_registered_from_hook(
+    registered = ensure_registered_from_hook(
         conn,
         payload_json,
         session_id,
@@ -40,6 +40,18 @@ def apply_hook_registration(conn: Any, ensure_session: tuple[Any, ...]) -> None:
         conn,
         session_id=session_id,
         payload_json=payload_json,
+    )
+    from yoke_core.domain.session_usage_observation import record_session_usage
+
+    # The resolved executor comes back from registration rather than being
+    # detected again: a local hook has no wire-carried reading, so this
+    # process takes one, and taking it needs the harness family that names
+    # which artifact to open.
+    record_session_usage(
+        conn,
+        session_id=session_id,
+        payload_json=payload_json,
+        executor=registered[1] if registered else "",
     )
 
 

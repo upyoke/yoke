@@ -8,6 +8,9 @@ from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.sections_sessions_scope import session_project_label
 from yoke_contracts.executor_labels import EXECUTOR_EMOJI
 from yoke_contracts.session_model_facts import REQUESTED_LABEL
+from yoke_contracts.session_usage_display import usage_cell
+from yoke_contracts.session_usage_facts import usage_from_document
+from yoke_contracts.session_usage_pricing import estimated_session_cost
 
 
 def _resolve_executor_emoji(executor: str) -> str:
@@ -48,6 +51,17 @@ def _render_executor(executor: str, executor_surface: Optional[str]) -> str:
     return f"{exec_emoji} {display_value}" if exec_emoji else (display_value or "?")
 
 
+def _display_usage(usage_totals: Optional[str]) -> str:
+    """Render what this session consumed beside what it would have cost.
+
+    The dollar half is an API-equivalent estimate priced at read time, so
+    a board rebuilt after the price reference is refreshed shows the newer
+    rates rather than whatever was current when the tokens were spent.
+    """
+    usage = usage_from_document(usage_totals)
+    return usage_cell(usage, estimated_session_cost(usage))
+
+
 def session_common_cells(
     db: BoardDBLike,
     sid: str,
@@ -55,6 +69,7 @@ def session_common_cells(
     executor_surface: Optional[str],
     model: Optional[str],
     requested_model: Optional[str],
+    usage_totals: Optional[str],
     project_id: object,
 ) -> list[str]:
     return [
@@ -62,4 +77,5 @@ def session_common_cells(
         session_project_label(db, project_id),
         _render_executor(executor, executor_surface),
         _display_model(model, requested_model),
+        _display_usage(usage_totals),
     ]
