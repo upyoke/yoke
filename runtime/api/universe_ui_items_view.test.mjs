@@ -100,6 +100,7 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
     function: "items.overview.list",
     payload: {},
   }]);
+  assert.equal("relevance" in requests[0].payload, false);
   assert.equal(byClass(root, "item-workflow").length, 3);
   assert.equal(byClass(root, "item-roster-wrap").length, 1);
   assert.deepEqual(
