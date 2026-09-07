@@ -237,9 +237,9 @@ yoke events emit \
  --context '{"from_status":"implementing","to_status":"reviewing-implementation","note":"..."}'
 ```
 
-The observe hook automatically populates `item_id`, `task_num`, `project`, and `agent` from the resolved execution context. Source-dev/admin scripts that emit events outside the hook path must pass these fields explicitly.
+Indexed `events.project_id` uses `resolve_envelope_project_id_for_event` on both the native writer and `cmd_insert`: context `project_id` / `detail.project_id`, then the registered session project for `SESSION_SCOPED_EVENT_TYPES` (including `tool_call` denials), then the boundary project token. `cmd_insert` builds that input from row identity plus parseable envelope context; stored envelope session/type/project never replace the row. Unresolvable tokens stay global (`NULL`). Scripts must still pass context fields the observe hook would populate.
 
-If `--project` is omitted but `--item-id` is present, `yoke_core.domain.events.emit_event` resolves the project from the referenced `items` row before falling back to the default `yoke` project. This keeps cross-project lifecycle telemetry aligned even when legacy call sites only pass `--item-id`.
+If `--project` is omitted but `--item-id` is present, the CLI emitter resolves project from the `items` row before falling back to `yoke`. A session-scoped event still follows the registered session project, so a non-Yoke session's denial is visible under that project even when the emitting process defaults to `yoke`.
 
 `yoke_core.domain.events.emit_event` should be called with bare numeric `--item-id` values. Stored `events.item_id` values are canonical bare-numeric text.
 
