@@ -49,8 +49,22 @@ Ambient session identity comes from the harness (env / process anchor /
 conversation mapping) — operators should not invent session IDs.
 
 `yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
-PostToolUse client wall time, server time, and their network-plus-startup
-remainder. Add `--json` for the registered result envelope.
+PostToolUse client wall time, evaluator time, and their remainder, then shows
+completed tool-call latency beside timed/total coverage globally and per
+harness. Missing durations stay unknown rather than becoming zero. The
+distinct-session `ACTIVE*` count is a fixed-hour activity proxy, not the live
+roster or proof of simultaneous execution. Add `--json` for the registered
+result envelope.
+
+`yoke hook benchmark --samples 5 [--json]` runs the harmless system `true`
+command between normal PreToolUse and PostToolUse checks. It records direct
+pre/command/post/envelope wall times and reads evaluator/client-wall phases
+from durable `HookDispatchTelemetry`, with exact timing coverage, harness,
+surface, revisions when available, time window, run count, and separately
+defined live-roster and running-session proxy counts. Save a JSON report and
+compare it with `--compare REPORT.json`; mismatched identity, revisions,
+command, or sample count, and incomplete evaluator/client-wall coverage, are
+labelled incomparable.
 
 ## Overview and Inbox
 

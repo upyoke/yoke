@@ -135,6 +135,7 @@ class TestRegistryShape:
             "yoke watch preflight",
             "yoke release-pin verify",
             "yoke hook status-line",
+            "yoke hook benchmark",
         }
         for entry in inv.by_status(inv.TOOL_CLI):
             assert entry.reason == inv.REASON_TOOL_SHAPED

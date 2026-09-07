@@ -151,10 +151,30 @@ than zero, so a coverage gap cannot pass for an instant phase. Set
 carries durations and one refusal code only — never a payload, an environment,
 or a credential — and rendering cannot delay or fail the tool call.
 
-Inspect the resulting hourly split with `yoke sessions hook-overhead
-[--hours N] [--json]`. Its table reports PreToolUse and PostToolUse client
-p50/p90, server p50, client-minus-server remainder, and their combined client
-p50 as overhead per tool call.
+Inspect the resulting timing and coverage split with `yoke sessions
+hook-overhead [--hours N] [--json]`. The hook table reports PreToolUse and
+PostToolUse client p50/p90/mean, evaluator p50, client-minus-evaluator
+remainder, and timed/total coverage. “Evaluator” is deliberate: on hosted
+transport it includes server work, while local and admin execution can happen
+in-process. The tool table reports completed-call mean/p95 beside timed/total
+coverage globally and per harness. Missing duration is unknown and excluded
+from latency statistics; a measured zero remains timed. `ACTIVE*` is the
+number of distinct sessions emitting telemetry in the fixed hour, not a live
+roster or proof of simultaneous execution.
+
+For a comparable on-demand sample, run `yoke hook benchmark --samples 5
+[--json]`. It executes the harmless system `true` command between normal
+PreToolUse and PostToolUse evaluations, so policy checks remain active. The
+report records the harness and surface, available client/server revisions,
+exact time window, run count, timing coverage, per-hook phase lines from
+the durable `HookDispatchTelemetry` context, actual command time, and
+whole-envelope time. The durable phase read preserves missing
+`client_wall_ms` as unknown; it does not infer it from the opt-in stderr line.
+Its concurrency evidence labels the live roster separately from the
+running-session bucket proxy. Save `--json` output and pass it back with
+`--compare REPORT.json`; differing harnesses, surfaces, revisions, commands,
+or sample counts, and incomplete evaluator/client-wall coverage, are marked
+incomparable rather than blended.
 
 **Deadline contract.** One shared ceiling — `hook_runner_total_timeout_ms`, default 10000ms (`yoke_core.domain.hook_runner_deadline`) — spans both halves: the client-side subset fits within the remaining budget (head-starves-tail, identical to one in-process chain), the client's POST socket timeout is the remainder after it, `deadline_ms` propagates that same remainder, and the server stops launching further chain policies once it is exhausted (clamped to its own ceiling). A deny computed before expiry is preserved on either side; otherwise the response marks `deadline_exhausted` in `degraded` and names every skipped guard as `deadline_skipped:N:a,b,c`. Server-side latency telemetry: `yoke.hook.wait_ms` histogram + `yoke.hook.requests` counter with `outcome ∈ completed|timeout|denied` (the same `outcome` field rides the response for the client's composition).
 
