@@ -153,9 +153,13 @@ beside served facts. `--list-models` reports local maps; preview reads remote de
 Preview also ranks each machine by the meter the requested model actually
 bills to, and names that pool's own quota under `REQUESTED MODEL POOL`.
 Claude accepts model, effort, and the 1M context tier; Codex accepts model and
-effort but no explicit context window; Cursor accepts all three in its
-parameterized model selector. Preview refuses unsupported knobs with a
-harness-specific code. A provider rejection becomes `model_combo_unsupported`
+its advertised effort levels but no explicit context window. Cursor preserves
+the exact native selector: effort resolves to an advertised variant, and an
+explicit context request requires that variant's native label to name the
+window. Never append bracket parameters to a published Grok selector or infer
+its window from a Claude model. Preview refuses conflicting or unsupported
+combinations before spawning, with a harness-specific code and recovery.
+A provider rejection becomes `model_combo_unsupported`
 with bounded CLI detail: choose another listed combination and create a new
 launch. Never remove flags and silently fall back to vendor defaults.
 

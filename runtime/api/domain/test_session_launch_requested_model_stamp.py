@@ -9,6 +9,9 @@ asked for. These tests hold the control plane to filling that gap.
 
 from __future__ import annotations
 
+import json
+
+from yoke_contracts.session_control.native_model_parsers import parse_cursor_models
 from yoke_contracts.session_model_facts import CLAUDE_CONTEXT_TIER_TOKENS
 
 from yoke_core.domain.session_launch_execution import (
@@ -50,6 +53,20 @@ def _registered_launch(
             {surface: preferred_effort} if preferred_effort else None
         ),
     )
+    if surface == "cursor-cli":
+        reading = {
+            surface: {
+                "status": "ok",
+                "models": parse_cursor_models(
+                    "cursor-grok-4.6-xhigh - Cursor Grok 4.6 Extra High\n"
+                    "claude-opus-4-8-high - Claude Opus 4.8 1M\n"
+                ),
+            }
+        }
+        conn.execute(
+            "UPDATE session_relays SET surface_native_models = ?",
+            (json.dumps(reading),),
+        )
     launch = assigned_launch(
         conn,
         surface=surface,
@@ -193,13 +210,13 @@ def test_cursor_binding_stamps_every_supported_requested_knob() -> None:
         conn,
         surface="cursor-cli",
         version="2026.08.25",
-        model="cursor-grok-4.6",
-        reasoning_effort="xhigh",
+        model="claude-opus-4-8",
+        reasoning_effort="high",
         context_window_tokens=CLAUDE_CONTEXT_TIER_TOKENS,
     )
 
-    assert facts["requested_model"] == "cursor-grok-4.6"
-    assert facts["requested_reasoning_effort"] == "xhigh"
+    assert facts["requested_model"] == "claude-opus-4-8-high"
+    assert facts["requested_reasoning_effort"] == "high"
     assert facts["requested_context_window_tokens"] == CLAUDE_CONTEXT_TIER_TOKENS
 
 
@@ -247,8 +264,8 @@ def test_the_binding_records_which_requested_columns_it_supplied() -> None:
         conn,
         surface="cursor-cli",
         version="2026.08.25",
-        model="cursor-grok-4.6",
-        reasoning_effort="xhigh",
+        model="claude-opus-4-8",
+        reasoning_effort="high",
         context_window_tokens=CLAUDE_CONTEXT_TIER_TOKENS,
     )
     _register_session(conn, surface="cursor-cli", version="2026.08.25")

@@ -1,7 +1,8 @@
 # /yoke steer — choosing a model for a launch
 
-Every `session_control.launch.create` names a model, an effort, and a context
-window. This file is how the steering seat decides what to name. It applies to
+Every `session_control.launch.create` chooses a supported model selection.
+Effort and context are optional and must be supported by that model. This file
+is how the steering seat decides what to name. It applies to
 **new launches only** — a running session keeps the selection it started with,
 and replacing a worker's model means launching a replacement, never editing a
 live one.
@@ -51,9 +52,9 @@ The operator's per-surface routing preference answers that, in
   },
   "cursor-cli": {
     "tier1": "cursor-grok-4.6-high",
-    "tier2": "cursor-grok-4.6",
+    "tier2": "cursor-grok-4.6-medium",
     "excluded": ["cursor-auto"],
-    "fallbacks": ["claude-opus-5"]
+    "fallbacks": ["claude-opus-5-thinking-high"]
   }
 }
 ```
@@ -67,6 +68,22 @@ Effort levels come from what the specific **model** publishes, which can be
 narrower than what the surface accepts. Read the model's own
 `reasoning_efforts` from native availability; asking for a level a model never
 offered is a launch the vendor rejects.
+
+For Cursor, use the exact selector from that machine's native listing, such
+as `cursor-grok-4.6-high`, and omit a separate effort when the selector already
+names it. A matching separate effort is accepted once; a conflicting effort
+is refused. A base name plus effort resolves only to an advertised variant,
+never an invented bracket override. Preview shows both the requested name
+and the resolved selector that the relay will pass to Cursor.
+
+Omit `--context-window` unless the exact variant's native description names
+that window. Grok's listing does not establish 1M support. Some Claude/GPT
+variants on Cursor name 1M; preview can select those exact variants for an
+explicit 1M request. This is selectable-model evidence, not an observation of
+the running session's context. An absent or unattested window remains unknown.
+If availability is unknown, refresh it with `yoke relay probe-models --surface
+cursor-cli` on the target machine, then preview again. A stale reading retains
+the models previously observed and remains visibly stale.
 
 ## Cursor: Grok first, Opus only on a confirmed empty pool
 

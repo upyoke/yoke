@@ -37,11 +37,25 @@ _CURSOR_SPEED_SUFFIX = "-fast"
 
 def cursor_token_effort(model: str) -> str | None:
     """Name the reasoning effort a Cursor model token encodes, if any."""
-    token = str(model or "").removesuffix(_CURSOR_SPEED_SUFFIX)
+    token = (
+        str(model or "").removesuffix(_CURSOR_SPEED_SUFFIX).removesuffix("-thinking")
+    )
     for effort in _CURSOR_EFFORT_SUFFIXES:
         if token.endswith(f"-{effort}"):
             return effort
     return None
+
+
+def cursor_selector_without_effort(model: str) -> str:
+    """Keep speed/thinking identity while removing a published effort suffix."""
+    effort = cursor_token_effort(model)
+    if not effort:
+        return model
+    return re.sub(
+        rf"-{re.escape(effort)}(?=(?:-thinking)?(?:{_CURSOR_SPEED_SUFFIX})?$)",
+        "",
+        model,
+    )
 
 
 def parse_cursor_models(output: str) -> list[dict[str, Any]]:
@@ -135,6 +149,7 @@ __all__ = [
     "CURSOR_LIST_SOURCE",
     "codex_next_cursor",
     "cursor_token_effort",
+    "cursor_selector_without_effort",
     "parse_codex_models",
     "parse_cursor_models",
 ]

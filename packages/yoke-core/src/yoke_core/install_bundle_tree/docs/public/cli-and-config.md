@@ -72,9 +72,9 @@ will run it:
   "session_model_routing": {
     "cursor-cli": {
       "tier1": "cursor-grok-4.6-high",
-      "tier2": "cursor-grok-4.6",
+      "tier2": "cursor-grok-4.6-medium",
       "excluded": ["cursor-auto"],
-      "fallbacks": ["claude-opus-5"]
+      "fallbacks": ["claude-opus-5-thinking-high"]
     }
   }
 }
@@ -98,9 +98,16 @@ machines by that pool's meter rather than by whichever window reads lowest.
 beside its observed native availability (below), plus accepted effort and
 context values. Claude maps context 1M to the
 model's `[1m]` selector and effort to `--effort`; Codex maps effort to
-`-c model_reasoning_effort=...` and refuses explicit context; Cursor folds
-effort and context into its bracketed `--model` value. An unsupported knob
-is a preview refusal named for the harness and knob. A combination the
+`-c model_reasoning_effort=...` and refuses explicit context. Cursor passes an
+exact advertised selector, such as `cursor-grok-4.6-high`; a separate matching
+effort is encoded once, and a conflicting effort refuses. A base name plus
+effort resolves only to an advertised variant. Cursor context is model-specific:
+an explicit window requires that exact variant's native display label to name
+it. Grok has no advertised 1M window; omit the context flag. A label establishes
+a selectable option, never a served-session measurement, so unattested context
+stays unknown. Preview and create use the chosen machine's native observations
+for these checks. An unsupported combination is a preview refusal named for
+the harness and knob, with a recovery step. A combination the
 provider rejects at run time fails as `model_combo_unsupported`, retains a
 bounded vendor message in launch evidence, and never retries under defaults.
 

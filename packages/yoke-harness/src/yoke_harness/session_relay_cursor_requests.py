@@ -51,10 +51,9 @@ def _resume_model_selector(selection: LaunchModelSelection) -> str | None:
                     flat_model + ("-fast" if model.endswith("-fast") else "")
                 ),
             )
-        return native_model_selector("cursor-cli", selection)
+        return _resume_parameterized_selector(selection)
     base, _, encoded = model.partition("[")
-    override = native_model_selector(
-        "cursor-cli",
+    override = _resume_parameterized_selector(
         LaunchModelSelection(
             base, selection.reasoning_effort, selection.context_window_tokens
         ),
@@ -72,6 +71,18 @@ def _resume_model_selector(selection: LaunchModelSelection) -> str | None:
         else:
             parameters.append(parameter)
     return f"{base}[{','.join(parameters)}]"
+
+
+def _resume_parameterized_selector(selection: LaunchModelSelection) -> str | None:
+    """Replay separately attested knobs for an existing parameterized session."""
+    parameters = []
+    if selection.context_window_tokens:
+        parameters.append("context=1m")
+    if selection.reasoning_effort:
+        parameters.append(f"effort={selection.reasoning_effort}")
+    if parameters:
+        return f"{selection.model}[{','.join(parameters)}]"
+    return selection.model
 
 
 @dataclass(frozen=True)
