@@ -17,7 +17,10 @@ import { el } from "./universe_view_support.js";
  * Coverage is stated for the same reason. Sessions on a harness that
  * counts no tokens contribute nothing, so "2 of 5 sessions reported" is
  * the difference between a machine that spent little and one whose
- * spending is mostly unmeasured.
+ * spending is mostly unmeasured. The dollar total has its own coverage:
+ * a session whose model carries no researched price reports tokens and
+ * no cost, so the scope names the priced count separately when the two
+ * differ rather than letting one count answer for both.
  */
 export function appendMachineUsage(documentNode, card, relay, sessions) {
   const rows = (Array.isArray(sessions) ? sessions : []).filter(
@@ -37,7 +40,8 @@ export function appendMachineUsage(documentNode, card, relay, sessions) {
   );
   scope.title =
     "estimated API-equivalent cost for the sessions shown here, "
-    + "not consumption of any subscription plan";
+    + "not consumption of any subscription plan; the dollar total covers "
+    + "only the sessions that could be priced";
   line.appendChild(scope);
   card.appendChild(line);
 }
