@@ -253,3 +253,12 @@ def test_wakeable_watcher_exits_to_its_conditional_completion_wake(
     assert "# watch_fleet wait_mode=background-wake" in output
     assert "completion wake is expected only because this harness" in output
     assert "yoke watch tail" in output
+
+
+@pytest.mark.parametrize("surface", ["codex-cli", "codex-desktop"])
+def test_codex_fleet_watch_keeps_cli_and_desktop_turns_active(surface):
+    mode = wait_mode_for_session(
+        _session("codex", surface=surface, wake_available=True)
+    )
+    assert mode.waits_in_turn
+    assert mode.wake_mechanism == ""

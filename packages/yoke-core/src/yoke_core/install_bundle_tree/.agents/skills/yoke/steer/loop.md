@@ -10,18 +10,10 @@ Do not invoke `/yoke feed`.
 - A delivered session message (acknowledge first, then act).
 - A periodic frontier check when no message is waiting.
 
-<!-- YOKE:HARNESS claude start -->
-In a Claude steering session, invoke
-`yoke watch fleet --print-streaming-pair -- --project {_project}`. When it
-reports `wait_mode=background-wake`, arm the printed standing subscription;
-when it reports `wait_mode=in-turn`, that invocation holds the fleet pass
-foreground because no later notice is reachable. Keep the `ScheduleWakeup`
-fallback of at least 1200 seconds only when that timer route is available.
-<!-- YOKE:HARNESS end -->
-
-Which wake primitives this session actually has is a declared fact, not a
-guess. Never teach a harness one it does not declare; a harness declaring
-neither runs its passes on message wakes plus its native loop.
+Read [watching.md](watching.md) completely and start or reattach the standing
+fleet watcher on every harness and CLI/desktop surface. Its returned wait mode
+selects the native subscription or active tool stream. Ordinary questions do
+not stop this loop; answer them while authorized coordination continues.
 
 <!-- BEGIN GENERATED: harness-wake-capability -->
 Wake capability is a manifest fact, not prose. Source of truth:
@@ -34,9 +26,10 @@ restate one of these facts on a document's own authority.
 - `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
 <!-- END GENERATED: harness-wake-capability -->
 
-Stamp `yoke sessions touch --mode steer` at the start of each pass if the
-mode is no longer `steer`. After any compaction or resume, verify the fleet
-watcher is still armed and re-arm if not.
+Check live mode before each resumed pass: an explicit `parked` pause remains
+until the operator resumes coordination. Only then stamp
+`yoke sessions touch --mode steer` if needed. After compaction or resume,
+reattach the running watcher or re-arm it when absent, respecting that pause.
 
 ## Pass
 
@@ -90,117 +83,8 @@ it. A section with nothing to say prints nothing, so a short report is a
 quiet fleet rather than a broken detector: failures are silences, and the
 report scans them every pass.
 
-What the report gives you is a finding; what to do with each one is yours:
-
-- **Available work** — staff it. An `!` row has waited past the staffing
-  threshold; an unmarked row is simply available.
-- **Steering messages awaiting a seat** — unacknowledged mail no live seat
-  holds: parked reports and reports left by an ended seat. Acquiring that scope
-  hands them over; acknowledged reports stay settled and are never inherited.
-- **Unacked injected (this session)** — your inbox, already shown, still
-  awaiting `yoke messages acknowledge MESSAGE-ID`. Not the seat-awaiting
-  count above. An overflow pointer means the body never injected: read
-  `yoke messages get MESSAGE-ID` and ack; the row stays pending.
-- **Idle holders** — probe and revive. A holder that stamped `--mode parked`
-  declared its wait, one inside a long call is listed under **In flight**, and
-  one the provider stopped under **Vendor-stopped sessions**; none of the
-  three appears here. Verify the recorded state before dismissing an idle or
-  stale row as an already-explained wait: read the holder's live `mode` and
-  `quiet_reason` (`yoke sessions list --json`), not a memory of an earlier
-  pass or a note already sitting in {SLUG} — knowing the reason, or having
-  written it into the doc, is not the state change; only the mode stamp is.
-  Once the blocker a parked holder named has actually cleared, send an
-  item-addressed resume and confirm the holder's `mode` leaves `parked`
-  before treating it as revived:
-
-  ```text
-  printf '%s' "RESUME PREFIX-N: <blocker> cleared, resume the routed leg" | yoke say --item PREFIX-N --stdin
-  ```
-
-  A starved holder is also burning down its stale clock,
-  so read `stale_eligible_at` and `effective_stale_ttl_minutes` from its `yoke
-  sessions list --json` row while triaging: at `stale_eligible_at` the reclaim
-  sweep releases its claims and the item reads as untouched, so a holder
-  near reclaim is revived before anything else in the pass.
-- **In flight** — inside a watcher or merge landing wait: quiet because the command holds the turn, so nothing to do. For queue liveness use `yoke github merge-queue readiness PREFIX-N --json`; its named queue-entry state distinguishes consumed arming from a true clear. Past 45m it rejoins **Idle holders**.
-- **Undelivered messages** — every envelope nobody has read yet, and the row
-  names which of three kinds it is. **You owe a move** on *no delivery
-  attempted* (the plane owed a wake and made none) and on *last attempt failed
-  (reason)* (a refusal to fix; one reason repeating across a machine's rows is
-  that relay). The reason is a code; the diagnosis behind it sits on the
-  recipient's machine, so pull it with the row's own `evidence` clause before
-  guessing — it round-trips through that machine's relay and is read-only:
-
-  ```text
-  yoke session-control evidence get --session {SESSION_ID}
-  ```
-
-  **Still on its way, so leave it** — *delivery attempt in flight*, *queued
-  for the recipient's next hook*, and *recipient turn in flight* all end in
-  *waiting*: none is a failure, and a wake would start a second turn.
-  **Beyond reach** — *recipient session ended* or *terminated* means the
-  envelope was addressed to a session that no longer exists and *no delivery
-  route remains*; the row proposes nothing because nothing can be done to
-  that session. Re-send the content to whoever should have it now. For the
-  two you owe, use the wake or **Revive** bridge below.
-- **Vendor-stopped sessions** — the model provider ended that worker's turn,
-  not the worker. The end of the row says who moves next: an attempt and a
-  time is the relay's, so leave it. A row naming you has no retry coming — an
-  exhausted quota or rejected credentials (fix the account, not the session),
-  or a spent budget, meaning every resume died the same way. Read the lane
-  first: a worker that produced commits is worth resuming, one that never got
-  a turn in is better reclaimed onto a fresh session; the same failure on
-  every row of a machine is the provider or that client build.
-- **Unregistered launches** — read which hand the row asks for. *native is
-  live — bind it* means the process is up and only the binding is missing, so
-  reconcile it onto the session the row names. *native is dead — reconcile,
-  then retry* means the process exited; the row quotes the last line it wrote
-  and its exit code, which is the reason to fix before retrying anything.
-  `spawn_started` or `spawn_alive` in `native_launch_phase` belongs to the
-  first process. Wait through `deadline_at`; reconcile refuses and retry
-  reattaches without duplication. Otherwise use the commands below:
-  `session_control.launch.list` reads `session_launches`;
-  `session_control_launches` does not exist:
-
-  ```text
-  yoke session-control launch list --project {_project}
-  yoke session-control launch reconcile {LAUNCH_ID} --json
-  yoke session-control launch retry {LAUNCH_ID} --json
-  ```
-- **Abandoned launches** — the mandate reached a worker that never started:
-  no claim, no message, no completed tool call, and its native is now gone.
-  The item reads unclaimed rather than wrong, so nothing else in the pass will
-  surface it. Read the quoted last line — a refusal that will repeat needs
-  fixing before the work is restaffed — then staff the item again.
-- **Landed without close-out** — merged already; only bookkeeping is owed.
-  Message the named holder to re-enter `yoke merge item PREFIX-N`, which
-  closes out from the recorded landing; on `no live holder`, restaff. Never
-  redo the merge.
-- **Dead waits** — a row naming an ended answerer, or an answerer whose own
-  item is terminal, means no reply is coming: answer on the ended session's
-  behalf, sending the asker the answer plus the current state of whatever
-  it was waiting on. A `unresolved` row is an open question with a live
-  answerer; it is context for the probe, not a finding to act on. Never
-  send a bare `WAKE` to an idle holder without reading its row here — a
-  wake alone parks it on the same question.
-
-- **Plan limits** — informational table, one row per surface window (quota
-  left, time-to-reset, headroom). Each row names the vendor-enforced meter and
-  model scope — `weekly · all models` beside `weekly · Fable`. Cursor reports
-  two monthly pools: `composer-*` and `cursor-grok-*` selections sit beside
-  **Cursor Models**, while every other model sits beside **Other Models**.
-  Claude and Codex likewise name the counter their vendor enforces. A row only
-  answers for the models its own scope covers, so read a model against its own
-  pool; only that pool's quota at zero is exhaustion, and unreadable is not
-  empty ([`model-selection.md`](model-selection.md)). Compare headroom across
-  every surface and window; under 100% can hit a wall before its reset, and
-  approaching walls go to the operator. These numbers never gate a launch.
-- **Capacity** — unlike plan limits, the line under each machine's launch
-  balance does gate launches. `AT CAP, launches refuse` means the plane
-  refuses there: wait for a landing to free a lane, raise
-  `max_worker_lanes` in that machine's `~/.yoke/config.json` settings, or
-  place the launch elsewhere with `--machine`. `capacity unreported` is an
-  older relay, not a roomy machine.
+Read [fleet-findings.md](fleet-findings.md) completely and act on every
+finding before continuing this pass.
 
 Two things the report deliberately does not do, so do them yourself:
 
@@ -246,8 +130,14 @@ No Yoke surface shortens a session id, so a short one did not come from Yoke: ne
 yoke messages list --json
 ```
 
-For each authenticated inbound message: acknowledge immediately, then
-apply only what the report justifies.
+For each authenticated inbound message: acknowledge immediately, then assign
+a substantive disposition before switching topics or ending this pass: act
+now, record the exact dependency/hold in existing item and strategy state, or
+surface the reserved operator decision. Acknowledgement is receipt, never
+completion. Apply only what the report justifies. Carry unfinished actions in
+CURRENT-PLAN (or the explicitly claimed standing plan), with the message id,
+item, owner, next action, and exact release condition, so compaction and a
+seat handoff cannot erase work whose mail is already acknowledged.
 
 ```text
 yoke messages acknowledge MESSAGE-ID
@@ -260,7 +150,7 @@ item status and the latest matching claim's `release_reason=completed`:
 
 ```text
 yoke items detail get PREFIX-N --json
-yoke db read "SELECT release_reason FROM work_claims WHERE item_id = {BARE_ITEM_ID} ORDER BY id DESC LIMIT 1"
+yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope->>'item_id' = '{BARE_ITEM_ID}' ORDER BY id DESC LIMIT 1"
 ```
 
 When those authorities show the steering-scoped item is complete:
@@ -335,6 +225,15 @@ read above (`yoke steering report get` between wakes).
 Launch per [`worker-lifecycle.md`](worker-lifecycle.md) — item-bound and
 CLI-only, never a hand-rolled spawn and never `/yoke do`.
 
+Before switching topics or ending any pass, reconcile **all runnable scoped
+work** against the standing plan and live schedule. Verify current ownership,
+launch or restaff each authorized unclaimed item, unblock and resume cleared
+dependents, and record an exact dependency, hold, or reserved decision for
+anything unfinished. Reconcile every seat this session holds; a document seat
+covers its linked items, while a project seat covers the project. A watcher
+signal is a prompt to read that scope authority, never permission to staff
+outside it. Keep independent work moving while one item waits.
+
 ### 6. Deploy merged work in batches
 
 Workers merge but never create or dispatch deployment runs. The steerer owns
@@ -404,6 +303,23 @@ It carries current seat holdings, in-flight lanes, deploy-batch state, the
 dependency-edge queue, any live outstanding operator action and what it
 blocks, and the recipes currently in force. A successor must be able to
 cold-start the scope from the claimed document alone.
+
+### Operator reminders in every reply
+
+Every operator-visible reply/turn, including an answer to an ordinary
+question, repeats **all live outstanding operator actions**. State each item,
+the specific required action, and what it unblocks. No most recent blocker
+hides another. Keep repeating each action until resolved or explicitly muted;
+record the resolution or mute in the standing plan. Fold these reminders into
+the normal response, never a separate wake or turn just to nag.
+
+Before each reminder, verify the actual authority: the live item gate,
+claim/lock, refusal, or decision record. If a system failure caused the hold,
+correct the attribution and pursue its repair; do not repeatedly ask the
+operator to perform an action the system owes. Preserve the complete reminder
+set, its evidence and unblock conditions in the existing standing plan's live
+status section so it survives compaction and handoff. Reconcile resolved and
+muted entries before replying; ordinary questions never waive this duty.
 
 ### 8. Escalate only human decisions
 

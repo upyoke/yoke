@@ -49,6 +49,11 @@ class ReportPort(FakePort):
         return replace(lease, report=self.report)
 
 
+@pytest.fixture(autouse=True)
+def active_steering_session(monkeypatch):
+    monkeypatch.setattr(presence, "_session_row", lambda _session: {"mode": "steer"})
+
+
 def test_detection_tokens_match_the_live_watcher_wrapper() -> None:
     assert presence.PROBE_MODULE == watch_fleet.PROBE_MODULE
     assert presence.WRAPPER_MODULE == watch_fleet.WRAPPER_MODULE
@@ -77,6 +82,7 @@ def test_report_injection_with_no_watcher_appends_the_nudge_line(
     assert nudge_lines == [
         "Fleet watcher is not running for this session; re-arm with "
         "`yoke watch fleet --print-streaming-pair -- --project yoke`."
+        " Follow the returned wait_mode; use only its declared native subscription."
     ]
 
 
@@ -97,7 +103,7 @@ def test_report_injection_with_a_live_watcher_does_not_append_the_nudge(
     assert "Fleet watcher is not running" not in report
 
 
-def test_non_idle_wake_family_never_appends_the_nudge(
+def test_codex_nudge_names_the_active_tool_stream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     port = ReportPort()
@@ -111,7 +117,10 @@ def test_non_idle_wake_family_never_appends_the_nudge(
     report = decision.audit_fields[FLEET_REPORT_CONTEXT_FIELD]
     assert REPORT in report
     assert "YOKE FLEET REPORT" not in decision.audit_fields["additionalContext"]
-    assert "Fleet watcher is not running" not in report
+    assert "Fleet watcher is not running" in report
+    assert "exec_command/write_stdin" in report
+    assert "commentary" in report
+    assert "ended desktop turn has no native background notification" in report
     assert presence.list_process_cmdlines() == UNRELATED_CMDLINES
 
 
@@ -126,6 +135,7 @@ def test_cursor_family_nudges_when_the_watcher_is_absent() -> None:
     assert nudged.endswith(
         "Fleet watcher is not running for this session; re-arm with "
         "`yoke watch fleet --print-streaming-pair -- --project yoke`."
+        " Follow the returned wait_mode; use only its declared native subscription."
     )
 
 
@@ -140,3 +150,40 @@ def test_remote_evaluation_does_not_invent_a_local_gap() -> None:
         )
         == REPORT
     )
+
+
+@pytest.mark.parametrize("family", ["claude", "codex", "cursor"])
+def test_pause_suppresses_rearm_until_explicit_resume(monkeypatch, family):
+    row = {"mode": "parked", "quiet_reason": "operator paused steering"}
+    monkeypatch.setattr(presence, "_session_row", lambda _session: row)
+    kwargs = dict(
+        session_id=SESSION,
+        executor_family=family,
+        remote=False,
+        cmdlines=UNRELATED_CMDLINES,
+    )
+    assert presence.maybe_append_fleet_watcher_nudge(REPORT, **kwargs) == REPORT
+    row["mode"] = "steer"
+    assert "re-arm" in presence.maybe_append_fleet_watcher_nudge(REPORT, **kwargs)
+
+
+def test_document_seats_rearm_once_per_distinct_project():
+    report = "## project-a · FIRST\n## project-a · SECOND\n## project-b\n"
+    nudge = presence.fleet_watcher_absent_nudge(report, "codex")
+    assert "--project project-a --project project-b" in nudge
+    assert nudge.count("--project project-a") == 1
+    assert "FIRST" not in nudge and "SECOND" not in nudge
+
+
+def test_unreadable_posture_teaches_recovery_without_overriding_pause(monkeypatch):
+    monkeypatch.setattr(presence, "_session_row", lambda _session: None)
+    report = presence.maybe_append_fleet_watcher_nudge(
+        REPORT,
+        session_id=SESSION,
+        executor_family="codex",
+        remote=False,
+        cmdlines=UNRELATED_CMDLINES,
+    )
+    assert "posture is unreadable" in report
+    assert "preserving an explicit parked/stop request" in report
+    assert "yoke sessions list --json" in report

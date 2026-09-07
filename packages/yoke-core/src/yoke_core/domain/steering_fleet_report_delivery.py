@@ -4,8 +4,8 @@ The report needs no producer of its own. Workers already message their steerer
 as ordinary traffic, and every one of those messages is a wake that runs the
 steering session's hooks — so the report rides the envelope that is already on
 its way and reaches every harness through the delivery plane they all share.
-Nothing here schedules, ticks, or polls: a fleet quiet enough to send no
-messages is the same fleet with nothing to report.
+Nothing here schedules, ticks, or polls. The standing fleet watcher separately
+checks due reports during quiet periods, when timer-only findings can appear.
 
 Two gates keep that ride cheap and quiet. Composition is real work — it ranks
 the project's schedule — so it happens at most once per interval per steering

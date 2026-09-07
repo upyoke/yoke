@@ -70,7 +70,9 @@ continuously past 15, an envelope undelivered past 10.
 The steerer's session id comes from ambient harness identity, so the same
 command survives handoff. Every delta remains in the raw capture. The wake
 stream emits worker messages, alarms, abnormal session ends, blocked item
-transitions, read failures, and one marker for a changed rate-limited report.
+transitions, newly available work, read failures, and one marker for a changed
+rate-limited report. Report checks run on quiet passes too, covering every held
+project/document seat; a timer-only finding needs no delta to be noticed.
 Healthy item transitions, claim churn, registrations, clean ends, and alarm
 clears stay silent at delta time and surface through the next report. Pull its
 full body with `yoke steering report get`.

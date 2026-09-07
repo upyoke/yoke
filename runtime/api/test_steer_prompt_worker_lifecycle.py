@@ -128,3 +128,51 @@ class TestSteerDiscoveryAndPacket:
         assert "optional `--project P`" in notes
         assert "never `/yoke do`" in notes
         assert "yoke say --item PREFIX-N --stdin" in notes
+
+
+class TestSteerContinuity:
+    def test_every_harness_starts_the_watcher_and_keeps_its_declared_path(self):
+        from yoke_core.domain.agents_render_conditional import apply_conditional_blocks
+
+        loop = _read(_STEER_DIR / "loop.md")
+        watching = _read(_STEER_DIR / "watching.md")
+        assert "[watching.md](watching.md) completely" in loop
+        for harness in ("claude", "codex", "cursor"):
+            rendered = apply_conditional_blocks(watching, harness)
+            assert "yoke watch fleet --print-streaming-pair" in rendered
+            assert "explicit **stop looping**" in rendered
+            assert "--mode parked" in rendered and "--mode steer" in rendered
+            assert "compaction" in rendered and "subscription loss" in rendered
+            assert "every held project" in rendered
+            assert ("`exec_command`" in rendered) == (harness == "codex")
+            assert ("`Monitor`" in rendered) == (harness == "claude")
+            assert ("`notify_on_output`" in rendered) == (harness == "cursor")
+        codex = _words(apply_conditional_blocks(watching, "codex"))
+        assert "`write_stdin`" in codex
+        assert "answered in commentary while work continues" in codex
+        assert "An explicit" in codex
+        assert "ordinary questions, hooks and compaction" in codex
+
+    def test_acknowledgement_requires_disposition_and_full_scope_reconciliation(self):
+        loop = _words(_read(_STEER_DIR / "loop.md"))
+        assert "acknowledge immediately, then assign a substantive disposition" in loop
+        assert "act now, record the exact dependency/hold" in loop
+        assert "surface the reserved operator decision" in loop
+        assert "Acknowledgement is receipt, never completion" in loop
+        assert "Carry unfinished actions in CURRENT-PLAN" in loop
+        assert "before switching topics or ending this pass" in loop
+        assert "all runnable scoped work" in loop
+        assert "launch or restaff each authorized unclaimed item" in loop
+        assert "unblock and resume cleared dependents" in loop
+
+    def test_every_reply_preserves_all_operator_actions_with_verified_attribution(self):
+        loop = _words(_read(_STEER_DIR / "loop.md"))
+        assert "Every operator-visible reply/turn" in loop
+        assert "all live outstanding operator actions" in loop
+        assert "the specific required action, and what it unblocks" in loop
+        assert "until resolved or explicitly muted" in loop
+        assert "ordinary questions never waive this duty" in loop
+        assert "never a separate wake or turn just to nag" in loop
+        assert "verify the actual authority" in loop
+        assert "If a system failure caused the hold, correct the attribution" in loop
+        assert "standing plan's live status section" in loop

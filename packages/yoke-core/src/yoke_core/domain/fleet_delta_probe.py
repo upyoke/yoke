@@ -11,6 +11,7 @@ import json
 import re
 import sys
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Mapping, Sequence, TextIO
 
@@ -44,7 +45,8 @@ DELTA_WAKE_RULES = (
         re.compile(
             r"^fleet (?:(?:ERROR|FATAL)\b|inbox\b|ALARM "
             r"(?:idle-holder|unowned-item|starved-envelope)\b|"
-            r"session \S+ terminated\b|item \S+ status .* -> (?:blocked|stopped)\b)"
+            r"session \S+ terminated\b|item \S+ available\b|"
+            r"item \S+ status .* -> (?:blocked|stopped)\b)"
         ),
     ),
     (
@@ -60,11 +62,13 @@ DELTA_WAKE_RULES = (
 HELP_EPILOG = """\
 Each pass reads the session roster, charge schedule, and durable inbox. Every
 change stays in the raw capture. Failures, messages, alarms, abnormal ends,
-and blocked items wake now; routine lifecycle and claim churn wait for the
-next changed steering report. Identifiers are always printed whole.
+and available or blocked items wake now; routine lifecycle and claim churn
+wait for the next changed steering report. Due reports are checked even on
+quiet passes. Identifiers are always printed whole.
 
 Raw line shapes:
   fleet item YOK-N status <old> -> <new>
+  fleet item YOK-N available status=<status> claim=<claim-state>
   fleet session <session-id> registered|ended|terminated surface=<surface>
   fleet inbox <message-id> state=pending|injected from=<session-id>
   fleet ALARM idle-holder|unowned-item|starved-envelope ...
@@ -160,48 +164,51 @@ def _report_interval_minutes(
     return max(1, minutes)
 
 
+@dataclass
+class _ReportState:
+    checked_at: datetime | None = None
+    fingerprint: str = ""
+
+
 def _append_steering_reports(
     projects: Sequence[str],
     *,
     observed_at: datetime,
     stream: TextIO,
     call: Callable[[str, dict[str, Any]], Any],
-    last_checks: dict[str, datetime],
-    last_fingerprints: dict[str, str],
+    state: _ReportState,
 ) -> None:
-    """Append changed reports after a real delta batch, subject to policy."""
-    for project in projects:
-        try:
-            interval = _report_interval_minutes(project, call=call)
-            last_check = last_checks.get(project)
-            if last_check is not None and observed_at - last_check < timedelta(
-                minutes=interval
-            ):
-                continue
-            result = _response_result(
-                call(STEERING_REPORT_FUNCTION, {"project": project}),
+    """Check all held scopes when due, including quiet and timer-only passes."""
+    try:
+        interval = min(
+            _report_interval_minutes(project, call=call) for project in projects
+        )
+        if state.checked_at is not None and observed_at - state.checked_at < timedelta(
+            minutes=interval
+        ):
+            return
+        # The unfiltered report retains every document seat in a project.
+        result = _response_result(
+            call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION
+        )
+        fingerprint = str(result.get("fingerprint") or "").strip()
+        body = str(result.get("body") or "").strip()
+        if not fingerprint or not body:
+            raise FleetReadError(
                 STEERING_REPORT_FUNCTION,
+                "held-scope response omitted fingerprint or body",
             )
-            fingerprint = str(result.get("fingerprint") or "").strip()
-            body = str(result.get("body") or "").strip()
-            if not fingerprint or not body:
-                raise FleetReadError(
-                    STEERING_REPORT_FUNCTION,
-                    f"project {project} response omitted fingerprint or body",
-                )
-            last_checks[project] = observed_at
-            if last_fingerprints.get(project) == fingerprint:
-                continue
-            last_fingerprints[project] = fingerprint
+        state.checked_at = observed_at
+        if state.fingerprint != fingerprint:
+            state.fingerprint = fingerprint
             _write(stream, body)
-        except FleetReadError as failure:
-            _write(
-                stream,
-                f"fleet ERROR steering report unavailable project={project} "
-                f"via {failure.function_id}: {failure.detail}; check "
-                f"`yoke steering report get --project {project}`, then keep "
-                "the fleet watch armed for the next real delta",
-            )
+    except FleetReadError as failure:
+        _write(
+            stream,
+            f"fleet ERROR steering report unavailable via {failure.function_id}: "
+            f"{failure.detail}; check `yoke steering report get`, then keep "
+            "the fleet watch armed for the next probe pass",
+        )
 
 
 def run(
@@ -215,24 +222,17 @@ def run(
     sleep: Callable[[float], None] = time.sleep,
     session_id: str | None = None,
 ) -> int:
-    """Poll until *duration* elapses, printing changes and steering context.
-
-    ``call``, ``clock``, and ``sleep`` are seams so the loop is testable
-    without a control plane and without wall-clock waiting.
-    """
+    """Poll until *duration* elapses, printing changes and due steering context."""
     stream = out if out is not None else sys.stdout
     resolved_session = session_id if session_id is not None else ambient_session_id()
     state = DeltaState()
     previous: FleetSnapshot | None = None
     consecutive_failures = 0
-    last_report_checks: dict[str, datetime] = {}
-    last_report_fingerprints: dict[str, str] = {}
+    report_state = _ReportState()
     started = clock()
 
     while True:
-        # One clock reading per pass: the observation, the alarm ages
-        # computed from it, and the duration check all describe the same
-        # instant, so a slow pass cannot skip its own deadline check.
+        # One clock reading keeps observation ages and the deadline consistent.
         pass_at = clock()
         try:
             current = read_snapshot(
@@ -268,15 +268,13 @@ def run(
             for line in delta_lines:
                 delta_wake_tier(line)
                 _write(stream, line)
-            if delta_lines:
-                _append_steering_reports(
-                    projects,
-                    observed_at=pass_at,
-                    stream=stream,
-                    call=call,
-                    last_checks=last_report_checks,
-                    last_fingerprints=last_report_fingerprints,
-                )
+            _append_steering_reports(
+                projects,
+                observed_at=pass_at,
+                stream=stream,
+                call=call,
+                state=report_state,
+            )
             previous = current
 
         if duration > 0 and (pass_at - started).total_seconds() >= duration:

@@ -10,7 +10,12 @@ _STEER_DIR = _REPO_ROOT / ".agents" / "skills" / "yoke" / "steer"
 
 
 def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    if path.name == "loop.md":
+        text += _read(_STEER_DIR / "watching.md") + _read(
+            _STEER_DIR / "fleet-findings.md"
+        )
+    return text
 
 
 def _words(text: str) -> str:

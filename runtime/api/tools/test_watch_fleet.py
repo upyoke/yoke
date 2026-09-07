@@ -38,6 +38,7 @@ def test_actionable_delta_kinds_are_immediate() -> None:
         "fleet ALARM unowned-item YOK-1 status=implementing unowned=15m",
         "fleet ALARM starved-envelope message=m recipient=a pending=10m",
         "fleet inbox msg-1 state=pending from=w",
+        "fleet item ready available status=planned claim=unclaimed",
         "fleet session abc terminated surface=codex-cli",
         "fleet item YOK-1 status implementing -> blocked",
         "fleet ERROR read failed sessions.list: unreachable (attempt 1/3)",
