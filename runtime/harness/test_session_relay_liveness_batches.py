@@ -180,6 +180,7 @@ def test_more_launch_deaths_than_one_request_holds_are_sent_as_accepted_batches(
         dispatcher,
         _Inventory(),
         state_dir=tmp_path,
+        custody_state_dir=tmp_path,
         start_time_of=_gone,
     )
 
@@ -204,6 +205,7 @@ def test_a_refused_launch_batch_keeps_its_records_and_the_ones_behind_it(
         dispatcher,
         _Inventory(),
         state_dir=tmp_path,
+        custody_state_dir=tmp_path,
         start_time_of=_gone,
     )
 
