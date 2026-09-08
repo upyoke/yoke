@@ -287,7 +287,10 @@ export function renderItemsView(context, main, scope, chrome = {}) {
 
   function renderState(state) {
     if (!context.isMounted()) return;
-    if (state.failure) {
+    // A failure with nothing on screen replaces the table; a failure while
+    // rows are already rendered is reported beside them. Discarding fetched
+    // rows because the NEXT page failed is worse than never having asked.
+    if (state.failure && !state.rows.length) {
       panel.renderEnvelope(
         state.failure, (body) => renderError(body, state.failure),
       );
@@ -312,18 +315,21 @@ export function renderItemsView(context, main, scope, chrome = {}) {
         scope,
         projects,
       ));
-      if (!state.hasMore) return;
+      if (!state.hasMore && !state.failure) return;
       const more = el(documentNode, "div", "item-roster-more");
-      const button = el(
-        documentNode,
-        "button",
-        "item-button",
-        state.loading ? "Loading…" : "Load more",
-      );
-      button.type = "button";
-      button.disabled = state.loading;
-      button.addEventListener("click", () => { loader.loadMore(); });
-      more.appendChild(button);
+      if (state.failure) renderError(more, state.failure);
+      if (state.hasMore) {
+        const button = el(
+          documentNode,
+          "button",
+          "item-button",
+          state.loading ? "Loading…" : "Load more",
+        );
+        button.type = "button";
+        button.disabled = state.loading;
+        button.addEventListener("click", () => { loader.loadMore(); });
+        more.appendChild(button);
+      }
       body.appendChild(more);
     });
   }
