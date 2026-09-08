@@ -144,6 +144,19 @@ def reset_relay_adapters_for_tests() -> None:
     _ADAPTERS.clear()
 
 
+class RelayJobSurfaceError(ValueError):
+    """A job whose working directory this machine cannot supply.
+
+    Carries the named ``result_code`` the report wire should show, so the
+    relay says which directory was missing rather than reporting every
+    unusable surface as an absent project checkout.
+    """
+
+    def __init__(self, result_code: str, message: str) -> None:
+        super().__init__(message)
+        self.result_code = result_code
+
+
 def _checkout_for_project(project_id: int) -> Path | None:
     for configured in machine_config.configured_projects(existing_only=True):
         if configured.project_id == project_id:
@@ -151,11 +164,44 @@ def _checkout_for_project(project_id: int) -> Path | None:
     return None
 
 
-def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
-    project_id = int(job.get("project_id") or 0)
+def _working_directory(job: Mapping[str, Any], project_id: int) -> Path:
+    """Return the directory this job's native must run in.
+
+    A launch has no session yet, so it starts in the project's checkout. A
+    wake resumes a conversation that already exists, and a native session is
+    reachable only from the directory it started in — Claude keys its stored
+    transcript on that exact path, and every surface inherits its cwd from
+    it. One session legitimately works across projects, so the project on the
+    waking message is the addressed item's, not the session's: a session
+    started in one checkout and messaged about another was resumed in the
+    second project's checkout, found no transcript there, and refused three
+    deliveries while the original transcript sat where it had always been.
+    So a wake runs in the target session's own durable workspace.
+    """
+    workspace = str(job.get("target_workspace") or "").strip()
+    if workspace:
+        candidate = Path(workspace)
+        if not candidate.is_dir():
+            raise RelayJobSurfaceError(
+                "session_workspace_missing",
+                "target session workspace is not a directory on this machine: "
+                f"{workspace} — restore that directory, or terminate the "
+                "session deliberately if its lane is gone",
+            )
+        return candidate
     checkout = _checkout_for_project(project_id)
     if checkout is None:
-        raise ValueError("relay job project has no registered checkout")
+        raise RelayJobSurfaceError(
+            "checkout_unavailable",
+            "relay job project has no registered checkout — register it with "
+            "`yoke project register <checkout> --project-id <id>`",
+        )
+    return checkout
+
+
+def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
+    project_id = int(job.get("project_id") or 0)
+    checkout = _working_directory(job, project_id)
     raw_qualification = job.get("private_route_qualification")
     qualification = (
         PrivateRouteQualificationGrant.model_validate(raw_qualification)
@@ -233,11 +279,14 @@ def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
         return reap_terminated_session(job)
     try:
         context = execution_context(job)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
         kind = str(job.get("job_kind") or "")
         return RelayAdapterResult(
             "outcome_unknown" if kind == "launch" else "failed",
-            evidence={"result_code": "checkout_unavailable"},
+            evidence={
+                "result_code": getattr(exc, "result_code", "checkout_unavailable"),
+                "session_workspace": str(job.get("target_workspace") or ""),
+            },
         )
     adapter = _ADAPTERS.get(context.surface)
     if adapter is None:
@@ -276,6 +325,7 @@ __all__ = [
     "RelayAdapter",
     "RelayAdapterResult",
     "RelayExecutionContext",
+    "RelayJobSurfaceError",
     "RelayPrivateDiagnostic",
     "IDLE_TIMEOUT_WAKE_MODE",
     "WAITING_WAKE_MODE",

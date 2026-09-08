@@ -134,6 +134,7 @@ def claim_wake_job(
         message_id=str(message_id),
         target_session_id=str(session_id),
         target_native_thread_id=str(selected.get("native_thread_id") or "") or None,
+        target_workspace=str(selected.get("session_workspace") or "") or None,
         requested_model=selection.model,
         requested_reasoning_effort=selection.reasoning_effort,
         requested_context_window_tokens=selection.context_window_tokens,

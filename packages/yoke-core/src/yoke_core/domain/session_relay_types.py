@@ -113,6 +113,10 @@ class RelayJob:
     message_id: str | None = None
     target_session_id: str | None = None
     target_native_thread_id: str | None = None
+    #: The directory the target session already runs in. A wake carries it
+    #: because the addressed item's project is not always the session's own,
+    #: and a native conversation is resumable only from where it started.
+    target_workspace: str | None = None
     target_launch_id: str | None = None
     requested_model: str | None = None
     requested_reasoning_effort: str | None = None

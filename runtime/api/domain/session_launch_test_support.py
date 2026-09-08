@@ -15,6 +15,9 @@ from yoke_core.domain.work_claim_targets import make_steering_target
 
 
 NOW = "2026-08-22T12:00:00Z"
+#: Where every fixture session runs. The real column is NOT NULL, so a
+#: session in this universe always has a directory to be resumed in.
+SESSION_WORKSPACE = "/checkouts/launch-project"
 
 
 def launch_connection() -> sqlite3.Connection:
@@ -31,6 +34,9 @@ def launch_connection() -> sqlite3.Connection:
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL,
+            workspace TEXT NOT NULL DEFAULT '"""
+        + SESSION_WORKSPACE
+        + """',
             executor_surface TEXT,
             executor_version TEXT,
             machine_id TEXT,

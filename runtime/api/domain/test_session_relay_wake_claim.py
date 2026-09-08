@@ -8,8 +8,11 @@ from datetime import timedelta
 
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.domain.session_relay_jobs import claim_wake_job
+from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from runtime.api.domain.test_session_message_support import (
+    ALPHA_WORKSPACE,
     NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
@@ -207,3 +210,68 @@ def test_idle_wake_claim_skips_when_injection_landed_after_send() -> None:
         claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:04:00Z")
         is None
     )
+
+
+def test_wake_job_carries_the_session_workspace_not_the_message_project() -> None:
+    """A cross-project wake resumes where the session actually runs.
+
+    The session works in Alpha's checkout while the message that wakes it is
+    addressed under Beta. Routing the resume by the message's project sent a
+    native looking for a conversation in a directory it had never run in, so
+    the job carries the session's own durable workspace instead.
+    """
+    conn = message_connection()
+    conn.execute(
+        "UPDATE harness_sessions SET project_id=2,native_thread_id=?,ended_at=? "
+        "WHERE session_id=?",
+        ("codex-thread-s4", NOW_TEXT, NATIVE_WAKE_SESSION_ID),
+    )
+    conn.execute(
+        "INSERT INTO session_relays (relay_id,actor_id,machine_id,hostname,"
+        "relay_version,surface_versions,project_checkouts,first_seen_at,"
+        "last_seen_at,connected_until,state) VALUES (?,?,?,?,?,?,?,?,?,?,'active')",
+        (
+            "machine:m4",
+            10,
+            "m4",
+            "relay-host",
+            "0.1.1",
+            '{"codex-cli": "0.148.0a15"}',
+            "[2]",
+            NOW_TEXT,
+            NOW_TEXT,
+            "2026-08-23T00:00:00Z",
+        ),
+    )
+    conn.commit()
+    send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s1",
+        selector=selector(session_ids=[NATIVE_WAKE_SESSION_ID]),
+        body="Durable body never passed to native wake.",
+        now=NOW,
+    )
+    candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))[0]
+
+    assert candidate["project_id"] == 2
+    assert candidate["session_workspace"] == ALPHA_WORKSPACE
+
+    job = claim_wake_job(
+        conn,
+        RelayHeartbeat(
+            relay_id="machine:m4",
+            actor_id=10,
+            machine_id="m4",
+            hostname="relay-host",
+            relay_version="0.1.1",
+            surface_versions={"codex-cli": "0.148.0a15"},
+            project_ids=(2,),
+        ),
+        now="2026-08-22T16:11:00Z",
+    )
+
+    assert job is not None
+    assert job.target_session_id == NATIVE_WAKE_SESSION_ID
+    assert job.project_id == 2
+    assert job.target_workspace == ALPHA_WORKSPACE

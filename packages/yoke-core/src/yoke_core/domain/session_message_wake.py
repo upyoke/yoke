@@ -159,6 +159,7 @@ def wake_eligible_recipients(
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
+            "hs.workspace AS session_workspace,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select}{mode_select}"
             f"{open_call_select} "
@@ -301,6 +302,11 @@ def wake_eligible_recipients(
                     "message_id": str(row["message_id"]),
                     "session_id": str(row["session_id"]),
                     "project_id": int(row["project_id"]),
+                    # The recipient's project is where the MESSAGE is
+                    # addressed; the session's workspace is where it runs.
+                    # A wake resumes a conversation that only exists in the
+                    # second, so both travel and the relay picks the right one.
+                    "session_workspace": str(row["session_workspace"] or ""),
                     "machine_id": row["machine_id"],
                     "executor_surface": row["executor_surface"],
                     "executor_version": row["executor_version"],
