@@ -25,8 +25,9 @@ shared runner and policy chains expect:
   can see this machine's machine home.
 
 Field names below are the measured wire shape of Cursor IDE 3.14.7 and
-cursor-agent 2026.07.23; re-verify against newer builds (the vendor owns
-the schema).
+cursor-agent 2026.07.23, re-checked against cursor-agent 2026.09.02-c22c1a3
+for shell timing (no ``tool_use_id`` / ``duration_ms`` on shell gates).
+Re-verify against newer builds (the vendor owns the schema).
 """
 
 from __future__ import annotations
@@ -39,6 +40,10 @@ from typing import Any, Dict
 from yoke_cli.config import machine_config
 from yoke_contracts import cursor_session_map
 from yoke_contracts.cursor_remount_expect import REMOUNT_REFUSAL_PAYLOAD_FIELD
+from yoke_contracts.cursor_shell_timing import (
+    CURSOR_SHELL_EVENTS,
+    annotate_cursor_shell_payload,
+)
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.payload_session_fold import (
     fold_conversation_session_id,
@@ -52,9 +57,6 @@ _TOOL_NAME_CANONICAL: Dict[str, str] = {
     "Shell": "Bash",
     "StrReplace": "Edit",
 }
-
-# Events whose payload is a shell execution without a tool_name field.
-_SHELL_EVENTS = {"beforeShellExecution", "afterShellExecution"}
 
 
 def read_stdin() -> str:
@@ -85,7 +87,9 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     - Shell-execution events (`beforeShellExecution`/`afterShellExecution`)
       gain ``tool_name="Bash"`` and ``tool_input={"command": ...}`` so the
       Bash chain's matcher resolution and command lints read one shape.
-      ``afterShellExecution`` output lands in ``tool_output``.
+      ``afterShellExecution`` output lands in ``tool_output``. Native
+      ``tool_use_id`` / ``duration_ms`` copy through when present; otherwise
+      the payload is stamped with the unsupported-timing reason.
     - ``container_session_id`` is populated for every event (see
       :func:`resolve_container_session_id`); ``is_subagent_session`` flags
       payloads whose own ``session_id`` differs from the container.
@@ -103,15 +107,17 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     if isinstance(tool_name, str) and tool_name in _TOOL_NAME_CANONICAL:
         data["tool_name"] = _TOOL_NAME_CANONICAL[tool_name]
 
-    if event in _SHELL_EVENTS and "tool_name" not in data:
-        data["tool_name"] = "Bash"
-        tool_input = data.get("tool_input")
-        if not isinstance(tool_input, dict):
-            tool_input = {}
-        tool_input.setdefault("command", data.get("command", ""))
-        data["tool_input"] = tool_input
-        if event == "afterShellExecution" and "output" in data:
-            data.setdefault("tool_output", data.get("output"))
+    if event in CURSOR_SHELL_EVENTS:
+        if "tool_name" not in data:
+            data["tool_name"] = "Bash"
+            tool_input = data.get("tool_input")
+            if not isinstance(tool_input, dict):
+                tool_input = {}
+            tool_input.setdefault("command", data.get("command", ""))
+            data["tool_input"] = tool_input
+            if event == "afterShellExecution" and "output" in data:
+                data.setdefault("tool_output", data.get("output"))
+        annotate_cursor_shell_payload(data)
 
     tool_input = data.get("tool_input")
     if isinstance(tool_input, dict):
@@ -129,8 +135,10 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     keep_stamped = (
         isinstance(stamped, str)
         and stamped.strip()
-        and (data.get("identity_stamped") is True
-             or not is_conversation_shaped_session_id(data, session_id=stamped))
+        and (
+            data.get("identity_stamped") is True
+            or not is_conversation_shaped_session_id(data, session_id=stamped)
+        )
     )
     container = resolve_container_session_id(data)
     if container:

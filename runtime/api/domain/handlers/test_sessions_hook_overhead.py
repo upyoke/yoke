@@ -227,5 +227,63 @@ def test_tool_latency_reports_timed_total_globally_and_per_harness(
     assert cursor_row["timed_count"] == 1
     assert cursor_row["call_count"] == 2
     assert cursor_row["mean_ms"] == 0
+    assert cursor_row["unsupported_count"] == 0
+    assert cursor_row["unknown_count"] == 1
+    assert cursor_row["unsupported_timing_reason"] == ""
     assert codex_row["timing_coverage_pct"] == 100.0
     assert codex_row["comparison_status"] == "comparable"
+    assert codex_row["unsupported_count"] == 0
+    assert codex_row["unknown_count"] == 0
+
+
+def test_cursor_shell_missing_duration_is_unsupported_not_unknown(
+    test_db, monkeypatch
+) -> None:
+    from yoke_contracts.cursor_shell_timing import (
+        CURSOR_SHELL_TIMING_UNSUPPORTED_REASON,
+    )
+
+    _use_fixture_database(monkeypatch, test_db)
+    insert_event(
+        test_db,
+        event_id="cursor-shell",
+        event_name="HarnessToolCallCompleted",
+        event_type="tool_call",
+        source_type="hook",
+        duration_ms=None,
+        tool_name="Bash",
+        session_id="session-cursor-shell",
+        envelope=json.dumps({"context": {"executor": "cursor"}}),
+    )
+    insert_event(
+        test_db,
+        event_id="claude-bash",
+        event_name="HarnessToolCallCompleted",
+        event_type="tool_call",
+        source_type="hook",
+        duration_ms=80,
+        tool_name="Bash",
+        tool_use_id="tu-claude",
+        session_id="session-claude-bash",
+        envelope=json.dumps({"context": {"executor": "claude-code"}}),
+    )
+
+    rows = hook_overhead.tool_latency_rows(1)
+    cursor_row = next(
+        row for row in rows if row["scope"] == "harness" and row["harness"] == "cursor"
+    )
+    claude_row = next(
+        row
+        for row in rows
+        if row["scope"] == "harness" and row["harness"] == "claude-code"
+    )
+    assert cursor_row["timed_count"] == 0
+    assert cursor_row["unsupported_count"] == 1
+    assert cursor_row["unknown_count"] == 0
+    assert cursor_row["comparison_status"] == "unsupported"
+    assert cursor_row["unsupported_timing_reason"] == (
+        CURSOR_SHELL_TIMING_UNSUPPORTED_REASON
+    )
+    assert claude_row["timed_count"] == 1
+    assert claude_row["unsupported_count"] == 0
+    assert claude_row["comparison_status"] == "comparable"

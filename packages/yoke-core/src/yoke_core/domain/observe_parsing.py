@@ -8,6 +8,7 @@ import shlex
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_contracts.cursor_shell_timing import native_duration_ms
 from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.observe_codex_transcript import _reconcile_codex_exit_code
 from yoke_core.domain.observe_db_reads import measure_tool_call_duration
@@ -16,7 +17,7 @@ from yoke_core.domain.observe_normalization import (
     _resolve_explicit_refs,
     _resolve_main_session_attribution,
 )
-from yoke_core.domain.observe_timing import CapturedTimestamp
+from yoke_core.domain.observe_timing import CapturedTimestamp, TIMING_MEASURED
 
 
 def _payload_agent_type(data: Dict[str, Any]) -> Optional[str]:
@@ -192,17 +193,24 @@ def parse_hook_event(
             db_path, project_dir, session_id=session_id or ""
         )
 
-    # Duration spans the two captured endpoints: the start this call's own
-    # HarnessToolCallStarted recorded, and ``completed_at``, the instant the
-    # caller observed the call closing. A caller that captured no end
-    # instant gets a named unknown rather than a measurement against ingest
-    # time, which would charge telemetry delivery delay to the tool.
-    timing = measure_tool_call_duration(
-        db_path,
-        session_id=session_id or "",
-        tool_use_id=tool_use_id or "",
-        completed_at=completed_at,
-    )
+    # Prefer a vendor-supplied duration. Otherwise measure between the two
+    # captured endpoints: the start this call's own HarnessToolCallStarted
+    # recorded, and ``completed_at``, the instant the caller observed the
+    # call closing. A caller that captured no end instant gets a named
+    # unknown rather than a measurement against ingest time.
+    native_ms = native_duration_ms(data)
+    if native_ms is not None:
+        duration_ms = native_ms
+        timing_status = TIMING_MEASURED
+    else:
+        timing = measure_tool_call_duration(
+            db_path,
+            session_id=session_id or "",
+            tool_use_id=tool_use_id or "",
+            completed_at=completed_at,
+        )
+        duration_ms = timing.milliseconds
+        timing_status = timing.status
 
     if not item_id:
         item_id = None
@@ -212,8 +220,8 @@ def parse_hook_event(
         command=command,
         file_path=file_path,
         exit_code=exit_code,
-        duration_ms=timing.milliseconds,
-        timing_status=timing.status,
+        duration_ms=duration_ms,
+        timing_status=timing_status,
         is_failure=is_failure,
         hook_error=str(hook_error) if hook_error else None,
         response_text=response_text,
