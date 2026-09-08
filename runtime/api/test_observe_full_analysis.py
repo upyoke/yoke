@@ -42,12 +42,12 @@ class TestDuration:
     def test_duration_with_session_tool_call(self, events_db_file):
         """Duration spans the call's captured start and completion."""
         tuid = f"tu-{uuid.uuid4()}"
-        completed = datetime.now(timezone.utc)
-        started = completed - timedelta(milliseconds=750)
-        start_time = (
-            started.strftime("%Y-%m-%dT%H:%M:%S.")
-            + f"{started.microsecond // 1000:03d}Z"
-        )
+        # The stored start keeps milliseconds, so derive the completion from
+        # the truncated value: measuring against a microsecond-precise "now"
+        # leaves a sub-millisecond remainder that rounds either way.
+        started = datetime.now(timezone.utc).replace(microsecond=0)
+        start_time = started.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        completed = started + timedelta(milliseconds=750)
 
         conn = connect_test_db(events_db_file)
         conn.execute(
