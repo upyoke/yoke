@@ -357,8 +357,13 @@ yoke readiness check PREFIX-{N}
 
 * **`verdict=pass`** — readiness passed; proceed to section 10c and release the draft claim, then display the creation confirmation. A documented `## File Budget` / `UNRESOLVED` deferral is a pass at `idea` (and at refine entry while status is still `idea`); refine's exit re-run at `refining-idea` still requires a resolved budget.
 * **`verdict=block`** — print the structured remediation block, **leave the draft claim held**, leave the item at `idea` (do NOT print "next step: /yoke refine"), and surface the remediation so the operator can fix the artifact before refine sees it. Do NOT call `claims.work.release` on the failure path — the held claim is the live-race fix; releasing it on a failed artifact lets a second harness's `yoke sessions offer` route `/yoke refine` against the unfinished spec.
+* **`verdict=unavailable`** — one or more checks could not be performed where this ran, so the spec is neither proved nor disproved. Print each `unavailable_checks[]` entry's `check` and `recovery`, leave the draft claim held, and leave the item at `idea`. Do NOT re-run: every entry carries `retryable: false` because the executing host is missing an input it cannot acquire (a project checkout is not installed on the hosted API host). The recovery names the machine that can answer.
 
-The check runs the validations enabled by the effective posture:
+The check runs the validations enabled by the effective posture. The three
+that read the project's files run against the checkout registered for the
+ITEM's project on the host executing the check; where that host has none,
+they are reported in `unavailable_checks` rather than skipped, guessed at
+against another tree, or counted as passed:
 
 * Every `module.function_name` reference in the spec resolves to a real `def function_name`.
 * When File Budget is enabled, it records current `wc -l` for every existing-file edit target, and any file >=330 lines has a sibling-module plan.

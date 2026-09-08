@@ -41,7 +41,7 @@ def _reset_rg_warning_flag():
 
 @pytest.fixture
 def stub_repo_root(tmp_path, monkeypatch):
-    """Stub _resolve_repo_root so module file lookups land in tmp_path."""
+    """A throwaway checkout the checks read module files from."""
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q", "-b", "main")
@@ -104,7 +104,7 @@ class TestVerifyFunctionOwners:
             "def my_function():\n    pass\n",
         )
         spec = "`yoke_core.domain.foo.my_function` extends behavior."
-        issues = verify_function_owners(spec)
+        issues = verify_function_owners(spec, repo_root=stubbed_rg)
         assert issues == []
 
     def test_verb_before_reference_is_checked(self, stubbed_rg):
@@ -114,7 +114,7 @@ class TestVerifyFunctionOwners:
             "def my_function():\n    pass\n",
         )
         spec = "Extend `yoke_core.domain.foo.my_function` for intake."
-        issues = verify_function_owners(spec)
+        issues = verify_function_owners(spec, repo_root=stubbed_rg)
         assert issues == []
 
     def test_runtime_api_reference_uses_runtime_source_path(self, stubbed_rg):
@@ -124,7 +124,7 @@ class TestVerifyFunctionOwners:
             "def my_function():\n    pass\n",
         )
         spec = "`runtime.api.domain.foo.my_function` extends behavior."
-        issues = verify_function_owners(spec)
+        issues = verify_function_owners(spec, repo_root=stubbed_rg)
         assert issues == []
 
     def test_yoke_core_reference_does_not_alias_runtime_path(self, stubbed_rg):
@@ -134,7 +134,7 @@ class TestVerifyFunctionOwners:
             "def my_function():\n    pass\n",
         )
         spec = "`yoke_core.domain.foo.my_function` extends behavior."
-        issues = verify_function_owners(spec)
+        issues = verify_function_owners(spec, repo_root=stubbed_rg)
         assert [i.code for i in issues] == ["UNRESOLVED_MODULE"]
         assert issues[0].context["module_path"] == (
             "packages/yoke-core/src/yoke_core/domain/foo.py"
@@ -142,7 +142,7 @@ class TestVerifyFunctionOwners:
 
     def test_unresolved_module_only_flags_with_verb(self, stubbed_rg):
         spec = "`yoke_core.domain.ghost.helper` edits things."
-        issues = verify_function_owners(spec)
+        issues = verify_function_owners(spec, repo_root=stubbed_rg)
         assert any(i.code == "UNRESOLVED_MODULE" for i in issues)
 
     def test_unresolved_function_surfaces_issue(self, stubbed_rg):
@@ -153,13 +153,13 @@ class TestVerifyFunctionOwners:
         )
         # Verb after the reference (matches the regex pattern).
         spec = "`yoke_core.domain.foo.missing_func` extends behavior."
-        issues = verify_function_owners(spec)
+        issues = verify_function_owners(spec, repo_root=stubbed_rg)
         assert any(i.code == "UNRESOLVED_FUNCTION" for i in issues)
 
     def test_no_verb_no_issue(self, stubbed_rg):
         # Bare reference without a verb — not flagged.
         spec = "See `yoke_core.domain.foo.helper` for context."
-        issues = verify_function_owners(spec)
+        issues = verify_function_owners(spec, repo_root=stubbed_rg)
         assert issues == []
 
     def test_missing_rg_returns_empty_without_subprocess(
@@ -185,7 +185,7 @@ class TestVerifyFunctionOwners:
             "`yoke_core.domain.foo.helper` extends behavior."
             " Also `yoke_core.domain.bar.qux` modifies state."
         )
-        assert verify_function_owners(spec) == []
+        assert verify_function_owners(spec, repo_root=stub_repo_root) == []
 
     def test_missing_rg_warning_emitted_once(
         self, monkeypatch, caplog, stub_repo_root,
@@ -198,10 +198,12 @@ class TestVerifyFunctionOwners:
             "WARNING", logger="yoke_core.domain.idea_readiness_check_rg",
         ):
             assert verify_function_owners(
-                "Extend `yoke_core.domain.foo.helper`."
+                "Extend `yoke_core.domain.foo.helper`.",
+                repo_root=stub_repo_root,
             ) == []
             assert verify_function_owners(
-                "Modify `yoke_core.domain.bar.qux`."
+                "Modify `yoke_core.domain.bar.qux`.",
+                repo_root=stub_repo_root,
             ) == []
         rg_warnings = [
             record for record in caplog.records

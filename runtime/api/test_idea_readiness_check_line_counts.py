@@ -31,7 +31,7 @@ def _git(repo: Path, *args: str) -> str:
 
 @pytest.fixture
 def stub_repo_root(tmp_path, monkeypatch):
-    """Stub _resolve_repo_root so module file lookups land in tmp_path."""
+    """A throwaway checkout the sizing check reads files from."""
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q", "-b", "main")
@@ -65,7 +65,7 @@ class TestVerifyFileBudgetLineCounts:
             "x\n" * 50,
         )
         spec = _budget("runtime/api/domain/foo.py", 50)
-        issues = verify_file_budget_line_counts(spec)
+        issues = verify_file_budget_line_counts(spec, repo_root=stub_repo_root)
         # No issue: count matches and file is under threshold.
         assert all(i.code != "STALE_LINE_COUNT" for i in issues)
         assert all(i.code != "MISSING_SIBLING_PLAN" for i in issues)
@@ -77,7 +77,7 @@ class TestVerifyFileBudgetLineCounts:
             "x\n" * 100,
         )
         spec = _budget("runtime/api/domain/foo.py", 200)
-        issues = verify_file_budget_line_counts(spec)
+        issues = verify_file_budget_line_counts(spec, repo_root=stub_repo_root)
         assert any(i.code == "STALE_LINE_COUNT" for i in issues)
 
     def test_at_cap_without_sibling_plan_flagged(self, stub_repo_root):
@@ -87,7 +87,7 @@ class TestVerifyFileBudgetLineCounts:
             "x\n" * 340,
         )
         spec = _budget("runtime/api/domain/big.py", 340)
-        issues = verify_file_budget_line_counts(spec)
+        issues = verify_file_budget_line_counts(spec, repo_root=stub_repo_root)
         assert any(i.code == "MISSING_SIBLING_PLAN" for i in issues)
 
     def test_at_cap_with_sibling_plan_passes(self, stub_repo_root):
@@ -100,7 +100,7 @@ class TestVerifyFileBudgetLineCounts:
             "runtime/api/domain/big.py", 340,
             tail="Plan: extract to a new sibling module big_helper.py.",
         )
-        issues = verify_file_budget_line_counts(spec)
+        issues = verify_file_budget_line_counts(spec, repo_root=stub_repo_root)
         assert all(i.code != "MISSING_SIBLING_PLAN" for i in issues)
 
     def test_inconsistent_headroom_and_flag_are_flagged(self, stub_repo_root):
@@ -110,6 +110,6 @@ class TestVerifyFileBudgetLineCounts:
             "remaining headroom 0; at-or-over-limit: true; responsibility: x."
         )
 
-        issues = verify_file_budget_line_counts(spec)
+        issues = verify_file_budget_line_counts(spec, repo_root=stub_repo_root)
 
         assert any(i.code == "STALE_FILE_BUDGET_SIZING" for i in issues)

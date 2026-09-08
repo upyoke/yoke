@@ -20,14 +20,22 @@ from unittest.mock import MagicMock, patch
 
 from yoke_core.domain import idea_readiness_check
 from yoke_core.domain.idea_readiness_check import Issue
+from yoke_core.domain.idea_readiness_results import (
+    ReadinessOutcome,
+    UnavailableValidation,
+)
 
 
-def _run_main_and_capture(item_id: int, *, issues, advisories):
+def _run_main_and_capture(item_id: int, *, issues, advisories, unavailable=()):
     """Drive ``idea_readiness_check.main()`` and return the parsed JSON."""
     # The checks are mocked, so the connection is a closable stand-in only.
     conn = MagicMock()
-    with patch.object(idea_readiness_check, "run_all_checks", return_value=issues), \
-         patch.object(idea_readiness_check, "run_all_advisories", return_value=advisories), \
+    outcome = ReadinessOutcome(
+        issues=list(issues),
+        unavailable=list(unavailable),
+        advisories=list(advisories),
+    )
+    with patch.object(idea_readiness_check, "run_all_checks", return_value=outcome), \
          patch(
              "yoke_core.domain.schema_common._connect_raw",
              return_value=conn,
@@ -93,3 +101,47 @@ def test_payload_carries_classification_missing_file_budget():
     assert rc == 1
     assert payload["verdict"] == "block"
     assert payload["classification"] == "mixed_stale_count"
+
+
+def test_payload_reports_unavailable_checks_as_neither_pass_nor_block():
+    """A check the host could not perform is its own verdict, never a pass."""
+    unperformed = UnavailableValidation(
+        check="verify_function_owners",
+        reason="project_checkout_unavailable",
+        recovery="re-run from a machine with the project checkout registered",
+    )
+    rc, payload = _run_main_and_capture(
+        42, issues=[], advisories=[], unavailable=[unperformed],
+    )
+    assert rc == 1
+    assert payload["verdict"] == "unavailable"
+    assert payload["classification"] == "unavailable"
+    assert payload["unavailable_checks"] == [{
+        "check": "verify_function_owners",
+        "reason": "project_checkout_unavailable",
+        "recovery": "re-run from a machine with the project checkout registered",
+        "retryable": False,
+        "context": {},
+    }]
+
+
+def test_real_issues_still_block_alongside_unavailable_checks():
+    """Actionable defects outrank the unperformed ones in the verdict."""
+    stale = Issue(
+        code="STALE_LINE_COUNT",
+        message="recorded line count drifted",
+        remediation="rerun line-count repair",
+        context={"path": "runtime/api/foo.py", "recorded": 200, "actual": 220},
+    )
+    unperformed = UnavailableValidation(
+        check="verify_file_budget_line_counts",
+        reason="project_checkout_unavailable",
+        recovery="re-run from a machine with the project checkout registered",
+    )
+    rc, payload = _run_main_and_capture(
+        42, issues=[stale], advisories=[], unavailable=[unperformed],
+    )
+    assert rc == 1
+    assert payload["verdict"] == "block"
+    assert payload["classification"] == "pure_stale_count"
+    assert len(payload["unavailable_checks"]) == 1

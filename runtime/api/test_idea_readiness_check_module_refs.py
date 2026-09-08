@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from typing import Optional
 from unittest.mock import patch
 
@@ -15,6 +16,10 @@ from yoke_core.domain.idea_readiness_check_refs import (
 )
 from yoke_core.domain.idea_readiness_check import verify_function_owners
 
+
+# The carve-out checks stat module paths against a checkout. Resolving from
+# this test file keeps the fixtures portable across worktrees and CI.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS path_claims (
@@ -72,9 +77,13 @@ class TestIsModuleOrPlannedRef(unittest.TestCase):
     def test_package_dir_returns_true(self) -> None:
         """(a) Module portion that resolves to a real package directory → True."""
         result = is_module_or_planned_ref(
-            "yoke_core.tools.watch_pytest", item_id=0, conn=None
+            "yoke_core.tools.watch_pytest", item_id=0, conn=None,
+            repo_root=_REPO_ROOT,
         )
-        self.assertTrue(result, "runtime/api/tools/ is a package dir; should be True")
+        self.assertTrue(
+            result,
+            "packages/yoke-core/src/yoke_core/tools/ is a package dir; should be True",
+        )
 
     def test_flat_module_file_ref_returns_false(self) -> None:
         """(d) Module portion is a .py file, not a dir → False (ref not carved out)."""
@@ -82,6 +91,7 @@ class TestIsModuleOrPlannedRef(unittest.TestCase):
             "yoke_core.domain.idea_readiness_check.verify_function_owners",
             item_id=0,
             conn=None,
+            repo_root=_REPO_ROOT,
         )
         self.assertFalse(result, "Module .py file, not a directory → should be False")
 
@@ -99,12 +109,15 @@ class TestIsModuleOrPlannedRef(unittest.TestCase):
             "runtime.api.domain_nonexistent.not_yet_created",
             item_id=99,
             conn=conn,
+            repo_root=_REPO_ROOT,
         )
         self.assertTrue(result, "Planned path-claim target → should be True")
 
     def test_no_dot_returns_false(self) -> None:
         """Single-segment path has no module portion; short-circuits to False."""
-        result = is_module_or_planned_ref("watch_tail", item_id=0, conn=None)
+        result = is_module_or_planned_ref(
+            "watch_tail", item_id=0, conn=None, repo_root=_REPO_ROOT,
+        )
         self.assertFalse(result)
 
     def test_planned_claim_wrong_item_not_carved_out(self) -> None:
@@ -117,6 +130,7 @@ class TestIsModuleOrPlannedRef(unittest.TestCase):
             "runtime.api.domain_nonexistent.not_yet_created",
             item_id=77,  # different item — no matching claim
             conn=conn,
+            repo_root=_REPO_ROOT,
         )
         self.assertFalse(result, "Different item_id → planned claim must not carve out")
 
@@ -157,7 +171,7 @@ class TestVerifyFunctionOwnersCarveOuts(unittest.TestCase):
             "yoke_core.domain.idea_readiness_check.subprocess.run",
             side_effect=AssertionError("rg must not run for package-dir refs"),
         ):
-            issues = verify_function_owners(spec, conn=None, item_id=0)
+            issues = verify_function_owners(spec, conn=None, item_id=0, repo_root=_REPO_ROOT)
         codes = [i.code for i in issues]
         self.assertNotIn("UNRESOLVED_FUNCTION", codes)
         self.assertNotIn("UNRESOLVED_MODULE", codes)
@@ -180,7 +194,9 @@ class TestVerifyFunctionOwnersCarveOuts(unittest.TestCase):
             "yoke_core.domain.idea_readiness_check.subprocess.run",
             side_effect=AssertionError("rg must not run for planned refs"),
         ):
-            issues = verify_function_owners(spec, conn=conn, item_id=42)
+            issues = verify_function_owners(
+                spec, conn=conn, item_id=42, repo_root=_REPO_ROOT,
+            )
         codes = [i.code for i in issues]
         self.assertNotIn("UNRESOLVED_FUNCTION", codes)
         self.assertNotIn("UNRESOLVED_MODULE", codes)
@@ -199,7 +215,9 @@ class TestVerifyFunctionOwnersCarveOuts(unittest.TestCase):
             "yoke_core.domain.idea_readiness_check.is_module_or_planned_ref",
             wraps=is_module_or_planned_ref,
         ) as classifier:
-            issues = verify_function_owners(spec, conn=conn, item_id=42)
+            issues = verify_function_owners(
+                spec, conn=conn, item_id=42, repo_root=_REPO_ROOT,
+            )
         self.assertEqual(issues, [])
         classifier.assert_called_once()
 
@@ -209,6 +227,7 @@ class TestVerifyFunctionOwnersCarveOuts(unittest.TestCase):
             "yoke_core.domain.idea_readiness_check.nonexistent_fn",
             item_id=0,
             conn=None,
+            repo_root=_REPO_ROOT,
         )
         self.assertFalse(
             result,

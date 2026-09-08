@@ -6,12 +6,19 @@
   (within ~5%); files >=330 lines need a sibling plan.
 - ``verify_file_budget_claim_consistency``: File Budget paths and
   path-claim targets agree.
-- ``run_all_checks``: composes them; CLI exits 0 on pass, 1 with
-  structured remediation.
+- ``run_all_checks``: composes them into a ``ReadinessOutcome``; CLI
+  exits 0 on pass, 1 with structured remediation.
 
 Idea calls before "next step: /yoke refine"; refine calls before
 ``idea → refining-idea``. Checks are read-only against spec text,
 path-claim DB, and repo files.
+
+Every file-reading check takes an explicit ``repo_root``. The item's
+project checkout is resolved ONCE per run and passed down; when the
+executing host has no checkout for that project those checks are not
+performed and ``run_all_checks`` records one ``UnavailableValidation``
+each instead of guessing at a tree or reporting an unperformed check as
+passed.
 """
 
 from __future__ import annotations
@@ -19,7 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
-from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, List, Optional
 
 from yoke_core.domain.file_budget_paths import (
@@ -35,7 +42,16 @@ from yoke_core.domain.idea_readiness_check_refs import (
     is_module_or_planned_ref,
     module_file_candidates as _module_file_candidates,
 )
-from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root_for_item
+from yoke_core.domain.idea_readiness_checkout import (
+    item_project_checkout,
+    unavailable_checkout_dependent_checks,
+)
+from yoke_core.domain.idea_readiness_results import (
+    Issue,
+    ReadinessOutcome,
+    UnavailableValidation,
+    VERDICT_PASS,
+)
 from yoke_core.domain.idea_readiness_symlink_advisory import collect_symlink_advisories
 _extract_file_budget_paths = extract_file_budget_paths_set
 
@@ -47,14 +63,6 @@ _IDEA_STATUS_ALLOWS_UNRESOLVED_BUDGET = "idea"
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-@dataclass
-class Issue:
-    code: str
-    message: str
-    remediation: str
-    context: dict = field(default_factory=dict)
 
 
 def _read_spec_for_item(conn: Any, item_id: int) -> str:
@@ -92,6 +100,8 @@ def verify_function_owners(
     spec_text: str,
     conn: Optional[Any] = None,
     item_id: int = 0,
+    *,
+    repo_root: Path,
 ) -> List[Issue]:
     """Every ``runtime.api...func_name`` paired with a verb
     (modify/extend/edit/wraps/add behavior to) resolves to a real
@@ -102,11 +112,10 @@ def verify_function_owners(
     # Pre-filter: skip package-submodule and planned refs before rg search.
     refs = {
         (fp, fn) for fp, fn in _function_refs_to_verify(spec_text)
-        if not is_module_or_planned_ref(fp, item_id, conn)
+        if not is_module_or_planned_ref(fp, item_id, conn, repo_root)
     }
     if not refs or rg_available() is None:
         return issues
-    repo_root = _resolve_repo_root_for_item(conn, item_id)
     for full_path, func_name in refs:
         module_path = full_path.rsplit(".", 1)[0]
         candidates = _module_file_candidates(repo_root, module_path)
@@ -150,15 +159,14 @@ def verify_function_owners(
 
 def verify_file_budget_line_counts(
     spec_text: str,
-    conn: Optional[Any] = None,
-    item_id: int = 0,
+    *,
+    repo_root: Path,
 ) -> List[Issue]:
     """Validate every File Budget path's sizing and split pressure."""
     from yoke_core.domain.idea_readiness_file_budget_sizing import (
         verify_file_budget_sizing,
     )
 
-    repo_root = _resolve_repo_root_for_item(conn, item_id)
     return verify_file_budget_sizing(
         spec_text, repo_root=repo_root, issue_type=Issue,
     )
@@ -201,17 +209,27 @@ def verify_effective_file_budget_claim_consistency(
 
 def run_all_checks(
     conn: Any, item_id: int,
-) -> List[Issue]:
-    """Compose the readiness checks; returns the union of issues."""
+) -> ReadinessOutcome:
+    """Compose the readiness checks into one outcome.
+
+    File-reading checks run against the item project's checkout when this
+    host has one, and are reported as unperformed when it does not. Every
+    check that needs no files runs either way.
+    """
     from yoke_core.domain.idea_readiness_repair_cross_item_overlap import (
         probe_cross_item_overlap,
     )
-    spec_text = _read_spec_for_item(conn, item_id)
-    issues: List[Issue] = []
+    from yoke_core.domain.idea_readiness_check_done_means import (
+        verify_done_means_agent_shape,
+    )
     from yoke_core.domain.file_budget_required_gate import (
         evaluate as evaluate_file_budget,
     )
 
+    spec_text = _read_spec_for_item(conn, item_id)
+    issues: List[Issue] = []
+    unavailable: List[UnavailableValidation] = []
+    advisories: List[Any] = []
     budget_gate = evaluate_file_budget(conn, item_id)
     if (
         budget_gate["verdict"] != "pass"
@@ -222,29 +240,25 @@ def run_all_checks(
             message=str(budget_gate["reason"]),
             remediation="Declare the File Budget required by the pinned workflow.",
         ))
-    issues.extend(verify_function_owners(spec_text, conn, item_id))
-    issues.extend(verify_file_budget_line_counts(spec_text, conn, item_id))
+    checkout = item_project_checkout(conn, item_id)
+    if checkout is None:
+        unavailable = unavailable_checkout_dependent_checks(conn, item_id)
+    else:
+        issues.extend(verify_function_owners(
+            spec_text, conn, item_id, repo_root=checkout,
+        ))
+        issues.extend(verify_file_budget_line_counts(spec_text, repo_root=checkout))
+        issues.extend(verify_attestation_rehearsal_commands(
+            conn, item_id, repo_root=checkout,
+        ))
+        if spec_text:
+            advisories = collect_symlink_advisories(spec_text, repo_root=checkout)
     issues.extend(verify_effective_file_budget_claim_consistency(conn, item_id))
     issues.extend(verify_architecture_impact_resolved(conn, item_id))
-    issues.extend(verify_attestation_rehearsal_commands(conn, item_id))
     issues.extend(probe_cross_item_overlap(conn, item_id))
-    from yoke_core.domain.idea_readiness_check_done_means import (
-        verify_done_means_agent_shape,
-    )
     issues.extend(verify_done_means_agent_shape(spec_text))
-    return issues
-
-
-def run_all_advisories(
-    conn: Any, item_id: int,
-) -> List[dict]:
-    """Compose non-blocking readiness advisories."""
-    spec_text = _read_spec_for_item(conn, item_id)
-    if not spec_text:
-        return []
-    return collect_symlink_advisories(
-        spec_text,
-        repo_root=_resolve_repo_root_for_item(conn, item_id),
+    return ReadinessOutcome(
+        issues=issues, unavailable=unavailable, advisories=advisories,
     )
 
 
@@ -253,7 +267,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         prog="python3 -m yoke_core.domain.idea_readiness_check",
         description=(
             "Pre-handoff readiness check for idea / refine entry. "
-            "Exits 0 when all checks pass, 1 when any issue is found."
+            "Exits 0 when all checks pass, 1 when any issue is found "
+            "or any check could not be performed on this host."
         ),
     )
     parser.add_argument("item", help="YOK-N or N")
@@ -285,32 +300,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     conn = _connect_raw(_resolve_db_path())
     try:
-        issues = run_all_checks(conn, item_id)
-        advisories = run_all_advisories(conn, item_id)
+        outcome = run_all_checks(conn, item_id)
     finally:
         conn.close()
-    issue_dicts = [
-        {"code": i.code, "message": i.message,
-         "remediation": i.remediation, "context": i.context}
-        for i in issues
-    ]
     # Classification inline so agents read it via stdlib json — the
     # agent-CLI contract lint blocks `python3 -c "from runtime..."`.
-    from yoke_core.domain.idea_readiness_repair import classify_readiness_issues
     payload = {
-        "verdict": "pass" if not issues else "block",
-        "classification": classify_readiness_issues(issue_dicts),
-        "issues": issue_dicts,
-        "advisories": advisories,
+        "verdict": outcome.verdict,
+        "classification": outcome.classification,
+        "issues": outcome.issue_payloads(),
+        "unavailable_checks": outcome.unavailable_payloads(),
+        "advisories": outcome.advisories,
     }
     print(json.dumps(payload, indent=2))
-    return 0 if not issues else 1
+    return 0 if outcome.verdict == VERDICT_PASS else 1
 
 
 __all__ = [
     "Issue",
+    "ReadinessOutcome",
     "main",
-    "run_all_advisories",
     "run_all_checks",
     "verify_attestation_rehearsal_commands",
     "verify_file_budget_claim_consistency",
