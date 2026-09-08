@@ -242,7 +242,8 @@ def test_page_module_wires_the_workbench_shell():
         # loader beside it owns the read, its cursors, and its criteria.
         "universe_views_events.js": ("createEventsHistoryLoader",),
         "universe_events_history_loader.js": ("events.query.run",),
-        "universe_views_delivery.js": ("deployment_runs.list",),
+        "universe_views_delivery.js": ("createDeploymentRunsLoader",),
+        "universe_deployment_runs_loader.js": ("deployment_runs.list",),
         "universe_views_delivery_inventory.js": (
             "projects.infrastructure.list",
             "projects.environment_settings.get",
