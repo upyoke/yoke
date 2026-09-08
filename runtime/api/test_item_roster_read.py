@@ -245,6 +245,45 @@ def test_cursor_round_trips_its_stored_sort_value_verbatim():
         decode_cursor("missing-the-id|")
 
 
+def test_paged_read_ships_a_fraction_of_the_unpaged_payload(test_db, capsys):
+    """The measurement behind the change, kept as a regression guard.
+
+    Reports honest numbers for both shapes over one identical dataset. Run
+    with ``-s`` to read them; the assertions below are what keeps the payload
+    from quietly growing back.
+    """
+    import json
+
+    population = 300
+    _seed_ladder(test_db, population, first_id=2000)
+    unpaged = _roster()
+    paged = _roster(page_size=50)
+    assert unpaged.primary_success and paged.primary_success
+
+    unpaged_rows = len(unpaged.result_payload["rows"])
+    paged_rows = len(paged.result_payload["rows"])
+    unpaged_bytes = len(json.dumps(unpaged.result_payload, default=str))
+    paged_bytes = len(json.dumps(paged.result_payload, default=str))
+    with capsys.disabled():
+        print(
+            f"\nItems roster payload over {unpaged_rows} matching items:"
+            f"\n  before (unpaged): rows={unpaged_rows} bytes={unpaged_bytes}"
+            f"\n  after  (paged):   rows={paged_rows} bytes={paged_bytes}"
+            f" match_count={paged.result_payload['match_count']}"
+            f"\n  bytes ratio: {paged_bytes / unpaged_bytes:.3f}"
+            "\n  browser render time and per-request SQL attribution: "
+            "not captured (missing, not zero)"
+        )
+
+    assert unpaged_rows >= population
+    assert paged_rows == 50
+    # The page reports the whole match set even though it carries 50 rows.
+    assert paged.result_payload["match_count"] >= population
+    # A page of 50 out of 300+ must cost well under a quarter of the full
+    # transfer; the compact projection widens the gap beyond the row ratio.
+    assert paged_bytes < unpaged_bytes / 4
+
+
 def test_unknown_project_scope_answers_empty(test_db):
     _seed_ladder(test_db, 2, first_id=940)
     outcome = _roster(page_size=5, projects=["no-such-project"])
