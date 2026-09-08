@@ -23,7 +23,7 @@ from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.steering_message_recipients import holding_seat_session_id
 
 
-def _visible(
+def message_visible(
     conn: Any,
     details: dict[str, Any],
     *,
@@ -79,7 +79,7 @@ def _acknowledgement_command(
     return None
 
 
-def _with_ack(
+def message_with_actor_context(
     details: dict[str, Any],
     *,
     actor_id: int,
@@ -92,7 +92,7 @@ def _with_ack(
     return result
 
 
-def _expire(conn: Any) -> None:
+def expire_message_receipts(conn: Any) -> None:
     from yoke_core.domain.session_message_delivery import expire_due_recipients
 
     expire_due_recipients(conn)
@@ -107,13 +107,13 @@ def get_message(
     actor_id: int,
     session_id: str | None,
 ) -> dict[str, Any]:
-    _expire(conn)
+    expire_message_receipts(conn)
     details = message_details(conn, message_id)
-    if not _visible(conn, details, actor_id=actor_id, session_id=session_id):
+    if not message_visible(conn, details, actor_id=actor_id, session_id=session_id):
         raise SessionMessageError(
             "message_forbidden", "message is not visible to the calling actor"
         )
-    return _with_ack(details, actor_id=actor_id, session_id=session_id)
+    return message_with_actor_context(details, actor_id=actor_id, session_id=session_id)
 
 
 def list_messages(
@@ -125,7 +125,7 @@ def list_messages(
     session_id: str | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    _expire(conn)
+    expire_message_receipts(conn)
     ids = list_message_ids(
         conn,
         state=state,
@@ -136,14 +136,14 @@ def list_messages(
     visible: list[dict[str, Any]] = []
     for message_id in ids:
         details = message_details(conn, message_id)
-        if _visible(
+        if message_visible(
             conn,
             details,
             actor_id=actor_id,
             session_id=caller_session_id,
         ):
             visible.append(
-                _with_ack(
+                message_with_actor_context(
                     details,
                     actor_id=actor_id,
                     session_id=caller_session_id,
@@ -154,4 +154,10 @@ def list_messages(
     return visible
 
 
-__all__ = ["get_message", "list_messages"]
+__all__ = [
+    "expire_message_receipts",
+    "get_message",
+    "list_messages",
+    "message_visible",
+    "message_with_actor_context",
+]

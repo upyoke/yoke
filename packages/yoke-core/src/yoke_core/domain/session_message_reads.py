@@ -100,6 +100,44 @@ def message_details(conn: Any, message_id: str) -> dict[str, Any]:
     return message
 
 
+def message_summary(conn: Any, message_id: str) -> dict[str, Any]:
+    """Return the compact message projection used by list surfaces."""
+    marker = _p(conn)
+    row = conn.execute(
+        "SELECT message_id,sender_actor_id,sender_session_id,body,created_at,"
+        "expires_at,cancelled_at,cancellation_reason,sender_surface "
+        f"FROM session_messages WHERE message_id={marker}",
+        (message_id,),
+    ).fetchone()
+    if row is None:
+        raise SessionMessageError(
+            "message_not_found", f"message {message_id!r} not found"
+        )
+    message = row_dict(row)
+    message["recipients"] = [
+        row_dict(value)
+        for value in conn.execute(
+            "SELECT session_id,project_id,executor_surface,machine_id,state,"
+            "created_at,last_injected_at,acknowledged_at,expired_at,cancelled_at,"
+            "wake_attempt_count FROM session_message_recipients "
+            f"WHERE message_id={marker} ORDER BY session_id",
+            (message_id,),
+        ).fetchall()
+    ]
+    message["actor_recipients"] = actor_recipients_for_message(conn, message_id)
+    steering = stored_steering_recipient(conn, message_id)
+    if steering is not None:
+        message["steering_recipient"] = steering
+    message.update(
+        sender_identity_projection(
+            conn,
+            int(message["sender_actor_id"]),
+            sender_surface=message.get("sender_surface"),
+        )
+    )
+    return message
+
+
 _UNACKNOWLEDGED_STATES: tuple[str, ...] = ("pending", "injected")
 
 
@@ -145,6 +183,44 @@ def _steering_state_clause(marker: str, state: str | None) -> tuple[str, list[An
     return f"sr.state IN ({slots})", list(states)
 
 
+def message_recipient_match_clause(
+    marker: str,
+    *,
+    state: str | None,
+    session_id: str | None,
+    actor_id: int,
+) -> tuple[str, list[Any]]:
+    """Build the shared recipient/state predicate for message list reads."""
+    session_state, session_params = _session_state_clause(marker, state)
+    session_filter = ""
+    if session_id is not None:
+        session_filter = f" AND r.session_id={marker}"
+        session_params.append(session_id)
+    branches = [
+        "EXISTS (SELECT 1 FROM session_message_recipients r WHERE "
+        f"r.message_id=m.message_id AND {session_state}{session_filter})"
+    ]
+    params = list(session_params)
+    if session_id is not None:
+        steering_state, steering_params = _steering_state_clause(marker, state)
+        branches.append(
+            "EXISTS (SELECT 1 FROM actor_message_recipients sr "
+            f"WHERE sr.message_id=m.message_id AND sr.recipient_kind={marker} "
+            f"AND sr.seat_session_id={marker} AND {steering_state})"
+        )
+        params.extend([STEERING_KIND, session_id, *steering_params])
+    else:
+        actor_state, actor_params = _actor_state_clause(marker, state)
+        branches.append(
+            "EXISTS (SELECT 1 FROM actor_message_recipients ar "
+            f"WHERE ar.message_id=m.message_id AND ar.recipient_kind={marker} "
+            f"AND (ar.actor_id={marker} OR m.sender_actor_id={marker}) "
+            f"AND {actor_state})"
+        )
+        params.extend([ACTOR_KIND, actor_id, actor_id, *actor_params])
+    return "(" + " OR ".join(branches) + ")", params
+
+
 def list_message_ids(
     conn: Any,
     *,
@@ -154,49 +230,16 @@ def list_message_ids(
     limit: int,
 ) -> list[str]:
     marker = _p(conn)
-    session_state, session_params = _session_state_clause(marker, state)
-    session_filter = ""
-    if session_id is not None:
-        session_filter = f" AND r.session_id={marker}"
-        session_params.append(session_id)
-    steering_branch = "1=0"
-    steering_params: list[Any] = []
-    if session_id is not None:
-        # A seat holds role-addressed mail through the durable steering row,
-        # not through a session recipient, so filtering on sessions alone
-        # hides exactly the messages an acquire just handed it.
-        steering_state, steering_state_params = _steering_state_clause(marker, state)
-        steering_branch = (
-            "EXISTS (SELECT 1 FROM actor_message_recipients sr "
-            f"WHERE sr.message_id=m.message_id AND sr.recipient_kind={marker} "
-            f"AND sr.seat_session_id={marker} AND {steering_state})"
-        )
-        steering_params = [STEERING_KIND, session_id, *steering_state_params]
-    actor_state, actor_params = _actor_state_clause(marker, state)
-    actor_branch = "1=0"
-    if session_id is None:
-        actor_branch = (
-            "EXISTS (SELECT 1 FROM actor_message_recipients ar "
-            f"WHERE ar.message_id=m.message_id AND ar.recipient_kind={marker} "
-            f"AND (ar.actor_id={marker} OR m.sender_actor_id={marker}) "
-            f"AND {actor_state})"
-        )
-        actor_params = [ACTOR_KIND, actor_id, actor_id, *actor_params]
-    else:
-        actor_params = []
-    params = [
-        *session_params,
-        *steering_params,
-        *actor_params,
-        max(1, min(int(limit), 500)),
-    ]
+    recipient_match, params = message_recipient_match_clause(
+        marker,
+        state=state,
+        session_id=session_id,
+        actor_id=actor_id,
+    )
+    params.append(max(1, min(int(limit), 500)))
     rows = conn.execute(
         "SELECT m.message_id,m.created_at FROM session_messages m WHERE "
-        "EXISTS (SELECT 1 FROM session_message_recipients r WHERE "
-        f"r.message_id=m.message_id AND {session_state}{session_filter}) OR "
-        + steering_branch
-        + " OR "
-        + actor_branch
+        + recipient_match
         + " ORDER BY m.created_at DESC,m.message_id LIMIT "
         + marker,
         tuple(params),
@@ -233,6 +276,8 @@ def public_recipients(details: dict[str, Any]) -> list[dict[str, Any]]:
 __all__ = [
     "list_message_ids",
     "message_details",
+    "message_recipient_match_clause",
+    "message_summary",
     "public_recipients",
     "recipient_project_ids",
     "sender_identity_projection",

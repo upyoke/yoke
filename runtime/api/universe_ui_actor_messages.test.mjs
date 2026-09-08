@@ -89,9 +89,16 @@ test("Messages tab badges and acknowledges the signed-in actor receipt", async (
     async call(request) {
       requests.push(structuredClone(request));
       if (request.function === "session_control.message.list") {
-        return ok({ messages: [structuredClone(message)], count: 1 });
+        const actionable = message.actor_receipt.state === "pending";
+        message.needs_attention = actionable;
+        return ok({
+          messages: [structuredClone(message)],
+          count: 1,
+          actionable_count: actionable ? 1 : 0,
+          settled_matched_count: actionable ? 0 : 1,
+          next_cursor: null,
+        });
       }
-      if (request.function === "sessions.list") return ok({ rows: [] });
       if (request.function === "session_control.message.acknowledge") {
         message.actor_receipt.state = "read";
         message.actor_recipients[0].state = "read";
