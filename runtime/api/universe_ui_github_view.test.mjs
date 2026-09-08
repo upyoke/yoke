@@ -16,9 +16,17 @@ function okEnvelope(result) {
   return { status: 200, envelope: { success: true, result } };
 }
 
-// A served status payload in the engine's own shape. Every status word and
-// reason below is a fixture string: anything the view shows beyond these
-// would be hardcoded vocabulary — the assertion this fixture exists for.
+const FOUR_TITLES = [
+  "GitHub App installations",
+  "Personal GitHub authorization",
+  "Project mappings with issue-sync",
+  "Machine authentications",
+];
+const HOSTED_TITLES = [
+  "Project mappings with issue-sync",
+  "Machine authentications",
+];
+
 function boundStatusFixture(overrides = {}) {
   return {
     project: "yoke",
@@ -59,8 +67,9 @@ function boundStatusFixture(overrides = {}) {
   };
 }
 
-function githubClient(statusResult) {
+function githubClient(statusResult, options = {}) {
   const requests = [];
+  const machines = options.machines || [];
   return {
     requests,
     async call(request) {
@@ -69,30 +78,41 @@ function githubClient(statusResult) {
         return okEnvelope({ name: "Yoke" });
       }
       if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
+        return okEnvelope({
+          rows: options.projects || [{ id: 1, slug: "yoke", name: "Yoke" }],
+        });
       }
       if (request.function === "projects.github_binding.status") {
         return okEnvelope(statusResult);
+      }
+      if (request.function === "machine.list") {
+        return okEnvelope({ machines, count: machines.length });
       }
       throw new Error(`unexpected function ${request.function}`);
     },
   };
 }
 
-async function mountGithub(t, client) {
+async function mountGithub(t, client, options = {}) {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/github?project=1";
+  documentNode.defaultView.location.hash = options.hash || "#/github?project=1";
   const root = documentNode.createElement("div");
-  const mounted = mountUniverseApp(root, { client });
+  const sections = typeof options.sections === "function"
+    ? options.sections(documentNode) : options.sections;
+  const mounted = mountUniverseApp(root, {
+    client,
+    capabilities: options.capabilities,
+    sections,
+  });
   await settle();
-  return { root, mounted };
+  return { root, mounted, documentNode };
 }
 
-function panelTitles(root) {
-  return allNodes(root)
+function panelTitles(root, host = byClass(root, "view-host")[0]) {
+  return allNodes(host)
     .filter((node) => node.tagName === "H2")
     .map((node) => node.textContent);
 }
@@ -106,8 +126,6 @@ function pillTexts(root) {
   return byClass(root, "pill").map((node) => node.textContent);
 }
 
-// The view is read-only end to end: the local server has no web-callable
-// GitHub write, so nothing inside the view may pretend to act.
 function assertNoControls(root) {
   const view = byClass(root, "view-host")[0];
   assert.ok(!allNodes(view).some(
@@ -115,11 +133,17 @@ function assertNoControls(root) {
   ));
 }
 
-test("a bound project renders binding, installation, access, and sync facts", async (t) => {
-  const client = githubClient(boundStatusFixture());
+test("a bound project renders installations, mappings, and machine facts", async (t) => {
+  const client = githubClient(boundStatusFixture(), {
+    machines: [{
+      machine_id: "m-1",
+      name: "studio",
+      owner_actor_id: 2,
+      last_seen_at: "2026-07-03T12:00:00Z",
+    }],
+  });
   const { root, mounted } = await mountGithub(t, client);
 
-  // One read, scoped to the picked project through the payload.
   assert.deepEqual(
     client.requests.find(
       (request) => request.function === "projects.github_binding.status",
@@ -129,34 +153,36 @@ test("a bound project renders binding, installation, access, and sync facts", as
       payload: { project: "1" },
     },
   );
-  assert.deepEqual(panelTitles(root), [
-    "This project's repository", "Installation behind this binding",
-    "Permissions & automation", "Sync receipts",
-  ]);
+  assert.ok(client.requests.some(
+    (request) => request.function === "machine.list",
+  ));
+  assert.deepEqual(panelTitles(root), FOUR_TITLES);
 
   const text = viewText(root);
   assert.ok(text.includes("example-org/example-repo"));
-  assert.ok(text.includes("main"));
   assert.ok(text.includes("example-org"));
   assert.ok(text.includes("Organization"));
-  // Sync facts: the stored mode as read-only text plus the durable receipt.
   assert.ok(text.includes("enabled"));
+  assert.ok(text.includes("success"));
   assert.ok(text.includes("2026-07-02T08:30:00Z"));
-  // The automation reason is a served token rendered as text.
   assert.ok(text.includes("bound"));
+  assert.ok(text.includes("studio"));
+  assert.ok(text.includes(
+    "unavailable — this universe has no product read for a personal",
+  ));
 
-  // Served status words render as pills — coloring hints, never invented
-  // vocabulary. Automation availability is the one boolean-to-word render.
   const pills = pillTexts(root);
   assert.ok(pills.includes("satisfied"));
   assert.ok(pills.includes("available"));
-  assert.ok(pills.includes("success"));
+  assert.ok(pills.includes("enabled"));
+  assert.ok(pills.includes("unavailable"));
+  assert.equal(pills.filter((text) => text === "unavailable").length, 2);
 
   assertNoControls(root);
   mounted.unmount();
 });
 
-test("an unbound project explains what a binding is, with no dead controls", async (t) => {
+test("an unbound project still maps the named repo, with no dead controls", async (t) => {
   const client = githubClient({
     project: "yoke",
     github_repo: "example-org/orphaned-repo",
@@ -170,15 +196,12 @@ test("an unbound project explains what a binding is, with no dead controls", asy
   });
   const { root, mounted } = await mountGithub(t, client);
 
-  // No binding means no installation, permission, or sync panels — only
-  // the honest explanation.
-  assert.deepEqual(panelTitles(root), ["This project's repository"]);
+  assert.deepEqual(panelTitles(root), FOUR_TITLES);
   const text = viewText(root);
-  assert.ok(text.includes("A repository binding connects this project"));
-  assert.ok(text.includes("This project has no binding."));
+  assert.ok(text.includes("example-org/orphaned-repo"));
+  assert.ok(text.includes("repo_not_bound"));
+  assert.ok(text.includes("no GitHub App installation backs a project"));
 
-  // A project record naming a repo without a binding surfaces as a fact,
-  // rendered as copyable code — never a button.
   const view = byClass(root, "view-host")[0];
   const codes = allNodes(view).filter((node) => node.tagName === "CODE");
   assert.deepEqual(
@@ -202,25 +225,50 @@ test("a binding without an installation record renders honestly, not a crash", a
   }));
   const { root, mounted } = await mountGithub(t, client);
 
-  assert.deepEqual(panelTitles(root), [
-    "This project's repository", "Installation behind this binding",
-    "Permissions & automation", "Sync receipts",
-  ]);
+  assert.deepEqual(panelTitles(root), FOUR_TITLES);
   const text = viewText(root);
-  // The installation panel names the dangling reference instead of
-  // pretending an installation exists.
   assert.ok(text.includes(
     "the binding names installation inst-31, but no installation record " +
       "backs it",
   ));
-  // The engine's verdicts render verbatim: the permission hint line and
-  // the automation reason token.
-  assert.ok(text.includes("Reconnect the GitHub App"));
   assert.ok(text.includes("installation_missing"));
   const pills = pillTexts(root);
   assert.ok(pills.includes("unknown"));
   assert.ok(pills.includes("unavailable"));
 
+  assertNoControls(root);
+  mounted.unmount();
+});
+
+test("hosted mode omits personal and installations so the host slot owns them", async (t) => {
+  const client = githubClient(boundStatusFixture());
+  let hostWrap;
+  const { root, mounted } = await mountGithub(t, client, {
+    capabilities: { data: { portability: { mode: "hosted" } } },
+    sections(documentNode) {
+      hostWrap = documentNode.createElement("div");
+      for (const title of [
+        "GitHub App installations", "Personal GitHub authorization",
+      ]) {
+        const panel = documentNode.createElement("section");
+        const heading = documentNode.createElement("h2");
+        heading.textContent = title;
+        panel.appendChild(heading);
+        hostWrap.appendChild(panel);
+      }
+      return { github: { content: hostWrap, placement: "beforeScope" } };
+    },
+  });
+
+  assert.deepEqual(panelTitles(root), HOSTED_TITLES);
+  const combined = allNodes(byClass(root, "content")[0])
+    .filter((node) => node.tagName === "H2")
+    .map((node) => node.textContent);
+  assert.deepEqual(combined, FOUR_TITLES);
+  assert.ok(!viewText(root).includes(
+    "unavailable — this universe has no product read for a personal",
+  ));
+  assert.ok(allNodes(root).includes(hostWrap));
   assertNoControls(root);
   mounted.unmount();
 });

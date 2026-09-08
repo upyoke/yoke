@@ -255,16 +255,26 @@
         ),
         // The hosted GitHub connection is the organization's, not any one
         // project's, so the platform declares it unscoped and the frame must
-        // stand it above the view's picker. Framed here at the same
-        // placement, or the harness would verify a frame nobody ships.
+        // stand it above the view's picker. Combined hosted proof is four
+        // h2 titles: these two host panels, then the product's mappings and
+        // machines. No bind form, no Unbind, no duplicate mapping table.
         github: {
           placement: "beforeScope",
-          content: sampleHostSection(
-            "Authorized account",
-            "Sample organization-wide GitHub connection supplied by the host " +
-              "platform. It sits above the project picker because no project " +
-              "narrows it.",
-          ),
+          content: (() => {
+            const wrap = el("div");
+            wrap.appendChild(sampleHostSection(
+              "GitHub App installations",
+              "Sample organization-wide GitHub App installations supplied " +
+                "by the host platform.",
+            ));
+            wrap.appendChild(sampleHostSection(
+              "Personal GitHub authorization",
+              "Sample organization-wide personal GitHub authorization " +
+                "supplied by the host platform. It sits above the project " +
+                "picker because no project narrows it.",
+            ));
+            return wrap;
+          })(),
         },
       },
     });

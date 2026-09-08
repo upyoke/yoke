@@ -1,196 +1,190 @@
-// The GitHub screen: how one project binds to its repository, and how they
-// sync — exactly as the engine attests it. One read
-// (`projects.github_binding.status`) serves every panel: the binding row,
-// the App installation behind it, the permission and automation verdicts,
-// and the durable sync receipts. Every status word and reason on screen is
-// a served string — this module colors through the shared pill families and
-// never judges. The local server exposes no web-callable GitHub write, so
-// nothing here is a control: the sync mode renders as read-only text, and an
-// unbound project gets an explanation rather than a dead button.
+// The GitHub screen composes with a host beforeScope slot. Hosted universes
+// already stand App installations and personal authorization above the
+// picker; this view does not duplicate those. Local and self-host render
+// all four sections: installations derived from binding-status reads (last
+// verified is the attested stamp; there is no webhook column), personal
+// authorization named unavailable because no product read exists, then the
+// same project mappings and machine authentications. Mapping rows fan out
+// `projects.github_binding.status`. Machine rows come from `machine.list`;
+// GitHub account and authorization cells say unavailable — the registry
+// does not carry those facts. Read-only: no web-callable GitHub write.
 
+import { relativeAge } from "./universe_time.js";
 import {
   el,
   loadSection,
+  loadScopedPanels,
+  portabilityMode,
+  renderTable,
+  scopeBuckets,
   section,
-  statePill,
 } from "./universe_view_support.js";
 
-// A label/value grid in the item-detail kv dress. A row may render its
-// value as a state pill (coloring hint only) or as a `code` element
-// (copyable identifier, never a button); a row marked `optional` with an
-// empty value does not render at all — a permanently blank "last error"
-// line would be noise, not honesty.
-function factsTable(documentNode, rows) {
-  const table = el(documentNode, "table", "items kv");
-  for (const row of rows) {
-    const text = String(row.value ?? "");
-    if (!text && row.optional) continue;
-    const tr = el(documentNode, "tr");
-    tr.appendChild(el(documentNode, "th", null, row.label));
-    const cell = el(documentNode, "td");
-    if (row.pill) {
-      const pill = statePill(documentNode, text);
-      if (pill) cell.appendChild(pill);
-    } else if (row.code) {
-      if (text) cell.appendChild(el(documentNode, "code", null, text));
-    } else {
-      cell.textContent = text;
-    }
-    tr.appendChild(cell);
-    table.appendChild(tr);
-  }
-  return table;
+const TITLE_INSTALLATIONS = "GitHub App installations";
+const TITLE_PERSONAL = "Personal GitHub authorization";
+const TITLE_MAPPINGS = "Project mappings with issue-sync";
+const TITLE_MACHINES = "Machine authentications";
+
+function projectLabel(projects, projectId) {
+  const row = projects.find((item) => String(item.id) === String(projectId));
+  return (row && (row.name || row.slug)) || String(projectId);
 }
 
-// What a binding is and that this project has none. The explanation is the
-// whole affordance: no web-callable bind exists on this read-only surface,
-// so no button pretends one does.
-function renderUnboundState(body, result) {
-  const documentNode = body.ownerDocument;
-  body.appendChild(el(
-    documentNode, "p", "empty",
-    "A repository binding connects this project to one GitHub repository " +
-      "through a GitHub App installation — it is what lets Yoke read and " +
-      "sync that repository on the project's behalf. This project has no " +
-      "binding.",
-  ));
-  // A project record naming a repo without a binding behind it is a fact
-  // worth surfacing, not smoothing over.
-  if (result.github_repo) {
-    const line = el(
-      documentNode, "p", "fact-line", "The project record names ",
-    );
-    line.appendChild(el(documentNode, "code", null, result.github_repo));
-    line.appendChild(el(
-      documentNode, "span", null, " without a live binding behind it.",
-    ));
-    body.appendChild(line);
-  }
-}
-
-function renderBindingFacts(body, result) {
-  const binding = result.binding || {};
-  body.appendChild(factsTable(body.ownerDocument, [
-    { label: "repository", value: binding.github_repo, code: true },
-    { label: "default branch", value: binding.default_branch },
-    { label: "api origin", value: binding.api_url, code: true },
-    { label: "status", value: binding.status, pill: true },
-    // A NULL verification stamp reads as the word "never" —
-    // bound-but-never-verified is a fact, not a blank.
-    { label: "last verified", value: binding.last_verified_at || "never" },
-    { label: "last error", value: binding.last_error, optional: true },
-  ]));
-}
-
-function renderInstallationFacts(body, result) {
-  const documentNode = body.ownerDocument;
-  const installation = result.installation;
-  if (!installation) {
+function installationRows(callResults) {
+  const seen = new Map();
+  for (const callResult of callResults) {
+    const result = callResult.envelope.result || {};
     const binding = result.binding || {};
-    body.appendChild(el(
-      documentNode, "p", "empty",
-      binding.installation_id
-        ? `the binding names installation ${binding.installation_id}, ` +
-          "but no installation record backs it"
-        : "no installation record backs this binding",
-    ));
-    return;
+    const installation = result.installation;
+    const id = (installation && installation.installation_id)
+      || binding.installation_id;
+    if (!id || seen.has(String(id))) continue;
+    seen.set(String(id), {
+      installation_id: String(id),
+      account_login: installation ? installation.account_login : "",
+      account_type: installation ? installation.account_type : "",
+      status: installation ? installation.status : "",
+      last_verified_at: installation
+        ? (installation.last_verified_at || "never")
+        : (binding.last_verified_at || "never"),
+      dangling: !installation,
+    });
   }
-  body.appendChild(factsTable(documentNode, [
-    { label: "account", value: installation.account_login },
-    { label: "account type", value: installation.account_type },
-    { label: "installation", value: installation.installation_id, code: true },
-    { label: "api origin", value: installation.api_url, code: true },
-    { label: "repository access", value: installation.repository_selection },
-    { label: "status", value: installation.status, pill: true },
-    { label: "last verified", value: installation.last_verified_at || "never" },
-    { label: "last error", value: installation.last_error, optional: true },
-  ]));
+  return [...seen.values()];
 }
 
-// The engine's two verdicts, verbatim: the permission check against the
-// App's required repository permissions, and whether automation may act.
-// The reason is a served token and renders as text, never re-derived here.
-function renderAccessFacts(body, result) {
-  const documentNode = body.ownerDocument;
-  const permissionInfo = result.permission_status || {};
-  const automation = result.automation || {};
-  const missing = Array.isArray(permissionInfo.missing)
-    ? permissionInfo.missing : [];
-  body.appendChild(factsTable(documentNode, [
-    { label: "permissions", value: permissionInfo.status, pill: true },
-    { label: "missing", value: missing.join(", "), optional: true },
+function mappingRows(callResults, projects, buckets) {
+  return callResults.map((callResult, index) => {
+    const result = callResult.envelope.result || {};
+    const binding = result.binding || {};
+    const permission = result.permission_status || {};
+    const automation = result.automation || {};
+    const missing = Array.isArray(permission.missing)
+      ? permission.missing.join(", ") : "";
+    return {
+      project: projectLabel(projects, buckets[index]),
+      repo: binding.github_repo || result.github_repo || "",
+      status: binding.status || "",
+      permissions: permission.status || "",
+      missing,
+      automation: Object.hasOwn(automation, "available")
+        ? (automation.available ? "available" : "unavailable") : "",
+      reason: automation.reason || "",
+      sync_mode: result.github_sync_mode || "",
+      last_sync: binding.last_sync_at || "",
+      last_sync_outcome: binding.last_sync_outcome || "",
+    };
+  });
+}
+
+function renderPersonalUnavailable(body) {
+  body.appendChild(el(
+    body.ownerDocument, "p", "empty",
+    "unavailable — this universe has no product read for a personal " +
+      "GitHub account",
+  ));
+}
+
+function renderInstallations(body, callResults) {
+  renderTable(body, installationRows(callResults), [
+    {
+      label: "account",
+      value: (row) => row.account_login,
+      sub: (row) => row.account_type,
+    },
+    { label: "installation", value: (row) => row.installation_id, code: true },
+    {
+      label: "status",
+      value: (row) => row.status,
+      pill: true,
+      sub: (row) => (row.dangling
+        ? `the binding names installation ${row.installation_id}, ` +
+          "but no installation record backs it"
+        : ""),
+    },
+    { label: "last verified", value: (row) => row.last_verified_at },
+  ], "no GitHub App installation backs a project in this scope");
+}
+
+function renderMappings(body, callResults, projects, buckets) {
+  renderTable(body, mappingRows(callResults, projects, buckets), [
+    { label: "project", value: (row) => row.project },
+    { label: "repository", value: (row) => row.repo, code: true },
+    { label: "binding", value: (row) => row.status, pill: true },
+    {
+      label: "permissions",
+      value: (row) => row.permissions,
+      pill: true,
+      sub: (row) => row.missing,
+    },
     {
       label: "automation",
-      value: automation.available ? "available" : "unavailable",
+      value: (row) => row.automation,
       pill: true,
+      sub: (row) => row.reason,
     },
-    { label: "reason", value: automation.reason },
-  ]));
-  if (permissionInfo.hint) {
-    body.appendChild(el(documentNode, "p", "fact-line", permissionInfo.hint));
-  }
+    {
+      label: "issue sync",
+      value: (row) => row.sync_mode,
+      pill: true,
+      sub: (row) => (row.last_sync
+        ? `${row.last_sync_outcome} · ${row.last_sync}` : ""),
+    },
+  ], "no projects in this scope");
 }
 
-// The stored sync mode plus the durable receipt of the last project-scoped
-// GitHub automation run. The mode is the project's setting rendered as
-// read-only text: no web-callable write exists on this surface, so no
-// control here could change it — and none pretends to.
-function renderSyncFacts(body, result) {
-  const documentNode = body.ownerDocument;
-  const binding = result.binding || {};
-  const rows = [{ label: "sync mode", value: result.github_sync_mode }];
-  if (binding.last_sync_at) {
-    rows.push(
-      { label: "last sync", value: binding.last_sync_at },
-      { label: "outcome", value: binding.last_sync_outcome, pill: true },
-      { label: "error", value: binding.last_sync_error, optional: true },
-    );
-  }
-  body.appendChild(factsTable(documentNode, rows));
-  if (!binding.last_sync_at) {
-    body.appendChild(el(
-      documentNode, "p", "empty",
-      "no sync receipt yet — no project-scoped GitHub automation has " +
-        "recorded a terminal outcome",
-    ));
-  }
+function renderMachines(body, result) {
+  const machines = Array.isArray(result.machines) ? result.machines : [];
+  renderTable(body, machines, [
+    {
+      label: "machine",
+      value: (row) => row.name,
+      sub: (row) => (row.last_seen_at
+        ? `seen ${relativeAge(row.last_seen_at)} ago` : ""),
+    },
+    { label: "GitHub account", value: () => "unavailable", pill: true },
+    { label: "authorization", value: () => "unavailable", pill: true },
+  ], "no machines registered");
 }
 
-// Panel titles name the project, not just the noun: a host may stand its own
-// organization-wide GitHub panels above this view (its account, its App
-// installations, every project's binding), and "Installation" over one of
-// those and "Installation" over this one would read as the same fact twice
-// rather than the org's set and this project's one.
+function bindingCalls(buckets) {
+  return buckets.map((project) => ({
+    functionId: "projects.github_binding.status",
+    payload: { project: String(project) },
+  }));
+}
+
 export function renderGithubView(context, main, scope) {
   const documentNode = context.document;
-  const bindingPanel = section(documentNode, "This project's repository");
-  main.replaceChildren(bindingPanel);
+  const hosted = portabilityMode(context.capabilities) === "hosted";
+  const projects = context.projects();
+  const buckets = scopeBuckets(scope, projects, true);
+  const installations = section(documentNode, TITLE_INSTALLATIONS);
+  const personal = section(documentNode, TITLE_PERSONAL);
+  const mappings = section(documentNode, TITLE_MAPPINGS);
+  const machines = section(documentNode, TITLE_MACHINES);
+  if (hosted) {
+    main.replaceChildren(mappings, machines);
+  } else {
+    main.replaceChildren(installations, personal, mappings, machines);
+    personal.renderEnvelope(
+      { status: 200, envelope: { success: true, result: {} } },
+      renderPersonalUnavailable,
+    );
+  }
+  const mappingTargets = hosted
+    ? [[mappings, (body, callResults) => renderMappings(
+      body, callResults, projects, buckets,
+    )]]
+    : [
+      [installations, renderInstallations],
+      [mappings, (body, callResults) => renderMappings(
+        body, callResults, projects, buckets,
+      )],
+    ];
+  loadScopedPanels(context, mappingTargets, bindingCalls(buckets));
   loadSection(
-    context, bindingPanel,
-    "projects.github_binding.status",
-    { project: scope },
-    (body, callResult) => {
-      const result = callResult.envelope.result || {};
-      if (!result.bound) {
-        renderUnboundState(body, result);
-        return;
-      }
-      renderBindingFacts(body, result);
-      // The remaining panels are facets of the same read. They exist only
-      // for a bound project — an unbound one has no installation, no
-      // permission verdict, and no receipts to stand a panel on.
-      for (const [title, renderFacts] of [
-        ["Installation behind this binding", renderInstallationFacts],
-        ["Permissions & automation", renderAccessFacts],
-        ["Sync receipts", renderSyncFacts],
-      ]) {
-        const panel = section(documentNode, title);
-        main.appendChild(panel);
-        panel.renderEnvelope(
-          callResult, (panelBody) => renderFacts(panelBody, result),
-        );
-      }
-    },
+    context, machines, "machine.list", {},
+    (body, callResult) => renderMachines(body, callResult.envelope.result || {}),
   );
 }

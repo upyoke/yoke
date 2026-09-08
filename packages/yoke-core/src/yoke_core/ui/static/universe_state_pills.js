@@ -48,6 +48,8 @@ const FAMILIES = {
   declared: "idle",
   pending: "warn",
   unavailable: "warn",
+  enabled: "good",
+  disabled: "idle",
   suspended: "crit",
   deleted: "crit",
   satisfied: "good",

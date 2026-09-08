@@ -56,19 +56,26 @@ test("explicit invalid and All deep links override remembered scope; absent scop
 test("single focus and global content do not replace remembered multi-selection", () => {
   const state = createProjectSelection({});
   scopeForEntry(navEntry("items"), "1,2", projects, state);
-  assert.equal(scopeForEntry(navEntry("github"), null, projects, state), "1");
-  assert.equal(scopeForEntry(navEntry("github"), "3", projects, state, "1,2"), "3");
+  assert.equal(scopeForEntry(navEntry("architecture"), null, projects, state), "1");
+  assert.equal(
+    scopeForEntry(navEntry("architecture"), "3", projects, state, "1,2"), "3",
+  );
   assert.deepEqual(state.selection, ["1", "2"]);
   assert.equal(scopeForEntry(navEntry("workflows"), null, projects, state), null);
   assert.deepEqual(state.selection, ["1", "2"]);
-  assert.equal(scopeForEntry(navEntry("github"), null, projects, state), "3");
+  assert.equal(scopeForEntry(navEntry("architecture"), null, projects, state), "3");
+  assert.deepEqual(
+    scopeForEntry(navEntry("github"), null, projects, state), ["1", "2"],
+  );
 });
 
 test("ordinary detail, focus, global, and workflow links carry remembered scope", () => {
   assert.equal(withProjectSelection("#/items/42?project=2", ["1", "2"]),
     "#/items/42?project=2&selection=1,2");
+  assert.equal(withProjectSelection("#/architecture?project=2", "all"),
+    "#/architecture?project=2&selection=all");
   assert.equal(withProjectSelection("#/github?project=2", "all"),
-    "#/github?project=2&selection=all");
+    "#/github?project=2");
   assert.equal(withProjectSelection("#/workflows/dash", ["2"]),
     "#/workflows/dash?selection=2");
   assert.equal(withProjectSelection("#/organization", ["1", "2"]),

@@ -53,6 +53,17 @@
   border-bottom: 1px solid var(--yoke-border);
   vertical-align: middle;
 }
+.universe-app-root table.items td:has(.pill),
+.universe-app-root table.items td:has(.cell-sub) {
+  vertical-align: top;
+}
+.universe-app-root table.items td .cell-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--yoke-muted);
+}
 /* Cells holding stored identifiers (capability types, keys) wear the code
    face: the value IS the vocabulary, so it dresses like code. */
 .universe-app-root table.items td.mono {
