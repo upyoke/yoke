@@ -26,12 +26,19 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_contracts.session_control.recipient_selector import (
+    STEERING_SCOPE_PROJECT_KEY,
+)
 from yoke_core.domain.coordination_claims import active_claim
 from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
 
 
 #: Written where the recipient could not be resolved to a live driver at all.
 RECIPIENT_STEERING = "steering"
+
+#: Stands in when this machine cannot resolve its own admin connection, so
+#: the recipe still teaches the shape rather than naming a wrong universe.
+CONTROL_PLANE_ENV_PLACEHOLDER = "<control-plane>-db-admin"
 
 
 @dataclass(frozen=True)
@@ -43,10 +50,36 @@ class HandoffResult:
     delivered: bool
 
 
-def _execute_command(project_slug: str, run_id: str) -> str:
-    return (
-        f"yoke --env {project_slug}-db-admin watch deploy -- {run_id}"
+def _control_plane_admin_env() -> str:
+    """The admin connection holding the run row, or "" when unresolvable.
+
+    ``--env`` names the CONTROL PLANE the run lives on, never the project
+    being released or the environment being deployed to: one control plane
+    serves every target, and a label built from either of those names a
+    connection that does not exist. The active connection is the one the run
+    row was just written through, so its own admin sibling is the answer;
+    an env that is already the admin side is used as-is.
+    """
+    from yoke_contracts.machine_config.schema import (
+        DB_ADMIN_ENV_SUFFIX,
+        same_universe_db_admin_env,
     )
+
+    try:
+        from yoke_core.domain import machine_config
+
+        active = str(machine_config.active_env() or "").strip()
+        if active.endswith(DB_ADMIN_ENV_SUFFIX):
+            return active
+        return same_universe_db_admin_env(machine_config.load_config(), active)
+    except Exception:  # noqa: BLE001 - an unresolvable pairing costs the name
+        return ""
+
+
+def _execute_command(run_id: str) -> str:
+    """The execute recipe, naming the real connection when one resolves."""
+    env = _control_plane_admin_env() or CONTROL_PLANE_ENV_PLACEHOLDER
+    return f"yoke --env {env} watch deploy -- {run_id}"
 
 
 def compose_handoff_body(
@@ -61,7 +94,7 @@ def compose_handoff_body(
         f"ready: its coordinated pair has fully merged and the run now names "
         f"release lineage {release_lineage}.\n\n"
         f"You hold the deploy authority for this project. Execute it with:\n"
-        f"  {_execute_command(project_slug, run_id)}\n\n"
+        f"  {_execute_command(run_id)}\n\n"
         f"Nothing has been deployed. The run stays in 'created' until you "
         f"execute it, and re-reading it is "
         f"`yoke deployment-runs get {run_id}`."
@@ -96,7 +129,10 @@ def hand_off_prepared_run(
         selector: dict[str, Any] = {"session_ids": [holder]}
         recipient = holder
     else:
-        selector = {"steering": True, "steering_scope": {"projects": [slug]}}
+        selector = {
+            "steering": True,
+            "steering_scope": {STEERING_SCOPE_PROJECT_KEY: project_id},
+        }
         recipient = RECIPIENT_STEERING
 
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -131,6 +167,7 @@ def hand_off_prepared_run(
 
 
 __all__ = [
+    "CONTROL_PLANE_ENV_PLACEHOLDER",
     "RECIPIENT_STEERING",
     "HandoffResult",
     "compose_handoff_body",
