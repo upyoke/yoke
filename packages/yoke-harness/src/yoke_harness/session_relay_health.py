@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 import logging
 from pathlib import Path
@@ -141,6 +142,14 @@ def clear_report_attempt(report_path: Path, state_dir: Path | None) -> None:
     _attempt_path(report_path, state_dir).unlink(missing_ok=True)
 
 
+def report_rejection_evidence(
+    report_path: Path,
+    state_dir: Path | None,
+) -> dict[str, object]:
+    """Read the report-scoped rejection facts used by bounded quarantine."""
+    return _load(_attempt_path(report_path, state_dir))
+
+
 def clear_report_failure_if_drained(state_dir: Path | None) -> None:
     """Clear the active failure once no report remains queued for retry."""
     pending = _root(state_dir) / PENDING_REPORT_DIR_NAME
@@ -178,12 +187,18 @@ def quarantine_report(
         pass
     if destination.exists():
         destination.chmod(0o600)
+    try:
+        payload_sha256 = sha256(destination.read_bytes()).hexdigest()
+    except OSError:
+        payload_sha256 = ""
     metadata = {
         "report_id": report_id,
         "job_kind": str((payload or {}).get("job_kind") or "unknown")[:16],
         "error_code": str(error_code or "relay_report_rejected")[:128],
         "attempts": max(1, int(attempts)),
         "quarantined_at": now or _utc_now(),
+        "payload_sha256": payload_sha256,
+        "preserved_path": str(destination),
     }
     _write(directory / f"{report_id}.meta.json", metadata)
     _LOGGER.error(
@@ -234,8 +249,11 @@ def relay_health_recovery(health: Mapping[str, object]) -> str:
         )
     if health.get("state") == "quarantined":
         return (
-            "Rejected reports are preserved under the relay state directory; "
-            "align the relay/server wire contract, then replay or reconcile them."
+            "Permanent server rejections are preserved under the relay state "
+            "directory. report_conflict means the server already settled the "
+            "attempt; do not replay it. Use `yoke relay report quarantine "
+            "<report-id>` only for a named pending report with recorded permanent-"
+            "rejection evidence."
         )
     if health.get("state") == "retrying":
         return (
@@ -255,6 +273,7 @@ __all__ = [
     "clear_report_failure_if_drained",
     "observe_relay_health",
     "quarantine_report",
+    "report_rejection_evidence",
     "record_relay_run_refusal",
     "record_rejected_attempt",
     "record_report_failure",

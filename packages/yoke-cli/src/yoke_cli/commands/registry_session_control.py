@@ -38,6 +38,10 @@ from yoke_cli.commands.adapters.session_control_relay_models import (
     RELAY_PROBE_MODELS_USAGE,
     relay_probe_models,
 )
+from yoke_cli.commands.adapters.session_control_relay_report import (
+    RELAY_REPORT_QUARANTINE_USAGE,
+    relay_report_quarantine,
+)
 from yoke_cli.commands.adapters.session_control_relay import (
     RELAY_DIAGNOSTIC_USAGE,
     RELAY_INSTALL_USAGE,
@@ -220,6 +224,7 @@ SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("relay", "install"): relay_install,
     ("relay", "probe-models"): relay_probe_models,
     ("relay", "probe-surface"): relay_probe_surface,
+    ("relay", "report", "quarantine"): relay_report_quarantine,
     ("relay", "uninstall"): relay_uninstall,
     ("relay", "status"): relay_status,
     ("relay", "serve-once"): relay_serve_once,
@@ -232,6 +237,7 @@ SESSION_CONTROL_TOOL_SHAPED_USAGE = {
     "yoke relay install": RELAY_INSTALL_USAGE,
     "yoke relay probe-models": RELAY_PROBE_MODELS_USAGE,
     "yoke relay probe-surface": RELAY_PROBE_SURFACE_USAGE,
+    "yoke relay report quarantine": RELAY_REPORT_QUARANTINE_USAGE,
     "yoke relay uninstall": RELAY_UNINSTALL_USAGE,
     "yoke relay status": RELAY_STATUS_USAGE,
     "yoke relay serve-once": RELAY_SERVE_ONCE_USAGE,
