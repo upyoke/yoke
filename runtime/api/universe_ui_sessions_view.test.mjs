@@ -77,12 +77,12 @@ test("Sessions renders resolved local identity and the exact empty state", async
   const filterHost = byClass(emptyRoot, "session-roster-filters")[0];
   assert.deepEqual(
     filterHost.children.map((node) => node.tagName),
-    ["LABEL", "LABEL", "LABEL", "LABEL", "BUTTON", "SPAN"],
+    ["LABEL", "LABEL", "LABEL", "LABEL", "LABEL", "BUTTON", "SPAN"],
   );
   const filterControls = byClass(filterHost, "session-filter-control");
   assert.deepEqual(
     filterControls.map((control) => control.tagName),
-    ["INPUT", "SELECT", "SELECT", "SELECT"],
+    ["INPUT", "SELECT", "SELECT", "SELECT", "SELECT"],
   );
   assert.equal(
     filterControls[0].placeholder,
@@ -90,7 +90,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   );
   assert.deepEqual(
     byClass(filterHost, "session-filter-label").map((node) => node.textContent),
-    ["State", "Harness", "Machine"],
+    ["State", "Project", "Harness", "Machine"],
   );
   const filterButtons = [
     byClass(filterHost, "session-filter-clear")[0],
@@ -98,13 +98,13 @@ test("Sessions renders resolved local identity and the exact empty state", async
   ];
   assert.deepEqual(
     filterButtons.map((button) => button.textContent),
-    ["Clear", "Message all", "Reclaim stale"],
+    ["Clear", "Message all", "Reclaim stale", "Load more"],
   );
   assert.equal(
     filterButtons.at(-1).className,
     "item-button session-filter-action",
   );
-  assert.equal(filterButtons.at(-1).disabled, true);
+  assert.equal(filterButtons.at(-1).hidden, true);
   assert.equal(byClass(emptyRoot, "session-control-actions").length, 0);
   assert.equal(byClass(emptyRoot, "head-actions").length, 0);
   emptyMount.unmount();

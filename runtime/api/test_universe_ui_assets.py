@@ -28,8 +28,6 @@ def test_known_assets_serve_with_content_types(ui_client):
 
 
 def test_assets_and_shell_are_served_with_revalidation_header(ui_client):
-    # `no-cache` (revalidate, not `no-store`): browsers must recheck the
-    # server after an upgrade instead of running stale modules from cache.
     for asset_name in ui_server.ASSET_CONTENT_TYPES:
         response = ui_client.get(f"/assets/{asset_name}?token={TOKEN}")
         assert response.status_code == 200, asset_name
@@ -111,11 +109,7 @@ def test_responsive_shell_uses_a_drawer_and_search_overlay():
     assert ".shell-search-inline" in compact
     phone = responsive.split("@media (max-width: 640px)", 1)[1]
     assert ".header-project-context" in phone
-    assert (
-        ".universe-app-root .context-side {\n"
-        "    display: contents;\n"
-        "  }"
-    ) in phone
+    assert (".universe-app-root .context-side {\n    display: contents;\n  }") in phone
     assert ".header-search-panel" in phone
     assert "inset: 0" in phone
 
@@ -143,10 +137,7 @@ def test_shell_static_references_are_host_prefix_safe():
 
 
 def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
-    """The harness page exists so the hosted frame is verifiable without a
-    pin. It only does that job if its sample chrome wears the exact class
-    names the platform's hosted shell injects — a harness with invented
-    names verifies a frame nobody ships."""
+    """Verify the harness uses the hosted shell's real mount classes."""
     harness = (
         files("yoke_core.ui")
         .joinpath(
@@ -171,7 +162,6 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
     assert "hosted-org-links" not in harness
     assert "hosted-github-link" not in harness
     assert "hosted-tenant-replacement-link" not in harness
-    # Every mount slot the platform fills is occupied here too.
     for slot_name in (
         "topbarStart",
         "topbarEnd",
@@ -180,9 +170,6 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
     ):
         assert f"{slot_name}:" in harness, slot_name
     assert "navigationEnd:" not in harness
-    # The page names itself a harness so it cannot pass for the product,
-    # and mirrors Platform's identity boundary: topbarEnd owns identity, so
-    # the mounted app must not add a duplicate currentActor chip.
     assert "Hosted-frame harness" in harness
     assert "currentActor" not in harness
     assert 'memberDirectory: { "2": "ben", "5": "dana" }' in harness
@@ -212,9 +199,6 @@ def test_typed_mount_contract_and_declaration_emit_ship():
     assert source_value is not None
     assert declaration_value is not None
     assert runtime_value is not None
-    # The three emits must agree on the version; which number it is belongs to
-    # the TypeScript source, not to this assertion. Pinning the literal here
-    # would fail every bump on principle.
     assert (
         len(
             {
@@ -259,7 +243,7 @@ def test_page_module_wires_the_workbench_shell():
             "projects.capabilities.list",
             "deployment_runs.list",
         ),
-        "universe_views_sessions.js": ("sessions.list",),
+        "universe_sessions_history_loader.js": ("sessions.list",),
         "universe_views_doctor.js": ("doctor.last_run.get",),
         "universe_overview_frontier.js": ("frontier.list",),
         "universe_views_capabilities.js": ("projects.capabilities.list",),
@@ -319,13 +303,33 @@ def test_every_nav_destination_is_routable_and_scoped():
     # Grouped as the sidebar groups them: focus, then settings, then the
     # diagnostics drawer.
     for destination in (
-        "overview", "sessions", "inbox",
-        "organization", "workflows", "projects", "github", "actors",
-        "members", "billing",
-        "strategy", "items", "deployments", "environments", "flows",
-        "databases", "qa-methods", "qa-plans",
-        "qa-activity", "capabilities", "packs", "architecture", "messages",
-        "events", "doctor", "ouroboros", "machines",
+        "overview",
+        "sessions",
+        "inbox",
+        "organization",
+        "workflows",
+        "projects",
+        "github",
+        "actors",
+        "members",
+        "billing",
+        "strategy",
+        "items",
+        "deployments",
+        "environments",
+        "flows",
+        "databases",
+        "qa-methods",
+        "qa-plans",
+        "qa-activity",
+        "capabilities",
+        "packs",
+        "architecture",
+        "messages",
+        "events",
+        "doctor",
+        "ouroboros",
+        "machines",
     ):
         assert f'id: "{destination}"' in page_module, destination
     assert 'id: "board"' not in page_module

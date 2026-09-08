@@ -114,15 +114,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     [
       {
         function: "sessions.list",
-        payload: { project: "1", liveness: "active", limit: 500 },
-      },
-      {
-        function: "sessions.list",
-        payload: { project: "1", liveness: "stale", limit: 500 },
-      },
-      {
-        function: "sessions.list",
-        payload: { project: "1", liveness: "ended", limit: 500 },
+        payload: { open: true, projects: ["1"] },
       },
     ],
   );
@@ -259,10 +251,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.equal(reclaim.disabled, false);
   reclaim.dispatchEvent(new Event("click"));
   await settle();
-  // Three liveness states, fanned out once on load and once after reclaim.
   assert.equal(
     requests.filter((request) => request.function === "sessions.list").length,
-    6,
+    2,
   );
   assert.equal(byClass(root, "session-card").length, 1);
   assert.deepEqual(
@@ -278,6 +269,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   );
   state.value = "";
   state.dispatchEvent(new Event("change"));
+  await settle();
   const reclaimedCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "v8c2qa",
   );
