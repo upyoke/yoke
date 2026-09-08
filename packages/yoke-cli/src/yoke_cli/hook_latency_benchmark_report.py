@@ -7,6 +7,13 @@ import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from yoke_contracts.hook_evaluator_protocol import HOOK_CALL_IDENTITY_FIELD
+
+
+# The dispatch row each sample phase is joined to, keyed by the sample field
+# that holds it. One tool call emits one row per hook event.
+PHASE_HOOK_EVENTS = {"pre_phase": "PreToolUse", "post_phase": "PostToolUse"}
+
 
 class BenchmarkRefusal(RuntimeError):
     def __init__(self, code: str, detail: str, recovery: str) -> None:
@@ -48,10 +55,10 @@ def summarize_samples(samples: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     phases = [
         sample.get(name)
         for sample in samples
-        for name in ("pre_phase", "post_phase")
+        for name in PHASE_HOOK_EVENTS
         if isinstance(sample.get(name), dict)
     ]
-    hook_total = len(samples) * 2
+    hook_total = len(samples) * len(PHASE_HOOK_EVENTS)
     evaluator_timed = sum(
         1 for phase in phases if isinstance(phase.get("evaluator_ms"), int)
     )
@@ -167,20 +174,75 @@ def _event_phase(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _row_call_identity(row: Mapping[str, Any]) -> tuple[str, str]:
+    """The ``(call identity, hook event)`` a dispatch row names, or blanks."""
+    envelope = _event_envelope(row)
+    context = envelope.get("context")
+    identity = (
+        context.get(HOOK_CALL_IDENTITY_FIELD) if isinstance(context, dict) else None
+    )
+    return (
+        str(identity) if isinstance(identity, str) else "",
+        str(envelope.get("hook_event_name") or ""),
+    )
+
+
 def attach_durable_phases(
     samples: list[dict[str, Any]], rows: Sequence[Mapping[str, Any]]
 ) -> None:
-    """Attach canonical HookDispatchTelemetry rows without guessing gaps."""
-    ordered = sorted(rows, key=lambda row: int(row.get("id") or 0))
-    expected = [event for _sample in samples for event in ("PreToolUse", "PostToolUse")]
-    observed = [
-        str(_event_envelope(row).get("hook_event_name") or "") for row in ordered
+    """Attach each dispatch row to the sample whose call identity it names.
+
+    Arrival order carries no meaning here: the session that ran the
+    benchmark also ran its own unrelated hooks, and a resident evaluator
+    delivers its telemetry in bounded batches afterwards, so the rows for
+    one sample can be interleaved, reordered, or still in flight. Each
+    phase is attached on its own identity, and one that has no row stays
+    ``None`` so the caller reports it missing rather than borrowing a
+    neighbour's timing.
+    """
+    by_identity: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for row in sorted(rows, key=lambda row: int(row.get("id") or 0)):
+        key = _row_call_identity(row)
+        if key[0] and key[1]:
+            by_identity.setdefault(key, row)
+    for sample in samples:
+        identity = str(sample.get(HOOK_CALL_IDENTITY_FIELD) or "")
+        for field, event in PHASE_HOOK_EVENTS.items():
+            row = by_identity.get((identity, event))
+            sample[field] = _event_phase(row) if row is not None else None
+
+
+def phase_coverage(
+    samples: Sequence[Mapping[str, Any]],
+    *,
+    dispatch_row_count: int,
+    dispatch_row_limit: int,
+) -> dict[str, Any]:
+    """Name every phase with no durable row instead of implying zero."""
+    truncated = dispatch_row_count >= dispatch_row_limit
+    missing = [
+        {
+            "ordinal": sample.get("ordinal"),
+            "phase": field,
+            "hook_event": event,
+            "reason": (
+                "no HookDispatchTelemetry row names this call identity; the "
+                "bounded query returned its full row limit, so the row may be "
+                "outside it"
+                if truncated
+                else "no HookDispatchTelemetry row names this call identity"
+            ),
+        }
+        for sample in samples
+        for field, event in PHASE_HOOK_EVENTS.items()
+        if not isinstance(sample.get(field), dict)
     ]
-    if observed != expected:
-        return
-    for index, sample in enumerate(samples):
-        sample["pre_phase"] = _event_phase(ordered[index * 2])
-        sample["post_phase"] = _event_phase(ordered[index * 2 + 1])
+    return {
+        "dispatch_row_count": dispatch_row_count,
+        "dispatch_row_limit": dispatch_row_limit,
+        "dispatch_row_limit_reached": truncated,
+        "missing_phases": missing,
+    }
 
 
 def load_report(path: Path) -> dict[str, Any]:
@@ -203,9 +265,11 @@ def load_report(path: Path) -> dict[str, Any]:
 
 __all__ = [
     "BenchmarkRefusal",
+    "PHASE_HOOK_EVENTS",
     "attach_durable_phases",
     "compare_reports",
     "load_report",
     "parse_provenance",
+    "phase_coverage",
     "summarize_samples",
 ]
