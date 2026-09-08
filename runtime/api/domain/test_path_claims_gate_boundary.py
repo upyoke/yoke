@@ -17,7 +17,6 @@ from runtime.api.domain._path_claims_test_helpers import (
     seed_target,
 )
 from yoke_core.domain.path_claims import register
-from yoke_core.domain.gate_satisfier_stamp import read_rungs
 from yoke_core.domain.path_claims_gate_boundary import check_boundary_for_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
@@ -26,12 +25,17 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 def _git(repo, *args):
     full_env = {
         **os.environ,
-        "GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@x",
-        "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@x",
+        "GIT_AUTHOR_NAME": "test",
+        "GIT_AUTHOR_EMAIL": "test@x",
+        "GIT_COMMITTER_NAME": "test",
+        "GIT_COMMITTER_EMAIL": "test@x",
     }
     proc = subprocess.run(
         ["git", "-C", str(repo), *args],
-        check=True, capture_output=True, text=True, env=full_env,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=full_env,
     )
     return proc.stdout.strip()
 
@@ -150,13 +154,16 @@ def _commit_in_worktree(project_repo, *, name: str):
 class TestBoundaryGate:
     def test_gate_allows_when_target_not_gated(self, real_db):
         result = check_boundary_for_item(
-            item_id=7777, target_status="implementing", db_path=real_db,
+            item_id=7777,
+            target_status="implementing",
+            db_path=real_db,
         )
         assert result is None
 
     def test_gate_allows_when_no_claims_attached(self, real_db):
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is None
@@ -169,12 +176,16 @@ class TestBoundaryGate:
             actor = local_human(wconn)
             target = seed_target(wconn, path_string="src/foo.py")
             register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
+                wconn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[target],
+                item_id=7777,
             )
         _commit_in_worktree(project_repo, name="foo.py")
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is None
@@ -185,13 +196,17 @@ class TestBoundaryGate:
             target = seed_target(wconn, path_string="src/foo.py")
             seed_target(wconn, path_string="src/bar.py")
             register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
+                wconn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[target],
+                item_id=7777,
             )
         _commit_in_worktree(project_repo, name="foo.py")
         _commit_in_worktree(project_repo, name="bar.py")
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is not None
@@ -203,23 +218,25 @@ class TestBoundaryGate:
             actor = local_human(wconn)
             target = seed_target(wconn, path_string="src/foo.py")
             register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
+                wconn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[target],
+                item_id=7777,
             )
         worktree = project_repo / ".worktrees" / "YOK-7777"
         (worktree / "src").mkdir(exist_ok=True)
         (worktree / "src" / "foo.py").write_text("print('dirty')\n")
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is not None
         assert result["error_code"] == "GATE_PATH_CLAIM_BOUNDARY"
         assert "working tree" in result["error"]
 
-    def test_gate_blocks_when_integration_refs_diverged(
-        self, project_repo, real_db
-    ):
+    def test_gate_blocks_when_integration_refs_diverged(self, project_repo, real_db):
         base_sha = _git(project_repo, "rev-parse", "main")
         (project_repo / "local.txt").write_text("local\n")
         _git(project_repo, "add", "local.txt")
@@ -235,11 +252,15 @@ class TestBoundaryGate:
             actor = local_human(wconn)
             target = seed_target(wconn, path_string="src/foo.py")
             register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
+                wconn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[target],
+                item_id=7777,
             )
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is not None
@@ -249,12 +270,11 @@ class TestBoundaryGate:
     def test_gate_is_clear_when_no_claims_and_no_worktree(self, real_db):
         """Nothing declared is genuinely nothing to enforce."""
         with closing(connect_test_db(real_db)) as wconn:
-            wconn.execute(
-                "DELETE FROM item_worktrees WHERE item_id = 7777"
-            )
+            wconn.execute("DELETE FROM item_worktrees WHERE item_id = 7777")
             wconn.commit()
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is None
@@ -265,84 +285,44 @@ class TestBoundaryGate:
             actor = local_human(wconn)
             target = seed_target(wconn, path_string="src/foo.py")
             register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
+                wconn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[target],
+                item_id=7777,
             )
             wconn.execute("DELETE FROM item_worktrees WHERE item_id = 7777")
             wconn.commit()
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is not None
         assert result["error_code"] == "GATE_PATH_CLAIM_BOUNDARY"
-        assert "no resolvable worktree" in result["error"]
-        assert "worktree prepare" in result["error"]
+        assert "no current boundary proof" in result["error"]
+        assert "claims path boundary-prove" in result["error"]
 
-    def test_gate_blocks_when_no_integration_ref_resolves(
-        self, project_repo, real_db
-    ):
+    def test_gate_blocks_when_no_integration_ref_resolves(self, project_repo, real_db):
         """Neither ladder rung reachable refuses and names both rungs."""
         with closing(connect_test_db(real_db)) as wconn:
             actor = local_human(wconn)
             target = seed_target(wconn, path_string="src/foo.py")
             register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
+                wconn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[target],
+                item_id=7777,
             )
             wconn.commit()
         _git(project_repo, "branch", "-m", "main", "renamed-trunk")
         result = check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
+            item_id=7777,
+            target_status="reviewed-implementation",
             db_path=real_db,
         )
         assert result is not None
         assert result["error_code"] == "GATE_PATH_CLAIM_BOUNDARY"
         assert "remote_integration_ref" in result["error"]
         assert "local_integration_ref" in result["error"]
-
-    def test_clear_boundary_stamps_the_rung_it_resolved(
-        self, project_repo, real_db
-    ):
-        """The item records which integration ref proved the boundary."""
-        with closing(connect_test_db(real_db)) as wconn:
-            actor = local_human(wconn)
-            target = seed_target(wconn, path_string="src/foo.py")
-            register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
-            )
-        _commit_in_worktree(project_repo, name="foo.py")
-        assert check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
-            db_path=real_db,
-        ) is None
-        with closing(connect_test_db(real_db)) as rconn:
-            stamps = read_rungs(rconn, 7777)
-        assert [s["obligation"] for s in stamps] == ["path_claim_boundary"]
-        assert stamps[0]["rung_id"] == "local_integration_ref"
-        assert stamps[0]["target_status"] == "reviewed-implementation"
-
-    def test_remote_ref_outranks_the_local_one_in_the_stamp(
-        self, project_repo, real_db
-    ):
-        """A project with a remote proves against what it integrates into."""
-        with closing(connect_test_db(real_db)) as wconn:
-            actor = local_human(wconn)
-            target = seed_target(wconn, path_string="src/foo.py")
-            register(
-                wconn, actor_id=actor, integration_target="main",
-                target_ids=[target], item_id=7777,
-            )
-        _commit_in_worktree(project_repo, name="foo.py")
-        _git(
-            project_repo, "update-ref", "refs/remotes/origin/main",
-            _git(project_repo, "rev-parse", "main"),
-        )
-        assert check_boundary_for_item(
-            item_id=7777, target_status="reviewed-implementation",
-            db_path=real_db,
-        ) is None
-        with closing(connect_test_db(real_db)) as rconn:
-            stamps = read_rungs(rconn, 7777)
-        assert stamps[0]["rung_id"] == "remote_integration_ref"

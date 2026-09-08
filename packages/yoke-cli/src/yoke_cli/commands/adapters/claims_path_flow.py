@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import argparse
-from typing import List
+import json
+import sys
+from pathlib import Path
+from typing import Any, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
+    ensure_handlers_loaded,
     item_target,
     parse_or_usage_error,
 )
+from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
 )
@@ -21,8 +26,10 @@ CLAIMS_PATH_REQUIRED_GATE_USAGE = (
     "yoke claims path required-gate PREFIX-N [--session-id S] [--json]"
 )
 CLAIMS_PATH_ACTIVATION_RUN_USAGE = (
-    "yoke claims path activation-run --item PREFIX-N "
-    "[--session-id S] [--json]"
+    "yoke claims path activation-run --item PREFIX-N [--session-id S] [--json]"
+)
+CLAIMS_PATH_BOUNDARY_PROVE_USAGE = (
+    "yoke claims path boundary-prove --item PREFIX-N [--session-id S] [--json]"
 )
 
 
@@ -58,7 +65,8 @@ def claims_path_activation_run(args: List[str]) -> int:
     if parsed is None:
         return 2
     sync_local_snapshot_for_write(
-        project=parsed.project, integration_target=None,
+        project=parsed.project,
+        integration_target=None,
         session_id=parsed.session_id,
     )
     return dispatch_and_emit(
@@ -70,9 +78,104 @@ def claims_path_activation_run(args: List[str]) -> int:
     )
 
 
+def claims_path_boundary_prove(args: List[str]) -> int:
+    """Observe the recorded local lane and stamp a hosted-consumable proof."""
+    parser = argparse.ArgumentParser(
+        prog="yoke claims path boundary-prove",
+        description=CLAIMS_PATH_BOUNDARY_PROVE_USAGE,
+    )
+    parser.add_argument("--item", required=True, help="YOK-N or N.")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_BOUNDARY_PROVE_USAGE)
+    if parsed is None:
+        return 2
+    target = item_target("item", parsed.item, parsed.project)
+    ensure_handlers_loaded()
+    actor = build_actor(session_id=parsed.session_id)
+    first = call_dispatcher(
+        function_id="claims.path.boundary_context",
+        target=target,
+        payload={},
+        actor=actor,
+    )
+    if not first.success:
+        return emit_response(first, json_mode=parsed.json_mode)
+    context = (first.result or {}).get("context") or {}
+    lane = context.get("lane") or {}
+    repo_path = str(lane.get("path") or "")
+    if not repo_path or not Path(repo_path).is_dir():
+        return _local_error(
+            "boundary_lane_unreadable",
+            "run this command on the machine holding the item's recorded lane",
+        )
+    sync = sync_local_snapshot_for_write(
+        project=str((context.get("project") or {}).get("slug") or ""),
+        repo_root=repo_path,
+        integration_target=None,
+        session_id=parsed.session_id,
+        head_only=True,
+    )
+    if sync["status"] != "ok":
+        return _local_error(
+            "boundary_head_sync_failed",
+            str(sync.get("message") or "lane HEAD snapshot sync failed"),
+        )
+    current = call_dispatcher(
+        function_id="claims.path.boundary_context",
+        target=target,
+        payload={},
+        actor=actor,
+    )
+    if not current.success:
+        return emit_response(current, json_mode=parsed.json_mode)
+    context = (current.result or {}).get("context") or {}
+    from yoke_core.domain.path_claim_boundary_gate_proof import (
+        BoundaryProofError,
+        build_local_boundary_proof,
+    )
+
+    try:
+        proof = build_local_boundary_proof(context, repo_path)
+    except BoundaryProofError as exc:
+        return _local_error("boundary_proof_failed", str(exc))
+    response = call_dispatcher(
+        function_id="claims.path.boundary_prove",
+        target=target,
+        payload={"proof": proof},
+        actor=actor,
+    )
+    return emit_response(
+        response,
+        json_mode=parsed.json_mode,
+        human_writer=_write_boundary_proof,
+    )
+
+
+def _local_error(code: str, message: str) -> int:
+    print(
+        json.dumps({"success": False, "code": code, "message": message}),
+        file=sys.stderr,
+    )
+    return 1
+
+
+def _write_boundary_proof(response: Any, stdout, _stderr) -> None:
+    result = response.result or {}
+    print(
+        "boundary-proof-recorded|"
+        f"{result.get('public_ref') or result.get('item_id') or 'item'}|"
+        f"{result.get('rung_id')}|"
+        f"{result.get('lane_commit_sha')}",
+        file=stdout,
+    )
+
+
 __all__ = [
     "CLAIMS_PATH_ACTIVATION_RUN_USAGE",
+    "CLAIMS_PATH_BOUNDARY_PROVE_USAGE",
     "CLAIMS_PATH_REQUIRED_GATE_USAGE",
     "claims_path_activation_run",
+    "claims_path_boundary_prove",
     "claims_path_required_gate",
 ]

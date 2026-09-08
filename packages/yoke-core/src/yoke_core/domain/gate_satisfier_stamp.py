@@ -67,6 +67,7 @@ def record_rung(
     resolution: LadderResolution,
     target_status: str = "",
     project: str = "",
+    recorded_by_session_id: Optional[str] = None,
 ) -> bool:
     """Persist and announce the rung that satisfied ``ladder`` for the item.
 
@@ -89,6 +90,7 @@ def record_rung(
         target_status=target_status,
         detail=detail,
         facts=resolution.facts,
+        recorded_by_session_id=recorded_by_session_id,
     )
     _emit(
         name=EVENT_STAMPED,
@@ -169,15 +171,17 @@ def read_rungs(conn: Any, item_id: int) -> list[Dict[str, Any]]:
             facts = json.loads(str(row[4] or "{}"))
         except ValueError:
             facts = {}
-        out.append({
-            "obligation": str(row[0]),
-            "rung_id": str(row[1]),
-            "target_status": str(row[2] or ""),
-            "detail": str(row[3] or ""),
-            "facts": facts,
-            "recorded_at": row[5],
-            "recorded_by_session_id": str(row[6] or ""),
-        })
+        out.append(
+            {
+                "obligation": str(row[0]),
+                "rung_id": str(row[1]),
+                "target_status": str(row[2] or ""),
+                "detail": str(row[3] or ""),
+                "facts": facts,
+                "recorded_at": row[5],
+                "recorded_by_session_id": str(row[6] or ""),
+            }
+        )
     return out
 
 
@@ -190,6 +194,7 @@ def _upsert(
     target_status: str,
     detail: str,
     facts: Dict[str, str],
+    recorded_by_session_id: Optional[str] = None,
 ) -> bool:
     p = _p(conn)
     params = (
@@ -198,7 +203,7 @@ def _upsert(
         detail,
         json.dumps(facts, sort_keys=True),
         iso8601_now(),
-        _session_id(),
+        recorded_by_session_id if recorded_by_session_id is not None else _session_id(),
         item_id,
         obligation,
     )
