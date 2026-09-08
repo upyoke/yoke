@@ -94,7 +94,7 @@ function moreDoneCard(documentNode, hiddenCount, scope) {
 export async function loadFrontier(context, bands, getScope, sessionRoster) {
   const [{ callResults }, sessionCalls] = await Promise.all([
     settledScopedCalls(context, [
-      { functionId: "items.overview.list", payload: {} },
+      { functionId: "items.overview.list", payload: { relevance: "overview" } },
       { functionId: "frontier.list", payload: {} },
     ]),
     sessionRoster,
