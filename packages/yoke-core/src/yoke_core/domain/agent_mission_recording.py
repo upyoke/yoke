@@ -142,7 +142,7 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
         arguments = plan_case_contract_arguments(
             execution, case, ordinal=parsed.ordinal
         )
-        lease, _contract = validate_host_control_submission(
+        lease, contract = validate_host_control_submission(
             conn,
             project=str(case["project"]),
             session_id=request.actor.session_id,
@@ -184,6 +184,17 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
                 commit=False,
             )
             heartbeat(commit_deferred_connection(conn), lease.id)
+            from yoke_core.domain.machine_operation_recording import (
+                record_test_machine_baseline_reset,
+            )
+
+            record_test_machine_baseline_reset(
+                conn,
+                contract,
+                preparation,
+                lease_id=lease.id,
+                contract_digest=parsed.contract_digest,
+            )
             conn.commit()
             from yoke_core.domain import qa_events
 
