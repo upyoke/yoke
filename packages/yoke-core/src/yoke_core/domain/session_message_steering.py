@@ -9,9 +9,11 @@ send time, so a message written while one seat was live is still correct
 after that seat ends.
 
 The work a sender holds includes the work it just finished: close-out
-releases the item claim before the DONE report is written, so the address
-comes from :mod:`yoke_core.domain.session_item_scope`, which reads the
-live claim and then the one this session most recently released.
+releases the item claim before the DONE report is written. Ordinary
+``--steering`` mail still uses :mod:`yoke_core.domain.session_item_scope`.
+A DONE heading names PREFIX-N; that item, once it matches a claim this
+session holds or released, is the address so a live claim on another
+project cannot steal the completion.
 
 An itemless sender -- a dashboard, an operator shell, a seat writing to a
 peer scope -- has never held work to derive an address from and supplies
@@ -28,7 +30,7 @@ from yoke_contracts.session_control.recipient_selector import (
     STEERING_SCOPE_PROJECT_KEY,
     RecipientSelector,
 )
-from yoke_core.domain.session_item_scope import session_item_scope
+from yoke_core.domain.session_item_scope import SessionItemScope, session_item_scope
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.steering_scope_membership import item_document_slug
 from yoke_core.domain.work_claim_scope_shape import STEERING_DOCUMENT_KEY
@@ -64,8 +66,15 @@ def resolve_steering_address(
     selector: RecipientSelector,
     *,
     sender_session_id: str | None,
+    reported_item: SessionItemScope | None = None,
 ) -> SteeringAddress:
     """Derive the scope and item a ``--steering`` send is addressed within."""
+    if reported_item is not None:
+        return SteeringAddress(
+            scope={STEERING_SCOPE_PROJECT_KEY: reported_item.project_id},
+            sender_item_id=reported_item.item_id,
+            sender_document=_document_for(conn, reported_item.item_id),
+        )
     if selector.steering_scope is not None:
         scope = dict(selector.steering_scope)
         try:

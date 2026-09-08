@@ -59,6 +59,7 @@ def test_worker_sends_its_done_deliberately_before_releasing() -> None:
     )
     assert "before releasing any claim you still hold" in body
     assert "the item you last held in this session" in body
+    assert "The PREFIX-N in the DONE heading is the report identity" in body
     assert "END your session" in body
 
 

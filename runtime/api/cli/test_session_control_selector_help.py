@@ -100,6 +100,10 @@ def test_the_steering_rule_says_the_address_outlives_the_seat() -> None:
         "no successor inherits acknowledged mail" in FLEET_STEERING_ADDRESSING_GUIDANCE
     )
     assert "--steering-scope" in FLEET_STEERING_ADDRESSING_GUIDANCE
+    assert (
+        "A DONE PREFIX-N heading is the report identity"
+        in FLEET_STEERING_ADDRESSING_GUIDANCE
+    )
 
 
 def test_a_steering_scope_must_decode_to_an_object() -> None:

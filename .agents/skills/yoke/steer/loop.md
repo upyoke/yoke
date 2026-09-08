@@ -145,7 +145,9 @@ seat handoff cannot erase work whose mail is already acknowledged.
 yoke messages acknowledge MESSAGE-ID
 ```
 
-Typical report body: `DONE PREFIX-N <one-line summary>`. When a
+Typical report body: `DONE PREFIX-N <one-line summary>`. The PREFIX-N in
+that heading is the report identity: it must name work the sender holds or
+has released, not another live claim. When a
 DONE envelope arrives, treat it as a prompt to verify, not proof of
 completion. Workers can finish without sending one, too. Confirm both the
 item status and the latest matching claim's `release_reason=completed`:
