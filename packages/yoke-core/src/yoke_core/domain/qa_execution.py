@@ -216,7 +216,7 @@ def cmd_run_add(
                 )
             except Exception as exc:
                 conn.rollback()
-                print(f"Error: artifact storage failed: {exc}", file=sys.stderr)
+                print(f"Error: {getattr(exc, 'code', 'artifact_storage_failed')}: {exc}", file=sys.stderr)
                 sys.exit(2)
             conn.execute(
                 """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)

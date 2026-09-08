@@ -122,7 +122,8 @@ created_at TEXT NOT NULL
 JSON document naming where bytes live. All submitted files and inline bytes use
 the configured project S3 store; upload completes before its row is recorded.
 Only a genuinely unconfigured bucket selects permanent server-local storage;
-shared hosted buckets set `artifacts.prefix` to reject foreign-tenant handles.
+hosted tenants use `YOKE_QA_ARTIFACT_BROKER_URL`, `YOKE_QA_ARTIFACT_BROKER_TOKEN_FILE`,
+`YOKE_QA_ARTIFACT_BUCKET`, and immutable `YOKE_QA_ARTIFACT_PREFIX` settings.
 Invalid configured storage returns its real error without a row or local
 downgrade. Existing readable local handles and repo baselines remain supported,
 but bare paths are refused. Gates check local files and accept valid S3 handles

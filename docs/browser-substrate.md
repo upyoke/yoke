@@ -243,7 +243,7 @@ artifact bucket and records this durable key:
 
 `{subject}` is the requirement's own owner: its item id or `deployment-run-{run}`.
 Only without a bucket does the server copy bytes under `~/.yoke/artifacts/{project}/{subject}/{run_id}/`.
-Configured-store failures never downgrade; shared hosted buckets set a tenant prefix that rejects foreign handles.
+Configured-store failures never downgrade. Hosted `YOKE_QA_ARTIFACT_*` broker settings carry a Platform-derived tenant prefix, never AWS credentials.
 
 ### Metadata
 

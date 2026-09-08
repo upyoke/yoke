@@ -94,17 +94,12 @@ def _write_permanent_local(
     )
 
     target = permanent_artifact_file_path(
-        str(owner["project"]),
-        case_artifact_subject(owner),
-        int(run_id),
-        filename,
+        str(owner["project"]), case_artifact_subject(owner), int(run_id), filename
     )
     if before_write is not None:
         before_write(target)
     handle = tempfile.NamedTemporaryFile(
-        dir=target.parent,
-        prefix=f".{target.name}.",
-        delete=False,
+        dir=target.parent, prefix=f".{target.name}.", delete=False
     )
     temporary = Path(handle.name)
     try:
@@ -180,27 +175,28 @@ def store_artifact_bytes(
     )
     from yoke_core.domain.qa_artifact_handle import build_artifact_key, s3_handle
     from yoke_core.domain.qa_artifacts import case_artifact_subject
+    from yoke_core.domain.qa_artifact_broker import (
+        ArtifactBrokerError,
+        broker_config,
+        presign_with_broker,
+    )
     from yoke_core.domain.s3_presign import presign_s3_url
 
     checked = _checked_bytes(content)
     owner = requirement_storage_owner(conn, requirement_id)
     try:
         configured = resolve_artifacts_bucket(
-            conn,
-            int(owner["project_id"]),
-            owner["target_env"],
+            conn, int(owner["project_id"]), owner["target_env"]
         )
+    except ArtifactBrokerError as exc:
+        raise ArtifactStorageError(exc.code, str(exc)) from exc
     except ValueError as exc:
         raise ArtifactStorageError("s3_configuration_invalid", str(exc)) from exc
     if configured is None:
         try:
             return _write_permanent_local(
-                owner=owner,
-                run_id=run_id,
-                filename=filename,
-                content=checked,
-                content_type=content_type,
-                before_write=before_local_write,
+                owner=owner, run_id=run_id, filename=filename, content=checked,
+                content_type=content_type, before_write=before_local_write,
             )
         except OSError as exc:
             raise ArtifactStorageError(
@@ -211,6 +207,27 @@ def store_artifact_bytes(
 
     _environment, bucket, storage_prefix = configured
     project = str(owner["project"])
+    subject = case_artifact_subject(owner)
+    key = build_artifact_key(
+        project, subject, int(run_id), filename, storage_prefix=storage_prefix
+    )
+    try:
+        broker = broker_config()
+    except ArtifactBrokerError as exc:
+        raise ArtifactStorageError(exc.code, str(exc)) from exc
+    if broker is not None:
+        try:
+            signed = presign_with_broker(
+                broker, operation="put", project=project, subject=subject,
+                run_id=int(run_id), filename=filename,
+            )
+        except ArtifactBrokerError as exc:
+            raise ArtifactStorageError(exc.code, str(exc)) from exc
+        _upload_bytes(
+            signed.url, bucket=signed.bucket, key=signed.key, content=checked,
+            content_type=content_type,
+        )
+        return s3_handle(signed.bucket, signed.key, content_type)
     region = _aws_region(conn, int(owner["project_id"]))
     if not region:
         raise ArtifactStorageError(
@@ -226,13 +243,6 @@ def store_artifact_bytes(
             "aws-admin capability credentials are unavailable; configure "
             "access_key_id and secret_access_key",
         )
-    key = build_artifact_key(
-        project,
-        case_artifact_subject(owner),
-        int(run_id),
-        filename,
-        storage_prefix=storage_prefix,
-    )
     upload_url = presign_s3_url(
         method="PUT",
         bucket=bucket,
@@ -242,10 +252,7 @@ def store_artifact_bytes(
         expires_s=ARTIFACT_PRESIGN_EXPIRES_S,
     )
     _upload_bytes(
-        upload_url,
-        bucket=bucket,
-        key=key,
-        content=checked,
+        upload_url, bucket=bucket, key=key, content=checked,
         content_type=content_type,
     )
     return s3_handle(bucket, key, content_type)
@@ -259,17 +266,18 @@ def validate_s3_handle_owner(
     handle: dict[str, Any],
 ) -> None:
     """Refuse an S3 handle outside its configured project/tenant run prefix."""
-    from yoke_core.domain.handlers.qa_artifact_presign import (
-        resolve_artifacts_bucket,
-    )
+    from yoke_core.domain.handlers.qa_artifact_presign import resolve_artifacts_bucket
     from yoke_core.domain.qa_artifact_handle import artifact_key_prefix
     from yoke_core.domain.qa_artifacts import case_artifact_subject
+    from yoke_core.domain.qa_artifact_broker import ArtifactBrokerError
 
     owner = requirement_storage_owner(conn, requirement_id)
     try:
         configured = resolve_artifacts_bucket(
             conn, int(owner["project_id"]), owner["target_env"]
         )
+    except ArtifactBrokerError as exc:
+        raise ArtifactStorageError(exc.code, str(exc)) from exc
     except ValueError as exc:
         raise ArtifactStorageError("s3_configuration_invalid", str(exc)) from exc
     if configured is None:
@@ -326,11 +334,7 @@ def store_artifact_file(
 
 
 __all__ = [
-    "ArtifactStorageError",
-    "ARTIFACT_PRESIGN_EXPIRES_S",
-    "MAX_ARTIFACT_BYTES",
-    "requirement_storage_owner",
-    "store_artifact_bytes",
-    "store_artifact_file",
+    "ArtifactStorageError", "ARTIFACT_PRESIGN_EXPIRES_S", "MAX_ARTIFACT_BYTES",
+    "requirement_storage_owner", "store_artifact_bytes", "store_artifact_file",
     "validate_s3_handle_owner",
 ]

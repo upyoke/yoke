@@ -269,9 +269,10 @@ def cmd_run_add_batch(
                 verdict=verdict,
                 verdict_reason=row.get("verdict_reason"),
             )
-    except ArtifactStorageError as exc:
+    except (ArtifactStorageError, ValueError) as exc:
         conn.rollback()
-        print(f"Error: {exc.code}: {exc}", file=sys.stderr)
+        code = getattr(exc, "code", "artifact_storage_invalid")
+        print(f"Error: {code}: {exc}", file=sys.stderr)
         sys.exit(2)
     except Exception:
         conn.rollback()

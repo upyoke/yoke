@@ -1,22 +1,19 @@
 """``qa.artifact.presign`` — server-minted S3 PUT URLs for QA evidence.
 
-The browser-QA orchestrator runs on whatever machine captures the
-evidence; the dispatcher (in-process or behind the https relay) is where
-project AWS authority lives. This handler keeps that split honest: the
-server resolves the project environment's artifacts bucket
-(``environments.settings.artifacts.bucket``) and the ``aws-admin``
-capability credentials, mints a SigV4 presigned PUT URL, and returns it
-together with the exact ``artifact_handle`` the client must record via
-``qa.artifact.add`` after the upload succeeds. The client needs no AWS
-credentials — the upload is one plain HTTPS PUT.
+The browser-QA orchestrator runs wherever evidence is captured. A local or
+self-hosted server signs with its configured ``aws-admin`` capability. A
+hosted tenant instead uses the token-authenticated Platform broker published
+through ``YOKE_QA_ARTIFACT_BROKER_URL``; the tenant never receives AWS
+credentials. Both return the exact ``artifact_handle`` the client records via
+``qa.artifact.add`` after its plain HTTPS PUT succeeds.
 
 Bucket resolution order: the requirement's declared ``target_env`` when
 that environment declares a bucket, else ``prod``, else the remaining
 environments name-sorted. No environment declaring a bucket is the sole
 ``s3_not_configured`` result; byte-submission callers then let
 ``qa.artifact.add`` persist the evidence in the server's permanent local
-application-data tree. Optional ``artifacts.prefix`` is the stable tenant
-namespace prepended to every server-authorized object key.
+application-data tree. Direct stores may set ``artifacts.prefix``; hosted
+tenants receive their immutable prefix with the broker settings.
 """
 
 from __future__ import annotations
@@ -72,6 +69,14 @@ def resolve_artifacts_bucket(
     settings loader opens its own connection and resolves capabilities
     this path does not need).
     """
+    from yoke_core.domain.qa_artifact_broker import broker_config
+    from yoke_core.domain.schema_common import _table_exists
+
+    broker = broker_config()
+    if broker is not None:
+        return str(target_env or "hosted"), broker.bucket, broker.prefix
+    if not _table_exists(conn, "sites") or not _table_exists(conn, "environments"):
+        return None
     p = _p(conn)
     rows = conn.execute(
         "SELECT e.name, e.settings FROM environments e "
@@ -160,6 +165,11 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
         s3_handle,
     )
     from yoke_core.domain.qa_artifacts import case_artifact_subject
+    from yoke_core.domain.qa_artifact_broker import (
+        ArtifactBrokerError,
+        broker_config,
+        presign_with_broker,
+    )
     from yoke_core.domain.s3_presign import presign_s3_url
 
     req_id = request.target.qa_requirement_id
@@ -216,6 +226,8 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
                 int(req_row["project_id"]),
                 req_row["target_env"],
             )
+        except ArtifactBrokerError as exc:
+            return _error(exc.code, str(exc))
         except ValueError as exc:
             return _error("s3_configuration_invalid", str(exc))
         if resolved is None:
@@ -224,8 +236,14 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
                 _NO_BUCKET_REMEDIATION.format(project=project),
             )
         env_name, bucket, storage_prefix = resolved
-        region = _aws_region(conn, int(req_row["project_id"]))
-        if not region:
+        try:
+            broker = broker_config()
+        except ArtifactBrokerError as exc:
+            return _error(exc.code, str(exc))
+        region = None if broker is not None else _aws_region(
+            conn, int(req_row["project_id"])
+        )
+        if broker is None and not region:
             return _error(
                 "s3_configuration_invalid",
                 f"project {project!r} declares artifacts bucket {bucket!r} "
@@ -234,6 +252,32 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
             )
     finally:
         conn.close()
+
+    if broker is not None:
+        try:
+            signed = presign_with_broker(
+                broker,
+                operation="put",
+                project=project,
+                subject=subject,
+                run_id=int(run_id),
+                filename=filename,
+            )
+            handle = s3_handle(
+                signed.bucket, signed.key, content_type=content_type
+            )
+        except (ArtifactBrokerError, ArtifactHandleError, ValueError) as exc:
+            code = getattr(exc, "code", "payload_invalid")
+            return _error(code, str(exc), jsonpath="$.payload.filename")
+        return HandlerOutcome(
+            result_payload={
+                "upload_url": signed.url,
+                "artifact_handle": handle,
+                "expires_in_s": signed.expires_in,
+                "environment": env_name,
+            },
+            primary_success=True,
+        )
 
     credentials = _capability_credentials(project)
     if credentials is None:

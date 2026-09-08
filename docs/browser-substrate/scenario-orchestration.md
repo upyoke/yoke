@@ -58,8 +58,8 @@ Advance flows must not refine or replace it after materialization.
 5. Executes each declared `method_config.steps` entry in order.
 6. Records a run through `qa.run.add` and `qa.run.complete`.
 7. Records screenshot or trace evidence through `qa.artifact.add`; durable
-   storage uses `qa.artifact.presign` when the project environment declares an
-   artifact bucket. A client that already holds the bytes can pass them
+   storage uses `qa.artifact.presign` with direct S3 or the hosted tenant broker
+   when either is configured. A client that already holds the bytes can pass them
    inline (`content_base64` plus `filename`) instead of a machine-local
    handle the server cannot read.
 8. Prints a JSON result for the named requirement, including its verdict, run
@@ -134,7 +134,8 @@ submitted bytes into permanent application data and record a local handle:
 
 Missing S3 credentials and upload failures remain explicit capture failures;
 configured storage never silently downgrades to local disk.
-Shared hosted buckets set a stable tenant prefix; foreign-prefix handles are refused.
+Hosted `YOKE_QA_ARTIFACT_*` settings carry the broker URL, read-only token file,
+bucket, and immutable tenant prefix; the container receives no AWS credentials.
 
 Artifact metadata includes the step index, requirement identity, route, item
 identity, project, viewport, and timestamp.

@@ -178,7 +178,8 @@ def cmd_artifact_add(
                         )
                     )
                 except (ArtifactStorageError, ValueError) as exc:
-                    print(f"Error: {exc}", file=sys.stderr)
+                    code = getattr(exc, "code", "artifact_storage_invalid")
+                    print(f"Error: {code}: {exc}", file=sys.stderr)
                     sys.exit(2)
         cur = conn.execute(
             """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
