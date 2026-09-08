@@ -284,10 +284,16 @@ def _verify_or_repair(
 
 @contextlib.contextmanager
 def pinned_authority(dsn: str) -> Iterator[None]:
-    """Pin the ambient Postgres authority to the local universe."""
+    """Pin the owned local DSN and admit opening that cluster.
+
+    Create, verify, and repair all connect through this boundary, so a
+    surrounding HTTPS invocation can still bootstrap the machine-local
+    universe without relaxing the remote-control-plane guard elsewhere.
+    """
+    from yoke_contracts.control_plane_locality import local_authority_exempt
     from yoke_core.domain import db_backend
 
-    with _pinned_env(db_backend.PG_DSN_ENV, dsn):
+    with _pinned_env(db_backend.PG_DSN_ENV, dsn), local_authority_exempt():
         yield
 
 
@@ -331,17 +337,7 @@ def _ensure_org_card(
 
 
 def _ensure_human_actor(emit: Callable[[str], None]) -> int:
-    """Return the machine owner's actor id, seeding and empowering it.
-
-    The bootstrap init chain normally seeds the human actor (labeled from
-    the pinned OS-login injection), so on the birth path the row is
-    usually a lookup; the seeding branch backstops a universe whose
-    bootstrap predates canonical-actor seeding. Either way the owner of a
-    machine-local universe is its administrator, so the actor also
-    carries the org admin role — see
-    :mod:`yoke_core.domain.local_operating_actor` for why both halves
-    have to land together.
-    """
+    """Return the machine owner's actor id, seeding and granting org admin."""
     from yoke_core.domain import actors, db_helpers
     from yoke_core.domain.local_operating_actor import (
         ensure_local_operating_actor,
