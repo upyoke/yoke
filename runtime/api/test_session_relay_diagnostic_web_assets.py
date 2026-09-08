@@ -8,7 +8,7 @@ from importlib.resources import files
 def test_session_failure_views_show_owner_local_diagnostic_recipe() -> None:
     static_root = files("yoke_core.ui").joinpath("static")
     helper = static_root.joinpath("session_relay_diagnostic_view.js").read_text()
-    messages = static_root.joinpath("universe_session_messages.js").read_text()
+    message_card = static_root.joinpath("universe_session_message_card.js").read_text()
     # Launch detail — timeline, evidence, and the diagnostic recipe — renders
     # from the detail card the list expands into, not from the list itself.
     launch_detail = static_root.joinpath("session_launch_detail_card.js").read_text()
@@ -26,8 +26,8 @@ def test_session_failure_views_show_owner_local_diagnostic_recipe() -> None:
         "diagnostic_expires_at",
     ):
         assert field in helper
-    assert "appendRelayDiagnostic" in messages
-    assert "attempt.evidence" in messages
+    assert "appendRelayDiagnostic" in message_card
+    assert "attempt.evidence" in message_card
     assert "appendRelayDiagnostic" in launch_detail
     assert "appendLaunchDetail" in launches
     assert "session-relay-diagnostic-command" in styles
