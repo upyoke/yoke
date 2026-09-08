@@ -10,6 +10,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from yoke_contracts.session_control.evidence_fetch import EvidenceFileEntry
 
 
+# How many records one relay report may carry. A poll observes as much as
+# the machine has accumulated, which is more than one request can hold on a
+# machine that has been running a while, and an over-long collection is
+# rejected as a whole request rather than trimmed. Senders read this same
+# limit to split a poll into requests the server can accept, so the ceiling
+# is stated once and neither side can drift from the other.
+RELAY_REPORT_COLLECTION_LIMIT = 100
+
+
 class RelayClaimRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relay_id: str
@@ -99,8 +108,12 @@ class RelayLivenessRequest(BaseModel):
     relay_id: str
     machine_id: str
     projects: List[int]
-    sessions: List[RelayLivenessReport] = Field(default_factory=list, max_length=100)
-    launches: List[RelayLaunchDeathReport] = Field(default_factory=list, max_length=100)
+    sessions: List[RelayLivenessReport] = Field(
+        default_factory=list, max_length=RELAY_REPORT_COLLECTION_LIMIT
+    )
+    launches: List[RelayLaunchDeathReport] = Field(
+        default_factory=list, max_length=RELAY_REPORT_COLLECTION_LIMIT
+    )
 
 
 class RelayLivenessResponse(BaseModel):
@@ -148,8 +161,12 @@ class RelayIdleHostsRequest(BaseModel):
     relay_id: str
     machine_id: str
     projects: List[int]
-    hosts: List[RelayIdleHost] = Field(default_factory=list, max_length=100)
-    reclaimed: List[RelayReclaimedHost] = Field(default_factory=list, max_length=100)
+    hosts: List[RelayIdleHost] = Field(
+        default_factory=list, max_length=RELAY_REPORT_COLLECTION_LIMIT
+    )
+    reclaimed: List[RelayReclaimedHost] = Field(
+        default_factory=list, max_length=RELAY_REPORT_COLLECTION_LIMIT
+    )
 
 
 class RelayIdleHostsResponse(BaseModel):
@@ -190,6 +207,7 @@ class RelayReportResponse(BaseModel):
 
 __all__ = [
     "EvidenceDocument",
+    "RELAY_REPORT_COLLECTION_LIMIT",
     "RelayClaimRequest",
     "RelayClaimResponse",
     "RelayIdleHost",
