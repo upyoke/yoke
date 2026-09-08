@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.session_usage_facts import USAGE_PARTIAL, USAGE_UNAVAILABLE
-from yoke_contracts.session_usage_sources import CURSOR_USAGE_DEFERRAL
+from yoke_contracts.session_usage_sources import states_usage
 from yoke_harness.usage_attestation import MIXED_MODEL_REASON, attest_session_usage
 from runtime.harness.session_usage_test_support import (  # noqa: F401
     append_rows,
@@ -142,8 +142,10 @@ def test_a_codex_rollout_with_no_reading_yet_reports_unavailable(
     assert usage.status == USAGE_UNAVAILABLE
 
 
-def test_cursor_states_no_token_count_and_says_so() -> None:
+def test_cursor_declares_a_usage_source_and_omitted_fields_are_unavailable() -> None:
     usage = attest_session_usage("cursor", {"session_id": "cursor-1"})
 
+    assert states_usage("cursor") is True
     assert usage.status == USAGE_UNAVAILABLE
-    assert usage.reason == CURSOR_USAGE_DEFERRAL
+    assert "cursor" in usage.reason
+    assert "unsupported" not in usage.reason

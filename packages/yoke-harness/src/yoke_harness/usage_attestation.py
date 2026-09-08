@@ -20,9 +20,11 @@ What each harness reports, measured rather than assumed:
   one is the whole answer and nothing accumulates. Its input count
   contains its cached input and its output count contains its reasoning,
   both of which are subtracted out into their own buckets here.
-* **cursor** — states no token count anywhere machine-readable, so it
-  reports the recorded deferral reason rather than a total it cannot
-  prove.
+* **cursor** — optional ``stop`` / ``afterAgentResponse`` token fields
+  (inclusive ``input_tokens``) and print-mode result ``usage`` (exclusive
+  ``inputTokens``). A payload that omits them is not zero: the watermarked
+  total is returned when one exists, otherwise ``unavailable`` for that
+  surface. Same ``generation_id`` / ``request_id`` is counted once.
 
 Reads resume from a per-session watermark, so a hook event folds only
 what the artifact gained since the last one.
@@ -43,10 +45,7 @@ from yoke_contracts.session_usage_facts import (
     unavailable,
     with_partial,
 )
-from yoke_contracts.session_usage_sources import (
-    CURSOR_USAGE_DEFERRAL,
-    usage_source,
-)
+from yoke_contracts.session_usage_sources import usage_source
 from yoke_harness.usage_watermark import (
     UsageWatermark,
     load_watermark,
@@ -83,7 +82,9 @@ def attest_session_usage(
 
     try:
         if is_cursor(executor):
-            return unavailable(CURSOR_USAGE_DEFERRAL)
+            from yoke_harness.cursor_usage_attestation import attest_cursor_usage
+
+            return attest_cursor_usage(payload)
         session_id = _text(payload.get("session_id"))
         if is_codex(executor):
             return _codex_usage(payload, session_id)
