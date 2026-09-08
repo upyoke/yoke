@@ -18,6 +18,8 @@ name and drop the rest.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Callable
 
 
 # A 4xx says the control plane understood the batch and will not take it,
@@ -139,6 +141,44 @@ def backlog_diagnostic(*, pending: int, oldest_age_seconds: float) -> str:
     return f"pending={pending} oldest_age_s={oldest_age_seconds:.1f}"
 
 
+def owned_diagnostic_line(
+    body: str,
+    *,
+    failure_class: str,
+    outcome: str,
+    recovery: str = "",
+    clock: Callable[[], datetime] | None = None,
+) -> str:
+    """UTC-stamped owned stderr line; never used for vendor stdout."""
+    from yoke_cli.transport.https_retry_policy import utc_stamp
+
+    line = f"{utc_stamp(clock)} {body}; class={failure_class} outcome={outcome}"
+    if recovery:
+        line = f"{line}; {recovery}"
+    return f"{line}\n"
+
+
+def drain_timeout_warning(*, clock: Callable[[], datetime] | None = None) -> str:
+    return owned_diagnostic_line(
+        "WARNING: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT: retained observations "
+        "could not flush before shutdown; telemetry is disposable and the "
+        "resident continues to the installed revision",
+        failure_class="drain_timeout",
+        outcome="continue",
+        clock=clock,
+    )
+
+
+def lock_invalid_error(*, clock: Callable[[], datetime] | None = None) -> str:
+    return owned_diagnostic_line(
+        "ERROR: YOKE_HOOK_RESIDENT_LOCK_INVALID: start through "
+        "`yoke hook evaluate` so the singleton lock is inherited",
+        failure_class="lock_invalid",
+        outcome="exit",
+        clock=clock,
+    )
+
+
 __all__ = [
     "BACKOFF_CEILING_SECONDS",
     "DeliveryFailure",
@@ -146,5 +186,8 @@ __all__ = [
     "OBSERVATION_BACKLOG_LIMIT",
     "backlog_diagnostic",
     "classify_delivery_failure",
+    "drain_timeout_warning",
+    "lock_invalid_error",
+    "owned_diagnostic_line",
     "retry_delay_seconds",
 ]

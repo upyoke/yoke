@@ -8,6 +8,7 @@ queue, and the resident that owns it stops being upgradable.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import io
 import json
 import time
@@ -20,6 +21,8 @@ from yoke_harness.hook_observation_delivery import (
     MAX_TRANSIENT_ATTEMPTS,
     OBSERVATION_BACKLOG_LIMIT,
     classify_delivery_failure,
+    drain_timeout_warning,
+    owned_diagnostic_line,
     retry_delay_seconds,
 )
 from yoke_harness.hook_resident_observations import (
@@ -105,10 +108,15 @@ def test_permanent_rejection_drops_the_batch_and_names_its_recovery(
 
     assert queue.pending_count() == 0
     rejected = capsys.readouterr().err
+    stamp = rejected.split(" ", 1)[0]
+    datetime.fromisoformat(stamp.replace("Z", "+00:00"))
     assert "YOKE_HOOK_TELEMETRY_BATCH_REJECTED" in rejected
     assert "HTTP 400" in rejected
     assert "HOOK_OBSERVATION_SESSION_INVALID" in rejected
     assert "yoke sessions touch" in rejected
+    assert "class=permanent_reject" in rejected
+    assert "outcome=dropped" in rejected
+    assert "attempts=1" in rejected
 
     # The observation behind the poison pill still reaches the endpoint.
     queue.enqueue(_pending(2))
@@ -127,8 +135,11 @@ def test_permanent_rejection_is_visible_on_the_hooks_own_stderr(
     queue._flush_once()
 
     diagnostic = queue.diagnostic()
+    stamp = diagnostic.split(" ", 1)[0]
+    datetime.fromisoformat(stamp.replace("Z", "+00:00"))
     assert "YOKE_HOOK_TELEMETRY_DROPPED" in diagnostic
     assert "1 observation(s)" in diagnostic
+    assert "class=dropped" in diagnostic
 
 
 def test_transient_rejection_retries_then_gives_up_bounded(
@@ -165,6 +176,8 @@ def test_transient_failure_reports_depth_and_head_age_while_retained(
     assert queue.pending_count() == 2
     assert "pending=2" in diagnostic
     assert "oldest_age_s=" in diagnostic
+    assert "class=transient_retry" in diagnostic
+    assert "outcome=retrying" in diagnostic
 
 
 def test_backlog_is_capped_so_one_dead_endpoint_cannot_grow_the_resident(
@@ -230,3 +243,21 @@ def test_a_retained_batch_retries_in_its_original_hook_order(
         "observation-1",
         "observation-2",
     ]
+
+
+def test_owned_diagnostic_line_uses_the_transport_utc_stamp() -> None:
+    instant = datetime(2026, 9, 8, 14, 54, 9, tzinfo=timezone.utc)
+
+    line = owned_diagnostic_line(
+        "WARNING: YOKE_HOOK_TELEMETRY_FLUSH_FAILED: offline",
+        failure_class="transient_retry",
+        outcome="retrying",
+        recovery="retrying; no action needed unless it persists",
+        clock=lambda: instant,
+    )
+    drain = drain_timeout_warning(clock=lambda: instant)
+
+    assert line.startswith("2026-09-08T14:54:09Z WARNING:")
+    assert "class=transient_retry outcome=retrying" in line
+    assert drain.startswith("2026-09-08T14:54:09Z WARNING: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT")
+    assert "class=drain_timeout outcome=continue" in drain

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 import signal
 import sys
@@ -18,6 +19,7 @@ from yoke_harness.session_relay_native_capture_format import (
     CAPTURE_HEADER,
     STATE_RUNNING,
     compose_capture,
+    parse_capture,
 )
 from yoke_harness.session_relay_native_create import immediate_native_refusal
 from yoke_harness.session_relay_native_diagnostics import (
@@ -262,6 +264,12 @@ def test_supervisor_records_a_native_that_never_started(tmp_path: Path) -> None:
     payload = capture.read_bytes()
     assert b"exit-code: unknown" in payload
     assert b"native did not start" in payload
+    assert b"YOKE_NATIVE_START_FAILED" in payload
+    assert b"class=native_start_failed" in payload
+    parsed = parse_capture(payload)
+    assert parsed is not None
+    stamp = parsed.stderr.decode().split(" ", 1)[0]
+    datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
 def test_native_wake_environment_carries_only_its_resume_attempt(

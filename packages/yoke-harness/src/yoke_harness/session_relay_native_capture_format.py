@@ -10,6 +10,9 @@ The envelope is deliberately readable by eye — an operator who has the file
 should not need a parser — and deliberately self-describing about whether the
 native is still running, because a capture is written while the turn is still
 going and its reader has to tell "no output yet" from "exited silently".
+
+Yoke-authored spawn-refusal lines in stderr carry a UTC stamp. The native's
+own stdout and stderr stay raw: they are vendor words, not Yoke diagnostics.
 """
 
 from __future__ import annotations
