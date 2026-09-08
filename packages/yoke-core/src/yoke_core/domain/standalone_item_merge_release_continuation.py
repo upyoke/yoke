@@ -58,6 +58,8 @@ def continue_prepared_release(
         "run_id": outcome.run_id,
         "outcome": outcome.outcome,
     }
+    if outcome.runs:
+        fragment["runs"] = list(outcome.runs)
     if outcome.outcome == OUTCOME_WAITING:
         fragment["waiting_on"] = list(outcome.waiting_on)
         return fragment, ""

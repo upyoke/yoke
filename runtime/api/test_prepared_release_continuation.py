@@ -26,6 +26,7 @@ from yoke_core.domain.deployment_run_lineage_rebind import (
 from yoke_core.domain.deployment_run_pair_obligations import (
     prepared_runs_awaiting_item,
     split_pending_pair_merges,
+    split_runs_by_target_environment,
 )
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
@@ -37,6 +38,9 @@ from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
 
 PRODUCER_ITEM = 9101
 CONSUMER_ITEM = 9102
+#: The fixture seeds exactly one environment for this project.
+PROD_ENVIRONMENT_ID = 201
+STAGE_ENVIRONMENT_ID = 204
 MERGE_COMMIT = "a" * 40
 OTHER_COMMIT = "b" * 40
 
@@ -229,3 +233,86 @@ class TestTheLineageWriteWindow:
         )
         assert refusal is not None
         assert "40-hex" in refusal
+
+
+class TestTheStageAndProductionPair:
+    """Two prepared runs for one item are ordinary when they differ by target.
+
+    A release deploys stage and production in parallel from one verified
+    revision, so refusing an item that advances two runs would strand half of
+    every pair. Only two runs aimed at the SAME environment are ambiguous.
+    """
+
+    def _stage_environment(self, db_path: str) -> None:
+        """A second deploy target for this project; the fixture seeds only prod."""
+        conn = _conn(db_path)
+        try:
+            conn.execute(
+                "INSERT INTO environments (id, site, project_id, name) "
+                "VALUES (%s, 101, 1, 'stage') ON CONFLICT (id) DO NOTHING",
+                (STAGE_ENVIRONMENT_ID,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _run_targeting(self, db_path: str, environment_id: int, item_id: int) -> str:
+        """A prepared run aimed at one environment.
+
+        Tier and environment are set together because the run row constrains
+        them as a pair; setting only the environment is rejected.
+        """
+        run_id = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        mutate.cmd_add_item(run_id, item_id, db_path=db_path)
+        conn = _conn(db_path)
+        try:
+            conn.execute(
+                "UPDATE deployment_runs SET target_tier='persistent', "
+                "target_environment_id=%s WHERE id=%s",
+                (environment_id, run_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return run_id
+
+    def test_runs_for_different_environments_are_both_legitimate(self, db_path):
+        _insert_delivery_ready_item(db_path, PRODUCER_ITEM)
+        self._stage_environment(db_path)
+        stage = self._run_targeting(db_path, STAGE_ENVIRONMENT_ID, PRODUCER_ITEM)
+        production = self._run_targeting(db_path, PROD_ENVIRONMENT_ID, PRODUCER_ITEM)
+        conn = _conn(db_path)
+        try:
+            distinct, duplicates = split_runs_by_target_environment(
+                conn, [stage, production]
+            )
+        finally:
+            conn.close()
+        assert sorted(distinct) == sorted([stage, production])
+        assert duplicates == []
+
+    def test_two_runs_for_one_environment_are_the_real_ambiguity(self, db_path):
+        _insert_delivery_ready_item(db_path, PRODUCER_ITEM)
+        first = self._run_targeting(db_path, PROD_ENVIRONMENT_ID, PRODUCER_ITEM)
+        second = self._run_targeting(db_path, PROD_ENVIRONMENT_ID, PRODUCER_ITEM)
+        conn = _conn(db_path)
+        try:
+            distinct, duplicates = split_runs_by_target_environment(
+                conn, [first, second]
+            )
+        finally:
+            conn.close()
+        assert distinct == []
+        assert [sorted(group) for group in duplicates] == [sorted([first, second])]
+
+    def test_both_pair_runs_are_reachable_from_the_item(self, db_path):
+        _insert_delivery_ready_item(db_path, PRODUCER_ITEM)
+        self._stage_environment(db_path)
+        stage = self._run_targeting(db_path, STAGE_ENVIRONMENT_ID, PRODUCER_ITEM)
+        production = self._run_targeting(db_path, PROD_ENVIRONMENT_ID, PRODUCER_ITEM)
+        conn = _conn(db_path)
+        try:
+            reachable = prepared_runs_awaiting_item(conn, PRODUCER_ITEM)
+        finally:
+            conn.close()
+        assert sorted(reachable) == sorted([stage, production])
