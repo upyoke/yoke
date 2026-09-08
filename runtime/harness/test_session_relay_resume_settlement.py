@@ -82,6 +82,41 @@ def _settled_capture(tmp_path: Path, body: bytes, exit_code: int | None) -> Path
     return capture
 
 
+def test_a_finished_turn_folds_the_result_its_hooks_never_saw(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from yoke_cli.config import machine_config
+    from yoke_contracts.session_usage_facts import usage_from_document
+    from yoke_harness.cursor_native_result_usage import session_usage_document
+    from runtime.harness.test_cursor_native_result_usage import (
+        CONVERSATION,
+        NATIVE_RESULT_LINE,
+    )
+
+    home = tmp_path / "yoke-home"
+    home.mkdir()
+    monkeypatch.setattr(machine_config, "yoke_home", lambda: home)
+    capture = tmp_path / f"nd-{ATTEMPT_ID}.capture"
+    capture.write_bytes(
+        compose_capture(stdout=NATIVE_RESULT_LINE.encode(), stderr=b"", exit_code=0)
+    )
+    record_supervised_native(
+        ATTEMPT_ID,
+        os.getpid(),
+        native_session_id=SESSION_ID,
+        supervision_kind="resume",
+        capture_path=capture,
+        lease_id=LEASE_ID,
+        state_dir=tmp_path,
+    )
+
+    assert finished_native_resumes(state_dir=tmp_path)
+
+    usage = usage_from_document(session_usage_document(CONVERSATION))
+    assert usage is not None and usage.billable_tokens() > 0
+
+
 def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
     tmp_path: Path,
 ) -> None:

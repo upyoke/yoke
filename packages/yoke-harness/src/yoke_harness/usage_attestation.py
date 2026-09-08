@@ -22,9 +22,11 @@ What each harness reports, measured rather than assumed:
   both of which are subtracted out into their own buckets here.
 * **cursor** — optional ``stop`` / ``afterAgentResponse`` token fields
   (inclusive ``input_tokens``) and print-mode result ``usage`` (exclusive
-  ``inputTokens``). A payload that omits them is not zero: the watermarked
-  total is returned when one exists, otherwise ``unavailable`` for that
-  surface. Same ``generation_id`` / ``request_id`` is counted once.
+  ``inputTokens``), the latter presented by the reader of a finished
+  native's capture rather than by a hook. A payload that omits them is not
+  zero: the watermarked total is returned when one exists, otherwise
+  ``unavailable`` for that surface. Same ``generation_id`` / ``request_id``
+  is counted once.
 
 Reads resume from a per-session watermark, so a hook event folds only
 what the artifact gained since the last one.

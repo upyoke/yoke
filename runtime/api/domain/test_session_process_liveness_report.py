@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -39,6 +40,28 @@ EVIDENCE = {
     "process_start_times": {"4002": "1699999999"},
     "launch_id": LAUNCH_ID,
 }
+#: One measured reading exactly as the reporting machine serializes it.
+MEASURED_USAGE = json.dumps(
+    {
+        "status": "complete",
+        "reason": "",
+        "observed_at": "2026-09-08T17:00:00Z",
+        "source": "cursor parent-turn stop/afterAgentResponse token fields; "
+        "print-mode result usage",
+        "models": [
+            {
+                "model": "cursor-grok-4.6-high",
+                "input": 102596,
+                "cached_input": 9600,
+                "cache_write": 0,
+                "cache_write_long": 0,
+                "output": 30,
+                "reasoning": 0,
+            }
+        ],
+    }
+)
+
 #: What an anchor a hook wrote reports: a pid, and no launch behind it.
 ANCHOR_EVIDENCE = {
     "records_considered": 1,
@@ -86,17 +109,19 @@ def _apply(
     projects=(1,),
     machine_id: str = MACHINE,
     evidence=None,
+    usage_totals=None,
 ):
+    report = {
+        "session_id": session_id,
+        "evidence": EVIDENCE if evidence is None else evidence,
+    }
+    if usage_totals is not None:
+        report["usage_totals"] = usage_totals
     return apply_verified_process_death_reports(
         conn,
         machine_id=machine_id,
         authorized_projects=projects,
-        reports=[
-            {
-                "session_id": session_id,
-                "evidence": EVIDENCE if evidence is None else evidence,
-            }
-        ],
+        reports=[report],
     )
 
 
@@ -106,6 +131,41 @@ def _session_row(conn, session_id: str):
             "SELECT * FROM harness_sessions WHERE session_id=%s", (session_id,)
         ).fetchone()
     )
+
+
+def test_the_reading_the_native_stated_is_stored_for_the_session(conn):
+    session_id = _ghost(conn)
+
+    _apply(conn, session_id, usage_totals=MEASURED_USAGE)
+
+    assert _session_row(conn, session_id)["usage_totals"] == MEASURED_USAGE
+
+
+def test_a_claim_holder_that_survives_the_report_still_records_its_usage(conn):
+    session_id = _ghost(conn)
+    claim_work(conn, session_id=session_id, item_id=9301)
+
+    _apply(conn, session_id, usage_totals=MEASURED_USAGE)
+
+    row = _session_row(conn, session_id)
+    assert row["ended_at"] is None
+    assert row["usage_totals"] == MEASURED_USAGE
+
+
+def test_a_reading_from_another_machine_is_not_stored(conn):
+    session_id = _ghost(conn)
+
+    _apply(conn, session_id, machine_id=OTHER_MACHINE, usage_totals=MEASURED_USAGE)
+
+    assert _session_row(conn, session_id)["usage_totals"] is None
+
+
+def test_a_report_stating_no_reading_stores_nothing(conn):
+    session_id = _ghost(conn)
+
+    _apply(conn, session_id)
+
+    assert _session_row(conn, session_id)["usage_totals"] is None
 
 
 def test_a_stale_claimless_session_on_this_machine_is_ended(conn):

@@ -45,6 +45,10 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_control.function_ids import RELAY_LIVENESS_FUNCTION_ID
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+from yoke_harness.cursor_native_result_usage import (
+    fold_launch_native_result,
+    session_usage_document,
+)
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     diagnostic_reference,
@@ -90,6 +94,11 @@ class VerifiedDeadSession:
     # Local paths, deliberately outside the reported evidence: the control
     # plane has no use for them, and they are pruned once the report lands.
     record_paths: tuple[Path, ...] = ()
+    # What the session consumed, when its native stated it. A turn's tokens
+    # reach this machine only in the result the native printed as it exited,
+    # so the poll that proves the process gone is also the first one that can
+    # carry them. Empty means nothing was measured, never zero.
+    usage_totals: str = ""
 
 
 def _anchors_directory(anchors_dir: Path | None) -> Path:
@@ -202,14 +211,20 @@ def verified_dead_sessions(
         launch_id = next(
             (record.launch_id for record in records if record.launch_id), None
         )
+        measured = ""
         if launch_id:
             evidence["launch_id"] = launch_id
             evidence.update(native_account(launch_id, state_dir=state_dir))
+            # This machine started that native for this session, so what the
+            # native's own result states is this session's consumption —
+            # custody, not a name the vendor happened to print inside it.
+            measured = fold_launch_native_result(launch_id, state_dir=state_dir)
         dead.append(
             VerifiedDeadSession(
                 session_id,
                 evidence,
                 tuple(record.path for record in records),
+                usage_totals=measured or session_usage_document(session_id),
             )
         )
     return tuple(dead)
@@ -283,7 +298,15 @@ def report_verified_dead_sessions(
             "machine_id": inventory.machine_id,
             "projects": list(inventory.project_ids),
             "sessions": [
-                {"session_id": entry.session_id, "evidence": entry.evidence}
+                {
+                    "session_id": entry.session_id,
+                    "evidence": entry.evidence,
+                    **(
+                        {"usage_totals": entry.usage_totals}
+                        if entry.usage_totals
+                        else {}
+                    ),
+                }
                 for entry in dead
             ],
         },

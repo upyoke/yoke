@@ -135,7 +135,10 @@ Owners: `yoke_harness.cursor_executed_model`, then `identity_runtime.cursor_payl
 `beforeSubmitPrompt`, no `stop`. A pending envelope therefore has exactly
 one chance to reach the model before its first tool call, which is why the
 delivery modules must put it in the `additional_context` reply rather than
-beside it on raw stdout (see `yoke_contracts.hook_runner.model_context_channel`).
+beside it on raw stdout (see `yoke_contracts.hook_runner.model_context_channel`). That same mode states its token counts only in the
+result object it prints as it exits, after every hook has run, so those are
+read from the native's own settled capture and reported by the machine that
+started it (`yoke_harness.cursor_native_result_usage`).
 
 ### Decision wire format and context injection
 

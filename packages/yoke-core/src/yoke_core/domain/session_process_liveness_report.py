@@ -17,6 +17,13 @@ by hand.  So a launch-named report ends its session on the poll that observed
 the exit, and only a report with no launch behind it -- an anchor a hook
 happened to write for some session -- still waits for the TTL to agree.
 
+Storing what the native measured is separate from ending its session too.
+A report may carry the reading the native's own result stated -- the one
+shape no hook can carry, because it is printed as the native exits -- and
+that reading is a measurement rather than a verdict: it is stored for any
+session this machine is authorized to report about, including one kept alive
+by a claim it still holds.
+
 Correcting the launch behind a dead native is separate from ending its
 session, and runs whatever the session verdict is. A session that died a
 minute ago still reads active, so waiting for it to go stale is exactly how a
@@ -25,6 +32,7 @@ launch kept reporting ``succeeded`` for a worker that was already gone.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
@@ -69,6 +77,46 @@ def _launch_named(evidence: Mapping[str, Any]) -> bool:
     return bool(str(evidence.get("launch_id") or "").strip())
 
 
+def _unauthorized(
+    row: Dict[str, Any] | None,
+    *,
+    machine_id: str,
+    authorized_projects: Sequence[int],
+) -> str | None:
+    """Why this machine may not report about this session, or ``None``."""
+    if row is None:
+        return "session_not_found"
+    if str(row.get("machine_id") or "") != machine_id:
+        return "machine_mismatch"
+    project_id = row.get("project_id")
+    if project_id is None or int(project_id) not in set(authorized_projects):
+        return "project_unauthorized"
+    return None
+
+
+def _record_reported_usage(conn: Any, session_id: str, document: object) -> None:
+    """Store the reading the machine measured from the native's own result.
+
+    A measurement is not a verdict about the session, so it is stored
+    whatever the death report goes on to decide: a session that stays live
+    because it still holds a claim consumed those tokens just as surely as
+    one that ends here. The stored figure never unlearns a total, so a
+    report that measured nothing writes nothing.
+    """
+    if not isinstance(document, str) or not document.strip():
+        return
+    from yoke_core.domain.session_usage_observation import (
+        USAGE_COLUMN,
+        record_session_usage,
+    )
+
+    record_session_usage(
+        conn,
+        session_id=session_id,
+        payload_json=json.dumps({USAGE_COLUMN: document.strip()}),
+    )
+
+
 def _skip_reason(
     row: Dict[str, Any] | None,
     *,
@@ -77,13 +125,13 @@ def _skip_reason(
     now: datetime,
     launch_named: bool,
 ) -> str | None:
-    if row is None:
-        return "session_not_found"
-    if str(row.get("machine_id") or "") != machine_id:
-        return "machine_mismatch"
-    project_id = row.get("project_id")
-    if project_id is None or int(project_id) not in set(authorized_projects):
-        return "project_unauthorized"
+    denial = _unauthorized(
+        row,
+        machine_id=machine_id,
+        authorized_projects=authorized_projects,
+    )
+    if denial is not None or row is None:
+        return denial
     liveness = session_liveness(row, now=now)
     if liveness == LIVENESS_ENDED:
         return f"liveness_{liveness}"
@@ -163,6 +211,11 @@ def apply_verified_process_death_reports(
             continue
         evidence = report.get("evidence") or {}
         row = _session_row(conn, session_id)
+        if (
+            _unauthorized(row, machine_id=machine_id, authorized_projects=projects)
+            is None
+        ):
+            _record_reported_usage(conn, session_id, report.get("usage_totals"))
         status = _skip_reason(
             row,
             machine_id=machine_id,
