@@ -135,6 +135,47 @@ def prepared_runs_awaiting_item(conn: Any, item_id: int) -> list[str]:
     return [str(row["id"] if hasattr(row, "keys") else row[0]) for row in rows]
 
 
+def split_runs_by_target_environment(
+    conn: Any,
+    run_ids: list[str],
+) -> tuple[list[str], list[list[str]]]:
+    """Separate one-run-per-environment from genuine duplicates.
+
+    A release deploys stage and production in parallel from one verified
+    revision, so an item advancing two prepared runs is the ordinary shape
+    when those runs target DIFFERENT environments — refusing it would strand
+    half of every pair. Two prepared runs aimed at the SAME environment are
+    the real ambiguity, because only one of them can be the release.
+
+    The distinction reads ``deployment_runs.target_environment_id``, which
+    every run already carries; nothing new records it.
+
+    Returns ``(distinct, duplicate_groups)``, both ordered by run id.
+    """
+    if not run_ids:
+        return [], []
+    by_environment: dict[Any, list[str]] = {}
+    for run_id in sorted(run_ids):
+        row = conn.execute(
+            "SELECT target_environment_id FROM deployment_runs WHERE id=%s",
+            (run_id,),
+        ).fetchone()
+        environment = (
+            row["target_environment_id"] if hasattr(row, "keys") else row[0]
+        ) if row is not None else None
+        by_environment.setdefault(environment, []).append(run_id)
+    distinct: list[str] = []
+    duplicates: list[list[str]] = []
+    for _environment, members in sorted(
+        by_environment.items(), key=lambda pair: str(pair[0])
+    ):
+        if len(members) == 1:
+            distinct.append(members[0])
+        else:
+            duplicates.append(members)
+    return distinct, duplicates
+
+
 __all__ = [
     "PAIR_GATE_POINT",
     "PAIR_SATISFACTION",
@@ -142,4 +183,5 @@ __all__ = [
     "prepared_runs_awaiting_item",
     "run_item_ids",
     "split_pending_pair_merges",
+    "split_runs_by_target_environment",
 ]
