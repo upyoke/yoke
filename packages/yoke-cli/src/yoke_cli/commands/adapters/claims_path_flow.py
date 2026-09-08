@@ -110,18 +110,22 @@ def claims_path_boundary_prove(args: List[str]) -> int:
             "boundary_lane_unreadable",
             "run this command on the machine holding the item's recorded lane",
         )
+    retry = f"yoke claims path boundary-prove --item {parsed.item}"
     sync = sync_local_snapshot_for_write(
         project=str((context.get("project") or {}).get("slug") or ""),
         repo_root=repo_path,
         integration_target=None,
         session_id=parsed.session_id,
         head_only=True,
+        timeout_s=None,
+        retry_command=retry,
     )
     if sync["status"] != "ok":
-        return _local_error(
-            "boundary_head_sync_failed",
-            str(sync.get("message") or "lane HEAD snapshot sync failed"),
-        )
+        message = str(sync.get("message") or "lane HEAD snapshot sync failed")
+        repair = str(sync.get("repair_command") or "")
+        if repair:
+            message = f"{message}; retry `{repair}`"
+        return _local_error("boundary_head_sync_failed", message)
     current = call_dispatcher(
         function_id="claims.path.boundary_context",
         target=target,
