@@ -57,11 +57,47 @@
   font-size: 12px;
 }
 
+.universe-app-root .event-criteria-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.universe-app-root .event-criterion {
+  display: grid;
+  gap: 3px;
+}
+
+.universe-app-root .event-criterion-label {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
 .universe-app-root .event-filter-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  align-items: center;
   margin-bottom: 16px;
+}
+
+.universe-app-root .event-filter-scope {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .event-more {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin-top: 14px;
+}
+
+.universe-app-root .event-recovery {
+  color: var(--yoke-muted);
+  font-size: 12px;
 }
 
 .universe-app-root .event-filter {
