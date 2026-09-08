@@ -2,15 +2,13 @@ import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
-  mergedRows,
   renderError,
-  scopeBuckets,
   section,
-  settledScopedCalls,
   statePill,
   withProjectColumn,
 } from "./universe_view_support.js";
 import { actionLink } from "./item_view_primitives.js";
+import { createRosterLoader } from "./universe_items_roster_loader.js";
 export { renderItemDetailView } from "./item_detail_loader.js";
 
 function detailProject(scope, projects) {
@@ -178,68 +176,58 @@ function itemTable(documentNode, rows, rowHref, scope, projects) {
   return wrap;
 }
 
-function filterRows(rows, state) {
-  const query = state.query.trim().toLowerCase();
-  return rows.filter((row) => {
-    if (state.workflow && row.workflow_id !== state.workflow) return false;
-    if (state.status && row.status !== state.status) return false;
-    if (!query) return true;
-    return [
-      row.public_ref, row.title, row.owner, claimLabel(row),
-    ].some((value) => String(value || "").toLowerCase().includes(query));
-  });
-}
-
-function filterControls(documentNode, rows, state, rerender) {
+// Built once and updated in place. Rebuilding the controls on every response
+// would take the focus and caret out of the search box on the very keystroke
+// that triggered the reload.
+function filterControls(documentNode, loader) {
   const controls = el(documentNode, "div", "item-filters");
   const query = el(documentNode, "input", "item-filter-control");
   query.type = "search";
   query.placeholder = "ID, title, owner, or claim";
-  query.value = state.query;
-  query.addEventListener("input", () => {
-    state.query = query.value;
-    rerender();
-  });
+  query.addEventListener("input", () => loader.setQuery(query.value));
   controls.appendChild(query);
-  for (const [key, label] of [
+  const selects = new Map();
+  for (const [key, emptyLabel] of [
     ["workflow", "All workflows"],
     ["status", "All statuses"],
   ]) {
     const select = el(documentNode, "select", "item-filter-control");
-    const empty = el(documentNode, "option", null, label);
-    empty.value = "";
-    select.appendChild(empty);
-    const rowKey = key === "workflow" ? "workflow_id" : key;
-    const valueLabels = new Map();
-    for (const row of rows) {
-      const value = row[rowKey];
-      if (!value || valueLabels.has(value)) continue;
-      valueLabels.set(
-        value,
-        key === "status" ? row.stage_label || value : value,
-      );
-    }
-    const values = [...valueLabels.keys()].sort((left, right) => (
-      String(valueLabels.get(left)).localeCompare(
-        String(valueLabels.get(right)),
-      )
-    ));
-    for (const value of values) {
-      const option = el(
-        documentNode, "option", null, valueLabels.get(value),
-      );
-      option.value = value;
-      option.selected = state[key] === value;
-      select.appendChild(option);
-    }
-    select.value = state[key];
-    select.addEventListener("change", () => {
-      state[key] = select.value;
-      rerender();
-    });
+    select.addEventListener(
+      "change", () => loader.setFilter(key, select.value),
+    );
+    selects.set(key, { select, emptyLabel, signature: null });
     controls.appendChild(select);
   }
-  return controls;
+  // Choices come from the server for the whole scope, so they stay complete
+  // instead of shrinking to whatever the current page happens to contain.
+  const update = (state) => {
+    const choices = {
+      workflow: (state.filters.workflow_ids || []).map(
+        (id) => ({ id, label: id }),
+      ),
+      status: state.filters.statuses || [],
+    };
+    for (const [key, entry] of selects) {
+      const signature = JSON.stringify(choices[key]);
+      if (entry.signature !== signature) {
+        entry.signature = signature;
+        const empty = el(documentNode, "option", null, entry.emptyLabel);
+        empty.value = "";
+        const options = [empty];
+        for (const choice of choices[key]) {
+          const option = el(documentNode, "option", null, choice.label);
+          option.value = choice.id;
+          options.push(option);
+        }
+        entry.select.replaceChildren(...options);
+      }
+      for (const option of entry.select.children) {
+        option.selected = option.value === state.criteria[key];
+      }
+      entry.select.value = state.criteria[key];
+    }
+  };
+  return { node: controls, update };
 }
 
 export function renderItemsView(context, main, scope, chrome = {}) {
@@ -281,60 +269,70 @@ export function renderItemsView(context, main, scope, chrome = {}) {
     toolbar.appendChild(actions);
     main.replaceChildren(toolbar, filterHost, panel);
   }
-  const filterState = {
-    open: false,
-    query: "",
-    workflow: "",
-    status: "",
-  };
+  let filtersOpen = false;
   filterButton.addEventListener("click", () => {
-    filterState.open = !filterState.open;
-    filterHost.hidden = !filterState.open;
-    filterButton.setAttribute("aria-expanded", String(filterState.open));
+    filtersOpen = !filtersOpen;
+    filterHost.hidden = !filtersOpen;
+    filterButton.setAttribute("aria-expanded", String(filtersOpen));
   });
+
+  const loader = createRosterLoader({
+    context,
+    scope,
+    onChange: (state) => renderState(state),
+  });
+  const controls = filterControls(documentNode, loader);
+  filterHost.replaceChildren(controls.node);
   filterHost.hidden = true;
 
-  const buckets = scopeBuckets(scope, projects, false);
-  const calls = buckets.map((bucket) => ({
-      functionId: "items.overview.list",
-      payload: bucket === null ? {} : { project: bucket },
-    }));
-  const renderPrototype = (callResults) => {
-    panel.renderEnvelopes(callResults, (body) => {
-      const rows = mergedRows(callResults, (result) => result.rows);
-      const counts = callResults.map(
-        (callResult) => (callResult.envelope.result || {}).count,
-      );
-      panel.setCount(
-        counts.every((count) => typeof count === "number")
-          ? counts.reduce((total, count) => total + count, 0)
-          : null,
-      );
-      const renderRows = () => {
-        body.replaceChildren(itemTable(
-          documentNode,
-          filterRows(rows, filterState),
-          (row) => itemDrillInHref({
-            projectId: row.project_id,
-            publicRef: row.public_ref,
-          }),
-          scope,
-          projects,
-        ));
-      };
-      filterHost.replaceChildren(filterControls(
-        documentNode, rows, filterState, renderRows,
-      ));
-      filterHost.hidden = !filterState.open;
-      renderRows();
-    });
-  };
-  settledScopedCalls(context, calls).then(({ callResults, failed }) => {
+  function renderState(state) {
     if (!context.isMounted()) return;
-    if (!failed) {
-      renderPrototype(callResults);
+    // A failure with nothing on screen replaces the table; a failure while
+    // rows are already rendered is reported beside them. Discarding fetched
+    // rows because the NEXT page failed is worse than never having asked.
+    if (state.failure && !state.rows.length) {
+      panel.renderEnvelope(
+        state.failure, (body) => renderError(body, state.failure),
+      );
       return;
     }
-    panel.renderEnvelope(failed, (body) => renderError(body, failed));
-  });
+    // The total behind the page, not the page's own length: the roster's
+    // heading reports how much matches, not how much has loaded.
+    panel.setCount(state.matchCount);
+    controls.update(state);
+    panel.renderEnvelopes([], (body) => {
+      if (state.loading && !state.rows.length) {
+        body.appendChild(el(documentNode, "p", "empty", "loading…"));
+        return;
+      }
+      body.appendChild(itemTable(
+        documentNode,
+        state.rows,
+        (row) => itemDrillInHref({
+          projectId: row.project_id,
+          publicRef: row.public_ref,
+        }),
+        scope,
+        projects,
+      ));
+      if (!state.hasMore && !state.failure) return;
+      const more = el(documentNode, "div", "item-roster-more");
+      if (state.failure) renderError(more, state.failure);
+      if (state.hasMore) {
+        const button = el(
+          documentNode,
+          "button",
+          "item-button",
+          state.loading ? "Loading…" : "Load more",
+        );
+        button.type = "button";
+        button.disabled = state.loading;
+        button.addEventListener("click", () => { loader.loadMore(); });
+        more.appendChild(button);
+      }
+      body.appendChild(more);
+    });
+  }
+
+  loader.start();
 }

@@ -5,6 +5,18 @@ import {
   renderItemsView,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_items.js";
 import {
+  ROSTER_PAGE_SIZE,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_items_roster_loader.js";
+import {
+  SEARCH_DEBOUNCE_MS,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shell_controls.js";
+
+// Typed input is debounced, so a search assertion has to outlast the timer.
+async function settleDebounce() {
+  await new Promise((resolve) => setTimeout(resolve, SEARCH_DEBOUNCE_MS + 20));
+  await settle();
+}
+import {
   markdownSection,
   withoutMarkdownSections,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/item_view_primitives.js";
@@ -57,6 +69,8 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
         success: true,
         result: {
           count: 2,
+          match_count: 2,
+          next_cursor: null,
           rows: [
             {
               id: 41,
@@ -96,9 +110,11 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
   }), root, "all");
   await settle();
 
+  // One request, carrying the page size and nothing else: an unfiltered
+  // "all" scope names no project, and relevance stays Overview's alone.
   assert.deepEqual(requests, [{
     function: "items.overview.list",
-    payload: {},
+    payload: { page_size: ROSTER_PAGE_SIZE },
   }]);
   assert.equal("relevance" in requests[0].payload, false);
   assert.equal(byClass(root, "item-workflow").length, 3);
@@ -163,27 +179,50 @@ test("Items projects its scope copy and actions into the shared page head", asyn
 test("Items keeps the filter control mounted while its rows update", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
-  renderItemsView(itemContext(documentNode, async () => ({
-    status: 200,
-    envelope: {
-      success: true,
-      result: {
-        count: 2,
-        rows: [
-          {
-            public_ref: "ACM-12", project_id: 7, title: "Ship the fix",
-            workflow_id: "dash", status: "new", stage_label: "Idea",
-            owner: "", claimed_by: null,
-          },
-          {
-            public_ref: "ACM-13", project_id: 7, title: "Plan the work",
-            workflow_id: "epic", status: "planned", stage_label: "Ready to plan",
-            owner: "", claimed_by: null,
-          },
-        ],
-      },
+  const requests = [];
+  // Filtering is the server's job now, so the stub answers the criteria the
+  // request carried rather than handing back a roster to sieve locally.
+  const catalog = [
+    {
+      public_ref: "ACM-12", project_id: 7, title: "Ship the fix",
+      workflow_id: "dash", status: "new", stage_label: "Idea",
+      owner: "", claimed_by: null,
     },
-  })), root, "all");
+    {
+      public_ref: "ACM-13", project_id: 7, title: "Plan the work",
+      workflow_id: "epic", status: "planned", stage_label: "Ready to plan",
+      owner: "", claimed_by: null,
+    },
+  ];
+  renderItemsView(itemContext(documentNode, async (request) => {
+    requests.push(request);
+    const { workflow, search } = request.payload;
+    const rows = catalog.filter((row) => (
+      (!workflow || row.workflow_id === workflow) &&
+      (!search || row.title.toLowerCase().includes(search.toLowerCase()))
+    ));
+    return {
+      status: 200,
+      envelope: {
+        success: true,
+        result: {
+          count: rows.length,
+          rows,
+          match_count: rows.length,
+          next_cursor: null,
+          // Choices describe the whole scope, so they stay whole no matter
+          // which single row this particular response carried.
+          filters: {
+            workflow_ids: ["dash", "epic"],
+            statuses: [
+              { id: "new", label: "Idea" },
+              { id: "planned", label: "Ready to plan" },
+            ],
+          },
+        },
+      },
+    };
+  }), root, "all");
   await settle();
 
   allNodes(root).find(
@@ -210,18 +249,29 @@ test("Items keeps the filter control mounted while its rows update", async () =>
   );
   workflow.value = "epic";
   workflow.dispatchEvent(new Event("change"));
+  await settle();
+  assert.equal(
+    requests[requests.length - 1].payload.workflow, "epic",
+    "the workflow criterion is evaluated on the server",
+  );
   assert.equal(byClass(root, "item-roster-row").length, 1);
   assert.match(itemText(root), /Plan the work/);
   assert.doesNotMatch(itemText(root), /Ship the fix/);
   workflow.value = "";
   workflow.dispatchEvent(new Event("change"));
+  await settle();
   search.value = "ship";
   search.dispatchEvent(new Event("input"));
+  await settleDebounce();
 
+  // The same input node is still mounted: rebuilding it would take the
+  // caret out of the box on the keystroke that triggered the reload.
   assert.ok(allNodes(root).includes(search));
   assert.equal(byClass(root, "item-roster-row").length, 1);
   assert.match(itemText(root), /Ship the fix/);
   assert.doesNotMatch(itemText(root), /Plan the work/);
+  // Selecting a criterion resets paging: no cursor rides a criteria change.
+  assert.ok(requests.every((request) => !("cursor" in request.payload)));
 });
 
 test("Items rows retain native links and open from the row surface", async () => {

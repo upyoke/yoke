@@ -43,15 +43,31 @@ export function twoProjectClient() {
         };
       }
       if (request.function === "items.overview.list") {
-        const bucket = request.payload.project;
-        const rows = bucket === undefined
+        // The Items roster names its whole scope in one request, so a scope
+        // of several projects arrives as `projects` rather than as one call
+        // per member. `project` remains the single-project shape other
+        // callers still send.
+        const named = request.payload.projects
+          || (request.payload.project === undefined
+            ? undefined
+            : [request.payload.project]);
+        const rows = named === undefined
           ? [...rowsByProject[1], ...rowsByProject[2]]
-          : rowsByProject[bucket] || [];
+          : named.flatMap((bucket) => rowsByProject[bucket] || []);
         return {
           status: 200,
           envelope: {
             success: true,
-            result: { rows, count: rows.length },
+            result: {
+              rows,
+              count: rows.length,
+              match_count: rows.length,
+              next_cursor: null,
+              filters: {
+                workflow_ids: ["issue"],
+                statuses: [{ id: "idea", label: "Idea" }],
+              },
+            },
           },
         };
       }

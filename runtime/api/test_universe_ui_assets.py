@@ -248,7 +248,10 @@ def test_page_module_wires_the_workbench_shell():
             "renderStrategyTable",
             '"Purpose / ancestry"',
         ),
-        "universe_views_items.js": ("items.overview.list",),
+        # The Items view composes the page; the loader beside it owns the
+        # roster read, its paging state, and its request criteria.
+        "universe_views_items.js": ("createRosterLoader",),
+        "universe_items_roster_loader.js": ("items.overview.list",),
         "item_detail_loader.js": ("items.detail.get",),
         "item_view_details.js": ("epic_tasks.list.run",),
         "universe_views_events.js": ("events.query.run",),
