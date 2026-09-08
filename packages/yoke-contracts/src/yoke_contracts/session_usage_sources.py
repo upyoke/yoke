@@ -19,6 +19,33 @@ from yoke_contracts.harness_family_identity import (
 )
 
 
+#: Why a Cursor payload that named some token fields but not all four is
+#: not folded: the missing ones are unknown, not fabricated zeros.
+CURSOR_INCOMPLETE_TOKEN_FIELDS_REASON = (
+    "cursor payload named some token fields but not the complete set"
+)
+
+#: Why token fields without ``generation_id`` or ``request_id`` are not
+#: folded: the same parent turn can arrive twice, and without an id the
+#: second copy cannot be distinguished from a new turn.
+CURSOR_NO_TURN_IDENTITY_REASON = (
+    "cursor token fields arrived without generation_id or request_id"
+)
+
+#: Stored model name when a Cursor reading names none. Empty strings are
+#: dropped by ``usage_from_document``, so the sentinel must be non-empty.
+CURSOR_UNNAMED_MODEL = "unknown"
+
+#: Cursor's first-class usage surface: parent-turn hook fields, and the
+#: print-mode result ``usage`` object when that JSON is presented as a
+#: payload. Conversation-store blobs still carry no usage; a payload that
+#: omits the optional fields is ``unavailable`` for that surface, not a
+#: global "Cursor unsupported" deferral.
+CURSOR_USAGE_SOURCE = (
+    "cursor parent-turn stop/afterAgentResponse token fields; "
+    "print-mode result usage"
+)
+
 #: The first-class usage surface per harness family, or ``""`` for a
 #: family that counts tokens nowhere machine-readable.
 #:
@@ -27,29 +54,14 @@ from yoke_contracts.harness_family_identity import (
 #: writes split by cache lifetime, output, and the thinking tokens inside
 #: that output. Codex writes a cumulative ``token_count`` event into its
 #: rollout whose ``info.total_token_usage`` is the whole thread's
-#: consumption to that point. Cursor states none — see
-#: :data:`CURSOR_USAGE_DEFERRAL`.
+#: consumption to that point. Cursor folds optional parent-turn token
+#: fields from ``stop`` / ``afterAgentResponse`` and print-mode result
+#: ``usage`` — see :data:`CURSOR_USAGE_SOURCE`.
 SESSION_USAGE_SOURCES: Mapping[str, str] = {
     CLAUDE_FAMILY: "transcript assistant message.usage",
     CODEX_FAMILY: "rollout token_count info.total_token_usage",
-    CURSOR_FAMILY: "",
+    CURSOR_FAMILY: CURSOR_USAGE_SOURCE,
 }
-
-#: Why Cursor's consumption stays unmeasured, recorded so the next reader
-#: inherits the search instead of repeating it. Its conversation store
-#: (``~/.cursor/chats/<workspace>/<conversation>/store.db``) holds only
-#: ``blobs`` and ``meta``, and the blobs carry request payloads and
-#: provider options with no usage block; its code-tracking database
-#: (``~/.cursor/ai-tracking/ai-code-tracking.db``) counts edited lines and
-#: AI-authorship percentages, never tokens; and its ACP session stores
-#: mirror the same conversation blobs. Re-check when Cursor adds a usage
-#: surface; until then a Cursor session reports this reason rather than a
-#: total it cannot prove.
-CURSOR_USAGE_DEFERRAL = (
-    "cursor counts no tokens in any machine-readable surface: its "
-    "conversation store holds request blobs with no usage block, and its "
-    "code-tracking database counts edited lines rather than tokens"
-)
 
 
 def states_usage(harness_id: object) -> bool:
@@ -63,7 +75,10 @@ def usage_source(harness_id: object) -> str:
 
 
 __all__ = [
-    "CURSOR_USAGE_DEFERRAL",
+    "CURSOR_INCOMPLETE_TOKEN_FIELDS_REASON",
+    "CURSOR_NO_TURN_IDENTITY_REASON",
+    "CURSOR_UNNAMED_MODEL",
+    "CURSOR_USAGE_SOURCE",
     "SESSION_USAGE_SOURCES",
     "states_usage",
     "usage_source",

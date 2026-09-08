@@ -111,11 +111,66 @@ def codex_turn_context(model: str) -> dict:
     return {"type": "turn_context", "payload": {"model": model}}
 
 
+def cursor_stop_payload(
+    *,
+    session_id: str = "cursor-1",
+    generation_id: str = "gen-1",
+    model: str = "composer-2",
+    input_tokens: int = 100,
+    output_tokens: int = 20,
+    cache_read_tokens: int = 40,
+    cache_write_tokens: int = 10,
+    event: str = "stop",
+) -> dict:
+    """One Cursor ``stop`` payload with the staff-documented token fields.
+
+    ``input_tokens`` is inclusive of both cache figures, matching the
+    native hook shape rather than the print-mode result.
+    """
+    return {
+        "hook_event_name": event,
+        "session_id": session_id,
+        "conversation_id": session_id,
+        "generation_id": generation_id,
+        "model": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cache_read_tokens": cache_read_tokens,
+        "cache_write_tokens": cache_write_tokens,
+    }
+
+
+def cursor_result_payload(
+    *,
+    session_id: str = "cursor-1",
+    request_id: str = "req-1",
+    input_tokens: int = 6536,
+    output_tokens: int = 34,
+    cache_read_tokens: int = 7424,
+    cache_write_tokens: int = 0,
+) -> dict:
+    """Print-mode result JSON: exclusive ``inputTokens``, no model name."""
+    return {
+        "type": "result",
+        "subtype": "success",
+        "session_id": session_id,
+        "request_id": request_id,
+        "usage": {
+            "inputTokens": input_tokens,
+            "outputTokens": output_tokens,
+            "cacheReadTokens": cache_read_tokens,
+            "cacheWriteTokens": cache_write_tokens,
+        },
+    }
+
+
 __all__ = [
     "append_rows",
     "claude_row",
     "codex_token_count",
     "codex_turn_context",
+    "cursor_result_payload",
+    "cursor_stop_payload",
     "machine_home",
     "write_rows",
 ]
