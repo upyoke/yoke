@@ -79,6 +79,19 @@ are released, a later report can end the empty ghost. A refused report also
 prunes nothing, so a server that starts serving this function later still
 hears about every death observed while it could not.
 
+One poll can observe more deaths than one request may carry. The liveness
+request caps each collection, and an over-long collection fails validation as
+a whole request — the server answers `payload_invalid` and hears about none of
+the deaths, not merely the ones past the cap. A machine that has accumulated
+more records than the cap would therefore report nothing at all, every poll,
+until someone noticed. The sender splits a poll at the same limit the contract
+declares (`RELAY_REPORT_COLLECTION_LIMIT`), stopping at the first refusal
+because whatever refused one request will usually refuse the next. Nothing is
+trimmed to fit: a batch that never left keeps its records exactly as a refused
+one does, and the next ordinary poll reports them again. The same split covers
+the launch deaths reported through the same request, whose custody records are
+likewise released only for a batch the control plane actually received.
+
 ## Why the report is not authority
 
 The relay says what it observed; the control plane decides. Machine

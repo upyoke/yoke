@@ -38,20 +38,18 @@ that observed the death rather than whenever someone next notices.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import logging
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
 from yoke_cli.config import machine_config
-from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.process_ancestry import process_start_time
-from yoke_contracts.session_control.function_ids import RELAY_LIVENESS_FUNCTION_ID
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness.cursor_native_result_usage import (
     fold_launch_native_result,
     session_usage_document,
 )
 from yoke_harness import session_launch_handles
+from yoke_harness.session_relay_liveness_batches import deliver_liveness_batches
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     diagnostic_reference,
@@ -64,7 +62,6 @@ from yoke_harness.session_relay_termination import read_local_record
 
 LAUNCH_HANDLE_SOURCE = "launch_handle"
 PROCESS_ANCHOR_SOURCE = "process_anchor"
-_LOGGER = logging.getLogger(__name__)
 
 StartTimeOf = Callable[[int], str | None]
 
@@ -277,7 +274,8 @@ def report_verified_dead_sessions(
     The control plane decides: it ends only a reported session that belongs
     to this machine and is already past the stale TTL. A server that does
     not serve this function yet answers with a typed skew error, which is
-    logged and skipped — the poll it rides along with keeps working.
+    logged and skipped — the poll it rides along with keeps working, and
+    every record it did not acknowledge stays for the next one.
     """
     dead = verified_dead_sessions(
         state_dir=state_dir,
@@ -286,43 +284,31 @@ def report_verified_dead_sessions(
     )
     if not dead:
         return ()
-    response = dispatcher(
-        function_id=RELAY_LIVENESS_FUNCTION_ID,
-        target=TargetRef(kind="global"),
-        payload={
-            "relay_id": inventory.relay_id,
-            "machine_id": inventory.machine_id,
-            "projects": list(inventory.project_ids),
-            "sessions": [
-                {
-                    "session_id": entry.session_id,
-                    "evidence": entry.evidence,
-                    **(
-                        {"usage_totals": entry.usage_totals}
-                        if entry.usage_totals
-                        else {}
-                    ),
-                }
-                for entry in dead
-            ],
-        },
+    # A long-running machine accumulates more deaths than one request may
+    # carry, and the records that stay behind an undelivered batch are read
+    # again next poll, so nothing is lost by sending only what fits.
+    ended_ids: list[str] = []
+    for _batch, result in deliver_liveness_batches(
+        dispatcher,
+        inventory,
+        collection="sessions",
+        reports=[
+            {
+                "session_id": entry.session_id,
+                "evidence": entry.evidence,
+                **({"usage_totals": entry.usage_totals} if entry.usage_totals else {}),
+            }
+            for entry in dead
+        ],
         timeout_s=timeout_s,
-    )
-    if not getattr(response, "success", False):
-        error = getattr(response, "error", None)
-        _LOGGER.warning(
-            "relay liveness report refused (%s): %s",
-            getattr(error, "code", "relay_liveness_failed"),
-            getattr(error, "message", ""),
-        )
-        # The records stay, so a server that starts serving this function
-        # still hears about every death observed while it could not.
-        return ()
-    ended = (getattr(response, "result", None) or {}).get("ended") or []
-    ended_ids = tuple(str(session_id) for session_id in ended)
+        refusal_label="relay liveness report",
+    ):
+        ended_ids.extend(str(session_id) for session_id in result.get("ended") or [])
     ended_set = set(ended_ids)
+    # Only an acknowledged end spends a record: a session the control plane
+    # skipped, and one whose batch never left, both report again next poll.
     _prune(tuple(entry for entry in dead if entry.session_id in ended_set))
-    return ended_ids
+    return tuple(ended_ids)
 
 
 __all__ = [
