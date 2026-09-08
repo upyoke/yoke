@@ -205,12 +205,8 @@ def test_unmeasurable_endpoints_are_named_rather_than_dropped() -> None:
 
 def test_implausible_endpoint_pair_is_rejected_but_long_calls_are_kept() -> None:
     start = datetime(2026, 9, 8, 12, 0, 0, tzinfo=timezone.utc)
-    long_call = observe_timing.measure_elapsed(
-        start, start + timedelta(hours=6)
-    )
-    mismatched = observe_timing.measure_elapsed(
-        start, start + timedelta(days=3)
-    )
+    long_call = observe_timing.measure_elapsed(start, start + timedelta(hours=6))
+    mismatched = observe_timing.measure_elapsed(start, start + timedelta(days=3))
 
     assert long_call.milliseconds == 6 * 60 * 60 * 1000
     assert long_call.status == observe_timing.TIMING_MEASURED

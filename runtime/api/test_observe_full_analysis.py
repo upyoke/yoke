@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -13,6 +13,10 @@ from yoke_core.domain.observe import (
     detect_anomalies,
     insert_event,
     parse_hook_event,
+)
+from yoke_core.domain.observe_timing import (
+    TIMING_MEASURED,
+    TIMING_UNKNOWN_NO_CALL_IDENTITY,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.observe_full_test_helpers import (
@@ -36,11 +40,13 @@ def events_db_file(tmp_path):
 
 class TestDuration:
     def test_duration_with_session_tool_call(self, events_db_file):
-        """Duration is computed from active session tool-call state."""
+        """Duration spans the call's captured start and completion."""
         tuid = f"tu-{uuid.uuid4()}"
-        now = datetime.now(timezone.utc)
+        completed = datetime.now(timezone.utc)
+        started = completed - timedelta(milliseconds=750)
         start_time = (
-            now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+            started.strftime("%Y-%m-%dT%H:%M:%S.")
+            + f"{started.microsecond // 1000:03d}Z"
         )
 
         conn = connect_test_db(events_db_file)
@@ -67,12 +73,15 @@ class TestDuration:
         }
         rec = parse_hook_event(
             data,
+            session_id="sess",
             hook_event="PostToolUse",
             tool_use_id=tuid,
             db_path=events_db_file,
+            completed_at=completed,
         )
         assert rec is not None
-        assert rec.duration_ms is not None
+        assert rec.duration_ms == 750
+        assert rec.timing_status == TIMING_MEASURED
 
     def test_duration_null_no_pre(self):
         """TC-duration-null-no-pre: duration_ms NULL without HarnessToolCallStarted."""
@@ -83,9 +92,11 @@ class TestDuration:
         }
         rec = parse_hook_event(
             data,
+            session_id="sess",
             hook_event="PostToolUse",
             tool_use_id="tu-nopre",
             db_path=None,
+            completed_at=datetime.now(timezone.utc),
         )
         assert rec is not None
         assert rec.duration_ms is None
@@ -100,6 +111,7 @@ class TestDuration:
         rec = parse_hook_event(data, hook_event="PostToolUse")
         assert rec is not None
         assert rec.duration_ms is None
+        assert rec.timing_status == TIMING_UNKNOWN_NO_CALL_IDENTITY
 
 
 class TestSessionAnalysis:
