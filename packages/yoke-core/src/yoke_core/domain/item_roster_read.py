@@ -226,6 +226,11 @@ def read_item_roster(
     ``project_ids`` is the already-resolved, already-authorized scope: an
     empty collection means the caller may see no project and answers empty,
     while ``None`` means unrestricted.
+
+    Filter choices are computed only for a first page. Continuing an existing
+    paging sequence means the caller already holds them, and they describe a
+    scope the cursor did not change — recomputing a scope-wide DISTINCT on
+    every ``Load more`` would buy the same answer again.
     """
     scope = None if project_ids is None else list(project_ids)
     if scope is not None and not scope:
@@ -246,9 +251,12 @@ def read_item_roster(
     # Choices are offered for the project scope alone. Narrowing them by the
     # very criteria they select would delete the option a reader needs to
     # switch back to.
-    scope_where, scope_params = _filter_sql(
-        conn, project_ids=scope, search=None, workflow=None, status=None,
-    )
+    filters = None
+    if not cursor:
+        scope_where, scope_params = _filter_sql(
+            conn, project_ids=scope, search=None, workflow=None, status=None,
+        )
+        filters = _filter_choices(conn, scope_where, scope_params)
     source = f"FROM items i JOIN projects p ON p.id = i.project_id{where}"
     match_count = int(conn.execute(
         f"SELECT COUNT(*) {source}", tuple(params),
@@ -287,7 +295,7 @@ def read_item_roster(
         "rows": page,
         "match_count": match_count,
         "next_cursor": next_cursor,
-        "filters": _filter_choices(conn, scope_where, scope_params),
+        "filters": filters,
     }
 
 

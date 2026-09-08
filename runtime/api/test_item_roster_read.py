@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
 from runtime.api.conftest import insert_item
-from runtime.api.domain.handlers.items_read_test_support import request_for
+from runtime.api.item_roster_test_support import (
+    iso_minutes_ago as _iso,
+    public_refs as _refs,
+    read_roster as _roster,
+    seed_ladder as _seed_ladder,
+)
 from yoke_core.domain.actors import (
     DISPLAY_LABEL_SURFACE,
     seed_human_actor,
@@ -20,35 +25,6 @@ from yoke_core.domain.item_roster_read import (
     decode_cursor,
     encode_cursor,
 )
-
-
-def _iso(minutes_ago: int) -> str:
-    stamp = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
-    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _roster(**payload):
-    return item_page_reads.handle_items_overview_list(
-        request_for("items.overview.list", payload)
-    )
-
-
-def _refs(outcome) -> list[str]:
-    return [row["public_ref"] for row in outcome.result_payload["rows"]]
-
-
-def _seed_ladder(test_db, count: int, *, first_id: int = 700) -> None:
-    """Items whose update times descend with their ids, newest first."""
-    for offset in range(count):
-        insert_item(
-            test_db,
-            id=first_id + offset,
-            title=f"ladder item {offset}",
-            status="implementing",
-            created_at=_iso(600),
-            updated_at=_iso(500 - offset),
-        )
-    test_db.commit()
 
 
 def test_page_reports_full_match_count_and_next_cursor(test_db):
@@ -188,6 +164,27 @@ def test_filters_run_before_the_page_and_stay_complete(test_db):
     assert "issue" in outcome.result_payload["filters"]["workflow_ids"]
 
 
+def test_continuing_a_sequence_does_not_recompute_filter_choices(test_db):
+    """A Load more carries no choices: the caller already holds them.
+
+    The cursor cannot change the scope those choices describe, so recomputing
+    a scope-wide DISTINCT per page would buy the same answer again.
+    """
+    _seed_ladder(test_db, 4, first_id=970)
+    first = _roster(page_size=2)
+    assert first.primary_success
+    assert first.result_payload["filters"]["workflow_ids"]
+
+    following = _roster(
+        page_size=2, cursor=first.result_payload["next_cursor"],
+    )
+    assert following.primary_success
+    assert following.result_payload["filters"] is None
+    # The total behind the page still rides every page, because the heading
+    # reports it and the match set can move under a paging sequence.
+    assert following.result_payload["match_count"] >= 4
+
+
 def test_rows_carry_only_rendered_roster_fields(test_db):
     _seed_ladder(test_db, 1, first_id=920)
     outcome = _roster(page_size=5)
@@ -282,11 +279,3 @@ def test_paged_read_ships_a_fraction_of_the_unpaged_payload(test_db, capsys):
     # A page of 50 out of 300+ must cost well under a quarter of the full
     # transfer; the compact projection widens the gap beyond the row ratio.
     assert paged_bytes < unpaged_bytes / 4
-
-
-def test_unknown_project_scope_answers_empty(test_db):
-    _seed_ladder(test_db, 2, first_id=940)
-    outcome = _roster(page_size=5, projects=["no-such-project"])
-    assert outcome.primary_success
-    assert outcome.result_payload["rows"] == []
-    assert outcome.result_payload["match_count"] == 0

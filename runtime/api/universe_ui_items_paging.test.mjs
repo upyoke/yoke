@@ -32,7 +32,13 @@ function row(ref) {
   };
 }
 
-function page(rows, { matchCount, cursor = null }) {
+// `filters: null` is what a continuation actually returns: the choices
+// describe a scope the cursor did not change, so the server sends them once
+// and the loader keeps what it already holds.
+function page(rows, { matchCount, cursor = null, filters = {
+  workflow_ids: ["issue", "dash"],
+  statuses: [{ id: "idea", label: "Idea" }],
+} }) {
   return {
     status: 200,
     envelope: {
@@ -42,10 +48,7 @@ function page(rows, { matchCount, cursor = null }) {
         count: rows.length,
         match_count: matchCount,
         next_cursor: cursor,
-        filters: {
-          workflow_ids: ["issue", "dash"],
-          statuses: [{ id: "idea", label: "Idea" }],
-        },
+        filters,
       },
     },
   };
@@ -99,7 +102,10 @@ test("Load more appends the next page and retires when the cursor runs out", asy
   const requests = [];
   const pages = [
     page([row("ACM-1"), row("ACM-2")], { matchCount: 4, cursor: "c1" }),
-    page([row("ACM-3"), row("ACM-4")], { matchCount: 4, cursor: null }),
+    // The continuation carries no choices, as the server actually sends it.
+    page([row("ACM-3"), row("ACM-4")], {
+      matchCount: 4, cursor: null, filters: null,
+    }),
   ];
   renderItemsView(itemContext(documentNode, async (request) => {
     requests.push(request);
@@ -119,6 +125,17 @@ test("Load more appends the next page and retires when the cursor runs out", asy
   assert.equal(new Set(refs).size, refs.length);
   // No cursor remains, so the control is gone rather than dead.
   assert.equal(loadMoreButton(root), null);
+
+  // The choices the continuation omitted are still on the controls.
+  openFilters(root);
+  const workflow = allNodes(root).find(
+    (node) => node.tagName === "SELECT" &&
+      node.children[0]?.textContent === "All workflows",
+  );
+  assert.deepEqual(
+    workflow.children.map((node) => node.textContent),
+    ["All workflows", "issue", "dash"],
+  );
 });
 
 test("changing a criterion resets the loaded rows and the paging sequence", async () => {
