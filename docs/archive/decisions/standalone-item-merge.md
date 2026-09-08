@@ -119,7 +119,11 @@ the queue admission, because there is no longer a landing to wait for. That re-e
 already contains, but the durable marker keeps it on the queue close-out path:
 it records the identified merge-group run as the item's `ci_run` proof before
 execution evidence is evaluated. It never republishes the lane or re-enters
-the pull request. Missing proof leaves the already-landed item open with a
+the pull request. Close-out first compares the current lane candidate to the
+recorded landing identity; matching it is enough even when a squash is not an
+ancestor of the base. New commits after that landing are refused — file a
+fresh work item so they get their own merge identity — and the lane is left in
+place. Missing proof leaves the already-landed item open with a
 retry instruction, rather than silently classifying it as a local merge. The
 marker makes that handoff visible and idempotent. The record keeps the named
 `queue_holding`, `queue_entry_state`, and `merge_when_ready` outcomes alongside

@@ -127,13 +127,23 @@ def run(argv: List[str]) -> int:
         return _fail(f"{public_ref}: {exc}", as_json=as_json)
     _ensure_usable_cwd(repo_root, lane_path(item))
     project = str((item.get("project") or {}).get("slug") or "yoke")
+    recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
+    stale = landed.stale_unlanded_work(
+        item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=str(repo_root),
+        recorded_head=recorded_head,
+    )
+    if stale:
+        return _fail(f"{public_ref}: {stale}", as_json=as_json)
     landed_lane = landed.landed_lane(
         item_id=item_id,
         branch=branch,
         target=target,
         repo_root=str(repo_root),
         project=project,
-        recorded_head=str((merge_source_lane(item) or {}).get("commit_sha") or ""),
+        recorded_head=recorded_head,
     )
     pruned_lane = not active_lanes(item) and recovery.branch_needs_receipt(
         str(repo_root),
@@ -256,7 +266,8 @@ def run(argv: List[str]) -> int:
 
     _announce_close_out("prepared release")
     release_fragment, release_warning = continue_prepared_release(
-        item_id=item_id, session_id=str(args.session_id),
+        item_id=item_id,
+        session_id=str(args.session_id),
     )
     if release_fragment is not None:
         envelope["prepared_release"] = release_fragment

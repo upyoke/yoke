@@ -173,7 +173,12 @@ approval, or after a queue landing that has not reached `done` — re-run the
 same merge command with `--result` and `--verification`. It restores the
 work claim close-out needs and records evidence if the merge identity is
 not yet on the item. Do not hand-run `lifecycle.transition --to done` for
-Dash close-out.
+Dash close-out. Re-entry converges only when the current lane candidate is
+the recorded landing identity, or a fast-forward onto that merge — including
+a squash whose original head is not an ancestor of the base. New commits
+after that landing are refused: file a fresh work item so they get their
+own merge identity; the command does not clean the lane or declare them
+delivered.
 
 When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,
