@@ -56,6 +56,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_views_delivery_inventory.js": "text/javascript; charset=utf-8",
     "universe_views_doctor.js": "text/javascript; charset=utf-8",
     "universe_views_events.js": "text/javascript; charset=utf-8",
+    "universe_events_history_loader.js": "text/javascript; charset=utf-8",
     "universe_views_github.js": "text/javascript; charset=utf-8",
     "universe_views_items.js": "text/javascript; charset=utf-8",
     "universe_items_roster_loader.js": "text/javascript; charset=utf-8",

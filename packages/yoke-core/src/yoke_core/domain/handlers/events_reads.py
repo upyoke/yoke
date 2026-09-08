@@ -23,6 +23,10 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.events_history_read import (
+    EventsHistoryRequest,
+    history_outcome,
+)
 from yoke_core.domain.handlers.event_presentation import present_event
 
 
@@ -77,12 +81,19 @@ class EventsFilterRequest(BaseModel):
 
 class EventsQueryRequest(EventsFilterRequest):
     limit: int = Field(default=50, ge=1, le=1000)
+    #: Selects the compact cursor-paged timeline shape. Absent keeps the
+    #: unpaged raw projection every existing caller reads.
+    history: Optional[EventsHistoryRequest] = None
 
 
 class EventsQueryResponse(BaseModel):
     rows: List[Dict[str, Any]]
     #: Present only when ``current_episode`` hid same-filter rows.
     elided_prior_episode_rows: Optional[int] = None
+    #: History shape only: the compact field allowlist and the cursor after
+    #: this page (``None`` once the last match has been served).
+    fields: Optional[List[str]] = None
+    next_cursor: Optional[str] = None
 
 
 class EventsTailRequest(BaseModel):
@@ -140,17 +151,19 @@ def _validated_limit(
 
 def _where_from_payload(
     request: FunctionCallRequest,
+    payload: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, List[Any], Optional[HandlerOutcome]]:
     """Translate payload filters into the shared events WHERE builder.
 
     The ``--item`` filter never rides the flag list: the dispatcher has
     already resolved ``target.item_id`` server-side, so the resolved
     internal id is appended as a direct equality clause instead of
-    re-parsing a public ref.
+    re-parsing a public ref. ``payload`` overrides the request's own when a
+    caller authorizes a filter itself and removes it from the flag list.
     """
     from yoke_core.domain.events_queries import _build_where
 
-    payload = request.payload or {}
+    payload = request.payload or {} if payload is None else payload
     args: List[str] = []
     for key, flag in _EQUALITY_FILTER_FLAGS.items():
         value = payload.get(key)
@@ -202,11 +215,11 @@ def _where_from_payload(
 def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, Any]]:
     """Newest-first typed projection plus readable presentation facts."""
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.events_history_read import presentation_facts
     from yoke_core.domain.events_select import (
         _EVT_SELECT_COLS,
         EVT_COLUMN_NAMES,
     )
-    from yoke_contracts.public_ref import format_item_ref
 
     conn = connect()
     try:
@@ -223,58 +236,15 @@ def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, An
             }
             for row in raw_rows
         ]
-        item_ids = sorted(
-            {
-                int(row["item_id"])
-                for row in rows
-                if str(row.get("item_id") or "").isdigit()
-            }
-        )
-        item_facts: Dict[int, Dict[str, Any]] = {}
-        if item_ids:
-            markers = ", ".join("%s" for _ in item_ids)
-            facts = conn.execute(
-                "SELECT i.id, i.project_id, i.project_sequence, p.slug, "
-                "p.public_item_prefix "
-                "FROM items i JOIN projects p ON p.id = i.project_id "
-                f"WHERE i.id IN ({markers})",
-                tuple(item_ids),
-            ).fetchall()
-            for fact in facts:
-                item_id = int(fact["id"])
-                item_facts[item_id] = {
-                    "project_id": int(fact["project_id"]),
-                    "ref": format_item_ref(
-                        str(fact["slug"]),
-                        str(fact["public_item_prefix"] or ""),
-                        int(fact["project_sequence"]),
-                    ),
-                }
-        actor_ids = sorted(
-            {
-                int(row["actor_id"])
-                for row in rows
-                if str(row.get("actor_id") or "").isdigit()
-            }
-        )
-        actor_labels: Dict[int, str] = {}
-        if actor_ids:
-            markers = ", ".join("%s" for _ in actor_ids)
-            actors = conn.execute(
-                "SELECT a.id, COALESCE(dl.label, a.system_component, "
-                "'actor ' || CAST(a.id AS TEXT)) AS label "
-                "FROM actors a LEFT JOIN actor_labels dl "
-                "ON dl.actor_id = a.id AND dl.surface = 'display' "
-                f"WHERE a.id IN ({markers})",
-                tuple(actor_ids),
-            ).fetchall()
-            actor_labels = {int(actor["id"]): str(actor["label"]) for actor in actors}
+        item_facts, actor_labels = presentation_facts(conn, rows)
     finally:
         conn.close()
     return [present_event(row, item_facts, actor_labels) for row in rows]
 
 
 def handle_events_query(request: FunctionCallRequest) -> HandlerOutcome:
+    if (request.payload or {}).get("history") is not None:
+        return history_outcome(request, _where_from_payload)
     limit, limit_error = _validated_limit(request.payload or {}, default=50)
     if limit_error is not None:
         return limit_error

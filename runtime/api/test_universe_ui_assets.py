@@ -238,7 +238,10 @@ def test_page_module_wires_the_workbench_shell():
         "universe_items_roster_loader.js": ("items.overview.list",),
         "item_detail_loader.js": ("items.detail.get",),
         "item_view_details.js": ("epic_tasks.list.run",),
-        "universe_views_events.js": ("events.query.run",),
+        # Same split as the Items roster: the view composes the timeline, the
+        # loader beside it owns the read, its cursors, and its criteria.
+        "universe_views_events.js": ("createEventsHistoryLoader",),
+        "universe_events_history_loader.js": ("events.query.run",),
         "universe_views_delivery.js": ("deployment_runs.list",),
         "universe_views_delivery_inventory.js": (
             "projects.infrastructure.list",

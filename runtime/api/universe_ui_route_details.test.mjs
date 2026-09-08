@@ -202,7 +202,9 @@ test("events at All merge newest-first across buckets and name their source", as
   );
   assert.deepEqual(
     byClass(root, "event-filter").map((node) => node.textContent),
-    ["All · 3", "Workflow · 1", "System · 2"],
+    // The buttons refine what has loaded, and every count says so rather
+    // than passing a loaded window off as the retained history's total.
+    ["All · 3 loaded", "Workflow · 1 loaded", "System · 2 loaded"],
   );
   const timelineText = byClass(root, "event-timeline")[0].children
     .map((node) => allNodes(node).map((part) => part.textContent).join(" "));
