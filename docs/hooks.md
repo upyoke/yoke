@@ -210,6 +210,19 @@ delivery delay to the tool — matched Read calls once recorded 4079ms against a
 real 1649ms. Because both endpoints are captured, a redelivered observation
 reports the same duration as the first.
 
+**A start that arrives after its own completion is reconciled, not
+dropped.** Delivery reorders observations as well as delaying them, so a
+completion can reach the database first. It has no open row to close, so it
+inserts one already closed and stamps its own instant into both endpoints,
+keeping the call counted exactly once. When the genuine opening observation
+turns up afterwards it corrects that row's `started_at` — matched on the
+call's own `(session_id, tool_use_id)` identity, keeping the earlier of two
+valid starts, and writing that one column only, so the completion, outcome,
+and activity count the call already has are untouched and finished work is
+never reopened. A duplicate or replayed start carries the instant it always
+carried and changes nothing. Owner:
+`yoke_core.domain.session_tool_call_start_reconcile`.
+
 **The delay itself is recorded beside the duration.** Every observation
 delivered through the batch path carries `ingest_lag_ms` in its
 `context.detail`: how long it waited between capture and ingest. Deliberate
@@ -224,15 +237,16 @@ value carries a null duration and says why:
 | Status | Meaning |
 |---|---|
 | `unknown_no_call_identity` | No session or tool-use id to look the call up by. Cursor `beforeShellExecution` / `afterShellExecution` omit `tool_use_id`. |
-| `unknown_no_recorded_start` | No `session_tool_calls` row — the opening observation never landed. |
+| `unknown_no_recorded_start` | The call has no captured start: no `session_tool_calls` row at all, or a row whose start is still the placeholder its own completion stamped because the opening observation has not landed. Until it does, the duration is unknown rather than the zero-length call two identical endpoints would measure. |
 | `unknown_no_captured_end` | The caller captured no completion instant. |
 | `unknown_lookup_failed` | The start lookup failed; hooks stay fail-open and never block a tool on telemetry. |
 | `invalid_endpoint_format` | An endpoint could not be read as a timestamp. |
 | `invalid_negative_elapsed` | The end precedes the start — clock skew between the writers. |
 | `invalid_implausible_elapsed` | The interval exceeds a day, so the two endpoints do not belong to the same call. A genuinely long-running tool call is measured, not capped. |
 
-Owner: `yoke_core.domain.observe_timing` holds the vocabulary and the interval
-classification; `yoke_core.domain.observe_db_reads` resolves the start endpoint.
+Owner: `yoke_core.domain.observe_timing` holds the vocabulary, the interval
+classification, and which of two captured starts a call began at;
+`yoke_core.domain.observe_db_reads` resolves the start endpoint.
 
 ## Where hooks are configured
 

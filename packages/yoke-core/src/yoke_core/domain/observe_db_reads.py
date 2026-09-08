@@ -13,7 +13,9 @@ from yoke_core.domain.observe_timing import (
     TIMING_UNKNOWN_LOOKUP_FAILED,
     TIMING_UNKNOWN_NO_CALL_IDENTITY,
     TIMING_UNKNOWN_NO_CAPTURED_END,
+    TIMING_UNKNOWN_NO_RECORDED_START,
     measure_elapsed,
+    start_endpoint_is_synthesized,
 )
 
 
@@ -45,6 +47,14 @@ def measure_tool_call_duration(
     captured the call closing. Both are captured at the tool boundary, so
     the interval survives however long telemetry took to arrive.
 
+    A row whose start was synthesized by a completion that arrived before
+    the opening observation carries no captured start at all, so it reports
+    the same missing-start reason an absent row does rather than the
+    zero-length call its two identical endpoints would otherwise measure.
+    Once the genuine start lands and supersedes the placeholder, this read
+    converges on the real interval — whichever order the two observations
+    arrived in.
+
     The lookup is scoped by ``(session_id, tool_use_id)`` — the row's own
     unique identity — because a tool-use id is only unique within its
     session. Read failures stay fail-open: this returns a named unknown so
@@ -61,7 +71,7 @@ def measure_tool_call_duration(
         try:
             marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
             row = conn.execute(
-                "SELECT started_at FROM session_tool_calls "
+                "SELECT started_at, completed_at FROM session_tool_calls "
                 f"WHERE session_id = {marker} AND tool_use_id = {marker}",
                 (session_id, tool_use_id),
             ).fetchone()
@@ -69,7 +79,9 @@ def measure_tool_call_duration(
             conn.close()
     except Exception:
         return ElapsedMeasurement(None, TIMING_UNKNOWN_LOOKUP_FAILED)
-    return measure_elapsed(row[0] if row else None, completed_at)
+    if row is None or start_endpoint_is_synthesized(row[0], row[1]):
+        return ElapsedMeasurement(None, TIMING_UNKNOWN_NO_RECORDED_START)
+    return measure_elapsed(row[0], completed_at)
 
 
 def repo_root_for_attribution(db_path: str, project_dir: str) -> Optional[str]:

@@ -53,7 +53,7 @@ class TestDuration:
         conn.execute(
             "CREATE TABLE session_tool_calls ("
             "session_id TEXT NOT NULL, tool_use_id TEXT NOT NULL, "
-            "started_at TEXT NOT NULL)"
+            "started_at TEXT NOT NULL, completed_at TEXT)"
         )
         conn.execute(
             "INSERT INTO session_tool_calls (session_id, tool_use_id, started_at) "
