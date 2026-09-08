@@ -15,6 +15,7 @@ prove it).
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,7 +25,6 @@ import pytest
 from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
-from yoke_core.domain import attestation_rehearsal_dryrun as dryrun
 from yoke_core.domain.attestation_rehearsal_dryrun import (
     ATTESTATION_REHEARSAL_COMMAND_FAILED,
     ValidationOutcome,
@@ -38,6 +38,14 @@ _FROZEN_AT = "2026-05-20T17:00:00Z"
 # Resolving from this test file's location keeps the fixtures portable
 # across worktrees, developer machines, and CI checkouts.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _validate(conn, item_id: int) -> List[ValidationOutcome]:
+    """Validate against the checkout this test file lives in."""
+    return validate_attestation_rehearsal_commands(
+        conn, item_id, repo_root=_REPO_ROOT,
+    )
+
 
 
 def _seed_item(
@@ -122,7 +130,7 @@ class TestRehearsalCommandFixtures:
                 ]
             ),
         )
-        outcomes = validate_attestation_rehearsal_commands(conn, 1)
+        outcomes = _validate(conn, 1)
         assert len(outcomes) == 1
         outcome = outcomes[0]
         assert outcome.passed is False
@@ -141,7 +149,7 @@ class TestRehearsalCommandFixtures:
                 ]
             ),
         )
-        outcomes = validate_attestation_rehearsal_commands(conn, 2)
+        outcomes = _validate(conn, 2)
         assert len(outcomes) == 1
         outcome = outcomes[0]
         assert outcome.passed is False
@@ -163,7 +171,7 @@ class TestRehearsalCommandFixtures:
                 ]
             ),
         )
-        outcomes = validate_attestation_rehearsal_commands(conn, 3)
+        outcomes = _validate(conn, 3)
         assert len(outcomes) == 2
         assert all(o.passed for o in outcomes)
         assert all(o.failure_reason == "" for o in outcomes)
@@ -187,7 +195,7 @@ class TestShortCircuit:
                 ]
             ),
         )
-        assert validate_attestation_rehearsal_commands(conn, 4) == []
+        assert _validate(conn, 4) == []
 
     def test_attestation_absent_returns_empty(self, conn) -> None:
         _seed_item(
@@ -196,7 +204,7 @@ class TestShortCircuit:
             profile=_declared_profile(),
             attestation=None,
         )
-        assert validate_attestation_rehearsal_commands(conn, 5) == []
+        assert _validate(conn, 5) == []
 
     def test_frozen_at_missing_returns_empty(self, conn) -> None:
         _seed_item(
@@ -210,7 +218,7 @@ class TestShortCircuit:
                 ],
             },
         )
-        assert validate_attestation_rehearsal_commands(conn, 6) == []
+        assert _validate(conn, 6) == []
 
     def test_empty_rehearsal_commands_returns_empty(self, conn) -> None:
         _seed_item(
@@ -219,10 +227,10 @@ class TestShortCircuit:
             profile=_declared_profile(),
             attestation=_attestation([]),
         )
-        assert validate_attestation_rehearsal_commands(conn, 7) == []
+        assert _validate(conn, 7) == []
 
     def test_missing_item_returns_empty(self, conn) -> None:
-        assert validate_attestation_rehearsal_commands(conn, 999) == []
+        assert _validate(conn, 999) == []
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +250,7 @@ class TestIssuePayloadShape:
                 ]
             ),
         )
-        payloads = issue_payloads_for_item(conn, 8)
+        payloads = issue_payloads_for_item(conn, 8, repo_root=_REPO_ROOT)
         assert len(payloads) == 1
         payload = payloads[0]
         assert payload["code"] == ATTESTATION_REHEARSAL_COMMAND_FAILED
@@ -266,7 +274,7 @@ class TestIssuePayloadShape:
                 ]
             ),
         )
-        payloads = issue_payloads_for_item(conn, 9)
+        payloads = issue_payloads_for_item(conn, 9, repo_root=_REPO_ROOT)
         assert len(payloads) == 1
         assert payloads[0]["context"]["failure_reason"] == "missing_path"
         assert "missing path" in payloads[0]["message"]
@@ -282,7 +290,7 @@ class TestIssuePayloadShape:
                 ]
             ),
         )
-        assert issue_payloads_for_item(conn, 10) == []
+        assert issue_payloads_for_item(conn, 10, repo_root=_REPO_ROOT) == []
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +304,7 @@ class TestNoSubprocessSafety:
         conn,
         monkeypatch,
     ) -> None:
-        """Tripwire on subprocess.run; YOK-1800 broken shape must not execute."""
+        """A command with a broken shape is parsed, never executed."""
         sentinel: List[str] = []
 
         def tripwire(*args, **kwargs):
@@ -306,9 +314,9 @@ class TestNoSubprocessSafety:
                 f"(args={args!r}, kwargs={kwargs!r})"
             )
 
-        # Pre-resolve repo root so the validator does not hit git.
-        monkeypatch.setattr(dryrun, "_resolve_repo_root", lambda: _REPO_ROOT)
-        monkeypatch.setattr(dryrun.subprocess, "run", tripwire)
+        # Patch the shared stdlib module so any callee reaching for a
+        # subprocess trips, not just this module's own reference.
+        monkeypatch.setattr(subprocess, "run", tripwire)
 
         _seed_item(
             conn,
@@ -324,7 +332,7 @@ class TestNoSubprocessSafety:
                 ]
             ),
         )
-        outcomes = validate_attestation_rehearsal_commands(conn, 11)
+        outcomes = _validate(conn, 11)
         assert sentinel == []
         assert outcomes[0].passed is False
         assert outcomes[0].failure_reason == "unresolved_placeholder"

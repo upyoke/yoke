@@ -13,6 +13,7 @@ or an internal id cannot pass.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
@@ -23,6 +24,9 @@ from runtime.api.engines._doctor_native_sql_test_helpers import (
 )
 
 _FROZEN_AT = "2026-05-20T17:00:00Z"
+# Path-shaped tokens are stat-ed against a checkout; resolving from this test
+# file keeps the fixtures portable across worktrees and CI.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture
@@ -77,7 +81,7 @@ class TestRemediationUsesRenderedRef:
             project_sequence=12,
             commands=["echo <unresolved>/path/to/anything.py"],
         )
-        payloads = issue_payloads_for_item(conn, 4101)
+        payloads = issue_payloads_for_item(conn, 4101, repo_root=_REPO_ROOT)
         assert len(payloads) == 1
         remediation = payloads[0]["remediation"]
         assert "yoke db-claim amend BUZ-12 --reason" in remediation
@@ -94,7 +98,7 @@ class TestRemediationUsesRenderedRef:
                 "echo <alsounresolved>/two.py",
             ],
         )
-        payloads = issue_payloads_for_item(conn, 4102)
+        payloads = issue_payloads_for_item(conn, 4102, repo_root=_REPO_ROOT)
         assert len(payloads) == 2
         for payload in payloads:
             assert "yoke db-claim amend BUZ-13 --reason" in payload["remediation"]

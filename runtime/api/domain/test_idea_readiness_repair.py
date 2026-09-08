@@ -15,6 +15,7 @@ from yoke_core.domain import (
     db_backend,
     idea_readiness_repair,
 )
+from yoke_core.domain.idea_readiness_results import Issue, ReadinessOutcome
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
@@ -195,7 +196,12 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         target.write_text("x\n" * lines)
 
     def _attempt(self, item_id: int, issues, *, rerun_pass: bool = True):
-        rerun_value = ("pass", []) if rerun_pass else ("block", [])
+        rerun_value = ReadinessOutcome(
+            issues=[] if rerun_pass else [
+                Issue(code="STALE_LINE_COUNT", message="stale",
+                      remediation="refresh", context={}),
+            ],
+        )
         with _Harness(self.db.path), \
              mock.patch.object(
                  idea_readiness_repair, "_rerun_readiness",

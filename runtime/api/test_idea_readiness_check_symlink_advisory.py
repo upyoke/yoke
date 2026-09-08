@@ -51,7 +51,7 @@ def test_readiness_check_reports_advisory_without_blocking(
 ):
     monkeypatch.setattr(
         idea_readiness_check,
-        "_resolve_repo_root_for_item",
+        "item_project_checkout",
         lambda conn, item_id: symlink_repo,
     )
     db_name = pg_testdb.create_test_database()
@@ -83,8 +83,10 @@ def test_readiness_check_reports_advisory_without_blocking(
     conn.execute("INSERT INTO path_claim_targets VALUES (10, 1)")
     conn.commit()
     try:
-        assert idea_readiness_check.run_all_checks(conn, 1) == []
-        advisories = idea_readiness_check.run_all_advisories(conn, 1)
+        outcome = idea_readiness_check.run_all_checks(conn, 1)
+        assert outcome.issues == []
+        assert outcome.unavailable == []
+        advisories = outcome.advisories
     finally:
         conn.close()
     assert [a["code"] for a in advisories] == [ADVISORY_CODE]

@@ -117,7 +117,7 @@ def test_idea_readiness_accepts_unresolved_file_budget(required_budget_item, tes
     # Strict gate stays blocked — advance / migration must not pass.
     assert budget_gate(test_db, 4101)["verdict"] == "block"
     assert [
-        issue.code for issue in run_all_checks(test_db, 4101)
+        issue.code for issue in run_all_checks(test_db, 4101).issues
     ] == []
 
 
@@ -131,7 +131,7 @@ def test_refining_idea_readiness_blocks_unresolved_file_budget(
     assert budget_gate(test_db, 4102)["verdict"] == "block"
     assert any(
         issue.code == "MISSING_FILE_BUDGET"
-        for issue in run_all_checks(test_db, 4102)
+        for issue in run_all_checks(test_db, 4102).issues
     )
 
 
@@ -142,7 +142,7 @@ def test_idea_readiness_accepts_documented_na_prose_budget(
 
     assert budget_gate(test_db, 4104)["verdict"] == "pass"
     assert [
-        issue.code for issue in run_all_checks(test_db, 4104)
+        issue.code for issue in run_all_checks(test_db, 4104).issues
         if issue.code == "MISSING_FILE_BUDGET"
     ] == []
 
@@ -156,5 +156,5 @@ def test_idea_readiness_still_blocks_empty_file_budget(
 
     assert any(
         issue.code == "MISSING_FILE_BUDGET"
-        for issue in run_all_checks(test_db, 4103)
+        for issue in run_all_checks(test_db, 4103).issues
     )

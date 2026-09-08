@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import re
 import shlex
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -139,18 +138,6 @@ def _read_attestation(
     return _parse_attestation(raw)
 
 
-def _resolve_repo_root() -> Path:
-    proc = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode == 0 and proc.stdout.strip():
-        return Path(proc.stdout.strip())
-    return Path.cwd()
-
-
 def _planned_claim_paths(conn: Any, item_id: int) -> Set[str]:
     p = _p(conn)
     try:
@@ -210,6 +197,8 @@ def _check_command_shape(
 def validate_attestation_rehearsal_commands(
     conn: Any,
     item_id: int,
+    *,
+    repo_root: Path,
 ) -> List[ValidationOutcome]:
     """Parse-and-stat every ``rehearsal_commands`` entry.
 
@@ -230,7 +219,6 @@ def validate_attestation_rehearsal_commands(
     if not commands:
         return []
 
-    repo_root = _resolve_repo_root()
     planned_paths = _planned_claim_paths(conn, item_id)
     results: List[ValidationOutcome] = []
     for cmd in commands:
@@ -264,13 +252,17 @@ _FAILURE_MESSAGE_PREFIX = {
 def issue_payloads_for_item(
     conn: Any,
     item_id: int,
+    *,
+    repo_root: Path,
 ) -> List[Dict[str, Any]]:
     """Return one ``Issue``-shaped dict per failing rehearsal command."""
     from yoke_core.domain.project_identity import render_item_ref
 
     payloads: List[Dict[str, Any]] = []
     public_ref = render_item_ref(conn, item_id)
-    for outcome in validate_attestation_rehearsal_commands(conn, item_id):
+    for outcome in validate_attestation_rehearsal_commands(
+        conn, item_id, repo_root=repo_root,
+    ):
         if outcome.passed:
             continue
         prefix = _FAILURE_MESSAGE_PREFIX.get(
@@ -299,7 +291,9 @@ def issue_payloads_for_item(
     return payloads
 
 
-def verify_attestation_rehearsal_commands(conn: Any, item_id: int):
+def verify_attestation_rehearsal_commands(
+    conn: Any, item_id: int, *, repo_root: Path,
+):
     """Thin facade that returns ``Issue`` rows for the readiness check.
 
     Lives here (not in :mod:`idea_readiness_check`) to keep the
@@ -307,10 +301,17 @@ def verify_attestation_rehearsal_commands(conn: Any, item_id: int):
     over surface locality.
     Re-exported from :mod:`idea_readiness_check` for callers that
     expect the wrapper at its named location.
-    """
-    from yoke_core.domain.idea_readiness_check import Issue
 
-    return [Issue(**p) for p in issue_payloads_for_item(conn, item_id)]
+    ``repo_root`` is the item project's checkout, resolved once by the
+    caller: every path token is stat-ed against it, so the tree must be
+    the item's own rather than whatever the host stands in.
+    """
+    from yoke_core.domain.idea_readiness_results import Issue
+
+    return [
+        Issue(**p)
+        for p in issue_payloads_for_item(conn, item_id, repo_root=repo_root)
+    ]
 
 
 __all__ = [

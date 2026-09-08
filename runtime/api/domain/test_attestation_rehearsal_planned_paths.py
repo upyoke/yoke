@@ -9,7 +9,6 @@ from typing import Any, Dict, List
 
 import pytest
 
-from yoke_core.domain import attestation_rehearsal_dryrun as dryrun
 from yoke_core.domain.attestation_rehearsal_dryrun import (
     validate_attestation_rehearsal_commands,
 )
@@ -79,7 +78,6 @@ def conn(tmp_path, monkeypatch):
 
     with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
         seeded = connect_test_db(db_path)
-        monkeypatch.setattr(dryrun, "_resolve_repo_root", lambda: _REPO_ROOT)
         try:
             yield seeded
         finally:
@@ -144,7 +142,9 @@ class TestPlannedPathClaimTokens:
         _seed_item(conn, 1, f"{sys.executable} -m pytest {path} -q")
         _claim_path(conn, 1, path)
 
-        outcomes = validate_attestation_rehearsal_commands(conn, 1)
+        outcomes = validate_attestation_rehearsal_commands(
+            conn, 1, repo_root=_REPO_ROOT,
+        )
 
         assert len(outcomes) == 1
         assert outcomes[0].passed is True
@@ -154,7 +154,9 @@ class TestPlannedPathClaimTokens:
         path = "runtime/api/domain/migrations/test_unclaimed_future.py"
         _seed_item(conn, 2, f"{sys.executable} -m pytest {path} -q")
 
-        outcomes = validate_attestation_rehearsal_commands(conn, 2)
+        outcomes = validate_attestation_rehearsal_commands(
+            conn, 2, repo_root=_REPO_ROOT,
+        )
 
         assert len(outcomes) == 1
         assert outcomes[0].passed is False
@@ -166,7 +168,9 @@ class TestPlannedPathClaimTokens:
         _seed_item(conn, 3, f"{sys.executable} -m pytest {path} -q")
         _claim_path(conn, 3, path, materialization_state="observed")
 
-        outcomes = validate_attestation_rehearsal_commands(conn, 3)
+        outcomes = validate_attestation_rehearsal_commands(
+            conn, 3, repo_root=_REPO_ROOT,
+        )
 
         assert len(outcomes) == 1
         assert outcomes[0].passed is False
@@ -177,7 +181,9 @@ class TestPlannedPathClaimTokens:
         _seed_item(conn, 4, f"{sys.executable} -m pytest <worktree>/{path} -q")
         _claim_path(conn, 4, path)
 
-        outcomes = validate_attestation_rehearsal_commands(conn, 4)
+        outcomes = validate_attestation_rehearsal_commands(
+            conn, 4, repo_root=_REPO_ROOT,
+        )
 
         assert len(outcomes) == 1
         assert outcomes[0].passed is False

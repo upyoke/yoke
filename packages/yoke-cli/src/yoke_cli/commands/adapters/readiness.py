@@ -41,10 +41,28 @@ READINESS_REPAIR_CLAIM_COVERAGE_USAGE = (
 )
 
 
+_READINESS_CHECK_EPILOG = """\
+Reports one of three verdicts in the result payload:
+
+  pass         every applicable check ran and found nothing.
+  block        a check found a defect; `issues` names each one with its
+               remediation, and `classification` routes refine's repair.
+  unavailable  a check could not be performed on the executing host;
+               `unavailable_checks` names each unperformed check, why, and
+               a recovery that works. Every entry is `retryable: false` —
+               the checks that read the item project's files need that
+               project's checkout, and re-running where there is none
+               returns the same answer. The envelope still succeeds: read
+               the verdict, not the exit status.
+"""
+
+
 def readiness_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke readiness check",
         description=READINESS_CHECK_USAGE,
+        epilog=_READINESS_CHECK_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
     parser.add_argument(

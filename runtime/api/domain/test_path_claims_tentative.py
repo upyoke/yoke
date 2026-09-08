@@ -9,6 +9,8 @@ path targets as planned-equivalent implementation surfaces).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from runtime.api.domain._path_claims_test_helpers import (
     conn,  # noqa: F401
     local_human,
@@ -19,6 +21,10 @@ from yoke_core.domain.path_targets_states import (
     PLANNED,
     TENTATIVE,
 )
+
+# The ref classifier stats module paths against a checkout; resolving from
+# this test file keeps the fixture portable across worktrees and CI.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class TestRegisterTentative:
@@ -95,4 +101,5 @@ class TestReadinessRefs:
             "runtime.__nonexistent__.forward_ref_module",
             item_id=502,
             conn=conn,
+            repo_root=_REPO_ROOT,
         ) is True

@@ -22,17 +22,49 @@ def _item_request(function: str, payload: dict | None = None) -> FunctionCallReq
     )
 
 
-def test_readiness_check_returns_classified_payload(monkeypatch) -> None:
-    issue = {
-        "code": "STALE_LINE_COUNT",
-        "message": "stale",
-        "remediation": "refresh",
-        "context": {"path": "x.py", "recorded": 1, "actual": 2},
+_STALE_ISSUE = {
+    "code": "STALE_LINE_COUNT",
+    "message": "stale",
+    "remediation": "refresh",
+    "context": {"path": "x.py", "recorded": 1, "actual": 2},
+}
+
+_UNPERFORMED_CHECK = {
+    "check": "verify_function_owners",
+    "reason": "project_checkout_unavailable",
+    "recovery": "re-run from a machine with the project checkout registered",
+    "retryable": False,
+    "context": {"project_id": 7, "project": "some-project"},
+}
+
+
+def _readiness_payload(
+    verdict: str,
+    classification: str,
+    *,
+    issues=(),
+    unavailable=(),
+    advisories=(),
+) -> dict:
+    return {
+        "verdict": verdict,
+        "classification": classification,
+        "issues": list(issues),
+        "unavailable_checks": list(unavailable),
+        "advisories": list(advisories),
     }
+
+
+def test_readiness_check_returns_classified_payload(monkeypatch) -> None:
     monkeypatch.setattr(
         readiness,
         "_run_readiness",
-        lambda item_id: ("block", [issue], [{"message": "advisory"}]),
+        lambda item_id: _readiness_payload(
+            "block",
+            "pure_stale_count",
+            issues=[_STALE_ISSUE],
+            advisories=[{"message": "advisory"}],
+        ),
     )
 
     outcome = readiness.handle_check(_item_request("readiness.check.run"))
@@ -40,13 +72,36 @@ def test_readiness_check_returns_classified_payload(monkeypatch) -> None:
     assert outcome.primary_success is True
     assert outcome.result_payload["verdict"] == "block"
     assert outcome.result_payload["classification"] == "pure_stale_count"
-    assert outcome.result_payload["issues"] == [issue]
+    assert outcome.result_payload["issues"] == [_STALE_ISSUE]
     assert outcome.result_payload["advisories"] == [{"message": "advisory"}]
 
 
+def test_readiness_check_reports_unperformed_checks_in_a_success_envelope(
+    monkeypatch,
+) -> None:
+    """No checkout is a result, not a function failure — and not a pass."""
+    monkeypatch.setattr(
+        readiness,
+        "_run_readiness",
+        lambda item_id: _readiness_payload(
+            "unavailable", "unavailable", unavailable=[_UNPERFORMED_CHECK],
+        ),
+    )
+
+    outcome = readiness.handle_check(_item_request("readiness.check.run"))
+
+    assert outcome.primary_success is True
+    assert outcome.error is None
+    assert outcome.result_payload["verdict"] == "unavailable"
+    assert outcome.result_payload["classification"] == "unavailable"
+    assert outcome.result_payload["unavailable_checks"] == [_UNPERFORMED_CHECK]
+
+
 def test_readiness_check_missing_tool_returns_structured_error(monkeypatch) -> None:
+    """A missing PATH executable stays a typed failure — it is installable."""
+
     def missing_tool(_item_id: int):
-        raise FileNotFoundError("git")
+        raise FileNotFoundError(2, "No such file or directory", "rg")
 
     monkeypatch.setattr(readiness, "_run_readiness", missing_tool)
 
@@ -55,20 +110,43 @@ def test_readiness_check_missing_tool_returns_structured_error(monkeypatch) -> N
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "readiness_prerequisite_missing"
-    assert "git" in outcome.error.message
+    assert "rg" in outcome.error.message
 
 
-def test_repair_stale_count_calls_domain_repair(monkeypatch) -> None:
-    issue = {
-        "code": "STALE_LINE_COUNT",
-        "message": "stale",
-        "remediation": "refresh",
-        "context": {"path": "x.py", "recorded": 1, "actual": 2},
-    }
+def test_repair_refuses_when_validation_was_not_performed(monkeypatch) -> None:
+    """Repair rewrites from files on disk, so it cannot run without them."""
     monkeypatch.setattr(
         readiness,
         "_run_readiness",
-        lambda item_id: ("block", [issue], []),
+        lambda item_id: _readiness_payload(
+            "unavailable", "unavailable", unavailable=[_UNPERFORMED_CHECK],
+        ),
+    )
+
+    outcome = readiness.handle_repair_stale_count(
+        _item_request("readiness.repair_stale_count")
+    )
+
+    assert outcome.primary_success is True
+    assert outcome.result_payload["success"] is False
+    assert outcome.result_payload["rerun_verdict"] == "unavailable"
+    assert outcome.result_payload["unavailable_checks"] == [_UNPERFORMED_CHECK]
+
+    coverage = readiness.handle_repair_claim_coverage(
+        _item_request("readiness.repair_claim_coverage")
+    )
+
+    assert coverage.result_payload["success"] is False
+    assert coverage.result_payload["unavailable_checks"] == [_UNPERFORMED_CHECK]
+
+
+def test_repair_stale_count_calls_domain_repair(monkeypatch) -> None:
+    monkeypatch.setattr(
+        readiness,
+        "_run_readiness",
+        lambda item_id: _readiness_payload(
+            "block", "pure_stale_count", issues=[_STALE_ISSUE],
+        ),
     )
 
     class Outcome:

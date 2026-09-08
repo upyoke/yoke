@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 from contextlib import redirect_stderr, redirect_stdout
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +13,8 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+
+from yoke_core.domain.idea_readiness_results import VERDICT_UNAVAILABLE
 
 
 class ReadinessCheckRequest(BaseModel):
@@ -24,6 +26,7 @@ class ReadinessCheckResponse(BaseModel):
     verdict: str
     classification: str
     issues: List[Dict[str, Any]] = Field(default_factory=list)
+    unavailable_checks: List[Dict[str, Any]] = Field(default_factory=list)
     advisories: List[Dict[str, Any]] = Field(default_factory=list)
     skip_reason: Optional[str] = None
 
@@ -38,6 +41,7 @@ class ReadinessRepairResponse(BaseModel):
     item_id: int
     repaired_paths: List[Dict[str, Any]] = Field(default_factory=list)
     refused_paths: List[Dict[str, Any]] = Field(default_factory=list)
+    unavailable_checks: List[Dict[str, Any]] = Field(default_factory=list)
     field_written: str = ""
     rerun_verdict: str = ""
     rerun_issues: List[Dict[str, Any]] = Field(default_factory=list)
@@ -79,29 +83,52 @@ def _target_item_id(request: FunctionCallRequest, payload_item_id: object) -> in
     raise ValueError("readiness function requires a resolved item target")
 
 
-def _issue_payload(issue: Any) -> Dict[str, Any]:
+def _unavailable_repair_payload(
+    item_id: int, readiness: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Refuse a repair the executing host cannot verify afterwards.
+
+    Repair rewrites the item from what the checks read on disk, so a host
+    with no checkout has nothing to repair against and no way to prove the
+    rerun. The refusal carries the unperformed checks and their recovery
+    rather than a retry.
+    """
     return {
-        "code": issue.code,
-        "message": issue.message,
-        "remediation": issue.remediation,
-        "context": issue.context,
+        "success": False,
+        "classification": str(readiness["classification"]),
+        "item_id": item_id,
+        "rerun_verdict": str(readiness["verdict"]),
+        "rerun_issues": list(readiness["issues"]),
+        "unavailable_checks": list(readiness["unavailable_checks"]),
+        "error": (
+            "readiness validation was not performed on this host; repair "
+            "needs the item project's checkout"
+        ),
     }
 
 
-def _run_readiness(item_id: int) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+def _run_readiness(item_id: int) -> Dict[str, Any]:
+    """Run every readiness check for one item and render its payload.
+
+    ``unavailable_checks`` names the checks the executing host could not
+    perform — each carries its own reason, supported recovery, and
+    ``retryable`` flag. A non-empty list is never a pass.
+    """
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.idea_readiness_check import (
-        run_all_advisories,
-        run_all_checks,
-    )
+    from yoke_core.domain.idea_readiness_check import run_all_checks
 
     conn = db_helpers.connect()
     try:
-        issues = [_issue_payload(issue) for issue in run_all_checks(conn, item_id)]
-        advisories = list(run_all_advisories(conn, item_id))
+        outcome = run_all_checks(conn, item_id)
     finally:
         conn.close()
-    return ("pass" if not issues else "block", issues, advisories)
+    return {
+        "verdict": outcome.verdict,
+        "classification": outcome.classification,
+        "issues": outcome.issue_payloads(),
+        "unavailable_checks": outcome.unavailable_payloads(),
+        "advisories": list(outcome.advisories),
+    }
 
 
 def _check_payload(
@@ -112,20 +139,11 @@ def _check_payload(
             "verdict": "skipped",
             "classification": "pass",
             "issues": [],
+            "unavailable_checks": [],
             "advisories": [],
             "skip_reason": "operator-override",
         }
-    from yoke_core.domain.idea_readiness_repair import (
-        classify_readiness_issues,
-    )
-
-    verdict, issues, advisories = _run_readiness(item_id)
-    return {
-        "verdict": verdict,
-        "classification": classify_readiness_issues(issues),
-        "issues": issues,
-        "advisories": advisories,
-    }
+    return _run_readiness(item_id)
 
 
 def handle_check(request: FunctionCallRequest) -> HandlerOutcome:
@@ -147,7 +165,9 @@ def handle_check(request: FunctionCallRequest) -> HandlerOutcome:
             "readiness_prerequisite_missing",
             "readiness.check.run could not find required executable "
             f"{missing!r}; install it or configure PATH on the Yoke API host "
-            "before rerunning readiness.",
+            "before rerunning readiness. A missing project checkout is a "
+            "different answer: it comes back as a successful result whose "
+            "verdict is 'unavailable'.",
         )
 
     return HandlerOutcome(
@@ -224,11 +244,12 @@ def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
         CLASS_PASS,
         CLASS_PURE_STALE_COUNT,
         attempt_stale_count_repair,
-        classify_readiness_issues,
     )
 
-    verdict, issues, _advisories = _run_readiness(item_id)
-    classification = classify_readiness_issues(issues)
+    readiness = _run_readiness(item_id)
+    verdict = str(readiness["verdict"])
+    issues = list(readiness["issues"])
+    classification = str(readiness["classification"])
     if verdict == "pass":
         payload = {
             "success": True,
@@ -236,6 +257,8 @@ def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
             "item_id": item_id,
             "rerun_verdict": "pass",
         }
+    elif verdict == VERDICT_UNAVAILABLE:
+        payload = _unavailable_repair_payload(item_id, readiness)
     elif classification != CLASS_PURE_STALE_COUNT:
         payload = {
             "success": False,
@@ -267,17 +290,20 @@ def handle_repair_claim_coverage(request: FunctionCallRequest) -> HandlerOutcome
         attempt_claim_coverage_repair,
     )
 
-    verdict, issues, _advisories = _run_readiness(item_id)
+    readiness = _run_readiness(item_id)
+    verdict = str(readiness["verdict"])
     if verdict == "pass":
         payload = {
             "success": True,
             "item_id": item_id,
             "rerun_verdict": "pass",
         }
+    elif verdict == VERDICT_UNAVAILABLE:
+        payload = _unavailable_repair_payload(item_id, readiness)
     else:
         payload = attempt_claim_coverage_repair(
             item_id=item_id,
-            issues=issues,
+            issues=list(readiness["issues"]),
         ).to_payload()
     return HandlerOutcome(result_payload=payload, primary_success=True)
 
