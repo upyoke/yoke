@@ -16,25 +16,29 @@ from psycopg import Error, sql
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain import deployment_runs_schema, schema, schema_common_postgres
-from yoke_core.domain.schema_common import _get_columns, _get_tables
+from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
+from yoke_core.domain.schema_common import _get_columns, _get_indexes, _get_tables
 from yoke_core.domain.schema_init import converge_core_schema
 
 
 _DROP_SAVEPOINT = "boot_schema_column_degradation"
 _INCIDENT_COLUMN = ("session_launch_attempts", "batch_id")
+_MACHINE_CREDENTIALS_MIGRATION = "0040_machine_credentials_and_retirement"
+_MACHINE_CREDENTIAL_COLUMNS = frozenset(
+    {
+        ("api_tokens", "machine_id"),
+        ("machines", "retired_at"),
+        ("machines", "retired_by_actor_id"),
+        ("session_relays", "credential_presence"),
+    }
+)
 # Columns delivered by ordered history with a data or key transformation are
 # current baseline columns on a newborn database, but intentionally have no
 # additive lookup. Their migration suites prove convergence from the prior
 # shape; this sweep must neither classify them as born-with nor drop them after
 # their ledger entry has already been recorded.
 _HISTORY_CONVERGED_COLUMNS = frozenset(
-    {
-        ("api_tokens", "machine_id"),
-        ("machines", "retired_at"),
-        ("machines", "retired_by_actor_id"),
-        ("session_relays", "credential_presence"),
-        ("test_machine_verifications", "capability_type"),
-    }
+    {*_MACHINE_CREDENTIAL_COLUMNS, ("test_machine_verifications", "capability_type")}
 )
 # Digest of columns that shipped with their table and therefore have no
 # additive converge lookup. Update only when introducing a new table, or when
@@ -116,6 +120,60 @@ def _drop_without_cascade(conn, table: str, column: str) -> bool:
 def _column_pair_digest(columns: set[tuple[str, str]]) -> str:
     payload = "\n".join(f"{table}.{column}" for table, column in sorted(columns))
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _restore_pre_machine_credentials_schema(conn) -> None:
+    """Remove the exact columns and ledger row absent from the prior release."""
+    conn.execute("ALTER TABLE applied_migrations DISABLE TRIGGER USER")
+    conn.execute(
+        "DELETE FROM applied_migrations WHERE migration_name = %s",
+        (_MACHINE_CREDENTIALS_MIGRATION,),
+    )
+    conn.execute("ALTER TABLE applied_migrations ENABLE TRIGGER USER")
+    for table, column in sorted(_MACHINE_CREDENTIAL_COLUMNS):
+        conn.execute(
+            sql.SQL("ALTER TABLE {} DROP COLUMN {}").format(
+                sql.Identifier(table),
+                sql.Identifier(column),
+            )
+        )
+    conn.commit()
+
+
+def test_machine_credentials_history_upgrades_prior_serving_schema(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(
+        RESTORE_POINT_ENV,
+        "snapshot:machine-credentials-prior-serving-schema",
+    )
+    with init_test_db(
+        tmp_path,
+        apply_schema=_apply_complete_control_plane_schema,
+    ) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            _restore_pre_machine_credentials_schema(conn)
+
+            converge_core_schema(conn)
+            converge_core_schema(conn)
+
+            columns = _column_map(conn)
+            assert _MACHINE_CREDENTIAL_COLUMNS <= {
+                (table, column)
+                for table, table_columns in columns.items()
+                for column in table_columns
+            }
+            assert "idx_api_tokens_machine" in _get_indexes(conn, "api_tokens")
+            assert "idx_machines_retired" in _get_indexes(conn, "machines")
+            assert conn.execute(
+                "SELECT COUNT(*) FROM applied_migrations "
+                "WHERE migration_name = %s",
+                (_MACHINE_CREDENTIALS_MIGRATION,),
+            ).fetchone() == (1,)
+        finally:
+            conn.close()
 
 
 def test_every_droppable_boot_schema_column_converges(

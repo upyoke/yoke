@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.schema_common import _get_columns
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -26,14 +27,17 @@ CREATE TABLE IF NOT EXISTS machines (
 );
 CREATE INDEX IF NOT EXISTS idx_machines_owner
     ON machines(owner_actor_id, name);
-CREATE INDEX IF NOT EXISTS idx_machines_retired
-    ON machines(retired_at, name);
 """
 
 
 def ensure_machine_registry_schema(conn: Any, *, commit: bool = True) -> None:
     """Converge the machines table, committing unless the caller owns the txn."""
     execute_schema_script(conn, MACHINES_SQL)
+    if "retired_at" in _get_columns(conn, "machines"):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_machines_retired "
+            "ON machines(retired_at, name)"
+        )
     if commit:
         conn.commit()
 
