@@ -208,3 +208,43 @@ def test_a_mission_handle_in_server_artifact_storage_is_accepted(
             ),
         )
     assert outcome.primary_success, outcome.error
+
+
+def test_a_mission_handle_with_no_bytes_at_the_allowed_location_is_refused(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Location is not presence: an empty canonical path carries no evidence."""
+    monkeypatch.setenv(project_scratch_dir.ENV_KEY, str(tmp_path / "scratch"))
+    monkeypatch.setenv("YOKE_SESSION_ID", "mission-session")
+    monkeypatch.setenv("YOKE_RUN_ID", "mission-run")
+    from yoke_core.domain.qa_artifacts import artifact_file_path
+
+    with test_database() as conn:
+        run_id = _seed_run(conn, performed_by="agent_mission")
+        project = conn.execute(
+            "SELECT slug FROM projects WHERE id = ("
+            "SELECT project_id FROM items WHERE id = 42)",
+        ).fetchone()[0]
+        never_written = artifact_file_path(str(project), 42, run_id, "ghost.log")
+        outcome = handle_qa_artifact_add(
+            _request(
+                {
+                    "run_id": run_id,
+                    "artifact_type": "log",
+                    "artifact_handle": {
+                        "backend": "local",
+                        "path": str(never_written),
+                    },
+                }
+            ),
+        )
+        stored = conn.execute(
+            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id = %s",
+            (run_id,),
+        ).fetchone()[0]
+    assert not never_written.exists()
+    assert not outcome.primary_success
+    assert outcome.error.code == "payload_invalid"
+    assert str(never_written) in outcome.error.message
+    assert int(stored) == 0

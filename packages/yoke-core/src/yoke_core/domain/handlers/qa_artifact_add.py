@@ -84,14 +84,17 @@ def _mission_handle_refusal(
 
     An ``agent_mission`` walk runs on a QA test host whose home is reset
     between missions, so a handle naming that host outlives its own bytes:
-    the artifact row survives the reset and the file does not. Accept such
-    a handle only where this control plane can address the path itself,
-    which is exactly what the evidence reader will later require.
+    the artifact row survives the reset and the file does not. Accept such a
+    handle only where this control plane can address the path itself AND the
+    bytes are there — the location says the transfer had somewhere to land,
+    presence says it actually did — which is exactly what the evidence reader
+    will later require of the same row.
     """
     from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.project_checkout_locations import (
         checkout_for_project_id,
     )
+    from yoke_core.domain.qa_artifact_handle import is_present
     from yoke_core.domain.qa_artifacts import (
         case_artifact_subject,
         is_server_evidence_path,
@@ -107,23 +110,32 @@ def _mission_handle_refusal(
     if run_row is None or str(run_row["performed_by"]) != "agent_mission":
         return None
     req_row = _requirement_owner(conn, int(req_id))
-    if is_server_evidence_path(
+    recipe = (
+        "Send the bytes instead so they persist in project artifact storage: "
+        f"yoke qa artifact add --requirement-id {int(req_id)} --run-id "
+        f"{int(run_id)} --artifact-type TYPE --content-file PATH"
+    )
+    if not is_server_evidence_path(
         str(handle["path"]),
         str(req_row["project"]),
         case_artifact_subject(req_row),
         int(run_id),
         checkout=checkout_for_project_id(int(req_row["project_id"])),
     ):
-        return None
-    return (
-        f"artifact_handle names {handle['path']!r}, which this control plane "
-        "cannot read. A mission capture lives on the QA test host, whose home "
-        "is reset between missions, so recording the handle would outlive its "
-        "own bytes. Send the bytes instead so they persist in project artifact "
-        "storage: yoke qa artifact add --requirement-id "
-        f"{int(req_id)} --run-id {int(run_id)} --artifact-type TYPE "
-        "--content-file PATH"
-    )
+        return (
+            f"artifact_handle names {handle['path']!r}, which this control "
+            "plane cannot read. A mission capture lives on the QA test host, "
+            "whose home is reset between missions, so recording the handle "
+            f"would outlive its own bytes. {recipe}"
+        )
+    if not is_present(handle):
+        return (
+            f"artifact_handle names {handle['path']!r}, which is inside this "
+            "control plane's evidence storage but holds no bytes: a transfer "
+            "that never arrived would be recorded as readable evidence. "
+            f"{recipe}"
+        )
+    return None
 
 
 def _store_inline_bytes(
