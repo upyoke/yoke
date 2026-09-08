@@ -13,6 +13,7 @@ Mounts three endpoints under ``/v1``:
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict
 
 from fastapi import HTTPException, Request
@@ -24,6 +25,12 @@ from yoke_core.api.http_auth import (
     bind_actor_from_auth,
     record_function_authz,
     require_auth_context,
+)
+from yoke_core.api.observability import (
+    REQUEST_ID_STATE_ATTR,
+    environment_name,
+    service_name,
+    trace_context,
 )
 from yoke_core.domain import yoke_function_registry as function_registry
 from yoke_core.domain.yoke_function_dispatch import dispatch
@@ -45,6 +52,8 @@ from yoke_core.domain.api_tokens import INITIAL_ADMIN_TOKEN_NAME
 
 
 router = APIRouter()
+_LOGGER = logging.getLogger("yoke.api.functions")
+_DIAGNOSTIC_VALUE_LIMIT = 160
 
 
 _ERROR_TO_STATUS: Dict[str, int] = {
@@ -121,6 +130,7 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
         _record_pre_dispatch_authz(request, bound_envelope, auth)
         response = dispatch(bound_envelope, ambient_session_id=ambient or "")
     except Exception as exc:
+        _record_function_failure(request, bound_envelope, exc)
         response = _exception_response(bound_envelope, exc)
     body = response.model_dump()
     return JSONResponse(content=body, status_code=_status_for_response(body))
@@ -190,11 +200,50 @@ def _exception_response(
         error=FunctionError(
             code="handler_exception",
             message=(
-                f"function call {function_id!r} raised "
-                f"{type(exc).__name__}: {exc}"
+                f"function call {function_id!r} raised {type(exc).__name__}: {exc}"
             ),
         ),
         event_ids=[],
+    )
+
+
+def _record_function_failure(
+    request: Request,
+    envelope: Dict[str, Any],
+    exc: Exception,
+) -> None:
+    """Emit one bounded diagnostic without payloads or exception details."""
+    try:
+        function_id = _diagnostic_value(envelope.get("function"))
+        function_request_id = _diagnostic_value(envelope.get("request_id"))
+        http_request_id = _diagnostic_value(
+            getattr(request.state, REQUEST_ID_STATE_ATTR, "")
+        )
+        context = {
+            "function": function_id,
+            "error_class": _diagnostic_value(type(exc).__name__),
+        }
+        if http_request_id:
+            context["http_request_id"] = http_request_id
+        extra = {
+            "event_name": "FunctionCallHandlerFailed",
+            "event_kind": "system",
+            "event_type": "function_call",
+            "service": service_name(),
+            "environment": environment_name(),
+            "request_id": function_request_id or http_request_id,
+            "context": context,
+        }
+        extra.update(trace_context())
+        _LOGGER.error("function_call_handler_failed", extra=extra)
+    except Exception:
+        return
+
+
+def _diagnostic_value(value: Any) -> str:
+    """Bound an identifier and keep control characters out of log fields."""
+    return (
+        str(value or "").replace("\r", " ").replace("\n", " ")[:_DIAGNOSTIC_VALUE_LIMIT]
     )
 
 

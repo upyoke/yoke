@@ -33,17 +33,22 @@ def test_loopback_refusal_is_conclusive(api_url: str) -> None:
     ("api_url", "error"),
     [
         # A name can front a fleet with one box restarting.
-        ("https://app.upyoke.com/api", urllib.error.URLError(
-            ConnectionRefusedError(61, "Connection refused"))),
+        (
+            "https://app.upyoke.com/api",
+            urllib.error.URLError(ConnectionRefusedError(61, "Connection refused")),
+        ),
         # A routable address that refused is still worth another ask.
-        ("http://10.0.0.4:8765", urllib.error.URLError(
-            ConnectionRefusedError(61, "Connection refused"))),
+        (
+            "http://10.0.0.4:8765",
+            urllib.error.URLError(ConnectionRefusedError(61, "Connection refused")),
+        ),
         # Loopback that timed out is a slow server, not a missing one.
         ("http://127.0.0.1:8765", TimeoutError()),
     ],
 )
 def test_other_connection_failures_keep_the_retry_budget(
-    api_url: str, error: BaseException,
+    api_url: str,
+    error: BaseException,
 ) -> None:
     assert connection_refusal_is_conclusive(api_url, error) is False
     assert should_retry_connection(0, api_url, error) is True
@@ -82,6 +87,10 @@ def test_relay_refuses_a_refused_loopback_on_the_first_attempt(
 def test_relay_still_retries_a_refused_named_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        "yoke_cli.transport.https_relay_outcome.sandbox_recovery",
+        lambda: "",
+    )
     attempts: list[str] = []
     slept: list[float] = []
 
@@ -111,9 +120,7 @@ def test_bounded_attempts_stop_a_transient_5xx_after_one_try(
 
     def fake_urlopen(req, timeout=None):
         attempts.append(req.full_url)
-        raise urllib.error.HTTPError(
-            req.full_url, 501, "Unsupported method", {}, None
-        )
+        raise urllib.error.HTTPError(req.full_url, 501, "Unsupported method", {}, None)
 
     monkeypatch.setattr(yoke_transport, "open_no_redirect", fake_urlopen)
     response = relay_https(
@@ -136,9 +143,7 @@ def test_the_default_budget_still_retries_a_transient_5xx(
 
     def fake_urlopen(req, timeout=None):
         attempts.append(req.full_url)
-        raise urllib.error.HTTPError(
-            req.full_url, 503, "Service Unavailable", {}, None
-        )
+        raise urllib.error.HTTPError(req.full_url, 503, "Service Unavailable", {}, None)
 
     monkeypatch.setattr(yoke_transport, "open_no_redirect", fake_urlopen)
     relay_https(

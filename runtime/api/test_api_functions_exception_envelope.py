@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import SCHEMA_DDL, apply_fixture_ddl
+from yoke_core.api.routes import functions as functions_route
 from yoke_core.api.main import app
 from runtime.api.test_api_helpers import _install_overrides
 
@@ -50,17 +51,29 @@ class TestFunctionCallExceptionEnvelope(unittest.TestCase):
         self._stack.close()
 
     def test_dispatch_exception_returns_function_call_response(self) -> None:
+        function_request_id = "req-\n" + "x" * 200
         envelope = {
             "function": "items.structured_field.append_addendum",
             "version": "v1",
             "actor": {"actor_id": "op", "session_id": "s-1"},
             "target": {"kind": "item", "item_id": 1902},
-            "request_id": "req-explodes",
-            "payload": {},
+            "request_id": function_request_id,
+            "payload": {"token": "must-not-reach-logs"},
         }
-        with mock.patch(
-            "yoke_core.api.routes.functions.dispatch",
-            side_effect=RuntimeError("repo root missing"),
+        with (
+            mock.patch(
+                "yoke_core.api.routes.functions.dispatch",
+                side_effect=RuntimeError("repo root missing"),
+            ),
+            mock.patch.object(
+                functions_route._LOGGER,
+                "error",
+            ) as logged,
+            mock.patch.object(
+                functions_route,
+                "trace_context",
+                return_value={"trace_id": "trace-1"},
+            ),
         ):
             response = self._client.post(
                 "/v1/functions/call",
@@ -72,9 +85,51 @@ class TestFunctionCallExceptionEnvelope(unittest.TestCase):
         body = response.json()
         self.assertFalse(body["success"])
         self.assertEqual(body["function"], envelope["function"])
-        self.assertEqual(body["request_id"], "req-explodes")
+        self.assertEqual(body["request_id"], function_request_id)
         self.assertEqual(body["error"]["code"], "handler_exception")
         self.assertIn("repo root missing", body["error"]["message"])
+        logged.assert_called_once()
+        extra = logged.call_args.kwargs["extra"]
+        self.assertEqual(
+            extra["request_id"],
+            function_request_id.replace("\n", " ")[:160],
+        )
+        self.assertEqual(extra["trace_id"], "trace-1")
+        self.assertEqual(extra["context"]["function"], envelope["function"])
+        self.assertEqual(extra["context"]["error_class"], "RuntimeError")
+        self.assertNotIn("must-not-reach-logs", repr(extra))
+        self.assertNotIn("repo root missing", repr(extra))
+
+    def test_diagnostic_failure_does_not_change_the_response(self) -> None:
+        envelope = {
+            "function": "items.structured_field.append_addendum",
+            "version": "v1",
+            "actor": {"actor_id": "op", "session_id": "s-1"},
+            "target": {"kind": "item", "item_id": 1902},
+            "request_id": "req-diagnostic-fails",
+            "payload": {},
+        }
+        with (
+            mock.patch(
+                "yoke_core.api.routes.functions.dispatch",
+                side_effect=RuntimeError("repo root missing"),
+            ),
+            mock.patch.object(
+                functions_route._LOGGER,
+                "error",
+                side_effect=OSError("stderr closed"),
+            ),
+        ):
+            response = self._client.post(
+                "/v1/functions/call",
+                json=envelope,
+                headers=self._auth.headers,
+            )
+
+        self.assertEqual(response.status_code, 500)
+        body = response.json()
+        self.assertEqual(body["request_id"], "req-diagnostic-fails")
+        self.assertEqual(body["error"]["code"], "handler_exception")
 
     def test_pre_dispatch_authz_exception_does_not_escape_route(self) -> None:
         envelope = {

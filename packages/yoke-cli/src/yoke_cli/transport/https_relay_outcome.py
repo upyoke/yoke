@@ -10,11 +10,24 @@ that was never broken.
 
 from __future__ import annotations
 
+import http.client
+import urllib.error
 from typing import Optional
 
-from yoke_cli.api_urls import HEALTH_PATH, join_api_url
+from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, HEALTH_PATH, join_api_url
 from yoke_cli.transport import relay_telemetry
-from yoke_cli.transport.https_response_policy import redact_text
+from yoke_cli.transport.https_engine_handshake import (
+    ServerHandshake,
+    observe_server_version,
+)
+from yoke_cli.transport.https_response_policy import (
+    HttpsResponsePolicyError,
+    adopt_boundary_error,
+    parse_typed_response,
+    read_bounded_response,
+    redact_text,
+    safe_excerpt,
+)
 from yoke_cli.transport.https_retry_policy import (
     connection_refusal_is_conclusive,
     is_sandbox_denial,
@@ -27,6 +40,7 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
 
 TRANSPORT_FAILED_CODE = "https_transport_failed"
+UNREACHABLE_DETAIL = "could not reach the HTTPS function relay endpoint"
 
 _UNREACHABLE_HINT = (
     "The relay did not answer; the env and credential are not implicated. "
@@ -84,6 +98,60 @@ def _unreachable_hint() -> str:
     return f"{_SANDBOX_POSSIBLE_HINT} {recovery} {_REPLAY_SAFE}"
 
 
+def http_error_response(
+    request: FunctionCallRequest,
+    api_url: str,
+    exc: urllib.error.HTTPError,
+    *,
+    deadline: float,
+    sensitive_values: tuple[str, ...],
+    handshake: Optional[ServerHandshake] = None,
+) -> tuple[FunctionCallResponse, bool, str | None]:
+    """Decode an HTTP error into its reply shape and response-policy result."""
+    observe_server_version(getattr(exc, "headers", None), sensitive_values, handshake)
+    try:
+        raw = read_bounded_response(exc, deadline=deadline)
+    except HttpsResponsePolicyError as read_error:
+        return (
+            transport_error_response(
+                request, api_url, str(read_error), sensitive_values=sensitive_values
+            ),
+            False,
+            str(read_error),
+        )
+    except (OSError, http.client.HTTPException):
+        return (
+            transport_error_response(
+                request,
+                api_url,
+                UNREACHABLE_DETAIL,
+                attempts=1,
+                sensitive_values=sensitive_values,
+            ),
+            False,
+            None,
+        )
+    try:
+        return parse_typed_response(raw, sensitive_values=sensitive_values), True, None
+    except HttpsResponsePolicyError:
+        adopted = adopt_boundary_error(request, raw, sensitive_values=sensitive_values)
+        if adopted is not None:
+            return adopted, True, None
+        excerpt = safe_excerpt(raw, sensitive_values=sensitive_values)
+        detail = f": {excerpt}" if excerpt else ""
+        return (
+            transport_error_response(
+                request,
+                api_url,
+                f"{join_api_url(api_url, FUNCTIONS_CALL_PATH)} returned HTTP "
+                f"{exc.code} with a non-envelope body{detail}",
+                sensitive_values=sensitive_values,
+            ),
+            False,
+            None,
+        )
+
+
 def transport_error_response(
     request: FunctionCallRequest,
     api_url: str,
@@ -133,20 +201,21 @@ def record_outcome(
     env: str,
     attempts: int,
 ) -> None:
-    """Count a relay that had to try again, then drain the spool on success.
+    """Count retry delivery separately from the function's final outcome.
 
     A first-try success is the overwhelming majority and carries no signal,
     so it records nothing — but it is exactly the moment the transport is
     known good, which is when anything spooled earlier can finally be sent.
     """
-    relayed = response.error is None or response.error.code != TRANSPORT_FAILED_CODE
-    if not relayed:
+    delivered = response.error is None or response.error.code != TRANSPORT_FAILED_CODE
+    if not delivered:
         relay_telemetry.record(
             function_id=request.function,
             session_id=request.actor.session_id or "",
             env=env,
             attempts=attempts,
-            succeeded=False,
+            transport_delivered=False,
+            application_succeeded=None,
             failure_class=TRANSPORT_FAILED_CODE,
         )
         return
@@ -156,14 +225,17 @@ def record_outcome(
             session_id=request.actor.session_id or "",
             env=env,
             attempts=attempts,
-            succeeded=True,
-            failure_class="",
+            transport_delivered=True,
+            application_succeeded=response.success,
+            failure_class=response.error.code if response.error else "",
         )
     relay_telemetry.flush()
 
 
 __all__ = [
     "TRANSPORT_FAILED_CODE",
+    "UNREACHABLE_DETAIL",
+    "http_error_response",
     "record_outcome",
     "transport_error_response",
 ]

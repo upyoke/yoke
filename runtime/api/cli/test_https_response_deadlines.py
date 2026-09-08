@@ -132,7 +132,8 @@ def test_https_relay_default_opener_uses_bounded_caller_owned_post(
 
 def test_https_relay_error_body_rejects_slow_trickle(monkeypatch) -> None:
     clock = _MutableClock()
-    error_stream = _SlowTrickleResponse(clock)
+    error_streams = [_SlowTrickleResponse(clock), _SlowTrickleResponse(clock)]
+    pending_streams = list(error_streams)
     _bind_clock(monkeypatch, clock)
 
     def reject(request, timeout=None):
@@ -142,7 +143,7 @@ def test_https_relay_error_body_rejects_slow_trickle(monkeypatch) -> None:
             502,
             "Bad Gateway",
             {},
-            error_stream,
+            pending_streams.pop(0),
         )
 
     monkeypatch.setattr(relay_module, "open_no_redirect", reject)
@@ -153,4 +154,5 @@ def test_https_relay_error_body_rejects_slow_trickle(monkeypatch) -> None:
     )
 
     _assert_relay_deadline(response)
-    assert error_stream.read_calls == 2
+    assert pending_streams == []
+    assert [stream.read_calls for stream in error_streams] == [2, 2]

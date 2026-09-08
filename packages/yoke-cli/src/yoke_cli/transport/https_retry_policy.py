@@ -59,6 +59,20 @@ def http_status_is_transient(status: int | None) -> bool:
     return code >= 500
 
 
+def typed_failure_status_is_transient(status: int | None) -> bool:
+    """Whether a typed application failure explicitly reports unavailability.
+
+    A valid function envelope makes HTTP 500 an answer about that invocation,
+    while 503 retains its standard meaning: a database or required resource is
+    temporarily unavailable.  Unknown and malformed bodies never reach this
+    policy; their 5xx status remains transport-classified by the caller.
+    """
+    try:
+        return int(status) == 503  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+
+
 def should_retry_connection(
     attempt: int,
     api_url: str = "",
@@ -226,4 +240,5 @@ __all__ = [
     "utc_stamp",
     "write_retry_notice",
     "http_status_is_transient",
+    "typed_failure_status_is_transient",
 ]

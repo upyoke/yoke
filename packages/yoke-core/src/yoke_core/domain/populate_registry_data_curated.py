@@ -311,7 +311,7 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "system",
         "relay_transport",
         "cli",
-        "An HTTPS relay call needed more than one attempt and then landed; context carries the function, env, and attempt count, and the session id resolves the harness it ran under",
+        "An HTTPS relay call needed more than one attempt and then landed; context distinguishes transport delivery from the final application outcome and carries the function, env, and attempt count",
         "INFO",
     ),
     (
