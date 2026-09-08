@@ -160,11 +160,16 @@ def settle_finished_native_resumes(
     relay_id: str,
     machine_id: str,
     state_dir: Path | None,
+    custody_state_dir: Path | None = None,
     timeout_s: int,
 ) -> tuple[str, ...]:
-    """Report every finished resume and return the attempts settled here."""
+    """Report resumes from machine custody through the relay state directory.
+
+    Hooks and containment share the machine cache, while captures and failed
+    report retries live under the selected relay instance's state directory.
+    """
     settled: list[str] = []
-    for finished in finished_native_resumes(state_dir=state_dir):
+    for finished in finished_native_resumes(state_dir=custody_state_dir):
         report = deliver_terminal_report(
             dispatcher,
             function_id,
@@ -186,7 +191,7 @@ def settle_finished_native_resumes(
         if not getattr(report, "success", False):
             # The record stays, so the next poll reports this outcome again.
             continue
-        release_supervised_native(finished.attempt_id, state_dir=state_dir)
+        release_supervised_native(finished.attempt_id, state_dir=custody_state_dir)
         settled.append(finished.attempt_id)
     return tuple(settled)
 

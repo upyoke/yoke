@@ -53,6 +53,7 @@ class UnregisteredLaunchDeath:
 def unregistered_launch_deaths(
     *,
     state_dir: Path | None = None,
+    diagnostic_state_dir: Path | None = None,
     start_time_of: StartTimeOf = process_start_time,
 ) -> tuple[UnregisteredLaunchDeath, ...]:
     """Return every still-supervised launch whose native process is gone."""
@@ -73,7 +74,10 @@ def unregistered_launch_deaths(
                 launch_id,
                 {
                     "native_pid": pid,
-                    **native_account(launch_id, state_dir=state_dir),
+                    **native_account(
+                        launch_id,
+                        state_dir=diagnostic_state_dir or state_dir,
+                    ),
                 },
             )
         )
@@ -85,10 +89,14 @@ def report_unregistered_launch_deaths(
     inventory: Any,
     *,
     state_dir: Path | None = None,
+    custody_state_dir: Path | None = None,
     timeout_s: int = RELAY_REPORT_TIMEOUT_SECONDS,
     start_time_of: StartTimeOf = process_start_time,
 ) -> tuple[str, ...]:
     """Report this poll's unregistered native deaths and return those sent.
+
+    Custody defaults to the machine cache shared with hooks and containment;
+    ``state_dir`` selects this relay's diagnostic and report-retry storage.
 
     The custody record is dropped once the report lands, whatever the control
     plane decided about each launch: the process it named is gone, so nothing
@@ -98,7 +106,8 @@ def report_unregistered_launch_deaths(
     next poll tries again.
     """
     deaths = unregistered_launch_deaths(
-        state_dir=state_dir,
+        state_dir=custody_state_dir,
+        diagnostic_state_dir=state_dir,
         start_time_of=start_time_of,
     )
     if not deaths:
@@ -117,7 +126,7 @@ def report_unregistered_launch_deaths(
     ):
         for report in batch:
             launch_id = str(report["launch_id"])
-            release_supervised_native(launch_id, state_dir=state_dir)
+            release_supervised_native(launch_id, state_dir=custody_state_dir)
             reported.append(launch_id)
     return tuple(reported)
 
