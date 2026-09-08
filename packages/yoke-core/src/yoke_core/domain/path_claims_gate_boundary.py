@@ -98,7 +98,7 @@ def _resolve_repo_path(conn: Any, item_id: int) -> Optional[str]:
     return str(candidate)
 
 
-def _claims_for_item(conn: Any, item_id: int) -> List[Tuple[int, str]]:
+def claims_for_boundary(conn: Any, item_id: int) -> List[Tuple[int, str]]:
     p = _p(conn)
     try:
         from yoke_core.domain.path_claim_task_bindings import (
@@ -163,7 +163,7 @@ def check_boundary_for_item(
     conn = connect(db_path)
     try:
         try:
-            claims = _claims_for_item(conn, item_id)
+            claims = claims_for_boundary(conn, item_id)
         except (PinnedPathClaimPolicyUnreadable, PathClaimsUnreadable) as exc:
             return _blocked(str(exc))
         if not claims:
@@ -172,18 +172,27 @@ def check_boundary_for_item(
 
         repo_path = _resolve_repo_path(conn, item_id)
         if repo_path is None:
-            return _blocked(
-                f"{render_item_ref(conn, item_id)} holds "
-                f"{len(claim_ids)} active path claim(s) but has no resolvable "
-                "worktree on this machine, so the committed change cannot be "
-                "compared against the coverage it declared.\n\n"
-                "Remediate by preparing the item's lane "
-                "(`yoke direct-workflow worktree prepare <ITEM>`), repairing "
-                "the recorded path (`yoke item-worktrees path-record`), or "
-                "releasing the claims if this item no longer edits files. "
-                "The gate does not pass here: an unchecked boundary and a "
-                "clean boundary are not the same answer."
+            from yoke_core.domain.path_claim_boundary_gate_proof import (
+                BoundaryProofError,
+                consume_boundary_proof,
             )
+
+            try:
+                consume_boundary_proof(
+                    conn,
+                    item_id=item_id,
+                    target_status=target_status,
+                )
+                return None
+            except BoundaryProofError as exc:
+                return _blocked(
+                    f"{render_item_ref(conn, item_id)} holds {len(claim_ids)} "
+                    "active path claim(s), but this control plane cannot read "
+                    f"its worktree and no current boundary proof applies: {exc}.\n\n"
+                    "Run `yoke claims path boundary-prove --item "
+                    f"{render_item_ref(conn, item_id)}` from the item's lane, "
+                    "then retry the lifecycle transition."
+                )
 
         try:
             resolution = resolve_boundary_rung(
@@ -326,5 +335,6 @@ def check_boundary_for_item(
 __all__ = [
     "PathClaimsUnreadable",
     "PinnedPathClaimPolicyUnreadable",
+    "claims_for_boundary",
     "check_boundary_for_item",
 ]

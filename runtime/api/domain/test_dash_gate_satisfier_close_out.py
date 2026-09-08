@@ -13,7 +13,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import backlog, backlog_update_op, db_helpers
+from yoke_core.domain import backlog, backlog_update_op, dash_posture_gate, db_helpers
 from yoke_core.domain.gate_satisfier_ladder_catalog import (
     DELIVERY_EVIDENCE_LADDER,
     DONE_MERGE_EVIDENCE_LADDER,
@@ -56,6 +56,11 @@ def test_dash_done_keeps_rung_rows_events_and_converged_facts(
         db_helpers,
         "connect",
         lambda: nullcontext(test_db),
+    )
+    monkeypatch.setattr(
+        dash_posture_gate,
+        "connect",
+        lambda _db_path=None: nullcontext(test_db),
     )
     outcome = handle_dash_evidence(
         FunctionCallRequest(
