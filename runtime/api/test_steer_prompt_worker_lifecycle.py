@@ -85,6 +85,7 @@ class TestSteerWorkerLifecycle:
     def test_every_worker_is_taught_to_report_deliberately(self):
         text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
         assert "Every worker sends the report deliberately" in text
+        assert "The PREFIX-N in the heading is the report identity" in text
         assert "Ending a turn sends no Fleet message" in text
         assert "Every worker gets the `yoke say --steering` DONE step" in text
         assert "before releasing any claim it still holds" in text
@@ -128,6 +129,7 @@ class TestSteerDiscoveryAndPacket:
         assert "optional `--project P`" in notes
         assert "never `/yoke do`" in notes
         assert "yoke say --item PREFIX-N --stdin" in notes
+        assert "A `DONE PREFIX-N` heading names the reported item" in notes
 
 
 class TestSteerContinuity:
@@ -156,6 +158,7 @@ class TestSteerContinuity:
     def test_acknowledgement_requires_disposition_and_full_scope_reconciliation(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "acknowledge immediately, then assign a substantive disposition" in loop
+        assert "that heading is the report identity" in loop
         assert "act now, record the exact dependency/hold" in loop
         assert "surface the reserved operator decision" in loop
         assert "Acknowledgement is receipt, never completion" in loop

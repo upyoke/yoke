@@ -80,8 +80,10 @@ _DELIBERATE_CLOSE = (
     "--steering) and END your session — do not pick up further work, do not "
     "chain into other items. Send that report before releasing any claim you "
     "still hold; after a close-out that already released it, --steering "
-    "resolves from the item you last held in this session, and a repeat of "
-    "the same DONE is deduplicated rather than delivered twice."
+    "resolves from the item you last held in this session. The PREFIX-N in "
+    "the DONE heading is the report identity and must name work this session "
+    "holds or released; a repeat of the same DONE is deduplicated rather "
+    "than delivered twice."
 )
 
 

@@ -10,7 +10,6 @@ from yoke_contracts.session_control.sender_surface import (
     HARNESS_SESSION_SENDER_SURFACE,
 )
 from yoke_contracts.session_control.terminal_report import (
-    is_terminal_done_report,
     terminal_report_idempotency_key,
 )
 from yoke_core.domain.actor_message_recipients import (
@@ -22,7 +21,7 @@ from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
     authorize_universe,
 )
-from yoke_core.domain.session_item_scope import session_item_scope
+from yoke_core.domain.session_item_scope import SessionItemScope
 from yoke_core.domain.session_message_liveness import applied_liveness
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
@@ -45,6 +44,7 @@ from yoke_core.domain.session_message_steering import (
     resolve_steering_address,
     seat_session_id,
 )
+from yoke_core.domain.session_message_terminal import resolve_terminal_report_item
 from yoke_core.domain.session_message_zero_recipients import require_recipients
 from yoke_core.domain.steering_recipient_projection import (
     previewed_steering_recipient,
@@ -74,31 +74,17 @@ def _steering_address(
     conn: Any,
     selector: RecipientSelector,
     sender_session_id: str | None,
+    reported_item: SessionItemScope | None = None,
 ) -> SteeringAddress | None:
     """Resolve where a role-addressed send belongs, before any seat is known."""
     if not selector.steering:
         return None
-    return resolve_steering_address(conn, selector, sender_session_id=sender_session_id)
-
-
-def _terminal_report_key(
-    conn: Any,
-    *,
-    sender_session_id: str | None,
-    body: str,
-) -> str | None:
-    """The dedupe key a terminal close-out report carries, if it is one.
-
-    A derived key replaces whatever the caller offered because a retry after
-    a refusal may reword the report. One key per (sender session, item,
-    terminal state) is what makes the seat read it once.
-    """
-    if not sender_session_id or not is_terminal_done_report(body):
-        return None
-    scope = session_item_scope(conn, sender_session_id)
-    if scope is None:
-        return None
-    return terminal_report_idempotency_key(sender_session_id, scope.item_id)
+    return resolve_steering_address(
+        conn,
+        selector,
+        sender_session_id=sender_session_id,
+        reported_item=reported_item,
+    )
 
 
 def preview_message(
@@ -179,7 +165,10 @@ def send_message(
     current = now or utc_now()
     begin_message_mutation(conn)
     try:
-        address = _steering_address(conn, selector, sender_session_id)
+        reported_item = resolve_terminal_report_item(
+            conn, sender_session_id=sender_session_id, body=body
+        )
+        address = _steering_address(conn, selector, sender_session_id, reported_item)
         recipients = resolve_recipients(
             conn,
             selector,
@@ -230,8 +219,10 @@ def send_message(
             body_limits.append(actor_limits.max_body_bytes)
             expiry_limits.append(actor_limits.expiry_hours)
         validate_body(body, max_body_bytes=min(body_limits))
-        terminal_key = _terminal_report_key(
-            conn, sender_session_id=sender_session_id, body=body
+        terminal_key = (
+            terminal_report_idempotency_key(sender_session_id, reported_item.item_id)
+            if reported_item is not None and sender_session_id
+            else None
         )
         expiry_hours = min(expiry_limits)
         expires_at = current + timedelta(hours=expiry_hours)
