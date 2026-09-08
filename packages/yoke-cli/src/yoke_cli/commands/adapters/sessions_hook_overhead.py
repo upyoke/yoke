@@ -92,13 +92,16 @@ def sessions_hook_overhead(args: List[str]) -> int:
             ("SURFACES", _surfaces, 16),
             ("CALLS", _cell("call_count"), 8),
             ("TIMING COVERAGE", _tool_coverage, 20),
+            ("UNSUPPORTED", _cell("unsupported_count"), 12),
+            ("UNKNOWN", _cell("unknown_count"), 10),
             ("MEAN MS", _cell("mean_ms"), 10),
             ("P95 MS", _cell("p95_ms"), 10),
             ("ACTIVE*", _cell("tool_active_session_count"), 8),
             ("STATUS", _cell("comparison_status"), 12),
         )
         write_table(
-            "TOOL LATENCY (milliseconds; missing durations excluded from latency)",
+            "TOOL LATENCY (milliseconds; unsupported Cursor shell and unknown "
+            "gaps excluded from latency)",
             tool_columns,
             result.get("tool_rows") or [],
             stdout,

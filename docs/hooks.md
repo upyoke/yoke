@@ -160,7 +160,12 @@ in-process. The tool table reports completed-call mean/p95 beside timed/total
 coverage globally and per harness. Missing duration is unknown and excluded
 from latency statistics; a measured zero remains timed. The event's own
 `timing_status` says which endpoint was missing, so an uncovered call is
-diagnosable rather than merely absent. `ACTIVE*` is the
+diagnosable rather than merely absent. Cursor shell completions with no
+`tool_use_id` are `unknown_no_call_identity` (native
+`beforeShellExecution` / `afterShellExecution` omit correlation and
+duration — see `yoke_contracts.cursor_shell_timing`); hook-overhead keeps
+them in the denominator as unsupported timing and excludes them from
+mean/p95. `ACTIVE*` is the
 number of distinct sessions emitting telemetry in the fixed hour, not a live
 roster or proof of simultaneous execution.
 
@@ -218,7 +223,7 @@ value carries a null duration and says why:
 
 | Status | Meaning |
 |---|---|
-| `unknown_no_call_identity` | No session or tool-use id to look the call up by. |
+| `unknown_no_call_identity` | No session or tool-use id to look the call up by. Cursor `beforeShellExecution` / `afterShellExecution` omit `tool_use_id`. |
 | `unknown_no_recorded_start` | No `session_tool_calls` row — the opening observation never landed. |
 | `unknown_no_captured_end` | The caller captured no completion instant. |
 | `unknown_lookup_failed` | The start lookup failed; hooks stay fail-open and never block a tool on telemetry. |

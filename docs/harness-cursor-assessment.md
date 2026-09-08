@@ -84,7 +84,7 @@ entries pin an explicit generous value.
 | `SessionStart` | `SessionStart` | `SessionStart` (matcher `startup\|resume`) | `sessionStart` | fired | fired |
 | `SessionEnd` | `SessionEnd` | *(not wired)* | `sessionEnd` (`reason`, `final_status`, `duration_ms`) | fired | not fired while chat stays open |
 | `UserPromptSubmit` | `UserPromptSubmit` | `UserPromptSubmit` | `beforeSubmitPrompt` (`prompt`, `attachments` incl. applied rule files) | **absent** | fired |
-| `PreToolUse` | `PreToolUse` × matcher | `PreToolUse` (+ `PermissionRequest` collapse) | `preToolUse` (`tool_name`, `tool_input`, `tool_use_id`); shell also gets dedicated `beforeShellExecution` (`command`, `sandbox`) | fired | fired |
+| `PreToolUse` | `PreToolUse` × matcher | `PreToolUse` (+ `PermissionRequest` collapse) | `preToolUse` (`tool_name`, `tool_input`, `tool_use_id`); shell also gets dedicated `beforeShellExecution` (`command`, `sandbox`; no `tool_use_id`/`duration_ms`) | fired | fired |
 | `PostToolUse` | `PostToolUse` | `PostToolUse` | `postToolUse` (+ `afterShellExecution` with `output`) | fired | fired |
 | `PostToolUseFailure` | `PostToolUseFailure` | *(reconstructed from transcripts)* | `postToolUseFailure` (`failure_type`, `error_message`) | fired | fired |
 | `Stop` | `Stop` | `Stop` (stdout must be `{}`) | `stop` (token counts, `loop_count`, `status`) | **absent** | fired |
@@ -152,7 +152,7 @@ beside it on raw stdout (see `yoke_contracts.hook_runner.model_context_channel`)
 
 | Concern | Claude Code | Codex | Cursor (measured) |
 |---|---|---|---|
-| Session id source | `CLAUDE_CODE_SESSION_ID` env; persisted to `$CLAUDE_ENV_FILE` | `CODEX_SESSION_ID` (parent thread, exported into subagents too; `CODEX_THREAD_ID` is the running thread. Both absent in hook subprocesses → identity env pin in hook command) | **No env var.** Every payload carries `session_id` + `conversation_id` (identical values), plus `generation_id` per turn and `tool_use_id` per call |
+| Session id source | `CLAUDE_CODE_SESSION_ID` env; persisted to `$CLAUDE_ENV_FILE` | `CODEX_SESSION_ID` (parent thread, exported into subagents too; `CODEX_THREAD_ID` is the running thread. Both absent in hook subprocesses → identity env pin in hook command) | **No env var.** Every payload carries `session_id` + `conversation_id` (identical values), plus `generation_id` per turn; `preToolUse` has `tool_use_id`, shell gates do not |
 | Executor detection | process/env heuristics | `YOKE_EXECUTOR=codex YOKE_PROVIDER=openai` pinned in hook command | same pin approach works; `CURSOR_INVOKED_AS=cursor-agent` distinguishes CLI from IDE (unset), `CURSOR_VERSION` carries build |
 | Process ancestry | anchorable (`claude` basenames) | multiplexed (never an anchor) | **multiplexed** — one `cursor-agent` pid hosted five session ids; hooks run `python3 → zsh → cursor-agent` |
 | Ambient identity for agent-shell subprocesses | env chain + process anchors | anchors unusable; env pin | `CURSOR_PROJECT_DIR`, `CURSOR_TRANSCRIPT_PATH`, `CURSOR_USER_EMAIL` exported to hook processes; the agent shell gets `CURSOR_CONVERSATION_ID` (its own conversation, a subagent's for a subagent shell) but no session id. Anchors are unusable for the same reason as Codex, so identity rides the hook-written conversation mapping (`<machine-home>/cursor-session-map/`, `yoke_contracts.cursor_session_map`) |
