@@ -21,9 +21,9 @@ from yoke_contracts.harness_family_identity import CURSOR_FAMILY
 
 CURSOR_SHELL_EVENTS = frozenset({"beforeShellExecution", "afterShellExecution"})
 CURSOR_SHELL_TIMING_MEASURED = "measured"
-CURSOR_SHELL_TIMING_UNSUPPORTED_REASON = (
-    "cursor_shell_event_omits_tool_use_id_and_duration"
-)
+# Same token as the shared elapsed-measurement status for a completion
+# with no correlation id (observe_timing.TIMING_UNKNOWN_NO_CALL_IDENTITY).
+CURSOR_SHELL_TIMING_UNSUPPORTED_REASON = "unknown_no_call_identity"
 CURSOR_SHELL_TIMING_EVIDENCE = (
     "cursor-agent 2026.09.02-c22c1a3 beforeShellExecution/afterShellExecution "
     "payloads carry command and sandbox; they omit tool_use_id and duration_ms. "
