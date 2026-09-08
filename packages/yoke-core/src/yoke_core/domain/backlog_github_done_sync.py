@@ -27,6 +27,7 @@ from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
 from yoke_core.domain.actors import actor_label_or_passthrough
+from yoke_core.domain.backlog_github_comments import post_comment
 from yoke_core.domain.backlog_github_fetch import (
     _close_if_owned,
     _item_context,
@@ -249,18 +250,25 @@ def sync_done_item(
                 return 1
 
         if state != "CLOSED":
-            close_body = (
-                f"**Status:** `{old_status}` -> `done`" if old_status
-                else "Closed: status -> done"
-            )
             try:
                 github_rest.set_issue_state(
                     project=gh_project, number=issue_num, state="closed",
-                    comment=close_body,
                 )
             except github_rest.RestTransportError as exc:
                 print(f"Error: Failed to close {github_issue}: {exc}", file=stderr)
                 return 1
+            new_status = fields.get("status") or "done"
+            if old_status != new_status:
+                comment_rc = post_comment(
+                    item_pk,
+                    old_status,
+                    new_status,
+                    conn=conn,
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+                if comment_rc != 0:
+                    return comment_rc
 
         if edit.is_compact:
             print(

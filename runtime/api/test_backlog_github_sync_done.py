@@ -85,7 +85,9 @@ def test_sync_done_item_batches_body_labels_and_close():
         f"{_DONE_LABEL_REST}.remove_label",
     ) as remove_label, patch(
         f"{_DONE_GH_REST}.set_issue_state",
-    ) as set_state, patch(f"{GH_PATCH}._ensure_label"):
+    ) as set_state, patch.object(
+        backlog_github_done_sync, "post_comment", return_value=0,
+    ) as status_comment, patch(f"{GH_PATCH}._ensure_label"):
         rc = backlog_github_sync.sync_done_item(
             70, "release", conn=db, stdout=stdout,
         )
@@ -106,10 +108,12 @@ def test_sync_done_item_batches_body_labels_and_close():
     assert "status:done" in added_labels_flat
     removed_labels = [call.args[2] for call in remove_label.call_args_list]
     assert "status:release" in removed_labels
-    # Issue gets closed once with comment.
+    # Close is silent; the existing comment owner posts once.
     set_state.assert_called_once()
     assert set_state.call_args.kwargs["state"] == "closed"
-    assert "`release` -> `done`" in set_state.call_args.kwargs["comment"]
+    assert "comment" not in set_state.call_args.kwargs
+    status_comment.assert_called_once()
+    assert status_comment.call_args.args[:3] == (70, "release", "done")
     db.close()
 
 
@@ -165,6 +169,8 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         f"{_DONE_LABEL_REST}.remove_label",
     ), patch(
         f"{_DONE_GH_REST}.set_issue_state",
+    ), patch.object(
+        backlog_github_done_sync, "post_comment", return_value=0,
     ), patch(f"{GH_PATCH}._ensure_label"):
         rc = backlog_github_sync.sync_done_item(
             72, "release", conn=db, stdout=stdout, stderr=stderr,
@@ -223,3 +229,53 @@ def test_validate_issue_in_repo_no_false_mismatch_on_project_repo():
     assert "Repo mismatch" not in stderr.getvalue()
     assert "rate-limited" not in stderr.getvalue()
     assert "permission denied" not in stderr.getvalue()
+
+
+def test_sync_done_item_already_closed_posts_no_status_comment():
+    db = _make_db()
+    insert_item(
+        db,
+        id=71,
+        workflow_id="issue",
+        status="done",
+        project="externalwebapp",
+        github_issue="#701",
+        source="ben",
+        owner="ben",
+    )
+    stdout = io.StringIO()
+    existing_labels = (
+        "status:done", "priority:medium", "workflow:issue",
+        "source:ben", "owner:ben",
+    )
+
+    with patch(
+        f"{GH_PATCH}._validate_issue_in_repo",
+        autospec=True,
+        return_value=True,
+    ), patch.object(
+        backlog_github_done_sync, "resolve_project_github_auth",
+        side_effect=_ok_resolver,
+    ), patch(
+        f"{_DONE_GH_REST}.get_issue",
+        return_value=_existing_issue(701, labels=existing_labels, state="CLOSED"),
+    ), patch(
+        f"{_DONE_WRITER}.update_issue_body_typed",
+        return_value=BodyWriteResult(returncode=0, mode="full", stdout="", stderr=""),
+    ), patch(
+        f"{_DONE_LABEL_REST}.add_labels",
+    ), patch(
+        f"{_DONE_LABEL_REST}.remove_label",
+    ), patch(
+        f"{_DONE_GH_REST}.set_issue_state",
+    ) as set_state, patch.object(
+        backlog_github_done_sync, "post_comment", return_value=0,
+    ) as status_comment, patch(f"{GH_PATCH}._ensure_label"):
+        rc = backlog_github_sync.sync_done_item(
+            71, "release", conn=db, stdout=stdout,
+        )
+
+    assert rc == 0
+    set_state.assert_not_called()
+    status_comment.assert_not_called()
+    db.close()

@@ -138,11 +138,10 @@ def close_issue(
             print(f"Closed: {public_ref} -> {github_issue} (already closed)", file=stdout)
             return 0
 
-        # Close (with status-change comment)
+        # Close without a status comment; the transition comment owner posts once.
         try:
             github_rest.set_issue_state(
                 project=gh_project, number=issue_num, state="closed",
-                comment=f"Closed: status -> {cur_status or 'done'}",
             )
         except github_rest.RestTransportError as exc:
             print(f"Error: Failed to close {github_issue}: {exc}", file=stderr)
