@@ -114,7 +114,15 @@ for (const [view, functionId] of [
           }
           return {
             status: 200,
-            envelope: { success: true, result: { rows: [], entries: [] } },
+            envelope: {
+              success: true,
+              result: {
+                rows: [],
+                entries: [],
+                matching_count: 0,
+                next_cursor: null,
+              },
+            },
           };
         }
         throw new Error(`unexpected function ${request.function}`);
@@ -158,6 +166,8 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
           envelope: {
             success: true,
             result: {
+              matching_count: 2,
+              next_cursor: null,
               entries: [
                 {
                   id: 22,
@@ -167,12 +177,12 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
                   context: "open",
                   reviewed_at: null,
                   promoted_dash: {
-                    item_ref: "YOK-90",
+                    public_ref: "YOK-90",
                     item_id: 90,
                     project_id: 1,
                   },
                 },
-                { timestamp: "then", category: "failed", agent: "doctor", context: "closed", reviewed_at: "later" },
+                { id: 21, timestamp: "then", category: "failed", agent: "doctor", context: "closed", reviewed_at: "later" },
               ],
             },
           },
@@ -187,7 +197,15 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
 
   assert.deepEqual(
     requests.find((request) => request.function === "ouroboros.entry.list"),
-    { function: "ouroboros.entry.list", payload: { project: "1" } },
+    {
+      function: "ouroboros.entry.list",
+      payload: {
+        project: "1",
+        shape: "roster",
+        review_state: "all",
+        limit: 50,
+      },
+    },
   );
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")

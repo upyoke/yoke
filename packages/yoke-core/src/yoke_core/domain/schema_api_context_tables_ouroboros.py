@@ -36,7 +36,13 @@ OUROBOROS_TABLES: dict[str, dict] = {
             "Supersede links live in `ouroboros_entry_corrections`, not "
             "in a column here. "
             "Use `created_at` for canonical ordering; `timestamp` is "
-            "legacy compatibility."
+            "legacy compatibility. "
+            "Browser roster reads use `ouroboros.entry.list` with "
+            "`shape=roster` (id-desc keyset cursor, matching_count, no "
+            "`body`); `ouroboros.entry.get` is the only fetch for the "
+            "evidence body. Operator list/count keep offset paging and "
+            "full rows — wrong guess: that the roster shape replaced "
+            "that operator list or that list always carries `body`."
         ),
     },
     "ouroboros_entry_corrections": {
