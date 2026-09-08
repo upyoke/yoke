@@ -13,7 +13,11 @@ from yoke_contracts.session_control.resume import (
     RESUMED_DIED_RESULT,
 )
 from yoke_harness import session_relay_resume_settlement as settlement
-from yoke_harness.session_launch_containment import record_supervised_native
+from yoke_harness.session_launch_containment import (
+    record_supervised_native,
+    supervision_record_path,
+)
+from yoke_harness import session_relay_native_diagnostics as diagnostics
 from yoke_harness.session_relay_native_capture_format import (
     STATE_RUNNING,
     compose_capture,
@@ -82,7 +86,7 @@ def _settled_capture(tmp_path: Path, body: bytes, exit_code: int | None) -> Path
     return capture
 
 
-def test_a_finished_turn_folds_the_result_its_hooks_never_saw(
+def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -96,25 +100,45 @@ def test_a_finished_turn_folds_the_result_its_hooks_never_saw(
 
     home = tmp_path / "yoke-home"
     home.mkdir()
+    custody = tmp_path / "custody"
+    relay = tmp_path / "relay"
     monkeypatch.setattr(machine_config, "yoke_home", lambda: home)
-    capture = tmp_path / f"nd-{ATTEMPT_ID}.capture"
-    capture.write_bytes(
-        compose_capture(stdout=NATIVE_RESULT_LINE.encode(), stderr=b"", exit_code=0)
-    )
-    record_supervised_native(
-        ATTEMPT_ID,
-        os.getpid(),
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: custody)
+    monkeypatch.setattr(diagnostics, "relay_state_dir", lambda: relay)
+    resumed = spawn_supervised_native(
+        [sys.executable, "-c", f"print({NATIVE_RESULT_LINE!r})"],
+        checkout=tmp_path,
+        environment=dict(os.environ),
+        attempt_id=ATTEMPT_ID,
         native_session_id=SESSION_ID,
-        supervision_kind="resume",
-        capture_path=capture,
+        binary_source="path",
         lease_id=LEASE_ID,
-        state_dir=tmp_path,
     )
+    assert resumed is not None
+    _await_outcome(resumed.capture_path)
+    assert resumed.capture_path.parent == relay / "native-diagnostics"
+    assert supervision_record_path(ATTEMPT_ID, custody).exists()
 
-    assert finished_native_resumes(state_dir=tmp_path)
+    settled = settle_finished_native_resumes(
+        _Dispatcher(),
+        FUNCTION_ID,
+        relay_id="machine:relay",
+        machine_id="33333333-3333-4333-8333-333333333333",
+        state_dir=relay,
+        timeout_s=5,
+    )
+    assert settled == (ATTEMPT_ID,)
+    assert not supervision_record_path(ATTEMPT_ID, custody).exists()
 
     usage = usage_from_document(session_usage_document(CONVERSATION))
-    assert usage is not None and usage.billable_tokens() > 0
+    assert usage is not None
+    entry = usage.models[0]
+    assert (entry.input, entry.cached_input, entry.cache_write, entry.output) == (
+        102596,
+        9600,
+        0,
+        30,
+    )
 
 
 def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
@@ -135,6 +159,7 @@ def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
         relay_id="machine:relay",
         machine_id="33333333-3333-4333-8333-333333333333",
         state_dir=tmp_path,
+        custody_state_dir=tmp_path,
         timeout_s=5,
     )
 
@@ -168,6 +193,7 @@ def test_native_exiting_cleanly_settles_the_attempt_as_completed(
         relay_id="machine:relay",
         machine_id="33333333-3333-4333-8333-333333333333",
         state_dir=tmp_path,
+        custody_state_dir=tmp_path,
         timeout_s=5,
     )
 
@@ -253,6 +279,7 @@ def test_a_failed_report_keeps_the_record_for_the_next_poll(tmp_path: Path) -> N
         relay_id="machine:relay",
         machine_id="33333333-3333-4333-8333-333333333333",
         state_dir=tmp_path,
+        custody_state_dir=tmp_path,
         timeout_s=5,
     )
 

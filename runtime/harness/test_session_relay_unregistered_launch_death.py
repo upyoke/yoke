@@ -67,14 +67,17 @@ def _capture(state_dir: Path) -> None:
 def test_a_gone_native_that_never_registered_is_reported_with_its_capture(
     tmp_path: Path,
 ) -> None:
-    _supervised(tmp_path)
-    _capture(tmp_path)
+    custody = tmp_path / "custody"
+    relay = tmp_path / "relay"
+    _supervised(custody)
+    _capture(relay)
     dispatcher = _Dispatcher()
 
     reported = report_unregistered_launch_deaths(
         dispatcher,
         _Inventory(),
-        state_dir=tmp_path,
+        state_dir=relay,
+        custody_state_dir=custody,
         # A reused pid names a different process, so this native is gone.
         start_time_of=lambda _pid: "some-other-start",
     )
@@ -87,7 +90,7 @@ def test_a_gone_native_that_never_registered_is_reported_with_its_capture(
     assert evidence["exit_code"] == 1
     assert evidence["native_stderr_tail"] == REFUSAL
     # The process is gone and the report landed, so nothing re-reports it.
-    assert not supervision_record_path(LAUNCH_ID, tmp_path).exists()
+    assert not supervision_record_path(LAUNCH_ID, custody).exists()
 
 
 def test_a_running_launch_native_is_not_reported_at_all(tmp_path: Path) -> None:
@@ -102,7 +105,12 @@ def test_a_running_launch_native_is_not_reported_at_all(tmp_path: Path) -> None:
 
     assert unregistered_launch_deaths(state_dir=tmp_path) == ()
     assert (
-        report_unregistered_launch_deaths(dispatcher, _Inventory(), state_dir=tmp_path)
+        report_unregistered_launch_deaths(
+            dispatcher,
+            _Inventory(),
+            state_dir=tmp_path,
+            custody_state_dir=tmp_path,
+        )
         == ()
     )
     assert dispatcher.payloads == []
