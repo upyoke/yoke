@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.org_schema import REQUIRED_ORG_TABLES, create_org_tables
+from yoke_core.domain.schema_common import _get_columns
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -42,8 +43,6 @@ def create_auth_tables(conn: Any) -> None:
             ON api_tokens(actor_id);
         CREATE INDEX IF NOT EXISTS idx_api_tokens_status
             ON api_tokens(status);
-        CREATE INDEX IF NOT EXISTS idx_api_tokens_machine
-            ON api_tokens(machine_id, status);
 
         CREATE TABLE IF NOT EXISTS api_token_audit (
             id INTEGER PRIMARY KEY,
@@ -100,6 +99,11 @@ def create_auth_tables(conn: Any) -> None:
             ON actor_project_roles(role_id);
     """,
     )
+    if "machine_id" in _get_columns(conn, "api_tokens"):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_api_tokens_machine "
+            "ON api_tokens(machine_id, status)"
+        )
     conn.commit()
     # Org scope lives in its own module but is part of the auth surface; create
     # it here so every auth-setup path (schema_init, tests) builds the same
