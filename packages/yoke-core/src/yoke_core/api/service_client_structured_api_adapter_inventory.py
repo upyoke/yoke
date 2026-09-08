@@ -108,8 +108,13 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     *TEST_MACHINE_ADAPTERS,
     AdapterEntry(
         "machine.register",
-        "yoke machine register [--name NAME] [--rotate-key]",
-        notes="registers this host's id and the public half of its proof key",
+        "yoke machine register [--name NAME]",
+        notes="registers this host and rotates its machine-bound bearer",
+    ),
+    AdapterEntry(
+        "machine.retire",
+        "yoke machine retire [MACHINE-ID] --confirm",
+        notes="preserves history and revokes only the machine-bound bearer",
     ),
     AdapterEntry(
         "machine.settings.set",
@@ -123,6 +128,10 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="machine.show",
         cli_invocation="yoke machine show [MACHINE-ID]",
+    ),
+    _read_entry(
+        function_id="machine.detail",
+        cli_invocation="yoke machine detail [MACHINE-ID]",
     ),
     _read_entry(
         function_id="machine.settings.get",

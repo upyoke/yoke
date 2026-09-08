@@ -168,6 +168,7 @@ def test_refused_cycle_stops_after_compatible_probe_without_running_a_job(
 ) -> None:
     report_payload = {
         "relay_id": f"machine:{MACHINE_ID}",
+        "machine_id": MACHINE_ID,
         "job_kind": "launch",
         "job_id": "22222222-2222-4222-8222-222222222222",
         "lease_id": "33333333-3333-4333-8333-333333333333",

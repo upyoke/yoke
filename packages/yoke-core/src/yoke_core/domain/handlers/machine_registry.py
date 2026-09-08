@@ -12,21 +12,15 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
+from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actors import ActorError
 from yoke_core.domain.machine_registry import (
     MachineRegistryError,
     list_machines,
-    register_machine,
     require_machine,
     set_machine_access,
 )
 from yoke_core.domain.session_relay_storage import utc_now
-
-
-class MachineRegisterRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    machine_id: str
-    name: str
-    access: Optional[Dict[str, Any]] = None
 
 
 class OffersDisclosureResponse(BaseModel):
@@ -167,33 +161,6 @@ def _refused(exc: Exception) -> HandlerOutcome:
     return _failure("machine_registry_rejected", str(exc))
 
 
-def handle_machine_register(request: FunctionCallRequest) -> HandlerOutcome:
-    parsed = _parse(MachineRegisterRequest, request)
-    if isinstance(parsed, HandlerOutcome):
-        return parsed
-    conn = _open()
-    try:
-        actor_id = _actor_id(request)
-        record, created = register_machine(
-            conn,
-            machine_id=parsed.machine_id,
-            name=parsed.name,
-            actor_id=actor_id,
-            access=parsed.access,
-            is_admin=_is_admin(conn, actor_id),
-            now=utc_now(),
-        )
-        return HandlerOutcome(
-            result_payload=_with_offers_disclosure(
-                {"machine": record.to_dict(), "created": created}
-            )
-        )
-    except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
-        return _refused(exc)
-    finally:
-        conn.close()
-
-
 def handle_machine_list(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(MachineListRequest, request)
     if isinstance(parsed, HandlerOutcome):
@@ -202,10 +169,21 @@ def handle_machine_list(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         owner = _actor_id(request) if parsed.owned_only else None
         records = list_machines(conn, owner_actor_id=owner)
+        owner_labels = {}
+        for actor_id in {record.owner_actor_id for record in records}:
+            try:
+                owner_labels[actor_id] = actor_display_name(conn, actor_id)
+            except ActorError:
+                owner_labels[actor_id] = f"actor {actor_id}"
+        machines = []
+        for record in records:
+            machine = record.to_dict()
+            machine["owner"] = owner_labels[record.owner_actor_id]
+            machines.append(machine)
         return HandlerOutcome(
             result_payload=_with_offers_disclosure(
                 {
-                    "machines": [record.to_dict() for record in records],
+                    "machines": machines,
                     "count": len(records),
                 }
             )
@@ -285,13 +263,12 @@ __all__ = [
     "MachineListRequest",
     "MachineListResponse",
     "MachineRecordResponse",
-    "MachineRegisterRequest",
+    "OffersDisclosureResponse",
     "MachineSettingsGetRequest",
     "MachineSettingsGetResponse",
     "MachineSettingsSetRequest",
     "MachineShowRequest",
     "handle_machine_list",
-    "handle_machine_register",
     "handle_machine_settings_get",
     "handle_machine_settings_set",
     "handle_machine_show",

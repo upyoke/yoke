@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import machine_registry as _machines
+from yoke_core.domain.handlers import machine_lifecycle as _lifecycle
 
 
 _READS = (
@@ -17,6 +18,12 @@ _READS = (
         _machines.handle_machine_show,
         _machines.MachineShowRequest,
         _machines.MachineRecordResponse,
+    ),
+    (
+        "machine.detail",
+        _lifecycle.handle_machine_detail,
+        _machines.MachineShowRequest,
+        _lifecycle.MachineDetailResponse,
     ),
     (
         "machine.settings.get",
@@ -66,10 +73,18 @@ def register(registry) -> None:
     _register(
         registry,
         "machine.register",
-        _machines.handle_machine_register,
-        _machines.MachineRegisterRequest,
+        _lifecycle.handle_machine_register,
+        _lifecycle.MachineRegisterRequest,
+        _lifecycle.MachineRegisterResponse,
+        side_effects=["machines_upsert", "machine_credential_rotate"],
+    )
+    _register(
+        registry,
+        "machine.retire",
+        _lifecycle.handle_machine_retire,
+        _lifecycle.MachineRetireRequest,
         _machines.MachineRecordResponse,
-        side_effects=["machines_upsert"],
+        side_effects=["machines_update", "machine_credential_revoke"],
     )
     _register(
         registry,

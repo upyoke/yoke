@@ -98,6 +98,7 @@ def test_build_refusal_status_names_revisions_and_deploy(
 def _terminal_payload() -> dict[str, object]:
     return {
         "relay_id": "machine:11111111-1111-4111-8111-111111111111",
+        "machine_id": "11111111-1111-4111-8111-111111111111",
         "job_kind": "launch",
         "job_id": "11111111-1111-4111-8111-111111111111",
         "lease_id": "22222222-2222-4222-8222-222222222222",

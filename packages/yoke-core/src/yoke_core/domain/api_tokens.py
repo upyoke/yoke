@@ -20,14 +20,9 @@ from yoke_core.domain import db_backend, json_helper
 TOKEN_STATUS_ACTIVE = "active"
 TOKEN_STATUS_REVOKED = "revoked"
 
-# Neutral defaults for the first-admin bootstrap: the admin actor label and
-# the name of the one token minted for it.
 DEFAULT_ADMIN_ACTOR_LABEL = "admin"
 INITIAL_ADMIN_TOKEN_NAME = "initial-admin"
 
-# Dash-free base62 body alphabet: a '-' is a word boundary, so a token
-# containing one cannot be selected with a single double-click in terminals
-# or browsers. The fixed prefix keeps only '_', which IS a word character.
 _TOKEN_BODY_ALPHABET = string.ascii_letters + string.digits
 
 
@@ -47,6 +42,10 @@ class TokenExpired(TokenError):
     """The stored token has passed its expiry timestamp."""
 
 
+class TokenMachineRetired(TokenError):
+    """The token belongs to a machine that has been retired."""
+
+
 @dataclass(frozen=True)
 class CreatedToken:
     token_id: int
@@ -59,6 +58,7 @@ class VerifiedToken:
     token_id: int
     actor_id: int
     name: str
+    machine_id: str | None = None
 
 
 def _now() -> str:
@@ -77,11 +77,7 @@ def hash_token(raw_token: str) -> str:
 
 
 def generate_token() -> str:
-    """Generate a new raw API token. Returned once; never persisted raw.
-
-    The random body uses a dash-free base62 alphabet so the entire token is a
-    single double-click-selectable word.
-    """
+    """Generate a one-time raw token with a selectable base62 body."""
     body = "".join(
         secrets.choice(_TOKEN_BODY_ALPHABET) for _ in range(TOKEN_BODY_LENGTH)
     )
@@ -146,7 +142,7 @@ def verify_token(
     token_hash = hash_token(raw_token)
     p = _p(conn)
     row = conn.execute(
-        "SELECT id, actor_id, name, status, expires_at "
+        "SELECT id, actor_id, name, status, expires_at, machine_id "
         f"FROM api_tokens WHERE token_hash = {p}",
         (token_hash,),
     ).fetchone()
@@ -162,9 +158,30 @@ def verify_token(
             diagnostic_metadata=diagnostic_metadata,
         )
         raise TokenNotFound("API token not found")
-    token_id, actor_id, name, status, expires_at = row
+    token_id, actor_id, name, status, expires_at, machine_id = row
     token_id = int(token_id)
     actor_id = int(actor_id)
+    bound_machine = str(machine_id) if machine_id else None
+    if bound_machine:
+        retired = conn.execute(
+            f"SELECT retired_at FROM machines WHERE machine_id = {p}",
+            (bound_machine,),
+        ).fetchone()
+        if retired is not None and retired[0] is not None:
+            record_token_audit(
+                conn,
+                api_token_id=token_id,
+                actor_id=actor_id,
+                project_id=project_id,
+                event_type="verify",
+                outcome="machine_retired",
+                permission_key=permission_key,
+                diagnostic_metadata=diagnostic_metadata,
+            )
+            raise TokenMachineRetired(
+                "Machine credential belongs to a retired machine. Recovery: "
+                "run the installer again to reconnect with a new machine identity."
+            )
     if status != TOKEN_STATUS_ACTIVE:
         record_token_audit(
             conn,
@@ -204,7 +221,12 @@ def verify_token(
         permission_key=permission_key,
         diagnostic_metadata=diagnostic_metadata,
     )
-    return VerifiedToken(token_id=token_id, actor_id=actor_id, name=str(name))
+    return VerifiedToken(
+        token_id=token_id,
+        actor_id=actor_id,
+        name=str(name),
+        machine_id=bound_machine,
+    )
 
 
 def revoke_token(conn: Any, *, token_id: int, actor_id: int | None = None) -> None:
@@ -312,6 +334,7 @@ __all__ = [
     "TOKEN_STATUS_REVOKED",
     "TokenError",
     "TokenExpired",
+    "TokenMachineRetired",
     "TokenNotFound",
     "TokenRevoked",
     "VerifiedToken",

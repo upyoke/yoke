@@ -8,6 +8,7 @@ from yoke_cli.config import onboard
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_session_relay
+from yoke_cli.config import machine_registration
 
 
 def _apply(tmp_path: Path, monkeypatch, outcome: dict) -> dict:
@@ -94,3 +95,45 @@ def test_setup_complete_names_the_refusal_and_its_recovery() -> None:
     rendered = "\n".join(str(widget.render()) for widget in widgets)
     assert "the plane refused" in rendered
     assert "yoke machine register" in rendered
+
+
+def test_https_registration_persists_only_the_returned_machine_bearer(
+    monkeypatch,
+) -> None:
+    from yoke_cli.config import machine_config, writer
+    from yoke_contracts.machine_config import schema as contract
+
+    stored = []
+    monkeypatch.setattr(
+        machine_config,
+        "active_connection",
+        lambda _path=None: {"transport": contract.TRANSPORT_HTTPS},
+    )
+    monkeypatch.setattr(machine_config, "active_env", lambda _path=None: "prod")
+    monkeypatch.setattr(
+        writer,
+        "set_credential",
+        lambda env, *, token, path=None: stored.append((env, token, path)),
+    )
+
+    failure = machine_registration._persist_credential(
+        {"credential": {"token": "machine-secret"}}, "/tmp/config.json"
+    )
+
+    assert failure is None
+    assert stored == [("prod", "machine-secret", "/tmp/config.json")]
+
+
+def test_https_registration_refuses_a_success_without_a_bearer(monkeypatch) -> None:
+    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import schema as contract
+
+    monkeypatch.setattr(
+        machine_config,
+        "active_connection",
+        lambda _path=None: {"transport": contract.TRANSPORT_HTTPS},
+    )
+
+    failure = machine_registration._persist_credential({}, None)
+
+    assert failure and failure.startswith("machine_credential_unsupported:")

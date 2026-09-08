@@ -165,6 +165,8 @@ MACHINE_SUBCOMMAND_REGISTRY = {
     ("machine", "register"): ("machine.register", machine.machine_register),
     ("machine", "list"): ("machine.list", machine.machine_list),
     ("machine", "show"): ("machine.show", machine.machine_show),
+    ("machine", "detail"): ("machine.detail", machine.machine_detail),
+    ("machine", "retire"): ("machine.retire", machine.machine_retire),
     ("machine", "settings", "get"): (
         "machine.settings.get",
         machine.machine_settings_get,

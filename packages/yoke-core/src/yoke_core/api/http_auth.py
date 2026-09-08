@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.api_tokens import (
     TokenExpired,
+    TokenMachineRetired,
     TokenNotFound,
     TokenRevoked,
     VerifiedToken,
@@ -62,6 +63,7 @@ class HttpAuthContext:
     token_id: int
     actor_id: int
     token_name: str
+    machine_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -184,6 +186,12 @@ def authenticate_request(request: Request) -> HttpAuthContext | JSONResponse:
             code="authentication_expired",
             message="API token is expired",
         )
+    except TokenMachineRetired as exc:
+        return auth_error_response(
+            status_code=401,
+            code="machine_retired",
+            message=str(exc),
+        )
     except db_backend.database_error_types() as exc:
         return auth_error_response(
             status_code=503,
@@ -262,6 +270,7 @@ def _context_from_verified(verified: VerifiedToken) -> HttpAuthContext:
         token_id=verified.token_id,
         actor_id=verified.actor_id,
         token_name=verified.name,
+        machine_id=verified.machine_id,
     )
 
 

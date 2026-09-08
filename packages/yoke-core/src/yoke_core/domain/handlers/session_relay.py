@@ -101,6 +101,9 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         try:
             actor_id = _actor_id(request)
+            _require_active_machine(
+                conn, machine_id=payload.machine_id, actor_id=actor_id
+            )
             require_relay_project_authority(
                 conn,
                 actor_id=actor_id,
@@ -140,6 +143,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                         payload.preferred_reasoning_efforts
                     ),
                     surface_native_models=payload.native_models,
+                    credential_presence=payload.credential_presence,
                 ),
                 wait_seconds=payload.wait_seconds,
                 broker_only=payload.broker_only,
@@ -164,6 +168,25 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(primary_success=True, result_payload=result)
 
 
+def _require_active_machine(conn, *, machine_id: str, actor_id: int) -> None:
+    """Bind an in-process relay to the same durable machine as HTTP auth."""
+    from yoke_core.domain.machine_registry import MachineRegistryError, require_machine
+
+    record = require_machine(conn, machine_id)
+    if record.retired_at is not None:
+        raise MachineRegistryError(
+            "machine_retired",
+            f"machine {record.machine_id} is retired. Recovery: run the installer "
+            "again to reconnect this computer with a new machine identity.",
+        )
+    if record.owner_actor_id != actor_id:
+        raise MachineRegistryError(
+            "machine_credential_mismatch",
+            "The relay actor does not own the registered machine. Recovery: "
+            "reconnect this machine with the installer.",
+        )
+
+
 def handle_relay_turn_end(request: FunctionCallRequest) -> HandlerOutcome:
     """Reclassify the reported sessions whose native turn already ended."""
     if invalid := _target_failure(request):
@@ -181,9 +204,13 @@ def handle_relay_turn_end(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         try:
+            actor_id = _actor_id(request)
+            _require_active_machine(
+                conn, machine_id=payload.machine_id, actor_id=actor_id
+            )
             require_relay_project_authority(
                 conn,
-                actor_id=_actor_id(request),
+                actor_id=actor_id,
                 project_ids=payload.projects,
             )
             outcome = apply_native_turn_ends(
@@ -224,6 +251,9 @@ def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         try:
             actor_id = _actor_id(request)
+            _require_active_machine(
+                conn, machine_id=payload.machine_id, actor_id=actor_id
+            )
             require_relay_project_authority(
                 conn,
                 actor_id=actor_id,
@@ -269,9 +299,13 @@ def handle_relay_report(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         try:
+            actor_id = _actor_id(request)
+            _require_active_machine(
+                conn, machine_id=payload.machine_id, actor_id=actor_id
+            )
             result = report_relay_job(
                 conn,
-                actor_id=_actor_id(request),
+                actor_id=actor_id,
                 relay_id=payload.relay_id,
                 job_kind=payload.job_kind,
                 job_id=payload.job_id,

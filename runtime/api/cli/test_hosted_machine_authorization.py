@@ -115,6 +115,52 @@ def test_browser_authorization_rejects_malformed_pending_response(monkeypatch) -
         )
 
 
+@pytest.mark.parametrize(
+    "answer",
+    [
+        BoundedJsonHttpResponse(payload={"error": error}, status=status, headers={})
+        for status, error in auth._RETRYABLE_POLL_ERRORS.items()
+    ]
+    + [
+        BoundedJsonHttpStatusError(status, {"error": error})
+        for status, error in auth._RETRYABLE_POLL_ERRORS.items()
+    ],
+)
+def test_browser_authorization_retries_typed_transient_answers(
+    monkeypatch, answer
+) -> None:
+    responses = deque(
+        [
+            answer,
+            BoundedJsonHttpResponse(
+                payload={
+                    "token": "machine-token",
+                    "org": "acme",
+                    "api_url": "https://app.upyoke.com/api/orgs/acme",
+                },
+                status=200,
+                headers={},
+            ),
+        ]
+    )
+
+    def fake_request(*_args, **_kwargs):
+        result = responses.popleft()
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(auth, "request_json", fake_request)
+    clock = _Clock()
+    credential = auth.complete(
+        _pending_authorization(),
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+    assert credential.token == "machine-token"
+    assert not responses
+
+
 def test_browser_authorization_accepts_legacy_machine_page_urls(monkeypatch) -> None:
     monkeypatch.setattr(
         auth,
@@ -180,7 +226,9 @@ def _pending_authorization() -> auth.PendingMachineAuthorization:
     "answer",
     [
         BoundedJsonHttpResponse(
-            payload={"error": "authorization_denied"}, status=410, headers={},
+            payload={"error": "authorization_denied"},
+            status=410,
+            headers={},
         ),
         BoundedJsonHttpStatusError(410, {"error": "authorization_denied"}),
     ],
@@ -198,7 +246,9 @@ def test_polling_denial_answer_raises_typed_denial(monkeypatch, answer) -> None:
     clock = _Clock()
     with pytest.raises(auth.HostedMachineAuthorizationDenied, match="denied"):
         auth.complete(
-            _pending_authorization(), sleep=clock.sleep, monotonic=clock.monotonic,
+            _pending_authorization(),
+            sleep=clock.sleep,
+            monotonic=clock.monotonic,
         )
 
 
@@ -217,11 +267,11 @@ def test_polling_unknown_410_body_keeps_generic_failure(monkeypatch) -> None:
         match="polling failed \\(HTTP 410\\)",
     ) as excinfo:
         auth.complete(
-            _pending_authorization(), sleep=clock.sleep, monotonic=clock.monotonic,
+            _pending_authorization(),
+            sleep=clock.sleep,
+            monotonic=clock.monotonic,
         )
-    assert not isinstance(
-        excinfo.value, auth.HostedMachineAuthorizationDenied
-    )
+    assert not isinstance(excinfo.value, auth.HostedMachineAuthorizationDenied)
 
 
 def test_browser_authorization_rejects_cross_origin_authority(monkeypatch) -> None:

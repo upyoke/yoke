@@ -1,44 +1,131 @@
-// The Machines destination: the registered machines of this universe, the
-// native surfaces each can serve, and the launches they have run.
-//
-// It absorbs what were the Sessions view's Launches and Relays facets. Both
-// answered questions about a MACHINE rather than about a session, and reaching
-// them through Sessions meant the operator had to already suspect a machine
-// before they could look at one.
-//
-// Capacity and health are deliberately NOT here. A machine's quota, headroom
-// and free lanes are read before staffing work, which happens on Sessions, so
-// they live at the top of that view instead. This destination is the durable
-// registration record: which machines exist, what they serve, what they ran.
+// Durable machine roster: registrations are identity; relays are current telemetry.
 
-import { el } from "./universe_view_support.js";
-import { renderMachineApprovalsView } from "./universe_machine_approvals.js";
+import { callFunction, el } from "./universe_view_support.js";
+import { renderMachinesPanel } from "./universe_machines_panel.js";
 import { renderSessionLaunchesView } from "./universe_session_launches.js";
-import { renderSessionRelaysView } from "./universe_session_relays.js";
+import {
+  presentSessionControlFailure,
+  sessionControlCall,
+} from "./universe_session_control_data.js";
 
-export function renderMachinesView(context, main, scope, chromeArg) {
-  // A default parameter only fires on `undefined`, and this position carries
-  // `null` on some render paths — so the guard is explicit.
+function offlineRelay(machine) {
+  return {
+    machine_id: machine.machine_id,
+    hostname: machine.name,
+    liveness: "silent",
+    state: "offline",
+    surface_versions: {},
+    surface_confirmed_absent: [],
+    plan_limits: {},
+    capacity: {},
+    surface_policies: [],
+  };
+}
+
+function stat(documentNode, value, label) {
+  const node = el(documentNode, "div", "machine-roster-stat");
+  node.appendChild(el(documentNode, "strong", null, String(value)));
+  node.appendChild(el(documentNode, "span", null, label));
+  return node;
+}
+
+function retiredTable(documentNode, machines) {
+  const details = el(documentNode, "details", "machine-retired-list");
+  details.appendChild(el(
+    documentNode, "summary", null, `Retired machines (${machines.length})`,
+  ));
+  const table = el(documentNode, "table", "items");
+  const head = el(documentNode, "tr");
+  for (const label of ["Machine", "Retired", "History"]) {
+    head.appendChild(el(documentNode, "th", null, label));
+  }
+  table.appendChild(head);
+  for (const machine of machines) {
+    const row = el(documentNode, "tr");
+    const link = el(documentNode, "a", "row-link", machine.name);
+    link.href = `#/machines/${encodeURIComponent(machine.machine_id)}`;
+    const name = el(documentNode, "td");
+    name.appendChild(link);
+    row.appendChild(name);
+    row.appendChild(el(documentNode, "td", null, machine.retired_at || "—"));
+    row.appendChild(el(documentNode, "td", null, "Sessions and launches retained"));
+    table.appendChild(row);
+  }
+  details.appendChild(table);
+  return details;
+}
+
+export function renderMachinesView(context, main, _scope, chromeArg) {
   const chrome = (chromeArg && typeof chromeArg === "object") ? chromeArg : {};
   const documentNode = context.document;
-  // A machine waiting to be admitted comes first: it is the only thing on
-  // this page that is asking the reader for something.
-  const approvals = el(documentNode, "section", "machines-section");
-  const relays = el(documentNode, "section", "machines-section");
+  const status = el(documentNode, "p", "sessions-action-status");
+  const stats = el(documentNode, "section", "machine-roster-stats");
+  const roster = el(documentNode, "section", "machines-section");
+  const retired = el(documentNode, "section", "machines-section");
   const launches = el(documentNode, "section", "machines-section");
-  main.replaceChildren(approvals, relays, launches);
-
-  if (typeof chrome.setPageHead === "function") {
-    chrome.setPageHead({
-      title: "Machines",
-    });
-  }
-
-  // Each composed view owns its own loading, refresh and error states, so this
-  // destination passes an inert chrome rather than letting either of them
-  // rewrite the page head it does not own.
+  main.replaceChildren(status, stats, roster, retired, launches);
+  chrome.setPageHead?.({ title: "Machines" });
   const composed = { ...chrome, setPageHead: undefined };
-  renderMachineApprovalsView(context, approvals);
-  renderSessionRelaysView(context, relays, scope, composed);
-  renderSessionLaunchesView(context, launches, scope, composed);
+  renderSessionLaunchesView(context, launches, _scope, composed);
+
+  const load = async () => {
+    status.textContent = "Loading machines…";
+    let machines;
+    let relays;
+    try {
+      const [machineCall, relayResult] = await Promise.all([
+        callFunction(context.client, "machine.list", {}),
+        sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
+      ]);
+      if (!machineCall.envelope.success) throw machineCall;
+      machines = machineCall.envelope.result.machines || [];
+      relays = relayResult.relays || [];
+    } catch (error) {
+      if (!context.isMounted()) return;
+      status.textContent = presentSessionControlFailure(
+        error, "The machine roster could not be read.",
+      );
+      return;
+    }
+    if (!context.isMounted()) return;
+    const active = machines.filter((row) => !row.retired_at);
+    const historical = machines.filter((row) => row.retired_at);
+    const relayById = new Map(relays.map((row) => [String(row.machine_id), row]));
+    const activeRelays = active.map(
+      (machine) => relayById.get(String(machine.machine_id)) || offlineRelay(machine),
+    );
+    const online = activeRelays.filter((row) => row.liveness === "connected").length;
+    const seen = active.filter((row) => relayById.has(String(row.machine_id))).length;
+    stats.replaceChildren(
+      stat(documentNode, active.length, "machines"),
+      stat(documentNode, online, "online"),
+      stat(documentNode, active.length - seen, "not seen"),
+    );
+    status.textContent = active.length
+      ? "Registration history and current relay telemetry are shown together."
+      : "No active machines are registered.";
+    roster.replaceChildren();
+    const machineById = new Map(active.map((row) => [String(row.machine_id), row]));
+    renderMachinesPanel(context, roster, activeRelays, {
+      showHeading: false,
+      machineById,
+      onRetire: async (machineId) => {
+        if (!documentNode.defaultView.confirm(
+          "Retire this machine? Its bearer will be revoked; history stays available.",
+        )) return;
+        const result = await callFunction(
+          context.client, "machine.retire", { machine_id: machineId },
+        );
+        if (!result.envelope.success) {
+          status.textContent = presentSessionControlFailure(
+            result, "The machine could not be retired.",
+          );
+          return;
+        }
+        await load();
+      },
+    });
+    retired.replaceChildren(retiredTable(documentNode, historical));
+  };
+  load();
 }

@@ -15,6 +15,7 @@ def launch_payload(
 ) -> dict[str, object]:
     return {
         "relay_id": relay_id,
+        "machine_id": str(job.get("machine_id") or ""),
         "job_kind": "launch",
         "job_id": str(job.get("job_id") or ""),
         "lease_id": str(job.get("lease_id") or ""),

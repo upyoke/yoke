@@ -21,11 +21,14 @@ REQUIRED_AUTH_TABLES = (
 
 def create_auth_tables(conn: Any) -> None:
     """Create the cloud-runtime auth tables and indexes, idempotently."""
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS api_tokens (
             id INTEGER PRIMARY KEY,
             token_hash TEXT NOT NULL UNIQUE,
             actor_id INTEGER NOT NULL REFERENCES actors(id),
+            machine_id TEXT,
             name TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active'
                 CHECK(status IN ('active','revoked')),
@@ -39,6 +42,8 @@ def create_auth_tables(conn: Any) -> None:
             ON api_tokens(actor_id);
         CREATE INDEX IF NOT EXISTS idx_api_tokens_status
             ON api_tokens(status);
+        CREATE INDEX IF NOT EXISTS idx_api_tokens_machine
+            ON api_tokens(machine_id, status);
 
         CREATE TABLE IF NOT EXISTS api_token_audit (
             id INTEGER PRIMARY KEY,
@@ -93,7 +98,8 @@ def create_auth_tables(conn: Any) -> None:
             ON actor_project_roles(project_id);
         CREATE INDEX IF NOT EXISTS idx_actor_project_roles_role
             ON actor_project_roles(role_id);
-    """)
+    """,
+    )
     conn.commit()
     # Org scope lives in its own module but is part of the auth surface; create
     # it here so every auth-setup path (schema_init, tests) builds the same

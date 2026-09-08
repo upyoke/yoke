@@ -13,7 +13,6 @@ Mounts three endpoints under ``/v1``:
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict
 
 from fastapi import HTTPException, Request
@@ -26,12 +25,7 @@ from yoke_core.api.http_auth import (
     record_function_authz,
     require_auth_context,
 )
-from yoke_core.api.observability import (
-    REQUEST_ID_STATE_ATTR,
-    environment_name,
-    service_name,
-    trace_context,
-)
+from yoke_core.api.function_failure_observability import record_function_failure
 from yoke_core.domain import yoke_function_registry as function_registry
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_contracts.api.function_call import (
@@ -49,11 +43,10 @@ from yoke_core.domain.yoke_function_registry import (
     schema_for,
 )
 from yoke_core.domain.api_tokens import INITIAL_ADMIN_TOKEN_NAME
+from yoke_core.api.machine_function_auth import machine_credential_refusal
 
 
 router = APIRouter()
-_LOGGER = logging.getLogger("yoke.api.functions")
-_DIAGNOSTIC_VALUE_LIMIT = 160
 
 
 _ERROR_TO_STATUS: Dict[str, int] = {
@@ -76,6 +69,9 @@ _ERROR_TO_STATUS: Dict[str, int] = {
     "actor_session_missing": 403,
     "permission_denied": 403,
     "permission_check_unavailable": 503,
+    "machine_retired": 409,
+    "machine_credential_required": 409,
+    "machine_credential_mismatch": 409,
     "render_failed": 500,
     "write_failed": 500,
     "handler_contract": 500,
@@ -126,11 +122,15 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
             body = service_denial.model_dump()
             _record_service_token_denial(request, auth, service_denial)
             return JSONResponse(content=body, status_code=_status_for_response(body))
+        machine_denial = _machine_credential_guard_response(envelope, auth)
+        if machine_denial is not None:
+            body = machine_denial.model_dump()
+            return JSONResponse(content=body, status_code=_status_for_response(body))
         bound_envelope, ambient = bind_actor_from_auth(envelope, auth)
         _record_pre_dispatch_authz(request, bound_envelope, auth)
         response = dispatch(bound_envelope, ambient_session_id=ambient or "")
     except Exception as exc:
-        _record_function_failure(request, bound_envelope, exc)
+        record_function_failure(request, bound_envelope, exc)
         response = _exception_response(bound_envelope, exc)
     body = response.model_dump()
     return JSONResponse(content=body, status_code=_status_for_response(body))
@@ -158,6 +158,24 @@ def _service_token_guard_response(
                 f"function {entry.function_id!r} requires the hosted service token"
             ),
         ),
+    )
+
+
+def _machine_credential_guard_response(
+    envelope: Dict[str, Any], auth: HttpAuthContext
+) -> FunctionCallResponse | None:
+    refusal = machine_credential_refusal(envelope, auth.machine_id)
+    if refusal is None:
+        return None
+    code, message = refusal
+    function_id = str(envelope.get("function") or "")
+    request_id = envelope.get("request_id")
+    return FunctionCallResponse(
+        success=False,
+        function=function_id,
+        version=str(envelope.get("version") or "v1"),
+        request_id=str(request_id) if request_id is not None else None,
+        error=FunctionError(code=code, message=message),
     )
 
 
@@ -204,46 +222,6 @@ def _exception_response(
             ),
         ),
         event_ids=[],
-    )
-
-
-def _record_function_failure(
-    request: Request,
-    envelope: Dict[str, Any],
-    exc: Exception,
-) -> None:
-    """Emit one bounded diagnostic without payloads or exception details."""
-    try:
-        function_id = _diagnostic_value(envelope.get("function"))
-        function_request_id = _diagnostic_value(envelope.get("request_id"))
-        http_request_id = _diagnostic_value(
-            getattr(request.state, REQUEST_ID_STATE_ATTR, "")
-        )
-        context = {
-            "function": function_id,
-            "error_class": _diagnostic_value(type(exc).__name__),
-        }
-        if http_request_id:
-            context["http_request_id"] = http_request_id
-        extra = {
-            "event_name": "FunctionCallHandlerFailed",
-            "event_kind": "system",
-            "event_type": "function_call",
-            "service": service_name(),
-            "environment": environment_name(),
-            "request_id": function_request_id or http_request_id,
-            "context": context,
-        }
-        extra.update(trace_context())
-        _LOGGER.error("function_call_handler_failed", extra=extra)
-    except Exception:
-        return
-
-
-def _diagnostic_value(value: Any) -> str:
-    """Bound an identifier and keep control characters out of log fields."""
-    return (
-        str(value or "").replace("\r", " ").replace("\n", " ")[:_DIAGNOSTIC_VALUE_LIMIT]
     )
 
 

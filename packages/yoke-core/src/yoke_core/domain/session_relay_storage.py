@@ -79,14 +79,16 @@ def heartbeat_relay(
         dict(heartbeat.preferred_session_reasoning_efforts)
     )
     native_models = json_helper.dumps_compact(dict(heartbeat.surface_native_models))
+    credentials = json_helper.dumps_compact(dict(heartbeat.credential_presence))
     conn.execute(
         "INSERT INTO session_relays "
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,"
         "surface_confirmed_absent,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
         "machine_capacity,preferred_session_models,relay_health,"
-        "preferred_session_reasoning_efforts,surface_native_models) "
-        f"VALUES ({','.join(p for _ in range(18))}) "
+        "preferred_session_reasoning_efforts,surface_native_models,"
+        "credential_presence) "
+        f"VALUES ({','.join(p for _ in range(19))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
@@ -101,7 +103,8 @@ def heartbeat_relay(
         "relay_health=excluded.relay_health,"
         "preferred_session_reasoning_efforts="
         "excluded.preferred_session_reasoning_efforts,"
-        "surface_native_models=excluded.surface_native_models",
+        "surface_native_models=excluded.surface_native_models,"
+        "credential_presence=excluded.credential_presence",
         (
             heartbeat.relay_id,
             heartbeat.actor_id,
@@ -121,6 +124,7 @@ def heartbeat_relay(
             health,
             preferred_efforts,
             native_models,
+            credentials,
         ),
     )
     from yoke_core.domain.session_relay_health_events import (

@@ -23,6 +23,7 @@ from yoke_contracts.machine_config.runtime import (
 from yoke_harness.session_relay_native_models import observe_native_models
 from yoke_harness.session_relay_plan_limits import observe_plan_limits
 from yoke_harness.session_relay_health import observe_relay_health
+from yoke_harness.session_relay_credentials import observe_credential_presence
 from yoke_harness.session_relay_surface_identity import cached_surface_state
 from yoke_harness.session_relay_surface_probes import (
     APP_SURFACE_PROBES,
@@ -50,6 +51,7 @@ class RelayInventory:
     relay_health: dict[str, object] = field(default_factory=dict)
     preferred_session_reasoning_efforts: dict[str, str] = field(default_factory=dict)
     surface_native_models: dict[str, dict[str, object]] = field(default_factory=dict)
+    credential_presence: dict[str, object] = field(default_factory=dict)
 
     def claim_payload(
         self,
@@ -74,6 +76,7 @@ class RelayInventory:
                 self.preferred_session_reasoning_efforts
             ),
             "native_models": dict(self.surface_native_models),
+            "credential_presence": dict(self.credential_presence),
         }
         if wait_seconds is not None:
             payload["wait_seconds"] = wait_seconds
@@ -151,6 +154,12 @@ def _inventory(
             observe_native_models(state_dir=state_dir)
             if native_models is None
             else native_models
+        ),
+        credential_presence=observe_credential_presence(
+            config,
+            versions=versions,
+            plan_limits=dict(plan_limits or {}),
+            secret_root=machine_config.yoke_home() / "secrets",
         ),
     )
 

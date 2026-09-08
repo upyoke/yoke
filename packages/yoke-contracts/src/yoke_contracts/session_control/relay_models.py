@@ -25,6 +25,7 @@ class RelayClaimRequest(BaseModel):
     health: Dict[str, Any] = Field(default_factory=dict)
     preferred_reasoning_efforts: Dict[str, str] = Field(default_factory=dict)
     native_models: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    credential_presence: Dict[str, Any] = Field(default_factory=dict)
     wait_seconds: int = Field(default=55, ge=0, le=55)
     broker_only: bool = False
     broker_lease_id: Optional[str] = None
@@ -161,6 +162,7 @@ class RelayIdleHostsResponse(BaseModel):
 class RelayReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relay_id: str
+    machine_id: str
     job_kind: Literal["wake", "launch", "terminate", "evidence"]
     job_id: str
     lease_id: str

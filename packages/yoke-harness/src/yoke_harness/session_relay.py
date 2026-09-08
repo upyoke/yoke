@@ -77,6 +77,7 @@ def _report_payload(
 ) -> dict[str, object]:
     return {
         "relay_id": inventory.relay_id,
+        "machine_id": inventory.machine_id,
         "job_kind": str(job.get("job_kind") or ""),
         "job_id": str(job.get("job_id") or ""),
         "lease_id": str(job.get("lease_id") or ""),
@@ -97,6 +98,7 @@ def _run_and_report(
     state_dir: Path | None,
 ) -> ServeOnceJobOutcome:
     """Execute one leased job and settle it under its own lease."""
+    job = {**job, "machine_id": inventory.machine_id}
     job = checkpoint_launch_start(
         dispatcher,
         RELAY_REPORT_FUNCTION_ID,

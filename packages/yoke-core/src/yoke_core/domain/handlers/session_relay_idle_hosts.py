@@ -7,6 +7,7 @@ from yoke_contracts.session_control.models import RelayIdleHostsRequest
 from yoke_core.domain.handlers.session_relay import (
     _actor_id,
     _failure,
+    _require_active_machine,
     _target_failure,
 )
 from yoke_core.domain.session_relay_types import SessionRelayError
@@ -29,9 +30,13 @@ def handle_relay_idle_hosts(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         try:
+            actor_id = _actor_id(request)
+            _require_active_machine(
+                conn, machine_id=payload.machine_id, actor_id=actor_id
+            )
             require_relay_project_authority(
                 conn,
-                actor_id=_actor_id(request),
+                actor_id=actor_id,
                 project_ids=payload.projects,
             )
             outcome = apply_idle_host_report(

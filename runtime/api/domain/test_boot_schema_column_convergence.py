@@ -28,7 +28,13 @@ _INCIDENT_COLUMN = ("session_launch_attempts", "batch_id")
 # shape; this sweep must neither classify them as born-with nor drop them after
 # their ledger entry has already been recorded.
 _HISTORY_CONVERGED_COLUMNS = frozenset(
-    {("test_machine_verifications", "capability_type")}
+    {
+        ("api_tokens", "machine_id"),
+        ("machines", "retired_at"),
+        ("machines", "retired_by_actor_id"),
+        ("session_relays", "credential_presence"),
+        ("test_machine_verifications", "capability_type"),
+    }
 )
 # Digest of columns that shipped with their table and therefore have no
 # additive converge lookup. Update only when introducing a new table, or when

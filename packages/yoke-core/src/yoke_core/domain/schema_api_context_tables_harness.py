@@ -23,20 +23,26 @@ HARNESS_TABLES: dict[str, dict] = {
             ("access", "TEXT"),
             ("registered_at", "TEXT"),
             ("last_seen_at", "TEXT"),
+            ("retired_at", "TEXT"),
+            ("retired_by_actor_id", "INTEGER"),
         ],
         "notes": (
             "PK machine_id, the same canonical UUID that harness_sessions, "
             "session_relays, session_launches, session_termination_reaps and "
             "session_surface_policies carry — one registered machine, not a "
             "per-harness or per-project row. A machine is identified by its "
-            "registered id and name; there is no key and no signed proof. "
+            "registered id and name. Its active bearer is stored only as a "
+            "hash in api_tokens, bound by api_tokens.machine_id, and returned "
+            "raw only by machine.register. Re-registering rotates that bearer. "
             "access is the JSON access document "
             "(use.mode owner_only|actors|project_role|universe, plus a "
             "reserved offers block). The use half is enforced by "
             "session_control.launch.preview and .create. "
             f"{OFFERS_ENFORCEMENT_NOTE} Read via machine.list / machine.show / "
-            "machine.settings.get; write via machine.register and "
-            "machine.settings.set — never raw SQL."
+            "machine.detail / machine.settings.get; write via machine.register, "
+            "machine.retire, and machine.settings.set — never raw SQL. Retirement "
+            "revokes only machine-bound tokens and preserves machine, session, "
+            "and launch history; a retired id never reconnects."
         ),
     },
     "harness_machine_reports": {

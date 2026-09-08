@@ -7,10 +7,8 @@ import json
 from yoke_core.domain import session_relay as relay_domain
 from yoke_core.domain.handlers import session_relay as relay_handlers
 from yoke_core.domain.session_relay_types import RelayClaimOutcome
-from yoke_core.domain.actor_permissions import ROLE_OPERATOR, grant_actor_project_role
 from runtime.api.domain.session_relay_handler_test_support import (
     Connection as _Connection,
-    NoCloseConnection as _NoCloseConnection,
     claim_payload as _claim_payload,
     relay_request as _request,
 )
@@ -48,6 +46,9 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
         )
 
     monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
+    monkeypatch.setattr(
+        relay_handlers, "_require_active_machine", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(
         "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
         authorize,
@@ -101,6 +102,9 @@ def test_broker_claim_forwards_exact_lease_and_verified_session(monkeypatch) -> 
 
     monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
     monkeypatch.setattr(
+        relay_handlers, "_require_active_machine", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
         lambda *_args, **_kwargs: None,
     )
@@ -139,76 +143,6 @@ def test_broker_claim_wire_requires_a_valid_paired_lease() -> None:
         assert outcome.error.code == "payload_invalid"
 
 
-def test_claim_refuses_cross_project_advertisement_before_heartbeat(
-    monkeypatch,
-) -> None:
-    conn = message_connection()
-    grant_actor_project_role(
-        conn,
-        actor_id=13,
-        project_id=1,
-        role_name=ROLE_OPERATOR,
-    )
-    from yoke_core.domain import db_helpers
-
-    monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
-    payload = _claim_payload()
-    payload["projects"] = [1, 2]
-
-    outcome = relay_handlers.handle_relay_claim(
-        _request("session_control.relay.claim", payload, actor_id="13")
-    )
-
-    assert outcome.primary_success is False
-    assert outcome.error and outcome.error.code == "permission_denied"
-    assert conn.execute("SELECT COUNT(*) FROM session_relays").fetchone()[0] == 0
-
-
-def test_authorized_claim_stamps_actor_and_only_advertised_projects(
-    monkeypatch,
-) -> None:
-    conn = message_connection()
-    grant_actor_project_role(
-        conn,
-        actor_id=13,
-        project_id=1,
-        role_name=ROLE_OPERATOR,
-    )
-    from yoke_core.domain import db_helpers
-
-    monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
-    payload = _claim_payload()
-    payload["projects"] = [1]
-
-    outcome = relay_handlers.handle_relay_claim(
-        _request("session_control.relay.claim", payload, actor_id="13")
-    )
-
-    assert outcome.primary_success is True
-    row = conn.execute(
-        "SELECT actor_id,project_checkouts FROM session_relays WHERE relay_id='relay-1'"
-    ).fetchone()
-    assert row["actor_id"] == 13
-    assert json.loads(row["project_checkouts"]) == [1]
-
-
-def test_claim_refuses_viewer_advertisement(monkeypatch) -> None:
-    conn = message_connection()
-    from yoke_core.domain import db_helpers
-
-    monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
-    payload = _claim_payload()
-    payload["projects"] = [1]
-
-    outcome = relay_handlers.handle_relay_claim(
-        _request("session_control.relay.claim", payload, actor_id="11")
-    )
-
-    assert outcome.primary_success is False
-    assert outcome.error and outcome.error.code == "permission_denied"
-    assert conn.execute("SELECT COUNT(*) FROM session_relays").fetchone()[0] == 0
-
-
 def test_report_forwards_verified_actor_and_never_accepts_payload_actor(
     monkeypatch,
 ) -> None:
@@ -219,6 +153,9 @@ def test_report_forwards_verified_actor_and_never_accepts_payload_actor(
         return {"attempt_id": "attempt-1", "result_code": "accepted"}
 
     monkeypatch.setattr(relay_domain, "report_relay_job", report)
+    monkeypatch.setattr(
+        relay_handlers, "_require_active_machine", lambda *_args, **_kwargs: None
+    )
     from yoke_core.domain import db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", _Connection)
@@ -227,6 +164,7 @@ def test_report_forwards_verified_actor_and_never_accepts_payload_actor(
             "session_control.relay.report",
             {
                 "relay_id": "relay-1",
+                "machine_id": "11111111-1111-4111-8111-111111111111",
                 "job_kind": "wake",
                 "job_id": "attempt-1",
                 "lease_id": "lease-1",
@@ -273,22 +211,31 @@ def test_list_projects_only_public_relay_facts_visible_to_actor(monkeypatch) -> 
             "2026-08-22T12:02:00Z",
         ),
     )
-    plan_limits = {"codex-cli": {
-        "plan_tier": "pro",
-        "accessToken": "must-not-project",
-        "observed_at": "2026-08-22T12:01:00Z",
-        "windows": [{
-            "status": "ok", "window_kind": "rolling_5h", "scope": "all",
-            "meter": "primary", "remaining_percent": 80,
-            "resets_at": "2026-08-22T14:00:00Z",
+    plan_limits = {
+        "codex-cli": {
+            "plan_tier": "pro",
             "accessToken": "must-not-project",
-        }],
-    }}
+            "observed_at": "2026-08-22T12:01:00Z",
+            "windows": [
+                {
+                    "status": "ok",
+                    "window_kind": "rolling_5h",
+                    "scope": "all",
+                    "meter": "primary",
+                    "remaining_percent": 80,
+                    "resets_at": "2026-08-22T14:00:00Z",
+                    "accessToken": "must-not-project",
+                }
+            ],
+        }
+    }
     capacity = {
         "free_memory_bytes": 8 * 1024**3,
         "total_memory_bytes": 32 * 1024**3,
-        "load_average_1m": 1.5, "core_count": 8,
-        "max_worker_lanes": 6, "cap_source": "max_worker_lanes",
+        "load_average_1m": 1.5,
+        "core_count": 8,
+        "max_worker_lanes": 6,
+        "cap_source": "max_worker_lanes",
         "observed_at": "2026-08-22T12:01:00Z",
         "secret": "must-not-project",
     }

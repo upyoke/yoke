@@ -7,6 +7,7 @@
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import { preciseAge } from "./universe_time.js";
+import { buildUniverseRoute } from "./universe_navigation.js";
 import {
   finiteNumber,
   formatBytes,
@@ -27,7 +28,7 @@ import {
   sessionControlCall,
 } from "./universe_session_control_data.js";
 
-const LAUNCHABLE_SURFACES = ["claude-cli", "codex-cli", "cursor-cli"];
+export const LAUNCHABLE_SURFACES = ["claude-cli", "codex-cli", "cursor-cli"];
 
 const LIGHTS = {
   ok: ["machine-light-ok", "ready"],
@@ -175,8 +176,9 @@ function capacityLine(documentNode, capacity) {
   return line;
 }
 
-function machineCard(documentNode, relay, sessions) {
+export function machineCard(documentNode, relay, sessions, options = {}) {
   const card = el(documentNode, "article", "machine-card");
+  card.setAttribute("data-machine-id", String(relay.machine_id || ""));
   const head = el(documentNode, "div", "machine-head");
   const live = String(relay.liveness) === "connected";
   head.appendChild(el(
@@ -185,7 +187,10 @@ function machineCard(documentNode, relay, sessions) {
     `machine-light ${live ? "machine-light-ok" : "machine-light-warn"}`,
   ));
   head.appendChild(el(
-    documentNode, "span", "machine-host", relay.hostname || relay.machine_id,
+    documentNode,
+    "span",
+    "machine-host",
+    options.name || relay.hostname || relay.machine_id,
   ));
   const age = preciseAge(relay.last_seen_at);
   head.appendChild(el(
@@ -200,6 +205,24 @@ function machineCard(documentNode, relay, sessions) {
   for (const surface of LAUNCHABLE_SURFACES) {
     card.appendChild(surfaceRow(documentNode, relay, surface));
   }
+  const footer = el(documentNode, "div", "machine-card-footer");
+  footer.appendChild(el(
+    documentNode, "span", "machine-owner", options.owner || relay.owner || "",
+  ));
+  const detail = el(documentNode, "a", "item-button machine-detail-link", "Details");
+  detail.href = options.detailHref || buildUniverseRoute(
+    "machines", null, relay.machine_id,
+  );
+  footer.appendChild(detail);
+  if (typeof options.onRetire === "function") {
+    const retire = el(
+      documentNode, "button", "item-button machine-retire", "Retire",
+    );
+    retire.type = "button";
+    retire.addEventListener("click", () => options.onRetire(relay.machine_id));
+    footer.appendChild(retire);
+  }
+  card.appendChild(footer);
   return card;
 }
 
@@ -224,7 +247,12 @@ export function renderMachinesPanel(context, host, relays, options = {}) {
   // roster's current rows rather than whatever it held when first mounted.
   const sessions = typeof options.sessions === "function" ? options.sessions() : [];
   for (const relay of relays) {
-    grid.appendChild(machineCard(documentNode, relay, sessions));
+    const machine = options.machineById?.get?.(String(relay.machine_id)) || {};
+    grid.appendChild(machineCard(documentNode, relay, sessions, {
+      name: machine.name,
+      owner: machine.owner,
+      onRetire: options.onRetire,
+    }));
   }
   panel.appendChild(grid);
   host.appendChild(panel);
