@@ -119,6 +119,18 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     assert resumed.capture_path.parent == relay / "native-diagnostics"
     assert supervision_record_path(ATTEMPT_ID, custody).exists()
 
+    failed = settle_finished_native_resumes(
+        _Dispatcher(success=False),
+        FUNCTION_ID,
+        relay_id="machine:relay",
+        machine_id="33333333-3333-4333-8333-333333333333",
+        state_dir=relay,
+        timeout_s=5,
+    )
+    assert failed == ()
+    assert supervision_record_path(ATTEMPT_ID, custody).exists()
+    first_usage = session_usage_document(CONVERSATION)
+
     settled = settle_finished_native_resumes(
         _Dispatcher(),
         FUNCTION_ID,
@@ -131,6 +143,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     assert not supervision_record_path(ATTEMPT_ID, custody).exists()
 
     usage = usage_from_document(session_usage_document(CONVERSATION))
+    assert session_usage_document(CONVERSATION) == first_usage
     assert usage is not None
     entry = usage.models[0]
     assert (entry.input, entry.cached_input, entry.cache_write, entry.output) == (
