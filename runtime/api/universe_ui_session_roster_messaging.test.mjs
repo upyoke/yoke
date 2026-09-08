@@ -59,8 +59,24 @@ async function mountRoster(t, rows, requests, handlers = {}) {
         return ok({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
       }
       if (request.function === "sessions.list") {
+        if (request.payload.history) {
+          let ended = rows.filter((row) => row.liveness === "ended");
+          const harness = request.payload.history.harnesses?.[0];
+          if (harness) ended = ended.filter((row) => [
+            row.executor, row.executor_surface,
+          ].includes(harness));
+          return ok({
+            fields: [], rows: ended, matched_count: ended.length,
+            next_cursor: null,
+            facets: {
+              projects: [{ id: 1, slug: "yoke" }],
+              harnesses: ["codex", "codex-cli", "cursor", "cursor-desktop", "cursor-cli"],
+              machines: [{ id: "machine-1", label: "studio" }],
+            },
+          });
+        }
         return ok({
-          rows: rows.filter((row) => row.liveness === request.payload.liveness),
+          rows: rows.filter((row) => row.liveness !== "ended"),
         });
       }
       const handler = handlers[request.function];
@@ -95,7 +111,7 @@ test("roster defaults to active and exposes only the supported filters", async (
   assert.deepEqual(
     fields.map((field) => field.classList.contains("session-filter-search")
       ? "Search" : field.children[0].textContent),
-    ["Search", "State", "Harness", "Machine"],
+    ["Search", "State", "Project", "Harness", "Machine"],
   );
   const state = fields[1].children[1];
   assert.equal(state.value, "active");
@@ -116,12 +132,13 @@ test("roster defaults to active and exposes only the supported filters", async (
   );
   assert.deepEqual(
     requests.filter((request) => request.function === "sessions.list")
-      .map((request) => request.payload.liveness),
-    ["active", "stale", "ended"],
+      .map((request) => request.payload),
+    [{ open: true, projects: ["1"] }],
   );
 
   state.value = "";
   state.dispatchEvent(new Event("change"));
+  await settle();
   assert.deepEqual(
     cardIds(root), ["active-codex", "stale-cursor", "ended-cursor"],
   );
@@ -132,16 +149,19 @@ test("roster defaults to active and exposes only the supported filters", async (
   assert.equal(byClass(anyStaleCard, "session-stale-pill").length, 1);
   state.value = "ended";
   state.dispatchEvent(new Event("change"));
+  await settle();
   assert.deepEqual(cardIds(root), ["ended-cursor"]);
   state.value = "";
   state.dispatchEvent(new Event("change"));
+  await settle();
   const harness = fields.find(
     (field) => field.children[0].textContent === "Harness",
   ).children[1];
   harness.value = "cursor";
   harness.dispatchEvent(new Event("input"));
-  assert.deepEqual(cardIds(root), ["stale-cursor", "ended-cursor"]);
-  assert.equal(button(root, "Message all").title, "Message all 2 shown sessions");
+  await settle();
+  assert.deepEqual(cardIds(root), ["stale-cursor"]);
+  assert.equal(button(root, "Message all").title, "Message all 1 open session");
 
   button(root, "Clear").dispatchEvent(new Event("click"));
   assert.equal(state.value, "active");
@@ -183,8 +203,10 @@ test("Message all sends to the exact current roster result without a preview ste
   ).children[1];
   state.value = "";
   state.dispatchEvent(new Event("change"));
+  await settle();
   harness.value = "cursor";
   harness.dispatchEvent(new Event("input"));
+  await settle();
 
   button(root, "Message all").dispatchEvent(new Event("click"));
   await settle();

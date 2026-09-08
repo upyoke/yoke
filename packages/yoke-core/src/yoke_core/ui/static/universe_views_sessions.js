@@ -9,12 +9,14 @@ import { appendHoldings } from "./universe_sessions_holdings.js";
 import {
   callFunction,
   el,
-  mergedRows,
-  scopeBuckets,
   sessionQuietExplanation,
   sessionStateBadge,
-  settledScopedCalls,
 } from "./universe_view_support.js";
+import {
+  appendEndedHistory,
+  renderSessionRows,
+  sessionsHistoryLoader,
+} from "./universe_sessions_history_loader.js";
 import {
   appendSessionDiagnostics,
   appendSessionMessageLine,
@@ -36,17 +38,6 @@ import {
   sessionModelFactTags,
   sessionModelIsRequested,
 } from "./session_model_display.js";
-const ROSTER_STATES = new Set(["active", "stale", "ended"]);
-function statRow(documentNode, facts) {
-  const row = el(documentNode, "div", "stat-row sessions-stats");
-  for (const [value, label] of facts) {
-    const tile = el(documentNode, "div", "stat");
-    tile.appendChild(el(documentNode, "div", "n", String(value)));
-    tile.appendChild(el(documentNode, "div", "l", label));
-    row.appendChild(tile);
-  }
-  return row;
-}
 function harnessIdentity(row) {
   const executor = String(row.executor_surface || row.executor || "unreported");
   const normalized = executor.toLowerCase();
@@ -66,7 +57,6 @@ function harnessIdentity(row) {
     label: executor,
   };
 }
-// The lane is the job Yoke assigned this session, named the way the fleet does.
 function laneChip(documentNode, row) {
   const laneLabel = row.lane_label || row.execution_lane || "no lane";
   const chip = el(
@@ -78,13 +68,11 @@ function laneChip(documentNode, row) {
   chip.title = "execution lane — the job Yoke assigned, not the harness";
   return chip;
 }
-
 function operatorLabel(documentNode, row) {
   const label = String(row.actor_label || "").trim();
   if (!label || /^[-–—]+$/.test(label)) return null;
   return el(documentNode, "span", "session-operator", label);
 }
-
 function appendModel(documentNode, body, row) {
   const line = el(documentNode, "div", "session-model-line");
   const modelClass = sessionModelIsRequested(row)
@@ -103,12 +91,6 @@ function appendModel(documentNode, body, row) {
   }
   body.appendChild(line);
 }
-
-// Identity, work, health — in that order and nothing else. The harness and its
-// lane name the session, the model says what is running it, the holdings say
-// what it is doing, and the diagnostics say whether that is going anywhere.
-// Steering scope is a holding, so on a steering seat it leads the work the
-// way a claimed item leads a worker's.
 export function sessionCard(
   documentNode, row, onMessage, projects = [],
 ) {
@@ -131,7 +113,7 @@ export function sessionCard(
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
   appendSessionPrimaryStatus(documentNode, top, row);
-  top.appendChild(laneChip(documentNode, row));
+  if (liveness !== "ended") top.appendChild(laneChip(documentNode, row));
   const stateBadge = sessionStateBadge(documentNode, row.mode);
   if (stateBadge) top.appendChild(stateBadge);
   const operator = operatorLabel(documentNode, row);
@@ -143,6 +125,11 @@ export function sessionCard(
   if (quietExplanation) body.appendChild(quietExplanation);
   appendModel(documentNode, body, row);
   appendSessionUsage(documentNode, body, row);
+  if (liveness === "ended") {
+    appendEndedHistory(documentNode, body, row);
+    card.appendChild(body);
+    return card;
+  }
   appendSteeringHoldings(documentNode, body, row, projects);
   appendSessionPresentation(documentNode, body, row);
   appendHoldings(documentNode, body, row, projects);
@@ -156,43 +143,6 @@ export function sessionCard(
   return card;
 }
 
-function metricFacts(rows) {
-  const claimedItems = new Set(rows.flatMap(
-    (row) => (Array.isArray(row.holdings?.current) ? row.holdings.current : [])
-      .filter((claim) => claim.target_kind === "item")
-      .map((claim) => String(claim.target)),
-  ).filter(Boolean));
-  const actors = new Set(rows.map(
-    (row) => row.actor_id ?? row.actor_label,
-  ).filter((value) => value !== null && value !== undefined && value !== ""));
-  const actorCount = actors.size;
-  return [
-    [rows.length, `session${rows.length === 1 ? "" : "s"} shown`],
-    [claimedItems.size, `item${claimedItems.size === 1 ? "" : "s"} claimed`],
-    [actorCount, `actor${actorCount === 1 ? "" : "s"}`],
-  ];
-}
-
-function renderSessions(
-  documentNode, host, rows, onMessage, projects, filtered = false,
-) {
-  host.replaceChildren(statRow(documentNode, metricFacts(rows)));
-  if (!rows.length) {
-    host.appendChild(el(
-      documentNode,
-      "p",
-      "sessions-empty",
-      filtered ? "No sessions match the current filters." : "No sessions in this scope.",
-    ));
-    return;
-  }
-  const grid = el(documentNode, "div", "session-grid");
-  for (const row of rows) {
-    grid.appendChild(sessionCard(documentNode, row, onMessage, projects));
-  }
-  host.appendChild(grid);
-}
-
 export function renderSessionsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const view = el(documentNode, "div", "sessions-view");
@@ -203,7 +153,6 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   actionStatus.setAttribute("role", "status");
   const content = el(documentNode, "div", "sessions-content", "loading sessions…");
   const dialogHost = el(documentNode, "div", "session-control-dialog-host");
-  let visibleRows = [];
   let machinesPanel = Promise.resolve(null);
   const messageAll = el(
     documentNode, "button", "item-button session-filter-action", "Message all",
@@ -215,36 +164,80 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   );
   reclaim.type = "button";
   reclaim.disabled = true;
+  const loadMore = el(
+    documentNode, "button", "item-button session-filter-action", "Load more",
+  );
+  loadMore.type = "button";
+  loadMore.hidden = true;
   let filters;
-  const currentRows = () => filters.apply(visibleRows);
+  let loader;
+  const currentRows = () => loader?.rows() || [];
   const openMessage = (sessionId) => openSessionMessageCompose(
     context, dialogHost, { audience: exactSessionAudience([sessionId]) },
   );
   const renderRoster = () => {
+    const openError = loader?.openError();
+    if (openError && loader.openRows().length === 0) {
+      renderSessionControlFailure(content, openError, "Sessions could not be loaded.");
+      messageAll.disabled = true;
+      reclaim.disabled = true;
+      loadMore.hidden = true;
+      return;
+    }
     const rows = currentRows();
-    renderSessions(
-      documentNode, content, rows, openMessage,
-      context.projects(),
-      filters.isRestrictive(),
+    let historySummary = "";
+    if (loader?.historyVisible()) {
+      const historyError = loader.historyError();
+      if (historyError) {
+        historySummary = presentSessionControlFailure(
+          historyError, "Session history could not be loaded.",
+        );
+      } else if (loader.historyLoading() && !loader.historyLoaded()) {
+        historySummary = "Loading ended session history…";
+      } else if (loader.historyLoaded()) {
+        const loaded = rows.filter((row) => row.liveness === "ended").length;
+        historySummary = `${loaded} of ${loader.matchedCount()} ended sessions loaded`;
+      }
+    }
+    renderSessionRows(
+      documentNode, content, rows,
+      (row) => sessionCard(documentNode, row, openMessage, context.projects()),
+      filters.isRestrictive(), historySummary,
     );
-    // Machine tiles sum the rows currently shown, so they redraw whenever
-    // filtering changes which rows those are.
     machinesPanel.then((panel) => panel?.redraw()).catch(() => {});
-    messageAll.disabled = rows.length === 0;
-    messageAll.title = rows.length
-      ? `Message all ${rows.length} shown session${rows.length === 1 ? "" : "s"}`
-      : "No sessions match the current filters";
+    const bulkRows = loader?.bulkRows() || [];
+    messageAll.disabled = bulkRows.length === 0;
+    messageAll.title = bulkRows.length
+      ? `Message all ${bulkRows.length} open session${bulkRows.length === 1 ? "" : "s"}`
+      : "No open sessions match the current filters";
+    const historyError = loader?.historyError();
+    loadMore.hidden = !loader?.historyVisible()
+      || (!historyError && !loader.nextCursor());
+    loadMore.disabled = loader?.historyLoading() || false;
+    loadMore.textContent = historyError
+      ? (loader.historyLoaded() ? "Retry load more" : "Retry history")
+      : "Load more";
+    const staleCount = (loader?.openRows() || []).filter(
+      (row) => row.liveness === "stale",
+    ).length;
+    reclaim.disabled = staleCount === 0;
+    reclaim.title = staleCount
+      ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
+      : "No stale sessions in this scope";
   };
-  filters = sessionRosterFilters(documentNode, renderRoster);
+  filters = sessionRosterFilters(documentNode, (key) => loader?.filtersChanged(key));
+  loader = sessionsHistoryLoader(context, scope, filters, renderRoster);
   filters.actions.appendChild(messageAll);
   filters.actions.appendChild(reclaim);
+  filters.actions.appendChild(loadMore);
   messageAll.addEventListener("click", () => {
-    const rows = currentRows();
+    const rows = loader.bulkRows();
     if (!rows.length) return;
     openSessionMessageCompose(context, dialogHost, {
       audience: exactSessionAudience(rows, filters.summary()),
     });
   });
+  loadMore.addEventListener("click", () => loader.loadMore());
   view.appendChild(actionStatus);
   view.appendChild(filters.host);
   view.appendChild(content);
@@ -253,61 +246,18 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   main.replaceChildren(machines, roster);
   machinesPanel = loadMachinesPanel(context, machines.body, {
     showHeading: false,
-    sessions: currentRows,
+    sessions: () => filters.applyOpen(loader.openRows()),
   });
   if (typeof chrome.hidePageHead === "function") chrome.hidePageHead();
 
-  const buckets = scopeBuckets(scope, context.projects(), false);
   const reclaimPayload = scope === "all"
     ? { confirm: true }
     : {
       confirm: true,
       project_ids: scope.map((value) => Number(value)),
     };
-  let staleCount = 0;
-
-  const load = async () => {
-    const calls = buckets.flatMap((bucket) => [...ROSTER_STATES].map(
-      (liveness) => ({
-        functionId: "sessions.list",
-        payload: {
-          ...(bucket === null ? {} : { project: bucket }),
-          liveness,
-          limit: 500,
-        },
-      }),
-    ));
-    const { callResults, failed } = await settledScopedCalls(
-      context,
-      calls,
-    );
-    if (!context.isMounted()) return;
-    if (failed) {
-      renderSessionControlFailure(
-        content, failed, "Sessions could not be loaded.",
-      );
-      reclaim.disabled = true;
-      reclaim.title = "Sessions could not be read";
-      return;
-    }
-    const rowsBySession = new Map();
-    for (const row of mergedRows(callResults, (result) => result.rows)) {
-      if (ROSTER_STATES.has(String(row.liveness || "").toLowerCase())) {
-        rowsBySession.set(String(row.session_id), row);
-      }
-    }
-    visibleRows = [...rowsBySession.values()];
-    filters.setRows(visibleRows);
-    staleCount = visibleRows.filter((row) => row.liveness === "stale").length;
-    reclaim.disabled = staleCount === 0;
-    reclaim.title = staleCount
-      ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
-      : "No stale sessions in this scope";
-    renderRoster();
-  };
-
   reclaim.addEventListener("click", async () => {
-    if (reclaim.disabled || staleCount === 0) return;
+    if (reclaim.disabled) return;
     reclaim.disabled = true;
     actionStatus.hidden = false;
     actionStatus.textContent = "Rechecking liveness before reclaim…";
@@ -338,8 +288,12 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     ) || 0;
     actionStatus.textContent =
       `${reclaimed} stale session${reclaimed === 1 ? "" : "s"} reclaimed`;
-    await load();
+    if (!await loader.loadOpen()) {
+      actionStatus.textContent += `; ${presentSessionControlFailure(
+        loader.openError(), "open-session refresh failed; retry reclaim",
+      )}`;
+    }
   });
 
-  load();
+  loader.loadOpen();
 }

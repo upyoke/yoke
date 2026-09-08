@@ -1,16 +1,10 @@
-"""``sessions.list`` read handler: the session roster steering view.
-
-Sibling of :mod:`sessions_orchestration` (which owns the touch /
-checkpoint / offer wrappers); this module is read-only. The row shape
-and liveness derivation live in
-:mod:`yoke_core.domain.sessions_list_read`.
-"""
+"""``sessions.list`` read handler for live rosters and ended history."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -19,28 +13,26 @@ from yoke_contracts.api.function_call import (
 )
 
 
+class SessionsHistoryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    limit: int = Field(default=50, ge=1, le=100)
+    cursor: Optional[str] = None
+    search: str = ""
+    projects: List[str] = Field(default_factory=list)
+    harnesses: List[str] = Field(default_factory=list)
+    machines: List[str] = Field(default_factory=list)
+
+
 class SessionsListRequest(BaseModel):
     project: Optional[str] = None
+    projects: List[str] = Field(default_factory=list)
     liveness: Optional[str] = None
-    ended_cause: Optional[str] = Field(
-        default=None,
-        description=(
-            "Narrow the ended population by how it ended: 'killed' for a "
-            "terminated session, 'wound_down' for an ordinary end. Implies "
-            "liveness='ended'."
-        ),
-    )
+    ended_cause: Optional[str] = None
     limit: Optional[int] = None
     per_project: bool = False
     open: bool = False
-    session_id: Optional[str] = Field(
-        default=None,
-        description=(
-            "Return the complete fleet-roster projection for exactly this "
-            "session, independent of the roster limit window. Project and "
-            "liveness filters still narrow the result."
-        ),
-    )
+    session_id: Optional[str] = None
+    history: Optional[SessionsHistoryRequest] = None
 
 
 class SessionsListResponse(BaseModel):
@@ -60,6 +52,109 @@ def _error(
     )
 
 
+def _history_error(exc: ValidationError) -> HandlerOutcome:
+    issue = exc.errors()[0]
+    path = ".".join(str(part) for part in issue.get("loc", ()))
+    return _error(
+        "payload_invalid",
+        f"history request invalid: {issue.get('msg')}; clear the cursor and reload the first history page",
+        jsonpath=f"$.payload.history{'.' + path if path else ''}",
+    )
+
+
+def _history_result(
+    request: FunctionCallRequest,
+    history: SessionsHistoryRequest,
+) -> HandlerOutcome:
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.actor_project_visibility import (
+        actor_visible_project_ids,
+        numeric_actor_id,
+    )
+    from yoke_core.domain.project_identity import resolve_project
+    from yoke_core.domain.sessions_history_read import read_ended_session_history
+
+    conn = db_helpers.connect()
+    try:
+        actor = request.actor.actor_id if request.actor else None
+        visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
+        if history.projects:
+            resolved: set[int] = set()
+            for project in history.projects:
+                ident = resolve_project(
+                    conn,
+                    project,
+                    required=False,
+                    visible_project_ids=visible,
+                )
+                if ident is None:
+                    resolved.clear()
+                    break
+                resolved.add(ident.id)
+            project_ids: Optional[set[int]] = resolved
+        else:
+            project_ids = visible
+        result = read_ended_session_history(
+            conn,
+            project_ids=project_ids,
+            search=history.search,
+            harnesses=history.harnesses,
+            machines=history.machines,
+            limit=history.limit,
+            cursor=history.cursor,
+        )
+    except ValueError as exc:
+        return _error(
+            "payload_invalid",
+            str(exc),
+            jsonpath="$.payload.history.cursor",
+        )
+    finally:
+        conn.close()
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def _open_rows(
+    request: FunctionCallRequest,
+    project_refs: List[str],
+    limit: int,
+) -> List[Dict[str, Any]]:
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.actor_project_visibility import (
+        actor_visible_project_ids,
+        numeric_actor_id,
+    )
+    from yoke_core.domain.project_identity import resolve_project
+    from yoke_core.domain.sessions_list_read import list_sessions
+
+    conn = db_helpers.connect()
+    try:
+        actor = request.actor.actor_id if request.actor else None
+        visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
+        if project_refs:
+            project_ids: Optional[set[int]] = set()
+            for project in project_refs:
+                ident = resolve_project(
+                    conn,
+                    project,
+                    required=False,
+                    visible_project_ids=visible,
+                )
+                if ident is None:
+                    return []
+                project_ids.add(ident.id)
+        else:
+            project_ids = visible
+    finally:
+        conn.close()
+    if project_ids is None:
+        return list_sessions(open=True, limit=limit)
+    rows: List[Dict[str, Any]] = []
+    for project_id in sorted(project_ids):
+        rows.extend(list_sessions(project=str(project_id), open=True, limit=limit))
+    return rows
+
+
 def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
     if request.target.kind != "global":
         return _error(
@@ -68,6 +163,33 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.target.kind",
         )
     payload = request.payload or {}
+    if payload.get("history") is not None:
+        incompatible = [
+            key
+            for key in (
+                "liveness",
+                "ended_cause",
+                "project",
+                "open",
+                "session_id",
+                "per_project",
+                "projects",
+            )
+            if payload.get(key) not in (None, False, "", [])
+        ]
+        if incompatible:
+            return _error(
+                "payload_invalid",
+                "history cannot combine with live-roster inputs: "
+                + ", ".join(incompatible)
+                + "; remove them and reload the first history page",
+                jsonpath="$.payload.history",
+            )
+        try:
+            history = SessionsHistoryRequest.model_validate(payload["history"])
+        except ValidationError as exc:
+            return _history_error(exc)
+        return _history_result(request, history)
     session_filter = payload.get("session_id")
     if session_filter is not None and (
         not isinstance(session_filter, str) or not session_filter.strip()
@@ -78,6 +200,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.session_id",
         )
     project = payload.get("project")
+    projects = payload.get("projects", [])
     liveness = payload.get("liveness")
     ended_cause = payload.get("ended_cause")
     limit = payload.get("limit")
@@ -100,34 +223,58 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             "limit must be an integer when present",
             jsonpath="$.payload.limit",
         )
-    if not isinstance(per_project, bool):
-        return _error(
-            "payload_invalid",
-            "per_project must be a boolean when present",
-            jsonpath="$.payload.per_project",
-        )
     if not isinstance(open_only, bool):
         return _error(
             "payload_invalid",
             "open must be a boolean when present",
             jsonpath="$.payload.open",
         )
-
+    if not isinstance(projects, list) or any(
+        not isinstance(value, str) or not value.strip() for value in projects
+    ):
+        return _error(
+            "payload_invalid",
+            "projects must be a list of non-empty strings when present",
+            jsonpath="$.payload.projects",
+        )
+    if projects and (not open_only or project is not None):
+        return _error(
+            "payload_invalid",
+            "projects requires open=true and cannot combine with project",
+            jsonpath="$.payload.projects",
+        )
+    if not isinstance(per_project, bool):
+        return _error(
+            "payload_invalid",
+            "per_project must be a boolean when present",
+            jsonpath="$.payload.per_project",
+        )
     from yoke_core.domain.sessions_list_read import (
         DEFAULT_SESSIONS_LIST_LIMIT,
+        MAX_SESSIONS_LIST_LIMIT,
         list_sessions,
     )
 
     try:
-        rows = list_sessions(
-            project=project,
-            liveness=liveness,
-            ended_cause=ended_cause,
-            limit=limit if limit is not None else DEFAULT_SESSIONS_LIST_LIMIT,
-            per_project=per_project,
-            session_id=session_filter.strip() if session_filter is not None else None,
-            open=open_only,
+        default_limit = (
+            MAX_SESSIONS_LIST_LIMIT if open_only else DEFAULT_SESSIONS_LIST_LIMIT
         )
+        effective_limit = limit if limit is not None else default_limit
+        if open_only:
+            rows = _open_rows(
+                request, projects or ([project] if project else []), effective_limit
+            )
+        else:
+            rows = list_sessions(
+                project=project,
+                liveness=liveness,
+                ended_cause=ended_cause,
+                limit=effective_limit,
+                per_project=per_project,
+                session_id=session_filter.strip()
+                if session_filter is not None
+                else None,
+            )
     except ValueError as exc:
         return _error(
             "payload_invalid",
@@ -150,10 +297,3 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload=session_control_roster_result(rows),
         primary_success=True,
     )
-
-
-__all__ = [
-    "SessionsListRequest",
-    "SessionsListResponse",
-    "handle_sessions_list",
-]

@@ -25,19 +25,20 @@ function includes(value, query) {
 const DEFAULT_STATE = "active";
 const ACTIVE_LIVENESS = new Set([DEFAULT_STATE, "stale"]);
 
-function selectedValues(rows, valueFor) {
-  return [...new Set(rows.map(valueFor).filter(Boolean))].sort(
-    (left, right) => left.localeCompare(right),
-  );
+function setOptions(documentNode, control, defaultLabel, values) {
+  setOptionEntries(documentNode, control, defaultLabel, values.map(
+    (value) => ({ value, label: value }),
+  ));
 }
 
-function setOptions(documentNode, control, defaultLabel, values) {
+function setOptionEntries(documentNode, control, defaultLabel, entries) {
   const selected = String(control.value || "");
   control.replaceChildren(option(documentNode, "", defaultLabel));
-  for (const value of values) {
-    control.appendChild(option(documentNode, value, value));
+  for (const entry of entries) {
+    control.appendChild(option(documentNode, String(entry.value), entry.label));
   }
-  control.value = values.includes(selected) ? selected : "";
+  control.value = entries.some((entry) => String(entry.value) === selected)
+    ? selected : "";
 }
 
 function matchesState(liveness, selected) {
@@ -71,7 +72,9 @@ export function sessionRosterFilters(documentNode, onChange) {
   state.control.value = DEFAULT_STATE;
   controls.state = state.control;
   host.appendChild(state.wrapper);
-  for (const [name, label] of [["harness", "Harness"], ["machine", "Machine"]]) {
+  for (const [name, label] of [
+    ["project", "Project"], ["harness", "Harness"], ["machine", "Machine"],
+  ]) {
     const field = input(documentNode, label, "select");
     field.control.appendChild(option(documentNode, "", `Any ${name}`));
     controls[name] = field.control;
@@ -83,44 +86,80 @@ export function sessionRosterFilters(documentNode, onChange) {
   const hasChanges = () => String(controls.search.value || "").trim()
     || String(controls.harness.value || "").trim()
     || String(controls.machine.value || "").trim()
+    || String(controls.project.value || "").trim()
     || controls.state.value !== DEFAULT_STATE;
-  const changed = () => {
+  const changed = (key = "unknown") => {
     clear.disabled = !hasChanges();
-    onChange();
+    onChange(key);
   };
-  for (const control of Object.values(controls)) {
-    control.addEventListener("input", changed);
-    control.addEventListener("change", changed);
+  for (const [key, control] of Object.entries(controls)) {
+    control.addEventListener("input", () => changed(key));
+    control.addEventListener("change", () => changed(key));
   }
   clear.addEventListener("click", () => {
     controls.search.value = "";
+    controls.project.value = "";
     controls.harness.value = "";
     controls.machine.value = "";
     controls.state.value = DEFAULT_STATE;
-    changed();
+    changed("clear");
   });
   host.appendChild(clear);
   const actions = el(documentNode, "span", "session-filter-actions");
   host.appendChild(actions);
+  const applyRows = (rows, includeState) => {
+    const query = String(controls.search.value || "").toLowerCase();
+    const harness = String(controls.harness.value || "").toLowerCase();
+    const project = String(controls.project.value || "").toLowerCase();
+    const machine = String(controls.machine.value || "").toLowerCase();
+    return rows.filter((row) => {
+      const searchable = [
+        row.session_id, row.project, row.focus, row.actor_label,
+        row.current_item_title, row.model, row.requested_model,
+      ].join(" ").toLowerCase();
+      return (!query || searchable.includes(query))
+        && (!project || String(row.project_id || "").toLowerCase() === project
+          || String(row.project || "").toLowerCase() === project)
+        && (!harness || includes(row.executor, harness)
+          || includes(row.executor_surface, harness)
+          || includes(row.presentation_surface, harness))
+        && (includes(row.machine_id, machine) || includes(row.machine_name, machine))
+        && (!includeState || matchesState(row.liveness, controls.state.value));
+    });
+  };
   return {
     actions,
     host,
-    setRows(rows) {
-      setOptions(documentNode, controls.harness, "Any harness", selectedValues(
-        rows,
-        (row) => String(
-          row.presentation_surface || row.executor_surface || row.executor || "",
-        ),
-      ));
-      setOptions(documentNode, controls.machine, "Any machine", selectedValues(
-        rows,
-        (row) => String(row.machine_name || row.machine_id || ""),
-      ));
+    setFacets(facets = {}) {
+      setOptionEntries(documentNode, controls.project, "Any project",
+        (facets.projects || []).map((entry) => ({
+          value: String(entry.id), label: String(entry.slug || entry.id),
+        })));
+      setOptions(documentNode, controls.harness, "Any harness", facets.harnesses || []);
+      setOptionEntries(documentNode, controls.machine, "Any machine",
+        (facets.machines || []).map((entry) => ({
+          value: String(entry.id), label: String(entry.label || entry.id),
+        })));
       clear.disabled = !hasChanges();
+    },
+    state() {
+      return String(controls.state.value || "");
+    },
+    historyCriteria(scopeProjects = []) {
+      const selectedProject = String(controls.project.value || "").trim();
+      return {
+        search: String(controls.search.value || "").trim(),
+        projects: selectedProject ? [selectedProject] : scopeProjects,
+        harnesses: String(controls.harness.value || "").trim()
+          ? [String(controls.harness.value)] : [],
+        machines: String(controls.machine.value || "").trim()
+          ? [String(controls.machine.value)] : [],
+      };
     },
     isRestrictive() {
       return Boolean(
         String(controls.search.value || "").trim()
+        || String(controls.project.value || "").trim()
         || String(controls.harness.value || "").trim()
         || String(controls.machine.value || "").trim()
         || controls.state.value,
@@ -129,7 +168,8 @@ export function sessionRosterFilters(documentNode, onChange) {
     summary() {
       const values = [`State: ${controls.state.value || "any"}`];
       for (const [key, label] of [
-        ["search", "Search"], ["harness", "Harness"], ["machine", "Machine"],
+        ["search", "Search"], ["project", "Project"],
+        ["harness", "Harness"], ["machine", "Machine"],
       ]) {
         const value = String(controls[key].value || "").trim();
         if (value) values.push(`${label}: ${value}`);
@@ -137,23 +177,10 @@ export function sessionRosterFilters(documentNode, onChange) {
       return values;
     },
     apply(rows) {
-      const query = String(controls.search.value || "").toLowerCase();
-      const harness = String(controls.harness.value || "").toLowerCase();
-      return rows.filter((row) => {
-        const searchable = [
-          row.session_id, row.project, row.focus, row.actor_label,
-          row.current_item_title, row.model, row.requested_model,
-        ].join(" ").toLowerCase();
-        return (!query || searchable.includes(query))
-          && (!harness || includes(row.executor, harness)
-            || includes(row.executor_surface, harness)
-            || includes(row.presentation_surface, harness))
-          && (
-            includes(row.machine_id, String(controls.machine.value || "").toLowerCase())
-            || includes(row.machine_name, String(controls.machine.value || "").toLowerCase())
-          )
-          && matchesState(row.liveness, controls.state.value);
-      });
+      return applyRows(rows, true);
+    },
+    applyOpen(rows) {
+      return applyRows(rows, false);
     },
   };
 }
@@ -162,10 +189,6 @@ function machineLabel(row) {
   return row.machine_name || row.machine_id || "machine not reported";
 }
 
-// One line, one fact: whether this session's machine is reachable right now.
-// The relay is what carries a message to a session that is not mid-turn, so
-// its state is the whole difference between reaching the session and queuing
-// for it indefinitely.
 export function appendSessionRelay(documentNode, body, row) {
   const line = el(documentNode, "div", "session-relay");
   line.appendChild(el(documentNode, "span", "session-relay-label", "Relay:"));
@@ -192,18 +215,6 @@ export function appendSessionRelay(documentNode, body, row) {
   body.appendChild(line);
 }
 
-// Whether a message sent from this card would actually arrive, and — when it
-// would not — the single condition standing in the way. Delivery needs a
-// surface whose hook can carry the message, and, for a session that is not
-// mid-turn, a wake route to make that surface run; the relay is what carries
-// the wake.
-//
-// A desktop surface has no such route by design: Yoke never resumes the
-// window a person is reading. A message to a quiet one still arrives — on
-// that operator's next turn — so delivery stays available and the wait is
-// reported as a `note` rather than a blocker. The card already shows that
-// wait in its parked badge and footer, so the note rides the Message
-// button's tooltip instead of taking a line of its own.
 export function messagingAvailability(row) {
   const routing = row.messageability || {};
   if (routing.reason === "session_terminated") {
@@ -275,8 +286,6 @@ export function sessionMessageButton(documentNode, row, onMessage) {
   return message;
 }
 
-// Only a genuine blocker earns a line. When messaging is unavailable the
-// Message button is gone, so this paragraph is the sole feedback for why.
 export function appendSessionMessagingBlocker(documentNode, body, row) {
   const availability = messagingAvailability(row);
   if (availability.available) return;
