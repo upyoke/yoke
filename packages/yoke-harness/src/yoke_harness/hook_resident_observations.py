@@ -94,8 +94,9 @@ def _record_model_confirmations(
 class ObservationQueue:
     """Retain failed telemetry batches and retry in original hook order."""
 
-    def __init__(self, opener) -> None:
+    def __init__(self, opener, stream=None) -> None:
         self._opener = opener
+        self._stream = sys.stderr if stream is None else stream
         self._condition = threading.Condition()
         self._flush_lock = threading.Lock()
         self._entries: list[PendingTelemetry] = []
@@ -291,7 +292,7 @@ class ObservationQueue:
             else:
                 self._failure = summary
                 self._recovery = failure.recovery
-        sys.stderr.write(
+        self._stream.write(
             owned_diagnostic_line(
                 f"{'ERROR' if drop else 'WARNING'}: "
                 f"{'YOKE_HOOK_TELEMETRY_BATCH_REJECTED' if drop else 'YOKE_HOOK_TELEMETRY_FLUSH_FAILED'}: "

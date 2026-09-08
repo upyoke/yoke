@@ -13,6 +13,7 @@ import io
 import json
 import time
 import urllib.error
+from contextlib import redirect_stderr
 
 import pytest
 
@@ -261,3 +262,17 @@ def test_owned_diagnostic_line_uses_the_transport_utc_stamp() -> None:
     assert "class=transient_retry outcome=retrying" in line
     assert drain.startswith("2026-09-08T14:54:09Z WARNING: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT")
     assert "class=drain_timeout outcome=continue" in drain
+
+
+def test_flush_failure_does_not_follow_a_later_stderr_redirect() -> None:
+    bound = io.StringIO()
+    redirected = io.StringIO()
+    queue = ObservationQueue(_rejecting_opener(400, "HOOK_OBSERVATION_PROJECT_DENIED"), bound)
+    try:
+        queue.enqueue(_pending(1))
+        with redirect_stderr(redirected):
+            queue._flush_once()
+        assert "YOKE_HOOK_TELEMETRY_BATCH_REJECTED" in bound.getvalue()
+        assert redirected.getvalue() == ""
+    finally:
+        queue.close(drain_timeout=0.1)
