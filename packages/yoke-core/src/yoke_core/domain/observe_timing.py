@@ -13,6 +13,10 @@ calls recorded 4079ms against a real 1649ms, and Grep 6090ms against 3979ms.
 So callers pass both endpoints, the delivery delay is reported beside the
 duration as its own measurement, and an endpoint that is missing or
 impossible is named rather than quietly dropped.
+
+Delivery can also reorder the two observations, so this module owns which
+of two captured starts a call actually began at, and whether a stored start
+was captured at all or synthesized by a completion that arrived first.
 """
 
 from __future__ import annotations
@@ -103,6 +107,58 @@ def measure_elapsed(
     return ElapsedMeasurement(elapsed_ms, TIMING_MEASURED)
 
 
+def arriving_start_supersedes(
+    stored_start: CapturedTimestamp,
+    arriving_start: CapturedTimestamp,
+) -> bool:
+    """Decide whether a late-arriving captured start replaces the stored one.
+
+    Observations do not always arrive in the order they happened: a
+    completion delivered ahead of its own call's opening observation writes
+    the row first, so the genuine start meets a row that already exists. The
+    earlier of two valid starts is the one the call actually began at, and a
+    start that cannot be read as a timestamp is not evidence of anything —
+    so a valid arrival replaces an unreadable stored value, and a stored
+    value that is already earlier or equal stands.
+
+    Replay is covered by the same rule rather than by a separate one: a
+    re-delivered start carries the instant it always carried, which is never
+    earlier than the stored copy of itself.
+    """
+    arriving = parse_captured_timestamp(arriving_start)
+    if arriving is None:
+        return False
+    stored = parse_captured_timestamp(stored_start)
+    if stored is None:
+        return True
+    return arriving < stored
+
+
+def start_endpoint_is_synthesized(
+    started_at: CapturedTimestamp,
+    completed_at: CapturedTimestamp,
+) -> bool:
+    """Report whether a stored start is the completion stamping its own row.
+
+    A completion with no open row to close inserts one already closed and
+    writes its own instant into both endpoints, so the call stays counted
+    and the row stays coherent. That placeholder is not a captured start:
+    measuring against it reports a zero-length call for a call nobody
+    observed opening, which reads as "instant" rather than "unobserved".
+
+    The two endpoints hold the same instant only when one write produced
+    both — they are otherwise captured by separate hook invocations at
+    millisecond resolution — so the placeholder identifies itself and needs
+    no column to mark it. Once the genuine start arrives and supersedes it,
+    the endpoints differ and the same read measures the real interval.
+    """
+    start = parse_captured_timestamp(started_at)
+    end = parse_captured_timestamp(completed_at)
+    if start is None or end is None:
+        return False
+    return start == end
+
+
 __all__ = [
     "CapturedTimestamp",
     "ElapsedMeasurement",
@@ -115,6 +171,8 @@ __all__ = [
     "TIMING_UNKNOWN_NO_CALL_IDENTITY",
     "TIMING_UNKNOWN_NO_CAPTURED_END",
     "TIMING_UNKNOWN_NO_RECORDED_START",
+    "arriving_start_supersedes",
     "measure_elapsed",
     "parse_captured_timestamp",
+    "start_endpoint_is_synthesized",
 ]

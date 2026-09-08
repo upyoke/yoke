@@ -25,6 +25,9 @@ from typing import Any, Dict, Optional, Tuple
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 from yoke_core.domain.session_recovery_facts import stamp_completed_work
+from yoke_core.domain.session_tool_call_start_reconcile import (
+    adopt_earlier_start,
+)
 
 # Bounded command text retained for the PreToolUse lint guardrails (R4).
 # Partially duplicates telemetry's envelope tool_input on purpose: the
@@ -127,7 +130,16 @@ def record_tool_call_started(
     started_at: str,
     command_summary: Optional[str] = None,
 ) -> bool:
-    """Open a ``session_tool_calls`` row. Duplicate Started rows no-op."""
+    """Open a ``session_tool_calls`` row, or give an existing one its start.
+
+    A start that lost the race to its own completion meets a row already
+    there, and dropping it discarded the call's only captured start. It is
+    reconciled instead by
+    :func:`yoke_core.domain.session_tool_call_start_reconcile.adopt_earlier_start`,
+    which corrects that one endpoint without reopening the call. Activity is
+    counted by the completion alone, so no arrival order recounts a call, and
+    a duplicate or replayed start changes nothing.
+    """
     if not session_id or not tool_use_id:
         return False
     if not has_session_tool_calls_table(conn):
@@ -146,7 +158,15 @@ def record_tool_call_started(
             truncate_command_summary(command_summary),
         ),
     )
-    return getattr(cursor, "rowcount", 0) > 0
+    if getattr(cursor, "rowcount", 0) > 0:
+        return True
+    return adopt_earlier_start(
+        conn,
+        placeholder=p,
+        session_id=session_id,
+        tool_use_id=tool_use_id,
+        started_at=started_at,
+    )
 
 
 def record_tool_call_finished(

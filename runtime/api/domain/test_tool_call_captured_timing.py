@@ -15,6 +15,10 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import observe_parsing
 from yoke_core.domain import observe_timing
 from yoke_core.domain.observe_event_emission import build_envelope, insert_event
+from yoke_core.domain.session_activity_state import (
+    record_tool_call_finished,
+    record_tool_call_started,
+)
 
 
 _POST_TOOL_PAYLOAD = {
@@ -36,6 +40,22 @@ def _open_tool_call(
         "(session_id, tool_use_id, tool_name, started_at) "
         "VALUES (%s, %s, %s, %s)",
         (session_id, tool_use_id, "Bash", _stamp(started_at)),
+    )
+    conn.commit()
+
+
+def _close_tool_call(
+    conn, *, session_id: str, tool_use_id: str, completed_at: datetime
+) -> None:
+    """Land a completion with no open row, as deferred delivery can."""
+    record_tool_call_finished(
+        conn,
+        session_id=session_id,
+        tool_use_id=tool_use_id,
+        tool_name="Read",
+        event_name="HarnessToolCallCompleted",
+        outcome="completed",
+        completed_at=_stamp(completed_at),
     )
     conn.commit()
 
@@ -221,3 +241,54 @@ def test_unparseable_endpoint_is_named_as_a_format_failure() -> None:
 
     assert measurement.milliseconds is None
     assert measurement.status == observe_timing.TIMING_INVALID_ENDPOINT_FORMAT
+
+
+def test_a_completion_that_arrived_first_is_not_a_zero_length_call() -> None:
+    """A placeholder start would otherwise read as an instant tool call."""
+    with test_database() as conn:
+        completed_at = datetime.now(timezone.utc)
+        _close_tool_call(
+            conn,
+            session_id="placeholder-session",
+            tool_use_id="placeholder-call",
+            completed_at=completed_at,
+        )
+
+        record = _parse_completion(
+            session_id="placeholder-session",
+            tool_use_id="placeholder-call",
+            completed_at=completed_at,
+        )
+
+        assert record.duration_ms is None
+        assert record.timing_status == observe_timing.TIMING_UNKNOWN_NO_RECORDED_START
+
+
+def test_duration_converges_once_the_late_start_lands() -> None:
+    """Both endpoints exist now, so the interval is measurable now."""
+    with test_database() as conn:
+        completed_at = datetime.now(timezone.utc)
+        started_at = completed_at - timedelta(milliseconds=1649)
+        _close_tool_call(
+            conn,
+            session_id="converging-session",
+            tool_use_id="converging-call",
+            completed_at=completed_at,
+        )
+        record_tool_call_started(
+            conn,
+            session_id="converging-session",
+            tool_use_id="converging-call",
+            tool_name="Read",
+            started_at=_stamp(started_at),
+        )
+        conn.commit()
+
+        record = _parse_completion(
+            session_id="converging-session",
+            tool_use_id="converging-call",
+            completed_at=completed_at,
+        )
+
+        assert record.duration_ms == 1649
+        assert record.timing_status == observe_timing.TIMING_MEASURED
