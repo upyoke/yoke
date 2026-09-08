@@ -108,7 +108,7 @@ test("web tile titles the current group and leaves previous title-free", () => {
 });
 
 
-test("previous holdings render for active stale and ended sessions", () => {
+test("previous holdings render for live sessions but not compact history", () => {
   const documentNode = new FakeDocument();
   for (const liveness of ["active", "stale", "ended"]) {
     const rendered = card(documentNode, liveness, {
@@ -119,15 +119,14 @@ test("previous holdings render for active stale and ended sessions", () => {
       ],
       previous_remainder: 0,
     });
-    // A live session still names the item it filed and nobody claimed;
-    // an ended one has nothing outstanding to say about it.
     assert.deepEqual(
       byClass(rendered, "session-holdings-label").map((node) => node.textContent),
       liveness === "ended"
-        ? ["Previously held"]
+        ? []
         : ["Previously held", "Filed · unclaimed"],
     );
-    assert.equal(byClass(rendered, "session-lock").length, 1);
+    assert.equal(byClass(rendered, "session-lock").length,
+      liveness === "ended" ? 0 : 1);
   }
 });
 
@@ -181,7 +180,7 @@ test("released steering seats lead previously-held rows before items", () => {
 
 
 test("repeated released seats and items keep latest release and count", () => {
-  const rendered = card(new FakeDocument(), "ended", {
+  const rendered = card(new FakeDocument(), "active", {
     current: [],
     previous: [
       steeringSeat(1, ["CURRENT-PLAN"], {
@@ -244,7 +243,7 @@ test("steering-only history lists released seats without a live lead", () => {
 });
 
 
-test("terminated seat still lists previously held steering rows", () => {
+test("ended seat omits live-only steering history", () => {
   const rendered = card(new FakeDocument(), "ended", {
     current: [],
     previous: [
@@ -256,14 +255,8 @@ test("terminated seat still lists previously held steering rows", () => {
 
   assert.equal(byClass(rendered, "session-age").length, 0);
   assert.equal(byClass(rendered, "session-steering-lead").length, 0);
-  assert.deepEqual(
-    byClass(rendered, "session-hold-target").map((node) => node.textContent),
-    ["yoke · CURRENT-PLAN"],
-  );
-  const marker = byClass(rendered, "session-lock")[0];
-  assert.equal(marker.children[0].tagName, "SVG");
-  assert.equal(marker.getAttribute("role"), "img");
-  assert.equal(marker.getAttribute("aria-label"), marker.title);
+  assert.equal(byClass(rendered, "session-hold-target").length, 0);
+  assert.equal(byClass(rendered, "session-lock").length, 0);
 });
 
 

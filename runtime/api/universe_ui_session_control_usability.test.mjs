@@ -207,7 +207,7 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
   };
   const { root, mounted } = await mountAt(t, "#/sessions?project=1", {
     "sessions.list": (request) => ok({
-      rows: request.payload.liveness === "active" ? [row] : [],
+      rows: request.payload.open ? [row] : [],
     }),
   });
   const search = byClass(root, "session-roster-filter")[0].children[1];
@@ -234,11 +234,11 @@ test("roster State uses accepted liveness values while kill cause stays on the c
     messageability: { messageable: false },
   };
   const { root, mounted } = await mountAt(t, "#/sessions?project=1", {
-    "sessions.list": (request) => ok({
-      rows: request.payload.liveness === "ended"
-        ? [
+    "sessions.list": (request) => request.payload.open ? ok({ rows: [] }) : ok({
+      rows: request.payload.history ? [
           {
             ...base, session_id: "killed-1", liveness: "ended",
+            activity_at: "2026-08-22T12:05:00Z",
             ended_cause: "killed", terminated_at: "2026-08-22T12:05:00Z",
             termination_reason: "operator stopped worker",
           },
@@ -246,8 +246,9 @@ test("roster State uses accepted liveness values while kill cause stays on the c
             ...base, session_id: "wound-1", liveness: "ended",
             ended_cause: "wound_down",
           },
-        ]
-        : [],
+        ] : [],
+      matched_count: 2, next_cursor: null,
+      facets: { projects: [], harnesses: [], machines: [] },
     }),
   });
   const stateField = byClass(root, "session-roster-filter").find(
@@ -261,11 +262,10 @@ test("roster State uses accepted liveness values while kill cause stays on the c
   assert.equal(byClass(root, "session-card").length, 0);
   state.value = "ended";
   state.dispatchEvent(new Event("change"));
+  await settle();
   assert.equal(byClass(root, "session-card").length, 2);
-  assert.equal(byClass(root, "session-kill-badge")[0].textContent, "killed");
-  assert.match(
-    byClass(root, "session-kill-badge")[0].title,
-    /Reason: operator stopped worker$/,
-  );
+  assert.match(byClass(root, "session-history-ended")[0].textContent, /^Killed /);
+  assert.equal(byClass(root, "session-history-reason")[0].textContent,
+    "Reason: operator stopped worker");
   mounted.unmount();
 });
