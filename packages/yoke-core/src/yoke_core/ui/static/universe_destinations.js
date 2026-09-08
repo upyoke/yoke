@@ -58,7 +58,7 @@ export const NAV = [
     group: GROUP_SETTINGS,
   },
   {
-    id: "github", icon: "⎇", label: "GitHub", scope: SCOPE_SINGLE,
+    id: "github", icon: "⎇", label: "GitHub", scope: SCOPE_MULTI,
     group: GROUP_SETTINGS,
   },
   {

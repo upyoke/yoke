@@ -130,14 +130,15 @@ test("a section for a workbench view appends after the view's own output", async
   assert.equal(extra.parentNode, null);
 });
 
-test("host sections remain visible when a single-scope view has no project", async (t) => {
+test("host sections remain visible when GitHub has no project yet", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
-  // GitHub is the single-scope view that renders an engine-backed read, so
-  // it is the one that reaches the empty-universe panel; a scope-less or
-  // unbuilt view never gets there.
+  // GitHub fans out across the picker, so an empty universe still renders
+  // the view; the host section must stay reachable before the first
+  // project — at either placement, because an empty universe draws no
+  // picker for a `beforeScope` section to sit above.
   for (const placement of ["inView", "beforeScope"]) {
     const documentNode = new FakeDocument();
     documentNode.defaultView.location.hash = "#/github";
@@ -151,6 +152,9 @@ test("host sections remain visible when a single-scope view has no project", asy
         if (request.function === "projects.list") {
           return { status: 200, envelope: { success: true, result: { rows: [] } } };
         }
+        if (request.function === "machine.list") {
+          return { status: 200, envelope: { success: true, result: { machines: [], count: 0 } } };
+        }
         throw new Error(`unexpected function ${request.function}`);
       },
     };
@@ -159,17 +163,15 @@ test("host sections remain visible when a single-scope view has no project", asy
     });
     await settle();
 
-    // Project scope governs the engine-owned read, not the host's section.
-    // Org-plane controls such as the hosted GitHub connection must remain
-    // reachable before the universe has its first project — at either
-    // placement, because an empty universe draws no picker for a
-    // `beforeScope` section to sit above.
-    assert.equal(byClass(root, "empty")[0].textContent, "no projects yet", placement);
     assert.ok(allNodes(root).includes(hostSection), placement);
     const viewHost = byClass(root, "view-host")[0];
-    assert.equal(
-      viewHost.children[viewHost.children.length - 1], hostSection, placement,
-    );
+    if (placement === "inView") {
+      assert.equal(
+        viewHost.children[viewHost.children.length - 1], hostSection, placement,
+      );
+    } else {
+      assert.ok(!allNodes(viewHost).includes(hostSection), placement);
+    }
 
     mounted.unmount();
     assert.equal(hostSection.parentNode, null, placement);

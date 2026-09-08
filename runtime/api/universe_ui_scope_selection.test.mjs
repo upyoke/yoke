@@ -257,7 +257,7 @@ test("a single-scope picker offers radio chips and no All chip", () => {
   const rendered = [];
   const bar = createScopePicker({
     documentNode,
-    entry: navEntry("github"),
+    entry: navEntry("architecture"),
     scope: "1",
     projects: [
       { id: 1, slug: "alpha", name: "Alpha", public_item_prefix: "ALP" },

@@ -130,12 +130,15 @@ test("route helpers are deterministic and platform-neutral", () => {
 });
 
 test("every nav destination declares how it takes project scope", () => {
-  for (const view of ["items", "strategy", "overview", "inbox", "sessions"]) {
+  for (const view of [
+    "items", "strategy", "overview", "inbox", "sessions", "github",
+  ]) {
     assert.equal(universeNavScope(view), "multi");
   }
-  // Project settings is a drill-in on Projects, not a destination, so GitHub
-  // is the only single-project one left.
-  for (const view of ["github"]) {
+  // Architecture is the remaining single-project destination: GitHub now
+  // fans out across the picker the same way other settings-adjacent
+  // mappings do.
+  for (const view of ["architecture"]) {
     assert.equal(universeNavScope(view), "single");
   }
   // Workflows serves the engine's universe-wide lifecycle definition, so no
