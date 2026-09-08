@@ -49,8 +49,27 @@ def append_overview_window(
     )
 
 
+#: The fields the Items roster actually renders. A compact enrichment emits
+#: exactly these: the paged roster carries no lane rows and no lifecycle
+#: fields the table never puts on screen.
+COMPACT_ROSTER_FIELDS = (
+    "public_ref",
+    "project_id",
+    "project",
+    "title",
+    "workflow_id",
+    "status",
+    "stage_label",
+    "owner",
+    "claimed_by",
+    "qa_attention",
+)
+
+
 def enrich_item_overview_rows(
     rows: Iterable[dict[str, Any]],
+    *,
+    compact: bool = False,
 ) -> list[dict[str, Any]]:
     """Add stored owner label, public reference, and active-claim facts.
 
@@ -58,6 +77,10 @@ def enrich_item_overview_rows(
     public ref); the numeric key is mirrored onto ``internal_id``. The
     owner cell degrades to empty when its actor cannot be rendered — an
     orphan actor never fails the roster. Distinct owners resolve once.
+
+    ``compact`` narrows the result to :data:`COMPACT_ROSTER_FIELDS` and
+    skips the lane query entirely — no roster consumer reads ``worktrees``,
+    so the paged read neither fetches nor ships it.
     """
     from yoke_core.domain.actors import (
         ActorLabelAmbiguous,
@@ -109,17 +132,18 @@ def enrich_item_overview_rows(
                 owner_labels[item_id] = owner_by_actor.get(int(owner_raw), "")
             except ValueError:
                 owner_labels[item_id] = owner_raw
-        lane_cursor = conn.execute(
-            "SELECT id, item_id, branch, path, lane_role, state, "
-            "created_at, updated_at, released_at "
-            "FROM item_worktrees "
-            f"WHERE item_id IN ({placeholders}) AND state = 'active' "
-            "ORDER BY item_id, id",
-            tuple(ids),
-        )
         worktrees: dict[int, list[dict[str, Any]]] = {}
-        for lane in _dict_rows(lane_cursor):
-            worktrees.setdefault(int(lane["item_id"]), []).append(lane)
+        if not compact:
+            lane_cursor = conn.execute(
+                "SELECT id, item_id, branch, path, lane_role, state, "
+                "created_at, updated_at, released_at "
+                "FROM item_worktrees "
+                f"WHERE item_id IN ({placeholders}) AND state = 'active' "
+                "ORDER BY item_id, id",
+                tuple(ids),
+            )
+            for lane in _dict_rows(lane_cursor):
+                worktrees.setdefault(int(lane["item_id"]), []).append(lane)
         claims = active_item_claims(conn, ids)
         qa_attention: dict[int, dict[str, str]] = {}
         if (
@@ -178,8 +202,14 @@ def enrich_item_overview_rows(
                 "qa_attention": qa_attention.get(item_id),
             }
         )
-        result.append(row)
+        result.append(
+            {key: row[key] for key in COMPACT_ROSTER_FIELDS} if compact else row
+        )
     return result
 
 
-__all__ = ["append_overview_window", "enrich_item_overview_rows"]
+__all__ = [
+    "COMPACT_ROSTER_FIELDS",
+    "append_overview_window",
+    "enrich_item_overview_rows",
+]

@@ -55,6 +55,33 @@ def resolve_visible_project_id(
     return None if ident is None else ident.id
 
 
+def resolve_visible_project_ids(
+    conn: Any,
+    projects: Optional[list[str]],
+    visible_project_ids: Optional[set[int]],
+) -> Optional[list[int]]:
+    """Resolve several project references within the actor's visible set.
+
+    The multi-project shape of :func:`resolve_visible_project_id`, for a
+    reader that names a set of projects in one request instead of one call
+    per member. Returns ``None`` when no project was named, and drops any
+    named project outside the actor's visibility — so an unresolvable member
+    narrows the answer rather than widening it. A list that resolves to
+    nothing stays an empty list, which every scoped read answers empty; only
+    ``None`` means unrestricted.
+    """
+    if projects is None:
+        return None
+    resolved: list[int] = []
+    for project in projects:
+        project_id = resolve_visible_project_id(
+            conn, project, visible_project_ids,
+        )
+        if project_id is not None and project_id not in resolved:
+            resolved.append(project_id)
+    return resolved
+
+
 def ambiguous_project_error(message: str, jsonpath: str) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -70,4 +97,5 @@ __all__ = [
     "actor_visible_scope",
     "ambiguous_project_error",
     "resolve_visible_project_id",
+    "resolve_visible_project_ids",
 ]
