@@ -1,9 +1,9 @@
 """Reads and writes for the machine registry.
 
-Registration is the moment an asserted machine id becomes a proved one: the
-host presents the id, a human name, and the public half of a key it holds, and
-the control plane records the row that every later relay poll is checked
-against.
+Registration is the moment an asserted machine id becomes a durable one: the
+host presents the id and human name, and the control plane records the row that
+every later relay poll is checked against. Credential minting and rotation live
+in :mod:`yoke_core.domain.machine_credentials`.
 """
 
 from __future__ import annotations
@@ -40,6 +40,8 @@ class MachineRecord:
     owner_actor_id: int
     registered_at: str
     last_seen_at: str | None = None
+    retired_at: str | None = None
+    retired_by_actor_id: int | None = None
     access: dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_ACCESS))
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,6 +51,8 @@ class MachineRecord:
             "owner_actor_id": self.owner_actor_id,
             "registered_at": self.registered_at,
             "last_seen_at": self.last_seen_at,
+            "retired_at": self.retired_at,
+            "retired_by_actor_id": self.retired_by_actor_id,
             "access": normalize_access(self.access),
         }
 
@@ -75,6 +79,8 @@ def _record(row: Any) -> MachineRecord:
             parsed = {}
         access = parsed if isinstance(parsed, dict) else {}
     last_seen = _cell(row, "last_seen_at", 5)
+    retired_at = _cell(row, "retired_at", 6)
+    retired_by = _cell(row, "retired_by_actor_id", 7)
     return MachineRecord(
         machine_id=str(_cell(row, "machine_id", 0)),
         name=str(_cell(row, "name", 1)),
@@ -82,12 +88,14 @@ def _record(row: Any) -> MachineRecord:
         access=normalize_access(access),
         registered_at=str(_cell(row, "registered_at", 4)),
         last_seen_at=str(last_seen) if last_seen else None,
+        retired_at=str(retired_at) if retired_at else None,
+        retired_by_actor_id=int(retired_by) if retired_by is not None else None,
     )
 
 
 _SELECT = (
     "SELECT machine_id,name,owner_actor_id,access,"
-    "registered_at,last_seen_at FROM machines"
+    "registered_at,last_seen_at,retired_at,retired_by_actor_id FROM machines"
 )
 
 
@@ -174,16 +182,23 @@ def register_machine(
     access: Any = None,
     is_admin: bool = False,
     now: str,
+    commit: bool = True,
 ) -> tuple[MachineRecord, bool]:
     """Record or refresh one machine, returning the row and whether it is new.
 
-    Registration is idempotent, which is what lets the connect flow run it on
-    every ``yoke status``. A machine already registered to another actor is
-    refused unless an administrator is asking.
+    Re-registration refreshes mutable facts; the credential owner composes it
+    with an atomic bearer rotation. A machine already registered to another
+    actor is refused unless an administrator is asking.
     """
     canonical = canonical_machine_id(machine_id)
     chosen_name = validate_name(name)
     existing = get_machine(conn, canonical)
+    if existing is not None and existing.retired_at is not None:
+        raise MachineRegistryError(
+            "machine_retired",
+            f"machine {canonical} is retired. Recovery: run the installer again "
+            "to reconnect this computer with a new machine identity.",
+        )
     if existing is not None and int(existing.owner_actor_id) != int(actor_id):
         if not is_admin:
             raise MachineRegistryError(
@@ -226,8 +241,38 @@ def register_machine(
                 canonical,
             ),
         )
-    conn.commit()
+    if commit:
+        conn.commit()
     return require_machine(conn, canonical), existing is None
+
+
+def retire_machine(
+    conn: Any,
+    *,
+    machine_id: str,
+    actor_id: int,
+    is_admin: bool = False,
+    now: str,
+    commit: bool = True,
+) -> MachineRecord:
+    """Retire one machine without deleting any history."""
+    record = require_machine(conn, canonical_machine_id(machine_id))
+    if int(record.owner_actor_id) != int(actor_id) and not is_admin:
+        raise MachineRegistryError(
+            "machine_retire_forbidden",
+            f"only machine {record.machine_id}'s owner or an administrator may "
+            "retire it.",
+        )
+    if record.retired_at is None:
+        p = marker(conn)
+        conn.execute(
+            f"UPDATE machines SET retired_at={p},retired_by_actor_id={p} "
+            f"WHERE machine_id={p}",
+            (now, int(actor_id), record.machine_id),
+        )
+        if commit:
+            conn.commit()
+    return require_machine(conn, record.machine_id)
 
 
 def set_machine_access(
@@ -241,6 +286,11 @@ def set_machine_access(
 ) -> MachineRecord:
     """Replace the access document; the owner or an administrator may."""
     record = require_machine(conn, machine_id)
+    if record.retired_at is not None:
+        raise MachineRegistryError(
+            "machine_retired",
+            f"machine {record.machine_id} is retired. Its history is read-only.",
+        )
     if int(record.owner_actor_id) != int(actor_id) and not is_admin:
         raise MachineRegistryError(
             "machine_access_forbidden",
@@ -280,6 +330,7 @@ __all__ = [
     "machine_names",
     "marker",
     "register_machine",
+    "retire_machine",
     "require_machine",
     "set_machine_access",
     "touch_machine_seen",

@@ -33,7 +33,11 @@ def _identity_payload(conn: Any, auth: Any) -> dict[str, Any]:
         "ok": True,
         "status": "verified",
         "source": "identity",
-        "token": {"id": auth.token_id, "name": auth.token_name},
+        "token": {
+            "id": auth.token_id,
+            "name": auth.token_name,
+            "machine_id": auth.machine_id,
+        },
         "actor": _actor_summary(conn, auth.actor_id),
         "orgs": orgs,
         "projects": projects,
@@ -118,19 +122,21 @@ def _visible_projects(
         numeric_org_id = int(org_id) if org_id is not None else None
         org_roles = org_roles_by_id.get(numeric_org_id or 0, ())
         roles = sorted(set(org_roles) | set(direct_roles.get(numeric_project_id, ())))
-        projects.append({
-            "id": numeric_project_id,
-            "slug": str(slug),
-            "name": str(name),
-            "org": {
-                "id": numeric_org_id,
-                "slug": str(org_slug) if org_slug is not None else "",
-                "name": str(org_name) if org_name is not None else "",
-            },
-            "roles": roles,
-            "direct_roles": list(direct_roles.get(numeric_project_id, ())),
-            "org_roles": list(org_roles),
-        })
+        projects.append(
+            {
+                "id": numeric_project_id,
+                "slug": str(slug),
+                "name": str(name),
+                "org": {
+                    "id": numeric_org_id,
+                    "slug": str(org_slug) if org_slug is not None else "",
+                    "name": str(org_name) if org_name is not None else "",
+                },
+                "roles": roles,
+                "direct_roles": list(direct_roles.get(numeric_project_id, ())),
+                "org_roles": list(org_roles),
+            }
+        )
     return projects
 
 

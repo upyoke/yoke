@@ -39,6 +39,8 @@ def local_machine(monkeypatch, tmp_path):
         (("machine", "register"), "machine.register"),
         (("machine", "list"), "machine.list"),
         (("machine", "show"), "machine.show"),
+        (("machine", "detail"), "machine.detail"),
+        (("machine", "retire"), "machine.retire"),
         (("machine", "settings", "get"), "machine.settings.get"),
         (("machine", "settings", "set"), "machine.settings.set"),
     ],
@@ -58,6 +60,13 @@ def test_register_sends_the_local_id_and_name(dispatched, local_machine):
 def test_show_defaults_to_this_machine(dispatched, local_machine):
     assert machine.machine_show([]) == 0
     assert dispatched[0]["payload"]["machine_id"] == MACHINE_ID
+
+
+def test_retire_requires_confirmation_and_sends_the_machine(dispatched, local_machine):
+    with pytest.raises(SystemExit):
+        machine.machine_retire([])
+    assert machine.machine_retire(["--confirm"]) == 0
+    assert dispatched[0]["payload"] == {"machine_id": MACHINE_ID}
 
 
 def test_machine_access_help_discloses_that_offers_are_not_enforced(capsys):

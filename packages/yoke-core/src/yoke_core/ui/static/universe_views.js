@@ -46,6 +46,7 @@ import { renderSessionsView } from "./universe_views_sessions.js";
 import { renderSessionMessagesView } from "./universe_session_messages.js";
 import { renderRegisteredSessionDetail } from "./universe_session_detail.js";
 import { renderMachinesView } from "./universe_views_machines.js";
+import { renderMachineDetail } from "./universe_machine_detail.js";
 import {
   renderStrategyDocDetailView,
   renderStrategyView,
@@ -74,6 +75,7 @@ export const DETAIL_RENDERERS = {
   // opening a project row IS opening its settings.
   projects: renderProjectView,
   sessions: fromDrillInProject(renderRegisteredSessionDetail),
+  machines: renderMachineDetail,
   "qa-methods": fromDrillInProject(renderQaMethodDetail),
   "qa-plans": fromDrillInProject(renderQaPlanDetail),
 };

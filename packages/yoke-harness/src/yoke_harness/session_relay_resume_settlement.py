@@ -170,6 +170,7 @@ def settle_finished_native_resumes(
             function_id,
             {
                 "relay_id": relay_id,
+                "machine_id": machine_id,
                 "job_kind": "wake",
                 "job_id": finished.attempt_id,
                 "lease_id": finished.lease_id,
@@ -177,7 +178,6 @@ def settle_finished_native_resumes(
                 "evidence": {
                     **dict(finished.result.evidence),
                     "relay_id": relay_id,
-                    "machine_id": machine_id,
                 },
             },
             state_dir=state_dir,

@@ -32,6 +32,8 @@ WRAPPED_ROWS = (
     _w("yoke machine register", "machine"),
     _w("yoke machine list", "machine"),
     _w("yoke machine show", "machine"),
+    _w("yoke machine detail", "machine"),
+    _w("yoke machine retire", "machine"),
     _w("yoke machine settings get", "machine"),
     _w("yoke machine settings set", "machine"),
     _w("yoke test-machine bridge-diagnose", "test_machine"),

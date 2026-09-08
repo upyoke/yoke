@@ -1,0 +1,101 @@
+.machine-roster-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.machine-roster-stat,
+.machine-detail-card {
+  border: 1px solid var(--yoke-border);
+  border-radius: 12px;
+  background: var(--yoke-surface);
+}
+
+.machine-roster-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.machine-roster-stat strong { font-size: 24px; }
+.machine-roster-stat span { color: var(--yoke-muted); }
+
+.machine-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--yoke-border);
+}
+
+.machine-owner {
+  min-width: 0;
+  margin-right: auto;
+  color: var(--yoke-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.machine-retire { color: var(--yoke-crit); }
+
+.machine-retired-list {
+  margin-top: 16px;
+  color: var(--yoke-muted);
+}
+
+.machine-retired-list summary {
+  cursor: pointer;
+  font-weight: 650;
+  padding: 10px 0;
+}
+
+.machine-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.machine-detail-card { padding: 16px; }
+.machine-detail-card h3 { margin: 0 0 12px; }
+
+.machine-detail-fact,
+.machine-harness-row,
+.machine-project-row {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.machine-detail-fact:last-child,
+.machine-harness-row:last-child,
+.machine-project-row:last-child { border-bottom: 0; }
+
+.machine-detail-fact span { color: var(--yoke-muted); }
+.machine-detail-fact strong { margin-left: auto; text-align: right; }
+
+.machine-harness-row { align-items: center; }
+.machine-harness-row > div { display: grid; margin-right: auto; }
+
+.machine-project-row { display: grid; }
+.machine-detail-muted { color: var(--yoke-muted); }
+
+.machine-access-select,
+.machine-access-input {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 7px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  background: var(--yoke-surface);
+  color: var(--yoke-ink);
+}
+
+@media (max-width: 760px) {
+  .machine-detail-grid { grid-template-columns: 1fr; }
+  .machine-roster-stats { grid-template-columns: 1fr; }
+}

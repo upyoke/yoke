@@ -1,7 +1,7 @@
-"""This machine's registry standing, reported (and repaired) by ``yoke status``.
+"""This machine's registry standing, read by ``yoke status``.
 
-``yoke status`` is one of the two connect-time paths, so it is where an
-asserted machine id becomes a registered one. A refusal lands in the status
+``yoke status`` compares the asserted machine id with durable registration.
+A refusal lands in the status
 block rather than failing the command — the operator asked what the state of
 this machine is, and "registration was refused, here is why" is that answer.
 """
@@ -11,14 +11,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config.machine_registration import register_this_machine
+from yoke_cli.config.machine_registration import show_this_machine
 
 
 def attach_machine_registry(
     report: dict[str, Any],
     config_path: Path,
 ) -> dict[str, Any]:
-    """Attach this machine's registry standing, registering it when reachable."""
+    """Attach this machine's registry standing without rotating its bearer."""
     from yoke_contracts.machine_config.runtime import machine_id as read_machine_id
 
     machine = read_machine_id(config_path)
@@ -36,7 +36,7 @@ def attach_machine_registry(
             "reason": "control plane not reachable from this status run",
         }
         return report
-    report["machine"] = register_this_machine(config_path)
+    report["machine"] = show_this_machine(config_path)
     return report
 
 

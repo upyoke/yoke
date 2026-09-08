@@ -167,8 +167,9 @@ test("message history leads with readable content and accessible receipts", asyn
   mounted.unmount();
 });
 
-test("launch and relay views explain unavailable machine capability", async (t) => {
+test("launch and machine roster explain unavailable machine capability", async (t) => {
   const handlers = {
+    "machine.list": () => ok({ machines: [], count: 0 }),
     "session_control.launch.list": () => ok({
       operational: [], operational_count: 0,
       history: [], history_matched_count: 0, next_cursor: null,
@@ -189,6 +190,12 @@ test("launch and relay views explain unavailable machine capability", async (t) 
   launch.mounted.unmount();
 
   const relay = await mountAt(t, "#/machines?project=1", {
+    "machine.list": () => ok({
+      machines: [{
+        machine_id: "machine-1", name: "studio", owner: "Ada", retired_at: null,
+      }],
+      count: 1,
+    }),
     "session_control.relay.list": () => ok({
       relays: [{
         relay_id: "relay-1", hostname: "studio", machine_id: "machine-1",
@@ -201,13 +208,13 @@ test("launch and relay views explain unavailable machine capability", async (t) 
   });
   const relayText = allNodes(relay.root).map((node) => node._textContent).join(" ");
   assert.equal(
-    byClass(relay.root, "session-relay-card")[0].getAttribute("data-relay-id"),
-    "relay-1",
+    byClass(relay.root, "machine-card")[0].getAttribute("data-machine-id"),
+    "machine-1",
   );
-  assert.ok(relayText.includes("relay state: inactive"));
+  assert.ok(relayText.includes("studio"));
+  assert.ok(relayText.includes("silent"));
   assert.equal(relayText.includes("poll cadence"), false);
-  assert.ok(relayText.includes("2026-08-23 04:30 UTC"));
-  assert.ok(relayText.includes("until this relay reconnects"));
+  assert.ok(relayText.includes("not installed on this machine"));
   relay.mounted.unmount();
 });
 

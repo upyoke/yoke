@@ -36,6 +36,8 @@ from yoke_harness.session_relay_health import (
 REPORT_RETRY_SECONDS = 1
 RELAY_REPORT_TIMEOUT_SECONDS = 10  # Reports are small control-plane writes.
 Dispatcher = Callable[..., Any]
+_REPORT_IDENTITY_FIELDS = ("relay_id", "machine_id", "job_kind", "job_id", "lease_id")
+_REPORT_REQUIRED_FIELDS = (*_REPORT_IDENTITY_FIELDS, "result")
 
 
 def _directory(state_dir: Path | None) -> Path:
@@ -47,8 +49,7 @@ def _directory(state_dir: Path | None) -> Path:
 
 def _report_path(payload: Mapping[str, object], state_dir: Path | None) -> Path:
     identity = "\0".join(
-        str(payload.get(name) or "")
-        for name in ("relay_id", "job_kind", "job_id", "lease_id")
+        str(payload.get(name) or "") for name in _REPORT_IDENTITY_FIELDS
     )
     return _directory(state_dir) / f"{sha256(identity.encode()).hexdigest()}.json"
 
@@ -56,14 +57,14 @@ def _report_path(payload: Mapping[str, object], state_dir: Path | None) -> Path:
 def _safe_payload(value: object) -> dict[str, object] | None:
     if not isinstance(value, Mapping):
         return None
-    required = ("relay_id", "job_kind", "job_id", "lease_id", "result")
     if any(
-        not isinstance(value.get(name), str) or not value.get(name) for name in required
+        not isinstance(value.get(name), str) or not value.get(name)
+        for name in _REPORT_REQUIRED_FIELDS
     ):
         return None
     if value["job_kind"] not in {"launch", "wake", "terminate", "evidence"}:
         return None
-    payload: dict[str, object] = {name: value[name] for name in required}
+    payload: dict[str, object] = {name: value[name] for name in _REPORT_REQUIRED_FIELDS}
     for name in ("native_id", "adapter_revision"):
         item = value.get(name)
         payload[name] = str(item)[:128] if isinstance(item, str) and item else None
