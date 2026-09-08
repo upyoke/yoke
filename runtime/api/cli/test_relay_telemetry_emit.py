@@ -36,12 +36,16 @@ def _capture_emits(monkeypatch) -> list[dict]:
     def _capture(**kwargs):
         sent.append(kwargs)
         return FunctionCallResponse(
-            success=True, function="events.emit", version="v1",
-            request_id="emit", result={"emitted": True},
+            success=True,
+            function="events.emit",
+            version="v1",
+            request_id="emit",
+            result={"emitted": True},
         )
 
     monkeypatch.setattr(
-        "yoke_cli.transport.dispatcher.call_dispatcher", _capture,
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        _capture,
     )
     return sent
 
@@ -53,23 +57,46 @@ def _project_context_is(monkeypatch, answer) -> None:
     )
 
 
-def _record(*, succeeded: bool) -> None:
+def _record(
+    *,
+    transport_delivered: bool,
+    application_succeeded: bool | None,
+) -> None:
     relay_telemetry.record(
-        function_id="items.detail.get", session_id="session-a", env="prod",
-        attempts=3, succeeded=succeeded,
-        failure_class="" if succeeded else "https_transport_failed",
+        function_id="items.detail.get",
+        session_id="session-a",
+        env="prod",
+        attempts=3,
+        transport_delivered=transport_delivered,
+        application_succeeded=application_succeeded,
+        failure_class=(
+            ""
+            if application_succeeded is True
+            else "item_not_found"
+            if transport_delivered
+            else "https_transport_failed"
+        ),
     )
 
 
-@pytest.mark.parametrize("succeeded", [True, False])
+@pytest.mark.parametrize(
+    ("transport_delivered", "application_succeeded"),
+    [(True, True), (True, False), (False, None)],
+)
 def test_the_emitted_payload_is_one_the_real_handler_accepts(
-    monkeypatch, tmp_path, succeeded,
+    monkeypatch,
+    tmp_path,
+    transport_delivered,
+    application_succeeded,
 ) -> None:
     """``events.emit`` checks kind, source type, and severity against closed
     vocabularies, so the payload goes in front of that handler rather than
     in front of a stub with no opinion about any of them."""
     sent = _capture_emits(monkeypatch)
-    _record(succeeded=succeeded)
+    _record(
+        transport_delivered=transport_delivered,
+        application_succeeded=application_succeeded,
+    )
     assert relay_telemetry.flush() == 1
 
     captured = tmp_path / "events.ndjson"
@@ -88,11 +115,22 @@ def test_the_emitted_payload_is_one_the_real_handler_accepts(
     envelope = json.loads(captured.read_text(encoding="utf-8").strip())
     assert envelope["event_name"] == (
         relay_telemetry.EVENT_RETRIED
-        if succeeded
+        if transport_delivered
         else relay_telemetry.EVENT_EXHAUSTED
     )
-    assert envelope["severity"] == ("INFO" if succeeded else "WARN")
+    assert envelope["severity"] == ("INFO" if transport_delivered else "WARN")
     assert envelope["source_type"] == "system"
+    context = envelope["context"]
+    assert context["transport_outcome"] == (
+        "delivered" if transport_delivered else "exhausted"
+    )
+    assert context["application_outcome"] == (
+        "succeeded"
+        if application_succeeded is True
+        else "failed"
+        if application_succeeded is False
+        else "not_reached"
+    )
 
 
 def test_the_project_named_is_the_one_the_record_is_sent_to(
@@ -102,7 +140,7 @@ def test_the_project_named_is_the_one_the_record_is_sent_to(
     universe the machine next reaches — routinely not the one that failed.
     Naming the project observed at failure time would name a stranger."""
     _project_context_is(monkeypatch, "universe-that-failed")
-    _record(succeeded=False)
+    _record(transport_delivered=False, application_succeeded=None)
 
     sent = _capture_emits(monkeypatch)
     _project_context_is(monkeypatch, "universe-receiving-it")
@@ -119,7 +157,7 @@ def test_an_unnameable_project_is_left_out_rather_than_guessed(
     of whichever project the guess happened to name."""
     sent = _capture_emits(monkeypatch)
     _project_context_is(monkeypatch, None)
-    _record(succeeded=False)
+    _record(transport_delivered=False, application_succeeded=None)
 
     assert relay_telemetry.flush() == 1
     assert "project" not in sent[0]["payload"]

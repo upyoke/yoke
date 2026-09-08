@@ -18,6 +18,8 @@ from yoke_cli.transport.bounded_http_open_policy import (
     open_bounded_request,
 )
 from yoke_cli.transport.https_relay_outcome import (
+    UNREACHABLE_DETAIL,
+    http_error_response,
     record_outcome,
     transport_error_response,
 )
@@ -27,6 +29,7 @@ from yoke_cli.transport.https_retry_policy import (
     connection_backoff_seconds,
     http_status_is_transient,
     should_retry_connection,
+    typed_failure_status_is_transient,
     write_retry_notice,
 )
 from yoke_cli.transport.https_engine_handshake import (
@@ -35,11 +38,9 @@ from yoke_cli.transport.https_engine_handshake import (
 )
 from yoke_cli.transport.https_response_policy import (
     HttpsResponsePolicyError,
-    adopt_boundary_error,
     collect_request_secrets,
     parse_typed_response,
     read_bounded_response,
-    safe_excerpt,
 )
 from yoke_cli.transport.https_urlopen import open_no_redirect
 from yoke_cli.transport.response_deadline_open import (
@@ -58,7 +59,6 @@ from yoke_contracts.machine_config.schema import (
 
 _DEFAULT_TIMEOUT_S = 30.0
 _RETRYABLE_RESPONSE_ERROR = "HTTPS function relay response exceeded the time limit"
-_UNREACHABLE = "could not reach the HTTPS function relay endpoint"
 _NETWORK_ERRORS = (
     urllib.error.URLError,
     TimeoutError,
@@ -152,8 +152,12 @@ def relay_https(
     visible later instead of being inferred from operator reports.
     """
     response, attempts = _relay_attempts(
-        request, connection, timeout_s=timeout_s,
-        handshake=handshake, max_attempts=max_attempts, sleep=sleep,
+        request,
+        connection,
+        timeout_s=timeout_s,
+        handshake=handshake,
+        max_attempts=max_attempts,
+        sleep=sleep,
     )
     record_outcome(request, response, env=connection.env, attempts=attempts)
     return response
@@ -176,7 +180,8 @@ def _relay_attempts(
         deadline = deadline_after(timeout_s)
     except ValueError:
         return _refuse(
-            request, connection,
+            request,
+            connection,
             "HTTPS function relay timeout must be positive and finite",
             sensitive_values=sensitive_values,
         ), 1
@@ -209,37 +214,51 @@ def _relay_attempts(
                 )
                 raw = read_bounded_response(resp, deadline=deadline)
         except urllib.error.HTTPError as exc:
-            # Decided from the status alone, before the body is touched: a
-            # 5xx is the box rather than an answer about this request, and
-            # reading it only to discard it would spend the response's one
-            # bounded read on a reply we are about to ask for again.
+            response, typed, response_error = http_error_response(
+                request,
+                connection.api_url,
+                exc,
+                deadline=deadline,
+                sensitive_values=sensitive_values,
+                handshake=handshake,
+            )
+            if response_error == _RETRYABLE_RESPONSE_ERROR and attempt + 1 < min(
+                RESPONSE_DEADLINE_ATTEMPTS, budget
+            ):
+                continue
+            if response_error is not None:
+                return response, attempt + 1
+            application_retryable = not typed or (
+                not response.success and typed_failure_status_is_transient(exc.code)
+            )
             if (
                 http_status_is_transient(getattr(exc, "code", None))
+                and application_retryable
                 and should_retry_connection(attempt, budget=budget)
             ):
                 backoff = connection_backoff_seconds(attempt)
                 write_retry_notice(f"server returned {exc.code}", attempt, backoff)
                 sleep(backoff)
                 continue
-            return _http_error_response(
-                request, connection, exc, deadline=deadline,
-                sensitive_values=sensitive_values, handshake=handshake,
-            ), attempt + 1
+            return response, attempt + 1
         except HttpsResponsePolicyError as exc:
-            if (
-                str(exc) == _RETRYABLE_RESPONSE_ERROR
-                and attempt + 1 < min(RESPONSE_DEADLINE_ATTEMPTS, budget)
+            if str(exc) == _RETRYABLE_RESPONSE_ERROR and attempt + 1 < min(
+                RESPONSE_DEADLINE_ATTEMPTS, budget
             ):
                 continue
             return _refuse(
-                request, connection, str(exc),
+                request,
+                connection,
+                str(exc),
                 sensitive_values=sensitive_values,
             ), attempt + 1
         except ResponseOpenDeadlineError:
             if attempt + 1 < min(RESPONSE_DEADLINE_ATTEMPTS, budget):
                 continue
             return _refuse(
-                request, connection, _RETRYABLE_RESPONSE_ERROR,
+                request,
+                connection,
+                _RETRYABLE_RESPONSE_ERROR,
                 sensitive_values=sensitive_values,
             ), attempt + 1
         except _NETWORK_ERRORS as exc:
@@ -249,17 +268,21 @@ def _relay_attempts(
                 sleep(backoff)
                 continue
             return _refuse(
-                request, connection, _UNREACHABLE, error=exc,
-                attempts=attempt + 1, sensitive_values=sensitive_values,
+                request,
+                connection,
+                UNREACHABLE_DETAIL,
+                error=exc,
+                attempts=attempt + 1,
+                sensitive_values=sensitive_values,
             ), attempt + 1
         break
     try:
-        return parse_typed_response(
-            raw, sensitive_values=sensitive_values
-        ), attempt + 1
+        return parse_typed_response(raw, sensitive_values=sensitive_values), attempt + 1
     except HttpsResponsePolicyError as exc:
         return _refuse(
-            request, connection, str(exc),
+            request,
+            connection,
+            str(exc),
             sensitive_values=sensitive_values,
         ), attempt + 1
 
@@ -282,44 +305,6 @@ def _open_function_relay(
         )
     except HttpOpenPolicyError as exc:
         raise HttpsResponsePolicyError(str(exc)) from exc
-
-
-def _http_error_response(
-    request: FunctionCallRequest,
-    connection: HttpsConnection,
-    exc: urllib.error.HTTPError,
-    *,
-    deadline: float,
-    sensitive_values: tuple[str, ...],
-    handshake: Optional[ServerHandshake] = None,
-) -> FunctionCallResponse:
-    observe_server_version(getattr(exc, "headers", None), sensitive_values, handshake)
-    try:
-        raw = read_bounded_response(exc, deadline=deadline)
-    except HttpsResponsePolicyError as read_error:
-        return _refuse(
-            request, connection, str(read_error),
-            sensitive_values=sensitive_values,
-        )
-    except _NETWORK_ERRORS:
-        return _refuse(
-            request, connection, _UNREACHABLE,
-            attempts=1, sensitive_values=sensitive_values,
-        )
-    try:
-        return parse_typed_response(raw, sensitive_values=sensitive_values)
-    except HttpsResponsePolicyError:
-        adopted = adopt_boundary_error(request, raw, sensitive_values=sensitive_values)
-        if adopted is not None:
-            return adopted
-        excerpt = safe_excerpt(raw, sensitive_values=sensitive_values)
-        detail = f": {excerpt}" if excerpt else ""
-        return _refuse(
-            request, connection,
-            f"{connection.functions_url} returned HTTP {exc.code} "
-            f"with a non-envelope body{detail}",
-            sensitive_values=sensitive_values,
-        )
 
 
 def _refuse(

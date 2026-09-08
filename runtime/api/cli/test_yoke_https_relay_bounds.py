@@ -112,9 +112,9 @@ def test_http_error_content_length_rejects_before_read(monkeypatch) -> None:
 def test_http_error_stream_is_bounded_without_content_length(
     monkeypatch,
 ) -> None:
-    # A gateway status is retried, and every attempt gets its own response
-    # off the wire, so the fixture mints one per raise the way the transport
-    # would receive them.
+    # An oversized error body is a deterministic response-policy refusal, so
+    # it stops after one bounded read instead of spending the transport retry
+    # budget on the same invalid response shape.
     streams: list[FakeResponse] = []
 
     def reject(request, timeout=None):
@@ -134,13 +134,14 @@ def test_http_error_stream_is_bounded_without_content_length(
     monkeypatch.setattr(relay_module, "open_no_redirect", reject)
 
     response = relay_https(
-        sensitive_request(), CONNECTION, sleep=lambda _seconds: None,
+        sensitive_request(),
+        CONNECTION,
+        sleep=lambda _seconds: None,
     )
 
     _assert_transport_failure(response, "exceeded the size limit")
-    # Only the attempt that stopped retrying reads the body at all.
+    assert len(streams) == 1
     assert streams[-1].read_sizes == [FUNCTION_RESPONSE_LIMIT_BYTES + 1]
-    assert all(stream.read_sizes == [] for stream in streams[:-1])
 
 
 def test_exact_declared_length_keeps_ordinary_envelope_behavior(

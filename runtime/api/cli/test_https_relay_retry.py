@@ -54,7 +54,9 @@ def _relay(monkeypatch, openers, sleeps):
 
     monkeypatch.setattr(relay_module, "_open_function_relay", _open)
     response = relay_module.relay_https(
-        sensitive_request(), CONNECTION, sleep=sleeps.append,
+        sensitive_request(),
+        CONNECTION,
+        sleep=sleeps.append,
     )
     return response, calls["count"]
 
@@ -86,7 +88,8 @@ def test_a_dropped_connection_is_retried_until_it_lands(monkeypatch) -> None:
     ids=["reset", "timeout", "name-resolution", "protocol"],
 )
 def test_every_connection_level_failure_spends_the_whole_budget(
-    monkeypatch, failure,
+    monkeypatch,
+    failure,
 ) -> None:
     sleeps: list[float] = []
     response, opens = _relay(monkeypatch, [failure], sleeps)
@@ -131,42 +134,83 @@ def test_a_rejection_about_this_request_is_never_retried(monkeypatch) -> None:
     for status in (400, 401, 403, 422):
         sleeps: list[float] = []
         response, opens = _relay(
-            monkeypatch, [_http_error(status, b"nope")], sleeps,
+            monkeypatch,
+            [_http_error(status, b"nope")],
+            sleeps,
         )
         assert opens == 1, status
         assert sleeps == [], status
         assert response.success is False
 
 
-def test_a_five_hundred_carrying_a_real_envelope_still_wins(
-    monkeypatch,
-) -> None:
-    """Retryability is read from the status, before the body is touched.
-
-    Reading first to find out whether it was worth retrying would spend the
-    response's one bounded read on a reply about to be asked for again. So a
-    5xx that does carry a real envelope is retried and only parsed once the
-    budget runs out — the server's answer still wins, it just arrives after
-    the attempts a gateway page would have needed.
-    """
+def test_a_typed_deterministic_five_hundred_is_not_retried(monkeypatch) -> None:
     sleeps: list[float] = []
     body = envelope(
         success=False,
-        error={"code": "handler_exploded", "message": "boom"},
+        error={"code": "handler_exception", "message": "boom"},
     )
     response, opens = _relay(monkeypatch, [_http_error(500, body)], sleeps)
 
-    assert opens == https_retry_policy.CONNECTION_ATTEMPTS
+    assert opens == 1
+    assert sleeps == []
     assert response.error is not None
-    assert response.error.code == "handler_exploded"
+    assert response.error.code == "handler_exception"
+
+
+def test_typed_resource_unavailability_is_retried_until_recovery(
+    monkeypatch,
+) -> None:
+    sleeps: list[float] = []
+    unavailable = envelope(
+        success=False,
+        error={"code": "permission_check_unavailable", "message": "offline"},
+    )
+    response, opens = _relay(
+        monkeypatch,
+        [_http_error(503, unavailable), FakeResponse(envelope(result={"ok": True}))],
+        sleeps,
+    )
+
+    assert response.success is True
+    assert opens == 2
+    assert sleeps == [https_retry_policy.connection_backoff_seconds(0)]
+
+
+def test_typed_resource_unavailability_exhausts_the_bounded_budget(
+    monkeypatch,
+) -> None:
+    sleeps: list[float] = []
+    unavailable = envelope(
+        success=False,
+        error={"code": "permission_check_unavailable", "message": "offline"},
+    )
+    response, opens = _relay(
+        monkeypatch,
+        [
+            _http_error(503, unavailable)
+            for _attempt in range(https_retry_policy.CONNECTION_ATTEMPTS)
+        ],
+        sleeps,
+    )
+
+    assert opens == https_retry_policy.CONNECTION_ATTEMPTS
+    assert len(sleeps) == https_retry_policy.CONNECTION_ATTEMPTS - 1
+    assert response.error is not None
+    assert response.error.code == "permission_check_unavailable"
 
 
 def test_the_refusal_stops_blaming_the_operators_configuration(
     monkeypatch,
 ) -> None:
+    monkeypatch.setattr(
+        "yoke_cli.transport.https_relay_outcome.sandbox_recovery",
+        lambda: "",
+    )
     sleeps: list[float] = []
     response, _opens = _relay(
-        monkeypatch, [ConnectionResetError("reset")], sleeps,
+        monkeypatch,
+        [ConnectionResetError("reset")],
+        sleeps,
     )
 
     assert response.error is not None
@@ -229,7 +273,10 @@ def test_a_retrying_relay_says_so_on_every_attempt(monkeypatch, capsys) -> None:
 def test_the_retry_notice_names_the_wait_it_is_about_to_take(capsys) -> None:
     instant = datetime(2026, 9, 7, 18, 26, 17, tzinfo=timezone.utc)
     https_retry_policy.write_retry_notice(
-        "relay unreachable", 2, 6.0, clock=lambda: instant,
+        "relay unreachable",
+        2,
+        6.0,
+        clock=lambda: instant,
     )
 
     assert capsys.readouterr().err.strip() == (

@@ -50,7 +50,8 @@ def record(
     session_id: str,
     env: str,
     attempts: int,
-    succeeded: bool,
+    transport_delivered: bool,
+    application_succeeded: bool | None,
     failure_class: str,
 ) -> None:
     """Append one relay outcome. Never raises — telemetry is not the work."""
@@ -61,7 +62,8 @@ def record(
                 "session_id": session_id,
                 "env": env,
                 "attempts": attempts,
-                "succeeded": succeeded,
+                "transport_delivered": transport_delivered,
+                "application_succeeded": application_succeeded,
                 "failure_class": failure_class,
             }
         ]
@@ -187,8 +189,9 @@ def _emit(entry: Dict[str, Any], *, project: str) -> bool:
     from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
     from yoke_contracts.api.function_call import TargetRef
 
-    succeeded = bool(entry.get("succeeded"))
-    name = EVENT_RETRIED if succeeded else EVENT_EXHAUSTED
+    transport_delivered = entry.get("transport_delivered") is True
+    application_succeeded = entry.get("application_succeeded")
+    name = EVENT_RETRIED if transport_delivered else EVENT_EXHAUSTED
     session_id = str(entry.get("session_id") or "")
     payload: Dict[str, Any] = {
         "name": name,
@@ -199,12 +202,20 @@ def _emit(entry: Dict[str, Any], *, project: str) -> bool:
         # curated registry is their owner_service, which is a different
         # field; every cli-service event is a system event, and so is this.
         "source_type": "system",
-        "severity": "INFO" if succeeded else "WARN",
-        "outcome": "completed" if succeeded else "failed",
+        "severity": "INFO" if transport_delivered else "WARN",
+        "outcome": "completed" if transport_delivered else "failed",
         "context": {
             "function": str(entry.get("function") or ""),
             "env": str(entry.get("env") or ""),
             "attempts": entry.get("attempts"),
+            "transport_outcome": ("delivered" if transport_delivered else "exhausted"),
+            "application_outcome": (
+                "succeeded"
+                if application_succeeded is True
+                else "failed"
+                if application_succeeded is False
+                else "not_reached"
+            ),
             "failure_class": str(entry.get("failure_class") or ""),
         },
     }

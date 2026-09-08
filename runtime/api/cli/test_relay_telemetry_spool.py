@@ -56,11 +56,37 @@ def _spooled() -> list[dict]:
     ]
 
 
+def _record_telemetry(
+    *,
+    transport_delivered: bool,
+    application_succeeded: bool | None,
+    function_id: str = "items.detail.get",
+) -> None:
+    relay_telemetry.record(
+        function_id=function_id,
+        session_id="session-a",
+        env="prod",
+        attempts=3,
+        transport_delivered=transport_delivered,
+        application_succeeded=application_succeeded,
+        failure_class=(
+            ""
+            if application_succeeded is True
+            else "item_not_found"
+            if transport_delivered
+            else "https_transport_failed"
+        ),
+    )
+
+
 def test_a_first_try_success_records_nothing(monkeypatch) -> None:
     monkeypatch.setattr(relay_telemetry, "flush", lambda: 0)
 
     https_relay_outcome.record_outcome(
-        sensitive_request(), _response(), env="prod", attempts=1,
+        sensitive_request(),
+        _response(),
+        env="prod",
+        attempts=1,
     )
 
     assert _spooled() == []
@@ -70,11 +96,15 @@ def test_a_call_that_needed_another_attempt_is_counted(monkeypatch) -> None:
     monkeypatch.setattr(relay_telemetry, "flush", lambda: 0)
 
     https_relay_outcome.record_outcome(
-        sensitive_request(), _response(), env="prod", attempts=3,
+        sensitive_request(),
+        _response(),
+        env="prod",
+        attempts=3,
     )
 
     (entry,) = _spooled()
-    assert entry["succeeded"] is True
+    assert entry["transport_delivered"] is True
+    assert entry["application_succeeded"] is True
     assert entry["attempts"] == 3
     assert entry["env"] == "prod"
     # The harness is resolved by joining this to the session row, so nothing
@@ -85,7 +115,9 @@ def test_a_call_that_needed_another_attempt_is_counted(monkeypatch) -> None:
 def test_an_exhausted_call_is_counted_and_not_flushed(monkeypatch) -> None:
     flushed: list[int] = []
     monkeypatch.setattr(
-        relay_telemetry, "flush", lambda: flushed.append(1) or 0,
+        relay_telemetry,
+        "flush",
+        lambda: flushed.append(1) or 0,
     )
 
     https_relay_outcome.record_outcome(
@@ -96,7 +128,8 @@ def test_an_exhausted_call_is_counted_and_not_flushed(monkeypatch) -> None:
     )
 
     (entry,) = _spooled()
-    assert entry["succeeded"] is False
+    assert entry["transport_delivered"] is False
+    assert entry["application_succeeded"] is None
     assert entry["failure_class"] == https_relay_outcome.TRANSPORT_FAILED_CODE
     # Nothing can be sent through a relay that just refused to answer.
     assert flushed == []
@@ -107,11 +140,31 @@ def test_a_handler_failure_is_not_a_transport_failure(monkeypatch) -> None:
     monkeypatch.setattr(relay_telemetry, "flush", lambda: 0)
 
     https_relay_outcome.record_outcome(
-        sensitive_request(), _response(code="item_not_found"),
-        env="prod", attempts=1,
+        sensitive_request(),
+        _response(code="item_not_found"),
+        env="prod",
+        attempts=1,
     )
 
     assert _spooled() == []
+
+
+def test_transport_recovery_records_the_final_application_failure(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(relay_telemetry, "flush", lambda: 0)
+
+    https_relay_outcome.record_outcome(
+        sensitive_request(),
+        _response(code="item_not_found"),
+        env="prod",
+        attempts=2,
+    )
+
+    (entry,) = _spooled()
+    assert entry["transport_delivered"] is True
+    assert entry["application_succeeded"] is False
+    assert entry["failure_class"] == "item_not_found"
 
 
 def test_the_next_call_that_lands_drains_the_spool(monkeypatch) -> None:
@@ -120,21 +173,25 @@ def test_the_next_call_that_lands_drains_the_spool(monkeypatch) -> None:
     def _capture(**kwargs):
         sent.append(kwargs)
         return FunctionCallResponse(
-            success=True, function="events.emit", version="v1",
-            request_id="emit", result={"emitted": True},
+            success=True,
+            function="events.emit",
+            version="v1",
+            request_id="emit",
+            result={"emitted": True},
         )
 
-    relay_telemetry.record(
-        function_id="items.detail.get", session_id="session-a", env="prod",
-        attempts=3, succeeded=True, failure_class="",
+    _record_telemetry(
+        transport_delivered=True,
+        application_succeeded=True,
     )
-    relay_telemetry.record(
-        function_id="lifecycle.transition.execute", session_id="session-a",
-        env="prod", attempts=3, succeeded=False,
-        failure_class="https_transport_failed",
+    _record_telemetry(
+        function_id="lifecycle.transition.execute",
+        transport_delivered=False,
+        application_succeeded=None,
     )
     monkeypatch.setattr(
-        "yoke_cli.transport.dispatcher.call_dispatcher", _capture,
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        _capture,
     )
 
     assert relay_telemetry.flush() == 2
@@ -150,9 +207,9 @@ def test_the_next_call_that_lands_drains_the_spool(monkeypatch) -> None:
 
 def test_a_refused_emit_leaves_the_record_spooled(monkeypatch) -> None:
     """The spool is worth having exactly when delivery is not working."""
-    relay_telemetry.record(
-        function_id="items.detail.get", session_id="session-a", env="prod",
-        attempts=3, succeeded=False, failure_class="https_transport_failed",
+    _record_telemetry(
+        transport_delivered=False,
+        application_succeeded=None,
     )
     monkeypatch.setattr(
         "yoke_cli.transport.dispatcher.call_dispatcher",
@@ -171,9 +228,10 @@ def test_a_flush_that_starts_refusing_keeps_what_it_did_not_send(
 ) -> None:
     """Only a delivered record leaves the spool; the rest waits."""
     for name in ("first", "second", "third"):
-        relay_telemetry.record(
-            function_id=name, session_id="session-a", env="prod",
-            attempts=3, succeeded=True, failure_class="",
+        _record_telemetry(
+            function_id=name,
+            transport_delivered=True,
+            application_succeeded=True,
         )
     calls = {"count": 0}
 
@@ -182,7 +240,8 @@ def test_a_flush_that_starts_refusing_keeps_what_it_did_not_send(
         return _emit_response(success=calls["count"] == 1)
 
     monkeypatch.setattr(
-        "yoke_cli.transport.dispatcher.call_dispatcher", _one_then_refuse,
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        _one_then_refuse,
     )
 
     assert relay_telemetry.flush() == 1
@@ -202,16 +261,20 @@ def test_flushing_does_not_flush_itself(monkeypatch) -> None:
         relay_telemetry.flush()
         depth["now"] -= 1
         return FunctionCallResponse(
-            success=True, function="events.emit", version="v1",
-            request_id="emit", result={"emitted": True},
+            success=True,
+            function="events.emit",
+            version="v1",
+            request_id="emit",
+            result={"emitted": True},
         )
 
-    relay_telemetry.record(
-        function_id="items.detail.get", session_id="session-a", env="prod",
-        attempts=2, succeeded=True, failure_class="",
+    _record_telemetry(
+        transport_delivered=True,
+        application_succeeded=True,
     )
     monkeypatch.setattr(
-        "yoke_cli.transport.dispatcher.call_dispatcher", _reentrant,
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        _reentrant,
     )
 
     assert relay_telemetry.flush() == 1
@@ -221,10 +284,10 @@ def test_flushing_does_not_flush_itself(monkeypatch) -> None:
 def test_the_spool_stops_growing_when_nothing_ever_lands() -> None:
     """A machine that never reconnects keeps a bounded file, not a leak."""
     for index in range(relay_telemetry.SPOOL_MAX_RECORDS + 25):
-        relay_telemetry.record(
-            function_id=f"items.get.{index}", session_id="session-a",
-            env="prod", attempts=3, succeeded=False,
-            failure_class="https_transport_failed",
+        _record_telemetry(
+            function_id=f"items.get.{index}",
+            transport_delivered=False,
+            application_succeeded=None,
         )
 
     assert len(_spooled()) == relay_telemetry.SPOOL_MAX_RECORDS
@@ -235,10 +298,10 @@ def test_records_coming_back_from_a_refused_flush_stay_bounded(
 ) -> None:
     """Returning records to the spool is capped like writing new ones."""
     for index in range(relay_telemetry.SPOOL_MAX_RECORDS):
-        relay_telemetry.record(
-            function_id=f"items.get.{index}", session_id="session-a",
-            env="prod", attempts=3, succeeded=False,
-            failure_class="https_transport_failed",
+        _record_telemetry(
+            function_id=f"items.get.{index}",
+            transport_delivered=False,
+            application_succeeded=None,
         )
     monkeypatch.setattr(
         "yoke_cli.transport.dispatcher.call_dispatcher",
@@ -255,9 +318,9 @@ def test_an_unreadable_spool_never_breaks_the_call(monkeypatch) -> None:
 
     monkeypatch.setattr(relay_telemetry, "spool_path", _explode)
 
-    relay_telemetry.record(
-        function_id="items.detail.get", session_id="session-a", env="prod",
-        attempts=3, succeeded=True, failure_class="",
+    _record_telemetry(
+        transport_delivered=True,
+        application_succeeded=True,
     )
     assert relay_telemetry.drain() == []
     assert relay_telemetry.flush() == 0
