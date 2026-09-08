@@ -1,12 +1,10 @@
 """Shared QA artifact capture helpers.
 
-Owns the machine-local CAPTURE side of QA artifacts: the scratch-backed
-directory the browser daemon writes screenshots into, and run metadata
-assembly. Capture scratch is non-durable by design — durability is
-opt-in at the QA-evidence boundary, where the recorded row carries a
-typed handle (:mod:`yoke_core.domain.qa_artifact_handle`) naming where
-the bytes durably live (``s3``) or explicitly declaring machine-locality
-(``local``).
+Owns machine-local paths for QA artifacts: the scratch-backed directory
+capture processes write into and the permanent application-data directory
+used when a project has no configured S3 artifact store. Submitted evidence
+always crosses from capture scratch into S3 or the permanent directory before
+its database row is recorded.
 
 There is deliberately no "resolve a stored path against this process's
 scratch root" helper anymore: stored references are handles, and a
@@ -18,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from yoke_core.domain import project_scratch_dir
+from yoke_core.domain import machine_config, project_scratch_dir
 from yoke_core.domain.qa_artifact_handle import (
     QA_ARTIFACT_STORAGE_KIND,
     safe_segment,
@@ -63,6 +61,45 @@ def artifact_file_path(
     )
 
 
+def permanent_artifact_directory(
+    project: str,
+    subject_id: int | str,
+    run_id: int,
+    *,
+    create: bool = True,
+) -> Path:
+    """Return the server's permanent local directory for one QA run."""
+
+    path = (
+        machine_config.yoke_home()
+        / "artifacts"
+        / safe_segment(project)
+        / safe_segment(str(subject_id))
+        / str(int(run_id))
+    )
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def permanent_artifact_file_path(
+    project: str,
+    subject_id: int | str,
+    run_id: int,
+    filename: str,
+    *,
+    create_parent: bool = True,
+) -> Path:
+    """Return one path in the server's permanent local evidence tree."""
+
+    return permanent_artifact_directory(
+        project,
+        subject_id,
+        run_id,
+        create=create_parent,
+    ) / safe_segment(filename)
+
+
 def is_sanctioned_artifact_path(
     path: str | Path,
     project: str,
@@ -95,6 +132,24 @@ def is_sanctioned_artifact_path(
         and parts[6] == safe_segment(str(subject_id))
         and parts[7] == str(int(run_id))
     )
+
+
+def is_permanent_artifact_path(
+    path: str | Path,
+    project: str,
+    subject_id: int | str,
+    run_id: int,
+) -> bool:
+    """Return whether *path* belongs to the permanent local evidence tree."""
+
+    candidate = Path(path).expanduser().resolve(strict=False)
+    expected = permanent_artifact_directory(
+        project,
+        subject_id,
+        run_id,
+        create=False,
+    ).resolve(strict=False)
+    return expected == candidate or expected in candidate.parents
 
 
 def case_artifact_subject(case: dict[str, Any]) -> int | str:
@@ -145,12 +200,10 @@ def is_server_evidence_path(
 ) -> bool:
     """Return whether THIS machine can address *path* as the run's evidence.
 
-    Readable evidence lives in the run's canonical artifact tree — the
-    directory this process captures into, or any session's canonical tree
-    for the same run — or inside the project's own checkout, where
-    repo-committed baselines live. A path outside both names some other
-    machine's disk: a client, or a QA test host whose home is reset between
-    missions, where the bytes vanish while the artifact row survives.
+    Readable evidence lives in the permanent application-data tree, a legacy
+    scratch tree whose still-present handles remain readable, or the project's
+    checkout where repo-committed baselines live. A path outside those roots
+    names some other machine's disk and is not durable server evidence.
 
     Both the evidence reader and the artifact writer decide locality with
     this one predicate, so a handle accepted at record time is a handle the
@@ -160,6 +213,8 @@ def is_server_evidence_path(
     candidate = Path(path).expanduser()
     if not candidate.is_absolute():
         return False
+    if is_permanent_artifact_path(candidate, project, subject_id, run_id):
+        return True
     if is_sanctioned_artifact_path(candidate, project, subject_id, run_id):
         return True
     roots = [artifact_directory(project, subject_id, run_id, create=False)]

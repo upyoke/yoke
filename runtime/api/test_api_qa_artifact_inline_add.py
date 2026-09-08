@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
+import shutil
 import struct
+import urllib.error
 import zlib
 from unittest.mock import patch
 
@@ -16,7 +19,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import project_scratch_dir
+from yoke_core.domain import machine_config, project_scratch_dir
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_artifact_read import (
     MAX_INLINE_BYTES,
@@ -24,6 +27,7 @@ from yoke_core.domain.handlers.qa_artifact_read import (
 )
 from yoke_core.domain.handlers.qa_browser_writes import handle_qa_run_add
 from yoke_core.domain.qa_artifact_handle import parse_handle
+from yoke_core.domain.s3_presign import AwsCredentials
 
 
 def _png_1x1() -> bytes:
@@ -39,6 +43,16 @@ def _png_1x1() -> bytes:
         + chunk(b"IDAT", raw)
         + chunk(b"IEND", b"")
     )
+
+
+class _UploadResponse(io.BytesIO):
+    status = 200
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
 
 
 def _request(payload) -> FunctionCallRequest:
@@ -119,7 +133,7 @@ def test_oversize_inline_content_names_the_reader_limit() -> None:
     with test_database() as conn:
         run_id = _seed_run(conn)
         with patch(
-            "yoke_core.domain.handlers.qa_artifact_read.MAX_INLINE_BYTES",
+            "yoke_core.domain.qa_artifact_storage.MAX_ARTIFACT_BYTES",
             8,
         ):
             outcome = handle_qa_artifact_add(
@@ -139,6 +153,103 @@ def test_oversize_inline_content_names_the_reader_limit() -> None:
     assert "10 bytes" in outcome.error.message
     assert "limit is 8" in outcome.error.message
     assert MAX_INLINE_BYTES == 20 * 1024 * 1024
+
+
+def test_configured_s3_receives_bytes_before_the_row_is_recorded() -> None:
+    seen = {}
+
+    def upload(request, timeout=None):
+        seen["body"] = request.data
+        seen["content_type"] = request.get_header("Content-type")
+        return _UploadResponse()
+
+    with test_database() as conn:
+        run_id = _seed_run(conn)
+        with (
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_presign."
+                "resolve_artifacts_bucket",
+                return_value=("prod", "project-artifacts", None),
+            ),
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_presign._aws_region",
+                return_value="us-east-1",
+            ),
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_presign."
+                "_capability_credentials",
+                return_value=AwsCredentials("access", "secret"),
+            ),
+            patch(
+                "yoke_core.domain.s3_presign.presign_s3_url",
+                return_value="https://project-artifacts.s3.amazonaws.com/key",
+            ),
+            patch("urllib.request.urlopen", side_effect=upload),
+        ):
+            outcome = handle_qa_artifact_add(
+                _request(
+                    {
+                        "run_id": run_id,
+                        "artifact_type": "screenshot",
+                        "content_type": "image/png",
+                        "content_base64": base64.b64encode(b"PNG").decode(),
+                        "filename": "home.png",
+                    }
+                )
+            )
+        assert outcome.primary_success, outcome.error
+        row = conn.execute(
+            "SELECT artifact_handle FROM qa_artifacts WHERE id = %s",
+            (outcome.result_payload["qa_artifact_id"],),
+        ).fetchone()
+    handle = json.loads(row[0])
+    assert handle["backend"] == "s3"
+    assert handle["bucket"] == "project-artifacts"
+    assert seen == {"body": b"PNG", "content_type": "image/png"}
+
+
+def test_configured_s3_upload_failure_has_no_local_fallback() -> None:
+    with test_database() as conn:
+        run_id = _seed_run(conn)
+        with (
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_presign."
+                "resolve_artifacts_bucket",
+                return_value=("prod", "project-artifacts", None),
+            ),
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_presign._aws_region",
+                return_value="us-east-1",
+            ),
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_presign."
+                "_capability_credentials",
+                return_value=AwsCredentials("access", "secret"),
+            ),
+            patch(
+                "yoke_core.domain.s3_presign.presign_s3_url",
+                return_value="https://project-artifacts.s3.amazonaws.com/key",
+            ),
+            patch(
+                "urllib.request.urlopen",
+                side_effect=urllib.error.URLError("connection refused"),
+            ),
+        ):
+            outcome = handle_qa_artifact_add(
+                _request(
+                    {
+                        "run_id": run_id,
+                        "artifact_type": "screenshot",
+                        "content_base64": base64.b64encode(b"PNG").decode(),
+                        "filename": "home.png",
+                    }
+                )
+            )
+        count = conn.execute("SELECT COUNT(*) FROM qa_artifacts").fetchone()[0]
+    assert not outcome.primary_success
+    assert outcome.error.code == "s3_upload_failed"
+    assert "connection refused" in outcome.error.message
+    assert count == 0
 
 
 def test_unsafe_filename_is_payload_invalid() -> None:
@@ -165,6 +276,7 @@ def test_inline_png_round_trips_through_authorized_read(
 ) -> None:
     png = _png_1x1()
     monkeypatch.setenv(project_scratch_dir.ENV_KEY, str(tmp_path / "scratch"))
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "capture-session")
     monkeypatch.setenv("YOKE_RUN_ID", "capture-run")
     with test_database() as conn:
@@ -188,6 +300,8 @@ def test_inline_png_round_trips_through_authorized_read(
         ).fetchone()
         handle = parse_handle(row[0])
         assert handle["backend"] == "local"
+        assert str(tmp_path / "machine-home" / "artifacts") in handle["path"]
+        shutil.rmtree(tmp_path / "scratch", ignore_errors=True)
         read_outcome = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
         wrong_owner = handle_qa_artifact_read(artifact_read_request(999, artifact_id))
     assert read_outcome.primary_success, read_outcome.error
@@ -197,23 +311,27 @@ def test_inline_png_round_trips_through_authorized_read(
     assert wrong_owner.error.code == "target_invalid"
 
 
-def test_existing_handle_add_still_records_the_supplied_handle() -> None:
+def test_existing_s3_handle_add_still_records_the_authorized_handle() -> None:
     with test_database() as conn:
         run_id = _seed_run(conn)
-        outcome = handle_qa_artifact_add(
-            _request(
-                {
-                    "run_id": run_id,
-                    "artifact_type": "screenshot",
-                    "content_type": "image/png",
-                    "artifact_handle": {
-                        "backend": "s3",
-                        "bucket": "p-prod-artifacts",
-                        "key": "qa-artifacts/p/42/1/home.png",
-                    },
-                }
-            ),
-        )
+        with patch(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            return_value=("prod", "p-prod-artifacts", None),
+        ):
+            outcome = handle_qa_artifact_add(
+                _request(
+                    {
+                        "run_id": run_id,
+                        "artifact_type": "screenshot",
+                        "content_type": "image/png",
+                        "artifact_handle": {
+                            "backend": "s3",
+                            "bucket": "p-prod-artifacts",
+                            "key": "qa-artifacts/yoke/42/1/home.png",
+                        },
+                    }
+                ),
+            )
         assert outcome.primary_success, outcome.error
         row = conn.execute(
             "SELECT artifact_handle FROM qa_artifacts WHERE id = %s",

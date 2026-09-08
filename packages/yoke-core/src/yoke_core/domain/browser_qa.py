@@ -57,12 +57,13 @@ from yoke_core.domain.browser_qa_freshness import (
 )
 from yoke_core.domain.browser_qa_steps import (
     _SCREENSHOT_ACTIONS,
+    QaArtifactWriteError,
     _complete_run,
-    _durable_artifact_handle,
     _execute_step,
     _is_screenshot_step,
     _presign_artifact,
     _record_artifact,
+    _record_artifact_file,
     _record_run,
     _upload_artifact,
 )
@@ -91,9 +92,10 @@ __all__ = [
     "_record_run",
     "_complete_run",
     "_record_artifact",
+    "_record_artifact_file",
     "_presign_artifact",
     "_upload_artifact",
-    "_durable_artifact_handle",
+    "QaArtifactWriteError",
     "_execute_step",
     "_is_screenshot_step",
     "_collect_daemon_diagnostics",

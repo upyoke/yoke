@@ -11,9 +11,10 @@ from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.qa_artifact_storage import MAX_ARTIFACT_BYTES
 
 READ_EXPIRES_S = 300
-MAX_INLINE_BYTES = 20 * 1024 * 1024
+MAX_INLINE_BYTES = MAX_ARTIFACT_BYTES
 
 
 class QaArtifactReadRequest(BaseModel):
@@ -103,23 +104,68 @@ def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]
         resolve_artifacts_bucket,
     )
     from yoke_core.domain.s3_presign import presign_s3_url
-
-    configured = resolve_artifacts_bucket(
-        conn,
-        int(row["project_id"]),
-        row["target_env"],
+    from yoke_core.domain.qa_artifact_broker import (
+        ArtifactBrokerError,
+        broker_config,
+        presign_with_broker,
     )
+    from yoke_core.domain.qa_artifact_handle import build_artifact_key
+    from yoke_core.domain.qa_artifacts import case_artifact_subject
+
+    try:
+        configured = resolve_artifacts_bucket(
+            conn,
+            int(row["project_id"]),
+            row["target_env"],
+        )
+        broker = broker_config()
+    except ArtifactBrokerError as exc:
+        return {}, _error(exc.code, str(exc))
+    except ValueError as exc:
+        return {}, _error("s3_configuration_invalid", str(exc))
     if configured is None or configured[1] != str(handle["bucket"]):
         return {
             "disposition": "evidence_not_portable",
             "detail": "the recorded object belongs to a different artifact store",
         }, None
+    if broker is not None:
+        filename = str(handle["key"]).rsplit("/", 1)[-1]
+        subject = case_artifact_subject(dict(row))
+        expected = build_artifact_key(
+            str(row["project"]),
+            subject,
+            int(row["run_id"]),
+            filename,
+            storage_prefix=broker.prefix,
+        )
+        if str(handle["key"]) != expected:
+            return {
+                "disposition": "evidence_not_portable",
+                "detail": "the recorded object is outside this tenant's store",
+            }, None
+        try:
+            signed = presign_with_broker(
+                broker,
+                operation="get",
+                project=str(row["project"]),
+                subject=subject,
+                run_id=int(row["run_id"]),
+                filename=filename,
+            )
+        except ArtifactBrokerError as exc:
+            return {}, _error(exc.code, str(exc))
+        return {
+            "disposition": "ready",
+            "download_url": signed.url,
+            "expires_in_s": signed.expires_in,
+        }, None
     region = _aws_region(conn, int(row["project_id"]))
     credentials = _capability_credentials(str(row["project"]))
     if not region or credentials is None:
         return {}, _error(
-            "s3_not_configured",
-            "the project artifact store cannot mint a download URL",
+            "s3_configuration_invalid",
+            "the configured project artifact store cannot mint a download "
+            "URL because its aws-admin region or credentials are unavailable",
         )
     return {
         "disposition": "ready",

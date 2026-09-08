@@ -29,12 +29,23 @@ def _conn(db_path: str):
 class TestArtifactAdd:
     """cmd_artifact_add: insert artifacts."""
 
+    def test_add_artifact_without_run_cannot_ingest_local_handle(self, db_path, capsys):
+        with pytest.raises(SystemExit):
+            qa.cmd_artifact_add(
+                db_path=db_path,
+                artifact_type="screenshot",
+                content_type="image/png",
+                artifact_handle=json.dumps(
+                    {"backend": "local", "path": "/tmp/shot.png"}
+                ),
+            )
+        assert "requires a QA run owner" in capsys.readouterr().err
+
     def test_add_artifact(self, db_path, capsys):
         art_id = qa.cmd_artifact_add(
             db_path=db_path,
             artifact_type="screenshot",
             content_type="image/png",
-            artifact_handle=json.dumps({"backend": "local", "path": "/tmp/shot.png"}),
         )
         assert art_id >= 1
 
@@ -63,7 +74,7 @@ class TestArtifactAdd:
         conn.close()
         assert json.loads(row[0])["route"] == "/"
 
-    def test_add_artifact_with_run_id(self, db_path, capsys):
+    def test_add_artifact_with_run_id(self, db_path, capsys, tmp_path, monkeypatch):
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
@@ -78,12 +89,19 @@ class TestArtifactAdd:
             verdict="pass",
         )
         capsys.readouterr()
+        source = tmp_path / "test.log"
+        source.write_text("evidence", encoding="utf-8")
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            lambda *_args: None,
+        )
         art_id = qa.cmd_artifact_add(
             db_path=db_path,
             run_id=run_id,
             artifact_type="log",
             content_type="text/plain",
-            artifact_handle=json.dumps({"backend": "local", "path": "/tmp/test.log"}),
+            artifact_handle=json.dumps({"backend": "local", "path": str(source)}),
         )
         conn = _conn(db_path)
         row = conn.execute(
@@ -123,7 +141,7 @@ class TestArtifactList:
         lines = qa.cmd_artifact_list(db_path=db_path, run_id=run_id)
         assert len(lines) == 1
 
-    def test_list_by_item_id(self, db_path, capsys):
+    def test_list_by_item_id(self, db_path, capsys, tmp_path, monkeypatch):
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
@@ -150,6 +168,15 @@ class TestArtifactList:
             qa_kind="smoke",
             verdict="pass",
         )
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            lambda *_args: None,
+        )
+        one = tmp_path / "one.png"
+        two = tmp_path / "two.png"
+        one.write_bytes(b"one")
+        two.write_bytes(b"two")
         qa.cmd_artifact_add(
             db_path=db_path,
             run_id=run_id,
@@ -157,7 +184,7 @@ class TestArtifactList:
             artifact_handle=json.dumps(
                 {
                     "backend": "local",
-                    "path": "externalwebapp/qa-artifacts/100/1/one.png",
+                    "path": str(one),
                 }
             ),
         )
@@ -168,7 +195,7 @@ class TestArtifactList:
             artifact_handle=json.dumps(
                 {
                     "backend": "local",
-                    "path": "externalwebapp/qa-artifacts/200/2/two.png",
+                    "path": str(two),
                 }
             ),
         )
@@ -178,7 +205,9 @@ class TestArtifactList:
         assert "one.png" in lines[0]
         assert "two.png" not in lines[0]
 
-    def test_list_by_item_id_resolves_handle_addresses(self, db_path, capsys):
+    def test_list_by_item_id_resolves_handle_addresses(
+        self, db_path, capsys, tmp_path
+    ):
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
@@ -192,26 +221,27 @@ class TestArtifactList:
             qa_kind="smoke",
             verdict="pass",
         )
-        qa.cmd_artifact_add(
-            db_path=db_path,
-            run_id=run_id,
-            artifact_type="screenshot",
-            artifact_handle=json.dumps(
-                {
+        local = tmp_path / "local-shot.png"
+        local.write_bytes(b"shot")
+        conn = _conn(db_path)
+        conn.execute(
+            "INSERT INTO qa_artifacts "
+            "(qa_run_id,artifact_type,artifact_handle,created_at) "
+            "VALUES (%s,'screenshot',%s,'2026-01-01T00:00:00Z'),"
+            "(%s,'screenshot',%s,'2026-01-01T00:00:00Z')",
+            (
+                run_id,
+                json.dumps({
                     "backend": "s3",
                     "bucket": "externalwebapp-prod-artifacts",
                     "key": f"qa-artifacts/externalwebapp/100/{run_id}/shot.png",
-                }
+                }),
+                run_id,
+                json.dumps({"backend": "local", "path": str(local)}),
             ),
         )
-        qa.cmd_artifact_add(
-            db_path=db_path,
-            run_id=run_id,
-            artifact_type="screenshot",
-            artifact_handle=json.dumps(
-                {"backend": "local", "path": "/tmp/local-shot.png"}
-            ),
-        )
+        conn.commit()
+        conn.close()
         capsys.readouterr()
         lines = qa.cmd_artifact_list(
             db_path=db_path,
@@ -224,7 +254,7 @@ class TestArtifactList:
             f"s3://externalwebapp-prod-artifacts/qa-artifacts/externalwebapp/100/{run_id}/shot.png"
             in lines[0]
         )
-        assert "/tmp/local-shot.png" in lines[1]
+        assert str(local) in lines[1]
 
     def test_list_empty(self, db_path, capsys):
         capsys.readouterr()

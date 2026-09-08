@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import shutil
 from typing import Any, Callable
 
 
@@ -35,13 +34,12 @@ def record_machine_case_result(
     from yoke_core.domain.db_helpers import iso8601_now
     from yoke_core.domain.item_activity import touch_for_qa_requirement
     from yoke_core.domain.qa_artifact_handle import (
-        local_handle,
         parse_handle,
         serialize_handle,
     )
-    from yoke_core.domain.qa_artifacts import (
-        artifact_file_path,
-        case_artifact_subject,
+    from yoke_core.domain.qa_artifact_storage import (
+        store_artifact_bytes,
+        store_artifact_file,
     )
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -110,16 +108,15 @@ def record_machine_case_result(
         recorded.append(int(artifact[0]))
 
     if not waiting:
-        artifact_subject = case_artifact_subject(case)
-        evidence_path = artifact_file_path(
-            str(case["project"]),
-            artifact_subject,
-            run_id,
-            "machine-evidence.json",
+        evidence_handle = store_artifact_bytes(
+            conn,
+            requirement_id=int(case["requirement_id"]),
+            run_id=run_id,
+            filename="machine-evidence.json",
+            content=raw_result.encode("utf-8"),
+            content_type="application/json",
+            before_local_write=local_artifact_created,
         )
-        if local_artifact_created is not None:
-            local_artifact_created(evidence_path)
-        evidence_path.write_text(raw_result, encoding="utf-8")
         metadata = {
             "case_key": str(case["case_key"]),
             "host_baseline": case.get("host_baseline"),
@@ -128,10 +125,7 @@ def record_machine_case_result(
         add_artifact(
             "machine_evidence",
             "application/json",
-            local_handle(
-                str(evidence_path.resolve()),
-                "application/json",
-            ),
+            evidence_handle,
             metadata,
         )
         for key, raw_handle in _artifact_handles(result.evidence):
@@ -147,20 +141,16 @@ def record_machine_case_result(
                         "this control plane can never read. Re-run the case "
                         "so the capture is submitted with its bytes."
                     )
-                target = artifact_file_path(
-                    str(case["project"]),
-                    artifact_subject,
-                    run_id,
-                    f"{key}.png",
+                handle = store_artifact_file(
+                    conn,
+                    requirement_id=int(case["requirement_id"]),
+                    run_id=run_id,
+                    path=source,
+                    filename=f"{key}.png",
+                    content_type="image/png",
+                    before_local_write=local_artifact_created,
                 )
-                if local_artifact_created is not None:
-                    local_artifact_created(target)
-                shutil.copyfile(source, target)
                 source.unlink(missing_ok=True)
-                handle = local_handle(
-                    str(target.resolve()),
-                    "image/png",
-                )
             add_artifact(
                 "terminal_screenshot",
                 "image/png",

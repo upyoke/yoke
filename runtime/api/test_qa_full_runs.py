@@ -285,7 +285,11 @@ class TestRunAdd:
         monkeypatch.setattr(
             "yoke_core.api.repo_root.find_repo_root", lambda start=None: tmp_path
         )
-        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            lambda *_args: None,
+        )
 
         run_id = qa.cmd_run_add(
             db_path=db_path,
@@ -304,8 +308,8 @@ class TestRunAdd:
         conn.close()
 
         assert art["content_type"] == "image/png"
-        persisted = qa_artifacts.artifact_file_path(
-            "yoke", 100, run_id, "manual-shot.png"
+        persisted = qa_artifacts.permanent_artifact_file_path(
+            "yoke", 100, run_id, "manual-shot.png", create_parent=False
         )
         handle = json.loads(art["artifact_handle"])
         assert handle["backend"] == "local"

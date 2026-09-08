@@ -100,23 +100,27 @@ class TestQaArtifactAdd(unittest.TestCase):
                     ),
                 )
             run_id = int(run_outcome.result_payload["qa_run_id"])
-            outcome = qa_browser_writes.handle_qa_artifact_add(
-                _request(
-                    "qa.artifact.add",
-                    TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                    payload={
-                        "run_id": run_id,
-                        "artifact_type": "screenshot",
-                        "content_type": "image/png",
-                        "artifact_handle": {
-                            "backend": "s3",
-                            "bucket": "p-prod-artifacts",
-                            "key": "qa-artifacts/p/42/1/home.png",
+            with patch(
+                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+                return_value=("prod", "yoke-prod-artifacts", None),
+            ):
+                outcome = qa_browser_writes.handle_qa_artifact_add(
+                    _request(
+                        "qa.artifact.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload={
+                            "run_id": run_id,
+                            "artifact_type": "screenshot",
+                            "content_type": "image/png",
+                            "artifact_handle": {
+                                "backend": "s3",
+                                "bucket": "yoke-prod-artifacts",
+                                "key": f"qa-artifacts/yoke/42/{run_id}/home.png",
+                            },
+                            "metadata": "{}",
                         },
-                        "metadata": "{}",
-                    },
-                ),
-            )
+                    ),
+                )
             self.assertTrue(outcome.primary_success, outcome.error)
             artifact_id = outcome.result_payload["qa_artifact_id"]
             row = conn.execute(
@@ -131,8 +135,8 @@ class TestQaArtifactAdd(unittest.TestCase):
             json.loads(row[3]),
             {
                 "backend": "s3",
-                "bucket": "p-prod-artifacts",
-                "key": "qa-artifacts/p/42/1/home.png",
+                "bucket": "yoke-prod-artifacts",
+                "key": f"qa-artifacts/yoke/42/{run_id}/home.png",
             },
         )
 

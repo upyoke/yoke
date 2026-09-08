@@ -90,11 +90,10 @@ def test_plan_browser_method_selects_its_declared_verdict_path(
             "_execute_step",
             side_effect=responses,
         ),
-        mock.patch.object(browser_qa, "_record_artifact", return_value=8),
         mock.patch.object(
             browser_qa,
-            "_durable_artifact_handle",
-            return_value={"backend": "local", "path": str(screenshot)},
+            "_record_artifact_file",
+            return_value=8,
         ),
     ):
         result = browser_qa.execute_scenario(

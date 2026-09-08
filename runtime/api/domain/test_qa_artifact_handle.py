@@ -24,6 +24,12 @@ class TestBuildArtifactKey:
         key = build_artifact_key("externalwebapp", 1732, 88, "home.png")
         assert key == "qa-artifacts/externalwebapp/1732/88/home.png"
 
+    def test_key_taxonomy_accepts_tenant_prefix(self) -> None:
+        key = build_artifact_key(
+            "yoke", 42, 88, "home.png", storage_prefix="tenants/7"
+        )
+        assert key == "tenants/7/qa-artifacts/yoke/42/88/home.png"
+
     @pytest.mark.parametrize(
         "segment", ["", "..", "a/b", "/abs", "  "],
     )
