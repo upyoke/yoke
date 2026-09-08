@@ -25,6 +25,7 @@ from yoke_core.domain.observe_event_emission import (
 )
 from yoke_core.domain.observe_parsing import parse_hook_event
 from yoke_core.domain.observe_pre import parse_pre_event
+from yoke_core.domain.observe_timing import ElapsedMeasurement, measure_elapsed
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.context import build_context
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
@@ -96,6 +97,29 @@ def _request_payload(request: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
     return capability, payload
 
 
+def _annotate_ingest_lag(
+    envelope: dict[str, Any], ingest_lag: ElapsedMeasurement
+) -> None:
+    """Record how long this observation waited between capture and ingest.
+
+    The resident answers read-only hooks locally and delivers their
+    observations in bounded batches afterwards, so a healthy call is
+    recorded seconds after it finished. Carrying that delay beside the
+    duration is what keeps deliberate batching distinguishable from a slow
+    tool — without it, the only visible number is the one that moved.
+    """
+    context = envelope.get("context")
+    if not isinstance(context, dict):
+        context = {}
+        envelope["context"] = context
+    detail = context.get("detail")
+    if not isinstance(detail, dict):
+        detail = {}
+        context["detail"] = detail
+    detail["ingest_lag_ms"] = ingest_lag.milliseconds
+    detail["ingest_lag_status"] = ingest_lag.status
+
+
 def _tool_event(
     conn: Any,
     *,
@@ -104,6 +128,7 @@ def _tool_event(
     context: Any,
     observed_at: str,
     event_id: str,
+    ingest_lag: ElapsedMeasurement,
 ) -> None:
     """Apply one observation to session state and record its telemetry.
 
@@ -129,6 +154,7 @@ def _tool_event(
             hook_event=event_name,
             tool_use_id=str(tool_use_id) if tool_use_id else None,
             project_dir=context.cwd,
+            completed_at=observed_at,
         )
         if record is None:
             envelope = None
@@ -139,6 +165,7 @@ def _tool_event(
         return
     envelope["event_id"] = event_id
     envelope["event_time"] = observed_at
+    _annotate_ingest_lag(envelope, ingest_lag)
     insert_event(conn, envelope)
 
 
@@ -282,6 +309,7 @@ def persist_observation_batch(
                 context=context,
                 observed_at=observed_at,
                 event_id=_stable_event_id(observation_id, "tool"),
+                ingest_lag=measure_elapsed(observed_at, datetime.now(timezone.utc)),
             )
             _stamp_heartbeat(conn, context.session_id or "", observed_at)
             _dispatch_event(

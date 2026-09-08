@@ -91,8 +91,7 @@ class TestNewColumns(unittest.TestCase):
             insert_event(conn, envelope)
 
             row = conn.execute(
-                "SELECT session_id, tool_use_id, hook_event_name "
-                "FROM events LIMIT 1"
+                "SELECT session_id, tool_use_id, hook_event_name FROM events LIMIT 1"
             ).fetchone()
             conn.close()
 
@@ -205,15 +204,17 @@ class TestItemIdPrefix(unittest.TestCase):
 
 
 class TestDurationLookup(unittest.TestCase):
-    """Verify duration lookup uses tool_use_id column, not json_extract."""
+    """Duration lookup reads the call's own row by its full identity."""
 
-    def test_TC_duration_uses_column_lookup(self):
+    def test_TC_duration_uses_session_scoped_column_lookup(self):
         import inspect
-        from yoke_core.domain.observe import _compute_duration
+        from yoke_core.domain.observe import measure_tool_call_duration
 
-        source = inspect.getsource(_compute_duration)
+        source = inspect.getsource(measure_tool_call_duration)
         self.assertNotIn("json_extract", source)
         self.assertIn("tool_use_id =", source)
+        # A tool-use id is unique only within its session.
+        self.assertIn("session_id =", source)
 
 
 class TestToolEventRecordApplyPatch(unittest.TestCase):

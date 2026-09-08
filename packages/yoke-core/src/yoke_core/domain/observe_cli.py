@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from yoke_core.domain.observe_anomaly import detect_anomalies
@@ -14,6 +15,7 @@ from yoke_core.domain.observe_db import (
 )
 from yoke_core.domain.observe_event_emission import build_envelope, insert_event
 from yoke_core.domain.observe_parsing import parse_hook_event
+from yoke_core.domain.observe_timing import CapturedTimestamp
 
 
 def _resolve_db_fallback() -> Optional[str]:
@@ -41,8 +43,16 @@ def record_hook_event(
     tool_use_id: Optional[str] = None,
     db_path: Optional[str] = None,
     project_dir: Optional[str] = None,
+    completed_at: CapturedTimestamp = None,
 ) -> None:
-    """Parse, detect, and insert one hook payload. Failures are swallowed."""
+    """Parse, detect, and insert one hook payload. Failures are swallowed.
+
+    ``completed_at`` is the instant the caller observed the tool call
+    closing. This path runs inside the hook itself, so a caller with no
+    captured instant of its own is observing the completion right now; the
+    duration measured against it is a real interval, not the ingest-time
+    measurement a deferred pipeline would produce.
+    """
     rec = parse_hook_event(
         data,
         session_id=session_id,
@@ -54,6 +64,7 @@ def record_hook_event(
         tool_use_id=tool_use_id,
         db_path=normalize_observe_db_path(db_path),
         project_dir=project_dir,
+        completed_at=completed_at or datetime.now(timezone.utc),
     )
     if rec is None:
         return

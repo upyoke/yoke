@@ -10,14 +10,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.observe_codex_transcript import _reconcile_codex_exit_code
-from yoke_core.domain.observe_db_reads import (
-    compute_tool_call_duration as _compute_duration,
-)
+from yoke_core.domain.observe_db_reads import measure_tool_call_duration
 from yoke_core.domain.observe_normalization import (
     _resolve_dispatch_context,
     _resolve_explicit_refs,
     _resolve_main_session_attribution,
 )
+from yoke_core.domain.observe_timing import CapturedTimestamp
 
 
 def _payload_agent_type(data: Dict[str, Any]) -> Optional[str]:
@@ -36,6 +35,7 @@ class EventRecord:
     file_path: str = ""
     exit_code: Optional[int] = None
     duration_ms: Optional[int] = None
+    timing_status: Optional[str] = None
     is_failure: bool = False
     hook_error: Optional[str] = None
     response_text: str = ""
@@ -67,6 +67,7 @@ def parse_hook_event(
     tool_use_id: Optional[str] = None,
     db_path: Optional[str] = None,
     project_dir: Optional[str] = None,
+    completed_at: CapturedTimestamp = None,
 ) -> Optional[EventRecord]:
     """Parse a PostToolUse/PostToolUseFailure JSON payload into an EventRecord.
 
@@ -191,10 +192,17 @@ def parse_hook_event(
             db_path, project_dir, session_id=session_id or ""
         )
 
-    # Duration: read rolling HarnessToolCallStarted state by tool_use_id.
-    duration_ms = None
-    if tool_use_id:
-        duration_ms = _compute_duration(db_path, tool_use_id)
+    # Duration spans the two captured endpoints: the start this call's own
+    # HarnessToolCallStarted recorded, and ``completed_at``, the instant the
+    # caller observed the call closing. A caller that captured no end
+    # instant gets a named unknown rather than a measurement against ingest
+    # time, which would charge telemetry delivery delay to the tool.
+    timing = measure_tool_call_duration(
+        db_path,
+        session_id=session_id or "",
+        tool_use_id=tool_use_id or "",
+        completed_at=completed_at,
+    )
 
     if not item_id:
         item_id = None
@@ -204,7 +212,8 @@ def parse_hook_event(
         command=command,
         file_path=file_path,
         exit_code=exit_code,
-        duration_ms=duration_ms,
+        duration_ms=timing.milliseconds,
+        timing_status=timing.status,
         is_failure=is_failure,
         hook_error=str(hook_error) if hook_error else None,
         response_text=response_text,

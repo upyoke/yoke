@@ -10,8 +10,8 @@ Yoke uses harness-native hook points to keep orchestration deterministic — sta
 | UserPromptSubmit hook (startup orientation and its re-delivery, emits `HarnessSessionSentFirstUserPromptSubmit`; idempotent re-registration safety net) | `yoke hook evaluate UserPromptSubmit` |
 | Session end (guarded end-if-empty; live claims or a resumable chain keep the session active) | `yoke hook evaluate SessionEnd` |
 | Pre-tool guardrail deniers (Bash / DB-command lint, policy deny) — each emits `HarnessToolCallDenied` via the shared `emit_denial_event` helper before returning its deny JSON. Every rendered denial names the same registered check id the audit row records. | `yoke_core.domain.lint_db_cmd` (DB-command branches retain `lint-sqlite-cmd`; nested-Claude branches use `lint-nested-claude-cli` or `lint-remote-claude-cli`), `yoke_core.domain.lint_event_registry`, `yoke_core.domain.lint_main_commit`, `yoke_core.domain.lint_tc_label`, `yoke_core.domain.lint_write_path` |
-| Pre-tool observer (emits `HarnessToolCallStarted` so PostToolUse can compute `duration_ms`) | `yoke_core.domain.observe_pre` |
-| Post-tool telemetry (emits `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessLifecycleMutationDetected`, runs anomaly detection, computes `duration_ms`) | `yoke_core.domain.observe` for `PostToolUse` |
+| Pre-tool observer (emits `HarnessToolCallStarted`, whose captured instant is the start endpoint PostToolUse measures `duration_ms` from) | `yoke_core.domain.observe_pre` |
+| Post-tool telemetry (emits `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessLifecycleMutationDetected`, runs anomaly detection, measures `duration_ms` between the two captured endpoints) | `yoke_core.domain.observe` for `PostToolUse` |
 | DB error annotation | `yoke_core.domain.db_error_hook` |
 | Subagent stop (item-worktree auto-commit safety net, `HarnessSessionStopped`) | `yoke_core.domain.agent_stop` |
 | Emergency status repair | `yoke_core.engines.repair_status` |
@@ -158,7 +158,9 @@ remainder, and timed/total coverage. “Evaluator” is deliberate: on hosted
 transport it includes server work, while local and admin execution can happen
 in-process. The tool table reports completed-call mean/p95 beside timed/total
 coverage globally and per harness. Missing duration is unknown and excluded
-from latency statistics; a measured zero remains timed. `ACTIVE*` is the
+from latency statistics; a measured zero remains timed. The event's own
+`timing_status` says which endpoint was missing, so an uncovered call is
+diagnosable rather than merely absent. `ACTIVE*` is the
 number of distinct sessions emitting telemetry in the fixed hour, not a live
 roster or proof of simultaneous execution.
 
@@ -185,6 +187,47 @@ incomparable rather than blended.
 **Local-state policies always evaluate client-side; the server evaluates the rest.** Policies whose verdict needs the client machine (client git state, bound-workspace env, on-disk file content, the hook script dir) cannot run on the server: `yoke_core.hooks.remote_policy.LOCAL_STATE_POLICIES` classifies them, the relay client evaluates exactly that subset before posting, and server-side evaluation skips each one with its module id recorded in the response's `degraded` list — the marker means "delegated to the client", not "protection off". Per-policy fail-open/fail-closed semantics are byte-identical to local transport because the client subset runs the same chain machinery. Payload-only and DB-backed policies (command-shape lints, path-claim and session-cwd guards, heartbeat, telemetry) still run server-side so the control-plane DB remains authoritative. Policies that also need one client-local fact receive a narrow `payload_extra`: main-commit gets staged Git facts, while session-cwd gets the effective client scratch root and accepts only watcher captures nested under the calling session's path. The request's `agent_type` (from `YOKE_HOOK_AGENT_TYPE` on the client) and client-owned identity fields (`entrypoint`, real `model`, `execution_lane`) merge into the payload on both sides so subagent-context detection and session registration keep working. The server binds the verified bearer-token actor to relay-registered `harness_sessions` rows (`actor_id` mirrors what local registration resolves from the machine actor).
 
 **SubagentStop disposition.** SubagentStop is registered per-subagent in agent adapter frontmatter and invokes the `yoke_core.domain.agent_stop` owner directly — it does not route through `yoke hook evaluate`, so the https transport does not carry it. It stays local on purpose: its load-bearing work is the auto-commit of the subagent's item worktree, which is client-machine git state no server can act on. The chain registry's `SubagentStop -> session_dispatch` entry is the runner-side fallback for harnesses that route it through the shared runner; `session_dispatch` is itself classified local-state, so over https it evaluates client-side like the rest of the subset.
+
+## Tool-call timing semantics
+
+**`duration_ms` is the interval between two captured endpoints, never against
+ingest time.** The start is the instant the PreToolUse hook observed the call
+opening, stored on the call's own `session_tool_calls` row; the end is the
+instant the caller observed it closing. The lookup is scoped by
+`(session_id, tool_use_id)`, because a tool-use id is unique only within its
+session.
+
+Ingest time is not one of those endpoints. Read-only hook evaluations are
+answered from warm local state and their observations are delivered afterwards
+in bounded batches, so the database sees a call seconds after it finished.
+Measuring a duration from a captured start to "now" at ingest charges that
+delivery delay to the tool — matched Read calls once recorded 4079ms against a
+real 1649ms. Because both endpoints are captured, a redelivered observation
+reports the same duration as the first.
+
+**The delay itself is recorded beside the duration.** Every observation
+delivered through the batch path carries `ingest_lag_ms` in its
+`context.detail`: how long it waited between capture and ingest. Deliberate
+batching therefore stays distinguishable from a slow tool without either
+number contaminating the other.
+
+**A duration that could not be measured is named, not dropped.** Each tool-call
+event carries `timing_status` in `context.detail`, and `ingest_lag_status`
+beside the lag. `measured` means `duration_ms` is a real interval. Every other
+value carries a null duration and says why:
+
+| Status | Meaning |
+|---|---|
+| `unknown_no_call_identity` | No session or tool-use id to look the call up by. |
+| `unknown_no_recorded_start` | No `session_tool_calls` row — the opening observation never landed. |
+| `unknown_no_captured_end` | The caller captured no completion instant. |
+| `unknown_lookup_failed` | The start lookup failed; hooks stay fail-open and never block a tool on telemetry. |
+| `invalid_endpoint_format` | An endpoint could not be read as a timestamp. |
+| `invalid_negative_elapsed` | The end precedes the start — clock skew between the writers. |
+| `invalid_implausible_elapsed` | The interval exceeds a day, so the two endpoints do not belong to the same call. A genuinely long-running tool call is measured, not capped. |
+
+Owner: `yoke_core.domain.observe_timing` holds the vocabulary and the interval
+classification; `yoke_core.domain.observe_db_reads` resolves the start endpoint.
 
 ## Where hooks are configured
 
